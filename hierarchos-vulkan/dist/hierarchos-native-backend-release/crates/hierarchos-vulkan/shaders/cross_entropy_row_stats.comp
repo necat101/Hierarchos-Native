@@ -1,0 +1,69 @@
+#version 450
+
+// One workgroup owns one row. Each lane walks a strided vocabulary tile, then
+// the workgroup reduces the partial maxima and exponent sums in shared memory.
+// This replaces the old one-invocation-per-row serial 50k-vocabulary walk.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LogitBuffer { float logits[]; };
+layout(set = 0, binding = 1, std430) readonly buffer TargetBuffer { uint targets[]; };
+// Three floats per row: max_logit, inverse exp-sum, and target bits. Keeping
+// the target in this compact row record lets the fused backward kernels stay
+// within Vulkan's baseline four storage-buffer bindings.
+layout(set = 0, binding = 2, std430) writeonly buffer StatsBuffer { float row_stats[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer LossBuffer { float row_loss[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint vocab_size;
+} pc;
+
+shared float reduction[64];
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    uint lane = gl_LocalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+
+    uint base = row * pc.vocab_size;
+    float lane_max = -3.402823466e+38;
+    for (uint v = lane; v < pc.vocab_size; v += 64u) {
+        lane_max = max(lane_max, logits[base + v]);
+    }
+    reduction[lane] = lane_max;
+    barrier();
+
+    for (uint stride = 32u; stride > 0u; stride >>= 1u) {
+        if (lane < stride) {
+            reduction[lane] = max(reduction[lane], reduction[lane + stride]);
+        }
+        barrier();
+    }
+    float max_logit = reduction[0];
+
+    float lane_sum = 0.0;
+    for (uint v = lane; v < pc.vocab_size; v += 64u) {
+        lane_sum += exp(logits[base + v] - max_logit);
+    }
+    reduction[lane] = lane_sum;
+    barrier();
+
+    for (uint stride = 32u; stride > 0u; stride >>= 1u) {
+        if (lane < stride) {
+            reduction[lane] += reduction[lane + stride];
+        }
+        barrier();
+    }
+
+    if (lane == 0u) {
+        float exp_sum = reduction[0];
+        uint target = targets[row];
+        uint stats_base = row * 3u;
+        row_stats[stats_base] = max_logit;
+        row_stats[stats_base + 1u] = 1.0 / exp_sum;
+        row_stats[stats_base + 2u] = uintBitsToFloat(target);
+        row_loss[row] = log(exp_sum) + max_logit - logits[base + target];
+    }
+}

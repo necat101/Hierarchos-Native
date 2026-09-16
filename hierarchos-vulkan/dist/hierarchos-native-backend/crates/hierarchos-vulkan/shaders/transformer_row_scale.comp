@@ -1,0 +1,24 @@
+#version 450
+
+// Multiply a dense [rows, dim] tensor by one scalar per row. This is useful
+// for Hugging Face embedding policies whose mask/normalization factor is
+// sequence- or token-dependent without materializing a full hidden-sized mask.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RowScaleBuffer { float row_scales[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || col >= pc.dim) return;
+
+    uint index = row * pc.dim + col;
+    output_values[index] = input_values[index] * row_scales[row];
+}

@@ -1,0 +1,25 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer TokenEmbeddingBuffer { float token_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PositionEmbeddingBuffer { float position_values[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint seq_len;
+    uint dim;
+    uint position_offset;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || col >= pc.dim) {
+        return;
+    }
+    uint position = pc.position_offset + (row % pc.seq_len);
+    uint index = row * pc.dim + col;
+    output_values[index] = token_values[index] + position_values[position * pc.dim + col];
+}

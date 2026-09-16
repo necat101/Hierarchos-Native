@@ -1,0 +1,33 @@
+#version 450
+
+// Adjoint of beta = scale*sigmoid(b) and
+// decay = -exp(A_log)*softplus(a + dt_bias).
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer BBuffer { float b_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ABuffer { float a_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ALogBuffer { float a_log_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer DtBiasBuffer { float dt_bias_values[]; };
+layout(set = 0, binding = 4, std430) readonly buffer GradDecayBuffer { float grad_decay[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GradBetaBuffer { float grad_beta[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer GradBBuffer { float grad_b[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer GradABuffer { float grad_a[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint num_value_heads;
+    float beta_scale;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint total = pc.rows * pc.num_value_heads;
+    if (index >= total) return;
+    uint head = index % pc.num_value_heads;
+    float b = b_values[index];
+    float sigmoid_b = 1.0 / (1.0 + exp(-b));
+    grad_b[index] = grad_beta[index] * pc.beta_scale * sigmoid_b * (1.0 - sigmoid_b);
+    float u = a_values[index] + dt_bias_values[head];
+    float sigmoid_u = 1.0 / (1.0 + exp(-u));
+    grad_a[index] = grad_decay[index] * (-exp(a_log_values[head]) * sigmoid_u);
+}

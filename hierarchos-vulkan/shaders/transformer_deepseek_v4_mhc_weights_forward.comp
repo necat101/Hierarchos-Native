@@ -1,0 +1,106 @@
+#version 450
+
+// DeepSeek-V4 mHC mapping from raw linear outputs to the three learned
+// residual controls. One invocation owns one token row, so the small HxH
+// Sinkhorn projection is race-free and never materializes a dense hidden
+// matrix.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RawBuffer { float raw_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer BaseBuffer { float base_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ScaleBuffer { float scale_values[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer PreBuffer { float pre_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer PostBuffer { float post_values[]; };
+layout(set = 0, binding = 5, std430) buffer CombBuffer { float comb_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_mult;
+    uint sinkhorn_iters;
+    float hc_eps;
+} pc;
+
+float sigmoid_stable(float x) {
+    if (x >= 0.0) {
+        float z = exp(-x);
+        return 1.0 / (1.0 + z);
+    }
+    float z = exp(x);
+    return z / (1.0 + z);
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows || pc.hc_mult == 0 || pc.sinkhorn_iters == 0) return;
+
+    uint hc = pc.hc_mult;
+    uint mix = (2u + hc) * hc;
+    uint raw_base = row * mix;
+
+    for (uint stream = 0; stream < hc; ++stream) {
+        float pre_affine = raw_values[raw_base + stream] * scale_values[0]
+            + base_values[stream];
+        float post_affine = raw_values[raw_base + hc + stream] * scale_values[1]
+            + base_values[hc + stream];
+        pre_values[row * hc + stream] = sigmoid_stable(pre_affine) + pc.hc_eps;
+        post_values[row * hc + stream] = 2.0 * sigmoid_stable(post_affine);
+    }
+
+    uint matrix_offset = 2u * hc;
+    uint comb_base = row * hc * hc;
+    for (uint source = 0; source < hc; ++source) {
+        float max_logit = -3.402823466e+38;
+        for (uint dest = 0; dest < hc; ++dest) {
+            uint index = matrix_offset + source * hc + dest;
+            float logit = raw_values[raw_base + index] * scale_values[2] + base_values[index];
+            max_logit = max(max_logit, logit);
+        }
+        float denom = 0.0;
+        for (uint dest = 0; dest < hc; ++dest) {
+            uint index = matrix_offset + source * hc + dest;
+            float logit = raw_values[raw_base + index] * scale_values[2] + base_values[index];
+            denom += exp(logit - max_logit);
+        }
+        for (uint dest = 0; dest < hc; ++dest) {
+            uint index = matrix_offset + source * hc + dest;
+            float logit = raw_values[raw_base + index] * scale_values[2] + base_values[index];
+            comb_values[comb_base + source * hc + dest] = exp(logit - max_logit) / denom + pc.hc_eps;
+        }
+    }
+
+    // HF performs column normalization once, then alternates row/column
+    // normalization for the remaining Sinkhorn iterations.
+    for (uint dest = 0; dest < hc; ++dest) {
+        float denom = pc.hc_eps;
+        for (uint source = 0; source < hc; ++source) {
+            denom += comb_values[comb_base + source * hc + dest];
+        }
+        for (uint source = 0; source < hc; ++source) {
+            uint index = comb_base + source * hc + dest;
+            comb_values[index] /= denom;
+        }
+    }
+    for (uint iter = 1; iter < pc.sinkhorn_iters; ++iter) {
+        for (uint source = 0; source < hc; ++source) {
+            float denom = pc.hc_eps;
+            for (uint dest = 0; dest < hc; ++dest) {
+                denom += comb_values[comb_base + source * hc + dest];
+            }
+            for (uint dest = 0; dest < hc; ++dest) {
+                uint index = comb_base + source * hc + dest;
+                comb_values[index] /= denom;
+            }
+        }
+        for (uint dest = 0; dest < hc; ++dest) {
+            float denom = pc.hc_eps;
+            for (uint source = 0; source < hc; ++source) {
+                denom += comb_values[comb_base + source * hc + dest];
+            }
+            for (uint source = 0; source < hc; ++source) {
+                uint index = comb_base + source * hc + dest;
+                comb_values[index] /= denom;
+            }
+        }
+    }
+}

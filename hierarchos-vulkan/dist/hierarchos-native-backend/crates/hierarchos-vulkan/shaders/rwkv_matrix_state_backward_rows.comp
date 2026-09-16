@@ -1,0 +1,63 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer StateBuffer { float state_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ReceptanceBuffer { float r[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KeyBuffer { float k[]; };
+layout(set = 0, binding = 3, std430) readonly buffer NormalizedKeyBuffer { float kk[]; };
+layout(set = 0, binding = 4, std430) readonly buffer InContextBuffer { float a[]; };
+layout(set = 0, binding = 5, std430) readonly buffer DecayLogBuffer { float w[]; };
+layout(set = 0, binding = 6, std430) readonly buffer GradNewStateBuffer { float grad_new_state[]; };
+layout(set = 0, binding = 7, std430) readonly buffer GradTimeMixBuffer { float grad_tmix[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer GradStateBuffer { float grad_state[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer GradValueBuffer { float grad_v[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer SavedQBuffer { float saved_q[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+} pc;
+
+void main() {
+    uint linear_row = gl_GlobalInvocationID.x;
+    uint total_rows = pc.batch * pc.width;
+    if (linear_row >= total_rows) {
+        return;
+    }
+
+    uint batch_index = linear_row / pc.width;
+    uint channel = linear_row - batch_index * pc.width;
+    uint head = channel / pc.head_size;
+    uint row = channel - head * pc.head_size;
+    uint head_channel_base = batch_index * pc.width + head * pc.head_size;
+    uint matrix_head_base =
+        (batch_index * (pc.width / pc.head_size) + head) * pc.head_size * pc.head_size;
+    uint matrix_row_base = matrix_head_base + row * pc.head_size;
+    float grad_t = grad_tmix[linear_row];
+
+    float q = 0.0;
+    float grad_value = 0.0;
+    for (uint col = 0; col < pc.head_size; ++col) {
+        uint channel_col = head_channel_base + col;
+        uint matrix_index = matrix_row_base + col;
+        float h = grad_new_state[matrix_index] + grad_t * r[channel_col];
+        float b = kk[channel_col] * a[channel_col];
+        q = fma(h, b, q);
+        grad_value = fma(h, k[channel_col], grad_value);
+    }
+    saved_q[linear_row] = q;
+    grad_v[head_channel_base + row] = grad_value;
+
+    for (uint col = 0; col < pc.head_size; ++col) {
+        uint channel_col = head_channel_base + col;
+        uint matrix_index = matrix_row_base + col;
+        float h = grad_new_state[matrix_index] + grad_t * r[channel_col];
+        float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
+            ? w[channel_col]
+            : clamp(w[channel_col], -60.0, 30.0);
+        float decay = exp(-exp(bounded_w));
+        grad_state[matrix_index] = h * decay - kk[channel_col] * q;
+    }
+}

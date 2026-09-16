@@ -1,0 +1,94 @@
+#version 450
+
+// Vocabulary-tiled CE -> LM-head input backward with out_norm reconstruction.
+// A workgroup owns one pre-normalization row. Each 64-vocabulary tile rebuilds
+// the affine LayerNorm values only while projecting them, converts the logits to
+// CE adjoints, then consumes them immediately by W^T. The output is d(out_norm).
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer NormMeanBuffer { float norm_mean[]; };
+layout(set = 0, binding = 4, std430) readonly buffer NormRstdBuffer { float norm_rstd[]; };
+layout(set = 0, binding = 5, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 6, std430) readonly buffer StatsBuffer { float row_stats[]; };
+layout(set = 0, binding = 7, std430) buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    float z_loss_weight;
+    float activation_clamp;
+} pc;
+
+float finite_activation_clamp(float value) {
+    return (isnan(value) || isinf(value))
+        ? value
+        : clamp(value, -pc.activation_clamp, pc.activation_clamp);
+}
+
+shared float grad_tile[64];
+
+float project(uint row, uint out_col, float mean, float rstd) {
+    uint x_base = row * pc.input_dim;
+    uint w_base = out_col * pc.input_dim;
+    float sum = 0.0;
+    for (uint i = 0u; i < pc.input_dim; ++i) {
+        float normalized = (x[x_base + i] - mean) * rstd;
+        float out_norm = finite_activation_clamp(
+            fma(normalized, norm_weight[i], norm_bias[i])
+        );
+        sum = fma(out_norm, weight[w_base + i], sum);
+    }
+    return sum;
+}
+
+float ce_grad(uint row, uint out_col, float logit) {
+    uint stats_base = row * 5u;
+    float max_logit = row_stats[stats_base];
+    float inv_sum = row_stats[stats_base + 1u];
+    uint target = floatBitsToUint(row_stats[stats_base + 2u]);
+    float probability = exp(logit - max_logit) * inv_sum;
+    float log_z = max_logit - log(inv_sum);
+    float z_adjoint = 2.0 * pc.z_loss_weight * log_z * probability;
+    return (probability - (out_col == target ? 1.0 : 0.0) + z_adjoint)
+        * row_stats[stats_base + 4u];
+}
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    uint lane = gl_LocalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    float mean = norm_mean[row];
+    float rstd = norm_rstd[row];
+
+    for (uint vocab_base = 0u; vocab_base < pc.output_dim; vocab_base += 64u) {
+        uint out_col = vocab_base + lane;
+        grad_tile[lane] = out_col < pc.output_dim
+            ? ce_grad(row, out_col, project(row, out_col, mean, rstd))
+            : 0.0;
+        barrier();
+
+        uint tile_count = min(64u, pc.output_dim - vocab_base);
+        for (uint in_col = lane; in_col < pc.input_dim; in_col += 64u) {
+            float tile_sum = 0.0;
+            for (uint tile_col = 0u; tile_col < tile_count; ++tile_col) {
+                uint tile_out_col = vocab_base + tile_col;
+                tile_sum = fma(
+                    grad_tile[tile_col],
+                    weight[tile_out_col * pc.input_dim + in_col],
+                    tile_sum
+                );
+            }
+            uint grad_index = row * pc.input_dim + in_col;
+            grad_input[grad_index] = vocab_base == 0u
+                ? tile_sum
+                : grad_input[grad_index] + tile_sum;
+        }
+        barrier();
+    }
+}

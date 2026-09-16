@@ -1,0 +1,39 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer TokenFeaturesBuffer { float token_features[]; };
+layout(set = 0, binding = 1, std430) readonly buffer TokenResidualBuffer { float token_residual[]; };
+layout(set = 0, binding = 2, std430) readonly buffer PersistentBuffer { float persistent_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer LtmValuesBuffer { float ltm_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer MacInputBuffer { float mac_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint context_dim;
+    uint persistent_dim;
+    uint ltm_dim;
+} pc;
+
+void main() {
+    uint input_dim = pc.context_dim + pc.persistent_dim + pc.ltm_dim;
+    uint index = gl_GlobalInvocationID.x;
+    uint total = pc.rows * input_dim;
+    if (index >= total) {
+        return;
+    }
+
+    uint row = index / input_dim;
+    uint col = index - row * input_dim;
+    float value;
+    if (col < pc.context_dim) {
+        uint token_index = row * pc.context_dim + col;
+        value = token_features[token_index] + token_residual[token_index];
+    } else if (col < pc.context_dim + pc.persistent_dim) {
+        value = persistent_values[col - pc.context_dim];
+    } else {
+        uint ltm_col = col - pc.context_dim - pc.persistent_dim;
+        value = ltm_values[row * pc.ltm_dim + ltm_col];
+    }
+    mac_input[index] = value;
+}

@@ -1,0 +1,37 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GateBuffer { float gate_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer UpBuffer { float up_values[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradGateBuffer { float grad_gate[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradUpBuffer { float grad_up[]; };
+
+layout(push_constant) uniform Push {
+    uint len;
+    float limit;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.len) return;
+
+    float raw_gate = gate_values[index];
+    float raw_up = up_values[index];
+    float gate = isnan(raw_gate) ? raw_gate : min(raw_gate, pc.limit);
+    float up = isnan(raw_up) ? raw_up : clamp(raw_up, -pc.limit, pc.limit);
+    float sigmoid_gate = 1.0 / (1.0 + exp(-gate));
+    float silu_gate = gate * sigmoid_gate;
+    float d_silu_d_gate = sigmoid_gate + gate * sigmoid_gate * (1.0 - sigmoid_gate);
+    float grad = grad_output[index];
+
+    // torch.clamp propagates gradients at the exact endpoint. It masks only
+    // values strictly beyond the bound. NaN inputs remain NaN in forward and
+    // do not receive a clamp gradient.
+    float gate_clamp_grad = (!isnan(raw_gate) && raw_gate <= pc.limit) ? 1.0 : 0.0;
+    float up_clamp_grad = (!isnan(raw_up) && raw_up >= -pc.limit && raw_up <= pc.limit) ? 1.0 : 0.0;
+
+    grad_gate[index] = grad * up * d_silu_d_gate * gate_clamp_grad;
+    grad_up[index] = grad * silu_gate * up_clamp_grad;
+}

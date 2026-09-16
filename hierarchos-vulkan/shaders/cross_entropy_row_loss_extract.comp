@@ -1,0 +1,26 @@
+#version 450
+
+// Extract the fourth scalar from the compact streaming CE row record so the
+// existing per-token loss readback ABI remains unchanged.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer StatsBuffer { float row_stats[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer LossBuffer { float row_loss[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint vocab_size;
+    float z_loss_weight;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row < pc.rows) {
+        uint stats_base = row * 5u;
+        float max_logit = row_stats[stats_base];
+        float inv_sum = row_stats[stats_base + 1u];
+        float log_z = max_logit - log(inv_sum);
+        row_loss[row] = row_stats[stats_base + 3u]
+            + pc.z_loss_weight * log_z * log_z;
+    }
+}

@@ -1,0 +1,32 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer QueryBuffer { float query[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KeyBuffer { float keys[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer SimilarityBuffer { float similarity[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint key_dim;
+    uint slots;
+    float scale;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint len = pc.rows * pc.slots;
+    if (index >= len) {
+        return;
+    }
+    uint row = index / pc.slots;
+    uint slot = index - row * pc.slots;
+    float sum = 0.0;
+    uint q_base = row * pc.key_dim;
+    uint k_base = slot * pc.key_dim;
+    for (uint d = 0u; d < pc.key_dim; ++d) {
+        sum += query[q_base + d] * keys[k_base + d];
+    }
+    float score = sum * pc.scale;
+    similarity[index] = isnan(score) ? -3.402823466e38 : score;
+}

@@ -1,0 +1,34 @@
+#version 450
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer CandidateDriftBuffer { float candidate_drift[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ActiveBuffer { float active_rows[]; };
+layout(set = 0, binding = 2, std430) buffer CostSumBuffer { float cost_sum[]; };
+layout(set = 0, binding = 3, std430) buffer CostCountBuffer { float cost_count[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint mean_square;
+    float threshold;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows || active_rows[row] <= 0.0) {
+        return;
+    }
+    uint base = row * pc.dim;
+    float energy = 0.0;
+    for (uint col = 0u; col < pc.dim; ++col) {
+        float value = candidate_drift[base + col];
+        energy += value * value;
+    }
+    if (pc.mean_square != 0u) {
+        energy /= float(pc.dim);
+    }
+    float hinge = clamp(max(energy - pc.threshold, 0.0), 0.0, 100.0);
+    cost_sum[row] += hinge;
+    cost_count[row] += 1.0;
+}

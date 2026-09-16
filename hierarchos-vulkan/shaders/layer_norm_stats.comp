@@ -1,0 +1,40 @@
+#version 450
+
+// LayerNorm statistics-only pass for the streamed out_norm -> LM-head path.
+// The affine normalized activation is deliberately not materialized: online
+// LM-head consumers reconstruct it from x, mean/rstd, weight, and bias.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer RstdBuffer { float rstd_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    float eps;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+
+    uint base = row * pc.dim;
+    float mean = 0.0;
+    for (uint col = 0u; col < pc.dim; ++col) {
+        mean += x[base + col];
+    }
+    mean /= float(pc.dim);
+
+    float variance = 0.0;
+    for (uint col = 0u; col < pc.dim; ++col) {
+        float centered = x[base + col] - mean;
+        variance = fma(centered, centered, variance);
+    }
+    variance /= float(pc.dim);
+
+    mean_values[row] = mean;
+    rstd_values[row] = inversesqrt(variance + pc.eps);
+}

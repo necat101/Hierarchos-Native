@@ -1,0 +1,39 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RawBuffer { float raw_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradAffineBuffer { float grad_affine[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradBaseBuffer { float grad_base[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradScaleBuffer { float grad_scale[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_mult;
+    uint sinkhorn_iters;
+    float hc_eps;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint hc = pc.hc_mult;
+    uint mix = (2u + hc) * hc;
+    if (index < mix) {
+        float sum = 0.0;
+        for (uint row = 0; row < pc.rows; ++row) sum += grad_affine[row * mix + index];
+        grad_base[index] = sum;
+    }
+    if (index < 3u) {
+        uint begin = index == 0u ? 0u : (index == 1u ? hc : 2u * hc);
+        uint end = index == 0u ? hc : (index == 1u ? 2u * hc : mix);
+        float sum = 0.0;
+        for (uint row = 0; row < pc.rows; ++row) {
+            uint row_base = row * mix;
+            for (uint feature = begin; feature < end; ++feature) {
+                sum += grad_affine[row_base + feature] * raw_values[row_base + feature];
+            }
+        }
+        grad_scale[index] = sum;
+    }
+}

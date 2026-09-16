@@ -1,0 +1,32 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer DoraBaseBuffer { float dora_base_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer LoraBuffer { float lora_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer WeightNormBuffer { float weight_norm_values[]; };
+layout(set = 0, binding = 4, std430) readonly buffer BiasBuffer { float bias_values[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer MagnitudeGradBuffer { float magnitude_grad_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    float lora_scale;
+    uint dora_base_has_bias;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    if (col >= pc.dim) return;
+    float accum = 0.0;
+    for (uint row = 0; row < pc.rows; ++row) {
+        uint i = row * pc.dim + col;
+        float branch_base = dora_base_values[i];
+        if (pc.dora_base_has_bias != 0u) {
+            branch_base -= bias_values[col];
+        }
+        float direction = branch_base + pc.lora_scale * lora_values[i];
+        accum = fma(grad_output_values[i], direction, accum);
+    }
+    magnitude_grad_values[col] = accum / max(weight_norm_values[col], 1.0e-30);
+}

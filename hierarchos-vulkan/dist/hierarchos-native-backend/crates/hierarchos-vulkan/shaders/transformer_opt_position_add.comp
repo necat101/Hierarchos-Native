@@ -1,0 +1,41 @@
+#version 450
+
+// OPT uses cumulative non-padding positions plus a fixed embedding-table offset
+// of two. Padding positions therefore map to table row one, matching
+// OPTLearnedPositionalEmbedding in Hugging Face Transformers.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer TokenEmbeddingBuffer { float token_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PositionEmbeddingBuffer { float position_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer AttentionMaskBuffer { float attention_mask[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint dim;
+    uint table_rows;
+    uint offset;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    uint rows = pc.batch_size * pc.seq_len;
+    if (row >= rows || col >= pc.dim) return;
+
+    uint batch_start = (row / pc.seq_len) * pc.seq_len;
+    uint sequence_index = row % pc.seq_len;
+    uint cumulative = 0u;
+    for (uint position = 0u; position <= sequence_index; ++position) {
+        if (attention_mask[batch_start + position] > 0.0) cumulative += 1u;
+    }
+
+    // HF: position_ids = cumsum(mask) * mask - 1, then + offset.
+    uint embedding_index = attention_mask[row] > 0.0
+        ? (cumulative - 1u + pc.offset)
+        : (pc.offset - 1u);
+    if (embedding_index >= pc.table_rows) return;
+    uint index = row * pc.dim + col;
+    output_values[index] = token_values[index] + position_values[embedding_index * pc.dim + col];
+}

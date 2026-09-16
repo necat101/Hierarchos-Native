@@ -1,0 +1,99 @@
+#version 450
+
+// Backpropagate the three recurrent projections while sharing each canonical
+// [out, in] weight tile across several batch rows. The default remains the
+// original two-row experiment, while compile-time 4/8-row variants amortize
+// the same global weight read across larger training batches. The accumulation
+// still visits out_col in ascending order, preserving the FP32 FMA order of
+// linear3_input_grad.comp.
+#ifndef RWKV_BACKWARD_WEIGHT_REUSE_TILE
+#define RWKV_BACKWARD_WEIGHT_REUSE_TILE 16
+#endif
+
+#ifndef RWKV_BACKWARD_WEIGHT_REUSE_ROWS
+#define RWKV_BACKWARD_WEIGHT_REUSE_ROWS 2
+#endif
+
+layout(local_size_x = 64 * RWKV_BACKWARD_WEIGHT_REUSE_ROWS, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RGradOutputBuffer { float grad_r[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RWeightBuffer { float wr[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KGradOutputBuffer { float grad_k[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KWeightBuffer { float wk[]; };
+layout(set = 0, binding = 4, std430) readonly buffer VGradOutputBuffer { float grad_v[]; };
+layout(set = 0, binding = 5, std430) readonly buffer VWeightBuffer { float wv[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer RGradInputBuffer { float grad_xr[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer KGradInputBuffer { float grad_xk[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer VGradInputBuffer { float grad_xv[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+const uint INPUT_TILE = 64u;
+const uint ROWS_PER_GROUP = uint(RWKV_BACKWARD_WEIGHT_REUSE_ROWS);
+const uint WEIGHT_TILE_VALUES = uint(RWKV_BACKWARD_WEIGHT_REUSE_TILE) * INPUT_TILE;
+
+shared float shared_wr[WEIGHT_TILE_VALUES];
+shared float shared_wk[WEIGHT_TILE_VALUES];
+shared float shared_wv[WEIGHT_TILE_VALUES];
+
+void main() {
+    uint lane = gl_LocalInvocationID.x;
+    uint row_slot = lane / INPUT_TILE;
+    uint local_col = lane % INPUT_TILE;
+    uint in_col = gl_WorkGroupID.x * INPUT_TILE + local_col;
+    uint row = gl_WorkGroupID.y * ROWS_PER_GROUP + row_slot;
+    bool column_active = in_col < pc.input_dim;
+    bool row_active = row < pc.rows;
+
+    float r_sum = 0.0;
+    float k_sum = 0.0;
+    float v_sum = 0.0;
+    uint grad_base = row * pc.output_dim;
+
+    for (uint out_base = 0u; out_base < pc.output_dim;
+         out_base += uint(RWKV_BACKWARD_WEIGHT_REUSE_TILE)) {
+        // One row's worth of lanes stages each weight once. The paired row
+        // consumes the same shared tile after the barrier.
+        if (row_slot == 0u && column_active) {
+            for (uint tile_out = 0u; tile_out < uint(RWKV_BACKWARD_WEIGHT_REUSE_TILE);
+                 ++tile_out) {
+                uint out_col = out_base + tile_out;
+                uint shared_index = tile_out * INPUT_TILE + local_col;
+                if (out_col < pc.output_dim) {
+                    uint weight_index = out_col * pc.input_dim + in_col;
+                    shared_wr[shared_index] = wr[weight_index];
+                    shared_wk[shared_index] = wk[weight_index];
+                    shared_wv[shared_index] = wv[weight_index];
+                }
+            }
+        }
+        barrier();
+
+        if (row_active && column_active) {
+            uint tile_count = min(
+                uint(RWKV_BACKWARD_WEIGHT_REUSE_TILE),
+                pc.output_dim - out_base
+            );
+            for (uint tile_out = 0u; tile_out < tile_count; ++tile_out) {
+                uint out_col = out_base + tile_out;
+                uint grad_index = grad_base + out_col;
+                uint shared_index = tile_out * INPUT_TILE + local_col;
+                r_sum = fma(grad_r[grad_index], shared_wr[shared_index], r_sum);
+                k_sum = fma(grad_k[grad_index], shared_wk[shared_index], k_sum);
+                v_sum = fma(grad_v[grad_index], shared_wv[shared_index], v_sum);
+            }
+        }
+        barrier();
+    }
+
+    if (row_active && column_active) {
+        uint output_index = row * pc.input_dim + in_col;
+        grad_xr[output_index] = r_sum;
+        grad_xk[output_index] = k_sum;
+        grad_xv[output_index] = v_sum;
+    }
+}

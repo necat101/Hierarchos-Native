@@ -1,0 +1,24 @@
+[package]
+name = "hierarchos-native-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Pure Rust command-line frontend for Hierarchos and native Vulkan Transformer training"
+license = "MIT"
+
+[dependencies]
+hierarchos-inference = { path = "../hierarchos-inference" }
+hierarchos-vulkan = { path = "../hierarchos-vulkan" }
+parquet = { version = "56", default-features = false, features = ["brotli", "flate2", "flate2-rust_backened", "json", "lz4", "snap", "zstd"] }
+serde_json = "1"
+sha2 = "0.10"
+tokenizers = { version = "0.21", default-features = false, features = ["fancy-regex"] }
+ureq = { version = "2.12", default-features = true }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[[bin]]
+name = "hierarchos-native-cli"
+path = "src/main.rs"

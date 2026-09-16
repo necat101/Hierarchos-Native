@@ -1,0 +1,76 @@
+#version 450
+
+// Reorder Qwen3-Next's grouped fused qkvz/ba projections into the packed
+// [Q,K,V] layout consumed by the causal depthwise convolution, while also
+// materializing the z gate and the recurrent decay/update scalars.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer QkvzBuffer { float qkvz_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer BaBuffer { float ba_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ALogBuffer { float a_log_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer DtBiasBuffer { float dt_bias_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer PackedQkvBuffer { float packed_qkv_values[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer ZBuffer { float z_values[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer DecayBuffer { float decay_values[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer BetaBuffer { float beta_values[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer BBuffer { float b_values[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer ABuffer { float a_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint num_key_heads;
+    uint num_value_heads;
+    uint key_head_dim;
+    uint value_head_dim;
+} pc;
+
+float softplus(float x) {
+    // Stable enough for the parameter ranges used by the HF Gated DeltaNet.
+    return max(x, 0.0) + log(1.0 + exp(-abs(x)));
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+
+    uint ratio = pc.num_value_heads / pc.num_key_heads;
+    uint key_dim = pc.num_key_heads * pc.key_head_dim;
+    uint value_dim = pc.num_value_heads * pc.value_head_dim;
+    uint qkvz_width = key_dim * 2u + value_dim * 2u;
+    uint ba_width = pc.num_value_heads * 2u;
+    uint group_qkvz_width = pc.key_head_dim * 2u + ratio * pc.value_head_dim * 2u;
+    uint group_ba_width = ratio * 2u;
+    uint packed_width = key_dim * 2u + value_dim;
+
+    for (uint kh = 0u; kh < pc.num_key_heads; ++kh) {
+        uint src = row * qkvz_width + kh * group_qkvz_width;
+        uint q_dst = row * packed_width + kh * pc.key_head_dim;
+        uint k_dst = row * packed_width + key_dim + kh * pc.key_head_dim;
+        for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+            packed_qkv_values[q_dst + kd] = qkvz_values[src + kd];
+            packed_qkv_values[k_dst + kd] = qkvz_values[src + pc.key_head_dim + kd];
+        }
+
+        uint value_src = src + pc.key_head_dim * 2u;
+        uint z_src = value_src + ratio * pc.value_head_dim;
+        uint ba_src = row * ba_width + kh * group_ba_width;
+        for (uint r = 0u; r < ratio; ++r) {
+            uint vh = kh * ratio + r;
+            uint value_dst = row * packed_width + key_dim * 2u + vh * pc.value_head_dim;
+            uint z_dst = row * value_dim + vh * pc.value_head_dim;
+            for (uint vd = 0u; vd < pc.value_head_dim; ++vd) {
+                packed_qkv_values[value_dst + vd] =
+                    qkvz_values[value_src + r * pc.value_head_dim + vd];
+                z_values[z_dst + vd] = qkvz_values[z_src + r * pc.value_head_dim + vd];
+            }
+
+            float b = ba_values[ba_src + r];
+            float a = ba_values[ba_src + ratio + r];
+            uint scalar = row * pc.num_value_heads + vh;
+            b_values[scalar] = b;
+            a_values[scalar] = a;
+            beta_values[scalar] = 1.0 / (1.0 + exp(-b));
+            decay_values[scalar] = -exp(a_log_values[vh]) * softplus(a + dt_bias_values[vh]);
+        }
+    }
+}

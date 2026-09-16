@@ -1,0 +1,33 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+void main() {
+    uint in_col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || in_col >= pc.input_dim) {
+        return;
+    }
+
+    float sum = 0.0;
+    uint grad_base = row * pc.output_dim;
+    uint weight_base = in_col * pc.output_dim;
+    for (uint out_col = 0; out_col < pc.output_dim; ++out_col) {
+        sum = fma(
+            grad_output[grad_base + out_col],
+            weight[weight_base + out_col],
+            sum
+        );
+    }
+    grad_input[row * pc.input_dim + in_col] = sum;
+}

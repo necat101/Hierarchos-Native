@@ -1,0 +1,76 @@
+#version 450
+
+// One-invocation GradScaler transition. The non-finite flag is produced by
+// gradient_nonfinite_flag.comp earlier in the same command buffer. State words:
+//   0 scale-after bits (also the persistent scale for the next window)
+//   1/2 growth tracker low/high
+//   3 should-step
+//   4 overflowed
+//   5 unscale-factor bits
+//   6 scale-before bits
+//   7 status (zero = valid)
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer OverflowFlagBuffer {
+    uint overflow_flag[];
+};
+layout(set = 0, binding = 1, std430) buffer ControlStateBuffer {
+    uint control[];
+};
+
+layout(push_constant) uniform Push {
+    float growth_factor;
+    float backoff_factor;
+    uint growth_interval_lo;
+    uint growth_interval_hi;
+    uint pending_gradients_scaled;
+    uint reserved;
+} pc;
+
+bool tracker_reached_interval(uint lo, uint hi) {
+    return hi > pc.growth_interval_hi ||
+        (hi == pc.growth_interval_hi && lo >= pc.growth_interval_lo);
+}
+
+void main() {
+    float scale_before = uintBitsToFloat(control[0]);
+    uint tracker_lo = control[1];
+    uint tracker_hi = control[2];
+    bool overflowed = overflow_flag[0] != 0u;
+    float unscale = pc.pending_gradients_scaled != 0u ? 1.0 / scale_before : 1.0;
+    float scale_after = scale_before;
+    uint status = 0u;
+
+    if (isnan(scale_before) || isinf(scale_before) || scale_before <= 0.0 ||
+        isnan(unscale) || isinf(unscale) || unscale <= 0.0) {
+        status = 1u;
+    } else if (overflowed) {
+        tracker_lo = 0u;
+        tracker_hi = 0u;
+        scale_after = scale_before * pc.backoff_factor;
+    } else {
+        uint previous_lo = tracker_lo;
+        tracker_lo += 1u;
+        if (tracker_lo < previous_lo) {
+            tracker_hi += 1u;
+        }
+        if (tracker_reached_interval(tracker_lo, tracker_hi)) {
+            tracker_lo = 0u;
+            tracker_hi = 0u;
+            scale_after = scale_before * pc.growth_factor;
+        }
+    }
+
+    if (isnan(scale_after) || isinf(scale_after) || scale_after <= 0.0) {
+        status = 2u;
+    }
+    bool should_step = !overflowed && status == 0u;
+    control[0] = floatBitsToUint(scale_after);
+    control[1] = tracker_lo;
+    control[2] = tracker_hi;
+    control[3] = should_step ? 1u : 0u;
+    control[4] = overflowed ? 1u : 0u;
+    control[5] = floatBitsToUint(unscale);
+    control[6] = floatBitsToUint(scale_before);
+    control[7] = status;
+}

@@ -1,0 +1,38 @@
+#version 450
+
+// Reverse PyTorch's finite-preserving activation clamp at the streamed
+// out_norm -> LM-head boundary without materializing the affine out_norm
+// activation. The LM input-adjoint is already resident in grad_affine; rebuild
+// only the scalar affine value needed by the clamp Jacobian, then mask the
+// adjoint in place before ordinary LayerNorm backward consumes it.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer NormMeanBuffer { float norm_mean[]; };
+layout(set = 0, binding = 4, std430) readonly buffer NormRstdBuffer { float norm_rstd[]; };
+layout(set = 0, binding = 5, std430) buffer GradAffineBuffer { float grad_affine[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    float max_abs;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint len = pc.rows * pc.dim;
+    if (index >= len) {
+        return;
+    }
+    uint row = index / pc.dim;
+    uint col = index - row * pc.dim;
+    float normalized = (x[index] - norm_mean[row]) * norm_rstd[row];
+    float affine = fma(normalized, norm_weight[col], norm_bias[col]);
+    bool pass = isnan(affine) || isinf(affine)
+        || (affine >= -pc.max_abs && affine <= pc.max_abs);
+    if (!pass) {
+        grad_affine[index] = 0.0;
+    }
+}

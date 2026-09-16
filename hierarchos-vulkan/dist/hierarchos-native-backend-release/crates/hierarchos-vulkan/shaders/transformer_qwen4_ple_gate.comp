@@ -1,0 +1,50 @@
+#version 450
+
+// Qwen4-Exp PLE stream gate.
+//
+// HF computes, for every [row, hyper-stream]:
+//   gate = dot(norm_key, norm_query) / sqrt(hidden_size)
+//   gate = sign(gate) * sqrt(max(abs(gate), 1e-6))
+//   gated_value = sigmoid(gate) * value
+//
+// Inputs key/query are flattened [rows, hc_count, hidden_size]. Value is
+// [rows, hidden_size], and the output uses the same flattened hyper layout.
+// One invocation owns one output value. The per-stream dot product is repeated
+// across hidden coordinates deliberately: this correctness-first kernel avoids
+// atomics/reduction scratch and PLE is present on only selected decoder layers.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer KeyBuffer { float key_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer QueryBuffer { float query_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ValueBuffer { float value_values[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_count;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint hyper_width = pc.hidden_size * pc.hc_count;
+    uint total = pc.rows * hyper_width;
+    if (index >= total) return;
+
+    uint row = index / hyper_width;
+    uint within_row = index - row * hyper_width;
+    uint stream = within_row / pc.hidden_size;
+    uint hidden = within_row - stream * pc.hidden_size;
+    uint stream_base = row * hyper_width + stream * pc.hidden_size;
+
+    float dot_value = 0.0;
+    for (uint feature = 0u; feature < pc.hidden_size; ++feature) {
+        uint source = stream_base + feature;
+        dot_value = fma(key_values[source], query_values[source], dot_value);
+    }
+    float gate = dot_value * inversesqrt(float(pc.hidden_size));
+    float magnitude = sqrt(max(abs(gate), 1.0e-6));
+    gate = gate < 0.0 ? -magnitude : (gate > 0.0 ? magnitude : 0.0);
+    float sigmoid_gate = 1.0 / (1.0 + exp(-gate));
+    output_values[index] = sigmoid_gate * value_values[row * pc.hidden_size + hidden];
+}

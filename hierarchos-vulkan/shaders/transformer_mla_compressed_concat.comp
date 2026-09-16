@@ -1,0 +1,30 @@
+#version 450
+
+// Adjoint of transformer_mla_compressed_split.comp.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LatentBuffer { float latent_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RotaryBuffer { float rotary_values[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint kv_lora_rank;
+    uint rope_head_dim;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint output_width = pc.kv_lora_rank + pc.rope_head_dim;
+    uint total = pc.rows * output_width;
+    if (index >= total) return;
+
+    uint row = index / output_width;
+    uint channel = index - row * output_width;
+    if (channel < pc.kv_lora_rank) {
+        output_values[index] = latent_values[row * pc.kv_lora_rank + channel];
+    } else {
+        uint rotary_channel = channel - pc.kv_lora_rank;
+        output_values[index] = rotary_values[row * pc.rope_head_dim + rotary_channel];
+    }
+}

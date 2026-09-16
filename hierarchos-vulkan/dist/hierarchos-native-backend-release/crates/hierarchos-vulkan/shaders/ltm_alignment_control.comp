@@ -1,0 +1,182 @@
+#version 450
+
+// Device-resident Hierarchos LTM writer-readiness controller. The persistent
+// state words are:
+//   0/1  completed update count low/high
+//   2    last alignment score bits
+//   3    alignment EMA bits
+//   4    best alignment score bits
+//   5    writer L2 norm bits
+//   6    option/readiness flags
+//   7    status (zero = valid)
+//   8/9  sampled rows in the completed optimizer window low/high
+//   10/11 sampled rows in the PyTorch controller microbatch low/high
+//
+// Predicate mode 0 consumes GradScaler control word 3 (already-resolved
+// should-step). Predicate mode 1 consumes a raw optimizer non-finite flag where
+// zero means the FP32 AdamW step committed. Predicate mode 2 means the caller
+// has already recorded an unconditional committed optimizer step. Skippable
+// modes leave readiness history untouched when the optimizer skips, matching
+// the historical host controller.
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer CostBuffer {
+    float costs[];
+};
+layout(set = 0, binding = 1, std430) readonly buffer WriterL2PairBuffer {
+    float writer_l2_pair[];
+};
+layout(set = 0, binding = 2, std430) readonly buffer StepPredicateBuffer {
+    uint step_predicate[];
+};
+layout(set = 0, binding = 3, std430) buffer LtmControlStateBuffer {
+    uint state[];
+};
+
+layout(push_constant) uniform Push {
+    float ema_decay;
+    float ready_threshold;
+    float writer_max_norm;
+    uint cost_len;
+    uint exact_pytorch_tbptt;
+    uint sampled_rows_lo;
+    uint sampled_rows_hi;
+    uint controller_rows_lo;
+    uint controller_rows_hi;
+    uint min_updates_lo;
+    uint min_updates_hi;
+    uint step_predicate_mode;
+} pc;
+
+const uint FLAG_HAS_LAST = 1u << 0;
+const uint FLAG_HAS_EMA = 1u << 1;
+const uint FLAG_HAS_BEST = 1u << 2;
+const uint FLAG_HAS_WRITER_NORM = 1u << 3;
+const uint FLAG_READY = 1u << 4;
+
+bool invalid_nonnegative(float value) {
+    return isnan(value) || isinf(value) || value < 0.0;
+}
+
+bool u64_is_zero(uint lo, uint hi) {
+    return lo == 0u && hi == 0u;
+}
+
+bool u64_gte(uint lhs_lo, uint lhs_hi, uint rhs_lo, uint rhs_hi) {
+    return lhs_hi > rhs_hi || (lhs_hi == rhs_hi && lhs_lo >= rhs_lo);
+}
+
+float u64_to_float(uint lo, uint hi) {
+    return float(hi) * 4294967296.0 + float(lo);
+}
+
+void main() {
+    if (state[7] != 0u) {
+        return;
+    }
+    bool should_step = false;
+    if (pc.step_predicate_mode == 0u) {
+        should_step = step_predicate[3] != 0u;
+    } else if (pc.step_predicate_mode == 1u) {
+        should_step = step_predicate[0] == 0u;
+    } else if (pc.step_predicate_mode == 2u) {
+        should_step = true;
+    } else {
+        state[7] = 6u;
+        return;
+    }
+    if (!should_step) {
+        return;
+    }
+
+    float pair_scale = writer_l2_pair[0];
+    float pair_ssq = writer_l2_pair[1];
+    if (invalid_nonnegative(pair_scale) || invalid_nonnegative(pair_ssq)) {
+        state[7] = 1u;
+        return;
+    }
+    float writer_norm = pair_scale * sqrt(pair_ssq);
+    if (invalid_nonnegative(writer_norm)) {
+        state[7] = 2u;
+        return;
+    }
+
+    uint effective_rows_lo = pc.exact_pytorch_tbptt != 0u
+        ? pc.controller_rows_lo
+        : pc.sampled_rows_lo;
+    uint effective_rows_hi = pc.exact_pytorch_tbptt != 0u
+        ? pc.controller_rows_hi
+        : pc.sampled_rows_hi;
+    bool has_score = pc.exact_pytorch_tbptt != 0u
+        || !u64_is_zero(effective_rows_lo, effective_rows_hi);
+    float score = 0.0;
+    if (has_score && !u64_is_zero(effective_rows_lo, effective_rows_hi)) {
+        float total = 0.0;
+        for (uint i = 0u; i < pc.cost_len; ++i) {
+            total += costs[i];
+        }
+        score = pc.exact_pytorch_tbptt != 0u
+            ? total
+            : total / u64_to_float(effective_rows_lo, effective_rows_hi);
+        if (invalid_nonnegative(score)) {
+            state[7] = 3u;
+            return;
+        }
+    }
+
+    uint updates_lo = state[0];
+    uint updates_hi = state[1];
+    uint previous_lo = updates_lo;
+    updates_lo += 1u;
+    if (updates_lo < previous_lo) {
+        uint previous_hi = updates_hi;
+        updates_hi += 1u;
+        if (updates_hi < previous_hi) {
+            state[7] = 4u;
+            return;
+        }
+    }
+
+    uint flags = state[6];
+    bool quality_ready = false;
+    if (has_score) {
+        float ema = (flags & FLAG_HAS_EMA) != 0u
+            ? pc.ema_decay * uintBitsToFloat(state[3])
+                + (1.0 - pc.ema_decay) * score
+            : score;
+        float best = (flags & FLAG_HAS_BEST) != 0u
+            ? min(uintBitsToFloat(state[4]), score)
+            : score;
+        if (invalid_nonnegative(ema) || invalid_nonnegative(best)) {
+            state[7] = 5u;
+            return;
+        }
+        state[2] = floatBitsToUint(score);
+        state[3] = floatBitsToUint(ema);
+        state[4] = floatBitsToUint(best);
+        flags |= FLAG_HAS_LAST | FLAG_HAS_EMA | FLAG_HAS_BEST;
+        quality_ready = ema <= pc.ready_threshold;
+    }
+
+    state[0] = updates_lo;
+    state[1] = updates_hi;
+    state[5] = floatBitsToUint(writer_norm);
+    flags |= FLAG_HAS_WRITER_NORM;
+    bool norm_ready = pc.writer_max_norm <= 0.0 || writer_norm <= pc.writer_max_norm;
+    bool enough_updates = u64_gte(
+        updates_lo,
+        updates_hi,
+        pc.min_updates_lo,
+        pc.min_updates_hi
+    );
+    if (enough_updates && quality_ready && norm_ready) {
+        flags |= FLAG_READY;
+    } else {
+        flags &= ~FLAG_READY;
+    }
+    state[6] = flags;
+    state[8] = pc.sampled_rows_lo;
+    state[9] = pc.sampled_rows_hi;
+    state[10] = pc.controller_rows_lo;
+    state[11] = pc.controller_rows_hi;
+}

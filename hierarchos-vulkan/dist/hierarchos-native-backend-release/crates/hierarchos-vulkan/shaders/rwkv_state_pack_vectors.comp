@@ -1,0 +1,45 @@
+#version 450
+
+// Forward-only packed-state completion. Time-mix has already written the
+// matrix slots directly into the caller-owned packed history buffer, so this
+// kernel fills only the O(width) vector/readout slots after scalable channel
+// mix has produced its output. Matrix state is deliberately left untouched.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer XNormBuffer { float x_norm[]; };
+layout(set = 0, binding = 1, std430) readonly buffer XNorm2Buffer { float x_norm2[]; };
+layout(set = 0, binding = 2, std430) readonly buffer VFirstBuffer { float v_first[]; };
+layout(set = 0, binding = 3, std430) readonly buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 4, std430) buffer PackedStateBuffer { float packed_state[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+    uint matrix_offset;
+    float state_clamp;
+} pc;
+
+float clamp_preserve_nonfinite(float value) {
+    if (isnan(value) || isinf(value) || pc.state_clamp <= 0.0) {
+        return value;
+    }
+    return clamp(value, -pc.state_clamp, pc.state_clamp);
+}
+
+void main() {
+    uint vector_index = gl_GlobalInvocationID.x;
+    uint vector_len = pc.batch * pc.width;
+    if (vector_index >= vector_len) {
+        return;
+    }
+
+    uint state_size = pc.matrix_offset + pc.head_size;
+    uint packed_base = vector_index * state_size;
+    packed_state[packed_base] = clamp_preserve_nonfinite(x_norm[vector_index]);
+    packed_state[packed_base + 1u] = clamp_preserve_nonfinite(x_norm2[vector_index]);
+    packed_state[packed_base + 2u] = clamp_preserve_nonfinite(v_first[vector_index]);
+    if (pc.matrix_offset == 4u) {
+        packed_state[packed_base + 3u] = clamp_preserve_nonfinite(output_values[vector_index]);
+    }
+}

@@ -1,0 +1,34 @@
+#version 450
+
+// Qwen3.5 stores b/a as independent linear projections. Convert them to the
+// sigmoid update coefficient and log-space recurrent decay used by the shared
+// Gated DeltaNet recurrence.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer BBuffer { float b_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ABuffer { float a_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ALogBuffer { float a_log_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer DtBiasBuffer { float dt_bias_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer DecayBuffer { float decay_values[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer BetaBuffer { float beta_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint num_value_heads;
+    float beta_scale;
+} pc;
+
+float softplus(float x) {
+    return max(x, 0.0) + log(1.0 + exp(-abs(x)));
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint total = pc.rows * pc.num_value_heads;
+    if (index >= total) return;
+    uint head = index % pc.num_value_heads;
+    float b = b_values[index];
+    float a = a_values[index];
+    beta_values[index] = pc.beta_scale / (1.0 + exp(-b));
+    decay_values[index] = -exp(a_log_values[head]) * softplus(a + dt_bias_values[head]);
+}

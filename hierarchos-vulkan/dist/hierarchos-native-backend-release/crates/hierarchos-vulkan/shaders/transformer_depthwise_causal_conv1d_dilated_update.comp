@@ -1,0 +1,51 @@
+#version 450
+
+// Single-token cached update for a dilated depthwise causal Conv1D. The state
+// stores the previous (kernel_size - 1) * dilation tokens in token-major order,
+// oldest -> newest. The current token is logically appended for the convolution
+// and then becomes the newest cached token.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight_values[]; };
+layout(set = 0, binding = 2, std430) buffer StateBuffer { float state_values[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint channels;
+    uint kernel_size;
+    uint dilation;
+    uint state_len;
+    uint activation;
+} pc;
+
+float activate(float value) {
+    if (pc.activation == 1u) {
+        return value / (1.0 + exp(-value));
+    }
+    return value;
+}
+
+void main() {
+    uint channel = gl_GlobalInvocationID.x;
+    if (channel >= pc.channels) return;
+
+    float sum = 0.0;
+    for (uint tap = 0u; tap < pc.kernel_size; ++tap) {
+        uint virtual_index = tap * pc.dilation;
+        float value = virtual_index == pc.state_len
+            ? input_values[channel]
+            : state_values[virtual_index * pc.channels + channel];
+        sum = fma(value, weight_values[channel * pc.kernel_size + tap], sum);
+    }
+
+    if (pc.state_len > 0u) {
+        for (uint token = 0u; token + 1u < pc.state_len; ++token) {
+            state_values[token * pc.channels + channel] =
+                state_values[(token + 1u) * pc.channels + channel];
+        }
+        state_values[(pc.state_len - 1u) * pc.channels + channel] = input_values[channel];
+    }
+
+    output_values[channel] = activate(sum);
+}

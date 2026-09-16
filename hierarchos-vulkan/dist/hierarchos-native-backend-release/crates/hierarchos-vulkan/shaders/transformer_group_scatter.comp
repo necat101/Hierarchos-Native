@@ -1,0 +1,26 @@
+#version 450
+
+// Inverse layout transform of transformer_group_slice.comp. Each dispatch owns
+// one non-overlapping feature block, so independent group dispatches can fill a
+// packed [rows, groups * group_dim] tensor without atomics or a clear pass.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer Input { float input_values[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer Output { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint full_dim;
+    uint group_dim;
+    uint group;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint total = pc.rows * pc.group_dim;
+    if (index >= total) return;
+
+    uint row = index / pc.group_dim;
+    uint col = index % pc.group_dim;
+    output_values[row * pc.full_dim + pc.group * pc.group_dim + col] = input_values[index];
+}

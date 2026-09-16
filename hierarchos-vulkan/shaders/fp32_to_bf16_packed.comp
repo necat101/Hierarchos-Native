@@ -1,0 +1,30 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer MasterBuffer { float master[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer PackedBuffer { uint packed[]; };
+
+layout(push_constant) uniform Push { uint len; } pc;
+
+uint f32_to_bf16_bits(float value) {
+    uint bits = floatBitsToUint(value);
+    uint magnitude = bits & 0x7fffffffu;
+    if (magnitude > 0x7f800000u) {
+        // Preserve sign/payload and force a quiet BF16 NaN.
+        return ((bits >> 16u) | 0x0040u) & 0xffffu;
+    }
+    uint rounding_bias = 0x7fffu + ((bits >> 16u) & 1u);
+    return ((bits + rounding_bias) >> 16u) & 0xffffu;
+}
+
+void main() {
+    uint word = gl_GlobalInvocationID.x;
+    uint first = word * 2u;
+    if (first >= pc.len) {
+        return;
+    }
+    uint low = f32_to_bf16_bits(master[first]);
+    uint high = first + 1u < pc.len ? f32_to_bf16_bits(master[first + 1u]) : 0u;
+    packed[word] = low | (high << 16u);
+}

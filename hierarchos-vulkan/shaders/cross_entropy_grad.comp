@@ -1,0 +1,38 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LogitBuffer { float logits[]; };
+layout(set = 0, binding = 1, std430) readonly buffer TargetBuffer { uint targets[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradBuffer { float grad_logits[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer LossBuffer { float row_loss[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint vocab_size;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    uint base = row * pc.vocab_size;
+    float max_logit = logits[base];
+    for (uint v = 1; v < pc.vocab_size; ++v) {
+        max_logit = max(max_logit, logits[base + v]);
+    }
+    float exp_sum = 0.0;
+    for (uint v = 0; v < pc.vocab_size; ++v) {
+        exp_sum += exp(logits[base + v] - max_logit);
+    }
+    float inv_sum = 1.0 / exp_sum;
+    float inv_rows = 1.0 / float(pc.rows);
+    uint target = targets[row];
+    for (uint v = 0; v < pc.vocab_size; ++v) {
+        float probability = exp(logits[base + v] - max_logit) * inv_sum;
+        float target_value = v == target ? 1.0 : 0.0;
+        grad_logits[base + v] = (probability - target_value) * inv_rows;
+    }
+    row_loss[row] = log(exp_sum) + max_logit - logits[base + target];
+}

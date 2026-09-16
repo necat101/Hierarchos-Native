@@ -1,0 +1,126 @@
+#version 450
+
+// CE-tape LM input adjoint with cross-row weight reuse. The forward spilled its
+// exact FP32 logits, but backward consumes them directly: each logit is turned
+// into its mean-reduced CE adjoint from compact row stats while it is loaded
+// into the shared vocabulary tile. This retires the previous full-tape
+// logits->grad rewrite pass without changing the FP32 tape/parity anchor.
+// Each workgroup owns 32 hidden pairs, loads one 64-vocabulary W tile once, and
+// then reuses those weights across every row before advancing the vocabulary.
+// Per-row arithmetic retains the packed streaming path's exact 64-vocabulary
+// partial-sum order.
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LogitTapeBuffer { float logits[]; };
+layout(set = 0, binding = 1, std430) readonly buffer StatsBuffer { float row_stats[]; };
+layout(set = 0, binding = 2, std430) readonly buffer WeightBuffer { uint weight_packed[]; };
+layout(set = 0, binding = 3, std430) buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    float z_loss_weight;
+} pc;
+
+const uint VOCAB_TILE = 64u;
+const uint PAIR_BLOCK = 32u;
+shared float grad_tile[VOCAB_TILE];
+shared uint weight_tile[VOCAB_TILE * PAIR_BLOCK];
+
+vec2 load_weight_pair(uint first_index, bool second_active) {
+    vec2 current = unpackHalf2x16(weight_packed[first_index >> 1u]);
+    if ((first_index & 1u) == 0u) {
+        return second_active ? current : vec2(current.x, 0.0);
+    }
+    if (!second_active) {
+        return vec2(current.y, 0.0);
+    }
+    vec2 next = unpackHalf2x16(weight_packed[(first_index >> 1u) + 1u]);
+    return vec2(current.y, next.x);
+}
+
+void main() {
+    uint lane = gl_LocalInvocationID.x;
+    uint pair_col = gl_WorkGroupID.x * PAIR_BLOCK + lane;
+    uint input_pair_count = (pc.input_dim + 1u) >> 1u;
+    bool pair_active = pair_col < input_pair_count;
+    uint in_col = pair_col * 2u;
+    bool second_active = pair_active && in_col + 1u < pc.input_dim;
+
+    for (uint vocab_base = 0u; vocab_base < pc.output_dim; vocab_base += VOCAB_TILE) {
+        uint tile_count = min(VOCAB_TILE, pc.output_dim - vocab_base);
+
+        // Coalesced across hidden pairs for each vocabulary row. The packed
+        // shared representation is only 8 KiB for a 64x32 tile.
+        for (uint tile_col = 0u; tile_col < tile_count; ++tile_col) {
+            if (pair_active) {
+                uint out_col = vocab_base + tile_col;
+                vec2 weights = load_weight_pair(
+                    out_col * pc.input_dim + in_col,
+                    second_active
+                );
+                weight_tile[tile_col * PAIR_BLOCK + lane] = packHalf2x16(weights);
+            }
+        }
+        barrier();
+
+        for (uint row = 0u; row < pc.rows; ++row) {
+            uint logit_base = row * pc.output_dim + vocab_base;
+            uint stats_base = row * 5u;
+            float max_logit = row_stats[stats_base];
+            float inv_sum = row_stats[stats_base + 1u];
+            uint target = floatBitsToUint(row_stats[stats_base + 2u]);
+            float row_weight = row_stats[stats_base + 4u];
+            float log_z = max_logit - log(inv_sum);
+            float z_source = 2.0 * pc.z_loss_weight * log_z;
+            uint grad0 = lane;
+            uint grad1 = lane + PAIR_BLOCK;
+            if (grad0 < tile_count) {
+                uint out_col = vocab_base + grad0;
+                float probability = exp(logits[logit_base + grad0] - max_logit) * inv_sum;
+                grad_tile[grad0] =
+                    (probability - (out_col == target ? 1.0 : 0.0) + z_source * probability)
+                    * row_weight;
+            } else {
+                grad_tile[grad0] = 0.0;
+            }
+            if (grad1 < tile_count) {
+                uint out_col = vocab_base + grad1;
+                float probability = exp(logits[logit_base + grad1] - max_logit) * inv_sum;
+                grad_tile[grad1] =
+                    (probability - (out_col == target ? 1.0 : 0.0) + z_source * probability)
+                    * row_weight;
+            } else {
+                grad_tile[grad1] = 0.0;
+            }
+            barrier();
+
+            if (pair_active) {
+                float tile_sum0 = 0.0;
+                float tile_sum1 = 0.0;
+                for (uint tile_col = 0u; tile_col < tile_count; ++tile_col) {
+                    vec2 weights = unpackHalf2x16(
+                        weight_tile[tile_col * PAIR_BLOCK + lane]
+                    );
+                    float tile_grad = grad_tile[tile_col];
+                    tile_sum0 = fma(tile_grad, weights.x, tile_sum0);
+                    if (second_active) {
+                        tile_sum1 = fma(tile_grad, weights.y, tile_sum1);
+                    }
+                }
+                uint grad_index = row * pc.input_dim + in_col;
+                grad_input[grad_index] = vocab_base == 0u
+                    ? tile_sum0
+                    : grad_input[grad_index] + tile_sum0;
+                if (second_active) {
+                    grad_input[grad_index + 1u] = vocab_base == 0u
+                        ? tile_sum1
+                        : grad_input[grad_index + 1u] + tile_sum1;
+                }
+            }
+            barrier();
+        }
+        barrier();
+    }
+}

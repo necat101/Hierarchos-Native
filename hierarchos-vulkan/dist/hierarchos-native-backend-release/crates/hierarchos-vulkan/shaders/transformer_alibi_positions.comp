@@ -1,0 +1,33 @@
+#version 450
+
+// BLOOM's ALiBi key positions are the cumulative count of valid tokens in the
+// 2D attention mask. One invocation owns one batch row, so arbitrary left or
+// right padding follows the Hugging Face build_alibi_tensor contract without
+// CPU-side positional preprocessing.
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer MaskBuffer { float attention_mask[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer PositionBuffer { float alibi_positions[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+} pc;
+
+void main() {
+    uint batch = gl_GlobalInvocationID.x;
+    if (batch >= pc.batch_size) {
+        return;
+    }
+    float next_position = 0.0;
+    uint base = batch * pc.seq_len;
+    for (uint token = 0u; token < pc.seq_len; ++token) {
+        uint row = base + token;
+        if (attention_mask[row] > 0.0) {
+            alibi_positions[row] = next_position;
+            next_position += 1.0;
+        } else {
+            alibi_positions[row] = 0.0;
+        }
+    }
+}

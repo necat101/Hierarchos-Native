@@ -1,0 +1,34 @@
+#version 450
+
+// GLM-5.3 strict RMSNorm followed by sigmoid(gate), per attention head.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GateBuffer { float gate_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer WeightBuffer { float weight_values[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint num_heads;
+    uint head_dim;
+    float epsilon;
+} pc;
+
+void main() {
+    uint row_head = gl_GlobalInvocationID.x;
+    uint total = pc.rows * pc.num_heads;
+    if (row_head >= total) return;
+    uint base = row_head * pc.head_dim;
+    float mean_square = 0.0;
+    for (uint dim = 0u; dim < pc.head_dim; ++dim) {
+        float value = input_values[base + dim];
+        mean_square = fma(value, value, mean_square);
+    }
+    float inv_rms = inversesqrt(mean_square / float(pc.head_dim) + pc.epsilon);
+    for (uint dim = 0u; dim < pc.head_dim; ++dim) {
+        float gate = gate_values[base + dim];
+        float sigmoid_gate = 1.0 / (1.0 + exp(-gate));
+        output_values[base + dim] = input_values[base + dim] * inv_rms * weight_values[dim] * sigmoid_gate;
+    }
+}

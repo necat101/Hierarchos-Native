@@ -1,0 +1,31 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer OriginalBaseBuffer { float original_base_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer DoraBaseBuffer { float dora_base_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer LoraBuffer { float lora_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer DoraScaleBuffer { float dora_scale_values[]; };
+layout(set = 0, binding = 4, std430) readonly buffer BiasBuffer { float bias_values[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    float lora_scale;
+    uint dora_base_has_bias;
+} pc;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    uint len = pc.rows * pc.dim;
+    if (i >= len) return;
+    uint col = i % pc.dim;
+    float branch_base = dora_base_values[i];
+    if (pc.dora_base_has_bias != 0u) {
+        branch_base -= bias_values[col];
+    }
+    float scale = dora_scale_values[col];
+    output_values[i] = original_base_values[i]
+        + (scale - 1.0) * branch_base
+        + scale * pc.lora_scale * lora_values[i];
+}

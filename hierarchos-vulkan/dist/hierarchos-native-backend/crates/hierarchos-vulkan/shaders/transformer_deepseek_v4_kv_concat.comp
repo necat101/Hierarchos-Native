@@ -1,0 +1,39 @@
+#version 450
+
+// Concatenate DeepSeek-V4's local shared-KV rows with its long-range
+// compressed rows along the sequence axis while preserving batch-major
+// layout. Attention consumes [batch, total_kv_seq, head_dim], whereas the
+// local and compressor paths naturally produce two independent
+// [batch, seq, head_dim] tensors.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LocalBuffer { float local_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer CompressedBuffer { float compressed_values[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer CombinedBuffer { float combined_values[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint local_seq_len;
+    uint compressed_seq_len;
+    uint head_dim;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint total_seq_len = pc.local_seq_len + pc.compressed_seq_len;
+    uint total = pc.batch_size * total_seq_len * pc.head_dim;
+    if (index >= total) return;
+
+    uint channel = index % pc.head_dim;
+    uint row = index / pc.head_dim;
+    uint batch = row / total_seq_len;
+    uint position = row - batch * total_seq_len;
+    if (position < pc.local_seq_len) {
+        uint source = (batch * pc.local_seq_len + position) * pc.head_dim + channel;
+        combined_values[index] = local_values[source];
+    } else {
+        uint compressed_position = position - pc.local_seq_len;
+        uint source = (batch * pc.compressed_seq_len + compressed_position) * pc.head_dim + channel;
+        combined_values[index] = compressed_values[source];
+    }
+}

@@ -1,0 +1,59 @@
+#version 450
+
+#ifndef HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#define HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE 0
+#endif
+
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#endif
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 2, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 3, std430) readonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 4, std430) readonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+} pc;
+
+float backward_product(float lhs, float rhs) {
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+    return float(float16_t(lhs) * float16_t(rhs));
+#else
+    return lhs * rhs;
+#endif
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    uint base = row * pc.dim;
+    float mean = mean_values[row];
+    float rstd = rstd_values[row];
+    float sum_dxhat = 0.0;
+    float sum_dxhat_xhat = 0.0;
+    for (uint col = 0; col < pc.dim; ++col) {
+        float xhat = (x[base + col] - mean) * rstd;
+        float dxhat = backward_product(grad_output[base + col], weight[col]);
+        sum_dxhat += dxhat;
+        sum_dxhat_xhat = fma(dxhat, xhat, sum_dxhat_xhat);
+    }
+    float inv_dim = 1.0 / float(pc.dim);
+    float mean_dxhat = sum_dxhat * inv_dim;
+    float mean_dxhat_xhat = sum_dxhat_xhat * inv_dim;
+    for (uint col = 0; col < pc.dim; ++col) {
+        float xhat = (x[base + col] - mean) * rstd;
+        float dxhat = backward_product(grad_output[base + col], weight[col]);
+        grad_input[base + col] = rstd * (
+            dxhat - mean_dxhat - xhat * mean_dxhat_xhat
+        );
+    }
+}

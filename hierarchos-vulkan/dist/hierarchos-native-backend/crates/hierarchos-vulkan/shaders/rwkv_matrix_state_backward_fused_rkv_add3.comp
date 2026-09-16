@@ -1,0 +1,483 @@
+#version 450
+
+// Matrix-state backward with the recurrent r/k/v fan-in folded into the same
+// dispatch. The state-path reductions are unchanged. The value store mirrors
+// vector_add3 exactly: state_grad_v + post_grad_v + external_grad_v.
+#ifndef RWKV_STATE_BACKWARD_WORKGROUP_SIZE
+#define RWKV_STATE_BACKWARD_WORKGROUP_SIZE 64
+#endif
+
+#ifndef RWKV_FAST_SUBGROUP_RECURRENT_FUSION
+#define RWKV_FAST_SUBGROUP_RECURRENT_FUSION 0
+#endif
+
+#if RWKV_FAST_SUBGROUP_RECURRENT_FUSION
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+#endif
+layout(local_size_x = RWKV_STATE_BACKWARD_WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer StateBuffer { float state_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NewStateBuffer { float new_state[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ReceptanceBuffer { float r[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KeyBuffer { float k[]; };
+layout(set = 0, binding = 4, std430) readonly buffer ValueBuffer { float v[]; };
+layout(set = 0, binding = 5, std430) readonly buffer NormalizedKeyBuffer { float kk[]; };
+layout(set = 0, binding = 6, std430) readonly buffer InContextBuffer { float a[]; };
+layout(set = 0, binding = 7, std430) readonly buffer DecayLogBuffer { float w[]; };
+layout(set = 0, binding = 8, std430) readonly buffer SavedSaBuffer { float saved_sa[]; };
+layout(set = 0, binding = 9, std430) readonly buffer GradNewStateBuffer { float grad_new_state[]; };
+layout(set = 0, binding = 10, std430) readonly buffer GradTimeMixBuffer { float grad_tmix[]; };
+layout(set = 0, binding = 11, std430) readonly buffer PostGradReceptanceBuffer { float post_grad_r[]; };
+layout(set = 0, binding = 12, std430) readonly buffer PostGradKeyBuffer { float post_grad_k[]; };
+layout(set = 0, binding = 13, std430) readonly buffer PostGradValueBuffer { float post_grad_v[]; };
+layout(set = 0, binding = 14, std430) readonly buffer ExternalGradValueBuffer { float external_grad_v[]; };
+layout(set = 0, binding = 15, std430) writeonly buffer GradStateBuffer { float grad_state[]; };
+layout(set = 0, binding = 16, std430) writeonly buffer TotalGradValueBuffer { float total_grad_v[]; };
+layout(set = 0, binding = 17, std430) writeonly buffer TotalGradReceptanceBuffer { float total_grad_r[]; };
+layout(set = 0, binding = 18, std430) writeonly buffer TotalGradKeyBuffer { float total_grad_k[]; };
+layout(set = 0, binding = 19, std430) writeonly buffer GradNormalizedKeyBuffer { float grad_kk[]; };
+layout(set = 0, binding = 20, std430) writeonly buffer GradInContextBuffer { float grad_a[]; };
+layout(set = 0, binding = 21, std430) writeonly buffer GradDecayLogBuffer { float grad_w[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+} pc;
+
+shared float q_shared[64];
+#if RWKV_FAST_SUBGROUP_RECURRENT_FUSION
+shared float recurrent_subgroup_partial_0[RWKV_STATE_BACKWARD_WORKGROUP_SIZE];
+shared float recurrent_subgroup_partial_1[RWKV_STATE_BACKWARD_WORKGROUP_SIZE];
+shared float recurrent_subgroup_partial_2[RWKV_STATE_BACKWARD_WORKGROUP_SIZE];
+shared float recurrent_subgroup_partial_3[RWKV_STATE_BACKWARD_WORKGROUP_SIZE];
+shared float recurrent_subgroup_partial_4[RWKV_STATE_BACKWARD_WORKGROUP_SIZE];
+#endif
+
+void main() {
+    uint heads = pc.width / pc.head_size;
+    uint group = gl_WorkGroupID.x;
+    uint group_count = pc.batch * heads;
+    if (group >= group_count) {
+        return;
+    }
+
+    uint batch_index = group / heads;
+    uint head = group - batch_index * heads;
+    uint lane = gl_LocalInvocationID.x;
+    uint head_channel_base = batch_index * pc.width + head * pc.head_size;
+    uint matrix_head_base = group * pc.head_size * pc.head_size;
+
+#if RWKV_FAST_SUBGROUP_RECURRENT_FUSION
+    // Exact-one-subgroup fast path. Each active lane owns one recurrent row, so
+    // Each lane owns one recurrent row. q is written once to shared memory, but
+    // because the qualified workgroup is exactly one subgroup, visibility only
+    // needs a subgroup-scoped memory/execution barrier instead of a full
+    // workgroup barrier. Column dots then retain their historical serial order.
+    // The uniform guard preserves the original path if a driver instantiates a
+    // different subgroup topology than the policy qualified.
+    if (gl_NumSubgroups == 1u && pc.head_size <= gl_SubgroupSize) {
+        bool lane_valid = lane < pc.head_size;
+        float q_lane = 0.0;
+
+        if (lane_valid) {
+            uint linear_row = head_channel_base + lane;
+            uint matrix_row_base = matrix_head_base + lane * pc.head_size;
+            float grad_t = grad_tmix[linear_row];
+            float grad_value = 0.0;
+            for (uint col = 0u; col < pc.head_size; ++col) {
+                uint channel_col = head_channel_base + col;
+                uint matrix_index = matrix_row_base + col;
+                float h = grad_new_state[matrix_index] + grad_t * r[channel_col];
+                float b = kk[channel_col] * a[channel_col];
+                q_lane = fma(h, b, q_lane);
+                grad_value = fma(h, k[channel_col], grad_value);
+            }
+            total_grad_v[linear_row] = grad_value
+                + post_grad_v[linear_row]
+                + external_grad_v[linear_row];
+
+            for (uint col = 0u; col < pc.head_size; ++col) {
+                uint channel_col = head_channel_base + col;
+                uint matrix_index = matrix_row_base + col;
+                float h = grad_new_state[matrix_index] + grad_t * r[channel_col];
+                float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
+            ? w[channel_col]
+            : clamp(w[channel_col], -60.0, 30.0);
+                float decay = exp(-exp(bounded_w));
+                grad_state[matrix_index] = h * decay - kk[channel_col] * q_lane;
+            }
+            q_shared[lane] = q_lane;
+        }
+
+        subgroupMemoryBarrierShared();
+        subgroupBarrier();
+
+        float grad_receptance = 0.0;
+        float grad_key = 0.0;
+        float grad_b = 0.0;
+        float grad_decay = 0.0;
+        float grad_kk_from_sa = 0.0;
+        if (lane_valid) {
+            uint linear_col = head_channel_base + lane;
+            for (uint row = 0u; row < pc.head_size; ++row) {
+                uint linear_row = head_channel_base + row;
+                uint matrix_index = matrix_head_base + row * pc.head_size + lane;
+                float grad_t = grad_tmix[linear_row];
+                float h = grad_new_state[matrix_index] + grad_t * r[linear_col];
+                grad_receptance = fma(grad_t, new_state[matrix_index], grad_receptance);
+                grad_key = fma(h, v[head_channel_base + row], grad_key);
+                grad_b = fma(h, saved_sa[linear_row], grad_b);
+                grad_decay = fma(h, state_values[matrix_index], grad_decay);
+                grad_kk_from_sa = fma(-q_shared[row], state_values[matrix_index], grad_kk_from_sa);
+            }
+        }
+
+        if (lane_valid) {
+            uint linear_col = head_channel_base + lane;
+            float kk_value = kk[linear_col];
+            float a_value = a[linear_col];
+            total_grad_r[linear_col] = grad_receptance + post_grad_r[linear_col];
+            total_grad_k[linear_col] = grad_key + post_grad_k[linear_col];
+            grad_kk[linear_col] = grad_kk_from_sa + grad_b * a_value;
+            grad_a[linear_col] = grad_b * kk_value;
+
+            float w_value = w[linear_col];
+            float bounded_w = (isnan(w_value) || isinf(w_value))
+            ? w_value
+            : clamp(w_value, -60.0, 30.0);
+            float exp_w = exp(bounded_w);
+            float decay = exp(-exp_w);
+            float clamp_grad = (isnan(w_value) || isinf(w_value)
+            || (w_value >= -60.0 && w_value <= 30.0)) ? 1.0 : 0.0;
+            grad_w[linear_col] = grad_decay * (-exp_w * decay) * clamp_grad;
+        }
+        return;
+    }
+
+    // Two-subgroup head reduction for wave32-class hardware with heads wider
+    // than one native subgroup (the primary target is head_size=64 on NVIDIA).
+    // Adjacent subgroup pairs jointly own each row/column: each wave reduces its
+    // native slice, elected lanes publish two partials, and the first wave in the
+    // pair performs the single cross-wave add. A 128-lane workgroup therefore
+    // processes two independent 64-wide reductions at once. Round-based loops
+    // keep every pair on the same workgroup-barrier cadence even for odd widths.
+    uint compiled_workgroup_size = uint(RWKV_STATE_BACKWARD_WORKGROUP_SIZE);
+    bool paired_subgroup_head = gl_NumSubgroups >= 2u
+        && (gl_NumSubgroups & 1u) == 0u
+        && gl_SubgroupSize > 0u
+        && compiled_workgroup_size >= 2u * gl_SubgroupSize
+        && (compiled_workgroup_size % gl_SubgroupSize) == 0u
+        && gl_NumSubgroups == compiled_workgroup_size / gl_SubgroupSize
+        && pc.head_size > gl_SubgroupSize
+        && pc.head_size <= 2u * gl_SubgroupSize;
+    if (paired_subgroup_head) {
+        uint subgroup = gl_SubgroupID;
+        uint subgroup_lane = gl_SubgroupInvocationID;
+        uint pair_id = subgroup >> 1u;
+        uint pair_half = subgroup & 1u;
+        uint pair_count = gl_NumSubgroups >> 1u;
+        uint pair_base_subgroup = pair_id << 1u;
+        uint pair_slice_base = pair_half * gl_SubgroupSize;
+        uint rounds = (pc.head_size + pair_count - 1u) / pair_count;
+
+        for (uint round = 0u; round < rounds; ++round) {
+            uint row = round * pair_count + pair_id;
+            bool row_valid = row < pc.head_size;
+            uint col = pair_slice_base + subgroup_lane;
+            bool element_valid = row_valid && col < pc.head_size;
+            float q_term = 0.0;
+            float grad_value_term = 0.0;
+            if (element_valid) {
+                uint linear_row = head_channel_base + row;
+                uint channel_col = head_channel_base + col;
+                uint matrix_index = matrix_head_base + row * pc.head_size + col;
+                float grad_t = grad_tmix[linear_row];
+                float h = grad_new_state[matrix_index] + grad_t * r[channel_col];
+                q_term = h * kk[channel_col] * a[channel_col];
+                grad_value_term = h * k[channel_col];
+            }
+            float q_partial = subgroupAdd(q_term);
+            float grad_value_partial = subgroupAdd(grad_value_term);
+            if (subgroupElect()) {
+                recurrent_subgroup_partial_0[subgroup] = q_partial;
+                recurrent_subgroup_partial_1[subgroup] = grad_value_partial;
+            }
+            memoryBarrierShared();
+            barrier();
+
+            if (pair_half == 0u && subgroupElect() && row_valid) {
+                float q = recurrent_subgroup_partial_0[pair_base_subgroup]
+                    + recurrent_subgroup_partial_0[pair_base_subgroup + 1u];
+                float grad_value = recurrent_subgroup_partial_1[pair_base_subgroup]
+                    + recurrent_subgroup_partial_1[pair_base_subgroup + 1u];
+                uint linear_row = head_channel_base + row;
+                q_shared[row] = q;
+                total_grad_v[linear_row] = grad_value
+                    + post_grad_v[linear_row]
+                    + external_grad_v[linear_row];
+            }
+            memoryBarrierShared();
+            barrier();
+
+            if (element_valid) {
+                uint linear_row = head_channel_base + row;
+                uint channel_col = head_channel_base + col;
+                uint matrix_index = matrix_head_base + row * pc.head_size + col;
+                float grad_t = grad_tmix[linear_row];
+                float h = grad_new_state[matrix_index] + grad_t * r[channel_col];
+                float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
+            ? w[channel_col]
+            : clamp(w[channel_col], -60.0, 30.0);
+                float decay = exp(-exp(bounded_w));
+                grad_state[matrix_index] = h * decay - kk[channel_col] * q_shared[row];
+            }
+        }
+
+        for (uint round = 0u; round < rounds; ++round) {
+            uint col = round * pair_count + pair_id;
+            bool col_valid = col < pc.head_size;
+            uint row = pair_slice_base + subgroup_lane;
+            bool element_valid = col_valid && row < pc.head_size;
+            float grad_receptance_term = 0.0;
+            float grad_key_term = 0.0;
+            float grad_b_term = 0.0;
+            float grad_decay_term = 0.0;
+            float grad_kk_from_sa_term = 0.0;
+            if (element_valid) {
+                uint linear_col = head_channel_base + col;
+                uint linear_row = head_channel_base + row;
+                uint matrix_index = matrix_head_base + row * pc.head_size + col;
+                float grad_t = grad_tmix[linear_row];
+                float h = grad_new_state[matrix_index] + grad_t * r[linear_col];
+                grad_receptance_term = grad_t * new_state[matrix_index];
+                grad_key_term = h * v[head_channel_base + row];
+                grad_b_term = h * saved_sa[linear_row];
+                grad_decay_term = h * state_values[matrix_index];
+                grad_kk_from_sa_term = -q_shared[row] * state_values[matrix_index];
+            }
+            float grad_receptance_partial = subgroupAdd(grad_receptance_term);
+            float grad_key_partial = subgroupAdd(grad_key_term);
+            float grad_b_partial = subgroupAdd(grad_b_term);
+            float grad_decay_partial = subgroupAdd(grad_decay_term);
+            float grad_kk_from_sa_partial = subgroupAdd(grad_kk_from_sa_term);
+            if (subgroupElect()) {
+                recurrent_subgroup_partial_0[subgroup] = grad_receptance_partial;
+                recurrent_subgroup_partial_1[subgroup] = grad_key_partial;
+                recurrent_subgroup_partial_2[subgroup] = grad_b_partial;
+                recurrent_subgroup_partial_3[subgroup] = grad_decay_partial;
+                recurrent_subgroup_partial_4[subgroup] = grad_kk_from_sa_partial;
+            }
+            memoryBarrierShared();
+            barrier();
+
+            if (pair_half == 0u && subgroupElect() && col_valid) {
+                float grad_receptance = recurrent_subgroup_partial_0[pair_base_subgroup]
+                    + recurrent_subgroup_partial_0[pair_base_subgroup + 1u];
+                float grad_key = recurrent_subgroup_partial_1[pair_base_subgroup]
+                    + recurrent_subgroup_partial_1[pair_base_subgroup + 1u];
+                float grad_b = recurrent_subgroup_partial_2[pair_base_subgroup]
+                    + recurrent_subgroup_partial_2[pair_base_subgroup + 1u];
+                float grad_decay = recurrent_subgroup_partial_3[pair_base_subgroup]
+                    + recurrent_subgroup_partial_3[pair_base_subgroup + 1u];
+                float grad_kk_from_sa = recurrent_subgroup_partial_4[pair_base_subgroup]
+                    + recurrent_subgroup_partial_4[pair_base_subgroup + 1u];
+                uint linear_col = head_channel_base + col;
+                float kk_value = kk[linear_col];
+                float a_value = a[linear_col];
+                total_grad_r[linear_col] = grad_receptance + post_grad_r[linear_col];
+                total_grad_k[linear_col] = grad_key + post_grad_k[linear_col];
+                grad_kk[linear_col] = grad_kk_from_sa + grad_b * a_value;
+                grad_a[linear_col] = grad_b * kk_value;
+
+                float w_value = w[linear_col];
+                float bounded_w = (isnan(w_value) || isinf(w_value))
+            ? w_value
+            : clamp(w_value, -60.0, 30.0);
+                float exp_w = exp(bounded_w);
+                float decay = exp(-exp_w);
+                float clamp_grad = (isnan(w_value) || isinf(w_value)
+            || (w_value >= -60.0 && w_value <= 30.0)) ? 1.0 : 0.0;
+                grad_w[linear_col] = grad_decay * (-exp_w * decay) * clamp_grad;
+            }
+            memoryBarrierShared();
+            barrier();
+        }
+        return;
+    }
+
+    // Multi-subgroup wave-cooperative path. A wider workgroup can contain
+    // several complete hardware subgroups even though this dispatch still owns
+    // exactly one logical RWKV head. Rather than leaving every subgroup after
+    // the first idle, assign independent rows/columns to subgroups and use the
+    // subgroup lanes to cooperatively reduce each head-local dot product.
+    // q(row) crosses subgroup boundaries exactly once through the existing
+    // shared array, so this needs one workgroup barrier between the row and
+    // column phases but avoids the per-reduction workgroup trees used by the
+    // generic recurrent fast paths.
+    bool full_subgroup_workgroup = gl_NumSubgroups > 1u
+        && gl_SubgroupSize > 0u
+        && compiled_workgroup_size >= gl_SubgroupSize
+        && (compiled_workgroup_size % gl_SubgroupSize) == 0u
+        && gl_NumSubgroups == compiled_workgroup_size / gl_SubgroupSize
+        && pc.head_size <= gl_SubgroupSize;
+    if (full_subgroup_workgroup) {
+        uint subgroup = gl_SubgroupID;
+        uint subgroup_lane = gl_SubgroupInvocationID;
+
+        for (uint row = subgroup; row < pc.head_size; row += gl_NumSubgroups) {
+            uint linear_row = head_channel_base + row;
+            uint matrix_row_base = matrix_head_base + row * pc.head_size;
+            float grad_t = grad_tmix[linear_row];
+            float q_term = 0.0;
+            float grad_value_term = 0.0;
+            if (subgroup_lane < pc.head_size) {
+                uint col = subgroup_lane;
+                uint channel_col = head_channel_base + col;
+                uint matrix_index = matrix_row_base + col;
+                float h = grad_new_state[matrix_index] + grad_t * r[channel_col];
+                q_term = h * kk[channel_col] * a[channel_col];
+                grad_value_term = h * k[channel_col];
+            }
+            float q = subgroupAdd(q_term);
+            float grad_value = subgroupAdd(grad_value_term);
+            if (subgroupElect()) {
+                q_shared[row] = q;
+                total_grad_v[linear_row] = grad_value
+                    + post_grad_v[linear_row]
+                    + external_grad_v[linear_row];
+            }
+            if (subgroup_lane < pc.head_size) {
+                uint col = subgroup_lane;
+                uint channel_col = head_channel_base + col;
+                uint matrix_index = matrix_row_base + col;
+                float h = grad_new_state[matrix_index] + grad_t * r[channel_col];
+                float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
+            ? w[channel_col]
+            : clamp(w[channel_col], -60.0, 30.0);
+                float decay = exp(-exp(bounded_w));
+                grad_state[matrix_index] = h * decay - kk[channel_col] * q;
+            }
+        }
+
+        memoryBarrierShared();
+        barrier();
+
+        for (uint col = subgroup; col < pc.head_size; col += gl_NumSubgroups) {
+            uint linear_col = head_channel_base + col;
+            float grad_receptance_term = 0.0;
+            float grad_key_term = 0.0;
+            float grad_b_term = 0.0;
+            float grad_decay_term = 0.0;
+            float grad_kk_from_sa_term = 0.0;
+            if (subgroup_lane < pc.head_size) {
+                uint row = subgroup_lane;
+                uint linear_row = head_channel_base + row;
+                uint matrix_index = matrix_head_base + row * pc.head_size + col;
+                float grad_t = grad_tmix[linear_row];
+                float h = grad_new_state[matrix_index] + grad_t * r[linear_col];
+                grad_receptance_term = grad_t * new_state[matrix_index];
+                grad_key_term = h * v[head_channel_base + row];
+                grad_b_term = h * saved_sa[linear_row];
+                grad_decay_term = h * state_values[matrix_index];
+                grad_kk_from_sa_term = -q_shared[row] * state_values[matrix_index];
+            }
+
+            float grad_receptance = subgroupAdd(grad_receptance_term);
+            float grad_key = subgroupAdd(grad_key_term);
+            float grad_b = subgroupAdd(grad_b_term);
+            float grad_decay = subgroupAdd(grad_decay_term);
+            float grad_kk_from_sa = subgroupAdd(grad_kk_from_sa_term);
+            if (subgroupElect()) {
+                float kk_value = kk[linear_col];
+                float a_value = a[linear_col];
+                total_grad_r[linear_col] = grad_receptance + post_grad_r[linear_col];
+                total_grad_k[linear_col] = grad_key + post_grad_k[linear_col];
+                grad_kk[linear_col] = grad_kk_from_sa + grad_b * a_value;
+                grad_a[linear_col] = grad_b * kk_value;
+
+                float w_value = w[linear_col];
+                float bounded_w = (isnan(w_value) || isinf(w_value))
+            ? w_value
+            : clamp(w_value, -60.0, 30.0);
+                float exp_w = exp(bounded_w);
+                float decay = exp(-exp_w);
+                float clamp_grad = (isnan(w_value) || isinf(w_value)
+            || (w_value >= -60.0 && w_value <= 30.0)) ? 1.0 : 0.0;
+                grad_w[linear_col] = grad_decay * (-exp_w * decay) * clamp_grad;
+            }
+        }
+        return;
+    }
+#endif
+
+    for (uint row = lane; row < pc.head_size; row += RWKV_STATE_BACKWARD_WORKGROUP_SIZE) {
+        uint linear_row = head_channel_base + row;
+        uint matrix_row_base = matrix_head_base + row * pc.head_size;
+        float grad_t = grad_tmix[linear_row];
+        float q = 0.0;
+        float grad_value = 0.0;
+        for (uint col = 0; col < pc.head_size; ++col) {
+            uint channel_col = head_channel_base + col;
+            uint matrix_index = matrix_row_base + col;
+            float h = grad_new_state[matrix_index] + grad_t * r[channel_col];
+            float b = kk[channel_col] * a[channel_col];
+            q = fma(h, b, q);
+            grad_value = fma(h, k[channel_col], grad_value);
+        }
+        q_shared[row] = q;
+        total_grad_v[linear_row] = grad_value + post_grad_v[linear_row] + external_grad_v[linear_row];
+
+        for (uint col = 0; col < pc.head_size; ++col) {
+            uint channel_col = head_channel_base + col;
+            uint matrix_index = matrix_row_base + col;
+            float h = grad_new_state[matrix_index] + grad_t * r[channel_col];
+            float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
+            ? w[channel_col]
+            : clamp(w[channel_col], -60.0, 30.0);
+            float decay = exp(-exp(bounded_w));
+            grad_state[matrix_index] = h * decay - kk[channel_col] * q;
+        }
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    for (uint col = lane; col < pc.head_size; col += RWKV_STATE_BACKWARD_WORKGROUP_SIZE) {
+        uint linear_col = head_channel_base + col;
+        float grad_receptance = 0.0;
+        float grad_key = 0.0;
+        float grad_b = 0.0;
+        float grad_decay = 0.0;
+        float grad_kk_from_sa = 0.0;
+        for (uint row = 0; row < pc.head_size; ++row) {
+            uint linear_row = head_channel_base + row;
+            uint matrix_index = matrix_head_base + row * pc.head_size + col;
+            float grad_t = grad_tmix[linear_row];
+            float h = grad_new_state[matrix_index] + grad_t * r[linear_col];
+            grad_receptance = fma(grad_t, new_state[matrix_index], grad_receptance);
+            grad_key = fma(h, v[head_channel_base + row], grad_key);
+            grad_b = fma(h, saved_sa[linear_row], grad_b);
+            grad_decay = fma(h, state_values[matrix_index], grad_decay);
+            grad_kk_from_sa = fma(-q_shared[row], state_values[matrix_index], grad_kk_from_sa);
+        }
+
+        float kk_value = kk[linear_col];
+        float a_value = a[linear_col];
+        total_grad_r[linear_col] = grad_receptance + post_grad_r[linear_col];
+        total_grad_k[linear_col] = grad_key + post_grad_k[linear_col];
+        grad_kk[linear_col] = grad_kk_from_sa + grad_b * a_value;
+        grad_a[linear_col] = grad_b * kk_value;
+
+        float w_value = w[linear_col];
+        float bounded_w = (isnan(w_value) || isinf(w_value))
+            ? w_value
+            : clamp(w_value, -60.0, 30.0);
+        float exp_w = exp(bounded_w);
+        float decay = exp(-exp_w);
+        float clamp_grad = (isnan(w_value) || isinf(w_value)
+            || (w_value >= -60.0 && w_value <= 30.0)) ? 1.0 : 0.0;
+        grad_w[linear_col] = grad_decay * (-exp_w * decay) * clamp_grad;
+    }
+}

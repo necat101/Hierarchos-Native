@@ -1,0 +1,117 @@
+#version 450
+
+// Whole SharedTokenAdapter forward fast path for coherent-v9's common
+// token_adapter_rank <= 64 geometry:
+//
+//   LayerNorm(affine-free) -> down -> SiLU -> up + bias
+//
+// Backward compatibility is preserved by materializing every tape consumed by
+// the existing backward kernels. One workgroup owns one row so the rank-sized
+// hidden vector can remain in shared memory while the up projection fans out
+// across the workgroup width.
+#ifndef ADAPTER_WORKGROUP_SIZE
+#define ADAPTER_WORKGROUP_SIZE 256
+#endif
+
+layout(local_size_x = ADAPTER_WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer DownWeightBuffer { float down_weight[]; };
+layout(set = 0, binding = 4, std430) readonly buffer UpWeightBuffer { float up_weight[]; };
+layout(set = 0, binding = 5, std430) readonly buffer BiasBuffer { float bias[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer NormOutputBuffer { float norm_output[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer DownPreactBuffer { float down_preact[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer HiddenBuffer { float hidden[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint rank;
+    uint output_dim;
+    float eps;
+} pc;
+
+shared float shared_mean;
+shared float shared_rstd;
+shared float shared_hidden[64];
+
+void main() {
+    uint row = gl_WorkGroupID.y;
+    uint lane = gl_LocalInvocationID.x;
+
+    // Dispatch is exactly [1, rows, 1], so every workgroup owns a valid row and
+    // all lanes can safely participate in the two synchronization points.
+    uint x_base = row * pc.input_dim;
+    if (lane == 0) {
+        float mean = 0.0;
+        for (uint col = 0; col < pc.input_dim; ++col) {
+            mean += x[x_base + col];
+        }
+        mean /= float(pc.input_dim);
+
+        float variance = 0.0;
+        for (uint col = 0; col < pc.input_dim; ++col) {
+            float centered = x[x_base + col] - mean;
+            variance = fma(centered, centered, variance);
+        }
+        variance /= float(pc.input_dim);
+        float rstd = inversesqrt(variance + pc.eps);
+
+        shared_mean = mean;
+        shared_rstd = rstd;
+        mean_values[row] = mean;
+        rstd_values[row] = rstd;
+    }
+
+    barrier();
+
+    float mean = shared_mean;
+    float rstd = shared_rstd;
+
+    // The normalized tape is write-only in forward, so spread its store across
+    // the full workgroup instead of leaving it serialized on lane zero.
+    for (uint col = lane; col < pc.input_dim; col += ADAPTER_WORKGROUP_SIZE) {
+        float normalized = (x[x_base + col] - mean) * rstd;
+        norm_output[x_base + col] = fma(
+            normalized,
+            norm_weight[col],
+            norm_bias[col]
+        );
+    }
+
+    if (lane < pc.rank) {
+        float sum = 0.0;
+        uint w_base = lane * pc.input_dim;
+        for (uint col = 0; col < pc.input_dim; ++col) {
+            float normalized = (x[x_base + col] - mean) * rstd;
+            float value = fma(normalized, norm_weight[col], norm_bias[col]);
+            sum = fma(value, down_weight[w_base + col], sum);
+        }
+
+        uint hidden_index = row * pc.rank + lane;
+        down_preact[hidden_index] = sum;
+        float sigmoid_value = 1.0 / (1.0 + exp(-sum));
+        float hidden_value = sum * sigmoid_value;
+        hidden[hidden_index] = hidden_value;
+        shared_hidden[lane] = hidden_value;
+    }
+
+    barrier();
+
+    // Width-aware Rust dispatch chooses a 256- or 512-lane specialization and
+    // declines this fused path for wider projections. The strided loop keeps a
+    // safe fallback for a 256-lane device covering a <=512 output width.
+    for (uint out_col = lane; out_col < pc.output_dim; out_col += ADAPTER_WORKGROUP_SIZE) {
+        float sum = 0.0;
+        uint w_base = out_col * pc.rank;
+        for (uint i = 0; i < pc.rank; ++i) {
+            sum = fma(shared_hidden[i], up_weight[w_base + i], sum);
+        }
+        output_values[row * pc.output_dim + out_col] = sum + bias[out_col];
+    }
+}

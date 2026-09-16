@@ -1,0 +1,76 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer MasterBuffer { float master[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer PackedBuffer { uint packed[]; };
+
+layout(push_constant) uniform Push { uint len; } pc;
+
+// GLSL's packHalf2x16 does not define a cross-vendor rounding contract strong
+// enough for PyTorch bit parity. Convert explicitly with IEEE round-to-nearest,
+// ties-to-even so Vulkan mirrors match torch.float16 on CPU and CUDA.
+uint fp32_to_fp16_rne(float value) {
+    uint bits = floatBitsToUint(value);
+    uint sign = (bits >> 16u) & 0x8000u;
+    uint exponent = (bits >> 23u) & 0xffu;
+    uint mantissa = bits & 0x7fffffu;
+
+    if (exponent == 0xffu) {
+        return sign | (mantissa == 0u ? 0x7c00u : 0x7e00u);
+    }
+    if (exponent == 0u) {
+        return sign;
+    }
+
+    int unbiased = int(exponent) - 127;
+    if (unbiased > 15) {
+        return sign | 0x7c00u;
+    }
+
+    if (unbiased >= -14) {
+        uint half_exponent = uint(unbiased + 15) << 10u;
+        uint rounded_mantissa = mantissa >> 13u;
+        uint remainder = mantissa & 0x1fffu;
+        if (remainder > 0x1000u ||
+            (remainder == 0x1000u && (rounded_mantissa & 1u) != 0u)) {
+            rounded_mantissa += 1u;
+        }
+        if (rounded_mantissa == 0x400u) {
+            rounded_mantissa = 0u;
+            half_exponent += 0x400u;
+            if (half_exponent >= 0x7c00u) {
+                return sign | 0x7c00u;
+            }
+        }
+        return sign | half_exponent | rounded_mantissa;
+    }
+
+    if (unbiased < -25) {
+        return sign;
+    }
+    uint significand = 0x800000u | mantissa;
+    uint shift = uint(-unbiased - 1);
+    uint rounded = significand >> shift;
+    uint remainder_mask = (1u << shift) - 1u;
+    uint remainder = significand & remainder_mask;
+    uint halfway = 1u << (shift - 1u);
+    if (remainder > halfway || (remainder == halfway && (rounded & 1u) != 0u)) {
+        rounded += 1u;
+    }
+    return sign | rounded;
+}
+
+uint pack_fp16_rne(float first, float second) {
+    return fp32_to_fp16_rne(first) | (fp32_to_fp16_rne(second) << 16u);
+}
+
+void main() {
+    uint word = gl_GlobalInvocationID.x;
+    uint first = word * 2u;
+    if (first >= pc.len) {
+        return;
+    }
+    float second = first + 1u < pc.len ? master[first + 1u] : 0.0;
+    packed[word] = pack_fp16_rne(master[first], second);
+}

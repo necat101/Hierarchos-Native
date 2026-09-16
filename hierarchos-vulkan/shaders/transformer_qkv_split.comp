@@ -1,0 +1,26 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer CombinedBuffer { float combined[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer KBuffer { float k_values[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer VBuffer { float v_values[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint query_hidden_size;
+    uint kv_hidden_size;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || col >= pc.query_hidden_size) return;
+    uint combined_width = pc.query_hidden_size + 2u * pc.kv_hidden_size;
+    uint src = row * combined_width + col;
+    q_values[row * pc.query_hidden_size + col] = combined[src];
+    if (col < pc.kv_hidden_size) {
+        uint kv_dst = row * pc.kv_hidden_size + col;
+        k_values[kv_dst] = combined[row * combined_width + pc.query_hidden_size + col];
+        v_values[kv_dst] = combined[row * combined_width + pc.query_hidden_size + pc.kv_hidden_size + col];
+    }
+}

@@ -1,0 +1,69 @@
+#version 450
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer IndexBuffer { uint indices[]; };
+layout(set = 0, binding = 1, std430) readonly buffer SlowValueBuffer { float slow_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer FastValueBuffer { float fast_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer RouterBuffer { float router[]; };
+layout(set = 0, binding = 4, std430) readonly buffer GateLogitBuffer { float gate_logit[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+// Bindings 6 and 9 remain in the ABI because the Rust dispatch shares the
+// historical descriptor layout. Their reductions are now performed by the
+// deterministic follow-up kernel instead of order-dependent FP32 CAS atomics.
+layout(set = 0, binding = 6, std430) buffer GradSlowValueBuffer { float grad_slow[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer GradRouterBuffer { float grad_router[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer GradSelectedScoreBuffer { float grad_selected_score[]; };
+layout(set = 0, binding = 9, std430) buffer GradGateLogitBuffer { float grad_gate_logit[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint topk;
+    uint val_dim;
+    uint slots;
+    float gate_floor;
+    float score_grad_scale;
+} pc;
+
+float sigmoid_stable(float x) {
+    if (!isnan(x) && !isinf(x)) {
+        x = clamp(x, -50.0, 50.0);
+    }
+    return 1.0 / (1.0 + exp(-x));
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    float gate_pre = gate_logit[0] + router[row];
+    float sigmoid_gate = sigmoid_stable(gate_pre);
+    float gate = pc.gate_floor + (1.0 - pc.gate_floor) * sigmoid_gate;
+    float grad_gate = 0.0;
+    uint row_width = pc.topk * pc.val_dim;
+
+    for (uint k = 0u; k < pc.topk; ++k) {
+        uint slot = indices[row * pc.topk + k];
+        float score_grad = 0.0;
+        if (slot < pc.slots) {
+            uint memory_base = slot * pc.val_dim;
+            uint output_base = row * row_width + k * pc.val_dim;
+            for (uint d = 0u; d < pc.val_dim; ++d) {
+                float memory_value = slow_values[memory_base + d] + fast_values[memory_base + d];
+                float upstream = grad_output[output_base + d];
+                float grad_memory = upstream * gate;
+                grad_gate += upstream * memory_value;
+                score_grad += grad_memory * memory_value;
+            }
+        }
+        grad_selected_score[row * pc.topk + k] = score_grad * pc.score_grad_scale;
+    }
+
+    float clamp_grad = (isnan(gate_pre) || isinf(gate_pre)
+        || (gate_pre >= -50.0 && gate_pre <= 50.0)) ? 1.0 : 0.0;
+    float grad_logit = grad_gate * (1.0 - pc.gate_floor)
+        * sigmoid_gate * (1.0 - sigmoid_gate);
+    grad_logit *= clamp_grad;
+    grad_router[row] = grad_logit;
+}

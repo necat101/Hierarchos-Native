@@ -1,0 +1,25 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer CandidateBuffer { float candidate_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PreviousBuffer { float previous_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ActiveBuffer { float active_rows[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint width;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint len = pc.rows * pc.width;
+    if (index >= len) {
+        return;
+    }
+    uint row = index / pc.width;
+    output_values[index] = active_rows[row] > 0.0
+        ? candidate_values[index]
+        : previous_values[index];
+}

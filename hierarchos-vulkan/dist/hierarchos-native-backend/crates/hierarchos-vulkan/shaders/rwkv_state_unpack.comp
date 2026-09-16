@@ -1,0 +1,34 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer PackedStateBuffer { float packed_state[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer PreviousTmBuffer { float previous_tm[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer PreviousCmBuffer { float previous_cm[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer PreviousVFirstBuffer { float previous_v_first[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer MatrixStateBuffer { float matrix_state[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+    uint matrix_offset;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint vector_len = pc.batch * pc.width;
+    uint state_size = pc.matrix_offset + pc.head_size;
+    uint matrix_len = vector_len * pc.head_size;
+    if (index < vector_len) {
+        uint state_base = index * state_size;
+        previous_tm[index] = packed_state[state_base];
+        previous_cm[index] = packed_state[state_base + 1u];
+        previous_v_first[index] = packed_state[state_base + 2u];
+    }
+    if (index < matrix_len) {
+        uint vector_index = index / pc.head_size;
+        uint column = index - vector_index * pc.head_size;
+        matrix_state[index] = packed_state[vector_index * state_size + pc.matrix_offset + column];
+    }
+}

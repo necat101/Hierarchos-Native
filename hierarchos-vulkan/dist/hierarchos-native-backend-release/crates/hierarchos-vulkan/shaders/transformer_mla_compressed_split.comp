@@ -1,0 +1,32 @@
+#version 450
+
+// Split DeepSeek-style MLA's compressed KV projection into the latent vector
+// that receives RMSNorm and the shared rotary key slice. The source is laid
+// out per row as [kv_lora_rank | qk_rope_head_dim].
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer LatentBuffer { float latent_values[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer RotaryBuffer { float rotary_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint kv_lora_rank;
+    uint rope_head_dim;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint source_width = pc.kv_lora_rank + pc.rope_head_dim;
+    uint total = pc.rows * source_width;
+    if (index >= total) return;
+
+    uint row = index / source_width;
+    uint channel = index - row * source_width;
+    if (channel < pc.kv_lora_rank) {
+        latent_values[row * pc.kv_lora_rank + channel] = input_values[index];
+    } else {
+        uint rotary_channel = channel - pc.kv_lora_rank;
+        rotary_values[row * pc.rope_head_dim + rotary_channel] = input_values[index];
+    }
+}

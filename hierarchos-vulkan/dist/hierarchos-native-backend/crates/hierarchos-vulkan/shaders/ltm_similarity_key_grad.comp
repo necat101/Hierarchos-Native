@@ -1,0 +1,45 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer QueryBuffer { float query[]; };
+layout(set = 0, binding = 1, std430) readonly buffer IndexBuffer { uint indices[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradSelectedScoreBuffer { float grad_selected_score[]; };
+layout(set = 0, binding = 3, std430) buffer GradKeyBuffer { float grad_key[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint key_dim;
+    uint slots;
+    uint topk;
+    float scale;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    // One invocation owns one destination (slot, key-column) segment. It walks
+    // selected pairs in monotonically increasing source order, preserving the
+    // deterministic FP32 association of the old elected-writer path without
+    // making every selected pair scan all earlier pairs to discover its owner.
+    // Complexity is O(slots * rows * topk * key_dim), linear in sequence rows
+    // for fixed memory geometry, instead of O((rows * topk)^2 * key_dim).
+    uint len = pc.slots * pc.key_dim;
+    if (index >= len) {
+        return;
+    }
+    uint d = index % pc.key_dim;
+    uint slot = index / pc.key_dim;
+
+    float grad = 0.0;
+    uint pair_count = pc.rows * pc.topk;
+    for (uint source_pair = 0u; source_pair < pair_count; ++source_pair) {
+        if (indices[source_pair] != slot) {
+            continue;
+        }
+        uint source_row = source_pair / pc.topk;
+        uint source_k = source_pair % pc.topk;
+        grad += grad_selected_score[source_row * pc.topk + source_k]
+            * query[source_row * pc.key_dim + d] * pc.scale;
+    }
+    grad_key[slot * pc.key_dim + d] += grad;
+}

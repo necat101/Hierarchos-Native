@@ -1,0 +1,57 @@
+#version 450
+
+// xIELU has only two trainable scalar parameters. A single deterministic
+// invocation is preferable here to floating-point atomics: this matches the
+// backend's reproducible reduction policy and the serial work is negligible
+// next to the surrounding dense matmuls.
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 2, std430) readonly buffer AlphaPBuffer { float alpha_p_raw[]; };
+layout(set = 0, binding = 3, std430) readonly buffer AlphaNBuffer { float alpha_n_raw[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradAlphaPBuffer { float grad_alpha_p[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradAlphaNBuffer { float grad_alpha_n[]; };
+
+layout(push_constant) uniform Push {
+    uint len;
+    float beta;
+    float eps;
+} pc;
+
+float sigmoid_stable(float x) {
+    if (x >= 0.0) {
+        float z = exp(-x);
+        return 1.0 / (1.0 + z);
+    }
+    float z = exp(x);
+    return z / (1.0 + z);
+}
+
+float expm1_stable(float x) {
+    if (abs(x) < 1.0e-4) {
+        float x2 = x * x;
+        return x + 0.5 * x2 + (x2 * x) / 6.0;
+    }
+    return exp(x) - 1.0;
+}
+
+void main() {
+    float dap = 0.0;
+    float dan = 0.0;
+    float alpha_p_grad_scale = sigmoid_stable(alpha_p_raw[0]);
+    float alpha_n_grad_scale = sigmoid_stable(alpha_n_raw[0]);
+    for (uint index = 0; index < pc.len; ++index) {
+        float x = input_values[index];
+        float dy = grad_output[index];
+        if (x > 0.0) {
+            dap = fma(dy, x * x * alpha_p_grad_scale, dap);
+        } else {
+            float capped = min(x, pc.eps);
+            float branch = expm1_stable(capped) - x;
+            dan = fma(dy, branch * alpha_n_grad_scale, dan);
+        }
+    }
+    grad_alpha_p[0] = dap;
+    grad_alpha_n[0] = dan;
+}

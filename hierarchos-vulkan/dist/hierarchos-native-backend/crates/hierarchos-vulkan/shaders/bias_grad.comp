@@ -1,0 +1,35 @@
+#version 450
+
+#ifndef HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#define HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE 0
+#endif
+
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#endif
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer GradBiasBuffer { float grad_bias[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    if (col >= pc.dim) {
+        return;
+    }
+    float sum = 0.0;
+    for (uint row = 0; row < pc.rows; ++row) {
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+        sum += float(float16_t(grad_output[row * pc.dim + col]));
+#else
+        sum += grad_output[row * pc.dim + col];
+#endif
+    }
+    grad_bias[col] = sum;
+}

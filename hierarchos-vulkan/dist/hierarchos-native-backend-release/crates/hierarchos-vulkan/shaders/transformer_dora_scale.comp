@@ -1,0 +1,36 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer WeightBuffer { float weight_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer LoraABuffer { float lora_a_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer LoraBBuffer { float lora_b_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer MagnitudeBuffer { float magnitude_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer WeightNormBuffer { float weight_norm_values[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer DoraScaleBuffer { float dora_scale_values[]; };
+
+layout(push_constant) uniform Push {
+    uint input_dim;
+    uint output_dim;
+    uint rank;
+    float lora_scale;
+} pc;
+
+void main() {
+    uint out_col = gl_GlobalInvocationID.x;
+    if (out_col >= pc.output_dim) return;
+
+    float sum_sq = 0.0;
+    uint weight_base = out_col * pc.input_dim;
+    uint b_base = out_col * pc.rank;
+    for (uint in_col = 0; in_col < pc.input_dim; ++in_col) {
+        float delta = 0.0;
+        for (uint r = 0; r < pc.rank; ++r) {
+            delta = fma(lora_b_values[b_base + r], lora_a_values[r * pc.input_dim + in_col], delta);
+        }
+        float effective_weight = fma(pc.lora_scale, delta, weight_values[weight_base + in_col]);
+        sum_sq = fma(effective_weight, effective_weight, sum_sq);
+    }
+    float weight_norm = sqrt(sum_sq);
+    weight_norm_values[out_col] = weight_norm;
+    dora_scale_values[out_col] = magnitude_values[out_col] / max(weight_norm, 1.0e-30);
+}

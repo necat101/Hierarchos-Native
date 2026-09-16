@@ -1,0 +1,33 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 2, std430) readonly buffer MixBuffer { float mix_coeff[]; };
+layout(set = 0, binding = 3, std430) readonly buffer GradMixedBuffer { float grad_mixed[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradInputBuffer { float grad_x[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradPreviousBuffer { float grad_previous[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer GradMixBuffer { float grad_mix[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+} pc;
+
+void main() {
+    uint channel = gl_GlobalInvocationID.x;
+    if (channel >= pc.width) {
+        return;
+    }
+    float coeff = mix_coeff[channel];
+    float grad_coeff = 0.0;
+    for (uint batch_index = 0; batch_index < pc.batch; ++batch_index) {
+        uint index = batch_index * pc.width + channel;
+        float grad = grad_mixed[index];
+        grad_x[index] = grad * (1.0 - coeff);
+        grad_previous[index] = grad * coeff;
+        grad_coeff = fma(grad, previous[index] - x[index], grad_coeff);
+    }
+    grad_mix[channel] = grad_coeff;
+}

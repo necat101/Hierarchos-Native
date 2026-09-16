@@ -1,0 +1,83 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+// Every row in a workgroup needs the same grad-output vocabulary stream for
+// all 16 input-column lanes, while every row also consumes the exact same
+// weight column for a given input lane. Stage both sides of the dot product:
+// grad_output is loaded once per row/tile and each weight is loaded once per
+// input-column/tile, then reused by all 16 rows. The inner accumulation still
+// visits output columns in strictly increasing order, preserving the existing
+// PyTorch-parity FMA sequence.
+const uint GRAD_TILE = 32u;
+shared float grad_tile[16u * GRAD_TILE];
+shared float weight_tile[GRAD_TILE * 16u];
+
+void main() {
+    uint local_x = gl_LocalInvocationID.x;
+    uint local_y = gl_LocalInvocationID.y;
+    uint in_col = gl_WorkGroupID.x * 16u + local_x;
+    uint row = gl_WorkGroupID.y * 16u + local_y;
+    bool lane_valid = row < pc.rows && in_col < pc.input_dim;
+    float sum = 0.0;
+    uint grad_base = row * pc.output_dim;
+
+    for (uint vocab_base = 0u; vocab_base < pc.output_dim; vocab_base += GRAD_TILE) {
+        uint load_col = vocab_base + local_x * 2u;
+        uint shared_base = local_y * GRAD_TILE + local_x * 2u;
+        grad_tile[shared_base] =
+            row < pc.rows && load_col < pc.output_dim
+                ? grad_output[grad_base + load_col]
+                : 0.0;
+        grad_tile[shared_base + 1u] =
+            row < pc.rows && load_col + 1u < pc.output_dim
+                ? grad_output[grad_base + load_col + 1u]
+                : 0.0;
+
+        // local_y covers two vocabulary rows while local_x selects the input
+        // column. This makes global weight loads contiguous across local_x and
+        // stores the tile vocabulary-major so consumption is bank-friendly.
+        uint weight_col = vocab_base + local_y * 2u;
+        uint weight_shared_base = (local_y * 2u) * 16u + local_x;
+        weight_tile[weight_shared_base] =
+            in_col < pc.input_dim && weight_col < pc.output_dim
+                ? weight[weight_col * pc.input_dim + in_col]
+                : 0.0;
+        weight_tile[weight_shared_base + 16u] =
+            in_col < pc.input_dim && weight_col + 1u < pc.output_dim
+                ? weight[(weight_col + 1u) * pc.input_dim + in_col]
+                : 0.0;
+
+        barrier();
+
+        if (lane_valid) {
+            uint tile_count = min(GRAD_TILE, pc.output_dim - vocab_base);
+            for (uint tile_col = 0u; tile_col < tile_count; ++tile_col) {
+                uint out_col = vocab_base + tile_col;
+                sum = fma(
+                    grad_tile[local_y * GRAD_TILE + tile_col],
+                    weight_tile[tile_col * 16u + local_x],
+                    sum
+                );
+            }
+        }
+
+        // All lanes must finish consuming the tile before its loaders reuse
+        // the same shared-memory slots for the next vocabulary block.
+        barrier();
+    }
+
+    if (lane_valid) {
+        grad_input[row * pc.input_dim + in_col] = sum;
+    }
+}

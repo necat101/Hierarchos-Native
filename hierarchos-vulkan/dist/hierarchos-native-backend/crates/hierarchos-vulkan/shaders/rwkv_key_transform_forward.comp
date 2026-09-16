@@ -1,0 +1,46 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RawKeyBuffer { float raw_k[]; };
+layout(set = 0, binding = 1, std430) readonly buffer InContextBuffer { float a[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KeyNormScaleBuffer { float k_k[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KeyContextScaleBuffer { float k_a[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer ScaledKeyBuffer { float scaled_k[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer NormalizedKeyBuffer { float kk[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+} pc;
+
+void main() {
+    uint linear_head = gl_GlobalInvocationID.x;
+    uint heads = pc.width / pc.head_size;
+    uint total_heads = pc.batch * heads;
+    if (linear_head >= total_heads) {
+        return;
+    }
+
+    uint batch_index = linear_head / heads;
+    uint head = linear_head - batch_index * heads;
+    uint base = batch_index * pc.width + head * pc.head_size;
+    uint channel_base = head * pc.head_size;
+
+    float norm_sq = 0.0;
+    for (uint col = 0; col < pc.head_size; ++col) {
+        float z = raw_k[base + col] * k_k[channel_base + col];
+        norm_sq = fma(z, z, norm_sq);
+    }
+    float denom = max(sqrt(norm_sq), 1.0e-12);
+
+    for (uint col = 0; col < pc.head_size; ++col) {
+        uint index = base + col;
+        uint channel = channel_base + col;
+        float raw = raw_k[index];
+        kk[index] = raw * k_k[channel] / denom;
+        float scale = 1.0 + (a[index] - 1.0) * k_a[channel];
+        scaled_k[index] = raw * scale;
+    }
+}

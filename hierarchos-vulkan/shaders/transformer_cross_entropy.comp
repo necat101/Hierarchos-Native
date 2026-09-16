@@ -1,0 +1,67 @@
+#version 450
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LogitBuffer { float logits[]; };
+layout(set = 0, binding = 1, std430) readonly buffer TargetBuffer { uint targets[]; };
+layout(set = 0, binding = 2, std430) readonly buffer LossWeightBuffer { float loss_weights[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradBuffer { float grad_logits[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer LossBuffer { float row_loss[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint vocab_size;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    uint base = row * pc.vocab_size;
+    uint target = targets[row];
+    float row_weight = loss_weights[row];
+    if (target == 0xffffffffu || target >= pc.vocab_size || row_weight <= 0.0) {
+        for (uint v = 0; v < pc.vocab_size; ++v) {
+            grad_logits[base + v] = 0.0;
+        }
+        row_loss[row] = 0.0;
+        return;
+    }
+
+    // The authoritative weighted-objective denominator is computed on the
+    // device so gradient normalization does not depend on host arithmetic.
+    precise float weight_sum = 0.0;
+    for (uint r = 0; r < pc.rows; ++r) {
+        uint candidate_target = targets[r];
+        float candidate_weight = loss_weights[r];
+        if (candidate_target != 0xffffffffu
+            && candidate_target < pc.vocab_size
+            && candidate_weight > 0.0) {
+            weight_sum += candidate_weight;
+        }
+    }
+    if (!(weight_sum > 0.0)) {
+        for (uint v = 0; v < pc.vocab_size; ++v) {
+            grad_logits[base + v] = 0.0;
+        }
+        row_loss[row] = 0.0;
+        return;
+    }
+
+    float max_logit = logits[base];
+    for (uint v = 1; v < pc.vocab_size; ++v) {
+        max_logit = max(max_logit, logits[base + v]);
+    }
+    float exp_sum = 0.0;
+    for (uint v = 0; v < pc.vocab_size; ++v) {
+        exp_sum += exp(logits[base + v] - max_logit);
+    }
+    float inv_sum = 1.0 / exp_sum;
+    float gradient_scale = row_weight / weight_sum;
+    for (uint v = 0; v < pc.vocab_size; ++v) {
+        float probability = exp(logits[base + v] - max_logit) * inv_sum;
+        grad_logits[base + v] = (probability - (v == target ? 1.0 : 0.0)) * gradient_scale;
+    }
+    row_loss[row] = (log(exp_sum) + max_logit - logits[base + target]) * gradient_scale;
+}

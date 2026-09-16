@@ -1,0 +1,33 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer EncBuffer { float enc[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PrevBuffer { float previous_context[]; };
+layout(set = 0, binding = 2, std430) readonly buffer TargetBuffer { float target_context[]; };
+layout(set = 0, binding = 3, std430) readonly buffer DriftBuffer { float drift[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    float alpha;
+    float context_clamp;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || col >= pc.dim) {
+        return;
+    }
+    uint index = row * pc.dim + col;
+    float raw_context = previous_context[index]
+        + pc.alpha * (target_context[index] - previous_context[index]);
+    float sliding = (isnan(raw_context) || isinf(raw_context))
+        ? raw_context
+        : clamp(raw_context, -pc.context_clamp, pc.context_clamp);
+    uint base = row * (pc.dim * 2u);
+    output_values[base + col] = enc[index];
+    output_values[base + pc.dim + col] = sliding + drift[index];
+}

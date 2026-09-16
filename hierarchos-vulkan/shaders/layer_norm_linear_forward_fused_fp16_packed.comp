@@ -1,0 +1,120 @@
+#version 450
+
+// Fused out_norm + LM-head for a packed FP16 execution mirror. The LayerNorm
+// tape, logits, and all arithmetic stay FP32; only the dense LM-head weight
+// storage/read is compacted.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer LinearWeightBuffer { uint linear_weight_packed[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer NormOutputBuffer { float norm_output[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer LogitsBuffer { float logits[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    float eps;
+} pc;
+
+shared float shared_mean;
+shared float shared_rstd;
+shared float normalized_tile[64];
+
+vec2 load_linear_weight_pair(uint first_index, bool second_active) {
+    vec2 current = unpackHalf2x16(linear_weight_packed[first_index >> 1u]);
+    if ((first_index & 1u) == 0u) {
+        return second_active ? current : vec2(current.x, 0.0);
+    }
+    if (!second_active) {
+        return vec2(current.y, 0.0);
+    }
+    vec2 next = unpackHalf2x16(linear_weight_packed[(first_index >> 1u) + 1u]);
+    return vec2(current.y, next.x);
+}
+
+void main() {
+    uint row = gl_WorkGroupID.y;
+    uint lane = gl_LocalInvocationID.x;
+    uint out_col = gl_GlobalInvocationID.x;
+    bool valid_row = row < pc.rows;
+
+    if (lane == 0u) {
+        if (valid_row) {
+            uint x_base = row * pc.input_dim;
+            float mean = 0.0;
+            for (uint col = 0u; col < pc.input_dim; ++col) {
+                mean += x[x_base + col];
+            }
+            mean /= float(pc.input_dim);
+
+            float variance = 0.0;
+            for (uint col = 0u; col < pc.input_dim; ++col) {
+                float centered = x[x_base + col] - mean;
+                variance = fma(centered, centered, variance);
+            }
+            variance /= float(pc.input_dim);
+            float rstd = inversesqrt(variance + pc.eps);
+            shared_mean = mean;
+            shared_rstd = rstd;
+
+            if (gl_WorkGroupID.x == 0u) {
+                mean_values[row] = mean;
+                rstd_values[row] = rstd;
+            }
+        } else {
+            shared_mean = 0.0;
+            shared_rstd = 0.0;
+        }
+    }
+
+    barrier();
+
+    float mean = shared_mean;
+    float rstd = shared_rstd;
+    float sum = 0.0;
+    uint x_base = row * pc.input_dim;
+    bool valid_output = valid_row && out_col < pc.output_dim;
+
+    // Each 64-column vocabulary workgroup now computes a normalized hidden
+    // tile once and shares it across all 64 output lanes. This removes the
+    // previous 64x redundant x/norm-weight/norm-bias streaming while keeping
+    // every dot product's accumulation order unchanged.
+    for (uint col_base = 0u; col_base < pc.input_dim; col_base += 64u) {
+        uint col = col_base + lane;
+        float value = 0.0;
+        if (valid_row && col < pc.input_dim) {
+            float normalized = (x[x_base + col] - mean) * rstd;
+            value = fma(normalized, norm_weight[col], norm_bias[col]);
+            if (gl_WorkGroupID.x == 0u) {
+                norm_output[x_base + col] = value;
+            }
+        }
+        normalized_tile[lane] = value;
+
+        barrier();
+
+        if (valid_output) {
+            uint tile_count = min(64u, pc.input_dim - col_base);
+            uint w_base = out_col * pc.input_dim + col_base;
+            for (uint tile_col = 0u; tile_col < tile_count; tile_col += 2u) {
+                bool second_active = tile_col + 1u < tile_count;
+                vec2 weights = load_linear_weight_pair(w_base + tile_col, second_active);
+                sum = fma(normalized_tile[tile_col], weights.x, sum);
+                if (second_active) {
+                    sum = fma(normalized_tile[tile_col + 1u], weights.y, sum);
+                }
+            }
+        }
+
+        barrier();
+    }
+
+    if (valid_output) {
+        logits[row * pc.output_dim + out_col] = sum;
+    }
+}

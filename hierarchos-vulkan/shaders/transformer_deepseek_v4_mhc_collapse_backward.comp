@@ -1,0 +1,43 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer HyperBuffer { float hyper_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PreBuffer { float pre_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradPreBuffer { float grad_pre[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradHyperBuffer { float grad_hyper[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_mult;
+    uint sinkhorn_iters;
+    float hc_eps;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint hyper_width = pc.hc_mult * pc.hidden_size;
+    uint hyper_len = pc.rows * hyper_width;
+    uint pre_len = pc.rows * pc.hc_mult;
+    if (index < hyper_len) {
+        uint row = index / hyper_width;
+        uint within = index % hyper_width;
+        uint stream = within / pc.hidden_size;
+        uint hidden = within % pc.hidden_size;
+        grad_hyper[index] = grad_output[row * pc.hidden_size + hidden]
+            * pre_values[row * pc.hc_mult + stream];
+    }
+    if (index < pre_len) {
+        uint row = index / pc.hc_mult;
+        uint stream = index % pc.hc_mult;
+        uint hyper_base = row * hyper_width + stream * pc.hidden_size;
+        uint grad_base = row * pc.hidden_size;
+        float sum = 0.0;
+        for (uint hidden = 0; hidden < pc.hidden_size; ++hidden) {
+            sum += grad_output[grad_base + hidden] * hyper_values[hyper_base + hidden];
+        }
+        grad_pre[index] = sum;
+    }
+}

@@ -1,0 +1,34 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer KeyBuffer { float keys[]; };
+layout(set = 0, binding = 1, std430) readonly buffer IndexBuffer { uint indices[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradSelectedScoreBuffer { float grad_selected_score[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradQueryBuffer { float grad_query[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint key_dim;
+    uint slots;
+    uint topk;
+    float scale;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint len = pc.rows * pc.key_dim;
+    if (index >= len) {
+        return;
+    }
+    uint row = index / pc.key_dim;
+    uint d = index - row * pc.key_dim;
+    float sum = 0.0;
+    for (uint k = 0u; k < pc.topk; ++k) {
+        uint slot = indices[row * pc.topk + k];
+        if (slot < pc.slots) {
+            sum += grad_selected_score[row * pc.topk + k] * keys[slot * pc.key_dim + d];
+        }
+    }
+    grad_query[index] = sum * pc.scale;
+}

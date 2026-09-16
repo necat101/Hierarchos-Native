@@ -1,0 +1,150 @@
+#version 450
+
+// Adjoint of transformer_rope_forward.comp. The rotation itself is orthogonal;
+// any YaRN or query-position scale is multiplied into the inverse rotation.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradQOutput { float grad_q_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradKOutput { float grad_k_output[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradQInput { float grad_q_input[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradKInput { float grad_k_input[]; };
+layout(set = 0, binding = 4, std430) readonly buffer RopeFactors { float rope_factors[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint seq_len;
+    uint query_hidden_size;
+    uint num_heads;
+    uint num_key_value_heads;
+    uint rotary_dim;
+    uint rotary_start;
+    float rotary_emb_base;
+    uint interleaved_pairs;
+    uint scaling_type;
+    float scaling_factor;
+    uint original_max_position_embeddings;
+    float low_freq_factor;
+    float high_freq_factor;
+    float attention_factor;
+    float beta_fast;
+    float beta_slow;
+    uint truncate;
+    float llama4_scaling_beta;
+    uint position_offset;
+    uint position_stride;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || col >= pc.query_hidden_size) return;
+
+    uint head_dim = pc.query_hidden_size / pc.num_heads;
+    uint kv_hidden_size = head_dim * pc.num_key_value_heads;
+    uint q_index = row * pc.query_hidden_size + col;
+    uint head_offset = col % head_dim;
+    float position = float(pc.position_offset + (row % pc.seq_len) * pc.position_stride);
+    float query_scale = 1.0;
+    if (pc.llama4_scaling_beta > 0.0 && pc.original_max_position_embeddings > 0u) {
+        float position_block = floor(position / float(pc.original_max_position_embeddings));
+        query_scale += pc.llama4_scaling_beta * log(1.0 + position_block);
+    }
+    uint rotary_end = pc.rotary_start + pc.rotary_dim;
+    if (head_offset < pc.rotary_start || head_offset >= rotary_end) {
+        grad_q_input[q_index] = grad_q_output[q_index] * query_scale;
+        if (col < kv_hidden_size) {
+            uint k_index = row * kv_hidden_size + col;
+            grad_k_input[k_index] = grad_k_output[k_index];
+        }
+        return;
+    }
+
+    uint rotary_offset = head_offset - pc.rotary_start;
+    uint half_dim = pc.rotary_dim / 2u;
+    uint frequency_index = pc.interleaved_pairs != 0u
+        ? rotary_offset / 2u
+        : (rotary_offset < half_dim ? rotary_offset : rotary_offset - half_dim);
+    float exponent = (2.0 * float(frequency_index)) / float(pc.rotary_dim);
+    float effective_base = pc.rotary_emb_base;
+    if (pc.scaling_type == 1u) {
+        position /= pc.scaling_factor;
+    } else if (
+        pc.scaling_type == 2u
+        && pc.seq_len > pc.original_max_position_embeddings
+    ) {
+        float stretch =
+            pc.scaling_factor * float(pc.seq_len) / float(pc.original_max_position_embeddings)
+            - (pc.scaling_factor - 1.0);
+        float ntk_exponent = float(pc.rotary_dim) / float(pc.rotary_dim - 2u);
+        effective_base *= pow(stretch, ntk_exponent);
+    } else if (pc.scaling_type == 5u) {
+        // Match HunYuan Dense V1's forward DynamicNTKAlpha frequencies.
+        float ntk_exponent = float(pc.rotary_dim) / float(pc.rotary_dim - 2u);
+        effective_base *= pow(pc.scaling_factor, ntk_exponent);
+    }
+    float inv_frequency = pow(effective_base, -exponent);
+    if (pc.scaling_type == 6u) {
+        // Match forward LongRoPE frequency selection exactly so the inverse
+        // rotation remains the true adjoint of the scaled forward rotation.
+        inv_frequency /= rope_factors[frequency_index];
+    } else if (pc.scaling_type == 3u) {
+        float old_context_len = float(pc.original_max_position_embeddings);
+        float wavelength = 6.283185307179586 / inv_frequency;
+        float low_freq_wavelength = old_context_len / pc.low_freq_factor;
+        float high_freq_wavelength = old_context_len / pc.high_freq_factor;
+        if (wavelength > low_freq_wavelength) {
+            inv_frequency /= pc.scaling_factor;
+        } else if (wavelength >= high_freq_wavelength) {
+            float smooth_factor =
+                (old_context_len / wavelength - pc.low_freq_factor)
+                / (pc.high_freq_factor - pc.low_freq_factor);
+            inv_frequency =
+                (1.0 - smooth_factor) * inv_frequency / pc.scaling_factor
+                + smooth_factor * inv_frequency;
+        }
+    } else if (pc.scaling_type == 4u) {
+        float rotary_dim = float(pc.rotary_dim);
+        float original_context = float(pc.original_max_position_embeddings);
+        float two_pi = 6.283185307179586;
+        float low =
+            rotary_dim * log(original_context / (pc.beta_fast * two_pi))
+            / (2.0 * log(pc.rotary_emb_base));
+        float high =
+            rotary_dim * log(original_context / (pc.beta_slow * two_pi))
+            / (2.0 * log(pc.rotary_emb_base));
+        if (pc.truncate != 0u) {
+            low = floor(low);
+            high = ceil(high);
+        }
+        low = max(low, 0.0);
+        high = min(high, rotary_dim - 1.0);
+        if (low == high) high += 0.001;
+        float ramp = clamp((float(frequency_index) - low) / (high - low), 0.0, 1.0);
+        inv_frequency *= (1.0 - ramp) + ramp / pc.scaling_factor;
+    }
+    float angle = position * inv_frequency;
+    float c = cos(angle);
+    float s = sin(angle);
+    bool first = pc.interleaved_pairs != 0u
+        ? (rotary_offset % 2u == 0u)
+        : rotary_offset < half_dim;
+    int partner_delta = pc.interleaved_pairs != 0u
+        ? (first ? 1 : -1)
+        : (first ? int(half_dim) : -int(half_dim));
+    uint q_partner_index = uint(int(q_index) + partner_delta);
+
+    float q_partner = grad_q_output[q_partner_index];
+    float q_unscaled = first
+        ? grad_q_output[q_index] * c + q_partner * s
+        : grad_q_output[q_index] * c - q_partner * s;
+    grad_q_input[q_index] = q_unscaled * pc.attention_factor * query_scale;
+    if (col < kv_hidden_size) {
+        uint k_index = row * kv_hidden_size + col;
+        uint k_partner_index = uint(int(k_index) + partner_delta);
+        float k_partner = grad_k_output[k_partner_index];
+        float k_unscaled = first
+            ? grad_k_output[k_index] * c + k_partner * s
+            : grad_k_output[k_index] * c - k_partner * s;
+        grad_k_input[k_index] = k_unscaled * pc.attention_factor;
+    }
+}

@@ -1,0 +1,52 @@
+#version 450
+
+// Correctness-first deterministic top-k selection for DeepSeek Sparse
+// Attention. One invocation ranks one visible key in its query row. Ties are
+// resolved by key index so the selected set is deterministic across drivers.
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer ScoreBuffer { float index_scores[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer SparseMaskBuffer { float sparse_mask[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint top_k;
+    uint query_position_offset;
+    uint causal;
+} pc;
+
+bool visible(uint batch, uint query, uint key) {
+    uint key_row = batch * pc.key_value_seq_len + key;
+    if (key_mask[key_row] <= 0.0) return false;
+    return pc.causal == 0u || key <= pc.query_position_offset + query;
+}
+
+void main() {
+    uint key = gl_GlobalInvocationID.x;
+    uint query = gl_GlobalInvocationID.y;
+    uint batch = gl_GlobalInvocationID.z;
+    if (batch >= pc.batch_size || query >= pc.query_seq_len || key >= pc.key_value_seq_len) {
+        return;
+    }
+
+    uint row = batch * pc.query_seq_len + query;
+    uint index = row * pc.key_value_seq_len + key;
+    if (!visible(batch, query, key)) {
+        sparse_mask[index] = 0.0;
+        return;
+    }
+
+    float score = index_scores[index];
+    uint rank = 0u;
+    for (uint other = 0u; other < pc.key_value_seq_len; ++other) {
+        if (!visible(batch, query, other)) continue;
+        float other_score = index_scores[row * pc.key_value_seq_len + other];
+        if (other_score > score || (other_score == score && other < key)) {
+            rank += 1u;
+        }
+    }
+    sparse_mask[index] = rank < pc.top_k ? 1.0 : 0.0;
+}

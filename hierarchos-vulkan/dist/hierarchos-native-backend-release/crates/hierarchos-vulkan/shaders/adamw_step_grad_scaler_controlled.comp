@@ -1,0 +1,32 @@
+#version 450
+
+// Advance one parameter-local AdamW clock from the same Vulkan-resident
+// GradScaler decision consumed by the range update. The host selects which
+// optimizer slots are active by recording (or omitting) this tiny dispatch;
+// finite/overflow remains a device decision. Keeping the successful-step clock
+// in storage lets every range read the exact bias-correction step without a
+// per-window host push constant.
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) buffer ControlStateBuffer {
+    uint control[];
+};
+layout(set = 0, binding = 1, std430) buffer AdamStepBuffer {
+    uint adam_step[];
+};
+
+void main() {
+    if (control[3] != 0u) {
+        // The global optimizer clock is dispatched before every parameter-local
+        // clock. If it cannot advance, convert the whole optimizer window into
+        // a device-side skip before any AdamW range can observe a wrapped step.
+        // `read_decision` reports the non-zero status at the next telemetry or
+        // checkpoint synchronization boundary.
+        if (adam_step[0] == 0xffffffffu) {
+            control[3] = 0u;
+            control[7] = 3u;
+            return;
+        }
+        adam_step[0] += 1u;
+    }
+}

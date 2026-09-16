@@ -1,0 +1,48 @@
+#version 450
+
+// PyTorch nn.Linear layout: weight is [output_dim, input_dim]. The canonical
+// parameter stays FP32; this shader consumes a packed IEEE-FP16 execution
+// mirror and performs all arithmetic/accumulation in FP32.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { uint weight_packed[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+vec2 load_weight_pair(uint first_index, bool second_active) {
+    vec2 current = unpackHalf2x16(weight_packed[first_index >> 1u]);
+    if ((first_index & 1u) == 0u) {
+        return second_active ? current : vec2(current.x, 0.0);
+    }
+    if (!second_active) {
+        return vec2(current.y, 0.0);
+    }
+    vec2 next = unpackHalf2x16(weight_packed[(first_index >> 1u) + 1u]);
+    return vec2(current.y, next.x);
+}
+
+void main() {
+    uint out_col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || out_col >= pc.output_dim) {
+        return;
+    }
+    float sum = 0.0;
+    uint x_base = row * pc.input_dim;
+    uint w_base = out_col * pc.input_dim;
+    for (uint i = 0u; i < pc.input_dim; i += 2u) {
+        bool second_active = i + 1u < pc.input_dim;
+        vec2 weights = load_weight_pair(w_base + i, second_active);
+        sum = fma(x[x_base + i], weights.x, sum);
+        if (second_active) {
+            sum = fma(x[x_base + i + 1u], weights.y, sum);
+        }
+    }
+    output_values[row * pc.output_dim + out_col] = sum;
+}

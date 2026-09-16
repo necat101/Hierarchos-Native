@@ -1,0 +1,24 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer StackBuffer { float stack_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer SelectedBuffer { float selected_index[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint steps;
+    uint batch;
+    uint width;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.batch || col >= pc.width) {
+        return;
+    }
+    uint step = min(uint(selected_index[row]), pc.steps - 1u);
+    uint source = (step * pc.batch + row) * pc.width + col;
+    output_values[row * pc.width + col] = stack_values[source];
+}

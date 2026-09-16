@@ -1,0 +1,344 @@
+#version 450
+
+#ifndef ROSA_WORKGROUP_SIZE
+#define ROSA_WORKGROUP_SIZE 64
+#endif
+
+#ifndef ROSA_USE_SUBGROUP_REDUCTION
+#define ROSA_USE_SUBGROUP_REDUCTION 0
+#endif
+
+#ifndef ROSA_SINGLE_PACKED_PAIR_PER_LANE
+#define ROSA_SINGLE_PACKED_PAIR_PER_LANE 0
+#endif
+
+#ifndef ROSA_CACHE_HISTORY_STATE
+#define ROSA_CACHE_HISTORY_STATE 0
+#endif
+
+#define ROSA_CACHE_MAX_CONTEXT 512
+#define ROSA_CACHE_MAX_PACKED_PAIRS 256
+
+#if ROSA_USE_SUBGROUP_REDUCTION
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+#endif
+
+// Persistent bounded ROSA predictor with exact incremental suffix-match state.
+//
+// Let match_i[j] be the longest suffix ending at the current token i that also
+// ends at prior position j. It obeys the exact recurrence
+//
+//   match_i[j] = token_i == token_j ? 1 + match_{i-1}[j-1] : 0.
+//
+// Two generations of this state turn the old triangular candidate lattice plus
+// per-candidate token scans into O(C) constant-time comparisons per token. One
+// 64-thread workgroup evaluates those comparisons in parallel. Bounds up to
+// 65535 pack two match lengths into each uint state word; larger experimental
+// bounds retain one uint per match. The winning prediction is still the longest
+// match, with the rightmost prior end position as the deterministic tie-break,
+// so this changes only private state and not ROSA/checkpoint semantics.
+layout(local_size_x = ROSA_WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) buffer HistoryBuffer { uint history[]; };
+layout(set = 0, binding = 1, std430) buffer HistoryLenBuffer { uint history_len[]; };
+layout(set = 0, binding = 2, std430) readonly buffer TokenBuffer { uint token_ids[]; };
+layout(set = 0, binding = 3, std430) buffer MatchStateBuffer { uint match_state[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer PredictionBuffer { uint predictions[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer ValidBuffer { uint valid[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint max_context;
+} pc;
+
+shared uint sequence_len;
+shared uint best_match;
+shared uint best_following;
+shared uint reduction_match[ROSA_WORKGROUP_SIZE];
+shared uint reduction_following[ROSA_WORKGROUP_SIZE];
+#if ROSA_CACHE_HISTORY_STATE
+shared uint history_tile[ROSA_CACHE_MAX_CONTEXT];
+shared uint match_state_tile[ROSA_CACHE_MAX_PACKED_PAIRS];
+#endif
+
+bool uses_packed_match_state() {
+    return pc.max_context <= 65535u;
+}
+
+uint match_generation_stride() {
+    return uses_packed_match_state() ? ((pc.max_context + 1u) >> 1u) : pc.max_context;
+}
+
+bool uses_history_state_cache() {
+#if ROSA_CACHE_HISTORY_STATE
+    return pc.max_context <= ROSA_CACHE_MAX_CONTEXT;
+#else
+    return false;
+#endif
+}
+
+uint load_history(uint index) {
+#if ROSA_CACHE_HISTORY_STATE
+    if (uses_history_state_cache()) {
+        return history_tile[index];
+    }
+#endif
+    return history[index];
+}
+
+uint load_match(uint generation_base, uint index) {
+    if (!uses_packed_match_state()) {
+        return match_state[generation_base + index];
+    }
+#if ROSA_CACHE_HISTORY_STATE
+    if (uses_history_state_cache()) {
+        uint packed = match_state_tile[index >> 1u];
+        return (index & 1u) == 0u ? (packed & 0xffffu) : (packed >> 16u);
+    }
+#endif
+    uint packed = match_state[generation_base + (index >> 1u)];
+    return (index & 1u) == 0u ? (packed & 0xffffu) : (packed >> 16u);
+}
+
+void consider_candidate(
+    uint match_len,
+    uint following,
+    inout uint local_best_match,
+    inout uint local_best_following
+) {
+    if (match_len > local_best_match ||
+        (match_len == local_best_match && following > local_best_following)) {
+        local_best_match = match_len;
+        local_best_following = following;
+    }
+}
+
+void reduce_candidate_winner(uint local_best_match, uint local_best_following) {
+    uint lane = gl_LocalInvocationID.x;
+#if ROSA_USE_SUBGROUP_REDUCTION
+    // Reduce inside the hardware subgroup first. Only subgroup leaders touch
+    // shared memory, then lane zero merges at most WorkGroupSize/SubgroupSize
+    // winners. This preserves the exact lexicographic ROSA ordering while
+    // replacing the legacy log2(workgroup) barrier tree with two barriers.
+    uint subgroup_best_match = subgroupMax(local_best_match);
+    uint subgroup_following_candidate =
+        local_best_match == subgroup_best_match ? local_best_following : 0u;
+    uint subgroup_best_following = subgroupMax(subgroup_following_candidate);
+    if (subgroupElect()) {
+        reduction_match[gl_SubgroupID] = subgroup_best_match;
+        reduction_following[gl_SubgroupID] = subgroup_best_following;
+    }
+    barrier();
+
+    if (lane == 0u) {
+        uint merged_match = 0u;
+        uint merged_following = 0u;
+        for (uint subgroup = 0u; subgroup < gl_NumSubgroups; ++subgroup) {
+            consider_candidate(
+                reduction_match[subgroup],
+                reduction_following[subgroup],
+                merged_match,
+                merged_following
+            );
+        }
+        best_match = merged_match;
+        best_following = merged_following;
+    }
+    barrier();
+#else
+    reduction_match[lane] = local_best_match;
+    reduction_following[lane] = local_best_following;
+    memoryBarrierBuffer();
+    barrier();
+
+    for (uint stride = gl_WorkGroupSize.x >> 1u; stride != 0u; stride >>= 1u) {
+        if (lane < stride) {
+            uint rhs_match = reduction_match[lane + stride];
+            uint rhs_following = reduction_following[lane + stride];
+            uint lhs_match = reduction_match[lane];
+            uint lhs_following = reduction_following[lane];
+            if (rhs_match > lhs_match ||
+                (rhs_match == lhs_match && rhs_following > lhs_following)) {
+                reduction_match[lane] = rhs_match;
+                reduction_following[lane] = rhs_following;
+            }
+        }
+        barrier();
+    }
+
+    if (lane == 0u) {
+        best_match = reduction_match[0];
+        best_following = reduction_following[0];
+    }
+#endif
+}
+
+void process_packed_pair(
+    uint pair,
+    uint current,
+    uint token,
+    uint src_base,
+    uint dst_base,
+    inout uint local_best_match,
+    inout uint local_best_following
+) {
+    uint prior0 = pair << 1u;
+    uint match0 = 0u;
+    if (token == load_history(prior0)) {
+        match0 = 1u;
+        if (prior0 != 0u) {
+            match0 += load_match(src_base, prior0 - 1u);
+        }
+    }
+    consider_candidate(match0, prior0 + 1u, local_best_match, local_best_following);
+
+    uint prior1 = prior0 + 1u;
+    uint match1 = 0u;
+    if (prior1 < current && token == load_history(prior1)) {
+        match1 = 1u + load_match(src_base, prior1 - 1u);
+    }
+    if (prior1 < current) {
+        consider_candidate(match1, prior1 + 1u, local_best_match, local_best_following);
+    }
+    match_state[dst_base + pair] = match0 | (match1 << 16u);
+}
+
+void update_suffix_state(uint current) {
+    if (current == 0u) {
+        return;
+    }
+
+    uint generation_stride = match_generation_stride();
+    uint dst_generation = current & 1u;
+    uint src_generation = dst_generation ^ 1u;
+    uint dst_base = dst_generation * generation_stride;
+    uint src_base = src_generation * generation_stride;
+    uint pair_count = (current + 1u) >> 1u;
+
+#if ROSA_CACHE_HISTORY_STATE
+    if (uses_history_state_cache()) {
+        for (uint index = gl_LocalInvocationID.x;
+             index <= current;
+             index += gl_WorkGroupSize.x) {
+            history_tile[index] = history[index];
+        }
+        for (uint pair = gl_LocalInvocationID.x;
+             pair < pair_count;
+             pair += gl_WorkGroupSize.x) {
+            match_state_tile[pair] = match_state[src_base + pair];
+        }
+        barrier();
+    }
+#endif
+
+    uint token = load_history(current);
+    uint local_best_match = 0u;
+    uint local_best_following = 0u;
+
+    if (uses_packed_match_state()) {
+#if ROSA_SINGLE_PACKED_PAIR_PER_LANE
+        uint pair = gl_LocalInvocationID.x;
+        if (pair < pair_count) {
+            process_packed_pair(
+                pair,
+                current,
+                token,
+                src_base,
+                dst_base,
+                local_best_match,
+                local_best_following
+            );
+        }
+#else
+        for (uint pair = gl_LocalInvocationID.x;
+             pair < pair_count;
+             pair += gl_WorkGroupSize.x) {
+            process_packed_pair(
+                pair,
+                current,
+                token,
+                src_base,
+                dst_base,
+                local_best_match,
+                local_best_following
+            );
+        }
+#endif
+    } else {
+        for (uint prior_end = gl_LocalInvocationID.x;
+             prior_end < current;
+             prior_end += gl_WorkGroupSize.x) {
+            uint match_len = 0u;
+            if (token == load_history(prior_end)) {
+                match_len = 1u;
+                if (prior_end != 0u) {
+                    match_len += match_state[src_base + prior_end - 1u];
+                }
+            }
+            match_state[dst_base + prior_end] = match_len;
+            consider_candidate(
+                match_len,
+                prior_end + 1u,
+                local_best_match,
+                local_best_following
+            );
+        }
+    }
+
+    // Each invocation keeps its winner in registers while producing the next
+    // recurrence generation. Reduce those 64 winners in shared memory instead
+    // of rereading the freshly written device-state row and serializing through
+    // global atomics. The comparison is lexicographic (match length, then
+    // rightmost following position), exactly matching coherent-v9 ROSA.
+    reduce_candidate_winner(local_best_match, local_best_following);
+}
+
+void main() {
+    if (gl_WorkGroupID.x != 0u || pc.max_context == 0u) {
+        return;
+    }
+
+    if (gl_LocalInvocationID.x == 0u) {
+        sequence_len = history_len[0];
+        if (sequence_len > pc.max_context) {
+            sequence_len = 0u;
+        }
+    }
+    barrier();
+
+    for (uint row = 0u; row < pc.rows; ++row) {
+        if (gl_LocalInvocationID.x == 0u) {
+            // Bounded ROSA uses deterministic fixed-size segments. The token
+            // after a full segment begins a fresh segment.
+            if (sequence_len >= pc.max_context) {
+                sequence_len = 0u;
+            }
+            history[sequence_len] = token_ids[row];
+            predictions[row] = 0u;
+            valid[row] = 0u;
+            best_match = 0u;
+            best_following = 0u;
+        }
+        memoryBarrierBuffer();
+        barrier();
+
+        uint current = sequence_len;
+        update_suffix_state(current);
+        barrier();
+
+        if (gl_LocalInvocationID.x == 0u) {
+            if (best_match != 0u) {
+                predictions[row] = history[best_following];
+                valid[row] = 1u;
+            }
+            sequence_len = current + 1u;
+        }
+        memoryBarrierBuffer();
+        barrier();
+    }
+
+    if (gl_LocalInvocationID.x == 0u) {
+        history_len[0] = sequence_len;
+    }
+}

@@ -1,0 +1,115 @@
+#version 450
+
+// Full coherent-v9 channel-mix forward fusion for widths up to 512. The
+// existing backward graph still observes normalized/mixed/key/ffn tapes, while
+// the final PyTorch-layout value projection consumes a shared-memory copy of
+// the ffn row and folds in the residual x without another dispatch.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BiasBuffer { float bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MixBuffer { float mix_coeff[]; };
+layout(set = 0, binding = 5, std430) readonly buffer KeyWeightBuffer { float key_weight[]; };
+layout(set = 0, binding = 6, std430) readonly buffer DeepEmbedBuffer { float deepembed[]; };
+layout(set = 0, binding = 7, std430) readonly buffer ValueWeightBuffer { float value_weight[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer NormalizedBuffer { float normalized_values[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer MixedBuffer { float mixed[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer KeyBuffer { float key_values[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer FfnBuffer { float ffn[]; };
+layout(set = 0, binding = 14, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint width;
+    uint hidden_width;
+    float eps;
+    float key_clamp;
+    float deepembed_clamp;
+} pc;
+
+shared float mixed_shared[512];
+shared float ffn_shared[2048];
+
+float clamp_preserve_nonfinite(float value, float limit) {
+    if (limit <= 0.0 || isnan(value) || isinf(value)) {
+        return value;
+    }
+    return clamp(value, -limit, limit);
+}
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    uint lane = gl_LocalInvocationID.x;
+    uint base = row * pc.width;
+
+    if (lane == 0u) {
+        float mean = 0.0;
+        for (uint col = 0; col < pc.width; ++col) {
+            mean += x[base + col];
+        }
+        mean /= float(pc.width);
+
+        float variance = 0.0;
+        for (uint col = 0; col < pc.width; ++col) {
+            float centered = x[base + col] - mean;
+            variance = fma(centered, centered, variance);
+        }
+        variance /= float(pc.width);
+        float rstd = inversesqrt(variance + pc.eps);
+        mean_values[row] = mean;
+        rstd_values[row] = rstd;
+
+        for (uint col = 0; col < pc.width; ++col) {
+            uint index = base + col;
+            float normalized = (x[index] - mean) * rstd;
+            float value = fma(normalized, weight[col], bias[col]);
+            float mixed_value = fma(previous[index] - value, mix_coeff[col], value);
+            normalized_values[index] = value;
+            mixed[index] = mixed_value;
+            mixed_shared[col] = mixed_value;
+        }
+    }
+
+    barrier();
+
+    uint hidden_base = row * pc.hidden_width;
+    for (uint out_col = lane; out_col < pc.hidden_width; out_col += gl_WorkGroupSize.x) {
+        float sum = 0.0;
+        uint w_base = out_col * pc.width;
+        for (uint col = 0; col < pc.width; ++col) {
+            sum = fma(mixed_shared[col], key_weight[w_base + col], sum);
+        }
+
+        uint hidden_index = hidden_base + out_col;
+        key_values[hidden_index] = sum;
+        float key = clamp_preserve_nonfinite(sum, pc.key_clamp);
+        float activated = max(key, 0.0);
+        float deep = clamp_preserve_nonfinite(deepembed[hidden_index], pc.deepembed_clamp);
+        float value = activated * activated * deep;
+        if (pc.key_clamp > 0.0 && pc.deepembed_clamp > 0.0 && !isnan(value) && !isinf(value)) {
+            float limit = pc.key_clamp * pc.key_clamp * pc.deepembed_clamp;
+            value = clamp(value, -limit, limit);
+        }
+        ffn[hidden_index] = value;
+        ffn_shared[out_col] = value;
+    }
+
+    barrier();
+
+    for (uint out_col = lane; out_col < pc.width; out_col += gl_WorkGroupSize.x) {
+        float sum = 0.0;
+        uint w_base = out_col * pc.hidden_width;
+        for (uint col = 0; col < pc.hidden_width; ++col) {
+            sum = fma(ffn_shared[col], value_weight[w_base + col], sum);
+        }
+        uint output_index = base + out_col;
+        output_values[output_index] = x[output_index] + sum;
+    }
+}

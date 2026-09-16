@@ -1,0 +1,43 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradPreviousTmBuffer { float grad_previous_tm[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradPreviousCmBuffer { float grad_previous_cm[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradPreviousVFirstBuffer { float grad_previous_v_first[]; };
+layout(set = 0, binding = 3, std430) readonly buffer GradMatrixStateBuffer { float grad_matrix_state[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradPackedStateBuffer { float grad_packed_state[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+    uint matrix_offset;
+    float state_clamp;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint vector_len = pc.batch * pc.width;
+    uint state_size = pc.matrix_offset + pc.head_size;
+    uint packed_len = vector_len * state_size;
+    if (index >= packed_len) {
+        return;
+    }
+    uint vector_index = index / state_size;
+    uint slot = index - vector_index * state_size;
+    if (slot == 0u) {
+        grad_packed_state[index] = grad_previous_tm[vector_index];
+    } else if (slot == 1u) {
+        grad_packed_state[index] = grad_previous_cm[vector_index];
+    } else if (slot == 2u) {
+        grad_packed_state[index] = grad_previous_v_first[vector_index];
+    } else if (pc.matrix_offset == 4u && slot == 3u) {
+        // The previous explicit block output is a readout-only state slot; it
+        // is not consumed by the next layer-0 RWKV transition.
+        grad_packed_state[index] = 0.0;
+    } else {
+        uint column = slot - pc.matrix_offset;
+        grad_packed_state[index] = grad_matrix_state[vector_index * pc.head_size + column];
+    }
+}

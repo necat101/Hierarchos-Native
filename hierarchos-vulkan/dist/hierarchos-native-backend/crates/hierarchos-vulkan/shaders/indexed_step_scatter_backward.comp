@@ -1,0 +1,28 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradSelectedBuffer { float grad_selected[]; };
+layout(set = 0, binding = 1, std430) readonly buffer SelectedBuffer { float selected_index[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradStackBuffer { float grad_stack[]; };
+
+layout(push_constant) uniform Push {
+    uint steps;
+    uint batch;
+    uint width;
+} pc;
+
+void main() {
+    uint flat_index = gl_GlobalInvocationID.x;
+    uint total = pc.steps * pc.batch * pc.width;
+    if (flat_index >= total) {
+        return;
+    }
+    uint col = flat_index % pc.width;
+    uint row_step = flat_index / pc.width;
+    uint row = row_step % pc.batch;
+    uint step = row_step / pc.batch;
+    grad_stack[flat_index] = step == uint(selected_index[row])
+        ? grad_selected[row * pc.width + col]
+        : 0.0;
+}

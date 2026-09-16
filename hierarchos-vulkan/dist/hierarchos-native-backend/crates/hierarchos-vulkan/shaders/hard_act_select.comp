@@ -1,0 +1,51 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LogitBuffer { float logits[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer ProbabilityBuffer { float probabilities[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer SelectedBuffer { float selected_index[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer ExecutedBuffer { float executed_steps[]; };
+
+layout(push_constant) uniform Push {
+    uint steps;
+    uint batch;
+    uint min_steps;
+    float threshold;
+    float halt_logit_clamp;
+} pc;
+
+float stable_sigmoid(float value) {
+    if (value >= 0.0) {
+        return 1.0 / (1.0 + exp(-value));
+    }
+    float e = exp(value);
+    return e / (1.0 + e);
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.batch) {
+        return;
+    }
+
+    float survival = 1.0;
+    uint selected = pc.steps - 1u;
+    bool found = false;
+    for (uint step = 0u; step < pc.steps; ++step) {
+        uint index = step * pc.batch + row;
+        float raw = logits[index];
+        float bounded = (isnan(raw) || isinf(raw))
+            ? raw
+            : clamp(raw, -pc.halt_logit_clamp, pc.halt_logit_clamp);
+        float probability = clamp(stable_sigmoid(bounded), 1.0e-6, 1.0 - 1.0e-6);
+        probabilities[index] = probability;
+        survival *= 1.0 - probability;
+        if (!found && step + 1u >= pc.min_steps && 1.0 - survival >= pc.threshold) {
+            selected = step;
+            found = true;
+        }
+    }
+    selected_index[row] = float(selected);
+    executed_steps[row] = float(selected + 1u);
+}

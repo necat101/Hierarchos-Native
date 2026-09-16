@@ -1,0 +1,26 @@
+#version 450
+
+// Backward of mean over Qwen4-Exp residual streams. Every stream receives the
+// ordinary-hidden gradient divided by hc_count.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_count;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint hyper_width = pc.hidden_size * pc.hc_count;
+    uint len = pc.rows * hyper_width;
+    if (index >= len) return;
+
+    uint row = index / hyper_width;
+    uint within_row = index - row * hyper_width;
+    uint hidden = within_row % pc.hidden_size;
+    grad_input[index] = grad_output[row * pc.hidden_size + hidden] / float(pc.hc_count);
+}

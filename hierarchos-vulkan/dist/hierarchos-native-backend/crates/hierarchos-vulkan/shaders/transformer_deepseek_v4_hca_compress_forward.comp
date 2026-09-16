@@ -1,0 +1,47 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer KvBuffer { float kv_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GateBuffer { float gate_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer PositionBiasBuffer { float position_bias[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint head_dim;
+    uint compress_rate;
+} pc;
+
+void main() {
+    if (pc.compress_rate == 0 || pc.head_dim == 0 || pc.seq_len == 0) return;
+    uint windows_per_batch = pc.seq_len / pc.compress_rate;
+    uint index = gl_GlobalInvocationID.x;
+    uint output_len = pc.batch_size * windows_per_batch * pc.head_dim;
+    if (index >= output_len) return;
+
+    uint output_row = index / pc.head_dim;
+    uint channel = index % pc.head_dim;
+    uint batch = output_row / windows_per_batch;
+    uint window = output_row % windows_per_batch;
+    uint first_row = batch * pc.seq_len + window * pc.compress_rate;
+
+    float max_logit = -3.402823466e+38;
+    for (uint offset = 0; offset < pc.compress_rate; ++offset) {
+        uint input_index = (first_row + offset) * pc.head_dim + channel;
+        uint bias_index = offset * pc.head_dim + channel;
+        max_logit = max(max_logit, gate_values[input_index] + position_bias[bias_index]);
+    }
+
+    float denominator = 0.0;
+    float weighted_sum = 0.0;
+    for (uint offset = 0; offset < pc.compress_rate; ++offset) {
+        uint input_index = (first_row + offset) * pc.head_dim + channel;
+        uint bias_index = offset * pc.head_dim + channel;
+        float weight = exp(gate_values[input_index] + position_bias[bias_index] - max_logit);
+        denominator += weight;
+        weighted_sum += weight * kv_values[input_index];
+    }
+    output_values[index] = weighted_sum / denominator;
+}

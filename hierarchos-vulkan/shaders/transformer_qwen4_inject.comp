@@ -1,0 +1,31 @@
+#version 450
+
+// HF Qwen4-Exp branch injection:
+// hyper_out[row, stream, hidden] = hyper_in[row, stream, hidden]
+//                                  + gate[row, stream] * branch[row, hidden].
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer HyperInputBuffer { float hyper_input[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GateBuffer { float gate[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BranchBuffer { float branch[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_count;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint hyper_width = pc.hidden_size * pc.hc_count;
+    uint len = pc.rows * hyper_width;
+    if (index >= len) return;
+
+    uint row = index / hyper_width;
+    uint within_row = index - row * hyper_width;
+    uint stream = within_row / pc.hidden_size;
+    uint hidden = within_row - stream * pc.hidden_size;
+    output_values[index] = hyper_input[index]
+        + gate[row * pc.hc_count + stream] * branch[row * pc.hidden_size + hidden];
+}

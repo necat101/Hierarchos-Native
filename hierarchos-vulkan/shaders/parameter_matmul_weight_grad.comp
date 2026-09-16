@@ -1,0 +1,77 @@
+#version 450
+
+#ifndef HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#define HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE 0
+#endif
+
+#ifndef HIERARCHOS_FP16_DW_WIDEN_PRODUCT
+#define HIERARCHOS_FP16_DW_WIDEN_PRODUCT 0
+#endif
+
+#ifndef HIERARCHOS_FP16_DW_COMPENSATED_OPERANDS
+#define HIERARCHOS_FP16_DW_COMPENSATED_OPERANDS 0
+#endif
+
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#endif
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradWeightBuffer { float grad_weight[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+float accumulate_backward_product(float sum, float activation, float grad) {
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#if HIERARCHOS_FP16_DW_COMPENSATED_OPERANDS
+    // Two-term half decomposition. The high halves carry the ordinary fast
+    // path. A second half captures most of each FP32->FP16 rounding residual.
+    // Three native half products reconstruct the dominant terms while the
+    // canonical parameter-gradient accumulator remains FP32. The omitted
+    // residual*residual term is second order in the half-rounding error.
+    float16_t activation_hi = float16_t(activation);
+    float16_t grad_hi = float16_t(grad);
+    float16_t activation_lo = float16_t(activation - float(activation_hi));
+    float16_t grad_lo = float16_t(grad - float(grad_hi));
+    float product_hi = float(activation_hi * grad_hi);
+    float product_activation_correction = float(activation_lo * grad_hi);
+    float product_grad_correction = float(activation_hi * grad_lo);
+    return sum + product_hi + product_activation_correction + product_grad_correction;
+#elif HIERARCHOS_FP16_DW_WIDEN_PRODUCT
+    // Keep the execution contract's FP16 operand quantization, but avoid a
+    // second rounding boundary on the product itself. This is the first
+    // quantization-stable dW experiment: two half-rounded operands are widened
+    // before multiplication and accumulated in the canonical FP32 destination.
+    return fma(float(float16_t(activation)), float(float16_t(grad)), sum);
+#else
+    return sum + float(float16_t(activation) * float16_t(grad));
+#endif
+#else
+    return fma(activation, grad, sum);
+#endif
+}
+
+void main() {
+    uint out_col = gl_GlobalInvocationID.x;
+    uint in_row = gl_GlobalInvocationID.y;
+    if (in_row >= pc.input_dim || out_col >= pc.output_dim) {
+        return;
+    }
+
+    float sum = 0.0;
+    for (uint row = 0; row < pc.rows; ++row) {
+        sum = accumulate_backward_product(
+            sum,
+            x[row * pc.input_dim + in_row],
+            grad_output[row * pc.output_dim + out_col]
+        );
+    }
+    grad_weight[in_row * pc.output_dim + out_col] = sum;
+}

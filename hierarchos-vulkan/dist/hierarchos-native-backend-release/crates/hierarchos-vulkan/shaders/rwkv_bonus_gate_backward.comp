@@ -1,0 +1,58 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradGatedBuffer { float grad_gated[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormedBuffer { float normed[]; };
+layout(set = 0, binding = 2, std430) readonly buffer RBuffer { float r[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KBuffer { float k[]; };
+layout(set = 0, binding = 4, std430) readonly buffer VBuffer { float v[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GBuffer { float g[]; };
+layout(set = 0, binding = 6, std430) readonly buffer RkBuffer { float r_k[]; };
+layout(set = 0, binding = 7, std430) readonly buffer BonusBuffer { float bonus_scalar[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer GradNormedBuffer { float grad_normed[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer GradRBuffer { float grad_r[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer GradKBuffer { float grad_k[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer GradVBuffer { float grad_v[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer GradGBuffer { float grad_g[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer GradRkPartialBuffer { float grad_r_k_partial[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+} pc;
+
+void main() {
+    uint group = gl_GlobalInvocationID.x;
+    uint heads = pc.width / pc.head_size;
+    uint group_count = pc.batch * heads;
+    if (group >= group_count) {
+        return;
+    }
+    uint batch_index = group / heads;
+    uint head = group % heads;
+    uint base = batch_index * pc.width + head * pc.head_size;
+    uint channel_base = head * pc.head_size;
+    float bonus = bonus_scalar[group];
+    float grad_bonus = 0.0;
+
+    for (uint i = 0; i < pc.head_size; ++i) {
+        uint index = base + i;
+        float d = grad_gated[index];
+        float gated_grad = d * g[index];
+        grad_normed[index] = gated_grad;
+        grad_g[index] = d * (normed[index] + bonus * v[index]);
+        grad_v[index] = gated_grad * bonus;
+        grad_bonus = fma(gated_grad, v[index], grad_bonus);
+    }
+
+    for (uint i = 0; i < pc.head_size; ++i) {
+        uint index = base + i;
+        uint channel = channel_base + i;
+        float rk = r_k[channel];
+        grad_r[index] = grad_bonus * k[index] * rk;
+        grad_k[index] = grad_bonus * r[index] * rk;
+        grad_r_k_partial[index] = grad_bonus * r[index] * k[index];
+    }
+}

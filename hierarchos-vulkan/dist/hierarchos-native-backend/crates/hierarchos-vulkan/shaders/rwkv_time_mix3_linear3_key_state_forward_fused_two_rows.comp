@@ -1,0 +1,161 @@
+#version 450
+
+// Width/head <= 32 specialization. One wave64 workgroup owns two independent
+// (batch, head) rows, giving each row one 32-lane half-wave. Scalar dot-product
+// and recurrent accumulation order remains identical to the one-row kernel.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x_norm[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 2, std430) readonly buffer MixRBuffer { float mix_r[]; };
+layout(set = 0, binding = 3, std430) readonly buffer MixKBuffer { float mix_k[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MixVBuffer { float mix_v[]; };
+layout(set = 0, binding = 5, std430) readonly buffer RWeightBuffer { float wr[]; };
+layout(set = 0, binding = 6, std430) readonly buffer KWeightBuffer { float wk[]; };
+layout(set = 0, binding = 7, std430) readonly buffer VWeightBuffer { float wv[]; };
+layout(set = 0, binding = 8, std430) readonly buffer InContextBuffer { float a[]; };
+layout(set = 0, binding = 9, std430) readonly buffer KeyNormScaleBuffer { float k_k[]; };
+layout(set = 0, binding = 10, std430) readonly buffer KeyContextScaleBuffer { float k_a[]; };
+layout(set = 0, binding = 11, std430) readonly buffer StateBuffer { float state_values[]; };
+layout(set = 0, binding = 12, std430) readonly buffer DecayLogBuffer { float w[]; };
+
+layout(set = 0, binding = 13, std430) writeonly buffer MixedRBuffer { float xr[]; };
+layout(set = 0, binding = 14, std430) writeonly buffer MixedKBuffer { float xk[]; };
+layout(set = 0, binding = 15, std430) writeonly buffer MixedVBuffer { float xv[]; };
+layout(set = 0, binding = 16, std430) writeonly buffer ReceptanceBuffer { float r[]; };
+layout(set = 0, binding = 17, std430) writeonly buffer RawKeyBuffer { float raw_k[]; };
+layout(set = 0, binding = 18, std430) writeonly buffer ValueBuffer { float v[]; };
+layout(set = 0, binding = 19, std430) writeonly buffer ScaledKeyBuffer { float scaled_k[]; };
+layout(set = 0, binding = 20, std430) writeonly buffer NormalizedKeyBuffer { float kk[]; };
+layout(set = 0, binding = 21, std430) writeonly buffer NewStateBuffer { float new_state[]; };
+layout(set = 0, binding = 22, std430) writeonly buffer TimeMixBuffer { float tmix[]; };
+layout(set = 0, binding = 23, std430) writeonly buffer SavedSaBuffer { float saved_sa[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+} pc;
+
+shared float r_shared[2][32];
+shared float raw_k_shared[2][32];
+shared float v_shared[2][32];
+shared float scaled_k_shared[2][32];
+shared float kk_shared[2][32];
+shared float mixed_r_shared[2][32];
+shared float mixed_k_shared[2][32];
+shared float mixed_v_shared[2][32];
+
+void main() {
+    uint lane = gl_LocalInvocationID.x;
+    uint row_slot = lane >> 5u;
+    uint row_lane = lane & 31u;
+    uint heads = pc.width / pc.head_size;
+    uint linear_head = gl_WorkGroupID.x * 2u + row_slot;
+    uint total_heads = pc.batch * heads;
+    bool row_active = linear_head < total_heads;
+
+    uint batch_index = row_active ? linear_head / heads : 0u;
+    uint head = row_active ? linear_head - batch_index * heads : 0u;
+    uint batch_base = batch_index * pc.width;
+    uint head_channel_base = head * pc.head_size;
+    bool lane_active = row_active && row_lane < pc.head_size;
+
+    if (row_active && row_lane < pc.width) {
+        uint input_index = batch_base + row_lane;
+        float x = x_norm[input_index];
+        float delta = previous[input_index] - x;
+        float mixed_r = fma(delta, mix_r[row_lane], x);
+        float mixed_k = fma(delta, mix_k[row_lane], x);
+        float mixed_v = fma(delta, mix_v[row_lane], x);
+        mixed_r_shared[row_slot][row_lane] = mixed_r;
+        mixed_k_shared[row_slot][row_lane] = mixed_k;
+        mixed_v_shared[row_slot][row_lane] = mixed_v;
+        if (head == 0u) {
+            xr[input_index] = mixed_r;
+            xk[input_index] = mixed_k;
+            xv[input_index] = mixed_v;
+        }
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (lane_active) {
+        uint out_channel = head_channel_base + row_lane;
+        uint weight_base = out_channel * pc.width;
+        float r_sum = 0.0;
+        float k_sum = 0.0;
+        float v_sum = 0.0;
+        for (uint i = 0u; i < pc.width; ++i) {
+            uint weight_index = weight_base + i;
+            r_sum = fma(mixed_r_shared[row_slot][i], wr[weight_index], r_sum);
+            k_sum = fma(mixed_k_shared[row_slot][i], wk[weight_index], k_sum);
+            v_sum = fma(mixed_v_shared[row_slot][i], wv[weight_index], v_sum);
+        }
+        uint output_index = batch_base + out_channel;
+        r[output_index] = r_sum;
+        raw_k[output_index] = k_sum;
+        v[output_index] = v_sum;
+        r_shared[row_slot][row_lane] = r_sum;
+        raw_k_shared[row_slot][row_lane] = k_sum;
+        v_shared[row_slot][row_lane] = v_sum;
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (row_active && row_lane == 0u) {
+        float norm_sq = 0.0;
+        for (uint col = 0u; col < pc.head_size; ++col) {
+            uint channel = head_channel_base + col;
+            float z = raw_k_shared[row_slot][col] * k_k[channel];
+            norm_sq = fma(z, z, norm_sq);
+        }
+        float denom = max(sqrt(norm_sq), 1.0e-12);
+        for (uint col = 0u; col < pc.head_size; ++col) {
+            uint index = batch_base + head_channel_base + col;
+            uint channel = head_channel_base + col;
+            float raw = raw_k_shared[row_slot][col];
+            float normalized = raw * k_k[channel] / denom;
+            float scale = 1.0 + (a[index] - 1.0) * k_a[channel];
+            float scaled = raw * scale;
+            kk[index] = normalized;
+            scaled_k[index] = scaled;
+            kk_shared[row_slot][col] = normalized;
+            scaled_k_shared[row_slot][col] = scaled;
+        }
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (lane_active) {
+        uint linear_row = batch_base + head_channel_base + row_lane;
+        uint matrix_head_base = linear_head * pc.head_size * pc.head_size;
+        uint matrix_row_base = matrix_head_base + row_lane * pc.head_size;
+        float sa = 0.0;
+        for (uint col = 0u; col < pc.head_size; ++col) {
+            sa = fma(state_values[matrix_row_base + col], -kk_shared[row_slot][col], sa);
+        }
+        saved_sa[linear_row] = sa;
+
+        float row_tmix = 0.0;
+        float value_row = v_shared[row_slot][row_lane];
+        for (uint col = 0u; col < pc.head_size; ++col) {
+            uint channel_col = batch_base + head_channel_base + col;
+            uint matrix_index = matrix_row_base + col;
+            float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
+            ? w[channel_col]
+            : clamp(w[channel_col], -60.0, 30.0);
+            float decay = exp(-exp(bounded_w));
+            float b = kk_shared[row_slot][col] * a[channel_col];
+            float updated = state_values[matrix_index] * decay
+                + sa * b
+                + value_row * scaled_k_shared[row_slot][col];
+            new_state[matrix_index] = updated;
+            row_tmix = fma(updated, r_shared[row_slot][col], row_tmix);
+        }
+        tmix[linear_row] = row_tmix;
+    }
+}

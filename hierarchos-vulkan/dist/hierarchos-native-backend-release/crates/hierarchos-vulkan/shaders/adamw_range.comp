@@ -1,0 +1,42 @@
+#version 450
+
+// Range-addressed AdamW for canonical FP32 parameters and moments. This is the
+// wavefront companion to adamw.comp: callers may dispatch one already-retired
+// state chunk while replica DMA continues reading later chunks from the same
+// optimizer generation.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) buffer ParameterBuffer { float parameter[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradientBuffer { float gradient[]; };
+layout(set = 0, binding = 2, std430) buffer ExpAvgBuffer { float exp_avg[]; };
+layout(set = 0, binding = 3, std430) buffer ExpAvgSqBuffer { float exp_avg_sq[]; };
+
+layout(push_constant) uniform Push {
+    uint offset;
+    uint len;
+    uint step;
+    float lr;
+    float beta1;
+    float beta2;
+    float eps;
+    float weight_decay;
+} pc;
+
+void main() {
+    uint local_i = gl_GlobalInvocationID.x;
+    if (local_i >= pc.len) {
+        return;
+    }
+    uint i = pc.offset + local_i;
+    float g = gradient[i];
+    float m = pc.beta1 * exp_avg[i] + (1.0 - pc.beta1) * g;
+    float v = pc.beta2 * exp_avg_sq[i] + (1.0 - pc.beta2) * g * g;
+    exp_avg[i] = m;
+    exp_avg_sq[i] = v;
+
+    float bias_correction1 = 1.0 - pow(pc.beta1, float(pc.step));
+    float bias_correction2 = 1.0 - pow(pc.beta2, float(pc.step));
+    float denom = sqrt(v / bias_correction2) + pc.eps;
+    float decayed = parameter[i] * (1.0 - pc.lr * pc.weight_decay);
+    parameter[i] = decayed - pc.lr * (m / bias_correction1) / denom;
+}

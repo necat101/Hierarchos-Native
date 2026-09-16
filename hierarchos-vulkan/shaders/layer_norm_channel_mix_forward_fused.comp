@@ -1,0 +1,54 @@
+#version 450
+
+// Channel-mix-specific fusion of ln2(x) and the following interpolation.
+// The normalized activation plus mean/rstd tape are still materialized exactly
+// as before for backward; only the intermediate dispatch boundary disappears.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BiasBuffer { float bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MixBuffer { float mix_coeff[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer NormalizedBuffer { float normalized_values[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer MixedBuffer { float mixed[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    float eps;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+
+    uint base = row * pc.dim;
+    float mean = 0.0;
+    for (uint col = 0; col < pc.dim; ++col) {
+        mean += x[base + col];
+    }
+    mean /= float(pc.dim);
+
+    float variance = 0.0;
+    for (uint col = 0; col < pc.dim; ++col) {
+        float centered = x[base + col] - mean;
+        variance = fma(centered, centered, variance);
+    }
+    variance /= float(pc.dim);
+    float rstd = inversesqrt(variance + pc.eps);
+    mean_values[row] = mean;
+    rstd_values[row] = rstd;
+
+    for (uint col = 0; col < pc.dim; ++col) {
+        uint index = base + col;
+        float normalized = (x[index] - mean) * rstd;
+        float value = fma(normalized, weight[col], bias[col]);
+        normalized_values[index] = value;
+        mixed[index] = fma(previous[index] - value, mix_coeff[col], value);
+    }
+}

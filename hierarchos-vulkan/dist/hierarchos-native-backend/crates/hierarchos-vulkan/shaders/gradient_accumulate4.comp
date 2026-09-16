@@ -1,0 +1,53 @@
+#version 450
+
+// Batch four independent scratch-gradient accumulations into one compact 1D
+// dispatch. Workgroups are linearized by each tensor's own required group
+// count, avoiding the wasted rectangular occupancy of a 2D max-length launch.
+// This removes descriptor/pipeline/dispatch fanout without changing arithmetic
+// order within any individual parameter accumulator.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) buffer Accum0Buffer { float accum0[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Grad0Buffer { float grad0[]; };
+layout(set = 0, binding = 2, std430) buffer Accum1Buffer { float accum1[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Grad1Buffer { float grad1[]; };
+layout(set = 0, binding = 4, std430) buffer Accum2Buffer { float accum2[]; };
+layout(set = 0, binding = 5, std430) readonly buffer Grad2Buffer { float grad2[]; };
+layout(set = 0, binding = 6, std430) buffer Accum3Buffer { float accum3[]; };
+layout(set = 0, binding = 7, std430) readonly buffer Grad3Buffer { float grad3[]; };
+
+layout(push_constant) uniform Push {
+    uint len0;
+    uint len1;
+    uint len2;
+    uint len3;
+} pc;
+
+void main() {
+    uint group = gl_WorkGroupID.x;
+    uint groups0 = (pc.len0 + 255u) / 256u;
+    uint groups1 = (pc.len1 + 255u) / 256u;
+    uint groups2 = (pc.len2 + 255u) / 256u;
+    uint lane = gl_LocalInvocationID.x;
+
+    if (group < groups0) {
+        uint index = group * 256u + lane;
+        if (index < pc.len0) accum0[index] += grad0[index];
+        return;
+    }
+    group -= groups0;
+    if (group < groups1) {
+        uint index = group * 256u + lane;
+        if (index < pc.len1) accum1[index] += grad1[index];
+        return;
+    }
+    group -= groups1;
+    if (group < groups2) {
+        uint index = group * 256u + lane;
+        if (index < pc.len2) accum2[index] += grad2[index];
+        return;
+    }
+    group -= groups2;
+    uint index = group * 256u + lane;
+    if (index < pc.len3) accum3[index] += grad3[index];
+}

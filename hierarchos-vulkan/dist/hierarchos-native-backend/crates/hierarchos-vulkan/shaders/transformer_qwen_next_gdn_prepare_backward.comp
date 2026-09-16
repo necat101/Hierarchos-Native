@@ -1,0 +1,57 @@
+#version 450
+
+// Inverse layout transform for Qwen3-Next's grouped fused projections.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradPackedQkvBuffer { float grad_packed_qkv[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradZBuffer { float grad_z[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradBBuffer { float grad_b[]; };
+layout(set = 0, binding = 3, std430) readonly buffer GradABuffer { float grad_a[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradQkvzBuffer { float grad_qkvz[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradBaBuffer { float grad_ba[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint num_key_heads;
+    uint num_value_heads;
+    uint key_head_dim;
+    uint value_head_dim;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint ratio = pc.num_value_heads / pc.num_key_heads;
+    uint key_dim = pc.num_key_heads * pc.key_head_dim;
+    uint value_dim = pc.num_value_heads * pc.value_head_dim;
+    uint qkvz_width = key_dim * 2u + value_dim * 2u;
+    uint ba_width = pc.num_value_heads * 2u;
+    uint group_qkvz_width = pc.key_head_dim * 2u + ratio * pc.value_head_dim * 2u;
+    uint group_ba_width = ratio * 2u;
+    uint packed_width = key_dim * 2u + value_dim;
+
+    for (uint kh = 0u; kh < pc.num_key_heads; ++kh) {
+        uint dst = row * qkvz_width + kh * group_qkvz_width;
+        uint q_src = row * packed_width + kh * pc.key_head_dim;
+        uint k_src = row * packed_width + key_dim + kh * pc.key_head_dim;
+        for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+            grad_qkvz[dst + kd] = grad_packed_qkv[q_src + kd];
+            grad_qkvz[dst + pc.key_head_dim + kd] = grad_packed_qkv[k_src + kd];
+        }
+        uint value_dst = dst + pc.key_head_dim * 2u;
+        uint z_dst = value_dst + ratio * pc.value_head_dim;
+        uint ba_dst = row * ba_width + kh * group_ba_width;
+        for (uint r = 0u; r < ratio; ++r) {
+            uint vh = kh * ratio + r;
+            uint v_src = row * packed_width + key_dim * 2u + vh * pc.value_head_dim;
+            uint z_src = row * value_dim + vh * pc.value_head_dim;
+            for (uint vd = 0u; vd < pc.value_head_dim; ++vd) {
+                grad_qkvz[value_dst + r * pc.value_head_dim + vd] = grad_packed_qkv[v_src + vd];
+                grad_qkvz[z_dst + r * pc.value_head_dim + vd] = grad_z[z_src + vd];
+            }
+            uint scalar = row * pc.num_value_heads + vh;
+            grad_ba[ba_dst + r] = grad_b[scalar];
+            grad_ba[ba_dst + ratio + r] = grad_a[scalar];
+        }
+    }
+}

@@ -1,0 +1,55 @@
+#version 450
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RosaFeatureBuffer { float rosa_feature[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RouterBuffer { float router[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ValidBuffer { uint valid[]; };
+layout(set = 0, binding = 3, std430) readonly buffer GateLogitBuffer { float gate_logit[]; };
+layout(set = 0, binding = 4, std430) readonly buffer GradTokenBuffer { float grad_token[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradRosaFeatureBuffer { float grad_rosa_feature[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer GradRouterBuffer { float grad_router[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer GradGateContributionBuffer { float grad_gate_contribution[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    float gate_floor;
+} pc;
+
+float sigmoid_stable(float x) {
+    if (!isnan(x) && !isinf(x)) {
+        x = clamp(x, -50.0, 50.0);
+    }
+    return 1.0 / (1.0 + exp(-x));
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    bool is_valid = valid[row] != 0u;
+    float gate_pre = gate_logit[0] + router[row];
+    float sigmoid_gate = sigmoid_stable(gate_pre);
+    float gate = pc.gate_floor + (1.0 - pc.gate_floor) * sigmoid_gate;
+    float grad_gate = 0.0;
+    uint base = row * pc.dim;
+    for (uint d = 0u; d < pc.dim; ++d) {
+        float upstream = grad_token[base + d];
+        float feature = rosa_feature[base + d];
+        grad_rosa_feature[base + d] = is_valid ? upstream * gate : 0.0;
+        if (is_valid) {
+            grad_gate += upstream * feature;
+        }
+    }
+    // `_finite_clamp` takes an identity branch for NaN/Inf. The following
+    // sigmoid derivative still turns +/-Inf into zero and propagates NaN.
+    float clamp_grad = (isnan(gate_pre) || isinf(gate_pre)
+        || (gate_pre >= -50.0 && gate_pre <= 50.0)) ? 1.0 : 0.0;
+    float grad_logit = grad_gate * (1.0 - pc.gate_floor)
+        * sigmoid_gate * (1.0 - sigmoid_gate);
+    grad_logit *= clamp_grad;
+    grad_router[row] = grad_logit;
+    grad_gate_contribution[row] = grad_logit;
+}

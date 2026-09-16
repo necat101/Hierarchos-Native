@@ -1,0 +1,117 @@
+#version 450
+
+#ifndef HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#define HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE 0
+#endif
+
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#endif
+
+// Input adjoint for a PyTorch-layout [output_dim, input_dim] linear weight.
+// The native-compute arm rounds each incoming adjoint to FP16, multiplies it by
+// the already-FP16 execution weight in Float16, then widens products into FP32
+// accumulators. Destination gradients remain canonical FP32.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { uint weight_packed[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+const uint GRAD_TILE = 32u;
+shared float grad_tile[16u * GRAD_TILE];
+shared vec2 weight_tile[GRAD_TILE * 16u];
+
+vec2 load_weight_pair(uint first_index, bool second_active) {
+    vec2 current = unpackHalf2x16(weight_packed[first_index >> 1u]);
+    if ((first_index & 1u) == 0u) {
+        return second_active ? current : vec2(current.x, 0.0);
+    }
+    if (!second_active) {
+        return vec2(current.y, 0.0);
+    }
+    vec2 next = unpackHalf2x16(weight_packed[(first_index >> 1u) + 1u]);
+    return vec2(current.y, next.x);
+}
+
+float backward_product(float grad, float weight) {
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+    return float(float16_t(grad) * float16_t(weight));
+#else
+    return grad * weight;
+#endif
+}
+
+void main() {
+    uint local_x = gl_LocalInvocationID.x;
+    uint local_y = gl_LocalInvocationID.y;
+    uint in_col = (gl_WorkGroupID.x * 16u + local_x) * 2u;
+    uint row = gl_WorkGroupID.y * 16u + local_y;
+    bool lane_valid = row < pc.rows && in_col < pc.input_dim;
+    bool second_active = in_col + 1u < pc.input_dim;
+    vec2 sum = vec2(0.0);
+    uint grad_base = row * pc.output_dim;
+
+    for (uint vocab_base = 0u; vocab_base < pc.output_dim; vocab_base += GRAD_TILE) {
+        uint load_col = vocab_base + local_x * 2u;
+        uint shared_base = local_y * GRAD_TILE + local_x * 2u;
+        grad_tile[shared_base] =
+            row < pc.rows && load_col < pc.output_dim
+                ? grad_output[grad_base + load_col]
+                : 0.0;
+        grad_tile[shared_base + 1u] =
+            row < pc.rows && load_col + 1u < pc.output_dim
+                ? grad_output[grad_base + load_col + 1u]
+                : 0.0;
+
+        // Each local_x owns an adjacent input pair. local_y cooperatively
+        // stages two vocabulary rows, so all 16 output rows in the workgroup
+        // reuse the same decoded FP16 weights instead of rereading them.
+        uint weight_col = vocab_base + local_y * 2u;
+        uint weight_shared_base = (local_y * 2u) * 16u + local_x;
+        weight_tile[weight_shared_base] =
+            in_col < pc.input_dim && weight_col < pc.output_dim
+                ? load_weight_pair(
+                    weight_col * pc.input_dim + in_col,
+                    second_active
+                )
+                : vec2(0.0);
+        weight_tile[weight_shared_base + 16u] =
+            in_col < pc.input_dim && weight_col + 1u < pc.output_dim
+                ? load_weight_pair(
+                    (weight_col + 1u) * pc.input_dim + in_col,
+                    second_active
+                )
+                : vec2(0.0);
+
+        barrier();
+
+        if (lane_valid) {
+            uint tile_count = min(GRAD_TILE, pc.output_dim - vocab_base);
+            for (uint tile_col = 0u; tile_col < tile_count; ++tile_col) {
+                vec2 weights = weight_tile[tile_col * 16u + local_x];
+                float grad = grad_tile[local_y * GRAD_TILE + tile_col];
+                sum.x += backward_product(grad, weights.x);
+                if (second_active) {
+                    sum.y += backward_product(grad, weights.y);
+                }
+            }
+        }
+
+        barrier();
+    }
+
+    if (lane_valid) {
+        uint output_index = row * pc.input_dim + in_col;
+        grad_input[output_index] = sum.x;
+        if (second_active) {
+            grad_input[output_index + 1u] = sum.y;
+        }
+    }
+}

@@ -1,0 +1,193 @@
+#version 450
+
+// Exact adjoint of transformer_deepseek_v4_mhc_weights_forward.comp.
+// DeepSeek-V4 currently uses hc_mult=4 and 20 Sinkhorn iterations. The bounded
+// private tape keeps the backward independent of host allocations while still
+// accepting modest future variants.
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RawBuffer { float raw_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer BaseBuffer { float base_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ScaleBuffer { float scale_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer GradPreBuffer { float grad_pre[]; };
+layout(set = 0, binding = 4, std430) readonly buffer GradPostBuffer { float grad_post[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GradCombBuffer { float grad_comb[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer GradRawBuffer { float grad_raw[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer GradAffineBuffer { float grad_affine[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_mult;
+    uint sinkhorn_iters;
+    float hc_eps;
+} pc;
+
+const uint MAX_HC = 8u;
+const uint MAX_ITERS = 32u;
+const uint MAX_MATRIX = MAX_HC * MAX_HC;
+const uint MAX_STATES = MAX_ITERS * 2u;
+
+float sigmoid_stable(float x) {
+    if (x >= 0.0) {
+        float z = exp(-x);
+        return 1.0 / (1.0 + z);
+    }
+    float z = exp(x);
+    return z / (1.0 + z);
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows || pc.hc_mult == 0 || pc.hc_mult > MAX_HC
+        || pc.sinkhorn_iters == 0 || pc.sinkhorn_iters > MAX_ITERS) return;
+
+    uint hc = pc.hc_mult;
+    uint matrix = hc * hc;
+    uint mix = (2u + hc) * hc;
+    uint raw_base = row * mix;
+    uint matrix_offset = 2u * hc;
+    uint comb_base = row * matrix;
+
+    for (uint stream = 0; stream < hc; ++stream) {
+        uint pre_index = stream;
+        float pre_sig = sigmoid_stable(raw_values[raw_base + pre_index] * scale_values[0]
+            + base_values[pre_index]);
+        float pre_grad = grad_pre[row * hc + stream] * pre_sig * (1.0 - pre_sig);
+        grad_affine[raw_base + pre_index] = pre_grad;
+        grad_raw[raw_base + pre_index] = pre_grad * scale_values[0];
+
+        uint post_index = hc + stream;
+        float post_sig = sigmoid_stable(raw_values[raw_base + post_index] * scale_values[1]
+            + base_values[post_index]);
+        float post_grad = grad_post[row * hc + stream] * 2.0 * post_sig * (1.0 - post_sig);
+        grad_affine[raw_base + post_index] = post_grad;
+        grad_raw[raw_base + post_index] = post_grad * scale_values[1];
+    }
+
+    float states[MAX_STATES * MAX_MATRIX];
+    float grad_state[MAX_MATRIX];
+    float grad_next[MAX_MATRIX];
+
+    // State 0: softmax(logits) + eps.
+    for (uint source = 0; source < hc; ++source) {
+        float max_logit = -3.402823466e+38;
+        for (uint dest = 0; dest < hc; ++dest) {
+            uint index = matrix_offset + source * hc + dest;
+            float logit = raw_values[raw_base + index] * scale_values[2] + base_values[index];
+            max_logit = max(max_logit, logit);
+        }
+        float denom = 0.0;
+        for (uint dest = 0; dest < hc; ++dest) {
+            uint index = matrix_offset + source * hc + dest;
+            float logit = raw_values[raw_base + index] * scale_values[2] + base_values[index];
+            denom += exp(logit - max_logit);
+        }
+        for (uint dest = 0; dest < hc; ++dest) {
+            uint index = matrix_offset + source * hc + dest;
+            float logit = raw_values[raw_base + index] * scale_values[2] + base_values[index];
+            states[source * hc + dest] = exp(logit - max_logit) / denom + pc.hc_eps;
+        }
+    }
+
+    uint state_count = 1u;
+    // State 1: initial column normalization.
+    uint previous = 0u;
+    uint current = MAX_MATRIX;
+    for (uint dest = 0; dest < hc; ++dest) {
+        float denom = pc.hc_eps;
+        for (uint source = 0; source < hc; ++source) denom += states[previous + source * hc + dest];
+        for (uint source = 0; source < hc; ++source) {
+            states[current + source * hc + dest] = states[previous + source * hc + dest] / denom;
+        }
+    }
+    state_count = 2u;
+
+    for (uint iter = 1u; iter < pc.sinkhorn_iters; ++iter) {
+        previous = (state_count - 1u) * MAX_MATRIX;
+        current = state_count * MAX_MATRIX;
+        for (uint source = 0; source < hc; ++source) {
+            float denom = pc.hc_eps;
+            for (uint dest = 0; dest < hc; ++dest) denom += states[previous + source * hc + dest];
+            for (uint dest = 0; dest < hc; ++dest) {
+                states[current + source * hc + dest] = states[previous + source * hc + dest] / denom;
+            }
+        }
+        state_count += 1u;
+
+        previous = (state_count - 1u) * MAX_MATRIX;
+        current = state_count * MAX_MATRIX;
+        for (uint dest = 0; dest < hc; ++dest) {
+            float denom = pc.hc_eps;
+            for (uint source = 0; source < hc; ++source) denom += states[previous + source * hc + dest];
+            for (uint source = 0; source < hc; ++source) {
+                states[current + source * hc + dest] = states[previous + source * hc + dest] / denom;
+            }
+        }
+        state_count += 1u;
+    }
+
+    for (uint index = 0; index < matrix; ++index) grad_state[index] = grad_comb[comb_base + index];
+
+    // Reverse each normalization. Odd-numbered states are column-normalized;
+    // even-numbered states (after state 1) are row-normalized.
+    for (int stage = int(state_count) - 1; stage >= 1; --stage) {
+        uint input_offset = uint(stage - 1) * MAX_MATRIX;
+        bool column = (uint(stage) & 1u) == 1u;
+        for (uint index = 0; index < matrix; ++index) grad_next[index] = 0.0;
+        if (column) {
+            for (uint dest = 0; dest < hc; ++dest) {
+                float denom = pc.hc_eps;
+                float dot = 0.0;
+                for (uint source = 0; source < hc; ++source) {
+                    uint index = source * hc + dest;
+                    float x = states[input_offset + index];
+                    denom += x;
+                    dot += grad_state[index] * x;
+                }
+                float inv = 1.0 / denom;
+                float correction = dot * inv * inv;
+                for (uint source = 0; source < hc; ++source) {
+                    uint index = source * hc + dest;
+                    grad_next[index] = grad_state[index] * inv - correction;
+                }
+            }
+        } else {
+            for (uint source = 0; source < hc; ++source) {
+                float denom = pc.hc_eps;
+                float dot = 0.0;
+                for (uint dest = 0; dest < hc; ++dest) {
+                    uint index = source * hc + dest;
+                    float x = states[input_offset + index];
+                    denom += x;
+                    dot += grad_state[index] * x;
+                }
+                float inv = 1.0 / denom;
+                float correction = dot * inv * inv;
+                for (uint dest = 0; dest < hc; ++dest) {
+                    uint index = source * hc + dest;
+                    grad_next[index] = grad_state[index] * inv - correction;
+                }
+            }
+        }
+        for (uint index = 0; index < matrix; ++index) grad_state[index] = grad_next[index];
+    }
+
+    // State 0 is softmax + constant eps. Differentiate only the softmax.
+    for (uint source = 0; source < hc; ++source) {
+        float dot = 0.0;
+        for (uint dest = 0; dest < hc; ++dest) {
+            uint index = source * hc + dest;
+            float probability = states[index] - pc.hc_eps;
+            dot += grad_state[index] * probability;
+        }
+        for (uint dest = 0; dest < hc; ++dest) {
+            uint local = source * hc + dest;
+            uint index = matrix_offset + local;
+            float probability = states[local] - pc.hc_eps;
+            float affine_grad = probability * (grad_state[local] - dot);
+            grad_affine[raw_base + index] = affine_grad;
+            grad_raw[raw_base + index] = affine_grad * scale_values[2];
+        }
+    }
+}

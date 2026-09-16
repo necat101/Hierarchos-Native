@@ -1,0 +1,41 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer AlphaPBuffer { float alpha_p_raw[]; };
+layout(set = 0, binding = 2, std430) readonly buffer AlphaNBuffer { float alpha_n_raw[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint len;
+    float beta;
+    float eps;
+} pc;
+
+float softplus_stable(float x) {
+    return max(x, 0.0) + log(1.0 + exp(-abs(x)));
+}
+
+float expm1_stable(float x) {
+    if (abs(x) < 1.0e-4) {
+        float x2 = x * x;
+        return x + 0.5 * x2 + (x2 * x) / 6.0;
+    }
+    return exp(x) - 1.0;
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.len) return;
+
+    float x = input_values[index];
+    float alpha_p = softplus_stable(alpha_p_raw[0]);
+    float alpha_n = pc.beta + softplus_stable(alpha_n_raw[0]);
+    if (x > 0.0) {
+        output_values[index] = alpha_p * x * x + pc.beta * x;
+    } else {
+        float capped = min(x, pc.eps);
+        output_values[index] = (expm1_stable(capped) - x) * alpha_n + pc.beta * x;
+    }
+}

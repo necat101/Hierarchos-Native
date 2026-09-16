@@ -1,0 +1,92 @@
+#version 450
+
+// Adapter-specific extension of layer_norm_linear_forward_fused: keep the
+// normalized/down-preactivation tapes required by backward, and fold the
+// immediately-following SiLU into the same dispatch.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer LinearWeightBuffer { float linear_weight[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer NormOutputBuffer { float norm_output[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer LinearOutputBuffer { float linear_output[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer SiluOutputBuffer { float silu_output[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    float eps;
+} pc;
+
+shared float shared_mean;
+shared float shared_rstd;
+
+void main() {
+    uint row = gl_WorkGroupID.y;
+    uint lane = gl_LocalInvocationID.x;
+    uint out_col = gl_GlobalInvocationID.x;
+    bool valid_row = row < pc.rows;
+
+    if (lane == 0) {
+        if (valid_row) {
+            uint x_base = row * pc.input_dim;
+            float mean = 0.0;
+            for (uint col = 0; col < pc.input_dim; ++col) {
+                mean += x[x_base + col];
+            }
+            mean /= float(pc.input_dim);
+
+            float variance = 0.0;
+            for (uint col = 0; col < pc.input_dim; ++col) {
+                float centered = x[x_base + col] - mean;
+                variance = fma(centered, centered, variance);
+            }
+            variance /= float(pc.input_dim);
+            float rstd = inversesqrt(variance + pc.eps);
+            shared_mean = mean;
+            shared_rstd = rstd;
+
+            if (gl_WorkGroupID.x == 0) {
+                mean_values[row] = mean;
+                rstd_values[row] = rstd;
+                for (uint col = 0; col < pc.input_dim; ++col) {
+                    float normalized = (x[x_base + col] - mean) * rstd;
+                    norm_output[x_base + col] = fma(
+                        normalized,
+                        norm_weight[col],
+                        norm_bias[col]
+                    );
+                }
+            }
+        } else {
+            shared_mean = 0.0;
+            shared_rstd = 0.0;
+        }
+    }
+
+    barrier();
+
+    if (!valid_row || out_col >= pc.output_dim) {
+        return;
+    }
+
+    float mean = shared_mean;
+    float rstd = shared_rstd;
+    float sum = 0.0;
+    uint x_base = row * pc.input_dim;
+    uint w_base = out_col * pc.input_dim;
+    for (uint col = 0; col < pc.input_dim; ++col) {
+        float normalized = (x[x_base + col] - mean) * rstd;
+        float value = fma(normalized, norm_weight[col], norm_bias[col]);
+        sum = fma(value, linear_weight[w_base + col], sum);
+    }
+
+    uint output_index = row * pc.output_dim + out_col;
+    linear_output[output_index] = sum;
+    float sigmoid_value = 1.0 / (1.0 + exp(-sum));
+    silu_output[output_index] = sum * sigmoid_value;
+}

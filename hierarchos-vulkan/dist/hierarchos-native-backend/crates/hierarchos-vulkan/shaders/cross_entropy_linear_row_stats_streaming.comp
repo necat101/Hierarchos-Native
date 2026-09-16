@@ -1,0 +1,116 @@
+#version 450
+
+// Vocabulary-streaming out_norm + LM-head forward + mean cross-entropy row
+// statistics. The affine LayerNorm output is reconstructed on demand, so no
+// [rows, hidden] out_norm activation or [rows, vocab] logits tensor is written.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer NormMeanBuffer { float norm_mean[]; };
+layout(set = 0, binding = 4, std430) readonly buffer NormRstdBuffer { float norm_rstd[]; };
+layout(set = 0, binding = 5, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 6, std430) readonly buffer TargetBuffer { uint targets[]; };
+// Five floats per row: max_logit, inverse exp-sum, target bits, row loss, and
+// the caller-owned CE source-gradient weight. Forward preserves the fifth
+// scalar so backward can reproduce PyTorch masked/weighted-token semantics.
+layout(set = 0, binding = 7, std430) writeonly buffer StatsBuffer { float row_stats[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    float z_loss_weight;
+    float activation_clamp;
+} pc;
+
+float finite_activation_clamp(float value) {
+    return (isnan(value) || isinf(value))
+        ? value
+        : clamp(value, -pc.activation_clamp, pc.activation_clamp);
+}
+
+shared float reduction_max[64];
+shared float reduction_sum[64];
+shared float target_logit_shared;
+
+float project(uint row, uint out_col, float mean, float rstd) {
+    uint x_base = row * pc.input_dim;
+    uint w_base = out_col * pc.input_dim;
+    float sum = 0.0;
+    for (uint i = 0u; i < pc.input_dim; ++i) {
+        float normalized = (x[x_base + i] - mean) * rstd;
+        float out_norm = finite_activation_clamp(
+            fma(normalized, norm_weight[i], norm_bias[i])
+        );
+        sum = fma(out_norm, weight[w_base + i], sum);
+    }
+    return sum;
+}
+
+void online_lse_update(float value, inout float running_max, inout float running_sum) {
+    if (running_sum == 0.0) {
+        running_max = value;
+        running_sum = 1.0;
+    } else if (value <= running_max) {
+        running_sum += exp(value - running_max);
+    } else {
+        running_sum = fma(running_sum, exp(running_max - value), 1.0);
+        running_max = value;
+    }
+}
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    uint lane = gl_LocalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    float mean = norm_mean[row];
+    float rstd = norm_rstd[row];
+    uint target = targets[row];
+
+    float lane_max = -3.402823466e+38;
+    float lane_sum = 0.0;
+    for (uint out_col = lane; out_col < pc.output_dim; out_col += 64u) {
+        float logit = project(row, out_col, mean, rstd);
+        online_lse_update(logit, lane_max, lane_sum);
+        if (out_col == target) {
+            target_logit_shared = logit;
+        }
+    }
+    reduction_max[lane] = lane_max;
+    reduction_sum[lane] = lane_sum;
+    barrier();
+
+    for (uint stride = 32u; stride > 0u; stride >>= 1u) {
+        if (lane < stride) {
+            float left_max = reduction_max[lane];
+            float left_sum = reduction_sum[lane];
+            float right_max = reduction_max[lane + stride];
+            float right_sum = reduction_sum[lane + stride];
+            float merged_max = max(left_max, right_max);
+            float merged_sum = 0.0;
+            if (left_sum != 0.0) {
+                merged_sum += left_sum * exp(left_max - merged_max);
+            }
+            if (right_sum != 0.0) {
+                merged_sum += right_sum * exp(right_max - merged_max);
+            }
+            reduction_max[lane] = merged_max;
+            reduction_sum[lane] = merged_sum;
+        }
+        barrier();
+    }
+
+    if (lane == 0u) {
+        float max_logit = reduction_max[0];
+        float exp_sum = reduction_sum[0];
+        uint stats_base = row * 5u;
+        row_stats[stats_base] = max_logit;
+        row_stats[stats_base + 1u] = 1.0 / exp_sum;
+        row_stats[stats_base + 2u] = uintBitsToFloat(target);
+        row_stats[stats_base + 3u] = log(exp_sum) + max_logit - target_logit_shared;
+    }
+}

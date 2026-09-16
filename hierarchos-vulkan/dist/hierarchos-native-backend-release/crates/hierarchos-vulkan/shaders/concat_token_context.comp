@@ -1,0 +1,27 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer TokenBuffer { float token_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ContextBuffer { float context_values[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint out_len = pc.rows * pc.dim * 2u;
+    if (index >= out_len) {
+        return;
+    }
+    uint row = index / (pc.dim * 2u);
+    uint col = index - row * pc.dim * 2u;
+    if (col < pc.dim) {
+        output_values[index] = token_values[row * pc.dim + col];
+    } else {
+        output_values[index] = context_values[row * pc.dim + (col - pc.dim)];
+    }
+}

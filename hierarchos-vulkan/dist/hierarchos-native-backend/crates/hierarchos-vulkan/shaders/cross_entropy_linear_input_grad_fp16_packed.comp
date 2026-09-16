@@ -1,0 +1,88 @@
+#version 450
+
+// Same fused CE -> LM input backward as the FP32 shader, but reading the
+// bandwidth-oriented packed FP16 execution mirror while accumulating in FP32.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LogitBuffer { float logits[]; };
+layout(set = 0, binding = 1, std430) readonly buffer StatsBuffer { float row_stats[]; };
+layout(set = 0, binding = 2, std430) readonly buffer WeightBuffer { uint weight_packed[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+const uint GRAD_TILE = 32u;
+shared float grad_tile[16u * GRAD_TILE];
+
+float ce_grad(uint row, uint out_col) {
+    uint stats_base = row * 3u;
+    float max_logit = row_stats[stats_base];
+    float inv_sum = row_stats[stats_base + 1u];
+    uint target = floatBitsToUint(row_stats[stats_base + 2u]);
+    float probability = exp(logits[row * pc.output_dim + out_col] - max_logit) * inv_sum;
+    float target_value = out_col == target ? 1.0 : 0.0;
+    return (probability - target_value) / float(pc.rows);
+}
+
+vec2 load_weight_pair(uint first_index, bool second_active) {
+    vec2 current = unpackHalf2x16(weight_packed[first_index >> 1u]);
+    if ((first_index & 1u) == 0u) {
+        return second_active ? current : vec2(current.x, 0.0);
+    }
+    if (!second_active) {
+        return vec2(current.y, 0.0);
+    }
+    vec2 next = unpackHalf2x16(weight_packed[(first_index >> 1u) + 1u]);
+    return vec2(current.y, next.x);
+}
+
+void main() {
+    uint local_x = gl_LocalInvocationID.x;
+    uint local_y = gl_LocalInvocationID.y;
+    uint in_col = (gl_WorkGroupID.x * 16u + local_x) * 2u;
+    uint row = gl_WorkGroupID.y * 16u + local_y;
+    bool lane_valid = row < pc.rows && in_col < pc.input_dim;
+    bool second_active = in_col + 1u < pc.input_dim;
+    vec2 sum = vec2(0.0);
+
+    for (uint vocab_base = 0u; vocab_base < pc.output_dim; vocab_base += GRAD_TILE) {
+        uint load_col = vocab_base + local_x * 2u;
+        uint shared_base = local_y * GRAD_TILE + local_x * 2u;
+        grad_tile[shared_base] =
+            row < pc.rows && load_col < pc.output_dim ? ce_grad(row, load_col) : 0.0;
+        grad_tile[shared_base + 1u] =
+            row < pc.rows && load_col + 1u < pc.output_dim ? ce_grad(row, load_col + 1u) : 0.0;
+
+        barrier();
+
+        if (lane_valid) {
+            uint tile_count = min(GRAD_TILE, pc.output_dim - vocab_base);
+            for (uint tile_col = 0u; tile_col < tile_count; ++tile_col) {
+                uint out_col = vocab_base + tile_col;
+                vec2 weights = load_weight_pair(
+                    out_col * pc.input_dim + in_col,
+                    second_active
+                );
+                float grad = grad_tile[local_y * GRAD_TILE + tile_col];
+                sum.x = fma(grad, weights.x, sum.x);
+                if (second_active) {
+                    sum.y = fma(grad, weights.y, sum.y);
+                }
+            }
+        }
+
+        barrier();
+    }
+
+    if (lane_valid) {
+        uint output_index = row * pc.input_dim + in_col;
+        grad_input[output_index] = sum.x;
+        if (second_active) {
+            grad_input[output_index + 1u] = sum.y;
+        }
+    }
+}

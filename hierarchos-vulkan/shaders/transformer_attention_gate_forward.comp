@@ -1,0 +1,59 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) readonly buffer AttentionBuffer {
+    float attention[];
+};
+layout(set = 0, binding = 1) readonly buffer GatePreBuffer {
+    float gate_pre[];
+};
+layout(set = 0, binding = 2) writeonly buffer GateValuesBuffer {
+    float gate_values[];
+};
+layout(set = 0, binding = 3) writeonly buffer GatedAttentionBuffer {
+    float gated_attention[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint rows;
+    uint num_heads;
+    uint head_dim;
+    uint per_head;
+    uint activation;
+} pc;
+
+float stable_sigmoid(float x) {
+    if (x >= 0.0) {
+        float z = exp(-x);
+        return 1.0 / (1.0 + z);
+    }
+    float z = exp(x);
+    return z / (1.0 + z);
+}
+
+float stable_softplus(float x) {
+    return max(x, 0.0) + log(1.0 + exp(-abs(x)));
+}
+
+void main() {
+    uint gate_width = pc.per_head != 0u ? pc.num_heads : pc.num_heads * pc.head_dim;
+    uint gate_index = gl_GlobalInvocationID.x;
+    uint gate_len = pc.rows * gate_width;
+    if (gate_index >= gate_len) {
+        return;
+    }
+
+    float pre = gate_pre[gate_index];
+    float value = pc.activation == 1u ? stable_softplus(pre) : stable_sigmoid(pre);
+    uint row = gate_index / gate_width;
+    uint gate_channel = gate_index - row * gate_width;
+    uint span = pc.per_head != 0u ? pc.head_dim : 1u;
+    uint attention_channel = pc.per_head != 0u ? gate_channel * pc.head_dim : gate_channel;
+    uint base = row * pc.num_heads * pc.head_dim + attention_channel;
+    for (uint offset = 0u; offset < span; ++offset) {
+        uint index = base + offset;
+        gate_values[index] = value;
+        gated_attention[index] = attention[index] * value;
+    }
+}

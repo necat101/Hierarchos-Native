@@ -1,0 +1,63 @@
+#version 450
+
+// One invocation owns one value dimension across every LTM slot. That makes
+// every write to grad_slow[slot, d] single-writer while preserving parallelism
+// across value dimensions. Rows/top-k entries are visited in a stable order,
+// so duplicated slot selections reduce bit-for-bit without float atomics.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer IndexBuffer { uint indices[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RouterBuffer { float router[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GateLogitBuffer { float gate_logit[]; };
+layout(set = 0, binding = 3, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 4, std430) buffer GradSlowValueBuffer { float grad_slow[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GradRouterBuffer { float grad_router[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer GradGateLogitBuffer { float grad_gate_logit[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint topk;
+    uint val_dim;
+    uint slots;
+    float gate_floor;
+    float score_grad_scale;
+} pc;
+
+float sigmoid_stable(float x) {
+    if (!isnan(x) && !isinf(x)) {
+        x = clamp(x, -50.0, 50.0);
+    }
+    return 1.0 / (1.0 + exp(-x));
+}
+
+void main() {
+    uint d = gl_GlobalInvocationID.x;
+    if (d >= pc.val_dim) {
+        return;
+    }
+
+    uint row_width = pc.topk * pc.val_dim;
+    for (uint row = 0u; row < pc.rows; ++row) {
+        float gate_pre = gate_logit[0] + router[row];
+        float gate = pc.gate_floor
+            + (1.0 - pc.gate_floor) * sigmoid_stable(gate_pre);
+        for (uint k = 0u; k < pc.topk; ++k) {
+            uint slot = indices[row * pc.topk + k];
+            if (slot < pc.slots) {
+                uint output_index = row * row_width + k * pc.val_dim + d;
+                uint memory_index = slot * pc.val_dim + d;
+                grad_slow[memory_index] += grad_output[output_index] * gate;
+            }
+        }
+    }
+
+    // grad_router[row] is exactly the row contribution to the shared gate
+    // logit. Let one invocation reduce those row contributions in index order.
+    if (d == 0u) {
+        float total = 0.0;
+        for (uint row = 0u; row < pc.rows; ++row) {
+            total += grad_router[row];
+        }
+        grad_gate_logit[0] = total;
+    }
+}

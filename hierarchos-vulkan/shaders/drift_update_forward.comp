@@ -1,0 +1,48 @@
+#version 450
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer CurrentBuffer { float current_drift[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ProjectedBuffer { float projected[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint add_current;
+    float delta_scale;
+    float state_clamp;
+    float norm_clamp;
+} pc;
+
+float candidate(uint index) {
+    float delta = tanh(projected[index]);
+    float raw = pc.add_current != 0u
+        ? current_drift[index] + delta * pc.delta_scale
+        : delta;
+    return (isnan(raw) || isinf(raw))
+        ? raw
+        : clamp(raw, -pc.state_clamp, pc.state_clamp);
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    uint base = row * pc.dim;
+    float norm_sq = 0.0;
+    for (uint col = 0u; col < pc.dim; ++col) {
+        float value = candidate(base + col);
+        norm_sq += value * value;
+    }
+    float norm = sqrt(norm_sq);
+    float scale = 1.0;
+    if (pc.norm_clamp > 0.0) {
+        scale = min(pc.norm_clamp / (norm + 1.0e-6), 1.0);
+    }
+    for (uint col = 0u; col < pc.dim; ++col) {
+        uint index = base + col;
+        output_values[index] = candidate(index) * scale;
+    }
+}

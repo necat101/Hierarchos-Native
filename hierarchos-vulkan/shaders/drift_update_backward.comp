@@ -1,0 +1,83 @@
+#version 450
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer CurrentBuffer { float current_drift[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ProjectedBuffer { float projected[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradCurrentBuffer { float grad_current[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradProjectedBuffer { float grad_projected[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint add_current;
+    float delta_scale;
+    float state_clamp;
+    float norm_clamp;
+} pc;
+
+float raw_candidate(uint index) {
+    float delta = tanh(projected[index]);
+    return pc.add_current != 0u
+        ? current_drift[index] + delta * pc.delta_scale
+        : delta;
+}
+
+float clamped_candidate(uint index) {
+    float raw = raw_candidate(index);
+    return (isnan(raw) || isinf(raw))
+        ? raw
+        : clamp(raw, -pc.state_clamp, pc.state_clamp);
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    uint base = row * pc.dim;
+    float norm_sq = 0.0;
+    float dot_grad_value = 0.0;
+    for (uint col = 0u; col < pc.dim; ++col) {
+        uint index = base + col;
+        float value = clamped_candidate(index);
+        norm_sq += value * value;
+        dot_grad_value += grad_output[index] * value;
+    }
+    float norm = sqrt(norm_sq);
+    float scale = 1.0;
+    bool norm_limited = false;
+    if (pc.norm_clamp > 0.0) {
+        scale = min(pc.norm_clamp / (norm + 1.0e-6), 1.0);
+        norm_limited = scale < 1.0;
+    }
+    float norm_coeff = 0.0;
+    if (norm_limited && norm > 0.0) {
+        float denom = norm * (norm + 1.0e-6) * (norm + 1.0e-6);
+        norm_coeff = pc.norm_clamp / denom;
+    }
+
+    for (uint col = 0u; col < pc.dim; ++col) {
+        uint index = base + col;
+        float value = clamped_candidate(index);
+        float grad_value = scale * grad_output[index];
+        if (norm_limited) {
+            grad_value -= value * dot_grad_value * norm_coeff;
+        }
+        float raw = raw_candidate(index);
+        // Match `_finite_clamp`: NaN/Inf take the identity branch and must
+        // remain visible in reverse mode.  Only a finite saturated value has
+        // zero clamp derivative.
+        float clamp_mask = (isnan(raw) || isinf(raw)
+            || (raw >= -pc.state_clamp && raw <= pc.state_clamp))
+            ? 1.0
+            : 0.0;
+        float grad_raw = grad_value * clamp_mask;
+        float tanh_value = tanh(projected[index]);
+        float projected_scale = pc.add_current != 0u ? pc.delta_scale : 1.0;
+        grad_projected[index] = grad_raw
+            * (1.0 - tanh_value * tanh_value) * projected_scale;
+        grad_current[index] = pc.add_current != 0u ? grad_raw : 0.0;
+    }
+}

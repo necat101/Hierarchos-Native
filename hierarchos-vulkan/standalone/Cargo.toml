@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/hierarchos-inference",
+    "crates/hierarchos-vulkan",
+    "crates/hierarchos-native-cli",
+    "crates/hierarchos-gui",
+]
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+

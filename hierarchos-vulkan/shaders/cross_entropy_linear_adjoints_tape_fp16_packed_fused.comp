@@ -1,0 +1,218 @@
+#version 450
+
+#ifndef LM_CE_FUSED_PRIVATE_HIDDEN
+#define LM_CE_FUSED_PRIVATE_HIDDEN 0
+#endif
+
+#ifndef LM_CE_FUSED_VOCAB_TILE
+#define LM_CE_FUSED_VOCAB_TILE 64
+#endif
+
+#ifndef LM_CE_FUSED_WORKGROUP_SIZE
+#define LM_CE_FUSED_WORKGROUP_SIZE 64
+#endif
+
+// Vocabulary-tile direct-logit LM adjoint replay.
+//
+// The portable default is one 64-lane workgroup per 64-vocabulary tile. The
+// private-hidden specialization may widen both values at compile time so one
+// group owns more vocabulary rows without serializing them onto the same 64
+// lanes. Every packed W element is still loaded once and has one dW owner. The
+// same CE adjoints produce dW directly plus one deterministic FP32 dX partial
+// for the selected vocabulary tile; a matching follow-up reducer retires those
+// partials in ascending tile order without float atomics.
+//
+// Up to eight loss rows are held as a bounded window. The default shared-hidden
+// topology uses exactly 16 KiB at width 448: 14 KiB of hidden pairs plus 2 KiB
+// of 64-vocabulary CE adjoints. Private-hidden variants remove the 14 KiB hidden
+// window, allowing wider adjoint tiles while staying inside portable shared
+// memory budgets.
+layout(local_size_x = LM_CE_FUSED_WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer NormMeanBuffer { float norm_mean[]; };
+layout(set = 0, binding = 4, std430) readonly buffer NormRstdBuffer { float norm_rstd[]; };
+layout(set = 0, binding = 5, std430) readonly buffer LogitTapeBuffer { float logits[]; };
+layout(set = 0, binding = 6, std430) readonly buffer StatsBuffer { float row_stats[]; };
+layout(set = 0, binding = 7, std430) readonly buffer WeightBuffer { uint weight_packed[]; };
+layout(set = 0, binding = 8, std430) buffer GradWeightBuffer { float grad_weight[]; };
+layout(set = 0, binding = 9, std430) buffer GradInputPartialBuffer { float grad_input_partials[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    uint accumulate;
+    float z_loss_weight;
+    float activation_clamp;
+} pc;
+
+float finite_activation_clamp(float value) {
+    return (isnan(value) || isinf(value))
+        ? value
+        : clamp(value, -pc.activation_clamp, pc.activation_clamp);
+}
+
+const uint VOCAB_TILE = uint(LM_CE_FUSED_VOCAB_TILE);
+const uint WORKGROUP_SIZE = uint(LM_CE_FUSED_WORKGROUP_SIZE);
+const uint ROW_WINDOW = 8u;
+const uint MAX_HIERARCHOS_WIDTH = 448u;
+const uint MAX_PAIRS = (MAX_HIERARCHOS_WIDTH + 1u) >> 1u;
+
+shared float adjoint_window[ROW_WINDOW * VOCAB_TILE];
+#if !LM_CE_FUSED_PRIVATE_HIDDEN
+shared vec2 hidden_window[ROW_WINDOW * MAX_PAIRS];
+#endif
+
+vec2 load_weight_pair(uint first_index, bool second_active) {
+    vec2 current = unpackHalf2x16(weight_packed[first_index >> 1u]);
+    if ((first_index & 1u) == 0u) {
+        return second_active ? current : vec2(current.x, 0.0);
+    }
+    if (!second_active) {
+        return vec2(current.y, 0.0);
+    }
+    vec2 next = unpackHalf2x16(weight_packed[(first_index >> 1u) + 1u]);
+    return vec2(current.y, next.x);
+}
+
+void main() {
+    uint lane = gl_LocalInvocationID.x;
+    uint vocab_base = gl_WorkGroupID.x * VOCAB_TILE;
+    if (
+        vocab_base >= pc.output_dim
+        || pc.input_dim > MAX_HIERARCHOS_WIDTH
+        || pc.rows == 0u
+        || pc.rows > ROW_WINDOW
+    ) {
+        return;
+    }
+
+    uint tile_count = min(VOCAB_TILE, pc.output_dim - vocab_base);
+    uint pair_count = (pc.input_dim + 1u) >> 1u;
+
+#if !LM_CE_FUSED_PRIVATE_HIDDEN
+    for (uint row = 0u; row < pc.rows; ++row) {
+        float mean = norm_mean[row];
+        float rstd = norm_rstd[row];
+        for (uint pair_col = lane; pair_col < pair_count; pair_col += WORKGROUP_SIZE) {
+            uint in_col = pair_col * 2u;
+            uint x_base = row * pc.input_dim + in_col;
+            float normalized0 = (x[x_base] - mean) * rstd;
+            float hidden0 = finite_activation_clamp(
+                fma(normalized0, norm_weight[in_col], norm_bias[in_col])
+            );
+            float hidden1 = 0.0;
+            if (in_col + 1u < pc.input_dim) {
+                float normalized1 = (x[x_base + 1u] - mean) * rstd;
+                hidden1 = finite_activation_clamp(
+                    fma(
+                        normalized1,
+                        norm_weight[in_col + 1u],
+                        norm_bias[in_col + 1u]
+                    )
+                );
+            }
+            hidden_window[row * MAX_PAIRS + pair_col] = vec2(hidden0, hidden1);
+        }
+    }
+#endif
+
+    for (uint vocab_slot = lane; vocab_slot < tile_count; vocab_slot += WORKGROUP_SIZE) {
+        uint out_col = vocab_base + vocab_slot;
+        for (uint row = 0u; row < pc.rows; ++row) {
+            uint stats_base = row * 5u;
+            float max_logit = row_stats[stats_base];
+            float inv_sum = row_stats[stats_base + 1u];
+            uint target = floatBitsToUint(row_stats[stats_base + 2u]);
+            float probability = exp(
+                logits[row * pc.output_dim + out_col] - max_logit
+            ) * inv_sum;
+            float log_z = max_logit - log(inv_sum);
+            float z_adjoint = 2.0 * pc.z_loss_weight * log_z * probability;
+            adjoint_window[row * VOCAB_TILE + vocab_slot] =
+                (probability - (out_col == target ? 1.0 : 0.0) + z_adjoint)
+                * row_stats[stats_base + 4u];
+        }
+    }
+    barrier();
+
+    for (uint pair_col = lane; pair_col < pair_count; pair_col += WORKGROUP_SIZE) {
+        uint in_col = pair_col * 2u;
+        bool second_active = in_col + 1u < pc.input_dim;
+#if LM_CE_FUSED_PRIVATE_HIDDEN
+        vec2 hidden_private[ROW_WINDOW];
+        for (uint row = 0u; row < pc.rows; ++row) {
+            float mean = norm_mean[row];
+            float rstd = norm_rstd[row];
+            uint x_base = row * pc.input_dim + in_col;
+            float normalized0 = (x[x_base] - mean) * rstd;
+            float hidden0 = finite_activation_clamp(
+                fma(normalized0, norm_weight[in_col], norm_bias[in_col])
+            );
+            float hidden1 = 0.0;
+            if (second_active) {
+                float normalized1 = (x[x_base + 1u] - mean) * rstd;
+                hidden1 = finite_activation_clamp(
+                    fma(
+                        normalized1,
+                        norm_weight[in_col + 1u],
+                        norm_bias[in_col + 1u]
+                    )
+                );
+            }
+            hidden_private[row] = vec2(hidden0, hidden1);
+        }
+#endif
+        vec2 dx_sum[ROW_WINDOW];
+        for (uint row = 0u; row < ROW_WINDOW; ++row) {
+            dx_sum[row] = vec2(0.0);
+        }
+
+        for (uint vocab_slot = 0u; vocab_slot < tile_count; ++vocab_slot) {
+            uint out_col = vocab_base + vocab_slot;
+            vec2 weights = load_weight_pair(
+                out_col * pc.input_dim + in_col,
+                second_active
+            );
+            vec2 dw = vec2(0.0);
+            for (uint row = 0u; row < pc.rows; ++row) {
+                float grad = adjoint_window[row * VOCAB_TILE + vocab_slot];
+                dx_sum[row].x = fma(grad, weights.x, dx_sum[row].x);
+                if (second_active) {
+                    dx_sum[row].y = fma(grad, weights.y, dx_sum[row].y);
+                }
+#if LM_CE_FUSED_PRIVATE_HIDDEN
+                vec2 hidden = hidden_private[row];
+#else
+                vec2 hidden = hidden_window[row * MAX_PAIRS + pair_col];
+#endif
+                dw.x = fma(grad, hidden.x, dw.x);
+                if (second_active) {
+                    dw.y = fma(grad, hidden.y, dw.y);
+                }
+            }
+
+            uint grad_index = out_col * pc.input_dim + in_col;
+            grad_weight[grad_index] = pc.accumulate == 0u
+                ? dw.x
+                : grad_weight[grad_index] + dw.x;
+            if (second_active) {
+                grad_weight[grad_index + 1u] = pc.accumulate == 0u
+                    ? dw.y
+                    : grad_weight[grad_index + 1u] + dw.y;
+            }
+        }
+
+        uint tile_index = gl_WorkGroupID.x;
+        for (uint row = 0u; row < pc.rows; ++row) {
+            uint partial_base = (tile_index * pc.rows + row) * pc.input_dim + in_col;
+            grad_input_partials[partial_base] = dx_sum[row].x;
+            if (second_active) {
+                grad_input_partials[partial_base + 1u] = dx_sum[row].y;
+            }
+        }
+    }
+}

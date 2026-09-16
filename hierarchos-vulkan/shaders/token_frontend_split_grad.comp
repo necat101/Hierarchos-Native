@@ -1,0 +1,47 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradMacBuffer { float grad_mac[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer GradTokenBuffer { float grad_token[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradLtmBuffer { float grad_ltm[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradPersistentBuffer { float grad_persistent[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint context_dim;
+    uint persistent_dim;
+    uint ltm_dim;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint token_count = pc.rows * pc.context_dim;
+    uint ltm_count = pc.rows * pc.ltm_dim;
+    uint work_count = max(max(token_count, ltm_count), pc.persistent_dim);
+    if (index >= work_count) {
+        return;
+    }
+
+    uint input_dim = pc.context_dim + pc.persistent_dim + pc.ltm_dim;
+    if (index < token_count) {
+        uint row = index / pc.context_dim;
+        uint col = index - row * pc.context_dim;
+        grad_token[index] = grad_mac[row * input_dim + col];
+    }
+    if (index < ltm_count) {
+        uint row = index / pc.ltm_dim;
+        uint col = index - row * pc.ltm_dim;
+        grad_ltm[index] = grad_mac[
+            row * input_dim + pc.context_dim + pc.persistent_dim + col
+        ];
+    }
+    if (index < pc.persistent_dim) {
+        float sum = 0.0;
+        uint base_col = pc.context_dim + index;
+        for (uint row = 0; row < pc.rows; ++row) {
+            sum += grad_mac[row * input_dim + base_col];
+        }
+        grad_persistent[index] = sum;
+    }
+}

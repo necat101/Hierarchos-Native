@@ -1,0 +1,60 @@
+#version 450
+
+// Convert the robust global-L2 `(scale, ssq)` representation into the exact
+// scalar consumed by the gradient-scaling stage. Keeping this decision on the
+// device removes the norm-readback -> host divide -> second-submit dependency
+// from the finite optimizer path.
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LassqPair {
+    float pair[];
+};
+
+layout(set = 0, binding = 1, std430) writeonly buffer ClipCoefficient {
+    float coefficient[];
+};
+
+layout(set = 0, binding = 2, std430) writeonly buffer NonfiniteFlag {
+    uint nonfinite[];
+};
+
+layout(push_constant) uniform PushConstants {
+    float max_norm;
+} pc;
+
+void main() {
+    float scale = pair[0];
+    float ssq = pair[1];
+
+    // The caller performs a non-finite scan before recording the finite-only
+    // optimizer stream. Still fail closed if this kernel is ever fed an invalid
+    // reduction pair: a zero coefficient cannot manufacture a useful update.
+    if (isnan(scale) || isinf(scale) || isnan(ssq) || isinf(ssq) ||
+        scale < 0.0 || ssq < 0.0) {
+        coefficient[0] = 0.0;
+        nonfinite[0] = 1u;
+        return;
+    }
+
+    nonfinite[0] = 0u;
+
+    if (pc.max_norm == 0.0 || scale == 0.0 || ssq == 0.0) {
+        coefficient[0] = 1.0;
+        return;
+    }
+
+    float root_ssq = sqrt(ssq);
+    float norm = scale * root_ssq;
+    float clip;
+    if (isinf(norm)) {
+        // Avoid overflowing the true norm just to divide by it. The algebraic
+        // rearrangement also preserves representable subnormal coefficients.
+        float scaled_max = pc.max_norm / scale;
+        float scaled_epsilon = 1.0e-6 / scale;
+        clip = scaled_max / (root_ssq + scaled_epsilon);
+    } else {
+        // Mirrors torch.nn.utils.clip_grads_with_norm_: max_norm/(norm+1e-6).
+        clip = pc.max_norm / (norm + 1.0e-6);
+    }
+    coefficient[0] = min(clip, 1.0);
+}

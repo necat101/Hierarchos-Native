@@ -1,0 +1,141 @@
+#version 450
+
+// Vocabulary-streaming CE -> LM-head weight backward. A 32x4 workgroup owns
+// four vocabulary rows and gives each row 32 cooperating hidden-column lanes.
+// The lanes reduce the regenerated logit in shared memory, consume the CE
+// adjoint immediately, then write disjoint strided slices of the canonical
+// FP32 gradient. Logits and grad-logits therefore remain entirely ephemeral.
+layout(local_size_x = 32, local_size_y = 4, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer NormMeanBuffer { float norm_mean[]; };
+layout(set = 0, binding = 4, std430) readonly buffer NormRstdBuffer { float norm_rstd[]; };
+layout(set = 0, binding = 5, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 6, std430) readonly buffer StatsBuffer { float row_stats[]; };
+layout(set = 0, binding = 7, std430) buffer GradWeightBuffer { float grad_weight[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    uint accumulate;
+    float z_loss_weight;
+    float activation_clamp;
+} pc;
+
+float finite_activation_clamp(float value) {
+    return (isnan(value) || isinf(value))
+        ? value
+        : clamp(value, -pc.activation_clamp, pc.activation_clamp);
+}
+
+const uint HIDDEN_LANES = 32u;
+const uint VOCAB_ROWS_PER_GROUP = 4u;
+const uint ROW_CHUNK = 8u;
+
+shared float projection_partial[VOCAB_ROWS_PER_GROUP][HIDDEN_LANES];
+shared float grad_rows[VOCAB_ROWS_PER_GROUP][ROW_CHUNK];
+shared float chunk_mean[ROW_CHUNK];
+shared float chunk_rstd[ROW_CHUNK];
+
+float ce_grad(uint row, uint out_col, float logit) {
+    uint stats_base = row * 5u;
+    float max_logit = row_stats[stats_base];
+    float inv_sum = row_stats[stats_base + 1u];
+    uint target = floatBitsToUint(row_stats[stats_base + 2u]);
+    float probability = exp(logit - max_logit) * inv_sum;
+    float log_z = max_logit - log(inv_sum);
+    float z_adjoint = 2.0 * pc.z_loss_weight * log_z * probability;
+    return (probability - (out_col == target ? 1.0 : 0.0) + z_adjoint)
+        * row_stats[stats_base + 4u];
+}
+
+void main() {
+    uint hidden_lane = gl_LocalInvocationID.x;
+    uint vocab_lane = gl_LocalInvocationID.y;
+    uint out_col = gl_WorkGroupID.x * VOCAB_ROWS_PER_GROUP + vocab_lane;
+    bool active_vocab_row = out_col < pc.output_dim;
+
+    for (uint row_base = 0u; row_base < pc.rows; row_base += ROW_CHUNK) {
+        uint row_count = min(ROW_CHUNK, pc.rows - row_base);
+
+        if (vocab_lane == 0u && hidden_lane < row_count) {
+            uint row = row_base + hidden_lane;
+            chunk_mean[hidden_lane] = norm_mean[row];
+            chunk_rstd[hidden_lane] = norm_rstd[row];
+        }
+        barrier();
+
+        // Regenerate each logit cooperatively. Every hidden lane contributes a
+        // strided dot-product slice for one vocabulary row, then the workgroup
+        // performs a portable shared-memory tree reduction. Inactive tail rows
+        // still participate in every barrier so non-multiple-of-four vocabularies
+        // remain valid.
+        for (uint local_row = 0u; local_row < row_count; ++local_row) {
+            uint row = row_base + local_row;
+            float partial = 0.0;
+            if (active_vocab_row) {
+                uint x_base = row * pc.input_dim;
+                uint w_base = out_col * pc.input_dim;
+                for (uint in_col = hidden_lane; in_col < pc.input_dim; in_col += HIDDEN_LANES) {
+                    float normalized = (x[x_base + in_col] - chunk_mean[local_row])
+                        * chunk_rstd[local_row];
+                    float out_norm = finite_activation_clamp(
+                        fma(normalized, norm_weight[in_col], norm_bias[in_col])
+                    );
+                    partial = fma(out_norm, weight[w_base + in_col], partial);
+                }
+            }
+            projection_partial[vocab_lane][hidden_lane] = partial;
+            barrier();
+
+            for (uint stride = HIDDEN_LANES >> 1u; stride > 0u; stride >>= 1u) {
+                if (hidden_lane < stride) {
+                    projection_partial[vocab_lane][hidden_lane] +=
+                        projection_partial[vocab_lane][hidden_lane + stride];
+                }
+                barrier();
+            }
+
+            if (hidden_lane == 0u) {
+                grad_rows[vocab_lane][local_row] = active_vocab_row
+                    ? ce_grad(row, out_col, projection_partial[vocab_lane][0u])
+                    : 0.0;
+            }
+            barrier();
+        }
+
+        // Once the row-chunk CE adjoints are shared, hidden lanes fan back out
+        // over disjoint columns. Each gradient element has exactly one writer,
+        // preserving deterministic FP32 accumulation without atomics.
+        if (active_vocab_row) {
+            uint grad_base = out_col * pc.input_dim;
+            for (uint in_col = hidden_lane; in_col < pc.input_dim; in_col += HIDDEN_LANES) {
+                float chunk_sum = 0.0;
+                for (uint local_row = 0u; local_row < row_count; ++local_row) {
+                    uint row = row_base + local_row;
+                    float normalized = (x[row * pc.input_dim + in_col] - chunk_mean[local_row])
+                        * chunk_rstd[local_row];
+                    float out_norm = finite_activation_clamp(
+                        fma(normalized, norm_weight[in_col], norm_bias[in_col])
+                    );
+                    chunk_sum = fma(
+                        grad_rows[vocab_lane][local_row],
+                        out_norm,
+                        chunk_sum
+                    );
+                }
+                uint grad_index = grad_base + in_col;
+                grad_weight[grad_index] = row_base == 0u && pc.accumulate == 0u
+                    ? chunk_sum
+                    : grad_weight[grad_index] + chunk_sum;
+            }
+        }
+
+        // Protect the shared CE-adjoint tile from the next row chunk until all
+        // hidden lanes have consumed it.
+        barrier();
+    }
+}

@@ -1,0 +1,45 @@
+#version 450
+
+// Weight gradients for the r/k/v projection trio. Each output matrix keeps the
+// same batch-row accumulation order as linear_weight_grad.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RInputBuffer { float xr[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RGradOutputBuffer { float grad_r[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KInputBuffer { float xk[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KGradOutputBuffer { float grad_k[]; };
+layout(set = 0, binding = 4, std430) readonly buffer VInputBuffer { float xv[]; };
+layout(set = 0, binding = 5, std430) readonly buffer VGradOutputBuffer { float grad_v[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer RGradWeightBuffer { float grad_wr[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer KGradWeightBuffer { float grad_wk[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer VGradWeightBuffer { float grad_wv[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+void main() {
+    uint in_col = gl_GlobalInvocationID.x;
+    uint out_row = gl_GlobalInvocationID.y;
+    if (in_col >= pc.input_dim || out_row >= pc.output_dim) {
+        return;
+    }
+
+    float r_sum = 0.0;
+    float k_sum = 0.0;
+    float v_sum = 0.0;
+    for (uint row = 0; row < pc.rows; ++row) {
+        uint grad_index = row * pc.output_dim + out_row;
+        uint input_index = row * pc.input_dim + in_col;
+        r_sum = fma(grad_r[grad_index], xr[input_index], r_sum);
+        k_sum = fma(grad_k[grad_index], xk[input_index], k_sum);
+        v_sum = fma(grad_v[grad_index], xv[input_index], v_sum);
+    }
+
+    uint output_index = out_row * pc.input_dim + in_col;
+    grad_wr[output_index] = r_sum;
+    grad_wk[output_index] = k_sum;
+    grad_wv[output_index] = v_sum;
+}

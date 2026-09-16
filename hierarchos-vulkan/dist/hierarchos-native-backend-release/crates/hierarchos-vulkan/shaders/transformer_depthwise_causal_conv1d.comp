@@ -1,0 +1,56 @@
+#version 450
+
+// Correctness-first grouped/depthwise causal Conv1D used by the Qwen3-Next,
+// Qwen3.5, and Qwen4-Exp linear-attention blocks, plus Qwen4 PLE's dilated
+// lexical convolution. Input/output layout is [batch, sequence, channels];
+// weights are [channels, kernel]. One invocation owns one output element, so
+// the implementation is deterministic and needs no atomics.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight_values[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint channels;
+    uint kernel_size;
+    uint dilation;
+    uint activation;
+} pc;
+
+float activate(float value) {
+    // Qwen GatedDeltaNet uses SiLU. Keep 0 as identity to make the primitive
+    // reusable by future recurrent/hybrid families.
+    if (pc.activation == 1u) {
+        return value / (1.0 + exp(-value));
+    }
+    return value;
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint total = pc.batch_size * pc.seq_len * pc.channels;
+    if (index >= total) return;
+
+    uint channel = index % pc.channels;
+    uint row = index / pc.channels;
+    uint token = row % pc.seq_len;
+    uint batch = row / pc.seq_len;
+
+    float sum = 0.0;
+    for (uint tap = 0u; tap < pc.kernel_size; ++tap) {
+        // PyTorch conv1d correlation with causal left padding
+        // dilation * (kernel_size - 1):
+        // output[t] = sum_j input[t + j*d - d*(K-1)] * weight[j].
+        int source_token = int(token)
+            + int(tap * pc.dilation)
+            - int((pc.kernel_size - 1u) * pc.dilation);
+        if (source_token >= 0) {
+            uint source = (batch * pc.seq_len + uint(source_token)) * pc.channels + channel;
+            sum = fma(input_values[source], weight_values[channel * pc.kernel_size + tap], sum);
+        }
+    }
+    output_values[index] = activate(sum);
+}

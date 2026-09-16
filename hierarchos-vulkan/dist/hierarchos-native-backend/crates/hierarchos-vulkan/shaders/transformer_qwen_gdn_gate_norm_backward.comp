@@ -1,0 +1,58 @@
+#version 450
+
+// Backward pass for Qwen's per-value-head gated RMSNorm. One invocation owns
+// one row/head pair, which avoids atomics for the input and gate adjoints.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GateBuffer { float gate_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer WeightBuffer { float weight_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradGateBuffer { float grad_gate[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint num_heads;
+    uint head_dim;
+    float epsilon;
+} pc;
+
+void main() {
+    uint row_head = gl_GlobalInvocationID.x;
+    uint total = pc.rows * pc.num_heads;
+    if (row_head >= total) return;
+    uint base = row_head * pc.head_dim;
+
+    float mean_square = 0.0;
+    for (uint dim = 0u; dim < pc.head_dim; ++dim) {
+        float x = input_values[base + dim];
+        mean_square = fma(x, x, mean_square);
+    }
+    mean_square /= float(pc.head_dim);
+    float inv_rms = inversesqrt(mean_square + pc.epsilon);
+
+    // ghat is the adjoint after the learned weight and SiLU gate, but before
+    // the RMS normalization. The RMSNorm input derivative needs <ghat, x>.
+    float dot = 0.0;
+    for (uint dim = 0u; dim < pc.head_dim; ++dim) {
+        float z = gate_values[base + dim];
+        float sigmoid_z = 1.0 / (1.0 + exp(-z));
+        float silu_z = z * sigmoid_z;
+        float ghat = grad_output[base + dim] * weight_values[dim] * silu_z;
+        dot = fma(ghat, input_values[base + dim], dot);
+    }
+
+    float rms_correction = inv_rms * inv_rms * inv_rms * dot / float(pc.head_dim);
+    for (uint dim = 0u; dim < pc.head_dim; ++dim) {
+        float x = input_values[base + dim];
+        float z = gate_values[base + dim];
+        float sigmoid_z = 1.0 / (1.0 + exp(-z));
+        float silu_z = z * sigmoid_z;
+        float grad = grad_output[base + dim];
+        float ghat = grad * weight_values[dim] * silu_z;
+        grad_input[base + dim] = inv_rms * ghat - x * rms_correction;
+        float silu_prime = sigmoid_z * (1.0 + z * (1.0 - sigmoid_z));
+        grad_gate[base + dim] = grad * x * inv_rms * weight_values[dim] * silu_prime;
+    }
+}

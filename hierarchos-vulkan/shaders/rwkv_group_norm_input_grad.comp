@@ -1,0 +1,52 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_y[]; };
+layout(set = 0, binding = 1, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 2, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 3, std430) readonly buffer MeanBuffer { float mean[]; };
+layout(set = 0, binding = 4, std430) readonly buffer RstdBuffer { float rstd[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradInputBuffer { float grad_x[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+    float eps;
+} pc;
+
+void main() {
+    uint group = gl_GlobalInvocationID.x;
+    uint heads = pc.width / pc.head_size;
+    uint group_count = pc.batch * heads;
+    if (group >= group_count) {
+        return;
+    }
+    uint batch_index = group / heads;
+    uint head = group % heads;
+    uint base = batch_index * pc.width + head * pc.head_size;
+    uint channel_base = head * pc.head_size;
+    float mu = mean[group];
+    float inv_std = rstd[group];
+    float sum_d = 0.0;
+    float sum_dxhat = 0.0;
+
+    for (uint i = 0; i < pc.head_size; ++i) {
+        uint index = base + i;
+        uint channel = channel_base + i;
+        float xhat = (x[index] - mu) * inv_std;
+        float d = grad_y[index] * weight[channel];
+        sum_d += d;
+        sum_dxhat = fma(d, xhat, sum_dxhat);
+    }
+
+    float inv_n = 1.0 / float(pc.head_size);
+    for (uint i = 0; i < pc.head_size; ++i) {
+        uint index = base + i;
+        uint channel = channel_base + i;
+        float xhat = (x[index] - mu) * inv_std;
+        float d = grad_y[index] * weight[channel];
+        grad_x[index] = (d - sum_d * inv_n - xhat * sum_dxhat * inv_n) * inv_std;
+    }
+}

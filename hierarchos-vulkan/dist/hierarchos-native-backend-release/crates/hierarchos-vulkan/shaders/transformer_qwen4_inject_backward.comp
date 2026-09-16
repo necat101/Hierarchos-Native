@@ -1,0 +1,52 @@
+#version 450
+
+// Adjoint of Qwen4-Exp branch injection:
+//   out[row, stream, hidden] = hyper[row, stream, hidden]
+//                            + gate[row, stream] * branch[row, hidden].
+// The identity hyper-state gradient is the upstream gradient itself and is
+// accumulated by the Rust graph. This kernel reduces the two product branches.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GateBuffer { float gate[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BranchBuffer { float branch[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradGateBuffer { float grad_gate[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradBranchBuffer { float grad_branch[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_count;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint gate_len = pc.rows * pc.hc_count;
+    uint branch_len = pc.rows * pc.hidden_size;
+    uint hyper_width = pc.hidden_size * pc.hc_count;
+
+    if (index < gate_len) {
+        uint row = index / pc.hc_count;
+        uint stream = index - row * pc.hc_count;
+        uint hyper_base = row * hyper_width + stream * pc.hidden_size;
+        uint branch_base = row * pc.hidden_size;
+        float sum = 0.0;
+        for (uint hidden = 0; hidden < pc.hidden_size; ++hidden) {
+            sum += grad_output[hyper_base + hidden] * branch[branch_base + hidden];
+        }
+        grad_gate[index] = sum;
+    }
+
+    if (index < branch_len) {
+        uint row = index / pc.hidden_size;
+        uint hidden = index - row * pc.hidden_size;
+        uint hyper_base = row * hyper_width + hidden;
+        uint gate_base = row * pc.hc_count;
+        float sum = 0.0;
+        for (uint stream = 0; stream < pc.hc_count; ++stream) {
+            sum += grad_output[hyper_base + stream * pc.hidden_size]
+                * gate[gate_base + stream];
+        }
+        grad_branch[index] = sum;
+    }
+}

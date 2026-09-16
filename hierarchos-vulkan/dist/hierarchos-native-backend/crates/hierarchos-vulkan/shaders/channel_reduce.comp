@@ -1,0 +1,23 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer PartialBuffer { float partial[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+} pc;
+
+void main() {
+    uint channel = gl_GlobalInvocationID.x;
+    if (channel >= pc.width) {
+        return;
+    }
+    float sum = 0.0;
+    for (uint batch_index = 0; batch_index < pc.batch; ++batch_index) {
+        sum += partial[batch_index * pc.width + channel];
+    }
+    output_values[channel] = sum;
+}

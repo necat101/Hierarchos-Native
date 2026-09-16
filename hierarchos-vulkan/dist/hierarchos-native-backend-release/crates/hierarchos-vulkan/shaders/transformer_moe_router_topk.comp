@@ -1,0 +1,401 @@
+#version 450
+
+// Hugging Face routed-MoE routing. score_function=0 preserves the historical
+// softmax-over-all-experts then top-k contract. score_function=1 implements
+// the GLM4-MoE/Solar Open router: sigmoid scores, correction-bias/group based
+// selection, optional selected-weight normalization, then routed scaling.
+// score_function=3 implements Mistral 4's grouped softmax router: group rank
+// is based on the sum of the two strongest global-softmax probabilities, then
+// expert top-k is restricted to the retained groups.
+// score_function=5 implements DeepSeek-V4's sqrt(softplus(logit)) router.
+// score_function=6 implements ERNIE 4.5 MoE: correction bias affects top-k
+// selection over softmax probabilities, while routed weights remain the
+// uncorrected softmax probabilities and are renormalized after selection.
+// The correction bias participates in expert selection only, while routed
+// weights use the uncorrected scores and are normalized over selected experts.
+// Results stay dense with zeros for unselected experts so expert dispatch can
+// remain entirely on the GPU.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LogitsBuffer { float logits[]; };
+layout(set = 0, binding = 1, std430) readonly buffer CorrectionBiasBuffer { float correction_bias[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer WeightsBuffer { float weights[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint experts;
+    uint top_k;
+    uint normalize_top_k;
+    uint score_function;
+    uint group_count;
+    uint topk_group;
+    float routed_scaling_factor;
+    uint expert_capacity;
+    uint capacity_group_size;
+    float router_logit_softcapping;
+} pc;
+
+float sigmoid_score(float value) {
+    if (value >= 0.0) {
+        float z = exp(-value);
+        return 1.0 / (1.0 + z);
+    }
+    float z = exp(value);
+    return z / (1.0 + z);
+}
+
+float router_score_logit(float value) {
+    if (pc.router_logit_softcapping > 0.0) {
+        float cap = pc.router_logit_softcapping;
+        return tanh(value / cap) * cap;
+    }
+    return value;
+}
+
+float routed_sigmoid_score(float value) {
+    return sigmoid_score(router_score_logit(value));
+}
+
+float stable_softplus(float value) {
+    return max(value, 0.0) + log(1.0 + exp(-abs(value)));
+}
+
+float sqrt_softplus_score(float value) {
+    return sqrt(stable_softplus(value));
+}
+
+bool softmax_topk_selected(uint row, uint expert) {
+    float value = logits[row * pc.experts + expert];
+    uint rank = 0;
+    for (uint other = 0; other < pc.experts; ++other) {
+        float other_value = logits[row * pc.experts + other];
+        if (other_value > value || (other_value == value && other < expert)) {
+            ++rank;
+        }
+    }
+    return rank < pc.top_k;
+}
+
+bool softmax_selected_expert(uint row, uint expert) {
+    if (!softmax_topk_selected(row, expert)) {
+        return false;
+    }
+    if (pc.expert_capacity == 0u) {
+        return true;
+    }
+
+    // SwitchTransformersTop1Router applies cumsum over the sequence-token
+    // dimension independently for every batch element, then masks assignments
+    // whose 1-based priority exceeds expert_capacity. The Vulkan graph flattens
+    // [batch, sequence] into rows, so capacity_group_size restores that batch
+    // boundary exactly.
+    uint group_size = max(pc.capacity_group_size, 1u);
+    uint group_begin = (row / group_size) * group_size;
+    uint priority = 0u;
+    for (uint prior = group_begin; prior <= row; ++prior) {
+        if (softmax_topk_selected(prior, expert)) {
+            ++priority;
+        }
+    }
+    return priority <= pc.expert_capacity;
+}
+
+float corrected_sigmoid_score(uint row, uint expert) {
+    return routed_sigmoid_score(logits[row * pc.experts + expert]) + correction_bias[expert];
+}
+
+float group_score(uint row, uint group) {
+    uint experts_per_group = pc.experts / pc.group_count;
+    uint begin = group * experts_per_group;
+    uint end = begin + experts_per_group;
+    float best = -3.402823466e+38;
+    float second = -3.402823466e+38;
+    uint best_index = 0xffffffffu;
+    for (uint expert = begin; expert < end; ++expert) {
+        float value = corrected_sigmoid_score(row, expert);
+        if (value > best || (value == best && expert < best_index)) {
+            second = best;
+            best = value;
+            best_index = expert;
+        } else if (value > second) {
+            second = value;
+        }
+    }
+    return best + second;
+}
+
+bool selected_group(uint row, uint group) {
+    float value = group_score(row, group);
+    uint rank = 0;
+    for (uint other = 0; other < pc.group_count; ++other) {
+        float other_value = group_score(row, other);
+        if (other_value > value || (other_value == value && other < group)) {
+            ++rank;
+        }
+    }
+    return rank < pc.topk_group;
+}
+
+bool sigmoid_selected_expert(uint row, uint expert) {
+    uint experts_per_group = pc.experts / pc.group_count;
+    uint group = expert / experts_per_group;
+    if (!selected_group(row, group)) {
+        return false;
+    }
+    float value = corrected_sigmoid_score(row, expert);
+    uint rank = 0;
+    for (uint other = 0; other < pc.experts; ++other) {
+        uint other_group = other / experts_per_group;
+        if (!selected_group(row, other_group)) {
+            continue;
+        }
+        float other_value = corrected_sigmoid_score(row, other);
+        if (other_value > value || (other_value == value && other < expert)) {
+            ++rank;
+        }
+    }
+    return rank < pc.top_k;
+}
+
+float corrected_sqrt_softplus_score(uint row, uint expert) {
+    return sqrt_softplus_score(logits[row * pc.experts + expert]) + correction_bias[expert];
+}
+
+bool sqrt_softplus_selected_expert(uint row, uint expert) {
+    float value = corrected_sqrt_softplus_score(row, expert);
+    uint rank = 0;
+    for (uint other = 0; other < pc.experts; ++other) {
+        float other_value = corrected_sqrt_softplus_score(row, other);
+        if (other_value > value || (other_value == value && other < expert)) {
+            ++rank;
+        }
+    }
+    return rank < pc.top_k;
+}
+
+float softmax_probability(uint row, uint expert) {
+    uint base = row * pc.experts;
+    float max_logit = -3.402823466e+38;
+    for (uint other = 0; other < pc.experts; ++other) {
+        max_logit = max(max_logit, logits[base + other]);
+    }
+    float full_sum = 0.0;
+    for (uint other = 0; other < pc.experts; ++other) {
+        full_sum += exp(logits[base + other] - max_logit);
+    }
+    return exp(logits[base + expert] - max_logit) / full_sum;
+}
+
+float corrected_softmax_score(uint row, uint expert) {
+    return softmax_probability(row, expert) + correction_bias[expert];
+}
+
+bool softmax_corrected_selected_expert(uint row, uint expert) {
+    float value = corrected_softmax_score(row, expert);
+    uint rank = 0;
+    for (uint other = 0; other < pc.experts; ++other) {
+        float other_value = corrected_softmax_score(row, other);
+        if (other_value > value || (other_value == value && other < expert)) {
+            ++rank;
+        }
+    }
+    return rank < pc.top_k;
+}
+
+float softmax_group_score(uint row, uint group) {
+    uint experts_per_group = pc.experts / pc.group_count;
+    uint begin = group * experts_per_group;
+    uint end = begin + experts_per_group;
+    float best = -1.0;
+    float second = -1.0;
+    uint best_index = 0xffffffffu;
+    for (uint expert = begin; expert < end; ++expert) {
+        float value = softmax_probability(row, expert);
+        if (value > best || (value == best && expert < best_index)) {
+            second = best;
+            best = value;
+            best_index = expert;
+        } else if (value > second) {
+            second = value;
+        }
+    }
+    // score_function=4 is DeepSeek-V2 group_limited_greedy: HF ranks each
+    // group by its single strongest expert. score_function=3 is Mistral 4's
+    // top-two-sum contract.
+    return pc.score_function == 4u ? best : best + second;
+}
+
+bool softmax_selected_group(uint row, uint group) {
+    float value = softmax_group_score(row, group);
+    uint rank = 0;
+    for (uint other = 0; other < pc.group_count; ++other) {
+        float other_value = softmax_group_score(row, other);
+        if (other_value > value || (other_value == value && other < group)) {
+            ++rank;
+        }
+    }
+    return rank < pc.topk_group;
+}
+
+bool softmax_grouped_selected_expert(uint row, uint expert) {
+    uint experts_per_group = pc.experts / pc.group_count;
+    uint group = expert / experts_per_group;
+    if (!softmax_selected_group(row, group)) {
+        return false;
+    }
+    float value = logits[row * pc.experts + expert];
+    uint rank = 0;
+    for (uint other = 0; other < pc.experts; ++other) {
+        uint other_group = other / experts_per_group;
+        if (!softmax_selected_group(row, other_group)) {
+            continue;
+        }
+        float other_value = logits[row * pc.experts + other];
+        if (other_value > value || (other_value == value && other < expert)) {
+            ++rank;
+        }
+    }
+    return rank < pc.top_k;
+}
+
+void softmax_route(uint row) {
+    uint base = row * pc.experts;
+    float max_logit = -3.402823466e+38;
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        max_logit = max(max_logit, logits[base + expert]);
+    }
+
+    float full_sum = 0.0;
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        full_sum += exp(logits[base + expert] - max_logit);
+    }
+
+    float selected_sum = 0.0;
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        if (softmax_selected_expert(row, expert)) {
+            selected_sum += exp(logits[base + expert] - max_logit) / full_sum;
+        }
+    }
+
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        uint index = base + expert;
+        if (softmax_selected_expert(row, expert)) {
+            float probability = exp(logits[index] - max_logit) / full_sum;
+            float value = pc.normalize_top_k != 0 ? probability / selected_sum : probability;
+            weights[index] = value * pc.routed_scaling_factor;
+        } else {
+            weights[index] = 0.0;
+        }
+    }
+}
+
+void sigmoid_grouped_route(uint row) {
+    uint base = row * pc.experts;
+    float selected_sum = 0.0;
+    if (pc.normalize_top_k != 0) {
+        for (uint expert = 0; expert < pc.experts; ++expert) {
+            if (sigmoid_selected_expert(row, expert)) {
+                selected_sum += routed_sigmoid_score(logits[base + expert]);
+            }
+        }
+    }
+
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        uint index = base + expert;
+        if (!sigmoid_selected_expert(row, expert)) {
+            weights[index] = 0.0;
+            continue;
+        }
+        float value = routed_sigmoid_score(logits[index]);
+        if (pc.normalize_top_k != 0) {
+            value /= selected_sum + 1.0e-20;
+        }
+        weights[index] = value * pc.routed_scaling_factor;
+    }
+}
+
+void softmax_corrected_route(uint row) {
+    uint base = row * pc.experts;
+    float selected_sum = 0.0;
+    if (pc.normalize_top_k != 0) {
+        for (uint expert = 0; expert < pc.experts; ++expert) {
+            if (softmax_corrected_selected_expert(row, expert)) {
+                selected_sum += softmax_probability(row, expert);
+            }
+        }
+    }
+
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        uint index = base + expert;
+        if (!softmax_corrected_selected_expert(row, expert)) {
+            weights[index] = 0.0;
+            continue;
+        }
+        float value = softmax_probability(row, expert);
+        if (pc.normalize_top_k != 0) {
+            value /= selected_sum + 1.0e-20;
+        }
+        weights[index] = value * pc.routed_scaling_factor;
+    }
+}
+
+void sqrt_softplus_route(uint row) {
+    uint base = row * pc.experts;
+    float selected_sum = 0.0;
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        if (sqrt_softplus_selected_expert(row, expert)) {
+            selected_sum += sqrt_softplus_score(logits[base + expert]);
+        }
+    }
+
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        uint index = base + expert;
+        if (!sqrt_softplus_selected_expert(row, expert)) {
+            weights[index] = 0.0;
+            continue;
+        }
+        float value = sqrt_softplus_score(logits[index]) / (selected_sum + 1.0e-20);
+        weights[index] = value * pc.routed_scaling_factor;
+    }
+}
+
+void softmax_grouped_route(uint row) {
+    uint base = row * pc.experts;
+    float selected_sum = 0.0;
+    if (pc.normalize_top_k != 0) {
+        for (uint expert = 0; expert < pc.experts; ++expert) {
+            if (softmax_grouped_selected_expert(row, expert)) {
+                selected_sum += softmax_probability(row, expert);
+            }
+        }
+    }
+
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        uint index = base + expert;
+        if (!softmax_grouped_selected_expert(row, expert)) {
+            weights[index] = 0.0;
+            continue;
+        }
+        float value = softmax_probability(row, expert);
+        if (pc.normalize_top_k != 0) {
+            value /= selected_sum + 1.0e-20;
+        }
+        weights[index] = value * pc.routed_scaling_factor;
+    }
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    if (pc.score_function == 1u) {
+        sigmoid_grouped_route(row);
+    } else if (pc.score_function == 5u) {
+        sqrt_softplus_route(row);
+    } else if (pc.score_function == 6u) {
+        softmax_corrected_route(row);
+    } else if (pc.score_function == 3u || pc.score_function == 4u) {
+        softmax_grouped_route(row);
+    } else {
+        softmax_route(row);
+    }
+}

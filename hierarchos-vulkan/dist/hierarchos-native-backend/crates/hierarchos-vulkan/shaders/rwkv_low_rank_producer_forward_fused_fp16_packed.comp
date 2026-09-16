@@ -1,0 +1,144 @@
+#version 450
+
+// FP16-storage specialization of rwkv_low_rank_producer_forward_fused.comp.
+// Interpolation and accumulation stay FP32; only the w1/a1/g1 parameter reads
+// come from two-elements-per-u32 IEEE half mirrors.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x_norm[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 2, std430) readonly buffer MixWBuffer { float mix_w[]; };
+layout(set = 0, binding = 3, std430) readonly buffer MixABuffer { float mix_a[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MixGBuffer { float mix_g[]; };
+layout(set = 0, binding = 5, std430) readonly buffer W1Buffer { uint w1_packed[]; };
+layout(set = 0, binding = 6, std430) readonly buffer A1Buffer { uint a1_packed[]; };
+layout(set = 0, binding = 7, std430) readonly buffer G1Buffer { uint g1_packed[]; };
+
+layout(set = 0, binding = 8, std430) writeonly buffer MixedWBuffer { float xw[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer MixedABuffer { float xa[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer MixedGBuffer { float xg[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer WHiddenBuffer { float w_hidden[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer AHiddenBuffer { float a_hidden[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer GHiddenBuffer { float g_hidden[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint width;
+    uint w_rank;
+    uint a_rank;
+    uint g_rank;
+} pc;
+
+shared float mixed_w_tile[256];
+shared float mixed_a_tile[256];
+shared float mixed_g_tile[256];
+
+vec2 load_w1_pair(uint first_index, bool second_active) {
+    vec2 current = unpackHalf2x16(w1_packed[first_index >> 1u]);
+    if ((first_index & 1u) == 0u) return second_active ? current : vec2(current.x, 0.0);
+    if (!second_active) return vec2(current.y, 0.0);
+    vec2 next = unpackHalf2x16(w1_packed[(first_index >> 1u) + 1u]);
+    return vec2(current.y, next.x);
+}
+vec2 load_a1_pair(uint first_index, bool second_active) {
+    vec2 current = unpackHalf2x16(a1_packed[first_index >> 1u]);
+    if ((first_index & 1u) == 0u) return second_active ? current : vec2(current.x, 0.0);
+    if (!second_active) return vec2(current.y, 0.0);
+    vec2 next = unpackHalf2x16(a1_packed[(first_index >> 1u) + 1u]);
+    return vec2(current.y, next.x);
+}
+vec2 load_g1_pair(uint first_index, bool second_active) {
+    vec2 current = unpackHalf2x16(g1_packed[first_index >> 1u]);
+    if ((first_index & 1u) == 0u) return second_active ? current : vec2(current.x, 0.0);
+    if (!second_active) return vec2(current.y, 0.0);
+    vec2 next = unpackHalf2x16(g1_packed[(first_index >> 1u) + 1u]);
+    return vec2(current.y, next.x);
+}
+
+void main() {
+    uint local_col = gl_LocalInvocationID.x;
+    uint local_row = gl_LocalInvocationID.y;
+    uint row = gl_WorkGroupID.y * 16u + local_row;
+    uint out_col = (gl_WorkGroupID.x * 16u + local_col) * 2u;
+    uint shared_index = local_row * 16u + local_col;
+    bool row_active = row < pc.rows;
+    bool w_active0 = row_active && out_col < pc.w_rank;
+    bool w_active1 = row_active && out_col + 1u < pc.w_rank;
+    bool a_active0 = row_active && out_col < pc.a_rank;
+    bool a_active1 = row_active && out_col + 1u < pc.a_rank;
+    bool g_active0 = row_active && out_col < pc.g_rank;
+    bool g_active1 = row_active && out_col + 1u < pc.g_rank;
+
+    vec2 w_sum = vec2(0.0);
+    vec2 a_sum = vec2(0.0);
+    vec2 g_sum = vec2(0.0);
+    uint row_base = row * pc.width;
+
+    for (uint tile = 0u; tile < pc.width; tile += 16u) {
+        uint in_col = tile + local_col;
+        float mixed_w = 0.0;
+        float mixed_a = 0.0;
+        float mixed_g = 0.0;
+
+        if (row_active && in_col < pc.width) {
+            uint input_index = row_base + in_col;
+            float x = x_norm[input_index];
+            float delta = previous[input_index] - x;
+            mixed_w = fma(delta, mix_w[in_col], x);
+            mixed_a = fma(delta, mix_a[in_col], x);
+            mixed_g = fma(delta, mix_g[in_col], x);
+            if (gl_WorkGroupID.x == 0u) {
+                xw[input_index] = mixed_w;
+                xa[input_index] = mixed_a;
+                xg[input_index] = mixed_g;
+            }
+        }
+
+        mixed_w_tile[shared_index] = mixed_w;
+        mixed_a_tile[shared_index] = mixed_a;
+        mixed_g_tile[shared_index] = mixed_g;
+        memoryBarrierShared();
+        barrier();
+
+        uint tile_len = min(16u, pc.width - tile);
+        uint shared_row_base = local_row * 16u;
+        for (uint i = 0u; i < tile_len; ++i) {
+            uint weight_input = tile + i;
+            uint tile_index = shared_row_base + i;
+            if (w_active0) {
+                vec2 weights = load_w1_pair(weight_input * pc.w_rank + out_col, w_active1);
+                w_sum.x = fma(mixed_w_tile[tile_index], weights.x, w_sum.x);
+                if (w_active1) w_sum.y = fma(mixed_w_tile[tile_index], weights.y, w_sum.y);
+            }
+            if (a_active0) {
+                vec2 weights = load_a1_pair(weight_input * pc.a_rank + out_col, a_active1);
+                a_sum.x = fma(mixed_a_tile[tile_index], weights.x, a_sum.x);
+                if (a_active1) a_sum.y = fma(mixed_a_tile[tile_index], weights.y, a_sum.y);
+            }
+            if (g_active0) {
+                vec2 weights = load_g1_pair(weight_input * pc.g_rank + out_col, g_active1);
+                g_sum.x = fma(mixed_g_tile[tile_index], weights.x, g_sum.x);
+                if (g_active1) g_sum.y = fma(mixed_g_tile[tile_index], weights.y, g_sum.y);
+            }
+        }
+
+        memoryBarrierShared();
+        barrier();
+    }
+
+    if (w_active0) {
+        uint index = row * pc.w_rank + out_col;
+        w_hidden[index] = w_sum.x;
+        if (w_active1) w_hidden[index + 1u] = w_sum.y;
+    }
+    if (a_active0) {
+        uint index = row * pc.a_rank + out_col;
+        a_hidden[index] = a_sum.x;
+        if (a_active1) a_hidden[index + 1u] = a_sum.y;
+    }
+    if (g_active0) {
+        uint index = row * pc.g_rank + out_col;
+        g_hidden[index] = g_sum.x;
+        if (g_active1) g_hidden[index + 1u] = g_sum.y;
+    }
+}

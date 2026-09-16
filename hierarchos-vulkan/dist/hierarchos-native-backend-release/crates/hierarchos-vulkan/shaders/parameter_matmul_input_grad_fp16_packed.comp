@@ -1,0 +1,74 @@
+#version 450
+
+#ifndef HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#define HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE 0
+#endif
+
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#endif
+
+// The bandwidth-heavy weight read used to propagate input adjoints comes from
+// the compact FP16 execution mirror. The native-compute specialization also
+// rounds each incoming adjoint to FP16 and evaluates the multiply in Float16,
+// then widens the product into the existing FP32 reduction/destination.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { uint weight_packed[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+vec2 load_weight_pair(uint first_index, bool second_active) {
+    vec2 current = unpackHalf2x16(weight_packed[first_index >> 1u]);
+    if ((first_index & 1u) == 0u) {
+        return second_active ? current : vec2(current.x, 0.0);
+    }
+    if (!second_active) {
+        return vec2(current.y, 0.0);
+    }
+    vec2 next = unpackHalf2x16(weight_packed[(first_index >> 1u) + 1u]);
+    return vec2(current.y, next.x);
+}
+
+float accumulate_backward_product(float sum, float grad, float weight) {
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+    return sum + float(float16_t(grad) * float16_t(weight));
+#else
+    return fma(grad, weight, sum);
+#endif
+}
+
+void main() {
+    uint in_col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || in_col >= pc.input_dim) {
+        return;
+    }
+
+    float sum = 0.0;
+    uint grad_base = row * pc.output_dim;
+    uint weight_base = in_col * pc.output_dim;
+    for (uint out_col = 0u; out_col < pc.output_dim; out_col += 2u) {
+        bool second_active = out_col + 1u < pc.output_dim;
+        vec2 weights = load_weight_pair(weight_base + out_col, second_active);
+        sum = accumulate_backward_product(
+            sum,
+            grad_output[grad_base + out_col],
+            weights.x
+        );
+        if (second_active) {
+            sum = accumulate_backward_product(
+                sum,
+                grad_output[grad_base + out_col + 1u],
+                weights.y
+            );
+        }
+    }
+    grad_input[row * pc.input_dim + in_col] = sum;
+}

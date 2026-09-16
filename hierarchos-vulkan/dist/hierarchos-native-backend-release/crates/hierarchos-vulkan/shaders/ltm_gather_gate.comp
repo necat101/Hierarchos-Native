@@ -1,0 +1,47 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer IndexBuffer { uint indices[]; };
+layout(set = 0, binding = 1, std430) readonly buffer SlowValueBuffer { float slow_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer FastValueBuffer { float fast_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer RouterBuffer { float router[]; };
+layout(set = 0, binding = 4, std430) readonly buffer GateLogitBuffer { float gate_logit[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint topk;
+    uint val_dim;
+    uint slots;
+    float gate_floor;
+} pc;
+
+float sigmoid_stable(float x) {
+    if (!isnan(x) && !isinf(x)) {
+        x = clamp(x, -50.0, 50.0);
+    }
+    return 1.0 / (1.0 + exp(-x));
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint row_width = pc.topk * pc.val_dim;
+    uint len = pc.rows * row_width;
+    if (index >= len) {
+        return;
+    }
+    uint row = index / row_width;
+    uint rem = index - row * row_width;
+    uint k = rem / pc.val_dim;
+    uint d = rem - k * pc.val_dim;
+    uint slot = indices[row * pc.topk + k];
+    float value = 0.0;
+    if (slot < pc.slots) {
+        uint source = slot * pc.val_dim + d;
+        value = slow_values[source] + fast_values[source];
+    }
+    float gate = sigmoid_stable(gate_logit[0] + router[row]);
+    gate = pc.gate_floor + (1.0 - pc.gate_floor) * gate;
+    output_values[index] = value * gate;
+}

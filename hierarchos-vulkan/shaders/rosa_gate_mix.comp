@@ -1,0 +1,38 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RawTokenBuffer { float raw_token[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RosaFeatureBuffer { float rosa_feature[]; };
+layout(set = 0, binding = 2, std430) readonly buffer RouterBuffer { float router[]; };
+layout(set = 0, binding = 3, std430) readonly buffer ValidBuffer { uint valid[]; };
+layout(set = 0, binding = 4, std430) readonly buffer GateLogitBuffer { float gate_logit[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer TokenOutBuffer { float token_out[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    float gate_floor;
+} pc;
+
+float sigmoid_stable(float x) {
+    // Match `_finite_clamp(x, 50)` before torch.sigmoid: finite values
+    // saturate, but NaN/Inf remain visible to the outer numerical guards.
+    if (!isnan(x) && !isinf(x)) {
+        x = clamp(x, -50.0, 50.0);
+    }
+    return 1.0 / (1.0 + exp(-x));
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint len = pc.rows * pc.dim;
+    if (index >= len) {
+        return;
+    }
+    uint row = index / pc.dim;
+    float gate = sigmoid_stable(gate_logit[0] + router[row]);
+    gate = pc.gate_floor + (1.0 - pc.gate_floor) * gate;
+    gate *= valid[row] != 0u ? 1.0 : 0.0;
+    token_out[index] = raw_token[index] + gate * rosa_feature[index];
+}

@@ -1,0 +1,187 @@
+#version 450
+
+// One workgroup owns one (batch, head) and crosses the full forward seam:
+// time interpolation -> PyTorch-layout r/k/v projections -> key transform ->
+// recurrent matrix-state advance. The legacy scratch tensors are still written
+// so the existing backward kernels and checkpoint/parity contract remain
+// unchanged while forward dispatch/barrier traffic is collapsed.
+#ifndef RWKV_TIME_MIX_FORWARD_WORKGROUP_SIZE
+#define RWKV_TIME_MIX_FORWARD_WORKGROUP_SIZE 64
+#endif
+
+layout(local_size_x = RWKV_TIME_MIX_FORWARD_WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x_norm[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 2, std430) readonly buffer MixRBuffer { float mix_r[]; };
+layout(set = 0, binding = 3, std430) readonly buffer MixKBuffer { float mix_k[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MixVBuffer { float mix_v[]; };
+layout(set = 0, binding = 5, std430) readonly buffer RWeightBuffer { float wr[]; };
+layout(set = 0, binding = 6, std430) readonly buffer KWeightBuffer { float wk[]; };
+layout(set = 0, binding = 7, std430) readonly buffer VWeightBuffer { float wv[]; };
+layout(set = 0, binding = 8, std430) readonly buffer InContextBuffer { float a[]; };
+layout(set = 0, binding = 9, std430) readonly buffer KeyNormScaleBuffer { float k_k[]; };
+layout(set = 0, binding = 10, std430) readonly buffer KeyContextScaleBuffer { float k_a[]; };
+layout(set = 0, binding = 11, std430) readonly buffer StateBuffer { float state_values[]; };
+layout(set = 0, binding = 12, std430) readonly buffer DecayLogBuffer { float w[]; };
+
+layout(set = 0, binding = 13, std430) writeonly buffer MixedRBuffer { float xr[]; };
+layout(set = 0, binding = 14, std430) writeonly buffer MixedKBuffer { float xk[]; };
+layout(set = 0, binding = 15, std430) writeonly buffer MixedVBuffer { float xv[]; };
+layout(set = 0, binding = 16, std430) writeonly buffer ReceptanceBuffer { float r[]; };
+layout(set = 0, binding = 17, std430) writeonly buffer RawKeyBuffer { float raw_k[]; };
+layout(set = 0, binding = 18, std430) writeonly buffer ValueBuffer { float v[]; };
+layout(set = 0, binding = 19, std430) writeonly buffer ScaledKeyBuffer { float scaled_k[]; };
+layout(set = 0, binding = 20, std430) writeonly buffer NormalizedKeyBuffer { float kk[]; };
+layout(set = 0, binding = 21, std430) writeonly buffer NewStateBuffer { float new_state[]; };
+layout(set = 0, binding = 22, std430) writeonly buffer TimeMixBuffer { float tmix[]; };
+layout(set = 0, binding = 23, std430) writeonly buffer SavedSaBuffer { float saved_sa[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+} pc;
+
+shared float r_shared[64];
+shared float raw_k_shared[64];
+shared float v_shared[64];
+shared float scaled_k_shared[64];
+shared float kk_shared[64];
+shared float mixed_r_shared[64];
+shared float mixed_k_shared[64];
+shared float mixed_v_shared[64];
+
+void main() {
+    uint heads = pc.width / pc.head_size;
+    uint linear_head = gl_WorkGroupID.x;
+    uint total_heads = pc.batch * heads;
+    if (linear_head >= total_heads) {
+        return;
+    }
+
+    uint batch_index = linear_head / heads;
+    uint head = linear_head - batch_index * heads;
+    uint lane = gl_LocalInvocationID.x;
+    uint batch_base = batch_index * pc.width;
+    uint head_channel_base = head * pc.head_size;
+
+    bool lane_active = lane < pc.head_size;
+    uint out_channel = head_channel_base + lane;
+    uint weight_base = out_channel * pc.width;
+    float r_sum = 0.0;
+    float k_sum = 0.0;
+    float v_sum = 0.0;
+
+    // Tile interpolation through workgroup memory. Each head computes each
+    // mixed input once per tile rather than once per output channel; head zero
+    // also materializes the exact xr/xk/xv tensors retained for backward.
+    for (uint tile = 0; tile < pc.width; tile += 64) {
+        uint tile_len = min(64u, pc.width - tile);
+        for (uint input_local = lane; input_local < tile_len;
+             input_local += gl_WorkGroupSize.x) {
+            uint input_channel = tile + input_local;
+            uint input_index = batch_base + input_channel;
+            float x = x_norm[input_index];
+            float delta = previous[input_index] - x;
+            float mixed_r = fma(delta, mix_r[input_channel], x);
+            float mixed_k = fma(delta, mix_k[input_channel], x);
+            float mixed_v = fma(delta, mix_v[input_channel], x);
+            mixed_r_shared[input_local] = mixed_r;
+            mixed_k_shared[input_local] = mixed_k;
+            mixed_v_shared[input_local] = mixed_v;
+            if (head == 0) {
+                xr[input_index] = mixed_r;
+                xk[input_index] = mixed_k;
+                xv[input_index] = mixed_v;
+            }
+        }
+
+        memoryBarrierShared();
+        barrier();
+
+        if (lane_active) {
+            for (uint i = 0; i < tile_len; ++i) {
+                uint weight_index = weight_base + tile + i;
+                r_sum = fma(mixed_r_shared[i], wr[weight_index], r_sum);
+                k_sum = fma(mixed_k_shared[i], wk[weight_index], k_sum);
+                v_sum = fma(mixed_v_shared[i], wv[weight_index], v_sum);
+            }
+        }
+
+        memoryBarrierShared();
+        barrier();
+    }
+
+    if (lane_active) {
+        uint output_index = batch_base + out_channel;
+        r[output_index] = r_sum;
+        raw_k[output_index] = k_sum;
+        v[output_index] = v_sum;
+        r_shared[lane] = r_sum;
+        raw_k_shared[lane] = k_sum;
+        v_shared[lane] = v_sum;
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (lane == 0) {
+        float norm_sq = 0.0;
+        for (uint col = 0; col < pc.head_size; ++col) {
+            uint channel = head_channel_base + col;
+            float z = raw_k_shared[col] * k_k[channel];
+            norm_sq = fma(z, z, norm_sq);
+        }
+        float denom = max(sqrt(norm_sq), 1.0e-12);
+
+        for (uint col = 0; col < pc.head_size; ++col) {
+            uint index = batch_base + head_channel_base + col;
+            uint channel = head_channel_base + col;
+            float raw = raw_k_shared[col];
+            float normalized = raw * k_k[channel] / denom;
+            float scale = 1.0 + (a[index] - 1.0) * k_a[channel];
+            float scaled = raw * scale;
+            kk[index] = normalized;
+            scaled_k[index] = scaled;
+            kk_shared[col] = normalized;
+            scaled_k_shared[col] = scaled;
+        }
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (!lane_active) {
+        return;
+    }
+
+    uint row = lane;
+    uint linear_row = batch_base + head_channel_base + row;
+    uint matrix_head_base = linear_head * pc.head_size * pc.head_size;
+    uint matrix_row_base = matrix_head_base + row * pc.head_size;
+
+    float sa = 0.0;
+    for (uint col = 0; col < pc.head_size; ++col) {
+        sa = fma(state_values[matrix_row_base + col], -kk_shared[col], sa);
+    }
+    saved_sa[linear_row] = sa;
+
+    float row_tmix = 0.0;
+    float value_row = v_shared[row];
+    for (uint col = 0; col < pc.head_size; ++col) {
+        uint channel_col = batch_base + head_channel_base + col;
+        uint matrix_index = matrix_row_base + col;
+        float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
+            ? w[channel_col]
+            : clamp(w[channel_col], -60.0, 30.0);
+        float decay = exp(-exp(bounded_w));
+        float b = kk_shared[col] * a[channel_col];
+        float updated = state_values[matrix_index] * decay
+            + sa * b
+            + value_row * scaled_k_shared[col];
+        new_state[matrix_index] = updated;
+        row_tmix = fma(updated, r_shared[col], row_tmix);
+    }
+    tmix[linear_row] = row_tmix;
+}

@@ -1,0 +1,42 @@
+#version 450
+
+// Exact adjoint for OPT's cumulative-mask learned positional embedding. One
+// invocation owns one table element, avoiding floating-point atomics so this is
+// portable across the AMD Vulkan devices targeted by the native backend.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer AttentionMaskBuffer { float attention_mask[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradPositionBuffer { float grad_position[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint dim;
+    uint table_rows;
+    uint offset;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint embedding_index = gl_GlobalInvocationID.y;
+    if (embedding_index >= pc.table_rows || col >= pc.dim) return;
+
+    float sum = 0.0;
+    for (uint batch = 0u; batch < pc.batch_size; ++batch) {
+        uint batch_start = batch * pc.seq_len;
+        uint cumulative = 0u;
+        for (uint position = 0u; position < pc.seq_len; ++position) {
+            uint row = batch_start + position;
+            bool is_unmasked = attention_mask[row] > 0.0;
+            if (is_unmasked) cumulative += 1u;
+            uint row_embedding = is_unmasked
+                ? (cumulative - 1u + pc.offset)
+                : (pc.offset - 1u);
+            if (row_embedding == embedding_index) {
+                sum += grad_output[row * pc.dim + col];
+            }
+        }
+    }
+    grad_position[embedding_index * pc.dim + col] = sum;
+}

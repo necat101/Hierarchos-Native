@@ -1,0 +1,88 @@
+#version 450
+
+// DeepSeek-V4 bootstrap Hash-MoE router. Expert membership is frozen by the
+// checkpoint's token-id -> expert-id table, while the learned router logits
+// still determine the normalized weights of those selected experts.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LogitsBuffer { float logits[]; };
+layout(set = 0, binding = 1, std430) readonly buffer TokenIdBuffer { uint token_ids[]; };
+layout(set = 0, binding = 2, std430) readonly buffer TokenExpertBuffer { uint tid2eid[]; };
+layout(set = 0, binding = 3, std430) buffer WeightsBuffer { float weights[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint experts;
+    uint top_k;
+    uint vocab_size;
+    float routed_scaling_factor;
+    uint score_function;
+} pc;
+
+float stable_softplus(float value) {
+    return max(value, 0.0) + log(1.0 + exp(-abs(value)));
+}
+
+float sigmoid_score(float value) {
+    if (value >= 0.0) {
+        float z = exp(-value);
+        return 1.0 / (1.0 + z);
+    }
+    float z = exp(value);
+    return z / (1.0 + z);
+}
+
+float score(uint row, uint expert, float selected_max) {
+    float value = logits[row * pc.experts + expert];
+    if (pc.score_function == 0u || pc.score_function == 6u) {
+        // HF gathers global-softmax probabilities and then renormalizes the
+        // fixed hash-selected set. The global denominator cancels exactly.
+        return exp(value - selected_max);
+    }
+    if (pc.score_function == 1u) {
+        return sigmoid_score(value);
+    }
+    return sqrt(stable_softplus(value));
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+
+    uint base = row * pc.experts;
+    for (uint expert = 0u; expert < pc.experts; ++expert) {
+        weights[base + expert] = 0.0;
+    }
+
+    uint token = token_ids[row];
+    if (token >= pc.vocab_size) return;
+
+    uint table_base = token * pc.top_k;
+    float selected_max = -3.402823466e+38;
+    if (pc.score_function == 0u || pc.score_function == 6u) {
+        for (uint slot = 0u; slot < pc.top_k; ++slot) {
+            uint expert = tid2eid[table_base + slot];
+            if (expert < pc.experts) {
+                selected_max = max(selected_max, logits[base + expert]);
+            }
+        }
+    }
+    float selected_sum = 0.0;
+    for (uint slot = 0u; slot < pc.top_k; ++slot) {
+        uint expert = tid2eid[table_base + slot];
+        if (expert < pc.experts) {
+            selected_sum += score(row, expert, selected_max);
+        }
+    }
+
+    if (selected_sum <= 0.0) return;
+    for (uint slot = 0u; slot < pc.top_k; ++slot) {
+        uint expert = tid2eid[table_base + slot];
+        if (expert < pc.experts) {
+            // Host-side checkpoint validation rejects duplicate expert ids in a
+            // token row, so each dense destination is written exactly once.
+            weights[base + expert] =
+                score(row, expert, selected_max) / selected_sum * pc.routed_scaling_factor;
+        }
+    }
+}

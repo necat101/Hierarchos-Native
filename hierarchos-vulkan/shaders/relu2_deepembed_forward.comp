@@ -1,0 +1,36 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer KeyBuffer { float key_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer DeepEmbedBuffer { float deepembed[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint len;
+    float key_clamp;
+    float deepembed_clamp;
+} pc;
+
+float clamp_preserve_nonfinite(float value, float limit) {
+    if (limit <= 0.0 || isnan(value) || isinf(value)) {
+        return value;
+    }
+    return clamp(value, -limit, limit);
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.len) {
+        return;
+    }
+    float key = clamp_preserve_nonfinite(key_values[index], pc.key_clamp);
+    float activated = max(key, 0.0);
+    float deep = clamp_preserve_nonfinite(deepembed[index], pc.deepembed_clamp);
+    float value = activated * activated * deep;
+    if (pc.key_clamp > 0.0 && pc.deepembed_clamp > 0.0 && !isnan(value) && !isinf(value)) {
+        float limit = pc.key_clamp * pc.key_clamp * pc.deepembed_clamp;
+        value = clamp(value, -limit, limit);
+    }
+    output_values[index] = value;
+}

@@ -1,0 +1,29 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradKeyNormScalePartialBuffer { float grad_k_k_partial[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradKeyContextScalePartialBuffer { float grad_k_a_partial[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradKeyNormScaleBuffer { float grad_k_k[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradKeyContextScaleBuffer { float grad_k_a[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+} pc;
+
+void main() {
+    uint channel = gl_GlobalInvocationID.x;
+    if (channel >= pc.width) {
+        return;
+    }
+    float sum_k_k = 0.0;
+    float sum_k_a = 0.0;
+    for (uint batch_index = 0; batch_index < pc.batch; ++batch_index) {
+        uint index = batch_index * pc.width + channel;
+        sum_k_k += grad_k_k_partial[index];
+        sum_k_a += grad_k_a_partial[index];
+    }
+    grad_k_k[channel] = sum_k_k;
+    grad_k_a[channel] = sum_k_a;
+}

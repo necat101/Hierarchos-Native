@@ -1,0 +1,45 @@
+#version 450
+
+// Exact adjoint of RoBERTa's input-ID-derived position lookup. The position
+// embedding is constructed with padding_idx, so the padding row must receive
+// zero gradient even though it participates in the forward lookup.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer TokenIdBuffer { uint token_ids[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradPositionBuffer { float grad_position[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint dim;
+    uint table_rows;
+    uint padding_idx;
+    float embedding_scale;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint embedding_index = gl_GlobalInvocationID.y;
+    if (embedding_index >= pc.table_rows || col >= pc.dim) return;
+
+    if (embedding_index == pc.padding_idx) {
+        grad_position[embedding_index * pc.dim + col] = 0.0;
+        return;
+    }
+
+    float sum = 0.0;
+    for (uint batch = 0u; batch < pc.batch_size; ++batch) {
+        uint batch_start = batch * pc.seq_len;
+        uint cumulative = 0u;
+        for (uint position = 0u; position < pc.seq_len; ++position) {
+            uint row = batch_start + position;
+            if (token_ids[row] == pc.padding_idx) continue;
+            cumulative += 1u;
+            if (pc.padding_idx + cumulative == embedding_index) {
+                sum += grad_output[row * pc.dim + col];
+            }
+        }
+    }
+    grad_position[embedding_index * pc.dim + col] = sum;
+}

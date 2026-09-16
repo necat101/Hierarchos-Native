@@ -1,0 +1,318 @@
+#version 450
+
+#ifdef RWKV_LOW_RANK_FIRST_STAGE_SUBGROUP_PACKED_SHARE
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_shuffle : require
+#endif
+
+// FP16-storage full RWKV low-rank producer for the recurrent rematerialization
+// path. One 128-lane workgroup owns one row so the 64/64/96 Hierarchos ranks
+// stay resident through both low-rank stages. The first [width, rank] stage
+// retains one rank channel per lane to preserve wave occupancy, while adjacent
+// output columns in the second [rank, width] stage are owned as pairs. That
+// second-stage geometry matches the physical half2 packing so one 32-bit weight
+// load feeds two independent FP32 FMAs. All arithmetic and accumulation remain
+// FP32; only the six matrix parameters use packed IEEE FP16 storage. Every
+// tensor needed by the unchanged backward graph is still materialized.
+layout(local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x_norm[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 2, std430) readonly buffer MixWBuffer { float mix_w[]; };
+layout(set = 0, binding = 3, std430) readonly buffer MixABuffer { float mix_a[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MixGBuffer { float mix_g[]; };
+layout(set = 0, binding = 5, std430) readonly buffer W1Buffer { uint w1_packed[]; };
+layout(set = 0, binding = 6, std430) readonly buffer A1Buffer { uint a1_packed[]; };
+layout(set = 0, binding = 7, std430) readonly buffer G1Buffer { uint g1_packed[]; };
+
+layout(set = 0, binding = 8, std430) writeonly buffer MixedWBuffer { float xw[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer MixedABuffer { float xa[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer MixedGBuffer { float xg[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer WHiddenBuffer { float w_hidden[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer AHiddenBuffer { float a_hidden[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer GHiddenBuffer { float g_hidden[]; };
+layout(set = 0, binding = 14, std430) writeonly buffer WTanhBuffer { float w_tanh[]; };
+layout(set = 0, binding = 15, std430) readonly buffer W2Buffer { uint w2_packed[]; };
+layout(set = 0, binding = 16, std430) readonly buffer W0Buffer { float w0[]; };
+layout(set = 0, binding = 17, std430) writeonly buffer WPreBuffer { float w_pre[]; };
+layout(set = 0, binding = 18, std430) writeonly buffer WOutputBuffer { float w_output[]; };
+layout(set = 0, binding = 19, std430) readonly buffer A2Buffer { uint a2_packed[]; };
+layout(set = 0, binding = 20, std430) readonly buffer A0Buffer { float a0[]; };
+layout(set = 0, binding = 21, std430) writeonly buffer APreBuffer { float a_pre[]; };
+layout(set = 0, binding = 22, std430) writeonly buffer AOutputBuffer { float a_output[]; };
+layout(set = 0, binding = 23, std430) writeonly buffer GSigmoidBuffer { float g_sigmoid[]; };
+layout(set = 0, binding = 24, std430) readonly buffer G2Buffer { uint g2_packed[]; };
+layout(set = 0, binding = 25, std430) writeonly buffer GOutputBuffer { float g_output[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint width;
+    uint w_rank;
+    uint a_rank;
+    uint g_rank;
+} pc;
+
+shared float mixed_w_tile[128];
+shared float mixed_a_tile[128];
+shared float mixed_g_tile[128];
+shared float w_tanh_tile[128];
+shared float a_hidden_tile[128];
+shared float g_sigmoid_tile[128];
+
+float packed_half(uint word, uint index) {
+    vec2 pair = unpackHalf2x16(word);
+    return (index & 1u) == 0u ? pair.x : pair.y;
+}
+float load_w1(uint i) { return packed_half(w1_packed[i >> 1u], i); }
+float load_a1(uint i) { return packed_half(a1_packed[i >> 1u], i); }
+float load_g1(uint i) { return packed_half(g1_packed[i >> 1u], i); }
+float load_w2(uint i) { return packed_half(w2_packed[i >> 1u], i); }
+float load_a2(uint i) { return packed_half(a2_packed[i >> 1u], i); }
+float load_g2(uint i) { return packed_half(g2_packed[i >> 1u], i); }
+
+float load_w1_first_stage(
+    uint i,
+    uint rank,
+    uint pair_source,
+    bool subgroup_pair_is_linear
+) {
+#ifdef RWKV_LOW_RANK_FIRST_STAGE_SUBGROUP_PACKED_SHARE
+    // FP16 parameters are physically packed as adjacent rank channels. For an
+    // even rank, adjacent producer lanes therefore address the same u32 word.
+    // Keep both lanes active and let the even subgroup lane issue the global
+    // load; its partner receives the exact packed bits through subgroup shuffle
+    // and independently selects its half for the FP32 FMA below.
+    if ((rank & 1u) == 0u && subgroup_pair_is_linear) {
+        uint word = 0u;
+        if (gl_SubgroupInvocationID == pair_source) {
+            word = w1_packed[i >> 1u];
+        }
+        word = subgroupShuffle(word, pair_source);
+        return packed_half(word, i);
+    }
+#endif
+    return load_w1(i);
+}
+
+float load_a1_first_stage(
+    uint i,
+    uint rank,
+    uint pair_source,
+    bool subgroup_pair_is_linear
+) {
+#ifdef RWKV_LOW_RANK_FIRST_STAGE_SUBGROUP_PACKED_SHARE
+    if ((rank & 1u) == 0u && subgroup_pair_is_linear) {
+        uint word = 0u;
+        if (gl_SubgroupInvocationID == pair_source) {
+            word = a1_packed[i >> 1u];
+        }
+        word = subgroupShuffle(word, pair_source);
+        return packed_half(word, i);
+    }
+#endif
+    return load_a1(i);
+}
+
+float load_g1_first_stage(
+    uint i,
+    uint rank,
+    uint pair_source,
+    bool subgroup_pair_is_linear
+) {
+#ifdef RWKV_LOW_RANK_FIRST_STAGE_SUBGROUP_PACKED_SHARE
+    if ((rank & 1u) == 0u && subgroup_pair_is_linear) {
+        uint word = 0u;
+        if (gl_SubgroupInvocationID == pair_source) {
+            word = g1_packed[i >> 1u];
+        }
+        word = subgroupShuffle(word, pair_source);
+        return packed_half(word, i);
+    }
+#endif
+    return load_g1(i);
+}
+
+vec2 load_w2_pair(uint first, bool second_valid) {
+    if (second_valid && (first & 1u) == 0u) return unpackHalf2x16(w2_packed[first >> 1u]);
+    return vec2(load_w2(first), second_valid ? load_w2(first + 1u) : 0.0);
+}
+
+vec2 load_a2_pair(uint first, bool second_valid) {
+    if (second_valid && (first & 1u) == 0u) return unpackHalf2x16(a2_packed[first >> 1u]);
+    return vec2(load_a2(first), second_valid ? load_a2(first + 1u) : 0.0);
+}
+
+vec2 load_g2_pair(uint first, bool second_valid) {
+    if (second_valid && (first & 1u) == 0u) return unpackHalf2x16(g2_packed[first >> 1u]);
+    return vec2(load_g2(first), second_valid ? load_g2(first + 1u) : 0.0);
+}
+
+float softplus(float value) {
+    if (value > 20.0) return value;
+    if (value < -20.0) return exp(value);
+    return log(1.0 + exp(value));
+}
+
+float stable_sigmoid(float value) {
+    if (value >= 0.0) return 1.0 / (1.0 + exp(-value));
+    float e = exp(value);
+    return e / (1.0 + e);
+}
+
+void main() {
+    uint lane = gl_LocalInvocationID.x;
+    uint row = gl_WorkGroupID.x;
+    if (row >= pc.rows) return;
+
+    uint first_stage_pair_source = 0u;
+    bool first_stage_subgroup_pair_is_linear = false;
+#ifdef RWKV_LOW_RANK_FIRST_STAGE_SUBGROUP_PACKED_SHARE
+    // Vulkan does not promise a particular local-invocation-to-subgroup-lane
+    // mapping. Verify the adjacent-lane relationship once per invocation and
+    // fall back to the portable direct load if the implementation maps lanes
+    // differently. Production wave32/wave64 devices take the sharing path.
+    first_stage_pair_source = gl_SubgroupInvocationID & ~1u;
+    uint pair_local_lane = subgroupShuffle(lane, first_stage_pair_source);
+    first_stage_subgroup_pair_is_linear = gl_SubgroupSize >= 2u
+        && pair_local_lane == (lane & ~1u);
+#endif
+
+    uint base = row * pc.width;
+    bool w_active = lane < pc.w_rank;
+    bool a_active = lane < pc.a_rank;
+    bool g_active = lane < pc.g_rank;
+    float w_sum = 0.0;
+    float a_sum = 0.0;
+    float g_sum = 0.0;
+
+    for (uint tile = 0u; tile < pc.width; tile += 128u) {
+        uint in_col = tile + lane;
+        float mixed_w = 0.0;
+        float mixed_a = 0.0;
+        float mixed_g = 0.0;
+        if (in_col < pc.width) {
+            uint input_index = base + in_col;
+            float x = x_norm[input_index];
+            float delta = previous[input_index] - x;
+            mixed_w = fma(delta, mix_w[in_col], x);
+            mixed_a = fma(delta, mix_a[in_col], x);
+            mixed_g = fma(delta, mix_g[in_col], x);
+            xw[input_index] = mixed_w;
+            xa[input_index] = mixed_a;
+            xg[input_index] = mixed_g;
+        }
+        mixed_w_tile[lane] = mixed_w;
+        mixed_a_tile[lane] = mixed_a;
+        mixed_g_tile[lane] = mixed_g;
+        memoryBarrierShared();
+        barrier();
+
+        uint tile_len = min(128u, pc.width - tile);
+        for (uint i = 0u; i < tile_len; ++i) {
+            uint weight_input = tile + i;
+            if (w_active) {
+                w_sum = fma(
+                    mixed_w_tile[i],
+                    load_w1_first_stage(
+                        weight_input * pc.w_rank + lane,
+                        pc.w_rank,
+                        first_stage_pair_source,
+                        first_stage_subgroup_pair_is_linear
+                    ),
+                    w_sum
+                );
+            }
+            if (a_active) {
+                a_sum = fma(
+                    mixed_a_tile[i],
+                    load_a1_first_stage(
+                        weight_input * pc.a_rank + lane,
+                        pc.a_rank,
+                        first_stage_pair_source,
+                        first_stage_subgroup_pair_is_linear
+                    ),
+                    a_sum
+                );
+            }
+            if (g_active) {
+                g_sum = fma(
+                    mixed_g_tile[i],
+                    load_g1_first_stage(
+                        weight_input * pc.g_rank + lane,
+                        pc.g_rank,
+                        first_stage_pair_source,
+                        first_stage_subgroup_pair_is_linear
+                    ),
+                    g_sum
+                );
+            }
+        }
+
+        memoryBarrierShared();
+        barrier();
+    }
+
+    if (w_active) {
+        uint hidden_index = row * pc.w_rank + lane;
+        w_hidden[hidden_index] = w_sum;
+        float activated = tanh(w_sum);
+        w_tanh[hidden_index] = activated;
+        w_tanh_tile[lane] = activated;
+    }
+    if (a_active) {
+        uint hidden_index = row * pc.a_rank + lane;
+        a_hidden[hidden_index] = a_sum;
+        a_hidden_tile[lane] = a_sum;
+    }
+    if (g_active) {
+        uint hidden_index = row * pc.g_rank + lane;
+        g_hidden[hidden_index] = g_sum;
+        float activated = stable_sigmoid(g_sum);
+        g_sigmoid[hidden_index] = activated;
+        g_sigmoid_tile[lane] = activated;
+    }
+
+    memoryBarrierShared();
+    barrier();
+    for (uint out_col = lane * 2u; out_col < pc.width; out_col += 256u) {
+        bool second_output = out_col + 1u < pc.width;
+        vec2 w_sum_out = vec2(0.0);
+        for (uint in_col = 0u; in_col < pc.w_rank; ++in_col) {
+            vec2 weights = load_w2_pair(in_col * pc.width + out_col, second_output);
+            w_sum_out = fma(vec2(w_tanh_tile[in_col]), weights, w_sum_out);
+        }
+        uint output_index = base + out_col;
+        float w_pre_value0 = w_sum_out.x + w0[out_col];
+        w_pre[output_index] = w_pre_value0;
+        w_output[output_index] = -softplus(-w_pre_value0) - 0.5;
+        if (second_output) {
+            float w_pre_value1 = w_sum_out.y + w0[out_col + 1u];
+            w_pre[output_index + 1u] = w_pre_value1;
+            w_output[output_index + 1u] = -softplus(-w_pre_value1) - 0.5;
+        }
+
+        vec2 a_sum_out = vec2(0.0);
+        for (uint in_col = 0u; in_col < pc.a_rank; ++in_col) {
+            vec2 weights = load_a2_pair(in_col * pc.width + out_col, second_output);
+            a_sum_out = fma(vec2(a_hidden_tile[in_col]), weights, a_sum_out);
+        }
+        float a_pre_value0 = a_sum_out.x + a0[out_col];
+        a_pre[output_index] = a_pre_value0;
+        a_output[output_index] = stable_sigmoid(a_pre_value0);
+        if (second_output) {
+            float a_pre_value1 = a_sum_out.y + a0[out_col + 1u];
+            a_pre[output_index + 1u] = a_pre_value1;
+            a_output[output_index + 1u] = stable_sigmoid(a_pre_value1);
+        }
+
+        vec2 g_sum_out = vec2(0.0);
+        for (uint in_col = 0u; in_col < pc.g_rank; ++in_col) {
+            vec2 weights = load_g2_pair(in_col * pc.width + out_col, second_output);
+            g_sum_out = fma(vec2(g_sigmoid_tile[in_col]), weights, g_sum_out);
+        }
+        g_output[output_index] = g_sum_out.x;
+        if (second_output) {
+            g_output[output_index + 1u] = g_sum_out.y;
+        }
+    }
+}

@@ -1,0 +1,143 @@
+#version 450
+
+#ifndef LM_NATIVE_FP16_BACKWARD_COMPUTE
+#define LM_NATIVE_FP16_BACKWARD_COMPUTE 0
+#endif
+
+#if LM_NATIVE_FP16_BACKWARD_COMPUTE
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#endif
+
+// Packed-FP16 execution-mirror variant of cooperative LM-head weight backward.
+// The input-adjoint pass writes the final FP32 CE adjoint once, so this kernel
+// can consume that narrow tape instead of regenerating a third LM projection.
+// The vocabulary-row fanout is a compile-time topology arm: smaller fanout
+// spends fewer workgroup lanes, while larger fanout amortizes each reconstructed
+// out_norm hidden tile across more independent dW rows. Arithmetic within each
+// dW element retains the same row-order accumulation for PyTorch parity.
+#ifndef LM_DW_VOCAB_ROWS_PER_GROUP
+#define LM_DW_VOCAB_ROWS_PER_GROUP 8
+#endif
+
+layout(local_size_x = 32, local_size_y = LM_DW_VOCAB_ROWS_PER_GROUP, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer NormMeanBuffer { float norm_mean[]; };
+layout(set = 0, binding = 4, std430) readonly buffer NormRstdBuffer { float norm_rstd[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GradLogitsBuffer { float grad_logits[]; };
+layout(set = 0, binding = 6, std430) buffer GradWeightBuffer { float grad_weight[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    uint accumulate;
+    float z_loss_weight;
+    float activation_clamp;
+} pc;
+
+float finite_activation_clamp(float value) {
+    return (isnan(value) || isinf(value))
+        ? value
+        : clamp(value, -pc.activation_clamp, pc.activation_clamp);
+}
+
+const uint HIDDEN_LANES = 32u;
+const uint VOCAB_ROWS_PER_GROUP = LM_DW_VOCAB_ROWS_PER_GROUP;
+const uint ROW_CHUNK = 8u;
+const uint GRAD_HIDDEN_TILE = 128u;
+const uint WORKGROUP_LANES = HIDDEN_LANES * VOCAB_ROWS_PER_GROUP;
+
+shared float grad_rows[VOCAB_ROWS_PER_GROUP][ROW_CHUNK];
+shared float chunk_mean[ROW_CHUNK];
+shared float chunk_rstd[ROW_CHUNK];
+shared float grad_hidden_tile[ROW_CHUNK][GRAD_HIDDEN_TILE];
+
+void main() {
+    uint hidden_lane = gl_LocalInvocationID.x;
+    uint vocab_lane = gl_LocalInvocationID.y;
+    uint worker = vocab_lane * HIDDEN_LANES + hidden_lane;
+    uint out_col = gl_WorkGroupID.x * VOCAB_ROWS_PER_GROUP + vocab_lane;
+    bool active_vocab_row = out_col < pc.output_dim;
+
+    for (uint row_base = 0u; row_base < pc.rows; row_base += ROW_CHUNK) {
+        uint row_count = min(ROW_CHUNK, pc.rows - row_base);
+
+        if (vocab_lane == 0u && hidden_lane < row_count) {
+            uint row = row_base + hidden_lane;
+            chunk_mean[hidden_lane] = norm_mean[row];
+            chunk_rstd[hidden_lane] = norm_rstd[row];
+        }
+        barrier();
+
+        for (uint local_row = 0u; local_row < row_count; ++local_row) {
+            if (hidden_lane == 0u) {
+                uint row = row_base + local_row;
+                grad_rows[vocab_lane][local_row] = active_vocab_row
+                    ? grad_logits[row * pc.output_dim + out_col]
+                    : 0.0;
+            }
+            barrier();
+        }
+
+        // The same row-chunk activations feed all eight vocabulary-gradient
+        // rows. Materialize a small shared strip once, then let each vocabulary
+        // lane form its independent dW slice from that strip.
+        for (uint hidden_base = 0u; hidden_base < pc.input_dim; hidden_base += GRAD_HIDDEN_TILE) {
+            uint hidden_count = min(GRAD_HIDDEN_TILE, pc.input_dim - hidden_base);
+            uint tile_values = row_count * hidden_count;
+            for (
+                uint flat_index = worker;
+                flat_index < tile_values;
+                flat_index += WORKGROUP_LANES
+            ) {
+                uint local_row = flat_index / hidden_count;
+                uint tile_col = flat_index - local_row * hidden_count;
+                uint row = row_base + local_row;
+                uint in_col = hidden_base + tile_col;
+                float normalized = (x[row * pc.input_dim + in_col] - chunk_mean[local_row])
+                    * chunk_rstd[local_row];
+                grad_hidden_tile[local_row][tile_col] = finite_activation_clamp(
+                    fma(normalized, norm_weight[in_col], norm_bias[in_col])
+                );
+            }
+            barrier();
+
+            if (active_vocab_row) {
+                uint grad_base = out_col * pc.input_dim;
+                for (
+                    uint tile_col = hidden_lane;
+                    tile_col < hidden_count;
+                    tile_col += HIDDEN_LANES
+                ) {
+                    float chunk_sum = 0.0;
+                    for (uint local_row = 0u; local_row < row_count; ++local_row) {
+#if LM_NATIVE_FP16_BACKWARD_COMPUTE
+                        // Keep the canonical dW destination and accumulation
+                        // in FP32, but make the linear backward product itself
+                        // a native half operation, as CUDA/PyTorch AMP does for
+                        // half GEMM inputs with FP32 accumulation.
+                        float16_t grad_half = float16_t(grad_rows[vocab_lane][local_row]);
+                        float16_t hidden_half = float16_t(grad_hidden_tile[local_row][tile_col]);
+                        chunk_sum += float(grad_half * hidden_half);
+#else
+                        chunk_sum = fma(
+                            grad_rows[vocab_lane][local_row],
+                            grad_hidden_tile[local_row][tile_col],
+                            chunk_sum
+                        );
+#endif
+                    }
+                    uint grad_index = grad_base + hidden_base + tile_col;
+                    grad_weight[grad_index] = row_base == 0u && pc.accumulate == 0u
+                        ? chunk_sum
+                        : grad_weight[grad_index] + chunk_sum;
+                }
+            }
+
+            barrier();
+        }
+    }
+}

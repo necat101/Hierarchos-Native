@@ -1,0 +1,288 @@
+#version 450
+
+#ifndef LM_CE_USE_CLUSTERED_REDUCTION
+#define LM_CE_USE_CLUSTERED_REDUCTION 0
+#endif
+
+#if LM_CE_USE_CLUSTERED_REDUCTION
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+#extension GL_KHR_shader_subgroup_clustered : require
+#endif
+
+// Vocabulary-major packed-FP16 LM projection for Hierarchos CE tape.
+//
+// One workgroup owns a compile-time vocabulary tile. Its complete width<=448
+// weight tile is unpacked into shared memory once, then reused across every
+// Hierarchos row before the workgroup retires. The portable rows8 build fits
+// Vulkan's 16 KiB baseline. The rows16 build can instead retain packed half2
+// weights in shared memory and unpack them at dot-product time, trading a tiny
+// amount of ALU work for enough occupancy headroom to fit in the same baseline.
+// This reverses the old CE-forward traversal:
+// instead of sweeping the LM matrix once per row, a vocabulary tile of W feeds
+// all rows while resident. The resulting FP32 logit tape is consumed by
+// backward, while compact per-tile CE partials let row statistics avoid a
+// second full-vocabulary tape read.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer NormMeanBuffer { float norm_mean[]; };
+layout(set = 0, binding = 4, std430) readonly buffer NormRstdBuffer { float norm_rstd[]; };
+layout(set = 0, binding = 5, std430) readonly buffer WeightBuffer { uint weight_packed[]; };
+layout(set = 0, binding = 6, std430) readonly buffer TargetBuffer { uint targets[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer LogitTapeBuffer { float logit_tape[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer TileStatsBuffer { float tile_stats[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    float z_loss_weight;
+    float activation_clamp;
+} pc;
+
+float finite_activation_clamp(float value) {
+    return (isnan(value) || isinf(value))
+        ? value
+        : clamp(value, -pc.activation_clamp, pc.activation_clamp);
+}
+
+const uint MAX_HIERARCHOS_WIDTH = 448u;
+#ifndef LM_CE_VOCAB_TILE
+#define LM_CE_VOCAB_TILE 8
+#endif
+const uint VOCAB_TILE = uint(LM_CE_VOCAB_TILE);
+#ifndef LM_CE_PACKED_SHARED
+#define LM_CE_PACKED_SHARED 0
+#endif
+#ifndef LM_CE_DOT_LANES_PER_VOCAB
+#define LM_CE_DOT_LANES_PER_VOCAB 1
+#endif
+const uint DOT_LANES_PER_VOCAB = uint(LM_CE_DOT_LANES_PER_VOCAB);
+const uint MAX_PACKED_COLS = (MAX_HIERARCHOS_WIDTH + 1u) >> 1u;
+
+#if LM_CE_PACKED_SHARED
+// rows16 packed-shared: 16 * 224 * 4 + 448 * 4 + 16 * 4 = 16,192 bytes.
+shared uint weight_tile_packed[VOCAB_TILE * MAX_PACKED_COLS];
+#else
+// rows8 float-shared: 8 * 448 * 4 + 448 * 4 + 8 * 4 = 16,160 bytes.
+shared float weight_tile[VOCAB_TILE * MAX_HIERARCHOS_WIDTH];
+#endif
+shared float hidden_tile[MAX_HIERARCHOS_WIDTH];
+#if LM_CE_DOT_LANES_PER_VOCAB > 1
+#if LM_CE_USE_CLUSTERED_REDUCTION
+// Clustered subgroup arithmetic lets each four-lane vocabulary quartet merge
+// its dot product without a workgroup barrier or 64-float partial array. The
+// final 16 logits still land in shared memory because lane 0 subsequently
+// computes the tile CE statistics from all vocabulary rows.
+shared float tile_logits[VOCAB_TILE];
+#else
+// rows16 dot4 packed-shared: 16 * 224 * 4 + 448 * 4 + 64 * 4 = 16,384 bytes.
+// Four lanes collaborate on each vocabulary row; the lane-0 partial slot is
+// reused for the final logit after all four partials have been read.
+shared float dot_partials[VOCAB_TILE * LM_CE_DOT_LANES_PER_VOCAB];
+#endif
+#else
+shared float tile_logits[VOCAB_TILE];
+#endif
+
+vec2 load_weight_pair(uint first_index, bool second_active) {
+    vec2 current = unpackHalf2x16(weight_packed[first_index >> 1u]);
+    if ((first_index & 1u) == 0u) {
+        return second_active ? current : vec2(current.x, 0.0);
+    }
+    if (!second_active) {
+        return vec2(current.y, 0.0);
+    }
+    vec2 next = unpackHalf2x16(weight_packed[(first_index >> 1u) + 1u]);
+    return vec2(current.y, next.x);
+}
+
+float load_tile_logit(uint vocab_slot) {
+#if LM_CE_DOT_LANES_PER_VOCAB > 1
+#if LM_CE_USE_CLUSTERED_REDUCTION
+    return tile_logits[vocab_slot];
+#else
+    return dot_partials[vocab_slot * DOT_LANES_PER_VOCAB];
+#endif
+#else
+    return tile_logits[vocab_slot];
+#endif
+}
+
+void main() {
+    uint lane = gl_LocalInvocationID.x;
+    uint vocab_base = gl_WorkGroupID.x * VOCAB_TILE;
+    if (vocab_base >= pc.output_dim || pc.input_dim > MAX_HIERARCHOS_WIDTH) {
+        return;
+    }
+
+    uint packed_cols = (pc.input_dim + 1u) >> 1u;
+    uint packed_values = VOCAB_TILE * packed_cols;
+    for (uint packed_index = lane; packed_index < packed_values; packed_index += 64u) {
+        uint vocab_slot = packed_index / packed_cols;
+        uint pair_col = packed_index - vocab_slot * packed_cols;
+        uint out_col = vocab_base + vocab_slot;
+        uint first_col = pair_col * 2u;
+        if (out_col < pc.output_dim) {
+            bool second_active = first_col + 1u < pc.input_dim;
+            uint first_index = out_col * pc.input_dim + first_col;
+            vec2 pair = load_weight_pair(first_index, second_active);
+#if LM_CE_PACKED_SHARED
+            uint shared_pair = vocab_slot * MAX_PACKED_COLS + pair_col;
+            weight_tile_packed[shared_pair] = packHalf2x16(pair);
+#else
+            uint shared_base = vocab_slot * MAX_HIERARCHOS_WIDTH + first_col;
+            weight_tile[shared_base] = pair.x;
+            if (second_active) {
+                weight_tile[shared_base + 1u] = pair.y;
+            }
+#endif
+        }
+    }
+    barrier();
+
+    for (uint row = 0u; row < pc.rows; ++row) {
+        float mean = norm_mean[row];
+        float rstd = norm_rstd[row];
+        uint x_base = row * pc.input_dim;
+        for (uint in_col = lane; in_col < pc.input_dim; in_col += 64u) {
+            float normalized = (x[x_base + in_col] - mean) * rstd;
+            hidden_tile[in_col] = finite_activation_clamp(
+                fma(normalized, norm_weight[in_col], norm_bias[in_col])
+            );
+        }
+        barrier();
+
+        // Default path preserves the existing packed CE projection accumulation
+        // order: one lane owns one vocabulary row and walks hidden pairs
+        // serially in FP32. The experimental dot4 build instead uses all 64
+        // lanes: four lanes own contiguous hidden-pair ranges for each of the
+        // 16 vocabulary rows, then lane zero of each quartet combines them.
+#if LM_CE_DOT_LANES_PER_VOCAB > 1
+        uint vocab_slot = lane / DOT_LANES_PER_VOCAB;
+        uint dot_lane = lane - vocab_slot * DOT_LANES_PER_VOCAB;
+        if (vocab_slot < VOCAB_TILE) {
+            uint out_col = vocab_base + vocab_slot;
+            float partial = 0.0;
+            if (out_col < pc.output_dim) {
+                uint pairs_per_lane =
+                    (packed_cols + DOT_LANES_PER_VOCAB - 1u) / DOT_LANES_PER_VOCAB;
+                uint pair_begin = dot_lane * pairs_per_lane;
+                uint pair_end = min(pair_begin + pairs_per_lane, packed_cols);
+                for (uint pair_col = pair_begin; pair_col < pair_end; ++pair_col) {
+                    uint in_col = pair_col * 2u;
+#if LM_CE_PACKED_SHARED
+                    vec2 weight_pair = unpackHalf2x16(
+                        weight_tile_packed[vocab_slot * MAX_PACKED_COLS + pair_col]
+                    );
+                    partial = fma(hidden_tile[in_col], weight_pair.x, partial);
+                    if (in_col + 1u < pc.input_dim) {
+                        partial = fma(hidden_tile[in_col + 1u], weight_pair.y, partial);
+                    }
+#else
+                    uint weight_base = vocab_slot * MAX_HIERARCHOS_WIDTH;
+                    partial = fma(hidden_tile[in_col], weight_tile[weight_base + in_col], partial);
+                    if (in_col + 1u < pc.input_dim) {
+                        partial = fma(
+                            hidden_tile[in_col + 1u],
+                            weight_tile[weight_base + in_col + 1u],
+                            partial
+                        );
+                    }
+#endif
+                }
+            }
+#if LM_CE_USE_CLUSTERED_REDUCTION
+            // Vulkan subgroup sizes are powers of two; a four-wide clustered
+            // add therefore aligns with the same contiguous lane quartets as
+            // vocab_slot=lane/4. Inactive rows still participate with zero so
+            // every lane reaches the collective.
+            float logit = subgroupClusteredAdd(partial, DOT_LANES_PER_VOCAB);
+            if (dot_lane == 0u && out_col < pc.output_dim) {
+                logit_tape[row * pc.output_dim + out_col] = logit;
+                tile_logits[vocab_slot] = logit;
+            }
+#else
+            dot_partials[lane] = partial;
+#endif
+        }
+#if !LM_CE_USE_CLUSTERED_REDUCTION
+        barrier();
+        if (vocab_slot < VOCAB_TILE && dot_lane == 0u) {
+            uint out_col = vocab_base + vocab_slot;
+            if (out_col < pc.output_dim) {
+                uint partial_base = vocab_slot * DOT_LANES_PER_VOCAB;
+                float logit = dot_partials[partial_base];
+                for (uint part = 1u; part < DOT_LANES_PER_VOCAB; ++part) {
+                    logit += dot_partials[partial_base + part];
+                }
+                logit_tape[row * pc.output_dim + out_col] = logit;
+                dot_partials[partial_base] = logit;
+            }
+        }
+#endif
+#else
+        if (lane < VOCAB_TILE) {
+            uint out_col = vocab_base + lane;
+            if (out_col < pc.output_dim) {
+                float logit = 0.0;
+                for (uint in_col = 0u; in_col < pc.input_dim; in_col += 2u) {
+#if LM_CE_PACKED_SHARED
+                    uint pair_col = in_col >> 1u;
+                    vec2 weight_pair = unpackHalf2x16(
+                        weight_tile_packed[lane * MAX_PACKED_COLS + pair_col]
+                    );
+                    logit = fma(hidden_tile[in_col], weight_pair.x, logit);
+                    if (in_col + 1u < pc.input_dim) {
+                        logit = fma(hidden_tile[in_col + 1u], weight_pair.y, logit);
+                    }
+#else
+                    uint weight_base = lane * MAX_HIERARCHOS_WIDTH;
+                    logit = fma(hidden_tile[in_col], weight_tile[weight_base + in_col], logit);
+                    if (in_col + 1u < pc.input_dim) {
+                        logit = fma(
+                            hidden_tile[in_col + 1u],
+                            weight_tile[weight_base + in_col + 1u],
+                            logit
+                        );
+                    }
+#endif
+                }
+                logit_tape[row * pc.output_dim + out_col] = logit;
+                tile_logits[lane] = logit;
+            }
+        }
+#endif
+        barrier();
+
+        if (lane == 0u) {
+            uint active_vocab_rows = min(VOCAB_TILE, pc.output_dim - vocab_base);
+            float tile_max = load_tile_logit(0u);
+            for (uint vocab_slot = 1u; vocab_slot < active_vocab_rows; ++vocab_slot) {
+                tile_max = max(tile_max, load_tile_logit(vocab_slot));
+            }
+
+            float scaled_sum = 0.0;
+            for (uint vocab_slot = 0u; vocab_slot < active_vocab_rows; ++vocab_slot) {
+                scaled_sum += exp(load_tile_logit(vocab_slot) - tile_max);
+            }
+
+            uint target = targets[row];
+            float target_logit = 0.0;
+            if (target >= vocab_base && target < vocab_base + active_vocab_rows) {
+                target_logit = load_tile_logit(target - vocab_base);
+            }
+
+            uint tile_count = (pc.output_dim + VOCAB_TILE - 1u) / VOCAB_TILE;
+            uint tile_index = gl_WorkGroupID.x;
+            uint partial_base = (row * tile_count + tile_index) * 3u;
+            tile_stats[partial_base] = tile_max;
+            tile_stats[partial_base + 1u] = scaled_sum;
+            tile_stats[partial_base + 2u] = target_logit;
+        }
+        barrier();
+    }
+}

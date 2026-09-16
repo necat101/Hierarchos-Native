@@ -1,0 +1,42 @@
+#version 450
+
+#ifndef LM_CE_FUSED_VOCAB_TILE
+#define LM_CE_FUSED_VOCAB_TILE 64
+#endif
+
+// Deterministically reduce vocabulary-tile dX partials emitted by the fused
+// rows16 adjoint replay. The default 64-vocabulary topology reproduces the
+// established tape W^T cross-tile add order. Wider autotuned topologies retain
+// deterministic ascending-tile reduction but intentionally change grouping;
+// they are parity-gated against the tile64 reference rather than claimed
+// bit-identical. No topology uses float atomics.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer PartialBuffer { float partials[]; };
+layout(set = 0, binding = 1, std430) buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+const uint VOCAB_TILE = uint(LM_CE_FUSED_VOCAB_TILE);
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint total = pc.rows * pc.input_dim;
+    if (index >= total) {
+        return;
+    }
+
+    uint row = index / pc.input_dim;
+    uint in_col = index - row * pc.input_dim;
+    uint tile_count = (pc.output_dim + VOCAB_TILE - 1u) / VOCAB_TILE;
+    float sum = 0.0;
+    for (uint tile = 0u; tile < tile_count; ++tile) {
+        float partial = partials[(tile * pc.rows + row) * pc.input_dim + in_col];
+        sum = tile == 0u ? partial : sum + partial;
+    }
+    grad_input[index] = sum;
+}

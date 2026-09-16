@@ -1,0 +1,78 @@
+#version 450
+
+// Exact adjoint of transformer_mla_materialize.comp. The shared rotary key is
+// expanded to every attention head in forward, so its gradient is the ordered
+// sum over heads here; no floating-point atomics are required.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradQueryBuffer { float grad_q[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradKeyBuffer { float grad_k[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradValueBuffer { float grad_v[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradQueryExpandedBuffer { float grad_q_expanded[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradSharedRotaryBuffer { float grad_k_rotary_shared[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradKvExpandedBuffer { float grad_kv_expanded[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint num_heads;
+    uint qk_nope_head_dim;
+    uint qk_rope_head_dim;
+    uint v_head_dim;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint qk_head_dim = pc.qk_nope_head_dim + pc.qk_rope_head_dim;
+    uint q_width = pc.num_heads * qk_head_dim;
+    uint kv_head_width = pc.qk_nope_head_dim + pc.v_head_dim;
+    uint kv_width = pc.num_heads * kv_head_width;
+    uint q_total = pc.rows * q_width;
+    uint shared_rot_total = pc.rows * pc.qk_rope_head_dim;
+    uint kv_total = pc.rows * kv_width;
+    uint total = q_total + shared_rot_total + kv_total;
+    if (index >= total) return;
+
+    if (index < q_total) {
+        uint row = index / q_width;
+        uint within_row = index - row * q_width;
+        uint head = within_row / qk_head_dim;
+        uint hf_channel = within_row - head * qk_head_dim;
+        uint internal_channel = hf_channel < pc.qk_nope_head_dim
+            ? pc.qk_rope_head_dim + hf_channel
+            : hf_channel - pc.qk_nope_head_dim;
+        uint source = row * q_width + head * qk_head_dim + internal_channel;
+        grad_q_expanded[index] = grad_q[source];
+        return;
+    }
+
+    uint shifted = index - q_total;
+    if (shifted < shared_rot_total) {
+        uint row = shifted / pc.qk_rope_head_dim;
+        uint channel = shifted - row * pc.qk_rope_head_dim;
+        float sum = 0.0;
+        for (uint head = 0u; head < pc.num_heads; ++head) {
+            uint source = row * q_width + head * qk_head_dim + channel;
+            sum += grad_k[source];
+        }
+        grad_k_rotary_shared[shifted] = sum;
+        return;
+    }
+
+    shifted -= shared_rot_total;
+    uint row = shifted / kv_width;
+    uint within_row = shifted - row * kv_width;
+    uint head = within_row / kv_head_width;
+    uint channel = within_row - head * kv_head_width;
+    if (channel < pc.qk_nope_head_dim) {
+        uint source = row * q_width
+            + head * qk_head_dim
+            + pc.qk_rope_head_dim
+            + channel;
+        grad_kv_expanded[shifted] = grad_k[source];
+    } else {
+        uint v_channel = channel - pc.qk_nope_head_dim;
+        uint v_width = pc.num_heads * pc.v_head_dim;
+        uint source = row * v_width + head * pc.v_head_dim + v_channel;
+        grad_kv_expanded[shifted] = grad_v[source];
+    }
+}

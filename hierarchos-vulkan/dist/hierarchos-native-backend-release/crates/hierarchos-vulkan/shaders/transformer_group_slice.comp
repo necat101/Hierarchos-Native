@@ -1,0 +1,26 @@
+#version 450
+
+// Extract one contiguous feature group from every row. DeepSeek-V4's o_a_proj
+// stores independent block-diagonal output projections; keeping each block as a
+// normal VulkanLinear avoids materializing the enormous equivalent dense matrix.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer Input { float input_values[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer Output { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint full_dim;
+    uint group_dim;
+    uint group;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint total = pc.rows * pc.group_dim;
+    if (index >= total) return;
+
+    uint row = index / pc.group_dim;
+    uint col = index % pc.group_dim;
+    output_values[index] = input_values[row * pc.full_dim + pc.group * pc.group_dim + col];
+}

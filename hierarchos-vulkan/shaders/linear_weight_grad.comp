@@ -1,0 +1,78 @@
+#version 450
+
+#ifndef HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#define HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE 0
+#endif
+
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#endif
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradWeightBuffer { float grad_weight[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+// A 16x16 output tile reuses the same 16 hidden activations across its 16
+// output rows, and the same 16 grad-output values across its 16 input columns.
+// Stage both sides of a 16-row reduction tile so each global value is fetched
+// once per workgroup instead of once per output element.
+const uint ROW_TILE = 16u;
+shared float activation_tile[ROW_TILE * 16u];
+shared float grad_tile[ROW_TILE * 16u];
+
+float backward_product(float grad, float activation) {
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+    return float(float16_t(grad) * float16_t(activation));
+#else
+    return grad * activation;
+#endif
+}
+
+void main() {
+    uint local_x = gl_LocalInvocationID.x;
+    uint local_y = gl_LocalInvocationID.y;
+    uint in_col = gl_WorkGroupID.x * 16u + local_x;
+    uint out_row = gl_WorkGroupID.y * 16u + local_y;
+    bool lane_valid = in_col < pc.input_dim && out_row < pc.output_dim;
+    float sum = 0.0;
+
+    for (uint row_base = 0u; row_base < pc.rows; row_base += ROW_TILE) {
+        uint activation_row = row_base + local_y;
+        uint grad_row = row_base + local_x;
+
+        activation_tile[local_y * 16u + local_x] =
+            activation_row < pc.rows && in_col < pc.input_dim
+                ? x[activation_row * pc.input_dim + in_col]
+                : 0.0;
+        grad_tile[local_x * 16u + local_y] =
+            grad_row < pc.rows && out_row < pc.output_dim
+                ? grad_output[grad_row * pc.output_dim + out_row]
+                : 0.0;
+
+        barrier();
+
+        if (lane_valid) {
+            uint tile_rows = min(ROW_TILE, pc.rows - row_base);
+            for (uint tile_row = 0u; tile_row < tile_rows; ++tile_row) {
+                sum += backward_product(
+                    grad_tile[tile_row * 16u + local_y],
+                    activation_tile[tile_row * 16u + local_x]
+                );
+            }
+        }
+
+        barrier();
+    }
+
+    if (lane_valid) {
+        grad_weight[out_row * pc.input_dim + in_col] = sum;
+    }
+}

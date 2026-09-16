@@ -1,0 +1,26 @@
+#version 450
+
+// Gradient of a routed expert's scalar mixture weight for every token row.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ExpertOutputBuffer { float expert_output[]; };
+layout(set = 0, binding = 2, std430) buffer GradWeightsBuffer { float grad_weights[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint experts;
+    uint expert;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    float sum = 0.0;
+    uint base = row * pc.dim;
+    for (uint col = 0; col < pc.dim; ++col) {
+        sum = fma(grad_output[base + col], expert_output[base + col], sum);
+    }
+    grad_weights[row * pc.experts + pc.expert] = sum;
+}

@@ -1,0 +1,23 @@
+[package]
+name = "hierarchos-inference"
+version = "0.1.0"
+edition = "2021"
+description = "Pure-Rust FP32-compute inference runtime for Hierarchos coherent-v9 models with FP32/FP16/BF16 SafeTensors input"
+license = "MIT"
+
+[dependencies]
+libm = "0.2"
+memmap2 = "0.9"
+rand = "0.9"
+rayon = "1.10"
+safetensors = "0.6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"

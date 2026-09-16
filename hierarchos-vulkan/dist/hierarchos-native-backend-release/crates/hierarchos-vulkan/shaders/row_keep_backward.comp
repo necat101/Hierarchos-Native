@@ -1,0 +1,26 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ActiveBuffer { float active_rows[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradCandidateBuffer { float grad_candidate[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradPreviousBuffer { float grad_previous[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint width;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint len = pc.rows * pc.width;
+    if (index >= len) {
+        return;
+    }
+    uint row = index / pc.width;
+    bool row_is_active = active_rows[row] > 0.0;
+    float grad = grad_output[index];
+    grad_candidate[index] = row_is_active ? grad : 0.0;
+    grad_previous[index] = row_is_active ? 0.0 : grad;
+}

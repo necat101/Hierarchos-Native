@@ -1,0 +1,57 @@
+#version 450
+
+#ifndef HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#define HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE 0
+#endif
+
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#endif
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 2, std430) readonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradWeightBuffer { float grad_weight[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradBiasBuffer { float grad_bias[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+} pc;
+
+float rounded_adjoint(float value) {
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+    return float(float16_t(value));
+#else
+    return value;
+#endif
+}
+
+float parameter_product(float lhs, float rhs) {
+#if HIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE
+    return float(float16_t(lhs) * float16_t(rhs));
+#else
+    return lhs * rhs;
+#endif
+}
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    if (col >= pc.dim) {
+        return;
+    }
+    float dw = 0.0;
+    float db = 0.0;
+    for (uint row = 0; row < pc.rows; ++row) {
+        uint index = row * pc.dim + col;
+        float dy = rounded_adjoint(grad_output[index]);
+        float xhat = (x[index] - mean_values[row]) * rstd_values[row];
+        dw += parameter_product(dy, xhat);
+        db += dy;
+    }
+    grad_weight[col] = dw;
+    grad_bias[col] = db;
+}

@@ -1,0 +1,27 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer GradPositionBuffer { float grad_position[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint dim;
+    uint position_offset;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint position = gl_GlobalInvocationID.y;
+    if (position >= pc.seq_len || col >= pc.dim) {
+        return;
+    }
+    float sum = 0.0;
+    for (uint batch = 0; batch < pc.batch_size; ++batch) {
+        uint row = batch * pc.seq_len + position;
+        sum += grad_output[row * pc.dim + col];
+    }
+    grad_position[(pc.position_offset + position) * pc.dim + col] = sum;
+}

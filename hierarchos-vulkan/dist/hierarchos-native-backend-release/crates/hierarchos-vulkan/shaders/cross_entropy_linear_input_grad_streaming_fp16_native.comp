@@ -1,0 +1,215 @@
+#version 450
+#extension GL_EXT_shader_16bit_storage : require
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+
+#ifndef LM_NATIVE_FP16_BACKWARD_COMPUTE
+#define LM_NATIVE_FP16_BACKWARD_COMPUTE 0
+#endif
+
+// Native 16-bit-storage variant of the packed-FP16 LM input adjoint. The
+// execution mirror uses the same two-IEEE-half-values-per-u32 byte layout as
+// the portable packed path; devices with StorageBuffer16BitAccess + Float16
+// can view those bytes directly as float16_t and avoid unpackHalf2x16 in the
+// vocabulary-dominant W and W^T passes.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer NormMeanBuffer { float norm_mean[]; };
+layout(set = 0, binding = 4, std430) readonly buffer NormRstdBuffer { float norm_rstd[]; };
+layout(set = 0, binding = 5, std430) readonly buffer WeightBuffer { float16_t weight_half[]; };
+layout(set = 0, binding = 6, std430) readonly buffer StatsBuffer { float row_stats[]; };
+layout(set = 0, binding = 7, std430) buffer GradInputBuffer { float grad_input[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer GradLogitsBuffer { float grad_logits[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    float z_loss_weight;
+    float activation_clamp;
+} pc;
+
+float finite_activation_clamp(float value) {
+    return (isnan(value) || isinf(value))
+        ? value
+        : clamp(value, -pc.activation_clamp, pc.activation_clamp);
+}
+
+const uint HIDDEN_TILE = 1024u;
+// The host compiles this source into several numerically identical device arms.
+// Vulkan guarantees only 16 KiB of compute shared memory, so 32 pairs is the
+// portable floor. Devices exposing larger limits can race 64/128/224-pair arms;
+// 224 pairs plus the resident hidden row and CE scratch consumes 61,696 bytes
+// and therefore retains the complete W tile for a 448-wide Hierarchos LM head
+// on GPUs exposing at least 64 KiB of compute shared memory.
+#ifndef LM_WEIGHT_REUSE_PAIRS
+#define LM_WEIGHT_REUSE_PAIRS 32
+#endif
+const uint WEIGHT_REUSE_PAIRS = uint(LM_WEIGHT_REUSE_PAIRS);
+
+shared float grad_tile[64];
+shared float hidden_tile[HIDDEN_TILE];
+shared uint weight_reuse_packed[64 * WEIGHT_REUSE_PAIRS];
+
+vec2 load_weight_pair(uint first_index, bool second_active) {
+    return vec2(
+        float(weight_half[first_index]),
+        second_active ? float(weight_half[first_index + 1u]) : 0.0
+    );
+}
+
+float ce_grad(uint row, uint out_col, float logit) {
+    uint stats_base = row * 5u;
+    float max_logit = row_stats[stats_base];
+    float inv_sum = row_stats[stats_base + 1u];
+    uint target = floatBitsToUint(row_stats[stats_base + 2u]);
+    float probability = exp(logit - max_logit) * inv_sum;
+    float log_z = max_logit - log(inv_sum);
+    float z_adjoint = 2.0 * pc.z_loss_weight * log_z * probability;
+    return (probability - (out_col == target ? 1.0 : 0.0) + z_adjoint)
+        * row_stats[stats_base + 4u];
+}
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    uint lane = gl_LocalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    float mean = norm_mean[row];
+    float rstd = norm_rstd[row];
+    uint x_base = row * pc.input_dim;
+    bool resident_hidden = pc.input_dim <= HIDDEN_TILE;
+
+    if (resident_hidden) {
+        for (uint in_col = lane; in_col < pc.input_dim; in_col += 64u) {
+            float normalized = (x[x_base + in_col] - mean) * rstd;
+            hidden_tile[in_col] = finite_activation_clamp(
+                fma(normalized, norm_weight[in_col], norm_bias[in_col])
+            );
+        }
+        barrier();
+    }
+
+    for (uint vocab_base = 0u; vocab_base < pc.output_dim; vocab_base += 64u) {
+        uint out_col = vocab_base + lane;
+        bool active_vocab_row = out_col < pc.output_dim;
+        float logit = 0.0;
+
+        if (resident_hidden) {
+            if (active_vocab_row) {
+                uint w_base = out_col * pc.input_dim;
+                for (uint tile_col = 0u; tile_col < pc.input_dim; tile_col += 2u) {
+                    bool second_active = tile_col + 1u < pc.input_dim;
+                    vec2 weights = load_weight_pair(w_base + tile_col, second_active);
+                    uint pair_col = tile_col >> 1u;
+                    if (pair_col < WEIGHT_REUSE_PAIRS) {
+                        weight_reuse_packed[lane * WEIGHT_REUSE_PAIRS + pair_col] =
+                            packHalf2x16(weights);
+                    }
+                    logit = fma(hidden_tile[tile_col], weights.x, logit);
+                    if (second_active) {
+                        logit = fma(hidden_tile[tile_col + 1u], weights.y, logit);
+                    }
+                }
+            }
+        } else {
+            for (uint hidden_base = 0u; hidden_base < pc.input_dim; hidden_base += HIDDEN_TILE) {
+                uint hidden_count = min(HIDDEN_TILE, pc.input_dim - hidden_base);
+                for (uint tile_col = lane; tile_col < hidden_count; tile_col += 64u) {
+                    uint in_col = hidden_base + tile_col;
+                    float normalized = (x[x_base + in_col] - mean) * rstd;
+                    hidden_tile[tile_col] = finite_activation_clamp(
+                        fma(normalized, norm_weight[in_col], norm_bias[in_col])
+                    );
+                }
+                barrier();
+
+                if (active_vocab_row) {
+                    uint w_base = out_col * pc.input_dim + hidden_base;
+                    for (uint tile_col = 0u; tile_col < hidden_count; tile_col += 2u) {
+                        bool second_active = tile_col + 1u < hidden_count;
+                        vec2 weights = load_weight_pair(w_base + tile_col, second_active);
+                        uint global_pair_col = (hidden_base + tile_col) >> 1u;
+                        if (global_pair_col < WEIGHT_REUSE_PAIRS) {
+                            weight_reuse_packed[
+                                lane * WEIGHT_REUSE_PAIRS + global_pair_col
+                            ] = packHalf2x16(weights);
+                        }
+                        logit = fma(hidden_tile[tile_col], weights.x, logit);
+                        if (second_active) {
+                            logit = fma(hidden_tile[tile_col + 1u], weights.y, logit);
+                        }
+                    }
+                }
+                barrier();
+            }
+        }
+
+        float grad = active_vocab_row ? ce_grad(row, out_col, logit) : 0.0;
+#if LM_NATIVE_FP16_BACKWARD_COMPUTE
+        // PyTorch AMP keeps the numerically sensitive CE reduction in FP32,
+        // then feeds the half linear backward with a half adjoint. Preserve
+        // that boundary explicitly: the scratch ABI stays FP32 so master
+        // gradients/checkpoints are unchanged, but the value carried into
+        // W^T is exactly representable as IEEE FP16 (including overflow).
+        grad = float(float16_t(grad));
+#endif
+        grad_tile[lane] = grad;
+        if (active_vocab_row) {
+            grad_logits[row * pc.output_dim + out_col] = grad;
+        }
+        barrier();
+
+        uint tile_count = min(64u, pc.output_dim - vocab_base);
+        uint input_pair_count = (pc.input_dim + 1u) >> 1u;
+        for (uint pair_col = lane; pair_col < input_pair_count; pair_col += 64u) {
+            uint in_col = pair_col * 2u;
+            bool second_active = in_col + 1u < pc.input_dim;
+            float tile_sum0 = 0.0;
+            float tile_sum1 = 0.0;
+            for (uint tile_col = 0u; tile_col < tile_count; ++tile_col) {
+                uint tile_out_col = vocab_base + tile_col;
+                vec2 weights;
+                if (pair_col < WEIGHT_REUSE_PAIRS) {
+                    weights = unpackHalf2x16(
+                        weight_reuse_packed[tile_col * WEIGHT_REUSE_PAIRS + pair_col]
+                    );
+                    if (!second_active) {
+                        weights.y = 0.0;
+                    }
+                } else {
+                    weights = load_weight_pair(
+                        tile_out_col * pc.input_dim + in_col,
+                        second_active
+                    );
+                }
+                float tile_grad = grad_tile[tile_col];
+#if LM_NATIVE_FP16_BACKWARD_COMPUTE
+                float16_t tile_grad_half = float16_t(tile_grad);
+                tile_sum0 += float(tile_grad_half * float16_t(weights.x));
+                if (second_active) {
+                    tile_sum1 += float(tile_grad_half * float16_t(weights.y));
+                }
+#else
+                tile_sum0 = fma(tile_grad, weights.x, tile_sum0);
+                if (second_active) {
+                    tile_sum1 = fma(tile_grad, weights.y, tile_sum1);
+                }
+#endif
+            }
+            uint grad_index = row * pc.input_dim + in_col;
+            grad_input[grad_index] = vocab_base == 0u
+                ? tile_sum0
+                : grad_input[grad_index] + tile_sum0;
+            if (second_active) {
+                grad_input[grad_index + 1u] = vocab_base == 0u
+                    ? tile_sum1
+                    : grad_input[grad_index + 1u] + tile_sum1;
+            }
+        }
+        barrier();
+    }
+}

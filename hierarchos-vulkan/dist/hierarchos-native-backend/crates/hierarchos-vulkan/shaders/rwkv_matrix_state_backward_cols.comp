@@ -1,0 +1,77 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer StateBuffer { float state_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NewStateBuffer { float new_state[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ReceptanceBuffer { float r[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KeyBuffer { float k[]; };
+layout(set = 0, binding = 4, std430) readonly buffer ValueBuffer { float v[]; };
+layout(set = 0, binding = 5, std430) readonly buffer NormalizedKeyBuffer { float kk[]; };
+layout(set = 0, binding = 6, std430) readonly buffer InContextBuffer { float a[]; };
+layout(set = 0, binding = 7, std430) readonly buffer DecayLogBuffer { float w[]; };
+layout(set = 0, binding = 8, std430) readonly buffer SavedSaBuffer { float saved_sa[]; };
+layout(set = 0, binding = 9, std430) readonly buffer SavedQBuffer { float saved_q[]; };
+layout(set = 0, binding = 10, std430) readonly buffer GradNewStateBuffer { float grad_new_state[]; };
+layout(set = 0, binding = 11, std430) readonly buffer GradTimeMixBuffer { float grad_tmix[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer GradReceptanceBuffer { float grad_r[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer GradKeyBuffer { float grad_k[]; };
+layout(set = 0, binding = 14, std430) writeonly buffer GradNormalizedKeyBuffer { float grad_kk[]; };
+layout(set = 0, binding = 15, std430) writeonly buffer GradInContextBuffer { float grad_a[]; };
+layout(set = 0, binding = 16, std430) writeonly buffer GradDecayLogBuffer { float grad_w[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+} pc;
+
+void main() {
+    uint linear_col = gl_GlobalInvocationID.x;
+    uint total_cols = pc.batch * pc.width;
+    if (linear_col >= total_cols) {
+        return;
+    }
+
+    uint batch_index = linear_col / pc.width;
+    uint channel = linear_col - batch_index * pc.width;
+    uint head = channel / pc.head_size;
+    uint col = channel - head * pc.head_size;
+    uint head_channel_base = batch_index * pc.width + head * pc.head_size;
+    uint matrix_head_base =
+        (batch_index * (pc.width / pc.head_size) + head) * pc.head_size * pc.head_size;
+
+    float grad_receptance = 0.0;
+    float grad_key = 0.0;
+    float grad_b = 0.0;
+    float grad_decay = 0.0;
+    float grad_kk_from_sa = 0.0;
+    for (uint row = 0; row < pc.head_size; ++row) {
+        uint linear_row = batch_index * pc.width + head * pc.head_size + row;
+        uint matrix_index = matrix_head_base + row * pc.head_size + col;
+        float grad_t = grad_tmix[linear_row];
+        float h = grad_new_state[matrix_index] + grad_t * r[linear_col];
+        grad_receptance = fma(grad_t, new_state[matrix_index], grad_receptance);
+        grad_key = fma(h, v[head_channel_base + row], grad_key);
+        grad_b = fma(h, saved_sa[linear_row], grad_b);
+        grad_decay = fma(h, state_values[matrix_index], grad_decay);
+        grad_kk_from_sa = fma(-saved_q[linear_row], state_values[matrix_index], grad_kk_from_sa);
+    }
+
+    float kk_value = kk[linear_col];
+    float a_value = a[linear_col];
+    grad_r[linear_col] = grad_receptance;
+    grad_k[linear_col] = grad_key;
+    grad_kk[linear_col] = grad_kk_from_sa + grad_b * a_value;
+    grad_a[linear_col] = grad_b * kk_value;
+
+    float w_value = w[linear_col];
+    float bounded_w = (isnan(w_value) || isinf(w_value))
+            ? w_value
+            : clamp(w_value, -60.0, 30.0);
+    float exp_w = exp(bounded_w);
+    float decay = exp(-exp_w);
+    float clamp_grad = (isnan(w_value) || isinf(w_value)
+            || (w_value >= -60.0 && w_value <= 30.0)) ? 1.0 : 0.0;
+    grad_w[linear_col] = grad_decay * (-exp_w * decay) * clamp_grad;
+}

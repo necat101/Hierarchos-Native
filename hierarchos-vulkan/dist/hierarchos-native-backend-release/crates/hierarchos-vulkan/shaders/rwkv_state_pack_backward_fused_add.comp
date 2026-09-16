@@ -1,0 +1,58 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer XNormBuffer { float x_norm[]; };
+layout(set = 0, binding = 1, std430) readonly buffer XNorm2Buffer { float x_norm2[]; };
+layout(set = 0, binding = 2, std430) readonly buffer VFirstBuffer { float v_first[]; };
+layout(set = 0, binding = 3, std430) readonly buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MatrixStateBuffer { float matrix_state[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GradPackedBuffer { float grad_packed[]; };
+layout(set = 0, binding = 6, std430) readonly buffer GradOutputExternalBuffer { float grad_output_external[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer GradXNormBuffer { float grad_x_norm[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer GradXNorm2Buffer { float grad_x_norm2[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer GradVFirstBuffer { float grad_v_first[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer GradOutputTotalBuffer { float grad_output_total[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer GradMatrixStateBuffer { float grad_matrix_state[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+    uint matrix_offset;
+    float state_clamp;
+} pc;
+
+float clamp_grad(float value, float grad) {
+    if (isnan(value) || isinf(value) || pc.state_clamp <= 0.0) {
+        return grad;
+    }
+    return (value >= -pc.state_clamp && value <= pc.state_clamp) ? grad : 0.0;
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint vector_len = pc.batch * pc.width;
+    uint state_size = pc.matrix_offset + pc.head_size;
+    uint matrix_len = vector_len * pc.head_size;
+    if (index < vector_len) {
+        uint state_base = index * state_size;
+        grad_x_norm[index] = clamp_grad(x_norm[index], grad_packed[state_base]);
+        grad_x_norm2[index] = clamp_grad(x_norm2[index], grad_packed[state_base + 1u]);
+        grad_v_first[index] = clamp_grad(v_first[index], grad_packed[state_base + 2u]);
+        float recurrent_output_grad = 0.0;
+        if (pc.matrix_offset == 4u) {
+            recurrent_output_grad = clamp_grad(
+                output_values[index],
+                grad_packed[state_base + 3u]
+            );
+        }
+        grad_output_total[index] = grad_output_external[index] + recurrent_output_grad;
+    }
+    if (index < matrix_len) {
+        uint vector_index = index / pc.head_size;
+        uint column = index - vector_index * pc.head_size;
+        uint packed_index = vector_index * state_size + pc.matrix_offset + column;
+        grad_matrix_state[index] = clamp_grad(matrix_state[index], grad_packed[packed_index]);
+    }
+}

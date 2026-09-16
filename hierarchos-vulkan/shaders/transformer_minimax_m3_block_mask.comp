@@ -1,0 +1,86 @@
+#version 450
+
+// Correctness-first MiniMax-M3 Lightning Indexer block selector. Each
+// invocation emits the visibility of one key for one (batch,index-head,query)
+// row. Block scores are max-pooled across keys, local blocks are forced into
+// the selected set, and remaining blocks are ranked deterministically.
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer ScoreBuffer { float index_scores[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer SparseMaskBuffer { float sparse_mask[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint num_heads;
+    uint block_size;
+    uint topk_blocks;
+    uint local_blocks;
+    uint query_position_offset;
+    uint causal;
+} pc;
+
+bool token_rankable(uint batch, uint query, uint key) {
+    return pc.causal == 0u || key <= pc.query_position_offset + query;
+}
+
+bool local_block(uint query_block, uint block) {
+    for (uint offset = 0u; offset < pc.local_blocks; ++offset) {
+        uint candidate = query_block > offset ? query_block - offset : 0u;
+        if (candidate == block) return true;
+    }
+    return false;
+}
+
+float block_score(uint batch, uint head, uint query, uint block) {
+    if (local_block((pc.query_position_offset + query) / pc.block_size, block)) {
+        return 3.402823466e+38;
+    }
+    uint first = block * pc.block_size;
+    uint last = min(first + pc.block_size, pc.key_value_seq_len);
+    float best = -3.402823466e+38;
+    for (uint key = first; key < last; ++key) {
+        if (!token_rankable(batch, query, key)) continue;
+        uint score_index = (((batch * pc.num_heads + head) * pc.query_seq_len + query)
+            * pc.key_value_seq_len) + key;
+        best = max(best, index_scores[score_index]);
+    }
+    return best;
+}
+
+void main() {
+    uint key = gl_GlobalInvocationID.x;
+    uint query = gl_GlobalInvocationID.y;
+    uint batch_head = gl_GlobalInvocationID.z;
+    if (batch_head >= pc.batch_size * pc.num_heads || query >= pc.query_seq_len || key >= pc.key_value_seq_len) {
+        return;
+    }
+    uint batch = batch_head / pc.num_heads;
+    uint head = batch_head - batch * pc.num_heads;
+    uint output_index = (((batch * pc.num_heads + head) * pc.query_seq_len + query)
+        * pc.key_value_seq_len) + key;
+    // The selection branch mirrors HF and only applies causality here. The
+    // ordinary attention kernel applies key_mask before consulting this sparse
+    // mask, so padded keys remain unobservable while retaining HF's exact block
+    // ranking semantics.
+    if (!token_rankable(batch, query, key)) {
+        sparse_mask[output_index] = 0.0;
+        return;
+    }
+
+    uint block = key / pc.block_size;
+    uint num_blocks = (pc.key_value_seq_len + pc.block_size - 1u) / pc.block_size;
+    uint selected = min(pc.topk_blocks, num_blocks);
+    float score = block_score(batch, head, query, block);
+    uint rank = 0u;
+    for (uint other = 0u; other < num_blocks; ++other) {
+        if (other == block) continue;
+        float other_score = block_score(batch, head, query, other);
+        if (other_score > score || (other_score == score && other < block)) {
+            rank += 1u;
+        }
+    }
+    sparse_mask[output_index] = rank < selected ? 1.0 : 0.0;
+}

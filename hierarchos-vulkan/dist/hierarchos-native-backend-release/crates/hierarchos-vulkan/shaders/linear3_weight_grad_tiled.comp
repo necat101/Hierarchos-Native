@@ -1,0 +1,96 @@
+#version 450
+
+// Tiled dW for the recurrent r/k/v projection trio. A 16x16 output tile
+// cooperatively stages both sides of each 16-row reduction strip. Every global
+// activation and projection adjoint is therefore fetched once per workgroup
+// instead of once per weight element, while each destination weight still
+// accumulates batch rows in ascending order with the same FP32 FMA sequence as
+// linear3_weight_grad.comp.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RInputBuffer { float xr[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RGradOutputBuffer { float grad_r[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KInputBuffer { float xk[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KGradOutputBuffer { float grad_k[]; };
+layout(set = 0, binding = 4, std430) readonly buffer VInputBuffer { float xv[]; };
+layout(set = 0, binding = 5, std430) readonly buffer VGradOutputBuffer { float grad_v[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer RGradWeightBuffer { float grad_wr[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer KGradWeightBuffer { float grad_wk[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer VGradWeightBuffer { float grad_wv[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+const uint ROW_TILE = 16u;
+shared float xr_tile[ROW_TILE * 16u];
+shared float xk_tile[ROW_TILE * 16u];
+shared float xv_tile[ROW_TILE * 16u];
+shared float grad_r_tile[ROW_TILE * 16u];
+shared float grad_k_tile[ROW_TILE * 16u];
+shared float grad_v_tile[ROW_TILE * 16u];
+
+void main() {
+    uint local_x = gl_LocalInvocationID.x;
+    uint local_y = gl_LocalInvocationID.y;
+    uint in_col = gl_WorkGroupID.x * 16u + local_x;
+    uint out_row = gl_WorkGroupID.y * 16u + local_y;
+    bool lane_valid = in_col < pc.input_dim && out_row < pc.output_dim;
+
+    float r_sum = 0.0;
+    float k_sum = 0.0;
+    float v_sum = 0.0;
+
+    for (uint row_base = 0u; row_base < pc.rows; row_base += ROW_TILE) {
+        uint activation_row = row_base + local_y;
+        uint grad_row = row_base + local_x;
+        uint activation_shared = local_y * 16u + local_x;
+        uint grad_shared = local_x * 16u + local_y;
+
+        if (activation_row < pc.rows && in_col < pc.input_dim) {
+            uint input_index = activation_row * pc.input_dim + in_col;
+            xr_tile[activation_shared] = xr[input_index];
+            xk_tile[activation_shared] = xk[input_index];
+            xv_tile[activation_shared] = xv[input_index];
+        } else {
+            xr_tile[activation_shared] = 0.0;
+            xk_tile[activation_shared] = 0.0;
+            xv_tile[activation_shared] = 0.0;
+        }
+
+        if (grad_row < pc.rows && out_row < pc.output_dim) {
+            uint grad_index = grad_row * pc.output_dim + out_row;
+            grad_r_tile[grad_shared] = grad_r[grad_index];
+            grad_k_tile[grad_shared] = grad_k[grad_index];
+            grad_v_tile[grad_shared] = grad_v[grad_index];
+        } else {
+            grad_r_tile[grad_shared] = 0.0;
+            grad_k_tile[grad_shared] = 0.0;
+            grad_v_tile[grad_shared] = 0.0;
+        }
+
+        barrier();
+
+        if (lane_valid) {
+            uint tile_rows = min(ROW_TILE, pc.rows - row_base);
+            for (uint tile_row = 0u; tile_row < tile_rows; ++tile_row) {
+                uint activation_index = tile_row * 16u + local_x;
+                uint grad_index = tile_row * 16u + local_y;
+                r_sum = fma(grad_r_tile[grad_index], xr_tile[activation_index], r_sum);
+                k_sum = fma(grad_k_tile[grad_index], xk_tile[activation_index], k_sum);
+                v_sum = fma(grad_v_tile[grad_index], xv_tile[activation_index], v_sum);
+            }
+        }
+
+        barrier();
+    }
+
+    if (lane_valid) {
+        uint output_index = out_row * pc.input_dim + in_col;
+        grad_wr[output_index] = r_sum;
+        grad_wk[output_index] = k_sum;
+        grad_wv[output_index] = v_sum;
+    }
+}

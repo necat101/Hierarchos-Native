@@ -1,0 +1,90 @@
+#version 450
+
+// Deterministic adjoint for the Qwen4-Exp PLE stream gate.
+//
+// Forward, for every [row, stream]:
+//   raw = dot(key, query) / sqrt(hidden_size)
+//   gate = sign(raw) * sqrt(max(abs(raw), 1e-6))
+//   alpha = sigmoid(gate)
+//   output[hidden] = alpha * value[hidden]
+//
+// One invocation owns one key/query gradient element. Stream zero also owns
+// the value gradient for the same hidden coordinate, avoiding atomics.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer KeyBuffer { float key_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer QueryBuffer { float query_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ValueBuffer { float value_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradKeyBuffer { float grad_key[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradQueryBuffer { float grad_query[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer GradValueBuffer { float grad_value[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_count;
+} pc;
+
+float stream_alpha(uint row, uint stream, float inv_sqrt_hidden) {
+    uint hyper_width = pc.hidden_size * pc.hc_count;
+    uint stream_base = row * hyper_width + stream * pc.hidden_size;
+    float dot_value = 0.0;
+    for (uint feature = 0u; feature < pc.hidden_size; ++feature) {
+        uint source = stream_base + feature;
+        dot_value = fma(key_values[source], query_values[source], dot_value);
+    }
+    float raw_gate = dot_value * inv_sqrt_hidden;
+    float magnitude = sqrt(max(abs(raw_gate), 1.0e-6));
+    float gate = raw_gate < 0.0 ? -magnitude : (raw_gate > 0.0 ? magnitude : 0.0);
+    return 1.0 / (1.0 + exp(-gate));
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint hyper_width = pc.hidden_size * pc.hc_count;
+    uint total = pc.rows * hyper_width;
+    if (index >= total) return;
+
+    uint row = index / hyper_width;
+    uint within_row = index - row * hyper_width;
+    uint stream = within_row / pc.hidden_size;
+    uint hidden = within_row - stream * pc.hidden_size;
+    uint stream_base = row * hyper_width + stream * pc.hidden_size;
+    float inv_sqrt_hidden = inversesqrt(float(pc.hidden_size));
+
+    float dot_value = 0.0;
+    float grad_alpha = 0.0;
+    for (uint feature = 0u; feature < pc.hidden_size; ++feature) {
+        uint source = stream_base + feature;
+        dot_value = fma(key_values[source], query_values[source], dot_value);
+        grad_alpha = fma(
+            grad_output[source],
+            value_values[row * pc.hidden_size + feature],
+            grad_alpha
+        );
+    }
+    float raw_gate = dot_value * inv_sqrt_hidden;
+    float abs_raw_gate = abs(raw_gate);
+    float magnitude = sqrt(max(abs_raw_gate, 1.0e-6));
+    float gate = raw_gate < 0.0 ? -magnitude : (raw_gate > 0.0 ? magnitude : 0.0);
+    float alpha = 1.0 / (1.0 + exp(-gate));
+    float grad_raw_gate = 0.0;
+    if (abs_raw_gate > 1.0e-6) {
+        float grad_gate = grad_alpha * alpha * (1.0 - alpha);
+        grad_raw_gate = grad_gate * 0.5 * inversesqrt(abs_raw_gate);
+    }
+    float grad_dot = grad_raw_gate * inv_sqrt_hidden;
+    grad_key[index] = grad_dot * query_values[index];
+    grad_query[index] = grad_dot * key_values[index];
+
+    if (stream == 0u) {
+        float value_grad = 0.0;
+        for (uint source_stream = 0u; source_stream < pc.hc_count; ++source_stream) {
+            float source_alpha = stream_alpha(row, source_stream, inv_sqrt_hidden);
+            uint source = row * hyper_width + source_stream * pc.hidden_size + hidden;
+            value_grad = fma(grad_output[source], source_alpha, value_grad);
+        }
+        grad_value[row * pc.hidden_size + hidden] = value_grad;
+    }
+}

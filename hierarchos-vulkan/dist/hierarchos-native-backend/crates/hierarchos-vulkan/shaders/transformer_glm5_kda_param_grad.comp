@@ -1,0 +1,68 @@
+#version 450
+
+// Deterministic reductions for GLM-5.3 KDA dt_bias and A_log.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer ForgetBuffer { float forget_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ALogBuffer { float a_log_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer DtBiasBuffer { float dt_bias_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer GradDecayBuffer { float grad_decay[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradDtBiasBuffer { float grad_dt_bias[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradALogBuffer { float grad_a_log[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint num_heads;
+    uint head_dim;
+    uint has_lower_bound;
+    float lower_bound;
+} pc;
+
+float stable_softplus(float x) {
+    return max(x, 0.0) + log(1.0 + exp(-abs(x)));
+}
+
+void main() {
+    uint channel = gl_GlobalInvocationID.x;
+    uint channels = pc.num_heads * pc.head_dim;
+    if (channel >= channels) return;
+    uint head = channel / pc.head_dim;
+    uint dim = channel % pc.head_dim;
+    float rate = exp(a_log_values[head]);
+    float dt_sum = 0.0;
+    for (uint row = 0u; row < pc.rows; ++row) {
+        uint index = row * channels + channel;
+        float u = forget_values[index] + dt_bias_values[channel];
+        float derivative;
+        if (pc.has_lower_bound != 0u) {
+            float s = 1.0 / (1.0 + exp(-(rate * u)));
+            derivative = pc.lower_bound * s * (1.0 - s) * rate;
+        } else {
+            float s = 1.0 / (1.0 + exp(-u));
+            derivative = -rate * s;
+        }
+        dt_sum += grad_decay[index] * derivative;
+    }
+    grad_dt_bias[channel] = dt_sum;
+
+    if (dim == 0u) {
+        float a_sum = 0.0;
+        for (uint row = 0u; row < pc.rows; ++row) {
+            for (uint d = 0u; d < pc.head_dim; ++d) {
+                uint c = head * pc.head_dim + d;
+                uint index = row * channels + c;
+                float u = forget_values[index] + dt_bias_values[c];
+                float derivative;
+                if (pc.has_lower_bound != 0u) {
+                    float x = rate * u;
+                    float s = 1.0 / (1.0 + exp(-x));
+                    derivative = pc.lower_bound * s * (1.0 - s) * x;
+                } else {
+                    derivative = -rate * stable_softplus(u);
+                }
+                a_sum += grad_decay[index] * derivative;
+            }
+        }
+        grad_a_log[head] = a_sum;
+    }
+}

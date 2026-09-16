@@ -1,0 +1,37 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer HyperBuffer { float hyper_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PostBuffer { float post_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer CombBuffer { float comb_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer BranchBuffer { float branch_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_mult;
+    uint sinkhorn_iters;
+    float hc_eps;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint hyper_width = pc.hc_mult * pc.hidden_size;
+    uint len = pc.rows * hyper_width;
+    if (index >= len) return;
+    uint row = index / hyper_width;
+    uint within = index % hyper_width;
+    uint dest = within / pc.hidden_size;
+    uint hidden = within % pc.hidden_size;
+    uint hyper_base = row * hyper_width;
+    uint comb_base = row * pc.hc_mult * pc.hc_mult;
+    float residual = 0.0;
+    for (uint source = 0; source < pc.hc_mult; ++source) {
+        residual += comb_values[comb_base + source * pc.hc_mult + dest]
+            * hyper_values[hyper_base + source * pc.hidden_size + hidden];
+    }
+    output_values[index] = residual
+        + post_values[row * pc.hc_mult + dest] * branch_values[row * pc.hidden_size + hidden];
+}

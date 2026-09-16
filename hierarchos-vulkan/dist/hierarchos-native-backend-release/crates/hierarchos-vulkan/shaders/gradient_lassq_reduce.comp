@@ -1,0 +1,79 @@
+#version 450
+
+// Reduce LAPACK-style (scale, ssq) pairs emitted by gradient_lassq_partials.
+// The pair representation is associative enough for a tree reduction and keeps
+// the true norm representable on the host even when it exceeds fp32::MAX.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputPairs {
+    float input_pairs[];
+};
+
+layout(set = 0, binding = 1, std430) writeonly buffer OutputPairs {
+    float output_pairs[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint pair_count;
+} pc;
+
+shared float work_scale[256];
+shared float work_ssq[256];
+
+void combine_lassq(inout float scale, inout float ssq, float other_scale, float other_ssq) {
+    if (isnan(scale) || isinf(scale) || isnan(ssq) || isinf(ssq) ||
+        isnan(other_scale) || isinf(other_scale) || isnan(other_ssq) || isinf(other_ssq)) {
+        float bad = uintBitsToFloat(0x7fc00000u);
+        scale = bad;
+        ssq = bad;
+        return;
+    }
+    if (other_scale == 0.0) {
+        return;
+    }
+    if (scale == 0.0) {
+        scale = other_scale;
+        ssq = other_ssq;
+        return;
+    }
+    if (scale < other_scale) {
+        float ratio = scale / other_scale;
+        ssq = other_ssq + ssq * ratio * ratio;
+        scale = other_scale;
+    } else {
+        float ratio = other_scale / scale;
+        ssq += other_ssq * ratio * ratio;
+    }
+}
+
+void main() {
+    uint local_index = gl_LocalInvocationID.x;
+    uint pair_index = gl_GlobalInvocationID.x;
+    float scale = 0.0;
+    float ssq = 0.0;
+    if (pair_index < pc.pair_count) {
+        scale = input_pairs[pair_index * 2u];
+        ssq = input_pairs[pair_index * 2u + 1u];
+    }
+    work_scale[local_index] = scale;
+    work_ssq[local_index] = ssq;
+    barrier();
+
+    for (uint stride = 128u; stride != 0u; stride >>= 1u) {
+        if (local_index < stride) {
+            combine_lassq(
+                work_scale[local_index],
+                work_ssq[local_index],
+                work_scale[local_index + stride],
+                work_ssq[local_index + stride]
+            );
+        }
+        barrier();
+    }
+
+    if (local_index == 0u) {
+        uint pair = gl_WorkGroupID.x;
+        output_pairs[pair * 2u] = work_scale[0];
+        output_pairs[pair * 2u + 1u] = work_ssq[0];
+    }
+}

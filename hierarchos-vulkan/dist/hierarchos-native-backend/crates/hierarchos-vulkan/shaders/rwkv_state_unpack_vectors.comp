@@ -1,0 +1,33 @@
+#version 450
+
+// Forward-only packed-state unpack. TBPTT rematerializes the full recurrent
+// state during backward, so the first forward pass only needs the vector slots
+// consumed by low-rank time mix and channel mix. Matrix state stays packed and
+// is read directly by the packed recurrent transition kernel.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer PackedStateBuffer { float packed_state[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer PreviousTmBuffer { float previous_tm[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer PreviousCmBuffer { float previous_cm[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer PreviousVFirstBuffer { float previous_v_first[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+    uint matrix_offset;
+    float state_clamp;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint vector_len = pc.batch * pc.width;
+    if (index >= vector_len) {
+        return;
+    }
+    uint state_size = pc.matrix_offset + pc.head_size;
+    uint state_base = index * state_size;
+    previous_tm[index] = packed_state[state_base];
+    previous_cm[index] = packed_state[state_base + 1u];
+    previous_v_first[index] = packed_state[state_base + 2u];
+}

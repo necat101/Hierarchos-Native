@@ -1,0 +1,103 @@
+#version 450
+
+// Reference-equivalent recurrent Gated DeltaNet core used by Qwen3-Next and
+// descendants. Q/K are expected in [B,S,H,K], V in [B,S,H,V], decay/log-gate
+// and beta in [B,S,H]. The state layout is [B,H,K,V]. Q/K are L2-normalized
+// internally exactly like Transformers' use_qk_l2norm_in_kernel=True path.
+//
+// One invocation owns a single (batch, head, value-channel) state column and
+// therefore updates K state elements without races. This intentionally favors
+// numerical clarity over throughput; it establishes a parity baseline that a
+// later tiled/subgroup kernel can replace without changing the ABI.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer QueryBuffer { float query_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KeyBuffer { float key_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ValueBuffer { float value_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer DecayBuffer { float decay_values[]; };
+layout(set = 0, binding = 4, std430) readonly buffer BetaBuffer { float beta_values[]; };
+layout(set = 0, binding = 5, std430) readonly buffer InitialStateBuffer { float initial_state[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 7, std430) buffer FinalStateBuffer { float final_state[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint num_heads;
+    uint key_head_dim;
+    uint value_head_dim;
+    uint has_initial_state;
+    float l2_epsilon;
+} pc;
+
+uint state_index(uint batch, uint head, uint key_dim, uint value_dim) {
+    return (((batch * pc.num_heads + head) * pc.key_head_dim + key_dim)
+        * pc.value_head_dim) + value_dim;
+}
+
+uint qk_index(uint row, uint head, uint dim) {
+    return (row * pc.num_heads + head) * pc.key_head_dim + dim;
+}
+
+uint value_index(uint row, uint head, uint dim) {
+    return (row * pc.num_heads + head) * pc.value_head_dim + dim;
+}
+
+void main() {
+    uint lane = gl_GlobalInvocationID.x;
+    uint columns = pc.batch_size * pc.num_heads * pc.value_head_dim;
+    if (lane >= columns) return;
+
+    uint value_dim = lane % pc.value_head_dim;
+    uint head_slot = lane / pc.value_head_dim;
+    uint head = head_slot % pc.num_heads;
+    uint batch = head_slot / pc.num_heads;
+
+    // Seed the mutable final-state buffer. It doubles as the recurrent state
+    // during this dispatch; each invocation owns exactly one V column.
+    for (uint k = 0u; k < pc.key_head_dim; ++k) {
+        uint si = state_index(batch, head, k, value_dim);
+        final_state[si] = pc.has_initial_state != 0u ? initial_state[si] : 0.0;
+    }
+
+    float query_scale = inversesqrt(float(pc.key_head_dim));
+    for (uint token = 0u; token < pc.seq_len; ++token) {
+        uint row = batch * pc.seq_len + token;
+        uint scalar_index = row * pc.num_heads + head;
+        float state_decay = exp(decay_values[scalar_index]);
+        float beta = beta_values[scalar_index];
+
+        float q_sq = 0.0;
+        float k_sq = 0.0;
+        for (uint k = 0u; k < pc.key_head_dim; ++k) {
+            float q = query_values[qk_index(row, head, k)];
+            float key = key_values[qk_index(row, head, k)];
+            q_sq = fma(q, q, q_sq);
+            k_sq = fma(key, key, k_sq);
+        }
+        float q_inv_norm = inversesqrt(q_sq + pc.l2_epsilon);
+        float k_inv_norm = inversesqrt(k_sq + pc.l2_epsilon);
+
+        float memory = 0.0;
+        for (uint k = 0u; k < pc.key_head_dim; ++k) {
+            uint si = state_index(batch, head, k, value_dim);
+            float state = final_state[si] * state_decay;
+            final_state[si] = state;
+            float key = key_values[qk_index(row, head, k)] * k_inv_norm;
+            memory = fma(state, key, memory);
+        }
+
+        float value = value_values[value_index(row, head, value_dim)];
+        float delta = (value - memory) * beta;
+        float out_value = 0.0;
+        for (uint k = 0u; k < pc.key_head_dim; ++k) {
+            uint si = state_index(batch, head, k, value_dim);
+            float key = key_values[qk_index(row, head, k)] * k_inv_norm;
+            float state = fma(key, delta, final_state[si]);
+            final_state[si] = state;
+            float query = query_values[qk_index(row, head, k)] * q_inv_norm * query_scale;
+            out_value = fma(state, query, out_value);
+        }
+        output_values[value_index(row, head, value_dim)] = out_value;
+    }
+}

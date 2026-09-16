@@ -1,0 +1,74 @@
+#version 450
+
+// DeepSeek-V4 CSA overlap compressor. Each compressed entry combines the
+// previous window's Ca half with the current window's Cb half. The first
+// window has no previous Ca contribution, matching HF's zero/-inf sentinel.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer KvBuffer { float kv_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GateBuffer { float gate_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer PositionBiasBuffer { float position_bias[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint head_dim;
+    uint compress_rate;
+} pc;
+
+float slot_logit(uint batch, uint window, uint offset, uint channel, bool previous) {
+    uint source_window = previous ? window - 1u : window;
+    uint row = batch * pc.seq_len + source_window * pc.compress_rate + offset;
+    uint projected_dim = 2u * pc.head_dim;
+    uint projected_channel = previous ? channel : pc.head_dim + channel;
+    return gate_values[row * projected_dim + projected_channel]
+        + position_bias[offset * projected_dim + projected_channel];
+}
+
+float slot_value(uint batch, uint window, uint offset, uint channel, bool previous) {
+    uint source_window = previous ? window - 1u : window;
+    uint row = batch * pc.seq_len + source_window * pc.compress_rate + offset;
+    uint projected_dim = 2u * pc.head_dim;
+    uint projected_channel = previous ? channel : pc.head_dim + channel;
+    return kv_values[row * projected_dim + projected_channel];
+}
+
+void main() {
+    if (pc.compress_rate == 0u || pc.head_dim == 0u || pc.seq_len == 0u) return;
+    uint windows_per_batch = pc.seq_len / pc.compress_rate;
+    uint index = gl_GlobalInvocationID.x;
+    uint output_len = pc.batch_size * windows_per_batch * pc.head_dim;
+    if (index >= output_len) return;
+
+    uint output_row = index / pc.head_dim;
+    uint channel = index % pc.head_dim;
+    uint batch = output_row / windows_per_batch;
+    uint window = output_row % windows_per_batch;
+
+    float max_logit = -3.402823466e+38;
+    if (window > 0u) {
+        for (uint offset = 0u; offset < pc.compress_rate; ++offset) {
+            max_logit = max(max_logit, slot_logit(batch, window, offset, channel, true));
+        }
+    }
+    for (uint offset = 0u; offset < pc.compress_rate; ++offset) {
+        max_logit = max(max_logit, slot_logit(batch, window, offset, channel, false));
+    }
+
+    float denominator = 0.0;
+    float weighted_sum = 0.0;
+    if (window > 0u) {
+        for (uint offset = 0u; offset < pc.compress_rate; ++offset) {
+            float weight = exp(slot_logit(batch, window, offset, channel, true) - max_logit);
+            denominator += weight;
+            weighted_sum += weight * slot_value(batch, window, offset, channel, true);
+        }
+    }
+    for (uint offset = 0u; offset < pc.compress_rate; ++offset) {
+        float weight = exp(slot_logit(batch, window, offset, channel, false) - max_logit);
+        denominator += weight;
+        weighted_sum += weight * slot_value(batch, window, offset, channel, false);
+    }
+    output_values[index] = weighted_sum / denominator;
+}

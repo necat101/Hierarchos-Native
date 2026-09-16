@@ -1,0 +1,78 @@
+#version 450
+
+// Reduce Q/K adjoints from repeated value heads and differentiate the L2
+// normalization used inside the recurrent Gated DeltaNet kernel.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer PackedQkvBuffer { float packed_qkv[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradQExpandedBuffer { float grad_q_expanded[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradKExpandedBuffer { float grad_k_expanded[]; };
+layout(set = 0, binding = 3, std430) buffer GradPackedQkvBuffer { float grad_packed_qkv[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint num_key_heads;
+    uint num_value_heads;
+    uint key_head_dim;
+    uint value_head_dim;
+    uint has_initial_state;
+    float l2_epsilon;
+} pc;
+
+void main() {
+    uint row_key_head = gl_GlobalInvocationID.x;
+    uint rows = pc.batch_size * pc.seq_len;
+    uint total = rows * pc.num_key_heads;
+    if (row_key_head >= total) return;
+    uint key_head = row_key_head % pc.num_key_heads;
+    uint row = row_key_head / pc.num_key_heads;
+    uint ratio = pc.num_value_heads / pc.num_key_heads;
+    uint key_dim_total = pc.num_key_heads * pc.key_head_dim;
+    uint value_dim_total = pc.num_value_heads * pc.value_head_dim;
+    uint packed_width = key_dim_total * 2u + value_dim_total;
+    uint q_base = row * packed_width + key_head * pc.key_head_dim;
+    uint k_base = row * packed_width + key_dim_total + key_head * pc.key_head_dim;
+    float query_scale = inversesqrt(float(pc.key_head_dim));
+
+    float q_sq = 0.0;
+    float k_sq = 0.0;
+    float q_dot = 0.0;
+    float k_dot = 0.0;
+    for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+        float gq = 0.0;
+        float gk = 0.0;
+        for (uint r = 0u; r < ratio; ++r) {
+            uint value_head = key_head * ratio + r;
+            uint scalar = row * pc.num_value_heads + value_head;
+            gq += grad_q_expanded[scalar * pc.key_head_dim + kd];
+            gk += grad_k_expanded[scalar * pc.key_head_dim + kd];
+        }
+        gq *= query_scale;
+        float q = packed_qkv[q_base + kd];
+        float k = packed_qkv[k_base + kd];
+        q_sq = fma(q, q, q_sq);
+        k_sq = fma(k, k, k_sq);
+        q_dot = fma(gq, q, q_dot);
+        k_dot = fma(gk, k, k_dot);
+    }
+    float q_inv = inversesqrt(q_sq + pc.l2_epsilon);
+    float k_inv = inversesqrt(k_sq + pc.l2_epsilon);
+    float q_inv3_dot = q_inv * q_inv * q_inv * q_dot;
+    float k_inv3_dot = k_inv * k_inv * k_inv * k_dot;
+    for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+        float gq = 0.0;
+        float gk = 0.0;
+        for (uint r = 0u; r < ratio; ++r) {
+            uint value_head = key_head * ratio + r;
+            uint scalar = row * pc.num_value_heads + value_head;
+            gq += grad_q_expanded[scalar * pc.key_head_dim + kd];
+            gk += grad_k_expanded[scalar * pc.key_head_dim + kd];
+        }
+        gq *= query_scale;
+        float q = packed_qkv[q_base + kd];
+        float k = packed_qkv[k_base + kd];
+        grad_packed_qkv[q_base + kd] = q_inv * gq - q * q_inv3_dot;
+        grad_packed_qkv[k_base + kd] = k_inv * gk - k * k_inv3_dot;
+    }
+}

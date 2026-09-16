@@ -1,0 +1,98 @@
+#version 450
+
+// One workgroup owns one sampled token row. The PyTorch objective detaches
+// both the target hidden state and the in_proj-derived LTM readout, so this
+// kernel intentionally emits only d(value_to_store). GraphProjectionOp then
+// turns that adjoint into d(val_proj.weight).
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer TargetBuffer { float target[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ValueBuffer { float value_to_store[]; };
+layout(set = 0, binding = 2, std430) readonly buffer InProjWeightBuffer { float in_proj_weight[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradValueBuffer { float grad_value[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer RowCostBuffer { float row_cost[]; };
+layout(set = 0, binding = 5, std430) readonly buffer RowMaskBuffer { float row_mask[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint context_dim;
+    uint val_dim;
+    uint topk;
+    uint in_proj_input_dim;
+    uint memory_offset;
+    float loss_scale;
+    float loss_normalizer;
+} pc;
+
+// coherent-v9 currently uses context widths far below this bound. Keeping the
+// error vector in shared memory avoids recomputing the full readback once per
+// value dimension while remaining within Vulkan's guaranteed shared-memory
+// budget (8 KiB here, plus two tiny reduction arrays).
+const uint MAX_CONTEXT_DIM = 2048u;
+shared float error_shared[MAX_CONTEXT_DIM];
+shared float energy_partial[64u];
+shared float error_sq_partial[64u];
+
+float readout_weight(uint context_col, uint value_col) {
+    float sum = 0.0;
+    uint row_base = context_col * pc.in_proj_input_dim + pc.memory_offset;
+    for (uint k = 0u; k < pc.topk; ++k) {
+        sum += in_proj_weight[row_base + k * pc.val_dim + value_col];
+    }
+    return sum;
+}
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    uint lane = gl_LocalInvocationID.x;
+    if (row >= pc.rows || pc.context_dim > MAX_CONTEXT_DIM) {
+        return;
+    }
+
+    uint target_base = row * pc.context_dim;
+    uint value_base = row * pc.val_dim;
+    float row_weight = row_mask[row];
+    float energy_sum = 0.0;
+    float error_sq_sum = 0.0;
+
+    for (uint c = lane; c < pc.context_dim; c += 64u) {
+        float predicted = 0.0;
+        for (uint v = 0u; v < pc.val_dim; ++v) {
+            predicted = fma(value_to_store[value_base + v], readout_weight(c, v), predicted);
+        }
+        float target_value = target[target_base + c];
+        float error = predicted - target_value;
+        error_shared[c] = error;
+        energy_sum = fma(target_value, target_value, energy_sum);
+        error_sq_sum = fma(error, error, error_sq_sum);
+    }
+    energy_partial[lane] = energy_sum;
+    error_sq_partial[lane] = error_sq_sum;
+    barrier();
+
+    for (uint stride = 32u; stride > 0u; stride >>= 1u) {
+        if (lane < stride) {
+            energy_partial[lane] += energy_partial[lane + stride];
+            error_sq_partial[lane] += error_sq_partial[lane + stride];
+        }
+        barrier();
+    }
+
+    float inv_context = 1.0 / float(pc.context_dim);
+    float target_energy = max(energy_partial[0] * inv_context, 1.0e-4);
+    if (lane == 0u) {
+        row_cost[row] = row_weight * (error_sq_partial[0] * inv_context) / target_energy;
+    }
+
+    // PyTorch averages sampled row costs. The caller's loss_scale is the
+    // upstream scalar applied to that raw objective (aux weight/chunk scaling).
+    float common_scale = row_weight * pc.loss_scale * (2.0 * inv_context) /
+        (target_energy * pc.loss_normalizer);
+    for (uint v = lane; v < pc.val_dim; v += 64u) {
+        float grad = 0.0;
+        for (uint c = 0u; c < pc.context_dim; ++c) {
+            grad = fma(error_shared[c], readout_weight(c, v), grad);
+        }
+        grad_value[value_base + v] = grad * common_scale;
+    }
+}

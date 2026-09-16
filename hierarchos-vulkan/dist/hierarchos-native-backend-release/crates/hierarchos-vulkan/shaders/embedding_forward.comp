@@ -1,0 +1,28 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer TokenBuffer { uint token_ids[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint token_count;
+    uint dim;
+    uint vocab_size;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint position = gl_GlobalInvocationID.y;
+    if (position >= pc.token_count || col >= pc.dim) {
+        return;
+    }
+
+    uint token = token_ids[position];
+    float value = 0.0;
+    if (token < pc.vocab_size) {
+        value = weight[token * pc.dim + col];
+    }
+    output_values[position * pc.dim + col] = value;
+}

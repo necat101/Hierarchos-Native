@@ -1,0 +1,72 @@
+#version 450
+
+// LayerNorm backward with two normalized-gradient producers and the enclosing
+// residual edge folded into one dispatch. The LayerNorm math is identical to
+// layer_norm_backward_fused_add; only the final input-adjoint store performs
+// the legacy residual vector_add: residual_grad + layer_norm_grad_input.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradPrimaryBuffer { float grad_primary[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradExternalBuffer { float grad_external[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ResidualGradBuffer { float residual_grad[]; };
+layout(set = 0, binding = 3, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 4, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 5, std430) readonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 6, std430) readonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer GradWeightBuffer { float grad_weight[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer GradBiasBuffer { float grad_bias[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+} pc;
+
+float combined_grad(uint index) {
+    return grad_primary[index] + grad_external[index];
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+
+    if (index < pc.rows) {
+        uint base = index * pc.dim;
+        float mean = mean_values[index];
+        float rstd = rstd_values[index];
+        float sum_dxhat = 0.0;
+        float sum_dxhat_xhat = 0.0;
+        for (uint col = 0; col < pc.dim; ++col) {
+            uint element = base + col;
+            float xhat = (x[element] - mean) * rstd;
+            float dxhat = combined_grad(element) * weight[col];
+            sum_dxhat += dxhat;
+            sum_dxhat_xhat = fma(dxhat, xhat, sum_dxhat_xhat);
+        }
+        float inv_dim = 1.0 / float(pc.dim);
+        float mean_dxhat = sum_dxhat * inv_dim;
+        float mean_dxhat_xhat = sum_dxhat_xhat * inv_dim;
+        for (uint col = 0; col < pc.dim; ++col) {
+            uint element = base + col;
+            float xhat = (x[element] - mean) * rstd;
+            float dxhat = combined_grad(element) * weight[col];
+            float norm_grad = rstd * (
+                dxhat - mean_dxhat - xhat * mean_dxhat_xhat
+            );
+            grad_input[element] = residual_grad[element] + norm_grad;
+        }
+    }
+
+    if (index < pc.dim) {
+        float dw = 0.0;
+        float db = 0.0;
+        for (uint row = 0; row < pc.rows; ++row) {
+            uint element = row * pc.dim + index;
+            float dy = combined_grad(element);
+            float xhat = (x[element] - mean_values[row]) * rstd_values[row];
+            dw = fma(dy, xhat, dw);
+            db += dy;
+        }
+        grad_weight[index] = dw;
+        grad_bias[index] = db;
+    }
+}

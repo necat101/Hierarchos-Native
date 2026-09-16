@@ -1,0 +1,41 @@
+#version 450
+
+// One radix histogram per 256-position workgroup. Positions refer back to the
+// original token batch so the sort can move only a compact u32 permutation.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer TokenBuffer { uint token_ids[]; };
+layout(set = 0, binding = 1, std430) readonly buffer SourcePositionBuffer { uint source_positions[]; };
+layout(set = 0, binding = 2, std430) buffer HistogramBuffer { uint block_histograms[]; };
+
+layout(push_constant) uniform Push {
+    uint token_count;
+    uint shift;
+    uint block_count;
+    uint source_is_identity;
+} pc;
+
+const uint RADIX_BUCKETS = 16u;
+const uint RADIX_BLOCK_SIZE = 256u;
+shared uint histogram[RADIX_BUCKETS];
+
+void main() {
+    uint lane = gl_LocalInvocationID.x;
+    uint block = gl_WorkGroupID.x;
+    if (lane < RADIX_BUCKETS) {
+        histogram[lane] = 0u;
+    }
+    barrier();
+
+    uint index = block * RADIX_BLOCK_SIZE + lane;
+    if (block < pc.block_count && index < pc.token_count) {
+        uint source = pc.source_is_identity != 0u ? index : source_positions[index];
+        uint digit = (token_ids[source] >> pc.shift) & (RADIX_BUCKETS - 1u);
+        atomicAdd(histogram[digit], 1u);
+    }
+    barrier();
+
+    if (lane < RADIX_BUCKETS && block < pc.block_count) {
+        block_histograms[block * RADIX_BUCKETS + lane] = histogram[lane];
+    }
+}

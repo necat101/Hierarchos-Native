@@ -1,0 +1,97 @@
+#version 450
+
+// Full RWKV post-mix forward fusion for widths up to 512. One workgroup owns
+// one batch row: lanes first produce the head-local normalized/gated values,
+// keep a copy in shared memory, then fan that row through the unchanged
+// PyTorch-layout output matrix and add the residual. All backward tapes remain
+// materialized in global storage.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BiasBuffer { float bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer RBuffer { float r[]; };
+layout(set = 0, binding = 4, std430) readonly buffer KBuffer { float k[]; };
+layout(set = 0, binding = 5, std430) readonly buffer VBuffer { float v[]; };
+layout(set = 0, binding = 6, std430) readonly buffer GBuffer { float g[]; };
+layout(set = 0, binding = 7, std430) readonly buffer RkBuffer { float r_k[]; };
+layout(set = 0, binding = 8, std430) readonly buffer OutputWeightBuffer { float output_weight[]; };
+layout(set = 0, binding = 9, std430) readonly buffer ResidualBuffer { float residual[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer NormedBuffer { float normed[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer MeanBuffer { float mean[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer RstdBuffer { float rstd[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer GatedBuffer { float gated[]; };
+layout(set = 0, binding = 14, std430) writeonly buffer BonusBuffer { float bonus_scalar[]; };
+layout(set = 0, binding = 15, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+    float eps;
+} pc;
+
+shared float gated_shared[512];
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    if (row >= pc.batch) {
+        return;
+    }
+    uint lane = gl_LocalInvocationID.x;
+    uint heads = pc.width / pc.head_size;
+
+    for (uint head = lane; head < heads; head += gl_WorkGroupSize.x) {
+        uint base = row * pc.width + head * pc.head_size;
+        uint channel_base = head * pc.head_size;
+        uint group = row * heads + head;
+
+        float mu = 0.0;
+        for (uint i = 0; i < pc.head_size; ++i) {
+            mu += x[base + i];
+        }
+        mu /= float(pc.head_size);
+
+        float var = 0.0;
+        for (uint i = 0; i < pc.head_size; ++i) {
+            float centered = x[base + i] - mu;
+            var = fma(centered, centered, var);
+        }
+        var /= float(pc.head_size);
+        float inv_std = inversesqrt(var + pc.eps);
+        mean[group] = mu;
+        rstd[group] = inv_std;
+
+        float bonus = 0.0;
+        for (uint i = 0; i < pc.head_size; ++i) {
+            uint index = base + i;
+            uint channel = channel_base + i;
+            bonus += r[index] * k[index] * r_k[channel];
+        }
+        bonus_scalar[group] = bonus;
+
+        for (uint i = 0; i < pc.head_size; ++i) {
+            uint index = base + i;
+            uint channel = channel_base + i;
+            float xhat = (x[index] - mu) * inv_std;
+            float normed_value = fma(xhat, weight[channel], bias[channel]);
+            float gated_value = (normed_value + bonus * v[index]) * g[index];
+            normed[index] = normed_value;
+            gated[index] = gated_value;
+            gated_shared[channel] = gated_value;
+        }
+    }
+
+    barrier();
+
+    uint row_base = row * pc.width;
+    for (uint out_col = lane; out_col < pc.width; out_col += gl_WorkGroupSize.x) {
+        float sum = 0.0;
+        uint w_base = out_col * pc.width;
+        for (uint i = 0; i < pc.width; ++i) {
+            sum = fma(gated_shared[i], output_weight[w_base + i], sum);
+        }
+        uint output_index = row_base + out_col;
+        output_values[output_index] = residual[output_index] + sum;
+    }
+}

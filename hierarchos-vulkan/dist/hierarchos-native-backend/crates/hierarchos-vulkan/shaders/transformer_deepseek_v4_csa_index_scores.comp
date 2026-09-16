@@ -1,0 +1,41 @@
+#version 450
+
+// Lightning Indexer score: sum_h w[q,h]/sqrt(H) * ReLU(q·k/sqrt(D)).
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KBuffer { float k_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer WeightBuffer { float head_weights[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer ScoreBuffer { float index_scores[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint compressed_seq_len;
+    uint num_heads;
+    uint head_dim;
+} pc;
+
+void main() {
+    uint key = gl_GlobalInvocationID.x;
+    uint query = gl_GlobalInvocationID.y;
+    uint batch = gl_GlobalInvocationID.z;
+    if (batch >= pc.batch_size || query >= pc.query_seq_len || key >= pc.compressed_seq_len) return;
+
+    uint query_row = batch * pc.query_seq_len + query;
+    uint key_row = batch * pc.compressed_seq_len + key;
+    float qk_scale = inversesqrt(float(pc.head_dim));
+    float head_scale = inversesqrt(float(pc.num_heads));
+    float result = 0.0;
+    for (uint head = 0u; head < pc.num_heads; ++head) {
+        uint q_base = (query_row * pc.num_heads + head) * pc.head_dim;
+        uint k_base = key_row * pc.head_dim;
+        float dot = 0.0;
+        for (uint dim = 0u; dim < pc.head_dim; ++dim) {
+            dot = fma(q_values[q_base + dim], k_values[k_base + dim], dot);
+        }
+        float score = max(dot, 0.0) * qk_scale;
+        result = fma(head_weights[query_row * pc.num_heads + head] * head_scale, score, result);
+    }
+    index_scores[query_row * pc.compressed_seq_len + key] = result;
+}

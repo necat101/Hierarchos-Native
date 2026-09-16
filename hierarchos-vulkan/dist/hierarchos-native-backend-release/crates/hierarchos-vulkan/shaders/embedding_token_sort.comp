@@ -1,0 +1,81 @@
+#version 450
+
+// Stable-by-source-index sort for one sparse embedding batch. The sorted
+// permutation turns arbitrary repeated token ids into contiguous destination
+// segments so the following gradient kernel can reduce each segment exactly
+// once without floating-point atomics or quadratic elected-writer scans.
+//
+// 1024 entries consume 8 KiB of workgroup storage (keys + positions). Existing
+// Vulkan training paths use a 256-lane workgroup, with each lane handling four
+// compare-exchange positions per bitonic stage.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer TokenBuffer { uint token_ids[]; };
+layout(set = 0, binding = 1, std430) buffer SortedPositionBuffer { uint sorted_positions[]; };
+
+layout(push_constant) uniform Push {
+    uint token_count;
+    uint dim;
+    uint vocab_size;
+} pc;
+
+const uint SORT_CAPACITY = 1024u;
+const uint WORKGROUP_SIZE = 256u;
+
+shared uint sort_keys[SORT_CAPACITY];
+shared uint sort_positions[SORT_CAPACITY];
+
+bool pair_greater(uint lhs_key, uint lhs_position, uint rhs_key, uint rhs_position) {
+    return lhs_key > rhs_key ||
+        (lhs_key == rhs_key && lhs_position > rhs_position);
+}
+
+void main() {
+    uint lane = gl_LocalInvocationID.x;
+
+    for (uint index = lane; index < SORT_CAPACITY; index += WORKGROUP_SIZE) {
+        if (index < pc.token_count) {
+            sort_keys[index] = token_ids[index];
+            sort_positions[index] = index;
+        } else {
+            sort_keys[index] = 0xffffffffu;
+            sort_positions[index] = 0xffffffffu;
+        }
+    }
+    barrier();
+
+    // Fixed-network ordering is independent of subgroup/workgroup scheduling.
+    // The secondary position key makes every equal-token segment preserve the
+    // original source order, retaining the old shader's FP32 addition order.
+    for (uint width = 2u; width <= SORT_CAPACITY; width <<= 1u) {
+        for (uint stride = width >> 1u; stride != 0u; stride >>= 1u) {
+            for (uint index = lane; index < SORT_CAPACITY; index += WORKGROUP_SIZE) {
+                uint peer = index ^ stride;
+                if (peer > index) {
+                    bool ascending = (index & width) == 0u;
+                    uint lhs_key = sort_keys[index];
+                    uint lhs_position = sort_positions[index];
+                    uint rhs_key = sort_keys[peer];
+                    uint rhs_position = sort_positions[peer];
+                    bool lhs_greater = pair_greater(
+                        lhs_key,
+                        lhs_position,
+                        rhs_key,
+                        rhs_position
+                    );
+                    if (lhs_greater == ascending) {
+                        sort_keys[index] = rhs_key;
+                        sort_positions[index] = rhs_position;
+                        sort_keys[peer] = lhs_key;
+                        sort_positions[peer] = lhs_position;
+                    }
+                }
+            }
+            barrier();
+        }
+    }
+
+    for (uint index = lane; index < pc.token_count; index += WORKGROUP_SIZE) {
+        sorted_positions[index] = sort_positions[index];
+    }
+}

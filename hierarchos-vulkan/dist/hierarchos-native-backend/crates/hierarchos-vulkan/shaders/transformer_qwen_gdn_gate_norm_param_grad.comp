@@ -1,0 +1,37 @@
+#version 450
+
+// Deterministic learned-weight reduction for Qwen's gated RMSNorm. One
+// invocation owns one feature and reduces every row/head use of that feature.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GateBuffer { float gate_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradWeightBuffer { float grad_weight[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint num_heads;
+    uint head_dim;
+    float epsilon;
+} pc;
+
+void main() {
+    uint dim = gl_GlobalInvocationID.x;
+    if (dim >= pc.head_dim) return;
+    float sum = 0.0;
+    uint row_heads = pc.rows * pc.num_heads;
+    for (uint row_head = 0u; row_head < row_heads; ++row_head) {
+        uint base = row_head * pc.head_dim;
+        float mean_square = 0.0;
+        for (uint d = 0u; d < pc.head_dim; ++d) {
+            float x = input_values[base + d];
+            mean_square = fma(x, x, mean_square);
+        }
+        float inv_rms = inversesqrt(mean_square / float(pc.head_dim) + pc.epsilon);
+        float z = gate_values[base + dim];
+        float silu_z = z / (1.0 + exp(-z));
+        sum = fma(grad_output[base + dim], input_values[base + dim] * inv_rms * silu_z, sum);
+    }
+    grad_weight[dim] = sum;
+}

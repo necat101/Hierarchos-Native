@@ -1,0 +1,192 @@
+#version 450
+
+// Packed TBPTT counterpart to the multi-row shared-weight-tile kernel. The
+// default remains two logical 64-lane rows; 4/8-row variants reuse the same
+// canonical PyTorch [out, in] tile across larger training batches.
+
+#ifndef RWKV_WEIGHT_REUSE_TILE
+#define RWKV_WEIGHT_REUSE_TILE 16
+#endif
+
+#ifndef RWKV_WEIGHT_REUSE_ROWS
+#define RWKV_WEIGHT_REUSE_ROWS 2
+#endif
+
+layout(local_size_x = 64 * RWKV_WEIGHT_REUSE_ROWS, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x_norm[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PackedStateBuffer { float packed_state[]; };
+layout(set = 0, binding = 2, std430) readonly buffer MixRBuffer { float mix_r[]; };
+layout(set = 0, binding = 3, std430) readonly buffer MixKBuffer { float mix_k[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MixVBuffer { float mix_v[]; };
+layout(set = 0, binding = 5, std430) readonly buffer RWeightBuffer { float wr[]; };
+layout(set = 0, binding = 6, std430) readonly buffer KWeightBuffer { float wk[]; };
+layout(set = 0, binding = 7, std430) readonly buffer VWeightBuffer { float wv[]; };
+layout(set = 0, binding = 8, std430) readonly buffer InContextBuffer { float a[]; };
+layout(set = 0, binding = 9, std430) readonly buffer KeyNormScaleBuffer { float k_k[]; };
+layout(set = 0, binding = 10, std430) readonly buffer KeyContextScaleBuffer { float k_a[]; };
+layout(set = 0, binding = 11, std430) readonly buffer DecayLogBuffer { float w[]; };
+
+layout(set = 0, binding = 12, std430) writeonly buffer ReceptanceBuffer { float r[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer ValueBuffer { float v[]; };
+layout(set = 0, binding = 14, std430) writeonly buffer ScaledKeyBuffer { float scaled_k[]; };
+layout(set = 0, binding = 15, std430) writeonly buffer TimeMixBuffer { float tmix[]; };
+layout(set = 0, binding = 16, std430) buffer PackedNewStateBuffer { float packed_new_state[]; };
+layout(set = 0, binding = 17, std430) readonly buffer PreviousTimeMixBuffer { float previous_tm[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+    uint matrix_offset;
+    float state_clamp;
+} pc;
+
+const uint WEIGHT_TILE = RWKV_WEIGHT_REUSE_TILE;
+const uint ROWS_PER_GROUP = uint(RWKV_WEIGHT_REUSE_ROWS);
+shared float r_shared[RWKV_WEIGHT_REUSE_ROWS][64];
+shared float raw_k_shared[RWKV_WEIGHT_REUSE_ROWS][64];
+shared float v_shared[RWKV_WEIGHT_REUSE_ROWS][64];
+shared float scaled_k_shared[RWKV_WEIGHT_REUSE_ROWS][64];
+shared float kk_shared[RWKV_WEIGHT_REUSE_ROWS][64];
+shared float mixed_r_shared[RWKV_WEIGHT_REUSE_ROWS][RWKV_WEIGHT_REUSE_TILE];
+shared float mixed_k_shared[RWKV_WEIGHT_REUSE_ROWS][RWKV_WEIGHT_REUSE_TILE];
+shared float mixed_v_shared[RWKV_WEIGHT_REUSE_ROWS][RWKV_WEIGHT_REUSE_TILE];
+shared float wr_shared[64 * RWKV_WEIGHT_REUSE_TILE];
+shared float wk_shared[64 * RWKV_WEIGHT_REUSE_TILE];
+shared float wv_shared[64 * RWKV_WEIGHT_REUSE_TILE];
+
+float clamp_preserve_nonfinite(float value, float limit) {
+    if (limit <= 0.0 || isnan(value) || isinf(value)) {
+        return value;
+    }
+    return clamp(value, -limit, limit);
+}
+
+void main() {
+    uint lane = gl_LocalInvocationID.x;
+    uint row_slot = lane >> 6u;
+    uint row_lane = lane & 63u;
+    uint heads = pc.width / pc.head_size;
+    uint batch_group = gl_WorkGroupID.x / heads;
+    uint head = gl_WorkGroupID.x - batch_group * heads;
+    uint batch_index = batch_group * ROWS_PER_GROUP + row_slot;
+    bool row_active = batch_index < pc.batch;
+    bool lane_active = row_active && row_lane < pc.head_size;
+    uint batch_base = batch_index * pc.width;
+    uint head_channel_base = head * pc.head_size;
+    uint out_channel = head_channel_base + row_lane;
+    uint weight_base = out_channel * pc.width;
+    uint state_size = pc.matrix_offset + pc.head_size;
+
+    float r_sum = 0.0;
+    float k_sum = 0.0;
+    float v_sum = 0.0;
+
+    for (uint tile = 0u; tile < pc.width; tile += WEIGHT_TILE) {
+        uint tile_len = min(WEIGHT_TILE, pc.width - tile);
+
+        if (row_active && row_lane < tile_len) {
+            uint input_channel = tile + row_lane;
+            uint input_index = batch_base + input_channel;
+            float x = x_norm[input_index];
+            float previous_value = previous_tm[input_index];
+            float delta = previous_value - x;
+            mixed_r_shared[row_slot][row_lane] = fma(delta, mix_r[input_channel], x);
+            mixed_k_shared[row_slot][row_lane] = fma(delta, mix_k[input_channel], x);
+            mixed_v_shared[row_slot][row_lane] = fma(delta, mix_v[input_channel], x);
+        }
+
+        if (row_slot == 0u && row_lane < pc.head_size) {
+            uint shared_base = row_lane * WEIGHT_TILE;
+            for (uint i = 0u; i < tile_len; ++i) {
+                uint weight_index = weight_base + tile + i;
+                wr_shared[shared_base + i] = wr[weight_index];
+                wk_shared[shared_base + i] = wk[weight_index];
+                wv_shared[shared_base + i] = wv[weight_index];
+            }
+        }
+
+        memoryBarrierShared();
+        barrier();
+
+        if (lane_active) {
+            uint shared_base = row_lane * WEIGHT_TILE;
+            for (uint i = 0u; i < tile_len; ++i) {
+                r_sum = fma(mixed_r_shared[row_slot][i], wr_shared[shared_base + i], r_sum);
+                k_sum = fma(mixed_k_shared[row_slot][i], wk_shared[shared_base + i], k_sum);
+                v_sum = fma(mixed_v_shared[row_slot][i], wv_shared[shared_base + i], v_sum);
+            }
+        }
+
+        memoryBarrierShared();
+        barrier();
+    }
+
+    if (lane_active) {
+        uint output_index = batch_base + out_channel;
+        r[output_index] = r_sum;
+        v[output_index] = v_sum;
+        r_shared[row_slot][row_lane] = r_sum;
+        raw_k_shared[row_slot][row_lane] = k_sum;
+        v_shared[row_slot][row_lane] = v_sum;
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (row_active && row_lane == 0u) {
+        float norm_sq = 0.0;
+        for (uint col = 0u; col < pc.head_size; ++col) {
+            uint channel = head_channel_base + col;
+            float z = raw_k_shared[row_slot][col] * k_k[channel];
+            norm_sq = fma(z, z, norm_sq);
+        }
+        float denom = max(sqrt(norm_sq), 1.0e-12);
+        for (uint col = 0u; col < pc.head_size; ++col) {
+            uint index = batch_base + head_channel_base + col;
+            uint channel = head_channel_base + col;
+            float raw = raw_k_shared[row_slot][col];
+            float normalized = raw * k_k[channel] / denom;
+            float scale = 1.0 + (a[index] - 1.0) * k_a[channel];
+            kk_shared[row_slot][col] = normalized;
+            scaled_k_shared[row_slot][col] = raw * scale;
+            scaled_k[index] = scaled_k_shared[row_slot][col];
+        }
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (!lane_active) {
+        return;
+    }
+
+    uint linear_row = batch_base + head_channel_base + row_lane;
+    uint packed_row_base = linear_row * state_size;
+    float sa = 0.0;
+    for (uint col = 0u; col < pc.head_size; ++col) {
+        float state_value = packed_state[packed_row_base + pc.matrix_offset + col];
+        sa = fma(state_value, -kk_shared[row_slot][col], sa);
+    }
+
+    float row_tmix = 0.0;
+    float value_row = v_shared[row_slot][row_lane];
+    for (uint col = 0u; col < pc.head_size; ++col) {
+        uint channel_col = batch_base + head_channel_base + col;
+        uint packed_matrix_index = packed_row_base + pc.matrix_offset + col;
+        float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
+            ? w[channel_col]
+            : clamp(w[channel_col], -60.0, 30.0);
+        float decay = exp(-exp(bounded_w));
+        float b = kk_shared[row_slot][col] * a[channel_col];
+        float previous_state = packed_state[packed_matrix_index];
+        float updated = previous_state * decay
+            + sa * b
+            + value_row * scaled_k_shared[row_slot][col];
+        packed_new_state[packed_matrix_index] =
+            clamp_preserve_nonfinite(updated, pc.state_clamp);
+        row_tmix = fma(updated, r_shared[row_slot][col], row_tmix);
+    }
+    tmix[linear_row] = row_tmix;
+}

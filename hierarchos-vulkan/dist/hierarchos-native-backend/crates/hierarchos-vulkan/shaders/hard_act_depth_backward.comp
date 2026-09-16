@@ -1,0 +1,90 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LogitBuffer { float logits[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ProbabilityBuffer { float probabilities[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradDepthBuffer { float grad_depth[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradLogitBuffer { float grad_logits[]; };
+
+layout(push_constant) uniform Push {
+    uint steps;
+    uint batch;
+    uint min_steps;
+    float threshold;
+    float temperature;
+    float halt_logit_clamp;
+    float source_scale;
+} pc;
+
+float stable_sigmoid(float value) {
+    if (value >= 0.0) {
+        return 1.0 / (1.0 + exp(-value));
+    }
+    float e = exp(value);
+    return e / (1.0 + e);
+}
+
+void main() {
+    // One invocation owns a complete batch row. The old implementation launched
+    // one invocation per (step,row) pair and rebuilt every survival prefix for
+    // every logit derivative, which made the depth-surrogate reverse edge cubic
+    // in the number of ACT steps. A reverse suffix scan emits the same adjoints
+    // in linear work per row without adding scratch storage.
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.batch) {
+        return;
+    }
+
+    // The straight-through depth surrogate uses cdf[..., :-1], so the final
+    // halt probability has no depth gradient.
+    uint last_index = (pc.steps - 1u) * pc.batch + row;
+    grad_logits[last_index] = 0.0;
+    if (pc.steps <= 1u) {
+        return;
+    }
+
+    // survival[k] = prod_{j=0..k}(1-p[j]). Probabilities are clamped away
+    // from one, so dividing by (1-p[k]) while walking backward reconstructs the
+    // preceding prefix and avoids another forward scan.
+    float survival = 1.0;
+    for (uint j = 0u; j + 1u < pc.steps; ++j) {
+        survival *= 1.0 - probabilities[j * pc.batch + row];
+    }
+
+    float suffix_depth_derivative = 0.0;
+    float row_source_scale = grad_depth[row] * pc.source_scale;
+    int first_cdf = int(pc.min_steps) - 1;
+
+    for (int step_i = int(pc.steps) - 2; step_i >= 0; --step_i) {
+        uint step_k = uint(step_i);
+        uint flat_index = step_k * pc.batch + row;
+
+        if (step_i >= first_cdf) {
+            float cdf = 1.0 - survival;
+            float soft_continue =
+                stable_sigmoid((pc.threshold - cdf) / pc.temperature);
+            float dterm_dsurvival =
+                soft_continue * (1.0 - soft_continue) / pc.temperature;
+            suffix_depth_derivative += dterm_dsurvival * survival;
+        }
+
+        float survival_factor = max(1.0 - probabilities[flat_index], 1.0e-8);
+        float grad_p =
+            -suffix_depth_derivative / survival_factor * row_source_scale;
+
+        float raw = logits[flat_index];
+        float bounded = clamp(raw, -pc.halt_logit_clamp, pc.halt_logit_clamp);
+        float sigmoid_value = stable_sigmoid(bounded);
+        float finite_mask = (isnan(raw) || isinf(raw)) ? 0.0 : 1.0;
+        float logit_clamp_mask =
+            (raw >= -pc.halt_logit_clamp && raw <= pc.halt_logit_clamp) ? 1.0 : 0.0;
+        float probability_clamp_mask =
+            (sigmoid_value >= 1.0e-6 && sigmoid_value <= 1.0 - 1.0e-6) ? 1.0 : 0.0;
+        grad_logits[flat_index] = grad_p
+            * sigmoid_value * (1.0 - sigmoid_value)
+            * finite_mask * logit_clamp_mask * probability_clamp_mask;
+
+        survival /= survival_factor;
+    }
+}

@@ -1,0 +1,31 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RawBuffer { float raw_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradAffineBuffer { float grad_affine[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradBaseBuffer { float grad_base[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradScaleBuffer { float grad_scale[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_mult;
+    uint sinkhorn_iters;
+    float hc_eps;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index < pc.hc_mult) {
+        float sum = 0.0;
+        for (uint row = 0; row < pc.rows; ++row) sum += grad_affine[row * pc.hc_mult + index];
+        grad_base[index] = sum;
+    }
+    if (index == 0u) {
+        float sum = 0.0;
+        uint len = pc.rows * pc.hc_mult;
+        for (uint i = 0; i < len; ++i) sum += grad_affine[i] * raw_values[i];
+        grad_scale[0] = sum;
+    }
+}

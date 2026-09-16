@@ -1,0 +1,28 @@
+#version 450
+
+// Collapse Qwen4-Exp's concatenated hyper-connection residual streams without
+// materializing an O(hidden^2 * hc_count) dense averaging matrix.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_count;
+} pc;
+
+void main() {
+    uint hidden = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || hidden >= pc.hidden_size) return;
+
+    uint hyper_width = pc.hidden_size * pc.hc_count;
+    uint row_base = row * hyper_width;
+    float sum = 0.0;
+    for (uint stream = 0; stream < pc.hc_count; ++stream) {
+        sum += input_values[row_base + stream * pc.hidden_size + hidden];
+    }
+    output_values[row * pc.hidden_size + hidden] = sum / float(pc.hc_count);
+}

@@ -1,0 +1,104 @@
+#version 450
+
+// One workgroup owns one (batch, head). Lane 0 performs the exact serial key
+// normalization/scale reduction used by rwkv_key_transform_forward, publishes
+// the transformed keys through shared memory, then all active lanes advance one
+// matrix-state row. This removes the global key-transform -> state-forward
+// dispatch/barrier seam while retaining scaled_k/kk for backward consumers.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RawKeyBuffer { float raw_k[]; };
+layout(set = 0, binding = 1, std430) readonly buffer InContextBuffer { float a[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KeyNormScaleBuffer { float k_k[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KeyContextScaleBuffer { float k_a[]; };
+layout(set = 0, binding = 4, std430) readonly buffer StateBuffer { float state_values[]; };
+layout(set = 0, binding = 5, std430) readonly buffer ReceptanceBuffer { float r[]; };
+layout(set = 0, binding = 6, std430) readonly buffer ValueBuffer { float v[]; };
+layout(set = 0, binding = 7, std430) readonly buffer DecayLogBuffer { float w[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer ScaledKeyBuffer { float scaled_k[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer NormalizedKeyBuffer { float kk[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer NewStateBuffer { float new_state[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer TimeMixBuffer { float tmix[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer SavedSaBuffer { float saved_sa[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+} pc;
+
+shared float scaled_k_shared[64];
+shared float kk_shared[64];
+
+void main() {
+    uint heads = pc.width / pc.head_size;
+    uint linear_head = gl_WorkGroupID.x;
+    uint total_heads = pc.batch * heads;
+    if (linear_head >= total_heads) {
+        return;
+    }
+
+    uint batch_index = linear_head / heads;
+    uint head = linear_head - batch_index * heads;
+    uint base = batch_index * pc.width + head * pc.head_size;
+    uint channel_base = head * pc.head_size;
+    uint lane = gl_LocalInvocationID.x;
+
+    if (lane == 0) {
+        float norm_sq = 0.0;
+        for (uint col = 0; col < pc.head_size; ++col) {
+            float z = raw_k[base + col] * k_k[channel_base + col];
+            norm_sq = fma(z, z, norm_sq);
+        }
+        float denom = max(sqrt(norm_sq), 1.0e-12);
+
+        for (uint col = 0; col < pc.head_size; ++col) {
+            uint index = base + col;
+            uint channel = channel_base + col;
+            float raw = raw_k[index];
+            float normalized = raw * k_k[channel] / denom;
+            float scale = 1.0 + (a[index] - 1.0) * k_a[channel];
+            float scaled = raw * scale;
+            kk[index] = normalized;
+            scaled_k[index] = scaled;
+            kk_shared[col] = normalized;
+            scaled_k_shared[col] = scaled;
+        }
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (lane >= pc.head_size) {
+        return;
+    }
+
+    uint row = lane;
+    uint linear_row = base + row;
+    uint matrix_head_base = linear_head * pc.head_size * pc.head_size;
+    uint matrix_row_base = matrix_head_base + row * pc.head_size;
+
+    float sa = 0.0;
+    for (uint col = 0; col < pc.head_size; ++col) {
+        sa = fma(state_values[matrix_row_base + col], -kk_shared[col], sa);
+    }
+    saved_sa[linear_row] = sa;
+
+    float row_tmix = 0.0;
+    float value_row = v[base + row];
+    for (uint col = 0; col < pc.head_size; ++col) {
+        uint channel_col = base + col;
+        uint matrix_index = matrix_row_base + col;
+        float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
+            ? w[channel_col]
+            : clamp(w[channel_col], -60.0, 30.0);
+        float decay = exp(-exp(bounded_w));
+        float b = kk_shared[col] * a[channel_col];
+        float updated = state_values[matrix_index] * decay
+            + sa * b
+            + value_row * scaled_k_shared[col];
+        new_state[matrix_index] = updated;
+        row_tmix = fma(updated, r[channel_col], row_tmix);
+    }
+    tmix[linear_row] = row_tmix;
+}

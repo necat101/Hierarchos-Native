@@ -1,0 +1,65 @@
+#version 450
+
+// Deterministic input adjoint for depthwise causal Conv1D + optional SiLU.
+// The preactivation is recomputed to avoid storing another full activation.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint channels;
+    uint kernel_size;
+    uint dilation;
+    uint activation;
+} pc;
+
+float activation_prime(float x) {
+    if (pc.activation == 1u) {
+        float s = 1.0 / (1.0 + exp(-x));
+        return s * (1.0 + x * (1.0 - s));
+    }
+    return 1.0;
+}
+
+float preactivation(uint batch, uint token, uint channel) {
+    float sum = 0.0;
+    for (uint tap = 0u; tap < pc.kernel_size; ++tap) {
+        int source_token = int(token)
+            + int(tap * pc.dilation)
+            - int((pc.kernel_size - 1u) * pc.dilation);
+        if (source_token >= 0) {
+            uint source = (batch * pc.seq_len + uint(source_token)) * pc.channels + channel;
+            sum = fma(input_values[source], weight_values[channel * pc.kernel_size + tap], sum);
+        }
+    }
+    return sum;
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint total = pc.batch_size * pc.seq_len * pc.channels;
+    if (index >= total) return;
+    uint channel = index % pc.channels;
+    uint row = index / pc.channels;
+    uint input_token = row % pc.seq_len;
+    uint batch = row / pc.seq_len;
+    float sum = 0.0;
+    for (uint tap = 0u; tap < pc.kernel_size; ++tap) {
+        int output_token_i = int(input_token)
+            - int(tap * pc.dilation)
+            + int((pc.kernel_size - 1u) * pc.dilation);
+        if (output_token_i >= 0 && output_token_i < int(pc.seq_len)) {
+            uint output_token = uint(output_token_i);
+            uint out_index = (batch * pc.seq_len + output_token) * pc.channels + channel;
+            float pre = preactivation(batch, output_token, channel);
+            float grad_pre = grad_output[out_index] * activation_prime(pre);
+            sum = fma(grad_pre, weight_values[channel * pc.kernel_size + tap], sum);
+        }
+    }
+    grad_input[index] = sum;
+}

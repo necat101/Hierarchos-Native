@@ -1,0 +1,70 @@
+#version 450
+
+// Backpropagate three time-mix branches, fold their input/previous
+// contributions into earlier adjoints, and fold one additional outer-cell
+// input adjoint into grad_x_norm. The x-gradient store deliberately preserves
+// the legacy rounding order:
+//   (base + low_rank_contribution) + outer_cell_contribution.
+#ifndef RWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE
+#define RWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE 64
+#endif
+layout(local_size_x = RWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x_norm[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 2, std430) readonly buffer MixRBuffer { float mix_r[]; };
+layout(set = 0, binding = 3, std430) readonly buffer MixKBuffer { float mix_k[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MixVBuffer { float mix_v[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GradMixedRBuffer { float grad_xr[]; };
+layout(set = 0, binding = 6, std430) readonly buffer GradMixedKBuffer { float grad_xk[]; };
+layout(set = 0, binding = 7, std430) readonly buffer GradMixedVBuffer { float grad_xv[]; };
+layout(set = 0, binding = 8, std430) readonly buffer BaseGradInputBuffer { float base_grad_x_norm[]; };
+layout(set = 0, binding = 9, std430) readonly buffer BaseGradPreviousBuffer { float base_grad_previous[]; };
+layout(set = 0, binding = 10, std430) readonly buffer OuterGradInputBuffer { float outer_grad_x_norm[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer GradInputBuffer { float grad_x_norm[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer GradPreviousBuffer { float grad_previous[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer GradMixRBuffer { float grad_mix_r[]; };
+layout(set = 0, binding = 14, std430) writeonly buffer GradMixKBuffer { float grad_mix_k[]; };
+layout(set = 0, binding = 15, std430) writeonly buffer GradMixVBuffer { float grad_mix_v[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+} pc;
+
+void main() {
+    uint channel = gl_GlobalInvocationID.x;
+    if (channel >= pc.width) {
+        return;
+    }
+
+    float cr = mix_r[channel];
+    float ck = mix_k[channel];
+    float cv = mix_v[channel];
+    float grad_cr = 0.0;
+    float grad_ck = 0.0;
+    float grad_cv = 0.0;
+
+    for (uint batch_index = 0; batch_index < pc.batch; ++batch_index) {
+        uint index = batch_index * pc.width + channel;
+        float x = x_norm[index];
+        float prev = previous[index];
+        float delta = prev - x;
+        float gr = grad_xr[index];
+        float gk = grad_xk[index];
+        float gv = grad_xv[index];
+
+        float input_contribution = gr * (1.0 - cr) + gk * (1.0 - ck) + gv * (1.0 - cv);
+        float previous_contribution = gr * cr + gk * ck + gv * cv;
+        float accumulated_input = base_grad_x_norm[index] + input_contribution;
+        grad_x_norm[index] = accumulated_input + outer_grad_x_norm[index];
+        grad_previous[index] = base_grad_previous[index] + previous_contribution;
+        grad_cr = fma(gr, delta, grad_cr);
+        grad_ck = fma(gk, delta, grad_ck);
+        grad_cv = fma(gv, delta, grad_cv);
+    }
+
+    grad_mix_r[channel] = grad_cr;
+    grad_mix_k[channel] = grad_ck;
+    grad_mix_v[channel] = grad_cv;
+}

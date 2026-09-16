@@ -1,0 +1,85 @@
+#version 450
+
+// Derive the compact four-float streaming CE row record from a materialized
+// FP32 logit tape. Projection is intentionally absent here so the preceding
+// vocabulary-major kernel can reuse each LM-head weight tile across rows.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LogitTapeBuffer { float logit_tape[]; };
+layout(set = 0, binding = 1, std430) readonly buffer TargetBuffer { uint targets[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer StatsBuffer { float row_stats[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+shared float reduction_max[64];
+shared float reduction_sum[64];
+shared float target_logit_shared;
+
+void online_lse_update(float value, inout float running_max, inout float running_sum) {
+    if (running_sum == 0.0) {
+        running_max = value;
+        running_sum = 1.0;
+    } else if (value <= running_max) {
+        running_sum += exp(value - running_max);
+    } else {
+        running_sum = fma(running_sum, exp(running_max - value), 1.0);
+        running_max = value;
+    }
+}
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    uint lane = gl_LocalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+
+    uint base = row * pc.output_dim;
+    uint target = targets[row];
+    float lane_max = -3.402823466e+38;
+    float lane_sum = 0.0;
+    for (uint out_col = lane; out_col < pc.output_dim; out_col += 64u) {
+        float logit = logit_tape[base + out_col];
+        online_lse_update(logit, lane_max, lane_sum);
+        if (out_col == target) {
+            target_logit_shared = logit;
+        }
+    }
+    reduction_max[lane] = lane_max;
+    reduction_sum[lane] = lane_sum;
+    barrier();
+
+    for (uint stride = 32u; stride > 0u; stride >>= 1u) {
+        if (lane < stride) {
+            float left_max = reduction_max[lane];
+            float left_sum = reduction_sum[lane];
+            float right_max = reduction_max[lane + stride];
+            float right_sum = reduction_sum[lane + stride];
+            float merged_max = max(left_max, right_max);
+            float merged_sum = 0.0;
+            if (left_sum != 0.0) {
+                merged_sum += left_sum * exp(left_max - merged_max);
+            }
+            if (right_sum != 0.0) {
+                merged_sum += right_sum * exp(right_max - merged_max);
+            }
+            reduction_max[lane] = merged_max;
+            reduction_sum[lane] = merged_sum;
+        }
+        barrier();
+    }
+
+    if (lane == 0u) {
+        float max_logit = reduction_max[0];
+        float exp_sum = reduction_sum[0];
+        uint stats_base = row * 5u;
+        row_stats[stats_base] = max_logit;
+        row_stats[stats_base + 1u] = 1.0 / exp_sum;
+        row_stats[stats_base + 2u] = uintBitsToFloat(target);
+        row_stats[stats_base + 3u] = log(exp_sum) + max_logit - target_logit_shared;
+    }
+}

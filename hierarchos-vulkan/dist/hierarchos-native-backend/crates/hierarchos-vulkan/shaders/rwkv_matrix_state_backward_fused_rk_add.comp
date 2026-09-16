@@ -1,0 +1,122 @@
+#version 450
+
+// Matrix-state backward with the recurrent r/k fan-in folded into the same
+// dispatch. The state-path reductions are unchanged; their completed r/k
+// adjoints are added to the post-mix adjoints in the same order as the legacy
+// vector_add dispatches.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer StateBuffer { float state_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NewStateBuffer { float new_state[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ReceptanceBuffer { float r[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KeyBuffer { float k[]; };
+layout(set = 0, binding = 4, std430) readonly buffer ValueBuffer { float v[]; };
+layout(set = 0, binding = 5, std430) readonly buffer NormalizedKeyBuffer { float kk[]; };
+layout(set = 0, binding = 6, std430) readonly buffer InContextBuffer { float a[]; };
+layout(set = 0, binding = 7, std430) readonly buffer DecayLogBuffer { float w[]; };
+layout(set = 0, binding = 8, std430) readonly buffer SavedSaBuffer { float saved_sa[]; };
+layout(set = 0, binding = 9, std430) readonly buffer GradNewStateBuffer { float grad_new_state[]; };
+layout(set = 0, binding = 10, std430) readonly buffer GradTimeMixBuffer { float grad_tmix[]; };
+layout(set = 0, binding = 11, std430) readonly buffer PostGradReceptanceBuffer { float post_grad_r[]; };
+layout(set = 0, binding = 12, std430) readonly buffer PostGradKeyBuffer { float post_grad_k[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer GradStateBuffer { float grad_state[]; };
+layout(set = 0, binding = 14, std430) writeonly buffer GradValueBuffer { float grad_v[]; };
+layout(set = 0, binding = 15, std430) writeonly buffer TotalGradReceptanceBuffer { float total_grad_r[]; };
+layout(set = 0, binding = 16, std430) writeonly buffer TotalGradKeyBuffer { float total_grad_k[]; };
+layout(set = 0, binding = 17, std430) writeonly buffer GradNormalizedKeyBuffer { float grad_kk[]; };
+layout(set = 0, binding = 18, std430) writeonly buffer GradInContextBuffer { float grad_a[]; };
+layout(set = 0, binding = 19, std430) writeonly buffer GradDecayLogBuffer { float grad_w[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+} pc;
+
+shared float q_shared[64];
+
+void main() {
+    uint heads = pc.width / pc.head_size;
+    uint group = gl_WorkGroupID.x;
+    uint group_count = pc.batch * heads;
+    if (group >= group_count) {
+        return;
+    }
+
+    uint batch_index = group / heads;
+    uint head = group - batch_index * heads;
+    uint lane = gl_LocalInvocationID.x;
+    uint head_channel_base = batch_index * pc.width + head * pc.head_size;
+    uint matrix_head_base = group * pc.head_size * pc.head_size;
+
+    if (lane < pc.head_size) {
+        uint row = lane;
+        uint linear_row = head_channel_base + row;
+        uint matrix_row_base = matrix_head_base + row * pc.head_size;
+        float grad_t = grad_tmix[linear_row];
+        float q = 0.0;
+        float grad_value = 0.0;
+        for (uint col = 0; col < pc.head_size; ++col) {
+            uint channel_col = head_channel_base + col;
+            uint matrix_index = matrix_row_base + col;
+            float h = grad_new_state[matrix_index] + grad_t * r[channel_col];
+            float b = kk[channel_col] * a[channel_col];
+            q = fma(h, b, q);
+            grad_value = fma(h, k[channel_col], grad_value);
+        }
+        q_shared[row] = q;
+        grad_v[linear_row] = grad_value;
+
+        for (uint col = 0; col < pc.head_size; ++col) {
+            uint channel_col = head_channel_base + col;
+            uint matrix_index = matrix_row_base + col;
+            float h = grad_new_state[matrix_index] + grad_t * r[channel_col];
+            float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
+            ? w[channel_col]
+            : clamp(w[channel_col], -60.0, 30.0);
+            float decay = exp(-exp(bounded_w));
+            grad_state[matrix_index] = h * decay - kk[channel_col] * q;
+        }
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (lane < pc.head_size) {
+        uint col = lane;
+        uint linear_col = head_channel_base + col;
+        float grad_receptance = 0.0;
+        float grad_key = 0.0;
+        float grad_b = 0.0;
+        float grad_decay = 0.0;
+        float grad_kk_from_sa = 0.0;
+        for (uint row = 0; row < pc.head_size; ++row) {
+            uint linear_row = head_channel_base + row;
+            uint matrix_index = matrix_head_base + row * pc.head_size + col;
+            float grad_t = grad_tmix[linear_row];
+            float h = grad_new_state[matrix_index] + grad_t * r[linear_col];
+            grad_receptance = fma(grad_t, new_state[matrix_index], grad_receptance);
+            grad_key = fma(h, v[head_channel_base + row], grad_key);
+            grad_b = fma(h, saved_sa[linear_row], grad_b);
+            grad_decay = fma(h, state_values[matrix_index], grad_decay);
+            grad_kk_from_sa = fma(-q_shared[row], state_values[matrix_index], grad_kk_from_sa);
+        }
+
+        float kk_value = kk[linear_col];
+        float a_value = a[linear_col];
+        total_grad_r[linear_col] = grad_receptance + post_grad_r[linear_col];
+        total_grad_k[linear_col] = grad_key + post_grad_k[linear_col];
+        grad_kk[linear_col] = grad_kk_from_sa + grad_b * a_value;
+        grad_a[linear_col] = grad_b * kk_value;
+
+        float w_value = w[linear_col];
+        float bounded_w = (isnan(w_value) || isinf(w_value))
+            ? w_value
+            : clamp(w_value, -60.0, 30.0);
+        float exp_w = exp(bounded_w);
+        float decay = exp(-exp_w);
+        float clamp_grad = (isnan(w_value) || isinf(w_value)
+            || (w_value >= -60.0 && w_value <= 30.0)) ? 1.0 : 0.0;
+        grad_w[linear_col] = grad_decay * (-exp_w * decay) * clamp_grad;
+    }
+}

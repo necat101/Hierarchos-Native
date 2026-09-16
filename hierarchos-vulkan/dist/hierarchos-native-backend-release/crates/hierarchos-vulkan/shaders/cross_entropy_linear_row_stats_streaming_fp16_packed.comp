@@ -1,0 +1,187 @@
+#version 450
+
+// Packed-FP16 LM execution-mirror variant of the fused out_norm +
+// vocabulary-streaming LM-head forward. Projection arithmetic, LayerNorm
+// affine reconstruction, and online log-sum-exp stay FP32.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer NormMeanBuffer { float norm_mean[]; };
+layout(set = 0, binding = 4, std430) readonly buffer NormRstdBuffer { float norm_rstd[]; };
+layout(set = 0, binding = 5, std430) readonly buffer WeightBuffer { uint weight_packed[]; };
+layout(set = 0, binding = 6, std430) readonly buffer TargetBuffer { uint targets[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer StatsBuffer { float row_stats[]; };
+#ifdef LM_CE_WRITE_LOGIT_TAPE
+layout(set = 0, binding = 8, std430) writeonly buffer LogitTapeBuffer { float logit_tape[]; };
+#endif
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    float z_loss_weight;
+    float activation_clamp;
+} pc;
+
+float finite_activation_clamp(float value) {
+    return (isnan(value) || isinf(value))
+        ? value
+        : clamp(value, -pc.activation_clamp, pc.activation_clamp);
+}
+
+shared float reduction_max[64];
+shared float reduction_sum[64];
+const uint HIDDEN_TILE = 1024u;
+shared float hidden_tile[HIDDEN_TILE];
+shared float target_logit_shared;
+
+vec2 load_weight_pair(uint first_index, bool second_active) {
+    vec2 current = unpackHalf2x16(weight_packed[first_index >> 1u]);
+    if ((first_index & 1u) == 0u) {
+        return second_active ? current : vec2(current.x, 0.0);
+    }
+    if (!second_active) {
+        return vec2(current.y, 0.0);
+    }
+    vec2 next = unpackHalf2x16(weight_packed[(first_index >> 1u) + 1u]);
+    return vec2(current.y, next.x);
+}
+
+void online_lse_update(float value, inout float running_max, inout float running_sum) {
+    if (running_sum == 0.0) {
+        running_max = value;
+        running_sum = 1.0;
+    } else if (value <= running_max) {
+        running_sum += exp(value - running_max);
+    } else {
+        running_sum = fma(running_sum, exp(running_max - value), 1.0);
+        running_max = value;
+    }
+}
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    uint lane = gl_LocalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    float mean = norm_mean[row];
+    float rstd = norm_rstd[row];
+    uint x_base = row * pc.input_dim;
+    uint target = targets[row];
+    bool resident_hidden = pc.input_dim <= HIDDEN_TILE;
+
+    // Hierarchos' production width (448) fits entirely in this shared tile.
+    // Keep the reconstructed out_norm vector resident for the whole vocabulary
+    // sweep instead of rebuilding it once per 64-row vocabulary tile. Wider
+    // models retain the chunked fallback below.
+    if (resident_hidden) {
+        for (uint in_col = lane; in_col < pc.input_dim; in_col += 64u) {
+            float normalized = (x[x_base + in_col] - mean) * rstd;
+            hidden_tile[in_col] = finite_activation_clamp(
+                fma(normalized, norm_weight[in_col], norm_bias[in_col])
+            );
+        }
+        barrier();
+    }
+
+    float lane_max = -3.402823466e+38;
+    float lane_sum = 0.0;
+    for (uint vocab_base = 0u; vocab_base < pc.output_dim; vocab_base += 64u) {
+        uint out_col = vocab_base + lane;
+        bool active_vocab_row = out_col < pc.output_dim;
+        float logit = 0.0;
+
+        if (resident_hidden) {
+            if (active_vocab_row) {
+                uint w_base = out_col * pc.input_dim;
+                for (uint tile_col = 0u; tile_col < pc.input_dim; tile_col += 2u) {
+                    bool second_active = tile_col + 1u < pc.input_dim;
+                    vec2 weights = load_weight_pair(w_base + tile_col, second_active);
+                    logit = fma(hidden_tile[tile_col], weights.x, logit);
+                    if (second_active) {
+                        logit = fma(hidden_tile[tile_col + 1u], weights.y, logit);
+                    }
+                }
+            }
+        } else {
+            // Wider models stream the same cooperative reconstruction in
+            // bounded chunks so shared-memory usage remains fixed.
+            for (uint hidden_base = 0u; hidden_base < pc.input_dim; hidden_base += HIDDEN_TILE) {
+                uint hidden_count = min(HIDDEN_TILE, pc.input_dim - hidden_base);
+                for (uint tile_col = lane; tile_col < hidden_count; tile_col += 64u) {
+                    uint in_col = hidden_base + tile_col;
+                    float normalized = (x[x_base + in_col] - mean) * rstd;
+                    hidden_tile[tile_col] = finite_activation_clamp(
+                        fma(normalized, norm_weight[in_col], norm_bias[in_col])
+                    );
+                }
+                barrier();
+
+                if (active_vocab_row) {
+                    uint w_base = out_col * pc.input_dim + hidden_base;
+                    for (uint tile_col = 0u; tile_col < hidden_count; tile_col += 2u) {
+                        bool second_active = tile_col + 1u < hidden_count;
+                        vec2 weights = load_weight_pair(w_base + tile_col, second_active);
+                        logit = fma(hidden_tile[tile_col], weights.x, logit);
+                        if (second_active) {
+                            logit = fma(hidden_tile[tile_col + 1u], weights.y, logit);
+                        }
+                    }
+                }
+                barrier();
+            }
+        }
+
+        if (active_vocab_row) {
+#ifdef LM_CE_WRITE_LOGIT_TAPE
+            // The CE forward has already paid for this exact projection. The
+            // tape arm spills it once so backward can transform logits into CE
+            // adjoints in-place and devote its only LM-head weight read to W^T.
+            logit_tape[row * pc.output_dim + out_col] = logit;
+#endif
+            online_lse_update(logit, lane_max, lane_sum);
+            if (out_col == target) {
+                // Exactly one invocation owns the target vocabulary row. Keep
+                // the already-produced logit instead of projecting it again
+                // after the log-sum-exp reduction.
+                target_logit_shared = logit;
+            }
+        }
+    }
+    reduction_max[lane] = lane_max;
+    reduction_sum[lane] = lane_sum;
+    barrier();
+
+    for (uint stride = 32u; stride > 0u; stride >>= 1u) {
+        if (lane < stride) {
+            float left_max = reduction_max[lane];
+            float left_sum = reduction_sum[lane];
+            float right_max = reduction_max[lane + stride];
+            float right_sum = reduction_sum[lane + stride];
+            float merged_max = max(left_max, right_max);
+            float merged_sum = 0.0;
+            if (left_sum != 0.0) {
+                merged_sum += left_sum * exp(left_max - merged_max);
+            }
+            if (right_sum != 0.0) {
+                merged_sum += right_sum * exp(right_max - merged_max);
+            }
+            reduction_max[lane] = merged_max;
+            reduction_sum[lane] = merged_sum;
+        }
+        barrier();
+    }
+
+    if (lane == 0u) {
+        float max_logit = reduction_max[0];
+        float exp_sum = reduction_sum[0];
+        uint stats_base = row * 5u;
+        row_stats[stats_base] = max_logit;
+        row_stats[stats_base + 1u] = 1.0 / exp_sum;
+        row_stats[stats_base + 2u] = uintBitsToFloat(target);
+        row_stats[stats_base + 3u] = log(exp_sum) + max_logit - target_logit_shared;
+    }
+}

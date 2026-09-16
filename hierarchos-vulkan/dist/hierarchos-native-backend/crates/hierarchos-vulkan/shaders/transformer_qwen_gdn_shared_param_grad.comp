@@ -1,0 +1,30 @@
+#version 450
+
+// Reduce row-wise Gated DeltaNet scalar adjoints into dt_bias and A_log.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradABuffer { float grad_a[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradDecayBuffer { float grad_decay[]; };
+layout(set = 0, binding = 2, std430) readonly buffer DecayBuffer { float decay_values[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradDtBiasBuffer { float grad_dt_bias[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradALogBuffer { float grad_a_log[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint num_value_heads;
+    float beta_scale;
+} pc;
+
+void main() {
+    uint head = gl_GlobalInvocationID.x;
+    if (head >= pc.num_value_heads) return;
+    float dt_sum = 0.0;
+    float a_log_sum = 0.0;
+    for (uint row = 0u; row < pc.rows; ++row) {
+        uint index = row * pc.num_value_heads + head;
+        dt_sum += grad_a[index];
+        a_log_sum = fma(grad_decay[index], decay_values[index], a_log_sum);
+    }
+    grad_dt_bias[head] = dt_sum;
+    grad_a_log[head] = a_log_sum;
+}

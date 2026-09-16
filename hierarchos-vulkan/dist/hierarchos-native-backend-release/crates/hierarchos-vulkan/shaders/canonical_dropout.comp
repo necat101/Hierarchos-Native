@@ -1,0 +1,70 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputValues {
+    float input_values[];
+};
+
+layout(set = 0, binding = 1, std430) buffer OutputValues {
+    float output_values[];
+};
+
+layout(push_constant) uniform PushConstants {
+    uint len;
+    uint seed_lo;
+    uint seed_hi;
+    uint start_word_lo;
+    uint start_word_hi;
+    uint threshold;
+    float scale;
+} pc;
+
+const uint PHILOX_M0 = 0xD2511F53u;
+const uint PHILOX_M1 = 0xCD9E8D57u;
+const uint PHILOX_W0 = 0x9E3779B9u;
+const uint PHILOX_W1 = 0xBB67AE85u;
+
+uvec4 philox4x32_10(uvec4 counter, uvec2 key) {
+    for (uint round_index = 0u; round_index < 10u; ++round_index) {
+        uint p0_hi;
+        uint p0_lo;
+        uint p1_hi;
+        uint p1_lo;
+        umulExtended(PHILOX_M0, counter.x, p0_hi, p0_lo);
+        umulExtended(PHILOX_M1, counter.z, p1_hi, p1_lo);
+        counter = uvec4(
+            p1_hi ^ counter.y ^ key.x,
+            p1_lo,
+            p0_hi ^ counter.w ^ key.y,
+            p0_lo
+        );
+        key += uvec2(PHILOX_W0, PHILOX_W1);
+    }
+    return counter;
+}
+
+uint canonical_word(uint index) {
+    uint word_lo = pc.start_word_lo + index;
+    uint carry = uint(word_lo < pc.start_word_lo);
+    uint word_hi = pc.start_word_hi + carry;
+    uint block_lo = (word_lo >> 2u) | (word_hi << 30u);
+    uint block_hi = word_hi >> 2u;
+    uint lane = word_lo & 3u;
+    uvec4 block = philox4x32_10(
+        uvec4(block_lo, block_hi, 0u, 0u),
+        uvec2(pc.seed_lo, pc.seed_hi)
+    );
+    return block[lane];
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.len) {
+        return;
+    }
+    uint random_word = canonical_word(index);
+    output_values[index] = random_word < pc.threshold
+        ? 0.0
+        : input_values[index] * pc.scale;
+}

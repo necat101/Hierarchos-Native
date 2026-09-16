@@ -1,0 +1,24 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 2, std430) readonly buffer MixBuffer { float mix_coeff[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float mixed[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint len = pc.batch * pc.width;
+    if (index >= len) {
+        return;
+    }
+    uint channel = index % pc.width;
+    float value = x[index];
+    mixed[index] = fma(previous[index] - value, mix_coeff[channel], value);
+}

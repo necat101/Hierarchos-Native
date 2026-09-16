@@ -1,0 +1,188 @@
+#version 450
+
+// Top-k membership/group selection is non-differentiable, matching PyTorch.
+// score_function=0 preserves the existing softmax router derivative.
+// score_function=1 differentiates the selected GLM4-MoE/Solar Open sigmoid
+// scores, including optional selected-weight renormalization and routed scale.
+// score_function=5 differentiates DeepSeek-V4's selected and normalized
+// sqrt(softplus(logit)) scores. Top-k membership remains non-differentiable.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RoutingWeightsBuffer { float routing_weights[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradWeightsBuffer { float grad_weights[]; };
+layout(set = 0, binding = 2, std430) readonly buffer RouterLogitsBuffer { float router_logits[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradLogitsBuffer { float grad_logits[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint experts;
+    uint normalize_top_k;
+    uint score_function;
+    float routed_scaling_factor;
+    float router_logit_softcapping;
+} pc;
+
+float sigmoid_score(float value) {
+    if (value >= 0.0) {
+        float z = exp(-value);
+        return 1.0 / (1.0 + z);
+    }
+    float z = exp(value);
+    return z / (1.0 + z);
+}
+
+float router_score_logit(float value) {
+    if (pc.router_logit_softcapping > 0.0) {
+        float cap = pc.router_logit_softcapping;
+        return tanh(value / cap) * cap;
+    }
+    return value;
+}
+
+float router_score_logit_derivative(float value) {
+    if (pc.router_logit_softcapping <= 0.0) {
+        return 1.0;
+    }
+    float t = tanh(value / pc.router_logit_softcapping);
+    return 1.0 - t * t;
+}
+
+float routed_sigmoid_score(float value) {
+    return sigmoid_score(router_score_logit(value));
+}
+
+float stable_softplus(float value) {
+    return max(value, 0.0) + log(1.0 + exp(-abs(value)));
+}
+
+float sqrt_softplus_score(float value) {
+    return sqrt(stable_softplus(value));
+}
+
+float sqrt_softplus_derivative(float value) {
+    float score = sqrt_softplus_score(value);
+    return sigmoid_score(value) / max(2.0 * score, 1.0e-20);
+}
+
+void sigmoid_grouped_backward(uint base) {
+    if (pc.normalize_top_k == 0u) {
+        for (uint expert = 0; expert < pc.experts; ++expert) {
+            uint index = base + expert;
+            if (routing_weights[index] == 0.0) {
+                grad_logits[index] = 0.0;
+                continue;
+            }
+            float score = routed_sigmoid_score(router_logits[index]);
+            grad_logits[index] = pc.routed_scaling_factor * grad_weights[index] * score * (1.0 - score)
+                * router_score_logit_derivative(router_logits[index]);
+        }
+        return;
+    }
+
+    float selected_sum = 0.0;
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        uint index = base + expert;
+        if (routing_weights[index] != 0.0) {
+            selected_sum += routed_sigmoid_score(router_logits[index]);
+        }
+    }
+    float weighted_grad = 0.0;
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        uint index = base + expert;
+        if (routing_weights[index] != 0.0) {
+            float normalized = routing_weights[index] / pc.routed_scaling_factor;
+            weighted_grad += normalized * grad_weights[index];
+        }
+    }
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        uint index = base + expert;
+        if (routing_weights[index] == 0.0) {
+            grad_logits[index] = 0.0;
+            continue;
+        }
+        float score = routed_sigmoid_score(router_logits[index]);
+        float grad_score = pc.routed_scaling_factor * (grad_weights[index] - weighted_grad)
+            / (selected_sum + 1.0e-20);
+        grad_logits[index] = grad_score * score * (1.0 - score)
+            * router_score_logit_derivative(router_logits[index]);
+    }
+}
+
+void sqrt_softplus_backward(uint base) {
+    float selected_sum = 0.0;
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        uint index = base + expert;
+        if (routing_weights[index] != 0.0) {
+            selected_sum += sqrt_softplus_score(router_logits[index]);
+        }
+    }
+    float weighted_grad = 0.0;
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        uint index = base + expert;
+        if (routing_weights[index] != 0.0) {
+            float normalized = routing_weights[index] / pc.routed_scaling_factor;
+            weighted_grad += normalized * grad_weights[index];
+        }
+    }
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        uint index = base + expert;
+        if (routing_weights[index] == 0.0) {
+            grad_logits[index] = 0.0;
+            continue;
+        }
+        float grad_score = pc.routed_scaling_factor * (grad_weights[index] - weighted_grad)
+            / (selected_sum + 1.0e-20);
+        grad_logits[index] = grad_score * sqrt_softplus_derivative(router_logits[index]);
+    }
+}
+
+void softmax_backward(uint base) {
+    if (pc.normalize_top_k != 0) {
+        float weighted_grad = 0.0;
+        for (uint expert = 0; expert < pc.experts; ++expert) {
+            float normalized_weight = routing_weights[base + expert] / pc.routed_scaling_factor;
+            weighted_grad += normalized_weight * grad_weights[base + expert];
+        }
+        for (uint expert = 0; expert < pc.experts; ++expert) {
+            float normalized_weight = routing_weights[base + expert] / pc.routed_scaling_factor;
+            grad_logits[base + expert] = pc.routed_scaling_factor * normalized_weight
+                * (grad_weights[base + expert] - weighted_grad);
+        }
+        return;
+    }
+
+    float max_logit = -3.402823466e+38;
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        max_logit = max(max_logit, router_logits[base + expert]);
+    }
+    float full_sum = 0.0;
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        full_sum += exp(router_logits[base + expert] - max_logit);
+    }
+    float selected_weighted_grad = 0.0;
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        float selected_probability = routing_weights[base + expert] / pc.routed_scaling_factor;
+        if (selected_probability != 0.0) {
+            selected_weighted_grad += selected_probability * grad_weights[base + expert];
+        }
+    }
+    for (uint expert = 0; expert < pc.experts; ++expert) {
+        float probability = exp(router_logits[base + expert] - max_logit) / full_sum;
+        float direct_grad = routing_weights[base + expert] != 0.0 ? grad_weights[base + expert] : 0.0;
+        grad_logits[base + expert] = pc.routed_scaling_factor * probability
+            * (direct_grad - selected_weighted_grad);
+    }
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint base = row * pc.experts;
+    if (pc.score_function == 1u) {
+        sigmoid_grouped_backward(base);
+    } else if (pc.score_function == 5u) {
+        sqrt_softplus_backward(base);
+    } else {
+        softmax_backward(base);
+    }
+}

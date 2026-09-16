@@ -1,0 +1,19 @@
+[package]
+name = "hierarchos-gui"
+version = "0.1.0"
+edition = "2021"
+description = "Native desktop launcher for Hierarchos and Vulkan Transformer training"
+license = "MIT"
+
+[dependencies]
+eframe = { version = "0.33", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+rfd = "0.15"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[[bin]]
+name = "hierarchos-native"
+path = "src/main.rs"

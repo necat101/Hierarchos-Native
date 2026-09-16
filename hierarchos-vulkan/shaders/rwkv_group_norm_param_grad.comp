@@ -1,0 +1,38 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_y[]; };
+layout(set = 0, binding = 1, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 2, std430) readonly buffer MeanBuffer { float mean[]; };
+layout(set = 0, binding = 3, std430) readonly buffer RstdBuffer { float rstd[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradWeightBuffer { float grad_weight[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradBiasBuffer { float grad_bias[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+    float eps;
+} pc;
+
+void main() {
+    uint channel = gl_GlobalInvocationID.x;
+    if (channel >= pc.width) {
+        return;
+    }
+    uint heads = pc.width / pc.head_size;
+    uint head = channel / pc.head_size;
+    float dw = 0.0;
+    float db = 0.0;
+    for (uint batch_index = 0; batch_index < pc.batch; ++batch_index) {
+        uint index = batch_index * pc.width + channel;
+        uint group = batch_index * heads + head;
+        float xhat = (x[index] - mean[group]) * rstd[group];
+        float grad = grad_y[index];
+        dw = fma(grad, xhat, dw);
+        db += grad;
+    }
+    grad_weight[channel] = dw;
+    grad_bias[channel] = db;
+}

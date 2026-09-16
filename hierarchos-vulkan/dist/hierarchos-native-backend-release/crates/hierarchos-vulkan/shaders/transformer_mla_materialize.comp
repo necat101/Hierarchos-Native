@@ -1,0 +1,79 @@
+#version 450
+
+// Materialize DeepSeek-style MLA tensors for the common attention kernel.
+// Hugging Face stores each expanded query/key as [non-RoPE | RoPE]. The
+// Vulkan graph stores [RoPE | non-RoPE] so its existing partial-RoPE kernel can
+// rotate a prefix. Applying the same permutation to Q and K leaves Q.K exactly
+// unchanged.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer QueryExpandedBuffer { float q_expanded[]; };
+layout(set = 0, binding = 1, std430) readonly buffer SharedRotaryBuffer { float k_rotary_shared[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KvExpandedBuffer { float kv_expanded[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer QueryBuffer { float q_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer KeyBuffer { float k_values[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer ValueBuffer { float v_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint num_heads;
+    uint qk_nope_head_dim;
+    uint qk_rope_head_dim;
+    uint v_head_dim;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint qk_head_dim = pc.qk_nope_head_dim + pc.qk_rope_head_dim;
+    uint q_width = pc.num_heads * qk_head_dim;
+    uint v_width = pc.num_heads * pc.v_head_dim;
+    uint q_total = pc.rows * q_width;
+    uint k_total = q_total;
+    uint v_total = pc.rows * v_width;
+    uint total = q_total + k_total + v_total;
+    if (index >= total) return;
+
+    if (index < q_total) {
+        uint row = index / q_width;
+        uint within_row = index - row * q_width;
+        uint head = within_row / qk_head_dim;
+        uint channel = within_row - head * qk_head_dim;
+        uint source_channel = channel < pc.qk_rope_head_dim
+            ? pc.qk_nope_head_dim + channel
+            : channel - pc.qk_rope_head_dim;
+        uint source = row * q_width + head * qk_head_dim + source_channel;
+        q_values[index] = q_expanded[source];
+        return;
+    }
+
+    uint shifted = index - q_total;
+    if (shifted < k_total) {
+        uint row = shifted / q_width;
+        uint within_row = shifted - row * q_width;
+        uint head = within_row / qk_head_dim;
+        uint channel = within_row - head * qk_head_dim;
+        if (channel < pc.qk_rope_head_dim) {
+            k_values[shifted] = k_rotary_shared[row * pc.qk_rope_head_dim + channel];
+        } else {
+            uint nope_channel = channel - pc.qk_rope_head_dim;
+            uint kv_width = pc.num_heads * (pc.qk_nope_head_dim + pc.v_head_dim);
+            uint source = row * kv_width
+                + head * (pc.qk_nope_head_dim + pc.v_head_dim)
+                + nope_channel;
+            k_values[shifted] = kv_expanded[source];
+        }
+        return;
+    }
+
+    shifted -= k_total;
+    uint row = shifted / v_width;
+    uint within_row = shifted - row * v_width;
+    uint head = within_row / pc.v_head_dim;
+    uint channel = within_row - head * pc.v_head_dim;
+    uint kv_width = pc.num_heads * (pc.qk_nope_head_dim + pc.v_head_dim);
+    uint source = row * kv_width
+        + head * (pc.qk_nope_head_dim + pc.v_head_dim)
+        + pc.qk_nope_head_dim
+        + channel;
+    v_values[shifted] = kv_expanded[source];
+}

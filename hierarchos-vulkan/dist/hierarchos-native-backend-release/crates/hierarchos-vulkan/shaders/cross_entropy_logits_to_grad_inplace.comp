@@ -1,0 +1,33 @@
+#version 450
+
+// Turn a forward logit tape into the final mean-reduced CE adjoint in-place.
+// Row max/inv-sum/target were produced by the streaming CE forward, so this is
+// a narrow O(rows*vocab) pass with no LM-head weight traffic.
+layout(local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer StatsBuffer { float row_stats[]; };
+layout(set = 0, binding = 1, std430) buffer LogitGradTapeBuffer { float logit_grad_tape[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint count = pc.rows * pc.output_dim;
+    if (index >= count) {
+        return;
+    }
+    uint row = index / pc.output_dim;
+    uint out_col = index - row * pc.output_dim;
+    uint stats_base = row * 5u;
+    float max_logit = row_stats[stats_base];
+    float inv_sum = row_stats[stats_base + 1u];
+    uint target = floatBitsToUint(row_stats[stats_base + 2u]);
+    float probability = exp(logit_grad_tape[index] - max_logit) * inv_sum;
+    float row_weight = row_stats[stats_base + 4u];
+    logit_grad_tape[index] =
+        (probability - (out_col == target ? 1.0 : 0.0)) * row_weight;
+}

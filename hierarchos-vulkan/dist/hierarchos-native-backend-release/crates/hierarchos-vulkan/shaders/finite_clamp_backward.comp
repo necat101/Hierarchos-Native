@@ -1,0 +1,23 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint len;
+    float max_abs;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.len) {
+        return;
+    }
+    float value = input_values[index];
+    float mask = (isnan(value) || isinf(value)
+        || (value >= -pc.max_abs && value <= pc.max_abs)) ? 1.0 : 0.0;
+    grad_input[index] = grad_output[index] * mask;
+}

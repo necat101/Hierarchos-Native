@@ -1,0 +1,20 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer HiddenGradBuffer { float grad_hidden[]; };
+layout(set = 0, binding = 1, std430) buffer PackedGradBuffer { float grad_packed[]; };
+
+layout(push_constant) uniform Push {
+    uint vector_len;
+    uint state_size;
+    uint slot;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.vector_len) {
+        return;
+    }
+    grad_packed[index * pc.state_size + pc.slot] += grad_hidden[index];
+}

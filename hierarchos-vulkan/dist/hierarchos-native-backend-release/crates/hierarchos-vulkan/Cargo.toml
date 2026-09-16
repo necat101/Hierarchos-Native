@@ -1,0 +1,194 @@
+[package]
+name = "hierarchos-vulkan"
+version = "0.1.0"
+edition = "2021"
+description = "Vulkan compute training backend for Hierarchos coherent-v9 and Hugging Face decoder Transformers"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+ash = "0.38"
+bytemuck = { version = "1", features = ["derive"] }
+hierarchos-inference = { path = "../hierarchos-inference" }
+safetensors = "0.6"
+serde = { version = "1", features = ["derive"] }
+# Training checkpoint export edits a few non-contract JSON fields in-place.
+# RawValue lets that narrow edit preserve every pre-existing top-level value
+# verbatim without changing serde_json's normal typed-number deserialization.
+serde_json = { version = "1", features = ["raw_value"] }
+sha2 = "0.10"
+# Production Rust PEFT schema/key interoperability only. Transformer LoRA
+# forward/backward/AdamW math remains implemented by our Vulkan graph.
+peft-rs = "=1.2.0"
+regex = "1"
+# Host-side one-time PEFT decomposition initializers (PiSSA and related
+# adapter setup). Transformer forward/backward math remains Vulkan-native.
+nalgebra = "0.33"
+# Rust-native Hugging Face acquisition/tokenization for the Transformer trainer.
+# Model math never flows through these crates; they are host-side I/O only.
+hf-hub = { version = "=1.0.0", features = ["blocking", "rustls-tls"] }
+tokenizers = { version = "=0.22.2", default-features = false, features = ["fancy-regex"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[[bin]]
+name = "hierarchos-vulkan-head-step"
+path = "src/bin/head_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-package-step"
+path = "src/bin/package_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-optimizer-inspect"
+path = "src/bin/optimizer_inspect.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-out-norm-step"
+path = "src/bin/out_norm_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-adapter-step"
+path = "src/bin/adapter_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-projection-step"
+path = "src/bin/projection_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-state-step"
+path = "src/bin/rwkv_state_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-time-mix-core-step"
+path = "src/bin/rwkv_time_mix_core_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-low-rank-step"
+path = "src/bin/rwkv_low_rank_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-low-rank-dw-bench"
+path = "src/bin/rwkv_low_rank_dw_bench.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-fused-time-mix-step"
+path = "src/bin/rwkv_fused_time_mix_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-full-time-mix-step"
+path = "src/bin/rwkv_full_time_mix_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-channel-mix-step"
+path = "src/bin/rwkv_channel_mix_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-adapter-channel-mix-step"
+path = "src/bin/rwkv_adapter_channel_mix_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-cell-slice-step"
+path = "src/bin/rwkv_cell_slice_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-packed-state-step"
+path = "src/bin/rwkv_packed_state_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-packed-cell-step"
+path = "src/bin/rwkv_packed_cell_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-tbptt-sequence-step"
+path = "src/bin/rwkv_tbptt_sequence_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-tbptt-branch-accumulation"
+path = "src/bin/rwkv_tbptt_branch_accumulation.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-tbptt-fork-parity"
+path = "src/bin/rwkv_tbptt_fork_parity.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-worker-refinement-loss-parity"
+path = "src/bin/worker_refinement_loss_parity.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-full-training-graph-inspect"
+path = "src/bin/full_training_graph_inspect.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-full-training-graph-fusion"
+path = "src/bin/full_training_graph_fusion.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-full-training-graph-projection-coupling"
+path = "src/bin/full_training_graph_projection_coupling.rs"
+
+[[bin]]
+name = "full_training_graph_loss_coupling"
+path = "src/bin/full_training_graph_loss_coupling.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-control-parity"
+path = "src/bin/control_parity.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-manager-hard-act-parity"
+path = "src/bin/manager_hard_act_parity.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-token-frontend-parity"
+path = "src/bin/token_frontend_parity.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-token-memory-frontend-parity"
+path = "src/bin/token_memory_frontend_parity.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-raw-token-training-graph-smoke"
+path = "src/bin/raw_token_training_graph_smoke.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-raw-token-resume-step"
+path = "src/bin/raw_token_resume_step.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rosa-persistence-parity"
+path = "src/bin/rosa_vulkan_persistence_parity.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-raw-token-tape-parity"
+path = "src/bin/raw_token_tape_parity.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-labeled-sequence-parity"
+path = "src/bin/labeled_sequence_parity.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-training-submission-bench"
+path = "src/bin/training_submission_bench.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-train"
+path = "src/bin/train.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-devices"
+path = "src/bin/vulkan_devices.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-transformer-train"
+path = "src/bin/transformer_train.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-transformer-logits"
+path = "src/bin/transformer_logits.rs"

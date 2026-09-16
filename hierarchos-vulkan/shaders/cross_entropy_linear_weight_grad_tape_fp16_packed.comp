@@ -1,0 +1,143 @@
+#version 450
+
+// Direct-logit CE-tape dW. The projection forward keeps FP32 logits as the
+// parity anchor, while this kernel derives each mean-reduced CE adjoint only
+// when the corresponding dW row consumes it. That removes the global
+// logits->grad tape rewrite and keeps the adjoint tile-local/register-local.
+// The vocabulary-row fanout is compile-time tuned exactly like the streaming
+// packed-FP16 dW path, and row-order accumulation is unchanged.
+#ifndef LM_DW_VOCAB_ROWS_PER_GROUP
+#define LM_DW_VOCAB_ROWS_PER_GROUP 8
+#endif
+
+layout(local_size_x = 32, local_size_y = LM_DW_VOCAB_ROWS_PER_GROUP, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormBiasBuffer { float norm_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer NormMeanBuffer { float norm_mean[]; };
+layout(set = 0, binding = 4, std430) readonly buffer NormRstdBuffer { float norm_rstd[]; };
+layout(set = 0, binding = 5, std430) readonly buffer LogitTapeBuffer { float logits[]; };
+layout(set = 0, binding = 6, std430) readonly buffer StatsBuffer { float row_stats[]; };
+layout(set = 0, binding = 7, std430) buffer GradWeightBuffer { float grad_weight[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    uint accumulate;
+    float z_loss_weight;
+    float activation_clamp;
+} pc;
+
+float finite_activation_clamp(float value) {
+    return (isnan(value) || isinf(value))
+        ? value
+        : clamp(value, -pc.activation_clamp, pc.activation_clamp);
+}
+
+const uint HIDDEN_LANES = 32u;
+const uint VOCAB_ROWS_PER_GROUP = LM_DW_VOCAB_ROWS_PER_GROUP;
+const uint ROW_CHUNK = 8u;
+const uint GRAD_HIDDEN_TILE = 128u;
+const uint WORKGROUP_LANES = HIDDEN_LANES * VOCAB_ROWS_PER_GROUP;
+
+shared float grad_rows[VOCAB_ROWS_PER_GROUP][ROW_CHUNK];
+shared float chunk_mean[ROW_CHUNK];
+shared float chunk_rstd[ROW_CHUNK];
+shared float chunk_ce_max[ROW_CHUNK];
+shared float chunk_ce_inv_sum[ROW_CHUNK];
+shared uint chunk_target[ROW_CHUNK];
+shared float chunk_ce_weight[ROW_CHUNK];
+shared float grad_hidden_tile[ROW_CHUNK][GRAD_HIDDEN_TILE];
+
+void main() {
+    uint hidden_lane = gl_LocalInvocationID.x;
+    uint vocab_lane = gl_LocalInvocationID.y;
+    uint worker = vocab_lane * HIDDEN_LANES + hidden_lane;
+    uint out_col = gl_WorkGroupID.x * VOCAB_ROWS_PER_GROUP + vocab_lane;
+    bool active_vocab_row = out_col < pc.output_dim;
+
+    for (uint row_base = 0u; row_base < pc.rows; row_base += ROW_CHUNK) {
+        uint row_count = min(ROW_CHUNK, pc.rows - row_base);
+
+        if (vocab_lane == 0u && hidden_lane < row_count) {
+            uint row = row_base + hidden_lane;
+            uint stats_base = row * 5u;
+            chunk_mean[hidden_lane] = norm_mean[row];
+            chunk_rstd[hidden_lane] = norm_rstd[row];
+            chunk_ce_max[hidden_lane] = row_stats[stats_base];
+            chunk_ce_inv_sum[hidden_lane] = row_stats[stats_base + 1u];
+            chunk_target[hidden_lane] = floatBitsToUint(row_stats[stats_base + 2u]);
+            chunk_ce_weight[hidden_lane] = row_stats[stats_base + 4u];
+        }
+        barrier();
+
+        for (uint local_row = 0u; local_row < row_count; ++local_row) {
+            if (hidden_lane == 0u) {
+                uint row = row_base + local_row;
+                if (active_vocab_row) {
+                    float probability = exp(
+                        logits[row * pc.output_dim + out_col] - chunk_ce_max[local_row]
+                    ) * chunk_ce_inv_sum[local_row];
+                    float log_z = chunk_ce_max[local_row] - log(chunk_ce_inv_sum[local_row]);
+                    float z_adjoint =
+                        2.0 * pc.z_loss_weight * log_z * probability;
+                    grad_rows[vocab_lane][local_row] =
+                        (probability
+                            - (out_col == chunk_target[local_row] ? 1.0 : 0.0)
+                            + z_adjoint)
+                        * chunk_ce_weight[local_row];
+                } else {
+                    grad_rows[vocab_lane][local_row] = 0.0;
+                }
+            }
+            barrier();
+        }
+
+        for (uint hidden_base = 0u; hidden_base < pc.input_dim; hidden_base += GRAD_HIDDEN_TILE) {
+            uint hidden_count = min(GRAD_HIDDEN_TILE, pc.input_dim - hidden_base);
+            uint tile_values = row_count * hidden_count;
+            for (
+                uint flat_index = worker;
+                flat_index < tile_values;
+                flat_index += WORKGROUP_LANES
+            ) {
+                uint local_row = flat_index / hidden_count;
+                uint tile_col = flat_index - local_row * hidden_count;
+                uint row = row_base + local_row;
+                uint in_col = hidden_base + tile_col;
+                float normalized = (x[row * pc.input_dim + in_col] - chunk_mean[local_row])
+                    * chunk_rstd[local_row];
+                grad_hidden_tile[local_row][tile_col] = finite_activation_clamp(
+                    fma(normalized, norm_weight[in_col], norm_bias[in_col])
+                );
+            }
+            barrier();
+
+            if (active_vocab_row) {
+                uint grad_base = out_col * pc.input_dim;
+                for (
+                    uint tile_col = hidden_lane;
+                    tile_col < hidden_count;
+                    tile_col += HIDDEN_LANES
+                ) {
+                    float chunk_sum = 0.0;
+                    for (uint local_row = 0u; local_row < row_count; ++local_row) {
+                        chunk_sum = fma(
+                            grad_rows[vocab_lane][local_row],
+                            grad_hidden_tile[local_row][tile_col],
+                            chunk_sum
+                        );
+                    }
+                    uint grad_index = grad_base + hidden_base + tile_col;
+                    grad_weight[grad_index] = row_base == 0u && pc.accumulate == 0u
+                        ? chunk_sum
+                        : grad_weight[grad_index] + chunk_sum;
+                }
+            }
+
+            barrier();
+        }
+    }
+}

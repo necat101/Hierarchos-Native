@@ -1,0 +1,85 @@
+#version 450
+
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+
+// Native-FP16 recurrent r/k/v input adjoints while preserving canonical FP32
+// parameter and gradient storage. Incoming adjoints are lifted before the half
+// multiply so devices that flush FP16 subnormals do not erase the smallest
+// useful products. Products are widened immediately and accumulated in FP32.
+//
+// This is deliberately an execution-format change only: PyTorch/CUDA
+// checkpoint tensors remain the unchanged FP32 [output_dim, input_dim] weights.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RGradOutputBuffer { float grad_r[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RWeightBuffer { float wr[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KGradOutputBuffer { float grad_k[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KWeightBuffer { float wk[]; };
+layout(set = 0, binding = 4, std430) readonly buffer VGradOutputBuffer { float grad_v[]; };
+layout(set = 0, binding = 5, std430) readonly buffer VWeightBuffer { float wv[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer RGradInputBuffer { float grad_xr[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer KGradInputBuffer { float grad_xk[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer VGradInputBuffer { float grad_xv[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+const float ADJOINT_LIFT = 1024.0;
+const float HALF_SAFE_MAGNITUDE = 32752.0;
+
+float scaled_half_product(float grad, float weight) {
+    if (grad == 0.0 || weight == 0.0) {
+        return 0.0;
+    }
+
+    float grad_mag = abs(grad);
+    float weight_mag = abs(weight);
+    float product_mag = grad_mag * weight_mag;
+
+    // Exceptional values that would overflow half even without scaling retain
+    // the canonical FP32 product instead of manufacturing an inf/NaN. Normal
+    // recurrent training values stay on the native-half arm.
+    if (grad_mag > HALF_SAFE_MAGNITUDE || weight_mag > HALF_SAFE_MAGNITUDE ||
+        product_mag > HALF_SAFE_MAGNITUDE) {
+        return grad * weight;
+    }
+
+    float scale = min(ADJOINT_LIFT, HALF_SAFE_MAGNITUDE / grad_mag);
+    if (product_mag > 0.0) {
+        scale = min(scale, HALF_SAFE_MAGNITUDE / product_mag);
+    }
+    scale = max(scale, 1.0);
+
+    float16_t lifted_grad = float16_t(grad * scale);
+    float16_t half_weight = float16_t(weight);
+    float product = float(lifted_grad * half_weight);
+    return product / scale;
+}
+
+void main() {
+    uint in_col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || in_col >= pc.input_dim) {
+        return;
+    }
+
+    float r_sum = 0.0;
+    float k_sum = 0.0;
+    float v_sum = 0.0;
+    uint grad_base = row * pc.output_dim;
+    for (uint out_col = 0; out_col < pc.output_dim; ++out_col) {
+        uint grad_index = grad_base + out_col;
+        uint weight_index = out_col * pc.input_dim + in_col;
+        r_sum += scaled_half_product(grad_r[grad_index], wr[weight_index]);
+        k_sum += scaled_half_product(grad_k[grad_index], wk[weight_index]);
+        v_sum += scaled_half_product(grad_v[grad_index], wv[weight_index]);
+    }
+
+    uint output_index = row * pc.input_dim + in_col;
+    grad_xr[output_index] = r_sum;
+    grad_xk[output_index] = k_sum;
+    grad_xv[output_index] = v_sum;
+}

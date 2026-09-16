@@ -1,0 +1,31 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GateBuffer { float gate_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer UpBuffer { float up_values[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint len;
+    float limit;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.len) return;
+
+    // DeepSeek-V4 applies an upper-only clamp to the gate projection, a
+    // symmetric clamp to the up projection, and then ordinary SiLU gating:
+    //   gate = clamp(gate, max=limit)
+    //   up = clamp(up, min=-limit, max=limit)
+    //   output = silu(gate) * up
+    // This intentionally differs from GPT-OSS/MiniMax-M3 SwiGLU-OAI: there is
+    // no alpha=1.702 sigmoid and no +1 shift on the up branch.
+    float raw_gate = gate_values[index];
+    float raw_up = up_values[index];
+    float gate = isnan(raw_gate) ? raw_gate : min(raw_gate, pc.limit);
+    float up = isnan(raw_up) ? raw_up : clamp(raw_up, -pc.limit, pc.limit);
+    float sigmoid_gate = 1.0 / (1.0 + exp(-gate));
+    output_values[index] = gate * sigmoid_gate * up;
+}

@@ -1,0 +1,130 @@
+#version 450
+
+// Fuse the RWKV-v8 w/a/g interpolation producer with the three first-stage
+// low-rank parameter matmuls. The mixed xw/xa/xg tensors are still
+// materialized for the unchanged backward tape, but the matmuls consume the
+// just-produced values through workgroup memory instead of round-tripping them
+// through global memory.
+//
+// The launch shape intentionally matches the existing parameter-matmul path:
+// 16 output-rank columns x 16 batch rows per workgroup. This preserves rank
+// parallelism instead of collapsing the low-rank projections into one serial
+// row-owned invocation.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x_norm[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 2, std430) readonly buffer MixWBuffer { float mix_w[]; };
+layout(set = 0, binding = 3, std430) readonly buffer MixABuffer { float mix_a[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MixGBuffer { float mix_g[]; };
+layout(set = 0, binding = 5, std430) readonly buffer W1Buffer { float w1[]; };
+layout(set = 0, binding = 6, std430) readonly buffer A1Buffer { float a1[]; };
+layout(set = 0, binding = 7, std430) readonly buffer G1Buffer { float g1[]; };
+
+layout(set = 0, binding = 8, std430) writeonly buffer MixedWBuffer { float xw[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer MixedABuffer { float xa[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer MixedGBuffer { float xg[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer WHiddenBuffer { float w_hidden[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer AHiddenBuffer { float a_hidden[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer GHiddenBuffer { float g_hidden[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint width;
+    uint w_rank;
+    uint a_rank;
+    uint g_rank;
+} pc;
+
+shared float mixed_w_tile[256];
+shared float mixed_a_tile[256];
+shared float mixed_g_tile[256];
+
+void main() {
+    uint local_col = gl_LocalInvocationID.x;
+    uint local_row = gl_LocalInvocationID.y;
+    uint row = gl_WorkGroupID.y * 16u + local_row;
+    uint out_col = gl_WorkGroupID.x * 16u + local_col;
+    uint shared_index = local_row * 16u + local_col;
+    bool row_active = row < pc.rows;
+    bool w_active = row_active && out_col < pc.w_rank;
+    bool a_active = row_active && out_col < pc.a_rank;
+    bool g_active = row_active && out_col < pc.g_rank;
+
+    float w_sum = 0.0;
+    float a_sum = 0.0;
+    float g_sum = 0.0;
+    uint row_base = row * pc.width;
+
+    for (uint tile = 0; tile < pc.width; tile += 16u) {
+        uint in_col = tile + local_col;
+        float mixed_w = 0.0;
+        float mixed_a = 0.0;
+        float mixed_g = 0.0;
+
+        if (row_active && in_col < pc.width) {
+            uint input_index = row_base + in_col;
+            float x = x_norm[input_index];
+            float delta = previous[input_index] - x;
+            mixed_w = fma(delta, mix_w[in_col], x);
+            mixed_a = fma(delta, mix_a[in_col], x);
+            mixed_g = fma(delta, mix_g[in_col], x);
+
+            // Only the first rank tile owns the backward-tape stores. Other
+            // rank tiles recompute interpolation locally but never race these
+            // exact scratch outputs.
+            if (gl_WorkGroupID.x == 0u) {
+                xw[input_index] = mixed_w;
+                xa[input_index] = mixed_a;
+                xg[input_index] = mixed_g;
+            }
+        }
+
+        mixed_w_tile[shared_index] = mixed_w;
+        mixed_a_tile[shared_index] = mixed_a;
+        mixed_g_tile[shared_index] = mixed_g;
+        memoryBarrierShared();
+        barrier();
+
+        uint tile_len = min(16u, pc.width - tile);
+        uint shared_row_base = local_row * 16u;
+        for (uint i = 0; i < tile_len; ++i) {
+            uint weight_input = tile + i;
+            uint tile_index = shared_row_base + i;
+            if (w_active) {
+                w_sum = fma(
+                    mixed_w_tile[tile_index],
+                    w1[weight_input * pc.w_rank + out_col],
+                    w_sum
+                );
+            }
+            if (a_active) {
+                a_sum = fma(
+                    mixed_a_tile[tile_index],
+                    a1[weight_input * pc.a_rank + out_col],
+                    a_sum
+                );
+            }
+            if (g_active) {
+                g_sum = fma(
+                    mixed_g_tile[tile_index],
+                    g1[weight_input * pc.g_rank + out_col],
+                    g_sum
+                );
+            }
+        }
+
+        memoryBarrierShared();
+        barrier();
+    }
+
+    if (w_active) {
+        w_hidden[row * pc.w_rank + out_col] = w_sum;
+    }
+    if (a_active) {
+        a_hidden[row * pc.a_rank + out_col] = a_sum;
+    }
+    if (g_active) {
+        g_hidden[row * pc.g_rank + out_col] = g_sum;
+    }
+}

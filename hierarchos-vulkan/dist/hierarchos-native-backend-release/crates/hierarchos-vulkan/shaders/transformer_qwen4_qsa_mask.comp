@@ -1,0 +1,276 @@
+#version 450
+
+// Correctness-first Qwen4-Exp QSA selector. Hugging Face builds blocks from
+// the *visible-token list* for each query (rather than fixed absolute token
+// ranges), averages raw index keys inside each complete block, RMS-normalizes
+// and rotates the pooled key at the block's first token, then ranks blocks by
+// sum_h relu(q_h . k_block) / sqrt(head_dim). The incomplete visible tail is
+// always retained. The resulting mask is discrete and intentionally has no
+// backward kernel; normal attention reuses the saved mask for its adjoint.
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer QkBuffer { float qk_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer IndexKeyBuffer { float index_keys[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 3, std430) readonly buffer QNormWeightBuffer { float q_norm_weight[]; };
+layout(set = 0, binding = 4, std430) readonly buffer KNormWeightBuffer { float k_norm_weight[]; };
+layout(set = 0, binding = 5, std430) readonly buffer RopeFactorsBuffer { float rope_factors[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer SparseMaskBuffer { float sparse_mask[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint num_heads;
+    uint head_dim;
+    uint packed_width;
+    uint compress_ratio;
+    uint topk_blocks;
+    uint query_position_offset;
+    uint causal;
+    uint rotary_dim;
+    uint interleaved_pairs;
+    float rotary_emb_base;
+    uint scaling_type;
+    float scaling_factor;
+    uint original_max_position_embeddings;
+    float low_freq_factor;
+    float high_freq_factor;
+    float attention_factor;
+    float beta_fast;
+    float beta_slow;
+    uint truncate;
+    float llama4_scaling_beta;
+    float norm_eps;
+} pc;
+
+bool visible(uint batch, uint query, uint key) {
+    if (key >= pc.key_value_seq_len) return false;
+    if (key_mask[batch * pc.key_value_seq_len + key] <= 0.0) return false;
+    return pc.causal == 0u || key <= pc.query_position_offset + query;
+}
+
+uint visible_count(uint batch, uint query) {
+    uint count = 0u;
+    for (uint key = 0u; key < pc.key_value_seq_len; ++key) {
+        if (visible(batch, query, key)) count += 1u;
+    }
+    return count;
+}
+
+uint visible_ordinal(uint batch, uint query, uint key) {
+    uint ordinal = 0u;
+    for (uint candidate = 0u; candidate < key; ++candidate) {
+        if (visible(batch, query, candidate)) ordinal += 1u;
+    }
+    return ordinal;
+}
+
+uint visible_key_at(uint batch, uint query, uint ordinal) {
+    uint current = 0u;
+    for (uint key = 0u; key < pc.key_value_seq_len; ++key) {
+        if (!visible(batch, query, key)) continue;
+        if (current == ordinal) return key;
+        current += 1u;
+    }
+    return pc.key_value_seq_len;
+}
+
+float raw_q(uint batch, uint query, uint head, uint dim) {
+    // qk_values contains only the queries projected for this invocation. During
+    // cached generation query_seq_len is normally one while historical keys
+    // live in index_keys.
+    uint row = batch * pc.query_seq_len + query;
+    return qk_values[row * pc.packed_width + head * pc.head_dim + dim];
+}
+
+float raw_k(uint batch, uint key, uint dim) {
+    uint row = batch * pc.key_value_seq_len + key;
+    return index_keys[row * pc.head_dim + dim];
+}
+
+float pooled_k(uint batch, uint query, uint block, uint dim) {
+    uint first_ordinal = block * pc.compress_ratio;
+    float value = 0.0;
+    for (uint offset = 0u; offset < pc.compress_ratio; ++offset) {
+        uint key = visible_key_at(batch, query, first_ordinal + offset);
+        value += raw_k(batch, key, dim);
+    }
+    return value / float(pc.compress_ratio);
+}
+
+float rope_inv_frequency(uint frequency_index) {
+    float exponent = (2.0 * float(frequency_index)) / float(pc.rotary_dim);
+    float effective_base = pc.rotary_emb_base;
+    float full_sequence = float(pc.key_value_seq_len);
+    if (pc.scaling_type == 2u && pc.key_value_seq_len > pc.original_max_position_embeddings) {
+        float stretch = pc.scaling_factor * full_sequence / float(pc.original_max_position_embeddings)
+            - (pc.scaling_factor - 1.0);
+        float ntk_exponent = float(pc.rotary_dim) / float(pc.rotary_dim - 2u);
+        effective_base *= pow(stretch, ntk_exponent);
+    } else if (pc.scaling_type == 5u) {
+        float ntk_exponent = float(pc.rotary_dim) / float(pc.rotary_dim - 2u);
+        effective_base *= pow(pc.scaling_factor, ntk_exponent);
+    }
+    float inv_frequency = pow(effective_base, -exponent);
+    if (pc.scaling_type == 6u) {
+        inv_frequency /= rope_factors[frequency_index];
+    } else if (pc.scaling_type == 3u) {
+        float old_context_len = float(pc.original_max_position_embeddings);
+        float wavelength = 6.283185307179586 / inv_frequency;
+        float low_freq_wavelength = old_context_len / pc.low_freq_factor;
+        float high_freq_wavelength = old_context_len / pc.high_freq_factor;
+        if (wavelength > low_freq_wavelength) {
+            inv_frequency /= pc.scaling_factor;
+        } else if (wavelength >= high_freq_wavelength) {
+            float smooth_factor = (old_context_len / wavelength - pc.low_freq_factor)
+                / (pc.high_freq_factor - pc.low_freq_factor);
+            inv_frequency = (1.0 - smooth_factor) * inv_frequency / pc.scaling_factor
+                + smooth_factor * inv_frequency;
+        }
+    } else if (pc.scaling_type == 4u) {
+        float rotary_dim = float(pc.rotary_dim);
+        float original_context = float(pc.original_max_position_embeddings);
+        float two_pi = 6.283185307179586;
+        float low = rotary_dim * log(original_context / (pc.beta_fast * two_pi))
+            / (2.0 * log(pc.rotary_emb_base));
+        float high = rotary_dim * log(original_context / (pc.beta_slow * two_pi))
+            / (2.0 * log(pc.rotary_emb_base));
+        if (pc.truncate != 0u) {
+            low = floor(low);
+            high = ceil(high);
+        }
+        low = max(low, 0.0);
+        high = min(high, rotary_dim - 1.0);
+        if (low == high) high += 0.001;
+        float ramp = clamp((float(frequency_index) - low) / (high - low), 0.0, 1.0);
+        inv_frequency *= (1.0 - ramp) + ramp / pc.scaling_factor;
+    }
+    return inv_frequency;
+}
+
+float rope_position(float position) {
+    return pc.scaling_type == 1u ? position / pc.scaling_factor : position;
+}
+
+float q_rstd(uint batch, uint query, uint head) {
+    float sum_sq = 0.0;
+    for (uint dim = 0u; dim < pc.head_dim; ++dim) {
+        float value = raw_q(batch, query, head, dim);
+        sum_sq = fma(value, value, sum_sq);
+    }
+    return inversesqrt(sum_sq / float(pc.head_dim) + pc.norm_eps);
+}
+
+float k_rstd(uint batch, uint query, uint block) {
+    float sum_sq = 0.0;
+    for (uint dim = 0u; dim < pc.head_dim; ++dim) {
+        float value = pooled_k(batch, query, block, dim);
+        sum_sq = fma(value, value, sum_sq);
+    }
+    return inversesqrt(sum_sq / float(pc.head_dim) + pc.norm_eps);
+}
+
+float norm_q(uint batch, uint query, uint head, uint dim, float rstd) {
+    return raw_q(batch, query, head, dim) * rstd * (1.0 + q_norm_weight[dim]);
+}
+
+float norm_k(uint batch, uint query, uint block, uint dim, float rstd) {
+    return pooled_k(batch, query, block, dim) * rstd * (1.0 + k_norm_weight[dim]);
+}
+
+float rotate_q(uint batch, uint query, uint head, uint dim, float rstd) {
+    float value = norm_q(batch, query, head, dim, rstd);
+    if (dim >= pc.rotary_dim) return value;
+    uint half_dim = pc.rotary_dim / 2u;
+    uint frequency_index = pc.interleaved_pairs != 0u
+        ? dim / 2u
+        : (dim < half_dim ? dim : dim - half_dim);
+    bool first = pc.interleaved_pairs != 0u ? (dim % 2u == 0u) : dim < half_dim;
+    int partner_delta = pc.interleaved_pairs != 0u
+        ? (first ? 1 : -1)
+        : (first ? int(half_dim) : -int(half_dim));
+    uint partner = uint(int(dim) + partner_delta);
+    float partner_value = norm_q(batch, query, head, partner, rstd);
+    float rotated = first ? -partner_value : partner_value;
+    float position = rope_position(float(pc.query_position_offset + query));
+    float angle = position * rope_inv_frequency(frequency_index);
+    return (value * cos(angle) + rotated * sin(angle)) * pc.attention_factor;
+}
+
+float rotate_k(uint batch, uint query, uint block, uint dim, float rstd) {
+    float value = norm_k(batch, query, block, dim, rstd);
+    if (dim >= pc.rotary_dim) return value;
+    uint half_dim = pc.rotary_dim / 2u;
+    uint frequency_index = pc.interleaved_pairs != 0u
+        ? dim / 2u
+        : (dim < half_dim ? dim : dim - half_dim);
+    bool first = pc.interleaved_pairs != 0u ? (dim % 2u == 0u) : dim < half_dim;
+    int partner_delta = pc.interleaved_pairs != 0u
+        ? (first ? 1 : -1)
+        : (first ? int(half_dim) : -int(half_dim));
+    uint partner = uint(int(dim) + partner_delta);
+    float partner_value = norm_k(batch, query, block, partner, rstd);
+    float rotated = first ? -partner_value : partner_value;
+    uint first_key = visible_key_at(batch, query, block * pc.compress_ratio);
+    float position = rope_position(float(first_key));
+    float angle = position * rope_inv_frequency(frequency_index);
+    return (value * cos(angle) + rotated * sin(angle)) * pc.attention_factor;
+}
+
+float block_score(uint batch, uint query, uint block) {
+    float krstd = k_rstd(batch, query, block);
+    float score = 0.0;
+    for (uint head = 0u; head < pc.num_heads; ++head) {
+        float qrstd = q_rstd(batch, query, head);
+        float dot = 0.0;
+        for (uint dim = 0u; dim < pc.head_dim; ++dim) {
+            dot = fma(
+                rotate_q(batch, query, head, dim, qrstd),
+                rotate_k(batch, query, block, dim, krstd),
+                dot
+            );
+        }
+        score += max(dot, 0.0);
+    }
+    return score / sqrt(float(pc.head_dim));
+}
+
+void main() {
+    uint query = gl_GlobalInvocationID.y;
+    uint batch = gl_GlobalInvocationID.z;
+    // QSA selects complete blocks, not individual keys. Preserve the shared
+    // 2-D dispatch shape, but let one X lane build each mask row.
+    if (batch >= pc.batch_size || query >= pc.query_seq_len || gl_GlobalInvocationID.x != 0u) return;
+    uint row_offset = (batch * pc.query_seq_len + query) * pc.key_value_seq_len;
+    for (uint out_key = 0u; out_key < pc.key_value_seq_len; ++out_key) {
+        sparse_mask[row_offset + out_key] = 0.0;
+    }
+
+    uint count = visible_count(batch, query);
+    uint complete_blocks = count / pc.compress_ratio;
+    uint complete_tokens = complete_blocks * pc.compress_ratio;
+    for (uint ordinal = complete_tokens; ordinal < count; ++ordinal) {
+        // HF appends the incomplete visible tail after block selection.
+        uint tail_key = visible_key_at(batch, query, ordinal);
+        if (tail_key < pc.key_value_seq_len) sparse_mask[row_offset + tail_key] = 1.0;
+    }
+
+    uint selected_blocks = min(pc.topk_blocks, complete_blocks);
+    for (uint block = 0u; block < complete_blocks; ++block) {
+        float score = block_score(batch, query, block);
+        uint rank = 0u;
+        for (uint other = 0u; other < complete_blocks; ++other) {
+            if (other == block) continue;
+            float other_score = block_score(batch, query, other);
+            if (other_score > score || (other_score == score && other < block)) rank += 1u;
+        }
+        if (rank >= selected_blocks) continue;
+
+        uint first_ordinal = block * pc.compress_ratio;
+        for (uint offset = 0u; offset < pc.compress_ratio; ++offset) {
+            uint selected_key = visible_key_at(batch, query, first_ordinal + offset);
+            if (selected_key < pc.key_value_seq_len) sparse_mask[row_offset + selected_key] = 1.0;
+        }
+    }
+}

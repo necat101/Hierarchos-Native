@@ -1,0 +1,117 @@
+#version 450
+
+// One workgroup owns one logical LTM row. Each lane first elects the best K
+// entries in its strided slot segment, then the workgroup performs a deterministic
+// K-way merge of those lane-local lists. This preserves the old serial shader's
+// strict `score > best_score` ordering (equal scores keep the lower slot index)
+// while spreading the expensive slot scan over 64 lanes.
+//
+// The previous local_size_x=1 implementation was O(slots * topk) on a single GPU
+// invocation for every row. The segmented form keeps the same amount of scalar
+// comparison work but exposes the slot dimension to Vulkan and makes the global
+// election O(topk * log2(workgroup)) synchronized reduction steps.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer SimilarityBuffer { float similarity[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer IndexBuffer { uint indices[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint slots;
+    uint topk;
+} pc;
+
+const uint MAX_TOPK = 16u;
+const uint WORKGROUP_SIZE = 64u;
+
+shared float reduction_scores[WORKGROUP_SIZE];
+shared uint reduction_indices[WORKGROUP_SIZE];
+shared uint reduction_lanes[WORKGROUP_SIZE];
+shared uint winning_lane;
+
+bool candidate_precedes(float lhs_score, uint lhs_index, float rhs_score, uint rhs_index) {
+    // Match the serial insertion shader exactly: a strictly higher score wins.
+    // For equal finite scores, the earlier slot would have been encountered first
+    // and therefore remains ahead. UINT_MAX is the empty-list sentinel.
+    return lhs_score > rhs_score ||
+        (lhs_score == rhs_score && lhs_index < rhs_index);
+}
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    if (row >= pc.rows || pc.topk == 0u || pc.topk > MAX_TOPK) {
+        return;
+    }
+
+    uint lane = gl_LocalInvocationID.x;
+    float best_scores[MAX_TOPK];
+    uint best_indices[MAX_TOPK];
+    for (uint k = 0u; k < MAX_TOPK; ++k) {
+        best_scores[k] = -3.402823466e38;
+        best_indices[k] = 0xffffffffu;
+    }
+
+    uint base = row * pc.slots;
+    for (uint slot = lane; slot < pc.slots; slot += WORKGROUP_SIZE) {
+        float score = similarity[base + slot];
+        uint insert_at = pc.topk;
+        for (uint k = 0u; k < pc.topk; ++k) {
+            if (candidate_precedes(score, slot, best_scores[k], best_indices[k])) {
+                insert_at = k;
+                break;
+            }
+        }
+        if (insert_at < pc.topk) {
+            for (uint k = pc.topk - 1u; k > insert_at; --k) {
+                best_scores[k] = best_scores[k - 1u];
+                best_indices[k] = best_indices[k - 1u];
+            }
+            best_scores[insert_at] = score;
+            best_indices[insert_at] = slot;
+        }
+    }
+
+    // Merge the 64 independently sorted segment heads. Only the lane that won
+    // the previous global rank advances its private cursor; the next reduction
+    // therefore elects the next item from the union without materializing a
+    // row-sized scratch buffer or using atomics.
+    uint local_rank = 0u;
+    uint out_base = row * pc.topk;
+    for (uint out_rank = 0u; out_rank < pc.topk; ++out_rank) {
+        reduction_scores[lane] = local_rank < pc.topk
+            ? best_scores[local_rank]
+            : -3.402823466e38;
+        reduction_indices[lane] = local_rank < pc.topk
+            ? best_indices[local_rank]
+            : 0xffffffffu;
+        reduction_lanes[lane] = lane;
+        barrier();
+
+        for (uint stride = WORKGROUP_SIZE >> 1u; stride != 0u; stride >>= 1u) {
+            if (lane < stride) {
+                uint rhs = lane + stride;
+                if (candidate_precedes(
+                    reduction_scores[rhs],
+                    reduction_indices[rhs],
+                    reduction_scores[lane],
+                    reduction_indices[lane]
+                )) {
+                    reduction_scores[lane] = reduction_scores[rhs];
+                    reduction_indices[lane] = reduction_indices[rhs];
+                    reduction_lanes[lane] = reduction_lanes[rhs];
+                }
+            }
+            barrier();
+        }
+
+        if (lane == 0u) {
+            indices[out_base + out_rank] = reduction_indices[0];
+            winning_lane = reduction_lanes[0];
+        }
+        barrier();
+        if (lane == winning_lane && local_rank < pc.topk) {
+            local_rank += 1u;
+        }
+        barrier();
+    }
+}

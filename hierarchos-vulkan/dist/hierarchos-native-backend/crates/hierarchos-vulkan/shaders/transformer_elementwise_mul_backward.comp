@@ -1,0 +1,19 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer LeftBuffer { float left[]; };
+layout(set = 0, binding = 2, std430) readonly buffer RightBuffer { float right[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradLeftBuffer { float grad_left[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradRightBuffer { float grad_right[]; };
+
+layout(push_constant) uniform Push { uint len; } pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.len) return;
+    float grad = grad_output[index];
+    grad_left[index] = grad * right[index];
+    grad_right[index] = grad * left[index];
+}

@@ -1,0 +1,21 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer CostSumBuffer { float cost_sum[]; };
+layout(set = 0, binding = 1, std430) readonly buffer CostCountBuffer { float cost_count[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer CostBuffer { float cost[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer EffectiveStepsBuffer { float effective_steps[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    cost[row] = cost_sum[row] / max(cost_count[row], 1.0);
+    effective_steps[row] = cost_count[row] + 1.0;
+}

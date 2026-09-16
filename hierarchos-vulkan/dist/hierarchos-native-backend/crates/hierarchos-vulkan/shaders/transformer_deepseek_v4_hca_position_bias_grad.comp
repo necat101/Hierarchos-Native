@@ -1,0 +1,32 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradGateBuffer { float grad_gate[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer GradPositionBiasBuffer { float grad_position_bias[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint head_dim;
+    uint compress_rate;
+} pc;
+
+void main() {
+    if (pc.compress_rate == 0 || pc.head_dim == 0 || pc.seq_len == 0) return;
+    uint index = gl_GlobalInvocationID.x;
+    uint bias_len = pc.compress_rate * pc.head_dim;
+    if (index >= bias_len) return;
+
+    uint offset = index / pc.head_dim;
+    uint channel = index % pc.head_dim;
+    uint windows_per_batch = pc.seq_len / pc.compress_rate;
+    float sum = 0.0;
+    for (uint batch = 0; batch < pc.batch_size; ++batch) {
+        for (uint window = 0; window < windows_per_batch; ++window) {
+            uint row = batch * pc.seq_len + window * pc.compress_rate + offset;
+            sum += grad_gate[row * pc.head_dim + channel];
+        }
+    }
+    grad_position_bias[index] = sum;
+}

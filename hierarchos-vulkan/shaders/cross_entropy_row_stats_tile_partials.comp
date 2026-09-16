@@ -1,0 +1,96 @@
+#version 450
+
+// Reduce compact vocabulary-tile CE partials emitted by the rows8 projection.
+// Each partial is (tile_max, sum(exp(logit - tile_max)), target_logit_if_owned).
+// This replaces an O(rows*vocab) read of the FP32 logit tape with an
+// O(rows*ceil(vocab/8)) read while preserving the tape for backward reuse.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer TileStatsBuffer { float tile_stats[]; };
+layout(set = 0, binding = 1, std430) readonly buffer TargetBuffer { uint targets[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer StatsBuffer { float row_stats[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+#ifndef LM_CE_VOCAB_TILE
+#define LM_CE_VOCAB_TILE 8
+#endif
+const uint VOCAB_TILE = uint(LM_CE_VOCAB_TILE);
+shared float reduction_max[64];
+shared float reduction_sum[64];
+shared float target_logit_shared;
+
+void merge_partial(
+    float partial_max,
+    float partial_sum,
+    inout float running_max,
+    inout float running_sum
+) {
+    if (partial_sum == 0.0) {
+        return;
+    }
+    if (running_sum == 0.0) {
+        running_max = partial_max;
+        running_sum = partial_sum;
+        return;
+    }
+    float merged_max = max(running_max, partial_max);
+    running_sum = running_sum * exp(running_max - merged_max)
+        + partial_sum * exp(partial_max - merged_max);
+    running_max = merged_max;
+}
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    uint lane = gl_LocalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+
+    uint tile_count = (pc.output_dim + VOCAB_TILE - 1u) / VOCAB_TILE;
+    uint target = targets[row];
+    uint target_tile = target / VOCAB_TILE;
+    float lane_max = -3.402823466e+38;
+    float lane_sum = 0.0;
+
+    for (uint tile_index = lane; tile_index < tile_count; tile_index += 64u) {
+        uint partial_base = (row * tile_count + tile_index) * 3u;
+        float partial_max = tile_stats[partial_base];
+        float partial_sum = tile_stats[partial_base + 1u];
+        merge_partial(partial_max, partial_sum, lane_max, lane_sum);
+        if (tile_index == target_tile) {
+            target_logit_shared = tile_stats[partial_base + 2u];
+        }
+    }
+
+    reduction_max[lane] = lane_max;
+    reduction_sum[lane] = lane_sum;
+    barrier();
+
+    for (uint stride = 32u; stride > 0u; stride >>= 1u) {
+        if (lane < stride) {
+            float left_max = reduction_max[lane];
+            float left_sum = reduction_sum[lane];
+            float right_max = reduction_max[lane + stride];
+            float right_sum = reduction_sum[lane + stride];
+            merge_partial(right_max, right_sum, left_max, left_sum);
+            reduction_max[lane] = left_max;
+            reduction_sum[lane] = left_sum;
+        }
+        barrier();
+    }
+
+    if (lane == 0u) {
+        float max_logit = reduction_max[0];
+        float exp_sum = reduction_sum[0];
+        uint stats_base = row * 5u;
+        row_stats[stats_base] = max_logit;
+        row_stats[stats_base + 1u] = 1.0 / exp_sum;
+        row_stats[stats_base + 2u] = uintBitsToFloat(target);
+        row_stats[stats_base + 3u] = log(exp_sum) + max_logit - target_logit_shared;
+    }
+}

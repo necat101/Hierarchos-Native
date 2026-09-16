@@ -1,0 +1,54 @@
+#version 450
+
+// Produces the full [B,Q,local+compressed] visibility mask used by the common
+// attention kernel. Local keys stay enabled here (ordinary causal/window/pad
+// logic filters them later); only the compressed suffix is Lightning top-k.
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer ScoreBuffer { float index_scores[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer SparseMaskBuffer { float sparse_mask[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint local_seq_len;
+    uint compressed_seq_len;
+    uint top_k;
+    uint query_position_offset;
+    uint compress_rate;
+} pc;
+
+void main() {
+    uint key = gl_GlobalInvocationID.x;
+    uint query = gl_GlobalInvocationID.y;
+    uint batch = gl_GlobalInvocationID.z;
+    uint total_keys = pc.local_seq_len + pc.compressed_seq_len;
+    if (batch >= pc.batch_size || query >= pc.query_seq_len || key >= total_keys) return;
+
+    uint output_index = (batch * pc.query_seq_len + query) * total_keys + key;
+    if (key < pc.local_seq_len) {
+        sparse_mask[output_index] = 1.0;
+        return;
+    }
+    if (pc.compress_rate == 0u) {
+        sparse_mask[output_index] = 0.0;
+        return;
+    }
+
+    uint compressed_key = key - pc.local_seq_len;
+    uint ready = (pc.query_position_offset + query + 1u) / pc.compress_rate;
+    ready = min(ready, pc.compressed_seq_len);
+    if (compressed_key >= ready) {
+        sparse_mask[output_index] = 0.0;
+        return;
+    }
+
+    uint score_row = (batch * pc.query_seq_len + query) * pc.compressed_seq_len;
+    float score = index_scores[score_row + compressed_key];
+    uint rank = 0u;
+    for (uint other = 0u; other < ready; ++other) {
+        float other_score = index_scores[score_row + other];
+        if (other_score > score || (other_score == score && other < compressed_key)) rank += 1u;
+    }
+    sparse_mask[output_index] = rank < min(pc.top_k, ready) ? 1.0 : 0.0;
+}

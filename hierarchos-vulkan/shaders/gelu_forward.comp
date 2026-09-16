@@ -1,0 +1,29 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint len;
+} pc;
+
+float erf_approx(float x) {
+    float ax = abs(x);
+    float t = 1.0 / (1.0 + 0.3275911 * ax);
+    float polynomial = (((((1.061405429 * t - 1.453152027) * t)
+        + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t;
+    float value = 1.0 - polynomial * exp(-ax * ax);
+    return x < 0.0 ? -value : value;
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.len) {
+        return;
+    }
+    float x = input_values[index];
+    const float INV_SQRT_2 = 0.7071067811865475244;
+    output_values[index] = 0.5 * x * (1.0 + erf_approx(x * INV_SQRT_2));
+}

@@ -1,0 +1,140 @@
+#version 450
+
+// Correctness-first reverse-mode adjoint for the packed recurrent Gated
+// DeltaNet rule. One invocation owns a complete (batch,value-head) state
+// matrix and therefore needs no atomics while walking time backwards.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer PackedQkvBuffer { float packed_qkv[]; };
+layout(set = 0, binding = 1, std430) readonly buffer DecayBuffer { float decay_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BetaBuffer { float beta_values[]; };
+// Initialized from the forward final state. The delta-rule update is
+// invertible, so each reverse step reconstructs s[t-1] in place and avoids a
+// sequence-length times state-size training tape.
+layout(set = 0, binding = 3, std430) buffer ReplayStateBuffer { float replay_state[]; };
+layout(set = 0, binding = 4, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 5, std430) buffer GradPackedQkvBuffer { float grad_packed_qkv[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer GradQExpandedBuffer { float grad_q_expanded[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer GradKExpandedBuffer { float grad_k_expanded[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer GradDecayBuffer { float grad_decay[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer GradBetaBuffer { float grad_beta[]; };
+layout(set = 0, binding = 10, std430) buffer GradStateBuffer { float grad_state[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint num_key_heads;
+    uint num_value_heads;
+    uint key_head_dim;
+    uint value_head_dim;
+    uint has_initial_state;
+    float l2_epsilon;
+} pc;
+
+uint state_index(uint batch, uint head, uint key_dim, uint value_dim) {
+    return (((batch * pc.num_value_heads + head) * pc.key_head_dim + key_dim)
+        * pc.value_head_dim) + value_dim;
+}
+
+void main() {
+    uint owner = gl_GlobalInvocationID.x;
+    uint owners = pc.batch_size * pc.num_value_heads;
+    if (owner >= owners) return;
+    uint value_head = owner % pc.num_value_heads;
+    uint batch = owner / pc.num_value_heads;
+    uint ratio = pc.num_value_heads / pc.num_key_heads;
+    uint key_head = value_head / ratio;
+    uint key_dim_total = pc.num_key_heads * pc.key_head_dim;
+    uint value_dim_total = pc.num_value_heads * pc.value_head_dim;
+    uint packed_width = key_dim_total * 2u + value_dim_total;
+    float query_scale = inversesqrt(float(pc.key_head_dim));
+
+    for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+        for (uint vd = 0u; vd < pc.value_head_dim; ++vd) {
+            grad_state[state_index(batch, value_head, kd, vd)] = 0.0;
+        }
+    }
+
+    for (int token_i = int(pc.seq_len) - 1; token_i >= 0; --token_i) {
+        uint token = uint(token_i);
+        uint row = batch * pc.seq_len + token;
+        uint row_base = row * packed_width;
+        uint q_base = row_base + key_head * pc.key_head_dim;
+        uint k_base = row_base + key_dim_total + key_head * pc.key_head_dim;
+        uint v_base = row_base + key_dim_total * 2u + value_head * pc.value_head_dim;
+        uint scalar = row * pc.num_value_heads + value_head;
+
+        float q_sq = 0.0;
+        float k_sq = 0.0;
+        for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+            float q_raw = packed_qkv[q_base + kd];
+            float k_raw = packed_qkv[k_base + kd];
+            q_sq = fma(q_raw, q_raw, q_sq);
+            k_sq = fma(k_raw, k_raw, k_sq);
+        }
+        float q_inv = inversesqrt(q_sq + pc.l2_epsilon);
+        float k_inv = inversesqrt(k_sq + pc.l2_epsilon);
+        float state_decay = exp(decay_values[scalar]);
+        float beta = beta_values[scalar];
+        float key_norm_sq = k_sq * k_inv * k_inv;
+
+        for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+            grad_q_expanded[(scalar * pc.key_head_dim) + kd] = 0.0;
+            grad_k_expanded[(scalar * pc.key_head_dim) + kd] = 0.0;
+        }
+        float decay_grad_sum = 0.0;
+        float beta_grad_sum = 0.0;
+
+        for (uint vd = 0u; vd < pc.value_head_dim; ++vd) {
+            float go = grad_output[(scalar * pc.value_head_dim) + vd];
+            float current_key_dot = 0.0;
+            for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+                float key = packed_qkv[k_base + kd] * k_inv;
+                uint si = state_index(batch, value_head, kd, vd);
+                float current = replay_state[si];
+                current_key_dot = fma(current, key, current_key_dot);
+                grad_state[si] = fma(go, packed_qkv[q_base + kd] * q_inv * query_scale, grad_state[si]);
+                grad_q_expanded[(scalar * pc.key_head_dim) + kd] += go * current;
+            }
+
+            float value = packed_qkv[v_base + vd];
+            // current = sd + k * beta * (value - dot(sd, k)). Solving the
+            // scalar dot-product first recovers the exact pre-update state.
+            float denominator = 1.0 - beta * key_norm_sq;
+            // Qwen keeps beta below one, while OLMo Hybrid can scale it to
+            // two. Preserve the sign for OLMo and only protect a genuinely
+            // singular update from division-by-zero underflow.
+            if (abs(denominator) < 1.0e-12) {
+                denominator = denominator < 0.0 ? -1.0e-12 : 1.0e-12;
+            }
+            float memory = (current_key_dot - beta * key_norm_sq * value) / denominator;
+            float delta = (value - memory) * beta;
+            float grad_delta = 0.0;
+            for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+                uint si = state_index(batch, value_head, kd, vd);
+                float key = packed_qkv[k_base + kd] * k_inv;
+                grad_delta = fma(grad_state[si], key, grad_delta);
+                grad_k_expanded[(scalar * pc.key_head_dim) + kd] += grad_state[si] * delta;
+            }
+
+            float grad_value = grad_delta * beta;
+            float grad_memory = -grad_delta * beta;
+            beta_grad_sum = fma(grad_delta, value - memory, beta_grad_sum);
+            grad_packed_qkv[v_base + vd] = grad_value;
+
+            for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+                uint si = state_index(batch, value_head, kd, vd);
+                float key = packed_qkv[k_base + kd] * k_inv;
+                float current = replay_state[si];
+                float sd = current - key * delta;
+                float grad_sd = grad_state[si] + grad_memory * key;
+                grad_k_expanded[(scalar * pc.key_head_dim) + kd] += grad_memory * sd;
+                decay_grad_sum = fma(grad_sd, sd, decay_grad_sum);
+                grad_state[si] = grad_sd * state_decay;
+                replay_state[si] = sd / state_decay;
+            }
+        }
+        grad_decay[scalar] = decay_grad_sum;
+        grad_beta[scalar] = beta_grad_sum;
+    }
+}

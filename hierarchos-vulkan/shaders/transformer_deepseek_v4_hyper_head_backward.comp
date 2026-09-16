@@ -1,0 +1,34 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RawBuffer { float raw_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer BaseBuffer { float base_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ScaleBuffer { float scale_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer GradPreBuffer { float grad_pre[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradRawBuffer { float grad_raw[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradAffineBuffer { float grad_affine[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hidden_size;
+    uint hc_mult;
+    uint sinkhorn_iters;
+    float hc_eps;
+} pc;
+
+float sigmoid_stable(float x) {
+    if (x >= 0.0) { float z = exp(-x); return 1.0 / (1.0 + z); }
+    float z = exp(x); return z / (1.0 + z);
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint len = pc.rows * pc.hc_mult;
+    if (index >= len) return;
+    uint stream = index % pc.hc_mult;
+    float sig = sigmoid_stable(raw_values[index] * scale_values[0] + base_values[stream]);
+    float affine_grad = grad_pre[index] * sig * (1.0 - sig);
+    grad_affine[index] = affine_grad;
+    grad_raw[index] = affine_grad * scale_values[0];
+}

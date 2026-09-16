@@ -1,0 +1,52 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer TokenBuffer { uint token_ids[]; };
+layout(set = 0, binding = 1, std430) readonly buffer SortedPositionBuffer { uint sorted_positions[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradEmbeddingBuffer { float grad_embedding[]; };
+layout(set = 0, binding = 3, std430) buffer GradWeightBuffer { float grad_weight[]; };
+
+layout(push_constant) uniform Push {
+    uint token_count;
+    uint dim;
+    uint vocab_size;
+    uint padding_idx;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint sorted_index = gl_GlobalInvocationID.y;
+    if (sorted_index >= pc.token_count || col >= pc.dim) {
+        return;
+    }
+
+    uint source_position = sorted_positions[sorted_index];
+    if (source_position >= pc.token_count) {
+        return;
+    }
+    uint token = token_ids[source_position];
+    if (token >= pc.vocab_size || token == pc.padding_idx) {
+        return;
+    }
+
+    // Only the first entry in each stable token-id segment owns the sparse
+    // destination. Segment members are sorted by original source position, so
+    // the fold below has the same FP32 association as the former elected writer.
+    if (sorted_index > 0u) {
+        uint previous_position = sorted_positions[sorted_index - 1u];
+        if (previous_position < pc.token_count && token_ids[previous_position] == token) {
+            return;
+        }
+    }
+
+    float gradient = 0.0;
+    for (uint cursor = sorted_index; cursor < pc.token_count; ++cursor) {
+        uint member_position = sorted_positions[cursor];
+        if (member_position >= pc.token_count || token_ids[member_position] != token) {
+            break;
+        }
+        gradient += grad_embedding[member_position * pc.dim + col];
+    }
+    grad_weight[token * pc.dim + col] += gradient;
+}

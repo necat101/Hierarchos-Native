@@ -1,0 +1,46 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer ForgetBuffer { float forget_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer BetaLogitBuffer { float beta_logits[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ALogBuffer { float a_log_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer DtBiasBuffer { float dt_bias_values[]; };
+layout(set = 0, binding = 4, std430) readonly buffer GradDecayBuffer { float grad_decay[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GradBetaBuffer { float grad_beta[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer GradForgetBuffer { float grad_forget[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer GradBetaLogitBuffer { float grad_beta_logits[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint num_heads;
+    uint head_dim;
+    uint has_lower_bound;
+    float lower_bound;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint channels = pc.num_heads * pc.head_dim;
+    uint total = pc.rows * channels;
+    if (index < total) {
+        uint channel = index % channels;
+        uint head = channel / pc.head_dim;
+        float u = forget_values[index] + dt_bias_values[channel];
+        float rate = exp(a_log_values[head]);
+        float derivative;
+        if (pc.has_lower_bound != 0u) {
+            float s = 1.0 / (1.0 + exp(-(rate * u)));
+            derivative = pc.lower_bound * s * (1.0 - s) * rate;
+        } else {
+            float s = 1.0 / (1.0 + exp(-u));
+            derivative = -rate * s;
+        }
+        grad_forget[index] = grad_decay[index] * derivative;
+    }
+    uint beta_total = pc.rows * pc.num_heads;
+    if (index < beta_total) {
+        float s = 1.0 / (1.0 + exp(-beta_logits[index]));
+        grad_beta_logits[index] = grad_beta[index] * s * (1.0 - s);
+    }
+}

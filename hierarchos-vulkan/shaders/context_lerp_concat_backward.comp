@@ -1,0 +1,45 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PrevBuffer { float previous_context[]; };
+layout(set = 0, binding = 2, std430) readonly buffer TargetBuffer { float target_context[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradEncBuffer { float grad_enc[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradPrevBuffer { float grad_previous[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradTargetBuffer { float grad_target[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer GradDriftBuffer { float grad_drift[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    float alpha;
+    float context_clamp;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || col >= pc.dim) {
+        return;
+    }
+    uint index = row * pc.dim + col;
+    uint base = row * (pc.dim * 2u);
+    float grad_dynamic = grad_output[base + pc.dim + col];
+    float raw_context = previous_context[index]
+        + pc.alpha * (target_context[index] - previous_context[index]);
+    // `_finite_clamp` is `where(isfinite(x), clamp(x), x)` in PyTorch.
+    // Its non-finite branch is deliberately an identity so poison remains
+    // visible to the outer loss/gradient rejection guards.  Do not silently
+    // zero that adjoint here: only finite values strictly outside the clamp
+    // interval are saturated and therefore receive a zero derivative.
+    float clamp_mask = (isnan(raw_context) || isinf(raw_context)
+        || (raw_context >= -pc.context_clamp && raw_context <= pc.context_clamp))
+        ? 1.0
+        : 0.0;
+    float grad_sliding = grad_dynamic * clamp_mask;
+    grad_enc[index] = grad_output[base + col];
+    grad_previous[index] = grad_sliding * (1.0 - pc.alpha);
+    grad_target[index] = grad_sliding * pc.alpha;
+    grad_drift[index] = grad_dynamic;
+}

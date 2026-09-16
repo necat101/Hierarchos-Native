@@ -1,0 +1,18 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer FirstBuffer { float first_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer SecondBuffer { float second_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ThirdBuffer { float third_values[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push { uint len; } pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.len) {
+        return;
+    }
+    output_values[index] = first_values[index] + second_values[index] + third_values[index];
+}

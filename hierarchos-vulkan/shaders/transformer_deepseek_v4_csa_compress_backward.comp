@@ -1,0 +1,99 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KvBuffer { float kv_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GateBuffer { float gate_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer PositionBiasBuffer { float position_bias[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradKvBuffer { float grad_kv[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradGateBuffer { float grad_gate[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint head_dim;
+    uint compress_rate;
+} pc;
+
+float slot_logit(uint batch, uint target_window, uint offset, uint channel, bool previous) {
+    uint source_window = previous ? target_window - 1u : target_window;
+    uint row = batch * pc.seq_len + source_window * pc.compress_rate + offset;
+    uint projected_dim = 2u * pc.head_dim;
+    uint projected_channel = previous ? channel : pc.head_dim + channel;
+    return gate_values[row * projected_dim + projected_channel]
+        + position_bias[offset * projected_dim + projected_channel];
+}
+
+float slot_value(uint batch, uint target_window, uint offset, uint channel, bool previous) {
+    uint source_window = previous ? target_window - 1u : target_window;
+    uint row = batch * pc.seq_len + source_window * pc.compress_rate + offset;
+    uint projected_dim = 2u * pc.head_dim;
+    uint projected_channel = previous ? channel : pc.head_dim + channel;
+    return kv_values[row * projected_dim + projected_channel];
+}
+
+void main() {
+    if (pc.compress_rate == 0u || pc.head_dim == 0u || pc.seq_len == 0u) return;
+    uint projected_dim = 2u * pc.head_dim;
+    uint rows = pc.batch_size * pc.seq_len;
+    uint index = gl_GlobalInvocationID.x;
+    uint input_len = rows * projected_dim;
+    if (index >= input_len) return;
+
+    uint row = index / projected_dim;
+    uint projected_channel = index % projected_dim;
+    uint batch = row / pc.seq_len;
+    uint row_in_batch = row % pc.seq_len;
+    uint windows_per_batch = pc.seq_len / pc.compress_rate;
+    uint usable_rows = windows_per_batch * pc.compress_rate;
+    if (row_in_batch >= usable_rows) {
+        grad_kv[index] = 0.0;
+        grad_gate[index] = 0.0;
+        return;
+    }
+
+    uint source_window = row_in_batch / pc.compress_rate;
+    uint offset = row_in_batch % pc.compress_rate;
+    bool is_ca = projected_channel < pc.head_dim;
+    uint channel = is_ca ? projected_channel : projected_channel - pc.head_dim;
+    uint target_window = is_ca ? source_window + 1u : source_window;
+    if (target_window >= windows_per_batch) {
+        grad_kv[index] = 0.0;
+        grad_gate[index] = 0.0;
+        return;
+    }
+
+    float max_logit = -3.402823466e+38;
+    if (target_window > 0u) {
+        for (uint other = 0u; other < pc.compress_rate; ++other) {
+            max_logit = max(max_logit, slot_logit(batch, target_window, other, channel, true));
+        }
+    }
+    for (uint other = 0u; other < pc.compress_rate; ++other) {
+        max_logit = max(max_logit, slot_logit(batch, target_window, other, channel, false));
+    }
+
+    float denominator = 0.0;
+    float weighted_sum = 0.0;
+    if (target_window > 0u) {
+        for (uint other = 0u; other < pc.compress_rate; ++other) {
+            float u = exp(slot_logit(batch, target_window, other, channel, true) - max_logit);
+            denominator += u;
+            weighted_sum += u * slot_value(batch, target_window, other, channel, true);
+        }
+    }
+    for (uint other = 0u; other < pc.compress_rate; ++other) {
+        float u = exp(slot_logit(batch, target_window, other, channel, false) - max_logit);
+        denominator += u;
+        weighted_sum += u * slot_value(batch, target_window, other, channel, false);
+    }
+
+    uint bias_index = offset * projected_dim + projected_channel;
+    float weight = exp(gate_values[index] + position_bias[bias_index] - max_logit) / denominator;
+    float output_value = weighted_sum / denominator;
+    uint output_row = batch * windows_per_batch + target_window;
+    float upstream = grad_output[output_row * pc.head_dim + channel];
+    grad_kv[index] = upstream * weight;
+    grad_gate[index] = upstream * weight * (kv_values[index] - output_value);
+}

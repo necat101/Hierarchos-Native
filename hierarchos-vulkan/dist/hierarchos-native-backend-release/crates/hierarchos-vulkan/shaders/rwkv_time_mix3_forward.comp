@@ -1,0 +1,31 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x_norm[]; };
+layout(set = 0, binding = 1, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 2, std430) readonly buffer MixRBuffer { float mix_r[]; };
+layout(set = 0, binding = 3, std430) readonly buffer MixKBuffer { float mix_k[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MixVBuffer { float mix_v[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer MixedRBuffer { float xr[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer MixedKBuffer { float xk[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer MixedVBuffer { float xv[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint len = pc.batch * pc.width;
+    if (index >= len) {
+        return;
+    }
+    uint channel = index % pc.width;
+    float x = x_norm[index];
+    float delta = previous[index] - x;
+    xr[index] = fma(delta, mix_r[channel], x);
+    xk[index] = fma(delta, mix_k[channel], x);
+    xv[index] = fma(delta, mix_v[channel], x);
+}

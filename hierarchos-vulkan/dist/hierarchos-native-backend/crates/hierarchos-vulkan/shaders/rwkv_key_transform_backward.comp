@@ -1,0 +1,153 @@
+#version 450
+
+#ifndef RWKV_KEY_TRANSFORM_WORKGROUP_SIZE
+#define RWKV_KEY_TRANSFORM_WORKGROUP_SIZE 64
+#endif
+
+#ifndef RWKV_KEY_TRANSFORM_USE_SUBGROUP_REDUCTION
+#define RWKV_KEY_TRANSFORM_USE_SUBGROUP_REDUCTION 0
+#endif
+
+#if RWKV_KEY_TRANSFORM_USE_SUBGROUP_REDUCTION
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+#endif
+
+layout(local_size_x = RWKV_KEY_TRANSFORM_WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RawKeyBuffer { float raw_k[]; };
+layout(set = 0, binding = 1, std430) readonly buffer InContextBuffer { float a[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KeyNormScaleBuffer { float k_k[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KeyContextScaleBuffer { float k_a[]; };
+layout(set = 0, binding = 4, std430) readonly buffer NormalizedKeyBuffer { float kk[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GradScaledKeyBuffer { float grad_scaled_k[]; };
+layout(set = 0, binding = 6, std430) readonly buffer GradNormalizedKeyBuffer { float grad_kk[]; };
+layout(set = 0, binding = 7, std430) readonly buffer GradInContextDirectBuffer { float grad_a_direct[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer GradRawKeyBuffer { float grad_raw_k[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer GradInContextBuffer { float grad_a[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer GradKeyNormScalePartialBuffer { float grad_k_k_partial[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer GradKeyContextScalePartialBuffer { float grad_k_a_partial[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+} pc;
+
+#if RWKV_KEY_TRANSFORM_USE_SUBGROUP_REDUCTION
+shared float subgroup_norm_sq[RWKV_KEY_TRANSFORM_WORKGROUP_SIZE];
+shared float subgroup_grad_dot_kk[RWKV_KEY_TRANSFORM_WORKGROUP_SIZE];
+shared float norm_sq_shared;
+shared float grad_dot_kk_shared;
+#endif
+
+void main() {
+#if RWKV_KEY_TRANSFORM_USE_SUBGROUP_REDUCTION
+    // Fast-numerics arm: one workgroup owns one RWKV head. Lanes cooperatively
+    // form the two normalization dot products, then subgroup leaders publish
+    // partials for a deterministic subgroup-order merge. This intentionally
+    // changes FP32 addition order versus the strict PyTorch-parity kernel.
+    uint linear_head = gl_WorkGroupID.x;
+    uint heads = pc.width / pc.head_size;
+    uint total_heads = pc.batch * heads;
+    if (linear_head >= total_heads) {
+        return;
+    }
+
+    uint batch_index = linear_head / heads;
+    uint head = linear_head - batch_index * heads;
+    uint base = batch_index * pc.width + head * pc.head_size;
+    uint channel_base = head * pc.head_size;
+    uint lane = gl_LocalInvocationID.x;
+
+    float local_norm_sq = 0.0;
+    float local_grad_dot_kk = 0.0;
+    for (uint col = lane; col < pc.head_size; col += RWKV_KEY_TRANSFORM_WORKGROUP_SIZE) {
+        uint index = base + col;
+        uint channel = channel_base + col;
+        float z = raw_k[index] * k_k[channel];
+        local_norm_sq = fma(z, z, local_norm_sq);
+        local_grad_dot_kk = fma(grad_kk[index], kk[index], local_grad_dot_kk);
+    }
+
+    float subgroup_norm = subgroupAdd(local_norm_sq);
+    float subgroup_grad_dot = subgroupAdd(local_grad_dot_kk);
+    if (subgroupElect()) {
+        subgroup_norm_sq[gl_SubgroupID] = subgroup_norm;
+        subgroup_grad_dot_kk[gl_SubgroupID] = subgroup_grad_dot;
+    }
+    barrier();
+
+    if (lane == 0u) {
+        float norm_sq = 0.0;
+        float grad_dot_kk = 0.0;
+        for (uint subgroup = 0u; subgroup < gl_NumSubgroups; ++subgroup) {
+            norm_sq += subgroup_norm_sq[subgroup];
+            grad_dot_kk += subgroup_grad_dot_kk[subgroup];
+        }
+        norm_sq_shared = norm_sq;
+        grad_dot_kk_shared = grad_dot_kk;
+    }
+    barrier();
+
+    float norm = sqrt(norm_sq_shared);
+    float denom = max(norm, 1.0e-12);
+    bool normalized_branch = norm > 1.0e-12;
+    for (uint col = lane; col < pc.head_size; col += RWKV_KEY_TRANSFORM_WORKGROUP_SIZE) {
+        uint index = base + col;
+        uint channel = channel_base + col;
+        float raw = raw_k[index];
+        float grad_scaled = grad_scaled_k[index];
+        float grad_z = normalized_branch
+            ? (grad_kk[index] - kk[index] * grad_dot_kk_shared) / denom
+            : grad_kk[index] / denom;
+        float scale = 1.0 + (a[index] - 1.0) * k_a[channel];
+
+        grad_raw_k[index] = grad_scaled * scale + grad_z * k_k[channel];
+        grad_a[index] = grad_a_direct[index] + grad_scaled * raw * k_a[channel];
+        grad_k_k_partial[index] = grad_z * raw;
+        grad_k_a_partial[index] = grad_scaled * raw * (a[index] - 1.0);
+    }
+#else
+    uint linear_head = gl_GlobalInvocationID.x;
+    uint heads = pc.width / pc.head_size;
+    uint total_heads = pc.batch * heads;
+    if (linear_head >= total_heads) {
+        return;
+    }
+
+    uint batch_index = linear_head / heads;
+    uint head = linear_head - batch_index * heads;
+    uint base = batch_index * pc.width + head * pc.head_size;
+    uint channel_base = head * pc.head_size;
+
+    float norm_sq = 0.0;
+    float grad_dot_kk = 0.0;
+    for (uint col = 0; col < pc.head_size; ++col) {
+        uint index = base + col;
+        uint channel = channel_base + col;
+        float z = raw_k[index] * k_k[channel];
+        norm_sq = fma(z, z, norm_sq);
+        grad_dot_kk = fma(grad_kk[index], kk[index], grad_dot_kk);
+    }
+    float norm = sqrt(norm_sq);
+    float denom = max(norm, 1.0e-12);
+    bool normalized_branch = norm > 1.0e-12;
+
+    for (uint col = 0; col < pc.head_size; ++col) {
+        uint index = base + col;
+        uint channel = channel_base + col;
+        float raw = raw_k[index];
+        float grad_scaled = grad_scaled_k[index];
+        float grad_z = normalized_branch
+            ? (grad_kk[index] - kk[index] * grad_dot_kk) / denom
+            : grad_kk[index] / denom;
+        float scale = 1.0 + (a[index] - 1.0) * k_a[channel];
+
+        grad_raw_k[index] = grad_scaled * scale + grad_z * k_k[channel];
+        grad_a[index] = grad_a_direct[index] + grad_scaled * raw * k_a[channel];
+        grad_k_k_partial[index] = grad_z * raw;
+        grad_k_a_partial[index] = grad_scaled * raw * (a[index] - 1.0);
+    }
+#endif
+}

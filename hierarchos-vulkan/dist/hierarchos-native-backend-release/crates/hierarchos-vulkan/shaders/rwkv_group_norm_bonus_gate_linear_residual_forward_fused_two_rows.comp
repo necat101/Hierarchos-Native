@@ -1,0 +1,98 @@
+#version 450
+
+// Compact post-mix specialization for widths <= 32. One wave64 workgroup owns
+// two batch rows, with a 32-lane half-wave per row. Per-head GroupNorm and bonus
+// reductions retain the canonical scalar iteration order; only independent rows
+// execute concurrently. The second half-wave stays synchronization-safe when
+// the batch is odd.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BiasBuffer { float bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer RBuffer { float r[]; };
+layout(set = 0, binding = 4, std430) readonly buffer KBuffer { float k[]; };
+layout(set = 0, binding = 5, std430) readonly buffer VBuffer { float v[]; };
+layout(set = 0, binding = 6, std430) readonly buffer GBuffer { float g[]; };
+layout(set = 0, binding = 7, std430) readonly buffer RkBuffer { float r_k[]; };
+layout(set = 0, binding = 8, std430) readonly buffer OutputWeightBuffer { float output_weight[]; };
+layout(set = 0, binding = 9, std430) readonly buffer ResidualBuffer { float residual[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer NormedBuffer { float normed[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer MeanBuffer { float mean[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer RstdBuffer { float rstd[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer GatedBuffer { float gated[]; };
+layout(set = 0, binding = 14, std430) writeonly buffer BonusBuffer { float bonus_scalar[]; };
+layout(set = 0, binding = 15, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+    float eps;
+} pc;
+
+shared float gated_shared[2][32];
+
+void main() {
+    uint lane = gl_LocalInvocationID.x;
+    uint row_slot = lane >> 5u;
+    uint row_lane = lane & 31u;
+    uint row = gl_WorkGroupID.x * 2u + row_slot;
+    bool row_active = row < pc.batch;
+    uint heads = pc.width / pc.head_size;
+
+    if (row_active) {
+        for (uint head = row_lane; head < heads; head += 32u) {
+            uint base = row * pc.width + head * pc.head_size;
+            uint channel_base = head * pc.head_size;
+            uint group = row * heads + head;
+
+            float mu = 0.0;
+            for (uint i = 0u; i < pc.head_size; ++i) {
+                mu += x[base + i];
+            }
+            mu /= float(pc.head_size);
+
+            float var = 0.0;
+            for (uint i = 0u; i < pc.head_size; ++i) {
+                float centered = x[base + i] - mu;
+                var = fma(centered, centered, var);
+            }
+            var /= float(pc.head_size);
+            float inv_std = inversesqrt(var + pc.eps);
+            mean[group] = mu;
+            rstd[group] = inv_std;
+
+            float bonus = 0.0;
+            for (uint i = 0u; i < pc.head_size; ++i) {
+                uint index = base + i;
+                uint channel = channel_base + i;
+                bonus += r[index] * k[index] * r_k[channel];
+            }
+            bonus_scalar[group] = bonus;
+
+            for (uint i = 0u; i < pc.head_size; ++i) {
+                uint index = base + i;
+                uint channel = channel_base + i;
+                float xhat = (x[index] - mu) * inv_std;
+                float normed_value = fma(xhat, weight[channel], bias[channel]);
+                float gated_value = (normed_value + bonus * v[index]) * g[index];
+                normed[index] = normed_value;
+                gated[index] = gated_value;
+                gated_shared[row_slot][channel] = gated_value;
+            }
+        }
+    }
+
+    barrier();
+
+    if (row_active && row_lane < pc.width) {
+        float sum = 0.0;
+        uint w_base = row_lane * pc.width;
+        for (uint i = 0u; i < pc.width; ++i) {
+            sum = fma(gated_shared[row_slot][i], output_weight[w_base + i], sum);
+        }
+        uint output_index = row * pc.width + row_lane;
+        output_values[output_index] = residual[output_index] + sum;
+    }
+}

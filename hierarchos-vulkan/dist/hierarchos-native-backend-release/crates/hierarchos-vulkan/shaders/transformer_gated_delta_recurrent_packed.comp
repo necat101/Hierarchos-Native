@@ -1,0 +1,94 @@
+#version 450
+
+// Recurrent Gated DeltaNet core consuming a packed [Q,K,V] activation. Q/K
+// may have fewer heads than V; each Q/K head is repeated over its contiguous
+// value-head group exactly like torch.repeat_interleave in Transformers.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer PackedQkvBuffer { float packed_qkv[]; };
+layout(set = 0, binding = 1, std430) readonly buffer DecayBuffer { float decay_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BetaBuffer { float beta_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer InitialStateBuffer { float initial_state[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 5, std430) buffer FinalStateBuffer { float final_state[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint seq_len;
+    uint num_key_heads;
+    uint num_value_heads;
+    uint key_head_dim;
+    uint value_head_dim;
+    uint has_initial_state;
+    float l2_epsilon;
+} pc;
+
+uint state_index(uint batch, uint head, uint key_dim, uint value_dim) {
+    return (((batch * pc.num_value_heads + head) * pc.key_head_dim + key_dim)
+        * pc.value_head_dim) + value_dim;
+}
+
+void main() {
+    uint lane = gl_GlobalInvocationID.x;
+    uint columns = pc.batch_size * pc.num_value_heads * pc.value_head_dim;
+    if (lane >= columns) return;
+
+    uint value_dim_index = lane % pc.value_head_dim;
+    uint head_slot = lane / pc.value_head_dim;
+    uint value_head = head_slot % pc.num_value_heads;
+    uint batch = head_slot / pc.num_value_heads;
+    uint ratio = pc.num_value_heads / pc.num_key_heads;
+    uint key_head = value_head / ratio;
+    uint key_dim_total = pc.num_key_heads * pc.key_head_dim;
+    uint value_dim_total = pc.num_value_heads * pc.value_head_dim;
+    uint packed_width = key_dim_total * 2u + value_dim_total;
+
+    for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+        uint si = state_index(batch, value_head, kd, value_dim_index);
+        final_state[si] = pc.has_initial_state != 0u ? initial_state[si] : 0.0;
+    }
+
+    float query_scale = inversesqrt(float(pc.key_head_dim));
+    for (uint token = 0u; token < pc.seq_len; ++token) {
+        uint row = batch * pc.seq_len + token;
+        uint row_base = row * packed_width;
+        uint q_base = row_base + key_head * pc.key_head_dim;
+        uint k_base = row_base + key_dim_total + key_head * pc.key_head_dim;
+        uint v_base = row_base + key_dim_total * 2u + value_head * pc.value_head_dim;
+        uint scalar = row * pc.num_value_heads + value_head;
+
+        float q_sq = 0.0;
+        float k_sq = 0.0;
+        for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+            float q = packed_qkv[q_base + kd];
+            float k = packed_qkv[k_base + kd];
+            q_sq = fma(q, q, q_sq);
+            k_sq = fma(k, k, k_sq);
+        }
+        float q_inv_norm = inversesqrt(q_sq + pc.l2_epsilon);
+        float k_inv_norm = inversesqrt(k_sq + pc.l2_epsilon);
+        float state_decay = exp(decay_values[scalar]);
+        float beta = beta_values[scalar];
+
+        float memory = 0.0;
+        for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+            uint si = state_index(batch, value_head, kd, value_dim_index);
+            float state = final_state[si] * state_decay;
+            final_state[si] = state;
+            memory = fma(state, packed_qkv[k_base + kd] * k_inv_norm, memory);
+        }
+
+        float value = packed_qkv[v_base + value_dim_index];
+        float delta = (value - memory) * beta;
+        float out_value = 0.0;
+        for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+            uint si = state_index(batch, value_head, kd, value_dim_index);
+            float key = packed_qkv[k_base + kd] * k_inv_norm;
+            float state = fma(key, delta, final_state[si]);
+            final_state[si] = state;
+            float query = packed_qkv[q_base + kd] * q_inv_norm * query_scale;
+            out_value = fma(state, query, out_value);
+        }
+        output_values[(row * pc.num_value_heads + value_head) * pc.value_head_dim + value_dim_index] = out_value;
+    }
+}
