@@ -294,6 +294,9 @@ Hierarchos Native intentionally fails closed when a requested execution contract
 - [Native desktop GUI](hierarchos-gui/README.md)
 - [Standalone distribution layout](hierarchos-vulkan/standalone/README.md)
 
+## Support the Developer:
+[Patreon](https://www.patreon.com/cw/MakhiBurroughs)
+
 ## Project status
 
 This repository is under active development. The architecture inventory and compatibility surface are generated/validated from source and will continue to evolve. When in doubt, prefer the live `architectures` command and the generated architecture matrix over copied architecture counts in third-party descriptions.
