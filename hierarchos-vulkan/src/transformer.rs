@@ -2089,15 +2089,19 @@ impl VulkanTransformerGenerationConfig {
         if let Some(cache_implementation) = self.cache_implementation.as_deref() {
             // The native Vulkan executor owns its KV allocation policy. HF's
             // dynamic/static/offload/hybrid spellings therefore all map to the
-            // same numerically exact native cache while retaining the request
-            // metadata. Quantized caches change stored KV precision and paged
-            // caches reroute through continuous batching, so those two remain
-            // explicit until their corresponding native backends exist.
-            if matches!(cache_implementation, "quantized" | "paged") {
+            // existing numerically exact contiguous native cache while
+            // retaining the request metadata. HF's `paged` spelling opts into
+            // the native paged Vulkan KV backend for compatible attention
+            // layers. Quantized caches still change the stored KV precision
+            // and require a distinct native implementation.
+            if cache_implementation == "quantized" {
                 bail!(
-                    "Vulkan Transformer generation does not yet implement cache_implementation={cache_implementation:?}; quantized and paged caches require dedicated native storage backends"
+                    "Vulkan Transformer generation does not yet implement cache_implementation={cache_implementation:?}; quantized caches require a dedicated native storage backend"
                 );
             }
+        }
+        if self.uses_paged_kv_cache() && !self.use_cache {
+            bail!("cache_implementation=\"paged\" requires use_cache=true");
         }
         // Current Transformers only consumes `cache_config` for quantized
         // caches. Other cache implementations ignore it, which is also the
@@ -2126,9 +2130,17 @@ impl VulkanTransformerGenerationConfig {
             );
         }
         if self.continuous_batching_config.is_some() {
-            bail!(
-                "Vulkan Transformer generation does not yet implement GenerationConfig continuous_batching_config"
-            );
+            if !self.uses_paged_kv_cache() {
+                bail!(
+                    "Vulkan Transformer continuous_batching_config requires cache_implementation=\"paged\""
+                );
+            }
+            // Validate the native continuous-serving surface up front. The HF
+            // config object contains allocator, offload, scheduler, CUDA-graph,
+            // and serving knobs whose semantics are not interchangeable with
+            // this Vulkan scheduler; accepting them and silently ignoring them
+            // would make an explicitly requested serving policy misleading.
+            self.continuous_batching_max_requests(1)?;
         }
         match self.generation_mode() {
             VulkanTransformerGenerationMode::GreedySearch
@@ -2209,6 +2221,62 @@ impl VulkanTransformerGenerationConfig {
                     | "offloaded_hybrid_chunked"
             )
         )
+    }
+
+    fn uses_paged_kv_cache(&self) -> bool {
+        self.cache_implementation.as_deref() == Some("paged")
+    }
+
+    fn continuous_batching_max_requests(&self, batch_len: usize) -> Result<usize> {
+        let Some(raw) = self.continuous_batching_config.as_ref() else {
+            return Ok(batch_len.max(1));
+        };
+        let object = raw
+            .as_object()
+            .context("continuous_batching_config must be a JSON object")?;
+        for field in object.keys() {
+            if !matches!(field.as_str(), "block_size" | "max_requests_per_batch") {
+                bail!(
+                    "continuous_batching_config.{field} is not implemented by the native Vulkan scheduler; supported fields are block_size and max_requests_per_batch"
+                );
+            }
+        }
+        let max_requests = object
+            .get("max_requests_per_batch")
+            .filter(|value| !value.is_null())
+            .map(|value| {
+                value
+                    .as_u64()
+                    .context("continuous_batching_config.max_requests_per_batch must be a positive integer")
+                    .and_then(|value| {
+                        usize::try_from(value).context(
+                            "continuous_batching_config.max_requests_per_batch exceeds usize",
+                        )
+                    })
+            })
+            .transpose()?
+            .unwrap_or(batch_len.max(1));
+        if max_requests == 0 {
+            bail!("continuous_batching_config.max_requests_per_batch must be >= 1");
+        }
+        if let Some(block_size) = object
+            .get("block_size")
+            .filter(|value| !value.is_null())
+            .map(|value| {
+                value
+                    .as_u64()
+                    .context("continuous_batching_config.block_size must be a positive integer")
+            })
+            .transpose()?
+        {
+            if block_size != GENERATION_KV_PAGE_TOKENS as u64 {
+                bail!(
+                    "continuous_batching_config.block_size={block_size} is incompatible with this Vulkan build; native paged KV uses block_size={} tokens",
+                    GENERATION_KV_PAGE_TOKENS
+                );
+            }
+        }
+        Ok(max_requests.min(batch_len.max(1)))
     }
 
     fn should_stop_after_token(&self, sequence: &[u32], token: u32) -> bool {
@@ -4731,9 +4799,474 @@ struct VulkanGenerationTraceBeam {
     beam_indices: Vec<usize>,
 }
 
+const GENERATION_KV_PAGE_TOKENS: usize = 16;
+const GENERATION_KV_UNMAPPED_PAGE: u32 = u32::MAX;
+
+struct VulkanGenerationPagedKvArenaState {
+    key: GpuBuffer,
+    value: GpuBuffer,
+    page_refcounts: Vec<usize>,
+    free_pages: Vec<usize>,
+}
+
+struct VulkanGenerationPagedKvArena {
+    device: VulkanDevice,
+    key_width: usize,
+    value_width: usize,
+    page_size: usize,
+    state: Mutex<VulkanGenerationPagedKvArenaState>,
+}
+
+struct VulkanGenerationPagedKvTableState {
+    logical_to_physical: Vec<u32>,
+    device: GpuBuffer,
+}
+
+struct VulkanGenerationPagedKvCache {
+    arena: Arc<VulkanGenerationPagedKvArena>,
+    table: Mutex<VulkanGenerationPagedKvTableState>,
+}
+
+struct VulkanGenerationPagedKvSnapshot {
+    key: GpuBuffer,
+    value: GpuBuffer,
+    page_table: GpuBuffer,
+    key_write_offsets: Vec<usize>,
+    value_write_offsets: Vec<usize>,
+    page_size: usize,
+    page_table_stride: usize,
+}
+
+impl VulkanGenerationPagedKvArena {
+    fn new(
+        device: &VulkanDevice,
+        key_width: usize,
+        value_width: usize,
+        initial_pages: usize,
+    ) -> Result<Arc<Self>> {
+        if key_width == 0 || value_width == 0 {
+            bail!("generation paged KV arena requires positive K/V widths");
+        }
+        let physical_pages = initial_pages.max(1);
+        if physical_pages > u32::MAX as usize {
+            bail!("generation paged KV cache page count exceeds u32 address space");
+        }
+        let key_len =
+            Self::checked_buffer_len(key_width, GENERATION_KV_PAGE_TOKENS, physical_pages, "key")?;
+        let value_len = Self::checked_buffer_len(
+            value_width,
+            GENERATION_KV_PAGE_TOKENS,
+            physical_pages,
+            "value",
+        )?;
+        Ok(Arc::new(Self {
+            device: device.clone(),
+            key_width,
+            value_width,
+            page_size: GENERATION_KV_PAGE_TOKENS,
+            state: Mutex::new(VulkanGenerationPagedKvArenaState {
+                key: GpuBuffer::zeros_f32(device, key_len)?,
+                value: GpuBuffer::zeros_f32(device, value_len)?,
+                page_refcounts: vec![0; physical_pages],
+                free_pages: (0..physical_pages).rev().collect(),
+            }),
+        }))
+    }
+
+    fn checked_buffer_len(
+        width: usize,
+        page_size: usize,
+        pages: usize,
+        label: &str,
+    ) -> Result<usize> {
+        pages
+            .checked_mul(page_size)
+            .and_then(|tokens| tokens.checked_mul(width))
+            .with_context(|| format!("generation paged {label} cache allocation overflow"))
+    }
+
+    fn grow_locked(&self, state: &mut VulkanGenerationPagedKvArenaState) -> Result<()> {
+        let old_pages = state.page_refcounts.len();
+        let new_pages = old_pages
+            .checked_mul(2)
+            .unwrap_or(usize::MAX)
+            .max(old_pages.saturating_add(1));
+        if new_pages <= old_pages || new_pages > u32::MAX as usize {
+            bail!("generation paged KV cache exhausted its physical page address space");
+        }
+        let key_len = Self::checked_buffer_len(self.key_width, self.page_size, new_pages, "key")?;
+        let value_len =
+            Self::checked_buffer_len(self.value_width, self.page_size, new_pages, "value")?;
+        let new_key = GpuBuffer::zeros_f32(&self.device, key_len)?;
+        let new_value = GpuBuffer::zeros_f32(&self.device, value_len)?;
+
+        if old_pages != 0 {
+            let old_key_len =
+                Self::checked_buffer_len(self.key_width, self.page_size, old_pages, "key")?;
+            let old_value_len =
+                Self::checked_buffer_len(self.value_width, self.page_size, old_pages, "value")?;
+            let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+            commands.copy_f32(&state.key, &new_key, old_key_len)?;
+            commands.copy_f32(&state.value, &new_value, old_value_len)?;
+            commands.submit()?;
+        }
+
+        state.key = new_key;
+        state.value = new_value;
+        state.page_refcounts.resize(new_pages, 0);
+        state.free_pages.extend((old_pages..new_pages).rev());
+        Ok(())
+    }
+
+    fn allocate_page_locked(&self, state: &mut VulkanGenerationPagedKvArenaState) -> Result<usize> {
+        if state.free_pages.is_empty() {
+            self.grow_locked(state)?;
+        }
+        let page = state
+            .free_pages
+            .pop()
+            .context("generation paged KV cache failed to allocate a physical page")?;
+        let refcount = state
+            .page_refcounts
+            .get_mut(page)
+            .context("generation paged KV cache allocator returned an invalid physical page")?;
+        if *refcount != 0 {
+            bail!("generation paged KV cache allocator returned a referenced physical page");
+        }
+        *refcount = 1;
+        Ok(page)
+    }
+}
+
+impl VulkanGenerationPagedKvCache {
+    fn new(
+        device: &VulkanDevice,
+        key_width: usize,
+        value_width: usize,
+        max_tokens: usize,
+        prefix_len: usize,
+    ) -> Result<Self> {
+        if key_width == 0 || value_width == 0 || max_tokens == 0 {
+            bail!("generation paged KV cache requires positive dimensions");
+        }
+        if prefix_len > max_tokens {
+            bail!(
+                "generation paged KV cache prefix {prefix_len} exceeds logical capacity {max_tokens}"
+            );
+        }
+        let logical_pages = max_tokens.div_ceil(GENERATION_KV_PAGE_TOKENS);
+        let prefix_pages = prefix_len.div_ceil(GENERATION_KV_PAGE_TOKENS);
+        let physical_pages = prefix_pages.max(1);
+        if logical_pages > u32::MAX as usize || physical_pages > u32::MAX as usize {
+            bail!("generation paged KV cache page count exceeds u32 address space");
+        }
+        let arena =
+            VulkanGenerationPagedKvArena::new(device, key_width, value_width, physical_pages)?;
+        Self::new_in_arena(arena, max_tokens, prefix_len)
+    }
+
+    fn new_in_arena(
+        arena: Arc<VulkanGenerationPagedKvArena>,
+        max_tokens: usize,
+        prefix_len: usize,
+    ) -> Result<Self> {
+        if max_tokens == 0 {
+            bail!("generation paged KV cache requires a positive logical capacity");
+        }
+        if prefix_len > max_tokens {
+            bail!(
+                "generation paged KV cache prefix {prefix_len} exceeds logical capacity {max_tokens}"
+            );
+        }
+        let logical_pages = max_tokens.div_ceil(arena.page_size);
+        let prefix_pages = prefix_len.div_ceil(arena.page_size);
+        if logical_pages > u32::MAX as usize {
+            bail!("generation paged KV cache page count exceeds u32 address space");
+        }
+
+        let mut logical_to_physical = vec![GENERATION_KV_UNMAPPED_PAGE; logical_pages];
+        {
+            let mut arena_state = arena
+                .state
+                .lock()
+                .map_err(|_| anyhow!("generation paged KV arena mutex is poisoned"))?;
+            for physical_page in logical_to_physical.iter_mut().take(prefix_pages) {
+                *physical_page = u32::try_from(arena.allocate_page_locked(&mut arena_state)?)
+                    .context("generation paged KV cache physical page exceeds u32")?;
+            }
+        }
+        let page_table = GpuBuffer::from_u32(&arena.device, &logical_to_physical)?;
+        Ok(Self {
+            arena,
+            table: Mutex::new(VulkanGenerationPagedKvTableState {
+                logical_to_physical,
+                device: page_table,
+            }),
+        })
+    }
+
+    fn clone_prefix(&self, prefix_len: usize) -> Result<Self> {
+        let prefix_pages = prefix_len.div_ceil(self.arena.page_size);
+        let parent = self
+            .table
+            .lock()
+            .map_err(|_| anyhow!("generation paged KV page-table mutex is poisoned"))?;
+        if prefix_pages > parent.logical_to_physical.len() {
+            bail!(
+                "generation paged KV clone prefix {prefix_len} exceeds logical cache capacity {}",
+                parent.logical_to_physical.len() * self.arena.page_size
+            );
+        }
+        let mut logical_to_physical =
+            vec![GENERATION_KV_UNMAPPED_PAGE; parent.logical_to_physical.len()];
+        logical_to_physical[..prefix_pages]
+            .copy_from_slice(&parent.logical_to_physical[..prefix_pages]);
+        if logical_to_physical[..prefix_pages].contains(&GENERATION_KV_UNMAPPED_PAGE) {
+            bail!("generation paged KV clone encountered an unmapped prefix page");
+        }
+        let device_table = GpuBuffer::from_u32(&self.arena.device, &logical_to_physical)?;
+        let mut arena = self
+            .arena
+            .state
+            .lock()
+            .map_err(|_| anyhow!("generation paged KV arena mutex is poisoned"))?;
+        for &physical in &logical_to_physical[..prefix_pages] {
+            let physical = physical as usize;
+            let refcount = arena
+                .page_refcounts
+                .get_mut(physical)
+                .context("generation paged KV clone references an invalid physical page")?;
+            *refcount = refcount
+                .checked_add(1)
+                .context("generation paged KV page reference count overflow")?;
+        }
+        drop(arena);
+        drop(parent);
+        Ok(Self {
+            arena: Arc::clone(&self.arena),
+            table: Mutex::new(VulkanGenerationPagedKvTableState {
+                logical_to_physical,
+                device: device_table,
+            }),
+        })
+    }
+
+    fn prepare_write(&self, position: usize) -> Result<()> {
+        let logical_page = position / self.arena.page_size;
+        let mut table = self
+            .table
+            .lock()
+            .map_err(|_| anyhow!("generation paged KV page-table mutex is poisoned"))?;
+        if logical_page >= table.logical_to_physical.len() {
+            bail!(
+                "generation paged KV write position {position} exceeds logical cache capacity {}",
+                table.logical_to_physical.len() * self.arena.page_size
+            );
+        }
+        let current = table.logical_to_physical[logical_page];
+        let mut arena = self
+            .arena
+            .state
+            .lock()
+            .map_err(|_| anyhow!("generation paged KV arena mutex is poisoned"))?;
+
+        let mut copied_from = None;
+        let target = if current == GENERATION_KV_UNMAPPED_PAGE {
+            self.arena.allocate_page_locked(&mut arena)?
+        } else {
+            let current_page = current as usize;
+            let refcount = *arena
+                .page_refcounts
+                .get(current_page)
+                .context("generation paged KV page table references an invalid physical page")?;
+            if refcount > 1 {
+                let target = self.arena.allocate_page_locked(&mut arena)?;
+                let old_refcount = arena
+                    .page_refcounts
+                    .get_mut(current_page)
+                    .context("generation paged KV COW source page is invalid")?;
+                *old_refcount -= 1;
+                copied_from = Some(current_page);
+                target
+            } else {
+                return Ok(());
+            }
+        };
+        table.logical_to_physical[logical_page] =
+            u32::try_from(target).context("generation paged KV physical page exceeds u32")?;
+
+        let mut commands = vulkan::ComputeBatch::new(&self.arena.device)?;
+        if let Some(source) = copied_from {
+            let key_page_len = self
+                .arena
+                .page_size
+                .checked_mul(self.arena.key_width)
+                .context("generation paged key page size overflow")?;
+            let value_page_len = self
+                .arena
+                .page_size
+                .checked_mul(self.arena.value_width)
+                .context("generation paged value page size overflow")?;
+            commands.copy_f32_range(
+                &arena.key,
+                source * key_page_len,
+                &arena.key,
+                target * key_page_len,
+                key_page_len,
+            )?;
+            commands.copy_f32_range(
+                &arena.value,
+                source * value_page_len,
+                &arena.value,
+                target * value_page_len,
+                value_page_len,
+            )?;
+        }
+        commands.upload_u32(&table.device, &table.logical_to_physical)?;
+        commands.submit()?;
+        Ok(())
+    }
+
+    fn snapshot_for_position(&self, position: usize) -> Result<VulkanGenerationPagedKvSnapshot> {
+        let logical_page = position / self.arena.page_size;
+        let within_page = position % self.arena.page_size;
+        let table = self
+            .table
+            .lock()
+            .map_err(|_| anyhow!("generation paged KV page-table mutex is poisoned"))?;
+        let physical_page = *table
+            .logical_to_physical
+            .get(logical_page)
+            .context("generation paged KV snapshot position exceeds logical cache capacity")?;
+        if physical_page == GENERATION_KV_UNMAPPED_PAGE {
+            bail!("generation paged KV snapshot requested an unmapped logical page");
+        }
+        let physical_row = (physical_page as usize)
+            .checked_mul(self.arena.page_size)
+            .and_then(|base| base.checked_add(within_page))
+            .context("generation paged KV physical row overflow")?;
+        let arena = self
+            .arena
+            .state
+            .lock()
+            .map_err(|_| anyhow!("generation paged KV arena mutex is poisoned"))?;
+        Ok(VulkanGenerationPagedKvSnapshot {
+            key: arena.key.clone(),
+            value: arena.value.clone(),
+            page_table: table.device.clone(),
+            key_write_offsets: vec![physical_row
+                .checked_mul(self.arena.key_width)
+                .context("generation paged KV key write offset overflow")?],
+            value_write_offsets: vec![physical_row
+                .checked_mul(self.arena.value_width)
+                .context("generation paged KV value write offset overflow")?],
+            page_size: self.arena.page_size,
+            page_table_stride: table.logical_to_physical.len(),
+        })
+    }
+
+    fn record_prefill_from_sources(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        key_source: &GpuBuffer,
+        value_source: &GpuBuffer,
+        source_row_offset: usize,
+        prefix_len: usize,
+    ) -> Result<()> {
+        if prefix_len == 0 {
+            return Ok(());
+        }
+        let table = self
+            .table
+            .lock()
+            .map_err(|_| anyhow!("generation paged KV page-table mutex is poisoned"))?;
+        let arena = self
+            .arena
+            .state
+            .lock()
+            .map_err(|_| anyhow!("generation paged KV arena mutex is poisoned"))?;
+        let prefix_pages = prefix_len.div_ceil(self.arena.page_size);
+        if prefix_pages > table.logical_to_physical.len() {
+            bail!("generation paged KV prefill exceeds logical cache capacity");
+        }
+        for logical_page in 0..prefix_pages {
+            let physical_page = table.logical_to_physical[logical_page];
+            if physical_page == GENERATION_KV_UNMAPPED_PAGE {
+                bail!("generation paged KV prefill encountered an unmapped logical page");
+            }
+            let first_token = logical_page * self.arena.page_size;
+            let token_count = (prefix_len - first_token).min(self.arena.page_size);
+            let source_row = source_row_offset
+                .checked_add(first_token)
+                .context("generation paged KV prefill source row overflow")?;
+            let destination_row = (physical_page as usize)
+                .checked_mul(self.arena.page_size)
+                .context("generation paged KV prefill physical row overflow")?;
+            commands.copy_f32_range(
+                key_source,
+                source_row
+                    .checked_mul(self.arena.key_width)
+                    .context("generation paged KV prefill key source offset overflow")?,
+                &arena.key,
+                destination_row
+                    .checked_mul(self.arena.key_width)
+                    .context("generation paged KV prefill key destination offset overflow")?,
+                token_count
+                    .checked_mul(self.arena.key_width)
+                    .context("generation paged KV prefill key length overflow")?,
+            )?;
+            commands.copy_f32_range(
+                value_source,
+                source_row
+                    .checked_mul(self.arena.value_width)
+                    .context("generation paged KV prefill value source offset overflow")?,
+                &arena.value,
+                destination_row
+                    .checked_mul(self.arena.value_width)
+                    .context("generation paged KV prefill value destination offset overflow")?,
+                token_count
+                    .checked_mul(self.arena.value_width)
+                    .context("generation paged KV prefill value length overflow")?,
+            )?;
+        }
+        Ok(())
+    }
+}
+
+impl Drop for VulkanGenerationPagedKvCache {
+    fn drop(&mut self) {
+        let Ok(table) = self.table.lock() else {
+            return;
+        };
+        let Ok(mut arena) = self.arena.state.lock() else {
+            return;
+        };
+        for &physical in &table.logical_to_physical {
+            if physical == GENERATION_KV_UNMAPPED_PAGE {
+                continue;
+            }
+            let physical = physical as usize;
+            let Some(refcount) = arena.page_refcounts.get_mut(physical) else {
+                continue;
+            };
+            if *refcount == 0 {
+                continue;
+            }
+            *refcount -= 1;
+            if *refcount == 0 {
+                arena.free_pages.push(physical);
+            }
+        }
+    }
+}
+
 struct VulkanGenerationLayerKvCache {
     key: GpuBuffer,
     value: GpuBuffer,
+    /// Ordinary causal attention uses a Vulkan-resident page table over a
+    /// growable physical K/V arena. Beam forks share mapped prefix pages and
+    /// copy only a partially shared page on first write.
+    paged_kv: Option<VulkanGenerationPagedKvCache>,
     /// DeepSeek-V4's CSA/HCA compressors consume the pre-attention hidden
     /// stream, not only the projected K/V state. Cached decoding retains that
     /// stream so completed compression windows can be refreshed without
@@ -4768,6 +5301,16 @@ struct VulkanGenerationCachedBeam {
     beam: VulkanGenerationBeam,
     logits: Vec<f32>,
     cache: VulkanGenerationKvCache,
+}
+
+struct VulkanGenerationContinuousRequest {
+    batch_index: usize,
+    config: VulkanTransformerGenerationConfig,
+    sequence: Vec<u32>,
+    generated: Vec<u32>,
+    logits: Vec<f32>,
+    cache: VulkanGenerationKvCache,
+    requested: usize,
 }
 
 impl VulkanGenerationBeam {
@@ -23817,6 +24360,9 @@ struct AttentionPush {
     has_sparse_mask: u32,
     compressed_key_count: u32,
     compressed_key_rate: u32,
+    paged_kv: u32,
+    kv_page_size: u32,
+    kv_page_table_stride: u32,
 }
 
 #[repr(C)]
@@ -24480,7 +25026,7 @@ impl TransformerKernels {
             attention_forward: vulkan::ComputeKernel::new(
                 device,
                 ATTENTION_FORWARD_SPV,
-                10,
+                11,
                 std::mem::size_of::<AttentionPush>() as u32,
             )?,
             attention_backward: vulkan::ComputeKernel::new(
@@ -28369,13 +28915,8 @@ impl VulkanDeepseekV4Mhc {
             &self.tape.norm_rstd,
             rows,
         )?;
-        self.function.record_forward(
-            commands,
-            kernels,
-            &self.tape.normed,
-            &self.tape.raw,
-            rows,
-        )?;
+        self.function
+            .record_forward(commands, kernels, &self.tape.normed, &self.tape.raw, rows)?;
         kernels.deepseek_v4_mhc_weights_forward.record_dispatch(
             commands,
             &[
@@ -28691,13 +29232,8 @@ impl VulkanDeepseekV4HyperHead {
             &self.tape.norm_rstd,
             rows,
         )?;
-        self.function.record_forward(
-            commands,
-            kernels,
-            &self.tape.normed,
-            &self.tape.raw,
-            rows,
-        )?;
+        self.function
+            .record_forward(commands, kernels, &self.tape.normed, &self.tape.raw, rows)?;
         let push = self.push_for_rows(rows)?;
         kernels.deepseek_v4_hyper_head_forward.record_dispatch(
             commands,
@@ -34656,10 +35192,8 @@ fn t5_gemma_component_config_for_package(
     component: &str,
 ) -> Result<VulkanTransformerConfig> {
     let value = t5_gemma_component_value_for_package(model_dir, component)?;
-    let mut config = VulkanTransformerConfig::from_t5_gemma_module_value(
-        &value,
-        Some(component == "decoder"),
-    )?;
+    let mut config =
+        VulkanTransformerConfig::from_t5_gemma_module_value(&value, Some(component == "decoder"))?;
     config.causal_attention = Some(component == "decoder");
     config.validate()?;
     Ok(config)
@@ -34718,24 +35252,18 @@ fn load_t5_gemma_component_weights(
         let p = format!("{prefix}.layers.{layer_index}");
         layers.push(HostTransformerLayer {
             post_attention_norm: Some(HostLayerNorm {
-                weight: store.take_expected(
-                    &format!("{p}.post_self_attn_layernorm.weight"),
-                    &[d],
-                )?,
+                weight: store
+                    .take_expected(&format!("{p}.post_self_attn_layernorm.weight"), &[d])?,
                 bias: Vec::new(),
             }),
             post_mlp_norm: Some(HostLayerNorm {
-                weight: store.take_expected(
-                    &format!("{p}.post_feedforward_layernorm.weight"),
-                    &[d],
-                )?,
+                weight: store
+                    .take_expected(&format!("{p}.post_feedforward_layernorm.weight"), &[d])?,
                 bias: Vec::new(),
             }),
             ln1: HostLayerNorm {
-                weight: store.take_expected(
-                    &format!("{p}.pre_self_attn_layernorm.weight"),
-                    &[d],
-                )?,
+                weight: store
+                    .take_expected(&format!("{p}.pre_self_attn_layernorm.weight"), &[d])?,
                 bias: Vec::new(),
             },
             c_attn: None,
@@ -34770,10 +35298,8 @@ fn load_t5_gemma_component_weights(
                 attention_bias,
             )?,
             ln2: HostLayerNorm {
-                weight: store.take_expected(
-                    &format!("{p}.pre_feedforward_layernorm.weight"),
-                    &[d],
-                )?,
+                weight: store
+                    .take_expected(&format!("{p}.pre_feedforward_layernorm.weight"), &[d])?,
                 bias: Vec::new(),
             },
             c_fc: linear(&mut store, &format!("{p}.mlp.up_proj"), i, d, false)?,
@@ -34846,7 +35372,8 @@ fn load_t5_gemma_cross_attention_weights(
     let encoder_hidden_size = encoder_value
         .get("hidden_size")
         .and_then(serde_json::Value::as_u64)
-        .context("T5Gemma encoder config is missing hidden_size")? as usize;
+        .context("T5Gemma encoder config is missing hidden_size")?
+        as usize;
     let d = config.hidden_size;
     let q = config.query_hidden_size();
     let kv = config.key_value_hidden_size();
@@ -34885,17 +35412,13 @@ fn load_t5_gemma_cross_attention_weights(
             )?,
             out_proj: linear(&mut store, &format!("{attention}.o_proj"), d, q)?,
             norm: HostLayerNorm {
-                weight: store.take_expected(
-                    &format!("{p}.pre_cross_attn_layernorm.weight"),
-                    &[d],
-                )?,
+                weight: store
+                    .take_expected(&format!("{p}.pre_cross_attn_layernorm.weight"), &[d])?,
                 bias: Vec::new(),
             },
             post_norm: Some(HostLayerNorm {
-                weight: store.take_expected(
-                    &format!("{p}.post_cross_attn_layernorm.weight"),
-                    &[d],
-                )?,
+                weight: store
+                    .take_expected(&format!("{p}.post_cross_attn_layernorm.weight"), &[d])?,
                 bias: Vec::new(),
             }),
         });
@@ -44691,6 +45214,9 @@ impl VulkanCrossAttention {
             has_sparse_mask: 0,
             compressed_key_count: 0,
             compressed_key_rate: 0,
+            paged_kv: 0,
+            kv_page_size: 1,
+            kv_page_table_stride: 1,
         };
         kernels.attention_forward.record_dispatch(
             commands,
@@ -44704,6 +45230,7 @@ impl VulkanCrossAttention {
                 &self.tape.attention,
                 &self.sink,
                 &self.sink,
+                query_mask,
                 query_mask,
             ],
             bytemuck::bytes_of(&push),
@@ -44878,6 +45405,9 @@ impl VulkanCrossAttention {
             has_sparse_mask: 0,
             compressed_key_count: 0,
             compressed_key_rate: 0,
+            paged_kv: 0,
+            kv_page_size: 1,
+            kv_page_table_stride: 1,
         };
         kernels.attention_backward.record_dispatch(
             commands,
@@ -47148,6 +47678,9 @@ impl VulkanDeepseekV4Attention {
             has_sparse_mask: u32::from(sparse_attention_mask.is_some()),
             compressed_key_count: compressed_seq_len as u32,
             compressed_key_rate: compressed_key_rate as u32,
+            paged_kv: 0,
+            kv_page_size: 1,
+            kv_page_table_stride: 1,
         };
         kernels.attention_forward.record_dispatch(
             commands,
@@ -47162,6 +47695,7 @@ impl VulkanDeepseekV4Attention {
                 &self.sinks.values,
                 &self.sinks.values,
                 sparse_attention_mask.unwrap_or(attention_mask),
+                attention_mask,
             ],
             bytemuck::bytes_of(&attention_push),
             [
@@ -47391,10 +47925,7 @@ impl VulkanDeepseekV4Attention {
                 ],
                 bytemuck::bytes_of(&layout_push),
                 [
-                    div_ceil_u32(
-                        (local_seq_len + compressed_seq_len) * self.head_dim,
-                        256,
-                    ),
+                    div_ceil_u32((local_seq_len + compressed_seq_len) * self.head_dim, 256),
                     1,
                     1,
                 ],
@@ -47431,6 +47962,9 @@ impl VulkanDeepseekV4Attention {
             has_sparse_mask: u32::from(sparse_attention_mask.is_some()),
             compressed_key_count: compressed_seq_len as u32,
             compressed_key_rate: compressed_key_rate as u32,
+            paged_kv: 0,
+            kv_page_size: 1,
+            kv_page_table_stride: 1,
         };
         kernels.attention_forward.record_dispatch(
             commands,
@@ -47445,6 +47979,7 @@ impl VulkanDeepseekV4Attention {
                 &self.sinks.values,
                 &self.sinks.values,
                 sparse_attention_mask.unwrap_or(attention_mask),
+                attention_mask,
             ],
             bytemuck::bytes_of(&attention_push),
             [1, self.num_heads as u32, 1],
@@ -47580,6 +48115,9 @@ impl VulkanDeepseekV4Attention {
             has_sparse_mask: u32::from(sparse_attention_mask.is_some()),
             compressed_key_count: compressed_seq_len as u32,
             compressed_key_rate: compressed_key_rate as u32,
+            paged_kv: 0,
+            kv_page_size: 1,
+            kv_page_table_stride: 1,
         };
         kernels.attention_backward.record_dispatch(
             commands,
@@ -48660,7 +49198,8 @@ impl VulkanDeepseekV4CsaIndexer {
                 interleaved_pairs: 1,
                 scaling_type: rope_scaling.kernel_type(),
                 scaling_factor: rope_scaling.factor,
-                original_max_position_embeddings: rope_scaling.original_max_position_embeddings as u32,
+                original_max_position_embeddings: rope_scaling.original_max_position_embeddings
+                    as u32,
                 low_freq_factor: rope_scaling.low_freq_factor,
                 high_freq_factor: rope_scaling.high_freq_factor,
                 attention_factor: rope_scaling.attention_factor,
@@ -50765,7 +51304,9 @@ impl VulkanQwenGatedDeltaNet {
                     (vec![a.output_dim, hidden_size], a.weight.read()?),
                 );
             }
-            VulkanQwenGatedDeltaProjection::OlmoHybrid { q, k, v, z, b, a, .. } => {
+            VulkanQwenGatedDeltaProjection::OlmoHybrid {
+                q, k, v, z, b, a, ..
+            } => {
                 values.insert(
                     format!("{p}.q_proj.weight"),
                     (vec![key_dim, hidden_size], q.weight.read()?),
@@ -52078,7 +52619,9 @@ impl VulkanQwenGatedDeltaNet {
                     projection.freeze_base();
                 }
             }
-            VulkanQwenGatedDeltaProjection::OlmoHybrid { q, k, v, z, b, a, .. } => {
+            VulkanQwenGatedDeltaProjection::OlmoHybrid {
+                q, k, v, z, b, a, ..
+            } => {
                 for projection in [q, k, v, z, b, a] {
                     projection.freeze_base();
                 }
@@ -52112,7 +52655,9 @@ impl VulkanQwenGatedDeltaNet {
                     projection.enable_bias_training();
                 }
             }
-            VulkanQwenGatedDeltaProjection::OlmoHybrid { q, k, v, z, b, a, .. } => {
+            VulkanQwenGatedDeltaProjection::OlmoHybrid {
+                q, k, v, z, b, a, ..
+            } => {
                 for projection in [q, k, v, z, b, a] {
                     projection.enable_bias_training();
                 }
@@ -52152,7 +52697,9 @@ impl VulkanQwenGatedDeltaNet {
                     projection.record_step(commands, kernels, step, hyper)?;
                 }
             }
-            VulkanQwenGatedDeltaProjection::OlmoHybrid { q, k, v, z, b, a, .. } => {
+            VulkanQwenGatedDeltaProjection::OlmoHybrid {
+                q, k, v, z, b, a, ..
+            } => {
                 for projection in [q, k, v, z, b, a] {
                     projection.record_step(commands, kernels, step, hyper)?;
                 }
@@ -54246,6 +54793,7 @@ impl VulkanTransformerLayer {
                 } else {
                     &self.tape.v
                 };
+                let mut paged_kv_snapshot = None;
                 let (
                     attention_k,
                     attention_v,
@@ -54258,27 +54806,61 @@ impl VulkanTransformerLayer {
                     let key_value_seq_len = cache_position
                         .checked_add(seq_len)
                         .context("generation KV cache sequence length overflow")?;
-                    commands.copy_f32_range(
-                        attention_k,
-                        0,
-                        &cache.key,
-                        cache_position * key_hidden,
-                        rows * key_hidden,
-                    )?;
-                    commands.copy_f32_range(
-                        attention_v,
-                        0,
-                        &cache.value,
-                        cache_position * value_hidden,
-                        rows * value_hidden,
-                    )?;
-                    (
-                        &cache.key,
-                        &cache.value,
-                        cache_attention_mask,
-                        key_value_seq_len,
-                        cache_position,
-                    )
+                    if let Some(paged) = cache.paged_kv.as_ref() {
+                        if batch_size != 1 || seq_len != 1 || rows != 1 {
+                            bail!(
+                                "paged generation KV cache currently requires a single-token batch"
+                            );
+                        }
+                        let snapshot = paged.snapshot_for_position(cache_position)?;
+                        commands.copy_f32_range(
+                            attention_k,
+                            0,
+                            &snapshot.key,
+                            snapshot.key_write_offsets[0],
+                            key_hidden,
+                        )?;
+                        commands.copy_f32_range(
+                            attention_v,
+                            0,
+                            &snapshot.value,
+                            snapshot.value_write_offsets[0],
+                            value_hidden,
+                        )?;
+                        paged_kv_snapshot = Some(snapshot);
+                        let snapshot = paged_kv_snapshot
+                            .as_ref()
+                            .context("generation paged KV snapshot disappeared")?;
+                        (
+                            &snapshot.key,
+                            &snapshot.value,
+                            cache_attention_mask,
+                            key_value_seq_len,
+                            cache_position,
+                        )
+                    } else {
+                        commands.copy_f32_range(
+                            attention_k,
+                            0,
+                            &cache.key,
+                            cache_position * key_hidden,
+                            rows * key_hidden,
+                        )?;
+                        commands.copy_f32_range(
+                            attention_v,
+                            0,
+                            &cache.value,
+                            cache_position * value_hidden,
+                            rows * value_hidden,
+                        )?;
+                        (
+                            &cache.key,
+                            &cache.value,
+                            cache_attention_mask,
+                            key_value_seq_len,
+                            cache_position,
+                        )
+                    }
                 } else {
                     (attention_k, attention_v, attention_mask, seq_len, 0)
                 };
@@ -54396,6 +54978,15 @@ impl VulkanTransformerLayer {
                     has_sparse_mask: sparse_mask_mode,
                     compressed_key_count: 0,
                     compressed_key_rate: 0,
+                    paged_kv: u32::from(paged_kv_snapshot.is_some()),
+                    kv_page_size: paged_kv_snapshot
+                        .as_ref()
+                        .map(|snapshot| snapshot.page_size as u32)
+                        .unwrap_or(1),
+                    kv_page_table_stride: paged_kv_snapshot
+                        .as_ref()
+                        .map(|snapshot| snapshot.page_table_stride as u32)
+                        .unwrap_or(1),
                 };
                 let relative_attention_values = relative_attention_bias
                     .map(|parameter| &parameter.values)
@@ -54413,6 +55004,10 @@ impl VulkanTransformerLayer {
                         &self.attention_sink.values,
                         relative_attention_values,
                         sparse_attention_mask.unwrap_or(attention_mask),
+                        paged_kv_snapshot
+                            .as_ref()
+                            .map(|snapshot| &snapshot.page_table)
+                            .unwrap_or(attention_mask),
                     ],
                     bytemuck::bytes_of(&attention_push),
                     [seq_len as u32, self.num_heads as u32, batch_size as u32],
@@ -54535,19 +55130,14 @@ impl VulkanTransformerLayer {
         } else {
             attention_projection
         };
-        let deepseek_v4_hyper_after_attention =
-            if let Some(hyper) = self.deepseek_v4_attn_hc.as_ref() {
-                hyper.record_recombine_forward(
-                    commands,
-                    kernels,
-                    input,
-                    attention_projection,
-                    rows,
-                )?;
-                Some(hyper.output())
-            } else {
-                None
-            };
+        let deepseek_v4_hyper_after_attention = if let Some(hyper) =
+            self.deepseek_v4_attn_hc.as_ref()
+        {
+            hyper.record_recombine_forward(commands, kernels, input, attention_projection, rows)?;
+            Some(hyper.output())
+        } else {
+            None
+        };
         let qwen4_hyper_after_attention = if deepseek_v4_hyper_after_attention.is_some() {
             None
         } else if let Some(hyper) = self.qwen4_attn_hyper_connection.as_ref() {
@@ -56106,6 +56696,9 @@ impl VulkanTransformerLayer {
                     has_sparse_mask: sparse_mask_mode,
                     compressed_key_count: 0,
                     compressed_key_rate: 0,
+                    paged_kv: 0,
+                    kv_page_size: 1,
+                    kv_page_table_stride: 1,
                 };
                 let has_qk_norm = self.q_norm.is_some();
                 let post_rope_qk_norm = config.architecture.uses_post_rope_qk_norm();
@@ -58387,21 +58980,20 @@ impl VulkanTransformer {
             transformer_position_embeddings_trainable_for_package(model_dir, &config)?;
         let layerdrop = transformer_encoder_layerdrop_for_package(model_dir, &config)?;
         let rotary_layers = transformer_rotary_layers_for_package(model_dir, &config)?;
-        let (host, relative_attention_bias) = if config.architecture
-            == VulkanTransformerArchitecture::T5Gemma
-        {
-            (
-                load_t5_gemma_component_weights(model_dir, &config, "encoder", false)?,
-                None,
-            )
-        } else if config.architecture.is_t5_family() {
-            (
-                load_t5_encoder_weights(model_dir, &config)?,
-                Some(load_t5_encoder_relative_attention_bias(model_dir, &config)?),
-            )
-        } else {
-            (load_bart_encoder_weights(model_dir, &config)?, None)
-        };
+        let (host, relative_attention_bias) =
+            if config.architecture == VulkanTransformerArchitecture::T5Gemma {
+                (
+                    load_t5_gemma_component_weights(model_dir, &config, "encoder", false)?,
+                    None,
+                )
+            } else if config.architecture.is_t5_family() {
+                (
+                    load_t5_encoder_weights(model_dir, &config)?,
+                    Some(load_t5_encoder_relative_attention_bias(model_dir, &config)?),
+                )
+            } else {
+                (load_bart_encoder_weights(model_dir, &config)?, None)
+            };
         let host_moe_layers =
             if config.architecture == VulkanTransformerArchitecture::SwitchTransformers {
                 Some(load_switch_transformers_moe_layers(model_dir, &config)?)
@@ -60389,7 +60981,9 @@ impl VulkanTransformer {
                                 bail!("Qwen hybrid PEFT route encountered a GLM-5 KDA projection")
                             }
                             VulkanQwenGatedDeltaProjection::OlmoHybrid { .. } => {
-                                bail!("Qwen hybrid PEFT route encountered an OLMo Hybrid projection")
+                                bail!(
+                                    "Qwen hybrid PEFT route encountered an OLMo Hybrid projection"
+                                )
                             }
                         }
                         available.push(format!("{p}.linear_attn.out_proj"));
@@ -62113,30 +62707,29 @@ impl VulkanTransformer {
                         None,
                     )?);
                 } else {
-                    for (module, linear) in [
-                        (
-                            format!("{p}.self_attn.q_proj"),
-                            layer
-                                .q_proj
-                                .as_mut()
-                                .context("OLMo Hybrid full-attention layer is missing q_proj")?,
-                        ),
-                        (
-                            format!("{p}.self_attn.k_proj"),
-                            layer
-                                .k_proj
-                                .as_mut()
-                                .context("OLMo Hybrid full-attention layer is missing k_proj")?,
-                        ),
-                        (
-                            format!("{p}.self_attn.v_proj"),
-                            layer
-                                .v_proj
-                                .as_mut()
-                                .context("OLMo Hybrid full-attention layer is missing v_proj")?,
-                        ),
-                        (format!("{p}.self_attn.o_proj"), &mut layer.c_proj),
-                    ] {
+                    for (module, linear) in
+                        [
+                            (
+                                format!("{p}.self_attn.q_proj"),
+                                layer.q_proj.as_mut().context(
+                                    "OLMo Hybrid full-attention layer is missing q_proj",
+                                )?,
+                            ),
+                            (
+                                format!("{p}.self_attn.k_proj"),
+                                layer.k_proj.as_mut().context(
+                                    "OLMo Hybrid full-attention layer is missing k_proj",
+                                )?,
+                            ),
+                            (
+                                format!("{p}.self_attn.v_proj"),
+                                layer.v_proj.as_mut().context(
+                                    "OLMo Hybrid full-attention layer is missing v_proj",
+                                )?,
+                            ),
+                            (format!("{p}.self_attn.o_proj"), &mut layer.c_proj),
+                        ]
+                    {
                         attached += usize::from(attach_lora_to_linear(
                             &device, rows, &config, &module, linear, seed, adapter, None,
                         )?);
@@ -64765,7 +65358,9 @@ impl VulkanTransformer {
                                 bail!("Qwen hybrid PEFT export encountered a GLM-5 KDA projection")
                             }
                             VulkanQwenGatedDeltaProjection::OlmoHybrid { .. } => {
-                                bail!("Qwen hybrid PEFT export encountered an OLMo Hybrid projection")
+                                bail!(
+                                    "Qwen hybrid PEFT export encountered an OLMo Hybrid projection"
+                                )
                             }
                         }
                         modules.push((format!("{p}.linear_attn.out_proj"), &layer.c_proj));
@@ -65000,24 +65595,21 @@ impl VulkanTransformer {
                         modules.extend([
                             (
                                 format!("{p}.self_attn.q_proj"),
-                                layer
-                                    .q_proj
-                                    .as_ref()
-                                    .context("OLMo Hybrid full-attention layer is missing q_proj")?,
+                                layer.q_proj.as_ref().context(
+                                    "OLMo Hybrid full-attention layer is missing q_proj",
+                                )?,
                             ),
                             (
                                 format!("{p}.self_attn.k_proj"),
-                                layer
-                                    .k_proj
-                                    .as_ref()
-                                    .context("OLMo Hybrid full-attention layer is missing k_proj")?,
+                                layer.k_proj.as_ref().context(
+                                    "OLMo Hybrid full-attention layer is missing k_proj",
+                                )?,
                             ),
                             (
                                 format!("{p}.self_attn.v_proj"),
-                                layer
-                                    .v_proj
-                                    .as_ref()
-                                    .context("OLMo Hybrid full-attention layer is missing v_proj")?,
+                                layer.v_proj.as_ref().context(
+                                    "OLMo Hybrid full-attention layer is missing v_proj",
+                                )?,
                             ),
                             (format!("{p}.self_attn.o_proj"), &layer.c_proj),
                         ]);
@@ -68425,6 +69017,15 @@ impl VulkanTransformer {
             }
         }
 
+        if config.continuous_batching_config.is_some() {
+            if encoder_hidden_states.is_some() || encoder_attention_masks.is_some() {
+                bail!(
+                    "Vulkan paged continuous batching currently supports decoder-only generation without external encoder context"
+                );
+            }
+            return self.generate_batch_sequences_ids_continuous_paged(prompts, config);
+        }
+
         let stream_width = config.num_return_sequences.max(config.num_beams).max(1) as u64;
         let generation_started = Instant::now();
         prompts
@@ -68450,6 +69051,173 @@ impl VulkanTransformer {
                     encoder_mask,
                 )
                 .map_err(|error| anyhow!("generating batch item {batch_index}: {error:#}"))
+            })
+            .collect()
+    }
+
+    fn generate_batch_sequences_ids_continuous_paged(
+        &self,
+        prompts: &[Vec<u32>],
+        config: &VulkanTransformerGenerationConfig,
+    ) -> Result<Vec<Vec<Vec<u32>>>> {
+        config.validate_supported_generation_mode()?;
+        if !config.uses_paged_kv_cache() {
+            bail!("Vulkan continuous batching requires cache_implementation=\"paged\"");
+        }
+        if !config.use_cache {
+            bail!("Vulkan continuous batching requires use_cache=true");
+        }
+        if config.num_beams != 1 || config.num_return_sequences != 1 {
+            bail!(
+                "Vulkan paged continuous batching currently requires num_beams=1 and num_return_sequences=1"
+            );
+        }
+        if !matches!(
+            config.generation_mode(),
+            VulkanTransformerGenerationMode::GreedySearch | VulkanTransformerGenerationMode::Sample
+        ) {
+            bail!(
+                "Vulkan paged continuous batching currently supports greedy or multinomial sampling generation"
+            );
+        }
+        if prompts.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let max_active = config.continuous_batching_max_requests(prompts.len())?;
+        let stream_width = config.num_return_sequences.max(config.num_beams).max(1) as u64;
+        let generation_started = Instant::now();
+        let mut prepared = Vec::with_capacity(prompts.len());
+        for (batch_index, prompt) in prompts.iter().enumerate() {
+            let mut request_config = config.clone();
+            request_config.continuous_batching_config = None;
+            request_config.specialize_decoder_start_token_for_batch(batch_index, prompts.len())?;
+            request_config.seed = config
+                .seed
+                .wrapping_add((batch_index as u64).wrapping_mul(stream_width));
+            // One scheduler clock governs the whole continuously batched call,
+            // so retain the caller's original max_time budget here instead of
+            // subtracting elapsed time and then measuring from the same start.
+            request_config.max_time = config.max_time;
+            let prepared_prompt = self.prepare_generation_prompt(prompt, &request_config, None)?;
+            self.validate_generation_request(&prepared_prompt, &request_config)
+                .with_context(|| format!("validating continuous batch item {batch_index}"))?;
+            self.validate_generation_encoder_processor_inputs(&request_config, None)
+                .with_context(|| {
+                    format!("validating continuous batch item {batch_index} processors")
+                })?;
+            prepared.push((prepared_prompt, request_config));
+        }
+
+        let initial_pages = prepared
+            .iter()
+            .take(max_active)
+            .map(|(prompt, _)| prompt.len().div_ceil(GENERATION_KV_PAGE_TOKENS))
+            .sum::<usize>()
+            .max(1);
+        let shared_arenas = self.generation_shared_paged_kv_arenas(initial_pages)?;
+        let mut results = vec![None::<Vec<Vec<u32>>>; prompts.len()];
+        let mut active = Vec::<VulkanGenerationContinuousRequest>::with_capacity(max_active);
+        let mut next_request = 0usize;
+
+        while next_request < prepared.len() || !active.is_empty() {
+            while active.len() < max_active && next_request < prepared.len() {
+                let batch_index = next_request;
+                let (prompt, request_config) = &prepared[batch_index];
+                let requested = request_config.effective_max_new_tokens(prompt.len(), self.seq_len);
+                if requested == 0 {
+                    results[batch_index] = Some(vec![Vec::new()]);
+                    next_request += 1;
+                    continue;
+                }
+                let (logits, cache) = self
+                    .generation_prefill_kv_cache_with_policy_and_arenas(
+                        prompt,
+                        true,
+                        Some(&shared_arenas),
+                    )
+                    .with_context(|| format!("prefilling continuous batch item {batch_index}"))?;
+                active.push(VulkanGenerationContinuousRequest {
+                    batch_index,
+                    config: request_config.clone(),
+                    sequence: prompt.clone(),
+                    generated: Vec::with_capacity(requested),
+                    logits,
+                    cache,
+                    requested,
+                });
+                next_request += 1;
+            }
+
+            let mut survivors = Vec::with_capacity(active.len());
+            for mut request in active.drain(..) {
+                let step = request.generated.len();
+                let scores = self.generation_processed_non_beam_scores_with_cfg(
+                    &request.logits,
+                    &request.sequence,
+                    &request.config,
+                    step,
+                    step + 1 == request.requested,
+                    None,
+                    None,
+                )?;
+                let next_token = if request.config.do_sample {
+                    generation_sample_processed_scores(&scores, request.config.seed, step as u64)?
+                } else {
+                    generation_argmax(&scores)?
+                };
+                request.generated.push(next_token);
+                request.sequence.push(next_token);
+                let finished = step + 1 >= request.requested
+                    || request.config.should_stop_sequence(&request.sequence)
+                    || generation_max_time_reached(generation_started, &request.config);
+                if finished {
+                    results[request.batch_index] = Some(vec![request.generated]);
+                    // Dropping `request.cache` here immediately decrements the
+                    // shared arena refcounts, making its pages available to the
+                    // surviving requests before their grouped decode and to the
+                    // next waiting request before the following scheduling round.
+                    continue;
+                }
+                survivors.push(request);
+            }
+            active = survivors;
+
+            if !active.is_empty() {
+                let decode_steps = active
+                    .iter()
+                    .map(|request| {
+                        Ok((
+                            *request
+                                .sequence
+                                .last()
+                                .context("continuous batch survivor has an empty sequence")?,
+                            &request.cache,
+                            request.sequence.len() - 1,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let next_logits = self
+                    .generation_cached_step_logits_continuous_paged(&decode_steps)
+                    .with_context(|| {
+                        format!(
+                            "decoding one continuous paged scheduling round for {} active request(s)",
+                            active.len()
+                        )
+                    })?;
+                for (request, logits) in active.iter_mut().zip(next_logits) {
+                    request.logits = logits;
+                }
+            }
+        }
+
+        results
+            .into_iter()
+            .enumerate()
+            .map(|(batch_index, result)| {
+                result.with_context(|| {
+                    format!("continuous batch item {batch_index} completed without a result")
+                })
             })
             .collect()
     }
@@ -68987,6 +69755,22 @@ impl VulkanTransformer {
                         "static generation max_cache_len {max_cache_len} is smaller than requested sequence length {requested_len}"
                     );
                 }
+            }
+        }
+        if config.uses_paged_kv_cache() {
+            if !self.supports_generation_kv_cache() {
+                bail!(
+                    "cache_implementation=\"paged\" is unavailable for the {:?} generation topology; use the default/contiguous cache for this model",
+                    self.config.architecture
+                );
+            }
+            if !self.layers.iter().any(|layer| {
+                layer.deepseek_v4_attention.is_none() && layer.qwen_gated_delta.is_none()
+            }) {
+                bail!(
+                    "cache_implementation=\"paged\" has no paged K/V attention layers in the {:?} generation graph; use the model's native cache topology instead",
+                    self.config.architecture
+                );
             }
         }
         if let Some(assistant_early_exit) = config.assistant_early_exit {
@@ -69782,81 +70566,165 @@ impl VulkanTransformer {
         &self,
         prefix: &[u32],
     ) -> Result<(Vec<f32>, VulkanGenerationKvCache)> {
-        let logits = self.generation_last_logits(prefix, None, None)?;
-        let layers = self
-            .layers
+        self.generation_prefill_kv_cache_with_policy(prefix, false)
+    }
+
+    fn generation_prefill_kv_cache_with_policy(
+        &self,
+        prefix: &[u32],
+        use_paged_kv: bool,
+    ) -> Result<(Vec<f32>, VulkanGenerationKvCache)> {
+        self.generation_prefill_kv_cache_with_policy_and_arenas(prefix, use_paged_kv, None)
+    }
+
+    fn generation_shared_paged_kv_arenas(
+        &self,
+        initial_pages: usize,
+    ) -> Result<Vec<Option<Arc<VulkanGenerationPagedKvArena>>>> {
+        self.layers
             .iter()
             .map(|layer| {
-                Ok(VulkanGenerationLayerKvCache {
-                    key: GpuBuffer::zeros_f32(
+                if layer.deepseek_v4_attention.is_none() && layer.qwen_gated_delta.is_none() {
+                    VulkanGenerationPagedKvArena::new(
                         &self.device,
-                        self.seq_len
-                            * layer
-                                .deepseek_v4_attention
-                                .as_ref()
-                                .map(|attention| attention.head_dim)
-                                .unwrap_or(layer.key_hidden_size),
-                    )?,
-                    value: GpuBuffer::zeros_f32(
-                        &self.device,
-                        self.seq_len
-                            * layer
-                                .deepseek_v4_attention
-                                .as_ref()
-                                .map(|attention| attention.head_dim)
-                                .unwrap_or(layer.value_hidden_size),
-                    )?,
-                    deepseek_v4_attention_input: layer
-                        .deepseek_v4_attention
-                        .as_ref()
-                        .map(|_| {
-                            GpuBuffer::zeros_f32(
-                                &self.device,
-                                self.seq_len * self.config.hidden_size,
-                            )
-                        })
-                        .transpose()?,
-                    indexer_key: layer
-                        .generation_indexer_cache_width()
-                        .map(|width| GpuBuffer::zeros_f32(&self.device, self.seq_len * width))
-                        .transpose()?,
-                    qwen_gated_delta_conv_state: layer
-                        .qwen_gated_delta
-                        .as_ref()
-                        .map(|gated_delta| {
-                            GpuBuffer::zeros_f32(
-                                &self.device,
-                                gated_delta.generation_conv_state_len(),
-                            )
-                        })
-                        .transpose()?,
-                    qwen_gated_delta_recurrent_state: layer
-                        .qwen_gated_delta
-                        .as_ref()
-                        .map(|gated_delta| {
-                            GpuBuffer::zeros_f32(
-                                &self.device,
-                                gated_delta.generation_recurrent_state_len()?,
-                            )
-                        })
-                        .transpose()?,
-                    qwen4_ple_conv_state: layer
-                        .qwen4_ple
-                        .as_ref()
-                        .map(|ple| -> Result<GpuBuffer> {
-                            GpuBuffer::zeros_f32(
-                                &self.device,
-                                ple.generation_conv_state_len()?.max(1),
-                            )
-                        })
-                        .transpose()?,
-                    qwen4_ple_ngram_history: layer
-                        .qwen4_ple
-                        .as_ref()
-                        .map(|ple| Mutex::new(ple.generation_ngram_history_from_prefix(prefix))),
-                })
+                        layer.key_hidden_size,
+                        layer.value_hidden_size,
+                        initial_pages.max(1),
+                    )
+                    .map(Some)
+                } else {
+                    Ok(None)
+                }
             })
-            .collect::<Result<Vec<_>>>()?;
+            .collect()
+    }
+
+    fn generation_prefill_kv_cache_with_policy_and_arenas(
+        &self,
+        prefix: &[u32],
+        use_paged_kv: bool,
+        shared_paged_arenas: Option<&[Option<Arc<VulkanGenerationPagedKvArena>>]>,
+    ) -> Result<(Vec<f32>, VulkanGenerationKvCache)> {
+        if let Some(arenas) = shared_paged_arenas {
+            if arenas.len() != self.layers.len() {
+                bail!(
+                    "generation shared paged KV arena count {} does not match Transformer layer count {}",
+                    arenas.len(),
+                    self.layers.len()
+                );
+            }
+        }
+        let logits = self.generation_last_logits(prefix, None, None)?;
+        let layers =
+            self.layers
+                .iter()
+                .enumerate()
+                .map(|(layer_index, layer)| {
+                    let paged_kv = if use_paged_kv
+                        && layer.deepseek_v4_attention.is_none()
+                        && layer.qwen_gated_delta.is_none()
+                    {
+                        Some(if let Some(arenas) = shared_paged_arenas {
+                            let arena = arenas[layer_index].as_ref().with_context(|| {
+                                format!(
+                                    "generation shared paged KV arena is missing for layer {layer_index}"
+                                )
+                            })?;
+                            VulkanGenerationPagedKvCache::new_in_arena(
+                                Arc::clone(arena),
+                                self.seq_len,
+                                prefix.len(),
+                            )?
+                        } else {
+                            VulkanGenerationPagedKvCache::new(
+                                &self.device,
+                                layer.key_hidden_size,
+                                layer.value_hidden_size,
+                                self.seq_len,
+                                prefix.len(),
+                            )?
+                        })
+                    } else {
+                        None
+                    };
+                    Ok(VulkanGenerationLayerKvCache {
+                        key: if paged_kv.is_some() {
+                            GpuBuffer::zeros_f32(&self.device, 1)?
+                        } else {
+                            GpuBuffer::zeros_f32(
+                                &self.device,
+                                self.seq_len
+                                    * layer
+                                        .deepseek_v4_attention
+                                        .as_ref()
+                                        .map(|attention| attention.head_dim)
+                                        .unwrap_or(layer.key_hidden_size),
+                            )?
+                        },
+                        value: if paged_kv.is_some() {
+                            GpuBuffer::zeros_f32(&self.device, 1)?
+                        } else {
+                            GpuBuffer::zeros_f32(
+                                &self.device,
+                                self.seq_len
+                                    * layer
+                                        .deepseek_v4_attention
+                                        .as_ref()
+                                        .map(|attention| attention.head_dim)
+                                        .unwrap_or(layer.value_hidden_size),
+                            )?
+                        },
+                        paged_kv,
+                        deepseek_v4_attention_input: layer
+                            .deepseek_v4_attention
+                            .as_ref()
+                            .map(|_| {
+                                GpuBuffer::zeros_f32(
+                                    &self.device,
+                                    self.seq_len * self.config.hidden_size,
+                                )
+                            })
+                            .transpose()?,
+                        indexer_key: layer
+                            .generation_indexer_cache_width()
+                            .map(|width| GpuBuffer::zeros_f32(&self.device, self.seq_len * width))
+                            .transpose()?,
+                        qwen_gated_delta_conv_state: layer
+                            .qwen_gated_delta
+                            .as_ref()
+                            .map(|gated_delta| {
+                                GpuBuffer::zeros_f32(
+                                    &self.device,
+                                    gated_delta.generation_conv_state_len(),
+                                )
+                            })
+                            .transpose()?,
+                        qwen_gated_delta_recurrent_state: layer
+                            .qwen_gated_delta
+                            .as_ref()
+                            .map(|gated_delta| {
+                                GpuBuffer::zeros_f32(
+                                    &self.device,
+                                    gated_delta.generation_recurrent_state_len()?,
+                                )
+                            })
+                            .transpose()?,
+                        qwen4_ple_conv_state: layer
+                            .qwen4_ple
+                            .as_ref()
+                            .map(|ple| -> Result<GpuBuffer> {
+                                GpuBuffer::zeros_f32(
+                                    &self.device,
+                                    ple.generation_conv_state_len()?.max(1),
+                                )
+                            })
+                            .transpose()?,
+                        qwen4_ple_ngram_history: layer.qwen4_ple.as_ref().map(|ple| {
+                            Mutex::new(ple.generation_ngram_history_from_prefix(prefix))
+                        }),
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
         let cache = VulkanGenerationKvCache {
             layers,
             attention_mask: GpuBuffer::zeros_f32(&self.device, self.seq_len)?,
@@ -69896,6 +70764,14 @@ impl VulkanTransformer {
                         .qwen_gated_delta_recurrent_state
                         .as_ref()
                         .context("Qwen Gated DeltaNet prefill cache is missing recurrent state")?,
+                    prefix.len(),
+                )?;
+            } else if let Some(paged) = layer_cache.paged_kv.as_ref() {
+                paged.record_prefill_from_sources(
+                    &mut commands,
+                    layer.generation_attention_key_source(&self.config),
+                    layer.generation_attention_value_source(),
+                    0,
                     prefix.len(),
                 )?;
             } else {
@@ -69952,26 +70828,41 @@ impl VulkanTransformer {
         let layers = self
             .layers
             .iter()
-            .map(|layer| {
+            .zip(source.layers.iter())
+            .map(|(layer, source_layer)| {
+                let paged_kv = source_layer
+                    .paged_kv
+                    .as_ref()
+                    .map(|paged| paged.clone_prefix(prefix_len))
+                    .transpose()?;
                 Ok(VulkanGenerationLayerKvCache {
-                    key: GpuBuffer::zeros_f32(
-                        &self.device,
-                        self.seq_len
-                            * layer
-                                .deepseek_v4_attention
-                                .as_ref()
-                                .map(|attention| attention.head_dim)
-                                .unwrap_or(layer.key_hidden_size),
-                    )?,
-                    value: GpuBuffer::zeros_f32(
-                        &self.device,
-                        self.seq_len
-                            * layer
-                                .deepseek_v4_attention
-                                .as_ref()
-                                .map(|attention| attention.head_dim)
-                                .unwrap_or(layer.value_hidden_size),
-                    )?,
+                    key: if paged_kv.is_some() {
+                        GpuBuffer::zeros_f32(&self.device, 1)?
+                    } else {
+                        GpuBuffer::zeros_f32(
+                            &self.device,
+                            self.seq_len
+                                * layer
+                                    .deepseek_v4_attention
+                                    .as_ref()
+                                    .map(|attention| attention.head_dim)
+                                    .unwrap_or(layer.key_hidden_size),
+                        )?
+                    },
+                    value: if paged_kv.is_some() {
+                        GpuBuffer::zeros_f32(&self.device, 1)?
+                    } else {
+                        GpuBuffer::zeros_f32(
+                            &self.device,
+                            self.seq_len
+                                * layer
+                                    .deepseek_v4_attention
+                                    .as_ref()
+                                    .map(|attention| attention.head_dim)
+                                    .unwrap_or(layer.value_hidden_size),
+                        )?
+                    },
+                    paged_kv,
                     deepseek_v4_attention_input: layer
                         .deepseek_v4_attention
                         .as_ref()
@@ -70055,14 +70946,26 @@ impl VulkanTransformer {
             let value_len = prefix_len
                 .checked_mul(value_cache_width)
                 .context("generation value-cache clone length overflow")?;
-            commands.copy_f32_range(&source_layer.key, 0, &destination_layer.key, 0, key_len)?;
-            commands.copy_f32_range(
-                &source_layer.value,
-                0,
-                &destination_layer.value,
-                0,
-                value_len,
-            )?;
+            match (&source_layer.paged_kv, &destination_layer.paged_kv) {
+                (Some(_), Some(_)) => {}
+                (None, None) => {
+                    commands.copy_f32_range(
+                        &source_layer.key,
+                        0,
+                        &destination_layer.key,
+                        0,
+                        key_len,
+                    )?;
+                    commands.copy_f32_range(
+                        &source_layer.value,
+                        0,
+                        &destination_layer.value,
+                        0,
+                        value_len,
+                    )?;
+                }
+                _ => bail!("generation paged KV cache topology does not match Transformer layer"),
+            }
             match (
                 &source_layer.deepseek_v4_attention_input,
                 &destination_layer.deepseek_v4_attention_input,
@@ -70080,7 +70983,9 @@ impl VulkanTransformer {
                     )?;
                 }
                 (None, None) => {}
-                _ => bail!("DeepSeek-V4 generation cache topology does not match Transformer layer"),
+                _ => {
+                    bail!("DeepSeek-V4 generation cache topology does not match Transformer layer")
+                }
             }
             match (
                 model_layer.generation_indexer_cache_width(),
@@ -70186,12 +71091,12 @@ impl VulkanTransformer {
         Ok(cache)
     }
 
-    fn generation_cached_step_logits(
+    fn prepare_generation_cached_step(
         &self,
         token: u32,
         cache: &VulkanGenerationKvCache,
         position: usize,
-    ) -> Result<Vec<f32>> {
+    ) -> Result<()> {
         if position >= self.seq_len {
             bail!(
                 "generation cache position {position} is outside graph context {}",
@@ -70208,6 +71113,27 @@ impl VulkanTransformer {
             );
         }
 
+        // Resolve the logical destination page before recording the layer
+        // command stream. This is where beam-prefix sharing turns into COW:
+        // only a shared tail page is duplicated, while fully shared prefix
+        // pages remain aliased across hypotheses. Any arena growth completes
+        // before the main step batch captures buffer descriptors.
+        for layer_cache in &cache.layers {
+            if let Some(paged) = layer_cache.paged_kv.as_ref() {
+                paged.prepare_write(position)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn record_generation_cached_step_logits_prepared(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        token: u32,
+        cache: &VulkanGenerationKvCache,
+        position: usize,
+    ) -> Result<()> {
+        let mut commands = commands;
         let mut eval_config = self.config.clone();
         eval_config.attention_dropout = 0.0;
         eval_config.attention_output_dropout = 0.0;
@@ -70215,7 +71141,6 @@ impl VulkanTransformer {
         eval_config.activation_dropout = 0.0;
         eval_config.embedding_dropout = 0.0;
 
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
         commands.upload_u32(&self.token_ids, &[token])?;
         let visible_mask = vec![1.0f32; position + 1];
         commands.upload_f32(&cache.attention_mask, &visible_mask)?;
@@ -70271,11 +71196,7 @@ impl VulkanTransformer {
                 &mut commands,
                 &[&self.input_hidden, hyper],
                 bytemuck::bytes_of(&push),
-                [
-                    div_ceil_u32(eval_config.hidden_size * hc_mult, 256),
-                    1,
-                    1,
-                ],
+                [div_ceil_u32(eval_config.hidden_size * hc_mult, 256), 1, 1],
             )?;
             Some(hyper)
         } else {
@@ -70507,8 +71428,93 @@ impl VulkanTransformer {
                 [div_ceil_u32(eval_config.vocab_size, 256), 1, 1],
             )?;
         }
+        Ok(())
+    }
+
+    fn generation_cached_step_logits(
+        &self,
+        token: u32,
+        cache: &VulkanGenerationKvCache,
+        position: usize,
+    ) -> Result<Vec<f32>> {
+        self.prepare_generation_cached_step(token, cache, position)?;
+        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        self.record_generation_cached_step_logits_prepared(&mut commands, token, cache, position)?;
         commands.submit()?;
-        self.logits.read_f32(eval_config.vocab_size)
+        self.logits.read_f32(self.config.vocab_size)
+    }
+
+    fn generation_cached_step_logits_continuous_paged(
+        &self,
+        steps: &[(u32, &VulkanGenerationKvCache, usize)],
+    ) -> Result<Vec<Vec<f32>>> {
+        if steps.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let first_cache = steps[0].1;
+        for (layer_index, first_layer) in first_cache.layers.iter().enumerate() {
+            let Some(first_paged) = first_layer.paged_kv.as_ref() else {
+                continue;
+            };
+            for (_, cache, _) in steps.iter().skip(1) {
+                let paged = cache
+                    .layers
+                    .get(layer_index)
+                    .and_then(|layer| layer.paged_kv.as_ref())
+                    .with_context(|| {
+                        format!("continuous paged KV batch is missing paged layer {layer_index}")
+                    })?;
+                if !Arc::ptr_eq(&first_paged.arena, &paged.arena) {
+                    bail!(
+                        "continuous paged KV layer {layer_index} does not share one global physical arena"
+                    );
+                }
+            }
+        }
+        if !first_cache
+            .layers
+            .iter()
+            .any(|layer| layer.paged_kv.is_some())
+        {
+            bail!("continuous paged KV decode has no paged K/V attention layers");
+        }
+
+        // Resolve every logical destination before recording any descriptors.
+        // A prepare may grow a shared arena, so all growth must complete before
+        // the command batch captures the arena buffers used by every request.
+        for &(token, cache, position) in steps {
+            self.prepare_generation_cached_step(token, cache, position)?;
+        }
+
+        let vocab_size = self.config.vocab_size;
+        let logits_len = vocab_size
+            .checked_mul(steps.len())
+            .context("continuous paged KV logits buffer size overflow")?;
+        let batched_logits = GpuBuffer::zeros_f32(&self.device, logits_len)?;
+        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        for (request_index, &(token, cache, position)) in steps.iter().enumerate() {
+            self.record_generation_cached_step_logits_prepared(
+                &mut commands,
+                token,
+                cache,
+                position,
+            )?;
+            commands.copy_f32_range(
+                &self.logits,
+                0,
+                &batched_logits,
+                request_index * vocab_size,
+                vocab_size,
+            )?;
+        }
+        commands.submit()?;
+
+        let flat = batched_logits.read_f32(logits_len)?;
+        Ok(flat
+            .chunks_exact(vocab_size)
+            .map(|logits| logits.to_vec())
+            .collect())
     }
 
     fn generate_single_output_full_prefix_with_context(
@@ -71700,7 +72706,8 @@ impl VulkanTransformer {
         if requested == 0 {
             return Ok(Vec::new());
         }
-        let (mut logits, cache) = self.generation_prefill_kv_cache(prompt)?;
+        let (mut logits, cache) =
+            self.generation_prefill_kv_cache_with_policy(prompt, config.uses_paged_kv_cache())?;
         let mut sequence = prompt.to_vec();
         let mut generated = Vec::with_capacity(requested);
         let generation_started = Instant::now();
@@ -72008,7 +73015,8 @@ impl VulkanTransformer {
             return Ok(vec![Vec::new(); config.num_return_sequences]);
         }
         let constraints = generation_force_constraints_from_config(config)?;
-        let (logits, cache) = self.generation_prefill_kv_cache(prompt)?;
+        let (logits, cache) =
+            self.generation_prefill_kv_cache_with_policy(prompt, config.uses_paged_kv_cache())?;
         let mut active = vec![VulkanGenerationCachedBeam {
             beam: VulkanGenerationBeam {
                 tokens: prompt.to_vec(),
@@ -72295,7 +73303,8 @@ impl VulkanTransformer {
             .context("group beam search requires num_beam_groups > 1")?;
         let group_width = config.num_beams / num_groups;
         let diversity_penalty = config.diversity_penalty.unwrap_or(0.0);
-        let (initial_logits, initial_cache) = self.generation_prefill_kv_cache(prompt)?;
+        let (initial_logits, initial_cache) =
+            self.generation_prefill_kv_cache_with_policy(prompt, config.uses_paged_kv_cache())?;
         let mut original_cache = Some(initial_cache);
         let mut active_groups = Vec::with_capacity(num_groups);
         for group_index in 0..num_groups {
@@ -72492,7 +73501,8 @@ impl VulkanTransformer {
         if requested == 0 {
             return Ok(vec![Vec::new(); config.num_return_sequences]);
         }
-        let (logits, cache) = self.generation_prefill_kv_cache(prompt)?;
+        let (logits, cache) =
+            self.generation_prefill_kv_cache_with_policy(prompt, config.uses_paged_kv_cache())?;
         let mut active = vec![VulkanGenerationCachedBeam {
             beam: VulkanGenerationBeam {
                 tokens: prompt.to_vec(),
@@ -81033,9 +82043,7 @@ impl VulkanTransformer {
                     || indexer.weights_proj.output_dim != indexer.num_heads
                     || indexer.k_norm.dim != indexer.head_dim
                 {
-                    bail!(
-                        "DSA indexer geometry is inconsistent while exporting layer {index}"
-                    );
+                    bail!("DSA indexer geometry is inconsistent while exporting layer {index}");
                 }
                 if indexer.wq_b.has_bias
                     || indexer.wk.has_bias
@@ -82826,9 +83834,7 @@ impl VulkanTransformer {
         Ok(values)
     }
 
-    fn t5_gemma_parameter_tensors(
-        &self,
-    ) -> Result<BTreeMap<String, (Vec<usize>, Vec<f32>)>> {
+    fn t5_gemma_parameter_tensors(&self) -> Result<BTreeMap<String, (Vec<usize>, Vec<f32>)>> {
         if self.config.architecture != VulkanTransformerArchitecture::T5Gemma {
             bail!("T5Gemma parameter export requires a T5Gemma graph");
         }
@@ -84010,14 +85016,10 @@ mod tests {
                 norm_eps: 1.0e-6,
             },
         )?);
-        graph.deepseek_v4_initial_hyper = Some(GpuBuffer::zeros_f32(
-            &device,
-            rows * hidden * hc_mult,
-        )?);
-        graph.deepseek_v4_grad_final_hyper = Some(GpuBuffer::zeros_f32(
-            &device,
-            rows * hidden * hc_mult,
-        )?);
+        graph.deepseek_v4_initial_hyper =
+            Some(GpuBuffer::zeros_f32(&device, rows * hidden * hc_mult)?);
+        graph.deepseek_v4_grad_final_hyper =
+            Some(GpuBuffer::zeros_f32(&device, rows * hidden * hc_mult)?);
         Ok(graph)
     }
 
@@ -89115,8 +90117,7 @@ mod tests {
         assert_eq!(encoder_config.num_key_value_heads, 1);
         assert!(!encoder_config.uses_causal_attention());
         assert_eq!(encoder_config.attention_windows, vec![0]);
-        let decoder_component_config =
-            t5_gemma_component_config_for_package(&test_dir, "decoder")?;
+        let decoder_component_config = t5_gemma_component_config_for_package(&test_dir, "decoder")?;
         assert_eq!(decoder_component_config.hidden_size, 16);
         assert_eq!(decoder_component_config.num_heads, 4);
         assert_eq!(decoder_component_config.num_key_value_heads, 2);
@@ -89130,11 +90131,7 @@ mod tests {
         };
         let mut tensors = Vec::<(String, Vec<usize>, Vec<f32>)>::new();
         let mut add = |name: String, shape: Vec<usize>, base: f32| {
-            tensors.push((
-                name,
-                shape.clone(),
-                generated(shape.iter().product(), base),
-            ));
+            tensors.push((name, shape.clone(), generated(shape.iter().product(), base)));
         };
 
         for (component, config, base) in [
@@ -89192,21 +90189,9 @@ mod tests {
                 vec![d],
                 base + 8.0,
             );
-            add(
-                format!("{p}.mlp.gate_proj.weight"),
-                vec![i, d],
-                base + 9.0,
-            );
-            add(
-                format!("{p}.mlp.up_proj.weight"),
-                vec![i, d],
-                base + 10.0,
-            );
-            add(
-                format!("{p}.mlp.down_proj.weight"),
-                vec![d, i],
-                base + 11.0,
-            );
+            add(format!("{p}.mlp.gate_proj.weight"), vec![i, d], base + 9.0);
+            add(format!("{p}.mlp.up_proj.weight"), vec![i, d], base + 10.0);
+            add(format!("{p}.mlp.down_proj.weight"), vec![d, i], base + 11.0);
             add(format!("{prefix}.norm.weight"), vec![d], base + 12.0);
         }
 
@@ -89282,12 +90267,8 @@ mod tests {
             encoder_host.layers[0].q_proj.as_ref().unwrap().weight[0],
             4.0
         );
-        let decoder_host = load_t5_gemma_component_weights(
-            &test_dir,
-            &decoder_component_config,
-            "decoder",
-            true,
-        )?;
+        let decoder_host =
+            load_t5_gemma_component_weights(&test_dir, &decoder_component_config, "decoder", true)?;
         assert!(decoder_host.has_lm_head_alias);
         assert!(decoder_host.lm_head.is_none());
         assert_eq!(
@@ -100982,6 +101963,7 @@ mod tests {
         let cache = VulkanGenerationLayerKvCache {
             key: GpuBuffer::zeros_f32(&device, 1)?,
             value: GpuBuffer::zeros_f32(&device, 1)?,
+            paged_kv: None,
             deepseek_v4_attention_input: None,
             indexer_key: Some(GpuBuffer::zeros_f32(&device, seq_len * head_dim)?),
             qwen_gated_delta_conv_state: None,
@@ -103969,6 +104951,345 @@ mod tests {
     }
 
     #[test]
+    fn paged_generation_kv_shares_prefix_cows_tail_and_reuses_freed_pages() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let key_width = 2usize;
+        let value_width = 3usize;
+        let prefix_len = 5usize;
+        let cache = VulkanGenerationPagedKvCache::new(
+            &device,
+            key_width,
+            value_width,
+            GENERATION_KV_PAGE_TOKENS * 3,
+            prefix_len,
+        )?;
+
+        // Seed the first (partially occupied) logical page exactly as prompt
+        // prefill does. The unused rows remain zero so we can later prove that
+        // a child write after COW does not leak back into the parent page.
+        let prefix_keys = (0..prefix_len * key_width)
+            .map(|index| index as f32 + 0.25)
+            .collect::<Vec<_>>();
+        let prefix_values = (0..prefix_len * value_width)
+            .map(|index| -(index as f32) - 0.5)
+            .collect::<Vec<_>>();
+        let key_source = GpuBuffer::from_f32(&device, &prefix_keys)?;
+        let value_source = GpuBuffer::from_f32(&device, &prefix_values)?;
+        let mut commands = vulkan::ComputeBatch::new(&device)?;
+        cache.record_prefill_from_sources(
+            &mut commands,
+            &key_source,
+            &value_source,
+            0,
+            prefix_len,
+        )?;
+        commands.submit()?;
+
+        let child = cache.clone_prefix(prefix_len)?;
+        {
+            let arena = cache
+                .arena
+                .state
+                .lock()
+                .map_err(|_| anyhow!("generation paged KV test arena mutex is poisoned"))?;
+            assert_eq!(arena.page_refcounts, vec![2]);
+        }
+
+        // Writing into a shared partial page must allocate a private page and
+        // copy the existing prefix before the new token is stored.
+        child.prepare_write(prefix_len)?;
+        let parent_page = {
+            let table = cache
+                .table
+                .lock()
+                .map_err(|_| anyhow!("generation paged KV test parent table mutex is poisoned"))?;
+            table.logical_to_physical[0] as usize
+        };
+        let child_page = {
+            let table = child
+                .table
+                .lock()
+                .map_err(|_| anyhow!("generation paged KV test child table mutex is poisoned"))?;
+            table.logical_to_physical[0] as usize
+        };
+        assert_ne!(parent_page, child_page);
+        {
+            let arena = cache
+                .arena
+                .state
+                .lock()
+                .map_err(|_| anyhow!("generation paged KV test arena mutex is poisoned"))?;
+            assert_eq!(arena.page_refcounts[parent_page], 1);
+            assert_eq!(arena.page_refcounts[child_page], 1);
+            assert_eq!(arena.page_refcounts.len(), 2);
+
+            let key_values = arena
+                .key
+                .read_f32(arena.page_refcounts.len() * GENERATION_KV_PAGE_TOKENS * key_width)?;
+            let value_values = arena
+                .value
+                .read_f32(arena.page_refcounts.len() * GENERATION_KV_PAGE_TOKENS * value_width)?;
+            for row in 0..prefix_len {
+                let parent_key = (parent_page * GENERATION_KV_PAGE_TOKENS + row) * key_width;
+                let child_key = (child_page * GENERATION_KV_PAGE_TOKENS + row) * key_width;
+                assert_eq!(
+                    &key_values[parent_key..parent_key + key_width],
+                    &key_values[child_key..child_key + key_width]
+                );
+                let parent_value = (parent_page * GENERATION_KV_PAGE_TOKENS + row) * value_width;
+                let child_value = (child_page * GENERATION_KV_PAGE_TOKENS + row) * value_width;
+                assert_eq!(
+                    &value_values[parent_value..parent_value + value_width],
+                    &value_values[child_value..child_value + value_width]
+                );
+            }
+        }
+
+        let child_snapshot = child.snapshot_for_position(prefix_len)?;
+        let child_key_token = [901.25_f32, -902.5];
+        let child_value_token = [777.0_f32, -778.0, 779.5];
+        let key_source = GpuBuffer::from_f32(&device, &child_key_token)?;
+        let value_source = GpuBuffer::from_f32(&device, &child_value_token)?;
+        let mut commands = vulkan::ComputeBatch::new(&device)?;
+        commands.copy_f32_range(
+            &key_source,
+            0,
+            &child_snapshot.key,
+            child_snapshot.key_write_offsets[0],
+            key_width,
+        )?;
+        commands.copy_f32_range(
+            &value_source,
+            0,
+            &child_snapshot.value,
+            child_snapshot.value_write_offsets[0],
+            value_width,
+        )?;
+        commands.submit()?;
+
+        {
+            let arena = cache
+                .arena
+                .state
+                .lock()
+                .map_err(|_| anyhow!("generation paged KV test arena mutex is poisoned"))?;
+            let key_values = arena
+                .key
+                .read_f32(arena.page_refcounts.len() * GENERATION_KV_PAGE_TOKENS * key_width)?;
+            let value_values = arena
+                .value
+                .read_f32(arena.page_refcounts.len() * GENERATION_KV_PAGE_TOKENS * value_width)?;
+            let parent_key = (parent_page * GENERATION_KV_PAGE_TOKENS + prefix_len) * key_width;
+            let child_key = (child_page * GENERATION_KV_PAGE_TOKENS + prefix_len) * key_width;
+            assert_eq!(&key_values[parent_key..parent_key + key_width], &[0.0, 0.0]);
+            assert_eq!(
+                &key_values[child_key..child_key + key_width],
+                &child_key_token
+            );
+            let parent_value = (parent_page * GENERATION_KV_PAGE_TOKENS + prefix_len) * value_width;
+            let child_value = (child_page * GENERATION_KV_PAGE_TOKENS + prefix_len) * value_width;
+            assert_eq!(
+                &value_values[parent_value..parent_value + value_width],
+                &[0.0, 0.0, 0.0]
+            );
+            assert_eq!(
+                &value_values[child_value..child_value + value_width],
+                &child_value_token
+            );
+        }
+
+        // Dropping the child releases its private page. The parent should be
+        // able to allocate the next logical page from that free list without
+        // growing the physical arena again.
+        drop(child);
+        let pages_before_reuse = cache
+            .arena
+            .state
+            .lock()
+            .map_err(|_| anyhow!("generation paged KV test arena mutex is poisoned"))?
+            .page_refcounts
+            .len();
+        cache.prepare_write(GENERATION_KV_PAGE_TOKENS)?;
+        let arena = cache
+            .arena
+            .state
+            .lock()
+            .map_err(|_| anyhow!("generation paged KV test arena mutex is poisoned"))?;
+        assert_eq!(arena.page_refcounts.len(), pages_before_reuse);
+        assert_eq!(
+            arena
+                .page_refcounts
+                .iter()
+                .filter(|&&count| count != 0)
+                .count(),
+            2
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn paged_attention_matches_transformers_eager_math_with_gqa_and_sink() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let kernels = TransformerKernels::new(&device)?;
+
+        // Match the reference contract in Transformers
+        // integrations/eager_paged.py, but deliberately scramble physical
+        // pages so a contiguous K/V implementation cannot pass by accident.
+        let page_size = 2usize;
+        let logical_tokens = 5usize;
+        let num_heads = 4usize;
+        let num_key_value_heads = 2usize;
+        let qk_head_dim = 2usize;
+        let value_head_dim = 1usize;
+        let query_hidden_size = num_heads * qk_head_dim;
+        let key_hidden_size = num_key_value_heads * qk_head_dim;
+        let value_hidden_size = num_key_value_heads * value_head_dim;
+        let page_table_values = [2_u32, 0, 1];
+
+        let query_values = [0.8_f32, -0.2, -0.1, 0.6, 0.4, 0.9, -0.7, 0.3];
+        let logical_keys = [
+            0.1_f32, 0.2, -0.3, 0.4, 0.5, -0.1, 0.2, 0.7, -0.4, 0.3, 0.8, -0.2, 0.6, 0.5, -0.5,
+            -0.6, -0.2, 0.9, 0.1, 0.4,
+        ];
+        let logical_values = [
+            0.25_f32, -0.50, 0.75, 0.10, -0.30, 0.90, 0.60, -0.20, 0.40, 0.80,
+        ];
+        let key_mask_values = [1.0_f32, 1.0, 0.0, 1.0, 1.0];
+        let sink_values = [0.05_f32, -0.10, 0.20, 0.0];
+        let scale = 0.7_f32;
+
+        let physical_rows = page_table_values.len() * page_size;
+        let mut physical_keys = vec![77.0_f32; physical_rows * key_hidden_size];
+        let mut physical_values = vec![-55.0_f32; physical_rows * value_hidden_size];
+        for logical_row in 0..logical_tokens {
+            let logical_page = logical_row / page_size;
+            let within_page = logical_row % page_size;
+            let physical_row = page_table_values[logical_page] as usize * page_size + within_page;
+            physical_keys[physical_row * key_hidden_size..(physical_row + 1) * key_hidden_size]
+                .copy_from_slice(
+                    &logical_keys
+                        [logical_row * key_hidden_size..(logical_row + 1) * key_hidden_size],
+                );
+            physical_values
+                [physical_row * value_hidden_size..(physical_row + 1) * value_hidden_size]
+                .copy_from_slice(
+                    &logical_values
+                        [logical_row * value_hidden_size..(logical_row + 1) * value_hidden_size],
+                );
+        }
+
+        let query = GpuBuffer::from_f32(&device, &query_values)?;
+        let key = GpuBuffer::from_f32(&device, &physical_keys)?;
+        let value = GpuBuffer::from_f32(&device, &physical_values)?;
+        let query_mask = GpuBuffer::from_f32(&device, &[1.0])?;
+        let key_mask = GpuBuffer::from_f32(&device, &key_mask_values)?;
+        let dummy = GpuBuffer::zeros_f32(&device, 1)?;
+        let sink = GpuBuffer::from_f32(&device, &sink_values)?;
+        let page_table = GpuBuffer::from_u32(&device, &page_table_values)?;
+        let output = GpuBuffer::zeros_f32(&device, num_heads * value_head_dim)?;
+        let push = AttentionPush {
+            batch_size: 1,
+            query_seq_len: 1,
+            key_value_seq_len: logical_tokens as u32,
+            query_hidden_size: query_hidden_size as u32,
+            value_hidden_size: value_hidden_size as u32,
+            num_heads: num_heads as u32,
+            num_key_value_heads: num_key_value_heads as u32,
+            window_size: 0,
+            scale,
+            value_scale: 1.0,
+            softcap: 0.0,
+            alibi_mode: 0,
+            alibi_bias_max: 0.0,
+            dropout_p: 0.0,
+            rng_step: 0,
+            rng_site: 0,
+            rng_seed: 0,
+            has_sink: 1,
+            causal: 1,
+            relative_bias_mode: 0,
+            relative_bias_num_buckets: 0,
+            relative_bias_max_distance: 0,
+            query_position_offset: (logical_tokens - 1) as u32,
+            has_sparse_mask: 0,
+            compressed_key_count: 0,
+            compressed_key_rate: 0,
+            paged_kv: 1,
+            kv_page_size: page_size as u32,
+            kv_page_table_stride: page_table_values.len() as u32,
+        };
+        let mut commands = vulkan::ComputeBatch::new(&device)?;
+        kernels.attention_forward.record_dispatch(
+            &mut commands,
+            &[
+                &query,
+                &key,
+                &value,
+                &query_mask,
+                &key_mask,
+                &dummy,
+                &output,
+                &sink,
+                &dummy,
+                &dummy,
+                &page_table,
+            ],
+            bytemuck::bytes_of(&push),
+            [1, num_heads as u32, 1],
+        )?;
+        commands.submit()?;
+
+        // Transformers eager_paged repeats KV heads by group, computes QK *
+        // scaling, adds the mask, includes the per-head sink in the FP32
+        // softmax normalization, drops the sink probability from the value
+        // matmul, then multiplies the remaining probabilities by V.
+        let mut expected = vec![0.0_f32; num_heads * value_head_dim];
+        let heads_per_kv = num_heads / num_key_value_heads;
+        for head in 0..num_heads {
+            let kv_head = head / heads_per_kv;
+            let q = &query_values[head * qk_head_dim..(head + 1) * qk_head_dim];
+            let mut scores = Vec::new();
+            let mut visible_keys = Vec::new();
+            for logical_row in 0..logical_tokens {
+                if key_mask_values[logical_row] <= 0.0 {
+                    continue;
+                }
+                let k_base = logical_row * key_hidden_size + kv_head * qk_head_dim;
+                let score = (0..qk_head_dim)
+                    .map(|channel| q[channel] * logical_keys[k_base + channel])
+                    .sum::<f32>()
+                    * scale;
+                scores.push(score);
+                visible_keys.push(logical_row);
+            }
+            let max_score = scores.iter().copied().fold(sink_values[head], f32::max);
+            let denominator = (sink_values[head] - max_score).exp()
+                + scores
+                    .iter()
+                    .map(|score| (*score - max_score).exp())
+                    .sum::<f32>();
+            for (&logical_row, &score) in visible_keys.iter().zip(&scores) {
+                let probability = (score - max_score).exp() / denominator;
+                expected[head] += probability
+                    * logical_values[logical_row * value_hidden_size + kv_head * value_head_dim];
+            }
+        }
+
+        let actual = output.read_f32(expected.len())?;
+        for (index, (&actual, &expected)) in actual.iter().zip(&expected).enumerate() {
+            assert!(
+                (actual - expected).abs() <= 3.0e-6,
+                "paged attention differs from Transformers eager math at output {index}: actual={actual} expected={expected}"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
     fn deepseek_v4_hca_attention_applies_local_window_and_compressed_causality() -> Result<()> {
         let Ok(device) = VulkanDevice::new() else {
             return Ok(());
@@ -104021,6 +105342,9 @@ mod tests {
             has_sparse_mask: 0,
             compressed_key_count: compressed_seq_len as u32,
             compressed_key_rate: compress_rate as u32,
+            paged_kv: 0,
+            kv_page_size: 1,
+            kv_page_table_stride: 1,
         };
         let mut commands = vulkan::ComputeBatch::new(&device)?;
         kernels.deepseek_v4_kv_concat.record_dispatch(
@@ -104032,7 +105356,8 @@ mod tests {
         kernels.attention_forward.record_dispatch(
             &mut commands,
             &[
-                &query, &combined, &combined, &mask, &mask, &dummy, &output, &dummy, &dummy, &dummy,
+                &query, &combined, &combined, &mask, &mask, &dummy, &output, &dummy, &dummy,
+                &dummy, &dummy,
             ],
             bytemuck::bytes_of(&attention_push),
             [seq_len as u32, 1, 1],
@@ -105967,7 +107292,10 @@ mod tests {
 
         let mla = load_mla_attentions(&output_dir, &graph.config)?;
         assert_eq!(mla.len(), graph.config.num_layers);
-        assert!((mla[0].q_a_proj.as_ref().context("missing q_a_proj")?.weight[0] - 0.04).abs() <= f32::EPSILON);
+        assert!(
+            (mla[0].q_a_proj.as_ref().context("missing q_a_proj")?.weight[0] - 0.04).abs()
+                <= f32::EPSILON
+        );
         assert!((mla[0].kv_a_proj.weight[0] - 0.07).abs() <= f32::EPSILON);
         assert!((mla[0].kv_b_proj.weight[0] - 0.09).abs() <= f32::EPSILON);
 
@@ -105978,7 +107306,10 @@ mod tests {
             .shared_expert
             .as_ref()
             .context("reloaded Mistral 4 package lost its shared expert")?;
-        assert!((shared.gate.as_ref().context("missing shared gate")?.weight[0] - 0.22).abs() <= f32::EPSILON);
+        assert!(
+            (shared.gate.as_ref().context("missing shared gate")?.weight[0] - 0.22).abs()
+                <= f32::EPSILON
+        );
         assert!((shared.up.weight[0] - 0.23).abs() <= f32::EPSILON);
         assert!((shared.down.weight[0] - 0.24).abs() <= f32::EPSILON);
 
@@ -107948,6 +109279,7 @@ mod tests {
         let cache = VulkanGenerationLayerKvCache {
             key: GpuBuffer::zeros_f32(&device, 1)?,
             value: GpuBuffer::zeros_f32(&device, 1)?,
+            paged_kv: None,
             deepseek_v4_attention_input: None,
             indexer_key: Some(GpuBuffer::zeros_f32(&device, seq_len * head_dim)?),
             qwen_gated_delta_conv_state: None,
@@ -108189,13 +109521,9 @@ mod tests {
             "k_norm.bias",
             "weights_proj.weight",
         ] {
-            assert!(expected.contains_key(&format!(
-                "model.layers.0.self_attn.indexer.{suffix}"
-            )));
+            assert!(expected.contains_key(&format!("model.layers.0.self_attn.indexer.{suffix}")));
             assert!(
-                !expected.contains_key(&format!(
-                    "model.layers.1.self_attn.indexer.{suffix}"
-                )),
+                !expected.contains_key(&format!("model.layers.1.self_attn.indexer.{suffix}")),
                 "shared GLM-MoE-DSA layer unexpectedly exported {suffix}"
             );
         }
@@ -110500,8 +111828,7 @@ mod tests {
     }
 
     #[test]
-    fn deepseek_v4_generation_kv_cache_matches_full_prefix_logits_for_csa_hca_mhc(
-    ) -> Result<()> {
+    fn deepseek_v4_generation_kv_cache_matches_full_prefix_logits_for_csa_hca_mhc() -> Result<()> {
         let Ok(device) = VulkanDevice::new() else {
             return Ok(());
         };
@@ -110864,7 +112191,10 @@ mod tests {
                 .qwen4_ple
                 .as_ref()
                 .context("tiny Qwen4-Exp graph lost PLE")?;
-            (ple.embedding_name.clone(), ple.embedding_source.shape.clone())
+            (
+                ple.embedding_name.clone(),
+                ple.embedding_source.shape.clone(),
+            )
         };
         let ple_len = ple_shape
             .iter()
@@ -111503,14 +112833,8 @@ mod tests {
                 "model.layers.0.self_attn.indexer.k_proj.weight",
                 vec![4, 16],
             ),
-            (
-                "model.layers.0.self_attn.indexer.q_norm.weight",
-                vec![4],
-            ),
-            (
-                "model.layers.0.self_attn.indexer.k_norm.weight",
-                vec![4],
-            ),
+            ("model.layers.0.self_attn.indexer.q_norm.weight", vec![4]),
+            ("model.layers.0.self_attn.indexer.k_norm.weight", vec![4]),
         ] {
             assert_eq!(
                 expected
@@ -115106,6 +116430,14 @@ mod tests {
             ),
             (
                 VulkanTransformerGenerationConfig {
+                    use_cache: false,
+                    cache_implementation: Some("paged".to_owned()),
+                    ..VulkanTransformerGenerationConfig::default()
+                },
+                "use_cache",
+            ),
+            (
+                VulkanTransformerGenerationConfig {
                     token_healing: true,
                     ..VulkanTransformerGenerationConfig::default()
                 },
@@ -115125,6 +116457,53 @@ mod tests {
                 .to_string();
             assert!(error.contains(expected), "unexpected error: {error}");
         }
+        Ok(())
+    }
+
+    #[test]
+    fn continuous_batching_config_fails_closed_for_unimplemented_hf_scheduler_knobs() -> Result<()>
+    {
+        let supported = VulkanTransformerGenerationConfig {
+            cache_implementation: Some("paged".to_owned()),
+            continuous_batching_config: Some(serde_json::json!({
+                "block_size": GENERATION_KV_PAGE_TOKENS,
+                "max_requests_per_batch": 4
+            })),
+            ..VulkanTransformerGenerationConfig::default()
+        };
+        supported.validate_supported_generation_mode()?;
+
+        let mut unsupported = supported.clone();
+        unsupported.continuous_batching_config = Some(serde_json::json!({
+            "block_size": GENERATION_KV_PAGE_TOKENS,
+            "scheduler_type": "priority"
+        }));
+        let error = unsupported
+            .validate_supported_generation_mode()
+            .expect_err("unsupported HF scheduler knobs must fail closed")
+            .to_string();
+        assert!(
+            error.contains("scheduler_type"),
+            "unexpected error: {error}"
+        );
+        assert!(
+            error.contains("not implemented"),
+            "unexpected error: {error}"
+        );
+
+        let mut wrong_block_size = supported;
+        wrong_block_size.continuous_batching_config = Some(serde_json::json!({
+            "block_size": 256
+        }));
+        let error = wrong_block_size
+            .validate_supported_generation_mode()
+            .expect_err("HF's default 256-token block size must not be silently reinterpreted")
+            .to_string();
+        assert!(
+            error.contains("block_size=256"),
+            "unexpected error: {error}"
+        );
+        assert!(error.contains("block_size=16"), "unexpected error: {error}");
         Ok(())
     }
 
@@ -115288,6 +116667,7 @@ mod tests {
             "hybrid_chunked",
             "offloaded_hybrid",
             "offloaded_hybrid_chunked",
+            "paged",
         ] {
             let config = VulkanTransformerGenerationConfig {
                 cache_implementation: Some(cache_implementation.to_owned()),
@@ -115311,15 +116691,6 @@ mod tests {
             );
         }
 
-        let paged = VulkanTransformerGenerationConfig {
-            cache_implementation: Some("paged".to_owned()),
-            ..VulkanTransformerGenerationConfig::default()
-        };
-        assert!(paged
-            .validate_supported_generation_mode()
-            .unwrap_err()
-            .to_string()
-            .contains("paged"));
         Ok(())
     }
 
@@ -118183,6 +119554,44 @@ mod tests {
     }
 
     #[test]
+    fn gpt2_continuous_paged_batch_matches_independent_paged_requests() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let graph = tiny_gpt2_vulkan_graph(device)?;
+        let prompts = vec![vec![3_u32, 7, 11], vec![5_u32, 9], vec![2_u32, 4, 6, 8]];
+        let config = VulkanTransformerGenerationConfig {
+            max_new_tokens: Some(3),
+            do_sample: true,
+            top_k: 0,
+            seed: 0x2026_0917,
+            cache_implementation: Some("paged".to_owned()),
+            continuous_batching_config: Some(serde_json::json!({
+                "max_requests_per_batch": 2
+            })),
+            ..VulkanTransformerGenerationConfig::default()
+        };
+
+        let continuous = graph.generate_batch_sequences_ids(&prompts, &config)?;
+        assert_eq!(continuous.len(), prompts.len());
+        assert!(continuous.iter().all(|sequences| sequences.len() == 1));
+
+        for (batch_index, prompt) in prompts.iter().enumerate() {
+            let reference_config = VulkanTransformerGenerationConfig {
+                continuous_batching_config: None,
+                seed: config.seed.wrapping_add(batch_index as u64),
+                ..config.clone()
+            };
+            let reference = graph.generate_ids(prompt, &reference_config)?;
+            assert_eq!(
+                continuous[batch_index][0], reference,
+                "continuous paged request {batch_index} diverged from independent paged generation"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
     fn gpt2_cross_attention_batch_generation_routes_encoder_context_per_item() -> Result<()> {
         let Ok(device) = VulkanDevice::new() else {
             return Ok(());
@@ -118699,6 +120108,196 @@ mod tests {
                 );
             }
         }
+        Ok(())
+    }
+
+    #[test]
+    fn gpt2_paged_generation_kv_cache_is_opt_in_and_matches_contiguous_math() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let graph = tiny_gpt2_vulkan_graph(device)?;
+        let prompt = [3_u32, 7, 11];
+        let (_, contiguous_cache) = graph.generation_prefill_kv_cache(&prompt)?;
+        let (_, paged_cache) = graph.generation_prefill_kv_cache_with_policy(&prompt, true)?;
+
+        assert!(
+            contiguous_cache
+                .layers
+                .iter()
+                .all(|layer| layer.paged_kv.is_none()),
+            "the established contiguous cache must remain the default"
+        );
+        assert!(
+            paged_cache
+                .layers
+                .iter()
+                .all(|layer| layer.paged_kv.is_some()),
+            "GPT-2 attention layers should use the paged cache when explicitly enabled"
+        );
+
+        let continuation = [5_u32, 13, 17];
+        let mut prefix = prompt.to_vec();
+        for &token in &continuation {
+            let position = prefix.len();
+            let contiguous =
+                graph.generation_cached_step_logits(token, &contiguous_cache, position)?;
+            let paged = graph.generation_cached_step_logits(token, &paged_cache, position)?;
+            prefix.push(token);
+            let reference = graph.generation_last_logits(&prefix, None, None)?;
+            for (index, ((&paged, &contiguous), &reference)) in
+                paged.iter().zip(&contiguous).zip(&reference).enumerate()
+            {
+                assert!(
+                    (paged - reference).abs() <= 2.0e-5,
+                    "GPT-2 paged KV logit mismatch at position {position}, vocab {index}: paged={paged} reference={reference}"
+                );
+                assert!(
+                    (paged - contiguous).abs() <= 2.0e-5,
+                    "GPT-2 paged/contiguous KV mismatch at position {position}, vocab {index}: paged={paged} contiguous={contiguous}"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn gpt2_paged_beam_generation_matches_contiguous_and_full_prefix_reference() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let graph = tiny_gpt2_vulkan_graph(device)?;
+        let prompt = [3_u32, 7, 11];
+        let paged_config = VulkanTransformerGenerationConfig {
+            max_new_tokens: Some(3),
+            num_beams: 3,
+            repetition_penalty: 1.1,
+            length_penalty: 0.8,
+            cache_implementation: Some("paged".to_owned()),
+            ..VulkanTransformerGenerationConfig::default()
+        };
+        let contiguous_config = VulkanTransformerGenerationConfig {
+            cache_implementation: Some("dynamic".to_owned()),
+            ..paged_config.clone()
+        };
+
+        let paged = graph.generate_beam_ids_with_kv_cache(&prompt, &paged_config)?;
+        let contiguous = graph.generate_beam_ids_with_kv_cache(&prompt, &contiguous_config)?;
+        let reference = graph.generate_beam_ids_full_prefix_with_context(
+            &prompt,
+            &contiguous_config,
+            None,
+            None,
+        )?;
+        assert_eq!(paged, contiguous);
+        assert_eq!(paged, reference);
+        Ok(())
+    }
+
+    #[test]
+    fn mistral_paged_generation_matches_contiguous_and_full_prefix_with_rope_gqa_window(
+    ) -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let graph = tiny_mistral_vulkan_graph(device)?;
+        let prompt = [2_u32, 9, 4];
+        let (_, contiguous_cache) = graph.generation_prefill_kv_cache(&prompt)?;
+        let (_, paged_cache) = graph.generation_prefill_kv_cache_with_policy(&prompt, true)?;
+
+        assert!(
+            paged_cache
+                .layers
+                .iter()
+                .all(|layer| layer.paged_kv.is_some()),
+            "Mistral causal attention layers should page when explicitly enabled"
+        );
+
+        let continuation = [6_u32, 12, 18];
+        let mut prefix = prompt.to_vec();
+        for &token in &continuation {
+            let position = prefix.len();
+            let contiguous =
+                graph.generation_cached_step_logits(token, &contiguous_cache, position)?;
+            let paged = graph.generation_cached_step_logits(token, &paged_cache, position)?;
+            prefix.push(token);
+            let reference = graph.generation_last_logits(&prefix, None, None)?;
+            for (index, ((&paged, &contiguous), &reference)) in
+                paged.iter().zip(&contiguous).zip(&reference).enumerate()
+            {
+                assert!(
+                    (paged - reference).abs() <= 3.0e-5,
+                    "Mistral paged KV logit mismatch at position {position}, vocab {index}: paged={paged} reference={reference}"
+                );
+                assert!(
+                    (paged - contiguous).abs() <= 3.0e-5,
+                    "Mistral paged/contiguous KV mismatch at position {position}, vocab {index}: paged={paged} contiguous={contiguous}"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn olmo_hybrid_paged_generation_preserves_recurrent_cache_and_pages_full_attention(
+    ) -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let graph = tiny_olmo_hybrid_vulkan_graph(device)?;
+        let prompt = [2_u32, 9];
+        let (_, contiguous_cache) = graph.generation_prefill_kv_cache(&prompt)?;
+        let (_, paged_cache) = graph.generation_prefill_kv_cache_with_policy(&prompt, true)?;
+
+        assert_eq!(paged_cache.layers.len(), 2);
+        assert!(paged_cache.layers[0].paged_kv.is_none());
+        assert!(paged_cache.layers[0].qwen_gated_delta_conv_state.is_some());
+        assert!(paged_cache.layers[0]
+            .qwen_gated_delta_recurrent_state
+            .is_some());
+        assert!(paged_cache.layers[1].paged_kv.is_some());
+
+        let continuation = [4_u32, 6];
+        let mut prefix = prompt.to_vec();
+        for &token in &continuation {
+            let position = prefix.len();
+            let contiguous =
+                graph.generation_cached_step_logits(token, &contiguous_cache, position)?;
+            let paged = graph.generation_cached_step_logits(token, &paged_cache, position)?;
+            prefix.push(token);
+            let reference = graph.generation_last_logits(&prefix, None, None)?;
+            for (index, ((&paged, &contiguous), &reference)) in
+                paged.iter().zip(&contiguous).zip(&reference).enumerate()
+            {
+                assert!(
+                    (paged - reference).abs() <= 4.0e-5,
+                    "OLMo hybrid paged KV logit mismatch at position {position}, vocab {index}: paged={paged} reference={reference}"
+                );
+                assert!(
+                    (paged - contiguous).abs() <= 4.0e-5,
+                    "OLMo hybrid paged/contiguous KV mismatch at position {position}, vocab {index}: paged={paged} contiguous={contiguous}"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn paged_generation_fails_closed_when_graph_has_only_special_cache_layers() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let graph =
+            tiny_qwen_hybrid_moe_vulkan_graph(device, VulkanTransformerArchitecture::Qwen3Next)?;
+        let config = VulkanTransformerGenerationConfig {
+            cache_implementation: Some("paged".to_owned()),
+            ..VulkanTransformerGenerationConfig::default()
+        };
+        let error = graph
+            .validate_generation_request(&[2_u32], &config)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("no paged K/V attention layers"));
         Ok(())
     }
 

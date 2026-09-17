@@ -70,6 +70,25 @@ impl Workflow {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum GenerationCacheMode {
+    ModelDefault,
+    Disabled,
+    Contiguous,
+    Paged,
+}
+
+impl GenerationCacheMode {
+    fn label(self) -> &'static str {
+        match self {
+            Self::ModelDefault => "Model/package default (non-paged)",
+            Self::Disabled => "Disabled (full-prefix)",
+            Self::Contiguous => "Contiguous native KV",
+            Self::Paged => "Paged Vulkan KV",
+        }
+    }
+}
+
 struct NativeApp {
     mode: Workflow,
     hf_model: bool,
@@ -91,6 +110,10 @@ struct NativeApp {
     top_k: String,
     top_p: String,
     do_sample: bool,
+    generation_cache_mode: GenerationCacheMode,
+    continuous_batching: bool,
+    continuous_batch_max_requests: String,
+    continuous_batch_prompts: String,
     cli_path: String,
     child: Option<Child>,
     output_rx: Option<Receiver<String>>,
@@ -122,6 +145,10 @@ impl Default for NativeApp {
             top_k: "50".to_owned(),
             top_p: "0.9".to_owned(),
             do_sample: true,
+            generation_cache_mode: GenerationCacheMode::ModelDefault,
+            continuous_batching: false,
+            continuous_batch_max_requests: String::new(),
+            continuous_batch_prompts: String::new(),
             cli_path: discover_cli().display().to_string(),
             child: None,
             output_rx: None,
@@ -305,6 +332,50 @@ impl NativeApp {
                     args.extend(["--top-p".to_owned(), top_p.to_string()]);
                 } else {
                     args.push("--no-do-sample".to_owned());
+                }
+                match self.generation_cache_mode {
+                    GenerationCacheMode::ModelDefault => {}
+                    GenerationCacheMode::Disabled => args.push("--no-use-cache".to_owned()),
+                    GenerationCacheMode::Contiguous => {
+                        args.push("--use-cache".to_owned());
+                        args.extend(["--cache-implementation".to_owned(), "dynamic".to_owned()]);
+                    }
+                    GenerationCacheMode::Paged => {
+                        args.push("--use-cache".to_owned());
+                        args.extend(["--cache-implementation".to_owned(), "paged".to_owned()]);
+                    }
+                }
+                if self.continuous_batching {
+                    if self.generation_cache_mode != GenerationCacheMode::Paged {
+                        return Err(
+                            "Continuous batching requires Paged Vulkan KV; choose Paged Vulkan KV explicitly."
+                                .to_owned(),
+                        );
+                    }
+                    args.push("--continuous-batching".to_owned());
+                    let max_requests = self.continuous_batch_max_requests.trim();
+                    if !max_requests.is_empty() {
+                        let parsed = max_requests.parse::<usize>().map_err(|_| {
+                            "Continuous batch max requests must be a positive integer.".to_owned()
+                        })?;
+                        if parsed == 0 {
+                            return Err(
+                                "Continuous batch max requests must be at least 1.".to_owned()
+                            );
+                        }
+                        args.extend([
+                            "--continuous-batch-max-requests".to_owned(),
+                            parsed.to_string(),
+                        ]);
+                    }
+                    for additional_prompt in self
+                        .continuous_batch_prompts
+                        .lines()
+                        .map(str::trim)
+                        .filter(|prompt| !prompt.is_empty())
+                    {
+                        args.extend(["--prompt".to_owned(), additional_prompt.to_owned()]);
+                    }
                 }
             }
             Workflow::HierarchosInference => {
@@ -571,11 +642,69 @@ impl eframe::App for NativeApp {
                                 "greedy/beam policy from generation config"
                             });
                             ui.end_row();
+                            ui.label("KV cache");
+                            let cache_changed = egui::ComboBox::from_id_salt("generation-kv-cache")
+                                .selected_text(self.generation_cache_mode.label())
+                                .show_ui(ui, |ui| {
+                                    for mode in [
+                                        GenerationCacheMode::ModelDefault,
+                                        GenerationCacheMode::Disabled,
+                                        GenerationCacheMode::Contiguous,
+                                        GenerationCacheMode::Paged,
+                                    ] {
+                                        ui.selectable_value(
+                                            &mut self.generation_cache_mode,
+                                            mode,
+                                            mode.label(),
+                                        );
+                                    }
+                                })
+                                .response
+                                .changed();
+                            if cache_changed
+                                && self.generation_cache_mode != GenerationCacheMode::Paged
+                            {
+                                self.continuous_batching = false;
+                            }
+                            ui.label("Paged is opt-in; package metadata cannot enable it implicitly");
+                            ui.label("");
+                            ui.end_row();
+                            ui.label("Continuous batching");
+                            let changed = ui
+                                .checkbox(
+                                    &mut self.continuous_batching,
+                                    "Share paged KV arenas across active requests",
+                                )
+                                .changed();
+                            if changed && self.continuous_batching {
+                                self.generation_cache_mode = GenerationCacheMode::Paged;
+                            }
+                            ui.label("Opt-in; implies Paged Vulkan KV");
+                            ui.label("");
+                            ui.end_row();
+                            if self.continuous_batching {
+                                ui.label("Max active requests");
+                                ui.text_edit_singleline(&mut self.continuous_batch_max_requests);
+                                ui.label("Blank = all supplied requests");
+                                ui.label("");
+                                ui.end_row();
+                            }
                         }
                     });
+                if self.mode == Workflow::TransformerGenerate && self.continuous_batching {
+                    ui.label("Additional continuous-batch prompts (one prompt per line)");
+                    ui.add(
+                        egui::TextEdit::multiline(&mut self.continuous_batch_prompts)
+                            .desired_width(f32::INFINITY)
+                            .desired_rows(3),
+                    );
+                    ui.small(
+                        "The main Prompt is request 1. Each non-empty line above becomes another --prompt request. Finished requests release paged KV blocks for reuse by waiting requests.",
+                    );
+                }
                 if self.mode == Workflow::TransformerGenerate {
                     ui.small(
-                        "Transformer inference honors generation_config.json; these fields are convenient CLI overrides.",
+                        "Transformer inference honors generation_config.json except package-level paged/continuous serving opt-ins; select them here explicitly (or pass an explicit generation config in the CLI).",
                     );
                 } else {
                     ui.small(
@@ -817,6 +946,7 @@ mod tests {
         app.device_index = "1".to_owned();
         app.do_sample = false;
         app.temperature = "0.8".to_owned();
+        app.generation_cache_mode = GenerationCacheMode::Paged;
         let args = app.build_args().expect("valid Transformer generation args");
         assert_eq!(args[0], "transformer-generate");
         assert!(args
@@ -831,6 +961,91 @@ mod tests {
         assert!(args.windows(2).any(|pair| pair == ["--device-index", "1"]));
         assert!(args.iter().any(|arg| arg == "--no-do-sample"));
         assert!(!args.iter().any(|arg| arg == "--temperature"));
+        assert!(args.iter().any(|arg| arg == "--use-cache"));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["--cache-implementation", "paged"]));
+    }
+
+    #[test]
+    fn transformer_generation_cache_selector_can_force_contiguous_or_disable_cache() {
+        let mut app = NativeApp::default();
+        app.mode = Workflow::TransformerGenerate;
+        app.hf_model = true;
+        app.model = "owner/model".to_owned();
+        app.prompt = "Hello".to_owned();
+        app.do_sample = false;
+
+        app.generation_cache_mode = GenerationCacheMode::Contiguous;
+        let contiguous = app.build_args().expect("contiguous cache args");
+        assert!(contiguous.iter().any(|arg| arg == "--use-cache"));
+        assert!(contiguous
+            .windows(2)
+            .any(|pair| pair == ["--cache-implementation", "dynamic"]));
+
+        app.generation_cache_mode = GenerationCacheMode::Disabled;
+        let disabled = app.build_args().expect("disabled cache args");
+        assert!(disabled.iter().any(|arg| arg == "--no-use-cache"));
+        assert!(!disabled.iter().any(|arg| arg == "--cache-implementation"));
+    }
+
+    #[test]
+    fn transformer_generation_continuous_batching_is_explicit_and_repeats_prompts() {
+        let mut app = NativeApp::default();
+        app.mode = Workflow::TransformerGenerate;
+        app.hf_model = true;
+        app.model = "owner/model".to_owned();
+        app.prompt = "primary prompt\nmay be multiline".to_owned();
+        app.do_sample = false;
+        app.generation_cache_mode = GenerationCacheMode::Paged;
+        app.continuous_batching = true;
+        app.continuous_batch_max_requests = "2".to_owned();
+        app.continuous_batch_prompts = "second request\n\nthird request".to_owned();
+
+        let args = app.build_args().expect("continuous batch generation args");
+        assert!(args.iter().any(|arg| arg == "--continuous-batching"));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["--continuous-batch-max-requests", "2"]));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["--cache-implementation", "paged"]));
+        let prompts = args
+            .windows(2)
+            .filter(|pair| pair[0] == "--prompt")
+            .map(|pair| pair[1].as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            prompts,
+            vec![
+                "primary prompt\nmay be multiline",
+                "second request",
+                "third request"
+            ]
+        );
+    }
+
+    #[test]
+    fn transformer_generation_continuous_batching_rejects_nonpaged_cache_modes() {
+        let mut app = NativeApp::default();
+        app.mode = Workflow::TransformerGenerate;
+        app.hf_model = true;
+        app.model = "owner/model".to_owned();
+        app.prompt = "Hello".to_owned();
+        app.do_sample = false;
+        app.continuous_batching = true;
+
+        for mode in [
+            GenerationCacheMode::ModelDefault,
+            GenerationCacheMode::Disabled,
+            GenerationCacheMode::Contiguous,
+        ] {
+            app.generation_cache_mode = mode;
+            let error = app
+                .build_args()
+                .expect_err("continuous batching must reject non-paged cache modes");
+            assert!(error.contains("requires Paged Vulkan KV"));
+        }
     }
 
     #[test]

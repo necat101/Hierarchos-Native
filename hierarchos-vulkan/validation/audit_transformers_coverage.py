@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 from pathlib import Path
 
@@ -106,10 +107,11 @@ def _all_config_model_types(models_root: Path) -> set[str]:
     return model_types
 
 
-def build_report(repo_root: Path) -> dict[str, object]:
-    modeling_auto_path = repo_root / "src/transformers/models/auto/modeling_auto.py"
+def build_report(repo_root: Path, transformers_root: Path | None = None) -> dict[str, object]:
+    transformers_root = transformers_root or repo_root
+    modeling_auto_path = transformers_root / "src/transformers/models/auto/modeling_auto.py"
     transformer_rs_path = repo_root / "hierarchos-vulkan/src/transformer.rs"
-    models_root = repo_root / "src/transformers/models"
+    models_root = transformers_root / "src/transformers/models"
     for path in (modeling_auto_path, transformer_rs_path, models_root):
         if not path.exists():
             raise FileNotFoundError(path)
@@ -171,10 +173,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     parser.add_argument("--all-tasks", action="store_true", help="also print all other AutoModel task registries")
+    parser.add_argument(
+        "--transformers-root",
+        type=Path,
+        help="path to the Transformers source checkout (or set TRANSFORMERS_CHECKOUT)",
+    )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
-    report = build_report(repo_root)
+    transformers_root = args.transformers_root
+    if transformers_root is None:
+        configured = os.environ.get("TRANSFORMERS_CHECKOUT")
+        transformers_root = Path(configured) if configured else repo_root
+    report = build_report(repo_root, transformers_root)
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0

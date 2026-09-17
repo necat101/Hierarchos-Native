@@ -17,6 +17,7 @@ layout(set = 0, binding = 6, std430) writeonly buffer OutputBuffer { float outpu
 layout(set = 0, binding = 7, std430) readonly buffer SinkBuffer { float sink_values[]; };
 layout(set = 0, binding = 8, std430) readonly buffer RelativeBiasBuffer { float relative_bias[]; };
 layout(set = 0, binding = 9, std430) readonly buffer SparseMaskBuffer { float sparse_mask[]; };
+layout(set = 0, binding = 10, std430) readonly buffer KvPageTableBuffer { uint kv_page_table[]; };
 
 layout(push_constant) uniform Push {
     uint batch_size;
@@ -45,7 +46,20 @@ layout(push_constant) uniform Push {
     uint has_sparse_mask;
     uint compressed_key_count;
     uint compressed_key_rate;
+    uint paged_kv;
+    uint kv_page_size;
+    uint kv_page_table_stride;
 } pc;
+
+uint physical_key_row(uint batch, uint key) {
+    if (pc.paged_kv == 0u) {
+        return batch * pc.key_value_seq_len + key;
+    }
+    uint logical_page = key / pc.kv_page_size;
+    uint within_page = key % pc.kv_page_size;
+    uint table_index = batch * pc.kv_page_table_stride + logical_page;
+    return kv_page_table[table_index] * pc.kv_page_size + within_page;
+}
 
 bool key_is_visible(uint batch, uint head, uint query, uint key) {
     uint local_key_count = pc.key_value_seq_len - pc.compressed_key_count;
@@ -168,7 +182,7 @@ float raw_score(uint batch, uint head, uint query, uint key) {
     uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
     uint kv_head = head / queries_per_kv;
     uint q_base = (batch * pc.query_seq_len + query) * pc.query_hidden_size + head * qk_head_dim;
-    uint k_base = (batch * pc.key_value_seq_len + key) * key_hidden_size + kv_head * qk_head_dim;
+    uint k_base = physical_key_row(batch, key) * key_hidden_size + kv_head * qk_head_dim;
     float value = 0.0;
     for (uint d = 0; d < qk_head_dim; ++d) {
         value = fma(q_values[q_base + d], k_values[k_base + d], value);
@@ -273,7 +287,7 @@ void main() {
     for (uint d = 0; d < value_head_dim; ++d) {
         float value = 0.0;
         for (uint key = first_key; key <= last_key; ++key) {
-            uint key_row = batch * pc.key_value_seq_len + key;
+            uint key_row = physical_key_row(batch, key);
             if (!key_is_visible(batch, head, query, key)) {
                 continue;
             }

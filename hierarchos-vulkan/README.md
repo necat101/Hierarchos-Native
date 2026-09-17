@@ -127,9 +127,45 @@ emits committed greedy/sampled tokens incrementally. Single-beam causal
 generation now uses a native per-layer device-resident KV cache for GPT-2,
 Llama/OpenLLaMA, Mistral/Mixtral, and Qwen2/Qwen3 dense/MoE decoder contracts,
 including learned-position and RoPE offsets plus MQA/GQA key/value geometry.
-Beam search on those same causal families now forks only the post-pruning live
-hypotheses into independent device-resident KV caches, so each surviving beam
-advances one token instead of rerunning its full prefix. Sampling follows HF's
+The established contiguous cache remains the default. Setting
+`cache_implementation="paged"` opts compatible causal attention layers into a
+native Vulkan paged KV arena with logical-to-physical page tables, lazy physical
+page allocation, prefix sharing, tail-page copy-on-write for beam forks, and
+freed-page reuse. The attention shader consumes the page table directly, so
+paged decoding does not repack K/V into a contiguous temporary before attention.
+For end users, the native CLI spelling is `--cache-implementation paged` on
+`transformer-generate`. The desktop GUI exposes the same policy under
+Transformer generation -> `KV cache` -> `Paged Vulkan KV`. Both surfaces leave
+paging disabled unless it is selected explicitly. The native CLI also strips
+package-level `cache_implementation="paged"` and `continuous_batching_config`
+metadata before applying user-supplied overrides, so a downloaded model package
+cannot silently enable either serving optimization. An explicitly supplied
+`--generation-config` remains an intentional opt-in surface.
+Architectures with special cache state (for example recurrent or compressed
+attention layers) retain their existing native cache topology, and an explicit
+paged request fails closed when the generation graph cannot use the paged path.
+For serving-style request batches, repeating `--prompt` plus
+`--continuous-batching` opts into the native continuous scheduler (the GUI has
+the equivalent `Continuous batching` gate and an additional-prompts field).
+Continuous mode implies paged KV. Pageable layers allocate from one shared
+physical arena per layer across all active sequences; when a request finishes,
+its page-table references are dropped immediately and unreferenced pages return
+to the arena free list for subsequent requests. Active single-token decode
+steps are recorded together and submitted as one Vulkan command batch, while
+each request keeps independent sampling state, stopping criteria, and page
+table. This is continuous request scheduling with shared KV allocation; it is
+not a claim that the full Transformer forward has been fused into one tensor
+batch. The current continuous path supports decoder-only greedy or multinomial
+sampling, `num_beams=1`, `num_return_sequences=1`, and no external encoder
+context. Native pages are 16 tokens; an explicit
+`continuous_batching_config.block_size` must be `16`. The native scheduler
+currently accepts only `block_size` and `max_requests_per_batch` from that
+config object. Other Hugging Face continuous-batching allocator, offload,
+CUDA-graph, or scheduler controls are rejected explicitly instead of being
+silently ignored.
+Beam search on compatible causal families forks only the post-pruning live
+hypotheses, so each surviving beam advances one token instead of rerunning its
+full prefix. Sampling follows HF's
 beam-mode order: log-softmax, logits processors/warpers, accumulated beam score,
 then EOS-aware joint beam×vocabulary sampling without replacement. Unsupported
 generation topologies and decoder paths with external encoder context retain

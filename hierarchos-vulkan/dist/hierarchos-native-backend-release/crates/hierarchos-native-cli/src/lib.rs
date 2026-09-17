@@ -3785,7 +3785,7 @@ struct TransformerGenerateOptions {
     hf_model: Option<String>,
     hf_model_revision: String,
     hf_cache_dir: Option<PathBuf>,
-    prompt: Option<String>,
+    prompts: Vec<String>,
     prompt_file: Option<PathBuf>,
     generation_config: Option<PathBuf>,
     generation_overrides: BTreeMap<String, Value>,
@@ -3860,10 +3860,11 @@ fn parse_transformer_generate_options(
     let mut hf_model = None;
     let mut hf_model_revision = "main".to_owned();
     let mut hf_cache_dir = None;
-    let mut prompt = None;
+    let mut prompts = Vec::new();
     let mut prompt_file = None;
     let mut generation_config = None;
     let mut generation_overrides = BTreeMap::new();
+    let mut continuous_batching_config = None::<serde_json::Map<String, Value>>;
     let mut context_length = None;
     let mut device_index = None;
     let mut add_special_tokens = true;
@@ -3874,10 +3875,10 @@ fn parse_transformer_generate_options(
         match key.as_str() {
             "-h" | "--help" => {
                 println!(
-                    "hierarchos-native-cli transformer-generate (--model-path MODEL | --hf-model OWNER/REPO) (--prompt TEXT | --prompt-file FILE) [options]\n\n\
+                    "hierarchos-native-cli transformer-generate (--model-path MODEL | --hf-model OWNER/REPO) (--prompt TEXT [--prompt TEXT ...] | --prompt-file FILE) [options]\n\n\
 Generation config precedence: model config.json < package generation_config.json < --generation-config FILE < CLI overrides.\n\
 Common overrides: --max-new-tokens N --max-length N --min-new-tokens N --min-length N --do-sample/--no-do-sample --temperature F --top-k N --top-p F --top-h F --min-p F --typical-p F --epsilon-cutoff F --eta-cutoff F --repetition-penalty F --sequence-bias JSON --exponential-decay-length-penalty JSON --num-beams N --num-return-sequences N --length-penalty F --early-stopping/--no-early-stopping --no-repeat-ngram-size N --bad-words-ids JSON --suppress-tokens IDS --begin-suppress-tokens IDS --forced-bos-token-id N --forced-eos-token-id IDS --eos-token-id IDS --seed N.\n\
-Generation execution: --use-cache/--no-use-cache --renormalize-logits/--no-renormalize-logits --remove-invalid-values/--no-remove-invalid-values --early-stopping-never.\n\
+Generation execution: --use-cache/--no-use-cache --cache-implementation NAME (for example dynamic, static, or paged) --continuous-batching [--continuous-batch-max-requests N] --renormalize-logits/--no-renormalize-logits --remove-invalid-values/--no-remove-invalid-values --early-stopping-never. Repeating --prompt creates a request batch; continuous batching is opt-in and implies the native paged KV cache.\n\
 Runtime options: --context-length N --device-index N --no-add-special-tokens --keep-special-tokens --hf-model-revision REV --hf-cache-dir DIR."
                 );
                 return Err("__help__".to_owned());
@@ -3888,7 +3889,7 @@ Runtime options: --context-length N --device-index N --no-add-special-tokens --k
             "--hf-model" => hf_model = Some(required_string(&mut argv, &key)?),
             "--hf-model-revision" => hf_model_revision = required_string(&mut argv, &key)?,
             "--hf-cache-dir" => hf_cache_dir = Some(PathBuf::from(required(&mut argv, &key)?)),
-            "--prompt" => prompt = Some(required_string(&mut argv, &key)?),
+            "--prompt" => prompts.push(required_string(&mut argv, &key)?),
             "--prompt-file" => prompt_file = Some(PathBuf::from(required(&mut argv, &key)?)),
             "--generation-config" => {
                 generation_config = Some(PathBuf::from(required(&mut argv, &key)?))
@@ -3910,6 +3911,27 @@ Runtime options: --context-length N --device-index N --no-add-special-tokens --k
             }
             "--no-use-cache" => {
                 generation_overrides.insert("use_cache".to_owned(), Value::Bool(false));
+            }
+            "--cache-implementation" => {
+                generation_overrides.insert(
+                    "cache_implementation".to_owned(),
+                    Value::String(required_string(&mut argv, &key)?),
+                );
+            }
+            "--continuous-batching" => {
+                continuous_batching_config.get_or_insert_with(serde_json::Map::new);
+            }
+            "--continuous-batch-max-requests" => {
+                let value = parse_required::<usize>(&mut argv, &key)?;
+                if value == 0 {
+                    return Err("--continuous-batch-max-requests must be >= 1".to_owned());
+                }
+                continuous_batching_config
+                    .get_or_insert_with(serde_json::Map::new)
+                    .insert(
+                        "max_requests_per_batch".to_owned(),
+                        Value::Number(value.into()),
+                    );
             }
             "--renormalize-logits" => {
                 generation_overrides.insert("renormalize_logits".to_owned(), Value::Bool(true));
@@ -4015,9 +4037,34 @@ Runtime options: --context-length N --device-index N --no-add-special-tokens --k
             "transformer-generate requires exactly one of --model-path or --hf-model".to_owned(),
         );
     }
-    if prompt.is_some() == prompt_file.is_some() {
+    if prompts.is_empty() == prompt_file.is_none() {
         return Err(
-            "transformer-generate requires exactly one of --prompt or --prompt-file".to_owned(),
+            "transformer-generate requires either one or more --prompt values or exactly one --prompt-file"
+                .to_owned(),
+        );
+    }
+    if let Some(continuous) = continuous_batching_config {
+        if generation_overrides.get("use_cache") == Some(&Value::Bool(false)) {
+            return Err("--continuous-batching conflicts with --no-use-cache".to_owned());
+        }
+        if let Some(cache) = generation_overrides
+            .get("cache_implementation")
+            .and_then(Value::as_str)
+        {
+            if cache != "paged" {
+                return Err(format!(
+                    "--continuous-batching requires --cache-implementation paged, not {cache:?}"
+                ));
+            }
+        }
+        generation_overrides.insert("use_cache".to_owned(), Value::Bool(true));
+        generation_overrides.insert(
+            "cache_implementation".to_owned(),
+            Value::String("paged".to_owned()),
+        );
+        generation_overrides.insert(
+            "continuous_batching_config".to_owned(),
+            Value::Object(continuous),
         );
     }
     if context_length == Some(0) {
@@ -4028,7 +4075,7 @@ Runtime options: --context-length N --device-index N --no-add-special-tokens --k
         hf_model,
         hf_model_revision,
         hf_cache_dir,
-        prompt,
+        prompts,
         prompt_file,
         generation_config,
         generation_overrides,
@@ -4054,6 +4101,13 @@ fn merge_transformer_generation_json(
         target.insert(field.clone(), value.clone());
     }
     Ok(())
+}
+
+fn clear_package_paged_serving_opt_ins(target: &mut serde_json::Map<String, Value>) {
+    if target.get("cache_implementation").and_then(Value::as_str) == Some("paged") {
+        target.remove("cache_implementation");
+    }
+    target.remove("continuous_batching_config");
 }
 
 fn transformer_special_token_text(value: &Value) -> Option<&str> {
@@ -4116,6 +4170,12 @@ fn load_transformer_generation_config(
     if package_generation_config.is_file() {
         merge_transformer_generation_json(&mut merged, &package_generation_config)?;
     }
+    // Paged KV and the continuous scheduler are serving optimizations with
+    // materially different allocation/scheduling behavior. Treat package
+    // metadata as non-authoritative for these two policies so downloading a
+    // model can never enable them implicitly. An explicit --generation-config
+    // or CLI/GUI override below may still opt in deliberately.
+    clear_package_paged_serving_opt_ins(&mut merged);
     if let Some(path) = explicit_generation_config {
         merge_transformer_generation_json(&mut merged, path)?;
     }
@@ -4212,58 +4272,81 @@ fn run_transformer_generate(argv: VecDeque<OsString>) -> Result<u8, String> {
         &options.generation_overrides,
         &tokenizer,
     )?;
-    let prompt = if let Some(prompt) = options.prompt.as_deref() {
-        prompt.to_owned()
+    let prompt_texts = if !options.prompts.is_empty() {
+        options.prompts.clone()
     } else {
         let path = options
             .prompt_file
             .as_deref()
             .expect("validated prompt file");
-        fs::read_to_string(path)
-            .map_err(|error| format!("could not read prompt file {}: {error}", path.display()))?
+        vec![fs::read_to_string(path)
+            .map_err(|error| format!("could not read prompt file {}: {error}", path.display()))?]
     };
-    let encoding = tokenizer
-        .encode(prompt, options.add_special_tokens)
-        .map_err(|error| format!("Transformer tokenizer encode failed: {error}"))?;
-    let prompt_ids = encoding.get_ids();
-    if prompt_ids.is_empty() {
-        return Err("Transformer tokenizer produced an empty prompt".to_owned());
+    if is_encoder_decoder && prompt_texts.len() != 1 {
+        return Err(
+            "batched --prompt generation is currently decoder-only; EncoderDecoder generation accepts one prompt"
+                .to_owned(),
+        );
+    }
+    let prompt_ids = prompt_texts
+        .iter()
+        .enumerate()
+        .map(|(index, prompt)| {
+            let encoding = tokenizer
+                .encode(prompt.as_str(), options.add_special_tokens)
+                .map_err(|error| {
+                    format!("Transformer tokenizer encode failed for request {index}: {error}")
+                })?;
+            if encoding.get_ids().is_empty() {
+                return Err(format!(
+                    "Transformer tokenizer produced an empty prompt for request {index}"
+                ));
+            }
+            Ok(encoding.get_ids().to_vec())
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    if prompt_ids.len() > 1 && generation_config.continuous_batching_config.is_none() {
+        eprintln!(
+            "Transformer request batch will use compatibility serial scheduling; pass --continuous-batching to opt into the paged continuous scheduler"
+        );
     }
     let source_max_position_embeddings = encoder_config
         .as_ref()
         .map(|config| config.max_position_embeddings)
         .unwrap_or(model_config.max_position_embeddings);
-    if prompt_ids.len() > source_max_position_embeddings {
-        return Err(format!(
-            "prompt has {} tokens but model max_position_embeddings is {}",
-            prompt_ids.len(),
-            source_max_position_embeddings
-        ));
+    for (index, prompt) in prompt_ids.iter().enumerate() {
+        if prompt.len() > source_max_position_embeddings {
+            return Err(format!(
+                "request {index} has {} prompt tokens but model max_position_embeddings is {}",
+                prompt.len(),
+                source_max_position_embeddings
+            ));
+        }
     }
+    let longest_prompt = prompt_ids.iter().map(Vec::len).max().unwrap_or(1);
     let requested_new_tokens = generation_config.max_new_tokens.unwrap_or_else(|| {
         let configured_max = generation_config
             .max_length
             .unwrap_or(model_config.max_position_embeddings);
-        if is_encoder_decoder {
-            configured_max.saturating_sub(1)
+        configured_max.saturating_sub(if is_encoder_decoder {
+            1
         } else {
-            configured_max.saturating_sub(prompt_ids.len())
-        }
+            longest_prompt
+        })
     });
     let minimum_context = if is_encoder_decoder {
         1
     } else {
-        prompt_ids.len()
+        longest_prompt
     };
     let desired_context = minimum_context
         .saturating_add(requested_new_tokens)
         .min(model_config.max_position_embeddings)
         .max(minimum_context);
     let context_length = options.context_length.unwrap_or(desired_context);
-    if !is_encoder_decoder && context_length < prompt_ids.len() {
+    if !is_encoder_decoder && context_length < longest_prompt {
         return Err(format!(
-            "--context-length {context_length} is smaller than the encoded prompt length {}",
-            prompt_ids.len()
+            "--context-length {context_length} is smaller than the longest encoded prompt length {longest_prompt}"
         ));
     }
     if context_length > model_config.max_position_embeddings {
@@ -4285,7 +4368,8 @@ fn run_transformer_generate(argv: VecDeque<OsString>) -> Result<u8, String> {
         None => VulkanDevice::new(),
     }
     .map_err(|error| format!("Vulkan device initialization failed: {error:#}"))?;
-    let generated = if is_encoder_decoder {
+    let generated_batches = if is_encoder_decoder {
+        let prompt_ids = &prompt_ids[0];
         let graph = VulkanSeq2SeqTransformer::from_hf_package(
             device,
             &model_dir,
@@ -4293,24 +4377,35 @@ fn run_transformer_generate(argv: VecDeque<OsString>) -> Result<u8, String> {
             context_length,
         )
         .map_err(|error| format!("could not build Vulkan EncoderDecoder graph: {error:#}"))?;
-        graph
+        vec![graph
             .generate_sequences_ids(prompt_ids, None, &generation_config)
-            .map_err(|error| format!("Vulkan EncoderDecoder generation failed: {error:#}"))?
+            .map_err(|error| format!("Vulkan EncoderDecoder generation failed: {error:#}"))?]
     } else {
         let graph = VulkanTransformer::from_hf_package(device, &model_dir, 1, context_length)
             .map_err(|error| format!("could not build Vulkan Transformer graph: {error:#}"))?;
-        graph
-            .generate_sequences_ids(prompt_ids, &generation_config)
-            .map_err(|error| format!("Vulkan Transformer generation failed: {error:#}"))?
-    };
-    for (index, generated) in generated.iter().enumerate() {
-        let text = tokenizer
-            .decode(generated, options.skip_special_tokens)
-            .map_err(|error| format!("Transformer tokenizer decode failed: {error}"))?;
-        if generation_config.num_return_sequences > 1 {
-            println!("--- sequence {} ---", index + 1);
+        if prompt_ids.len() == 1 && generation_config.continuous_batching_config.is_none() {
+            vec![graph
+                .generate_sequences_ids(&prompt_ids[0], &generation_config)
+                .map_err(|error| format!("Vulkan Transformer generation failed: {error:#}"))?]
+        } else {
+            graph
+                .generate_batch_sequences_ids(&prompt_ids, &generation_config)
+                .map_err(|error| format!("Vulkan Transformer batch generation failed: {error:#}"))?
         }
-        println!("{text}");
+    };
+    for (request_index, generated) in generated_batches.iter().enumerate() {
+        if generated_batches.len() > 1 {
+            println!("=== request {} ===", request_index + 1);
+        }
+        for (sequence_index, sequence) in generated.iter().enumerate() {
+            let text = tokenizer
+                .decode(sequence, options.skip_special_tokens)
+                .map_err(|error| format!("Transformer tokenizer decode failed: {error}"))?;
+            if generation_config.num_return_sequences > 1 {
+                println!("--- sequence {} ---", sequence_index + 1);
+            }
+            println!("{text}");
+        }
     }
     Ok(0)
 }
@@ -5442,6 +5537,8 @@ mod tests {
                 "--exponential-decay-length-penalty",
                 "[5,1.1]",
                 "--no-use-cache",
+                "--cache-implementation",
+                "paged",
                 "--renormalize-logits",
                 "--remove-invalid-values",
                 "--early-stopping-never",
@@ -5460,7 +5557,7 @@ mod tests {
         );
         let options = parse_transformer_generate_options(args).expect("parse generation CLI");
         assert_eq!(options.model_path.as_deref(), Some(Path::new("model")));
-        assert_eq!(options.prompt.as_deref(), Some("hello"));
+        assert_eq!(options.prompts, vec!["hello"]);
         assert_eq!(options.context_length, Some(128));
         assert_eq!(options.generation_overrides["max_new_tokens"], json!(32));
         assert_eq!(options.generation_overrides["do_sample"], json!(true));
@@ -5481,6 +5578,10 @@ mod tests {
         );
         assert_eq!(options.generation_overrides["use_cache"], json!(false));
         assert_eq!(
+            options.generation_overrides["cache_implementation"],
+            json!("paged")
+        );
+        assert_eq!(
             options.generation_overrides["renormalize_logits"],
             json!(true)
         );
@@ -5498,6 +5599,56 @@ mod tests {
             json!([9, 11])
         );
         assert_eq!(options.generation_overrides["seed"], json!(42));
+    }
+
+    #[test]
+    fn transformer_generate_cli_continuous_batching_is_opt_in_and_implies_paged_cache() {
+        let args = VecDeque::from(
+            [
+                "--model-path",
+                "model",
+                "--prompt",
+                "first",
+                "--prompt",
+                "second",
+                "--continuous-batching",
+                "--continuous-batch-max-requests",
+                "2",
+            ]
+            .into_iter()
+            .map(OsString::from)
+            .collect::<Vec<_>>(),
+        );
+        let options =
+            parse_transformer_generate_options(args).expect("parse continuous batching CLI");
+        assert_eq!(options.prompts, vec!["first", "second"]);
+        assert_eq!(options.generation_overrides["use_cache"], json!(true));
+        assert_eq!(
+            options.generation_overrides["cache_implementation"],
+            json!("paged")
+        );
+        assert_eq!(
+            options.generation_overrides["continuous_batching_config"],
+            json!({"max_requests_per_batch": 2})
+        );
+    }
+
+    #[test]
+    fn transformer_generate_cli_continuous_batching_fails_closed_on_cache_conflicts() {
+        for conflicting in [
+            vec!["--continuous-batching", "--no-use-cache"],
+            vec!["--continuous-batching", "--cache-implementation", "dynamic"],
+        ] {
+            let mut raw = vec!["--model-path", "model", "--prompt", "hello"];
+            raw.extend(conflicting);
+            let args = VecDeque::from(raw.into_iter().map(OsString::from).collect::<Vec<_>>());
+            let error = parse_transformer_generate_options(args)
+                .expect_err("continuous batching cache conflict must fail closed");
+            assert!(
+                error.contains("--continuous-batching"),
+                "unexpected error: {error}"
+            );
+        }
     }
 
     #[test]
@@ -5527,6 +5678,30 @@ mod tests {
         assert_eq!(target["do_sample"], json!(true));
         assert_eq!(target["top_p"], json!(0.9));
         fs::remove_dir_all(&root).expect("remove generation overlay fixture");
+    }
+
+    #[test]
+    fn transformer_package_metadata_cannot_implicitly_enable_paged_serving() {
+        let mut package = serde_json::Map::from_iter([
+            ("use_cache".to_owned(), json!(true)),
+            ("cache_implementation".to_owned(), json!("paged")),
+            (
+                "continuous_batching_config".to_owned(),
+                json!({"block_size": 16, "max_requests_per_batch": 4}),
+            ),
+            ("temperature".to_owned(), json!(0.7)),
+        ]);
+
+        clear_package_paged_serving_opt_ins(&mut package);
+
+        assert_eq!(package["use_cache"], json!(true));
+        assert_eq!(package["temperature"], json!(0.7));
+        assert!(!package.contains_key("cache_implementation"));
+        assert!(!package.contains_key("continuous_batching_config"));
+
+        package.insert("cache_implementation".to_owned(), json!("static"));
+        clear_package_paged_serving_opt_ins(&mut package);
+        assert_eq!(package["cache_implementation"], json!("static"));
     }
 
     #[test]

@@ -1,3 +1,4 @@
+import os
 import unittest
 from pathlib import Path
 
@@ -28,7 +29,15 @@ B = OrderedDict([
             _mapping_model_types("A = OrderedDict([*list(A.items())])", "A")
 
     def test_adjacent_checkout_includes_non_language_tasks_without_claiming_support(self):
-        report = build_report(Path(__file__).resolve().parents[2])
+        repo_root = Path(__file__).resolve().parents[2]
+        configured = os.environ.get("TRANSFORMERS_CHECKOUT")
+        transformers_root = Path(configured) if configured else repo_root
+        modeling_auto = transformers_root / "src/transformers/models/auto/modeling_auto.py"
+        if not modeling_auto.is_file():
+            self.skipTest(
+                "Transformers source checkout unavailable; set TRANSFORMERS_CHECKOUT to run registry integration coverage"
+            )
+        report = build_report(repo_root, transformers_root)
         additional = report["additional_task_registry_overlap"]
         for task in ("sequence_classification", "image_classification", "speech_seq_2_seq", "multimodal_lm"):
             self.assertIn(task, additional)

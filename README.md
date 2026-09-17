@@ -254,6 +254,36 @@ cargo build --release --manifest-path hierarchos-gui/Cargo.toml
 
 The GUI exposes Transformer training, Transformer LoRA fine-tuning, Transformer inference/generation, Hierarchos training/fine-tuning, and Hierarchos chat. It is a thin launcher over the same native contracts and shows the generated command before execution.
 
+Paged KV caching is an opt-in Vulkan generation optimization; the existing
+contiguous native KV cache remains the default. From the CLI, add
+`--cache-implementation paged` to `transformer-generate` (with caching enabled).
+In the GUI's Transformer generation workflow, choose `Paged Vulkan KV` from the
+`KV cache` selector. Choosing `Model/package default (non-paged)` preserves the
+package's ordinary cache policy but deliberately ignores package-level
+`cache_implementation="paged"` and `continuous_batching_config` metadata so a
+downloaded model cannot silently opt the user into the new serving path.
+`Contiguous native KV` explicitly selects the established native cache and
+`Disabled (full-prefix)` disables KV caching. An explicit `--generation-config`
+may still request paged/continuous behavior because supplying that file is an
+end-user opt-in. An explicit paged request fails closed for generation graphs
+that have no pageable K/V attention layers.
+
+Continuous request scheduling is also opt-in. Repeat `--prompt` and add
+`--continuous-batching` to `transformer-generate`, or enable `Continuous
+batching` in the GUI and provide one additional request per line. This mode
+requires paged KV, shares one physical paged-KV arena per pageable Transformer
+layer across the active requests, returns finished requests' pages to the shared
+free list, admits waiting requests up to the configured active-request limit,
+and groups each active decode round into one Vulkan command submission. The
+current scheduler supports decoder-only greedy or multinomial sampling with one
+returned sequence per request; beam/encoder-decoder continuous batching fails
+closed. Native paged KV uses 16-token pages; a supplied
+`continuous_batching_config.block_size` must therefore be `16` in this build.
+The native continuous scheduler currently accepts only `block_size` and
+`max_requests_per_batch` from the Hugging Face continuous-batching config; other
+allocator, offload, CUDA-graph, or scheduler knobs fail closed rather than being
+silently ignored.
+
 For a portable Windows bundle, keep `hierarchos-native.exe` and `hierarchos-native-cli.exe` together. Hierarchos training also needs `hierarchos-vulkan-train.exe`, or set `HIERARCHOS_VULKAN_BIN_DIR` to the directory containing the companion Vulkan binaries.
 
 ## Validation
@@ -271,6 +301,11 @@ python -m unittest discover -s hierarchos-vulkan/validation -p "test_*.py"
 python hierarchos-vulkan/validation/generate_supported_architectures.py --check
 ```
 
+The registry integration test needs a local Hugging Face Transformers source
+checkout. Set `TRANSFORMERS_CHECKOUT` to that checkout before running the Python
+suite, or pass `--transformers-root <path>` directly to
+`hierarchos-vulkan/validation/audit_transformers_coverage.py`.
+
 Development-only Hugging Face/PyTorch parity probes live under `hierarchos-vulkan/validation/`. See [hierarchos-vulkan/COMPATIBILITY.md](hierarchos-vulkan/COMPATIBILITY.md) for the tested scope, tolerances, and remaining gaps.
 
 ## Current compatibility boundaries
@@ -280,7 +315,7 @@ Hierarchos Native intentionally fails closed when a requested execution contract
 - This is not universal compatibility with every model and every task in Python `transformers`.
 - A supported multimodal package alias currently represents its supported text backbone, not automatic native execution of every vision/audio/video tower.
 - AutoModel task heads outside the implemented language-model paths need their own native contracts and validation.
-- Some hybrid SSM/convolution, sparse/global-attention, MLA/indexer, non-text, quantized-cache, paged-cache, and continuous-batching paths remain outside the current native graph.
+- Some hybrid SSM/convolution, sparse/global-attention, MLA/indexer, non-text, quantized-cache, and advanced continuous-batching paths remain outside the current native graph. Paged KV generation is available only for compatible native Vulkan attention layers and remains explicitly opt-in; the native continuous scheduler is currently limited to decoder-only greedy/sampling requests with paged KV.
 - The seq2seq facade has native encoding/logits and implemented generation paths, but the compatibility document should be checked before assuming a particular training/generation mode is covered.
 - Reference parity results are tiny-model correctness/qualification evidence, not a blanket performance or large-checkpoint certification.
 

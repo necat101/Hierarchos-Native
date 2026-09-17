@@ -94,8 +94,27 @@ Run those probes when hardware execution is an acceptance requirement.
 - MoE auxiliary/router losses need execution and numerical coverage beyond the
   cross-entropy objective checked here; parsing their coefficients is not proof
   that they participate in training.
-- Quantized/paged caches and continuous batching remain explicit unsupported
-  paths. PEFT LoRA covers `bias="lora_only"`, DoRA, RS-LoRA scaling,
+- Quantized caches remain an explicit unsupported path. Paged KV caching is
+  available as an opt-in native Vulkan generation policy for
+  compatible causal attention layers (`cache_implementation="paged"`). It uses
+  a Vulkan-resident logical page table plus lazily grown physical K/V arenas,
+  shares beam prefixes, performs copy-on-write for a shared tail page, and
+  reuses freed physical pages. The ordinary contiguous native KV cache remains
+  the default and special/recurrent cache topologies keep their existing cache
+  implementations. The CLI strips package-level paged/continuous serving
+  metadata before user overrides are applied, so package defaults cannot enable
+  this path implicitly; an explicit CLI/GUI selection or user-supplied generation
+  config is required. Decoder-only greedy and multinomial-sampling request batches
+  can additionally opt into `continuous_batching_config`: active sequences share
+  the per-layer physical paged-KV arenas, finished sequences release pages for
+  waiting requests, and each survivor decode round is recorded into one Vulkan
+  command submission. Continuous beam search, multiple returned sequences,
+  external encoder context, and encoder-decoder request batching currently fail
+  closed. The native page size is 16 tokens, so an explicit continuous-batching
+  `block_size` must be 16. Only `block_size` and `max_requests_per_batch` are
+  currently accepted from the Hugging Face continuous-batching config; other
+  allocator, offload, CUDA-graph, or scheduler knobs fail closed. PEFT LoRA covers
+  `bias="lora_only"`, DoRA, RS-LoRA scaling,
   per-module `rank_pattern` / `alpha_pattern`, and
   `modules_to_save` for every ordinary linear exposed by the native PEFT module
   topology, using Hugging Face suffix matching and fused-QKV layout conversion.
