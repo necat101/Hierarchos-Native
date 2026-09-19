@@ -70831,6 +70831,7 @@ impl VulkanTransformer {
         let embedding_size = eval_config.effective_embedding_size();
 
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        commands.enable_watchdog_submission_slicing();
         commands.upload_u32(&self.token_ids, input_ids)?;
         commands.upload_f32(&self.attention_mask, attention_mask)?;
         if encoder_seq_len > 0 {
@@ -78037,6 +78038,7 @@ impl VulkanTransformer {
         let embedding_size = self.config.effective_embedding_size();
 
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        commands.enable_watchdog_submission_slicing();
         commands.upload_u32(&self.token_ids, input_ids)?;
         commands.upload_u32(&self.targets, targets)?;
         commands.upload_f32(&self.attention_mask, attention_mask)?;
@@ -78750,6 +78752,7 @@ impl VulkanTransformer {
                     [div_ceil_u32(self.rows * output_width, 256), 1, 1],
                 )?;
             }
+            commands.watchdog_checkpoint()?;
         }
         let final_prefix = self
             .layers
@@ -79321,6 +79324,7 @@ impl VulkanTransformer {
                     )?;
                 }
             }
+            commands.watchdog_checkpoint()?;
         }
         self.record_encoder_hidden_gradient_sum(&mut commands, encoder_seq_len)?;
         let layer0_backward_grad = if let Some(hc_mult) = self
@@ -79979,6 +79983,7 @@ impl VulkanTransformer {
             if *active {
                 layer.record_step(&mut commands, &self.kernels, next_step, hyper)?;
             }
+            commands.watchdog_checkpoint()?;
         }
         if let Some(stack) = self.kimi_attn_res.as_ref() {
             stack.record_step(&mut commands, &self.kernels, next_step, hyper)?;

@@ -24809,8 +24809,9 @@ impl HierarchosTrainingGraph {
 
     /// First execution-fused training entrypoint. H-RWKV, L-RWKV, their shared
     /// tied-embedding gradients, out_norm, dense LM loss, and all three current
-    /// optimizer islands are encoded into one Vulkan command buffer and one
-    /// queue submission. Projection seams remain recordable but are not yet
+    /// optimizer islands are encoded into one logical compute batch. That batch
+    /// is normally one queue submission, but Linux AMD watchdog protection may
+    /// split it at dispatch boundaries. Projection seams remain recordable but are not yet
     /// interleaved here because this compatibility entrypoint still accepts
     /// host-materialized recurrent inputs/gradients.
     pub fn train_recurrent_and_loss_one_submit(
@@ -24822,6 +24823,7 @@ impl HierarchosTrainingGraph {
         hyper: AdamWHyperParams,
     ) -> Result<HierarchosFusedRecurrentLossStepResult> {
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        commands.enable_watchdog_submission_slicing();
         let h_recorded = self
             .h_recurrent
             .record_train_step_with_token_ids_shared_lm_mode(
@@ -24917,6 +24919,7 @@ impl HierarchosTrainingGraph {
         }
 
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        commands.enable_watchdog_submission_slicing();
         commands.upload_f32(&self.h_base_residual, input.h_base_residual)?;
         commands.upload_f32(&self.l_input_source, input.l_input_source)?;
         commands.upload_f32(&self.h_to_context_grad, input.h_to_context_grad)?;
@@ -25198,6 +25201,7 @@ impl HierarchosTrainingGraph {
         }
 
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        commands.enable_watchdog_submission_slicing();
         commands.upload_f32(&self.h_base_residual, input.enc)?;
         commands.upload_f32(&self.l_input_source, input.l_input_source)?;
         commands.upload_f32(&self.h_to_context_grad, input.h_to_context_grad)?;
@@ -26105,7 +26109,9 @@ impl HierarchosTrainingGraph {
         let mut owned_commands = if using_external_commands {
             None
         } else {
-            Some(vulkan::ComputeBatch::new(&self.device)?)
+            let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+            commands.enable_watchdog_submission_slicing();
+            Some(commands)
         };
         let mut commands = match external_commands {
             Some(commands) => commands,

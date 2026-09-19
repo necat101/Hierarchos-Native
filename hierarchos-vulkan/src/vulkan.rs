@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    ffi::{CStr, CString},
+    ffi::{CStr, CString, OsStr},
     io::Cursor,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -54,12 +54,23 @@ struct DeviceInner {
     opaque_external_transport_enabled: bool,
     required_subgroup_size: Option<u32>,
     mixed_precision_capabilities: VulkanMixedPrecisionCapabilities,
+    device_lost: AtomicBool,
 }
 
 impl Drop for DeviceInner {
     fn drop(&mut self) {
         unsafe {
-            let _ = self.device.device_wait_idle();
+            // Once Vulkan has reported ERROR_DEVICE_LOST, do not enter another
+            // unbounded driver wait during teardown. Several Linux amdgpu/RADV
+            // failure paths otherwise spin in device_wait_idle() after the
+            // scheduler has already killed the job.
+            if !self.device_lost.load(Ordering::Acquire) {
+                if let Err(err) = self.device.device_wait_idle() {
+                    if err == vk::Result::ERROR_DEVICE_LOST {
+                        self.device_lost.store(true, Ordering::Release);
+                    }
+                }
+            }
             let (
                 pending_resources,
                 pending_buffer_allocations,
@@ -216,6 +227,12 @@ enum SubmissionCompletion {
 }
 
 impl DeviceInner {
+    fn note_vulkan_error(&self, err: vk::Result) {
+        if err == vk::Result::ERROR_DEVICE_LOST {
+            self.device_lost.store(true, Ordering::Release);
+        }
+    }
+
     fn with_command_pool_host_access<T>(&self, op: impl FnOnce() -> T) -> Result<T> {
         let _guard = self
             .command_pool_lock
@@ -827,8 +844,10 @@ impl DeviceInner {
             .timeline_semaphore_ext
             .as_ref()
             .context("Vulkan submission timeline KHR dispatch is unavailable")?;
-        unsafe { timeline.get_semaphore_counter_value(semaphore) }
-            .map_err(|err| anyhow!("querying Vulkan compute-batch timeline status: {err:?}"))
+        unsafe { timeline.get_semaphore_counter_value(semaphore) }.map_err(|err| {
+            self.note_vulkan_error(err);
+            anyhow!("querying Vulkan compute-batch timeline status: {err:?}")
+        })
     }
 
     fn wait_submission_timeline(&self, semaphore: vk::Semaphore, value: u64) -> Result<()> {
@@ -841,8 +860,10 @@ impl DeviceInner {
         let wait_info = vk::SemaphoreWaitInfo::default()
             .semaphores(&semaphores)
             .values(&values);
-        unsafe { timeline.wait_semaphores(&wait_info, u64::MAX) }
-            .map_err(|err| anyhow!("waiting for Vulkan compute-batch timeline: {err:?}"))
+        unsafe { timeline.wait_semaphores(&wait_info, u64::MAX) }.map_err(|err| {
+            self.note_vulkan_error(err);
+            anyhow!("waiting for Vulkan compute-batch timeline: {err:?}")
+        })
     }
 }
 
@@ -1407,6 +1428,7 @@ impl VulkanDevice {
                 // Optional FP16 features remain disabled until we intersect the
                 // feature/extension sets of every physical member explicitly.
                 mixed_precision_capabilities: VulkanMixedPrecisionCapabilities::default(),
+                device_lost: AtomicBool::new(false),
             });
 
             let views = requested
@@ -1720,6 +1742,7 @@ impl VulkanDevice {
             opaque_external_transport_enabled,
             required_subgroup_size,
             mixed_precision_capabilities,
+            device_lost: AtomicBool::new(false),
         });
         Ok(Self {
             inner,
@@ -4532,6 +4555,8 @@ pub(crate) struct ComputeBatch {
     pending_shader_writes: HashSet<BufferRegionKey>,
     dispatch_dependency_trace: Option<DispatchDependencyTrace>,
     kernel_timestamp_profile: Option<KernelTimestampProfile>,
+    watchdog_submission_slicing_recommended: bool,
+    watchdog_submission_slicing: bool,
     finished: bool,
 }
 
@@ -4840,6 +4865,23 @@ const UPLOAD_ARENA_ALIGNMENT: usize = 16;
 const KERNEL_PROFILE_DISPATCHES_PER_POOL: usize = 4096;
 const KERNEL_PROFILE_TOP_SHADERS: usize = 24;
 const KERNEL_PROFILE_ENV: &str = "HIERARCHOS_VULKAN_PROFILE_KERNELS";
+const WATCHDOG_SUBMISSIONS_ENV: &str = "HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS";
+const AMD_PCI_VENDOR_ID: u32 = 0x1002;
+
+fn watchdog_submission_slicing_enabled_for(
+    vendor_id: u32,
+    env_override: Option<&OsStr>,
+    watchdog_os: bool,
+) -> bool {
+    if let Some(value) = env_override {
+        let value = value.to_string_lossy();
+        return !matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "0" | "false" | "off" | "no" | "disable" | "disabled"
+        );
+    }
+    watchdog_os && vendor_id == AMD_PCI_VENDOR_ID
+}
 
 struct DescriptorPoolArenaChunk {
     pool: vk::DescriptorPool,
@@ -5065,12 +5107,15 @@ impl ComputeBatch {
                 chunk.used_bytes = 0;
             }
         }
-        let batch = Self::new_with_upload_storage(
+        let mut batch = Self::new_with_upload_storage(
             device,
             UploadArenaStorage::Persistent(Arc::clone(&upload_arena)),
         );
         if batch.is_err() {
             upload_arena.release();
+        }
+        if let Ok(batch) = batch.as_mut() {
+            batch.enable_watchdog_submission_slicing();
         }
         batch
     }
@@ -5146,6 +5191,17 @@ impl ComputeBatch {
         } else {
             None
         };
+        let physical_properties = unsafe {
+            device
+                .inner
+                .instance
+                .get_physical_device_properties(device.physical_device)
+        };
+        let watchdog_submission_slicing_recommended = watchdog_submission_slicing_enabled_for(
+            physical_properties.vendor_id,
+            std::env::var_os(WATCHDOG_SUBMISSIONS_ENV).as_deref(),
+            cfg!(target_os = "linux"),
+        );
         Ok(Self {
             inner: Arc::clone(&device.inner),
             device: device.clone(),
@@ -5180,8 +5236,36 @@ impl ComputeBatch {
                     edges: HashMap::new(),
                 }),
             kernel_timestamp_profile,
+            watchdog_submission_slicing_recommended,
+            watchdog_submission_slicing: false,
             finished: false,
         })
+    }
+
+    pub(crate) fn enable_watchdog_submission_slicing(&mut self) {
+        self.watchdog_submission_slicing = self.watchdog_submission_slicing_recommended;
+    }
+
+    /// Split long synchronous command streams at safe command boundaries on
+    /// Linux AMD GPUs, where amdgpu's scheduler timeout applies to submitted
+    /// GPU jobs. Waiting for each slice before recording the next preserves
+    /// command and FP evaluation order while giving the kernel regular
+    /// retirement points.
+    ///
+    /// Set HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS=0 to restore the legacy
+    /// single-submit path, or =1 to force this behavior on another platform.
+    pub(crate) fn watchdog_checkpoint(&mut self) -> Result<()> {
+        if self.watchdog_submission_slicing && self.dispatch_count > 0 {
+            // `submit_and_restart` replaces the batch and therefore clears the
+            // ordinary per-batch hazard sets. Publish shader writes before the
+            // split so a dependent dispatch recorded in the next submission
+            // still has an explicit Vulkan memory dependency.
+            if !self.pending_shader_writes.is_empty() {
+                self.shader_barrier()?;
+            }
+            self.submit_and_restart()?;
+        }
+        Ok(())
     }
 
     pub(crate) fn upload_f32(&mut self, dst: &GpuBuffer, values: &[f32]) -> Result<()> {
@@ -5966,11 +6050,12 @@ impl ComputeBatch {
 
     /// Submit the current command stream synchronously and immediately replace
     /// it with a fresh command buffer that keeps the same upload-arena policy.
-    /// This is intended for rare graph phase boundaries where a small host
-    /// scalar decision depends on Vulkan forward readback before reverse-mode
-    /// commands can be recorded (for example sequence-scalar backward caps).
+    /// This supports both graph phase boundaries that require host-visible
+    /// completion and watchdog-safe job slicing on drivers with short GPU job
+    /// timeouts.
     pub(crate) fn submit_and_restart(&mut self) -> Result<()> {
         let device = self.device.clone();
+        let watchdog_submission_slicing = self.watchdog_submission_slicing;
         let persistent_arena = match &self.upload_arena {
             UploadArenaStorage::Persistent(arena) => Some(Arc::clone(arena)),
             UploadArenaStorage::Local(_) => None,
@@ -5983,10 +6068,10 @@ impl ComputeBatch {
         let placeholder = Self::new(&device)?;
         let current = std::mem::replace(self, placeholder);
         current.submit()?;
-        *self = match persistent_arena {
-            Some(arena) => Self::new_with_persistent_upload_arena(&device, arena)?,
-            None => Self::new(&device)?,
-        };
+        if let Some(arena) = persistent_arena {
+            *self = Self::new_with_persistent_upload_arena(&device, arena)?;
+        }
+        self.watchdog_submission_slicing = watchdog_submission_slicing;
         Ok(())
     }
 
@@ -6073,6 +6158,7 @@ impl ComputeBatch {
             }
             let submits = [submit];
             if let Err(err) = unsafe { self.inner.device.queue_submit(queue, &submits, fence) } {
+                self.inner.note_vulkan_error(err);
                 if fence != vk::Fence::null() {
                     unsafe { self.inner.device.destroy_fence(fence, None) };
                 }
@@ -6256,6 +6342,7 @@ impl ComputeBatch {
             }
             let submits = [submit];
             if let Err(err) = unsafe { self.inner.device.queue_submit(queue, &submits, fence) } {
+                self.inner.note_vulkan_error(err);
                 if fence != vk::Fence::null() {
                     unsafe { self.inner.device.destroy_fence(fence, None) };
                 }
@@ -6534,17 +6621,25 @@ impl SubmittedComputeBatch {
                     .batch
                     .as_mut()
                     .context("fence-backed Vulkan submission lost its batch resource owner")?;
-                batch
+                let wait_result = batch
                     .inner
                     .device
                     .wait_for_fences(&[fence], true, u64::MAX)
-                    .map_err(|err| anyhow!("waiting for Vulkan compute-batch fence: {err:?}"))?;
+                    .map_err(|err| {
+                        batch.inner.note_vulkan_error(err);
+                        anyhow!("waiting for Vulkan compute-batch fence: {err:?}")
+                    });
                 batch.inner.device.destroy_fence(fence, None);
                 self.completed = true;
+                wait_result?;
                 return batch.finish_submission_diagnostics();
             },
             SubmissionCompletion::Timeline { semaphore, value } => {
-                self.inner.wait_submission_timeline(semaphore, value)?;
+                let wait_result = self.inner.wait_submission_timeline(semaphore, value);
+                if wait_result.is_err() {
+                    self.completed = true;
+                }
+                wait_result?;
                 let _ = self.inner.reap_completed_submission_resources()?;
             }
         }
@@ -6589,16 +6684,24 @@ impl Drop for SubmittedComputeBatch {
                 SubmissionCompletion::Fence(fence) => {
                     if let Some(batch) = self.batch.as_ref() {
                         unsafe {
-                            let _ = batch.inner.device.wait_for_fences(&[fence], true, u64::MAX);
+                            if !batch.inner.device_lost.load(Ordering::Acquire) {
+                                if let Err(err) =
+                                    batch.inner.device.wait_for_fences(&[fence], true, u64::MAX)
+                                {
+                                    batch.inner.note_vulkan_error(err);
+                                }
+                            }
                             batch.inner.device.destroy_fence(fence, None);
                         }
                     }
                 }
                 SubmissionCompletion::Timeline { semaphore, value } => {
-                    if self.batch.is_some() {
+                    if self.batch.is_some() && !self.inner.device_lost.load(Ordering::Acquire) {
                         let _ = self.inner.wait_submission_timeline(semaphore, value);
                     }
-                    let _ = self.inner.reap_completed_submission_resources();
+                    if !self.inner.device_lost.load(Ordering::Acquire) {
+                        let _ = self.inner.reap_completed_submission_resources();
+                    }
                 }
             }
         }
@@ -7060,6 +7163,14 @@ impl ComputeKernel {
         })?;
         batch.record_kernel_timestamp_end()?;
         batch.finish_shader_dispatch(self.shader_signature, buffers, &self.binding_accesses);
+        // On Linux AMD, a single command buffer containing a full training
+        // phase can run far beyond amdgpu's default scheduler timeout even
+        // when each dispatch is healthy. Retire each dispatch as its own job
+        // on the watchdog-safe path. This intentionally trades throughput for
+        // liveness only on the affected default platform; other platforms keep
+        // the legacy batching behavior, and the environment override can
+        // disable/force the policy for diagnosis.
+        batch.watchdog_checkpoint()?;
         Ok(())
     }
 }
@@ -7085,11 +7196,12 @@ impl Drop for ComputeKernel {
 mod tests {
     use super::{
         insert_free_range, intern_kernel_layouts, kernel_profile_category, take_aligned_range,
-        timestamp_delta, ComputeBatch, ComputeKernel, DescriptorLayoutSignature, GpuBuffer,
-        MemoryRange, PipelineLayoutSignature, SubmissionCompletion, UploadArenaStorage,
-        VulkanDevice, VulkanDeviceGroupInfo, VulkanExternalBufferCapabilities,
-        VulkanExternalSemaphoreCapabilities, VulkanGradientTransportBackend, VulkanMemoryBudget,
-        VulkanPhysicalDeviceInfo,
+        timestamp_delta, watchdog_submission_slicing_enabled_for, ComputeBatch, ComputeKernel,
+        DescriptorLayoutSignature, GpuBuffer, MemoryRange, PipelineLayoutSignature,
+        SubmissionCompletion, UploadArenaStorage, VulkanDevice, VulkanDeviceGroupInfo,
+        VulkanExternalBufferCapabilities, VulkanExternalSemaphoreCapabilities,
+        VulkanGradientTransportBackend, VulkanMemoryBudget, VulkanPhysicalDeviceInfo,
+        AMD_PCI_VENDOR_ID,
     };
     use anyhow::{anyhow, Context, Result};
 
@@ -7509,6 +7621,53 @@ mod tests {
     }
 
     #[test]
+    fn watchdog_submission_slicing_preserves_dependent_dispatch_results() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        let input = GpuBuffer::zeros_f32(&device, 4)?;
+        let first_weight = GpuBuffer::zeros_f32(&device, 4)?;
+        let intermediate = GpuBuffer::zeros_f32(&device, 1)?;
+        let second_weight = GpuBuffer::zeros_f32(&device, 1)?;
+        let output = GpuBuffer::zeros_f32(&device, 1)?;
+        let kernel = ComputeKernel::new(
+            &device,
+            include_bytes!("../shaders/linear_forward.spv"),
+            3,
+            16,
+        )?;
+
+        let mut commands = ComputeBatch::new(&device)?;
+        // Exercise the Linux-AMD mitigation on other platforms without
+        // changing their default policy.
+        commands.watchdog_submission_slicing = true;
+        commands.upload_f32(&input, &[1.0, 2.0, 3.0, 4.0])?;
+        commands.upload_f32(&first_weight, &[2.0, 3.0, 4.0, 5.0])?;
+        commands.upload_f32(&second_weight, &[2.0])?;
+
+        let first_push_words = [1u32, 4, 1, 0];
+        kernel.record_dispatch(
+            &mut commands,
+            &[&input, &first_weight, &intermediate],
+            bytemuck::cast_slice(&first_push_words),
+            [1, 1, 1],
+        )?;
+        let second_push_words = [1u32, 1, 1, 0];
+        kernel.record_dispatch(
+            &mut commands,
+            &[&intermediate, &second_weight, &output],
+            bytemuck::cast_slice(&second_push_words),
+            [1, 1, 1],
+        )?;
+        commands.submit()?;
+
+        let actual = output.read_f32(1)?[0];
+        assert!(
+            (actual - 80.0).abs() <= 1.0e-6,
+            "watchdog-sliced dependent dispatches produced {actual}"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn timeline_submission_arena_defers_transient_scratch_reuse_until_epoch() -> Result<()> {
         let device = VulkanDevice::new()?;
         if !device.inner.submission_timeline_enabled {
@@ -7704,6 +7863,35 @@ mod tests {
         assert_eq!(budget.device_local_pressure_bucket(), Some(7));
         budget.device_local_budget_bytes = 0;
         assert_eq!(budget.device_local_pressure_bucket(), None);
+    }
+
+    #[test]
+    fn gpu_job_boundary_policy_defaults_to_amd_on_watchdog_oses() {
+        assert!(watchdog_submission_slicing_enabled_for(
+            AMD_PCI_VENDOR_ID,
+            None,
+            true
+        ));
+        assert!(!watchdog_submission_slicing_enabled_for(
+            AMD_PCI_VENDOR_ID,
+            None,
+            false
+        ));
+        assert!(!watchdog_submission_slicing_enabled_for(0x10de, None, true));
+    }
+
+    #[test]
+    fn gpu_job_boundary_policy_honors_explicit_override() {
+        assert!(watchdog_submission_slicing_enabled_for(
+            0x10de,
+            Some(std::ffi::OsStr::new("1")),
+            false,
+        ));
+        assert!(!watchdog_submission_slicing_enabled_for(
+            AMD_PCI_VENDOR_ID,
+            Some(std::ffi::OsStr::new("0")),
+            true,
+        ));
     }
 
     #[test]

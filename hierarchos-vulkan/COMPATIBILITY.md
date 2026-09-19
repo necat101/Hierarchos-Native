@@ -149,6 +149,31 @@ Rust GPU tests follow the existing convention of returning early when no device
 is available; the Python numerical probes require an actual Vulkan device.
 Run those probes when hardware execution is an acceptance requirement.
 
+### Linux AMD watchdog-safe submissions
+
+Linux AMD training now protects the stock `amdgpu` scheduler timeout by
+retiring compute dispatches as dispatch-granular synchronous Vulkan jobs instead of
+allowing an entire forward/backward/optimizer phase to accumulate into one
+long-running submission. The policy is enabled automatically for AMD PCI vendor
+`0x1002` on Linux and is deliberately not enabled by default on other
+platforms or vendors.
+
+Slicing is activated only on synchronous training/inference command streams;
+batches that acquire external or device-group semaphore dependencies retain
+their original deferred-submission behavior.
+
+This changes submission granularity, not shader math or optimizer ordering. The
+same path can be forced for validation on any platform with
+`HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS=1`, and users who have deliberately
+raised the kernel watchdog and prefer the legacy larger submissions can restore
+them with `HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS=0`.
+
+The safeguard also makes a failed fence/timeline wait terminal for that
+submission handle. In particular, a Vulkan device-loss error is propagated
+without the handle's destructor entering a second unbounded wait during cleanup.
+This addresses the failure mode where a lost training device could otherwise
+leave the process consuming a CPU core instead of exiting.
+
 ## Remaining parity work
 
 - Hundreds of unregistered architectures still require native graph operations,
