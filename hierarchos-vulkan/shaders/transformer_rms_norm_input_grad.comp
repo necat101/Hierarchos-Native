@@ -6,13 +6,15 @@ layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float gr
 layout(set = 0, binding = 1, std430) readonly buffer InputBuffer { float x[]; };
 layout(set = 0, binding = 2, std430) readonly buffer WeightBuffer { float weight[]; };
 layout(set = 0, binding = 3, std430) readonly buffer RstdBuffer { float rstd_values[]; };
-layout(set = 0, binding = 4, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MeanSquaredBuffer { float mean_squared_values[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
 
 layout(push_constant) uniform Push {
     uint rows;
     uint dim;
     uint parameter_groups;
     float weight_offset;
+    uint pow_rstd;
 } pc;
 
 void main() {
@@ -24,11 +26,35 @@ void main() {
     float dot = 0.0;
     for (uint col = 0; col < pc.dim; ++col) {
         float weighted_grad = grad_output[base + col] * (weight[parameter_base + col] + pc.weight_offset);
-        dot = fma(weighted_grad, x[base + col], dot);
+        if (pc.pow_rstd != 0u) {
+            // Keep the Gemma4 autograd reduction non-contracted for the same
+            // reason as the forward square reduction above.
+            precise float product = weighted_grad * x[base + col];
+            dot += product;
+        } else {
+            dot = fma(weighted_grad, x[base + col], dot);
+        }
     }
-    float correction = dot * rstd * rstd / float(pc.dim);
-    for (uint col = 0; col < pc.dim; ++col) {
-        float weighted_grad = grad_output[base + col] * (weight[parameter_base + col] + pc.weight_offset);
-        grad_input[base + col] = rstd * (weighted_grad - x[base + col] * correction);
+    if (pc.pow_rstd != 0u) {
+        // Match the autograd chain of Gemma3nRMSNorm/Gemma4RMSNorm exactly:
+        //   mean = x.pow(2).mean() + eps
+        //   rstd = mean.pow(-0.5)
+        // In particular, preserve pow(mean, -1.5) rather than replacing it
+        // algebraically with rstd^3. The two are real-number equivalent but
+        // differ by observable FP32 ulps after AdamW.
+        float grad_mean = dot * -0.5 * pow(mean_squared_values[row], -1.5);
+        float grad_square = grad_mean / float(pc.dim);
+        for (uint col = 0; col < pc.dim; ++col) {
+            float weighted_grad = grad_output[base + col] * (weight[parameter_base + col] + pc.weight_offset);
+            float direct = weighted_grad * rstd;
+            float through_square = grad_square * (2.0 * x[base + col]);
+            grad_input[base + col] = direct + through_square;
+        }
+    } else {
+        float correction = dot * rstd * rstd / float(pc.dim);
+        for (uint col = 0; col < pc.dim; ++col) {
+            float weighted_grad = grad_output[base + col] * (weight[parameter_base + col] + pc.weight_offset);
+            grad_input[base + col] = rstd * (weighted_grad - x[base + col] * correction);
+        }
     }
 }

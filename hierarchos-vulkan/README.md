@@ -31,11 +31,18 @@ Gemma3, Phi-4 Multimodal, EXAONE-4.5, Cohere Compass, Aria, Emu3, GOT-OCR2,
 Aya Vision, LLaVA/LLaVA-NeXT/LLaVA-OneVision and video variants, Idefics2/3,
 VipLLaVA, SmolVLM, Qwen2-Audio, Voxtral, FastVLM, InternVL, Janus, Ovis2,
 AudioFlamingo3, Qwen3-ASR, Granite Speech/Granite Speech Plus, GLM-ASR,
-MusicFlamingo, and VibeVoice-ASR
+MusicFlamingo, VibeVoice-ASR, and Kimi K3's native `KimiLinear` language model
 while preserving untouched non-text package tensors on export.
 These contracts include the relevant fused/split QKV layouts, MHA/MQA/GQA,
 RoPE/ALiBi, sliding/local attention, RMSNorm/LayerNorm, tied/untied heads, and
 bidirectional masked-language-model objectives where the family defines them.
+Kimi K3 is a text-backbone contract: hybrid KDA/MLA scheduling, KDA recurrent
+and convolution generation state, MLA output gating, SiTU, Stable LatentMoE,
+AttnRes, backward/AdamW, cached generation, and SafeTensors round-trip are native.
+MoonViT/vision-projector execution is not claimed. The official K3
+`compressed-tensors` `mxfp4-pack-quantized` weights are deliberately rejected;
+use an unquantized FP32/BF16 KimiLinear package for native execution. Kimi K2 and
+K2.5 continue to use their existing DeepSeek-style text graph.
 OLMoE follows the current Hugging Face packed-expert ABI and preserves its
 full-projection Q/K RMSNorm -> `clip_qkv` -> RoPE ordering. ModernBERT masked-LM
 execution also preserves

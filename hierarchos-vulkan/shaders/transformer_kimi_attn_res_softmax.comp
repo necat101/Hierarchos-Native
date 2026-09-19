@@ -1,0 +1,33 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer ScoresBuffer { float scores[]; };
+layout(set = 0, binding = 1, std430) buffer ProbabilitiesBuffer { float probabilities[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint sources;
+    uint dim;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    float maximum = -3.402823466e+38;
+    for (uint source = 0; source < pc.sources; ++source) {
+        uint index = source * pc.rows + row;
+        maximum = max(maximum, scores[index]);
+    }
+    float denominator = 0.0;
+    for (uint source = 0; source < pc.sources; ++source) {
+        uint index = source * pc.rows + row;
+        float value = exp(scores[index] - maximum);
+        probabilities[index] = value;
+        denominator += value;
+    }
+    float inv_denominator = 1.0 / denominator;
+    for (uint source = 0; source < pc.sources; ++source) {
+        probabilities[source * pc.rows + row] *= inv_denominator;
+    }
+}

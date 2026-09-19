@@ -46,6 +46,7 @@ fn run() -> Result<()> {
     let mut model = None;
     let mut fixture = None;
     let mut output = None;
+    let mut export_model = None;
     let mut device_index = None;
     let mut args = std::env::args_os().skip(1);
     while let Some(arg) = args.next() {
@@ -61,6 +62,11 @@ fn run() -> Result<()> {
                     args.next().context("missing --output value")?,
                 ))
             }
+            "--export-model" => {
+                export_model = Some(PathBuf::from(
+                    args.next().context("missing --export-model value")?,
+                ))
+            }
             "--device-index" => {
                 device_index = Some(
                     args.next()
@@ -72,7 +78,7 @@ fn run() -> Result<()> {
             }
             "-h" | "--help" => {
                 eprintln!(
-                    "usage: transformer_logits --model DIR --fixture fixture.json [--output report.json] [--device-index N]"
+                    "usage: transformer_logits --model DIR --fixture fixture.json [--output report.json] [--export-model DIR] [--device-index N]"
                 );
                 return Ok(());
             }
@@ -167,6 +173,9 @@ fn run() -> Result<()> {
             )?,
             None => graph.forward_logits(&fixture.input_ids, &fixture.attention_mask)?,
         };
+        if let Some(export_dir) = export_model.as_deref() {
+            graph.export_hf_package(&model, export_dir)?;
+        }
         eprintln!("transformer_logits: forward complete");
         Report {
             device: graph.device_name().to_owned(),

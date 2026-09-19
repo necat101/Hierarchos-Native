@@ -20,7 +20,15 @@ from unittest.mock import patch
 
 import torch
 from safetensors.torch import load_file
-from verify_hf_logits import REPO, build_binary, tiny_models, transformers
+from verify_hf_logits import (
+    HEADLINE_ADAMW_FAMILIES,
+    REPO,
+    build_binary,
+    model_vocab_size,
+    save_reference_checkpoint,
+    tiny_models,
+    transformers,
+)
 
 
 def philox_word(seed, word_index):
@@ -35,7 +43,7 @@ def philox_word(seed, word_index):
     return counter[word_index % 4]
 
 
-def compare_training(binary, root, name, model, device_index, jitter=False):
+def compare_training(binary, root, name, model, device_index, jitter=False, steps=2):
     # The generic train probe takes same-position targets. Explicitly shift
     # causal labels here; masked LM uses labels at their original positions.
     model.train()
@@ -50,7 +58,14 @@ def compare_training(binary, root, name, model, device_index, jitter=False):
             model.config.ffn_config.moe_jitter_eps = 0.0
     source = root / name / "source"
     destination = root / name / "trained"
-    model.save_pretrained(source, safe_serialization=True)
+    # Validate the backend against Transformers' current normalized parameter
+    # graph, not an optional reverse conversion back into a vendor/legacy Hub
+    # checkpoint layout.  DeepSeek-V4 in particular has a registered reverse
+    # mapping (`self_attn.*` -> `attn.w*`, packed experts -> per-expert w1/w2/w3)
+    # that changes serialization names/shapes without changing the model math.
+    # Keeping that conversion disabled makes this an AdamW/gradient parity
+    # check rather than a checkpoint-conversion test.
+    save_reference_checkpoint(name, model, source)
     input_ids = torch.tensor([[1, 5, 9, 3, 7, 2]], dtype=torch.long)
     targets = torch.tensor([[5, 9, 3, 7, 2, -100]], dtype=torch.long)
     if name == "bert":
@@ -76,11 +91,17 @@ def compare_training(binary, root, name, model, device_index, jitter=False):
         "--output",
         str(destination),
         "--steps",
-        "2",
+        str(steps),
     ]
     if device_index is not None:
         command.extend(["--device-index", str(device_index)])
-    native = subprocess.run(command, cwd=REPO, check=True, capture_output=True, text=True)
+    try:
+        native = subprocess.run(command, cwd=REPO, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        stdout = (exc.stdout or "").strip()
+        stderr = (exc.stderr or "").strip()
+        details = "\n".join(part for part in (stdout, stderr) if part)
+        raise RuntimeError(f"{name}: native training probe failed\n{details}") from exc
     report = json.loads(native.stdout)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -91,7 +112,7 @@ def compare_training(binary, root, name, model, device_index, jitter=False):
         foreach=False,
     )
     losses = []
-    for step in range(1, 3):
+    for step in range(1, steps + 1):
         optimizer.zero_grad(set_to_none=True)
         draw_index = 0
 
@@ -111,15 +132,19 @@ def compare_training(binary, root, name, model, device_index, jitter=False):
             logits = model(input_ids=input_ids, attention_mask=torch.ones_like(input_ids), use_cache=False).logits
         if jitter and draw_index != model.config.num_hidden_layers:
             raise AssertionError(f"{name}: expected one jitter draw per layer, got {draw_index}")
-        loss = torch.nn.functional.cross_entropy(logits.reshape(-1, model.config.vocab_size), targets.reshape(-1))
+        loss = torch.nn.functional.cross_entropy(logits.reshape(-1, model_vocab_size(model)), targets.reshape(-1))
         loss.backward()
         optimizer.step()
         losses.append(loss.item())
+    loss_mismatches = []
     for index, (native_loss, reference_loss) in enumerate(zip(report["losses"], losses, strict=True)):
         if not math.isclose(native_loss, reference_loss, rel_tol=2e-5, abs_tol=2e-5):
-            raise AssertionError(f"{name} step {index + 1}: Vulkan loss {native_loss} != HF {reference_loss}")
+            loss_mismatches.append(
+                f"step {index + 1}: Vulkan loss {native_loss} != HF {reference_loss}"
+            )
     saved = load_file(destination / "model.safetensors")
     worst = (0.0, "")
+    parameter_deltas = []
     count = 0
     # named_parameters deduplicates tied tables, so each optimizer parameter
     # is checked once. Resolve HF's tied aliases in the exported package.
@@ -132,15 +157,24 @@ def compare_training(binary, root, name, model, device_index, jitter=False):
             raise AssertionError(f"{name}: exported checkpoint is missing parameter {key}")
         actual = saved[saved_key]
         expected = parameter.detach().cpu()
-        torch.testing.assert_close(actual, expected, atol=2e-5, rtol=2e-4, msg=lambda msg: f"{name}:{key}: {msg}")
         delta = float((actual - expected).abs().max())
+        parameter_deltas.append((delta, key))
         worst = max(worst, (delta, key))
         count += parameter.numel()
+    parameter_deltas.sort(reverse=True)
+    if loss_mismatches or worst[0] > 2.0e-7:
+        top = ", ".join(f"{key}={delta:.9g}" for delta, key in parameter_deltas[:12])
+        details = "; ".join(loss_mismatches)
+        if details:
+            details += "; "
+        raise AssertionError(
+            f"{name}: {details}worst parameter error {worst[0]:.9g} at {worst[1]}; top deltas: {top}"
+        )
     return {
         "family": name,
         "router_jitter": jitter,
         "device": report["device"],
-        "steps": 2,
+        "steps": steps,
         "losses": losses,
         "parameter_values": count,
         "max_abs": worst[0],
@@ -152,13 +186,39 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device-index", type=int)
     parser.add_argument("--families", nargs="+")
+    parser.add_argument(
+        "--headline-eight",
+        "--headline-strict",
+        dest="headline_eight",
+        action="store_true",
+        help="run the source-backed families used by the strict two-step AdamW compatibility claim",
+    )
+    parser.add_argument("--steps", type=int, default=2, help="optimizer steps to compare (default: 2)")
     parser.add_argument("--jitter", action="store_true", help="verify MoE jitter with shared Philox draws")
     args = parser.parse_args()
+    if args.steps <= 0:
+        parser.error("--steps must be positive")
+    if args.headline_eight and args.families:
+        parser.error("--headline-strict cannot be combined with --families")
+    if args.headline_eight and args.jitter:
+        parser.error("--headline-strict cannot be combined with --jitter")
+    if args.headline_eight and args.steps != 2:
+        parser.error("--headline-strict is defined as exactly two AdamW steps")
     torch.manual_seed(0x48494552)
-    models = [entry for entry in tiny_models() if not entry[1].config.is_encoder_decoder]
+    models = [
+        entry
+        for entry in tiny_models(training_reference=True)
+        if not entry[1].config.is_encoder_decoder
+    ]
     if args.jitter:
         models = [entry for entry in models if entry[0] in {"mixtral", "minimax_m2", "dbrx"}]
-    if args.families:
+    if args.headline_eight:
+        model_by_name = {entry[0]: entry for entry in models}
+        missing = [name for name in HEADLINE_ADAMW_FAMILIES if name not in model_by_name]
+        if missing:
+            parser.error(f"headline families are missing training fixtures: {missing}")
+        models = [model_by_name[name] for name in HEADLINE_ADAMW_FAMILIES]
+    elif args.families:
         unknown = set(args.families) - {name for name, _, _ in models}
         if unknown:
             raise ValueError(f"unknown training families: {sorted(unknown)}")
@@ -166,7 +226,15 @@ def main():
     binary = build_binary("transformer_parity")
     with tempfile.TemporaryDirectory(prefix="vulkan-hf-training-") as directory:
         results = [
-            compare_training(binary, Path(directory), name, model, args.device_index, args.jitter)
+            compare_training(
+                binary,
+                Path(directory),
+                name,
+                model,
+                args.device_index,
+                args.jitter,
+                args.steps,
+            )
             for name, model, _ in models
         ]
     print(

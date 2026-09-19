@@ -6,6 +6,7 @@ layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
 layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
 layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
 layout(set = 0, binding = 3, std430) writeonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer MeanSquaredBuffer { float mean_squared_values[]; };
 
 layout(push_constant) uniform Push {
     uint rows;
@@ -13,6 +14,7 @@ layout(push_constant) uniform Push {
     uint parameter_groups;
     float eps;
     float weight_offset;
+    uint pow_rstd;
 } pc;
 
 void main() {
@@ -23,9 +25,25 @@ void main() {
     float square_sum = 0.0;
     for (uint col = 0; col < pc.dim; ++col) {
         float value = x[base + col];
-        square_sum = fma(value, value, square_sum);
+        if (pc.pow_rstd != 0u) {
+            // PyTorch materializes `hidden_states.pow(2)` before the mean in
+            // Gemma4RMSNorm.  Prevent contraction here so the tiny FP32
+            // reference check sees the same two-rounding operation order.
+            precise float square = value * value;
+            square_sum += square;
+        } else {
+            square_sum = fma(value, value, square_sum);
+        }
     }
-    float rstd = inversesqrt(square_sum / float(pc.dim) + pc.eps);
+    float mean_squared = square_sum / float(pc.dim) + pc.eps;
+    // Gemma 4 / Gemma3n intentionally use pow(x, -0.5) instead of rsqrt in
+    // the Transformers reference implementation. Keep that operation choice
+    // explicit because the two forms can differ by a few FP32 ulps and those
+    // differences are observable after a full backward + AdamW step.
+    float rstd = pc.pow_rstd != 0u
+        ? pow(mean_squared, -0.5)
+        : inversesqrt(mean_squared);
+    mean_squared_values[row] = mean_squared;
     rstd_values[row] = rstd;
     for (uint col = 0; col < pc.dim; ++col) {
         output_values[base + col] = x[base + col] * rstd * (weight[parameter_base + col] + pc.weight_offset);

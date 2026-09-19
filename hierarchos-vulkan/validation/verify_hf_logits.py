@@ -11,17 +11,46 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 import torch
+from safetensors.torch import save_file
 
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parent
-sys.path.insert(0, str(REPO / "src"))
+
+
+def _transformers_source_root() -> Path:
+    """Resolve the local Transformers checkout used as the reference implementation."""
+    candidates: list[Path] = []
+    configured = os.environ.get("HIERARCHOS_TRANSFORMERS_CHECKOUT")
+    if configured:
+        candidates.append(Path(configured).expanduser())
+    candidates.extend(
+        [
+            REPO / "transformers",
+            REPO.parent / "transformers",
+            Path.home() / "transformers",
+        ]
+    )
+    for checkout in candidates:
+        source_root = checkout / "src"
+        if (source_root / "transformers" / "__init__.py").is_file():
+            return source_root.resolve()
+    searched = ", ".join(str(path) for path in candidates)
+    raise RuntimeError(
+        "local Hugging Face Transformers checkout not found; set "
+        f"HIERARCHOS_TRANSFORMERS_CHECKOUT to the checkout root (searched: {searched})"
+    )
+
+
+TRANSFORMERS_SOURCE = _transformers_source_root()
+sys.path.insert(0, str(TRANSFORMERS_SOURCE))
 
 import transformers  # noqa: E402
 from transformers import (  # noqa: E402
@@ -29,10 +58,20 @@ from transformers import (  # noqa: E402
     BartForConditionalGeneration,
     BertConfig,
     BertForMaskedLM,
+    DeepseekV3Config,
+    DeepseekV4Config,
+    DeepseekV4ForCausalLM,
     DbrxConfig,
     DbrxForCausalLM,
     GPT2Config,
     GPT2LMHeadModel,
+    Gemma3ForCausalLM,
+    Gemma3TextConfig,
+    Gemma4ForCausalLM,
+    Gemma4TextConfig,
+    Kimi_K25Config,
+    Kimi_K25ForConditionalGeneration,
+    Kimi_K25VisionConfig,
     LlamaConfig,
     LlamaForCausalLM,
     MiniMaxM2Config,
@@ -41,8 +80,16 @@ from transformers import (  # noqa: E402
     MiniMaxM3VLTextConfig,
     MistralConfig,
     MistralForCausalLM,
+    Mistral4Config,
+    Mistral4ForCausalLM,
     MixtralConfig,
     MixtralForCausalLM,
+    Phi3Config,
+    Phi3ForCausalLM,
+    Phi4MultimodalAudioConfig,
+    Phi4MultimodalConfig,
+    Phi4MultimodalForCausalLM,
+    Phi4MultimodalVisionConfig,
     Qwen3_5ForCausalLM,
     Qwen3_5TextConfig,
     Qwen4ExpForCausalLM,
@@ -55,8 +102,66 @@ from transformers import (  # noqa: E402
     T5ForConditionalGeneration,
 )
 
+from kimi_k3_reference import tiny_kimi_k3_model  # noqa: E402
+
 
 MANIFEST = ROOT / "Cargo.toml"
+
+# High-signal parity set used by COMPATIBILITY.md. Keep this deliberately
+# narrower than the architecture registry: every entry must have both live
+# forward parity and the strict two-step AdamW parameter check.
+#
+# Kimi K3 uses Moonshot's released remote modeling code with the local
+# Transformers checkout as its validation oracle. The mixed text graph has now
+# passed the same strict two-step AdamW parameter-parity contract as the other
+# headline families; the KDA-only and MLA-only fixtures remain focused probes.
+HEADLINE_ADAMW_FAMILIES = (
+    "deepseek_v4",
+    "phi4_multimodal_text",
+    "phi3",
+    "kimi_k25_text",
+    "kimi_k3_text",
+    "mistral4",
+    "minimax_m3",
+    "gemma4",
+    "minimax_m2",
+)
+
+KIMI_K3_ORACLE_FAMILIES = (
+    "kimi_k3_kda",
+    "kimi_k3_mla",
+    "kimi_k3_text",
+)
+
+
+def save_reference_checkpoint(name: str, model: torch.nn.Module, model_dir: Path) -> None:
+    """Serialize the normalized reference graph without vendor reverse conversions."""
+    if name in KIMI_K3_ORACLE_FAMILIES:
+        # Moonshot's remote class uses the pre-main list form of
+        # `_tied_weights_keys`, while current Transformers main expects a
+        # mapping during save_pretrained(). The tiny K3 fixture deliberately
+        # has no tied word embeddings, so writing its exact state_dict is the
+        # semantically equivalent normalized checkpoint and avoids changing
+        # either upstream source tree.
+        model_dir.mkdir(parents=True, exist_ok=True)
+        model.config.save_pretrained(model_dir)
+        save_file(model.state_dict(), model_dir / "model.safetensors")
+        return
+    model.save_pretrained(
+        model_dir,
+        safe_serialization=True,
+        save_original_format=False,
+    )
+
+
+def model_vocab_size(model: torch.nn.Module) -> int:
+    """Return the LM vocabulary size for direct and multimodal wrapper configs."""
+    vocab_size = getattr(model.config, "vocab_size", None)
+    if vocab_size is None and hasattr(model.config, "text_config"):
+        vocab_size = getattr(model.config.text_config, "vocab_size", None)
+    if not isinstance(vocab_size, int) or vocab_size <= 0:
+        raise ValueError(f"{type(model.config).__name__} does not expose a positive LM vocabulary size")
+    return vocab_size
 
 
 def parse_args() -> argparse.Namespace:
@@ -66,6 +171,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rtol", type=float, default=2.0e-4)
     parser.add_argument("--keep-fixtures", type=Path)
     parser.add_argument("--families", nargs="+", help="run only these family names")
+    parser.add_argument(
+        "--headline-eight",
+        "--headline-strict",
+        dest="headline_eight",
+        action="store_true",
+        help="run the source-backed families used by the strict two-step AdamW compatibility claim",
+    )
     return parser.parse_args()
 
 
@@ -93,7 +205,7 @@ def build_binary(name: str = "hierarchos-vulkan-transformer-logits") -> Path:
     raise RuntimeError(f"Cargo did not report an executable for {name}")
 
 
-def tiny_models() -> list[tuple[str, torch.nn.Module, bool]]:
+def tiny_models(*, training_reference: bool = False) -> list[tuple[str, torch.nn.Module, bool]]:
     common_decoder = {
         "vocab_size": 32,
         "hidden_size": 16,
@@ -104,7 +216,7 @@ def tiny_models() -> list[tuple[str, torch.nn.Module, bool]]:
         "max_position_embeddings": 16,
         "tie_word_embeddings": False,
     }
-    return [
+    models = [
         (
             "gpt2",
             GPT2LMHeadModel(
@@ -157,6 +269,271 @@ def tiny_models() -> list[tuple[str, torch.nn.Module, bool]]:
                     **common_decoder,
                     rms_norm_eps=1.0e-5,
                     sliding_window=8,
+                )
+            ),
+            False,
+        ),
+        (
+            "phi3",
+            Phi3ForCausalLM(
+                Phi3Config(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=32,
+                    num_hidden_layers=2,
+                    num_attention_heads=2,
+                    num_key_value_heads=2,
+                    max_position_embeddings=16,
+                    original_max_position_embeddings=16,
+                    resid_pdrop=0.0,
+                    embd_pdrop=0.0,
+                    attention_dropout=0.0,
+                    rms_norm_eps=1.0e-5,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                    pad_token_id=0,
+                )
+            ),
+            False,
+        ),
+        (
+            "phi4_multimodal_text",
+            Phi4MultimodalForCausalLM(
+                Phi4MultimodalConfig(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=32,
+                    num_hidden_layers=2,
+                    num_attention_heads=2,
+                    num_key_value_heads=2,
+                    max_position_embeddings=16,
+                    original_max_position_embeddings=16,
+                    resid_pdrop=0.0,
+                    embd_pdrop=0.0,
+                    attention_dropout=0.0,
+                    rms_norm_eps=1.0e-5,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                    pad_token_id=0,
+                    sliding_window=None,
+                    vision_config=Phi4MultimodalVisionConfig(
+                        hidden_size=8,
+                        intermediate_size=16,
+                        num_hidden_layers=1,
+                        num_attention_heads=1,
+                        image_size=14,
+                        patch_size=14,
+                        crop_size=14,
+                    ),
+                    audio_config=Phi4MultimodalAudioConfig(
+                        hidden_size=8,
+                        intermediate_size=8,
+                        num_blocks=1,
+                        num_attention_heads=1,
+                        ext_pw_out_channel=8,
+                        depthwise_separable_out_channel=8,
+                        nemo_conv_channels=8,
+                        input_size=8,
+                    ),
+                )
+            ),
+            False,
+        ),
+        (
+            "gemma3",
+            Gemma3ForCausalLM(
+                Gemma3TextConfig(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=32,
+                    num_hidden_layers=2,
+                    num_attention_heads=2,
+                    num_key_value_heads=1,
+                    head_dim=8,
+                    max_position_embeddings=16,
+                    rms_norm_eps=1.0e-6,
+                    attention_dropout=0.0,
+                    query_pre_attn_scalar=8,
+                    sliding_window=4,
+                    layer_types=["sliding_attention", "full_attention"],
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                    pad_token_id=0,
+                )
+            ),
+            False,
+        ),
+        (
+            "gemma4",
+            Gemma4ForCausalLM(
+                Gemma4TextConfig(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=32,
+                    num_hidden_layers=2,
+                    num_attention_heads=2,
+                    num_key_value_heads=1,
+                    head_dim=8,
+                    global_head_dim=8,
+                    max_position_embeddings=16,
+                    rms_norm_eps=1.0e-6,
+                    attention_dropout=0.0,
+                    sliding_window=4,
+                    layer_types=["sliding_attention", "full_attention"],
+                    rope_parameters={
+                        "sliding_attention": {"rope_type": "default", "rope_theta": 10_000.0},
+                        "full_attention": {"rope_type": "default", "rope_theta": 1_000_000.0},
+                    },
+                    hidden_size_per_layer_input=0,
+                    num_kv_shared_layers=0,
+                    attention_k_eq_v=False,
+                    enable_moe_block=False,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                    pad_token_id=0,
+                )
+            ),
+            False,
+        ),
+        (
+            "kimi_k25_text",
+            Kimi_K25ForConditionalGeneration(
+                Kimi_K25Config(
+                    text_config=DeepseekV3Config(
+                        vocab_size=32,
+                        hidden_size=16,
+                        intermediate_size=32,
+                        moe_intermediate_size=8,
+                        num_hidden_layers=2,
+                        num_attention_heads=2,
+                        num_key_value_heads=2,
+                        n_shared_experts=1,
+                        n_routed_experts=3,
+                        routed_scaling_factor=1.0,
+                        kv_lora_rank=4,
+                        q_lora_rank=4,
+                        qk_rope_head_dim=4,
+                        v_head_dim=8,
+                        qk_nope_head_dim=4,
+                        n_group=1,
+                        topk_group=1,
+                        num_experts_per_tok=2,
+                        first_k_dense_replace=0,
+                        norm_topk_prob=True,
+                        max_position_embeddings=16,
+                        attention_dropout=0.0,
+                        num_mtp_layers=0,
+                        tie_word_embeddings=False,
+                        bos_token_id=1,
+                        eos_token_id=2,
+                        pad_token_id=0,
+                    ),
+                    vision_config=Kimi_K25VisionConfig(
+                        patch_size=2,
+                        pos_emb_height=2,
+                        pos_emb_width=2,
+                        pos_emb_time=1,
+                        num_attention_heads=1,
+                        num_hidden_layers=1,
+                        hidden_size=8,
+                        intermediate_size=16,
+                        merge_kernel_size=(1, 1),
+                        max_position_embeddings=8,
+                    ),
+                    projection_hidden_size=8,
+                    image_token_id=29,
+                    video_token_id=30,
+                    vision_start_token_id=27,
+                    vision_end_token_id=28,
+                    tie_word_embeddings=False,
+                )
+            ),
+            False,
+        ),
+        (
+            "mistral4",
+            Mistral4ForCausalLM(
+                Mistral4Config(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=32,
+                    moe_intermediate_size=8,
+                    num_hidden_layers=2,
+                    num_attention_heads=2,
+                    num_key_value_heads=2,
+                    n_shared_experts=1,
+                    n_routed_experts=3,
+                    routed_scaling_factor=1.0,
+                    kv_lora_rank=4,
+                    q_lora_rank=4,
+                    qk_rope_head_dim=4,
+                    v_head_dim=8,
+                    qk_nope_head_dim=4,
+                    n_group=1,
+                    topk_group=1,
+                    num_experts_per_tok=2,
+                    first_k_dense_replace=0,
+                    norm_topk_prob=True,
+                    max_position_embeddings=16,
+                    attention_dropout=0.0,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                    pad_token_id=0,
+                )
+            ),
+            False,
+        ),
+        (
+            "deepseek_v4",
+            DeepseekV4ForCausalLM(
+                DeepseekV4Config(
+                    vocab_size=32,
+                    hidden_size=16,
+                    moe_intermediate_size=8,
+                    num_hidden_layers=2,
+                    num_attention_heads=2,
+                    num_key_value_heads=1,
+                    head_dim=8,
+                    q_lora_rank=4,
+                    num_experts_per_tok=2,
+                    n_routed_experts=3,
+                    n_shared_experts=1,
+                    scoring_func="sqrtsoftplus",
+                    norm_topk_prob=True,
+                    routed_scaling_factor=1.5,
+                    max_position_embeddings=16,
+                    layer_types=[
+                        "heavily_compressed_attention",
+                        "compressed_sparse_attention",
+                    ],
+                    compress_rates={
+                        "compressed_sparse_attention": 2,
+                        "heavily_compressed_attention": 2,
+                    },
+                    compress_rope_theta=10_000.0,
+                    hc_mult=2,
+                    hc_sinkhorn_iters=2,
+                    hc_eps=1.0e-6,
+                    mlp_layer_types=["hash_moe", "moe"],
+                    sliding_window=4,
+                    o_groups=2,
+                    o_lora_rank=2,
+                    index_n_heads=2,
+                    index_head_dim=8,
+                    index_topk=2,
+                    num_nextn_predict_layers=0,
+                    partial_rotary_factor=0.5,
+                    router_jitter_noise=0.0,
+                    attention_dropout=0.0,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                    pad_token_id=0,
                 )
             ),
             False,
@@ -440,6 +817,27 @@ def tiny_models() -> list[tuple[str, torch.nn.Module, bool]]:
             True,
         ),
     ]
+    for name, schedule in (
+        ("kimi_k3_kda", "kda"),
+        ("kimi_k3_mla", "mla"),
+        ("kimi_k3_text", "mixed"),
+    ):
+        model = tiny_kimi_k3_model(training_reference=training_reference, schedule=schedule)
+        if model is not None:
+            models.append((name, model, False))
+    for name, model, _ in models:
+        if name == "deepseek_v4":
+            # DeepseekV4HashRouter intentionally initializes this persistent
+            # lookup buffer to zeros.  A real checkpoint supplies a token ->
+            # top-k expert table; populate a deterministic valid table for the
+            # tiny fixture so both implementations exercise hash routing rather
+            # than an invalid duplicate-expert placeholder.
+            tid2eid = model.model.layers[0].mlp.gate.tid2eid
+            with torch.no_grad():
+                for token_id in range(tid2eid.shape[0]):
+                    for slot in range(tid2eid.shape[1]):
+                        tid2eid[token_id, slot] = (token_id + slot) % model.config.num_local_experts
+    return models
 
 
 def compare_family(
@@ -456,7 +854,19 @@ def compare_family(
     case = "padded" if padded else "unmasked"
     model_dir = root / name / case
     model.eval()
-    model.save_pretrained(model_dir, safe_serialization=True)
+    if name in KIMI_K3_ORACLE_FAMILIES:
+        # K3 acceptance is intentionally stronger than the broad compatibility
+        # suite: every visible logit must stay within the user's 2e-7 absolute
+        # drift contract against Moonshot's released model code.
+        atol = min(atol, 2.0e-7)
+        rtol = 0.0
+    # Compare against Transformers' normalized in-memory parameter graph. Some
+    # current families (notably DeepSeek-V4) register a reverse conversion for
+    # Hub serialization that rewrites `self_attn.*` tensors back to vendor
+    # checkpoint names.  The native loader/training parity path intentionally
+    # targets the normalized graph, so keep the same format here as in the
+    # two-step AdamW verifier.
+    save_reference_checkpoint(name, model, model_dir)
 
     input_ids = torch.tensor([[1, 5, 9, 3, 7, 2]], dtype=torch.long)
     attention_mask = torch.ones_like(input_ids)
@@ -520,7 +930,7 @@ def compare_family(
 
     # Fully masked query rows are backend-dependent in HF; compare the
     # observable logits at visible positions, including mixed padding in batch.
-    visible = attention_mask.bool().reshape(-1, 1).expand(-1, model.config.vocab_size).reshape(-1)
+    visible = attention_mask.bool().reshape(-1, 1).expand(-1, model_vocab_size(model)).reshape(-1)
     actual, reference = actual[visible], reference[visible]
 
     delta = (actual - reference).abs()
@@ -556,18 +966,28 @@ def main() -> None:
     args = parse_args()
     torch.manual_seed(0x48494552)
     source = Path(transformers.__file__).resolve()
-    if not source.is_relative_to(REPO / "src"):
-        raise RuntimeError(f"expected adjacent Transformers checkout, imported {source}")
+    if not source.is_relative_to(TRANSFORMERS_SOURCE):
+        raise RuntimeError(
+            f"expected local Transformers checkout under {TRANSFORMERS_SOURCE}, imported {source}"
+        )
     models = tiny_models()
-    if args.families:
+    if args.headline_eight and args.families:
+        raise ValueError("--headline-strict cannot be combined with --families")
+    if args.headline_eight:
+        model_by_name = {entry[0]: entry for entry in models}
+        missing = [name for name in HEADLINE_ADAMW_FAMILIES if name not in model_by_name]
+        if missing:
+            raise ValueError(f"headline families are missing fixtures: {missing}")
+        models = [model_by_name[name] for name in HEADLINE_ADAMW_FAMILIES]
+    elif args.families:
         unknown = set(args.families) - {name for name, _, _ in models}
         if unknown:
             raise ValueError(f"unknown families: {sorted(unknown)}")
         models = [entry for entry in models if entry[0] in args.families]
     binary = build_binary()
     if args.keep_fixtures is not None:
-        args.keep_fixtures.mkdir(parents=True, exist_ok=True)
-        fixture_root = args.keep_fixtures
+        fixture_root = args.keep_fixtures.resolve()
+        fixture_root.mkdir(parents=True, exist_ok=True)
         cleanup = None
     else:
         cleanup = tempfile.TemporaryDirectory(prefix="hierarchos-vulkan-hf-parity-")
@@ -576,7 +996,11 @@ def main() -> None:
     results = []
     try:
         for name, model, token_types in models:
-            for padded in (False, True):
+            # The CPU KDA oracle intentionally implements the dense sequence
+            # path used for numerical parity; padding/varlen FLA behavior is a
+            # separate kernel contract and is not emulated here.
+            padded_cases = (False,) if name in KIMI_K3_ORACLE_FAMILIES else (False, True)
+            for padded in padded_cases:
                 results.append(
                     compare_family(
                         binary,

@@ -1,0 +1,26 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer CandidatesBuffer { float candidates[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ProbabilitiesBuffer { float probabilities[]; };
+layout(set = 0, binding = 2, std430) buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint sources;
+    uint dim;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || col >= pc.dim) return;
+    float sum = 0.0;
+    for (uint source = 0; source < pc.sources; ++source) {
+        uint item = source * pc.rows + row;
+        uint candidate_index = item * pc.dim + col;
+        sum = fma(probabilities[item], candidates[candidate_index], sum);
+    }
+    output_values[row * pc.dim + col] = sum;
+}

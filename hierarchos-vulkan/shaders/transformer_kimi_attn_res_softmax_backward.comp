@@ -1,0 +1,27 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer ProbabilitiesBuffer { float probabilities[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradProbabilitiesBuffer { float grad_probabilities[]; };
+layout(set = 0, binding = 2, std430) buffer GradScoresBuffer { float grad_scores[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint sources;
+    uint dim;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    float dot_value = 0.0;
+    for (uint source = 0; source < pc.sources; ++source) {
+        uint index = source * pc.rows + row;
+        dot_value = fma(probabilities[index], grad_probabilities[index], dot_value);
+    }
+    for (uint source = 0; source < pc.sources; ++source) {
+        uint index = source * pc.rows + row;
+        grad_scores[index] = probabilities[index] * (grad_probabilities[index] - dot_value);
+    }
+}

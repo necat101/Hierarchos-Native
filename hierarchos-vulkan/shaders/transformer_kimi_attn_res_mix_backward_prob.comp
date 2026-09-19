@@ -1,0 +1,27 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer CandidatesBuffer { float candidates[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 2, std430) buffer GradProbabilitiesBuffer { float grad_probabilities[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint sources;
+    uint dim;
+} pc;
+
+void main() {
+    uint item = gl_GlobalInvocationID.x;
+    uint total = pc.rows * pc.sources;
+    if (item >= total) return;
+    uint row = item % pc.rows;
+    uint candidate_base = item * pc.dim;
+    uint grad_base = row * pc.dim;
+    float sum = 0.0;
+    for (uint col = 0; col < pc.dim; ++col) {
+        sum = fma(grad_output[grad_base + col], candidates[candidate_base + col], sum);
+    }
+    grad_probabilities[item] = sum;
+}

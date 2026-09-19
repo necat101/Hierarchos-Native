@@ -4,7 +4,35 @@ Native Rust + Vulkan training and inference tooling for **Hierarchos coherent-v9
 
 Hierarchos Native is built around a framework-free execution path: Rust handles model/package I/O, Hugging Face downloads, tokenization, datasets, checkpointing, and orchestration, while supported Transformer and Hierarchos training math runs through Vulkan compute shaders. Hierarchos inference has a separate pure-Rust runtime.
 
-The current source-derived Transformer registry contains **143 canonical native architectures**, plus **81 Hugging Face package/config aliases** for **224 advertised `model_type` spellings**. The full generated inventory is in [hierarchos-vulkan/README_ARCHITECTURES.md](hierarchos-vulkan/README_ARCHITECTURES.md).
+## Nine architectures verified below `2e-7` training divergence
+
+The headline compatibility target is strict numerical parity, not just architecture-name recognition. The current Vulkan backend has **nine modern Transformer text graphs** that each pass **two full AdamW steps** against the reference implementation with **less than `2e-7` maximum absolute parameter divergence** after export:
+
+| Architecture | Verified native scope | Max abs parameter error after 2 AdamW steps |
+| --- | --- | ---: |
+| **DeepSeek V4** | causal LM | `1.192092896e-7` |
+| **Phi-4 Multimodal** | text backbone / causal LM | `1.192092896e-7` |
+| **Phi-3** | causal LM | `1.192092896e-7` |
+| **Kimi K2.5** | text backbone / causal LM | `1.192092896e-7` |
+| **Kimi K3 / KimiLinear** | text backbone / causal LM | **`5.963374861e-8`** |
+| **Mistral 4** | causal LM | `2.607703209e-8` |
+| **MiniMax M3** | text backbone / causal LM | `3.539025784e-8` |
+| **Gemma 4** | causal LM | `1.220032573e-7` |
+| **MiniMax M2** | causal LM | `1.192092896e-7` |
+
+The acceptance ceiling is enforced by the validation harness rather than rounded into the documentation after the fact. These are deterministic FP32 tiny-model correctness checks covering cross-entropy loss and every named trainable parameter across two optimizer steps; they are not a claim that every arbitrary production checkpoint, precision mode, or hyperparameter combination has been certified. See [the compatibility and validation record](hierarchos-vulkan/COMPATIBILITY.md) for the exact harness and broader parity results.
+
+## Kimi K3 / KimiLinear: fully implemented native text backbone
+
+Kimi K3 now has a **fully implemented native `KimiLinear` text-backbone path** instead of being aliased to Kimi K2/K2.5, DeepSeek, Qwen, GLM, or another graph. A top-level `kimi_k3` package resolves its nested `text_config` to the canonical native `kimi_linear` architecture and executes through the Rust/Vulkan backend.
+
+The completed path includes the hybrid **KDA + MLA** layer schedule, independent Q/K/V short convolutions and recurrent KDA state, full-rank KDA output gating, MLA output gating, **SiTU**, **Stable LatentMoE**, **AttnRes**, native forward/backward and AdamW training, cached token-by-token generation, and SafeTensors load/export round-tripping. The production runtime does not depend on Python, PyTorch, FLA, Triton, CUDA, or Moonshot remote code.
+
+Current K3 validation against Moonshot's released Kimi K3 modeling semantics is well inside the `2e-7` target: isolated KDA reaches `5.587935448e-8` maximum absolute logit error, isolated MLA `6.146728992e-8`, the production-style mixed KDA/MLA graph `5.215406418e-8`, and the strict two-step AdamW check `5.963374861e-8` maximum absolute parameter error across 18,450 compared values.
+
+The K3 claim is specifically for the **language/text backbone**. MoonViT/vision/projector execution is intentionally outside this contract. The official `compressed-tensors` `mxfp4-pack-quantized` checkpoint representation is also rejected explicitly until that packed format has its own native implementation and qualification; use an unquantized FP32/BF16 KimiLinear package for native execution.
+
+The current source-derived Transformer registry contains **145 canonical native architectures**, plus **83 Hugging Face package/config aliases** for **228 advertised `model_type` spellings**. The full generated inventory is in [hierarchos-vulkan/README_ARCHITECTURES.md](hierarchos-vulkan/README_ARCHITECTURES.md).
 
 > [!IMPORTANT]
 > Architecture support means the declared native **text graph** is implemented by this backend. A supported text backbone inside a multimodal/audio/vision package does not imply that the package's image, audio, video, processor, or other non-text towers execute natively. Unsupported graphs fail closed instead of being silently approximated.
@@ -228,9 +256,9 @@ python hierarchos-vulkan/validation/generate_supported_architectures.py --check
 
 At the current revision the registry reports:
 
-- **143 canonical native Transformer text architectures**
-- **81 package/config aliases**
-- **224 advertised `model_type` spellings total**
+- **145 canonical native Transformer text architectures**
+- **83 package/config aliases**
+- **228 advertised `model_type` spellings total**
 
 See [the generated architecture matrix](hierarchos-vulkan/README_ARCHITECTURES.md) for the complete list.
 
@@ -315,7 +343,7 @@ Hierarchos Native intentionally fails closed when a requested execution contract
 - This is not universal compatibility with every model and every task in Python `transformers`.
 - A supported multimodal package alias currently represents its supported text backbone, not automatic native execution of every vision/audio/video tower.
 - AutoModel task heads outside the implemented language-model paths need their own native contracts and validation.
-- Some hybrid SSM/convolution, sparse/global-attention, MLA/indexer, non-text, quantized-cache, and advanced continuous-batching paths remain outside the current native graph. Paged KV generation is available only for compatible native Vulkan attention layers and remains explicitly opt-in; the native continuous scheduler is currently limited to decoder-only greedy/sampling requests with paged KV.
+- Some other families' hybrid SSM/convolution, sparse/global-attention, MLA/indexer, non-text, quantized-cache, and advanced continuous-batching paths remain outside the current native graph. Kimi K3's KDA/MLA text path is fully implemented as documented above. Paged KV generation is available only for compatible native Vulkan attention layers and remains explicitly opt-in; the native continuous scheduler is currently limited to decoder-only greedy/sampling requests with paged KV.
 - The seq2seq facade has native encoding/logits and implemented generation paths, but the compatibility document should be checked before assuming a particular training/generation mode is covered.
 - Reference parity results are tiny-model correctness/qualification evidence, not a blanket performance or large-checkpoint certification.
 

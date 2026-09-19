@@ -1,0 +1,28 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GateBuffer { float gate_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer UpBuffer { float up_values[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint len;
+    float beta;
+    float linear_beta;
+    uint use_linear_beta;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.len) return;
+
+    float gate = gate_values[index];
+    float up = up_values[index];
+    float sigmoid_gate = 1.0 / (1.0 + exp(-gate));
+    float situ_gate = pc.beta * tanh(gate / pc.beta) * sigmoid_gate;
+    float situ_up = pc.use_linear_beta != 0u
+        ? pc.linear_beta * tanh(up / pc.linear_beta)
+        : up;
+    output_values[index] = situ_gate * situ_up;
+}

@@ -40,6 +40,20 @@ struct Report {
 }
 
 fn main() -> Result<()> {
+    // Keep the training parity harness aligned with transformer_logits on
+    // Windows. The unified Transformer constructor/training path has a large
+    // debug-build stack frame, while the process main thread has a small fixed
+    // stack. Without an explicitly sized worker stack the harness can die with
+    // STATUS_STACK_OVERFLOW before reporting any model/backend error.
+    std::thread::Builder::new()
+        .name("hierarchos-transformer-parity".into())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(run)?
+        .join()
+        .map_err(|_| anyhow::anyhow!("transformer parity worker thread panicked"))?
+}
+
+fn run() -> Result<()> {
     let mut model = None;
     let mut fixture = None;
     let mut output = None;
