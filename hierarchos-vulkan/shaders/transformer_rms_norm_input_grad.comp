@@ -15,6 +15,7 @@ layout(push_constant) uniform Push {
     uint parameter_groups;
     float weight_offset;
     uint pow_rstd;
+    uint unfused_products;
 } pc;
 
 void main() {
@@ -26,9 +27,10 @@ void main() {
     float dot = 0.0;
     for (uint col = 0; col < pc.dim; ++col) {
         float weighted_grad = grad_output[base + col] * (weight[parameter_base + col] + pc.weight_offset);
-        if (pc.pow_rstd != 0u) {
-            // Keep the Gemma4 autograd reduction non-contracted for the same
-            // reason as the forward square reduction above.
+        if (pc.pow_rstd != 0u || pc.unfused_products != 0u) {
+            // Keep architectures whose reference materializes the elementwise
+            // product non-contracted for the same reason as the forward square
+            // reduction above.
             precise float product = weighted_grad * x[base + col];
             dot += product;
         } else {

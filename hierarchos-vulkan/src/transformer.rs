@@ -7212,6 +7212,10 @@ impl VulkanTransformerArchitecture {
                 | Self::Qwen2Moe
                 | Self::Qwen3
                 | Self::Qwen3Moe
+                | Self::Qwen3Next
+                | Self::Qwen35
+                | Self::Qwen35Moe
+                | Self::Qwen4Exp
                 | Self::Dots1
                 | Self::Mellum
                 | Self::GptOss
@@ -7443,6 +7447,16 @@ impl VulkanTransformerArchitecture {
     /// Preserve that operation choice for strict FP32 training parity.
     fn uses_pow_rms_norm(self) -> bool {
         self == Self::Gemma4
+    }
+
+    /// Current Qwen hybrid RMSNorm implementations explicitly materialize
+    /// elementwise products (`x.pow(2)`) before their reductions. Preserve
+    /// that non-contracted FP32 order for strict Transformers parity.
+    fn uses_unfused_rms_products(self) -> bool {
+        matches!(
+            self,
+            Self::Qwen3Next | Self::Qwen35 | Self::Qwen35Moe | Self::Qwen4Exp
+        )
     }
 
     fn token_embedding_scale(self, hidden_size: usize) -> f32 {
@@ -24923,6 +24937,7 @@ struct RmsNormForwardPush {
     eps: f32,
     weight_offset: f32,
     pow_rstd: u32,
+    unfused_products: u32,
 }
 
 #[repr(C)]
@@ -24933,6 +24948,7 @@ struct RmsNormBackwardPush {
     parameter_groups: u32,
     weight_offset: f32,
     pow_rstd: u32,
+    unfused_products: u32,
 }
 
 #[repr(C)]
@@ -25672,12 +25688,12 @@ impl TransformerKernels {
                 6,
                 12,
             )?,
-            rms_norm_forward: vulkan::ComputeKernel::new(device, RMS_NORM_FORWARD_SPV, 5, 24)?,
+            rms_norm_forward: vulkan::ComputeKernel::new(device, RMS_NORM_FORWARD_SPV, 5, 28)?,
             rms_norm_input_grad: vulkan::ComputeKernel::new(
                 device,
                 RMS_NORM_INPUT_GRAD_SPV,
                 6,
-                20,
+                24,
             )?,
             rms_norm_param_grad: vulkan::ComputeKernel::new(
                 device,
@@ -27354,6 +27370,7 @@ struct VulkanLayerNorm {
     rms: bool,
     weight_offset: f32,
     pow_rstd: bool,
+    unfused_products: bool,
     trainable: bool,
     train_bias: bool,
 }
@@ -27379,6 +27396,7 @@ impl VulkanLayerNorm {
             rms: false,
             weight_offset: 0.0,
             pow_rstd: false,
+            unfused_products: false,
             trainable: true,
             train_bias: true,
         })
@@ -27401,6 +27419,7 @@ impl VulkanLayerNorm {
             rms: false,
             weight_offset: 0.0,
             pow_rstd: false,
+            unfused_products: false,
             trainable: true,
             train_bias: false,
         })
@@ -27426,6 +27445,7 @@ impl VulkanLayerNorm {
             rms: false,
             weight_offset: 0.0,
             pow_rstd: false,
+            unfused_products: false,
             trainable: true,
             train_bias: false,
         })
@@ -27473,6 +27493,7 @@ impl VulkanLayerNorm {
             rms: true,
             weight_offset,
             pow_rstd,
+            unfused_products: false,
             trainable: true,
             train_bias: false,
         })
@@ -27499,6 +27520,7 @@ impl VulkanLayerNorm {
             rms: true,
             weight_offset,
             pow_rstd: false,
+            unfused_products: false,
             trainable: true,
             train_bias: false,
         })
@@ -27515,6 +27537,7 @@ impl VulkanLayerNorm {
             rms: self.rms,
             weight_offset: self.weight_offset,
             pow_rstd: self.pow_rstd,
+            unfused_products: self.unfused_products,
             trainable: self.trainable,
             train_bias: self.train_bias,
         }
@@ -27534,6 +27557,11 @@ impl VulkanLayerNorm {
                 .enable_shared_gradient_accumulation(device, step_owner)?;
         }
         Ok(())
+    }
+
+    fn use_unfused_rms_products(mut self, enabled: bool) -> Self {
+        self.unfused_products = enabled;
+        self
     }
 
     fn freeze(&mut self) {
@@ -27571,6 +27599,7 @@ impl VulkanLayerNorm {
                 eps: self.eps,
                 weight_offset: self.weight_offset,
                 pow_rstd: u32::from(self.pow_rstd),
+                unfused_products: u32::from(self.unfused_products),
             };
             kernels.rms_norm_forward.record_dispatch(
                 commands,
@@ -27658,6 +27687,7 @@ impl VulkanLayerNorm {
                 parameter_groups: self.parameter_groups as u32,
                 weight_offset: self.weight_offset,
                 pow_rstd: u32::from(self.pow_rstd),
+                unfused_products: u32::from(self.unfused_products),
             };
             kernels.rms_norm_input_grad.record_dispatch(
                 commands,
@@ -53408,6 +53438,7 @@ enum VulkanQwenGatedDeltaProjection {
 
 struct VulkanQwenGatedDeltaNet {
     projection: VulkanQwenGatedDeltaProjection,
+    hidden_size: usize,
     conv_weight: TrainableParameter,
     dt_bias: TrainableParameter,
     a_log: TrainableParameter,
@@ -53451,6 +53482,8 @@ struct VulkanQwenGatedDeltaNet {
     grad_projection_f: GpuBuffer,
     grad_projection_ab: GpuBuffer,
     grad_projection_cd: GpuBuffer,
+    masked_input: GpuBuffer,
+    grad_masked_input: GpuBuffer,
 }
 
 impl VulkanQwenGatedDeltaNet {
@@ -53610,6 +53643,7 @@ impl VulkanQwenGatedDeltaNet {
         };
         Ok(Self {
             projection,
+            hidden_size,
             conv_weight: TrainableParameter::new(device, &host.conv_weight, true)?,
             dt_bias: TrainableParameter::new(device, &host.dt_bias, false)?,
             a_log: TrainableParameter::new(device, &host.a_log, false)?,
@@ -53653,6 +53687,8 @@ impl VulkanQwenGatedDeltaNet {
             grad_projection_f: GpuBuffer::zeros_f32(device, rows * hidden_size)?,
             grad_projection_ab: GpuBuffer::zeros_f32(device, rows * hidden_size)?,
             grad_projection_cd: GpuBuffer::zeros_f32(device, rows * hidden_size)?,
+            masked_input: GpuBuffer::zeros_f32(device, rows * hidden_size)?,
+            grad_masked_input: GpuBuffer::zeros_f32(device, rows * hidden_size)?,
         })
     }
 
@@ -54319,6 +54355,7 @@ impl VulkanQwenGatedDeltaNet {
         kernels: &TransformerKernels,
         input: &GpuBuffer,
         output: &GpuBuffer,
+        attention_mask: Option<&GpuBuffer>,
         batch_size: usize,
         seq_len: usize,
         _training: bool,
@@ -54326,6 +54363,25 @@ impl VulkanQwenGatedDeltaNet {
         let rows = batch_size
             .checked_mul(seq_len)
             .context("Qwen Gated DeltaNet row count overflow")?;
+        let input = if let Some(attention_mask) = attention_mask {
+            // Qwen3.5 applies its 2D padding mask to the post-norm hidden
+            // states before every DeltaNet projection/conv. Keeping the mask
+            // here (rather than only masking recurrent outputs) is required
+            // because padded projected values otherwise contaminate later
+            // causal-convolution/recurrent state for visible tokens.
+            record_row_scale(
+                commands,
+                kernels,
+                input,
+                attention_mask,
+                &self.masked_input,
+                rows,
+                self.hidden_size,
+            )?;
+            &self.masked_input
+        } else {
+            input
+        };
         match &self.projection {
             VulkanQwenGatedDeltaProjection::Qwen3Next {
                 qkvz,
@@ -54642,12 +54698,24 @@ impl VulkanQwenGatedDeltaNet {
         input: &GpuBuffer,
         grad_output: &GpuBuffer,
         grad_input: &GpuBuffer,
+        attention_mask: Option<&GpuBuffer>,
         batch_size: usize,
         seq_len: usize,
     ) -> Result<()> {
         let rows = batch_size
             .checked_mul(seq_len)
             .context("Qwen Gated DeltaNet backward row count overflow")?;
+        let original_grad_input = grad_input;
+        let input = if attention_mask.is_some() {
+            &self.masked_input
+        } else {
+            input
+        };
+        let grad_input = if attention_mask.is_some() {
+            &self.grad_masked_input
+        } else {
+            original_grad_input
+        };
         let conv_dim = self.conv_dim();
         let scalar_len = rows * self.num_value_heads;
 
@@ -55375,6 +55443,19 @@ impl VulkanQwenGatedDeltaNet {
                 )?;
             }
         }
+        if let Some(attention_mask) = attention_mask {
+            // Backprop through hidden_states * attention_mask exactly as the
+            // Transformers Qwen3.5 padding helper does in forward.
+            record_row_scale(
+                commands,
+                kernels,
+                grad_input,
+                attention_mask,
+                original_grad_input,
+                rows,
+                self.hidden_size,
+            )?;
+        }
         Ok(())
     }
 
@@ -56011,6 +56092,11 @@ impl VulkanTransformerLayer {
                         &host.weight,
                         config.architecture.rms_norm_weight_offset(),
                     )
+                    .map(|norm| {
+                        norm.use_unfused_rms_products(
+                            config.architecture.uses_unfused_rms_products(),
+                        )
+                    })
                 }
             } else if host.bias.is_empty() {
                 VulkanLayerNorm::new_no_bias(device, d, sublayer_norm_eps, &host.weight)
@@ -56343,6 +56429,11 @@ impl VulkanTransformerLayer {
                                 &host.weight,
                                 config.architecture.rms_qk_norm_weight_offset(),
                             )
+                            .map(|norm| {
+                                norm.use_unfused_rms_products(
+                                    config.architecture.uses_unfused_rms_products(),
+                                )
+                            })
                         }
                     } else if host.bias.is_empty() {
                         if config.architecture.uses_full_projection_qk_norm() {
@@ -56399,6 +56490,11 @@ impl VulkanTransformerLayer {
                                 &host.weight,
                                 config.architecture.rms_qk_norm_weight_offset(),
                             )
+                            .map(|norm| {
+                                norm.use_unfused_rms_products(
+                                    config.architecture.uses_unfused_rms_products(),
+                                )
+                            })
                         }
                     } else if host.bias.is_empty() {
                         if config.architecture.uses_full_projection_qk_norm() {
@@ -57385,6 +57481,16 @@ impl VulkanTransformerLayer {
                         kernels,
                         attention_input,
                         &self.tape.attention,
+                        if matches!(
+                            config.architecture,
+                            VulkanTransformerArchitecture::Qwen35
+                                | VulkanTransformerArchitecture::Qwen35Moe
+                                | VulkanTransformerArchitecture::Qwen4Exp
+                        ) {
+                            Some(attention_mask)
+                        } else {
+                            None
+                        },
                         batch_size,
                         seq_len,
                         training,
@@ -59622,12 +59728,17 @@ impl VulkanTransformerLayer {
             } else {
                 &self.tape.grad_attention
             };
-            let attention_linear_input =
-                if post_sublayer_norm || post_residual_norm || self.skip_attention_norm {
-                    input
-                } else {
-                    &self.tape.ln1
-                };
+            let attention_linear_input = if qwen4_hyper_backward {
+                // Qwen4's forward hyper-connection writes the learned GR input
+                // mix into tape.ln1 before Q/K/V and the attention gate. The
+                // architecture is also marked post-residual-norm for the generic
+                // residual topology, so raw layer input is wrong here.
+                &self.tape.ln1
+            } else if post_sublayer_norm || post_residual_norm || self.skip_attention_norm {
+                input
+            } else {
+                &self.tape.ln1
+            };
             let grad_attention = if let Some(attention_gate) = self.attention_gate.as_ref() {
                 let per_head = config.architecture == VulkanTransformerArchitecture::Laguna
                     && attention_gate.output_dim == self.num_heads;
@@ -59676,6 +59787,16 @@ impl VulkanTransformerLayer {
                     attention_linear_input,
                     grad_attention,
                     &self.tape.grad_ln1,
+                    if matches!(
+                        config.architecture,
+                        VulkanTransformerArchitecture::Qwen35
+                            | VulkanTransformerArchitecture::Qwen35Moe
+                            | VulkanTransformerArchitecture::Qwen4Exp
+                    ) {
+                        Some(attention_mask)
+                    } else {
+                        None
+                    },
                     batch_size,
                     seq_len,
                 )?;
@@ -63984,6 +64105,234 @@ impl VulkanTransformer {
             .read_f32(len)?;
         let final_norm = self.final_norm_output.read_f32(len)?;
         Ok((layers, internals, attn_res, final_norm))
+    }
+
+    #[doc(hidden)]
+    pub fn debug_qwen35_last_forward_states(&self) -> Result<BTreeMap<String, Vec<f32>>> {
+        if !matches!(
+            self.config.architecture,
+            VulkanTransformerArchitecture::Qwen35 | VulkanTransformerArchitecture::Qwen35Moe
+        ) {
+            bail!("debug Qwen3.5 trace requires a Qwen3.5 architecture");
+        }
+        let hidden_len = self
+            .rows
+            .checked_mul(self.config.hidden_size)
+            .context("debug Qwen3.5 hidden-state size overflow")?;
+        let q_len = self
+            .rows
+            .checked_mul(self.config.query_hidden_size())
+            .context("debug Qwen3.5 query size overflow")?;
+        let k_len = self
+            .rows
+            .checked_mul(self.config.key_value_hidden_size())
+            .context("debug Qwen3.5 key size overflow")?;
+        let v_len = k_len;
+        let attention_len = q_len;
+        let q_norm_stat_len = self
+            .rows
+            .checked_mul(self.config.num_heads)
+            .context("debug Qwen3.5 query norm stats size overflow")?;
+        let k_norm_stat_len = self
+            .rows
+            .checked_mul(self.config.num_key_value_heads)
+            .context("debug Qwen3.5 key norm stats size overflow")?;
+        let mut out = BTreeMap::new();
+        out.insert(
+            "embed".to_owned(),
+            self.input_hidden.read_f32(hidden_len)?,
+        );
+        for (index, layer) in self.layers.iter().enumerate() {
+            if self.config.layer_uses_linear_attention(index) {
+                continue;
+            }
+            let prefix = format!("layers.{index}");
+            out.insert(
+                format!("{prefix}.ln1_mean"),
+                layer.tape.ln1_mean.read_f32(self.rows)?,
+            );
+            out.insert(
+                format!("{prefix}.ln1_rstd"),
+                layer.tape.ln1_rstd.read_f32(self.rows)?,
+            );
+            out.insert(format!("{prefix}.ln1"), layer.tape.ln1.read_f32(hidden_len)?);
+            out.insert(format!("{prefix}.q"), layer.tape.q.read_f32(q_len)?);
+            out.insert(format!("{prefix}.k"), layer.tape.k.read_f32(k_len)?);
+            out.insert(format!("{prefix}.v"), layer.tape.v.read_f32(v_len)?);
+            out.insert(
+                format!("{prefix}.q_norm"),
+                layer.tape.q_norm.read_f32(q_len)?,
+            );
+            out.insert(
+                format!("{prefix}.q_norm_mean"),
+                layer.tape.q_norm_mean.read_f32(q_norm_stat_len)?,
+            );
+            out.insert(
+                format!("{prefix}.q_norm_rstd"),
+                layer.tape.q_norm_rstd.read_f32(q_norm_stat_len)?,
+            );
+            out.insert(
+                format!("{prefix}.k_norm"),
+                layer.tape.k_norm.read_f32(k_len)?,
+            );
+            out.insert(
+                format!("{prefix}.k_norm_mean"),
+                layer.tape.k_norm_mean.read_f32(k_norm_stat_len)?,
+            );
+            out.insert(
+                format!("{prefix}.k_norm_rstd"),
+                layer.tape.k_norm_rstd.read_f32(k_norm_stat_len)?,
+            );
+            out.insert(
+                format!("{prefix}.q_rotary"),
+                layer.tape.q_rotary.read_f32(q_len)?,
+            );
+            out.insert(
+                format!("{prefix}.k_rotary"),
+                layer.tape.k_rotary.read_f32(k_len)?,
+            );
+            out.insert(
+                format!("{prefix}.attention"),
+                layer.tape.attention.read_f32(attention_len)?,
+            );
+            out.insert(
+                format!("{prefix}.attention_gate_pre"),
+                layer.tape.attention_gate_pre.read_f32(attention_len)?,
+            );
+            out.insert(
+                format!("{prefix}.attention_gated"),
+                layer.tape.attention_gated.read_f32(attention_len)?,
+            );
+            out.insert(
+                format!("{prefix}.attention_projection"),
+                layer.tape.attention_projection.read_f32(hidden_len)?,
+            );
+            out.insert(
+                format!("{prefix}.residual1"),
+                layer.tape.residual1.read_f32(hidden_len)?,
+            );
+            out.insert(format!("{prefix}.ln2"), layer.tape.ln2.read_f32(hidden_len)?);
+            out.insert(
+                format!("{prefix}.ln2_mean"),
+                layer.tape.ln2_mean.read_f32(self.rows)?,
+            );
+            out.insert(
+                format!("{prefix}.ln2_rstd"),
+                layer.tape.ln2_rstd.read_f32(self.rows)?,
+            );
+            out.insert(
+                format!("{prefix}.mlp_output"),
+                layer.tape.mlp_output.read_f32(hidden_len)?,
+            );
+            out.insert(
+                format!("{prefix}.output"),
+                layer.forward_output().read_f32(hidden_len)?,
+            );
+        }
+        out.insert(
+            "final_norm".to_owned(),
+            self.final_norm_output.read_f32(hidden_len)?,
+        );
+        out.insert(
+            "final_norm_mean".to_owned(),
+            self.final_norm_mean.read_f32(self.rows)?,
+        );
+        out.insert(
+            "final_norm_rstd".to_owned(),
+            self.final_norm_rstd.read_f32(self.rows)?,
+        );
+        Ok(out)
+    }
+
+    #[doc(hidden)]
+    pub fn debug_qwen4_last_backward_states(&self) -> Result<BTreeMap<String, Vec<f32>>> {
+        if self.config.architecture != VulkanTransformerArchitecture::Qwen4Exp {
+            bail!("debug Qwen4 backward trace requires a Qwen4-Exp architecture");
+        }
+        let hidden_len = self
+            .rows
+            .checked_mul(self.config.hidden_size)
+            .context("debug Qwen4 hidden-state size overflow")?;
+        let q_len = self
+            .rows
+            .checked_mul(self.config.query_hidden_size())
+            .context("debug Qwen4 query size overflow")?;
+        let k_len = self
+            .rows
+            .checked_mul(self.config.key_value_hidden_size())
+            .context("debug Qwen4 key size overflow")?;
+        let mut out = BTreeMap::new();
+        for (index, layer) in self.layers.iter().enumerate() {
+            if self.config.layer_uses_linear_attention(index) {
+                continue;
+            }
+            let prefix = format!("layers.{index}");
+            for (name, buffer, len) in [
+                ("grad_attention_projection_input", &layer.tape.grad_attention, q_len),
+                ("grad_attention_ungated", &layer.tape.grad_attention_ungated, q_len),
+                ("grad_attention_gate_pre", &layer.tape.grad_attention_gate_pre, q_len),
+                ("grad_q_rotary", &layer.tape.grad_q_rotary, q_len),
+                ("grad_k_rotary", &layer.tape.grad_k_rotary, k_len),
+                ("grad_q_norm", &layer.tape.grad_q_norm, q_len),
+                ("grad_k_norm", &layer.tape.grad_k_norm, k_len),
+                ("grad_q", &layer.tape.grad_q, q_len),
+                ("grad_k", &layer.tape.grad_k, k_len),
+                ("grad_v", &layer.tape.grad_v, k_len),
+            ] {
+                out.insert(format!("{prefix}.{name}"), buffer.read_f32(len)?);
+            }
+            if let Some(indexer) = layer.qwen4_qsa_indexer.as_ref() {
+                let sparse_len = self
+                    .rows
+                    .checked_mul(self.seq_len)
+                    .context("debug Qwen4 sparse-mask size overflow")?;
+                out.insert(
+                    format!("{prefix}.qsa_sparse_mask"),
+                    indexer.tape.sparse_mask.read_f32(sparse_len)?,
+                );
+            }
+            if let Some(q_proj) = layer.q_proj.as_ref() {
+                out.insert(
+                    format!("{prefix}.q_proj_weight_grad"),
+                    q_proj.weight.grad.read_f32(q_proj.weight.len)?,
+                );
+            }
+            if let Some(k_proj) = layer.k_proj.as_ref() {
+                out.insert(
+                    format!("{prefix}.k_proj_weight_grad"),
+                    k_proj.weight.grad.read_f32(k_proj.weight.len)?,
+                );
+            }
+            if let Some(v_proj) = layer.v_proj.as_ref() {
+                out.insert(
+                    format!("{prefix}.v_proj_weight_grad"),
+                    v_proj.weight.grad.read_f32(v_proj.weight.len)?,
+                );
+            }
+            if let Some(attention_gate) = layer.attention_gate.as_ref() {
+                out.insert(
+                    format!("{prefix}.attention_gate_weight_grad"),
+                    attention_gate.weight.grad.read_f32(attention_gate.weight.len)?,
+                );
+            }
+            out.insert(
+                format!("{prefix}.o_proj_weight_grad"),
+                layer.c_proj.weight.grad.read_f32(layer.c_proj.weight.len)?,
+            );
+            out.insert(
+                format!("{prefix}.attention"),
+                layer.tape.attention.read_f32(q_len)?,
+            );
+            out.insert(
+                format!("{prefix}.attention_gated"),
+                layer.tape.attention_gated.read_f32(q_len)?,
+            );
+            out.insert(format!("{prefix}.q_rotary"), layer.tape.q_rotary.read_f32(q_len)?);
+            out.insert(format!("{prefix}.k_rotary"), layer.tape.k_rotary.read_f32(k_len)?);
+            out.insert(format!("{prefix}.v"), layer.tape.v.read_f32(k_len)?);
+        }
+        out.insert("grad_input_hidden".to_owned(), self.grad_input_hidden.read_f32(hidden_len)?);
+        Ok(out)
     }
 
     pub fn lora_config(&self) -> Option<&VulkanTransformerLoraConfig> {
@@ -107770,6 +108119,7 @@ mod tests {
             &kernels,
             &input,
             &output,
+            None,
             batch_size,
             seq_len,
             true,
@@ -107780,6 +108130,7 @@ mod tests {
             &input,
             &grad_output,
             &grad_input,
+            None,
             batch_size,
             seq_len,
         )?;
@@ -107862,6 +108213,7 @@ mod tests {
             &kernels,
             &input_gpu,
             &output_gpu,
+            None,
             1,
             seq_len,
             true,
@@ -107874,6 +108226,7 @@ mod tests {
             &input_gpu,
             &upstream_gpu,
             &grad_input_gpu,
+            None,
             1,
             seq_len,
         )?;
@@ -107890,6 +108243,7 @@ mod tests {
                 &kernels,
                 &input_gpu,
                 &output_gpu,
+                None,
                 1,
                 seq_len,
                 true,
@@ -125996,6 +126350,335 @@ mod tests {
         let reference =
             graph.generate_beam_ids_full_prefix_with_context(&prompt, &config, None, None)?;
         assert_eq!(cached, reference);
+        Ok(())
+    }
+
+    #[test]
+    fn sparse_attention_backward_matches_cpu_reference() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let kernels = TransformerKernels::new(&device)?;
+        let seq_len = 3usize;
+        let head_dim = 2usize;
+        let query_values = [0.4_f32, -0.2, 0.1, 0.7, -0.5, 0.3];
+        let key_values = [0.2_f32, 0.6, -0.4, 0.5, 0.8, -0.1];
+        let value_values = [0.3_f32, -0.7, 0.9, 0.2, -0.4, 0.8];
+        let grad_output_values = [0.6_f32, -0.1, -0.3, 0.5, 0.7, -0.4];
+        let sparse_values = [
+            1.0_f32, 0.0, 0.0,
+            1.0, 1.0, 0.0,
+            1.0, 0.0, 1.0,
+        ];
+        let scale = 0.7_f32;
+
+        let query = GpuBuffer::from_f32(&device, &query_values)?;
+        let key = GpuBuffer::from_f32(&device, &key_values)?;
+        let value = GpuBuffer::from_f32(&device, &value_values)?;
+        let mask = GpuBuffer::from_f32(&device, &[1.0_f32; 3])?;
+        let sparse = GpuBuffer::from_f32(&device, &sparse_values)?;
+        let grad_output = GpuBuffer::from_f32(&device, &grad_output_values)?;
+        let grad_q = GpuBuffer::zeros_f32(&device, query_values.len())?;
+        let grad_k = GpuBuffer::zeros_f32(&device, key_values.len())?;
+        let grad_v = GpuBuffer::zeros_f32(&device, value_values.len())?;
+        let dummy = GpuBuffer::zeros_f32(&device, 1)?;
+        let push = AttentionPush {
+            batch_size: 1,
+            query_seq_len: seq_len as u32,
+            key_value_seq_len: seq_len as u32,
+            query_hidden_size: head_dim as u32,
+            value_hidden_size: head_dim as u32,
+            num_heads: 1,
+            num_key_value_heads: 1,
+            window_size: 0,
+            scale,
+            value_scale: 1.0,
+            softcap: 0.0,
+            alibi_mode: 0,
+            alibi_bias_max: 0.0,
+            dropout_p: 0.0,
+            rng_step: 0,
+            rng_site: 0,
+            rng_seed: 0,
+            has_sink: 0,
+            causal: 1,
+            relative_bias_mode: 0,
+            relative_bias_num_buckets: 0,
+            relative_bias_max_distance: 0,
+            query_position_offset: 0,
+            has_sparse_mask: 1,
+            compressed_key_count: 0,
+            compressed_key_rate: 0,
+            paged_kv: 0,
+            kv_page_size: 1,
+            kv_page_table_stride: 1,
+        };
+        let mut commands = vulkan::ComputeBatch::new(&device)?;
+        kernels.attention_backward.record_dispatch(
+            &mut commands,
+            &[
+                &query,
+                &key,
+                &value,
+                &mask,
+                &mask,
+                &dummy,
+                &grad_output,
+                &grad_q,
+                &grad_k,
+                &grad_v,
+                &dummy,
+                &dummy,
+                &dummy,
+                &dummy,
+                &sparse,
+            ],
+            bytemuck::bytes_of(&push),
+            [1, 1, 1],
+        )?;
+        commands.submit()?;
+
+        let mut expected_q = vec![0.0_f32; query_values.len()];
+        let mut expected_k = vec![0.0_f32; key_values.len()];
+        let mut expected_v = vec![0.0_f32; value_values.len()];
+        for query_index in 0..seq_len {
+            let visible = (0..=query_index)
+                .filter(|&key_index| sparse_values[query_index * seq_len + key_index] > 0.0)
+                .collect::<Vec<_>>();
+            let scores = visible
+                .iter()
+                .map(|&key_index| {
+                    (0..head_dim)
+                        .map(|channel| {
+                            query_values[query_index * head_dim + channel]
+                                * key_values[key_index * head_dim + channel]
+                        })
+                        .sum::<f32>()
+                        * scale
+                })
+                .collect::<Vec<_>>();
+            let max_score = scores.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+            let exps = scores
+                .iter()
+                .map(|score| (*score - max_score).exp())
+                .collect::<Vec<_>>();
+            let denom = exps.iter().sum::<f32>();
+            let probs = exps.iter().map(|value| *value / denom).collect::<Vec<_>>();
+            let mut dprob = vec![0.0_f32; visible.len()];
+            for (slot, &key_index) in visible.iter().enumerate() {
+                dprob[slot] = (0..head_dim)
+                    .map(|channel| {
+                        grad_output_values[query_index * head_dim + channel]
+                            * value_values[key_index * head_dim + channel]
+                    })
+                    .sum::<f32>();
+                for channel in 0..head_dim {
+                    expected_v[key_index * head_dim + channel] += probs[slot]
+                        * grad_output_values[query_index * head_dim + channel];
+                }
+            }
+            let softmax_dot = probs
+                .iter()
+                .zip(&dprob)
+                .map(|(prob, grad)| prob * grad)
+                .sum::<f32>();
+            for (slot, &key_index) in visible.iter().enumerate() {
+                let dscore = probs[slot] * (dprob[slot] - softmax_dot);
+                for channel in 0..head_dim {
+                    expected_q[query_index * head_dim + channel] += scale
+                        * dscore
+                        * key_values[key_index * head_dim + channel];
+                    expected_k[key_index * head_dim + channel] += scale
+                        * dscore
+                        * query_values[query_index * head_dim + channel];
+                }
+            }
+        }
+
+        for (name, actual, expected) in [
+            ("grad_q", grad_q.read_f32(query_values.len())?, expected_q),
+            ("grad_k", grad_k.read_f32(key_values.len())?, expected_k),
+            ("grad_v", grad_v.read_f32(value_values.len())?, expected_v),
+        ] {
+            for (index, (&actual, &expected)) in actual.iter().zip(&expected).enumerate() {
+                assert!(
+                    (actual - expected).abs() <= 2.0e-7,
+                    "sparse attention {name} mismatch at {index}: actual={actual} expected={expected}"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn sparse_gqa_attention_backward_matches_cpu_reference() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let kernels = TransformerKernels::new(&device)?;
+        let seq_len = 3usize;
+        let num_heads = 2usize;
+        let num_key_value_heads = 1usize;
+        let head_dim = 2usize;
+        let query_hidden = num_heads * head_dim;
+        let value_hidden = num_key_value_heads * head_dim;
+        let query_values = [
+            0.4_f32, -0.2, 0.7, 0.1,
+            0.1, 0.7, -0.3, 0.5,
+            -0.5, 0.3, 0.8, -0.6,
+        ];
+        let key_values = [0.2_f32, 0.6, -0.4, 0.5, 0.8, -0.1];
+        let value_values = [0.3_f32, -0.7, 0.9, 0.2, -0.4, 0.8];
+        let grad_output_values = [
+            0.6_f32, -0.1, -0.2, 0.8,
+            -0.3, 0.5, 0.4, -0.7,
+            0.7, -0.4, -0.6, 0.2,
+        ];
+        let sparse_values = [
+            1.0_f32, 0.0, 0.0,
+            1.0, 1.0, 0.0,
+            1.0, 0.0, 1.0,
+        ];
+        let scale = 0.7_f32;
+
+        let query = GpuBuffer::from_f32(&device, &query_values)?;
+        let key = GpuBuffer::from_f32(&device, &key_values)?;
+        let value = GpuBuffer::from_f32(&device, &value_values)?;
+        let mask = GpuBuffer::from_f32(&device, &[1.0_f32; 3])?;
+        let sparse = GpuBuffer::from_f32(&device, &sparse_values)?;
+        let grad_output = GpuBuffer::from_f32(&device, &grad_output_values)?;
+        let grad_q = GpuBuffer::zeros_f32(&device, query_values.len())?;
+        let grad_k = GpuBuffer::zeros_f32(&device, key_values.len())?;
+        let grad_v = GpuBuffer::zeros_f32(&device, value_values.len())?;
+        let dummy = GpuBuffer::zeros_f32(&device, 1)?;
+        let push = AttentionPush {
+            batch_size: 1,
+            query_seq_len: seq_len as u32,
+            key_value_seq_len: seq_len as u32,
+            query_hidden_size: query_hidden as u32,
+            value_hidden_size: value_hidden as u32,
+            num_heads: num_heads as u32,
+            num_key_value_heads: num_key_value_heads as u32,
+            window_size: 0,
+            scale,
+            value_scale: 1.0,
+            softcap: 0.0,
+            alibi_mode: 0,
+            alibi_bias_max: 0.0,
+            dropout_p: 0.0,
+            rng_step: 0,
+            rng_site: 0,
+            rng_seed: 0,
+            has_sink: 0,
+            causal: 1,
+            relative_bias_mode: 0,
+            relative_bias_num_buckets: 0,
+            relative_bias_max_distance: 0,
+            query_position_offset: 0,
+            has_sparse_mask: 1,
+            compressed_key_count: 0,
+            compressed_key_rate: 0,
+            paged_kv: 0,
+            kv_page_size: 1,
+            kv_page_table_stride: 1,
+        };
+        let mut commands = vulkan::ComputeBatch::new(&device)?;
+        kernels.attention_backward.record_dispatch(
+            &mut commands,
+            &[
+                &query,
+                &key,
+                &value,
+                &mask,
+                &mask,
+                &dummy,
+                &grad_output,
+                &grad_q,
+                &grad_k,
+                &grad_v,
+                &dummy,
+                &dummy,
+                &dummy,
+                &dummy,
+                &sparse,
+            ],
+            bytemuck::bytes_of(&push),
+            [num_key_value_heads as u32, 1, 1],
+        )?;
+        commands.submit()?;
+
+        let mut expected_q = vec![0.0_f32; query_values.len()];
+        let mut expected_k = vec![0.0_f32; key_values.len()];
+        let mut expected_v = vec![0.0_f32; value_values.len()];
+        for head in 0..num_heads {
+            for query_index in 0..seq_len {
+                let visible = (0..=query_index)
+                    .filter(|&key_index| sparse_values[query_index * seq_len + key_index] > 0.0)
+                    .collect::<Vec<_>>();
+                let q_base = query_index * query_hidden + head * head_dim;
+                let out_base = q_base;
+                let scores = visible
+                    .iter()
+                    .map(|&key_index| {
+                        let k_base = key_index * value_hidden;
+                        (0..head_dim)
+                            .map(|channel| {
+                                query_values[q_base + channel] * key_values[k_base + channel]
+                            })
+                            .sum::<f32>()
+                            * scale
+                    })
+                    .collect::<Vec<_>>();
+                let max_score = scores.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+                let exps = scores
+                    .iter()
+                    .map(|score| (*score - max_score).exp())
+                    .collect::<Vec<_>>();
+                let denom = exps.iter().sum::<f32>();
+                let probs = exps.iter().map(|value| *value / denom).collect::<Vec<_>>();
+                let mut dprob = vec![0.0_f32; visible.len()];
+                for (slot, &key_index) in visible.iter().enumerate() {
+                    let v_base = key_index * value_hidden;
+                    dprob[slot] = (0..head_dim)
+                        .map(|channel| {
+                            grad_output_values[out_base + channel] * value_values[v_base + channel]
+                        })
+                        .sum::<f32>();
+                    for channel in 0..head_dim {
+                        expected_v[v_base + channel] +=
+                            probs[slot] * grad_output_values[out_base + channel];
+                    }
+                }
+                let softmax_dot = probs
+                    .iter()
+                    .zip(&dprob)
+                    .map(|(prob, grad)| prob * grad)
+                    .sum::<f32>();
+                for (slot, &key_index) in visible.iter().enumerate() {
+                    let k_base = key_index * value_hidden;
+                    let dscore = probs[slot] * (dprob[slot] - softmax_dot);
+                    for channel in 0..head_dim {
+                        expected_q[q_base + channel] +=
+                            scale * dscore * key_values[k_base + channel];
+                        expected_k[k_base + channel] +=
+                            scale * dscore * query_values[q_base + channel];
+                    }
+                }
+            }
+        }
+
+        for (name, actual, expected) in [
+            ("grad_q", grad_q.read_f32(query_values.len())?, expected_q),
+            ("grad_k", grad_k.read_f32(key_values.len())?, expected_k),
+            ("grad_v", grad_v.read_f32(value_values.len())?, expected_v),
+        ] {
+            for (index, (&actual, &expected)) in actual.iter().zip(&expected).enumerate() {
+                assert!(
+                    (actual - expected).abs() <= 2.0e-7,
+                    "sparse GQA attention {name} mismatch at {index}: actual={actual} expected={expected}"
+                );
+            }
+        }
         Ok(())
     }
 }

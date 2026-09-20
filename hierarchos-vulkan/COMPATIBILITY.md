@@ -5,10 +5,10 @@ Face Transformer graphs. Universal feature parity with the Python Transformers
 library has **not** been reached. Model-type registration, task implementation,
 and numerical validation are separate milestones.
 
-## Headline: nine strict two-step AdamW checks
+## Headline: twelve strict two-step AdamW checks
 
 The strongest compatibility claim in this backend is intentionally small and
-reproducible: nine current/high-value Transformer text graphs have live Vulkan
+reproducible: twelve current/high-value Transformer text architectures/families have live Vulkan
 forward parity and pass **two full AdamW steps** against the local Hugging Face
 Transformers source tree, with cross-entropy loss checked at each step and every
 named trainable parameter compared after export.
@@ -22,6 +22,9 @@ Verified on AMD Radeon Graphics against local Transformers `5.16.0.dev0`:
 | Phi-3 | causal LM | `1.192092896e-7` |
 | Kimi K2.5 | text backbone / causal LM | `1.192092896e-7` |
 | Kimi K3 / KimiLinear | text backbone / causal LM | `5.963374861e-8` |
+| GPT-OSS | causal LM | `1.192092896e-7` |
+| Qwen3.5 | dense / DeltaNet / hybrid / MoE text causal LM | `2.980232239e-8` |
+| Qwen4 Experimental | DeltaNet / sparse QSA / GR+PLE / hybrid / MoE text causal LM | `2.980232239e-8` |
 | Mistral 4 | causal LM | `2.607703209e-8` |
 | MiniMax M3 | text backbone / causal LM | `3.539025784e-8` |
 | Gemma 4 | causal LM | `1.220032573e-7` |
@@ -31,9 +34,11 @@ The acceptance ceiling is `2e-7`; it is enforced by
 `verify_hf_training.py`, not rounded into the documentation after the fact.
 The matching forward suite covers both unmasked batch-one and mixed
 left/right-padded batch-two inputs for the legacy headline families and passed
-at `atol=rtol=2e-4`. Kimi K3's Moonshot oracle currently exercises the dense
-unmasked sequence path and is held to the stricter `atol=2e-7, rtol=0` contract;
-its mixed KDA/MLA text fixture observed `5.215406418e-8` maximum logit error.
+at `atol=rtol=2e-4`. Kimi K3's Moonshot oracle and GPT-OSS are held to the
+stricter `atol=2e-7, rtol=0` contract. Kimi K3's mixed KDA/MLA text fixture
+observed `5.215406418e-8` maximum logit error. GPT-OSS observed
+`5.960464478e-8` maximum logit error across its unmasked and mixed-padding
+fixtures.
 
 Run exactly the claim above with:
 
@@ -55,13 +60,26 @@ than inflating the headline number with registry aliases:
 - Gemma 3 remains source-backed and passes its two-step AdamW check
   (`1.797452569e-7` observed maximum parameter error), but the headline slot now
   prioritizes Gemma 4.
-- Qwen3.5 full attention is not yet counted; its current forward mismatch is
-  materially larger (`1.046035439e-2` maximum absolute error in the tiny
-  unmasked fixture).
-- Qwen4 experimental linear attention is close but still fails the padded
-  fixture (`2.943556756e-4` maximum absolute error), while its experimental
-  sparse-attention path remains farther out (`4.634071141e-3` observed
-  unmasked maximum absolute error).
+- Qwen3.5 text causal-LM support is strict-parity verified across full-attention,
+  pure Gated DeltaNet, the default hybrid DeltaNet/full-attention schedule, and
+  Qwen3.5-MoE. Unmasked and mixed-padding logits observed at most
+  `4.470348358e-8` absolute error; three-step cached generation observed at most
+  `4.470348358e-8` versus Transformers and exactly `0.0` versus native
+  full-prefix decoding; two-step AdamW observed at most `2.980232239e-8`
+  parameter drift. A trained native SafeTensors export reloaded by both
+  Transformers and Vulkan observed at most `5.215406418e-8` logit drift on the
+  exact same checkpoint. These checks are enforced at `2e-7` absolute-only by
+  `verify_hf_logits.py`, `verify_hf_training.py`,
+  `verify_qwen35_generation.py`, and `verify_qwen35_roundtrip.py`.
+- Qwen4 Experimental text support is strict-parity verified across Gated
+  DeltaNet, genuinely sparse QSA, GR/hyper-connections, PLE n-gram and dilated
+  convolution state, mixed DeltaNet/QSA schedules, and MoE/shared experts.
+  Forward logits observed at most `2.980232239e-8` absolute error; four-step
+  cached generation observed at most `3.725290298e-8` versus Transformers and
+  exactly `0.0` versus native full-prefix decoding; two-step AdamW observed at
+  most `2.980232239e-8` parameter drift. Native-trained SafeTensors reloaded by
+  Transformers and Vulkan observed at most `2.235174179e-8` logit drift on the
+  same checkpoint under the fixed `2e-7` absolute-only gate.
 - Kimi K3 is validated against Moonshot's released `Kimi-K3` custom modeling
   source while still using the checked local Transformers runtime. The native
   production path remains Rust/Vulkan-only; Moonshot/Python code is an oracle,

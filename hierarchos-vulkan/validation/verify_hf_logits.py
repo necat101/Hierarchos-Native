@@ -18,11 +18,27 @@ import tempfile
 from pathlib import Path
 
 import torch
-from safetensors.torch import save_file
 
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parent
+
+# Source-backed validation may need dependencies newer than the user's global
+# Python environment.  Prefer an explicitly configured validation dependency
+# directory, then the existing local K3 oracle cache when present.  This only
+# affects the Python validation process; production execution remains native.
+_validation_pydeps = os.environ.get("HIERARCHOS_VALIDATION_PYDEPS")
+if _validation_pydeps:
+    sys.path.insert(0, str(Path(_validation_pydeps).expanduser().resolve()))
+else:
+    _local_oracle_pydeps = ROOT / ".k3-oracle-pydeps"
+    if _local_oracle_pydeps.is_dir():
+        sys.path.insert(0, str(_local_oracle_pydeps.resolve()))
+    _validation_pydeps_dir = ROOT / ".validation-pydeps"
+    if _validation_pydeps_dir.is_dir():
+        sys.path.insert(0, str(_validation_pydeps_dir.resolve()))
+
+from safetensors.torch import save_file  # noqa: E402
 
 
 def _transformers_source_root() -> Path:
@@ -65,6 +81,8 @@ from transformers import (  # noqa: E402
     DbrxForCausalLM,
     GPT2Config,
     GPT2LMHeadModel,
+    GptOssConfig,
+    GptOssForCausalLM,
     Gemma3ForCausalLM,
     Gemma3TextConfig,
     Gemma4ForCausalLM,
@@ -92,6 +110,8 @@ from transformers import (  # noqa: E402
     Phi4MultimodalVisionConfig,
     Qwen3_5ForCausalLM,
     Qwen3_5TextConfig,
+    Qwen3_5MoeForCausalLM,
+    Qwen3_5MoeTextConfig,
     Qwen4ExpForCausalLM,
     Qwen4ExpTextConfig,
     Qwen2Config,
@@ -121,6 +141,7 @@ HEADLINE_ADAMW_FAMILIES = (
     "phi3",
     "kimi_k25_text",
     "kimi_k3_text",
+    "gpt_oss",
     "mistral4",
     "minimax_m3",
     "gemma4",
@@ -131,6 +152,27 @@ KIMI_K3_ORACLE_FAMILIES = (
     "kimi_k3_kda",
     "kimi_k3_mla",
     "kimi_k3_text",
+)
+
+QWEN35_STRICT_FAMILIES = (
+    "qwen3_5_full",
+    "qwen3_5_linear",
+    "qwen3_5_mixed",
+    "qwen3_5_moe",
+)
+
+QWEN4_EXP_STRICT_FAMILIES = (
+    "qwen4_exp_linear",
+    "qwen4_exp_qsa",
+    "qwen4_exp_ple",
+    "qwen4_exp_mixed_ple",
+)
+
+STRICT_LOGIT_FAMILIES = (
+    *KIMI_K3_ORACLE_FAMILIES,
+    "gpt_oss",
+    *QWEN35_STRICT_FAMILIES,
+    *QWEN4_EXP_STRICT_FAMILIES,
 )
 
 
@@ -246,6 +288,31 @@ def tiny_models(*, training_reference: bool = False) -> list[tuple[str, torch.nn
                     attention_bias=False,
                     mlp_bias=False,
                     rms_norm_eps=1.0e-5,
+                )
+            ),
+            False,
+        ),
+        (
+            "gpt_oss",
+            GptOssForCausalLM(
+                GptOssConfig(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=8,
+                    num_hidden_layers=2,
+                    num_attention_heads=2,
+                    num_key_value_heads=1,
+                    head_dim=8,
+                    max_position_embeddings=16,
+                    sliding_window=4,
+                    num_local_experts=3,
+                    num_experts_per_tok=2,
+                    attention_dropout=0.0,
+                    attention_bias=True,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                    pad_token_id=0,
                 )
             ),
             False,
@@ -578,6 +645,86 @@ def tiny_models(*, training_reference: bool = False) -> list[tuple[str, torch.nn
             False,
         ),
         (
+            "qwen3_5_linear",
+            Qwen3_5ForCausalLM(
+                Qwen3_5TextConfig(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=32,
+                    num_hidden_layers=1,
+                    num_attention_heads=2,
+                    num_key_value_heads=1,
+                    head_dim=8,
+                    max_position_embeddings=16,
+                    linear_conv_kernel_dim=2,
+                    linear_key_head_dim=4,
+                    linear_value_head_dim=4,
+                    linear_num_key_heads=2,
+                    linear_num_value_heads=4,
+                    layer_types=["linear_attention"],
+                    use_cache=False,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                )
+            ),
+            False,
+        ),
+        (
+            "qwen3_5_mixed",
+            Qwen3_5ForCausalLM(
+                Qwen3_5TextConfig(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=32,
+                    num_hidden_layers=4,
+                    num_attention_heads=2,
+                    num_key_value_heads=1,
+                    head_dim=8,
+                    max_position_embeddings=16,
+                    linear_conv_kernel_dim=2,
+                    linear_key_head_dim=4,
+                    linear_value_head_dim=4,
+                    linear_num_key_heads=2,
+                    linear_num_value_heads=4,
+                    use_cache=False,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                )
+            ),
+            False,
+        ),
+        (
+            "qwen3_5_moe",
+            Qwen3_5MoeForCausalLM(
+                Qwen3_5MoeTextConfig(
+                    vocab_size=32,
+                    hidden_size=16,
+                    num_hidden_layers=2,
+                    num_attention_heads=2,
+                    num_key_value_heads=1,
+                    head_dim=8,
+                    max_position_embeddings=16,
+                    linear_conv_kernel_dim=2,
+                    linear_key_head_dim=4,
+                    linear_value_head_dim=4,
+                    linear_num_key_heads=2,
+                    linear_num_value_heads=4,
+                    moe_intermediate_size=8,
+                    shared_expert_intermediate_size=8,
+                    num_experts=3,
+                    num_experts_per_tok=2,
+                    layer_types=["linear_attention", "full_attention"],
+                    use_cache=False,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                )
+            ),
+            False,
+        ),
+        (
             "qwen4_exp_linear",
             Qwen4ExpForCausalLM(
                 Qwen4ExpTextConfig(
@@ -636,7 +783,92 @@ def tiny_models(*, training_reference: bool = False) -> list[tuple[str, torch.nn
                     indexer_n_heads=2,
                     indexer_kv_heads=1,
                     indexer_head_dim=8,
-                    indexer_budget=16,
+                    indexer_budget=2,
+                    indexer_compress_ratio=2,
+                    use_cache=False,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                )
+            ),
+            False,
+        ),
+        (
+            "qwen4_exp_ple",
+            Qwen4ExpForCausalLM(
+                Qwen4ExpTextConfig(
+                    vocab_size=32,
+                    hidden_size=16,
+                    num_hidden_layers=1,
+                    num_attention_heads=2,
+                    num_key_value_heads=1,
+                    head_dim=8,
+                    max_position_embeddings=32,
+                    linear_conv_kernel_dim=2,
+                    linear_key_head_dim=4,
+                    linear_value_head_dim=4,
+                    linear_num_key_heads=2,
+                    linear_num_value_heads=4,
+                    moe_intermediate_size=8,
+                    shared_expert_intermediate_size=8,
+                    num_experts=3,
+                    num_experts_per_tok=2,
+                    layer_types=["linear_attention"],
+                    hc_count=2,
+                    hc_lowrank=4,
+                    ple_layer_ids=[1],
+                    ple_embed_dim=8,
+                    ple_conv_kernel_size=3,
+                    ngram_size=3,
+                    heads_per_ngram=1,
+                    ngram_vocab_size_base=17,
+                    make_ngram_vocab_size_divisible_by=8,
+                    split_ngram_parts=1,
+                    seed=17,
+                    use_cache=False,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                )
+            ),
+            False,
+        ),
+        (
+            "qwen4_exp_mixed_ple",
+            Qwen4ExpForCausalLM(
+                Qwen4ExpTextConfig(
+                    vocab_size=32,
+                    hidden_size=16,
+                    num_hidden_layers=2,
+                    num_attention_heads=2,
+                    num_key_value_heads=1,
+                    head_dim=8,
+                    max_position_embeddings=32,
+                    linear_conv_kernel_dim=2,
+                    linear_key_head_dim=4,
+                    linear_value_head_dim=4,
+                    linear_num_key_heads=2,
+                    linear_num_value_heads=4,
+                    moe_intermediate_size=8,
+                    shared_expert_intermediate_size=8,
+                    num_experts=3,
+                    num_experts_per_tok=2,
+                    layer_types=["linear_attention", "qwen_sparse_attention"],
+                    hc_count=2,
+                    hc_lowrank=4,
+                    ple_layer_ids=[1],
+                    ple_embed_dim=8,
+                    ple_conv_kernel_size=3,
+                    ngram_size=3,
+                    heads_per_ngram=1,
+                    ngram_vocab_size_base=17,
+                    make_ngram_vocab_size_divisible_by=8,
+                    split_ngram_parts=1,
+                    seed=29,
+                    indexer_n_heads=2,
+                    indexer_kv_heads=1,
+                    indexer_head_dim=8,
+                    indexer_budget=2,
                     indexer_compress_ratio=2,
                     use_cache=False,
                     tie_word_embeddings=False,
@@ -854,10 +1086,10 @@ def compare_family(
     case = "padded" if padded else "unmasked"
     model_dir = root / name / case
     model.eval()
-    if name in KIMI_K3_ORACLE_FAMILIES:
+    if name in STRICT_LOGIT_FAMILIES:
         # K3 acceptance is intentionally stronger than the broad compatibility
-        # suite: every visible logit must stay within the user's 2e-7 absolute
-        # drift contract against Moonshot's released model code.
+        # suite. GPT-OSS uses the same strict absolute-only contract against the
+        # current local Transformers implementation.
         atol = min(atol, 2.0e-7)
         rtol = 0.0
     # Compare against Transformers' normalized in-memory parameter graph. Some

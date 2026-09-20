@@ -4,9 +4,9 @@ Native Rust + Vulkan training and inference tooling for **Hierarchos coherent-v9
 
 Hierarchos Native is built around a framework-free execution path: Rust handles model/package I/O, Hugging Face downloads, tokenization, datasets, checkpointing, and orchestration, while supported Transformer and Hierarchos training math runs through Vulkan compute shaders. Hierarchos inference has a separate pure-Rust runtime.
 
-## Nine architectures verified below `2e-7` training divergence
+## Twelve architectures verified below `2e-7` training divergence
 
-The headline compatibility target is strict numerical parity, not just architecture-name recognition. The current Vulkan backend has **nine modern Transformer text graphs** that each pass **two full AdamW steps** against the reference implementation with **less than `2e-7` maximum absolute parameter divergence** after export:
+The headline compatibility target is strict numerical parity, not just architecture-name recognition. The current Vulkan backend has **twelve modern Transformer text architectures/families** that each pass **two full AdamW steps** against the reference implementation with **less than `2e-7` maximum absolute parameter divergence** after export:
 
 | Architecture | Verified native scope | Max abs parameter error after 2 AdamW steps |
 | --- | --- | ---: |
@@ -15,12 +15,27 @@ The headline compatibility target is strict numerical parity, not just architect
 | **Phi-3** | causal LM | `1.192092896e-7` |
 | **Kimi K2.5** | text backbone / causal LM | `1.192092896e-7` |
 | **Kimi K3 / KimiLinear** | text backbone / causal LM | **`5.963374861e-8`** |
+| **`gpt_oss`** | causal LM | `1.192092896e-7` |
+| **Qwen3.5** | dense, Gated DeltaNet, hybrid, and MoE text causal LM | `2.980232239e-8` |
+| **Qwen4 Experimental** | DeltaNet, sparse QSA, GR/PLE, hybrid, and MoE text causal LM | `2.980232239e-8` |
 | **Mistral 4** | causal LM | `2.607703209e-8` |
 | **MiniMax M3** | text backbone / causal LM | `3.539025784e-8` |
 | **Gemma 4** | causal LM | `1.220032573e-7` |
 | **MiniMax M2** | causal LM | `1.192092896e-7` |
 
 The acceptance ceiling is enforced by the validation harness rather than rounded into the documentation after the fact. These are deterministic FP32 tiny-model correctness checks covering cross-entropy loss and every named trainable parameter across two optimizer steps; they are not a claim that every arbitrary production checkpoint, precision mode, or hyperparameter combination has been certified. See [the compatibility and validation record](hierarchos-vulkan/COMPATIBILITY.md) for the exact harness and broader parity results.
+
+### Newly strict-qualified: GPT‑OSS, Qwen3.5, and Qwen4-Experimental
+
+All three newly qualified families are held to an absolute-only `2e-7` gate (`rtol=0`) against the local Hugging Face Transformers source checkout for forward logits, cached generation, two native AdamW steps, and native-trained SafeTensors save/reload.
+
+- **`gpt_oss`:** forward logits reached `5.960464478e-8` maximum absolute drift, cached generation reached `4.470348358e-8`, two-step AdamW parameter drift reached `1.192092896e-7`, and native-reload versus Transformers-reload logits reached `4.470348358e-8`.
+
+- **Qwen3.5:** dense full attention, pure Gated DeltaNet, the default hybrid schedule, and MoE fixtures reached at most `4.470348358e-8` forward-logit drift, `4.470348358e-8` cached-generation drift, `2.980232239e-8` two-step AdamW parameter drift, and `5.215406418e-8` native-reload versus Transformers-reload logit drift.
+
+- **Qwen4 Experimental:** DeltaNet, genuinely sparse QSA, GR/hyper-connections, PLE n-gram/dilated-convolution state, mixed DeltaNet/QSA scheduling, and MoE/shared-expert fixtures reached at most `2.980232239e-8` forward-logit drift, `3.725290298e-8` cached-generation drift, `2.980232239e-8` two-step AdamW parameter drift, and `2.235174179e-8` native-reload versus Transformers-reload logit drift.
+
+For Qwen3.5 and Qwen4 Experimental, native cached decoding matched native full-prefix decoding exactly (`0.0` maximum drift) at every checked step.
 
 ## Kimi K3 / KimiLinear: fully implemented native text backbone
 
@@ -115,6 +130,14 @@ On Windows, the repository can stage the four native crates into one standalone 
 Use `-SkipBuild` for a source-only bundle. The resulting package does not depend on a local Python Transformers checkout at build time or runtime.
 
 ## Transformer workflows
+
+### Using the newly strict-qualified families
+
+There is no architecture-specific opt-in flag. Point the normal Transformer commands at a supported local Hugging Face package with `--model-path`, or at a Hub package with `--hf-model`; the native loader resolves the package model type and supported text-wrapper aliases automatically.
+
+The newly qualified model types include `gpt_oss`, Qwen3.5 text/MoE packages (`qwen3_5_text` and `qwen3_5_moe_text` plus supported wrapper aliases), and `qwen4_exp_text`. Hybrid DeltaNet/attention scheduling and the Qwen4 QSA/GR/PLE path are taken from the model config, so users do not manually select those internal layer modes.
+
+Python/PyTorch remains validation-only; it is not required for production training or generation through these native paths. The qualification applies to the implemented text causal-LM path, not unrelated vision/audio towers in a wrapper package.
 
 ### Train a local Hugging Face model package
 

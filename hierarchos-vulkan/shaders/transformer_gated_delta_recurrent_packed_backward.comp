@@ -8,9 +8,12 @@ layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 layout(set = 0, binding = 0, std430) readonly buffer PackedQkvBuffer { float packed_qkv[]; };
 layout(set = 0, binding = 1, std430) readonly buffer DecayBuffer { float decay_values[]; };
 layout(set = 0, binding = 2, std430) readonly buffer BetaBuffer { float beta_values[]; };
-// Initialized from the forward final state. The delta-rule update is
-// invertible, so each reverse step reconstructs s[t-1] in place and avoids a
-// sequence-length times state-size training tape.
+// Scratch recurrent state used to replay the forward prefix for each reverse
+// step. Qwen3.5 can emit exp(decay) values near 1e-7, so algebraically
+// inverting the recurrence with `s_prev = sd / exp(decay)` is catastrophically
+// unstable even though the forward itself is finite. Replaying the prefix is
+// O(T^2) in this correctness-first kernel but keeps backward finite without a
+// sequence-length times state-size tape.
 layout(set = 0, binding = 3, std430) buffer ReplayStateBuffer { float replay_state[]; };
 layout(set = 0, binding = 4, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
 layout(set = 0, binding = 5, std430) buffer GradPackedQkvBuffer { float grad_packed_qkv[]; };
@@ -57,6 +60,49 @@ void main() {
 
     for (int token_i = int(pc.seq_len) - 1; token_i >= 0; --token_i) {
         uint token = uint(token_i);
+
+        // Reconstruct s[t-1] by replaying the stable forward recurrence from
+        // its zero state. The current native training path does not seed a
+        // recurrent initial state (`has_initial_state == 0`). Keeping replay
+        // in the same shader also preserves the forward FP32 operation order.
+        for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+            for (uint vd = 0u; vd < pc.value_head_dim; ++vd) {
+                replay_state[state_index(batch, value_head, kd, vd)] = 0.0;
+            }
+        }
+        for (uint prefix = 0u; prefix < token; ++prefix) {
+            uint prefix_row = batch * pc.seq_len + prefix;
+            uint prefix_row_base = prefix_row * packed_width;
+            uint prefix_k_base = prefix_row_base + key_dim_total + key_head * pc.key_head_dim;
+            uint prefix_v_base = prefix_row_base + key_dim_total * 2u + value_head * pc.value_head_dim;
+            uint prefix_scalar = prefix_row * pc.num_value_heads + value_head;
+            float prefix_k_sq = 0.0;
+            for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+                float k_raw = packed_qkv[prefix_k_base + kd];
+                prefix_k_sq = fma(k_raw, k_raw, prefix_k_sq);
+            }
+            float prefix_k_inv = inversesqrt(prefix_k_sq + pc.l2_epsilon);
+            float prefix_decay = exp(decay_values[prefix_scalar]);
+            float prefix_beta = beta_values[prefix_scalar];
+            for (uint vd = 0u; vd < pc.value_head_dim; ++vd) {
+                float prefix_memory = 0.0;
+                for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+                    uint si = state_index(batch, value_head, kd, vd);
+                    float sd = replay_state[si] * prefix_decay;
+                    replay_state[si] = sd;
+                    float key = packed_qkv[prefix_k_base + kd] * prefix_k_inv;
+                    prefix_memory = fma(sd, key, prefix_memory);
+                }
+                float prefix_value = packed_qkv[prefix_v_base + vd];
+                float prefix_delta = (prefix_value - prefix_memory) * prefix_beta;
+                for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+                    uint si = state_index(batch, value_head, kd, vd);
+                    float key = packed_qkv[prefix_k_base + kd] * prefix_k_inv;
+                    replay_state[si] = fma(key, prefix_delta, replay_state[si]);
+                }
+            }
+        }
+
         uint row = batch * pc.seq_len + token;
         uint row_base = row * packed_width;
         uint q_base = row_base + key_head * pc.key_head_dim;
@@ -76,7 +122,6 @@ void main() {
         float k_inv = inversesqrt(k_sq + pc.l2_epsilon);
         float state_decay = exp(decay_values[scalar]);
         float beta = beta_values[scalar];
-        float key_norm_sq = k_sq * k_inv * k_inv;
 
         for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
             grad_q_expanded[(scalar * pc.key_head_dim) + kd] = 0.0;
@@ -87,28 +132,24 @@ void main() {
 
         for (uint vd = 0u; vd < pc.value_head_dim; ++vd) {
             float go = grad_output[(scalar * pc.value_head_dim) + vd];
-            float current_key_dot = 0.0;
+            float memory = 0.0;
             for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
                 float key = packed_qkv[k_base + kd] * k_inv;
                 uint si = state_index(batch, value_head, kd, vd);
-                float current = replay_state[si];
-                current_key_dot = fma(current, key, current_key_dot);
-                grad_state[si] = fma(go, packed_qkv[q_base + kd] * q_inv * query_scale, grad_state[si]);
-                grad_q_expanded[(scalar * pc.key_head_dim) + kd] += go * current;
+                float sd = replay_state[si] * state_decay;
+                memory = fma(sd, key, memory);
             }
 
             float value = packed_qkv[v_base + vd];
-            // current = sd + k * beta * (value - dot(sd, k)). Solving the
-            // scalar dot-product first recovers the exact pre-update state.
-            float denominator = 1.0 - beta * key_norm_sq;
-            // Qwen keeps beta below one, while OLMo Hybrid can scale it to
-            // two. Preserve the sign for OLMo and only protect a genuinely
-            // singular update from division-by-zero underflow.
-            if (abs(denominator) < 1.0e-12) {
-                denominator = denominator < 0.0 ? -1.0e-12 : 1.0e-12;
-            }
-            float memory = (current_key_dot - beta * key_norm_sq * value) / denominator;
             float delta = (value - memory) * beta;
+            for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
+                float key = packed_qkv[k_base + kd] * k_inv;
+                uint si = state_index(batch, value_head, kd, vd);
+                float sd = replay_state[si] * state_decay;
+                float current = fma(key, delta, sd);
+                grad_state[si] = fma(go, packed_qkv[q_base + kd] * q_inv * query_scale, grad_state[si]);
+                grad_q_expanded[(scalar * pc.key_head_dim) + kd] += go * current;
+            }
             float grad_delta = 0.0;
             for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
                 uint si = state_index(batch, value_head, kd, vd);
@@ -125,13 +166,11 @@ void main() {
             for (uint kd = 0u; kd < pc.key_head_dim; ++kd) {
                 uint si = state_index(batch, value_head, kd, vd);
                 float key = packed_qkv[k_base + kd] * k_inv;
-                float current = replay_state[si];
-                float sd = current - key * delta;
+                float sd = replay_state[si] * state_decay;
                 float grad_sd = grad_state[si] + grad_memory * key;
                 grad_k_expanded[(scalar * pc.key_head_dim) + kd] += grad_memory * sd;
                 decay_grad_sum = fma(grad_sd, sd, decay_grad_sum);
                 grad_state[si] = grad_sd * state_decay;
-                replay_state[si] = sd / state_decay;
             }
         }
         grad_decay[scalar] = decay_grad_sum;

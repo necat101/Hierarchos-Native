@@ -15,6 +15,7 @@ layout(push_constant) uniform Push {
     float eps;
     float weight_offset;
     uint pow_rstd;
+    uint unfused_products;
 } pc;
 
 void main() {
@@ -25,10 +26,11 @@ void main() {
     float square_sum = 0.0;
     for (uint col = 0; col < pc.dim; ++col) {
         float value = x[base + col];
-        if (pc.pow_rstd != 0u) {
-            // PyTorch materializes `hidden_states.pow(2)` before the mean in
-            // Gemma4RMSNorm.  Prevent contraction here so the tiny FP32
-            // reference check sees the same two-rounding operation order.
+        if (pc.pow_rstd != 0u || pc.unfused_products != 0u) {
+            // PyTorch materializes `x.pow(2)` before the mean for the
+            // Qwen3-Next/Qwen3.5 family as well as Gemma4RMSNorm. Prevent
+            // contraction when the architecture requests that exact FP32
+            // operation order.
             precise float square = value * value;
             square_sum += square;
         } else {
@@ -40,9 +42,25 @@ void main() {
     // the Transformers reference implementation. Keep that operation choice
     // explicit because the two forms can differ by a few FP32 ulps and those
     // differences are observable after a full backward + AdamW step.
-    float rstd = pc.pow_rstd != 0u
-        ? pow(mean_squared, -0.5)
-        : inversesqrt(mean_squared);
+    float rstd;
+    if (pc.pow_rstd != 0u) {
+        rstd = pow(mean_squared, -0.5);
+    } else if (pc.unfused_products != 0u) {
+        // CPU torch.rsqrt is more accurate than the native GPU reciprocal-
+        // square-root approximation on some Qwen3.5 inputs.  One explicit
+        // Newton refinement keeps every intermediate rounded to FP32 and
+        // brings the device result to the correctly-rounded neighborhood
+        // without changing the operation order of the surrounding norm.
+        precise float y0 = inversesqrt(mean_squared);
+        precise float y0_sq = y0 * y0;
+        precise float scaled = mean_squared * y0_sq;
+        precise float half_scaled = 0.5 * scaled;
+        precise float correction = 1.5 - half_scaled;
+        precise float refined = y0 * correction;
+        rstd = refined;
+    } else {
+        rstd = inversesqrt(mean_squared);
+    }
     mean_squared_values[row] = mean_squared;
     rstd_values[row] = rstd;
     for (uint col = 0; col < pc.dim; ++col) {
