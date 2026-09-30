@@ -37,6 +37,7 @@ struct Report {
     step: u32,
     supervised_tokens: usize,
     peft: bool,
+    logits_after: Vec<f32>,
 }
 
 fn main() -> Result<()> {
@@ -58,11 +59,15 @@ fn run() -> Result<()> {
     let mut fixture = None;
     let mut output = None;
     let mut base_output = None;
+    let mut gradient_output = None;
+    let mut debug_first_layer_output = None;
     let mut device_index = None;
     let mut lora_rank = None;
     let mut lora_alpha = None;
     let mut lora_targets = Vec::new();
     let mut lora_adapter = None;
+    let mut resume_lora = None;
+    let mut training_checkpoint = None;
     let mut seed = 42u64;
     let mut steps = 1usize;
     let mut args = std::env::args_os().skip(1);
@@ -79,6 +84,10 @@ fn run() -> Result<()> {
                     args.next().context("missing --output value")?,
                 ))
             }
+            "--gradient-output" => gradient_output = Some(PathBuf::from(args.next().context("missing --gradient-output value")?)),
+            "--debug-first-layer-output" => debug_first_layer_output = Some(PathBuf::from(
+                args.next().context("missing --debug-first-layer-output value")?,
+            )),
             "--base-output" => {
                 base_output = Some(PathBuf::from(
                     args.next().context("missing --base-output value")?,
@@ -119,6 +128,8 @@ fn run() -> Result<()> {
                     args.next().context("missing --lora-adapter value")?,
                 ))
             }
+            "--resume-lora" => resume_lora = Some(PathBuf::from(args.next().context("missing --resume-lora value")?)),
+            "--training-checkpoint" => training_checkpoint = Some(PathBuf::from(args.next().context("missing --training-checkpoint value")?)),
             "--seed" => {
                 let raw = args.next().context("missing --seed value")?;
                 seed = raw
@@ -156,11 +167,17 @@ fn run() -> Result<()> {
     let mut graph =
         VulkanTransformer::from_hf_package(device, &model, fixture.batch_size, fixture.seq_len)?;
     graph.set_dropout_seed(fixture.dropout_seed);
+    if resume_lora.is_some() && (lora_adapter.is_some() || lora_rank.is_some()) {
+        bail!("--resume-lora cannot be combined with --lora-adapter or --lora-rank");
+    }
+    if let Some(checkpoint) = resume_lora.as_deref() {
+        graph.load_lora_adapter_for_training(checkpoint)?;
+    }
     if lora_adapter.is_some() && lora_rank.is_some() {
         bail!("--lora-adapter and --lora-rank are mutually exclusive");
     }
     if let Some(adapter) = lora_adapter.as_deref() {
-        graph.load_lora_adapter(adapter)?;
+        graph.load_lora_adapter_for_training(adapter)?;
     } else if let Some(rank) = lora_rank {
         let alpha = lora_alpha.unwrap_or(rank * 2);
         let targets = if lora_targets.is_empty() {
@@ -184,13 +201,16 @@ fn run() -> Result<()> {
         )?;
     }
     let peft = graph.lora_config().is_some();
-    let hyper = AdamWHyperParams {
+    let requested_hyper = AdamWHyperParams {
         lr: fixture.learning_rate,
         beta1: fixture.beta1,
         beta2: fixture.beta2,
         eps: fixture.eps,
         weight_decay: fixture.weight_decay,
     };
+    let hyper = if let Some(checkpoint) = resume_lora.as_deref() {
+        graph.load_lora_optimizer_state(checkpoint)?
+    } else { requested_hyper };
     let mut losses = Vec::with_capacity(steps);
     let mut final_result = None;
     for _ in 0..steps {
@@ -205,17 +225,29 @@ fn run() -> Result<()> {
         final_result = Some(result);
     }
     let result = final_result.context("parity trajectory produced no optimizer steps")?;
+    if let Some(path) = gradient_output {
+        fs::write(path, serde_json::to_vec_pretty(&graph.lora_gradient_values()?)?)?;
+    }
+    if let Some(path) = debug_first_layer_output {
+        fs::write(
+            path,
+            serde_json::to_vec_pretty(&graph.debug_first_layer_norm_states()?)?,
+        )?;
+    }
+    if let Some(checkpoint) = training_checkpoint {
+        graph.save_lora_training_checkpoint(checkpoint, hyper)?;
+    }
     if peft {
         graph.export_lora_adapter(&output)?;
         if let Some(base_output) = base_output.as_deref() {
+            graph.disable_adapter()?;
             graph.export_hf_package(&model, base_output)?;
+            graph.enable_adapter()?;
         }
     } else {
         graph.export_hf_package(&model, &output)?;
     }
-    println!(
-        "{}",
-        serde_json::to_string(&Report {
+    let report = Report {
             device: graph.device_name().to_owned(),
             architecture: graph.config().architecture.model_type().to_owned(),
             loss: result.loss,
@@ -223,7 +255,9 @@ fn run() -> Result<()> {
             step: result.step,
             supervised_tokens: result.supervised_tokens,
             peft,
-        })?
-    );
+            logits_after: graph.forward_logits(&fixture.input_ids, &fixture.attention_mask)?,
+        };
+    fs::write(output.join("training_report.json"), serde_json::to_vec_pretty(&report)?)?;
+    println!("{}", serde_json::to_string(&report)?);
     Ok(())
 }

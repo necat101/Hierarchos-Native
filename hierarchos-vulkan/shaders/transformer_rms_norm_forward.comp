@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
@@ -16,6 +18,7 @@ layout(push_constant) uniform Push {
     float weight_offset;
     uint pow_rstd;
     uint unfused_products;
+    uint extra_rsqrt_refinement;
 } pc;
 
 void main() {
@@ -23,18 +26,34 @@ void main() {
     if (row >= pc.rows) return;
     uint base = row * pc.dim;
     uint parameter_base = (row % pc.parameter_groups) * pc.dim;
-    float square_sum = 0.0;
-    for (uint col = 0; col < pc.dim; ++col) {
-        float value = x[base + col];
-        if (pc.pow_rstd != 0u || pc.unfused_products != 0u) {
-            // PyTorch materializes `x.pow(2)` before the mean for the
-            // Qwen3-Next/Qwen3.5 family as well as Gemma4RMSNorm. Prevent
-            // contraction when the architecture requests that exact FP32
-            // operation order.
-            precise float square = value * value;
-            square_sum += square;
-        } else {
-            square_sum = fma(value, value, square_sum);
+    precise float square_sum = 0.0;
+    if (pc.extra_rsqrt_refinement == 3u) {
+        // The vector CPU-rsqrt mode materializes x.pow(2) and reduces
+        // contiguous FP32 rows through the 8-wide vector reducer.
+        // Accumulate interleaved vector lanes, then fold the lanes in order.
+        // This preserves the CPU vector topology where the reference exposes
+        // it through the RMS reduction.
+        precise float lanes[8];
+        for (uint lane = 0u; lane < 8u; ++lane) lanes[lane] = 0.0;
+        for (uint col = 0u; col < pc.dim; ++col) {
+            precise float square = x[base + col] * x[base + col];
+            uint lane = col & 7u;
+            lanes[lane] += square;
+        }
+        for (uint lane = 0u; lane < 8u; ++lane) square_sum += lanes[lane];
+    } else {
+        for (uint col = 0; col < pc.dim; ++col) {
+            float value = x[base + col];
+            if (pc.unfused_products != 0u || pc.pow_rstd != 0u) {
+                // Materialize x.pow(2) before the reduction.  The strict PEFT
+                // fixtures outside the vector CPU-rsqrt mode use scalar FP32
+                // order. Gemma4/Gemma3n's torch.pow RMSNorm also follows this
+                // materialized scalar reduction for the strict CPU oracle.
+                precise float square = value * value;
+                square_sum += square;
+            } else {
+                square_sum = fma(value, value, square_sum);
+            }
         }
     }
     float mean_squared = square_sum / float(pc.dim) + pc.eps;
@@ -44,7 +63,19 @@ void main() {
     // differences are observable after a full backward + AdamW step.
     float rstd;
     if (pc.pow_rstd != 0u) {
-        rstd = pow(mean_squared, -0.5);
+        // Gemma4 spells this as torch.pow(mean_squared, -0.5).  On the local
+        // PyTorch 2.6 AVX512 oracle used by the strict PEFT fixtures, the
+        // captured tiny Gemma4 tensors follow the scalar FP32 sqrt+reciprocal
+        // result.  That can differ by one ulp from a correctly-rounded real
+        // reciprocal square root, and the RMS backward amplifies the seed.
+        rstd = fp32_sqrt_recip(mean_squared);
+    } else if (pc.extra_rsqrt_refinement == 2u) {
+        // KimiLinear uses torch.rsqrt on an FP32 mean-square tensor. Match
+        // that single correctly-rounded reciprocal-square-root operation
+        // directly rather than refining the device approximation.
+        rstd = fp32_rsqrt(mean_squared);
+    } else if (pc.extra_rsqrt_refinement != 0u) {
+        rstd = fp32_sqrt_recip(mean_squared);
     } else if (pc.unfused_products != 0u) {
         // CPU torch.rsqrt is more accurate than the native GPU reciprocal-
         // square-root approximation on some Qwen3.5 inputs.  One explicit

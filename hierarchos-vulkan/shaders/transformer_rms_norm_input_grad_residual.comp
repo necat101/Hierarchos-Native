@@ -1,0 +1,132 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_pow.glsl"
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 2, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 3, std430) readonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MeanSquaredBuffer { float mean_squared_values[]; };
+layout(set = 0, binding = 5, std430) readonly buffer ResidualGradBuffer { float residual_grad[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer GradBranchBuffer { float grad_branch[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint parameter_groups;
+    float weight_offset;
+    uint pow_rstd;
+    uint unfused_products;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint base = row * pc.dim;
+    uint parameter_base = (row % pc.parameter_groups) * pc.dim;
+    float rstd = rstd_values[row];
+    if (pc.pow_rstd == 0u && pc.unfused_products == 3u) {
+        // Materialized rsqrt backward.  Keep the ordinary branch output for
+        // diagnostics, but accumulate the residual exactly like PyTorch's
+        // autograd graph: (residual + direct-x path) + variance path.
+        precise float lanes[16];
+        for (uint j=0u; j<16u; ++j) lanes[j]=0.0;
+        for (uint col=0u; col<pc.dim; ++col) {
+            precise float weighted = grad_output[base+col] * (weight[parameter_base+col]+pc.weight_offset);
+            precise float product = weighted*x[base+col];
+            lanes[col&15u] += product;
+        }
+        for (uint stride=8u; stride>0u; stride>>=1u) {
+            for (uint j=0u; j<stride; ++j) lanes[j] += lanes[j+stride];
+        }
+        precise float cube=(rstd*rstd)*rstd;
+        precise float grad_mean=(-0.5*lanes[0])*cube;
+        precise float grad_square=grad_mean/float(pc.dim);
+        for (uint col=0u; col<pc.dim; ++col) {
+            precise float weighted=grad_output[base+col]*(weight[parameter_base+col]+pc.weight_offset);
+            precise float direct=weighted*rstd;
+            precise float through_square=grad_square*(2.0*x[base+col]);
+            grad_branch[base+col]=direct+through_square;
+            grad_input[base+col]=(residual_grad[base+col]+direct)+through_square;
+        }
+        return;
+    }
+    if (pc.pow_rstd == 0u && pc.unfused_products == 2u) {
+        precise float lanes[8];
+        for (uint j=0u; j<8u; ++j) lanes[j]=0.0;
+        for (uint col=0u; col<pc.dim; ++col) {
+            precise float weighted = grad_output[base+col] * (weight[parameter_base+col]+pc.weight_offset);
+            precise float product = weighted*x[base+col];
+            lanes[col&7u] += product;
+        }
+        precise float sum=0.0;
+        for (uint j=0u; j<8u; ++j) sum+=lanes[j];
+        precise float cube=(rstd*rstd)*rstd;
+        precise float grad_mean=(-0.5*sum)*cube;
+        precise float grad_square=grad_mean/float(pc.dim);
+        for (uint col=0u; col<pc.dim; ++col) {
+            precise float weighted=grad_output[base+col]*(weight[parameter_base+col]+pc.weight_offset);
+            precise float direct=weighted*rstd;
+            precise float through_square=grad_square*(2.0*x[base+col]);
+            grad_branch[base+col]=direct+through_square;
+            grad_input[base+col]=(residual_grad[base+col]+direct)+through_square;
+        }
+        return;
+    }
+    float dot = 0.0;
+    for (uint col = 0; col < pc.dim; ++col) {
+        float weighted_grad = grad_output[base + col] * (weight[parameter_base + col] + pc.weight_offset);
+        if (pc.pow_rstd != 0u || pc.unfused_products != 0u) {
+            precise float product = weighted_grad * x[base + col];
+            dot += product;
+        } else {
+            dot = fma(weighted_grad, x[base + col], dot);
+        }
+    }
+    if (pc.pow_rstd != 0u) {
+        // Mode 1 keeps the already-computed source-order dot. Mode 2 requests
+        // the explicit eight-lane reduction used by rsqrt families.
+        if (pc.unfused_products == 2u) {
+            precise float lanes[8];
+            for (uint j = 0u; j < 8u; ++j) lanes[j] = 0.0;
+            for (uint col = 0u; col < pc.dim; ++col) {
+                precise float weighted_grad = grad_output[base + col]
+                    * (weight[parameter_base + col] + pc.weight_offset);
+                precise float product = weighted_grad * x[base + col];
+                lanes[col & 7u] += product;
+            }
+            dot = 0.0;
+            for (uint j = 0u; j < 8u; ++j) dot += lanes[j];
+        }
+        // Use the same independent pow derivative as ordinary RMS backward.
+        // Reusing the rounded rstd changes the variance branch before the
+        // residual joins, even when the forward output is bit-identical.
+        precise float pow_neg_three_halves =
+            sleef_powf_neg_three_halves_u10(mean_squared_values[row]);
+        precise float grad_mean = (dot * -0.5) * pow_neg_three_halves;
+        precise float grad_square = grad_mean / float(pc.dim);
+        for (uint col = 0; col < pc.dim; ++col) {
+            precise float weighted_grad = grad_output[base + col] * (weight[parameter_base + col] + pc.weight_offset);
+            precise float direct = weighted_grad * rstd;
+            precise float through_square = grad_square * (2.0 * x[base + col]);
+            grad_branch[base + col] = direct + through_square;
+            grad_input[base + col] = (residual_grad[base + col] + direct) + through_square;
+        }
+    } else {
+        // The Rust entry point currently rejects this closed-form mode because
+        // it does not expose the two PyTorch autograd branches independently.
+        // Keep a mathematically ordinary fallback here so the shader remains
+        // total if that guard is deliberately relaxed in the future.
+        float correction = dot * rstd * rstd / float(pc.dim);
+        for (uint col = 0; col < pc.dim; ++col) {
+            float weighted_grad = grad_output[base + col] * (weight[parameter_base + col] + pc.weight_offset);
+            float branch = rstd * (weighted_grad - x[base + col] * correction);
+            grad_branch[base + col] = branch;
+            grad_input[base + col] = residual_grad[base + col] + branch;
+        }
+    }
+}

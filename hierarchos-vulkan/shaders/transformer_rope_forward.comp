@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sleef_trig.glsl"
 
 // Rotary embedding over a contiguous per-head slice. Existing architectures
 // use rotary_start=0; DeepSeek-V4 uses a trailing interleaved slice.
@@ -85,6 +87,10 @@ void main() {
         effective_base *= pow(pc.scaling_factor, ntk_exponent);
     }
     float inv_frequency = pow(effective_base, -exponent);
+    if (pc.scaling_type == 7u) {
+        // Default RoPE with host-materialized FP32 inverse frequencies.
+        inv_frequency = rope_factors[frequency_index];
+    }
     if (pc.scaling_type == 6u) {
         // LongRoPE supplies one extension factor per rotary frequency. The
         // host selects the short- or long-context table for this dispatch.
@@ -125,8 +131,8 @@ void main() {
         inv_frequency *= (1.0 - ramp) + ramp / pc.scaling_factor;
     }
     float angle = position * inv_frequency;
-    float c = cos(angle);
-    float s = sin(angle);
+    float c = fp32_cos(angle);
+    float s = fp32_sin(angle);
     bool first = pc.interleaved_pairs != 0u
         ? (rotary_offset % 2u == 0u)
         : rotary_offset < half_dim;
@@ -136,13 +142,17 @@ void main() {
     uint q_partner = uint(int(q_index) + partner_delta);
 
     float q_rotated = first ? -q_input[q_partner] : q_input[q_partner];
-    q_output[q_index] =
-        (q_input[q_index] * c + q_rotated * s) * pc.attention_factor * query_scale;
+    precise float q_cos = q_input[q_index] * c;
+    precise float q_sin = q_rotated * s;
+    precise float q_sum = q_cos + q_sin;
+    q_output[q_index] = q_sum * pc.attention_factor * query_scale;
     if (col < kv_hidden_size) {
         uint k_index = row * kv_hidden_size + col;
         uint k_partner = uint(int(k_index) + partner_delta);
         float k_rotated = first ? -k_input[k_partner] : k_input[k_partner];
-        k_output[k_index] =
-            (k_input[k_index] * c + k_rotated * s) * pc.attention_factor;
+        precise float k_cos = k_input[k_index] * c;
+        precise float k_sin = k_rotated * s;
+        precise float k_sum = k_cos + k_sin;
+        k_output[k_index] = k_sum * pc.attention_factor;
     }
 }

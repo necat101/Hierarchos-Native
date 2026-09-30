@@ -1,5 +1,14 @@
 #version 450
 
+#ifndef HIERARCHOS_LOG_SOFTMAX_GRAD
+#define HIERARCHOS_LOG_SOFTMAX_GRAD 0
+#endif
+#if HIERARCHOS_LOG_SOFTMAX_GRAD
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+#endif
+
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout(set = 0, binding = 0, std430) readonly buffer LogitBuffer { float logits[]; };
@@ -59,9 +68,41 @@ void main() {
     }
     float inv_sum = 1.0 / exp_sum;
     float gradient_scale = row_weight / weight_sum;
+#if HIERARCHOS_LOG_SOFTMAX_GRAD
+    gradient_scale = fp32_div(row_weight, weight_sum);
+    // PyTorch's Windows CPU log-softmax maps AVX512-sized (16-float) chunks,
+    // accumulates corresponding lanes, then folds the 16 lane totals in lane
+    // order.  Reproduce that reduction with SLEEF expf_u10.  Using the
+    // same SLEEF exp path and preserve LogSoftmax's materialized log-probability
+    // before its backward exp.  The scalar log remains a single rounded FP32
+    // operation, matching the CPU kernel's staging much more closely than the
+    // algebraically collapsed softmax derivative.
+    precise float lane_sum[16];
+    for (uint lane = 0; lane < 16u; ++lane) {
+        lane_sum[lane] = 0.0;
+    }
+    for (uint v = 0; v < pc.vocab_size; ++v) {
+        precise float shifted = logits[base + v] - max_logit;
+        uint lane = v & 15u;
+        lane_sum[lane] += sleef_expf_u10(shifted);
+    }
+    precise float torch_sum = lane_sum[0];
+    for (uint lane = 1u; lane < 16u; ++lane) {
+        torch_sum += lane_sum[lane];
+    }
+    precise float torch_log_sum = sleef_logf_u10_positive(torch_sum);
+    for (uint v = 0; v < pc.vocab_size; ++v) {
+        precise float shifted = logits[base + v] - max_logit;
+        precise float log_probability = shifted - torch_log_sum;
+        float probability = sleef_expf_u10(log_probability);
+        precise float probability_gradient = probability * gradient_scale;
+        grad_logits[base + v] = probability_gradient + (v == target ? -gradient_scale : 0.0);
+    }
+#else
     for (uint v = 0; v < pc.vocab_size; ++v) {
         float probability = exp(logits[base + v] - max_logit) * inv_sum;
         grad_logits[base + v] = (probability - (v == target ? 1.0 : 0.0)) * gradient_scale;
     }
+#endif
     row_loss[row] = (log(exp_sum) + max_logit - logits[base + target]) * gradient_scale;
 }

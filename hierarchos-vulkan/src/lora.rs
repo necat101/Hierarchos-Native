@@ -144,6 +144,41 @@ pub fn merge_hierarchos_lora_safetensors(
     adapter_dir: &Path,
     destination: &Path,
 ) -> Result<HierarchosNativeLoraMergeReport> {
+    apply_lora_safetensors(base_weights, adapter_dir, destination, true, false)
+}
+
+/// Merge a standard HF PEFT SafeTensors adapter. If a Hierarchos binding
+/// manifest exists, it must validate; ordinary HF adapters need no conversion.
+pub fn merge_peft_lora_safetensors(
+    base_weights: &Path,
+    adapter_dir: &Path,
+    destination: &Path,
+) -> Result<HierarchosNativeLoraMergeReport> {
+    let bound = adapter_dir.join(HIERARCHOS_LORA_ADAPTER_MANIFEST_FILENAME).exists()
+        || adapter_dir.join(format!("{HIERARCHOS_LORA_ADAPTER_MANIFEST_FILENAME}.sha256")).exists();
+    apply_lora_safetensors(base_weights, adapter_dir, destination, bound, false)
+}
+
+/// Subtract an ordinary additive LoRA delta from a previously merged FP32
+/// checkpoint. The caller must supply the exact adapter used for merging.
+/// Floating point addition/subtraction is not bitwise reversible; keep the
+/// original checkpoint when exact restoration is required. Replacement tensors,
+/// DoRA, and base-mutating initialization cannot be undone by subtraction.
+pub fn unmerge_peft_lora_safetensors(
+    merged_weights: &Path,
+    adapter_dir: &Path,
+    destination: &Path,
+) -> Result<HierarchosNativeLoraMergeReport> {
+    apply_lora_safetensors(merged_weights, adapter_dir, destination, false, true)
+}
+
+fn apply_lora_safetensors(
+    base_weights: &Path,
+    adapter_dir: &Path,
+    destination: &Path,
+    require_binding: bool,
+    unmerge: bool,
+) -> Result<HierarchosNativeLoraMergeReport> {
     if !base_weights.is_file() {
         bail!(
             "base model weights do not exist: {}",
@@ -156,7 +191,9 @@ pub fn merge_hierarchos_lora_safetensors(
             adapter_dir.display()
         );
     }
-    if base_weights == destination {
+    if base_weights == destination
+        || (destination.exists() && fs::canonicalize(base_weights)? == fs::canonicalize(destination)?)
+    {
         bail!("native LoRA merge requires a distinct destination checkpoint");
     }
 
@@ -166,15 +203,27 @@ pub fn merge_hierarchos_lora_safetensors(
     let manifest_path = adapter_dir.join(HIERARCHOS_LORA_ADAPTER_MANIFEST_FILENAME);
     let config = read_adapter_config(&config_path)?;
     validate_adapter_config(&config)?;
+    if unmerge {
+        let raw: serde_json::Value = serde_json::from_slice(&fs::read(&config_path)?)?;
+        let init = raw.get("init_lora_weights").and_then(serde_json::Value::as_str).unwrap_or("");
+        if config.use_dora
+            || !matches!(config.bias.as_str(), "" | "none")
+            || config.modules_to_save.as_ref().is_some_and(|v| !v.is_empty())
+            || nonempty_json_option(&config.trainable_token_indices)
+            || (!init.is_empty() && !matches!(init, "gaussian" | "eva" | "orthogonal"))
+        {
+            bail!("LoRA unmerge requires additive adapters without replacement tensors, DoRA, or base-mutating initialization");
+        }
+    }
     let base_sha256 = sha256_file(base_weights)?;
     let adapter_sha256 = sha256_file(&adapter_weights)?;
-    let architecture_contract_sha256 = validate_bound_manifest(
+    let architecture_contract_sha256 = if require_binding { validate_bound_manifest(
         base_weights,
         &config_path,
         &adapter_weights,
         &manifest_path,
         &base_sha256,
-    )?;
+    )? } else { String::new() };
 
     let base_bytes = fs::read(base_weights)
         .with_context(|| format!("reading base model {}", base_weights.display()))?;
@@ -187,6 +236,9 @@ pub fn merge_hierarchos_lora_safetensors(
 
     let (pairs, adapter_replacements, trainable_token_replacements) =
         discover_adapter_tensors(&adapter_tensors, &config)?;
+    if unmerge && (!adapter_replacements.is_empty() || !trainable_token_replacements.is_empty()) {
+        bail!("LoRA unmerge cannot restore replacement tensors without the original base");
+    }
     let mut replacements = BTreeMap::<String, Vec<f32>>::new();
     let mut lora_bias_deltas = BTreeMap::<String, Vec<f32>>::new();
 
@@ -221,7 +273,8 @@ pub fn merge_hierarchos_lora_safetensors(
         if !alpha.is_finite() || alpha <= 0.0 {
             bail!("LoRA target {pattern_name:?} has invalid alpha {alpha}");
         }
-        let scale = lora_scale(alpha, expected_rank, config.use_rslora, pattern_name)?;
+        let scale = lora_scale(alpha, expected_rank, config.use_rslora, pattern_name)?
+            * if unmerge { -1.0 } else { 1.0 };
         let base = base_tensors.tensor(&target_name).with_context(|| {
             format!(
                 "adapter targets tensor {target_name:?}, which is absent from {}",
@@ -229,6 +282,9 @@ pub fn merge_hierarchos_lora_safetensors(
             )
         })?;
         let base_shape = base.shape().to_vec();
+        if unmerge && base.dtype() != Dtype::F32 {
+            bail!("LoRA unmerge requires FP32 merged weights to avoid irreversible low-precision rounding");
+        }
         let a_values = decode_float_tensor(&pair.a_key, &a)?;
         let b_values = decode_float_tensor(&pair.b_key, &b)?;
         let mut merged = decode_float_tensor(&target_name, &base)?;
@@ -1099,7 +1155,8 @@ fn selector_matches_module(module_name: &str, selector: &ModuleSelector) -> bool
 }
 
 fn target_module_declared(module_name: &str, config: &LoraAdapterConfig) -> bool {
-    selector_matches_module(module_name, &config.target_modules)
+    (matches!(&config.target_modules, ModuleSelector::Regex(pattern) if pattern == "all-linear")
+        || selector_matches_module(module_name, &config.target_modules))
         && !selector_matches_module(module_name, &config.exclude_modules)
 }
 
@@ -1584,6 +1641,54 @@ mod tests {
             format!("{}.sha256", manifest_path.display()),
             format!("{checksum}  {HIERARCHOS_LORA_ADAPTER_MANIFEST_FILENAME}\n"),
         )?;
+        Ok(())
+    }
+
+    #[test]
+    fn native_lora_hf_merge_unmerge_preserves_base_and_untouched_tensors() -> Result<()> {
+        let root = temp_dir("hf-unmerge");
+        let adapter = root.join("adapter");
+        fs::create_dir_all(&adapter)?;
+        let base = root.join("base.safetensors");
+        let merged = root.join("merged.safetensors");
+        let restored = root.join("restored.safetensors");
+        write_tensors(&base, &[
+            ("block.key.weight", vec![2, 3], vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
+            ("untouched.weight", vec![2], vec![-0.0, 9.0]),
+        ])?;
+        let original_bytes = fs::read(&base)?;
+        let config = json!({"peft_type":"LORA", "r":2, "lora_alpha":4,
+            "target_modules":["key"], "bias":"none"});
+        let config_path = adapter.join(HIERARCHOS_LORA_ADAPTER_CONFIG_FILENAME);
+        fs::write(&config_path, serde_json::to_vec(&config)?)?;
+        write_tensors(&adapter.join(HIERARCHOS_LORA_ADAPTER_WEIGHTS_FILENAME), &[
+            ("base_model.model.block.key.lora_A.weight", vec![2,3], vec![0.25,0.0,0.5,0.0,0.25,0.25]),
+            ("base_model.model.block.key.lora_B.weight", vec![2,2], vec![0.25,0.5,0.75,1.0]),
+        ])?;
+        merge_peft_lora_safetensors(&base, &adapter, &merged)?;
+        assert_eq!(fs::read(&base)?, original_bytes);
+        unmerge_peft_lora_safetensors(&merged, &adapter, &restored)?;
+        assert_eq!(crate::checkpoint::read_f32_tensor(&base, "block.key.weight")?,
+            crate::checkpoint::read_f32_tensor(&restored, "block.key.weight")?);
+        let merged_bytes = fs::read(&merged)?;
+        let original = SafeTensors::deserialize(&original_bytes)?;
+        let output = SafeTensors::deserialize(&merged_bytes)?;
+        assert_eq!(original.tensor("untouched.weight")?.data(), output.tensor("untouched.weight")?.data());
+        // No output is published when subtraction cannot restore the base.
+        for field in ["use_dora", "modules_to_save", "bias", "init_lora_weights"] {
+            let mut invalid = config.clone();
+            invalid[field] = match field {
+                "use_dora" => json!(true),
+                "modules_to_save" => json!(["key"]),
+                "bias" => json!("all"),
+                _ => json!("pissa"),
+            };
+            fs::write(&config_path, serde_json::to_vec(&invalid)?)?;
+            let rejected = root.join(format!("rejected-{field}.safetensors"));
+            assert!(unmerge_peft_lora_safetensors(&merged, &adapter, &rejected).is_err());
+            assert!(!rejected.exists());
+        }
+        fs::remove_dir_all(root)?;
         Ok(())
     }
 

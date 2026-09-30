@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sleef_trig.glsl"
 
 // Adjoint of transformer_rope_forward.comp. The rotation itself is orthogonal;
 // any YaRN or query-position scale is multiplied into the inverse rotation.
@@ -83,6 +85,9 @@ void main() {
         effective_base *= pow(pc.scaling_factor, ntk_exponent);
     }
     float inv_frequency = pow(effective_base, -exponent);
+    if (pc.scaling_type == 7u) {
+        inv_frequency = rope_factors[frequency_index];
+    }
     if (pc.scaling_type == 6u) {
         // Match forward LongRoPE frequency selection exactly so the inverse
         // rotation remains the true adjoint of the scaled forward rotation.
@@ -123,8 +128,8 @@ void main() {
         inv_frequency *= (1.0 - ramp) + ramp / pc.scaling_factor;
     }
     float angle = position * inv_frequency;
-    float c = cos(angle);
-    float s = sin(angle);
+    float c = fp32_cos(angle);
+    float s = fp32_sin(angle);
     bool first = pc.interleaved_pairs != 0u
         ? (rotary_offset % 2u == 0u)
         : rotary_offset < half_dim;

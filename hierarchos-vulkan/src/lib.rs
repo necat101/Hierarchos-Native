@@ -107,7 +107,8 @@ pub use lm_execution::{
     HIERARCHOS_VULKAN_LM_REAUTOTUNE_ENV,
 };
 pub use lora::{
-    merge_hierarchos_lora_safetensors, HierarchosNativeLoraMergeReport,
+    merge_hierarchos_lora_safetensors, merge_peft_lora_safetensors,
+    unmerge_peft_lora_safetensors, HierarchosNativeLoraMergeReport,
     HIERARCHOS_LORA_ADAPTER_CONFIG_FILENAME, HIERARCHOS_LORA_ADAPTER_MANIFEST_FILENAME,
     HIERARCHOS_LORA_ADAPTER_WEIGHTS_FILENAME,
 };
@@ -157,6 +158,7 @@ pub use token_frontend::{
 };
 pub use training_numerics::VulkanGradientNonfiniteDetector;
 pub use transformer::{
+    PeftCapability, PeftModuleClass,
     VulkanSeq2SeqTransformer, VulkanTransformer, VulkanTransformerArchitecture,
     VulkanTransformerConfig, VulkanTransformerGenerationAttention,
     VulkanTransformerGenerationConfig, VulkanTransformerGenerationHiddenState,
@@ -2646,10 +2648,14 @@ impl HierarchosOutNormHeadTrainer {
             z_loss_weight,
             ..linear_push
         };
-        let dense_lm_grad = if weight_grad_write_mode.uses_shared_buffer() {
-            self.lm_head.gradient_buffer()
+        let shared_lm_grad = if weight_grad_write_mode.uses_shared_buffer() {
+            Some(self.lm_head.gradient_buffer()?)
         } else {
-            &self.grad_lm_weight
+            None
+        };
+        let dense_lm_grad = match shared_lm_grad.as_ref() {
+            Some(gradient) => gradient,
+            None => &self.grad_lm_weight,
         };
         let weight_grad_push = LmWeightGradPush {
             rows: linear_push.rows,
@@ -3494,7 +3500,10 @@ impl HierarchosOutNormHeadTrainer {
     /// Canonical trainable view for the one-registry full-model AdamW path.
     /// `lm_head.weight` points at the shared tied gradient accumulator, which
     /// already contains dense LM plus every recurrent DeepEmbed contribution.
-    pub(crate) fn optimizer_trainables(&self) -> Vec<rwkv_optimizer::RwkvTrainableRef<'_>> {
+    pub(crate) fn optimizer_trainables<'a>(
+        &'a self,
+        lm_gradient: &'a GpuBuffer,
+    ) -> Vec<rwkv_optimizer::RwkvTrainableRef<'a>> {
         use rwkv_optimizer::{RwkvDecayClass, RwkvTrainableRef};
 
         vec![
@@ -3515,7 +3524,7 @@ impl HierarchosOutNormHeadTrainer {
             RwkvTrainableRef {
                 name: "lm_head.weight",
                 parameter: self.lm_head.weight_buffer(),
-                gradient: self.lm_head.gradient_buffer(),
+                gradient: lm_gradient,
                 len: self.context_dim * self.vocab_size,
                 decay_class: RwkvDecayClass::Decay,
             },
@@ -3786,13 +3795,14 @@ impl HierarchosOutNormHeadTrainer {
             } else {
                 self.record_tied_embedding_radix_sort(&mut batch, token_ids.len())?
             };
+            let lm_gradient = self.lm_head.gradient_buffer()?;
             self.embedding_grad_segmented.record_dispatch(
                 &mut batch,
                 &[
                     &self.tied_token_ids,
                     sorted_positions,
                     &self.tied_embedding_grad,
-                    self.lm_head.gradient_buffer(),
+                    &lm_gradient,
                 ],
                 bytemuck::bytes_of(&embedding_push),
                 [
@@ -7050,8 +7060,8 @@ mod tests {
         )?;
         staged_second.submit()?;
 
-        let direct_grad = direct_shared.gradient_buffer().read_f32(initial.len())?;
-        let staged_grad = staged_shared.gradient_buffer().read_f32(initial.len())?;
+        let direct_grad = direct_shared.gradient_buffer()?.read_f32(initial.len())?;
+        let staged_grad = staged_shared.gradient_buffer()?.read_f32(initial.len())?;
         let max_abs = direct_grad
             .iter()
             .zip(&staged_grad)

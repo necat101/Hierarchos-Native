@@ -4,9 +4,9 @@ Native Rust + Vulkan training and inference tooling for **Hierarchos coherent-v9
 
 Hierarchos Native is built around a framework-free execution path: Rust handles model/package I/O, Hugging Face downloads, tokenization, datasets, checkpointing, and orchestration, while supported Transformer and Hierarchos training math runs through Vulkan compute shaders. Hierarchos inference has a separate pure-Rust runtime.
 
-## Twelve architectures verified below `2e-7` training divergence
+## Thirteen architectures verified below `2e-7` training divergence
 
-The headline compatibility target is strict numerical parity, not just architecture-name recognition. The current Vulkan backend has **twelve modern Transformer text architectures/families** that each pass **two full AdamW steps** against the reference implementation with **less than `2e-7` maximum absolute parameter divergence** after export:
+The headline compatibility target is strict numerical parity, not just architecture-name recognition. The current Vulkan backend has **thirteen modern Transformer text architectures/families** that each pass **two full AdamW steps** against the reference implementation with **less than `2e-7` maximum absolute parameter divergence** after export:
 
 | Architecture | Verified native scope | Max abs parameter error after 2 AdamW steps |
 | --- | --- | ---: |
@@ -16,6 +16,7 @@ The headline compatibility target is strict numerical parity, not just architect
 | **Kimi K2.5** | text backbone / causal LM | `1.192092896e-7` |
 | **Kimi K3 / KimiLinear** | text backbone / causal LM | **`5.963374861e-8`** |
 | **`gpt_oss`** | causal LM | `1.192092896e-7` |
+| **SmolLM3** | causal LM; mixed RoPE/NoPE and YaRN | `1.192092896e-7` |
 | **Qwen3.5** | dense, Gated DeltaNet, hybrid, and MoE text causal LM | `2.980232239e-8` |
 | **Qwen4 Experimental** | DeltaNet, sparse QSA, GR/PLE, hybrid, and MoE text causal LM | `2.980232239e-8` |
 | **Mistral 4** | causal LM | `2.607703209e-8` |
@@ -25,17 +26,21 @@ The headline compatibility target is strict numerical parity, not just architect
 
 The acceptance ceiling is enforced by the validation harness rather than rounded into the documentation after the fact. These are deterministic FP32 tiny-model correctness checks covering cross-entropy loss and every named trainable parameter across two optimizer steps; they are not a claim that every arbitrary production checkpoint, precision mode, or hyperparameter combination has been certified. See [the compatibility and validation record](hierarchos-vulkan/COMPATIBILITY.md) for the exact harness and broader parity results.
 
-### Newly strict-qualified: GPT‑OSS, Qwen3.5, and Qwen4-Experimental
+### Newly strict-qualified: GPT‑OSS, SmolLM3, Qwen2.5 text, Qwen3.5, and Qwen4-Experimental
 
-All three newly qualified families are held to an absolute-only `2e-7` gate (`rtol=0`) against the local Hugging Face Transformers source checkout for forward logits, cached generation, two native AdamW steps, and native-trained SafeTensors save/reload.
+These strict-qualified families are held to an absolute-only `2e-7` gate (`rtol=0`) against the local Hugging Face Transformers source checkout for forward logits, cached generation, two native AdamW steps, and native-trained SafeTensors save/reload.
 
 - **`gpt_oss`:** forward logits reached `5.960464478e-8` maximum absolute drift, cached generation reached `4.470348358e-8`, two-step AdamW parameter drift reached `1.192092896e-7`, and native-reload versus Transformers-reload logits reached `4.470348358e-8`.
+
+- **SmolLM3:** the config-driven mixed RoPE/NoPE GQA path, sliding NoPE layers, tied embeddings, padding masks, and YaRN all run through the native graph. Default and YaRN fixtures reached at most `5.960464478e-8` forward-logit drift and `5.960464478e-8` cached-generation drift. Both variants reached `1.192092896e-7` two-step AdamW parameter drift; native-trained reload logits reached at most `5.960464478e-8`. The export/reload check also preserves `no_rope_layers`, `layer_types`, RoPE parameters, sliding-window settings, and weight tying.
+
+- **Qwen2.5 text:** canonical Qwen2.5 text checkpoints that serialize as `model_type: qwen2` reuse the native Qwen2 graph rather than a redundant alias. Deterministic GQA fixtures cover Qwen2.5-style `rope_theta=1_000_000`, mixed full/sliding attention, padding, and tied/untied LM heads. Forward logits reached at most `5.960464478e-8`, four-step cached generation reached `4.470348358e-8` versus local Transformers and `0.0` versus native full-prefix decoding, two-step AdamW parameter drift reached `1.192092896e-7`, and native-reload versus Transformers-reload logits reached at most `5.960464478e-8`. Qwen2.5-VL/Omni vision/audio stacks are not implied by this text-only qualification.
 
 - **Qwen3.5:** dense full attention, pure Gated DeltaNet, the default hybrid schedule, and MoE fixtures reached at most `4.470348358e-8` forward-logit drift, `4.470348358e-8` cached-generation drift, `2.980232239e-8` two-step AdamW parameter drift, and `5.215406418e-8` native-reload versus Transformers-reload logit drift.
 
 - **Qwen4 Experimental:** DeltaNet, genuinely sparse QSA, GR/hyper-connections, PLE n-gram/dilated-convolution state, mixed DeltaNet/QSA scheduling, and MoE/shared-expert fixtures reached at most `2.980232239e-8` forward-logit drift, `3.725290298e-8` cached-generation drift, `2.980232239e-8` two-step AdamW parameter drift, and `2.235174179e-8` native-reload versus Transformers-reload logit drift.
 
-For Qwen3.5 and Qwen4 Experimental, native cached decoding matched native full-prefix decoding exactly (`0.0` maximum drift) at every checked step.
+For SmolLM3 (including YaRN), Qwen2.5 text, Qwen3.5, and Qwen4 Experimental, native cached decoding matched native full-prefix decoding exactly (`0.0` maximum drift) at every checked step.
 
 ## Kimi K3 / KimiLinear: fully implemented native text backbone
 
@@ -47,7 +52,7 @@ Current K3 validation against Moonshot's released Kimi K3 modeling semantics is 
 
 The K3 claim is specifically for the **language/text backbone**. MoonViT/vision/projector execution is intentionally outside this contract. The official `compressed-tensors` `mxfp4-pack-quantized` checkpoint representation is also rejected explicitly until that packed format has its own native implementation and qualification; use an unquantized FP32/BF16 KimiLinear package for native execution.
 
-The current source-derived Transformer registry contains **145 canonical native architectures**, plus **83 Hugging Face package/config aliases** for **228 advertised `model_type` spellings**. The full generated inventory is in [hierarchos-vulkan/README_ARCHITECTURES.md](hierarchos-vulkan/README_ARCHITECTURES.md).
+The current source-derived Transformer registry contains **146 canonical native architectures**, plus **83 Hugging Face package/config aliases** for **229 advertised `model_type` spellings**. The full generated inventory is in [hierarchos-vulkan/README_ARCHITECTURES.md](hierarchos-vulkan/README_ARCHITECTURES.md).
 
 > [!IMPORTANT]
 > Architecture support means the declared native **text graph** is implemented by this backend. A supported text backbone inside a multimodal/audio/vision package does not imply that the package's image, audio, video, processor, or other non-text towers execute natively. Unsupported graphs fail closed instead of being silently approximated.
@@ -131,11 +136,89 @@ Use `-SkipBuild` for a source-only bundle. The resulting package does not depend
 
 ## Transformer workflows
 
+### Falcon H1 / Falcon H1R-7B: native training and full fine-tuning
+
+`tiiuae/Falcon-H1R-7B` uses the canonical `falcon_h1` architecture. Each native
+layer executes **parallel GQA/RoPE attention and Mamba2**, followed by the gated
+MLP. Config-driven MuP/scaling, chunk prefill, selective recurrent decode,
+KV/conv/SSM cache, backward, AdamW, and canonical SafeTensors save/reload run in
+Rust/Vulkan. Python and Transformers are only the validation oracle.
+
+The deterministic tiny fixtures pass the fixed absolute `2e-7` gate: forward
+logits at most `8.940696716e-8`, cached logits at most `7.450580597e-8` across
+five prefill lengths, and both AdamW trajectories at most `1.192092896e-7`
+parameter drift. Every checked cached token matches native full-prefix logits.
+These are fixture-level results, not a measured parity or performance claim
+for all 7B weights. The official config and shard index were checked; the full
+7B checkpoint was not downloaded for qualification. Full-parameter training
+uses FP32 parameters, gradients and optimizer state and needs substantially
+more memory than the roughly 15.2 GB BF16 checkpoint on disk.
+
+The CLI and GUI command-builder integration also pass train → reload → full
+fine-tune → save → generate checks. With nonzero weight decay, cumulative
+parameter drift after training plus fine-tuning is `1.620501280e-7`; GUI and
+CLI exports are bit-identical. This integration checks the GUI launch contract,
+not automated visual interaction with its window.
+
+After building the CLI as above, train/fine-tune the pretrained checkpoint:
+
+```powershell
+# Full-parameter training from the official Hub package.
+.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe transformer-train `
+  --hf-model tiiuae/Falcon-H1R-7B `
+  --train .\falcon-data.jsonl --out-dir .\falcon-trained `
+  --epochs 1 --batch-size 1 --seq-len 128 --lr 5e-5 --device-index 0
+
+# Continue with domain/instruction data, updating all parameters.
+.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe transformer-finetune `
+  --full-finetune --model-path .\falcon-trained `
+  --train .\falcon-domain.jsonl --out-dir .\falcon-finetuned `
+  --epochs 1 --batch-size 1 --seq-len 128 --lr 1e-5 --device-index 0
+
+# Reload the exported package and generate using the hybrid cache.
+.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe infer `
+  --model-path .\falcon-finetuned --prompt "Explain your reasoning step by step." `
+  --max-new-tokens 128 --use-cache --no-do-sample --device-index 0
+```
+
+Use `--model-path C:\models\Falcon-H1R-7B` in place of `--hf-model` for an
+existing package containing `config.json`, `tokenizer.json`, and either
+`model.safetensors` or its shard index and shards. JSONL data can contain one
+`{"text":"your training example"}` per line, or pretokenized `input_ids`.
+Prompt/completion data can use `--prompt-column prompt --completion-column completion`;
+Alpaca instruction/input/output rows can use `--alpaca`. Exported outputs are
+complete model packages; starting another training command reloads weights
+and starts a new optimizer, rather than resuming optimizer moments.
+
+For the GUI, build and launch it with the matching CLI:
+
+```powershell
+cargo build --release --manifest-path hierarchos-gui/Cargo.toml
+$env:HIERARCHOS_NATIVE_CLI = (Resolve-Path .\hierarchos-native-cli\target\release\hierarchos-native-cli.exe).Path
+.\hierarchos-gui\target\release\hierarchos-native.exe
+```
+
+Choose **Transformer full training** or **Transformer full-parameter fine-tuning**.
+Enter the local model folder, or enter `tiiuae/Falcon-H1R-7B` and check the
+Hugging Face model-ID option. Select the JSONL training file, a separate output
+folder, epochs, batch size, sequence length, learning rate and device; then
+select **Start training**. For generation choose **Transformer inference / generation**,
+point Model at the saved output, enter a prompt and choose **Contiguous native KV**
+to use the combined KV/conv/SSM cache. The command preview shows the exact CLI call.
+
+Falcon H1/H1R also supports qualified PEFT/LoRA on its canonical Linear
+subset, including Mamba `in_proj`; HF PEFT excludes Mamba `out_proj` and
+`conv1d`. Use explicit targets rather than `all-linear`. See the
+[native PEFT guide](hierarchos-native-cli/README.md#peft-fine-tuning-guide).
+Full fine-tuning cannot be combined with adapter flags.
+See [PROGRESS_FALCON_H1_AUDIT.md](PROGRESS_FALCON_H1_AUDIT.md) for exact measurements,
+commands, regression results and qualification limits.
+
 ### Using the newly strict-qualified families
 
 There is no architecture-specific opt-in flag. Point the normal Transformer commands at a supported local Hugging Face package with `--model-path`, or at a Hub package with `--hf-model`; the native loader resolves the package model type and supported text-wrapper aliases automatically.
 
-The newly qualified model types include `gpt_oss`, Qwen3.5 text/MoE packages (`qwen3_5_text` and `qwen3_5_moe_text` plus supported wrapper aliases), and `qwen4_exp_text`. Hybrid DeltaNet/attention scheduling and the Qwen4 QSA/GR/PLE path are taken from the model config, so users do not manually select those internal layer modes.
+The newly qualified model types include `gpt_oss`, `smollm3`, Qwen3.5 text/MoE packages (`qwen3_5_text` and `qwen3_5_moe_text` plus supported wrapper aliases), and `qwen4_exp_text`. SmolLM3's RoPE/NoPE and sliding-attention schedule comes directly from its config; hybrid DeltaNet/attention scheduling and the Qwen4 QSA/GR/PLE path are likewise config-driven rather than manually selected.
 
 Python/PyTorch remains validation-only; it is not required for production training or generation through these native paths. The qualification applies to the implemented text causal-LM path, not unrelated vision/audio towers in a wrapper package.
 
@@ -172,7 +255,7 @@ The native CLI can download supported models and datasets without invoking Pytho
 
 Private or gated Hub repositories can use `HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN`. Model, tokenizer, and dataset revisions can be pinned independently.
 
-### Native LoRA fine-tuning
+### Native PEFT / LoRA fine-tuning
 
 ```powershell
 .\hierarchos-native-cli\target\release\hierarchos-native-cli.exe transformer-finetune `
@@ -181,10 +264,99 @@ Private or gated Hub repositories can use `HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN`
   --out-dir .\transformer_lora `
   --lora-rank 8 `
   --lora-alpha 16 `
+  --lora-target-modules q_proj,v_proj `
+  --epochs 1 --batch-size 1 --seq-len 128 --lr 1e-4 `
   --device-index 0
 ```
 
+This example targets split-Q/V models such as Gemma3 or Llama. Targets must
+exist in the model's canonical HF graph; GPT-2 uses `c_attn`/`c_proj`, while
+Phi-3 uses `qkv_proj`/`o_proj`. See the
+[PEFT CLI guide](hierarchos-native-cli/README.md#peft-fine-tuning-guide) for
+family-specific target selection, saved modules, config files, and exclusions.
+
+`transformer-finetune` uses PEFT/LoRA by default unless `--full-finetune` is supplied. PEFT runs export the normal Hugging Face-compatible adapter into the output directory and also save exact native AdamW/RNG continuation state to `OUT/training-state` by default. Resume that state with `--peft-resume OUT/training-state`; use `--save-lora-training DIR` to choose another checkpoint location.
+
+Run `hierarchos-native-cli architectures --peft --json` to see the architectures that have passed the separate PEFT gate and whether `modules_to_save` has independently passed the fixed `<=2e-7` qualification. All 32 documented native-green text surfaces now pass both ordinary LoRA and registered `modules_to_save`, including Gemma3 and Gemma4. New architectures still require their own independent gates; unqualified families remain fail-closed.
+
+PEFT promotion is deliberately a second architecture gate. A new architecture must first pass its independent base-model parity work at `max_abs <= 2e-7`; only then should it be registered for PEFT, expose canonical targetable module names/classes, declare any real exclusions, and run the common PEFT logits/gradient/two-step-AdamW/lifecycle fixtures. Base parity never auto-promotes PEFT support, and registry presence alone is not qualification.
+
 LoRA forward, backward, and AdamW math remain in the Vulkan graph. `peft-rs` is used for PEFT schema/key interoperability rather than as a framework execution backend.
+
+#### Dataset and output files
+
+Use a local HF package with `config.json`, tokenizer assets, and single-file
+or indexed/sharded SafeTensors. JSONL supports `{"text":"training example"}`
+or pretokenized `{"input_ids":[1,7,3,11,2]}` rows. For supervised
+prompt/completion rows, use `--prompt-column prompt --completion-column completion`;
+for instruction/input/output rows, use `--alpaca`. The base checkpoint stays
+frozen: the output is an **adapter**, not a copy of the complete model.
+
+The output contains `adapter_config.json`, `adapter_model.safetensors`, and
+`training-state/` with native optimizer/RNG continuation sidecars. Keep the
+original base model: adapter loading must use that same checkpoint, tokenizer,
+and architecture. HF PEFT can load the adapter files; the native continuation
+sidecars are not HF Trainer checkpoints.
+
+#### Resume, generate, or merge
+
+```powershell
+# Resume adapter weights AND AdamW moments/step/RNG with the same base/data settings.
+.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe transformer-finetune `
+  --model-path .\hf_model --train .\dataset.jsonl --out-dir .\adapter_resumed `
+  --peft-resume .\transformer_lora\training-state `
+  --epochs 1 --batch-size 1 --seq-len 128 --lr 1e-4 --device-index 0
+
+# Generate without modifying or merging the frozen base.
+.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe transformer-generate `
+  --model-path .\hf_model --peft-adapter .\adapter_resumed --adapter-name domain `
+  --prompt "Explain Vulkan compute." --max-new-tokens 128 --device-index 0
+
+# Export a standalone model (the merge path currently requires an unsharded base).
+.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe merge-lora `
+  --model-path .\hf_model --lora-adapter-path .\adapter_resumed `
+  --out-dir .\merged_model
+```
+
+Use `--peft-adapter DIR` (alias `--lora-adapter-path`) for a **weights-only**
+warm start with a new optimizer, rather than `--peft-resume`. Exact native
+continuation restores adapter/optimizer/RNG state; it does not restore a
+high-level dataset cursor, so supply the intended continuation data and keep
+batch, sequence, and optimizer settings consistent.
+
+#### Saved modules and parameter budgets
+
+With explicit rank, `--lora-modules-to-save NAME` trains an adapter-local full
+replacement alongside low-rank adapters. Repeat it for each supported canonical
+Linear, LayerNorm/RMSNorm, head, or embedding target. For example on Gemma3:
+
+```powershell
+.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe transformer-finetune `
+  --model-path .\gemma3_text --train .\dataset.jsonl --out-dir .\gemma3_adapter `
+  --peft --lora-rank 8 --lora-alpha 16 --lora-target-modules q_proj,v_proj `
+  --lora-modules-to-save model.layers.0.input_layernorm `
+  --epochs 1 --batch-size 1 --seq-len 128 --lr 1e-4 --device-index 0
+```
+
+A saved embedding/head is a full-sized trainable copy and can cost substantially
+more memory than LoRA. Tied base weights are preserved; saved head/embedding
+replacement semantics follow the adapter config rather than silently updating
+both frozen tables. Only registered replacement targets are supported.
+
+Alternatively, omit `--lora-rank` and use `--peft-parameter-percent 1` to select
+the largest uniform rank fitting one percent of serialized floating base
+parameters (a duplicate tied head is counted once). This budget mode supports
+ordinary LoRA only: no saved modules, bias training, DoRA, or rank patterns.
+Use `--peft-config FILE` instead of direct config flags to create an adapter
+from an HF LoRA config. `--lora-merge` (alias `--lora-model-merge`) additionally
+exports `OUT/merged-model` after saving the adapter and continuation state;
+the destination must not already exist.
+
+These strict parity results are deterministic FP32 tiny-model correctness
+checks against `C:\Users\User\transformers`, not a guarantee for arbitrary
+checkpoint sizes, dtypes, devices, dropout trajectories, or vision/audio towers.
+Only LoRA is matrix-qualified across the inventory; parsing other PEFT config
+fields does not imply architecture-wide qualification of those methods.
 
 ### Generate from a trained/local model
 
@@ -279,9 +451,9 @@ python hierarchos-vulkan/validation/generate_supported_architectures.py --check
 
 At the current revision the registry reports:
 
-- **145 canonical native Transformer text architectures**
+- **146 canonical native Transformer text architectures**
 - **83 package/config aliases**
-- **228 advertised `model_type` spellings total**
+- **229 advertised `model_type` spellings total**
 
 See [the generated architecture matrix](hierarchos-vulkan/README_ARCHITECTURES.md) for the complete list.
 
@@ -303,7 +475,7 @@ Build the native desktop launcher with:
 cargo build --release --manifest-path hierarchos-gui/Cargo.toml
 ```
 
-The GUI exposes Transformer training, Transformer LoRA fine-tuning, Transformer inference/generation, Hierarchos training/fine-tuning, and Hierarchos chat. It is a thin launcher over the same native contracts and shows the generated command before execution.
+The GUI exposes Transformer training, full-parameter and LoRA fine-tuning, Transformer inference/generation, Hierarchos training/fine-tuning, and Hierarchos chat. It is a thin launcher over the same native contracts and shows the generated command before execution.
 
 Paged KV caching is an opt-in Vulkan generation optimization; the existing
 contiguous native KV cache remains the default. From the CLI, add

@@ -37,11 +37,19 @@ void main() {
     uint hidden = within_row - stream * pc.hidden_size;
     uint stream_base = row * hyper_width + stream * pc.hidden_size;
 
-    float dot_value = 0.0;
+    // CPU PyTorch materializes key * query, then reduces the contiguous
+    // float32 row through its AVX-width accumulator. Preserve that topology
+    // rather than contracting each product into a scalar FMA chain.
+    precise float dot_lanes[8];
+    for (uint lane = 0u; lane < 8u; ++lane) dot_lanes[lane] = 0.0;
     for (uint feature = 0u; feature < pc.hidden_size; ++feature) {
         uint source = stream_base + feature;
-        dot_value = fma(key_values[source], query_values[source], dot_value);
+        precise float product = key_values[source] * query_values[source];
+        uint lane = feature & 7u;
+        dot_lanes[lane] += product;
     }
+    precise float dot_value = 0.0;
+    for (uint lane = 0u; lane < 8u; ++lane) dot_value += dot_lanes[lane];
     float gate = dot_value * inversesqrt(float(pc.hidden_size));
     float magnitude = sqrt(max(abs(gate), 1.0e-6));
     gate = gate < 0.0 ? -magnitude : (gate > 0.0 ? magnitude : 0.0);

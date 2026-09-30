@@ -1,4 +1,7 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_pow.glsl"
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
@@ -24,6 +27,50 @@ void main() {
     uint base = row * pc.dim;
     uint parameter_base = (row % pc.parameter_groups) * pc.dim;
     float rstd = rstd_values[row];
+    if (pc.pow_rstd == 0u && pc.unfused_products == 3u) {
+        // Materialized rsqrt backward, with a balanced FP32 lane reduction.
+        precise float lanes[16];
+        for (uint j=0u; j<16u; ++j) lanes[j]=0.0;
+        for (uint col=0u; col<pc.dim; ++col) {
+            precise float weighted = grad_output[base+col] * (weight[parameter_base+col]+pc.weight_offset);
+            precise float product = weighted*x[base+col];
+            lanes[col&15u] += product;
+        }
+        for (uint stride=8u; stride>0u; stride>>=1u) {
+            for (uint j=0u; j<stride; ++j) lanes[j] += lanes[j+stride];
+        }
+        precise float cube=(rstd*rstd)*rstd;
+        precise float grad_mean=(-0.5*lanes[0])*cube;
+        precise float grad_square=grad_mean/float(pc.dim);
+        for (uint col=0u; col<pc.dim; ++col) {
+            precise float weighted=grad_output[base+col]*(weight[parameter_base+col]+pc.weight_offset);
+            precise float direct=weighted*rstd;
+            precise float through_square=grad_square*(2.0*x[base+col]);
+            grad_input[base+col]=direct+through_square;
+        }
+        return;
+    }
+    if (pc.pow_rstd == 0u && pc.unfused_products == 2u) {
+        precise float lanes[8];
+        for (uint j=0u; j<8u; ++j) lanes[j]=0.0;
+        for (uint col=0u; col<pc.dim; ++col) {
+            precise float weighted = grad_output[base+col] * (weight[parameter_base+col]+pc.weight_offset);
+            precise float product = weighted*x[base+col];
+            lanes[col&7u] += product;
+        }
+        precise float sum=0.0;
+        for (uint j=0u; j<8u; ++j) sum+=lanes[j];
+        precise float cube=(rstd*rstd)*rstd;
+        precise float grad_mean=(-0.5*sum)*cube;
+        precise float grad_square=grad_mean/float(pc.dim);
+        for (uint col=0u; col<pc.dim; ++col) {
+            precise float weighted=grad_output[base+col]*(weight[parameter_base+col]+pc.weight_offset);
+            precise float direct=weighted*rstd;
+            precise float through_square=grad_square*(2.0*x[base+col]);
+            grad_input[base+col]=direct+through_square;
+        }
+        return;
+    }
     float dot = 0.0;
     for (uint col = 0; col < pc.dim; ++col) {
         float weighted_grad = grad_output[base + col] * (weight[parameter_base + col] + pc.weight_offset);
@@ -44,13 +91,36 @@ void main() {
         // In particular, preserve pow(mean, -1.5) rather than replacing it
         // algebraically with rstd^3. The two are real-number equivalent but
         // differ by observable FP32 ulps after AdamW.
-        float grad_mean = dot * -0.5 * pow(mean_squared_values[row], -1.5);
-        float grad_square = grad_mean / float(pc.dim);
+        // Mode 1 means "materialize products" and intentionally keeps the
+        // source-order reduction above. Mode 2 is the explicit eight-lane
+        // reduction used by vectorized CPU RMSNorm backward, including Gemma4
+        // pow-RMS on the local strict PEFT oracle.
+        if (pc.unfused_products == 2u) {
+            precise float lanes[8];
+            for (uint j = 0u; j < 8u; ++j) lanes[j] = 0.0;
+            for (uint col = 0u; col < pc.dim; ++col) {
+                precise float weighted_grad = grad_output[base + col]
+                    * (weight[parameter_base + col] + pc.weight_offset);
+                precise float product = weighted_grad * x[base + col];
+                lanes[col & 7u] += product;
+            }
+            dot = 0.0;
+            for (uint j = 0u; j < 8u; ++j) dot += lanes[j];
+        }
+        // Do not derive the -3/2 power from the rounded -1/2 result. PyTorch
+        // autograd differentiates the original pow(mean, -0.5) operation and
+        // evaluates pow(mean, -1.5) independently; reusing rstd changes the
+        // derivative by several ulps on Gemma4's small per-head norms.
+        precise float pow_neg_three_halves =
+            sleef_powf_neg_three_halves_u10(mean_squared_values[row]);
+        precise float grad_mean = (dot * -0.5) * pow_neg_three_halves;
+        precise float grad_square = grad_mean / float(pc.dim);
         for (uint col = 0; col < pc.dim; ++col) {
-            float weighted_grad = grad_output[base + col] * (weight[parameter_base + col] + pc.weight_offset);
-            float direct = weighted_grad * rstd;
-            float through_square = grad_square * (2.0 * x[base + col]);
-            grad_input[base + col] = direct + through_square;
+            precise float weighted_grad = grad_output[base + col] * (weight[parameter_base + col] + pc.weight_offset);
+            precise float direct = weighted_grad * rstd;
+            precise float through_square = grad_square * (2.0 * x[base + col]);
+            precise float combined = direct + through_square;
+            grad_input[base + col] = combined;
         }
     } else {
         float correction = dot * rstd * rstd / float(pc.dim);

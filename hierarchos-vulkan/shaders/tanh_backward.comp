@@ -8,11 +8,26 @@ layout(set = 0, binding = 2, std430) writeonly buffer GradInputBuffer { float gr
 
 layout(push_constant) uniform Push { uint len; } pc;
 
+float reference_tanh(float value) {
+    float ax = abs(value);
+    if (ax <= 0.0625) {
+        float x2 = value * value;
+        float p = 21844.0 / 6081075.0;
+        p = (-1382.0 / 155925.0) + x2 * p;
+        p = (62.0 / 2835.0) + x2 * p;
+        p = (-17.0 / 315.0) + x2 * p;
+        p = (2.0 / 15.0) + x2 * p;
+        p = (-1.0 / 3.0) + x2 * p;
+        return value + (value * x2) * p;
+    }
+    return tanh(value);
+}
+
 void main() {
     uint index = gl_GlobalInvocationID.x;
     if (index >= pc.len) {
         return;
     }
-    float y = tanh(x[index]);
+    float y = reference_tanh(x[index]);
     grad_input[index] = grad_output[index] * (1.0 - y * y);
 }

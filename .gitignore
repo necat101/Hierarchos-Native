@@ -1,0 +1,50 @@
+# Rust build outputs (shader SPIR-V under shaders/ remains source distribution).
+**/target/
+**/target-*/
+
+# Python validation environments and bytecode.
+.venv*/
+**/__pycache__/
+*.py[cod]
+
+# Local model downloads, oracle fixtures, recovery snapshots and scratch state.
+.hierarchos-hf-cache/
+.k3-native-export-*/
+.peft-build-artifact-backups/
+hierarchos-vulkan/.*-fixtures*/
+hierarchos-vulkan/.*-pydeps/
+hierarchos-vulkan/.*-debug/
+hierarchos-vulkan/.*-live/
+hierarchos-vulkan/.peft-*/
+hierarchos-vulkan/.bank-*/
+hierarchos-vulkan/.qwen4-*/
+hierarchos-vulkan/.*.spv
+hierarchos-vulkan/.*.spvasm
+hierarchos-vulkan/.*.json
+hierarchos-vulkan/.*.jsonl
+hierarchos-vulkan/.*.comp
+hierarchos-vulkan/.*.exe
+hierarchos-vulkan/.*.pdb
+*.log
+*.safetensors
+*.obj
+*.pdb
+
+# Packaged local bundles are not the authoritative source tree.
+hierarchos-vulkan/dist/
+
+# One-off diagnostic programs; maintained validators are tracked explicitly.
+hierarchos-vulkan/validation/_tmp_*
+hierarchos-vulkan/validation/_debug_*
+hierarchos-vulkan/validation/_codex_*
+hierarchos-vulkan/validation/*_tmp.*
+hierarchos-vulkan/src/bin/*_tmp.rs
+hierarchos-vulkan/_tmp_*
+
+# Client-local identity and credentials.
+.freebuff/
+.env
+.env.*
+!.env.example
+.falcon_h1r_config.json
+.falcon_h1r_index.json

@@ -3515,6 +3515,28 @@ impl GpuBuffer {
         self.allocation.size_bytes / std::mem::size_of::<f32>()
     }
 
+    /// Create an independent Vulkan allocation containing the same FP32 payload.
+    ///
+    /// Unlike `Clone`, which intentionally aliases the same allocation for tied
+    /// parameters, this is a device-to-device copy. PEFT uses it when a fresh
+    /// `modules_to_save` wrapper needs an adapter-local parameter object without
+    /// round-tripping the base tensor through host memory.
+    pub(crate) fn duplicate_f32(&self, len: usize) -> Result<Self> {
+        let size_bytes = len
+            .checked_mul(std::mem::size_of::<f32>())
+            .context("Vulkan FP32 duplicate size overflow")?;
+        if size_bytes == 0 || size_bytes > self.allocation.size_bytes {
+            bail!(
+                "Vulkan FP32 duplicate of {size_bytes} bytes is invalid for source capacity {}",
+                self.allocation.size_bytes
+            );
+        }
+        let device = self.allocation.device.clone();
+        let duplicate = Self::zeros_f32(&device, len)?;
+        copy_buffer(&device, self, &duplicate, size_bytes)?;
+        Ok(duplicate)
+    }
+
     fn buffer_region_key(&self) -> BufferRegionKey {
         BufferRegionKey {
             buffer: self.allocation.buffer.as_raw(),

@@ -1,0 +1,44 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+// PyTorch's small-output CPU GEMM used by LoRA-A does not use the serial
+// reduction order of the ordinary native linear kernel.  It accumulates
+// vector lanes independently and horizontally reduces those lanes in halves.
+// Preserve that FP32 topology here without changing base/B projection math.
+void main() {
+    uint out_col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || out_col >= pc.output_dim) {
+        return;
+    }
+
+    precise float lanes[16];
+    for (uint lane = 0u; lane < 16u; ++lane) {
+        lanes[lane] = 0.0;
+    }
+
+    uint x_base = row * pc.input_dim;
+    uint w_base = out_col * pc.input_dim;
+    for (uint i = 0u; i < pc.input_dim; ++i) {
+        uint lane = i & 15u;
+        lanes[lane] = fma(x[x_base + i], weight[w_base + i], lanes[lane]);
+    }
+
+    for (uint span = 8u; span > 0u; span >>= 1u) {
+        for (uint lane = 0u; lane < span; ++lane) {
+            lanes[lane] = lanes[lane] + lanes[lane + span];
+        }
+    }
+    output_values[row * pc.output_dim + out_col] = lanes[0];
+}

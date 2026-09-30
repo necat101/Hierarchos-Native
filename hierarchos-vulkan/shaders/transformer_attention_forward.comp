@@ -1,4 +1,7 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
 
 // Correctness-first scaled dot-product attention for the native Transformer
 // training graph. The same kernel supports causal decoder attention and full
@@ -49,7 +52,41 @@ layout(push_constant) uniform Push {
     uint paged_kv;
     uint kv_page_size;
     uint kv_page_table_stride;
+    uint unfused_qk;
 } pc;
+
+bool diagnostic_attention_mode_bit(uint bit) {
+    if (pc.unfused_qk < 2u) {
+        return false;
+    }
+    return (((pc.unfused_qk - 2u) >> bit) & 1u) != 0u;
+}
+
+bool separately_rounded_qk() {
+    return pc.unfused_qk == 1u || diagnostic_attention_mode_bit(0u);
+}
+
+bool separately_rounded_value() {
+    return pc.unfused_qk == 1u || diagnostic_attention_mode_bit(1u);
+}
+
+bool deterministic_attention_exp() {
+    return pc.unfused_qk == 1u || diagnostic_attention_mode_bit(2u);
+}
+
+bool deterministic_attention_divider() {
+    return pc.unfused_qk == 1u || diagnostic_attention_mode_bit(3u);
+}
+
+float attention_exp(float value) {
+    // Gemma4's strict CPU oracle reaches PyTorch's AVX512 Vectorized<float>
+    // exp path.  The local SLEEF u10 replay is bit-identical for the recorded
+    // tiny-fixture rows; the Vulkan builtin exp differs by one FP32 ulp in a
+    // probability that the following per-head RMSNorm backward amplifies.
+    // Keep this scoped to mode 1 so already-qualified attention modes retain
+    // their existing arithmetic.
+    return deterministic_attention_exp() ? sleef_expf_u10(value) : exp(value);
+}
 
 uint physical_key_row(uint batch, uint key) {
     if (pc.paged_kv == 0u) {
@@ -61,7 +98,17 @@ uint physical_key_row(uint batch, uint key) {
     return kv_page_table[table_index] * pc.kv_page_size + within_page;
 }
 
+// causal=2 selects Falcon H1's finite additive mask semantics, including
+// unmasked query rows and uniform softmax when every key is masked.
+bool h1_fully_masked(uint batch, uint query) {
+    if (pc.causal != 2u) return false;
+    for (uint k=0u;k<pc.key_value_seq_len && k<=pc.query_position_offset+query;k++) {
+        if (key_mask[batch*pc.key_value_seq_len+k]>0.0) return false;
+    }
+    return true;
+}
 bool key_is_visible(uint batch, uint head, uint query, uint key) {
+    if (h1_fully_masked(batch,query)) return true;
     uint local_key_count = pc.key_value_seq_len - pc.compressed_key_count;
     if (pc.compressed_key_count != 0u && key >= local_key_count) {
         if (pc.compressed_key_rate == 0u) return false;
@@ -177,6 +224,7 @@ uint t5_relative_position_bucket(uint query, uint key) {
 }
 
 float raw_score(uint batch, uint head, uint query, uint key) {
+    if (h1_fully_masked(batch,query)) return -3.402823466e+38;
     uint qk_head_dim = pc.query_hidden_size / pc.num_heads;
     uint key_hidden_size = qk_head_dim * pc.num_key_value_heads;
     uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
@@ -184,8 +232,22 @@ float raw_score(uint batch, uint head, uint query, uint key) {
     uint q_base = (batch * pc.query_seq_len + query) * pc.query_hidden_size + head * qk_head_dim;
     uint k_base = physical_key_row(batch, key) * key_hidden_size + kv_head * qk_head_dim;
     float value = 0.0;
-    for (uint d = 0; d < qk_head_dim; ++d) {
-        value = fma(q_values[q_base + d], k_values[k_base + d], value);
+    if (separately_rounded_qk()) {
+        // Gemma4's CPU PyTorch reference materializes the matmul product
+        // before the reduction on the tiny strict fixture.  Contracting
+        // this multiply/add changes the score by several FP32 ulps, which
+        // its per-head RMSNorm later amplifies during saved-module
+        // backward.  Keep this arithmetic isolated from the ordinary path.
+        precise float unfused_value = 0.0;
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            precise float product = q_values[q_base + d] * k_values[k_base + d];
+            unfused_value += product;
+        }
+        value = unfused_value;
+    } else {
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            value = fma(q_values[q_base + d], k_values[k_base + d], value);
+        }
     }
     value *= pc.scale;
     if (pc.alibi_mode == 1u) {
@@ -231,7 +293,7 @@ void main() {
     uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
     uint kv_head = head / queries_per_kv;
     uint out_base = row * output_hidden_size + head * value_head_dim;
-    if (query_mask[row] <= 0.0) {
+    if (pc.causal != 2u && query_mask[row] <= 0.0) {
         for (uint d = 0; d < value_head_dim; ++d) {
             output_values[out_base + d] = 0.0;
         }
@@ -245,7 +307,7 @@ void main() {
     uint absolute_query = pc.query_position_offset + query;
     uint first_key = 0u;
     uint last_key = pc.key_value_seq_len - 1u;
-    if (pc.compressed_key_count == 0u && pc.causal != 0u) {
+    if (pc.compressed_key_count == 0u && pc.causal != 0u && !h1_fully_masked(batch,query)) {
         last_key = min(absolute_query, pc.key_value_seq_len - 1u);
     }
     if (pc.compressed_key_count == 0u && pc.window_size != 0u) {
@@ -277,24 +339,49 @@ void main() {
         max_score = max(max_score, sink_values[head]);
     }
 
-    float exp_sum = pc.has_sink != 0u ? exp(sink_values[head] - max_score) : 0.0;
+    float exp_sum = pc.has_sink != 0u ? attention_exp(sink_values[head] - max_score) : 0.0;
     for (uint key = first_key; key <= last_key; ++key) {
         if (key_is_visible(batch, head, query, key)) {
-            exp_sum += exp(score(batch, head, query, key) - max_score);
+            exp_sum += attention_exp(score(batch, head, query, key) - max_score);
         }
     }
-    float inv_sum = 1.0 / exp_sum;
+    // Gemma4 mode 1 is qualified against the CPU eager softmax.  RDNA3's raw
+    // OpFDiv reciprocal can land a few ulps away from the correctly rounded
+    // FP32 scalar divide, which perturbs the probability vector and is later
+    // amplified by Gemma4's per-head RMSNorm backward.  Keep the deterministic
+    // divider scoped to this mode so already-qualified attention paths retain
+    // their arithmetic.
+    float inv_sum = deterministic_attention_divider()
+        ? fp32_div(1.0, exp_sum)
+        : (1.0 / exp_sum);
     for (uint d = 0; d < value_head_dim; ++d) {
         float value = 0.0;
-        for (uint key = first_key; key <= last_key; ++key) {
-            uint key_row = physical_key_row(batch, key);
-            if (!key_is_visible(batch, head, query, key)) {
-                continue;
+        if (separately_rounded_value()) {
+            precise float unfused_value = 0.0;
+            for (uint key = first_key; key <= last_key; ++key) {
+                uint key_row = physical_key_row(batch, key);
+                if (!key_is_visible(batch, head, query, key)) {
+                    continue;
+                }
+                float probability = attention_exp(score(batch, head, query, key) - max_score) * inv_sum;
+                probability *= dropout_scale(batch, head, query, key);
+                uint v_index = key_row * pc.value_hidden_size + kv_head * value_head_dim + d;
+                precise float scaled_value = v_values[v_index] * pc.value_scale;
+                precise float product = probability * scaled_value;
+                unfused_value += product;
             }
-            float probability = exp(score(batch, head, query, key) - max_score) * inv_sum;
-            probability *= dropout_scale(batch, head, query, key);
-            uint v_index = key_row * pc.value_hidden_size + kv_head * value_head_dim + d;
-            value = fma(probability, v_values[v_index] * pc.value_scale, value);
+            value = unfused_value;
+        } else {
+            for (uint key = first_key; key <= last_key; ++key) {
+                uint key_row = physical_key_row(batch, key);
+                if (!key_is_visible(batch, head, query, key)) {
+                    continue;
+                }
+                float probability = attention_exp(score(batch, head, query, key) - max_score) * inv_sum;
+                probability *= dropout_scale(batch, head, query, key);
+                uint v_index = key_row * pc.value_hidden_size + kv_head * value_head_dim + d;
+                value = fma(probability, v_values[v_index] * pc.value_scale, value);
+            }
         }
         output_values[out_base + d] = value;
     }

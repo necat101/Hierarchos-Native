@@ -1,9 +1,17 @@
 #version 450
 
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
-layout(set = 0, binding = 0, std430) readonly buffer ScoresBuffer { float scores[]; };
-layout(set = 0, binding = 1, std430) buffer ProbabilitiesBuffer { float probabilities[]; };
+layout(set = 0, binding = 0, std430) readonly buffer CandidatesBuffer { float candidates[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer NormWeightBuffer { float norm_weight[]; };
+layout(set = 0, binding = 3, std430) readonly buffer ProjectionWeightBuffer { float projection_weight[]; };
+layout(set = 0, binding = 4, std430) buffer ScoresBuffer { float scores[]; };
+layout(set = 0, binding = 5, std430) buffer ProbabilitiesBuffer { float probabilities[]; };
 
 layout(push_constant) uniform Push {
     uint rows;
@@ -14,20 +22,94 @@ layout(push_constant) uniform Push {
 void main() {
     uint row = gl_GlobalInvocationID.x;
     if (row >= pc.rows) return;
+
+    // Moonshot K3 materializes score_weight = norm.weight * proj.weight,
+    // then reduces (k * score_weight).sum(-1).  Windows CPU PyTorch reduces
+    // FP32 vectors in eight SIMD lanes before its horizontal reduction.  The
+    // generic Vulkan linear kernel uses a serial FMA dot, which is
+    // mathematically equivalent but can move K3's residual-mixture logits by
+    // several ULPs.  Reproduce the source graph and reduction topology here.
+    for (uint source = 0; source < pc.sources; ++source) {
+        uint item = source * pc.rows + row;
+        uint base = item * pc.dim;
+        precise float lane0 = 0.0;
+        precise float lane1 = 0.0;
+        precise float lane2 = 0.0;
+        precise float lane3 = 0.0;
+        precise float lane4 = 0.0;
+        precise float lane5 = 0.0;
+        precise float lane6 = 0.0;
+        precise float lane7 = 0.0;
+        for (uint col = 0; col < pc.dim; ++col) {
+            precise float score_weight = norm_weight[col] * projection_weight[col];
+            precise float normalized = candidates[base + col] * rstd_values[item];
+            precise float product = normalized * score_weight;
+            switch (col & 7u) {
+                case 0u: lane0 = lane0 + product; break;
+                case 1u: lane1 = lane1 + product; break;
+                case 2u: lane2 = lane2 + product; break;
+                case 3u: lane3 = lane3 + product; break;
+                case 4u: lane4 = lane4 + product; break;
+                case 5u: lane5 = lane5 + product; break;
+                case 6u: lane6 = lane6 + product; break;
+                default: lane7 = lane7 + product; break;
+            }
+        }
+        precise float score = 0.0;
+        score = score + lane0;
+        score = score + lane1;
+        score = score + lane2;
+        score = score + lane3;
+        score = score + lane4;
+        score = score + lane5;
+        score = score + lane6;
+        score = score + lane7;
+        scores[item] = score;
+    }
+
     float maximum = -3.402823466e+38;
     for (uint source = 0; source < pc.sources; ++source) {
         uint index = source * pc.rows + row;
         maximum = max(maximum, scores[index]);
     }
-    float denominator = 0.0;
+
+    // PyTorch softmax materializes exp() before dividing by the reduced sum.
+    // Use the same SLEEF-compatible FP32 exponential already used by the
+    // strict CPU log-softmax path, followed by a directly rounded division.
+    precise float denom0 = 0.0;
+    precise float denom1 = 0.0;
+    precise float denom2 = 0.0;
+    precise float denom3 = 0.0;
+    precise float denom4 = 0.0;
+    precise float denom5 = 0.0;
+    precise float denom6 = 0.0;
+    precise float denom7 = 0.0;
     for (uint source = 0; source < pc.sources; ++source) {
         uint index = source * pc.rows + row;
-        float value = exp(scores[index] - maximum);
+        precise float value = sleef_expf_u10(scores[index] - maximum);
         probabilities[index] = value;
-        denominator += value;
+        switch (source & 7u) {
+            case 0u: denom0 = denom0 + value; break;
+            case 1u: denom1 = denom1 + value; break;
+            case 2u: denom2 = denom2 + value; break;
+            case 3u: denom3 = denom3 + value; break;
+            case 4u: denom4 = denom4 + value; break;
+            case 5u: denom5 = denom5 + value; break;
+            case 6u: denom6 = denom6 + value; break;
+            default: denom7 = denom7 + value; break;
+        }
     }
-    float inv_denominator = 1.0 / denominator;
+    precise float denominator = 0.0;
+    denominator = denominator + denom0;
+    denominator = denominator + denom1;
+    denominator = denominator + denom2;
+    denominator = denominator + denom3;
+    denominator = denominator + denom4;
+    denominator = denominator + denom5;
+    denominator = denominator + denom6;
+    denominator = denominator + denom7;
     for (uint source = 0; source < pc.sources; ++source) {
-        probabilities[source * pc.rows + row] *= inv_denominator;
+        uint index = source * pc.rows + row;
+        probabilities[index] = fp32_div(probabilities[index], denominator);
     }
 }

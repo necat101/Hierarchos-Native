@@ -1,0 +1,26 @@
+#version 450
+
+// Narrow PEFT B adjoints: the CPU small-output GEMM materializes products
+// before accumulating them. Keep this separate from the shared FMA kernel.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradOutput { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Weight { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradInput { float grad_input[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || col >= pc.input_dim) return;
+    precise float sum = 0.0;
+    for (uint k = 0u; k < pc.output_dim; ++k) {
+        precise float product = grad_output[row * pc.output_dim + k]
+            * weight[k * pc.input_dim + col];
+        sum += product;
+    }
+    grad_input[row * pc.input_dim + col] = sum;
+}

@@ -116,6 +116,8 @@ from transformers import (  # noqa: E402
     Qwen4ExpTextConfig,
     Qwen2Config,
     Qwen2ForCausalLM,
+    SmolLM3Config,
+    SmolLM3ForCausalLM,
     SwitchTransformersConfig,
     SwitchTransformersForConditionalGeneration,
     T5Config,
@@ -142,6 +144,7 @@ HEADLINE_ADAMW_FAMILIES = (
     "kimi_k25_text",
     "kimi_k3_text",
     "gpt_oss",
+    "smollm3",
     "mistral4",
     "minimax_m3",
     "gemma4",
@@ -168,9 +171,17 @@ QWEN4_EXP_STRICT_FAMILIES = (
     "qwen4_exp_mixed_ple",
 )
 
+QWEN25_STRICT_FAMILIES = (
+    "qwen2_5_gqa",
+    "qwen2_5_sliding_tied",
+)
+
 STRICT_LOGIT_FAMILIES = (
+    "smollm3",
+    "smollm3_yarn",
     *KIMI_K3_ORACLE_FAMILIES,
     "gpt_oss",
+    *QWEN25_STRICT_FAMILIES,
     *QWEN35_STRICT_FAMILIES,
     *QWEN4_EXP_STRICT_FAMILIES,
 )
@@ -293,6 +304,65 @@ def tiny_models(*, training_reference: bool = False) -> list[tuple[str, torch.nn
             False,
         ),
         (
+            "smollm3",
+            SmolLM3ForCausalLM(
+                SmolLM3Config(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=32,
+                    num_hidden_layers=4,
+                    num_attention_heads=4,
+                    num_key_value_heads=2,
+                    max_position_embeddings=16,
+                    rms_norm_eps=1.0e-6,
+                    rope_parameters={"rope_type": "default", "rope_theta": 2_000_000.0},
+                    use_sliding_window=True,
+                    sliding_window=4,
+                    no_rope_layers=[1, 1, 1, 0],
+                    attention_bias=False,
+                    attention_dropout=0.0,
+                    mlp_bias=False,
+                    tie_word_embeddings=True,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                    pad_token_id=0,
+                )
+            ),
+            False,
+        ),
+        (
+            "smollm3_yarn",
+            SmolLM3ForCausalLM(
+                SmolLM3Config(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=32,
+                    num_hidden_layers=4,
+                    num_attention_heads=4,
+                    num_key_value_heads=2,
+                    max_position_embeddings=16,
+                    rms_norm_eps=1.0e-6,
+                    rope_parameters={
+                        "rope_type": "yarn",
+                        "rope_theta": 2_000_000.0,
+                        "factor": 4.0,
+                        "original_max_position_embeddings": 4,
+                    },
+                    use_sliding_window=True,
+                    sliding_window=4,
+                    no_rope_layers=[1, 1, 1, 0],
+                    attention_bias=False,
+                    attention_dropout=0.0,
+                    mlp_bias=False,
+                    tie_word_embeddings=True,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                    pad_token_id=0,
+                )
+            ),
+            False,
+        ),
+        (
             "gpt_oss",
             GptOssForCausalLM(
                 GptOssConfig(
@@ -325,6 +395,56 @@ def tiny_models(*, training_reference: bool = False) -> list[tuple[str, torch.nn
                     attention_bias=True,
                     rms_norm_eps=1.0e-6,
                     use_sliding_window=False,
+                )
+            ),
+            False,
+        ),
+        (
+            "qwen2_5_gqa",
+            Qwen2ForCausalLM(
+                Qwen2Config(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=32,
+                    num_hidden_layers=2,
+                    num_attention_heads=4,
+                    num_key_value_heads=2,
+                    max_position_embeddings=32,
+                    rms_norm_eps=1.0e-6,
+                    rope_parameters={"rope_type": "default", "rope_theta": 1_000_000.0},
+                    attention_bias=True,
+                    attention_dropout=0.0,
+                    use_sliding_window=False,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                    pad_token_id=0,
+                )
+            ),
+            False,
+        ),
+        (
+            "qwen2_5_sliding_tied",
+            Qwen2ForCausalLM(
+                Qwen2Config(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=32,
+                    num_hidden_layers=4,
+                    num_attention_heads=4,
+                    num_key_value_heads=2,
+                    max_position_embeddings=32,
+                    rms_norm_eps=1.0e-6,
+                    rope_parameters={"rope_type": "default", "rope_theta": 1_000_000.0},
+                    attention_bias=True,
+                    attention_dropout=0.0,
+                    use_sliding_window=True,
+                    sliding_window=4,
+                    max_window_layers=2,
+                    tie_word_embeddings=True,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                    pad_token_id=0,
                 )
             ),
             False,
@@ -426,6 +546,33 @@ def tiny_models(*, training_reference: bool = False) -> list[tuple[str, torch.nn
                     sliding_window=4,
                     layer_types=["sliding_attention", "full_attention"],
                     tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                    pad_token_id=0,
+                )
+            ),
+            False,
+        ),
+        (
+            "gemma3_softcap_tied",
+            Gemma3ForCausalLM(
+                Gemma3TextConfig(
+                    vocab_size=32,
+                    hidden_size=16,
+                    intermediate_size=32,
+                    num_hidden_layers=2,
+                    num_attention_heads=2,
+                    num_key_value_heads=1,
+                    head_dim=8,
+                    max_position_embeddings=16,
+                    rms_norm_eps=1.0e-6,
+                    attention_dropout=0.0,
+                    query_pre_attn_scalar=8,
+                    sliding_window=4,
+                    layer_types=["sliding_attention", "full_attention"],
+                    tie_word_embeddings=True,
+                    attn_logit_softcapping=50.0,
+                    final_logit_softcapping=30.0,
                     bos_token_id=1,
                     eos_token_id=2,
                     pad_token_id=0,

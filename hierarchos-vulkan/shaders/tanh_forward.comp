@@ -7,10 +7,28 @@ layout(set = 0, binding = 1, std430) writeonly buffer OutputBuffer { float outpu
 
 layout(push_constant) uniform Push { uint len; } pc;
 
+float reference_tanh(float value) {
+    // GLSL tanh is implementation-defined enough to drift by several ulps on
+    // AMD for the small values used by Gemma final-logit soft-capping. Match
+    // torch.tanh more closely there with a short odd Taylor series.
+    float ax = abs(value);
+    if (ax <= 0.0625) {
+        float x2 = value * value;
+        float p = 21844.0 / 6081075.0;
+        p = (-1382.0 / 155925.0) + x2 * p;
+        p = (62.0 / 2835.0) + x2 * p;
+        p = (-17.0 / 315.0) + x2 * p;
+        p = (2.0 / 15.0) + x2 * p;
+        p = (-1.0 / 3.0) + x2 * p;
+        return value + (value * x2) * p;
+    }
+    return tanh(value);
+}
+
 void main() {
     uint index = gl_GlobalInvocationID.x;
     if (index >= pc.len) {
         return;
     }
-    output_values[index] = tanh(x[index]);
+    output_values[index] = reference_tanh(x[index]);
 }

@@ -55,15 +55,20 @@ struct SharedLmHeadInner {
     context_dim: usize,
     vocab_size: usize,
     weight: GpuBuffer,
-    accumulated_grad: GpuBuffer,
-    exp_avg: GpuBuffer,
-    exp_avg_sq: GpuBuffer,
+    training_state: Mutex<Option<SharedLmHeadTrainingState>>,
     readback: GpuBuffer,
     execution_mirror: Mutex<Option<SharedLmHeadExecutionMirror>>,
     step: AtomicU32,
     gradient_accumulate: vulkan::ComputeKernel,
     adamw: vulkan::ComputeKernel,
     adamw_range: vulkan::ComputeKernel,
+}
+
+#[derive(Clone)]
+struct SharedLmHeadTrainingState {
+    accumulated_grad: GpuBuffer,
+    exp_avg: GpuBuffer,
+    exp_avg_sq: GpuBuffer,
 }
 
 struct SharedLmHeadExecutionMirror {
@@ -106,6 +111,35 @@ impl SharedLmHeadParameter {
             bail!("shared lm_head weight contains non-finite values");
         }
 
+        let weight = GpuBuffer::from_f32(&device, weight)?;
+        Self::from_weight_buffer(device, context_dim, vocab_size, weight, true)
+    }
+
+    fn from_weight_buffer(
+        device: VulkanDevice,
+        context_dim: usize,
+        vocab_size: usize,
+        weight: GpuBuffer,
+        trainable: bool,
+    ) -> Result<Self> {
+        let len = context_dim
+            .checked_mul(vocab_size)
+            .context("shared lm_head element count overflow")?;
+        if weight.f32_capacity() < len {
+            bail!(
+                "shared lm_head Vulkan weight capacity {} is smaller than required {len}",
+                weight.f32_capacity()
+            );
+        }
+        let training_state = if trainable {
+            Some(SharedLmHeadTrainingState {
+                accumulated_grad: GpuBuffer::zeros_f32(&device, len)?,
+                exp_avg: GpuBuffer::zeros_f32(&device, len)?,
+                exp_avg_sq: GpuBuffer::zeros_f32(&device, len)?,
+            })
+        } else {
+            None
+        };
         Ok(Self {
             inner: Arc::new(SharedLmHeadInner {
                 gradient_accumulate: vulkan::ComputeKernel::new(
@@ -126,10 +160,8 @@ impl SharedLmHeadParameter {
                     4,
                     std::mem::size_of::<AdamWRangePush>() as u32,
                 )?,
-                weight: GpuBuffer::from_f32(&device, weight)?,
-                accumulated_grad: GpuBuffer::zeros_f32(&device, len)?,
-                exp_avg: GpuBuffer::zeros_f32(&device, len)?,
-                exp_avg_sq: GpuBuffer::zeros_f32(&device, len)?,
+                weight,
+                training_state: Mutex::new(training_state),
                 readback: GpuBuffer::zeros_host_f32(&device, len)?,
                 execution_mirror: Mutex::new(None),
                 step: AtomicU32::new(0),
@@ -138,6 +170,21 @@ impl SharedLmHeadParameter {
                 vocab_size,
             }),
         })
+    }
+
+    /// Create an adapter-local copy of the tied embedding/head parameter
+    /// without staging the full table through host memory. The fork owns an
+    /// independent Vulkan weight allocation and, when trainable, independent
+    /// gradient and AdamW moment buffers.
+    pub(crate) fn fork_for_peft_replacement(&self, trainable: bool) -> Result<Self> {
+        let weight = self.inner.weight.duplicate_f32(self.len())?;
+        Self::from_weight_buffer(
+            self.inner.device.clone(),
+            self.inner.context_dim,
+            self.inner.vocab_size,
+            weight,
+            trainable,
+        )
     }
 
     pub fn from_model_package(device: VulkanDevice, model_dir: impl AsRef<Path>) -> Result<Self> {
@@ -256,12 +303,52 @@ impl SharedLmHeadParameter {
         self.inner.device.clone()
     }
 
-    pub(crate) fn gradient_buffer(&self) -> &GpuBuffer {
-        &self.inner.accumulated_grad
+    fn training_state(&self) -> Result<SharedLmHeadTrainingState> {
+        self.inner
+            .training_state
+            .lock()
+            .map_err(|_| anyhow::anyhow!("shared lm_head training-state lock poisoned"))?
+            .as_ref()
+            .cloned()
+            .context("shared lm_head training state is not allocated")
+    }
+
+    pub(crate) fn release_training_state(&self) -> Result<()> {
+        *self
+            .inner
+            .training_state
+            .lock()
+            .map_err(|_| anyhow::anyhow!("shared lm_head training-state lock poisoned"))? = None;
+        Ok(())
+    }
+
+    pub(crate) fn training_state_bytes(&self) -> Result<usize> {
+        Ok(self
+            .inner
+            .training_state
+            .lock()
+            .map_err(|_| anyhow::anyhow!("shared lm_head training-state lock poisoned"))?
+            .as_ref()
+            .map(|_| 3 * self.len() * std::mem::size_of::<f32>())
+            .unwrap_or(0))
+    }
+
+    pub(crate) fn peft_optimizer_buffers(&self) -> Result<(GpuBuffer, GpuBuffer)> {
+        let state = self.training_state()?;
+        Ok((state.exp_avg, state.exp_avg_sq))
+    }
+
+    pub(crate) fn restore_peft_optimizer_step(&self, step: u32) {
+        self.inner.step.store(step, Ordering::Relaxed);
+    }
+
+    pub(crate) fn gradient_buffer(&self) -> Result<GpuBuffer> {
+        Ok(self.training_state()?.accumulated_grad)
     }
 
     pub(crate) fn record_zero_grad(&self, commands: &mut vulkan::ComputeBatch) -> Result<()> {
-        commands.fill_zero_f32(&self.inner.accumulated_grad, self.len())
+        let state = self.training_state()?;
+        commands.fill_zero_f32(&state.accumulated_grad, self.len())
     }
 
     pub(crate) fn record_accumulate_gradient(
@@ -269,12 +356,13 @@ impl SharedLmHeadParameter {
         commands: &mut vulkan::ComputeBatch,
         gradient: &GpuBuffer,
     ) -> Result<()> {
+        let state = self.training_state()?;
         let push = LenPush {
             len: self.len() as u32,
         };
         self.inner.gradient_accumulate.record_dispatch(
             commands,
-            &[&self.inner.accumulated_grad, gradient],
+            &[&state.accumulated_grad, gradient],
             bytemuck::bytes_of(&push),
             [div_ceil_u32(self.len(), 256), 1, 1],
         )
@@ -286,6 +374,7 @@ impl SharedLmHeadParameter {
         hyper: AdamWHyperParams,
     ) -> Result<u32> {
         hyper.validate()?;
+        let state = self.training_state()?;
         let previous = self
             .inner
             .step
@@ -307,9 +396,9 @@ impl SharedLmHeadParameter {
             commands,
             &[
                 &self.inner.weight,
-                &self.inner.accumulated_grad,
-                &self.inner.exp_avg,
-                &self.inner.exp_avg_sq,
+                &state.accumulated_grad,
+                &state.exp_avg,
+                &state.exp_avg_sq,
             ],
             bytemuck::bytes_of(&push),
             [div_ceil_u32(self.len(), 256), 1, 1],
@@ -341,6 +430,7 @@ impl SharedLmHeadParameter {
         rows: &[usize],
     ) -> Result<u32> {
         hyper.validate()?;
+        let state = self.training_state()?;
         if rows.is_empty() {
             bail!("shared lm_head selective AdamW requires at least one row");
         }
@@ -378,9 +468,9 @@ impl SharedLmHeadParameter {
                 commands,
                 &[
                     &self.inner.weight,
-                    &self.inner.accumulated_grad,
-                    &self.inner.exp_avg,
-                    &self.inner.exp_avg_sq,
+                    &state.accumulated_grad,
+                    &state.exp_avg,
+                    &state.exp_avg_sq,
                 ],
                 bytemuck::bytes_of(&push),
                 [div_ceil_u32(self.inner.context_dim, 256), 1, 1],

@@ -97,6 +97,7 @@ validation live under `hierarchos-vulkan/validation/`.
 | Workflow | CLI | Desktop GUI |
 | --- | --- | --- |
 | Transformer full training | `transformer-train` | Transformer full training |
+| Transformer full-parameter fine-tuning | `transformer-finetune --full-finetune` | Transformer full-parameter fine-tuning |
 | Transformer LoRA fine-tuning | `transformer-finetune` | Transformer LoRA fine-tuning |
 | Transformer inference/generation | `infer` / `generate` / `transformer-generate` | Transformer inference / generation |
 | Hierarchos training | `train` / `finetune` | Hierarchos training / fine-tuning |

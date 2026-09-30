@@ -1,0 +1,20 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer BaseBuffer { float base_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer DeltaBuffer { float delta_values[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(push_constant) uniform Push { uint len; float scale; } pc;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= pc.len) return;
+
+    // Hugging Face PEFT evaluates the ordinary LoRA branch as
+    //     result + lora_B(lora_A(x)) * scaling
+    // in two tensor operations. Keep the FP32 rounding boundary between the
+    // multiply and add instead of contracting them into a device FMA.
+    precise float scaled_delta = delta_values[i] * pc.scale;
+    precise float merged = base_values[i] + scaled_delta;
+    output_values[i] = merged;
+}

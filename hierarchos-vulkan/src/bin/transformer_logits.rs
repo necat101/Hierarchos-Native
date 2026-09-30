@@ -26,6 +26,9 @@ struct Report {
     seq_len: usize,
     vocab_size: usize,
     logits: Vec<f32>,
+    loaded_adapters: Vec<String>,
+    active_adapter: Option<String>,
+    adapters_enabled: bool,
 }
 
 fn main() -> Result<()> {
@@ -47,6 +50,10 @@ fn run() -> Result<()> {
     let mut fixture = None;
     let mut output = None;
     let mut export_model = None;
+    let mut lora_adapter = None;
+    let mut named_lora_adapters = Vec::new();
+    let mut selected_adapter = None;
+    let mut bypass_adapters = false;
     let mut device_index = None;
     let mut args = std::env::args_os().skip(1);
     while let Some(arg) = args.next() {
@@ -67,6 +74,32 @@ fn run() -> Result<()> {
                     args.next().context("missing --export-model value")?,
                 ))
             }
+            "--lora-adapter" => {
+                lora_adapter = Some(PathBuf::from(
+                    args.next().context("missing --lora-adapter value")?,
+                ))
+            }
+            "--lora-adapter-named" => {
+                let name = args
+                    .next()
+                    .context("missing --lora-adapter-named name")?
+                    .to_string_lossy()
+                    .into_owned();
+                let dir = PathBuf::from(
+                    args.next()
+                        .context("missing --lora-adapter-named directory")?,
+                );
+                named_lora_adapters.push((name, dir));
+            }
+            "--active-adapter" => {
+                selected_adapter = Some(
+                    args.next()
+                        .context("missing --active-adapter value")?
+                        .to_string_lossy()
+                        .into_owned(),
+                )
+            }
+            "--disable-adapter" => bypass_adapters = true,
             "--device-index" => {
                 device_index = Some(
                     args.next()
@@ -78,7 +111,7 @@ fn run() -> Result<()> {
             }
             "-h" | "--help" => {
                 eprintln!(
-                    "usage: transformer_logits --model DIR --fixture fixture.json [--output report.json] [--export-model DIR] [--device-index N]"
+                    "usage: transformer_logits --model DIR --fixture fixture.json [--output report.json] [--lora-adapter DIR] [--export-model DIR] [--device-index N]"
                 );
                 return Ok(());
             }
@@ -112,6 +145,9 @@ fn run() -> Result<()> {
         None => VulkanDevice::new()?,
     };
     if let Some(encoder_ids) = fixture.encoder_input_ids.as_deref() {
+        if lora_adapter.is_some() || !named_lora_adapters.is_empty() || selected_adapter.is_some() || bypass_adapters {
+            bail!("LoRA adapter controls are not supported by the seq2seq logits harness");
+        }
         if fixture.batch_size == 0 || fixture.token_type_ids.is_some() {
             bail!("seq2seq logit fixtures require a positive batch_size and no token_type_ids");
         }
@@ -155,15 +191,30 @@ fn run() -> Result<()> {
             seq_len: fixture.seq_len,
             vocab_size: graph.decoder().config().vocab_size,
             logits,
+            loaded_adapters: Vec::new(),
+            active_adapter: None,
+            adapters_enabled: false,
         }
     } else {
         eprintln!("transformer_logits: constructing graph");
-        let graph = VulkanTransformer::from_hf_package(
+        let mut graph = VulkanTransformer::from_hf_package(
             device,
             &model,
             fixture.batch_size,
             fixture.seq_len,
         )?;
+        if let Some(adapter_dir) = lora_adapter.as_deref() {
+            graph.load_lora_adapter(adapter_dir)?;
+        }
+        for (name, adapter_dir) in &named_lora_adapters {
+            graph.load_lora_adapter_named(name, adapter_dir)?;
+        }
+        if let Some(name) = selected_adapter.as_deref() {
+            graph.set_adapter(name)?;
+        }
+        if bypass_adapters {
+            graph.disable_adapter()?;
+        }
         eprintln!("transformer_logits: graph constructed; running forward");
         let logits = match fixture.token_type_ids.as_deref() {
             Some(token_type_ids) => graph.forward_logits_with_token_type_ids(
@@ -176,7 +227,17 @@ fn run() -> Result<()> {
         if let Some(export_dir) = export_model.as_deref() {
             graph.export_hf_package(&model, export_dir)?;
         }
+        if let Some(trace_path) = std::env::var_os("HIERARCHOS_FALCON_H1_TRACE") {
+            fs::write(trace_path, serde_json::to_vec(&graph.debug_falcon_h1_last_forward_states()?)?)?;
+        }
         eprintln!("transformer_logits: forward complete");
+        let loaded_adapters = graph
+            .loaded_adapter_names()
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
+        let active_adapter = graph.active_adapter_name().map(str::to_owned);
+        let adapters_enabled = graph.adapters_enabled();
         Report {
             device: graph.device_name().to_owned(),
             architecture: graph.config().architecture.model_type().to_owned(),
@@ -184,6 +245,9 @@ fn run() -> Result<()> {
             seq_len: fixture.seq_len,
             vocab_size: graph.config().vocab_size,
             logits,
+            loaded_adapters,
+            active_adapter,
+            adapters_enabled,
         }
     };
     let encoded = serde_json::to_vec(&report)?;

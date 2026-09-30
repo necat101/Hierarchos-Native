@@ -29,11 +29,16 @@ layout(push_constant) uniform Push {
 float stream_alpha(uint row, uint stream, float inv_sqrt_hidden) {
     uint hyper_width = pc.hidden_size * pc.hc_count;
     uint stream_base = row * hyper_width + stream * pc.hidden_size;
-    float dot_value = 0.0;
+    precise float dot_lanes[8];
+    for (uint lane = 0u; lane < 8u; ++lane) dot_lanes[lane] = 0.0;
     for (uint feature = 0u; feature < pc.hidden_size; ++feature) {
         uint source = stream_base + feature;
-        dot_value = fma(key_values[source], query_values[source], dot_value);
+        precise float product = key_values[source] * query_values[source];
+        uint lane = feature & 7u;
+        dot_lanes[lane] += product;
     }
+    precise float dot_value = 0.0;
+    for (uint lane = 0u; lane < 8u; ++lane) dot_value += dot_lanes[lane];
     float raw_gate = dot_value * inv_sqrt_hidden;
     float magnitude = sqrt(max(abs(raw_gate), 1.0e-6));
     float gate = raw_gate < 0.0 ? -magnitude : (raw_gate > 0.0 ? magnitude : 0.0);
@@ -53,16 +58,26 @@ void main() {
     uint stream_base = row * hyper_width + stream * pc.hidden_size;
     float inv_sqrt_hidden = inversesqrt(float(pc.hidden_size));
 
-    float dot_value = 0.0;
-    float grad_alpha = 0.0;
+    precise float dot_lanes[8];
+    precise float grad_alpha_lanes[8];
+    for (uint lane = 0u; lane < 8u; ++lane) {
+        dot_lanes[lane] = 0.0;
+        grad_alpha_lanes[lane] = 0.0;
+    }
     for (uint feature = 0u; feature < pc.hidden_size; ++feature) {
         uint source = stream_base + feature;
-        dot_value = fma(key_values[source], query_values[source], dot_value);
-        grad_alpha = fma(
-            grad_output[source],
-            value_values[row * pc.hidden_size + feature],
-            grad_alpha
-        );
+        uint lane = feature & 7u;
+        precise float dot_product = key_values[source] * query_values[source];
+        precise float alpha_product = grad_output[source]
+            * value_values[row * pc.hidden_size + feature];
+        dot_lanes[lane] += dot_product;
+        grad_alpha_lanes[lane] += alpha_product;
+    }
+    precise float dot_value = 0.0;
+    precise float grad_alpha = 0.0;
+    for (uint lane = 0u; lane < 8u; ++lane) {
+        dot_value += dot_lanes[lane];
+        grad_alpha += grad_alpha_lanes[lane];
     }
     float raw_gate = dot_value * inv_sqrt_hidden;
     float abs_raw_gate = abs(raw_gate);

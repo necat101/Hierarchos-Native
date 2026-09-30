@@ -279,8 +279,9 @@ impl TiedTokenEmbeddingOp {
             &self.grad_output,
         )?;
         commands.readback_f32(&self.output, &self.output_readback, output_len)?;
+        let parameter_gradient = self.parameter.gradient_buffer()?;
         commands.readback_f32(
-            self.parameter.gradient_buffer(),
+            &parameter_gradient,
             &self.grad_weight_readback,
             self.vocab_size * self.dim,
         )?;
@@ -325,9 +326,10 @@ impl TiedTokenEmbeddingOp {
         self.validate_token_count(token_count)?;
         let push = self.backward_push(token_count);
         if token_count <= EMBEDDING_DIRECT_ACCUMULATE_CAPACITY {
+            let parameter_gradient = self.parameter.gradient_buffer()?;
             return self.embedding_grad_accumulate.record_dispatch(
                 commands,
-                &[token_ids, grad_output, self.parameter.gradient_buffer()],
+                &[token_ids, grad_output, &parameter_gradient],
                 bytemuck::bytes_of(&push),
                 [div_ceil_u32(self.dim, 16), div_ceil_u32(token_count, 16), 1],
             );
@@ -344,13 +346,14 @@ impl TiedTokenEmbeddingOp {
         } else {
             self.record_radix_sort(commands, token_count, token_ids)?
         };
+        let parameter_gradient = self.parameter.gradient_buffer()?;
         self.embedding_grad_segmented.record_dispatch(
             commands,
             &[
                 token_ids,
                 sorted_positions,
                 grad_output,
-                self.parameter.gradient_buffer(),
+                &parameter_gradient,
             ],
             bytemuck::bytes_of(&push),
             [div_ceil_u32(self.dim, 16), div_ceil_u32(token_count, 16), 1],
@@ -420,6 +423,27 @@ impl TiedTokenEmbeddingOp {
 
     pub fn shared_parameter(&self) -> SharedLmHeadParameter {
         self.parameter.clone()
+    }
+
+    /// Rebind the lookup edge to another parameter with identical geometry.
+    /// PEFT `modules_to_save` uses this to switch between the canonical base
+    /// embedding and adapter-local replacement identities while retaining the
+    /// already-built Vulkan lookup kernels and scratch buffers.
+    pub(crate) fn rebind_shared_parameter(
+        &mut self,
+        parameter: SharedLmHeadParameter,
+    ) -> Result<()> {
+        if parameter.context_dim() != self.dim || parameter.vocab_size() != self.vocab_size {
+            bail!(
+                "tied embedding PEFT rebind geometry mismatch: replacement is [{}, {}], expected [{}, {}]",
+                parameter.vocab_size(),
+                parameter.context_dim(),
+                self.vocab_size,
+                self.dim
+            );
+        }
+        self.parameter = parameter;
+        Ok(())
     }
 
     pub fn dim(&self) -> usize {
@@ -595,7 +619,8 @@ mod tests {
         op.parameter
             .record_accumulate_gradient(&mut commands, &baseline_buffer)?;
         op.record_backward_accumulate(&mut commands, token_ids.len(), &id_buffer, &grad_buffer)?;
-        commands.readback_f32(op.parameter.gradient_buffer(), &readback, baseline.len())?;
+        let parameter_gradient = op.parameter.gradient_buffer()?;
+        commands.readback_f32(&parameter_gradient, &readback, baseline.len())?;
         commands.submit()?;
 
         assert_eq!(readback.read_f32(baseline.len())?, expected);

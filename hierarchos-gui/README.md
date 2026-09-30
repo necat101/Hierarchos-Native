@@ -5,9 +5,10 @@ training and inference contracts exposed by `hierarchos-native-cli`. The GUI
 intentionally does not reimplement model logic: it validates common inputs,
 builds the CLI invocation, streams stdout/stderr, and can stop the child process.
 
-It supports six workflows from one screen:
+It supports seven workflows from one screen:
 
 - full native Vulkan Transformer training;
+- full-parameter Transformer fine-tuning, including Falcon H1/H1R (`falcon_h1`);
 - Transformer LoRA fine-tuning (rank 8 by default);
 - native Vulkan Transformer inference/generation from a local package or
   Hugging Face model ID;
@@ -17,7 +18,7 @@ It supports six workflows from one screen:
 
 The form is mode-aware: Transformer datasets are selected as files, fresh
 Hierarchos initialization requires a tokenizer when no model package is given,
-LoRA rank is shown only for Transformer fine-tuning, and the
+LoRA rank is shown only for Transformer LoRA fine-tuning, and the
 assistant-recovery preset is exposed only for the Hierarchos training mode that
 implements it. Inference mode exposes prompt, token limit, temperature, top-k,
 top-p, sampling policy, and (for Transformer generation) Vulkan device selection.

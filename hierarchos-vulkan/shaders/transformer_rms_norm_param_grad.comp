@@ -22,7 +22,14 @@ void main() {
     float dw = 0.0;
     for (uint row = group; row < pc.rows; row += pc.parameter_groups) {
         uint index = row * pc.dim + col;
-        dw = fma(grad_output[index], x[index] * rstd_values[row], dw);
+        // PyTorch's RMSNorm weight gradient follows the materialized forward
+        // value x * rstd and then reduces grad_output * normalized_x.  Keep
+        // both products separately rounded instead of contracting the outer
+        // multiply into the row accumulator; the fused form can move a saved
+        // norm gradient by one FP32 ulp after the residual backward path.
+        precise float normalized_x = x[index] * rstd_values[row];
+        precise float contribution = grad_output[index] * normalized_x;
+        dw += contribution;
     }
     grad_weight[parameter_index] = dw;
 }

@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sleef_tanh.glsl"
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
@@ -11,10 +13,18 @@ void main() {
     if (i >= pc.len) return;
     float x = input_values[i];
     const float C = 0.7978845608028654;
-    float x2 = x * x;
-    float u = C * (x + 0.044715 * x * x2);
-    float t = tanh(u);
-    float du = C * (1.0 + 3.0 * 0.044715 * x2);
-    float derivative = 0.5 * (1.0 + t) + 0.5 * x * (1.0 - t * t) * du;
+    // Match PyTorch's staged tanh-GELU derivative and the forward cube order.
+    // Contraction or multiplying kappa into x before x^3 changes this adjoint
+    // by ulps that the following small-RMS attention norms can amplify.
+    precise float x2 = x * x;
+    precise float x3 = x2 * x;
+    precise float cubic = 0.044715 * x3;
+    precise float inner = x + cubic;
+    precise float u = C * inner;
+    float t = sleef_tanhf_u10(u);
+    precise float du = C * (1.0 + (3.0 * 0.044715) * x2);
+    precise float left = 0.5 * (1.0 + t);
+    precise float right = ((0.5 * x) * (1.0 - t * t)) * du;
+    precise float derivative = left + right;
     grad_input[i] = grad_output[i] * derivative;
 }

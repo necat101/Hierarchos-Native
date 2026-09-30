@@ -1,0 +1,272 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+// Falcon H1 Mamba2. FP32 staging deliberately preserves the unfused HF oracle.
+layout(local_size_x=64) in;
+layout(set=0,binding=0,std430) buffer Proj { float proj[]; };
+layout(set=0,binding=1,std430) buffer Params { float par[]; };
+layout(set=0,binding=2,std430) buffer Conv { float conv[]; };
+layout(set=0,binding=3,std430) buffer Scan { float scan[]; };
+layout(set=0,binding=4,std430) buffer Output { float output_data[]; };
+layout(set=0,binding=5,std430) buffer States { float states[]; };
+layout(set=0,binding=6,std430) buffer GradOutput { float go[]; };
+layout(set=0,binding=7,std430) buffer GradProj { float gp[]; };
+layout(set=0,binding=8,std430) buffer GradConv { float gc[]; };
+layout(set=0,binding=9,std430) buffer GradScan { float gs[]; };
+layout(set=0,binding=10,std430) buffer GradParams { float gw[]; };
+layout(set=0,binding=11,std430) buffer Cache { float cache[]; };
+layout(set=0,binding=12,std430) readonly buffer Mask { float mask[]; };
+layout(set=0,binding=13,std430) buffer GradState { float gstate[]; };
+layout(push_constant) uniform Push {
+    uint mode; uint batch; uint seq; uint inner;
+    uint heads; uint groups; uint state_dim; uint kernel;
+    uint chunk; uint norm; uint norm_before; uint cached;
+    float eps; float dt_min; float dt_max; float mz;
+    float mx; float mb; float mc; float mdt;
+    uint conv_bias; uint pad0; uint pad1; uint pad2;
+} p;
+uint cd(){return p.inner+2*p.groups*p.state_dim;}
+uint width(){return p.inner+cd()+p.heads;}
+uint ao(){return cd()*(p.kernel+1);}
+uint no(){return ao()+3*p.heads;}
+uint hd(){return p.inner/p.heads;}
+uint co(){return cd()*p.kernel;}
+uint si(uint b,uint t,uint h,uint d,uint n){
+    return ((((b*(p.seq+1)+t)*p.heads+h)*hd()+d)*p.state_dim+n);
+}
+uint ci(uint b,uint h,uint d,uint n){return co()+((b*p.heads+h)*hd()+d)*p.state_dim+n;}
+float sigmoid(float x){return 1.0/(1.0+exp(-x));}
+float silu(float x){return fp32_div(x,1.0+exp(-x));}
+float dsilu(float x){float s=sigmoid(x); return s*(1.0+x*(1.0-s));}
+float mul(uint c){return c<p.inner?p.mx:(c<p.inner+p.groups*p.state_dim?p.mb:p.mc);}
+float raw(uint r,uint c){return proj[r*width()+p.inner+c]*mul(c);}
+float dt(uint r,uint h){
+    float v=proj[r*width()+p.inner+cd()+h]*p.mdt+par[ao()+2*p.heads+h];
+    float value=v>20.0?v:log(1.0+exp(v));
+    // The local selective-state-update oracle does not apply dt_limit.
+    return p.cached==1u?value:clamp(value,p.dt_min,p.dt_max);
+}
+float ad(uint r,uint h){return -exp(par[ao()+h])*dt(r,h);}
+float bv(uint r,uint h,uint n){return conv[r*cd()+p.inner+(h/(p.heads/p.groups))*p.state_dim+n];}
+float cv(uint r,uint h,uint n){return conv[r*cd()+p.inner+p.groups*p.state_dim+(h/(p.heads/p.groups))*p.state_dim+n];}
+float gate(uint r,uint d){return proj[r*width()+d]*p.mz;}
+void main(){
+    uint id=gl_GlobalInvocationID.x;
+    if(p.mode==0){
+        if(id>=p.batch*cd())return;
+        uint b=id/cd(), c=id%cd();
+        for(uint t=0;t<p.seq;t++){
+            precise float v=par[cd()*p.kernel+c];
+            for(uint k=0;k<p.kernel;k++){
+                int j=int(t)+int(k)+1-int(p.kernel);
+                float x=j>=0?raw(b*p.seq+uint(j),c):(p.cached!=0?cache[c*p.kernel+uint(int(p.kernel)+j)]:0.0);
+                v=fma(x,par[c*p.kernel+k],v);
+            }
+            conv[(b*p.seq+t)*cd()+c]=silu(v)*(p.seq>1?mask[b*p.seq+t]:1.0);
+        }
+        // A cache is updated only when explicitly supplied by the caller.
+        if(p.cached==1){
+            for(uint k=0;k+1<p.kernel;k++)cache[c*p.kernel+k]=cache[c*p.kernel+k+1];
+            cache[c*p.kernel+p.kernel-1]=raw(0,c);
+        }
+    }else if(p.mode==1){
+        if(id>=p.batch*p.inner)return;
+        uint b=id/p.inner, d=id%hd(), h=(id%p.inner)/hd();
+        for(uint n=0;n<p.state_dim;n++)states[si(b,0,h,d,n)]=p.cached==1?cache[ci(b,h,d,n)]:0.0;
+        if(p.cached==1){
+            precise float y=0.0;
+            for(uint n=0;n<p.state_dim;n++){
+                precise float db=dt(0,h)*bv(0,h,n);
+                precise float s=states[si(b,0,h,d,n)]*exp(ad(0,h))+db*conv[h*hd()+d];
+                cache[ci(b,h,d,n)]=s;
+                y+=s*cv(0,h,n);
+            }
+            scan[id]=y+par[ao()+p.heads+h]*conv[h*hd()+d];
+            return;
+        }
+        // Chunk SSD: diagonal contraction and state contribution are kept separate.
+        for(uint start=0;start<p.seq;start+=p.chunk){
+            uint end=min(start+p.chunk,p.seq);
+            for(uint t=start;t<end;t++){
+                uint r=b*p.seq+t;
+                precise float y=0.0;
+                for(uint j=start;j<=t;j++){
+                    precise float bc=0.0;
+                    for(uint n=0;n<p.state_dim;n++)bc+=cv(r,h,n)*bv(b*p.seq+j,h,n);
+                    precise float a=0.0;
+                    for(uint k=j+1;k<=t;k++)a+=ad(b*p.seq+k,h);
+                    precise float m=bc*exp(a);
+                    precise float xdt=conv[(b*p.seq+j)*cd()+h*hd()+d]*dt(b*p.seq+j,h);
+                    y+=m*xdt;
+                }
+                precise float off=0.0, ac=0.0;
+                for(uint n=0;n<p.state_dim;n++)off+=cv(r,h,n)*states[si(b,start,h,d,n)];
+                for(uint k=start;k<=t;k++)ac+=ad(b*p.seq+k,h);
+                y+=off*exp(ac);
+                scan[r*p.inner+h*hd()+d]=y+par[ao()+p.heads+h]*conv[r*cd()+h*hd()+d];
+            }
+            precise float total=0.0;
+            for(uint k=start;k<end;k++)total+=ad(b*p.seq+k,h);
+            for(uint n=0;n<p.state_dim;n++){
+                precise float s=0.0, prefix=0.0;
+                for(uint j=start;j<end;j++){
+                    prefix+=ad(b*p.seq+j,h);
+                    precise float bd=bv(b*p.seq+j,h,n)*exp(total-prefix);
+                    precise float xdt=conv[(b*p.seq+j)*cd()+h*hd()+d]*dt(b*p.seq+j,h);
+                    s+=bd*xdt;
+                }
+                states[si(b,end,h,d,n)]=s+exp(total)*states[si(b,start,h,d,n)];
+            }
+        }
+    }else if(p.mode==2){
+        if(id>=p.batch*p.seq*p.inner)return;
+        uint r=id/p.inner,d=id%p.inner, group_width=p.inner/p.groups;
+        float z=silu(gate(r,d));
+        precise float v=scan[id];
+        if(p.norm==0){output_data[id]=v*z;return;}
+        if(p.norm_before==0)v*=z;
+        precise float sq=0.0;
+        uint base=(d/group_width)*group_width;
+        for(uint j=0;j<group_width;j++){
+            float x=scan[r*p.inner+base+j];
+            if(p.norm_before==0)x*=silu(gate(r,base+j));
+            sq+=x*x;
+        }
+        float inv=fp32_sqrt_recip(fp32_div(sq,float(group_width))+p.eps);
+        v=par[no()+d]*(v*inv);
+        if(p.norm_before!=0)v*=z;
+        output_data[id]=v;
+    }else if(p.mode==3){
+        // Reverse-mode tape: recompute the mathematically identical recurrence.
+        if(id>=p.batch*p.inner)return;
+        uint b=id/p.inner,d=id%hd(),h=(id%p.inner)/hd();
+        for(uint n=0;n<p.state_dim;n++){
+            states[si(b,0,h,d,n)]=0.0;
+            precise float s=0.0;
+            for(uint t=0;t<p.seq;t++){
+                uint r=b*p.seq+t;
+                precise float db=dt(r,h)*bv(r,h,n);
+                s=s*exp(ad(r,h))+db*conv[r*cd()+h*hd()+d];
+                states[si(b,t+1,h,d,n)]=s;
+            }
+        }
+    }else if(p.mode==4){
+        if(id>=p.batch*p.seq*p.inner)return;
+        uint r=id/p.inner,d=id%p.inner,w=p.inner/p.groups,base=(d/w)*w;
+        float g=gate(r,d),z=silu(g),x=scan[id];
+        if(p.norm==0){gs[id]=go[id]*z;gp[r*width()+d]=go[id]*x*dsilu(g)*p.mz;return;}
+        precise float sq=0.0, dot=0.0;
+        for(uint j=0;j<w;j++){
+            uint c=base+j;float v=scan[r*p.inner+c];float grad=go[r*p.inner+c]*par[no()+c];
+            if(p.norm_before==0)v*=silu(gate(r,c));else grad*=silu(gate(r,c));
+            sq+=v*v;dot+=grad*v;
+        }
+        float inv=fp32_sqrt_recip(fp32_div(sq,float(w))+p.eps);
+        float v=p.norm_before==0?x*z:x;
+        float grad=go[id]*par[no()+d]*(p.norm_before!=0?z:1.0);
+        precise float dx=inv*(grad-v*(inv*inv*dot/float(w)));
+        gs[id]=p.norm_before==0?dx*z:dx;
+        float dg=p.norm_before==0?dx*x:go[id]*par[no()+d]*(x*inv);
+        gp[r*width()+d]=dg*dsilu(g)*p.mz;
+    }else if(p.mode==5){
+        // One invocation owns a B/C group, so no float atomics or write races.
+        if(id>=p.groups)return;
+        uint g=id,hbegin=g*(p.heads/p.groups),hend=hbegin+p.heads/p.groups;
+        for(uint r=0;r<p.batch*p.seq;r++)for(uint n=0;n<p.state_dim;n++){
+            gc[r*cd()+p.inner+g*p.state_dim+n]=0.0;
+            gc[r*cd()+p.inner+(p.groups+g)*p.state_dim+n]=0.0;
+        }
+        for(uint h=hbegin;h<hend;h++){
+            precise float ga=0.0,gd=0.0,gdb=0.0;
+            float A=-exp(par[ao()+h]);
+            for(uint b=0;b<p.batch;b++){
+                for(uint d=0;d<hd();d++)for(uint n=0;n<p.state_dim;n++)gstate[((b*p.heads+h)*hd()+d)*p.state_dim+n]=0.0;
+                for(int t=int(p.seq)-1;t>=0;t--){
+                    uint r=b*p.seq+uint(t);float delta=dt(r,h),decay=exp(ad(r,h));
+                    precise float gdt=0.0;
+                    for(uint d=0;d<hd();d++){
+                        float x=conv[r*cd()+h*hd()+d],gy=gs[r*p.inner+h*hd()+d];
+                        precise float gx=gy*par[ao()+p.heads+h];gd+=gy*x;
+                        for(uint n=0;n<p.state_dim;n++){
+                            uint ix=((b*p.heads+h)*hd()+d)*p.state_dim+n;
+                            float prev=states[si(b,uint(t),h,d,n)];
+                            float adj=gstate[ix]+gy*cv(r,h,n);
+                            gc[r*cd()+p.inner+(p.groups+g)*p.state_dim+n]+=gy*states[si(b,uint(t)+1,h,d,n)];
+                            gc[r*cd()+p.inner+g*p.state_dim+n]+=(adj*x)*delta;
+                            gx+=adj*(delta*bv(r,h,n));
+                            precise float gdec=adj*prev;
+                            gdt+=gdec*decay*A+(adj*x)*bv(r,h,n);
+                            ga+=gdec*decay*delta*A;
+                            gstate[ix]=adj*decay;
+                        }
+                        gc[r*cd()+h*hd()+d]=gx;
+                    }
+                    float v=proj[r*width()+p.inner+cd()+h]*p.mdt+par[ao()+2*p.heads+h];
+                    float soft=v>20.0?v:log(1.0+exp(v));
+                    float dv=(soft<p.dt_min||soft>p.dt_max)?0.0:gdt*(v>20.0?1.0:sigmoid(v));
+                    gp[r*width()+p.inner+cd()+h]=dv*p.mdt;gdb+=dv;
+                }
+            }
+            gw[ao()+h]=ga;gw[ao()+p.heads+h]=gd;gw[ao()+2*p.heads+h]=gdb;
+        }
+    }else if(p.mode==6){
+        if(id>=cd())return;
+        uint c=id;
+        for(uint k=0;k<p.kernel;k++)gw[c*p.kernel+k]=0.0;
+        gw[cd()*p.kernel+c]=0.0;
+        for(uint b=0;b<p.batch;b++){
+            for(uint t=0;t<p.seq;t++){
+                uint r=b*p.seq+t;precise float v=par[cd()*p.kernel+c];
+                for(uint k=0;k<p.kernel;k++){
+                    int j=int(t)+int(k)+1-int(p.kernel);
+                    if(j>=0)v=fma(raw(b*p.seq+uint(j),c),par[c*p.kernel+k],v);
+                }
+                float grad=gc[r*cd()+c]*dsilu(v)*(p.seq>1?mask[r]:1.0);
+                gc[r*cd()+c]=grad;if(p.conv_bias!=0)gw[cd()*p.kernel+c]+=grad;
+                for(uint k=0;k<p.kernel;k++){
+                    int j=int(t)+int(k)+1-int(p.kernel);
+                    if(j>=0)gw[c*p.kernel+k]+=grad*raw(b*p.seq+uint(j),c);
+                }
+            }
+            for(uint t=0;t<p.seq;t++){
+                precise float grad=0.0;
+                for(uint k=0;k<p.kernel;k++){
+                    uint j=t+p.kernel-1-k;
+                    if(j<p.seq)grad+=gc[(b*p.seq+j)*cd()+c]*par[c*p.kernel+k];
+                }
+                gp[(b*p.seq+t)*width()+p.inner+c]=grad*mul(c);
+            }
+        }
+    }else if(p.mode==7){
+        if(id>=p.inner)return;
+        precise float grad=0.0;
+        if(p.norm!=0){
+            uint w=p.inner/p.groups,base=(id/w)*w;
+            for(uint r=0;r<p.batch*p.seq;r++){
+                precise float sq=0.0;
+                for(uint j=0;j<w;j++){
+                    float x=scan[r*p.inner+base+j];
+                    if(p.norm_before==0)x*=silu(gate(r,base+j));
+                    sq+=x*x;
+                }
+                float v=scan[r*p.inner+id];
+                if(p.norm_before==0)v*=silu(gate(r,id));
+                v*=fp32_sqrt_recip(fp32_div(sq,float(w))+p.eps);
+                if(p.norm_before!=0)v*=silu(gate(r,id));
+                grad+=go[r*p.inner+id]*v;
+            }
+        }
+        gw[no()+id]=grad;
+    }else if(p.mode==8){
+        // Transfer the prefill's trailing raw convolution inputs and final SSD state.
+        if(id<co()){
+            uint c=id/p.kernel,k=id%p.kernel;
+            int t=int(p.seq)+int(k)-int(p.kernel);
+            cache[id]=t>=0?raw(uint(t),c):0.0;
+        }
+        if(id<p.inner*p.state_dim){
+            uint n=id%p.state_dim,d=(id/p.state_dim)%hd(),h=id/(p.state_dim*hd());
+            cache[co()+id]=states[si(0,p.seq,h,d,n)];
+        }
+    }
+}

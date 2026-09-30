@@ -1,0 +1,48 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+void main() {
+    uint out_col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || out_col >= pc.output_dim) {
+        return;
+    }
+
+    // Match the verified CPU narrow-GEMM topology for Gemma4 K/V:
+    // materialized FP32 products, four interleaved lanes, balanced reduction.
+    precise float lane0 = 0.0;
+    precise float lane1 = 0.0;
+    precise float lane2 = 0.0;
+    precise float lane3 = 0.0;
+    uint x_base = row * pc.input_dim;
+    uint w_base = out_col * pc.input_dim;
+    for (uint i = 0; i < pc.input_dim; ++i) {
+        precise float product = x[x_base + i] * weight[w_base + i];
+        switch (i & 3u) {
+            case 0u: lane0 = lane0 + product; break;
+            case 1u: lane1 = lane1 + product; break;
+            case 2u: lane2 = lane2 + product; break;
+            default: lane3 = lane3 + product; break;
+        }
+    }
+    precise float pair0 = lane0 + lane2;
+    precise float pair1 = lane1 + lane3;
+    // Keep the final horizontal add under the same NoContraction contract as
+    // the lane and pair reductions.  Writing the expression directly to the
+    // storage buffer leaves this last OpFAdd undecorated in SPIR-V on shaderc,
+    // which lets the driver reassociate the four lanes.  Gemma3/4's tiny K/V
+    // RMSNorms amplify that one-ulp projection difference during backward.
+    precise float result = pair0 + pair1;
+    output_values[row * pc.output_dim + out_col] = result;
+}

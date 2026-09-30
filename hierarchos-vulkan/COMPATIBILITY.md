@@ -1,14 +1,62 @@
 # Compatibility and validation
 
+## Strict base to PEFT follow-up inventory
+
+This table is the machine-readable inventory consumed by
+`validation/verify_peft_green_matrix.py`. Add a row whenever a new family passes
+the native base gate; list every independently qualified graph fixture. A new
+row automatically becomes required PEFT follow-up work. A passing base row
+never promotes the independent PEFT result. On 2026-09-30, the fresh complete
+**32/32 all-stage matrix passed**: ordinary LoRA, saved modules, and named-adapter
+switching, at the unchanged absolute `max_abs <= 2e-7` gate, with exact frozen
+base and resume state. Gemma3 and Gemma4 are included. The oracle imported
+`C:\Users\User\transformers` (`5.16.0.dev0`); source/shader/binary/oracle hashes
+were unchanged throughout qualification. See [the full audit](../PROGRESS_PEFT_AUDIT.md)
+for evidence and the [PEFT usage guide](../hierarchos-native-cli/README.md#peft-fine-tuning-guide)
+for training, saved modules, resume, inference and merge commands. This is
+FP32 tiny-model text-fixture qualification, not universal PEFT or production-size
+checkpoint/device certification.
+
+<!-- peft-native-green:start -->
+| Architecture | Native model_type | Required PEFT fixtures | Base ceiling |
+| --- | --- | --- | --- |
+| GPT-2 | gpt2 | gpt2 | 2e-7 |
+| Llama | llama | llama | 2e-7 |
+| Mixtral | mixtral | mixtral | 2e-7 |
+| Qwen3-Next | qwen3_next | qwen3_next | 2e-7 |
+| DeepSeek V4 | deepseek_v4 | deepseek_v4 | 2e-7 |
+| Phi-4 Multimodal text | phi4_multimodal | phi4_multimodal_text | 2e-7 |
+| Phi-3 | phi3 | phi3 | 2e-7 |
+| Kimi K2.5 text | kimi_k25 | kimi_k25_text | 2e-7 |
+| Kimi K3 / KimiLinear text | kimi_linear | kimi_k3_kda, kimi_k3_mla, kimi_k3_text | 2e-7 |
+| GPT-OSS | gpt_oss | gpt_oss | 2e-7 |
+| SmolLM3 | smollm3 | smollm3 | 2e-7 |
+| Qwen2.5 text | qwen2 | qwen2_5_gqa, qwen2_5_sliding_tied | 2e-7 |
+| Qwen3.5 | qwen3_5, qwen3_5_moe | qwen3_5_full, qwen3_5_linear, qwen3_5_mixed, qwen3_5_moe | 2e-7 |
+| Qwen4 Experimental | qwen4_exp | qwen4_exp_linear, qwen4_exp_qsa, qwen4_exp_ple, qwen4_exp_mixed_ple | 2e-7 |
+| Mistral 4 | mistral4 | mistral4 | 2e-7 |
+| MiniMax M3 text | minimax_m3_vl_text | minimax_m3_dense, minimax_m3 | 2e-7 |
+| Gemma 4 | gemma4_text | gemma4 | 2e-7 |
+| MiniMax M2 | minimax_m2 | minimax_m2 | 2e-7 |
+| Gemma 3 text | gemma3_text | gemma3 | 2e-7 |
+| Falcon H1/H1R | falcon_h1 | falcon_h1_gated_after, falcon_h1_gated_before, falcon_h1_silu | 2e-7 |
+<!-- peft-native-green:end -->
+
+HF PEFT rejects Falcon H1 Mamba `out_proj` and `conv1d`; the interoperability
+fixture targets all other linears, including Mamba `in_proj`. MiniMax M3 indexer
+linears and Qwen4 QSA selectors have no gradient through discrete top-k selection
+and are excluded from ordinary differentiable LoRA fixtures. These exclusions
+do not excuse missing validation of the remaining modules or lifecycle stages.
+
 This is a shared native Rust/Vulkan backend for Hierarchos and selected Hugging
 Face Transformer graphs. Universal feature parity with the Python Transformers
 library has **not** been reached. Model-type registration, task implementation,
 and numerical validation are separate milestones.
 
-## Headline: twelve strict two-step AdamW checks
+## Headline: thirteen strict two-step AdamW checks
 
 The strongest compatibility claim in this backend is intentionally small and
-reproducible: twelve current/high-value Transformer text architectures/families have live Vulkan
+reproducible: thirteen current/high-value Transformer text architectures/families have live Vulkan
 forward parity and pass **two full AdamW steps** against the local Hugging Face
 Transformers source tree, with cross-entropy loss checked at each step and every
 named trainable parameter compared after export.
@@ -23,6 +71,7 @@ Verified on AMD Radeon Graphics against local Transformers `5.16.0.dev0`:
 | Kimi K2.5 | text backbone / causal LM | `1.192092896e-7` |
 | Kimi K3 / KimiLinear | text backbone / causal LM | `5.963374861e-8` |
 | GPT-OSS | causal LM | `1.192092896e-7` |
+| SmolLM3 | causal LM; mixed RoPE/NoPE and YaRN | `1.192092896e-7` |
 | Qwen3.5 | dense / DeltaNet / hybrid / MoE text causal LM | `2.980232239e-8` |
 | Qwen4 Experimental | DeltaNet / sparse QSA / GR+PLE / hybrid / MoE text causal LM | `2.980232239e-8` |
 | Mistral 4 | causal LM | `2.607703209e-8` |
@@ -34,11 +83,12 @@ The acceptance ceiling is `2e-7`; it is enforced by
 `verify_hf_training.py`, not rounded into the documentation after the fact.
 The matching forward suite covers both unmasked batch-one and mixed
 left/right-padded batch-two inputs for the legacy headline families and passed
-at `atol=rtol=2e-4`. Kimi K3's Moonshot oracle and GPT-OSS are held to the
-stricter `atol=2e-7, rtol=0` contract. Kimi K3's mixed KDA/MLA text fixture
+at `atol=rtol=2e-4`. Kimi K3's Moonshot oracle, GPT-OSS, and SmolLM3 are held to
+the stricter `atol=2e-7, rtol=0` contract. Kimi K3's mixed KDA/MLA text fixture
 observed `5.215406418e-8` maximum logit error. GPT-OSS observed
-`5.960464478e-8` maximum logit error across its unmasked and mixed-padding
-fixtures.
+`5.960464478e-8` maximum logit error, while the mixed RoPE/NoPE SmolLM3 fixture
+and its YaRN variant each observed at most `5.960464478e-8` across unmasked and
+mixed-padding inputs.
 
 Run exactly the claim above with:
 
@@ -54,12 +104,49 @@ benchmarks or certification of arbitrary production-size checkpoints.
 
 ### Additional verified and frontier families
 
+Falcon H1 / Falcon H1R (`falcon_h1`) has a dedicated native parallel
+Attention+Mamba2 graph. Three deterministic variants cover gated norm before/after
+the SiLU gate, no gated norm, GQA/RoPE, non-unit MuP multipliers, padding,
+chunk-aligned/nonaligned prefill, recurrent KV+conv+SSM decode, native backward,
+two AdamW trajectories and SafeTensors reload. The strict absolute `2e-7` checks
+are in `validation/verify_falcon_h1.py`; the audit is
+[`PROGRESS_FALCON_H1_AUDIT.md`](../PROGRESS_FALCON_H1_AUDIT.md).
+Measured forward drift is at most `8.940696716e-8`, cached decode across prefill
+lengths 1/3/4/7/9 at most `7.450580597e-8`, and two-step parameter drift at most
+`1.192092896e-7`. Cached native logits match full-prefix native logits at every
+checked token; the harness also requires actual recurrent dispatches.
+Full-parameter training/fine-tuning uses the CLI and GUI. Falcon H1/H1R LoRA
+and registered saved modules also pass all three PEFT fixtures; HF interoperability
+excludes Mamba `out_proj` and `conv1d`, but includes Mamba `in_proj`. Official H1R-7B config/shard metadata was checked;
+the full 7B weights were not run, so this qualification is limited to the fixtures.
+
 The validator also carries additional verified and in-progress fixtures rather
 than inflating the headline number with registry aliases:
 
 - Gemma 3 remains source-backed and passes its two-step AdamW check
   (`1.797452569e-7` observed maximum parameter error), but the headline slot now
   prioritizes Gemma 4.
+- SmolLM3 text causal-LM support is strict-parity verified with GQA, RMSNorm,
+  SiLU/SwiGLU, tied embeddings, config-driven mixed RoPE/NoPE layers, sliding
+  attention on configured NoPE layers, padding masks, and YaRN. Default and
+  YaRN forward fixtures observed at most `5.960464478e-8` absolute logit error;
+  four-step cached generation observed at most `5.960464478e-8` versus
+  Transformers and exactly `0.0` versus native full-prefix decoding. Both
+  variants reached `1.192092896e-7` maximum named-parameter drift after two
+  AdamW steps. Native-trained SafeTensors reloads observed at most
+  `5.960464478e-8` logit drift and preserve `no_rope_layers`, `layer_types`,
+  RoPE parameters, sliding-window settings, and tied embeddings. The dedicated
+  checks are `verify_smollm3_generation.py` and `verify_smollm3_roundtrip.py`.
+- Qwen2.5 text checkpoints that use the standard Hugging Face `qwen2` model
+  type reuse the native Qwen2 graph instead of a second compatibility graph.
+  Strict fixtures cover 4-query/2-KV-head GQA, Qwen2.5-style
+  `rope_theta=1_000_000`, mixed full/sliding attention, padding, and tied and
+  untied LM heads. Forward logits observed at most `5.960464478e-8`; four-step
+  cached generation observed at most `4.470348358e-8` versus Transformers and
+  exactly `0.0` versus native full-prefix decoding; two-step AdamW parameter
+  drift observed at most `1.192092896e-7`. Native-trained SafeTensors reloaded
+  by Transformers and Vulkan observed at most `5.960464478e-8` logit drift.
+  Qwen2.5-VL/Omni vision/audio execution is separate work.
 - Qwen3.5 text causal-LM support is strict-parity verified across full-attention,
   pure Gated DeltaNet, the default hybrid DeltaNet/full-attention schedule, and
   Qwen3.5-MoE. Unmasked and mixed-padding logits observed at most
@@ -139,17 +226,17 @@ Transformers checkout includes:
 
 | Check | Scope |
 | --- | --- |
-| Headline forward logits | DeepSeek V4, Phi-4 text, Phi-3, Kimi K2.5 text, Kimi K3/KimiLinear text, Mistral 4, MiniMax M3 text, Gemma 4, MiniMax M2 |
-| Additional forward logits | GPT-2, Llama, Qwen2, Mistral, Mixtral, DBRX, BERT, T5, BART, Switch Transformers |
+| Headline forward logits | DeepSeek V4, Phi-4 text, Phi-3, Kimi K2.5 text, Kimi K3/KimiLinear text, GPT-OSS, SmolLM3, Mistral 4, MiniMax M3 text, Gemma 4, MiniMax M2 |
+| Additional forward logits | GPT-2, Llama, Qwen2 / Qwen2.5 text, Mistral, Mixtral, DBRX, BERT, T5, BART, Switch Transformers |
 | Masking and batching | Unmasked batch one and mixed left/right padding in batch two; visible-token logits |
 | Encoder-decoder | Independent source/decoder lengths; Switch encoder has three sparse layers, decoder has a different two-layer schedule |
-| Headline training and export | Exactly two AdamW steps; cross-entropy loss and every named parameter for the nine headline families |
+| Headline training and export | Exactly two AdamW steps; cross-entropy loss and every named parameter for the headline families |
 | Stochastic training | Mixtral, MiniMax-M2 and DBRX using shared Philox jitter draws in HF's otherwise unchanged forward/autograd |
 | Jitter GPU regression | Scalar Philox reference, step replay, evaluation bypass, preservation of normalization input, finite-difference input gradients |
 
-The headline forward checks passed at their documented tolerances; the largest
-observed absolute logit error among the nine was `1.937150955e-7` (Gemma 4,
-unmasked), while Kimi K3 is independently capped at `2e-7` absolute error.
+The headline forward checks passed at their documented tolerances. Kimi K3 and
+SmolLM3 are independently capped at `2e-7` absolute error; the current SmolLM3
+default/YaRN qualification observed at most `5.960464478e-8`.
 The headline two-step training checks observed parameter errors below `2e-7`.
 These are FP32
 tiny-model correctness checks, not performance claims or certification of
@@ -242,9 +329,24 @@ leave the process consuming a CPU core instead of exiting.
   bias plus packed `gate_up_proj_bias` / `down_proj_bias` expert parameters.
   Other sparse-MoE and architecture families still reject that mode until their
   complete trainable bias-name topology is wired and round-trip tested.
-  Non-linear `modules_to_save` targets and other generation/PEFT options
-  still need native parameter routing and broader checkpoint-level reference
-  tests before full parity can be claimed.
+  The shared adapter-local `modules_to_save` bank also covers qualified
+  LayerNorm/RMSNorm, `lm_head`, and input-embedding replacements in addition to
+  ordinary Linear modules. All 32 documented native-green fixtures have independently
+  passed the replacement-state gate, including named-adapter switching,
+  disable/base restoration, save/reload, gradients, and AdamW state. Gemma3's
+  saved-embedding gradients are A `1.1920928955078125e-7` / B
+  `1.7881393432617188e-7`; Gemma4's are A `7.450580596923828e-9` / B
+  `2.9802322387695312e-8`. Frozen-base and resume drift are exactly `0.0`.
+  Registry LayerNorm includes canonical RMSNorm replacements, not arbitrary
+  internal/per-head norms. Targets outside the canonical replacement graph
+  remain unsupported rather than being approximated.
+
+  PEFT qualification is a separate post-base-parity gate. A newly green base
+  architecture must first expose its canonical PEFT module graph/names and
+  declare any genuine exclusions, then pass the common PEFT logits, gradients,
+  two-step AdamW, save/reload/resume, switching/disable, and merge/export checks
+  before it can be advertised as PEFT-qualified. Base parity or registry
+  presence by itself does not confer PEFT support.
 
 Keep the existing Hierarchos graph and its checkpoint ABI covered while adding
 these features. Adding aliases alone does not complete any of these milestones.

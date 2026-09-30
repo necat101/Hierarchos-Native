@@ -15,9 +15,9 @@ use hierarchos_inference::{
     SamplingConfig,
 };
 use hierarchos_vulkan::{
-    merge_hierarchos_lora_safetensors, AdamWHyperParams, VulkanDevice, VulkanSeq2SeqTransformer,
-    VulkanTransformer, VulkanTransformerArchitecture, VulkanTransformerConfig,
-    VulkanTransformerGenerationConfig, VulkanTransformerLoraConfig,
+    merge_peft_lora_safetensors, unmerge_peft_lora_safetensors, AdamWHyperParams, VulkanDevice,
+    VulkanSeq2SeqTransformer, VulkanTransformer, VulkanTransformerArchitecture,
+    VulkanTransformerConfig, VulkanTransformerGenerationConfig, VulkanTransformerLoraConfig,
 };
 use parquet::{
     file::reader::{FileReader, SerializedFileReader},
@@ -99,7 +99,20 @@ const NATIVE_FINETUNE_PREFIXES: &[&str] = &[
 ];
 
 pub fn main_entry() -> ExitCode {
-    match run() {
+    // Match the native parity probes: constructing the full Transformer graph
+    // can exceed Windows' default main-thread stack in unoptimized builds.
+    let result = std::thread::Builder::new()
+        .name("hierarchos-native-cli".to_owned())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(run)
+        .map_err(|error| format!("could not start native CLI worker: {error}"))
+        .and_then(|worker| {
+            worker
+                .join()
+                .map_err(|_| "native CLI worker panicked".to_owned())
+        })
+        .and_then(|result| result);
+    match result {
         Ok(code) => ExitCode::from(code),
         Err(error) => {
             eprintln!("error: {error}");
@@ -142,7 +155,8 @@ fn run() -> Result<u8, String> {
             Ok(2)
         }
         "ckpt-2-inf" => run_ckpt_to_inference(argv),
-        "merge-lora" => run_merge_lora(argv),
+        "merge-lora" => run_merge_lora(argv, false),
+        "unmerge-lora" => run_merge_lora(argv, true),
         other => Err(format!(
             "unknown mode {other:?}; expected train, finetune, transformer-train, transformer-finetune, transformer-generate (aliases: transformer-infer, generate, infer), chat, benchmark, devices, doctor, architectures, pull, quantize, merge-lora, or ckpt-2-inf"
         )),
@@ -156,14 +170,14 @@ Usage:\n\
   hierarchos-native-cli train [--model-path MODEL] --train DATA.jsonl --out-dir OUT [options]\n\
   hierarchos-native-cli finetune --model-path MODEL --train DATA.jsonl --out-dir OUT [options]\n\
   hierarchos-native-cli transformer-train --model-path MODEL --train DATA.jsonl --out-dir OUT [options]\n\
-  hierarchos-native-cli transformer-finetune --model-path MODEL --train DATA.jsonl --out-dir OUT [--lora-rank N] [options]\n\
+  hierarchos-native-cli transformer-finetune --model-path MODEL --train DATA.jsonl --out-dir OUT [--peft --architecture MODEL_TYPE | --full-finetune] [options]\n\
   hierarchos-native-cli transformer-generate --model-path MODEL --prompt TEXT [generation options]\n\
   hierarchos-native-cli infer --model-path MODEL --prompt TEXT [generation options]  # shorthand\n\
   hierarchos-native-cli chat --model-path MODEL [--prompt TEXT] [sampling options]\n\
   hierarchos-native-cli benchmark --model-path MODEL [--prompt TEXT] [--benchmark-iterations N]\n\
   hierarchos-native-cli devices\n\
   hierarchos-native-cli doctor [--json]\n\
-  hierarchos-native-cli architectures [--json]\n\
+  hierarchos-native-cli architectures [--peft] [--json]\n\
   hierarchos-native-cli pull --repo OWNER/REPO --out-dir MODEL [--revision REV]\n\
   hierarchos-native-cli ckpt-2-inf --ckpt-input PACKAGE --inf-output OUT\n\
   hierarchos-native-cli merge-lora --model-path MODEL --lora-adapter-path ADAPTER --out-dir OUT\n\
@@ -1737,6 +1751,33 @@ fn disable_transformer_dropout_fields(config: &mut Value) -> usize {
     changed
 }
 
+fn transformer_uses_peft(
+    mode: &str,
+    full_finetune: bool,
+    peft_switch: bool,
+    lora_rank: Option<usize>,
+    lora_adapter_path: Option<&Path>,
+) -> bool {
+    !full_finetune
+        && (peft_switch
+            || mode == "transformer-finetune"
+            || lora_rank.is_some()
+            || lora_adapter_path.is_some())
+}
+
+fn validate_modules_to_save_qualification(
+    architecture: VulkanTransformerArchitecture,
+    requested: bool,
+) -> Result<(), String> {
+    if requested && !architecture.peft_capability().modules_to_save_validated {
+        return Err(format!(
+            "{} has ordinary LoRA PEFT qualification, but modules_to_save has not passed its independent <=2e-7 gate; use an architecture reported with modules_to_save_validated=true by `architectures --peft --json`",
+            architecture.model_type()
+        ));
+    }
+    Ok(())
+}
+
 fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<u8, String> {
     let mut model_path: Option<PathBuf> = None;
     let mut hf_model: Option<String> = None;
@@ -1761,6 +1802,19 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     let mut beta2 = 0.999f32;
     let mut eps = 1.0e-8f32;
     let mut weight_decay = 0.01f32;
+    let mut peft_switch = false;
+    let mut peft_config_path: Option<PathBuf> = None;
+    let mut peft_parameter_percent: Option<f64> = None;
+    let mut lora_merge = false;
+    let mut lora_target_regex: Option<String> = None;
+    let mut lora_layers: Option<Vec<usize>> = None;
+    let mut lora_layers_pattern = Vec::<String>::new();
+    let mut lora_exclude_modules = Vec::<String>::new();
+    let mut lora_rank_pattern = None;
+    let mut lora_alpha_pattern = None;
+    let mut config_overrides_seen = false;
+    let mut requested_architecture: Option<String> = None;
+    let mut adapter_name = "default".to_owned();
     let mut lora_rank: Option<usize> = None;
     let mut lora_alpha: Option<usize> = None;
     let mut lora_dropout = 0.0f64;
@@ -1770,16 +1824,43 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     let mut lora_use_dora = false;
     let mut lora_use_rslora = false;
     let mut lora_adapter_path: Option<PathBuf> = None;
+    let mut resume_lora_training: Option<PathBuf> = None;
+    let mut save_lora_training: Option<PathBuf> = None;
     let mut seed = 42u64;
     let mut disable_transformer_dropout = false;
+    let mut full_finetune = false;
+    let mut peft_option_seen = false;
     let mut text_options = TextDatasetOptions::default();
 
     while let Some(raw) = argv.pop_front() {
         let key = raw.to_string_lossy().into_owned();
+        peft_option_seen |= key == "--peft"
+            || key == "--adapter-name"
+            || key.starts_with("--peft-")
+            || key.starts_with("--lora")
+            || key == "--peft-adapter"
+            || key == "--resume-lora-training"
+            || key == "--save-lora-training"
+            || matches!(
+                key.as_str(),
+                "--use-dora" | "--use_dora" | "--use-rslora" | "--use_rslora"
+            );
+        config_overrides_seen |= matches!(key.as_str(),
+            "--lora-rank" | "--lora_rank" | "--lora-r" | "--lora_r"
+            | "--lora-alpha" | "--lora_alpha" | "--lora-dropout" | "--lora_dropout"
+            | "--lora-bias" | "--lora_bias" | "--lora-target-module" | "--lora_target_module"
+            | "--lora-target-modules" | "--lora-target-regex" | "--lora-modules-to-save" | "--lora_modules_to_save"
+            | "--lora-layers-to-transform" | "--lora-layers-pattern" | "--lora-exclude-modules"
+            | "--lora-rank-pattern" | "--lora-alpha-pattern"
+            | "--lora-use-dora" | "--lora_use_dora" | "--use-dora" | "--use_dora"
+            | "--lora-use-rslora" | "--lora_use_rslora" | "--use-rslora" | "--use_rslora");
+        if matches!(key.as_str(), "-h" | "--help") {
+            println!("PEFT configuration: --peft-config FILE reads HF adapter_config.json for a NEW adapter. Alternatively use --lora-rank N (aliases --lora-r, --lora_r), --lora-alpha N, --lora-dropout F, --lora-target-modules q_proj,v_proj, --lora-target-regex REGEX, --lora-exclude-modules NAME,..., --lora-layers-to-transform 0,2, --lora-layers-pattern layers, --lora-rank-pattern JSON, --lora-alpha-pattern JSON, and --lora-modules-to-save NAME. Config files and individual config flags are mutually exclusive.\n\n--peft-parameter-percent P chooses the largest uniform rank within P percent of serialized floating base elements (duplicate tied head counted once); supports ordinary LoRA without saved modules or rank patterns. Reports actual native trainable count and achieved percentage. Rank 1 must fit.\n\n--lora-merge (alias --lora-model-merge) automatically exports OUT/merged-model after saving adapter weights and training state. Requires an unsharded base checkpoint and a new merge destination.\n");
+        }
         match key.as_str() {
             "-h" | "--help" => {
                 println!(
-                    "hierarchos-native-cli {mode} (--model-path DIR | --hf-model OWNER/REPO) (--train DATA.jsonl | --hf-dataset OWNER/REPO) --out-dir OUT [--batch-size N] [--seq-len N] [--epochs N] [--lr F] [--device-index N] [--seed N] [--lora-rank N] [--lora-alpha N] [--lora-dropout F] [--lora-bias none|lora_only|all] [--lora-target-module NAME ...] [--lora-modules-to-save NAME ...] [--lora-use-dora] [--lora-use-rslora] [--lora-adapter-path DIR] [--disable-transformer-dropout]\n\nThe model math, stochastic dropout, loss, backpropagation and AdamW step execute in Vulkan. Hugging Face model/dataset/tokenizer I/O, Parquet-to-JSONL conversion, and tokenization execute in Rust; Python and PyTorch are not launched. Supported checkpoint dropout probabilities are honored natively using reproducible counter-based RNG derived from --seed. --disable-transformer-dropout remains an explicit ablation/debug override that zeroes recognized dropout fields for this run and records those zero values on full-model export. Pretokenized cross-attention decoder rows may provide encoder_hidden_states (flat or nested [encoder_sequence, hidden]) and optional encoder_attention_mask; encoder geometry must remain fixed across the dataset."
+                    "hierarchos-native-cli {mode} (--model-path DIR | --hf-model OWNER/REPO) (--train DATA.jsonl | --hf-dataset OWNER/REPO) --out-dir OUT [--batch-size N] [--seq-len N] [--epochs N] [--lr F] [--device-index N] [--seed N] [--peft] [--architecture MODEL_TYPE] [--adapter-name NAME] [--peft-resume DIR] [--save-lora-training DIR] [--full-finetune | --lora-rank N] [--lora-alpha N] [--lora-dropout F] [--lora-bias none|lora_only|all] [--lora-target-module NAME ...] [--lora-modules-to-save NAME ...] [--lora-use-dora] [--lora-use-rslora] [--lora-adapter-path DIR] [--disable-transformer-dropout]\n\ntransformer-train updates all parameters. transformer-finetune defaults to LoRA; --full-finetune instead updates every parameter and exports a complete checkpoint (including Falcon H1/H1R). Full fine-tuning cannot be combined with adapter options. PEFT runs save adapter weights plus AdamW/RNG training state to OUT/training-state by default; use --peft-resume DIR for exact continuation or --save-lora-training DIR to choose another checkpoint directory.\n\nThe model math, stochastic dropout, loss, backpropagation and AdamW step execute in Vulkan. Hugging Face model/dataset/tokenizer I/O, Parquet-to-JSONL conversion, and tokenization execute in Rust; Python and PyTorch are not launched. Supported checkpoint dropout probabilities are honored natively using reproducible counter-based RNG derived from --seed. --disable-transformer-dropout remains an explicit ablation/debug override that zeroes recognized dropout fields for this run and records those zero values on full-model export. Pretokenized cross-attention decoder rows may provide encoder_hidden_states (flat or nested [encoder_sequence, hidden]) and optional encoder_attention_mask; encoder geometry must remain fixed across the dataset."
                 );
                 return Ok(0);
             }
@@ -1836,14 +1917,32 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
             "--beta2" | "--adam-beta2" => beta2 = parse_required(&mut argv, &key)?,
             "--eps" | "--adamw-eps" => eps = parse_required(&mut argv, &key)?,
             "--weight-decay" | "--weight_decay" => weight_decay = parse_required(&mut argv, &key)?,
-            "--lora-rank" | "--lora_rank" => lora_rank = Some(parse_required(&mut argv, &key)?),
+            "--full-finetune" => full_finetune = true,
+            "--peft" => peft_switch = true,
+            "--peft-config" => peft_config_path = Some(PathBuf::from(required(&mut argv, &key)?)),
+            "--peft-parameter-percent" | "--finetune-percent" => peft_parameter_percent = Some(parse_required(&mut argv, &key)?),
+            "--lora-merge" | "--lora-model-merge" | "--model-merge-and-unload" => lora_merge = true,
+            "--lora-target-regex" => lora_target_regex = Some(required_string(&mut argv, &key)?),
+            "--lora-target-modules" => lora_targets.extend(required_string(&mut argv, &key)?.split(',').map(str::to_owned)),
+            "--lora-exclude-modules" => lora_exclude_modules.extend(required_string(&mut argv, &key)?.split(',').map(str::to_owned)),
+            "--lora-layers-to-transform" => {
+                lora_layers = Some(required_string(&mut argv, &key)?.split(',')
+                    .map(|v| v.trim().parse::<usize>().map_err(|_| format!("invalid layer index {v:?}")))
+                    .collect::<Result<Vec<_>, _>>()?);
+            }
+            "--lora-layers-pattern" => lora_layers_pattern.extend(required_string(&mut argv, &key)?.split(',').map(str::to_owned)),
+            "--lora-rank-pattern" => lora_rank_pattern = Some(serde_json::from_str(&required_string(&mut argv, &key)?).map_err(|e| format!("invalid rank pattern: {e}"))?),
+            "--lora-alpha-pattern" => lora_alpha_pattern = Some(serde_json::from_str(&required_string(&mut argv, &key)?).map_err(|e| format!("invalid alpha pattern: {e}"))?),
+            "--architecture" => requested_architecture = Some(required_string(&mut argv, &key)?),
+            "--adapter-name" => adapter_name = required_string(&mut argv, &key)?,
+            "--lora-rank" | "--lora_rank" | "--lora-r" | "--lora_r" => lora_rank = Some(parse_required(&mut argv, &key)?),
             "--lora-alpha" | "--lora_alpha" => lora_alpha = Some(parse_required(&mut argv, &key)?),
             "--lora-dropout" | "--lora_dropout" => lora_dropout = parse_required(&mut argv, &key)?,
             "--lora-bias" | "--lora_bias" => lora_bias = required_string(&mut argv, &key)?,
             "--lora-target-module" | "--lora_target_module" => {
                 lora_targets.push(required_string(&mut argv, &key)?)
             }
-            "--lora-modules-to-save" | "--lora_modules_to_save" => {
+            "--lora-modules-to-save" | "--lora_modules_to_save" | "--modules-to-save" => {
                 lora_modules_to_save.push(required_string(&mut argv, &key)?)
             }
             "--lora-use-dora" | "--lora_use_dora" | "--use-dora" | "--use_dora" => {
@@ -1852,8 +1951,14 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
             "--lora-use-rslora" | "--lora_use_rslora" | "--use-rslora" | "--use_rslora" => {
                 lora_use_rslora = true
             }
-            "--lora-adapter-path" | "--lora_adapter_path" | "--peft-adapter" => {
+            "--lora-adapter-path" | "--lora_adapter_path" | "--peft-adapter" | "--adapter-path" => {
                 lora_adapter_path = Some(PathBuf::from(required(&mut argv, &key)?))
+            }
+            "--peft-resume" | "--resume-lora-training" => {
+                resume_lora_training = Some(PathBuf::from(required(&mut argv, &key)?))
+            }
+            "--save-lora-training" => {
+                save_lora_training = Some(PathBuf::from(required(&mut argv, &key)?))
             }
             "--seed" => seed = parse_required(&mut argv, &key)?,
             "--disable-transformer-dropout" | "--disable_transformer_dropout" => {
@@ -1885,6 +1990,22 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         }
     }
 
+    if full_finetune && peft_option_seen {
+        return Err("--full-finetune cannot be combined with LoRA/PEFT options".to_owned());
+    }
+    if peft_config_path.is_some() && config_overrides_seen {
+        return Err("--peft-config cannot be combined with individual LoRA configuration flags; edit the config file or use direct flags".into());
+    }
+    if peft_parameter_percent.is_some_and(|p| !p.is_finite() || p <= 0.0 || p > 100.0) {
+        return Err("--peft-parameter-percent must be finite and in (0, 100]".into());
+    }
+    if peft_parameter_percent.is_some() && (lora_rank.is_some() || lora_rank_pattern.is_some()) {
+        return Err("--peft-parameter-percent chooses rank automatically; do not supply --lora-rank or --lora-rank-pattern".into());
+    }
+    if lora_target_regex.is_some() && !lora_targets.is_empty() {
+        return Err("--lora-target-regex and --lora-target-module(s) are mutually exclusive".into());
+    }
+    if peft_option_seen && !full_finetune { peft_switch = true; }
     if batch_size == 0 || seq_len == 0 || epochs == 0 {
         return Err(
             "Transformer batch size, sequence length, and epochs must be positive".to_owned(),
@@ -1903,11 +2024,21 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     if tokenizer_path.is_some() && hf_tokenizer.is_some() {
         return Err("--tokenizer-path and --hf-tokenizer are mutually exclusive".to_owned());
     }
+    if let Some(checkpoint) = resume_lora_training.as_ref() {
+        if lora_adapter_path.is_some() || lora_rank.is_some() {
+            return Err(
+                "--resume-lora-training cannot be combined with --lora-adapter-path or --lora-rank"
+                    .into(),
+            );
+        }
+        lora_adapter_path = Some(checkpoint.clone());
+    }
     if lora_adapter_path.is_some() && lora_rank.is_some() {
         return Err("--lora-adapter-path and --lora-rank are mutually exclusive".to_owned());
     }
     if lora_adapter_path.is_some()
-        && (lora_dropout != 0.0
+        && (config_overrides_seen || peft_config_path.is_some() || peft_parameter_percent.is_some()
+            || lora_dropout != 0.0
             || lora_bias != "none"
             || !lora_targets.is_empty()
             || !lora_modules_to_save.is_empty()
@@ -1919,7 +2050,32 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
                 .to_owned(),
         );
     }
+    if peft_switch && lora_adapter_path.is_none() && lora_rank.is_none() {
+        lora_rank = Some(8);
+    }
+    if adapter_name.trim().is_empty() {
+        return Err("--adapter-name must not be empty".into());
+    }
     let output_dir = output_dir.ok_or_else(|| format!("{mode} requires --out-dir"))?;
+    let uses_peft = transformer_uses_peft(
+        mode,
+        full_finetune,
+        peft_switch,
+        lora_rank,
+        lora_adapter_path.as_deref(),
+    );
+    if uses_peft && save_lora_training.is_none() {
+        save_lora_training = Some(output_dir.join("training-state"));
+    }
+    if save_lora_training
+        .as_ref()
+        .is_some_and(|path| path.exists())
+    {
+        return Err("training checkpoint destination already exists; choose a new --out-dir or --save-lora-training directory".into());
+    }
+    if peft_switch && (lora_bias != "none" || lora_use_dora || lora_use_rslora) {
+        return Err("--peft currently qualifies standard LoRA with bias=none; requested variant has not passed this CLI lifecycle gate".into());
+    }
     let uses_hf = hf_model.is_some() || hf_tokenizer.is_some() || hf_dataset.is_some();
     let hf_cache = if uses_hf {
         Some(resolve_hf_cache_root(hf_cache_dir.as_deref())?)
@@ -1940,6 +2096,56 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     } else {
         model_path.expect("validated model path")
     };
+    let package_config = VulkanTransformerConfig::from_hf_config(model_dir.join("config.json"))
+        .map_err(|error| format!("invalid input architecture: {error:#}"))?;
+    let mut file_peft_config = peft_config_path.as_ref().map(|path|
+        VulkanTransformerLoraConfig::from_config_file(path)
+            .map_err(|e| format!("invalid --peft-config: {e:#}"))).transpose()?;
+    if let Some(config) = file_peft_config.as_mut() {
+        config.inference_mode = false;
+        if config.bias != "none" || config.use_dora || config.use_rslora {
+            return Err("CLI training currently qualifies standard LoRA with bias=none; requested config variant has not passed the CLI lifecycle gate".into());
+        }
+    }
+    if lora_merge {
+        if !model_dir.join("model.safetensors").is_file() {
+            return Err("--lora-merge requires a single model.safetensors base checkpoint (sharded merge is not yet supported)".into());
+        }
+        if output_dir.join("merged-model").exists() {
+            return Err("merged-model destination already exists; choose a new --out-dir".into());
+        }
+    }
+    if let Some(expected) = requested_architecture.as_deref() {
+        if expected != package_config.architecture.model_type() {
+            return Err(format!("--architecture {expected} does not match input package model_type {}; select the matching model package", package_config.architecture.model_type()));
+        }
+    }
+    let peft_capability = package_config.architecture.peft_capability();
+    if uses_peft && !peft_capability.supports_peft {
+        return Err(format!("{} has not passed the independent base/PEFT qualification gates; use `architectures --peft` to list validated choices", package_config.architecture.model_type()));
+    }
+    if uses_peft {
+        let loaded_modules_to_save = if let Some(adapter_dir) = lora_adapter_path.as_deref() {
+            let adapter_config = VulkanTransformerLoraConfig::from_adapter_dir(adapter_dir)
+                .map_err(|error| {
+                    format!(
+                        "could not validate PEFT adapter {} before training: {error:#}",
+                        adapter_dir.display()
+                    )
+                })?;
+            adapter_config
+                .modules_to_save
+                .as_ref()
+                .is_some_and(|modules| !modules.is_empty())
+        } else {
+            false
+        };
+        validate_modules_to_save_qualification(
+            package_config.architecture,
+            !lora_modules_to_save.is_empty() || loaded_modules_to_save
+                || file_peft_config.as_ref().is_some_and(|c| c.modules_to_save.as_ref().is_some_and(|v| !v.is_empty())),
+        )?;
+    }
     let tokenizer_override = if let Some(repo) = hf_tokenizer.as_deref() {
         Some(fetch_hf_tokenizer_assets(
             repo,
@@ -2062,19 +2268,25 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     }
     graph.set_dropout_seed((seed as u32) ^ ((seed >> 32) as u32));
 
+    let mut parameter_budget = None;
     if let Some(adapter_dir) = lora_adapter_path.as_deref() {
-        let count = graph.load_lora_adapter(adapter_dir).map_err(|error| {
-            format!(
-                "could not load PEFT adapter {}: {error:#}",
-                adapter_dir.display()
-            )
-        })?;
+        // PEFT save_pretrained() serializes inference_mode=true. Resuming
+        // native fine-tuning must explicitly override that saved flag, just
+        // like PeftModel.from_pretrained(..., is_trainable=true).
+        let count = graph
+            .load_lora_adapter_named_for_training(&adapter_name, adapter_dir)
+            .map_err(|error| {
+                format!(
+                    "could not load PEFT adapter {}: {error:#}",
+                    adapter_dir.display()
+                )
+            })?;
         eprintln!(
             "Vulkan PEFT: resumed {count} LoRA module(s) from {}",
             adapter_dir.display()
         );
     } else {
-        if mode == "transformer-finetune" && lora_rank.is_none() {
+        if mode == "transformer-finetune" && !full_finetune && lora_rank.is_none() {
             lora_rank = Some(8);
         }
         if let Some(rank) = lora_rank {
@@ -2087,7 +2299,10 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
             } else {
                 lora_targets
             };
-            let alpha = lora_alpha.unwrap_or(rank * 2);
+            let alpha = match lora_alpha {
+                Some(alpha) => alpha,
+                None => rank.checked_mul(2).ok_or("LoRA alpha overflow")?,
+            };
             let fan_in_fan_out = matches!(
                 graph.config().architecture,
                 VulkanTransformerArchitecture::Gpt2 | VulkanTransformerArchitecture::GptSw3
@@ -2102,8 +2317,27 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
                 (!lora_modules_to_save.is_empty()).then_some(lora_modules_to_save);
             config.use_dora = lora_use_dora;
             config.use_rslora = lora_use_rslora;
+            config.layers_to_transform = lora_layers;
+            config.layers_pattern = lora_layers_pattern;
+            config.exclude_modules = lora_exclude_modules;
+            if let Some(pattern) = lora_target_regex {
+                config.target_modules.clear();
+                config.target_modules_regex = Some(pattern);
+            }
+            if let Some(pattern) = lora_rank_pattern { config.rank_pattern = pattern; }
+            if let Some(pattern) = lora_alpha_pattern { config.alpha_pattern = pattern; }
+            if let Some(file_config) = file_peft_config { config = file_config; }
+            if let Some(percent) = peft_parameter_percent {
+                let (rank, base, budget) = graph.lora_rank_for_parameter_budget(&config, &model_dir, percent)
+                    .map_err(|e| format!("cannot plan PEFT parameter budget: {e:#}"))?;
+                config.r = rank;
+                if lora_alpha.is_none() && peft_config_path.is_none() {
+                    config.lora_alpha = rank.checked_mul(2).ok_or("LoRA alpha overflow")?;
+                }
+                parameter_budget = Some((base, budget, percent));
+            }
             let count = graph
-                .enable_lora(config, seed)
+                .enable_lora_named(&adapter_name, config, seed)
                 .map_err(|error| format!("could not enable Vulkan PEFT: {error:#}"))?;
             eprintln!(
                 "Vulkan PEFT: attached {count} LoRA module(s); base {:?} parameters are frozen",
@@ -2112,13 +2346,36 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         }
     }
 
-    let hyper = AdamWHyperParams {
+    if uses_peft {
+        let count = graph.lora_trainable_parameter_count().map_err(|e| format!("cannot count trainable adapter parameters: {e:#}"))?;
+        if let Some((base, budget, requested)) = parameter_budget {
+            if count > budget {
+                return Err(format!("native adapter has {count} trainable elements, exceeding planned budget {budget}; training has not started"));
+            }
+            eprintln!("Vulkan PEFT: trainable={count} base_elements={base} achieved_percent={:.6} requested_percent={requested} rank={}",
+                count as f64 * 100.0 / base as f64, graph.lora_config().unwrap().r);
+        } else {
+            eprintln!("Vulkan PEFT: trainable_parameters={count}");
+        }
+    }
+
+    let mut hyper = AdamWHyperParams {
         lr,
         beta1,
         beta2,
         eps,
         weight_decay,
     };
+    if let Some(checkpoint) = resume_lora_training.as_deref() {
+        hyper = graph
+            .load_lora_optimizer_state(checkpoint)
+            .map_err(|e| format!("could not resume LoRA optimizer: {e:#}"))?;
+        eprintln!(
+            "Restored LoRA AdamW/RNG state at step {} with saved optimizer settings {:?}",
+            graph.step(),
+            hyper
+        );
+    }
     let mut total_steps = 0usize;
     for epoch in 0..epochs {
         let (steps, mean_loss) =
@@ -2136,6 +2393,11 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         );
     }
 
+    if let Some(checkpoint) = save_lora_training.as_deref() {
+        graph
+            .save_lora_training_checkpoint(checkpoint, hyper)
+            .map_err(|e| format!("could not save LoRA training checkpoint: {e:#}"))?;
+    }
     if graph.lora_config().is_some() {
         graph
             .export_lora_adapter(&output_dir)
@@ -2164,6 +2426,15 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         total_steps,
         output_dir.display()
     );
+    if lora_merge {
+        // Preserve adapter and optimizer state before publishing the standalone model.
+        drop(graph);
+        run_merge_lora(VecDeque::from([
+            OsString::from("--model-path"), model_dir.into_os_string(),
+            OsString::from("--lora-adapter-path"), output_dir.clone().into_os_string(),
+            OsString::from("--out-dir"), output_dir.join("merged-model").into_os_string(),
+        ]), false)?;
+    }
     Ok(0)
 }
 
@@ -3785,6 +4056,8 @@ struct TransformerGenerateOptions {
     hf_model: Option<String>,
     hf_model_revision: String,
     hf_cache_dir: Option<PathBuf>,
+    lora_adapter_path: Option<PathBuf>,
+    adapter_name: String,
     prompts: Vec<String>,
     prompt_file: Option<PathBuf>,
     generation_config: Option<PathBuf>,
@@ -3860,6 +4133,8 @@ fn parse_transformer_generate_options(
     let mut hf_model = None;
     let mut hf_model_revision = "main".to_owned();
     let mut hf_cache_dir = None;
+    let mut lora_adapter_path = None;
+    let mut adapter_name = "default".to_owned();
     let mut prompts = Vec::new();
     let mut prompt_file = None;
     let mut generation_config = None;
@@ -3875,11 +4150,12 @@ fn parse_transformer_generate_options(
         match key.as_str() {
             "-h" | "--help" => {
                 println!(
-                    "hierarchos-native-cli transformer-generate (--model-path MODEL | --hf-model OWNER/REPO) (--prompt TEXT [--prompt TEXT ...] | --prompt-file FILE) [options]\n\n\
+                    "hierarchos-native-cli transformer-generate (--model-path MODEL | --hf-model OWNER/REPO) (--prompt TEXT [--prompt TEXT ...] | --prompt-file FILE) [--lora-adapter-path ADAPTER] [--adapter-name NAME] [options]\n\n\
 Generation config precedence: model config.json < package generation_config.json < --generation-config FILE < CLI overrides.\n\
 Common overrides: --max-new-tokens N --max-length N --min-new-tokens N --min-length N --do-sample/--no-do-sample --temperature F --top-k N --top-p F --top-h F --min-p F --typical-p F --epsilon-cutoff F --eta-cutoff F --repetition-penalty F --sequence-bias JSON --exponential-decay-length-penalty JSON --num-beams N --num-return-sequences N --length-penalty F --early-stopping/--no-early-stopping --no-repeat-ngram-size N --bad-words-ids JSON --suppress-tokens IDS --begin-suppress-tokens IDS --forced-bos-token-id N --forced-eos-token-id IDS --eos-token-id IDS --seed N.\n\
 Generation execution: --use-cache/--no-use-cache --cache-implementation NAME (for example dynamic, static, or paged) --continuous-batching [--continuous-batch-max-requests N] --renormalize-logits/--no-renormalize-logits --remove-invalid-values/--no-remove-invalid-values --early-stopping-never. Repeating --prompt creates a request batch; continuous batching is opt-in and implies the native paged KV cache.\n\
-Runtime options: --context-length N --device-index N --no-add-special-tokens --keep-special-tokens --hf-model-revision REV --hf-cache-dir DIR."
+Runtime options: --context-length N --device-index N --no-add-special-tokens --keep-special-tokens --hf-model-revision REV --hf-cache-dir DIR.\n\
+PEFT inference: --lora-adapter-path/--peft-adapter loads an unmerged HF-compatible adapter natively; --adapter-name controls its in-memory name. Only architectures reported by `architectures --peft` are accepted."
                 );
                 return Err("__help__".to_owned());
             }
@@ -3889,6 +4165,10 @@ Runtime options: --context-length N --device-index N --no-add-special-tokens --k
             "--hf-model" => hf_model = Some(required_string(&mut argv, &key)?),
             "--hf-model-revision" => hf_model_revision = required_string(&mut argv, &key)?,
             "--hf-cache-dir" => hf_cache_dir = Some(PathBuf::from(required(&mut argv, &key)?)),
+            "--lora-adapter-path" | "--lora_adapter_path" | "--peft-adapter" => {
+                lora_adapter_path = Some(PathBuf::from(required(&mut argv, &key)?))
+            }
+            "--adapter-name" => adapter_name = required_string(&mut argv, &key)?,
             "--prompt" => prompts.push(required_string(&mut argv, &key)?),
             "--prompt-file" => prompt_file = Some(PathBuf::from(required(&mut argv, &key)?)),
             "--generation-config" => {
@@ -4070,11 +4350,19 @@ Runtime options: --context-length N --device-index N --no-add-special-tokens --k
     if context_length == Some(0) {
         return Err("--context-length must be positive".to_owned());
     }
+    if adapter_name.trim().is_empty() {
+        return Err("--adapter-name must not be empty".to_owned());
+    }
+    if lora_adapter_path.is_none() && adapter_name != "default" {
+        return Err("--adapter-name requires --lora-adapter-path/--peft-adapter".to_owned());
+    }
     Ok(TransformerGenerateOptions {
         model_path,
         hf_model,
         hf_model_revision,
         hf_cache_dir,
+        lora_adapter_path,
+        adapter_name,
         prompts,
         prompt_file,
         generation_config,
@@ -4247,6 +4535,44 @@ fn run_transformer_generate(argv: VecDeque<OsString>) -> Result<u8, String> {
             model_config.architecture
         ));
     }
+    if options.lora_adapter_path.is_some() {
+        if is_encoder_decoder {
+            return Err(
+                "PEFT adapter generation is currently qualified only for decoder-only architectures"
+                    .to_owned(),
+            );
+        }
+        if !model_config.architecture.peft_capability().supports_peft {
+            return Err(format!(
+                "{} has not passed the independent base/PEFT qualification gates; use `architectures --peft` to list validated choices",
+                model_config.architecture.model_type()
+            ));
+        }
+        let adapter_dir = options
+            .lora_adapter_path
+            .as_deref()
+            .expect("checked PEFT adapter path");
+        if !adapter_dir.is_dir() {
+            return Err(format!(
+                "PEFT adapter directory does not exist: {}",
+                adapter_dir.display()
+            ));
+        }
+        let adapter_config = VulkanTransformerLoraConfig::from_adapter_dir(adapter_dir)
+            .map_err(|error| {
+                format!(
+                    "could not read PEFT adapter configuration {}: {error:#}",
+                    adapter_dir.display()
+                )
+            })?;
+        validate_modules_to_save_qualification(
+            model_config.architecture,
+            adapter_config
+                .modules_to_save
+                .as_ref()
+                .is_some_and(|modules| !modules.is_empty()),
+        )?;
+    }
     let tokenizer_path = model_dir.join("tokenizer.json");
     let tokenizer = Tokenizer::from_file(&tokenizer_path)
         .map_err(|error| format!("could not load {}: {error}", tokenizer_path.display()))?;
@@ -4381,8 +4707,24 @@ fn run_transformer_generate(argv: VecDeque<OsString>) -> Result<u8, String> {
             .generate_sequences_ids(prompt_ids, None, &generation_config)
             .map_err(|error| format!("Vulkan EncoderDecoder generation failed: {error:#}"))?]
     } else {
-        let graph = VulkanTransformer::from_hf_package(device, &model_dir, 1, context_length)
+        let mut graph = VulkanTransformer::from_hf_package(device, &model_dir, 1, context_length)
             .map_err(|error| format!("could not build Vulkan Transformer graph: {error:#}"))?;
+        if let Some(adapter_dir) = options.lora_adapter_path.as_deref() {
+            let count = graph
+                .load_lora_adapter_named(&options.adapter_name, adapter_dir)
+                .map_err(|error| {
+                    format!(
+                        "could not load PEFT adapter {} as {:?}: {error:#}",
+                        adapter_dir.display(),
+                        options.adapter_name
+                    )
+                })?;
+            eprintln!(
+                "Vulkan PEFT: loaded {count} LoRA module(s) from {} as {:?}",
+                adapter_dir.display(),
+                options.adapter_name
+            );
+        }
         if prompt_ids.len() == 1 && generation_config.continuous_batching_config.is_none() {
             vec![graph
                 .generate_sequences_ids(&prompt_ids[0], &generation_config)
@@ -4951,22 +5293,60 @@ fn run_devices(argv: VecDeque<OsString>) -> Result<u8, String> {
 
 fn run_architectures(mut argv: VecDeque<OsString>) -> Result<u8, String> {
     let mut json_output = false;
+    let mut peft_only = false;
     while let Some(arg) = argv.pop_front() {
         match arg.to_string_lossy().as_ref() {
             "-h" | "--help" => {
                 println!(
-                    "hierarchos-native-cli architectures [--json]\n\n\
+                    "hierarchos-native-cli architectures [--peft] [--json]\n\n\
 Lists the Hugging Face model_type contracts recognized by the native Vulkan Transformer backend.\n\
 Canonical entries are native graph contracts. Package aliases are wrapper/config spellings that\n\
-resolve to one of those native text graphs; they do not imply native vision/audio preprocessing."
+resolve to one of those native text graphs; they do not imply native vision/audio preprocessing.\n\
+Pass --peft to list only architectures that passed the separate PEFT gate; --json also reports\n\
+whether modules_to_save has independently passed its <=2e-7 qualification."
                 );
                 return Ok(0);
             }
+            "--peft" => peft_only = true,
             "--json" => json_output = true,
             other => return Err(format!("unsupported architectures argument {other:?}")),
         }
     }
 
+    if peft_only {
+        let rows = VulkanTransformerArchitecture::ALL
+            .iter()
+            .filter(|a| a.peft_capability().supports_peft)
+            .map(|a| {
+                let c = a.peft_capability();
+                json!({
+                    "architecture": a.model_type(), "validated_methods": c.validated_methods,
+                    "modules_to_save_validated": c.modules_to_save_validated,
+                    "exclusions": c.exclusions, "evidence": c.evidence,
+                })
+            })
+            .collect::<Vec<_>>();
+        if json_output {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&rows).map_err(|e| e.to_string())?
+            );
+        } else {
+            println!("Native PEFT architectures (separate base and PEFT <=2e-7 gates):");
+            for row in rows {
+                println!(
+                    "  {}: LoRA, modules_to_save={}",
+                    row["architecture"].as_str().unwrap_or(""),
+                    if row["modules_to_save_validated"].as_bool().unwrap_or(false) {
+                        "qualified"
+                    } else {
+                        "not-qualified"
+                    }
+                );
+            }
+        }
+        return Ok(0);
+    }
     let mut canonical = VulkanTransformerArchitecture::ALL
         .iter()
         .map(|architecture| architecture.model_type())
@@ -5093,7 +5473,7 @@ hierarchos-vulkan-train binary. HIERARCHOS_VULKAN_BIN_DIR may point to a separat
     Ok(0)
 }
 
-fn run_merge_lora(mut argv: VecDeque<OsString>) -> Result<u8, String> {
+fn run_merge_lora(mut argv: VecDeque<OsString>, unmerge: bool) -> Result<u8, String> {
     let mut model_path: Option<PathBuf> = None;
     let mut adapter_path: Option<PathBuf> = None;
     let mut output_dir: Option<PathBuf> = None;
@@ -5105,10 +5485,10 @@ fn run_merge_lora(mut argv: VecDeque<OsString>) -> Result<u8, String> {
             "-h" | "--help" => {
                 println!(
                     "hierarchos-native-cli merge-lora --model-path MODEL --lora-adapter-path ADAPTER --out-dir OUT [--overwrite-merge-output]\n\n\
-Merges a bound Hierarchos PEFT-LoRA SafeTensors adapter into a standalone model package.\n\
+Merges an HF PEFT-LoRA SafeTensors adapter into a standalone model package.\n\
 The merge is pure Rust: no Python, PyTorch, PEFT runtime, CUDA runtime, or pickle loader is used.\n\
-The adapter manifest must cryptographically bind the adapter to the exact base checkpoint and\n\
-architecture contract. Standard LoRA, RS-LoRA scaling, rank/alpha patterns, fan-in/fan-out, and\n\
+When present, a Hierarchos adapter manifest must bind the exact base checkpoint and\n\
+architecture contract. Standard HF adapters do not require a manifest. LoRA, RS-LoRA, rank/alpha patterns, fan-in/fan-out, and\n\
 the project's optional saved LTM module are supported."
                 );
                 return Ok(0);
@@ -5131,6 +5511,19 @@ the project's optional saved LTM module are supported."
     let adapter_path = adapter_path.ok_or("merge-lora requires --lora-adapter-path ADAPTER")?;
     let output_dir = output_dir.ok_or("merge-lora requires --out-dir OUT")?;
     let source_dir = native_model_package_dir(&model_path)?;
+    let hf_transformer = source_dir.join("config.json").is_file()
+        && !source_dir.join("hierarchos_rust_config.json").is_file();
+    if hf_transformer && !source_dir.join("model.safetensors").is_file() {
+        return Err("LoRA checkpoint merge requires a single model.safetensors file; sharded checkpoints are not yet supported".into());
+    }
+    if output_dir.exists()
+        && fs::canonicalize(&output_dir).map_err(|e| e.to_string())?
+            == fs::canonicalize(&source_dir).map_err(|e| e.to_string())?
+    {
+        return Err(
+            "LoRA merge/unmerge output must be distinct from the base model package".into(),
+        );
+    }
     if !adapter_path.is_dir() {
         return Err(format!(
             "LoRA adapter directory does not exist: {}",
@@ -5183,15 +5576,30 @@ the project's optional saved LTM module are supported."
                 staging_dir.display()
             )
         })?;
-        copy_native_package_assets(&source_dir, &staging_dir, false)?;
+        if hf_transformer {
+            for name in std::iter::once("config.json").chain(TOKENIZER_ASSETS.iter().copied()) {
+                let source = source_dir.join(name);
+                if source.is_file() {
+                    fs::copy(&source, staging_dir.join(name))
+                        .map_err(|e| format!("copying {}: {e}", source.display()))?;
+                }
+            }
+        } else {
+            copy_native_package_assets(&source_dir, &staging_dir, false)?;
+        }
         let base_weights = source_dir.join("model.safetensors");
         let merged_weights = staging_dir.join("model.safetensors");
-        let report =
-            merge_hierarchos_lora_safetensors(&base_weights, &adapter_path, &merged_weights)
-                .map_err(|error| format!("native LoRA merge failed: {error:#}"))?;
+        let operation = if unmerge {
+            unmerge_peft_lora_safetensors
+        } else {
+            merge_peft_lora_safetensors
+        };
+        let report = operation(&base_weights, &adapter_path, &merged_weights)
+            .map_err(|error| format!("native LoRA merge failed: {error:#}"))?;
 
         let provenance = json!({
             "format": "hierarchos-native-lora-merge-v1",
+            "operation": if unmerge { "unmerge" } else { "merge" },
             "merge_runtime": "rust-native",
             "training_runtime": "vulkan",
             "base_checkpoint_sha256": report.base_checkpoint_sha256,
@@ -5209,7 +5617,23 @@ the project's optional saved LTM module are supported."
 
         // This validates configuration, tokenizer, architecture, and every model
         // tensor expected by the native inference runtime before publication.
-        let _ = NativeSession::load(&staging_dir)?;
+        if hf_transformer {
+            let validation_dir = staging_dir.clone();
+            std::thread::Builder::new()
+                .stack_size(16 * 1024 * 1024)
+                .spawn(move || -> Result<(), String> {
+                    let device = VulkanDevice::new()
+                        .map_err(|e| format!("Vulkan merge validation: {e:#}"))?;
+                    let _graph = VulkanTransformer::from_hf_package(device, &validation_dir, 1, 1)
+                        .map_err(|e| format!("merged Transformer validation: {e:#}"))?;
+                    Ok(())
+                })
+                .map_err(|e| e.to_string())?
+                .join()
+                .map_err(|_| "merged Transformer validation panicked".to_owned())??;
+        } else {
+            let _ = NativeSession::load(&staging_dir)?;
+        }
         Ok(report)
     })();
 
@@ -5222,7 +5646,11 @@ the project's optional saved LTM module are supported."
     };
 
     publish_staged_directory(&staging_dir, &output_dir, overwrite)?;
-    println!("native LoRA merge complete: {}", output_dir.display());
+    println!(
+        "native LoRA {} complete: {}",
+        if unmerge { "unmerge" } else { "merge" },
+        output_dir.display()
+    );
     println!(
         "merged_modules={} saved_module_tensors={} architecture_contract_sha256={}",
         report.merged_lora_modules,
@@ -5514,6 +5942,106 @@ mod tests {
     use super::*;
 
     #[test]
+    fn full_finetune_rejects_adapter_options_before_io() {
+        for option in [
+            "--lora-rank",
+            "--lora-alpha",
+            "--lora-dropout",
+            "--lora-bias",
+            "--peft-adapter",
+        ] {
+            let args = [
+                "--full-finetune",
+                option,
+                if option == "--lora-bias" { "none" } else { "0" },
+            ]
+            .into_iter()
+            .map(OsString::from)
+            .collect();
+            let error = run_transformer_training("transformer-finetune", args).unwrap_err();
+            assert!(error.contains("cannot be combined"), "{option}: {error}");
+        }
+    }
+
+    #[test]
+    fn peft_cli_rejects_ambiguous_configs_and_invalid_budgets_before_io() {
+        for (args, expected) in [
+            (vec!["--peft-config", "config.json", "--lora-r", "4"], "cannot be combined"),
+            (vec!["--peft-parameter-percent", "NaN"], "finite"),
+            (vec!["--peft-parameter-percent", "0"], "finite"),
+            (vec!["--peft-parameter-percent", "101"], "finite"),
+            (vec!["--peft-parameter-percent", "1", "--lora-rank", "4"], "chooses rank"),
+            (vec!["--lora-target-regex", ".*", "--lora-target-modules", "q_proj"], "mutually exclusive"),
+            (vec!["--full-finetune", "--lora-merge"], "cannot be combined"),
+            (vec!["--full-finetune", "--peft-parameter-percent", "1"], "cannot be combined"),
+        ] {
+            let error = run_transformer_training("transformer-finetune", args.into_iter().map(OsString::from).collect()).unwrap_err();
+            assert!(error.contains(expected), "{error}");
+        }
+    }
+
+    #[test]
+    fn transformer_peft_mode_includes_implicit_finetune_and_resume() {
+        assert!(transformer_uses_peft(
+            "transformer-finetune",
+            false,
+            false,
+            None,
+            None
+        ));
+        assert!(transformer_uses_peft(
+            "transformer-train",
+            false,
+            true,
+            None,
+            None
+        ));
+        assert!(transformer_uses_peft(
+            "transformer-train",
+            false,
+            false,
+            Some(4),
+            None
+        ));
+        assert!(transformer_uses_peft(
+            "transformer-train",
+            false,
+            false,
+            None,
+            Some(Path::new("adapter"))
+        ));
+        assert!(!transformer_uses_peft(
+            "transformer-finetune",
+            true,
+            false,
+            None,
+            None
+        ));
+    }
+
+    #[test]
+    fn modules_to_save_requires_its_separate_registry_gate() {
+        validate_modules_to_save_qualification(VulkanTransformerArchitecture::Gpt2, true)
+            .expect("GPT-2 modules_to_save is qualified");
+        validate_modules_to_save_qualification(VulkanTransformerArchitecture::Llama, true)
+            .expect("Llama modules_to_save is qualified");
+        validate_modules_to_save_qualification(VulkanTransformerArchitecture::Qwen3Next, true)
+            .expect("Qwen3-Next modules_to_save is qualified");
+        validate_modules_to_save_qualification(VulkanTransformerArchitecture::Mixtral, true)
+            .expect("Mixtral modules_to_save is independently qualified");
+        for architecture in [VulkanTransformerArchitecture::Gemma3, VulkanTransformerArchitecture::Gemma4] {
+            validate_modules_to_save_qualification(architecture, true)
+                .expect("Gemma saved-module gate is independently qualified");
+        }
+        validate_modules_to_save_qualification(VulkanTransformerArchitecture::Mixtral, false)
+            .expect("ordinary Mixtral LoRA remains qualified");
+        let error =
+            validate_modules_to_save_qualification(VulkanTransformerArchitecture::Bert, true)
+                .expect_err("an unqualified family must remain fail-closed");
+        assert!(error.contains("modules_to_save has not passed"), "{error}");
+    }
+
+    #[test]
     fn transformer_generate_cli_exposes_hf_generation_overrides() {
         let args = VecDeque::from(
             [
@@ -5599,6 +6127,41 @@ mod tests {
             json!([9, 11])
         );
         assert_eq!(options.generation_overrides["seed"], json!(42));
+    }
+
+    #[test]
+    fn transformer_generate_cli_accepts_named_peft_adapter() {
+        let args = VecDeque::from(
+            [
+                "--model-path",
+                "model",
+                "--prompt",
+                "hello",
+                "--peft-adapter",
+                "adapter",
+                "--adapter-name",
+                "smoke",
+            ]
+            .into_iter()
+            .map(OsString::from)
+            .collect::<Vec<_>>(),
+        );
+        let options = parse_transformer_generate_options(args).expect("parse PEFT generation CLI");
+        assert_eq!(options.lora_adapter_path.as_deref(), Some(Path::new("adapter")));
+        assert_eq!(options.adapter_name, "smoke");
+    }
+
+    #[test]
+    fn transformer_generate_cli_rejects_adapter_name_without_adapter() {
+        let args = VecDeque::from(
+            ["--model-path", "model", "--prompt", "hello", "--adapter-name", "smoke"]
+                .into_iter()
+                .map(OsString::from)
+                .collect::<Vec<_>>(),
+        );
+        let error = parse_transformer_generate_options(args)
+            .expect_err("custom adapter name without an adapter must fail closed");
+        assert!(error.contains("--adapter-name requires"), "{error}");
     }
 
     #[test]

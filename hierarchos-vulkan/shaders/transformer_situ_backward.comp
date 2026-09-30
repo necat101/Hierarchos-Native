@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_tanh.glsl"
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -23,7 +25,7 @@ void main() {
     float up = up_values[index];
     float grad = grad_output[index];
 
-    float gate_tanh = tanh(gate / pc.beta);
+    float gate_tanh = fp32_tanh(gate / pc.beta);
     float sigmoid_gate = 1.0 / (1.0 + exp(-gate));
     float situ_gate = pc.beta * gate_tanh * sigmoid_gate;
     float d_gate_tanh = 1.0 - gate_tanh * gate_tanh;
@@ -33,7 +35,7 @@ void main() {
     float situ_up = up;
     float d_situ_up = 1.0;
     if (pc.use_linear_beta != 0u) {
-        float up_tanh = tanh(up / pc.linear_beta);
+        float up_tanh = fp32_tanh(up / pc.linear_beta);
         situ_up = pc.linear_beta * up_tanh;
         d_situ_up = 1.0 - up_tanh * up_tanh;
     }

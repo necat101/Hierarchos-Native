@@ -2091,8 +2091,9 @@ impl HierarchosTokenFrontendOp {
             &self.grad_persistent_readback,
             self.config.persistent_dim,
         )?;
+        let lm_head_gradient = self.embedding.shared_parameter().gradient_buffer()?;
         commands.readback_f32(
-            self.embedding.shared_parameter().gradient_buffer(),
+            &lm_head_gradient,
             &self.grad_lm_head_readback,
             lm_head_len,
         )?;
@@ -2335,8 +2336,9 @@ impl HierarchosTokenFrontendOp {
             &self.grad_in_proj_bias_readback,
             self.config.context_dim,
         )?;
+        let lm_head_gradient = self.embedding.shared_parameter().gradient_buffer()?;
         commands.readback_f32(
-            self.embedding.shared_parameter().gradient_buffer(),
+            &lm_head_gradient,
             &self.grad_lm_head_readback,
             lm_head_len,
         )?;

@@ -14,6 +14,7 @@ use eframe::egui;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Workflow {
     TransformerTrain,
+    TransformerFullFinetune,
     TransformerFinetune,
     HierarchosTrain,
     HierarchosFinetune,
@@ -25,6 +26,7 @@ impl Workflow {
     fn cli_mode(self) -> &'static str {
         match self {
             Self::TransformerTrain => "transformer-train",
+            Self::TransformerFullFinetune => "transformer-finetune",
             Self::TransformerFinetune => "transformer-finetune",
             Self::HierarchosTrain => "train",
             Self::HierarchosFinetune => "finetune",
@@ -36,6 +38,7 @@ impl Workflow {
     fn label(self) -> &'static str {
         match self {
             Self::TransformerTrain => "Transformer full training",
+            Self::TransformerFullFinetune => "Transformer full-parameter fine-tuning",
             Self::TransformerFinetune => "Transformer LoRA fine-tuning",
             Self::HierarchosTrain => "Hierarchos training",
             Self::HierarchosFinetune => "Hierarchos fine-tuning",
@@ -47,7 +50,10 @@ impl Workflow {
     fn is_transformer(self) -> bool {
         matches!(
             self,
-            Self::TransformerTrain | Self::TransformerFinetune | Self::TransformerGenerate
+            Self::TransformerTrain
+                | Self::TransformerFullFinetune
+                | Self::TransformerFinetune
+                | Self::TransformerGenerate
         )
     }
 
@@ -55,6 +61,7 @@ impl Workflow {
         matches!(
             self,
             Self::TransformerTrain
+                | Self::TransformerFullFinetune
                 | Self::TransformerFinetune
                 | Self::HierarchosTrain
                 | Self::HierarchosFinetune
@@ -269,6 +276,9 @@ impl NativeApp {
                 "--device-index".to_owned(),
                 self.device_index.trim().to_owned(),
             ]);
+        }
+        if self.mode == Workflow::TransformerFullFinetune {
+            args.push("--full-finetune".to_owned());
         }
         if self.mode == Workflow::TransformerFinetune && !self.lora_rank.trim().is_empty() {
             push_positive(&mut args, "--lora-rank", &self.lora_rank)?;
@@ -515,6 +525,7 @@ impl eframe::App for NativeApp {
                     .show_ui(ui, |ui| {
                         for mode in [
                             Workflow::TransformerTrain,
+                            Workflow::TransformerFullFinetune,
                             Workflow::TransformerFinetune,
                             Workflow::TransformerGenerate,
                             Workflow::HierarchosTrain,
@@ -934,6 +945,59 @@ fn quote_preview(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn full_parameter_finetune_is_distinct_from_lora() {
+        let mut app = NativeApp::default();
+        app.mode = Workflow::TransformerFullFinetune;
+        app.hf_model = true;
+        app.model = "tiiuae/Falcon-H1R-7B".to_owned();
+        app.hf_dataset = true;
+        app.dataset = "owner/dataset".to_owned();
+        app.output = "trained-falcon".to_owned();
+        let args = app.build_args().unwrap();
+        assert_eq!(args[0], "transformer-finetune");
+        assert!(args.iter().any(|a| a == "--full-finetune"));
+        assert!(!args.iter().any(|a| a.starts_with("--lora")));
+        app.mode = Workflow::TransformerFinetune;
+        let args = app.build_args().unwrap();
+        assert!(!args.iter().any(|a| a == "--full-finetune"));
+    }
+
+    // Exercises the same argument builder and native child process as Start,
+    // using a deterministic local checkpoint produced by verify_falcon_h1.py.
+    #[test]
+    #[ignore = "requires FALCON_H1_SMOKE_ROOT and HIERARCHOS_NATIVE_CLI"]
+    fn falcon_h1_native_training_finetuning_and_generation() {
+        let root = PathBuf::from(env::var_os("FALCON_H1_SMOKE_ROOT").expect("fixture root"));
+        let cli = env::var_os("HIERARCHOS_NATIVE_CLI").expect("CLI executable");
+        let mut app = NativeApp::default();
+        app.hf_model = false;
+        app.hf_dataset = false;
+        app.model = root.join("gated_after").display().to_string();
+        app.dataset = root.join("frontend-data.jsonl").display().to_string();
+        app.epochs = "2".to_owned();
+        app.batch_size = "1".to_owned();
+        app.seq_len = "7".to_owned();
+        app.learning_rate = "0.0002".to_owned();
+        for (mode, output) in [(Workflow::TransformerTrain, "gui-trained"),
+                               (Workflow::TransformerFullFinetune, "gui-finetuned")] {
+            app.mode = mode;
+            app.output = root.join(output).display().to_string();
+            let result = Command::new(&cli).args(app.build_args().unwrap()).output().unwrap();
+            assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+            assert!(root.join(output).join("model.safetensors").is_file());
+            app.model = app.output.clone();
+        }
+        app.mode = Workflow::TransformerGenerate;
+        app.prompt = "t1 t5 t9".to_owned();
+        app.max_new_tokens = "5".to_owned();
+        app.do_sample = false;
+        app.generation_cache_mode = GenerationCacheMode::Contiguous;
+        let result = Command::new(&cli).args(app.build_args().unwrap()).output().unwrap();
+        assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+        assert!(!result.stdout.is_empty());
+    }
 
     #[test]
     fn transformer_hf_inference_builds_generation_command() {

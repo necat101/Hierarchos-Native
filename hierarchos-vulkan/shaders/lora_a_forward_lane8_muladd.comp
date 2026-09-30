@@ -1,0 +1,44 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+// Match the AVX-width CPU reduction used by PyTorch for Gemma4's tiny
+// 32 -> rank LoRA-A GEMM: products are materialized in FP32, accumulated into
+// eight independent lanes, then horizontally reduced by cross-halves.
+void main() {
+    uint out_col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || out_col >= pc.output_dim) {
+        return;
+    }
+
+    precise float lanes[8];
+    for (uint lane = 0u; lane < 8u; ++lane) {
+        lanes[lane] = 0.0;
+    }
+
+    uint x_base = row * pc.input_dim;
+    uint w_base = out_col * pc.input_dim;
+    for (uint i = 0u; i < pc.input_dim; ++i) {
+        precise float product = x[x_base + i] * weight[w_base + i];
+        uint lane = i & 7u;
+        lanes[lane] = lanes[lane] + product;
+    }
+
+    for (uint span = 4u; span > 0u; span >>= 1u) {
+        for (uint lane = 0u; lane < span; ++lane) {
+            lanes[lane] = lanes[lane] + lanes[lane + span];
+        }
+    }
+    output_values[row * pc.output_dim + out_col] = lanes[0];
+}

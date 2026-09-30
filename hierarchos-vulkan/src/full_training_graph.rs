@@ -18,7 +18,7 @@ use crate::rwkv_low_rank::RwkvLowRankFp16ParameterMirrors;
 use crate::rwkv_optimizer::{
     OptimizerGenerationRangeConsumer, RwkvDeviceControlledStepPending,
     RwkvParameterStorageMirrorBinding, RwkvPendingGradientSource, RwkvPersistentAdamW,
-    RwkvReplicaStatePlane, RwkvReplicaStateSource, RwkvTrainableRef,
+    RwkvDecayClass, RwkvReplicaStatePlane, RwkvReplicaStateSource, RwkvTrainableRef,
 };
 use crate::rwkv_tbptt::{RwkvTbpttGraphTicket, RwkvTbpttGraphWorkspace};
 use crate::stochastic::HierarchosCanonicalRngState;
@@ -123,16 +123,22 @@ struct LenScalePush {
     scale: f32,
 }
 
-struct NamedTrainable<'a> {
+struct NamedTrainable {
     name: String,
-    trainable: RwkvTrainableRef<'a>,
+    parameter: GpuBuffer,
+    gradient: GpuBuffer,
+    len: usize,
+    decay_class: RwkvDecayClass,
 }
 
-impl NamedTrainable<'_> {
+impl NamedTrainable {
     fn as_trainable(&self) -> RwkvTrainableRef<'_> {
         RwkvTrainableRef {
             name: &self.name,
-            ..self.trainable
+            parameter: &self.parameter,
+            gradient: &self.gradient,
+            len: self.len,
+            decay_class: self.decay_class,
         }
     }
 }
@@ -18491,10 +18497,14 @@ impl HierarchosTrainingGraph {
         let direct_lm_gradient = self
             .full_model_direct_lm_gradient
             .context("open accumulation window is missing lm_head gradient topology")?;
-        let override_gradient = direct_lm_gradient.then_some((
-            LM_HEAD_WEIGHT_TENSOR_NAME,
-            self.shared_lm_head.gradient_buffer(),
-        ));
+        let lm_gradient = if direct_lm_gradient {
+            Some(self.shared_lm_head.gradient_buffer()?)
+        } else {
+            None
+        };
+        let override_gradient = lm_gradient
+            .as_ref()
+            .map(|gradient| (LM_HEAD_WEIGHT_TENSOR_NAME, gradient));
         self.full_model_optimizer
             .gradient_state_snapshot_with_override(override_gradient)
     }
@@ -18795,8 +18805,11 @@ impl HierarchosTrainingGraph {
         let direct_lm_gradient = self
             .full_model_direct_lm_gradient
             .context("open distributed destination window is missing lm_head gradient topology")?;
-        let lm_gradient_override =
-            direct_lm_gradient.then(|| self.shared_lm_head.gradient_buffer().clone());
+        let lm_gradient_override = if direct_lm_gradient {
+            Some(self.shared_lm_head.gradient_buffer()?)
+        } else {
+            None
+        };
         let override_gradient = lm_gradient_override
             .as_ref()
             .map(|gradient| (LM_HEAD_WEIGHT_TENSOR_NAME, gradient));
@@ -19241,8 +19254,11 @@ impl HierarchosTrainingGraph {
         let source_direct_lm_gradient = self
             .full_model_direct_lm_gradient
             .context("open streamed source window is missing lm_head gradient topology")?;
-        let source_lm_gradient =
-            source_direct_lm_gradient.then(|| self.shared_lm_head.gradient_buffer().clone());
+        let source_lm_gradient = if source_direct_lm_gradient {
+            Some(self.shared_lm_head.gradient_buffer()?)
+        } else {
+            None
+        };
         let source_override = source_lm_gradient
             .as_ref()
             .map(|gradient| (LM_HEAD_WEIGHT_TENSOR_NAME, gradient));
@@ -19297,8 +19313,11 @@ impl HierarchosTrainingGraph {
         let destination_direct_lm_gradient = self
             .full_model_direct_lm_gradient
             .context("open streamed destination window is missing lm_head gradient topology")?;
-        let destination_lm_gradient =
-            destination_direct_lm_gradient.then(|| self.shared_lm_head.gradient_buffer().clone());
+        let destination_lm_gradient = if destination_direct_lm_gradient {
+            Some(self.shared_lm_head.gradient_buffer()?)
+        } else {
+            None
+        };
         let destination_override = destination_lm_gradient
             .as_ref()
             .map(|gradient| (LM_HEAD_WEIGHT_TENSOR_NAME, gradient));
@@ -21033,12 +21052,14 @@ impl HierarchosTrainingGraph {
             };
         let mut val_proj_gradient_weight_applied = false;
         let gradient_state = if self.full_model_accumulation_open {
-            let override_gradient = direct_lm_gradient.filter(|direct| *direct).map(|_| {
-                (
-                    LM_HEAD_WEIGHT_TENSOR_NAME,
-                    self.shared_lm_head.gradient_buffer(),
-                )
-            });
+            let lm_gradient = if direct_lm_gradient == Some(true) {
+                Some(self.shared_lm_head.gradient_buffer()?)
+            } else {
+                None
+            };
+            let override_gradient = lm_gradient
+                .as_ref()
+                .map(|gradient| (LM_HEAD_WEIGHT_TENSOR_NAME, gradient));
             let mut state = self
                 .full_model_optimizer
                 .gradient_state_snapshot_with_override(override_gradient)?;
@@ -21478,10 +21499,14 @@ impl HierarchosTrainingGraph {
             // execution boundary without changing its mathematical state.
             let active_direct_lm_gradient =
                 std::env::var_os(HIERARCHOS_VULKAN_LM_FORCE_CANONICAL_GRAD_STAGING_ENV).is_none();
-            let override_gradient = active_direct_lm_gradient.then_some((
-                LM_HEAD_WEIGHT_TENSOR_NAME,
-                self.shared_lm_head.gradient_buffer(),
-            ));
+            let lm_gradient = if active_direct_lm_gradient {
+                Some(self.shared_lm_head.gradient_buffer()?)
+            } else {
+                None
+            };
+            let override_gradient = lm_gradient
+                .as_ref()
+                .map(|gradient| (LM_HEAD_WEIGHT_TENSOR_NAME, gradient));
             self.full_model_optimizer
                 .load_gradient_state_with_override(&gradient_state, override_gradient)?;
             self.full_model_accumulation_normalization =
@@ -21538,12 +21563,13 @@ impl HierarchosTrainingGraph {
         let source_scale = loss_scaling.backward_source_scale()?;
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
         if self.full_model_direct_lm_gradient == Some(true) {
+            let lm_gradient = self.shared_lm_head.gradient_buffer()?;
             self.full_model_optimizer
                 .record_scale_gradients_with_named_override(
                     &mut commands,
                     source_scale,
                     LM_HEAD_WEIGHT_TENSOR_NAME,
-                    self.shared_lm_head.gradient_buffer(),
+                    &lm_gradient,
                 )?;
         } else {
             self.full_model_optimizer
@@ -21563,10 +21589,11 @@ impl HierarchosTrainingGraph {
             bail!("full-model gradient overflow detection requires an open accumulation window");
         }
         if self.full_model_direct_lm_gradient == Some(true) {
+            let lm_gradient = self.shared_lm_head.gradient_buffer()?;
             self.full_model_optimizer
                 .accumulated_gradients_have_nonfinite_with_named_override(
                     LM_HEAD_WEIGHT_TENSOR_NAME,
-                    self.shared_lm_head.gradient_buffer(),
+                    &lm_gradient,
                 )
         } else {
             self.full_model_optimizer
@@ -23361,10 +23388,14 @@ impl HierarchosTrainingGraph {
         let gradient_normalization_scale =
             self.pending_full_model_gradient_normalization_scale()?;
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
-        let gradient_override = direct_lm_optimizer_gradient.then_some((
-            LM_HEAD_WEIGHT_TENSOR_NAME,
-            self.shared_lm_head.gradient_buffer(),
-        ));
+        let lm_gradient = if direct_lm_optimizer_gradient {
+            Some(self.shared_lm_head.gradient_buffer()?)
+        } else {
+            None
+        };
+        let gradient_override = lm_gradient
+            .as_ref()
+            .map(|gradient| (LM_HEAD_WEIGHT_TENSOR_NAME, gradient));
         self.full_model_optimizer
             .record_accumulated_gradient_nonfinite_scan_with_named_override(
                 &mut commands,
@@ -23898,10 +23929,14 @@ impl HierarchosTrainingGraph {
         let gradient_normalization_scale =
             self.pending_full_model_gradient_normalization_scale()?;
         let mut prepare = vulkan::ComputeBatch::new(&self.device)?;
-        let gradient_override = direct_lm_optimizer_gradient.then_some((
-            LM_HEAD_WEIGHT_TENSOR_NAME,
-            self.shared_lm_head.gradient_buffer(),
-        ));
+        let lm_gradient = if direct_lm_optimizer_gradient {
+            Some(self.shared_lm_head.gradient_buffer()?)
+        } else {
+            None
+        };
+        let gradient_override = lm_gradient
+            .as_ref()
+            .map(|gradient| (LM_HEAD_WEIGHT_TENSOR_NAME, gradient));
         self.full_model_optimizer
             .record_accumulated_gradient_nonfinite_scan_with_named_override(
                 &mut prepare,
@@ -24038,10 +24073,14 @@ impl HierarchosTrainingGraph {
         let gradient_normalization_scale =
             self.pending_full_model_gradient_normalization_scale()?;
         let mut prepare = vulkan::ComputeBatch::new(&self.device)?;
-        let gradient_override = direct_lm_optimizer_gradient.then_some((
-            LM_HEAD_WEIGHT_TENSOR_NAME,
-            self.shared_lm_head.gradient_buffer(),
-        ));
+        let lm_gradient = if direct_lm_optimizer_gradient {
+            Some(self.shared_lm_head.gradient_buffer()?)
+        } else {
+            None
+        };
+        let gradient_override = lm_gradient
+            .as_ref()
+            .map(|gradient| (LM_HEAD_WEIGHT_TENSOR_NAME, gradient));
         self.full_model_optimizer
             .record_accumulated_gradient_nonfinite_scan_with_named_override(
                 &mut prepare,
@@ -28020,7 +28059,8 @@ impl HierarchosTrainingGraph {
         // FinishAccumulation, so every token can write/add dW directly and the
         // final AdamW consumes that persistent tied-gradient buffer without an
         // LM-sized staging copy.
-        for trainable in self.output.optimizer_trainables() {
+        let output_lm_gradient = self.shared_lm_head.gradient_buffer()?;
+        for trainable in self.output.optimizer_trainables(&output_lm_gradient) {
             if direct_lm_optimizer_gradient && trainable.name == LM_HEAD_WEIGHT_TENSOR_NAME {
                 continue;
             }
@@ -28594,13 +28634,13 @@ impl HierarchosTrainingGraph {
     }
 }
 
-fn full_model_named_trainables<'a>(
-    h_recurrent: &'a RwkvTbpttSequenceOp,
-    l_recurrent: &'a RwkvTbpttSequenceOp,
-    projections: &'a ManagerWorkerProjectionGraph,
-    token_frontend: Option<&'a HierarchosTokenFrontendOp>,
-    output: &'a HierarchosOutNormHeadTrainer,
-) -> Result<Vec<NamedTrainable<'a>>> {
+fn full_model_named_trainables(
+    h_recurrent: &RwkvTbpttSequenceOp,
+    l_recurrent: &RwkvTbpttSequenceOp,
+    projections: &ManagerWorkerProjectionGraph,
+    token_frontend: Option<&HierarchosTokenFrontendOp>,
+    output: &HierarchosOutNormHeadTrainer,
+) -> Result<Vec<NamedTrainable>> {
     let mut registry = Vec::new();
     for (recurrent, recurrent_prefix, deepembed_prefix) in [
         (h_recurrent, "h_rnn", "h_deepembed_adapter"),
@@ -28612,7 +28652,13 @@ fn full_model_named_trainables<'a>(
             } else {
                 format!("{recurrent_prefix}.{}", trainable.name)
             };
-            registry.push(NamedTrainable { name, trainable });
+            registry.push(NamedTrainable {
+                name,
+                parameter: trainable.parameter.clone(),
+                gradient: trainable.gradient.clone(),
+                len: trainable.len,
+                decay_class: trainable.decay_class,
+            });
         }
     }
     registry.extend(
@@ -28621,7 +28667,10 @@ fn full_model_named_trainables<'a>(
             .into_iter()
             .map(|trainable| NamedTrainable {
                 name: trainable.name.to_string(),
-                trainable,
+                parameter: trainable.parameter.clone(),
+                gradient: trainable.gradient.clone(),
+                len: trainable.len,
+                decay_class: trainable.decay_class,
             }),
     );
     if let Some(frontend) = token_frontend {
@@ -28631,17 +28680,24 @@ fn full_model_named_trainables<'a>(
                 .into_iter()
                 .map(|trainable| NamedTrainable {
                     name: trainable.name.to_string(),
-                    trainable,
+                    parameter: trainable.parameter.clone(),
+                    gradient: trainable.gradient.clone(),
+                    len: trainable.len,
+                    decay_class: trainable.decay_class,
                 }),
         );
     }
+    let lm_gradient = output.lm_head.gradient_buffer()?;
     registry.extend(
         output
-            .optimizer_trainables()
+            .optimizer_trainables(&lm_gradient)
             .into_iter()
             .map(|trainable| NamedTrainable {
                 name: trainable.name.to_string(),
-                trainable,
+                parameter: trainable.parameter.clone(),
+                gradient: trainable.gradient.clone(),
+                len: trainable.len,
+                decay_class: trainable.decay_class,
             }),
     );
     Ok(registry)
