@@ -53,18 +53,20 @@ Face Transformer graphs. Universal feature parity with the Python Transformers
 library has **not** been reached. Model-type registration, task implementation,
 and numerical validation are separate milestones.
 
-## Headline: thirteen strict two-step AdamW checks
+## Headline: fourteen strict two-step AdamW checks
 
 The strongest compatibility claim in this backend is intentionally small and
-reproducible: thirteen current/high-value Transformer text architectures/families have live Vulkan
+reproducible: fourteen current/high-value Transformer text architectures/families have live Vulkan
 forward parity and pass **two full AdamW steps** against the local Hugging Face
 Transformers source tree, with cross-entropy loss checked at each step and every
-named trainable parameter compared after export.
+named trainable parameter compared after export. Falcon H1/H1R (parallel
+Attention+Mamba2) is at the top of that list.
 
 Verified on AMD Radeon Graphics against local Transformers `5.16.0.dev0`:
 
 | Family | Verified scope | Max abs parameter error after 2 AdamW steps |
 | --- | --- | ---: |
+| Falcon H1 / H1R | parallel Attention+Mamba2 causal LM | `1.192092896e-7` |
 | DeepSeek V4 | causal LM | `1.192092896e-7` |
 | Phi-4 Multimodal | text backbone / causal LM | `1.192092896e-7` |
 | Phi-3 | causal LM | `1.192092896e-7` |

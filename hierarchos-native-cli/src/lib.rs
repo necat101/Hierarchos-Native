@@ -1794,7 +1794,7 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     let mut hf_cache_dir: Option<PathBuf> = None;
     let mut output_dir: Option<PathBuf> = None;
     let mut batch_size = 1usize;
-    let mut seq_len = 128usize;
+    let mut seq_len: Option<usize> = Some(128);
     let mut epochs = 1usize;
     let mut device_index: Option<usize> = None;
     let mut lr = 5.0e-5f32;
@@ -1904,7 +1904,7 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
             }
             "--batch-size" | "--batch_size" => batch_size = parse_required(&mut argv, &key)?,
             "--seq-len" | "--seq_len" | "--max-length" | "--max_length" => {
-                seq_len = parse_required(&mut argv, &key)?
+                seq_len = Some(parse_required(&mut argv, &key)?)
             }
             "--epochs" => epochs = parse_required(&mut argv, &key)?,
             "--device-index" | "--device_index" => {
@@ -2006,7 +2006,7 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         return Err("--lora-target-regex and --lora-target-module(s) are mutually exclusive".into());
     }
     if peft_option_seen && !full_finetune { peft_switch = true; }
-    if batch_size == 0 || seq_len == 0 || epochs == 0 {
+    if batch_size == 0 || seq_len == Some(0) || epochs == 0 {
         return Err(
             "Transformer batch size, sequence length, and epochs must be positive".to_owned(),
         );
@@ -2181,7 +2181,7 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
 
     fs::create_dir_all(&output_dir)
         .map_err(|error| format!("could not create {}: {error}", output_dir.display()))?;
-    text_options.max_length = seq_len.saturating_add(1);
+    text_options.max_length = seq_len.unwrap_or(0).saturating_add(1);
     let prepared = prepare_training_dataset(
         &dataset,
         &model_dir,
@@ -2201,6 +2201,21 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
                 source_config_path.display()
             )
         })?;
+    // Clamp an explicit --seq-len to the checkpoint's positional budget and
+    // derive a compact length from the prepared rows when the user omitted
+    // the flag. Without this, the historical default of 128 rejects small
+    // test checkpoints whose max_position_embeddings is far below 128 even
+    // though every training row fits comfortably.
+    let mut seq_len = seq_len.unwrap_or_else(|| {
+        dataset_sequence_length(&prepared, source_config.max_position_embeddings)
+    });
+    if seq_len > source_config.max_position_embeddings {
+        let original = seq_len;
+        seq_len = source_config.max_position_embeddings;
+        eprintln!(
+            "native Transformer training: clamped --seq-len {original} to the checkpoint's max_position_embeddings {seq_len}"
+        );
+    }
     let (runtime_config, dropout_config_override) = if disable_transformer_dropout {
         let config_path = model_dir.join("config.json");
         let mut value: Value = serde_json::from_slice(
@@ -2565,6 +2580,41 @@ fn transformer_encoder_context_from_value(
         attention_mask,
         seq_len,
     })))
+}
+
+/// Pick the training sequence length for a prepared dataset whose longest
+/// tokenized row (including the appended EOS) is `longest_row` tokens./// The
+/// row already contains its EOS token, so shifted targets need
+/// `longest_row` positions; round up to a multiple of eight for slightly
+/// better GEMM alignment without ever exceeding the model's positional
+/// budget.
+fn dataset_sequence_length(prepared: &Path, max_position_embeddings: usize) -> usize {
+    let longest_row = dataset_longest_row_tokens(prepared)
+        .unwrap_or(2)
+        .max(2);
+    let aligned = (longest_row + 7) / 8 * 8;
+    aligned.min(max_position_embeddings).max(2)
+}
+
+fn dataset_longest_row_tokens(path: &Path) -> Option<usize> {
+    let file = File::open(path).ok()?;
+    let mut longest = None;
+    for line in BufReader::new(file).lines() {
+        let line = line.ok()?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let value: Value = serde_json::from_str(&line).ok()?;
+        let length = value
+            .get("input_ids")
+            .and_then(Value::as_array)
+            .map(|ids| ids.len())
+            .unwrap_or(0);
+        if length > 0 {
+            longest = Some(longest.map_or(length, |current: usize| current.max(length)));
+        }
+    }
+    longest
 }
 
 fn transformer_encoder_seq_len_from_jsonl(

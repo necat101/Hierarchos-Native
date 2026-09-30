@@ -4,12 +4,13 @@ Native Rust + Vulkan training and inference tooling for **Hierarchos coherent-v9
 
 Hierarchos Native is built around a framework-free execution path: Rust handles model/package I/O, Hugging Face downloads, tokenization, datasets, checkpointing, and orchestration, while supported Transformer and Hierarchos training math runs through Vulkan compute shaders. Hierarchos inference has a separate pure-Rust runtime.
 
-## Thirteen architectures verified below `2e-7` training divergence
+## Fourteen architectures verified below `2e-7` training divergence
 
-The headline compatibility target is strict numerical parity, not just architecture-name recognition. The current Vulkan backend has **thirteen modern Transformer text architectures/families** that each pass **two full AdamW steps** against the reference implementation with **less than `2e-7` maximum absolute parameter divergence** after export:
+The headline compatibility target is strict numerical parity, not just architecture-name recognition. The current Vulkan backend has **fourteen modern Transformer text architectures/families** that each pass **two full AdamW steps** against the reference implementation with **less than `2e-7` maximum absolute parameter divergence** after export. **Falcon H1/H1R** leads the list: its parallel Attention+Mamba2 graph passes full-parameter training, full fine-tuning, and qualified LoRA/`modules_to_save` PEFT through the same CLI:
 
 | Architecture | Verified native scope | Max abs parameter error after 2 AdamW steps |
 | --- | --- | ---: |
+| **Falcon H1 / H1R** | causal LM with parallel GQA/RoPE attention + Mamba2; full training, fine-tuning, LoRA, saved modules | `1.192092896e-7` |
 | **DeepSeek V4** | causal LM | `1.192092896e-7` |
 | **Phi-4 Multimodal** | text backbone / causal LM | `1.192092896e-7` |
 | **Phi-3** | causal LM | `1.192092896e-7` |
