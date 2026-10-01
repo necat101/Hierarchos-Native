@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[path = "hierarchos_causal_lm_tests.rs"]
+mod hierarchos_causal_lm_tests;
+
 use std::{
     collections::VecDeque,
     path::Path,
@@ -7689,6 +7693,7 @@ struct RawTokenFrontendBatchInput<'a> {
 enum RawTokenFrontendMode<'a> {
     Advance {
         reset_lanes: &'a [u32],
+        active_lanes: Option<&'a [f32]>,
         checkpoint: Option<RawTokenFrontendCheckpointSink<'a>>,
     },
     Replay {
@@ -12694,279 +12699,10 @@ impl HierarchosTrainingGraph {
                 input.tokens
             );
         }
-        let batch = tape.batch;
-        let input_len = batch
-            .checked_mul(input.tokens)
-            .context("labeled raw-token input shape overflow")?;
-        if input.input_ids.len() != input_len {
-            bail!(
-                "labeled raw-token input_ids has {} values; expected batch({batch}) * tokens({}) = {input_len}",
-                input.input_ids.len(),
-                input.tokens
-            );
-        }
-        if let Some((index, token)) = input
-            .input_ids
-            .iter()
-            .copied()
-            .enumerate()
-            .find(|(_, token)| *token as usize >= self.config.vocab_size)
-        {
-            bail!(
-                "labeled raw-token input token at flat index {index} is {token}, outside vocabulary size {}",
-                self.config.vocab_size
-            );
-        }
-
-        let label_cols = if input.labels.len() == input_len {
-            input.tokens
-        } else {
-            let lookahead_len = batch
-                .checked_mul(input.tokens + 1)
-                .context("labeled raw-token lookahead label shape overflow")?;
-            if input.labels.len() == lookahead_len {
-                input.tokens + 1
-            } else {
-                bail!(
-                    "labeled raw-token labels has {} values; expected {input_len} (ordinary PyTorch labels) or {lookahead_len} (TBPTT lookahead labels)",
-                    input.labels.len()
-                );
-            }
-        };
-        if let Some(loss_weights) = input.loss_weights {
-            if loss_weights.len() != input.labels.len() {
-                bail!(
-                    "labeled raw-token loss_weights has {} values; expected {} to match labels",
-                    loss_weights.len(),
-                    input.labels.len()
-                );
-            }
-            if let Some((index, bad)) = loss_weights
-                .iter()
-                .copied()
-                .enumerate()
-                .find(|(_, value)| !value.is_finite() || *value < 0.0)
-            {
-                bail!(
-                    "labeled raw-token loss weight at flat index {index} must be finite and non-negative; got {bad}"
-                );
-            }
-        }
-        let mut token_masks = vec![vec![1.0f32; batch]; input.tokens];
-        if let Some(attention_mask) = input.attention_mask {
-            if attention_mask.len() != input_len {
-                bail!(
-                    "labeled raw-token attention_mask has {} values; expected {input_len}",
-                    attention_mask.len()
-                );
-            }
-            for row in 0..batch {
-                let mut saw_padding = false;
-                for token_index in 0..input.tokens {
-                    let flat_index = row * input.tokens + token_index;
-                    let value = attention_mask[flat_index];
-                    if !value.is_finite() || (value != 0.0 && value != 1.0) {
-                        bail!(
-                            "labeled raw-token attention mask at row {row}, token {token_index} must be finite binary 0/1; got {value}"
-                        );
-                    }
-                    if value == 0.0 {
-                        saw_padding = true;
-                    } else if saw_padding {
-                        bail!(
-                            "labeled raw-token attention mask accepts right padding only; row {row} becomes active again at token {token_index}"
-                        );
-                    }
-                    token_masks[token_index][row] = value;
-
-                    if value == 0.0 && token_index < label_cols {
-                        let label_index = row * label_cols + token_index;
-                        if input.labels[label_index] != -100 {
-                            bail!(
-                                "labeled raw-token labels at attention_mask=0 must be -100; row {row}, column {token_index} is {}",
-                                input.labels[label_index]
-                            );
-                        }
-                        if let Some(loss_weights) = input.loss_weights {
-                            if loss_weights[label_index] != 0.0 {
-                                bail!(
-                                    "labeled raw-token loss_weights at attention_mask=0 must be zero; row {row}, column {token_index} is {}",
-                                    loss_weights[label_index]
-                                );
-                            }
-                        }
-                    }
-                }
-                if label_cols == input.tokens + 1
-                    && attention_mask[row * input.tokens + input.tokens - 1] == 0.0
-                {
-                    let lookahead_index = row * label_cols + input.tokens;
-                    if input.labels[lookahead_index] != -100 {
-                        bail!(
-                            "labeled raw-token lookahead label after a masked final input token must be -100; row {row} is {}",
-                            input.labels[lookahead_index]
-                        );
-                    }
-                    if let Some(loss_weights) = input.loss_weights {
-                        if loss_weights[lookahead_index] != 0.0 {
-                            bail!(
-                                "labeled raw-token lookahead loss weight after a masked final input token must be zero; row {row} is {}",
-                                loss_weights[lookahead_index]
-                            );
-                        }
-                    }
-                }
-            }
-        }
-        if input.pytorch_tbptt_chunk_size == Some(0) {
-            bail!("labeled raw-token PyTorch TBPTT chunk size must be positive");
-        }
-
-        let context_len = batch
-            .checked_mul(self.config.context_dim)
-            .context("labeled raw-token context shape overflow")?;
-        validate_f32_input(
-            "labeled raw-token initial previous_context",
-            input.initial_previous_context,
-            context_len,
-        )?;
-        validate_f32_input(
-            "labeled raw-token initial target_context",
-            input.initial_target_context,
-            context_len,
-        )?;
-
-        let mut targets_by_token = vec![vec![0u32; batch]; input.tokens];
-        let mut supervision_by_token = vec![vec![0.0f32; batch]; input.tokens];
-        let mut supervision_mass = 0.0f32;
-        for token_index in 0..input.tokens {
-            let label_col = token_index + 1;
-            if label_col >= label_cols {
-                continue;
-            }
-            for row in 0..batch {
-                let label_index = row * label_cols + label_col;
-                let label = input.labels[label_index];
-                if label == -100 {
-                    continue;
-                }
-                if label < 0 || label as usize >= self.config.vocab_size {
-                    bail!(
-                        "labeled raw-token shifted label at row {row}, column {label_col} is {label}, outside vocabulary size {} (or -100 ignore)",
-                        self.config.vocab_size
-                    );
-                }
-                let weight = input
-                    .loss_weights
-                    .map_or(1.0, |weights| weights[label_index]);
-                targets_by_token[token_index][row] = label as u32;
-                supervision_by_token[token_index][row] = weight;
-                supervision_mass += weight;
-            }
-        }
-        if !supervision_mass.is_finite() || supervision_mass <= 0.0 {
-            bail!(
-                "labeled raw-token sequence has zero usable shifted supervision mass; at least one non--100 label with positive weight is required for a parameter update"
-            );
-        }
-
-        let token_real_rows = token_masks
-            .iter()
-            .map(|mask| mask.iter().filter(|&&value| value != 0.0).count())
-            .collect::<Vec<_>>();
-        let total_real_rows = token_real_rows.iter().try_fold(0usize, |acc, &rows| {
-            acc.checked_add(rows)
-                .context("labeled raw-token real-row count overflow")
-        })?;
-        if total_real_rows == 0 {
-            bail!("labeled raw-token sequence has no real attention-mask rows");
-        }
-        let commitment_source =
-            objective.commitment_loss_weight * supervision_mass / total_real_rows as f32;
-        let manager_flags = (0..input.tokens)
-            .map(|token_index| {
-                let position = input.global_pos_offset + token_index as u64;
-                position % self.config.h_stride as u64 == 0
-            })
-            .collect::<Vec<_>>();
-        let mut ponder_source_by_token = vec![0.0f32; input.tokens];
-        if objective.ponder_loss_weight != 0.0 {
-            if let Some(chunk_size) = input.pytorch_tbptt_chunk_size {
-                for chunk_start in (0..input.tokens).step_by(chunk_size) {
-                    let chunk_end = (chunk_start + chunk_size).min(input.tokens);
-                    let chunk_real_rows = token_real_rows[chunk_start..chunk_end]
-                        .iter()
-                        .sum::<usize>();
-                    let manager_rows = (chunk_start..chunk_end)
-                        .filter(|&token_index| manager_flags[token_index])
-                        .map(|token_index| token_real_rows[token_index])
-                        .sum::<usize>();
-                    if chunk_real_rows != 0 && manager_rows != 0 {
-                        let source = objective.ponder_loss_weight
-                            * supervision_mass
-                            * chunk_real_rows as f32
-                            / total_real_rows as f32
-                            / manager_rows as f32;
-                        for token_index in chunk_start..chunk_end {
-                            if manager_flags[token_index] {
-                                ponder_source_by_token[token_index] = source;
-                            }
-                        }
-                    }
-                }
-            } else {
-                let manager_rows = manager_flags
-                    .iter()
-                    .copied()
-                    .enumerate()
-                    .filter(|(_, manager)| *manager)
-                    .map(|(token_index, _)| token_real_rows[token_index])
-                    .sum::<usize>();
-                if manager_rows != 0 {
-                    let source =
-                        objective.ponder_loss_weight * supervision_mass / manager_rows as f32;
-                    for (token_index, manager) in manager_flags.iter().copied().enumerate() {
-                        if manager {
-                            ponder_source_by_token[token_index] = source;
-                        }
-                    }
-                }
-            }
-        }
-
-        let mut owned_steps = Vec::with_capacity(input.tokens);
-        for token_index in 0..input.tokens {
-            let position = input.global_pos_offset + token_index as u64;
-            let mut token_ids = Vec::with_capacity(batch);
-            for row in 0..batch {
-                token_ids.push(input.input_ids[row * input.tokens + token_index]);
-            }
-            let reset = u32::from(input.reset_rosa_at_start && token_index == 0);
-            owned_steps.push(OwnedLabeledRawTokenTapeStep {
-                h_steps: if manager_flags[token_index] {
-                    self.config.max_h_steps
-                } else {
-                    1
-                },
-                shadow_steps: self.config.max_l_steps,
-                token_ids,
-                rosa_reset_lanes: vec![reset; batch],
-                context_alpha: (position % self.config.h_stride as u64) as f32
-                    / self.config.h_stride as f32,
-                h_depth_grad: token_masks[token_index]
-                    .iter()
-                    .map(|&active| ponder_source_by_token[token_index] * active)
-                    .collect(),
-                commitment_cost_grad: token_masks[token_index]
-                    .iter()
-                    .map(|&active| commitment_source * active)
-                    .collect(),
-                ltm_value_alignment_position: position,
-                token_mask: token_masks[token_index].clone(),
-                targets: targets_by_token[token_index].clone(),
-                supervision_weights: supervision_by_token[token_index].clone(),
-            });
-        }
+        // Dense and budgeted execution share one causal objective contract.
+        let prepared = self.prepare_raw_token_labeled_sequence(tape.batch, input, objective)?;
+        let total_real_rows = prepared.total_real_rows;
+        let owned_steps = prepared.steps;
         let steps = owned_steps
             .iter()
             .map(OwnedLabeledRawTokenTapeStep::as_raw_step)
@@ -13278,6 +13014,7 @@ impl HierarchosTrainingGraph {
                 device_auxiliary_grad_mask: None,
                 mode: RawTokenFrontendMode::Advance {
                     reset_lanes: step.rosa_reset_lanes,
+                    active_lanes: step.pytorch_tbptt_token_mask,
                     checkpoint: Some(RawTokenFrontendCheckpointSink {
                         prediction_ids: &tape.rosa_prediction_ids[token_index],
                         valid: &tape.rosa_prediction_valid[token_index],
@@ -14446,6 +14183,7 @@ impl HierarchosTrainingGraph {
                     device_auxiliary_grad_mask: None,
                     mode: RawTokenFrontendMode::Advance {
                         reset_lanes: step.rosa_reset_lanes,
+                        active_lanes: step.pytorch_tbptt_token_mask,
                         checkpoint: Some(RawTokenFrontendCheckpointSink {
                             prediction_ids: &tape.rosa_prediction_ids[token_index],
                             valid: &tape.rosa_prediction_valid[token_index],
@@ -15848,6 +15586,7 @@ impl HierarchosTrainingGraph {
                     device_auxiliary_grad_mask: None,
                     mode: RawTokenFrontendMode::Advance {
                         reset_lanes: step.rosa_reset_lanes,
+                        active_lanes: step.pytorch_tbptt_token_mask,
                         checkpoint: Some(RawTokenFrontendCheckpointSink {
                             prediction_ids: &tape.rosa_prediction_ids[token_index],
                             valid: &tape.rosa_prediction_valid[token_index],
@@ -25588,6 +25327,7 @@ impl HierarchosTrainingGraph {
                 device_auxiliary_grad_mask: None,
                 mode: RawTokenFrontendMode::Advance {
                     reset_lanes: input.rosa_reset_lanes,
+                    active_lanes: None,
                     checkpoint: None,
                 },
                 ltm_value_alignment_position: input.ltm_value_alignment_position,
@@ -26215,6 +25955,7 @@ impl HierarchosTrainingGraph {
             let frontend_rows = match frontend_input.mode {
                 RawTokenFrontendMode::Advance {
                     reset_lanes,
+                    active_lanes,
                     checkpoint,
                 } => {
                     let effective_device_previous_context = if boundary.sequence_context.is_some() {
@@ -26228,12 +25969,14 @@ impl HierarchosTrainingGraph {
                             frontend_input.memory.token_ids,
                             previous_context,
                             reset_lanes,
+                            active_lanes,
                         )?
                     } else {
                         frontend.record_memory_forward_lanes(
                             &mut commands,
                             frontend_input.memory,
                             reset_lanes,
+                            active_lanes,
                         )?
                     };
                     if let Some(checkpoint) = checkpoint {

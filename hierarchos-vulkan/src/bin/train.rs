@@ -1683,6 +1683,13 @@ fn pack_batch(rows: &[&DatasetRow], vocab_size: usize) -> Result<PackedBatch> {
             .labels
             .as_ref()
             .context("validated row is missing labels")?;
+        anyhow::ensure!(
+            labels_row.len() == row.input_ids.len()
+                && row.attention_mask.as_ref().is_none_or(|v| v.len() == row.input_ids.len())
+                && row.loss_weights.as_ref().is_none_or(|v| v.len() == row.input_ids.len()),
+            "batch row {row_index} labels/masks/weights must match input_ids"
+        );
+        let mut saw_padding = false;
         for token_index in 0..row.input_ids.len() {
             let token_id = row.input_ids[token_index];
             anyhow::ensure!(
@@ -1696,10 +1703,31 @@ fn pack_batch(rows: &[&DatasetRow], vocab_size: usize) -> Result<PackedBatch> {
                 .attention_mask
                 .as_ref()
                 .map_or(1.0, |mask| mask[token_index]);
+            let active = attention_mask[offset];
+            anyhow::ensure!(
+                active == 0.0 || active == 1.0,
+                "batch row {row_index} attention_mask must contain binary 0/1 values"
+            );
+            anyhow::ensure!(
+                active == 0.0 || !saw_padding,
+                "batch row {row_index} attention_mask accepts right padding only"
+            );
+            saw_padding |= active == 0.0;
             loss_weights[offset] = row
                 .loss_weights
                 .as_ref()
                 .map_or(1.0, |weights| weights[token_index]);
+            anyhow::ensure!(
+                loss_weights[offset].is_finite() && loss_weights[offset] >= 0.0,
+                "batch row {row_index} loss_weights must be finite and non-negative"
+            );
+            // Labels remain unshifted here. Padding is removed from supervision
+            // before the graph applies its single next-token shift, including
+            // pre-padded JSONL rows whose labels/weights were defaulted.
+            if active == 0.0 {
+                labels[offset] = -100;
+                loss_weights[offset] = 0.0;
+            }
         }
     }
     Ok(PackedBatch {
@@ -8849,6 +8877,30 @@ mod tests {
         assert_eq!(packed.labels, vec![1, 2, 3, 4, 5, -100]);
         assert_eq!(packed.attention_mask, vec![1.0, 1.0, 1.0, 1.0, 1.0, 0.0]);
         assert_eq!(packed.loss_weights, vec![1.0, 1.0, 1.0, 1.0, 1.0, 0.0]);
+    }
+
+    #[test]
+    fn pre_padded_rows_exclude_default_labels_and_weights() {
+        let mut sample = row(&[1, 2, 0, 0]);
+        sample.attention_mask = Some(vec![1.0, 1.0, 0.0, 0.0]);
+        let packed = pack_batch(&[&sample], 8).unwrap();
+        assert_eq!(packed.labels, vec![1, 2, -100, -100]);
+        assert_eq!(packed.loss_weights, vec![1.0, 1.0, 0.0, 0.0]);
+        // Prompt masking and explicit completion weights survive packing.
+        sample.labels = Some(vec![-100, 2, -100, -100]);
+        sample.loss_weights = Some(vec![0.0, 0.25, 0.0, 0.0]);
+        let packed = pack_batch(&[&sample], 8).unwrap();
+        assert_eq!(packed.labels, vec![-100, 2, -100, -100]);
+        assert_eq!(packed.loss_weights, vec![0.0, 0.25, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn packed_rows_reject_invalid_mask_geometry() {
+        for mask in [vec![1.0, 0.5, 0.0], vec![1.0, 0.0, 1.0], vec![0.0, 1.0, 1.0], vec![1.0]] {
+            let mut sample = row(&[1, 2, 3]);
+            sample.attention_mask = Some(mask);
+            assert!(pack_batch(&[&sample], 8).is_err());
+        }
     }
 
     #[test]

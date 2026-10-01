@@ -211,12 +211,26 @@ void main() {
         return;
     }
 
+    // Workgroup-uniform skip before any barriers or history writes. Bit 0
+    // resets a sequence; bit 1 masks padding while preserving continuation.
+    uint control = reset_lanes[lane];
+    if ((control & 2u) != 0u) {
+        if (gl_LocalInvocationID.x == 0u) {
+            if ((control & 1u) != 0u) {
+                history_len[lane] = 0u;
+            }
+            predictions[lane] = 0u;
+            valid[lane] = 0u;
+        }
+        return;
+    }
+
     uint history_base = lane * pc.max_context;
     uint generation_stride = match_generation_stride();
     uint lane_state_base = lane * (2u * generation_stride);
     if (gl_LocalInvocationID.x == 0u) {
         lane_len = history_len[lane];
-        if (reset_lanes[lane] != 0u || lane_len > pc.max_context) {
+        if ((control & 1u) != 0u || lane_len > pc.max_context) {
             lane_len = 0u;
         }
         if (lane_len >= pc.max_context) {

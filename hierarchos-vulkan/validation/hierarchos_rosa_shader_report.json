@@ -1,0 +1,97 @@
+{
+  "compiler": "shaderc v2023.8 v2025.3\nspirv-tools v2025.3 v2022.4-833-g33e02568\nglslang 11.1.0-1253-gefd24d75\n\nTarget: SPIR-V 1.0",
+  "source_sha256": "6dca3addc20b0fb8d3f189a8857150c26a2a0aef49fbf5098e13f32750d7eced",
+  "variants": [
+    {
+      "artifact": "rosa_predict_bounded_lanes.spv",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O"
+      ],
+      "sha256": "8b7bf246f96308ad08f569301d487294b84ced06387e89c826ee5064c7bf08ae",
+      "matches": true
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_32.spv",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_WORKGROUP_SIZE=32",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1"
+      ],
+      "sha256": "d846e97434c417511a9cf51f493a46e2c4480153202836e35505fb05df876474",
+      "matches": true
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_64.spv",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_WORKGROUP_SIZE=64",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1"
+      ],
+      "sha256": "38118d8b7a8d90f7207d57c1c3353ac8f57e168e36b5f734895ce29c8507f973",
+      "matches": true
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_128.spv",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_WORKGROUP_SIZE=128",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1"
+      ],
+      "sha256": "e78c048d13259fe2588ba1cc21a9a00b81528b9d0b225e2e46e97c7a441340f7",
+      "matches": true
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_256.spv",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_WORKGROUP_SIZE=256",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1"
+      ],
+      "sha256": "341e58ff0c7c4c4aebb06635aeefd9586a9e5e6bc5d9094bc0a72978227be6bc",
+      "matches": true
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_256_single_pair.spv",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_WORKGROUP_SIZE=256",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_SINGLE_PACKED_PAIR_PER_LANE=1"
+      ],
+      "sha256": "ddfde7654a1f37d6878de9dd4b1e0ec34655a371e92e53c4fe87432f4415e203",
+      "matches": true
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_128_cache_tiled.spv",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_WORKGROUP_SIZE=128",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_CACHE_HISTORY_STATE=1"
+      ],
+      "sha256": "1f518e733ae5e1ed600257e451ba6a62c32c4c5eef95bacf492088dc90d53203",
+      "matches": true
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_256_single_pair_cache_tiled.spv",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_WORKGROUP_SIZE=256",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_SINGLE_PACKED_PAIR_PER_LANE=1",
+        "-DROSA_CACHE_HISTORY_STATE=1"
+      ],
+      "sha256": "e92a2a55a16b5952a57b0277d1da9d2537dadb2c3b8167e899281da8115239cf",
+      "matches": true
+    }
+  ],
+  "pass": true
+}
