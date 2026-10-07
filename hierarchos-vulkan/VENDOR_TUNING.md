@@ -444,6 +444,35 @@ six rows those same kernels pushed past the gate on an AVX-512 host, re-running
 one of them here with `HIERARCHOS_ATEN_VECTOR_WIDTH=16` is the cheapest way to
 confirm the oracle-boundary explanation above.
 
+### Gen9 host-shape verification after the ATen-shape change
+
+The experiment the previous paragraph proposes was run on the tuning target
+itself (Intel i5-6200U / HD Graphics 520, AVX2-only: `avx512f` absent, so
+`aten_vector_width()` resolves to 8) once the host-ISA change (`09db9ff`) landed.
+The `2e-7` gate is unchanged.
+
+| Check | Result |
+| --- | --- |
+| Committed 8-lane and vendor modules | unmodified by the commit; `transformer_cross_entropy.spv` and `falcon_h1_cross_entropy.spv` rebuild byte-for-byte from the committed sources with the local glslang 16.6.0, and the pre- and post-commit `transformer_cross_entropy.comp` emit byte-identical SPIR-V at 8 lanes |
+| `cargo test --lib` (debug) | `693 passed / 0 failed / 9 ignored` |
+| Full PEFT matrix (`--stage all --jobs 2`) | `32 families, 0 failures`, 32/32 LoRA, 32/32 switching, **32/32 saved**, `inputs_unchanged=true` |
+| Same matrix vs the pre-commit report | all 32 families bit-identical field-by-field (peft, gradient, two-step AdamW, frozen base, resume, lifecycle) |
+| `verify_hf_logits.py --headline-strict` | exit 0, zero failing values |
+| `HIERARCHOS_ATEN_VECTOR_WIDTH=8` on `gemma4` `saved` | byte-identical to the probe default |
+| `HIERARCHOS_ATEN_VECTOR_WIDTH=16` on `gemma4` / `smollm3` `saved` | both fail (`model.embed_tokens` adjoint `3.2187e-6` / `2.98e-7`), the mirror image of the wrong-shape damage the AVX-512 target measured |
+
+The dated `25/32 saved` row above is the 2026-10-05 measurement, superseded by
+the repair rounds: this laptop's saved stage has been 32/32 since its 2026-10-06
+matrix runs, so the seven rows are not a live Gen9 gap, and the forced-16
+failures show its oracle is AVX2-shaped - the oracle-boundary explanation above
+stands, and the host-ISA change leaves the Gen9 dispatches exactly as tuned.
+
+The 16-lane `falcon_h1_cross_entropy_lanes16.spv` was built by the AVX-512
+machine's glslang and does not reproduce with the local 16.6.0 build (one extra
+type/id and one `+inf` materialisation differ); it is dispatched only where
+`avx512f` is present, so it is left untouched rather than swapped without a
+dual-host re-qualification.
+
 ## Qualification checklist
 
 ```powershell
