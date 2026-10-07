@@ -1,0 +1,182 @@
+[
+  {
+    "architecture": "gpt2",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "falcon_h1",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "llama",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "mixtral",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "qwen2",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "qwen3_next",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "qwen3_5_text",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "qwen3_5_moe_text",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "qwen4_exp_text",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "gpt_oss",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "phi3",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "kimi_linear",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "deepseek_v3",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "deepseek_v4",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "mistral4",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "gemma3_text",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "gemma4_text",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "smollm3",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "minimax_m2",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  },
+  {
+    "architecture": "minimax_m3_vl_text",
+    "evidence": "PROGRESS_PEFT_AUDIT.md: 2026-09-30 fresh 32/32 all-stage local-Transformers qualification, frozen-base/resume and shader provenance",
+    "exclusions": "multi-adapter trainable tokens, layer replication and OLoRA/PiSSA remain unsupported; replacement classes are restricted by the common validator",
+    "modules_to_save_validated": true,
+    "validated_methods": [
+      "LoRA"
+    ]
+  }
+]

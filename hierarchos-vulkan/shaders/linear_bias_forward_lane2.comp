@@ -1,0 +1,58 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BiasBuffer { float bias[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+void main() {
+    uint out_col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || out_col >= pc.output_dim) {
+        return;
+    }
+
+    // PyTorch CPU's narrow-output (N == 8) GEMM path, this time for the biased
+    // projections (`attention_bias` models such as Qwen2/Qwen2.5, whose K and V
+    // projections are `Linear(hidden, 2 * head_dim) + bias`).  Measured against
+    // ATen on this build: for N <= 8 the CPU kernel accumulates on two
+    // interleaved fused FMA lanes keyed by `i % 2`, folds them with a single
+    // add, and applies the bias in the epilogue -- i.e. `(lane0 + lane1) +
+    // bias[n]`, *not* a bias-seeded accumulator.  The seeded forms score
+    // 120/192 and 87/192 against ATen; the fold-then-add form scores 192/192,
+    // and the same topology scores 768/768 at rows = 16 and holds for
+    // K in {8, 16, 24, 32, 64}.  N >= 16 keeps the serial-FMA
+    // `linear_bias_forward` kernel, which likewise scores 100% (384/384 at
+    // N = 16, 768/768 at N = 32).
+    //
+    // The accumulators are `precise` so the driver cannot rewrite the
+    // interleaved chain.  The fold and the bias add must NOT be `precise`: on
+    // Intel Gen9 the compiler reads a NoContraction final add as a request to
+    // keep the whole expression unfused and splits the upstream FMA
+    // ext-instructions into separate multiply and add, which lands one ulp away
+    // from this oracle (verified on-device).  Neither add can reassociate into
+    // the other without a `reassoc` flag the Vulkan backend does not emit, and
+    // neither has a multiply to contract, so the epilogue stays exact.
+    precise float lane0 = 0.0;
+    precise float lane1 = 0.0;
+    uint x_base = row * pc.input_dim;
+    uint w_base = out_col * pc.input_dim;
+    uint i = 0u;
+    for (; i + 1u < pc.input_dim; i += 2u) {
+        lane0 = fma(x[x_base + i], weight[w_base + i], lane0);
+        lane1 = fma(x[x_base + i + 1u], weight[w_base + i + 1u], lane1);
+    }
+    if (i < pc.input_dim) {
+        lane0 = fma(x[x_base + i], weight[w_base + i], lane0);
+    }
+    float result = lane0 + lane1;
+    output_values[row * pc.output_dim + out_col] = result + bias[out_col];
+}

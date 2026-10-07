@@ -370,10 +370,12 @@ where
             .get(&key)
             .copied()
             .filter(|plan| {
-                input_candidates.contains(&plan.input_grad_arm)
-                    && weight_grad_candidates.contains(&plan.weight_grad_topology)
-                    && (!plan.input_grad_arm.fuses_ce_adjoints()
-                        || fused_topology_candidates.contains(&plan.fused_adjoint_topology))
+                plan_admitted(
+                    plan,
+                    &input_candidates,
+                    &weight_grad_candidates,
+                    &fused_topology_candidates,
+                )
             })
         {
             return Ok(plan);
@@ -830,6 +832,23 @@ fn persistent_cache_path() -> Option<PathBuf> {
     })
 }
 
+/// A cached plan may only be installed when every axis still names an arm the
+/// current geometry (and therefore the vendor reliability policy that shapes
+/// it) offers. Both the in-memory and the on-disk caches run through this
+/// admission filter, so a plan persisted before an arm was withheld — or before
+/// a driver update revoked it — can never be dispatched.
+fn plan_admitted(
+    plan: &HierarchosLmBackwardPlan,
+    input_candidates: &[HierarchosLmExecutionArm],
+    weight_grad_candidates: &[HierarchosLmWeightGradTopology],
+    fused_topology_candidates: &[HierarchosLmFusedAdjointTopology],
+) -> bool {
+    input_candidates.contains(&plan.input_grad_arm)
+        && weight_grad_candidates.contains(&plan.weight_grad_topology)
+        && (!plan.input_grad_arm.fuses_ce_adjoints()
+            || fused_topology_candidates.contains(&plan.fused_adjoint_topology))
+}
+
 fn load_persistent_plan(
     key: &LmExecutionAutotuneKey,
     input_candidates: &[HierarchosLmExecutionArm],
@@ -859,10 +878,12 @@ fn load_persistent_plan(
         .rev()
         .find(|entry| {
             &entry.key == key
-                && input_candidates.contains(&entry.plan.input_grad_arm)
-                && weight_grad_candidates.contains(&entry.plan.weight_grad_topology)
-                && (!entry.plan.input_grad_arm.fuses_ce_adjoints()
-                    || fused_topology_candidates.contains(&entry.plan.fused_adjoint_topology))
+                && plan_admitted(
+                    &entry.plan,
+                    input_candidates,
+                    weight_grad_candidates,
+                    fused_topology_candidates,
+                )
         })
         .map(|entry| entry.plan))
 }
@@ -910,7 +931,7 @@ fn store_persistent_plan(
 #[cfg(test)]
 mod tests {
     use super::{
-        fp16_execution_candidates, fp16_weight_grad_candidates, select_candidate,
+        fp16_execution_candidates, fp16_weight_grad_candidates, plan_admitted, select_candidate,
         HierarchosLmBackwardPlan, HierarchosLmExecutionArm, HierarchosLmFusedAdjointTopology,
         HierarchosLmWeightGradTopology, LmExecutionAutotuneGeometry, LM_NATIVE_FP16_REUSE_ARMS,
     };
@@ -1078,6 +1099,77 @@ mod tests {
                 HierarchosLmExecutionArm::Fp16NativeReuse224,
             ]
         );
+    }
+
+    /// The capability-ready cross-row (rows16) LM arms are offered to the
+    /// autotuner and admitted by both plan caches now that the former Gen9
+    /// reliability policy is withdrawn. Cache admission stays scoped to the
+    /// current candidate list, so a plan naming an arm the geometry does not
+    /// offer (as a device-specific exclusion would produce) is still rejected.
+    #[test]
+    fn rows16_cross_row_arms_are_offered_and_cache_admission_requires_the_arm() {
+        let geometry = LmExecutionAutotuneGeometry {
+            device_name: "capability-ready",
+            subgroup_size: 32,
+            context_dim: 448,
+            vocab_size: 50_257,
+            rows: 8,
+            native_fp16_candidate: true,
+            max_compute_shared_memory_bytes: 32_768,
+            ce_tape_candidate: true,
+            ce_tape_rows8_candidate: true,
+            ce_tape_rows16_candidate: true,
+            ce_tape_rows16_fused_adjoints_candidate: true,
+            fused_adjoints_private_hidden_candidate: true,
+            fused_adjoints_private_hidden_tile256_candidate: true,
+            ce_tape_rows16_cluster4_candidate: true,
+            dw_vocab4_candidate: true,
+            dw_vocab8_candidate: true,
+            dw_vocab16_candidate: true,
+            kernel_signature: 23,
+        };
+        let cross_row_arms = [
+            HierarchosLmExecutionArm::Fp16CeTapeRows16,
+            HierarchosLmExecutionArm::Fp16CeTapeRows16Dot4,
+            HierarchosLmExecutionArm::Fp16CeTapeRows16FusedAdjoints,
+            HierarchosLmExecutionArm::Fp16CeTapeRows16Dot4FusedAdjoints,
+            HierarchosLmExecutionArm::Fp16CeTapeRows16Cluster4FusedAdjoints,
+        ];
+        let candidates = fp16_execution_candidates(&geometry);
+        let weight_grad_candidates = fp16_weight_grad_candidates(&geometry);
+        let fused_topology_candidates = [
+            HierarchosLmFusedAdjointTopology::SharedHidden,
+            HierarchosLmFusedAdjointTopology::PrivateHidden,
+            HierarchosLmFusedAdjointTopology::PrivateHiddenTile256,
+        ];
+        for arm in cross_row_arms {
+            assert!(candidates.contains(&arm), "{arm:?} must be offered");
+            let plan = HierarchosLmBackwardPlan {
+                input_grad_arm: arm,
+                weight_grad_topology: HierarchosLmWeightGradTopology::VocabRows8,
+                fused_adjoint_topology: HierarchosLmFusedAdjointTopology::SharedHidden,
+            };
+            assert!(plan_admitted(
+                &plan,
+                &candidates,
+                &weight_grad_candidates,
+                &fused_topology_candidates,
+            ));
+            let offered_without_arm = candidates
+                .iter()
+                .copied()
+                .filter(|candidate| *candidate != arm)
+                .collect::<Vec<_>>();
+            assert!(
+                !plan_admitted(
+                    &plan,
+                    &offered_without_arm,
+                    &weight_grad_candidates,
+                    &fused_topology_candidates,
+                ),
+                "a cache entry naming an unoffered arm must stay inert"
+            );
+        }
     }
 
     #[test]

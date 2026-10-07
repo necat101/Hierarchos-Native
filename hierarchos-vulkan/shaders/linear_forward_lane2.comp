@@ -1,0 +1,49 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+void main() {
+    uint out_col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || out_col >= pc.output_dim) {
+        return;
+    }
+
+    // Match PyTorch CPU's narrow-output GEMM topology for out_dim == 8
+    // (llama/gemma K and V projections): two interleaved fused FMA lanes keyed
+    // by `i % 2`, folded by one horizontal add.  The wider projections
+    // (out_dim 16/32) stay on the serial-FMA linear_forward kernel, which
+    // already reproduces that path bit-for-bit.
+    //
+    // The accumulators are `precise` so the driver cannot rewrite the
+    // interleaved chain.  The fold must NOT be `precise`: on Intel Gen9 the
+    // compiler reads a NoContraction final add as a request to keep the whole
+    // expression unfused and splits the upstream FMA ext-instructions into
+    // separate multiply and add, which lands one ulp away from this oracle
+    // (verified on-device).  A plain two-term add cannot reassociate, so the
+    // narrow topology is still exactly reproduced.
+    precise float lane0 = 0.0;
+    precise float lane1 = 0.0;
+    uint x_base = row * pc.input_dim;
+    uint w_base = out_col * pc.input_dim;
+    uint i = 0u;
+    for (; i + 1u < pc.input_dim; i += 2u) {
+        lane0 = fma(x[x_base + i], weight[w_base + i], lane0);
+        lane1 = fma(x[x_base + i + 1u], weight[w_base + i + 1u], lane1);
+    }
+    if (i < pc.input_dim) {
+        lane0 = fma(x[x_base + i], weight[w_base + i], lane0);
+    }
+    float result = lane0 + lane1;
+    output_values[row * pc.output_dim + out_col] = result;
+}

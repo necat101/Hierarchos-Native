@@ -6,7 +6,7 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use crate::mixed_precision::{VulkanParameterStorageMirror, VulkanParameterStorageMirrorRefresher};
 use crate::training_numerics::{VulkanGradientL2NormReducer, VulkanGradientNonfiniteDetector};
 use crate::VulkanParameterStorageFormat;
-use crate::{vulkan, AdamWHyperParams, GpuBuffer, VulkanDevice};
+use crate::{vendor, vulkan, AdamWHyperParams, GpuBuffer, VulkanDevice};
 
 const GRADIENT_ACCUMULATE_SPV: &[u8] = include_bytes!("../shaders/gradient_accumulate.spv");
 const GRADIENT_ACCUMULATE4_SPV: &[u8] = include_bytes!("../shaders/gradient_accumulate4.spv");
@@ -15,7 +15,6 @@ const GRADIENT_SCALE_FROM_BUFFER_SPV: &[u8] =
     include_bytes!("../shaders/gradient_scale_from_buffer.spv");
 const GRADIENT_SCALE_FROM_BUFFER_INDEXED_SPV: &[u8] =
     include_bytes!("../shaders/gradient_scale_from_buffer_indexed.spv");
-const ADAMW_SPV: &[u8] = include_bytes!("../shaders/adamw.spv");
 const ADAMW_RANGE_SPV: &[u8] = include_bytes!("../shaders/adamw_range.spv");
 const ADAMW_RANGE_CONTROLLED_SPV: &[u8] = include_bytes!("../shaders/adamw_range_controlled.spv");
 const ADAMW_RANGE_GRAD_SCALER_CONTROLLED_SPV: &[u8] =
@@ -1579,12 +1578,7 @@ impl RwkvPersistentAdamW {
                 ],
                 std::mem::size_of::<GradientScaleFromBufferIndexedPush>() as u32,
             )?,
-            adamw: vulkan::ComputeKernel::new(
-                &device,
-                ADAMW_SPV,
-                4,
-                std::mem::size_of::<AdamWPush>() as u32,
-            )?,
+            adamw: vendor::adamw_kernel(&device)?,
             adamw_range: vulkan::ComputeKernel::new(
                 &device,
                 ADAMW_RANGE_SPV,

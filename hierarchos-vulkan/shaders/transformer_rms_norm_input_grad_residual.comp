@@ -21,6 +21,7 @@ layout(push_constant) uniform Push {
     float weight_offset;
     uint pow_rstd;
     uint unfused_products;
+    uint exact_pow_backward;
 } pc;
 
 void main() {
@@ -105,8 +106,9 @@ void main() {
         // Use the same independent pow derivative as ordinary RMS backward.
         // Reusing the rounded rstd changes the variance branch before the
         // residual joins, even when the forward output is bit-identical.
-        precise float pow_neg_three_halves =
-            sleef_powf_neg_three_halves_u10(mean_squared_values[row]);
+        precise float pow_neg_three_halves = pc.exact_pow_backward != 0u
+            ? fp32_pow_neg_three_halves(mean_squared_values[row])
+            : sleef_powf_neg_three_halves_u10(mean_squared_values[row]);
         precise float grad_mean = (dot * -0.5) * pow_neg_three_halves;
         precise float grad_square = grad_mean / float(pc.dim);
         for (uint col = 0; col < pc.dim; ++col) {

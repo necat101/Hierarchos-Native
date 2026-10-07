@@ -2537,3 +2537,1395 @@ save/load/resume parity
 full-training regression safety
 
 Compilation or green component tests alone are not sufficient.
+
+## CURRENT CHECKPOINT 2026-10-05: full-matrix rerun against the current oracle
+
+Environment and provenance:
+
+- Oracle checkout: `C:\Users\User\transformers`, `5.19.0.dev0`, commit
+  `469230357aab0f2b303b0d638c1f8d06edb14184`, clean worktree.
+- Oracle stack: `peft==0.18.0`, torch `2.14.1+cpu`, CPython 3.12.15 in
+  `.venv-vulkan`.
+- `peft==0.21.2` was tried first and is not usable for this matrix: newer PEFT
+  emits expert `target_parameters` adapters, and the native LoRA ABI rejects
+  them (`LoRA target_parameters ... Mixtral/Qwen3Next does not yet expose a
+  lossless native parameter adapter ABI`). The run was repeated with the
+  documented oracle pin.
+- Matrix command: `verify_peft_green_matrix.py --jobs 2`; report
+  `.peft-oracle-fixtures/green-matrix-report.json`; provenance
+  `.peft-oracle-fixtures/green-matrix-report-provenance.json` with
+  `inputs_unchanged=true` (source, shader, binary, and oracle hashes unchanged
+  for the whole run).
+
+Result: 32/32 fixtures pass ordinary LoRA and named-adapter switching; 23/32
+pass the saved-module stage. Nine saved rows are red and are now listed
+explicitly in COMPATIBILITY.md ("Saved-module stage status"), with the exact
+adapter A/B values per module: llama, deepseek_v4, phi4_multimodal_text,
+smollm3, qwen3_5_full, minimax_m3, minimax_m2, gemma3, gemma4.
+
+Classification and evidence (gate unchanged at absolute `2e-7`; no PEFT fixture
+was re-conditioned):
+
+- llama `model.embed_tokens` A/B `2.384185791015625e-07`. Triple comparison on
+  the same tensor: native vs HF fp32 max `2.384185791015625e-07`, HF
+  fp32-vs-fp64 max `2.682209014892578e-07`, native vs HF fp64 max
+  `2.086162567138672e-07`. The worst native-vs-fp32 element (flat index 52,
+  value `-0.6227507591247559`) sits between the fp32 and fp64 oracle values;
+  at the tensor's largest element (index 113, `0.7870487570762634`) native
+  equals fp64 exactly and differs from the fp32 oracle by `1.7881393432617188e-07`.
+  The oracle's own fp32 rounding on this tensor therefore exceeds the gate.
+- The same llama gradients reproduce bit-for-bit with
+  `HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS=1`
+  (`diagnose_peft_saved_gradient.py llama`), and the uncommitted Intel vendor
+  replacements cover only `linear_forward`/`linear_bias_forward` with raw-bit
+  portable-equivalence tests, so that work is excluded as a cause.
+- The previously recorded saved numbers were measured against the `5.16.0.dev0`
+  oracle (llama saved embedding A `1.7881393432617188e-07`, Gemma3 saved
+  embedding A `5.066394805908203e-07`, Gemma4 saved input-norm A
+  `2.384185791015625e-07`). The current checkout moves the same surfaces above
+  the gate. Gemma3/Gemma4 remain the large amplifiers already documented above
+  (Q/K/V RMSNorm backward); their scoped fixes were aligned to the older
+  oracle's CPU reduction topology and need re-localization against the current
+  torch build before those saved rows can return to green.
+- The llama embedding scatter itself remains exact: the probe's
+  `hf_source_order_reconstruction_max_abs` is `0.0`, so the divergence is in
+  the adjoint presented to the embedding, matching the earlier
+  execution-topology classification.
+
+Decision for the merge window: the `2e-7` gate stays unchanged, no PEFT fixture
+is re-conditioned, and the documented claim is scoped to the measured state
+(32/32 lora/switch, 23/32 saved). The nine saved rows above are explicitly not
+claimed as saved-module-qualified.
+
+## CURRENT CHECKPOINT 2026-10-05 (later): saved-module drift was native-side, not oracle-side
+
+The previous checkpoint classified llama's saved-module drift as oracle-side FP32
+execution topology. That classification was wrong. Four native kernel bugs were
+localized with on-device candidate probes and fixed; the same fixture then
+measures `5.960464478e-08` for adapter B (gate unchanged at absolute `2e-7`, no
+PEFT fixture re-conditioned, no tolerance relaxed). The oracle did not change.
+
+### 1. Plain-RoPE inverse frequencies
+
+`uses_precomputed_frequencies` is now true for every `scaling_type == None`
+layer, not only Gemma3/Gemma4, so those layers consume host-materialized FP32
+inverse frequencies (`layer_kernel_type() == 7`) instead of the in-shader
+`pow(theta, -exponent)` path, whose device trig is 1-3 ulp off the oracle for
+frequencies 2 and 3. `k_rotary_output` becomes bit-exact.
+
+The branch must stay gated on `rotary_dim > 0`: without that guard a non-RoPE
+layer (GPT-2, BERT) built an empty factor table and every graph construction
+failed with `Vulkan storage buffer size must be positive` (69 library tests plus
+the `hierarchos-vulkan-transformer-logits` binary).
+
+### 2. Attention softmax reciprocal
+
+The device's raw `1.0 / exp_sum` is one ulp high. Both attention shaders now use
+the correctly rounded `fp32_div` for the reciprocal instead of the relaxed
+divider. Forward attention is bit-exact against
+`layers.*.self_attn.o_proj.input`.
+
+### 3. SiLU (`shaders/silu_forward.comp`) was not the ATen formula
+
+ATen/HF compute `silu(x) = x / (1 + exp(-x))`. The kernel computed
+`x * (1 / (1 + exp(-x)))` with the driver's relaxed `exp()`. Measured on the 128
+real layer-0 gate values, against `layers.0.mlp.act_fn.value`:
+
+| module | differing elements |
+| --- | ---: |
+| shipped (`exp` + reciprocal form) | 44/128 |
+| `exp` + correctly rounded `/` | 32/128 |
+| SLEEF `exp` + bare `/` | 27/128 |
+| SLEEF `exp` + `fp32_div` | **0/128 (bit-exact)** |
+
+With this fix the whole layer-0 MLP chain is bit-exact (gate/up serial-FMA GEMM,
+SiLU, elementwise product, down_proj serial-FMA), and every forward boundary of
+both layers matches the oracle exactly (`layers.1.value`, `model.norm.value`,
+`lm_head.input`, `layers.0.mlp.down_proj.value` all `d = 0.0`).
+
+### 4. Cross-entropy input adjacency: the lane fold
+
+The PEFT path dispatches the materialized-log-softmax cross entropy
+(`falcon_h1_cross_entropy.spv`, built from `transformer_cross_entropy.comp` with
+`HIERARCHOS_LOG_SOFTMAX_GRAD=1`). It accumulated the AVX512-sized 16-float lanes
+correctly but folded them as a lane-order sequential sum. PyTorch reduces those
+lane totals as a balanced binary tree (`vec_reduce_all`). Sequential fold: 31 of
+128 reference adjoint elements one ulp off; tree fold: 0/128 bit-exact. Verified
+on the executing device against `lm_head.grad_output`, plus six randomized
+cases. `transformer_cross_entropy.spv` (macro 0, non-PEFT path) is behaviorally
+unchanged.
+
+### Measured result on the llama fixture
+
+| quantity | before | after |
+| --- | ---: | ---: |
+| adapter A embedding gradient | `2.384185791e-7` | `1.192092896e-7` |
+| adapter B embedding gradient | `2.384185791e-7` | `5.960464478e-8` |
+| frozen base | `0.0` | `0.0` |
+| `verify_peft_saved_modules.py llama` | fail | `pass: true` |
+
+The residual `5.960464478e-8` (2^-24) is the last non-bit-exact backward
+boundary in the layer-1 block (layer input gradient); it is 3.3x inside the gate
+and its first non-exact step is inside the layer-1 backward, not at the CE head,
+the final norm, the embedding scatter, or either layer's forward.
+
+### Verification discipline
+
+Every candidate module was executed on the reference device (Intel HD Graphics
+520) by a temporary probe test that reads SPIR-V files from `target/` and
+dispatches them through the production dispatch contract, then compared
+bit-for-bit against the oracle capture; only the oracle-exact module was
+promoted into `shaders/`. All temporary probe tests were removed from
+`src/transformer.rs` before the final build.
+
+## CURRENT CHECKPOINT 2026-10-05 (regression question): the current tree is
+better than the last commit, not worse
+
+Claim under test: the 2026-09-30 ROG Ally run was 32/32 all-stage, so this work
+item may have introduced a saved-module regression. Every measurement below was
+taken on the Intel HD Graphics 520 reference device.
+
+1. This work item changed no saved-stage number. `green-matrix-report.json`
+   (16:37) and its pre-work-item predecessor
+   `.prior-1791239954259869000.json` (14:21) agree on every family verdict and
+   every module value.
+2. The last commit is worse, not better. A scratch worktree at `HEAD`
+   (`d006459`), built separately (13m28s, own `target/`) and run against the
+   byte-identical Gemma3 fixture, measures `model.embed_tokens` gradient A
+   `1.1920928955078125e-06` / B `2.9802322387695312e-07` (red). The current tree
+   measures A `4.76837158203125e-07` / B `2.384185791015625e-07` (still red, but
+   ~2.5x closer). Gemma3's other saved rows (`mlp.down_proj`,
+   `input_layernorm`, `lm_head`) pass on both. The scratch worktree was removed
+   after the probe.
+3. The oracle checkout is excluded by measurement, not by argument.
+   `verify_peft_lora_strict.py` now accepts `HIERARCHOS_TRANSFORMERS_ROOT`
+   (default unchanged, still the local checkout; the provenance guard still
+   refuses a site-packages import). With the 2026-09-30 tag `v5.16.0`
+   extracted outside the live checkout, the Gemma3 fixture regenerates
+   **byte-identically** (base
+   `65b0ef7de0f486103bf9cad191c874d98321428b628872ddbb05aa68f8bdd7e2`, adapter
+   `2ec93d78a2aec5ffd419bba0856a281eb1c5a5eb097b74dbc7cf08c99d8cfa67`,
+   `training.json` `ce42a7ca5fbf66921e89c650a2a94a7f4b56704329db9588c84c3dadcd052e01`)
+   and the saved-embedding gradient is bit-identical to the `5.19.0.dev0`
+   result. The "FP32 execution-topology drift between oracle checkouts"
+   sentence in COMPATIBILITY.md was therefore stale and now records the measured
+   native-side classification.
+4. The Intel vendor layer is excluded:
+   `HIERARCHOS_VULKAN_FORCE_VENDOR=amd` reproduces the same seven red rows with
+   bit-identical numbers.
+
+Unverified and left open: the Ally-era numbers quoted in COMPATIBILITY.md
+(Gemma3 saved embedding A `1.1920928955078125e-7` / B `1.7881393432617188e-7`,
+Gemma4 A `7.450580596923828e-9` / B `2.9802322387695312e-8`) exist in no artifact
+on this disk, and `HEAD` reproduces `1.1920928955078125e-06` here, so they are
+AMD-device measurements that cannot be reproduced without the Ally. Gemma3's
+RMSNorm path is mode 3 (`fp32_sqrt_recip`, eight interleaved FP32 lanes folded in
+order), so it is device-independent and is not a cross-vendor suspect.
+
+Next: localize the Gemma3/Gemma4 first divergent backward boundary with
+`validation/diagnose_peft_backward_boundary.py` (proven for llama) before
+touching any shader.
+
+### Gemma3 saved-embedding localization (same day, operand-matched)
+
+`diagnose_peft_saved_gradient.py gemma3 --module model.embed_tokens --adapter a`
+reproduces `4.76837158203125e-07` on `model.embed_tokens.weight` with
+`hf_source_order_reconstruction_max_abs = 0.0`, so the scatter is exact and the
+divergence is the adjoint handed to the embedding.
+
+Boundary chain (`diagnose_peft_backward_boundary.py gemma3 --trace ...`), HF
+boundary vs native key, max-abs:
+
+| link | delta |
+| --- | ---: |
+| `lm_head.grad_output` vs `grad_logits` (CE adjoint) | `3.725e-09` |
+| `model.norm.grad_input` vs `grad_final_norm_input` | `1.863e-09` |
+| `layers.1.grad_output` vs `grad_final_norm_input` | `1.863e-09` |
+| `layers.0.grad_output` vs `layers.1.grad_input` | `6.519e-09` |
+| `layers.0.grad_input` vs `layers.0.grad_input` (= embedding adjoint) | `1.192e-07` |
+| `lm_head.input` vs `final_norm_output` (forward) | `4.768e-07` |
+| `layers.0.value` vs `layers.0.output` (forward) | `2.384e-07` |
+| `o_proj.base_layer.input` vs `attention_output` (forward) | `7.451e-09` |
+
+The chain is near-exact everywhere except layer 0, and the first material
+divergence is in the FORWARD: layer-0 attention output, one ulp. Everything
+downstream (layer output, final norm, adjoint, embedding gradient) inherits and
+amplifies it.
+
+Operand-matched evidence collected this round (scripts in `.venv-vulkan/scratch`
+plus `validation/diagnose_gemma3_rope_operands.py`):
+
+1. Q/K/V projections and norms are bit-exact, and Gemma3 layer-0 RoPE is
+   bit-exact against HF's own captured post-rope operands (`q delta 0.0`,
+   `k delta 0.0`), so the precomputed-frequency change is correct here. Layer 1's
+   rope differs by ~1.5 ulp only because layer 1's inputs already differ.
+2. Replaying HF eager attention with torch's own operators (matmul + softmax,
+   not element-wise loops) reproduces the oracle capture exactly
+   (`delta = 0.0`), and feeding the NATIVE operands through those same operators
+   also lands on the oracle exactly. The native's inputs are therefore perfect;
+   only its accumulation order differs: the native attention output is
+   `7.451e-09` from the oracle given identical operands.
+3. HF's softmax semantics are `exp` then multiply by the reciprocal: that form
+   matches `torch.nn.functional.softmax` bit-exactly, while dividing each
+   exponential by the sum differs on exactly one element by `7.451e-09`.
+4. For the tiny shapes involved, none of sequential products, adjacent-pair tree
+   products, or lane-FMA-plus-tree reproduces `torch.matmul` bit-exactly
+   (QK best `2.384e-07`, P@V best `7.451e-09`), so the shader must be matched
+   against ATen's blocked CPU micro-kernel order rather than a naive loop.
+5. `HEAD` already routed `Gemma3 | Gemma4` to attention mode 1 in both the
+   forward and backward dispatch, identical to the working tree, so today's work
+   changed no Gemma3 attention mode; the only new arm is Llama's mode 9.
+
+Next: pin ATen's exact reduction order for these shapes (the attention
+accumulation), then re-run `verify_peft_saved_modules.py gemma3` and the
+porcelain matrix rows for gemma4/minimax_m2/minimax_m3/mistral4/qwen3_5_full/
+smollm3.
+
+## CURRENT CHECKPOINT 2026-10-05 (Intel Gen9 FP32 fidelity): four root causes found, one family flipped green
+
+The AMD-green / Intel-red split is a **FP32 fidelity** split, not a math split.
+Every kernel order in the tree is already the oracle's order; what differs is how
+a Gen9 driver evaluates a handful of expressions that a double-capable,
+IEEE-FMA vendor evaluates exactly. Four independent mechanisms were isolated and
+fixed this round. All are in shared fp32 primitives, so they apply to every
+architecture.
+
+### 1. Bare double literals silently promoted fp32 expressions to FP64
+
+`sleef_expf_u10` (and the log, tanh and pow siblings) were written with
+unsuffixed literals such as `-0.00139304355252534151077271`. GLSL then promotes
+the whole expression to `double`, so the "SLEEF fp32 polynomial" actually
+executed in FP64 and only rounded to FP32 at the very end.
+
+Measured on this host (HD Graphics 520, driver 1656899): input
+`x = -1.001569151878357` gave device/torch `0.36730265617370605`
+(`0x3ebc0f18`, SLEEF) versus the old shader's `0.36730262637138367`
+(`0x3ebc0f17`, the correctly rounded exp). One ulp, on roughly 1% of arguments,
+and never visible in a reduction denominator -- only in a value that is later
+reconstructed by a backward pass.
+
+Fix: every literal carries an explicit `f` suffix, and every multiply-add that
+SLEEF performs fused goes through the new `shaders/fp32_fma_exact.glsl`
+(Dekker two-product with split `4097.0` plus Knuth two-sum, `precise`
+throughout, no `shaderFloat64`). Validated offline against true `fmaf` over
+900 000 samples: 0 mismatches. The new SPIR-V declares only capability
+`Shader` -- no `Float64`.
+
+### 2. `precise` + `fma()` is a separate multiply and add on Gen9
+
+`lora_a_forward.comp` accumulates sixteen `precise` lanes with `fma(...)`. The
+device result equals a *materialized product* model, not the fused model: for
+Gemma3's down-projection LoRA-A (`32 -> 2`) the native output is reproduced
+exactly (`0/64`) by "products rounded, eight or sixteen independent lanes,
+halving tree", and never by the fused variant. `linear_forward.comp`, whose
+accumulator is deliberately *not* `precise`, stays fused -- verified by editing
+it to `fp32_fma_exact` and observing a bit-identical trace, then reverting the
+edit so the shipped kernel keeps its cheaper `fma` chain.
+
+### 3. The wrong lane topology for the wide LoRA-A reduction
+
+`diagnose_small_gemm.py`-style modelling over the real captured operands
+(`.venv-vulkan/scratch`), comparing HF's `lora_A.default.value` per shape:
+
+| LoRA-A shape | topologies that reproduce HF |
+| --- | --- |
+| `(2, 16)` (q/k/v/o/gate/up) | `l8_nf`, `l16_fused`, `l16_nf` -- all agree at K=16 |
+| `(2, 32)` (down projection) | **only `l8_nf`** |
+
+So PyTorch's CPU small-output GEMM walks the reduction with AVX2-width (eight
+float) lanes and folds them in halves; the sixteen-lane kernel only coincides
+with it while the reduction is exactly sixteen wide. `src/transformer.rs` had
+routed the MLP down projection to `lora_a_forward_lane8_muladd` for `Gemma4`
+only. It now keys off the reduction size (`c_mlp_proj.input_dim >= 32`), which
+covers Gemma3 and every other wide-rank down projection.
+
+### 4. The GELU-tanh constant and the CE softmax path
+
+`transformer_gelu_tanh_{forward,backward}.comp` computed `0.044715 * x3` and
+`3.0 * 0.044715` with double literals, and `sleef_tanhf_u10` had both the FP64
+promotion and GLSL `fma` problems plus two bare `/`. All are now suffixed,
+exact-fused and correctly divided (`fp32_div`).
+
+`falcon_h1_cross_entropy.spv` is the `-DHIERARCHOS_LOG_SOFTMAX_GRAD=1` build of
+`transformer_cross_entropy.comp` (byte-identical to compiling that source with
+the define; the plain build differs), and it is what the LoRA / PEFT loss path
+dispatches -- see `transformer.rs` "if self.lora_config.is_some() || ...
+FalconH1". It was regenerated with the fixed primitives.
+
+### Measured effect (saved-module probe, `model.embed_tokens`, adapter a, TOL 2e-7)
+
+| family | before | after |
+| --- | --- | --- |
+| gemma3 | 4.768e-07 | **2.086e-07** |
+| minimax_m3 | 2.086e-07 | **1.788e-07 (PASS)** |
+| smollm3 | 2.980e-07 | 2.980e-07 |
+| qwen3_5_full | 2.384e-07 | 2.384e-07 |
+| mistral4 | 2.384e-07 | 2.384e-07 |
+| minimax_m2 | 3.576e-07 | 3.576e-07 |
+| gemma4 | 4.768e-07 | 4.768e-07 |
+
+For Gemma3 the **forward pass is now bit-exact end to end** (every remaining
+non-zero row in `diagnose_peft_backward_boundary.py` is a numel-collision
+mis-pairing: deltas 8e-05 .. 2e0 against a correctly matched neighbour at 0.0).
+The residual 2.086e-07 is entirely in the backward chain: `layers.0.grad_input`
+sits `5.215e-08` (about half an ulp) from HF, and the `modules_to_save`
+reduction scales it by `4.0`, giving `2.086e-07` against a `2e-7` gate. Bit
+exactness upstream is therefore required, not merely accuracy.
+`layers.1.*` and `layers.0.*` gradients all show ~1 ulp relative error, first
+appearing in the layer-1 MLP backward (`grad_post_mlp_norm` is exact,
+`grad_mlp_norm_output` is `4.657e-10` off), so the next target is the backward
+GEMM / LoRA-adjoint topology for those shapes.
+
+### Instrumentation caveat found this round
+
+`diagnose_peft_backward_boundary.py` registers a `register_hook` on the tensor
+object handed to each module. PEFT hands the *same* dropout output tensor to
+both the base layer and the LoRA branch, so an HF `*.grad_input` entry can be a
+partial gradient from whichever branch backpropagates first. Concretely,
+`layers.1.mlp.down_proj.base_layer.grad_input` disagrees with
+`torch.mm(grad_output, weight)` on 96 of 128 elements at up to `6.1e-02`. Treat
+those captured `grad_input`s as capture artifacts and recompute targets with
+`torch.mm` / autograd instead of using them as ground truth.
+
+### Provenance note
+
+The worktree `shaders/transformer_cross_entropy.spv` is the plain build (GLSL
+`exp()`, no SLEEF). That was confirmed by extracting the embedded SPIR-V blobs
+from pre-change binaries and by compiling both variants; the tree's `.spv` was
+already the plain build before this round, so no behavior was lost when it was
+regenerated.
+
+Next: localize the remaining backward ulp for Gemma3 (the layer-1 MLP backward
+entry point above), then re-check gemma4, smollm3, qwen3_5_full, mistral4,
+minimax_m2, and finally re-run the full matrix plus the cargo ladder.
+
+## Round: CE reduction topology + RMSNorm vector-reduction topology (Intel Gen9)
+
+### Root cause 1: the LoRA cross-entropy sum was folded as an AVX512 tree
+
+`transformer_cross_entropy.comp` (`HIERARCHOS_LOG_SOFTMAX_GRAD`, used by the LoRA
+path and Falcon H1) reproduced torch's `log_softmax` sum with a 16-lane
+accumulator and a balanced tree. This torch build is **MSVC**, so ATen's
+`VecReduceAllSIMD` specialization is compiled out and `vec_reduce_all` takes the
+slow path: an **8-wide** accumulator seeded with the first chunk, later chunks
+adding into the same lanes, then the eight lane totals folded **sequentially**
+into lane 0. Rewriting the kernel to that topology makes
+`native grad_logits == HF lm_head.grad_output` **bit-exact (0/128, was 30/128 at
+3.7e-09)** and flips Gemma3's `saved` stage green.
+
+Evidence: on 300 synthetic rows the MSVC slow-path sum + SLEEF exp + a
+correctly-rounded log reproduces `torch.log_softmax` **300/300**; the 16-lane
+tree does not. On the real Gemma4 fixture, `exp=sleef fold=8seq` is
+**0/128** for every log/probability variant, while `fold=16tree` with the
+emulated SLEEF exp is the only combination that fails.
+
+### Root cause 2: the RMSNorm reduction topology was per-family instead of global
+
+Every remaining red surface (`smollm3`, `qwen3_5_full`, `mistral4`,
+`minimax_m2`, `minimax_m3`, `gemma4`) failed **only** on the token-embedding
+weight gradient (Gemma4 additionally on `layers.0.input_layernorm.weight`).
+That gradient is `token_embedding_scale * layers.0.grad_input`, so the whole
+gate reduces to the accuracy of the layer-0 input gradient (2-6 ulp).
+
+Differential diagnosis against HF captures:
+
+* Gemma3's backward is **bit-exact at every boundary** (`grad_input`,
+  `grad_norm_output`, `grad_mlp_output`, `grad_mlp_gate_activation`, ... all
+  `0.000e+00`). Its forward is bit-exact too.
+* Gemma4's identical-geometry fixture is 1-3 ulp off at every boundary, and its
+  first divergence is the final RMSNorm *input* gradient.
+* Gemma3 and Gemma4 differ only in `query_pre_attn_scalar` and in the RMSNorm
+  class (Gemma4: `x * pow(mean,-0.5) * w`; Gemma3: `x * rsqrt(mean) * (1+w)`).
+
+The decisive experiment (SmolLM3 final norm, HF capture, dim 16):
+
+```
+forward  8-lane reduction + sqrt-then-reciprocal rsqrt  -> 0/64 exact
+forward  source order / 16-lane tree / AVX chunk order  -> 31-47/64 wrong
+backward 8-lane dot + materialized autograd form        -> 0/64 exact
+backward fused closed form or source-order dot          -> 11-35/64 wrong
+```
+
+So the reference (and the correct emulation) is the same MSVC/AVX2 topology as
+root cause 1: **8 interleaved lanes + a sequential lane fold, in both the
+forward mean square and the backward `(grad*w)*x` dot**.
+
+### Fix
+
+The shader already contains that model as "vector CPU-rsqrt mode"
+(`extra_rsqrt_refinement == 3`, which selects the 8-lane reduction in the
+forward and the materialized autograd backward form), but the backward push
+selector sent mode 3 to the 16-lane tree whenever `materialized_backward` was
+set. `RmsNormBackwardPush`/`RmsNormInputGradResidualPush` now map mode 3 to
+`unfused_products == 2` (8-lane dot + autograd) ahead of the materialized
+selector, and `SmolLm3`, `Mistral4`, `Qwen35` and `MiniMaxM3VLText` now select
+`use_vector_cpu_rsqrt` at all three norm construction sites.
+
+Result (`verify_peft_green_matrix.py --stage saved`):
+
+| family | saved before | saved after | embed_tokens gradient |
+| --- | --- | --- | --- |
+| smollm3 | fail 2.980e-07 | **pass** | 1.490e-07 |
+| mistral4 | fail 2.384e-07 | **pass** | 5.960e-08 |
+| qwen3_5_full | fail 2.384e-07 | **pass** | 5.960e-08 |
+| minimax_m3 | fail 2.086e-07 | **pass** | 5.960e-08 |
+| gemma4 | fail 7.153e-07 | fail 7.153e-07 | input_layernorm 7.153e-07 |
+| minimax_m2 | fail 3.576e-07 | fail 3.576e-07 | 3.576e-07 |
+
+SmolLM3's `lora` stage re-verified after the change (`base_max_abs`
+4.587e-08, `peft_max_abs` 2.790e-08, `gradient_max_abs` 2.095e-09), so the
+forward did not regress.
+
+### Re-verified gates after both fixes
+
+* `cargo test --lib` (debug) 689 passed / 0 failed / 9 ignored.
+* `verify_vendor_parity.py` PASS (21 resolved + 21 forced-portable, worst
+  5.960e-08).
+* `verify_hf_training.py --headline-strict` result `pass` (worst 5.960e-08).
+* `verify_peft_green_matrix.py --stage all --jobs 2`: in progress; the first
+  families (gpt2, llama, mixtral, qwen3_next, phi4_multimodal_text,
+  deepseek_v4, ...) are green on all three stages, confirming the CE change did
+  not regress the family that the 16-lane tree had previously satisfied.
+
+### Remaining red (localized)
+
+* `gemma4`: `extra_rsqrt_refinement == 0` with `pow_rstd != 0`, so its norm
+  still uses the source-order materialized reduction in the forward and a
+  source-order dot in the backward. Giving Gemma4 mode 3 would apply the 8-lane
+  model to the pow-RMS norms; the forward would then change too, so it must be
+  A/B tested against the base logits matrix in the same run.
+* `minimax_m2`: already mode 3 for every norm (8-lane forward and backward), so
+  its remaining 3.576e-07 comes from outside the norm path (MoE/router or
+  attention adjoint topology).
+
+### Gemma4 follow-up: the norm reduction is not the remaining source
+
+Gemma4 was then given the same `use_vector_cpu_rsqrt` treatment on its layer
+norms (it already had it on `v_norm`). Its forward norms stayed bit-exact
+(`layers.{0,1}.norm_output` and `.mlp_norm_output` == HF `*.value`, 0/64) and
+its `saved` metrics did not move at all
+(`a_gradient_max_abs` 7.153e-07, `input_layernorm` 7.153e-07), so the norm
+reduction topology is already correct for that fixture through the
+`pow_rstd` path.
+
+What the trace does show is why Gemma4 is the hardest surface: its RMSNorm
+sandwich amplifies the backward to `|grad| ~ 8.9` (layer 1) and `~ 15.9`
+(layer 0), so **one ulp is 1.07e-06 and even 0.45 ulp exceeds the absolute 2e-7
+gate**. Observed relative errors are still only 1.5e-07 .. 4.3e-07 (1.3-3.6
+ulp), first appearing at the attention-core adjoints
+(`grad_v_norm_output` 3.18e-07, `grad_q_norm_output` 1.60e-07) and then
+accumulating down to `layers.0.grad_input` 3.98e-07 (1.788e-07 absolute), which
+`token_embedding_scale = 4.0` turns into the reported 7.153e-07. Gemma4
+therefore needs genuinely bit-exact attention/MLP adjoints, not ulp-level
+accuracy; `minimax_m2` is in the same class (already mode 3 everywhere, still
+3.576e-07).
+
+The relative-error map script used for this localization is
+`hier_rel4.py <trace.json> [tensors.pt]` with the HF capture produced by
+`diagnose_peft_backward_boundary.py <family> --module model.embed_tokens
+--adapter a --trace <trace> --tensors <out.pt>`.
+
+## Round: ATen tiny-fixture attention/linear oracles (qwen2_5_sliding_tied green)
+
+This round localised and removed the two remaining sources behind
+`qwen2_5_sliding_tied`'s red `saved` stage, then re-ran the whole 32-family
+matrix. Nothing about the tolerance moved: the gate is still the absolute
+`2e-7` from `verify_peft_saved_modules.py`, and the vendor bit-exactness
+contract is untouched.
+
+### Finding 1: ATen's CPU GEMM uses a two-lane topology when N <= 8
+
+Probing `torch.nn.functional.linear` directly on the pinned MSVC build with
+synthetic operands and comparing every plausible accumulation order against
+ATen's own output (via `ctypes` `fmaf` for exact fused steps) gives a clean
+kernel-selection rule for `M = 4` (the fixture geometry):
+
+| N | K | exact-match accumulation | score |
+|---|---|---| --- |
+| 8 | 16 / 24 / 32 / 64 | two interleaved FMA lanes keyed by `i % 2`, folded by a single add, then `+ bias[n]` | 100% (192/192 at K=16, 768/768 at rows=16) |
+| 4 | 16 | same two-lane fold | 100% (96/96) |
+| 16 | 16 | serial FMA, then `+ bias[n]` | 100% (384/384) |
+| 24 | 16 | serial FMA | 79.7% (459/576) |
+| 32 | 16 | serial FMA | 100% (768/768) |
+
+The bias must be applied **after** the fold: the bias-seeded forms score
+120/192 and 87/192, i.e. they are simply the wrong oracle.
+
+The backend already had `linear_forward_lane2.comp` for this topology, but its
+selector only fired on `!has_bias && output_dim == 8`. Attention-bias models
+(Qwen2/Qwen2.5, whose `Linear(hidden, 2 * head_dim) + bias` K/V projections are
+exactly N = 8) therefore went through the serial-FMA `linear_bias_forward`
+module. Measured against the HF capture: the `q_proj` base output (N = 16) was
+bit-exact while `k_proj` and `v_proj` base outputs (N = 8) were one ulp away on
+23/32 and 19/32 elements, and the parent projection (base + LoRA) inherited
+exactly that difference.
+
+Fix: new `shaders/linear_bias_forward_lane2.comp` (same two-lane body as
+`linear_forward_lane2.comp`, plus the bias binding and an epilogue
+`result + bias[out_col]`), compiled with glslang 16.6.0, wired as a plain
+`vulkan::ComputeKernel` and selected when `has_bias && output_dim == 8` -
+mirroring the existing biasless selector so the vendor slot is not involved.
+Result: `k_proj` and `v_proj` base outputs became **bit-exact (0/32)**.
+
+### Finding 2: ATen's tiny CPU softmax/BMM oracle is mode 9, for any model
+
+The Qwen2 fixture's layer-0 chain was then traced stage by stage. Rope and
+Q/K/V were bit-exact; the first divergence was the attention core: native
+`attention_output` (the `o_proj` input) was one ulp away on 20/64 elements,
+with rows 0 and 1 exact and rows 2/3 (3 and 4 visible keys) wrong.
+
+Enumerating attention arithmetic offline (exact-FMA `ctypes`, a faithful Python
+port of `fp32_sleef_exp.glsl`, correctly rounded divides) against HF's own
+captured `o_proj.input` isolates the oracle exactly:
+
+| QK | P@V | exp | normaliser | diff vs HF |
+|---|---|---|---|---|
+| any | materialised products + sequential add | SLEEF u10 | multiply by `1/sum` | **0 / 128** |
+| any | serial FMA | SLEEF u10 | multiply by `1/sum` | 1 / 128 |
+| any | materialised | SLEEF u10 | per-element divide | 16 / 128 |
+| any | serial FMA | correctly rounded exp | multiply by `1/sum` | >= 1 / 128 |
+
+That is precisely the existing "mode 9" enumeration (materialised QK and P@V
+products, SLEEF u10 exp, correctly rounded FP32 reciprocal), which had only
+been wired to `Llama` and `Gemma3/Gemma4`. Extending it to the `Qwen2`
+architecture fixes the whole forward: `post_attention_layernorm` output,
+`final_prefix` and `final_norm_output` all became **bit-exact (0/64)**, the
+residual-chain drift disappeared, and `qwen2_5_sliding_tied`'s `saved` stage
+went green (`model.embed_tokens` `a_gradient_max_abs` 2.384e-07 -> 1.192e-07,
+all four modules `pass: true`).
+
+`qwen2_5_gqa` (the other Qwen2 fixture) was re-verified separately: `lora`,
+`saved` and `switch` all green after the change.
+
+### Full 32-family matrix re-run
+
+`verify_peft_green_matrix.py --stage all --jobs 2` -> 32 families,
+`failures = [gemma4, minimax_m2]`. Every other family is green on all three
+stages, including `qwen2_5_sliding_tied` (fixed here) and the previously
+fixed `gemma3` / `smollm3` / `mistral4` / `qwen3_5_full` / `minimax_m3`.
+No regression was introduced by either fix.
+
+### minimax_m2: forward improved, gate unchanged
+
+`MiniMaxM2` also runs the generic mode-0 attention forward. Giving it mode 9
+strictly improved the forward trace (`layers.0.attention_output` 44/128 ->
+29/128 one-ulp differences, `layers.1.input_layernorm` 2.384e-07 -> 1.192e-07,
+`layers.1.attention_output` 2.980e-08 -> 2.235e-08) and kept `lora`/`switch`
+green, but the `saved` metric did not move
+(`model.embed_tokens` `a_gradient_max_abs` stayed 3.576e-07). The off-line
+oracle reproduction for this fixture is exact (feeding **both** HF's rope and
+native's rope into the materialised-product/SLEEF/reciprocal pipeline returns
+HF's `o_proj.input` bit-for-bit, 0/128), and a least-squares recovery of the
+per-row probability vector from native's own `attention_output` agrees with
+HF's probabilities to within the fit noise, so the residual difference is a
+device-side rounding detail inside the mode-9 softmax path rather than a
+topology choice. The forward change is kept (it is a strict parity
+improvement) and `minimax_m2` remains the second red surface.
+
+### Regression ladder after both fixes (all green)
+
+* `cargo test --lib` (debug): **689 passed / 0 failed / 9 ignored**.
+* `cargo test --release --lib`: **689 passed / 0 failed / 9 ignored**.
+* `verify_vendor_parity.py`: **PASS** (21 resolved + 21 forced-portable,
+  worst `5.960e-08` on both paths).
+* `verify_hf_training.py --headline-strict`: **result `pass`** (`max_abs`
+  1.192e-07 against the harness's own 2.0e-7 bound; the same 1.192e-07 is the
+  worst for `smollm3`, whose attention path this round did not touch, so the
+  bound is not sensitive to these changes).
+
+New artifact inventory for this round:
+`shaders/linear_bias_forward_lane2.comp` / `.spv` (new, 3964 bytes, compiled
+with glslang 16.6.0 so `build.rs`'s FNV-1a registry picks it up), the
+`LINEAR_BIAS_FORWARD_LANE2_SPV` const + `linear_bias_forward_lane2` kernel and
+its `has_bias && output_dim == 8` dispatch arm, and the `VulkanTransformerArchitecture::Qwen2
+=> 9` / `MiniMaxM2 => 9` arms in both the forward and the backward attention
+push-constant builders in `src/transformer.rs`.
+
+## Round 3: gemma4 `saved` green — correctly rounded `pow(mean, -1.5)`
+
+### gemma4 root cause (measured, not inferred)
+
+Gemma4's forward was already fully bit-exact (every `attention_output`,
+`norm_output`, `mlp_output`, `final_norm_output` boundary matched HF at
+`0.000e+00`). The whole `saved` gap came from the **RMSNorm backward
+derivative factor**: Autograd differentiates the forward's
+`torch.pow(mean_squared, -0.5)` and evaluates `torch.pow(mean_squared, -1.5)`
+*independently*, and on these tiny strict-fixture tensors ATen's CPU `pow`
+takes the **scalar** path, i.e. the correctly rounded double-precision result.
+The device used the SLEEF u10 log/exp paraphrase
+(`sleef_powf_neg_three_halves_u10`), which is one ulp high/low on a few percent
+of rows. Gemma4's RMSNorm "sandwich" amplifies that seed at every lower norm
+(|grad| reaches 8.9 at layer 1 and ~15.9 at layer 0, so **one ulp is
+1.07e-06** — five times the 2e-7 gate). The module-level `*.grad_input` keys in
+the boundary capture are PEFT module grads (base + LoRA branch):
+`down_proj.grad_input == base_layer.grad_input == lora_A.grad_input` exactly,
+and `g@W` can never reproduce them, so they are not usable as a dgrad oracle —
+the base-layer dgrad path itself was verified consistent.
+
+### The fix
+
+* `shaders/fp32_sqrt_recip.glsl`: new `fp32_pow_neg_three_halves(x)`, a
+  **correctly rounded** FP32 `x^(-3/2)` that needs no `shaderFloat64` and no
+  fused multiply-add (Intel Gen9 lowers `fma()` to mul+add, which is exactly
+  what breaks SLEEF's compensated two-float staging). It works from the exact
+  integer predicate `candidate <= x^(-3/2) <=> candidate^2 * x^3 <= 1`, building
+  both sides as 128-bit integer mantissas with 32-bit products and resolving
+  round-to-even against the exact midpoint. Validated offline against exact
+  rational arithmetic on 40013 samples: **0 mismatches**.
+* `shaders/transformer_rms_norm_input_grad.comp` and
+  `..._residual.comp`: new push field `exact_pow_backward`; when set, the
+  backward uses `fp32_pow_neg_three_halves(mean_squared)` instead of the SLEEF
+  paraphrase. The residual variant is edited in lockstep — it shares
+  `RmsNormBackwardPush`, and a stale 6-field push block there aborted the
+  pipeline with `kernel expected 24 push-constant bytes, got 28` until both
+  `.spv` files were regenerated.
+* `src/transformer.rs`: `exact_pow_backward = pow_rstd && extra_rsqrt_refinement == 3`
+  on both backward dispatch sites, and the two hard-coded push sizes are now
+  `size_of::<RmsNormBackwardPush>()` so the struct and the kernel can never
+  drift apart again.
+* `src/vulkan.rs`: the push-constant mismatch error now names the shader
+  (`kernel transformer_rms_norm_input_grad expected ...`), which is how the
+  stale `.spv` was localised.
+
+Result: the worst `a_gradient_max_abs` across gemma4's four strict modules
+(`model.layers.0.mlp.down_proj`, `model.layers.0.input_layernorm`, `lm_head`,
+`model.embed_tokens`) drops **7.153e-07 -> 7.45e-09**, every module reports
+`pass: true` with `a_frozen_base_max_abs == 0.0`, and the family is green on
+`lora`, `switch` **and** `saved`.
+
+Rejected alternatives, for the record: re-capturing with a LoRA-free oracle is
+not needed once the base-layer quantity is computed directly, and the 0.065
+`|grad_input - g@W|` gap on `down_proj` is entirely the LoRA branch
+(`t1 + 2*t2` with `lora_alpha/r = 4/2 = 2.0` reproduces HF's module grad
+bit-exactly, 0/64).
+
+### Full 32-family matrix after this round
+
+`verify_peft_green_matrix.py --stage all --jobs 2` -> `families: 32`,
+`failures: [minimax_m2]`. **31/32 families green on all three stages.**
+
+### minimax_m2: where the remaining 3 ulps come from
+
+The `saved` gate fails only on `model.embed_tokens`
+(`a_gradient_max_abs` 3.576e-07 = 3 ulp, `b` 1.192e-07); the other three
+modules pass. The RMSNorm derivative formula is **not** the cause here, and
+this was verified rather than assumed: a direct ATen probe
+(`t.rsqrt(t).backward(1.0)` over 11 magnitudes) shows ATen's rsqrt backward is
+`-0.5 * rstd^3` with the *rounded* `rstd` (11/11), **not** the correctly rounded
+`x^(-1.5)` (9/11 differ). MiniMax-M2's norm is `x * torch.rsqrt(variance + eps)`,
+so the existing `rstd*rstd*rstd` device branch is already the right formula —
+the gemma4 `pow` fix must not (and does not) apply to it.
+
+The remaining divergence is upstream of the norms, in the rope elementary
+functions. Measured against `torch.cos`/`torch.sin` (ATen, the oracle):
+
+| implementation | rope angles (64) | random 30k, cos / sin |
+|---|---|---|
+| `shaders/fp32_sleef_trig.glsl` (SLEEF scalar u1, non-FMA) | 4 / 64 cos, 0 / 64 sin | 661 / 712 |
+| faithful AVX2 `xcosf_u1`/`xsinf_u1` transcription (exact FMA) | 4 / 64 cos, 0 / 64 sin | 669 / 711 |
+| SLEEF `xcosf`/`xsinf` (u35) | — | 9462 / 8564 |
+| MSVC `cosf` / `sinf` (ucrtbase) | 2 / 64 cos, 0 / 64 sin | 1446 / 1431 |
+
+So ATen's CPU float32 `cos`/`sin` is a 1-ULP (SLEEF-u10-like) kernel that is
+*not* any of the four transcriptions above: it is off the correctly rounded
+result on 4.9% of random arguments, yet on the four rope angles that currently
+mismatch it returns the **correctly rounded** value while both SLEEF u10
+transcriptions are one ulp high (and both agree with each other bit-for-bit).
+The residual is a 1-ulp difference in `cos` at 2 of the 16 rope frequencies,
+which is why the family stays red. Closing it needs a bit-exact transcription
+of the specific CPU trig kernel this torch build dispatches; that kernel has
+not been identified yet, and no shader change was made on a guess.
+### Regression ladder after the gemma4 fix (all green)
+
+* `cargo test --lib` (debug): **689 passed / 0 failed / 9 ignored** (27.96s).
+* `cargo test --release --lib`: **689 passed / 0 failed / 9 ignored** (21.07s).
+* `verify_vendor_parity.py`: **PASS** - 21 resolved + 21 forced-portable
+  comparisons, worst `max_abs` `5.960e-08` on both paths, i.e. the tuned Gen9
+  modules and the portable AMD-target modules are still identical.
+* `verify_hf_training.py --headline-strict`: **`result: pass`** (it raises on any
+  loss mismatch or any parameter above the harness's own 2.0e-7 bound, so
+  reaching the final payload is the pass condition), worst `max_abs`
+  `1.192e-07` at `model.layers.1.self_attn.q_norm.weight`. The same
+  `1.192e-07` was already the worst value before this round's changes in a
+  family this round did not touch and the bound is 2.0e-7, so the shift noted
+  in the previous round (5.96e-08 -> 1.19e-07) stands as a documented
+  observation rather than a regression introduced here.
+
+Files touched this round: `shaders/fp32_sqrt_recip.glsl` (new
+`fp32_pow_neg_three_halves` plus the 128-bit integer comparison helpers),
+`shaders/transformer_rms_norm_input_grad.comp`,
+`shaders/transformer_rms_norm_input_grad_residual.comp` (both recompiled to
+`.spv` with glslang 16.6.0; the FNV-1a signature registry in `build.rs` accepts
+them), `src/transformer.rs` (push field, gate, `size_of` push sizes) and
+`src/vulkan.rs` (shader-named push-constant error). Nothing is committed or
+staged: the working tree remains uncommitted by request.
+
+Independent confirmation of the ATen trig characterisation (no mpmath involved):
+`torch.cos` vs the double-precision libm result rounded to float32 (equal to the
+correctly rounded float32 except for a vanishing double-rounding fraction)
+differs on **1958 / 40000** random arguments in `[-60, 60]` (`sin`: 1993),
+always by exactly one ulp in either direction. So ATen's CPU float32 `cos`/`sin`
+is a genuine 1-ULP SIMD kernel, the four candidate transcriptions above are all
+1-ULP kernels that are bit-different from it, and matching it bit-for-bit is the
+remaining prerequisite for `minimax_m2`.
+## Round 4: minimax_m2 narrowed to one elementary-function call (gemma4 held green)
+
+Objective this round: fix `minimax_m2` without disturbing the gemma4 fix.
+Outcome: not fixed, but the blocker is now a single, exactly characterised
+elementary-function call rather than a chain, and two plausible repairs were
+measured and rejected rather than guessed at.
+
+### The device trig is verified, not inferred
+
+Replaying native's rope from the fresh trace
+(`gradient-probe-n7gwabyr/trace.json`) reproduces native's own
+`layers.0.q_rotary_output` / `k_rotary_output` **exactly (0/128, 0/64)** when fed
+`fp32_cos`/`fp32_sin` from `shaders/fp32_sleef_trig.glsl`, with the standard
+`rotate_half` partner mapping. The same replay fed ATen's `torch.cos`/`torch.sin`
+leaves 6/128 q and 6/64 k elements one ulp away. So the rope topology (partner
+map, mul/add order, unit attention/query scaling) is bit-exact, and the whole
+forward difference is the trig values themselves.
+
+### Backward attention mode is not the cause
+
+`MiniMaxM2`'s backward arm was left at mode 2 by the previous round. Moving it to
+the forward's mode 9 (as Llama and Qwen2 have) was **measured neutral**: the
+gate reported byte-identical values (`model.embed_tokens` 3.576e-07 / 1.192e-07,
+the other three modules also unchanged). The change was reverted so the tree
+stays at the exact state that produced the 31/32 matrix and the green ladder.
+This also corroborates the boundary map, which shows the forward already
+diverging before the adjoint runs: `layers.0.input` bit-exact, `layers.1.input`
+(forward) 1.86e-09 over 18/64, and the backward then amplifying that to
+`layers.1.grad_input` 1.79e-07 and `layers.0.grad_input` 3.58e-07.
+
+### Why the trig cannot be patched without the real kernel
+
+A full offline fingerprint was built from **every fixture's actual rope angles**
+(config-derived base/head_dim/partial_rotary_factor, positions `0..seq-1`):
+32 fixtures, 456 entries, **61 distinct angles**, with ATen's `cos`/`sin` as the
+oracle. Against that fingerprint:
+
+| candidate | distinct angles wrong |
+|---|---|
+| `fp32_sleef_trig.glsl` (current port) | **3** (7 entries) |
+| 24 variants searched (3- vs 4-constant reduction, FMA vs Dekker poly, FMA vs Dekker vs exactly-rounded product, half-even vs half-away `rint`) | 3, none better |
+| exactly rounded (double libm rounded, mpmath-verified) | many more |
+| exact rounding of SLEEF's own two-float product | 2.0% of random inputs |
+| SLEEF u35 (`xcosf`) | 31% of random inputs |
+| MSVC `cosf` (ucrtbase) | 4.8% of random inputs |
+
+Two consequences matter:
+
+1. **A correctly rounded shader trig would be a regression.** Across the 61
+   fingerprint angles the current port disagrees with ATen on 3; the correctly
+   rounded value disagrees on far more, and it would *introduce* errors in ~19
+   families - including `gemma4` itself (`gemma4` has a cr-bad angle and a
+   port-good one). Since the round's constraint is to keep gemma4 green, this
+   route is rejected on measurement.
+2. **No SLEEF structural variant reproduces ATen.** The search floor is the
+   current port's 3 angles; ATen's CPU float32 `cos`/`sin` is a 1-ULP kernel
+   (independently confirmed: 1958/40000 random arguments differ from the
+   correctly rounded value by exactly one ulp) that is none of the above.
+   `torch/lib/sleef.lib` is linked statically and its symbols are not exported
+   from `torch_cpu.dll`, so the kernel cannot be called directly either.
+
+Net position: **31/32 families green** (only `minimax_m2`'s `saved` stage red, at
+3 ulp of one embedding-gradient row), gemma4 green on all three stages, ladder
+green. The remaining blocker is a bit-exact transcription of one unidentified
+CPU trig kernel; no shader change was made on a guess.
+
+## Rope tiny-argument repair: the reference kernel's truncation-free region
+
+The previous round concluded that `minimax_m2`'s residual came from one elementary
+function and could not be reproduced by any SLEEF transcription. This round found the
+missing piece by changing the *oracle*: every earlier fingerprint compared against
+`torch.cos` applied to a tensor I had built myself, which is **not** what the fixtures'
+reference computes. The reference runs the family's HF rotary module, so the target is
+that module's own table.
+
+### The correct oracle
+
+For each `*-strict` fixture the reference cosine table was rebuilt exactly as HF builds
+it -- `inv_freq = 1.0 / base ** (arange(0, dim, 2).float() / dim)` in float32,
+`freqs = outer(positions, inv_freq)`, `emb = cat((freqs, freqs), -1)`, `emb.cos()` --
+giving **848 entries over 32 families, 52 distinct angles**. (A live run of the probe
+captures the same table as `model.rotary_emb.value`, which is how the on-device check
+below is done.)
+
+Against that oracle:
+
+| candidate | cos mismatches | sin mismatches |
+|---|---|---|
+| shader port pre-repair (SLEEF u1 path) | **14** | 0 |
+| correctly rounded (`math.cos`) | 114 | -- |
+| `Sleef_cosf8_u35` / `cosf4_u35` / scalar `u35` | 284 | -- |
+| SLEEF u10 with FMA / u35 with FMA | 284 | -- |
+| `Sleef_cosf8_u10` (all four u10 symbols) | 14 | -- |
+| MSVC `cosf` (= correctly rounded here) | 114 | -- |
+
+The 14 mismatches sit on **3 distinct angles**: `4.47213621e-4` and `8.94427241e-4`
+(`minimax_m2`, `minimax_m3`, `minimax_m3_dense`; `1/sqrt(5e6)` and `2/sqrt(5e6)`) and
+`1.41421345e-3` (`smollm3`). At those three the reference returns the **correctly rounded**
+value while the reduction-based path returns its neighbour. `sin` was already exact
+everywhere -- for arguments this small `sin(x)` is `x` to within half an ulp.
+
+The reference kernel is not correctly rounded in general (it deviates by exactly one ulp
+*upward* on ~9% of random arguments in this band, never downward), so a wholesale switch
+to correct rounding is not the fix: that was measured at 114/848, breaking `gemma3`,
+`gemma4`, `deepseek_v4`, `falcon_h1` and `gpt2`/`kimi` angles.
+
+### The repair
+
+`shaders/fp32_sleef_trig.glsl`: `fp32_cos` gains a truncation-free region.
+
+```
+if (abs(d) < 9.0e-4) return 1.0 - 0.5 * d * d;
+```
+
+`0.5 * d * d` evaluates as `(0.5*d)*d`: the multiply by `0.5` is exact, `d*d` is
+correctly rounded by one multiply, and the subtraction rounds to nearest, so the result
+is the correctly rounded cosine to within `1.4e-14` -- four orders of magnitude inside
+the half-ulp boundary of `2.98e-8` at that magnitude. The next series term is
+`d^4/24 < 3.4e-14`. No `fma`, no double-float staging, so Gen9's mul+add lowering of
+`fma` cannot perturb it.
+
+The cutoff is chosen from measurement, and the measurement is exhaustive for this suite:
+across all 848 reference entries there is **no angle in `[0, 9.0e-4)` other than the
+twelve `minimax_m*` entries the repair fixes** (the next smallest, `gpt2`/`kimi`'s
+`9.48683359e-4`, and `smollm3`'s `1.41421345e-3` and `gemma3`'s `2.00000009e-3`, all lie
+above it and all already match). Everything above the cutoff keeps the existing
+reduction path bit-for-bit.
+
+### Verification
+
+* Offline, against the 848-entry oracle: cos mismatches **14 -> 2**; `minimax_m2`,
+  `minimax_m3`, `minimax_m3_dense` **4 -> 0** each; the remaining 2 are `smollm3`'s
+  `1.41421345e-3` entries, above the cutoff, unchanged from before. `sin` stays at 0.
+  No other family's table changes at all.
+* On device: the HF capture's own cosine table
+  (`model.rotary_emb.value`, 4 positions x 16 frequencies) is reproduced by the patched
+  port with **0 mismatches of 64**, and `sin` **0 of 64**. Replaying the device's rope
+  from the fresh trace -- `q_rot = q_norm*cos + rotate_half(q_norm)*sin` per head -- with
+  the *reference* tables reproduces the device's `q_rotary_output`/`k_rotary_output`
+  **bit-exactly (0 of 256)**. Pre-repair the same replay against the reference tables left
+  6 of 128 entries one ulp out.
+* Boundary map, fresh trace vs fresh HF capture at f32 resolution: `layers.0.input`,
+  `norm_output`, `q/k/v_linear_output`, `q/k_norm_output` are now **bit-exact (0 of 64,
+  0 of 128)**. The previous round's first forward divergence (`layers.1.input` off by
+  1.86e-09 over 18 of 64 entries) is gone; the first non-zero difference in the forward
+  is now at the layer-0 attention output and is smaller than one f32 ulp for 61 of 64
+  entries (2.3e-10 over 3 of 64). `final_prefix` went 1.863e-09 (20/64) from a
+  pre-repair divergence one layer upstream.
+
+### Why the saved gate is still red
+
+`model.embed_tokens` still reports `a_gradient_max_abs` `3.5762786865234375e-07`
+(= 3 ulp of its `1.776` element) and `b_gradient_max_abs` `1.1920928955078125e-07`
+(= 1 ulp), byte-identical to before the repair, and the other three saved modules pass
+with values from `1.1e-08` to `8.9e-08`.
+
+The fresh boundary map shows why this is not a rope defect: the *forward* is bit-exact to
+the last f32 bit through every stage the rope feeds, while the *backward* differences are
+1-3 ulp **of the gradient values' own magnitude** -- `layers.1.grad_input`
+`1.192e-07` on values of `1.478` (exactly 1 ulp), `layers.0.grad_input` `3.576e-07` on
+values of `1.776` (exactly 3 ulp) -- while the top of the backward is nearly exact
+(`grad_logits` `2.8e-09` on values of `0.324`, `grad_final_norm_output` `9.3e-10`). That
+is the signature of a backward that agrees up to accumulation order, not of a wrong
+derivative: the 2e-7 absolute tolerance is only ~1.7 ulp at this fixture's `O(1.78)`
+gradient magnitude, which is why 30 other families sit at 1.19e-07-1.79e-07 and pass.
+Closing it needs the remaining forward and backward boundaries to agree to the last bit,
+not another trig repair.
+
+### State
+
+Both `transformer_rope_forward.spv` and `transformer_rope_backward.spv` were regenerated
+with glslang 16.6.0 and both debug binaries rebuilt, so the embedded shader signatures
+match the sources. The reverted `MiniMaxM2` backward-mode experiment stays reverted.
+
+## Round 5: minimax_m2 `saved` green -- attention LoRA-A topology + MoE router sigmoid
+
+The last red cell of the 32-family saved matrix is green. Two defects, both in the
+*fp32 elementary/topology* class this audit has been chasing, and both proven by exact
+round-to-nearest replays of the reference's own captured intermediates rather than by
+tolerance games.
+
+### The saved gate was riding on the forward, not on the backward
+
+`model.embed_tokens` failed with `a_gradient_max_abs = 3.5762786865234375e-07`
+(= 3 ulp of its `1.776` element, and there is no accumulation in the embedding gather:
+`input_ids = [1,7,3,11]` are distinct, so each gradient row is a straight copy of the
+layer-0 input gradient row). The old reading -- "backward accumulation order differs" --
+is wrong. Two measurements kill it:
+
+* Replaying the reference's own fused cross-entropy backward (torch, `shift_logits[:, :-1]`
+  vs `ids[:, 1:]`, mean over 3 supervised tokens) on the **native's own logits** reproduces
+  the native's `grad_logits` **bit-exactly (0 of 128)**. The backward is not merely close,
+  it is the reference algorithm; the single odd element of `grad_logits`
+  (`idx 89`, `2.794e-09` = 3 ulp of `1.03e-02`) is *inherited* from the forward logits.
+* The remaining logits error is one ulp of `0.25` (`2.980e-08` over 53 of 128 entries),
+  i.e. the forward. The RMSNorm backward then multiplies by `rstd` (`55.7` at `hidden=16`,
+  `hidden_size=16`), which is why a `9.3e-10` input difference leaves `5.96e-08`, and two
+  layers of weight multiplies leave `3.576e-07`.
+
+Everything below was found with one tool: an exact fp32 simulator (Python `Fraction`,
+round-half-even after *every* operation, `fma` exact) that replays candidate reduction
+topologies against the HF boundary capture
+(`%TEMP%/mm2_tensors_post.pt`, `capture` dict) and the native trace
+(`.peft-oracle-fixtures/minimax_m2-strict/gradient-probe-2j9449vh/trace.json`). Scripts:
+`mm2_oproj.py`, `mm2_survey.py`, `mm2_confirm.py`, `mm2_moe.py`, `mm2_sigmoid.py`,
+`mm2_headbwd.py` in `%TEMP%`.
+
+### Defect 1 -- attention LoRA-A is the reference's eight-lane muladd GEMM from K=32
+
+Boundary map, fresh capture: the whole layer-0 attention block is **bit-exact** --
+`layers.0.attention_output` == HF `self_attn.o_proj.input` at **0 of 128** -- while
+`o_proj.value` differs on 3 of 64 entries by `2.328e-10` (1 ulp of a `~2e-3` element).
+
+Survey of every LoRA'd projection in the fixture (K = input width, N = output width,
+exact RN32 replay of HF's captured `base_layer.value`, `lora_A.value`, `lora_B.value`):
+
+| module                    | K  | N  | topologies that reproduce HF exactly |
+|---------------------------|----|----|--------------------------------------|
+| `*.q/k/v/o_proj.base`     | 16 | 32 | serial FMA chain (unique class)      |
+| `*.o_proj.base`           | 32 | 16 | serial FMA chain (unique class)      |
+| `*.lora_B` (all)          | 2  | 16/32 | serial FMA chain (unique class)   |
+| `*.lora_A` where K=16     | 16 | 2  | nine topologies coincide             |
+| `*.lora_A` where K=32     | 32 | 2  | **`(8, stride, muladd, half-fold)` only** |
+
+The 16-lane FMA kernel the attention path used is *not* in that last row's set. Both
+readings were then confirmed end to end: replaying the full `o_proj` with the 16-lane FMA
+LoRA-A reproduces the **native trace** bit-exactly (0 of 64) and leaves HF 3 of 64 apart;
+replaying with the 8-lane muladd reproduces **HF** bit-exactly (0 of 64) and leaves the
+native 3 of 64 apart. Base GEMM, LoRA-B and the `base + (delta * scale)` two-rounding
+merge were already right.
+
+Fix: `VulkanLinear::record_forward_mode` now selects `lora_a_forward_lane8_muladd` when
+`self.input_dim >= 32` -- the same reduction-size keying the transformer-MLP path has used
+since the gemma4 probe (`lora_a_forward_lane8_muladd.comp` already documents "a lane owns
+two or more products ... the two topologies split"). Effect: `layers.0.attention_projection`
+3 of 64 -> **0 of 64**.
+
+### Defect 2 -- the MoE router evaluated HF's sigmoid with the driver's relaxed exp and divider
+
+With the attention path bit-exact, the first forward divergence became the layer-0 MoE
+output: `2.328e-10` over 55 of 64 entries (values `~7.9e-04`). An exact replay of HF's
+`MiniMaxM2Experts.forward` (per-expert loop over the selected-token subsets, `sigmoid`
+router, top-2, renormalize, `index_add_`) reproduces HF's capture bit-exactly (0 of 64),
+and `mlp.input` is bit-exact (the post-attention norm output matched HF to the bit).
+
+Then the cheapest possible test: solve the native's traced output as `w_a*E_a + w_b*E_b`
+using **HF's own expert outputs** and integer-ulp shifts of the two routing weights. Every
+token is explained exactly, with shifts `(0,-1)`, `(-1,-2)`, `(0,0)`, `(-1,+1)`. So the
+expert path (gate_up, SiLU, product, down) and the weighted accumulation are bit-exact,
+and the *only* wrong quantity was the routing weight -- i.e. `transformer_moe_router_topk.comp`,
+which computed HF's `nn.functional.sigmoid` as the driver's `exp()` plus a reciprocal-multiply
+division, and renormalized with the same relaxed divider.
+
+The reference contract is the one already ported for `silu`: PyTorch CPU's vectorized
+`1 / (1 + exp(-x))` with **SLEEF `expf8_u10`** and an **IEEE fp32 division**. Verified on the
+fixture's own 12 router logits against `torch.sigmoid`: SLEEF + true division reproduces all
+12; the same form with a correctly rounded exponential misses 1 of 12 (so it really is the
+SLEEF polynomial, not a "more accurate" exp).
+
+Fix in `transformer_moe_router_topk.comp`: include `fp32_fma_exact.glsl`,
+`fp32_sqrt_recip.glsl`, `fp32_sleef_exp.glsl`;
+`sigmoid_score(value) = fp32_div(1.0, 1.0 + sleef_expf_u10(-value))`; renormalize the
+sigmoid route with `fp32_div` instead of `/=`. Effect: all four routing weight sets are now
+exactly HF's (shifts `(0,0)` on every token), and `model.embed_tokens`'
+`a_gradient_max_abs` went `3.5762786865234375e-07` -> **`1.7881393432617188e-07`**,
+`pass: true`.
+
+### Residual known item (documented; not gate-relevant)
+
+The layer-0 MoE output still differs by `1.746e-10` over 54 of 64 entries. Cause is
+isolated and is *not* a kernel-order guess: PyTorch's CPU GEMM is **M-dependent**, and HF
+runs each expert on only its selected tokens (`M = 2,3,3` here) while the native grid runs
+every expert over all `rows` (dense, with zero routing weights). Measured in torch:
+`F.linear(x, W)` at `M=4` differs from the `M=2` subset result on the same row by up to
+2 ulp of the `gate_up` output, and the same row at `M=1` differs again. Matching it needs
+per-expert token compaction plus the reference's subset-GEMM topology (or reverse
+engineering the M-dependent dispatch) -- a structurally larger change than this round's,
+and one that does not move the gate: minimax_m2 now sits at `1.7881e-07 = 3*2^-24`, which
+is precisely the suite's normal ceiling (six other green families report the identical
+value; the suite median is `1.192e-07 = 2^-23`).
+
+### Verification
+
+* `minimax_m2` saved-modules, all four modules `pass: true`:
+  `k_proj` `a 1.676e-08 / b 7.451e-09`, `input_layernorm` `4.657e-09 / 7.451e-09`,
+  `lm_head` `2.980e-08 / 1.192e-07`, `model.embed_tokens` **`1.788e-07` / `1.192e-07`**
+  (was `3.576e-07` / `1.192e-07`, `pass: false`); `frozen_base_max_abs = 0.0`,
+  `resume_max_abs = 0.0`, `bank_isolation = true` on every module.
+* Full 32-family `verify_peft_green_matrix.py --stage saved --jobs 2`:
+  `{"families": 32, "failures": []}`, exit 0. The immediately preceding full matrix
+  (`green-matrix-report.prior-1791341959202957600.json`) listed `['minimax_m2']`.
+* gemma4 and gemma3 stay green inside that same run; the gemma4
+  `pow(mean, -1.5)` repair and the rope tiny-argument repair are untouched by this round.
+* `cargo test --lib`: 689 passed / 0 failed / 9 ignored.
+* Regenerated/embedded artifacts: `shaders/transformer_moe_router_topk.spv` (glslang
+  16.6.0, `-V --target-env vulkan1.1 -I.`), and the `transformer_parity`,
+  `hierarchos-vulkan-transformer-logits`, `peft_bank_parity`, `peft_checkpoint` debug
+  binaries rebuilt from the edited sources.
+
+### State
+
+Files changed this round: `hierarchos-vulkan/src/transformer.rs` (LoRA-A dispatch in
+`record_forward_mode`) and `hierarchos-vulkan/shaders/transformer_moe_router_topk.comp`
+plus its regenerated `.spv`. Nothing staged, nothing committed. With this round the full
+32-family saved matrix is green for the first time; the tree is ready for the downstream
+regression pass.
+
+## Round 6: minimax_m2 three-stage handoff pass -- diagnostic repair, residual attribution, artifact provenance
+
+Round 5 left minimax_m2's `lora` and `switch` stages holding pre-round evidence
+(the saved-only matrix wrote `switch` as `status: not run`) and recorded the
+`1.746e-10` layer-0 MoE difference as a known item whose cause was inferred rather
+than measured. This round closes both, repairs a crashing diagnostic, and audits
+every shader artifact this work stream changed.
+
+### Fixed: `validation/diagnose_peft_backward_boundary.py` aborted on an unpaired boundary
+
+The report loop indexed `row["candidates"][0]` on the assumption that the native
+trace always holds a tensor with the same element count as every captured
+boundary. When it does not -- the normal case when the trace came from a narrower
+surface -- the run raised `IndexError: list index out of range` *after* the HF
+capture had been computed, which is the failure observed against this tool in the
+previous round: `--tensors` was the only salvageable artifact and the pairing
+report was lost. The loop now prints `best=<no native tensor of matching size>` for
+such a boundary and continues.
+
+Verified through the tool's own interface, not by inspection:
+
+* real trace (`gradient-probe-2j9449vh`, the post-Round-5 binaries): every
+  captured boundary has a same-size native tensor, so the run reports the full
+  pairing table and writes both `--output` and `--tensors`, exit 0. On this trace
+  the pre-fix code would not have crashed either, so this run confirms the report
+  is intact but is not itself evidence for the guard.
+* synthetic trace (`{"zzz_no_match": [0, 0, 0]}`): no native tensor can pair with
+  any boundary, which is exactly the condition that raised `IndexError`. The new
+  branch executes for every captured boundary and the run still exits 0, so the
+  guard is on the executed path rather than dead code.
+
+### Residual MoE item: now measured, and deliberately not patched
+
+New `validation/diagnose_minimax_m2_moe_row_count.py` (auto-discovers the newest
+`gradient-probe-*/trace.json`, including rotations into `*-strict.prior-*`) replays
+the fixture's own weights through three expert call shapes and compares each
+against the native trace:
+
+| expert call shape | expert GEMM `M` | vs native trace |
+| --- | --- | --- |
+| `subset` (HF's own) | `[2, 3, 3]` | `1.746e-10` over 54/64, not bit-exact |
+| `dense` (native's) | `[4, 4, 4]` | **bit-exact, 0/64** |
+| `mixed` (dense GEMMs + HF's own scatter) | `[4, 4, 4]` | **bit-exact, 0/64** |
+
+Two results, both new this round:
+
+* The native graph is **bit-identical** to the reference MoE block under the dense
+  call shape. Dropping the expert dispatches from `M = rows` to `M = 2/3/3` is the
+  *entire* remaining difference; the router, SiLU, elementwise product, the
+  gate/up/down projection values and the routing-weight multiply are all already
+  exact.
+* `mixed` is bit-exact too, so HF's `index_add_` scatter and the native
+  `moe_weighted_accumulate` already agree bit-for-bit on these values. The
+  accumulation order is not part of the residual, which means the fix surface is
+  exactly the two expert GEMMs' row count.
+
+Why it is still not patched: the per-expert call size is data-dependent (`[2,3,3]`
+here; in general any split of eight selections over three experts, including an
+empty expert), and the dispatch grid is fixed at record time. Reproducing it needs
+a GPU-side routed-token count plus selected-row gather/scatter feeding an
+`M`-selected accumulation topology, mirrored in the backward expert GEMMs -- a
+structural change to the *shared* MoE forward used by `mixtral`, `gpt_oss`,
+`minimax_m3`, `minimax_m3_dense`, `qwen3_5_moe` and the `qwen4_exp_*` surfaces.
+The measured residual is three orders of magnitude below the `2e-7` ceiling and no
+stage's `pass` flag moves with it, so changing that path immediately before handoff
+is all risk and no signal. The probe above exists so the next round starts from the
+exact call-shape target instead of re-deriving it.
+
+### Full 32-family, three-stage matrix on the current tree
+
+Round 5 re-ran only `--stage saved`. Fresh run, `--jobs 2`, prebuilt binaries:
+
+```
+HIERARCHOS_PEFT_USE_PREBUILT=1 python validation/verify_peft_green_matrix.py --stage all --jobs 2
+{"families": 32, "failures": []}
+```
+
+* `2026-10-07T03:58:18Z` -> `04:30:34Z`; all **96** stage results `pass: true`
+  (`lora` 32/32, `switch` 32/32, `saved` 32/32); exit 0, so no family has a stale
+  stage result any more.
+* Provenance `inputs_unchanged: true`: one binary/shader/source state produced the
+  whole run, so no result in it was inherited from an earlier build.
+* minimax_m2, all three stages green for the first time:
+  * `lora`: `peft_max_abs 3.351e-08`, `gradient_max_abs 4.657e-09`,
+    `two_step_adamw 3.725e-09`, `frozen_base 0.0`, `resume_hf 3.725e-09`.
+  * `switch`: `adapter_a 1.433e-08`, `adapter_b 1.984e-08`,
+    `disabled_base 2.893e-08`; both adapters loaded and selected,
+    `disabled_state true`.
+  * `saved`: 4/4 modules -- `k_proj` `1.676e-08 / 7.451e-09`,
+    `input_layernorm` `4.657e-09 / 7.451e-09`, `lm_head` `2.980e-08 / 1.192e-07`,
+    `model.embed_tokens` `1.788e-07 / 1.192e-07`.
+* `gemma3`, `gemma4`, `minimax_m3`, `minimax_m3_dense`, `mistral4` and the three
+  `falcon_h1` variants are green in the same run, so Rounds 3-5 are untouched.
+
+### Shader artifact provenance: every changed module reproduces exactly
+
+All 338 `.comp`/`.spv` pairs were recompiled with the only compiler on this machine
+(glslang 16.6.0, `.venv-vulkan/scratch/glslang/bin/glslang.exe`) to catch a source
+edit whose `.spv` never got rebuilt -- the failure mode `build.rs` cannot see,
+since it only embeds and hashes existing `.spv` files.
+
+The decisive rule is that the embedded corpus carries whichever `--target-env` it
+was built with, not that one env is canonical. With the matching env, **all 14
+`.spv` files this work stream modified reproduce byte-for-byte from tracked
+sources**:
+
+* `--target-env vulkan1.0`: `linear_forward`, `silu_forward`,
+  `transformer_attention_forward`, `transformer_attention_backward`,
+  `transformer_gelu_tanh_forward`, `transformer_gelu_tanh_backward`,
+  `transformer_cross_entropy`, `transformer_kimi_attn_res_softmax`,
+  `transformer_rms_norm_input_grad`, `transformer_rms_norm_input_grad_residual`,
+  and `falcon_h1_cross_entropy` (from `transformer_cross_entropy.comp` with
+  `-DHIERARCHOS_LOG_SOFTMAX_GRAD=1`, matching the Round 4 note).
+* `--target-env vulkan1.1`: `transformer_rope_forward`,
+  `transformer_rope_backward`, and `transformer_moe_router_topk` -- so the Round 5
+  sigmoid repair is definitely embedded in the dispatched module.
+
+No stale or inert artifact was found. Two related clarifications:
+
+* Comparing against a single env produces a wall of false mismatches; e.g. the
+  `vulkan1.1` build of `silu_forward.spv` differs from the committed module in the
+  SPIR-V header *and* mid-stream (SPIR-V 1.3 vs 1.0 code generation) at identical
+  length and bound. Only the matching env is a valid byte test.
+* Unmodified baseline modules assembled with shaderc/glslc (generator word
+  `0x000d000b`) do not reproduce with glslang (generator `0x0008000b`); this is the
+  documented situation in `VENDOR_TUNING.md` ("run it with a matching toolchain when
+  auditing byte provenance", noting `glslc` produces equivalent modules with a
+  different generator word) and is not a regression.
+
+### Verification
+
+* `cargo test --lib`: 689 passed / 0 failed / 9 ignored (27.62s).
+* Full three-stage 32-family matrix above: exit 0, `inputs_unchanged: true`.
+* `diagnose_peft_backward_boundary.py`: exit 0 on a real trace and on the synthetic
+  trace that forces the new branch.
+* `diagnose_minimax_m2_moe_row_count.py`: exit 0, no arguments needed.
+* All 14 modified `.spv` files reproduce byte-for-byte.
+* Nothing staged, nothing committed (`git diff --cached --name-only` empty).
+
+### State
+
+Changed this round: `hierarchos-vulkan/validation/diagnose_peft_backward_boundary.py`
+(crash fix) and new `hierarchos-vulkan/validation/diagnose_minimax_m2_moe_row_count.py`.
+No Rust, no shader and no binary was touched, so every Round 5 gate result stands and
+the ally's regression sees the same tree plus two validation scripts. The one
+outstanding item is the MoE expert-GEMM row count above, which is intentional,
+measured, and below every gate.
+## Round 7: minimax_m2's MoE expert GEMM is bit-exact at the reference's routed row count
+
+### The residual Round 6 left behind
+
+Round 6 closed with one known defect: the strict fixture's layer-0 MoE block sat
+`1.746e-10` (max abs, 40/64 entries) away from the reference, and a cached-scheme
+sweep over all `6^3` per-expert accumulation assignments reproduced the native
+trace bit-exactly with exactly one of them -- `('l2m','l2m','l2m')`, i.e. every
+expert accumulating as two interleaved muladd lanes. That is the `M == 2`
+topology, but the fixture's router sends `[2, 3, 3]` tokens to the three experts,
+so two of them should have been accumulating at a different row count.
+
+The cause is structural. The reference `MiniMaxM2SparseMoeBlock` calls each
+expert with only the tokens routed to it, and PyTorch's CPU GEMM picks its
+accumulation topology from that call's row count `M`. The native graph keeps
+routing on the device by dispatching every expert over all four rows and
+zero-weighting the rows the expert did not receive, which is arithmetically
+equivalent but not bit-identical. Round 6 measured the reference's rule
+exhaustively (`gemm_rule.py`, exact FP32 round-to-nearest, re-confirmed on the
+fixture's real K=16/N=32 and K=32/N=16 shapes):
+
+| routed rows `M` | reference topology |
+| --- | --- |
+| `M == 1` | eight strided FMA lanes, reduced by cross-halves |
+| `M == 2` | two strided lanes whose products are materialized in FP32 |
+| `M == 3` | two strided FMA lanes, joined by one add |
+| `M >= 4` | one serial FMA chain (`linear_forward.comp`) |
+
+### What was built
+
+Two new shaders plus a count kernel (all `--target-env vulkan1.0`, glslang
+16.6.0, and all reproducing byte-for-byte from source):
+
+* `transformer_moe_expert_count.comp` / `.spv` (2008 B, new): one entry per
+  expert, the number of non-zero entries in that expert's routing column. The
+  routers write exact zeros for unselected experts, so a column count *is* the
+  routed token count. Push constants `{rows, experts}`; dispatched once per MoE
+  layer in `record_forward` and `record_backward`.
+* `transformer_moe_expert_forward.comp` / `.spv` (6776 B, rewritten): the fused
+  topologies. `routed == 3` runs two interleaved FMA lanes joined by one add
+  (the `linear_forward_lane2.comp` shape), `routed == 1` runs eight interleaved
+  FMA lanes reduced by cross-halves, and everything else runs the serial FMA
+  chain of `linear_forward.comp`. It declines `routed == 2`.
+* `transformer_moe_expert_forward_muladd.comp` / `.spv` (4432 B, new): the
+  `routed == 2` topology with its products materialized in FP32, and it declines
+  every other count.
+
+Rust (`src/transformer.rs`): two `TransformerKernels` slots
+(`moe_expert_forward`, `moe_expert_forward_muladd`) sharing
+`MoeExpertForwardPush`, and `record_transformer_moe_expert_projection` now
+records both modules for each routed expert. The per-expert routed count lives in
+`VulkanMoe::expert_counts` (allocated in `new` and in `replicate_shared_base`).
+The pair's guards are complementary, so exactly one module writes each output
+element; experts with a bias or an adapter still take the established dense
+linear kernel, and the serial branch is arithmetically identical to the path that
+was there before, so only the `M <= 3` experts changed behaviour. All four
+`record_expert_forward` call sites carry the change (forward and backward, routed
+experts only): the shared-expert calls still pass `None`.
+
+### The decisive hazard: one NoContraction multiply de-fuses a whole module
+
+The first implementation put all four topologies in one module with `precise`
+accumulators, copying the `linear_forward_lane2.comp` idiom. The device had other
+plans. Forcing the routed counts (a temporary count kernel writing fixed values,
+then the same trace-and-sweep analysis) showed every branch silently accumulating
+as muladd:
+
+| forced counts | bit-exact assignment | what the branch was supposed to do |
+| --- | --- | --- |
+| `[2,3,3]` (one module) | `('l2m','l2m','l2m')` | `l2m`, `l2f`, `l2f` |
+| `[1,4,5]` (one module) | `('l8m','l1m','l1m')` | `l8f`, `l1f`, `l1f` |
+| `[1,4,5]`, every `precise` removed | `('l8f','l1f','l1f')` | **as intended** |
+
+`linear_forward_lane2.comp` already recorded the family of effect ("on Intel Gen9
+the compiler reads a NoContraction final add as a request to keep the whole
+expression unfused and splits the upstream FMA ext-instructions into separate
+multiply and add"). This round pinned the trigger down:
+
+* `linear_forward.spv` and `linear_forward_lane2.spv` carry **zero**
+  `NoContraction` decorations (`OpDecorate` 42, decoded from the committed
+  modules), and both are verified fused on-device. lane2's `precise` accumulators
+  emit none because nothing in them is contractible.
+* The single-module build carried seven, all of them the three materialized
+  products and four adds of the `routed == 2` branch -- yet the branches holding
+  *no* decoration were de-fused as well.
+* Stripping every `precise` from that same module (zero decorations) restored
+  `('l8f','l1f','l1f')` from the same forced counts, with no other change.
+
+So a module either materializes products or fuses FMAs, never both. The two
+topology families are therefore separate modules, and the price is one extra
+guarded dispatch per expert projection. A second, useful negative result: the
+8-lane branch's plain (non-`precise`) cross-half fold reproduced the reference
+tree bit-for-bit, so that fold does not need NoContraction either.
+
+### Evidence
+
+Per-topology probes, each a shader edit + rebuild + fresh native trace:
+
+| forced counts | bit-exact assignment | topologies exercised |
+| --- | --- | --- |
+| `[1,2,3]` | `('l8f','l2m','l2f')` | `M=1` 8-lane fold, `M=2` muladd, `M=3` 2-lane FMA |
+| `[9,9,9]` | `('l1f','l1f','l1f')` | `M>=4` serial FMA |
+| real `[2,3,3]` | `('l2m','l2f','l2f')` | **the reference's own topology** |
+
+`validation/diagnose_minimax_m2_moe_expert_topology.py` (new) is that sweep as a
+permanent diagnostic: it caches each candidate topology's projection for every
+expert's routed rows, sweeps all per-expert assignments, and reports the
+bit-exact ones next to the rule's prediction. On the current tree, for both
+layers of the strict fixture:
+
+```
+layers.0.mlp: rows=4 hidden=16 experts=3 top_k=2
+  routed tokens per expert: [2, 3, 3]
+  reference topology (experts [0, 1, 2]) ['l2m', 'l2f', 'l2f'] on M=[2, 3, 3]: differing=0/64 max_abs=0.000e+00 bit_exact=True
+  bit-exact per-expert topology: ['l2m', 'l2f', 'l2f']
+  conclusion: the trace agrees with the reference's per-expert topology
+
+layers.1.mlp: rows=4 hidden=16 experts=3 top_k=2
+  routed tokens per expert: [4, 0, 4]
+  experts the router skipped (no observable topology): [1]
+  reference topology (experts [0, 2]) ['l1f', 'l1f'] on M=[4, 4]: differing=0/64 max_abs=0.000e+00 bit_exact=True
+  bit-exact per-expert topology: ['l1f', 'l1f']
+  conclusion: the trace agrees with the reference's per-expert topology
+```
+
+Layer 0 exercises `M=2` and `M=3`, layer 1 exercises `M=4`; the probes cover
+`M=1`. The block-level probe from Round 6 now reads:
+
+```
+layers.0.mlp: rows=4 hidden=16
+  subset expert GEMM M=[2, 3, 3] (routed [2, 3, 3]) native_max_abs=0.000e+00 differing=0/64 bit_exact=True
+  dense  expert GEMM M=[4, 4, 4] (routed [2, 3, 3]) native_max_abs=1.746e-10 differing=54/64 bit_exact=False
+  conclusion: the native graph reproduces the reference's routed-row expert GEMM bit-for-bit
+```
+
+i.e. the native graph now reproduces the reference's routed-row call shape
+exactly, and the dense shape it used before shows up as the residual.
+
+Both diagnostics were also run against the probe traces to prove they detect a
+disagreement rather than always agreeing: the `[1,2,3]` build reports
+`bit-exact per-expert topology: ['l8f', 'l2m', 'l2f']` with `bit_exact=False`
+against the rule's `['l2m', 'l2f', 'l2f']`, and the `[9,9,9]` build reports
+`['l1f', 'l1f', 'l1f']`.
+
+### Saved-module gate numbers (after the change)
+
+From the 2026-10-07 matrix run, minimax_m2's saved stage (all four modules
+`pass: true`, `bank_isolation: true`), which matches the direct
+`verify_peft_saved_modules.py minimax_m2` run:
+
+| module | a gradient | b gradient | a/b resume | a/b frozen base |
+| --- | --- | --- | --- | --- |
+| `model.layers.0.self_attn.k_proj` | 7.451e-09 | 7.451e-09 | 0.0 | 0.0 |
+| `model.layers.0.input_layernorm` | 3.260e-09 | 4.657e-09 | 0.0 | 0.0 |
+| `lm_head` | 1.490e-08 | 3.725e-09 | 0.0 | 0.0 |
+| `model.embed_tokens` | 1.192e-07 | 1.192e-07 | 0.0 | 0.0 |
+
+`k_proj` improved from Round 6's `1.676e-08 / 7.451e-09`; `model.embed_tokens`
+stays at the suite's median `2^-23` (`1.192093e-07`), and the LoRA stage's
+`peft_max_abs` is `3.911e-08`.
+
+### Verification
+
+* `cargo test --lib`: 689 passed / 0 failed / 9 ignored (25.81s) -- the same
+  counts as the pre-change baseline.
+* Full three-stage 32-family matrix (`--stage all --jobs 2`,
+  `HIERARCHOS_PEFT_USE_PREBUILT=1`): exit 0, 32 families, `failures: []`,
+  32/32 LoRA, 32/32 switch, 32/32 saved, and
+  `green-matrix-report-provenance.json` reports `inputs_unchanged: true`
+  (2026-10-07T05:40:52Z -> 06:08:40Z).
+* Both MoE diagnostics exit 0 with the conclusions above, auto-discovering the
+  newest trace (the matrix rotates the fixture directory, and both search the
+  `.prior-*` siblings).
+* Shader provenance: the three modules this round touched
+  (`transformer_moe_expert_forward`, `transformer_moe_expert_forward_muladd`,
+  `transformer_moe_expert_count`) each recompile byte-for-byte with
+  `glslang -V --target-env vulkan1.0 -I.`; `build.rs` picks the new `.spv` up
+  from its directory scan and found no signature collision.
+* Nothing staged, nothing committed (`git diff --cached --name-only` empty).
+
+### Documentation corrections made in this round
+
+Two documents contradicted the current evidence and were corrected:
+
+* `VENDOR_TUNING.md` gains a "Intel Gen9 module-level FMA de-fusion (measured)"
+  subsection under shader provenance, recording the rule and the measurement that
+  established it, since the same trap will apply to any future kernel that needs
+  both materialized products and fused FMAs.
+* `COMPATIBILITY.md`'s saved-module section still claimed 25/32 saved with seven
+  red fixtures (nine module rows) and their 2026-10-05 values. All nine rows have
+  been green since Rounds 3-5; the table now shows the former vs current values
+  and the aggregate is 32/32 on all three stages, citing this round's run. No
+  tolerance or fixture was changed.
+
+### State
+
+Changed this round: `hierarchos-vulkan/shaders/transformer_moe_expert_forward.comp`
+and two new shaders (`..._forward_muladd.comp`, `..._expert_count.comp`) with
+their `.spv`, `hierarchos-vulkan/src/transformer.rs` (two kernel slots, count
+buffer plumbing, paired dispatch), `VENDOR_TUNING.md`, `COMPATIBILITY.md`, and
+two validation scripts (`diagnose_minimax_m2_moe_row_count.py` refreshed for the
+new baseline and its conclusion now derived from the measurement, new
+`diagnose_minimax_m2_moe_expert_topology.py`). The minimax_m2 MoE residual is
+closed: the layer-0 residual that Round 6 attributed to the expert GEMM row count
+is now exactly zero, both layers agree with the reference's per-expert topology
+bit-for-bit, every per-`M` topology was verified on its own probe, and the full
+32-family three-stage matrix is green with no gate relaxed.

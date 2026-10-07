@@ -5,10 +5,9 @@ use bytemuck::{Pod, Zeroable};
 
 use crate::rwkv_optimizer::{RwkvDecayClass, RwkvTrainableRef};
 use crate::{
-    read_f32_tensor, replace_f32_tensors, vulkan, AdamWHyperParams, GpuBuffer, VulkanDevice,
+    read_f32_tensor, replace_f32_tensors, vendor, vulkan, AdamWHyperParams, GpuBuffer, VulkanDevice,
 };
 
-const LINEAR_FORWARD_SPV: &[u8] = include_bytes!("../shaders/linear_forward.spv");
 const LAYER_NORM_LINEAR_FORWARD_FUSED_SPV: &[u8] =
     include_bytes!("../shaders/layer_norm_linear_forward_fused.spv");
 const LAYER_NORM_LINEAR_SILU_FORWARD_FUSED_SPV: &[u8] =
@@ -19,15 +18,11 @@ const LAYER_NORM_ADAPTER_FORWARD_FUSED_256_SPV: &[u8] =
     include_bytes!("../shaders/layer_norm_adapter_forward_fused_256.spv");
 const LAYER_NORM_ADAPTER_FORWARD_FUSED_512_SPV: &[u8] =
     include_bytes!("../shaders/layer_norm_adapter_forward_fused_512.spv");
-const LINEAR_BIAS_FORWARD_SPV: &[u8] = include_bytes!("../shaders/linear_bias_forward.spv");
 const LINEAR_WEIGHT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_weight_grad.spv");
 const LINEAR_INPUT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad.spv");
 const LAYER_NORM_FORWARD_SPV: &[u8] = include_bytes!("../shaders/layer_norm_forward.spv");
 const LAYER_NORM_INPUT_GRAD_SPV: &[u8] = include_bytes!("../shaders/layer_norm_input_grad.spv");
-const SILU_FORWARD_SPV: &[u8] = include_bytes!("../shaders/silu_forward.spv");
-const SILU_BACKWARD_SPV: &[u8] = include_bytes!("../shaders/silu_backward.spv");
 const BIAS_GRAD_SPV: &[u8] = include_bytes!("../shaders/bias_grad.spv");
-const ADAMW_SPV: &[u8] = include_bytes!("../shaders/adamw.spv");
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -159,8 +154,8 @@ pub struct SharedTokenAdapterTrainer {
     layer_norm_linear_forward_fused: Option<vulkan::ComputeKernel>,
     layer_norm_forward: vulkan::ComputeKernel,
     layer_norm_input_grad: vulkan::ComputeKernel,
-    linear_forward: vulkan::ComputeKernel,
-    linear_bias_forward: vulkan::ComputeKernel,
+    linear_forward: vendor::VendorMatmulKernel,
+    linear_bias_forward: vendor::VendorMatmulKernel,
     linear_weight_grad: vulkan::ComputeKernel,
     linear_input_grad: vulkan::ComputeKernel,
     silu_forward: vulkan::ComputeKernel,
@@ -346,21 +341,18 @@ impl SharedTokenAdapterTrainer {
                 ],
                 std::mem::size_of::<LayerNormBackwardPush>() as u32,
             )?,
-            linear_forward: vulkan::ComputeKernel::new_with_access(
+            linear_forward: vendor::VendorMatmulKernel::new_with_access(
                 &device,
-                LINEAR_FORWARD_SPV,
+                vendor::VendorKernelFamily::LinearForward,
                 &[
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::MayWrite,
                 ],
-                std::mem::size_of::<LinearPush>() as u32,
             )?,
-            linear_bias_forward: vulkan::ComputeKernel::new(
+            linear_bias_forward: vendor::VendorMatmulKernel::new(
                 &device,
-                LINEAR_BIAS_FORWARD_SPV,
-                4,
-                std::mem::size_of::<LinearPush>() as u32,
+                vendor::VendorKernelFamily::LinearBiasForward,
             )?,
             linear_weight_grad: vulkan::ComputeKernel::new_with_access(
                 &device,
@@ -382,30 +374,15 @@ impl SharedTokenAdapterTrainer {
                 ],
                 std::mem::size_of::<LinearPush>() as u32,
             )?,
-            silu_forward: vulkan::ComputeKernel::new(
-                &device,
-                SILU_FORWARD_SPV,
-                2,
-                std::mem::size_of::<VectorPush>() as u32,
-            )?,
-            silu_backward: vulkan::ComputeKernel::new(
-                &device,
-                SILU_BACKWARD_SPV,
-                3,
-                std::mem::size_of::<VectorPush>() as u32,
-            )?,
+            silu_forward: vendor::silu_forward_kernel(&device)?,
+            silu_backward: vendor::silu_backward_kernel(&device)?,
             bias_grad: vulkan::ComputeKernel::new(
                 &device,
                 BIAS_GRAD_SPV,
                 2,
                 std::mem::size_of::<BiasPush>() as u32,
             )?,
-            adamw: vulkan::ComputeKernel::new(
-                &device,
-                ADAMW_SPV,
-                4,
-                std::mem::size_of::<AdamWPush>() as u32,
-            )?,
+            adamw: vendor::adamw_kernel(&device)?,
             norm_weight: GpuBuffer::from_f32(&device, &norm_weight_host)?,
             norm_bias: GpuBuffer::from_f32(&device, &norm_bias_host)?,
             down_weight: GpuBuffer::from_f32(&device, down_weight)?,

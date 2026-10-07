@@ -1,0 +1,97 @@
+#version 450
+
+// Routed MoE expert projection, fused topologies.
+//
+// The reference MoE implementation calls each expert with only the tokens that
+// were routed to it, and PyTorch's CPU GEMM chooses its accumulation topology
+// from the call's row count `M`.  The native graph keeps routing on the GPU by
+// dispatching every expert over all `rows` and zero-weighting the rows the
+// expert was not routed to, so this projection has to recover the reference
+// topology from the number of tokens actually routed to the expert.
+//
+// Topologies, all confirmed bit-exact against `torch.nn.functional.linear` on
+// the strict fixture's own weights and activations at these shapes (K=16/N=32
+// and K=32/N=16, i.e. both expert projections):
+//   M >= 4 : one serial fused multiply-add chain (identical to
+//            `linear_forward.comp`, so experts with no routed-row shortage
+//            dispatch to the same arithmetic as before).
+//   M == 3 : two interleaved lanes of fused multiply-adds, joined by one add
+//            (identical to `linear_forward_lane2.comp`).
+//   M == 2 : the two-token topology materializes its products in FP32 so the
+//            driver cannot contract them into an FMA.  That needs `precise`,
+//            and on Intel Gen9 a NoContraction multiply anywhere in a module
+//            makes the compiler split *every* FMA ext-instruction in it into a
+//            separate multiply and add (`linear_forward_lane2.comp` records
+//            the same hazard for a NoContraction final add).  The M == 2
+//            topology therefore lives in `transformer_moe_expert_forward_muladd.comp`
+//            and this module declines it.
+//   M == 1 : eight interleaved lanes of fused multiply-adds, reduced by
+//            cross-halves (`lora_a_forward_lane8_muladd.comp`'s fold shape).
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+// One entry per expert: the number of rows the router sent to that expert.
+layout(set = 0, binding = 3, std430) readonly buffer ExpertRowsBuffer { uint expert_rows[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    uint experts;
+    uint expert;
+} pc;
+
+void main() {
+    uint out_col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || out_col >= pc.output_dim) {
+        return;
+    }
+
+    uint x_base = row * pc.input_dim;
+    uint w_base = out_col * pc.input_dim;
+    uint input_dim = pc.input_dim;
+    uint routed = expert_rows[pc.expert];
+    if (routed == 2u) {
+        // Owned by the companion muladd module; see the header comment.
+        return;
+    }
+
+    float result;
+    if (routed == 3u) {
+        float lane0 = 0.0;
+        float lane1 = 0.0;
+        uint i = 0u;
+        for (; i + 1u < input_dim; i += 2u) {
+            lane0 = fma(x[x_base + i], weight[w_base + i], lane0);
+            lane1 = fma(x[x_base + i + 1u], weight[w_base + i + 1u], lane1);
+        }
+        if (i < input_dim) {
+            lane0 = fma(x[x_base + i], weight[w_base + i], lane0);
+        }
+        result = lane0 + lane1;
+    } else if (routed == 1u) {
+        float lanes[8];
+        for (uint lane = 0u; lane < 8u; ++lane) {
+            lanes[lane] = 0.0;
+        }
+        for (uint i = 0u; i < input_dim; ++i) {
+            lanes[i & 7u] = fma(x[x_base + i], weight[w_base + i], lanes[i & 7u]);
+        }
+        for (uint span = 4u; span > 0u; span >>= 1u) {
+            for (uint lane = 0u; lane < span; ++lane) {
+                lanes[lane] = lanes[lane] + lanes[lane + span];
+            }
+        }
+        result = lanes[0];
+    } else {
+        float sum = 0.0;
+        for (uint i = 0u; i < input_dim; ++i) {
+            sum = fma(x[x_base + i], weight[w_base + i], sum);
+        }
+        result = sum;
+    }
+    output_values[row * pc.output_dim + out_col] = result;
+}

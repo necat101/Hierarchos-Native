@@ -184,6 +184,33 @@ STRICT_LOGIT_FAMILIES = (
     *QWEN25_STRICT_FAMILIES,
     *QWEN35_STRICT_FAMILIES,
     *QWEN4_EXP_STRICT_FAMILIES,
+    # Broad/legacy families and the headline AdamW set re-qualified on
+    # 2026-10-05 against the same 2e-7 absolute-only ceiling as the
+    # source-backed set, so the whole architecture registry now runs under one
+    # contract. T5 and Switch Transformers use a re-conditioned fixture (see
+    # tiny_models) because the paper init made the oracle's own FP32 noise
+    # exceed the ceiling.
+    "deepseek_v4",
+    "phi4_multimodal_text",
+    "phi3",
+    "kimi_k25_text",
+    "mistral4",
+    "minimax_m2",
+    "minimax_m3",
+    "gemma4",
+    "gpt2",
+    "llama",
+    "qwen2",
+    "mistral",
+    "mixtral",
+    "gemma3",
+    "gemma3_softcap_tied",
+    "dbrx",
+    "t5",
+    "bart",
+    "switch_transformers",
+    "bert",
+    "minimax_m3_dense",
 )
 
 
@@ -1132,6 +1159,14 @@ def tiny_models(*, training_reference: bool = False) -> list[tuple[str, torch.nn
                     num_heads=2,
                     dropout_rate=0.0,
                     decoder_start_token_id=0,
+                    # The paper init (initializer_factor=1.0) gives this tiny
+                    # d_model=16 graph an FP32 condition number whose own
+                    # fp32-vs-fp64 logit noise (~6e-7) exceeds the 2e-7 absolute
+                    # ceiling, so the gate would measure oracle rounding rather
+                    # than native fidelity. Scale the init down until the same
+                    # relative-position/encoder-decoder/cross-attention paths
+                    # have an oracle noise floor well under the gate.
+                    initializer_factor=0.25,
                 )
             ),
             False,
@@ -1173,6 +1208,8 @@ def tiny_models(*, training_reference: bool = False) -> list[tuple[str, torch.nn
                     expert_capacity=8,
                     dropout_rate=0.0,
                     decoder_start_token_id=0,
+                    # Same 2e-7/conditioning rationale as the T5 fixture above.
+                    initializer_factor=0.25,
                 )
             ),
             False,
@@ -1234,9 +1271,8 @@ def compare_family(
     model_dir = root / name / case
     model.eval()
     if name in STRICT_LOGIT_FAMILIES:
-        # K3 acceptance is intentionally stronger than the broad compatibility
-        # suite. GPT-OSS uses the same strict absolute-only contract against the
-        # current local Transformers implementation.
+        # Every registered family is held to the strict absolute-only 2e-7
+        # ceiling; callers may tighten it further but can never loosen it.
         atol = min(atol, 2.0e-7)
         rtol = 0.0
     # Compare against Transformers' normalized in-memory parameter graph. Some

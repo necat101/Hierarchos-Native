@@ -1,0 +1,56 @@
+#version 450
+
+// Two-lane interleaved adjoint for narrow LoRA-B gradients.
+//
+// PyTorch's CPU `mm` for these PEFT shapes -- grad_B_out (rows x output_dim)
+// times B (output_dim x rank), i.e. a width-rank result -- does not walk the
+// reduction serially. It keeps TWO fused accumulators keyed by `k % 2` and
+// folds them with a single add. Measured over every LoRA-B adjoint of the
+// strict fixtures (K = output_dim in {8, 16, 32}, rank = 2) `torch.mm` is
+// reproduced bit-exactly by that two-lane fused model and by none of the
+// serial fused, serial multiply-add, or 4/8/16-lane models.
+//
+// `linear_input_grad.comp` is the serial-time FMA kernel and
+// `linear_input_grad_muladd.comp` is the serial multiply-add kernel; neither
+// matches this path, which is why the B adjoint needs its own kernel.  The
+// accumulators are deliberately NOT `precise`: on Gen9 the driver reads a
+// NoContraction accumulator as a request to split the upstream fma() into a
+// separate multiply and add, which is exactly the topology this kernel must
+// avoid.  A plain two-term fold cannot be reassociated.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || col >= pc.input_dim) {
+        return;
+    }
+
+    float lane0 = 0.0;
+    float lane1 = 0.0;
+    uint k = 0u;
+    for (; k + 1u < pc.output_dim; k += 2u) {
+        lane0 = fma(grad_output[row * pc.output_dim + k],
+                    weight[k * pc.input_dim + col],
+                    lane0);
+        lane1 = fma(grad_output[row * pc.output_dim + k + 1u],
+                    weight[(k + 1u) * pc.input_dim + col],
+                    lane1);
+    }
+    if (k < pc.output_dim) {
+        lane0 = fma(grad_output[row * pc.output_dim + k],
+                    weight[k * pc.input_dim + col],
+                    lane0);
+    }
+    grad_input[row * pc.input_dim + col] = lane0 + lane1;
+}

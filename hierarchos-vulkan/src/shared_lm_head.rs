@@ -11,12 +11,11 @@ use bytemuck::{Pod, Zeroable};
 
 use crate::mixed_precision::{VulkanParameterStorageMirror, VulkanParameterStorageMirrorRefresher};
 use crate::{
-    read_f32_tensor, vulkan, AdamWHyperParams, GpuBuffer, VulkanDevice,
+    read_f32_tensor, vendor, vulkan, AdamWHyperParams, GpuBuffer, VulkanDevice,
     VulkanParameterStorageFormat,
 };
 
 const GRADIENT_ACCUMULATE_SPV: &[u8] = include_bytes!("../shaders/gradient_accumulate.spv");
-const ADAMW_SPV: &[u8] = include_bytes!("../shaders/adamw.spv");
 const ADAMW_RANGE_SPV: &[u8] = include_bytes!("../shaders/adamw_range.spv");
 
 #[repr(C)]
@@ -148,12 +147,7 @@ impl SharedLmHeadParameter {
                     2,
                     std::mem::size_of::<LenPush>() as u32,
                 )?,
-                adamw: vulkan::ComputeKernel::new(
-                    &device,
-                    ADAMW_SPV,
-                    4,
-                    std::mem::size_of::<AdamWPush>() as u32,
-                )?,
+                adamw: vendor::adamw_kernel(&device)?,
                 adamw_range: vulkan::ComputeKernel::new(
                     &device,
                     ADAMW_RANGE_SPV,

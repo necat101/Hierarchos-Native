@@ -1,4 +1,8 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
 
 // Hugging Face routed-MoE routing. score_function=0 preserves the historical
 // softmax-over-all-experts then top-k contract. score_function=1 implements
@@ -35,13 +39,15 @@ layout(push_constant) uniform Push {
     float router_logit_softcapping;
 } pc;
 
+// HF evaluates the router score as `nn.functional.sigmoid(router_logits)`, i.e.
+// PyTorch CPU's vectorized `1 / (1 + exp(-x))` with the SLEEF expf8_u10
+// exponential and an IEEE-754 fp32 division -- the same contract silu_forward
+// uses. The driver's relaxed `exp()` and reciprocal-multiply division landed
+// here one to two ulps away from the reference on MiniMaxM2's router logits,
+// which perturbed every routed expert output element even though the expert
+// path itself (gate_up, SiLU, product, down) is bit-exact.
 float sigmoid_score(float value) {
-    if (value >= 0.0) {
-        float z = exp(-value);
-        return 1.0 / (1.0 + z);
-    }
-    float z = exp(value);
-    return z / (1.0 + z);
+    return fp32_div(1.0, 1.0 + sleef_expf_u10(-value));
 }
 
 float router_score_logit(float value) {
@@ -308,7 +314,10 @@ void sigmoid_grouped_route(uint row) {
         }
         float value = routed_sigmoid_score(logits[index]);
         if (pc.normalize_top_k != 0) {
-            value /= selected_sum + 1.0e-20;
+            // HF renormalizes with a true fp32 division
+            // (`top_k_weights /= top_k_weights.sum(...)`); a relaxed
+            // reciprocal-multiply would move the weight by one ulp.
+            value = fp32_div(value, selected_sum + 1.0e-20);
         }
         weights[index] = value * pc.routed_scaling_factor;
     }

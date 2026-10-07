@@ -1,0 +1,85 @@
+#version 450
+
+// Intel Gen9 (HD Graphics 520-class) variant of linear3_forward.
+//
+// The portable module evaluates the three RWKV time-mix projections (r/k/v) in
+// one invocation, each as its own ascending-k serial fma() chain. This variant
+// keeps those three chains untouched and stages all six operands of a 16x16
+// output tile in workgroup memory: 6 arrays x 16 x 17 floats = 6528 bytes, well
+// inside the Gen9 32 KiB shared-memory budget. Global loads per FMA drop from
+// six to roughly 6/16, which is what the bandwidth-starved integrated part pays
+// for; the arithmetic sequence is unchanged, so results stay bit-identical.
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RInputBuffer { float xr[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RWeightBuffer { float wr[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KInputBuffer { float xk[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KWeightBuffer { float wk[]; };
+layout(set = 0, binding = 4, std430) readonly buffer VInputBuffer { float xv[]; };
+layout(set = 0, binding = 5, std430) readonly buffer VWeightBuffer { float wv[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer ROutputBuffer { float r[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer KOutputBuffer { float raw_k[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer VOutputBuffer { float v[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+shared float xr_tile[16][17];
+shared float wr_tile[16][17];
+shared float xk_tile[16][17];
+shared float wk_tile[16][17];
+shared float xv_tile[16][17];
+shared float wv_tile[16][17];
+
+void main() {
+    uint tx = gl_LocalInvocationID.x;
+    uint ty = gl_LocalInvocationID.y;
+    uint lane = ty * 16u + tx;
+    uint out_col = gl_WorkGroupID.x * 16u + tx;
+    uint row = gl_WorkGroupID.y * 16u + ty;
+
+    uint tile_r = lane >> 4u;
+    uint tile_c = lane & 15u;
+    uint tile_row = gl_WorkGroupID.y * 16u + tile_r;
+    uint tile_col = gl_WorkGroupID.x * 16u + tile_r;
+    bool row_in_range = tile_row < pc.rows;
+    bool col_in_range = tile_col < pc.output_dim;
+    uint x_tile_base = tile_row * pc.input_dim;
+    uint w_tile_base = tile_col * pc.input_dim;
+
+    float r_sum = 0.0;
+    float k_sum = 0.0;
+    float v_sum = 0.0;
+    for (uint k0 = 0u; k0 < pc.input_dim; k0 += 16u) {
+        uint k = k0 + tile_c;
+        bool k_in_range = k < pc.input_dim;
+        bool x_in_range = row_in_range && k_in_range;
+        bool w_in_range = col_in_range && k_in_range;
+        xr_tile[tile_r][tile_c] = x_in_range ? xr[x_tile_base + k] : 0.0;
+        wr_tile[tile_r][tile_c] = w_in_range ? wr[w_tile_base + k] : 0.0;
+        xk_tile[tile_r][tile_c] = x_in_range ? xk[x_tile_base + k] : 0.0;
+        wk_tile[tile_r][tile_c] = w_in_range ? wk[w_tile_base + k] : 0.0;
+        xv_tile[tile_r][tile_c] = x_in_range ? xv[x_tile_base + k] : 0.0;
+        wv_tile[tile_r][tile_c] = w_in_range ? wv[w_tile_base + k] : 0.0;
+        barrier();
+
+        uint k_end = min(16u, pc.input_dim - k0);
+        for (uint c = 0u; c < k_end; ++c) {
+            r_sum = fma(xr_tile[ty][c], wr_tile[tx][c], r_sum);
+            k_sum = fma(xk_tile[ty][c], wk_tile[tx][c], k_sum);
+            v_sum = fma(xv_tile[ty][c], wv_tile[tx][c], v_sum);
+        }
+        barrier();
+    }
+
+    if (row < pc.rows && out_col < pc.output_dim) {
+        uint output_index = row * pc.output_dim + out_col;
+        r[output_index] = r_sum;
+        raw_k[output_index] = k_sum;
+        v[output_index] = v_sum;
+    }
+}

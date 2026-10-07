@@ -1,4 +1,24 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+
+// SiLU/swish activation. The elementwise form is the ATen/HF definition
+//   silu(x) = x / (1 + exp(-x))
+// Two rounding details are load-bearing for bit parity with the HF oracle:
+//   * the exponential must be the SLEEF u10 polynomial PyTorch's own
+//     Vectorized<float>::exp() uses, not the driver's relaxed `exp()`;
+//   * the quotient must be the correctly rounded fp32 division. The device
+//     lowers a bare `/` to a reciprocal-multiply and lands 1 ulp away, the
+//     same relaxed-divider behaviour the attention softmax reciprocal had to
+//     avoid. `x * (1/(1+exp(-x)))` is a *different* number from
+//     `x / (1+exp(-x))` and differs from HF on ~30% of a real gate tensor.
+// Measured on the reference fixture (128 real llama layer-0 gate values):
+//   exp + reciprocal form  44/128 elements off   (0.0 bit-exact)
+//   exp + `/`              32/128 elements off   (0.0 bit-exact)
+//   sleef exp + `/`        27/128 elements off   (0.0 bit-exact)
+//   sleef exp + fp32_div    0/128 elements off   (BIT-EXACT)
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -15,6 +35,5 @@ void main() {
         return;
     }
     float value = x[index];
-    float sigmoid_value = 1.0 / (1.0 + exp(-value));
-    output_values[index] = value * sigmoid_value;
+    output_values[index] = fp32_div(value, 1.0 + sleef_expf_u10(-value));
 }

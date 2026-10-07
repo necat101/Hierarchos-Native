@@ -5,6 +5,7 @@
 #endif
 #if HIERARCHOS_LOG_SOFTMAX_GRAD
 #extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
 #include "fp32_sqrt_recip.glsl"
 #include "fp32_sleef_exp.glsl"
 #endif
@@ -70,24 +71,32 @@ void main() {
     float gradient_scale = row_weight / weight_sum;
 #if HIERARCHOS_LOG_SOFTMAX_GRAD
     gradient_scale = fp32_div(row_weight, weight_sum);
-    // PyTorch's Windows CPU log-softmax maps AVX512-sized (16-float) chunks,
-    // accumulates corresponding lanes, then folds the 16 lane totals in lane
-    // order.  Reproduce that reduction with SLEEF expf_u10.  Using the
-    // same SLEEF exp path and preserve LogSoftmax's materialized log-probability
-    // before its backward exp.  The scalar log remains a single rounded FP32
+    // PyTorch's CPU log-softmax reduces the `exp(x - max)` terms with
+    // `vec::map_reduce_all`.  On AVX2 the accumulator is one 8-wide vector:
+    // it is seeded with the first vocabulary chunk, every later chunk adds
+    // into the same lanes, and the eight lane totals are then folded
+    // *sequentially* into lane 0 (slow `vec_reduce_all`).  The balanced
+    // 16-wide tree that an AVX512 map would use is NOT what this build does.
+    // The association is load-bearing: a 16-lane balanced tree leaves 30 of
+    // the 128 gemma4 layer-0 logits adjoints one ulp away from the HF oracle
+    // and propagates past the 2e-7 saved-module gate, while the 8-lane
+    // sequential fold reproduces `torch.log_softmax` bit-for-bit.  Reproduce
+    // the reduction with SLEEF expf_u10, keep LogSoftmax's materialized
+    // log-probability before its backward exp, and use the correctly rounded
+    // fp32 log and division.  The scalar log remains a single rounded FP32
     // operation, matching the CPU kernel's staging much more closely than the
     // algebraically collapsed softmax derivative.
-    precise float lane_sum[16];
-    for (uint lane = 0; lane < 16u; ++lane) {
+    precise float lane_sum[8];
+    for (uint lane = 0u; lane < 8u; ++lane) {
         lane_sum[lane] = 0.0;
     }
     for (uint v = 0; v < pc.vocab_size; ++v) {
         precise float shifted = logits[base + v] - max_logit;
-        uint lane = v & 15u;
+        uint lane = v & 7u;
         lane_sum[lane] += sleef_expf_u10(shifted);
     }
     precise float torch_sum = lane_sum[0];
-    for (uint lane = 1u; lane < 16u; ++lane) {
+    for (uint lane = 1u; lane < 8u; ++lane) {
         torch_sum += lane_sum[lane];
     }
     precise float torch_log_sum = sleef_logf_u10_positive(torch_sum);

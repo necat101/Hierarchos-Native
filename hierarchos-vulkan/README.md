@@ -2732,6 +2732,36 @@ cargo test -p hierarchos-vulkan lm_rows16_forward_stats_seam_microprofile --lib 
 `HIERARCHOS_VULKAN_LM_SEAM_PROFILE_REPETITIONS` override its default
 16-row/50,257-vocabulary/32-repeat geometry.
 
+### Vendor-specific shader variants
+
+AMD and every other vendor keep using the portable modules listed above. Intel
+Gen9 parts (HD Graphics 520-class integrated GPUs) select their own modules
+through `src/vendor.rs`. The matmul slot is geometry-gated per dispatch:
+production shapes use the Intel modules, while single-row decode, short-k, and
+thin-n shapes keep the portable module because they measured slower with the
+variant. See [VENDOR_TUNING.md](VENDOR_TUNING.md) for the vendor matrix, the
+dispatch contract, the geometry gate, the environment switches, the measured
+results, and the regression tests that prove bit-identical results (raw `f32`
+bits, i.e. zero drift against the verified portable modules, tighter than the
+`2e-7` reference logit gate).
+The admitted Intel modules are the workgroup-tiled matmul kernels for the
+`linear-forward`, `linear-bias-forward`, `linear-residual-forward` and
+`linear3-forward` families; the candidates that were measured slower (the
+elementwise, short-k, and transposed-weight parameter-matmul modules) and the
+AdamW candidate that was not bit-exact live under `shaders/vendor_experiments/`.
+Assemble the admitted modules from their checked-in GLSL with glslang 16.6.0:
+
+```powershell
+glslang -V --target-env vulkan1.0 shaders/linear_forward_intel_gen9.comp -o shaders/linear_forward_intel_gen9.spv
+glslang -V --target-env vulkan1.0 shaders/linear_bias_forward_intel_gen9.comp -o shaders/linear_bias_forward_intel_gen9.spv
+glslang -V --target-env vulkan1.0 shaders/linear_residual_forward_intel_gen9.comp -o shaders/linear_residual_forward_intel_gen9.spv
+glslang -V --target-env vulkan1.0 shaders/linear3_forward_intel_gen9.comp -o shaders/linear3_forward_intel_gen9.spv
+```
+
+`glslc` also compiles these sources; the resulting modules are equivalent but
+carry a different SPIR-V generator word, so byte-exact provenance is only
+claimed for the compiler recorded above.
+
 ## Cross-backend training economics gate
 
 `tools/benchmark_vulkan_pytorch_parity.py` now races the complete native Vulkan

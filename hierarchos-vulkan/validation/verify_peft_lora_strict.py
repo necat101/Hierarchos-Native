@@ -14,7 +14,13 @@ import torch
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
-TRANSFORMERS_ROOT = Path(r"C:\Users\User\transformers")
+# The mathematical oracle is a local Transformers source checkout, not an
+# installed wheel.  ``HIERARCHOS_TRANSFORMERS_ROOT`` lets a run pin a different
+# checkout (for example an older release tag) without editing this file; the
+# provenance guard below still refuses to accept a site-packages import.
+TRANSFORMERS_ROOT = Path(
+    os.environ.get("HIERARCHOS_TRANSFORMERS_ROOT", r"C:\Users\User\transformers")
+)
 FAMILY = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("HIERARCHOS_PEFT_ORACLE_FAMILY", "gpt2")
 SHARED_REFERENCE_FAMILIES = {
     "deepseek_v4", "phi4_multimodal_text", "phi3", "kimi_k25_text",

@@ -223,7 +223,7 @@ def main():
     for stem in ["transformer_rope_forward", "transformer_rope_backward",
                  "transformer_attention_forward", "transformer_attention_backward",
                  "transformer_rms_norm_forward", "transformer_rms_norm_input_grad",
-                 "linear_forward", "linear_forward_lane4", "linear_weight_grad"]:
+                 "linear_forward", "linear_forward_lane2", "linear_weight_grad"]:
         artifact_paths.extend(strict.ROOT / "shaders" / (stem + suffix)
                               for suffix in [".comp", ".spv"])
     artifact_paths.extend(strict.ROOT / "shaders" / name for name in

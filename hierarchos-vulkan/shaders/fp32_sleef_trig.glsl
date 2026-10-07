@@ -90,6 +90,15 @@ float fp32_sin(float d) {
 }
 float fp32_cos(float d) {
     if (!(abs(d) < 125.0)) return cos(d);
+    // Truncation-free region.  For |x| < 9.0e-4 the series' next term after
+    // 1 - x*x/2 is x^4/24 < 3.4e-14, i.e. four orders of magnitude below half an
+    // ulp of the result (2.98e-8), and the product x*x is correctly rounded by a
+    // single multiply.  The reference CPU cosine returns exactly the correctly
+    // rounded value there; the reduction-based path below returns a neighbouring
+    // value at the smallest arguments the strict suite exercises (minimax_m2/m3
+    // rope frequencies 1/sqrt(5e6) and 2/sqrt(5e6)).  Nothing else in the suite
+    // falls below 9.0e-4, and above it the reduction path already matches.
+    if (abs(d) < 9.0e-4) return 1.0 - 0.5 * d * d;
     d = abs(d);
     precise float a = d * 0.31830988618379067154 - 0.5;
     precise float q = trig_rint(a) * 2.0 + 1.0;

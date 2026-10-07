@@ -1,0 +1,52 @@
+#version 450
+
+// Intel Gen9 candidate for adamw.
+//
+// Same per-element math and the same host dispatch grid: one workgroup still
+// covers 256 contiguous elements because each of 64 invocations owns four
+// elements spaced by the local width. Element index arithmetic is unchanged per
+// element, so the optimizer update is bit-identical.
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) buffer ParameterBuffer { float parameter[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradientBuffer { float gradient[]; };
+layout(set = 0, binding = 2, std430) buffer ExpAvgBuffer { float exp_avg[]; };
+layout(set = 0, binding = 3, std430) buffer ExpAvgSqBuffer { float exp_avg_sq[]; };
+
+layout(push_constant) uniform Push {
+    uint len;
+    uint step;
+    float lr;
+    float beta1;
+    float beta2;
+    float eps;
+    float weight_decay;
+} pc;
+
+void main() {
+    uint base = gl_GlobalInvocationID.x;
+    for (uint slot = 0u; slot < 4u; ++slot) {
+        uint i = base + slot * 64u;
+        if (i >= pc.len) {
+            return;
+        }
+        float g = gradient[i];
+        float m = pc.beta1 * exp_avg[i] + (1.0 - pc.beta1) * g;
+        float v = pc.beta2 * exp_avg_sq[i] + (1.0 - pc.beta2) * g * g;
+        exp_avg[i] = m;
+        exp_avg_sq[i] = v;
+
+        float bias_correction1 = 1.0 - pow(pc.beta1, float(pc.step));
+        float bias_correction2 = 1.0 - pow(pc.beta2, float(pc.step));
+        float denom = sqrt(v / bias_correction2) + pc.eps;
+#ifdef HIERARCHOS_UNFUSED_ADAMW
+        precise float decayed = parameter[i] * (1.0 - pc.lr * pc.weight_decay);
+        precise float updated = decayed - pc.lr * (m / bias_correction1) / denom;
+        parameter[i] = updated;
+#else
+        float decayed = parameter[i] * (1.0 - pc.lr * pc.weight_decay);
+        parameter[i] = decayed - pc.lr * (m / bias_correction1) / denom;
+#endif
+    }
+}

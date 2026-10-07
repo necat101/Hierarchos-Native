@@ -1759,6 +1759,42 @@ impl VulkanDevice {
         &self.name
     }
 
+    /// PCI vendor ID from `VkPhysicalDeviceProperties::vendor_id`.
+    ///
+    /// This is the raw hardware identity used by [`crate::vendor`] to select
+    /// per-vendor kernel variants. It is deliberately separate from `name()`,
+    /// which is a marketing string that vendors may change between drivers.
+    pub fn vendor_id(&self) -> u32 {
+        unsafe {
+            self.inner
+                .instance
+                .get_physical_device_properties(self.physical_device)
+        }
+        .vendor_id
+    }
+
+    /// PCI device ID from `VkPhysicalDeviceProperties::device_id`.
+    pub fn device_id(&self) -> u32 {
+        unsafe {
+            self.inner
+                .instance
+                .get_physical_device_properties(self.physical_device)
+        }
+        .device_id
+    }
+
+    /// Driver-supplied version number for this physical device. Recorded with
+    /// vendor-tuning evidence because Intel legacy/DCH drivers differ
+    /// materially in their SPIR-V lowering even on identical silicon.
+    pub fn driver_version(&self) -> u32 {
+        unsafe {
+            self.inner
+                .instance
+                .get_physical_device_properties(self.physical_device)
+        }
+        .driver_version
+    }
+
     /// Return the Vulkan physical-device / driver identity used to scope
     /// persistent runtime-performance evidence. Device names are not unique
     /// enough for learned scheduler state: the same marketing name may resolve
@@ -2054,6 +2090,18 @@ impl VulkanDevice {
             && caps.compute_supported
             && caps.basic_supported
             && caps.shuffle_supported
+    }
+
+    /// True when the physical device is an integrated GPU (device-local memory
+    /// is host-visible system memory). Vendor tuning uses this for
+    /// bandwidth-sensitive kernel choices.
+    pub fn is_integrated_gpu(&self) -> bool {
+        let properties = unsafe {
+            self.inner
+                .instance
+                .get_physical_device_properties(self.physical_device)
+        };
+        properties.device_type == vk::PhysicalDeviceType::INTEGRATED_GPU
     }
 
     pub(crate) fn supports_storage_buffer_bindings(&self, count: u32) -> bool {
@@ -7081,8 +7129,9 @@ impl ComputeKernel {
             );
         }
         if push_constants.len() != self.push_constant_size as usize {
+            let name = shader_debug_name(self.shader_signature).unwrap_or("unknown");
             bail!(
-                "kernel expected {} push-constant bytes, got {}",
+                "kernel {name} expected {} push-constant bytes, got {}",
                 self.push_constant_size,
                 push_constants.len()
             );

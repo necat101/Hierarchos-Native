@@ -260,3 +260,85 @@ Fresh build/regression checks:
 - `git diff --check`: **PASS**; only LF-to-CRLF warnings were emitted.
 
 Current-turn conclusion: the existing native Qwen4-Exp implementation is still green against the current local Transformers oracle at the fixed `2e-7` gate for forward, cached decode, native backward/two-step AdamW, and trained save/reload, with QSA + GR + PLE exercised by the deterministic fixtures and Qwen3.5/full Rust regressions still green. No earliest-divergent tensor exists in this rerun because no checked output exceeded the gate.
+
+## 2026-10-04 strict re-verification against the most recent Transformers checkout
+
+Oracle provenance:
+
+- Checkout: `C:\Users\User\transformers`, commit `469230357aab0f2b303b0d638c1f8d06edb14184` (2026-10-03), clean worktree.
+- Harness-reported version/source: `5.19.0.dev0`, `C:\Users\User\transformers\src\transformers\__init__.py`.
+- The previously documented local QSA dtype edit in `modeling_qwen4_exp.py` is no longer present; the clone is pristine upstream.
+
+Upstream drift found and handled:
+
+- Transformers #48974 renamed Qwen4-Exp's indexer-backed attention layer type from `qwen_sparse_attention` to `indexed_attention`; `_LEGACY_LAYER_TYPE_REMAP` in `configuration_utils.py` rewrites the legacy spelling. Serialized fixtures/checkpoints therefore carry `indexed_attention`, which the native Qwen4-Exp parser previously rejected (`unsupported ... layer_types[0]="indexed_attention"`), so `qwen4_exp_qsa` and `qwen4_exp_mixed_ple` could not load.
+- `VulkanTransformerConfig::from_qwen4_exp_value` now maps `qwen_sparse_attention`, `indexed_attention`, and `full_attention` to the common full-attention marker; regression test `qwen4_exp_accepts_legacy_and_modern_indexer_layer_types` covers all three spellings.
+
+Fixed-gate results (`atol=2e-7`, `rtol=0`, Intel HD Graphics 520):
+
+- Qwen4-Exp forward (`--families qwen4_exp_linear qwen4_exp_qsa qwen4_exp_ple qwen4_exp_mixed_ple --atol 2e-7 --rtol 0`) — **PASS**. Max logit drift unmasked/padded: linear `8.381903171539307e-09` / `2.2351741790771484e-08`; QSA `1.4901161193847656e-08` / `1.4901161193847656e-08`; PLE `1.4901161193847656e-08` / `1.4901161193847656e-08`; mixed PLE `1.4901161193847656e-08` / `1.0244548320770264e-08`.
+- Two-step AdamW (`verify_hf_training.py --headline-strict`, all eleven headline families, exactly two steps) — **PASS**. Worst parameter drift `1.1920928955078125e-07` (`smollm3` `model.layers.1.input_layernorm.weight`, tied with `gemma4` and `minimax_m2`); every family stayed at or below that value.
+- Wider headline + strict logit set (22 families including the Kimi K3 oracle) at the same fixed gate — **PASS**; worst drift `7.450580596923828e-08` (`kimi_k25_text`, unmasked).
+- `cargo test --release --lib` — **PASS**: `689 passed; 0 failed; 9 ignored`.
+
+The earlier statement that `Qwen4ExpTextConfig` permits only `linear_attention` and `qwen_sparse_attention` is superseded by the upstream rename above; both spellings plus `full_attention` remain accepted by the native parser.
+
+## 2026-10-05 universal 2e-7 ceiling re-verification (forward, training, PEFT status)
+
+Before merge, the entire registered forward and training surface was re-qualified
+against one absolute-only `2e-7` ceiling instead of the historical split
+(`2e-4` broad families / `2e-7` strict families).
+
+Harness change:
+
+- `STRICT_LOGIT_FAMILIES` in `validation/verify_hf_logits.py` now covers every
+  family in `tiny_models()` (the headline AdamW set, the Kimi K3 oracle family,
+  and the previous broad/legacy set). `compare_family` clamps to
+  `atol=min(atol, 2e-7)` and `rtol=0`, so the default invocation enforces the
+  ceiling for all 37 families and callers can only tighten it further.
+- T5 and Switch Transformers tiny fixtures were re-conditioned to
+  `initializer_factor=0.25` (comment in `tiny_models`): at the paper init the
+  oracle's own fp32-vs-fp64 logit noise measured `4.8e-7`/`5.7e-7`, above the
+  gate, so the check could not distinguish native fidelity from oracle
+  rounding. The re-conditioned fixtures exercise the same relative-position
+  bias, encoder-decoder, and cross-attention paths.
+
+Forward results (`verify_hf_logits.py` default invocation, Intel HD Graphics
+520):
+
+- 37 families / 71 unmasked+mixed-padding comparisons, `EXIT=0`; every result
+  recorded `"atol": 2e-07`; worst observed max-abs `7.450580596923828e-08`
+  (`kimi_k25_text` unmasked). Previously failing at the ceiling: `t5`
+  (`5.960464477539062e-07` → `5.960464477539062e-08` after re-conditioning),
+  `switch_transformers` (`7.152557373046875e-07` → `2.9802322387695312e-08`).
+
+Training results (`verify_hf_training.py`, exactly two AdamW steps, hard gate
+`2.0e-7`):
+
+- All 34 decoder-only fixture families are green. The eleven headline families
+  were re-run earlier in this window; the 23 remaining families
+  (`gpt2 llama smollm3_yarn qwen2 qwen2_5_gqa qwen2_5_sliding_tied mistral
+  gemma3 gemma3_softcap_tied mixtral qwen3_5_full qwen3_5_linear qwen3_5_mixed
+  qwen3_5_moe qwen4_exp_linear qwen4_exp_qsa qwen4_exp_ple qwen4_exp_mixed_ple
+  minimax_m3_dense dbrx bert kimi_k3_kda kimi_k3_mla`) pass with worst parameter
+  drift `1.1920928955078125e-07` (`gpt2`, `smollm3_yarn`, `mixtral`, `bert`).
+
+PEFT status: the full 32-fixture matrix was re-run against the current
+`5.19.0.dev0` checkout with the documented `peft==0.18.0` oracle. Ordinary LoRA
+and named-adapter switching are 32/32 green at `2e-7`; the saved-module stage is
+23/32, with nine fixtures scoped out in `COMPATIBILITY.md` (adapter-A embedding/norm
+gradients `2.384185791e-7` to `3.099441528e-6`) and classified as oracle-side
+FP32 execution-topology drift in `PROGRESS_PEFT_AUDIT.md`. The uncommitted Intel
+vendor work is excluded: it covers only bit-exact `linear_forward`/
+`linear_bias_forward` replacements, and a
+`HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS=1` rerun reproduces the failing llama
+gradients bit-for-bit.
+
+Full Rust suite after all of the above: see the final `cargo test --release
+--lib` run recorded at the end of this section (689 passed; 0 failed; 9
+ignored, matching the pre-existing baseline).
+
+Final Rust gate for this window:
+
+- `cargo test --release --lib` - **PASS**, `689 passed; 0 failed; 9 ignored`
+  (`finished in 20.36s`), matching the pre-existing baseline.

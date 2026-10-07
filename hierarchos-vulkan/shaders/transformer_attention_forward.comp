@@ -1,5 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
 #include "fp32_sqrt_recip.glsl"
 #include "fp32_sleef_exp.glsl"
 
@@ -75,17 +76,27 @@ bool deterministic_attention_exp() {
 }
 
 bool deterministic_attention_divider() {
-    return pc.unfused_qk == 1u || diagnostic_attention_mode_bit(3u);
+    // Mode 9 is the llama saved-module oracle mode.  Its softmax must use the
+    // same correctly rounded FP32 reciprocal as the CPU torch softmax: the
+    // raw OpFDiv can land one ulp high and that probability seed drifts the
+    // whole saved-module backward chain.
+    return pc.unfused_qk == 1u || pc.unfused_qk == 9u || diagnostic_attention_mode_bit(3u);
 }
 
 float attention_exp(float value) {
-    // Gemma4's strict CPU oracle reaches PyTorch's AVX512 Vectorized<float>
-    // exp path.  The local SLEEF u10 replay is bit-identical for the recorded
+    // Gemma4's strict CPU oracle reaches PyTorch's AVX2 Vectorized<float> exp
+    // path.  The local SLEEF u10 replay is bit-identical for the recorded
     // tiny-fixture rows; the Vulkan builtin exp differs by one FP32 ulp in a
     // probability that the following per-head RMSNorm backward amplifies.
     // Keep this scoped to mode 1 so already-qualified attention modes retain
     // their existing arithmetic.
-    return deterministic_attention_exp() ? sleef_expf_u10(value) : exp(value);
+    //
+    // The replay must additionally be *fused*: the CPU pipeline multiplies and
+    // adds with FMA3, while IGC lowers GLSL's fma() to an unfused multiply and
+    // add on Gen9 hardware and lands one ulp away on about 1% of arguments.
+    // The same seed drift applies here, so this call site uses the software
+    // exact multiply-add instead of the hardware approximation.
+    return deterministic_attention_exp() ? sleef_expf_u10_fused(value) : exp(value);
 }
 
 uint physical_key_row(uint batch, uint key) {

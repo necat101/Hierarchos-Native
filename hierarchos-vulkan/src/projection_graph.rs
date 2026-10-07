@@ -13,14 +13,12 @@ use crate::rwkv_optimizer::{
     RwkvDecayClass, RwkvParameterStorageMirrorBinding, RwkvPersistentAdamW, RwkvTrainableRef,
 };
 use crate::{
-    read_f32_tensor, vulkan, AdamWHyperParams, AdamWOptimizerState, GpuBuffer,
+    read_f32_tensor, vendor, vulkan, AdamWHyperParams, AdamWOptimizerState, GpuBuffer,
     RwkvOptimizerStepResult, RwkvParameterSnapshot, VulkanDevice, VulkanParameterStorageFormat,
 };
 
-const LINEAR_FORWARD_SPV: &[u8] = include_bytes!("../shaders/linear_forward.spv");
 const LINEAR_FORWARD_FP16_PACKED_SPV: &[u8] =
     include_bytes!("../shaders/linear_forward_fp16_packed.spv");
-const LINEAR_BIAS_FORWARD_SPV: &[u8] = include_bytes!("../shaders/linear_bias_forward.spv");
 const LINEAR_BIAS_FORWARD_FP16_PACKED_SPV: &[u8] =
     include_bytes!("../shaders/linear_bias_forward_fp16_packed.spv");
 const LINEAR_WEIGHT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_weight_grad.spv");
@@ -194,9 +192,9 @@ pub(crate) struct GraphProjectionOp {
     native_fp16_backward_compute: bool,
     native_fp16_input_adjoint_compute: bool,
     source_scaled_backward_domain: bool,
-    linear_forward: vulkan::ComputeKernel,
+    linear_forward: vendor::VendorMatmulKernel,
     linear_forward_fp16_packed: vulkan::ComputeKernel,
-    linear_bias_forward: vulkan::ComputeKernel,
+    linear_bias_forward: vendor::VendorMatmulKernel,
     linear_bias_forward_fp16_packed: vulkan::ComputeKernel,
     linear_weight_grad: vulkan::ComputeKernel,
     linear_weight_grad_fp16_native_compute: Option<vulkan::ComputeKernel>,
@@ -299,15 +297,14 @@ impl GraphProjectionOp {
             native_fp16_backward_compute: false,
             native_fp16_input_adjoint_compute: false,
             source_scaled_backward_domain: false,
-            linear_forward: vulkan::ComputeKernel::new_with_access(
+            linear_forward: vendor::VendorMatmulKernel::new_with_access(
                 &device,
-                LINEAR_FORWARD_SPV,
+                vendor::VendorKernelFamily::LinearForward,
                 &[
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::MayWrite,
                 ],
-                std::mem::size_of::<LinearPush>() as u32,
             )?,
             linear_forward_fp16_packed: vulkan::ComputeKernel::new_with_access(
                 &device,
@@ -319,16 +316,15 @@ impl GraphProjectionOp {
                 ],
                 std::mem::size_of::<LinearPush>() as u32,
             )?,
-            linear_bias_forward: vulkan::ComputeKernel::new_with_access(
+            linear_bias_forward: vendor::VendorMatmulKernel::new_with_access(
                 &device,
-                LINEAR_BIAS_FORWARD_SPV,
+                vendor::VendorKernelFamily::LinearBiasForward,
                 &[
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::MayWrite,
                 ],
-                std::mem::size_of::<LinearPush>() as u32,
             )?,
             linear_bias_forward_fp16_packed: vulkan::ComputeKernel::new_with_access(
                 &device,

@@ -1,0 +1,69 @@
+#version 450
+
+// Intel Gen9 (HD Graphics 520-class) variant of parameter_matmul_forward.
+//
+// The portable module walks a *transposed* weight
+// (`weight[in_col * output_dim + out_col]`) with the same ascending-in_col
+// serial fma() chain, one (row, out_col) per invocation. This variant keeps
+// that exact chain and stages a 16x16 x tile and a 16x16 weight tile in
+// workgroup memory. Both sides of the dot product are contiguous along the
+// lane axis (x along k, weight along out_col), so every staged load is
+// coalesced and each global value is fetched once per workgroup instead of
+// once per output element.
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+// 17-float rows keep the k-slice reads bank-conflict free on Gen9.
+shared float x_tile[16][17];
+shared float w_tile[16][17];
+
+void main() {
+    uint tx = gl_LocalInvocationID.x;
+    uint ty = gl_LocalInvocationID.y;
+    uint lane = ty * 16u + tx;
+    uint out_col = gl_WorkGroupID.x * 16u + tx;
+    uint row = gl_WorkGroupID.y * 16u + ty;
+
+    uint tile_r = lane >> 4u;
+    uint tile_c = lane & 15u;
+    uint row_tile_base = gl_WorkGroupID.y * 16u;
+    uint col_tile_base = gl_WorkGroupID.x * 16u;
+    uint x_tile_base = (row_tile_base + tile_r) * pc.input_dim;
+    bool x_row_in_range = (row_tile_base + tile_r) < pc.rows;
+    bool w_col_in_range = (col_tile_base + tile_c) < pc.output_dim;
+
+    float sum = 0.0;
+    for (uint k0 = 0u; k0 < pc.input_dim; k0 += 16u) {
+        uint k = k0 + tile_c;
+        bool x_k_in_range = k < pc.input_dim;
+        x_tile[tile_r][tile_c] = (x_row_in_range && x_k_in_range) ? x[x_tile_base + k] : 0.0;
+
+        // The weight tile is keyed by k on the tile row and out_col on the tile
+        // column, mirroring the transposed portable addressing.
+        uint w_row = k0 + tile_r;
+        uint w_col = col_tile_base + tile_c;
+        w_tile[tile_r][tile_c] =
+            (w_row < pc.input_dim && w_col_in_range) ? weight[w_row * pc.output_dim + w_col] : 0.0;
+        barrier();
+
+        uint k_end = min(16u, pc.input_dim - k0);
+        for (uint c = 0u; c < k_end; ++c) {
+            sum = fma(x_tile[ty][c], w_tile[c][tx], sum);
+        }
+        barrier();
+    }
+
+    if (row < pc.rows && out_col < pc.output_dim) {
+        output_values[row * pc.output_dim + out_col] = sum;
+    }
+}

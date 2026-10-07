@@ -564,3 +564,211 @@ fn dense_sparse_objective_equivalence() -> Result<()> {
     }
     Ok(())
 }
+
+/// Fixture geometry for the vendor parity test: every width is 128 and the
+/// causal step runs eight rows per timestep, which clears the Intel matmul
+/// geometry gate (`rows >= 8`, `input >= 32`, `output >= 128`) for the
+/// channel-mix and projection dispatches. The architecture-contract fixture is
+/// deliberately tiny (width 32, one row), so every dispatch there stays on the
+/// portable module.
+fn vendor_fixture() -> Result<PathBuf> {
+    let path = std::env::temp_dir().join(format!(
+        "hierarchos-causal-lm-vendor-{}-{}",
+        std::process::id(),
+        SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
+    ));
+    let mut c = NativeBootstrapConfig::for_vocab(128);
+    c.context_dim = 128;
+    c.h_hidden = 128;
+    c.l_hidden = 128;
+    c.persistent_dim = 32;
+    c.ltm_slots = 8;
+    c.ltm_key_dim = 32;
+    c.ltm_val_dim = 32;
+    c.ltm_topk = 2;
+    c.h_stride = 2;
+    c.max_h_steps = 3;
+    c.max_l_steps = 2;
+    c.rwkv_head_size = 64;
+    c.token_adapter_rank = 32;
+    c.rosa_max_context = 8;
+    c.memory_gate_warmup_steps = 0;
+    initialize_model_package(&path, &c)?;
+    // Isolate the causal objective from the independently scheduled LTM writer objective.
+    for name in ["hierarchos_config.json", "hierarchos_rust_config.json"] {
+        let file = path.join(name);
+        let mut config: serde_json::Value = serde_json::from_slice(&fs::read(&file)?)?;
+        config["ltm_value_alignment_weight"] = serde_json::json!(0.0);
+        fs::write(&file, serde_json::to_vec_pretty(&config)?)?;
+    }
+    Ok(path)
+}
+
+/// Sets a process environment variable and restores the previous value on
+/// drop, so a failing assertion cannot leak the override into the suite.
+struct EnvVarGuard {
+    key: &'static str,
+    previous: Option<std::ffi::OsString>,
+}
+
+impl EnvVarGuard {
+    fn set(key: &'static str, value: &str) -> Self {
+        let previous = std::env::var_os(key);
+        std::env::set_var(key, value);
+        Self { key, previous }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        match self.previous.take() {
+            Some(value) => std::env::set_var(self.key, value),
+            None => std::env::remove_var(self.key),
+        }
+    }
+}
+
+fn run_vendor_step(
+    g: &mut HierarchosTrainingGraph,
+    batch: usize,
+    context_dim: usize,
+    ids: &[u32],
+    labels: &[i64],
+) -> Result<HierarchosTokenTapeTrainResult> {
+    let tokens = ids.len() / batch;
+    let contexts = vec![0.0; batch * context_dim];
+    let mut tape = g.create_zero_token_tape(batch, tokens)?;
+    g.train_raw_token_labeled_sequence_with_update_mode(
+        &mut tape,
+        &HierarchosRawTokenLabeledSequenceInput {
+            tokens,
+            input_ids: ids,
+            labels,
+            attention_mask: None,
+            loss_weights: None,
+            initial_previous_context: &contexts,
+            initial_target_context: &contexts,
+            global_pos_offset: 0,
+            reset_rosa_at_start: true,
+            pytorch_tbptt_chunk_size: None,
+        },
+        objective(),
+        hyper(),
+        HierarchosTokenTapeUpdateMode::BeginAccumulation,
+    )
+}
+
+#[test]
+fn hierarchos_causal_lm_vendor_kernels_match_portable() -> Result<()> {
+    with_trainer_stack(vendor_kernels_match_portable)
+}
+
+/// Runs the native Hierarchos causal-LM step with the Intel modules and with
+/// them disabled, and requires identical losses, recurrent states, and
+/// parameter gradients. The test-only dispatch counter proves the vendor run
+/// really consumed an Intel module instead of silently falling back, so the
+/// comparison cannot pass vacuously. Keep `--test-threads=1`: the disable
+/// switch is process-wide while the second graph is built.
+fn vendor_kernels_match_portable() -> Result<()> {
+    let batch = 8usize;
+    let context_dim = 128usize;
+    let path = vendor_fixture()?;
+    let device = VulkanDevice::new()?;
+    let probe = crate::vendor::VendorMatmulKernel::new(
+        &device,
+        crate::vendor::VendorKernelFamily::LinearForward,
+    )?;
+    if !probe.variant_available() {
+        eprintln!("SKIP Hierarchos causal-LM vendor parity: no Intel variant on this adapter");
+        return Ok(());
+    }
+    // Each recurrent timestep dispatches the channel mix as
+    // (rows = batch, k = width = context_dim, n = 4 * width).
+    assert!(
+        probe.selects_variant_for(batch as u32, context_dim as u32, (4 * context_dim) as u32),
+        "vendor parity fixture geometry must reach the Intel module"
+    );
+
+    let ids = [
+        1u32, 2, 1, 2, 3, 1, 2, 3, 1, 2, 1, 3, 2, 1, 3, 2, 1, 2, 3, 1, 2, 1, 3, 2, 1, 2, 3, 1, 2,
+        1, 3, 2,
+    ];
+    let labels = ids.map(|id| id as i64);
+    crate::vendor::reset_variant_dispatch_count();
+    let mut vendor = graph(&device, &path, batch)?;
+    let vendor_result = run_vendor_step(&mut vendor, batch, context_dim, &ids, &labels)?;
+    let vendor_dispatches = crate::vendor::variant_dispatch_count();
+    let linear_forward_dispatches =
+        crate::vendor::variant_dispatch_count_for(crate::vendor::VendorKernelFamily::LinearForward);
+    let linear_bias_forward_dispatches = crate::vendor::variant_dispatch_count_for(
+        crate::vendor::VendorKernelFamily::LinearBiasForward,
+    );
+    let linear_residual_dispatches = crate::vendor::variant_dispatch_count_for(
+        crate::vendor::VendorKernelFamily::LinearResidualForward,
+    );
+    let linear3_dispatches =
+        crate::vendor::variant_dispatch_count_for(crate::vendor::VendorKernelFamily::Linear3Forward);
+    let vendor_gradients = vendor.full_model_pending_gradient_snapshots()?;
+    assert!(
+        vendor_dispatches > 0,
+        "vendor-enabled Hierarchos step did not dispatch an Intel module"
+    );
+    // The native graph must really route every tuned matmul family this fixture
+    // exercises through the Intel modules, so a regression that silently moved
+    // a call site back to the portable module cannot pass just because the
+    // numbers agree. The fixture's width takes the fused channel-mix / time-mix
+    // routes, so `linear-residual-forward` and `linear3-forward` legitimately
+    // stay at zero here; those modules are pinned by the on-device A/B test at
+    // production geometry (`vendor::intel_variants_are_bit_exact_with_portable_kernels`).
+    assert!(
+        linear_forward_dispatches > 0 && linear_bias_forward_dispatches > 0,
+        "vendor-enabled Hierarchos step did not dispatch the linear-forward/\
+         linear-bias-forward Intel modules"
+    );
+    for family in crate::vendor::VendorKernelFamily::ALL {
+        eprintln!(
+            "Intel dispatch histogram: {:<24} {}",
+            family.label(),
+            crate::vendor::variant_dispatch_count_for(family)
+        );
+    }
+    let _ = (linear_residual_dispatches, linear3_dispatches);
+
+    let guard = EnvVarGuard::set(crate::HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS_ENV, "1");
+    crate::vendor::reset_variant_dispatch_count();
+    let mut portable = graph(&device, &path, batch)?;
+    let portable_result = run_vendor_step(&mut portable, batch, context_dim, &ids, &labels)?;
+    let portable_dispatches = crate::vendor::variant_dispatch_count();
+    let portable_gradients = portable.full_model_pending_gradient_snapshots()?;
+    drop(guard);
+    assert_eq!(
+        portable_dispatches, 0,
+        "portable Hierarchos step must not dispatch an Intel module"
+    );
+
+    close(
+        &vendor_result.losses,
+        &portable_result.losses,
+        2e-7,
+        "vendor/portable causal losses",
+    );
+    close(
+        &vendor_result.final_h_packed_state,
+        &portable_result.final_h_packed_state,
+        2e-7,
+        "vendor/portable H state",
+    );
+    close(
+        &vendor_result.final_l_packed_state,
+        &portable_result.final_l_packed_state,
+        2e-7,
+        "vendor/portable L state",
+    );
+    close_registry(&vendor_gradients, &portable_gradients, 2e-7);
+    eprintln!(
+        "PASS Hierarchos causal-LM vendor parity: {vendor_dispatches} Intel dispatches \
+         (linear-forward={linear_forward_dispatches}, \
+         linear-bias-forward={linear_bias_forward_dispatches}), portable run {portable_dispatches}"
+    );
+    Ok(())
+}

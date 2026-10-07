@@ -1,5 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
 #include "fp32_sqrt_recip.glsl"
 #include "fp32_sleef_exp.glsl"
 
@@ -191,7 +192,7 @@ float raw_score(uint batch, uint head, uint query, uint key) {
     uint q_base = (batch * pc.query_seq_len + query) * pc.query_hidden_size + head * qk_head_dim;
     uint k_base = (batch * pc.key_value_seq_len + key) * key_hidden_size + kv_head * qk_head_dim;
     float value = 0.0;
-    if (pc.unfused_qk == 1u || pc.unfused_qk == 2u) {
+    if (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u) {
         precise float unfused_value = 0.0;
         for (uint d = 0; d < qk_head_dim; ++d) {
             precise float product = q_values[q_base + d] * k_values[k_base + d];
@@ -240,17 +241,23 @@ float attention_exp(float value) {
     // backward; otherwise the Q/K/V RMSNorm adjoints amplify the tiny
     // probability mismatch into saved-module gradient drift.  Modes 2/3 keep
     // their independently-qualified deterministic helpers.
-    return (pc.causal == 2u || pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 3u)
+    if (pc.unfused_qk == 1u || pc.unfused_qk == 9u) {
+        // Same fused reconstruction as the forward kernel: the CPU's fused
+        // SLEEF sequence, not the driver's unfused multiply-add lowering.
+        return sleef_expf_u10_fused(value);
+    }
+    return (pc.causal == 2u || pc.unfused_qk == 2u || pc.unfused_qk == 3u)
         ? sleef_expf_u10(value)
         : exp(value);
 }
 
 float attention_reciprocal(float value) {
-    // Gemma4 mode 1 uses the deterministic divider in forward.  Backward must
-    // reconstruct the identical probability vector from the saved Q/K/V
-    // operands; a raw OpFDiv here can differ by one FP32 ulp and that seed is
-    // amplified by the per-head RMSNorm adjoints.
-    return (pc.causal == 2u || pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 3u)
+    // Gemma4 mode 1 and llama mode 9 use the deterministic divider in forward.
+    // Backward must reconstruct the identical probability vector from the saved
+    // Q/K/V operands; a raw OpFDiv here can differ by one FP32 ulp and that
+    // seed is amplified by the per-head RMSNorm adjoints.
+    return (pc.causal == 2u || pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 3u
+            || pc.unfused_qk == 9u)
         ? fp32_div(1.0, value)
         : (1.0 / value);
 }
@@ -376,7 +383,7 @@ void main() {
                     if (!key_is_visible(batch, head, query, key)) continue;
                     uint v_base = key_row * pc.value_hidden_size + kv_head * value_head_dim;
                     float dp = 0.0;
-                    if (pc.unfused_qk == 1u || pc.unfused_qk == 2u) {
+                    if (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u) {
                         precise float unfused_dp = 0.0;
                         for (uint d = 0; d < value_head_dim; ++d) {
                             precise float scaled_value = v_values[v_base + d] * pc.value_scale;
@@ -415,7 +422,7 @@ void main() {
                     uint k_base = key_row * key_hidden_size + kv_head * qk_head_dim;
                     uint v_base = key_row * pc.value_hidden_size + kv_head * value_head_dim;
                     float dp = 0.0;
-                    if (pc.unfused_qk == 1u || pc.unfused_qk == 2u) {
+                    if (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u) {
                         precise float unfused_dp = 0.0;
                         for (uint d = 0; d < value_head_dim; ++d) {
                             precise float scaled_value = v_values[v_base + d] * pc.value_scale;
@@ -464,7 +471,7 @@ void main() {
                         if (pc.unfused_qk == 2u) {
                             float scaled_ds = pc.scale * softcap_derivative * ds;
                             grad_q[q_base + d] += scaled_ds * k_values[k_base + d];
-                        } else if (pc.unfused_qk == 3u) {
+                        } else if (pc.unfused_qk == 3u || pc.unfused_qk == 9u) {
                             precise float score_scale = pc.scale * softcap_derivative;
                             score_scale = score_scale * ds;
                             precise float contribution = score_scale * k_values[k_base + d];
@@ -488,7 +495,7 @@ void main() {
         }
     }
 
-    if (pc.unfused_qk == 1u || pc.unfused_qk == 2u) {
+    if (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u) {
         // Gemma4's CPU reference forms the K/V matmul adjoint independently
         // for every repeated query head and only then reduces those completed
         // tensors through repeat_kv's expand backward.  Accumulating query 0..N

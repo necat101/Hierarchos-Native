@@ -15,13 +15,12 @@ use crate::rwkv_low_rank::{
 };
 use crate::rwkv_optimizer::{RwkvDecayClass, RwkvTrainableRef};
 use crate::{
-    read_f32_tensor, vulkan, GpuBuffer, RwkvLowRankOp, RwkvLowRankResult, RwkvPostMixOp,
-    RwkvPostMixResult, VulkanDevice,
+    read_f32_tensor, vendor, vulkan, GpuBuffer, RwkvLowRankOp, RwkvLowRankResult,
+    RwkvPostMixOp, RwkvPostMixResult, VulkanDevice,
 };
 
 const TIME_MIX_FORWARD_SPV: &[u8] = include_bytes!("../shaders/rwkv_time_mix3_forward.spv");
 const TIME_MIX_BACKWARD_SPV: &[u8] = include_bytes!("../shaders/rwkv_time_mix3_backward.spv");
-const LINEAR3_FORWARD_SPV: &[u8] = include_bytes!("../shaders/linear3_forward.spv");
 const TIME_MIX_LINEAR3_KEY_STATE_FORWARD_FUSED_SPV: &[u8] =
     include_bytes!("../shaders/rwkv_time_mix3_linear3_key_state_forward_fused.spv");
 const TIME_MIX_LINEAR3_KEY_STATE_FORWARD_FUSED_WG32_SPV: &[u8] =
@@ -922,7 +921,7 @@ pub struct RwkvTimeMixCoreOp {
 
     time_mix_forward: vulkan::ComputeKernel,
     time_mix_backward: vulkan::ComputeKernel,
-    linear3_forward: vulkan::ComputeKernel,
+    linear3_forward: vendor::VendorMatmulKernel,
     time_mix_linear3_key_state_forward_fused: Option<vulkan::ComputeKernel>,
     time_mix_linear3_key_state_forward_fused_two_rows: Option<vulkan::ComputeKernel>,
     time_mix_linear3_key_state_forward_weight_reuse: MultiRowWeightReuseKernels,
@@ -1958,9 +1957,9 @@ impl RwkvTimeMixCoreOp {
                 13,
                 std::mem::size_of::<MixPush>() as u32,
             )?,
-            linear3_forward: vulkan::ComputeKernel::new_with_access(
+            linear3_forward: vendor::VendorMatmulKernel::new_with_access(
                 &device,
-                LINEAR3_FORWARD_SPV,
+                vendor::VendorKernelFamily::Linear3Forward,
                 &[
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::ReadOnly,
@@ -1972,7 +1971,6 @@ impl RwkvTimeMixCoreOp {
                     vulkan::BindingAccess::MayWrite,
                     vulkan::BindingAccess::MayWrite,
                 ],
-                std::mem::size_of::<LinearPush>() as u32,
             )?,
             time_mix_linear3_key_state_forward_fused,
             time_mix_linear3_key_state_forward_fused_two_rows,

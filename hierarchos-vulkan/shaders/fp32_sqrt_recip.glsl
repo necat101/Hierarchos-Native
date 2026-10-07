@@ -123,3 +123,101 @@ float fp32_sqrt_recip(float x) {
     if (cmp < 0 || (cmp == 0 && (rb & 1u) != 0u)) ++rb;
     return uintBitsToFloat(rb);
 }
+
+// --- Correctly rounded x^(-3/2) -------------------------------------------
+// torch.pow(mean_squared, -1.5) is the derivative factor of the forward
+// torch.pow(mean_squared, -0.5).  Its CPU kernel takes the scalar path on the
+// tiny strict-fixture tensors, so the reference value is the correctly rounded
+// double-precision result; paraphrasing it with SLEEF's u10 log/exp staging
+// leaves a few percent of rows one ulp away, and the RMS backward amplifies
+// that seed through every lower norm.
+//
+//   candidate <= x^(-3/2)   <=>   candidate^2 * x^3 <= 1
+//
+// Both sides are integer mantissas, so the comparison needs only exact 32-bit
+// integer products: no fused multiply-add (Gen9's MAD truncates the product,
+// which breaks SLEEF's compensated two-float staging outright) and no
+// shaderFloat64.
+uvec4 fp32_pow_wide_add(uvec4 acc, uvec2 value, int offset) {
+    uint words[4] = uint[4](acc.x, acc.y, acc.z, acc.w);
+    uint carry = 0u;
+    for (int k = 0; k < 2; ++k) {
+        int index = offset + k;
+        if (index > 3) break;
+        uint sum = words[index] + (k == 0 ? value.x : value.y);
+        uint product_carry = uint(sum < words[index]);
+        uint rounded = sum + carry;
+        carry = product_carry + uint(rounded < sum);
+        words[index] = rounded;
+    }
+    for (int index = offset + 2; index <= 3 && carry != 0u; ++index) {
+        uint sum = words[index] + carry;
+        carry = uint(sum < words[index]);
+        words[index] = sum;
+    }
+    return uvec4(words[0], words[1], words[2], words[3]);
+}
+
+// Exact mantissa product of a (< 2^50) and b (< 2^72); the result is < 2^122.
+uvec4 fp32_pow_mantissa_product(uvec2 a, uvec3 b) {
+    uvec4 acc = uvec4(0u);
+    acc = fp32_pow_wide_add(acc, fp32_product(a.x, b.x), 0);
+    acc = fp32_pow_wide_add(acc, fp32_product(a.x, b.y), 1);
+    acc = fp32_pow_wide_add(acc, fp32_product(a.y, b.x), 1);
+    acc = fp32_pow_wide_add(acc, fp32_product(a.x, b.z), 2);
+    acc = fp32_pow_wide_add(acc, fp32_product(a.y, b.y), 2);
+    acc = fp32_pow_wide_add(acc, fp32_product(a.y, b.z), 3);
+    return acc;
+}
+
+int fp32_compare128(uvec4 a, uvec4 b) {
+    if (a.w != b.w) return a.w < b.w ? -1 : 1;
+    if (a.z != b.z) return a.z < b.z ? -1 : 1;
+    if (a.y != b.y) return a.y < b.y ? -1 : 1;
+    return a.x == b.x ? 0 : (a.x < b.x ? -1 : 1);
+}
+
+uvec4 fp32_shift_one128(int shift) {
+    if (shift < 32) return uvec4(1u << uint(shift), 0u, 0u, 0u);
+    if (shift < 64) return uvec4(0u, 1u << uint(shift - 32), 0u, 0u);
+    if (shift < 96) return uvec4(0u, 0u, 1u << uint(shift - 64), 0u);
+    return uvec4(0u, 0u, 0u, 1u << uint(shift - 96));
+}
+
+// Sign of candidate - x^(-3/2); positive normal operands only.  The midpoint
+// form compares against the exact midpoint so round-to-even is resolved
+// without any floating-point arithmetic.
+int fp32_pow_neg_three_halves_compare(uint candidate, uint input_bits, bool midpoint) {
+    uint m = fp32_mantissa(candidate);
+    int shift = 115 - 2 * fp32_exponent(candidate) - 3 * fp32_exponent(input_bits);
+    if (midpoint) {
+        m = 2u * m + 1u;
+        shift += 2;
+    }
+    if (shift < 0) return 1;
+    if (shift >= 128) return -1;
+    uint x_mantissa = fp32_mantissa(input_bits);
+    uvec2 square = fp32_product(m, m);
+    uvec3 cube = fp32_product_64x32(fp32_product(x_mantissa, x_mantissa), x_mantissa);
+    return fp32_compare128(fp32_pow_mantissa_product(square, cube), fp32_shift_one128(shift));
+}
+
+float fp32_pow_neg_three_halves(float x) {
+    uint xb = floatBitsToUint(x);
+    if (x <= 0.0 || isinf(x) || isnan(x) || xb < 0x00800000u) {
+        return 1.0 / (x * sqrt(x));
+    }
+    uint cb = floatBitsToUint(1.0 / (x * sqrt(x)));
+    if (cb < 0x00800000u || cb >= 0x7f800000u) return uintBitsToFloat(cb);
+    for (int step = 0; step < 8; ++step) {
+        if (fp32_pow_neg_three_halves_compare(cb, xb, false) <= 0) break;
+        --cb;
+    }
+    for (int step = 0; step < 8; ++step) {
+        if (fp32_pow_neg_three_halves_compare(cb + 1u, xb, false) > 0) break;
+        ++cb;
+    }
+    int cmp = fp32_pow_neg_three_halves_compare(cb, xb, true);
+    if (cmp < 0 || (cmp == 0 && (cb & 1u) != 0u)) ++cb;
+    return uintBitsToFloat(cb);
+}

@@ -1,0 +1,57 @@
+#version 450
+
+// Routed MoE expert projection, two-token (M == 2) topology.
+//
+// PyTorch's CPU GEMM materializes the products of this call shape in FP32
+// before accumulating, so the products must not be contracted into the adds.
+// `precise` is what keeps Intel Gen9 from doing that, and a NoContraction
+// multiply anywhere in a module makes the compiler split that module's FMA
+// ext-instructions, so this topology is isolated here and the fused topologies
+// live in `transformer_moe_expert_forward.comp`.  See that module's header for
+// the full row-count rule.
+//
+// This kernel declines every expert whose routed-row count is not two; the
+// fused kernel declines two, so exactly one of the pair writes each output.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer ExpertRowsBuffer { uint expert_rows[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    uint experts;
+    uint expert;
+} pc;
+
+void main() {
+    uint out_col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || out_col >= pc.output_dim) {
+        return;
+    }
+    if (expert_rows[pc.expert] != 2u) {
+        return;
+    }
+
+    uint x_base = row * pc.input_dim;
+    uint w_base = out_col * pc.input_dim;
+    uint input_dim = pc.input_dim;
+    precise float lane0 = 0.0;
+    precise float lane1 = 0.0;
+    uint i = 0u;
+    for (; i + 1u < input_dim; i += 2u) {
+        precise float product0 = x[x_base + i] * weight[w_base + i];
+        precise float product1 = x[x_base + i + 1u] * weight[w_base + i + 1u];
+        lane0 = lane0 + product0;
+        lane1 = lane1 + product1;
+    }
+    if (i < input_dim) {
+        precise float tail = x[x_base + i] * weight[w_base + i];
+        lane0 = lane0 + tail;
+    }
+    output_values[row * pc.output_dim + out_col] = lane0 + lane1;
+}

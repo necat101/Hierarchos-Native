@@ -31,6 +31,7 @@ mod tied_embedding;
 mod token_frontend;
 mod training_numerics;
 mod transformer;
+mod vendor;
 mod vulkan;
 
 use std::path::Path;
@@ -167,6 +168,12 @@ pub use transformer::{
     VulkanTransformerStepResult, VULKAN_TRANSFORMER_ADAPTER_CONFIG_FILENAME,
     VULKAN_TRANSFORMER_ADAPTER_WEIGHTS_FILENAME,
 };
+pub use vendor::{
+    effective_vendor, native_fp16_lm_compute_reliable, select_kernel, vendor_kernel_plan,
+    GpuVendor, VendorKernelFamily, VendorKernelSelection,
+    HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS_ENV,
+    HIERARCHOS_VULKAN_FORCE_NATIVE_FP16_LM_COMPUTE_ENV, HIERARCHOS_VULKAN_FORCE_VENDOR_ENV,
+};
 pub use vulkan::{
     GpuBuffer, VulkanDevice, VulkanDeviceGroupInfo, VulkanExternalBufferCapabilities,
     VulkanGradientTransportBackend, VulkanGradientTransportPlan, VulkanMemoryBudget,
@@ -183,7 +190,6 @@ pub const HIERARCHOS_VULKAN_DISABLE_NATIVE_FP16_LM_INPUT_GRAD_ENV: &str =
 pub const HIERARCHOS_VULKAN_LM_FORCE_DENSE_GRAD_STAGING_ENV: &str =
     "HIERARCHOS_VULKAN_LM_FORCE_DENSE_GRAD_STAGING";
 
-const LINEAR_FORWARD_SPV: &[u8] = include_bytes!("../shaders/linear_forward.spv");
 #[cfg(test)]
 const LAYER_NORM_LINEAR_FORWARD_FUSED_SPV: &[u8] =
     include_bytes!("../shaders/layer_norm_linear_forward_fused.spv");
@@ -317,7 +323,6 @@ const EMBEDDING_RADIX_SCATTER_SPV: &[u8] = include_bytes!("../shaders/embedding_
 const EMBEDDING_SEGMENTED_SORT_CAPACITY: usize = 1024;
 const EMBEDDING_RADIX_BLOCK_SIZE: usize = 256;
 const EMBEDDING_RADIX_BUCKETS: usize = 16;
-const ADAMW_SPV: &[u8] = include_bytes!("../shaders/adamw.spv");
 
 fn lm_execution_autotune_kernel_signature() -> u64 {
     let mut hash = 0xcbf29ce484222325u64;
@@ -620,7 +625,7 @@ pub struct HierarchosHeadTrainer {
     row_loss: GpuBuffer,
     row_loss_readback: GpuBuffer,
     grad_weight: GpuBuffer,
-    linear_forward: vulkan::ComputeKernel,
+    linear_forward: vendor::VendorMatmulKernel,
     cross_entropy: vulkan::ComputeKernel,
     cross_entropy_linear_weight_grad: vulkan::ComputeKernel,
 }
@@ -678,10 +683,9 @@ impl HierarchosHeadTrainer {
             .context("hidden element count overflow")?;
 
         Ok(Self {
-            linear_forward: vulkan::ComputeKernel::new(
+            linear_forward: vendor::VendorMatmulKernel::new_with_push_constant_bytes(
                 &device,
-                LINEAR_FORWARD_SPV,
-                3,
+                vendor::VendorKernelFamily::LinearForward,
                 std::mem::size_of::<LinearPush>() as u32,
             )?,
             cross_entropy: vulkan::ComputeKernel::new(
@@ -1710,12 +1714,7 @@ impl HierarchosOutNormHeadTrainer {
                 4,
                 std::mem::size_of::<EmbeddingGradPush>() as u32,
             )?,
-            adamw: vulkan::ComputeKernel::new(
-                &device,
-                ADAMW_SPV,
-                4,
-                std::mem::size_of::<AdamWPush>() as u32,
-            )?,
+            adamw: vendor::adamw_kernel(&device)?,
             lm_head,
             norm_weight: GpuBuffer::from_f32(&device, norm_weight)?,
             norm_bias: GpuBuffer::from_f32(&device, norm_bias)?,
@@ -2147,6 +2146,11 @@ impl HierarchosOutNormHeadTrainer {
         let native_fp16_candidate = self
             .cross_entropy_linear_input_grad_streaming_fp16_native
             .is_some();
+        // The rows16 cross-row strategy is admitted by capability on every
+        // vendor: its former Intel Gen9 reliability policy was withdrawn after
+        // bisection traced the measured `VK_ERROR_DEVICE_LOST` to the
+        // regression creating compute pipelines between recorded dispatches,
+        // not to these kernels (see VENDOR_TUNING.md).
         let geometry = lm_execution::LmExecutionAutotuneGeometry {
             device_name: self.device.name(),
             subgroup_size,
@@ -2242,8 +2246,15 @@ impl HierarchosOutNormHeadTrainer {
         self.lm_head
             .fp16_parameter_storage_mirror()?
             .context("native-FP16 LM backward compute requires an installed FP16 mirror")?;
+        // Intel Gen9 integrated parts fault in the packed-FP16 streaming LM
+        // adjoint kernels at production widths (measured `VK_ERROR_DEVICE_LOST`
+        // on HD Graphics 520, driver 31.0.101.2115). The policy lives in
+        // `crate::vendor` with the vendor tuning layer; here it only clamps the
+        // opt-in native-compute arm back to the FP32-compute/FP16-storage arm
+        // that every vendor qualifies, so a training run cannot hang.
         let native_input_grad_compute = native_input_grad_compute
-            && std::env::var_os(HIERARCHOS_VULKAN_DISABLE_NATIVE_FP16_LM_INPUT_GRAD_ENV).is_none();
+            && std::env::var_os(HIERARCHOS_VULKAN_DISABLE_NATIVE_FP16_LM_INPUT_GRAD_ENV).is_none()
+            && vendor::native_fp16_lm_compute_reliable(&self.device);
         if !native_input_grad_compute {
             self.cross_entropy_linear_input_grad_streaming_fp16_native
                 .as_ref()
@@ -4097,10 +4108,9 @@ mod tests {
         let Ok(device) = VulkanDevice::new() else {
             return Ok(());
         };
-        let forward = vulkan::ComputeKernel::new(
+        let forward = vendor::VendorMatmulKernel::new_with_push_constant_bytes(
             &device,
-            LINEAR_FORWARD_SPV,
-            3,
+            vendor::VendorKernelFamily::LinearForward,
             std::mem::size_of::<LinearPush>() as u32,
         )?;
         let input_grad = vulkan::ComputeKernel::new_with_access(
@@ -4114,7 +4124,9 @@ mod tests {
             std::mem::size_of::<LinearPush>() as u32,
         )?;
 
-        assert!(forward.shares_interned_layouts_with(&input_grad));
+        assert!(forward
+            .portable_kernel()
+            .shares_interned_layouts_with(&input_grad));
         Ok(())
     }
 
@@ -4163,10 +4175,9 @@ mod tests {
             6,
             std::mem::size_of::<LayerNormForwardPush>() as u32,
         )?;
-        let linear = vulkan::ComputeKernel::new(
+        let linear = vendor::VendorMatmulKernel::new_with_push_constant_bytes(
             &device,
-            LINEAR_FORWARD_SPV,
-            3,
+            vendor::VendorKernelFamily::LinearForward,
             std::mem::size_of::<LinearPush>() as u32,
         )?;
         let fused = vulkan::ComputeKernel::new_with_access(
@@ -4527,10 +4538,9 @@ mod tests {
             ],
             std::mem::size_of::<LayerNormForwardPush>() as u32,
         )?;
-        let linear = vulkan::ComputeKernel::new(
+        let linear = vendor::VendorMatmulKernel::new_with_push_constant_bytes(
             &device,
-            LINEAR_FORWARD_SPV,
-            3,
+            vendor::VendorKernelFamily::LinearForward,
             std::mem::size_of::<LinearPush>() as u32,
         )?;
         let legacy_cross_entropy = vulkan::ComputeKernel::new(
@@ -5058,6 +5068,14 @@ mod tests {
         {
             return Ok(());
         }
+        if !vendor::native_fp16_lm_compute_reliable(&device) {
+            // Production keeps the FP32-compute/FP16-storage arm on Intel Gen9,
+            // because the packed-FP16 streaming adjoint kernels fault the GPU at
+            // production widths there (`vendor::native_fp16_lm_compute_reliable`
+            // documents the measurement). There is no native-compute arm to
+            // compare against on this device.
+            return Ok(());
+        }
 
         let rows = 2usize;
         let input_dim = 448usize;
@@ -5076,23 +5094,32 @@ mod tests {
             .collect::<Vec<_>>();
         let targets = [0u32, 72u32];
 
-        let hidden = GpuBuffer::from_f32(&device, &hidden_values)?;
-        let weights = GpuBuffer::from_f32(&device, &weight_values)?;
-        let norm_weight = GpuBuffer::from_f32(&device, &norm_weight_values)?;
-        let norm_bias = GpuBuffer::from_f32(&device, &norm_bias_values)?;
-        let targets_buffer = GpuBuffer::from_u32(&device, &targets)?;
-        let norm_mean = GpuBuffer::zeros_f32(&device, rows)?;
-        let norm_rstd = GpuBuffer::zeros_f32(&device, rows)?;
-        let stats = mean_ce_row_stats_buffer(&device, rows)?;
-        let packed_grad_input = GpuBuffer::zeros_f32(&device, rows * input_dim)?;
-        let packed_grad_logits = GpuBuffer::zeros_f32(&device, rows * output_dim)?;
+        // Every stage that touches the GPU is named so a driver fault reports
+        // the stage that triggered it instead of only the failing submit.
+        let hidden = GpuBuffer::from_f32(&device, &hidden_values).context("hidden upload")?;
+        let weights = GpuBuffer::from_f32(&device, &weight_values).context("weight upload")?;
+        let norm_weight =
+            GpuBuffer::from_f32(&device, &norm_weight_values).context("norm weight upload")?;
+        let norm_bias =
+            GpuBuffer::from_f32(&device, &norm_bias_values).context("norm bias upload")?;
+        let targets_buffer = GpuBuffer::from_u32(&device, &targets).context("target upload")?;
+        let norm_mean = GpuBuffer::zeros_f32(&device, rows).context("norm mean alloc")?;
+        let norm_rstd = GpuBuffer::zeros_f32(&device, rows).context("norm rstd alloc")?;
+        let stats = mean_ce_row_stats_buffer(&device, rows).context("row-stats upload")?;
+        let packed_grad_input =
+            GpuBuffer::zeros_f32(&device, rows * input_dim).context("grad input alloc")?;
+        let packed_grad_logits =
+            GpuBuffer::zeros_f32(&device, rows * output_dim).context("grad logits alloc")?;
 
         let fp16_weights = VulkanFp32MasterParameterMirror::new(
             device.clone(),
             VulkanParameterStorageFormat::Fp16,
             weight_values.len(),
-        )?;
-        fp16_weights.refresh_and_expand_from_fp32_master(&weights)?;
+        )
+        .context("fp16 mirror install")?;
+        fp16_weights
+            .refresh_and_expand_from_fp32_master(&weights)
+            .context("fp16 mirror refresh")?;
 
         let norm_stats_kernel = vulkan::ComputeKernel::new_with_access(
             &device,
@@ -5156,15 +5183,19 @@ mod tests {
             activation_clamp: linear_push.activation_clamp,
         };
 
-        let mut packed_batch = vulkan::ComputeBatch::new(&device)?;
+        // Submit the packed-FP16 forward statistics and its adjoint as separate
+        // submissions: a fault in either arm then names the offending kernel
+        // instead of failing the whole arm cluster, which is what localized the
+        // pre-existing Intel Gen9 `DEVICE_LOST` to this pair of modules.
+        let mut packed_stats_batch = vulkan::ComputeBatch::new(&device)?;
         norm_stats_kernel.record_dispatch(
-            &mut packed_batch,
+            &mut packed_stats_batch,
             &[&hidden, &norm_mean, &norm_rstd],
             bytemuck::bytes_of(&norm_push),
             [div_ceil_u32(rows, 64), 1, 1],
         )?;
         row_stats_kernel.record_dispatch(
-            &mut packed_batch,
+            &mut packed_stats_batch,
             &[
                 &hidden,
                 &norm_weight,
@@ -5178,8 +5209,20 @@ mod tests {
             bytemuck::bytes_of(&linear_push),
             [rows as u32, 1, 1],
         )?;
+        packed_stats_batch
+            .submit()
+            .context("packed-FP16 row-stats arm")?;
+        // Synchronize after the row-stats arm: the readback forces it to
+        // complete before the adjoint arm is submitted, so a driver fault names
+        // the arm that triggered it instead of surfacing on whichever readback
+        // happens to run next.
+        let packed_stats = stats
+            .read_f32(rows * 5)
+            .context("packed-FP16 row-stats arm readback")?;
+
+        let mut packed_input_grad_batch = vulkan::ComputeBatch::new(&device)?;
         packed_input_grad_kernel.record_dispatch(
-            &mut packed_batch,
+            &mut packed_input_grad_batch,
             &[
                 &hidden,
                 &norm_weight,
@@ -5194,10 +5237,15 @@ mod tests {
             bytemuck::bytes_of(&linear_push),
             [rows as u32, 1, 1],
         )?;
-        packed_batch.submit()?;
-        let packed_stats = stats.read_f32(rows * 5)?;
-        let packed_input = packed_grad_input.read_f32(rows * input_dim)?;
-        let packed_logits = packed_grad_logits.read_f32(rows * output_dim)?;
+        packed_input_grad_batch
+            .submit()
+            .context("packed-FP16 input-adjoint arm")?;
+        let packed_input = packed_grad_input
+            .read_f32(rows * input_dim)
+            .context("packed-FP16 input-adjoint arm readback")?;
+        let packed_logits = packed_grad_logits
+            .read_f32(rows * output_dim)
+            .context("packed-FP16 logits readback")?;
 
         let tape_grad_input = GpuBuffer::zeros_f32(&device, rows * input_dim)?;
         let tape_grad_weight = GpuBuffer::zeros_f32(&device, output_dim * input_dim)?;
@@ -5302,9 +5350,13 @@ mod tests {
             bytemuck::bytes_of(&linear_push),
             [div_ceil_u32(rows * output_dim, 128), 1, 1],
         )?;
-        tape_batch.submit()?;
-        let tape_input = tape_grad_input.read_f32(rows * input_dim)?;
-        let tape_logits = tape_logits_grad.read_f32(rows * output_dim)?;
+        tape_batch.submit().context("packed-FP16 tape arm")?;
+        let tape_input = tape_grad_input
+            .read_f32(rows * input_dim)
+            .context("packed-FP16 tape arm input readback")?;
+        let tape_logits = tape_logits_grad
+            .read_f32(rows * output_dim)
+            .context("packed-FP16 tape arm logits readback")?;
         let tape_input_max_abs = packed_input
             .iter()
             .zip(&tape_input)
@@ -5400,9 +5452,11 @@ mod tests {
                 bytemuck::bytes_of(&linear_push),
                 [div_ceil_u32(rows * output_dim, 128), 1, 1],
             )?;
-            rows8_batch.submit()?;
+            rows8_batch.submit().context("packed-FP16 rows8 arm")?;
 
-            let rows8_stats_values = rows8_stats.read_f32(rows * 5)?;
+            let rows8_stats_values = rows8_stats
+                .read_f32(rows * 5)
+                .context("packed-FP16 rows8 arm stats readback")?;
             for row in 0..rows {
                 let base = row * 5;
                 for offset in [0usize, 1, 3] {
@@ -5487,6 +5541,49 @@ mod tests {
                 ],
                 std::mem::size_of::<LinearPush>() as u32,
             )?;
+            let fused_rows16_available = rows <= CROSS_ENTROPY_LINEAR_FUSED_ADJOINT_MAX_ROWS
+                && device.max_compute_shared_memory_bytes()
+                    >= CROSS_ENTROPY_LINEAR_FUSED_ADJOINT_SHARED_BYTES
+                && device.supports_compute_work_group_size_x(64)
+                && device.supports_storage_buffer_bindings(10);
+            // Pipeline creation is hoisted ahead of command recording: creating
+            // compute pipelines between recorded dispatches correlates with the
+            // Gen9 driver fault, while production creates every kernel before
+            // it records a batch.
+            let fused_rows16_kernel = if fused_rows16_available {
+                Some(vulkan::ComputeKernel::new_with_access(
+                    &device,
+                    CROSS_ENTROPY_LINEAR_ADJOINTS_TAPE_FP16_PACKED_FUSED_SPV,
+                    &[
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadWrite,
+                        vulkan::BindingAccess::MayWrite,
+                    ],
+                    std::mem::size_of::<LmWeightGradPush>() as u32,
+                )?)
+            } else {
+                None
+            };
+            let fused_rows16_reduce_kernel = if fused_rows16_available {
+                Some(vulkan::ComputeKernel::new_with_access(
+                    &device,
+                    CROSS_ENTROPY_LINEAR_INPUT_GRAD_TILE_REDUCE_SPV,
+                    &[
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::MayWrite,
+                    ],
+                    std::mem::size_of::<LinearPush>() as u32,
+                )?)
+            } else {
+                None
+            };
             let mut rows16_batch = vulkan::ComputeBatch::new(&device)?;
             rows16_projection_kernel.record_dispatch(
                 &mut rows16_batch,
@@ -5543,38 +5640,10 @@ mod tests {
                     1,
                 ],
             )?;
-            let fused_rows16_available = rows <= CROSS_ENTROPY_LINEAR_FUSED_ADJOINT_MAX_ROWS
-                && device.max_compute_shared_memory_bytes()
-                    >= CROSS_ENTROPY_LINEAR_FUSED_ADJOINT_SHARED_BYTES
-                && device.supports_compute_work_group_size_x(64)
-                && device.supports_storage_buffer_bindings(10);
-            if fused_rows16_available {
-                let fused_rows16_kernel = vulkan::ComputeKernel::new_with_access(
-                    &device,
-                    CROSS_ENTROPY_LINEAR_ADJOINTS_TAPE_FP16_PACKED_FUSED_SPV,
-                    &[
-                        vulkan::BindingAccess::ReadOnly,
-                        vulkan::BindingAccess::ReadOnly,
-                        vulkan::BindingAccess::ReadOnly,
-                        vulkan::BindingAccess::ReadOnly,
-                        vulkan::BindingAccess::ReadOnly,
-                        vulkan::BindingAccess::ReadOnly,
-                        vulkan::BindingAccess::ReadOnly,
-                        vulkan::BindingAccess::ReadOnly,
-                        vulkan::BindingAccess::ReadWrite,
-                        vulkan::BindingAccess::MayWrite,
-                    ],
-                    std::mem::size_of::<LmWeightGradPush>() as u32,
-                )?;
-                let fused_rows16_reduce_kernel = vulkan::ComputeKernel::new_with_access(
-                    &device,
-                    CROSS_ENTROPY_LINEAR_INPUT_GRAD_TILE_REDUCE_SPV,
-                    &[
-                        vulkan::BindingAccess::ReadOnly,
-                        vulkan::BindingAccess::MayWrite,
-                    ],
-                    std::mem::size_of::<LinearPush>() as u32,
-                )?;
+            if let (Some(fused_rows16_kernel), Some(fused_rows16_reduce_kernel)) = (
+                fused_rows16_kernel.as_ref(),
+                fused_rows16_reduce_kernel.as_ref(),
+            ) {
                 fused_rows16_kernel.record_dispatch(
                     &mut rows16_batch,
                     &[
@@ -5609,9 +5678,11 @@ mod tests {
                 bytemuck::bytes_of(&linear_push),
                 [div_ceil_u32(rows * output_dim, 128), 1, 1],
             )?;
-            rows16_batch.submit()?;
+            rows16_batch.submit().context("packed-FP16 rows16 arm")?;
 
-            let rows16_stats_values = rows16_stats.read_f32(rows * 5)?;
+            let rows16_stats_values = rows16_stats
+                .read_f32(rows * 5)
+                .context("packed-FP16 rows16 arm stats readback")?;
             for row in 0..rows {
                 let base = row * 5;
                 for offset in [0usize, 1, 3] {
@@ -6427,6 +6498,533 @@ mod tests {
                 .label(),
             trainer.lm_fused_adjoint_topology.label()
         );
+        Ok(())
+    }
+
+    /// Diagnostic bisection harness for the Intel Gen9 rows16 fault: dispatch
+    /// each kernel of the width-448 rows16 arm as its own labelled submit, then
+    /// the exact combined batch, so a driver fault names the offending stage
+    /// instead of the whole arm. Module SPIR-V can be overridden from disk
+    /// (`HIERARCHOS_VULKAN_LM_BISECT_*_SPV`) so candidate shader fixes are
+    /// measured without rebuilding the crate. Geometry defaults mirror the
+    /// width-448 regression arm (`rows=2`, `input_dim=448`, `vocab=73`);
+    /// `HIERARCHOS_VULKAN_LM_BISECT_STAGE` selects one stage.
+    #[test]
+    #[ignore = "GPU rows16 batch bisection microprofile; run explicitly on the target Vulkan device"]
+    fn lm_rows16_batch_bisect_microprofile() -> Result<()> {
+        fn env_usize(key: &str, default: usize) -> usize {
+            std::env::var(key)
+                .ok()
+                .and_then(|raw| raw.parse::<usize>().ok())
+                .unwrap_or(default)
+        }
+        fn module(overrides: &mut Vec<String>, key: &str, committed: &[u8]) -> Result<Vec<u8>> {
+            match std::env::var_os(key) {
+                Some(path) if !path.is_empty() => {
+                    overrides.push(format!("{key}={}", std::path::Path::new(&path).display()));
+                    std::fs::read(&path).with_context(|| format!("reading {key}"))
+                }
+                _ => Ok(committed.to_vec()),
+            }
+        }
+
+        let Some(device) = microprofile_device()? else {
+            return Ok(());
+        };
+        let rows = env_usize("HIERARCHOS_VULKAN_LM_BISECT_ROWS", 2);
+        let input_dim = 448usize;
+        let output_dim = env_usize("HIERARCHOS_VULKAN_LM_BISECT_VOCAB", 73);
+        let stage_filter = std::env::var("HIERARCHOS_VULKAN_LM_BISECT_STAGE").ok();
+        if rows == 0 || output_dim == 0 {
+            bail!("rows16 bisect rows and vocabulary size must be positive");
+        }
+        let want = |name: &str| {
+            stage_filter
+                .as_deref()
+                .is_none_or(|filter| filter.split(',').any(|part| part == name || part == "all"))
+        };
+        let tile_count = output_dim.div_ceil(16);
+        let fused_available = rows <= CROSS_ENTROPY_LINEAR_FUSED_ADJOINT_MAX_ROWS
+            && device.max_compute_shared_memory_bytes()
+                >= CROSS_ENTROPY_LINEAR_FUSED_ADJOINT_SHARED_BYTES
+            && device.supports_compute_work_group_size_x(64)
+            && device.supports_storage_buffer_bindings(10);
+
+        let hidden_values = (0..rows * input_dim)
+            .map(|index| ((index as f32 * 0.017).sin() * 0.55) + (index % 19) as f32 * 0.002)
+            .collect::<Vec<_>>();
+        let weight_values = (0..output_dim * input_dim)
+            .map(|index| ((index as f32 * 0.013).cos() * 0.11) - (index % 23) as f32 * 0.0007)
+            .collect::<Vec<_>>();
+        let norm_weight_values = (0..input_dim)
+            .map(|index| 0.92 + (index % 31) as f32 * 0.004)
+            .collect::<Vec<_>>();
+        let norm_bias_values = (0..input_dim)
+            .map(|index| (index as f32 * 0.071).sin() * 0.025)
+            .collect::<Vec<_>>();
+        let targets = (0..rows)
+            .map(|row| ((row.wrapping_mul(7919).wrapping_add(17)) % output_dim) as u32)
+            .collect::<Vec<_>>();
+
+        let hidden = GpuBuffer::from_f32(&device, &hidden_values)?;
+        let weights = GpuBuffer::from_f32(&device, &weight_values)?;
+        let norm_weight = GpuBuffer::from_f32(&device, &norm_weight_values)?;
+        let norm_bias = GpuBuffer::from_f32(&device, &norm_bias_values)?;
+        let targets_buffer = GpuBuffer::from_u32(&device, &targets)?;
+        let norm_mean = GpuBuffer::zeros_f32(&device, rows)?;
+        let norm_rstd = GpuBuffer::zeros_f32(&device, rows)?;
+        let row_stats = mean_ce_row_stats_buffer(&device, rows)?;
+        let logits_grad = GpuBuffer::zeros_f32(&device, rows * output_dim)?;
+        let tile_stats = GpuBuffer::zeros_f32(&device, rows * tile_count * 3)?;
+        let grad_input = GpuBuffer::zeros_f32(&device, rows * input_dim)?;
+        let grad_weight = GpuBuffer::zeros_f32(&device, output_dim * input_dim)?;
+        let fused_grad_weight = GpuBuffer::zeros_f32(&device, output_dim * input_dim)?;
+        let fused_partials = GpuBuffer::zeros_f32(
+            &device,
+            output_dim.div_ceil(CROSS_ENTROPY_LINEAR_FUSED_ADJOINT_VOCAB_TILE) * rows * input_dim,
+        )?;
+        let fused_grad_input = GpuBuffer::zeros_f32(&device, rows * input_dim)?;
+
+        let fp16_weights = VulkanFp32MasterParameterMirror::new(
+            device.clone(),
+            VulkanParameterStorageFormat::Fp16,
+            weight_values.len(),
+        )?;
+        fp16_weights.refresh_and_expand_from_fp32_master(&weights)?;
+
+        let linear_push = LinearPush {
+            rows: rows as u32,
+            input_dim: input_dim as u32,
+            output_dim: output_dim as u32,
+            z_loss_weight: 0.0,
+            activation_clamp: f32::MAX,
+        };
+        let lm_weight_grad_push = LmWeightGradPush {
+            rows: rows as u32,
+            input_dim: input_dim as u32,
+            output_dim: output_dim as u32,
+            accumulate: 0,
+            z_loss_weight: 0.0,
+            activation_clamp: linear_push.activation_clamp,
+        };
+
+        let mut overrides = Vec::new();
+        let proj_bytes = module(
+            &mut overrides,
+            "HIERARCHOS_VULKAN_LM_BISECT_PROJ_SPV",
+            CROSS_ENTROPY_LINEAR_LOGIT_TAPE_FP16_PACKED_ROWS16_SPV,
+        )?;
+        let stats_bytes = module(
+            &mut overrides,
+            "HIERARCHOS_VULKAN_LM_BISECT_STATS_SPV",
+            CROSS_ENTROPY_ROW_STATS_TILE_PARTIALS_ROWS16_SPV,
+        )?;
+        let dx_bytes = module(
+            &mut overrides,
+            "HIERARCHOS_VULKAN_LM_BISECT_DX_SPV",
+            CROSS_ENTROPY_LINEAR_INPUT_GRAD_TAPE_FP16_PACKED_SPV,
+        )?;
+        let dw_bytes = module(
+            &mut overrides,
+            "HIERARCHOS_VULKAN_LM_BISECT_DW_SPV",
+            CROSS_ENTROPY_LINEAR_WEIGHT_GRAD_TAPE_FP16_PACKED_SPV,
+        )?;
+        let fused_bytes = module(
+            &mut overrides,
+            "HIERARCHOS_VULKAN_LM_BISECT_FUSED_SPV",
+            CROSS_ENTROPY_LINEAR_ADJOINTS_TAPE_FP16_PACKED_FUSED_SPV,
+        )?;
+        let reduce_bytes = module(
+            &mut overrides,
+            "HIERARCHOS_VULKAN_LM_BISECT_REDUCE_SPV",
+            CROSS_ENTROPY_LINEAR_INPUT_GRAD_TILE_REDUCE_SPV,
+        )?;
+        let t2g_bytes = module(
+            &mut overrides,
+            "HIERARCHOS_VULKAN_LM_BISECT_T2G_SPV",
+            CROSS_ENTROPY_LOGITS_TO_GRAD_INPLACE_SPV,
+        )?;
+
+        eprintln!(
+            "Hierarchos rows16 bisect device={} rows={rows} input_dim={input_dim} output_dim={output_dim} fused_available={fused_available} overrides={overrides:?}",
+            device.name()
+        );
+
+        let proj_ro = vulkan::BindingAccess::ReadOnly;
+        let may_write = vulkan::BindingAccess::MayWrite;
+        let read_write = vulkan::BindingAccess::ReadWrite;
+
+        if want("proj") {
+            let kernel = vulkan::ComputeKernel::new_with_access(
+                &device,
+                &proj_bytes,
+                &[
+                    proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, may_write,
+                    may_write,
+                ],
+                std::mem::size_of::<LinearPush>() as u32,
+            )?;
+            let mut batch = vulkan::ComputeBatch::new(&device)?;
+            kernel.record_dispatch(
+                &mut batch,
+                &[
+                    &hidden,
+                    &norm_weight,
+                    &norm_bias,
+                    &norm_mean,
+                    &norm_rstd,
+                    fp16_weights.packed_storage(),
+                    &targets_buffer,
+                    &logits_grad,
+                    &tile_stats,
+                ],
+                bytemuck::bytes_of(&linear_push),
+                [div_ceil_u32(output_dim, 16), 1, 1],
+            )?;
+            batch.submit().context("rows16 bisect projection")?;
+            let logits = logits_grad
+                .read_f32((rows * output_dim).min(1024))
+                .context("rows16 bisect projection readback")?;
+            eprintln!(
+                "  stage proj ok logits[0..3]={:?}",
+                &logits[..logits.len().min(3)]
+            );
+        }
+
+        if want("stats") {
+            let kernel = vulkan::ComputeKernel::new_with_access(
+                &device,
+                &stats_bytes,
+                &[proj_ro, proj_ro, may_write],
+                std::mem::size_of::<LinearPush>() as u32,
+            )?;
+            let mut batch = vulkan::ComputeBatch::new(&device)?;
+            kernel.record_dispatch(
+                &mut batch,
+                &[&tile_stats, &targets_buffer, &row_stats],
+                bytemuck::bytes_of(&linear_push),
+                [rows as u32, 1, 1],
+            )?;
+            batch.submit().context("rows16 bisect stats")?;
+            let stats = row_stats
+                .read_f32(rows * 5)
+                .context("rows16 bisect stats readback")?;
+            eprintln!(
+                "  stage stats ok row0 max={} inv_sum={} loss={}",
+                stats[0], stats[1], stats[3]
+            );
+        }
+
+        if want("dx") {
+            let kernel = vulkan::ComputeKernel::new_with_access(
+                &device,
+                &dx_bytes,
+                &[proj_ro, proj_ro, proj_ro, may_write],
+                std::mem::size_of::<LinearPush>() as u32,
+            )?;
+            let mut batch = vulkan::ComputeBatch::new(&device)?;
+            kernel.record_dispatch(
+                &mut batch,
+                &[
+                    &logits_grad,
+                    &row_stats,
+                    fp16_weights.packed_storage(),
+                    &grad_input,
+                ],
+                bytemuck::bytes_of(&linear_push),
+                [div_ceil_u32(input_dim.div_ceil(2), 32), 1, 1],
+            )?;
+            batch.submit().context("rows16 bisect tape input grad")?;
+            let dx = grad_input
+                .read_f32((rows * input_dim).min(1024))
+                .context("rows16 bisect tape input grad readback")?;
+            eprintln!("  stage dx ok grad_input[0]={}", dx[0]);
+        }
+
+        if want("dw") {
+            let kernel = vulkan::ComputeKernel::new_with_access(
+                &device,
+                &dw_bytes,
+                &[
+                    proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, read_write,
+                ],
+                std::mem::size_of::<LmWeightGradPush>() as u32,
+            )?;
+            let mut batch = vulkan::ComputeBatch::new(&device)?;
+            kernel.record_dispatch(
+                &mut batch,
+                &[
+                    &hidden,
+                    &norm_weight,
+                    &norm_bias,
+                    &norm_mean,
+                    &norm_rstd,
+                    &logits_grad,
+                    &row_stats,
+                    &grad_weight,
+                ],
+                bytemuck::bytes_of(&lm_weight_grad_push),
+                [div_ceil_u32(output_dim, 8), 1, 1],
+            )?;
+            batch.submit().context("rows16 bisect tape dW")?;
+            let dw = grad_weight
+                .read_f32((output_dim * input_dim).min(1024))
+                .context("rows16 bisect tape dW readback")?;
+            eprintln!("  stage dw ok grad_weight[0]={}", dw[0]);
+        }
+
+        if want("fused") && fused_available {
+            let fused_kernel = vulkan::ComputeKernel::new_with_access(
+                &device,
+                &fused_bytes,
+                &[
+                    proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro,
+                    read_write, may_write,
+                ],
+                std::mem::size_of::<LmWeightGradPush>() as u32,
+            )?;
+            let reduce_kernel = vulkan::ComputeKernel::new_with_access(
+                &device,
+                &reduce_bytes,
+                &[proj_ro, may_write],
+                std::mem::size_of::<LinearPush>() as u32,
+            )?;
+            let mut batch = vulkan::ComputeBatch::new(&device)?;
+            fused_kernel.record_dispatch(
+                &mut batch,
+                &[
+                    &hidden,
+                    &norm_weight,
+                    &norm_bias,
+                    &norm_mean,
+                    &norm_rstd,
+                    &logits_grad,
+                    &row_stats,
+                    fp16_weights.packed_storage(),
+                    &fused_grad_weight,
+                    &fused_partials,
+                ],
+                bytemuck::bytes_of(&lm_weight_grad_push),
+                [
+                    div_ceil_u32(output_dim, CROSS_ENTROPY_LINEAR_FUSED_ADJOINT_VOCAB_TILE),
+                    1,
+                    1,
+                ],
+            )?;
+            reduce_kernel.record_dispatch(
+                &mut batch,
+                &[&fused_partials, &fused_grad_input],
+                bytemuck::bytes_of(&linear_push),
+                [div_ceil_u32(rows * input_dim, 64), 1, 1],
+            )?;
+            batch.submit().context("rows16 bisect fused adjoint")?;
+            let dx = fused_grad_input
+                .read_f32((rows * input_dim).min(1024))
+                .context("rows16 bisect fused adjoint readback")?;
+            eprintln!("  stage fused ok grad_input[0]={}", dx[0]);
+        }
+
+        if want("t2g") {
+            let kernel = vulkan::ComputeKernel::new_with_access(
+                &device,
+                &t2g_bytes,
+                &[proj_ro, may_write],
+                std::mem::size_of::<LinearPush>() as u32,
+            )?;
+            let mut batch = vulkan::ComputeBatch::new(&device)?;
+            kernel.record_dispatch(
+                &mut batch,
+                &[&row_stats, &logits_grad],
+                bytemuck::bytes_of(&linear_push),
+                [div_ceil_u32(rows * output_dim, 128), 1, 1],
+            )?;
+            batch.submit().context("rows16 bisect logits-to-grad")?;
+            let logits = logits_grad
+                .read_f32((rows * output_dim).min(1024))
+                .context("rows16 bisect logits-to-grad readback")?;
+            eprintln!("  stage t2g ok logits_grad[0]={}", logits[0]);
+        }
+
+        if want("combined") {
+            let proj_kernel = vulkan::ComputeKernel::new_with_access(
+                &device,
+                &proj_bytes,
+                &[
+                    proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, may_write,
+                    may_write,
+                ],
+                std::mem::size_of::<LinearPush>() as u32,
+            )?;
+            let stats_kernel = vulkan::ComputeKernel::new_with_access(
+                &device,
+                &stats_bytes,
+                &[proj_ro, proj_ro, may_write],
+                std::mem::size_of::<LinearPush>() as u32,
+            )?;
+            let dx_kernel = vulkan::ComputeKernel::new_with_access(
+                &device,
+                &dx_bytes,
+                &[proj_ro, proj_ro, proj_ro, may_write],
+                std::mem::size_of::<LinearPush>() as u32,
+            )?;
+            let dw_kernel = vulkan::ComputeKernel::new_with_access(
+                &device,
+                &dw_bytes,
+                &[
+                    proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, read_write,
+                ],
+                std::mem::size_of::<LmWeightGradPush>() as u32,
+            )?;
+            let t2g_kernel = vulkan::ComputeKernel::new_with_access(
+                &device,
+                &t2g_bytes,
+                &[proj_ro, may_write],
+                std::mem::size_of::<LinearPush>() as u32,
+            )?;
+            let combined_stages: Vec<String> =
+                std::env::var("HIERARCHOS_VULKAN_LM_BISECT_COMBINED")
+                    .ok()
+                    .map(|raw| {
+                        raw.split(',')
+                            .map(|part| part.trim().to_owned())
+                            .filter(|part| !part.is_empty())
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_else(|| {
+                        ["proj", "stats", "dx", "dw", "fused", "reduce", "t2g"]
+                            .into_iter()
+                            .map(str::to_owned)
+                            .collect()
+                    });
+            eprintln!("  combined stages={combined_stages:?}");
+            let fused_kernel = if fused_available {
+                Some(vulkan::ComputeKernel::new_with_access(
+                    &device,
+                    &fused_bytes,
+                    &[
+                        proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro, proj_ro,
+                        read_write, may_write,
+                    ],
+                    std::mem::size_of::<LmWeightGradPush>() as u32,
+                )?)
+            } else {
+                None
+            };
+            let reduce_kernel = if fused_available {
+                Some(vulkan::ComputeKernel::new_with_access(
+                    &device,
+                    &reduce_bytes,
+                    &[proj_ro, may_write],
+                    std::mem::size_of::<LinearPush>() as u32,
+                )?)
+            } else {
+                None
+            };
+            let mut batch = vulkan::ComputeBatch::new(&device)?;
+            for stage in &combined_stages {
+                match stage.as_str() {
+                    "proj" => proj_kernel.record_dispatch(
+                        &mut batch,
+                        &[
+                            &hidden,
+                            &norm_weight,
+                            &norm_bias,
+                            &norm_mean,
+                            &norm_rstd,
+                            fp16_weights.packed_storage(),
+                            &targets_buffer,
+                            &logits_grad,
+                            &tile_stats,
+                        ],
+                        bytemuck::bytes_of(&linear_push),
+                        [div_ceil_u32(output_dim, 16), 1, 1],
+                    )?,
+                    "stats" => stats_kernel.record_dispatch(
+                        &mut batch,
+                        &[&tile_stats, &targets_buffer, &row_stats],
+                        bytemuck::bytes_of(&linear_push),
+                        [rows as u32, 1, 1],
+                    )?,
+                    "dx" => dx_kernel.record_dispatch(
+                        &mut batch,
+                        &[
+                            &logits_grad,
+                            &row_stats,
+                            fp16_weights.packed_storage(),
+                            &grad_input,
+                        ],
+                        bytemuck::bytes_of(&linear_push),
+                        [div_ceil_u32(input_dim.div_ceil(2), 32), 1, 1],
+                    )?,
+                    "dw" => dw_kernel.record_dispatch(
+                        &mut batch,
+                        &[
+                            &hidden,
+                            &norm_weight,
+                            &norm_bias,
+                            &norm_mean,
+                            &norm_rstd,
+                            &logits_grad,
+                            &row_stats,
+                            &grad_weight,
+                        ],
+                        bytemuck::bytes_of(&lm_weight_grad_push),
+                        [div_ceil_u32(output_dim, 8), 1, 1],
+                    )?,
+                    "fused" => fused_kernel
+                        .as_ref()
+                        .context("fused kernel unavailable for this geometry")?
+                        .record_dispatch(
+                            &mut batch,
+                            &[
+                                &hidden,
+                                &norm_weight,
+                                &norm_bias,
+                                &norm_mean,
+                                &norm_rstd,
+                                &logits_grad,
+                                &row_stats,
+                                fp16_weights.packed_storage(),
+                                &fused_grad_weight,
+                                &fused_partials,
+                            ],
+                            bytemuck::bytes_of(&lm_weight_grad_push),
+                            [
+                                div_ceil_u32(
+                                    output_dim,
+                                    CROSS_ENTROPY_LINEAR_FUSED_ADJOINT_VOCAB_TILE,
+                                ),
+                                1,
+                                1,
+                            ],
+                        )?,
+                    "reduce" => reduce_kernel
+                        .as_ref()
+                        .context("reduce kernel unavailable for this geometry")?
+                        .record_dispatch(
+                            &mut batch,
+                            &[&fused_partials, &fused_grad_input],
+                            bytemuck::bytes_of(&linear_push),
+                            [div_ceil_u32(rows * input_dim, 64), 1, 1],
+                        )?,
+                    "t2g" => t2g_kernel.record_dispatch(
+                        &mut batch,
+                        &[&row_stats, &logits_grad],
+                        bytemuck::bytes_of(&linear_push),
+                        [div_ceil_u32(rows * output_dim, 128), 1, 1],
+                    )?,
+                    other => bail!("unknown HIERARCHOS_VULKAN_LM_BISECT_COMBINED stage {other:?}"),
+                }
+            }
+            batch.submit().context("rows16 bisect combined batch")?;
+            let stats = row_stats
+                .read_f32(rows * 5)
+                .context("rows16 bisect combined readback")?;
+            eprintln!(
+                "  stage combined ok row0 max={} inv_sum={} loss={}",
+                stats[0], stats[1], stats[3]
+            );
+        }
         Ok(())
     }
 

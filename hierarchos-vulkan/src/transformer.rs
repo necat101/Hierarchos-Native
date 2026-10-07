@@ -36,20 +36,21 @@ mod peft_state;
 mod peft_registry;
 pub use peft_registry::{PeftCapability, PeftModuleClass};
 use crate::{
-    hierarchos_canonical_philox_word, hierarchos_dropout_threshold, read_f32_tensor, vulkan,
+    hierarchos_canonical_philox_word, hierarchos_dropout_threshold, read_f32_tensor, vendor, vulkan,
     AdamWHyperParams, CanonicalDropoutVulkanOp, GpuBuffer, HierarchosCanonicalRngReservation,
     SharedLmHeadParameter, TiedTokenEmbeddingOp, VulkanDevice,
 };
 
-const LINEAR_FORWARD_SPV: &[u8] = include_bytes!("../shaders/linear_forward.spv");
-const LINEAR_FORWARD_LANE4_SPV: &[u8] = include_bytes!("../shaders/linear_forward_lane4.spv");
+const LINEAR_FORWARD_LANE2_SPV: &[u8] = include_bytes!("../shaders/linear_forward_lane2.spv");
+const LINEAR_BIAS_FORWARD_LANE2_SPV: &[u8] =
+    include_bytes!("../shaders/linear_bias_forward_lane2.spv");
 const LORA_A_FORWARD_SPV: &[u8] = include_bytes!("../shaders/lora_a_forward.spv");
 const LORA_A_FORWARD_LANE8_MULADD_SPV: &[u8] =
     include_bytes!("../shaders/lora_a_forward_lane8_muladd.spv");
-const LINEAR_BIAS_FORWARD_SPV: &[u8] = include_bytes!("../shaders/linear_bias_forward.spv");
 const LINEAR_WEIGHT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_weight_grad.spv");
 const LINEAR_INPUT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad.spv");
 const LINEAR_INPUT_GRAD_MULADD_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad_muladd.spv");
+const LINEAR_INPUT_GRAD_LANE2_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad_lane2.spv");
 const BIAS_GRAD_SPV: &[u8] = include_bytes!("../shaders/bias_grad.spv");
 const BIAS_ADD_SPV: &[u8] = include_bytes!("../shaders/transformer_bias_add.spv");
 const LAYER_NORM_FORWARD_SPV: &[u8] = include_bytes!("../shaders/layer_norm_forward.spv");
@@ -69,7 +70,6 @@ const RMS_NORM_INPUT_GRAD_RESIDUAL_SPV: &[u8] =
 const RMS_NORM_PARAM_GRAD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_rms_norm_param_grad.spv");
 const VECTOR_ADD_SPV: &[u8] = include_bytes!("../shaders/vector_add.spv");
-const ADAMW_SPV: &[u8] = include_bytes!("../shaders/adamw.spv");
 const ATTENTION_FORWARD_SPV: &[u8] = include_bytes!("../shaders/transformer_attention_forward.spv");
 const ATTENTION_BACKWARD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_attention_backward.spv");
@@ -92,8 +92,6 @@ const GELU_TANH_BACKWARD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_gelu_tanh_backward.spv");
 const GELU_ERF_FORWARD_SPV: &[u8] = include_bytes!("../shaders/gelu_forward.spv");
 const GELU_ERF_BACKWARD_SPV: &[u8] = include_bytes!("../shaders/gelu_backward.spv");
-const SILU_FORWARD_SPV: &[u8] = include_bytes!("../shaders/silu_forward.spv");
-const SILU_BACKWARD_SPV: &[u8] = include_bytes!("../shaders/silu_backward.spv");
 const SITU_FORWARD_SPV: &[u8] = include_bytes!("../shaders/transformer_situ_forward.spv");
 const SITU_BACKWARD_SPV: &[u8] = include_bytes!("../shaders/transformer_situ_backward.spv");
 const KIMI_ATTN_RES_SOFTMAX_SPV: &[u8] =
@@ -227,6 +225,12 @@ const MOE_ROW_DOT_SPV: &[u8] = include_bytes!("../shaders/transformer_moe_row_do
 const MOE_ROW_SCALE_SPV: &[u8] = include_bytes!("../shaders/transformer_moe_row_scale.spv");
 const MOE_WEIGHTED_ACCUMULATE_SPV: &[u8] =
     include_bytes!("../shaders/transformer_moe_weighted_accumulate.spv");
+const MOE_EXPERT_FORWARD_SPV: &[u8] =
+    include_bytes!("../shaders/transformer_moe_expert_forward.spv");
+const MOE_EXPERT_FORWARD_MULADD_SPV: &[u8] =
+    include_bytes!("../shaders/transformer_moe_expert_forward_muladd.spv");
+const MOE_EXPERT_COUNT_SPV: &[u8] =
+    include_bytes!("../shaders/transformer_moe_expert_count.spv");
 const GPT_OSS_SWIGLU_FORWARD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_gpt_oss_swiglu_forward.spv");
 const GPT_OSS_SWIGLU_BACKWARD_SPV: &[u8] =
@@ -7541,6 +7545,7 @@ impl VulkanTransformerArchitecture {
         matches!(
             self,
             Self::SmolLm3
+                | Self::Llama
                 | Self::Mixtral
                 | Self::GptOss
                 | Self::Qwen2
@@ -8082,14 +8087,16 @@ impl Default for VulkanRopeScaling {
 }
 
 impl VulkanRopeScaling {
-    fn uses_precomputed_frequencies(&self, architecture: VulkanTransformerArchitecture) -> bool {
+    /// HF materializes the FP32 inverse frequencies on the host before it
+    /// evaluates their cos/sin, so default RoPE must consume that exact table:
+    /// the device `pow(theta, -exponent)` reciprocal rounds differently.
+    fn uses_precomputed_frequencies(&self) -> bool {
         self.scaling_type == VulkanRopeScalingType::None
-            && matches!(architecture, VulkanTransformerArchitecture::Gemma3 | VulkanTransformerArchitecture::Gemma4)
     }
 
-    fn layer_kernel_type(&self, architecture: VulkanTransformerArchitecture) -> u32 {
+    fn layer_kernel_type(&self) -> u32 {
         // Internal dispatch mode; serialized scaling semantics remain unchanged.
-        if self.uses_precomputed_frequencies(architecture) { 7 } else { self.kernel_type() }
+        if self.uses_precomputed_frequencies() { 7 } else { self.kernel_type() }
     }
 
     fn kernel_type(&self) -> u32 {
@@ -16188,19 +16195,23 @@ impl VulkanTransformerConfig {
             .as_object_mut()
             .context("Qwen4-Exp config must be a JSON object")?;
 
-        // Qwen4 names its full-attention blocks `qwen_sparse_attention` after
-        // config normalization.  The inherited Qwen3.5-MoE parser only needs
-        // the binary linear/full schedule, so map that spelling back to the
-        // common full-attention marker while retaining the Qwen4 architecture
-        // below.  Real checkpoints may still serialize `full_attention` and
-        // are accepted unchanged, matching Transformers' own compatibility
-        // normalization.
+        // Qwen4-Exp's indexer-backed full-attention blocks were historically
+        // serialized as `qwen_sparse_attention`; current Transformers remaps
+        // that legacy spelling to `indexed_attention` in
+        // `_LEGACY_LAYER_TYPE_REMAP`.  The inherited Qwen3.5-MoE parser only
+        // needs the binary linear/full schedule, so map every spelling of
+        // those blocks back to the common full-attention marker while
+        // retaining the Qwen4 architecture below.  Real checkpoints may also
+        // serialize plain `full_attention`, which is accepted unchanged.
         if let Some(layer_types) = object
             .get_mut("layer_types")
             .and_then(serde_json::Value::as_array_mut)
         {
             for layer_type in layer_types {
-                if layer_type.as_str() == Some("qwen_sparse_attention") {
+                if matches!(
+                    layer_type.as_str(),
+                    Some("qwen_sparse_attention" | "indexed_attention")
+                ) {
                     *layer_type = serde_json::json!("full_attention");
                 }
             }
@@ -25159,6 +25170,26 @@ struct LinearPush {
     output_dim: u32,
 }
 
+/// Routed-expert projection push constants. `expert` selects the entry of the
+/// per-expert routed-row counts the accumulation topology is keyed on.
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct MoeExpertForwardPush {
+    rows: u32,
+    input_dim: u32,
+    output_dim: u32,
+    experts: u32,
+    expert: u32,
+}
+
+/// Routed-row count push constants for one MoE layer's routing weights.
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct MoeExpertCountPush {
+    rows: u32,
+    experts: u32,
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct BiasPush {
@@ -25220,6 +25251,7 @@ struct RmsNormBackwardPush {
     weight_offset: f32,
     pow_rstd: u32,
     unfused_products: u32,
+    exact_pow_backward: u32,
 }
 
 #[repr(C)]
@@ -25766,14 +25798,19 @@ struct RopePush {
 }
 
 struct TransformerKernels {
-    linear_forward: vulkan::ComputeKernel,
-    linear_forward_lane4: vulkan::ComputeKernel,
+    /// Geometry-gated vendor slot: the shared transformer matmul runs at every
+    /// row count (prefill and single-row cached decode), so the module is
+    /// chosen per dispatch rather than at construction.
+    linear_forward: vendor::VendorMatmulKernel,
+    linear_forward_lane2: vulkan::ComputeKernel,
+    linear_bias_forward_lane2: vulkan::ComputeKernel,
     lora_a_forward: vulkan::ComputeKernel,
     lora_a_forward_lane8_muladd: vulkan::ComputeKernel,
-    linear_bias_forward: vulkan::ComputeKernel,
+    linear_bias_forward: vendor::VendorMatmulKernel,
     linear_weight_grad: vulkan::ComputeKernel,
     linear_input_grad: vulkan::ComputeKernel,
     linear_input_grad_muladd: vulkan::ComputeKernel,
+    linear_input_grad_lane2: vulkan::ComputeKernel,
     bias_grad: vulkan::ComputeKernel,
     bias_add: vulkan::ComputeKernel,
     layer_norm_forward: vulkan::ComputeKernel,
@@ -25893,6 +25930,9 @@ struct TransformerKernels {
     moe_row_dot: vulkan::ComputeKernel,
     moe_row_scale: vulkan::ComputeKernel,
     moe_weighted_accumulate: vulkan::ComputeKernel,
+    moe_expert_forward: vulkan::ComputeKernel,
+    moe_expert_forward_muladd: vulkan::ComputeKernel,
+    moe_expert_count: vulkan::ComputeKernel,
     gpt_oss_swiglu_forward: vulkan::ComputeKernel,
     gpt_oss_swiglu_backward: vulkan::ComputeKernel,
     deepseek_v4_swiglu_forward: vulkan::ComputeKernel,
@@ -25925,11 +25965,20 @@ struct TransformerKernels {
 impl TransformerKernels {
     fn new(device: &VulkanDevice) -> Result<Self> {
         Ok(Self {
-            linear_forward: vulkan::ComputeKernel::new(device, LINEAR_FORWARD_SPV, 3, 12)?,
-            linear_forward_lane4: vulkan::ComputeKernel::new(
+            linear_forward: vendor::VendorMatmulKernel::new(
                 device,
-                LINEAR_FORWARD_LANE4_SPV,
+                vendor::VendorKernelFamily::LinearForward,
+            )?,
+            linear_forward_lane2: vulkan::ComputeKernel::new(
+                device,
+                LINEAR_FORWARD_LANE2_SPV,
                 3,
+                12,
+            )?,
+            linear_bias_forward_lane2: vulkan::ComputeKernel::new(
+                device,
+                LINEAR_BIAS_FORWARD_LANE2_SPV,
+                4,
                 12,
             )?,
             lora_a_forward: vulkan::ComputeKernel::new(device, LORA_A_FORWARD_SPV, 3, 12)?,
@@ -25939,15 +25988,14 @@ impl TransformerKernels {
                 3,
                 12,
             )?,
-            linear_bias_forward: vulkan::ComputeKernel::new(
+            linear_bias_forward: vendor::VendorMatmulKernel::new(
                 device,
-                LINEAR_BIAS_FORWARD_SPV,
-                4,
-                12,
+                vendor::VendorKernelFamily::LinearBiasForward,
             )?,
             linear_weight_grad: vulkan::ComputeKernel::new(device, LINEAR_WEIGHT_GRAD_SPV, 3, 12)?,
             linear_input_grad: vulkan::ComputeKernel::new(device, LINEAR_INPUT_GRAD_SPV, 3, 12)?,
             linear_input_grad_muladd: vulkan::ComputeKernel::new(device, LINEAR_INPUT_GRAD_MULADD_SPV, 3, 12)?,
+            linear_input_grad_lane2: vulkan::ComputeKernel::new(device, LINEAR_INPUT_GRAD_LANE2_SPV, 3, 12)?,
             bias_grad: vulkan::ComputeKernel::new(device, BIAS_GRAD_SPV, 2, 8)?,
             bias_add: vulkan::ComputeKernel::new(device, BIAS_ADD_SPV, 2, 8)?,
             layer_norm_forward: vulkan::ComputeKernel::new(device, LAYER_NORM_FORWARD_SPV, 6, 12)?,
@@ -25991,13 +26039,13 @@ impl TransformerKernels {
                 device,
                 RMS_NORM_INPUT_GRAD_SPV,
                 6,
-                24,
+                std::mem::size_of::<RmsNormBackwardPush>() as u32,
             )?,
             rms_norm_input_grad_residual: vulkan::ComputeKernel::new(
                 device,
                 RMS_NORM_INPUT_GRAD_RESIDUAL_SPV,
                 8,
-                24,
+                std::mem::size_of::<RmsNormBackwardPush>() as u32,
             )?,
             rms_norm_param_grad: vulkan::ComputeKernel::new(
                 device,
@@ -26006,7 +26054,7 @@ impl TransformerKernels {
                 12,
             )?,
             vector_add: vulkan::ComputeKernel::new(device, VECTOR_ADD_SPV, 3, 4)?,
-            adamw: vulkan::ComputeKernel::new(device, ADAMW_SPV, 4, 28)?,
+            adamw: vendor::adamw_kernel(device)?,
             attention_forward: vulkan::ComputeKernel::new(
                 device,
                 ATTENTION_FORWARD_SPV,
@@ -26064,8 +26112,8 @@ impl TransformerKernels {
             gelu_tanh_backward: vulkan::ComputeKernel::new(device, GELU_TANH_BACKWARD_SPV, 3, 4)?,
             gelu_erf_forward: vulkan::ComputeKernel::new(device, GELU_ERF_FORWARD_SPV, 2, 4)?,
             gelu_erf_backward: vulkan::ComputeKernel::new(device, GELU_ERF_BACKWARD_SPV, 3, 4)?,
-            silu_forward: vulkan::ComputeKernel::new(device, SILU_FORWARD_SPV, 2, 4)?,
-            silu_backward: vulkan::ComputeKernel::new(device, SILU_BACKWARD_SPV, 3, 4)?,
+            silu_forward: vendor::silu_forward_kernel(device)?,
+            silu_backward: vendor::silu_backward_kernel(device)?,
             situ_forward: vulkan::ComputeKernel::new(
                 device,
                 SITU_FORWARD_SPV,
@@ -26477,6 +26525,19 @@ impl TransformerKernels {
                 3,
                 20,
             )?,
+            moe_expert_forward: vulkan::ComputeKernel::new(
+                device,
+                MOE_EXPERT_FORWARD_SPV,
+                4,
+                20,
+            )?,
+            moe_expert_forward_muladd: vulkan::ComputeKernel::new(
+                device,
+                MOE_EXPERT_FORWARD_MULADD_SPV,
+                4,
+                20,
+            )?,
+            moe_expert_count: vulkan::ComputeKernel::new(device, MOE_EXPERT_COUNT_SPV, 2, 8)?,
             gpt_oss_swiglu_forward: vulkan::ComputeKernel::new(
                 device,
                 GPT_OSS_SWIGLU_FORWARD_SPV,
@@ -27405,33 +27466,7 @@ impl VulkanLinear {
         rows: usize,
     ) -> Result<()> {
         self.record_forward_mode(
-            commands, kernels, input, output, rows, false, 0, 0, false, false, false,
-        )
-    }
-
-    fn record_forward_lane4_base(
-        &self,
-        commands: &mut vulkan::ComputeBatch,
-        kernels: &TransformerKernels,
-        input: &GpuBuffer,
-        output: &GpuBuffer,
-        rows: usize,
-    ) -> Result<()> {
-        self.record_forward_mode(
-            commands, kernels, input, output, rows, false, 0, 0, true, true, false,
-        )
-    }
-
-    fn record_forward_lane4_lora_b(
-        &self,
-        commands: &mut vulkan::ComputeBatch,
-        kernels: &TransformerKernels,
-        input: &GpuBuffer,
-        output: &GpuBuffer,
-        rows: usize,
-    ) -> Result<()> {
-        self.record_forward_mode(
-            commands, kernels, input, output, rows, false, 0, 0, false, true, false,
+            commands, kernels, input, output, rows, false, 0, 0, false,
         )
     }
 
@@ -27446,39 +27481,7 @@ impl VulkanLinear {
         rng_seed: u32,
     ) -> Result<()> {
         self.record_forward_mode(
-            commands, kernels, input, output, rows, true, rng_step, rng_seed, false, false, false,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn record_forward_training_lane4_base(
-        &self,
-        commands: &mut vulkan::ComputeBatch,
-        kernels: &TransformerKernels,
-        input: &GpuBuffer,
-        output: &GpuBuffer,
-        rows: usize,
-        rng_step: u32,
-        rng_seed: u32,
-    ) -> Result<()> {
-        self.record_forward_mode(
-            commands, kernels, input, output, rows, true, rng_step, rng_seed, true, true, false,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn record_forward_training_lane4_lora_b(
-        &self,
-        commands: &mut vulkan::ComputeBatch,
-        kernels: &TransformerKernels,
-        input: &GpuBuffer,
-        output: &GpuBuffer,
-        rows: usize,
-        rng_step: u32,
-        rng_seed: u32,
-    ) -> Result<()> {
-        self.record_forward_mode(
-            commands, kernels, input, output, rows, true, rng_step, rng_seed, false, true, false,
+            commands, kernels, input, output, rows, true, rng_step, rng_seed, false,
         )
     }
 
@@ -27493,8 +27496,6 @@ impl VulkanLinear {
         training: bool,
         rng_step: u32,
         rng_seed: u32,
-        lane4_base: bool,
-        lane4_lora_b: bool,
         lane8_muladd_lora_a: bool,
     ) -> Result<()> {
         let push = LinearPush {
@@ -27508,19 +27509,40 @@ impl VulkanLinear {
             .map(|lora| &lora.base_output)
             .unwrap_or(output);
         if self.has_bias {
-            kernels.linear_bias_forward.record_dispatch(
+            // PyTorch CPU's narrow-output (N == 8) GEMM path is also used for
+            // the biased K/V projections of the Qwen2 family (and any other
+            // `attention_bias` model whose K/V width is 8): two interleaved
+            // FMA lanes folded by a single add, with the bias applied in the
+            // epilogue.  The serial-FMA `linear_bias_forward` module is the
+            // wrong oracle for that width, so the biased slot routes through
+            // `linear_bias_forward_lane2` exactly like the biasless slot above.
+            if self.output_dim == 8 {
+                kernels.linear_bias_forward_lane2.record_dispatch(
+                    commands,
+                    &[input, &self.weight.values, &self.bias.values, base_output],
+                    bytemuck::bytes_of(&push),
+                    [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
+                )?;
+            } else {
+                kernels.linear_bias_forward.record_dispatch(
+                    commands,
+                    &[input, &self.weight.values, &self.bias.values, base_output],
+                    bytemuck::bytes_of(&push),
+                    [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
+                )?;
+            }
+        } else if self.output_dim == 8 {
+            // PyTorch CPU's narrow-output (N == 8) GEMM path accumulates on
+            // two interleaved FMA lanes folded by a single add.  Match it so
+            // narrow K/V projections stay bit-exact (linear_forward_lane2.comp).
+            kernels.linear_forward_lane2.record_dispatch(
                 commands,
-                &[input, &self.weight.values, &self.bias.values, base_output],
+                &[input, &self.weight.values, base_output],
                 bytemuck::bytes_of(&push),
                 [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
             )?;
         } else {
-            let base_kernel = if lane4_base {
-                &kernels.linear_forward_lane4
-            } else {
-                &kernels.linear_forward
-            };
-            base_kernel.record_dispatch(
+            kernels.linear_forward.record_dispatch(
                 commands,
                 &[input, &self.weight.values, base_output],
                 bytemuck::bytes_of(&push),
@@ -27570,7 +27592,20 @@ impl VulkanLinear {
                 input_dim: self.input_dim as u32,
                 output_dim: lora.rank as u32,
             };
-            let a_kernel = if lane8_muladd_lora_a {
+            // PyTorch's CPU GEMM walks the LoRA-A reduction with AVX2-width
+            // (eight-float) vector lanes and horizontally folds them in halves.
+            // The sixteen-lane kernel only agrees with that topology while the
+            // reduction is 16 wide; from 32 onwards a lane owns two or more
+            // products and the topologies split.  This is the attention-side
+            // counterpart of the transformer-MLP rule above: key the choice on
+            // the reduction size, not the architecture, so every wide LoRA-A
+            // follows the reference.  Verified against the captured HF
+            // `o_proj.lora_A` values of a 32 -> 2 attention projection, where
+            // only the eight-lane muladd replay (products materialised in FP32,
+            // cross-half fold) is bit-exact and the sixteen-lane FMA replay
+            // lands one ulp away on 3/64 outputs.
+            let lane8_muladd = lane8_muladd_lora_a || self.input_dim >= 32;
+            let a_kernel = if lane8_muladd {
                 &kernels.lora_a_forward_lane8_muladd
             } else {
                 &kernels.lora_a_forward
@@ -27599,24 +27634,27 @@ impl VulkanLinear {
                     [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
                 )?;
             } else {
-                // Gemma4's narrow K/V projections use PyTorch's small-output
-                // CPU GEMM path for both the frozen base projection and the
-                // rank-2 LoRA-B projection.  For the [8, 2] B matrix that path
-                // materializes the two FP32 products before their add, while
-                // the wider [16, 2] Q projection still matches serial FMA.
-                // Reuse the already-scoped Gemma4 K/V selector rather than
-                // changing the shared linear kernel or all LoRA-B projections.
-                let b_kernel = if lane4_lora_b {
-                    &kernels.linear_forward_lane4
+                // Gemma3/4's narrow K/V projections follow PyTorch's
+                // small-output CPU GEMM path for both the frozen base
+                // projection and the rank-2 LoRA-B projection: two interleaved
+                // FMA lanes folded by a single add.  Reuse the already-scoped
+                // K/V selector rather than changing the shared linear kernel
+                // or all other LoRA-B projections.
+                if self.output_dim == 8 {
+                    kernels.linear_forward_lane2.record_dispatch(
+                        commands,
+                        &[&lora.a_output, &lora.b.values, &lora.b_output],
+                        bytemuck::bytes_of(&b_push),
+                        [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
+                    )?;
                 } else {
-                    &kernels.linear_forward
-                };
-                b_kernel.record_dispatch(
-                    commands,
-                    &[&lora.a_output, &lora.b.values, &lora.b_output],
-                    bytemuck::bytes_of(&b_push),
-                    [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
-                )?;
+                    kernels.linear_forward.record_dispatch(
+                        commands,
+                        &[&lora.a_output, &lora.b.values, &lora.b_output],
+                        bytemuck::bytes_of(&b_push),
+                        [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
+                    )?;
+                }
             }
             if let Some(dora) = lora.dora.as_ref() {
                 let dora_scale_push = DoraScalePush {
@@ -27639,17 +27677,21 @@ impl VulkanLinear {
                     [div_ceil_u32(self.output_dim, 64), 1, 1],
                 )?;
                 let (dora_base, dora_base_has_bias) = if training && lora.dropout > 0.0 {
-                    let base_kernel = if lane4_base {
-                        &kernels.linear_forward_lane4
+                    if self.output_dim == 8 {
+                        kernels.linear_forward_lane2.record_dispatch(
+                            commands,
+                            &[lora_input, &self.weight.values, &dora.branch_base_output],
+                            bytemuck::bytes_of(&push),
+                            [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
+                        )?;
                     } else {
-                        &kernels.linear_forward
-                    };
-                    base_kernel.record_dispatch(
-                        commands,
-                        &[lora_input, &self.weight.values, &dora.branch_base_output],
-                        bytemuck::bytes_of(&push),
-                        [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
-                    )?;
+                        kernels.linear_forward.record_dispatch(
+                            commands,
+                            &[lora_input, &self.weight.values, &dora.branch_base_output],
+                            bytemuck::bytes_of(&push),
+                            [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
+                        )?;
+                    }
                     (&dora.branch_base_output, 0)
                 } else {
                     (base_output, u32::from(self.has_bias))
@@ -27871,7 +27913,18 @@ impl VulkanLinear {
                     )?;
                 }
             }
-            let b_input_kernel = if unfused_lora_b {
+            // The B adjoint's reduction is `self.output_dim` and its width is
+            // the LoRA rank, so PyTorch's CPU `mm` lands on the two-lane
+            // interleaved kernel for narrow ranks regardless of architecture.
+            // This is not a vendor choice: measured over every LoRA-B adjoint
+            // of the strict fixtures (K in {8, 16, 32}), only the two-lane
+            // fused topology reproduces `torch.mm` bit-exactly, and the serial
+            // FMA / multiply-add kernels the architecture flags used to pick
+            // both miss by one ulp.  `unfused_lora_b` still governs the wide
+            // ranks that no fixture exercises.
+            let b_input_kernel = if lora.rank <= 8 {
+                &kernels.linear_input_grad_lane2
+            } else if unfused_lora_b {
                 &kernels.linear_input_grad_muladd
             } else {
                 &kernels.linear_input_grad
@@ -28435,12 +28488,21 @@ impl VulkanLayerNorm {
                 // same eight interleaved FP32 lanes as its mean-square
                 // reduction; using source order is one ULP off in the final
                 // norm and that error is amplified by lower sandwich norms.
+                // Vector-CPU-rsqrt mode also owns the backward dot topology:
+                // the reference reduces `(grad*w)*x` with the same eight
+                // interleaved lanes and sequential lane fold it uses for the
+                // mean square, so keep that ahead of the materialized-autograd
+                // selector.  A 16-lane balanced tree (the AVX512 map) or a
+                // source-order scalar fold lands one or two FP32 ulps away and
+                // that seed is amplified by every lower RMSNorm.
                 unfused_products: if self.pow_rstd {
                     if self.extra_rsqrt_refinement == 3 {
                         2
                     } else {
                         u32::from(self.unfused_products)
                     }
+                } else if self.extra_rsqrt_refinement == 3 {
+                    2
                 } else if self.materialized_backward {
                     3
                 } else if self.extra_rsqrt_refinement != 0 {
@@ -28448,6 +28510,17 @@ impl VulkanLayerNorm {
                 } else {
                     u32::from(self.unfused_products)
                 },
+                // torch.pow(mean_squared, -1.5) is the derivative factor of
+                // the pow-RMS forward. The CPU oracle evaluates it on the
+                // scalar path, so the reference value is the correctly rounded
+                // double-precision result. SLEEF's u10 log/exp paraphrase
+                // leaves a few percent of rows one ulp away and the RMS
+                // backward amplifies that seed through every lower norm, so
+                // the vector-CPU-rsqrt pow norms round the exact rational
+                // value with integer arithmetic instead.
+                exact_pow_backward: u32::from(
+                    self.pow_rstd && self.extra_rsqrt_refinement == 3,
+                ),
             };
             kernels.rms_norm_input_grad.record_dispatch(
                 commands,
@@ -28600,6 +28673,8 @@ impl VulkanLayerNorm {
                 } else {
                     u32::from(self.unfused_products)
                 }
+            } else if self.extra_rsqrt_refinement == 3 {
+                2
             } else if self.materialized_backward {
                 3
             } else if self.extra_rsqrt_refinement != 0 {
@@ -28607,6 +28682,11 @@ impl VulkanLayerNorm {
             } else {
                 u32::from(self.unfused_products)
             },
+            // Keep the correctly rounded pow-RMS derivative aligned with the
+            // ordinary backward path (see record_backward).
+            exact_pow_backward: u32::from(
+                self.pow_rstd && self.extra_rsqrt_refinement == 3,
+            ),
         };
         kernels.rms_norm_input_grad_residual.record_dispatch(
             commands,
@@ -47819,6 +47899,11 @@ struct VulkanMoe {
     jittered_input: Option<GpuBuffer>,
     routing_logits: GpuBuffer,
     routing_weights: GpuBuffer,
+    /// Rows the router sent to each expert, recomputed from the dense routing
+    /// weights once per forward. The reference calls an expert with only its
+    /// routed tokens and PyTorch's CPU GEMM picks its accumulation topology
+    /// from that row count, so the expert projections read it here.
+    expert_counts: GpuBuffer,
     grad_routing_weights: GpuBuffer,
     grad_router_logits: GpuBuffer,
     grad_router_input: GpuBuffer,
@@ -48755,6 +48840,7 @@ impl VulkanMoe {
         Ok(Self {
             router,
             router_correction_bias: GpuBuffer::from_f32(device, &host_router_correction_bias)?,
+            expert_counts: GpuBuffer::from_u32(device, &vec![0u32; config.num_experts])?,
             hash_router_tid2eid,
             hash_router_vocab_size,
             owned_expert0,
@@ -48894,6 +48980,7 @@ impl VulkanMoe {
             .context("replicated MoE expert tape overflow")?;
         Ok(Self {
             router: self.router.replicate_shared_base()?,
+            expert_counts: GpuBuffer::from_u32(device, &vec![0u32; self.num_experts])?,
             router_correction_bias: self.router_correction_bias.clone(),
             hash_router_tid2eid: self.hash_router_tid2eid.clone(),
             hash_router_vocab_size: self.hash_router_vocab_size,
@@ -49065,11 +49152,15 @@ impl VulkanMoe {
         intermediate: usize,
         activation_dropout: f32,
         dropout_site: u32,
+        // Present only for routed experts: PyTorch's CPU GEMM accumulates at
+        // the row count of the call, and the reference calls an expert with just
+        // the tokens routed to it rather than with the dense dispatch's rows.
+        moe_expert_routing: Option<(&GpuBuffer, usize)>,
         training: bool,
         rng_step: u32,
         rng_seed: u32,
     ) -> Result<()> {
-        record_transformer_linear_forward(
+        record_transformer_moe_expert_projection(
             up,
             commands,
             kernels,
@@ -49079,12 +49170,14 @@ impl VulkanMoe {
             training,
             rng_step,
             rng_seed,
+            moe_expert_routing,
+            self.num_experts,
         )?;
         let activation_push = LenPush {
             len: (rows * intermediate) as u32,
         };
         if let Some(gate) = gate {
-            record_transformer_linear_forward(
+            record_transformer_moe_expert_projection(
                 gate,
                 commands,
                 kernels,
@@ -49094,6 +49187,8 @@ impl VulkanMoe {
                 training,
                 rng_step,
                 rng_seed,
+                moe_expert_routing,
+                self.num_experts,
             )?;
         }
         if activation_function == "gpt_oss_swiglu" {
@@ -49106,7 +49201,7 @@ impl VulkanMoe {
                 bytemuck::bytes_of(&activation_push),
                 [div_ceil_u32(rows * intermediate, 256), 1, 1],
             )?;
-            return record_transformer_linear_forward(
+            return record_transformer_moe_expert_projection(
                 down,
                 commands,
                 kernels,
@@ -49116,6 +49211,8 @@ impl VulkanMoe {
                 training,
                 rng_step,
                 rng_seed,
+                moe_expert_routing,
+                self.num_experts,
             );
         }
         if activation_function == "deepseek_v4_swiglu" {
@@ -49132,7 +49229,7 @@ impl VulkanMoe {
                 bytemuck::bytes_of(&clamp_push),
                 [div_ceil_u32(rows * intermediate, 256), 1, 1],
             )?;
-            return record_transformer_linear_forward(
+            return record_transformer_moe_expert_projection(
                 down,
                 commands,
                 kernels,
@@ -49142,6 +49239,8 @@ impl VulkanMoe {
                 training,
                 rng_step,
                 rng_seed,
+                moe_expert_routing,
+                self.num_experts,
             );
         }
         if activation_function == "situ" {
@@ -49160,7 +49259,7 @@ impl VulkanMoe {
                 bytemuck::bytes_of(&situ_push),
                 [div_ceil_u32(rows * intermediate, 256), 1, 1],
             )?;
-            return record_transformer_linear_forward(
+            return record_transformer_moe_expert_projection(
                 down,
                 commands,
                 kernels,
@@ -49170,6 +49269,8 @@ impl VulkanMoe {
                 training,
                 rng_step,
                 rng_seed,
+                moe_expert_routing,
+                self.num_experts,
             );
         }
         let activation = match activation_function {
@@ -49218,7 +49319,7 @@ impl VulkanMoe {
         } else {
             &self.activation
         };
-        record_transformer_linear_forward(
+        record_transformer_moe_expert_projection(
             down,
             commands,
             kernels,
@@ -49228,6 +49329,8 @@ impl VulkanMoe {
             training,
             rng_step,
             rng_seed,
+            moe_expert_routing,
+            self.num_experts,
         )
     }
 
@@ -49343,6 +49446,20 @@ impl VulkanMoe {
             (input, output)
         };
         let routed_hidden = self.routed_hidden;
+        // A routed expert is called with only the tokens routed to it and
+        // PyTorch's CPU GEMM is row-count dependent, so count the routed rows per
+        // expert once here. The router writes exact zeros for unselected experts,
+        // so this is a column count on the dense routing weights.
+        let expert_count_push = MoeExpertCountPush {
+            rows: rows as u32,
+            experts: self.num_experts as u32,
+        };
+        kernels.moe_expert_count.record_dispatch(
+            commands,
+            &[&self.routing_weights, &self.expert_counts],
+            bytemuck::bytes_of(&expert_count_push),
+            [div_ceil_u32(self.num_experts, 64), 1, 1],
+        )?;
         for expert_index in 0..self.num_experts {
             if expert_index >= self.identity_expert_start {
                 let copy_push = ScalePush {
@@ -49392,6 +49509,7 @@ impl VulkanMoe {
                 intermediate,
                 activation_dropout,
                 dropout_site.wrapping_add((expert_index as u32).wrapping_mul(0x0001_0000)),
+                Some((&self.expert_counts, expert_index)),
                 training,
                 rng_step,
                 rng_seed,
@@ -49478,6 +49596,7 @@ impl VulkanMoe {
                 self.shared_intermediate,
                 0.0,
                 dropout_site.wrapping_add(0x7fff_0000),
+                None,
                 training,
                 rng_step,
                 rng_seed,
@@ -49631,6 +49750,20 @@ impl VulkanMoe {
         let activation_push = LenPush {
             len: (rows * intermediate) as u32,
         };
+        // The backward replays the routed expert forward to rebuild its
+        // activations, so it needs the same per-expert row counts. Routing has
+        // not changed since the forward, but recomputing keeps the backward
+        // self-contained.
+        let expert_count_push = MoeExpertCountPush {
+            rows: rows as u32,
+            experts: self.num_experts as u32,
+        };
+        kernels.moe_expert_count.record_dispatch(
+            commands,
+            &[&self.routing_weights, &self.expert_counts],
+            bytemuck::bytes_of(&expert_count_push),
+            [div_ceil_u32(self.num_experts, 64), 1, 1],
+        )?;
         for expert_index in 0..self.num_experts {
             let expert_dropout_site =
                 dropout_site.wrapping_add((expert_index as u32).wrapping_mul(0x0001_0000));
@@ -49727,6 +49860,7 @@ impl VulkanMoe {
                 intermediate,
                 activation_dropout,
                 expert_dropout_site,
+                Some((&self.expert_counts, expert_index)),
                 true,
                 rng_step,
                 rng_seed,
@@ -50026,6 +50160,7 @@ impl VulkanMoe {
                 shared_intermediate,
                 0.0,
                 0,
+                None,
                 true,
                 rng_step,
                 rng_seed,
@@ -57024,7 +57159,8 @@ impl VulkanTransformerLayer {
         let rope_short_factor_values =
             if rotary.rope_scaling.scaling_type == VulkanRopeScalingType::LongRope {
                 rotary.rope_scaling.short_factors.clone()
-            } else if rotary.rope_scaling.uses_precomputed_frequencies(config.architecture) {
+            } else if rotary.rotary_dim > 0
+                && rotary.rope_scaling.uses_precomputed_frequencies() {
                 // HF materializes the positive power before taking its FP32
                 // reciprocal. GPU pow(theta, -exponent) has different rounding.
                 // These are immutable configuration constants; rotation and
@@ -57085,8 +57221,15 @@ impl VulkanTransformerLayer {
                           .use_vector_cpu_rsqrt(
                               matches!(
                                   config.architecture,
-                                  VulkanTransformerArchitecture::MiniMaxM2
+                                  VulkanTransformerArchitecture::Llama
+                                      | VulkanTransformerArchitecture::MiniMaxM2
                                       | VulkanTransformerArchitecture::Gemma3
+                                      | VulkanTransformerArchitecture::SmolLm3
+                                      | VulkanTransformerArchitecture::Mistral4
+                                      | VulkanTransformerArchitecture::Qwen35
+                                      | VulkanTransformerArchitecture::MiniMaxM3VLText
+                                      | VulkanTransformerArchitecture::Gemma4
+                                      | VulkanTransformerArchitecture::Qwen2
                               ),
                           )
                       })
@@ -57443,8 +57586,15 @@ impl VulkanTransformerLayer {
                               .use_vector_cpu_rsqrt(
                                   matches!(
                                       config.architecture,
-                                      VulkanTransformerArchitecture::MiniMaxM2
+                                      VulkanTransformerArchitecture::Llama
+                                          | VulkanTransformerArchitecture::MiniMaxM2
                                           | VulkanTransformerArchitecture::Gemma3
+                                          | VulkanTransformerArchitecture::SmolLm3
+                                          | VulkanTransformerArchitecture::Mistral4
+                                          | VulkanTransformerArchitecture::Qwen35
+                                          | VulkanTransformerArchitecture::MiniMaxM3VLText
+                                          | VulkanTransformerArchitecture::Gemma4
+                                          | VulkanTransformerArchitecture::Qwen2
                                   ),
                               )
                           })
@@ -57521,8 +57671,15 @@ impl VulkanTransformerLayer {
                               .use_vector_cpu_rsqrt(
                                   matches!(
                                       config.architecture,
-                                      VulkanTransformerArchitecture::MiniMaxM2
+                                      VulkanTransformerArchitecture::Llama
+                                          | VulkanTransformerArchitecture::MiniMaxM2
                                           | VulkanTransformerArchitecture::Gemma3
+                                          | VulkanTransformerArchitecture::SmolLm3
+                                          | VulkanTransformerArchitecture::Mistral4
+                                          | VulkanTransformerArchitecture::Qwen35
+                                          | VulkanTransformerArchitecture::MiniMaxM3VLText
+                                          | VulkanTransformerArchitecture::Gemma4
+                                          | VulkanTransformerArchitecture::Qwen2
                                   ),
                               )
                           })
@@ -58609,57 +58766,28 @@ impl VulkanTransformerLayer {
                         .v_proj
                         .as_ref()
                         .context("Llama layer is missing v_proj")?;
-                    if matches!(
-                        config.architecture,
-                        VulkanTransformerArchitecture::Gemma3
-                            | VulkanTransformerArchitecture::Gemma4
-                    ) {
-                        record_transformer_linear_forward_lane4_base_and_lora_b(
-                            k_proj,
-                            commands,
-                            kernels,
-                            attention_input,
-                            k_output,
-                            rows,
-                            training,
-                            rng_step,
-                            rng_seed,
-                        )?;
-                        record_transformer_linear_forward_lane4_base_and_lora_b(
-                            v_proj,
-                            commands,
-                            kernels,
-                            attention_input,
-                            v_output,
-                            rows,
-                            training,
-                            rng_step,
-                            rng_seed,
-                        )?;
-                    } else {
-                        record_transformer_linear_forward(
-                            k_proj,
-                            commands,
-                            kernels,
-                            attention_input,
-                            k_output,
-                            rows,
-                            training,
-                            rng_step,
-                            rng_seed,
-                        )?;
-                        record_transformer_linear_forward(
-                            v_proj,
-                            commands,
-                            kernels,
-                            attention_input,
-                            v_output,
-                            rows,
-                            training,
-                            rng_step,
-                            rng_seed,
-                        )?;
-                    }
+                    record_transformer_linear_forward(
+                        k_proj,
+                        commands,
+                        kernels,
+                        attention_input,
+                        k_output,
+                        rows,
+                        training,
+                        rng_step,
+                        rng_seed,
+                    )?;
+                    record_transformer_linear_forward(
+                        v_proj,
+                        commands,
+                        kernels,
+                        attention_input,
+                        v_output,
+                        rows,
+                        training,
+                        rng_step,
+                        rng_seed,
+                    )?;
                     if let Some(mamba) = self.falcon_h1.as_ref() {
                         falcon_h1::scale(commands, kernels, k_output, k_output, rows*key_hidden, mamba.key)?;
                     }
@@ -58835,7 +58963,7 @@ impl VulkanTransformerLayer {
                         rotary_start: 0,
                         rotary_emb_base: self.rotary_emb_base,
                         interleaved_pairs: u32::from(config.rope_interleaved_pairs()),
-                        scaling_type: self.rope_scaling.layer_kernel_type(config.architecture),
+                        scaling_type: self.rope_scaling.layer_kernel_type(),
                         scaling_factor: self.rope_scaling.factor,
                         original_max_position_embeddings: self
                             .rope_scaling
@@ -59114,9 +59242,37 @@ impl VulkanTransformerLayer {
                     // Gemma eager CPU attention materializes the small BMM
                     // products and uses SLEEF softmax with an FP32 reciprocal.
                     // Preserve that order through both Gemma attention paths.
+                    // Llama's tiny-fixture oracle runs the same naive CPU BMM
+                    // kernels: the scores and the P@V product are materialized
+                    // before each sequential add, the softmax uses the SLEEF
+                    // u10 exp, and the normalizing reciprocal is a plain FP32
+                    // divide (mode bits 0, 1, and 2 => mode 9).
                     unfused_qk: match config.architecture {
                         VulkanTransformerArchitecture::Gemma3
                             | VulkanTransformerArchitecture::Gemma4 => 1,
+                        // Qwen2's tiny-fixture oracle runs the same naive CPU
+                        // BMM/softmax kernels as Llama's: the QK and P@V
+                        // products stay materialized, the softmax uses the
+                        // SLEEF u10 exp, and probabilities are formed by
+                        // multiplying by a correctly rounded FP32 reciprocal
+                        // of the sum.  Measured against ATen on the pinned
+                        // build, the raw mode-0 path (fused P@V plus the
+                        // hardware exp/divide) landed one ulp away on 20 of
+                        // layer 0's 64 o_proj inputs, which the sliding-window
+                        // final norm then amplified past the saved-module
+                        // gate.  With the materialized P@V and the FP32
+                        // reciprocal the same comparison is bit-exact (0/64).
+                        VulkanTransformerArchitecture::Llama
+                        | VulkanTransformerArchitecture::Qwen2 => 9,
+                        // MiniMax-M2 shares the same tiny CPU oracle, but only
+                        // for the forward pass: its saved-module adjoints were
+                        // qualified separately on backward mode 2 (see the
+                        // backward match arm).  Without this arm its forward
+                        // attention core landed one ulp away on 20 of layer
+                        // 0's 128 o_proj inputs, and the Q/K RMSNorm adjoints
+                        // amplified that seed to 3.6e-7 on the embedding
+                        // gradient.
+                        VulkanTransformerArchitecture::MiniMaxM2 => 9,
                         _ => 0,
                     },
                 };
@@ -59666,7 +59822,15 @@ impl VulkanTransformerLayer {
             } else {
                 mlp_input
             };
-            if config.architecture == VulkanTransformerArchitecture::Gemma4 {
+            // PyTorch's CPU GEMM walks the LoRA-A reduction with AVX2-width
+            // (eight-float) vector lanes and horizontally folds them in halves.
+            // The sixteen-lane kernel only agrees with that topology while the
+            // reduction is 16 wide; from 32 onwards a lane owns two or more
+            // products and the two topologies split.  The down projection is
+            // the wide-rank LoRA-A of every transformer MLP, so key the choice
+            // off the reduction size instead of the architecture: Gemma4 was
+            // simply the first probe that exposed it.
+            if self.c_mlp_proj.input_dim >= 32 {
                 record_transformer_linear_forward_lora_a_lane8_muladd(
                     &self.c_mlp_proj,
                     commands,
@@ -61052,8 +61216,18 @@ impl VulkanTransformerLayer {
                             | VulkanTransformerArchitecture::Gemma4 => 1,
                         // Backward-only arithmetic mode used to reproduce the
                         // CPU PEFT oracle's deterministic MiniMax-M2 attention
-                        // adjoints. Forward deliberately stays on mode 0.
+                        // adjoints; switching it to the forward's mode 9 was
+                        // measured neutral on the saved-module gate
+                        // (model.embed_tokens stayed at 3.576e-07), so the
+                        // qualified mode 2 is kept.
                         VulkanTransformerArchitecture::MiniMaxM2 => 2,
+                        // Llama's saved-module oracle needs the same naive
+                        // materialized QK/P@V products and SLEEF softmax during
+                        // the adjoint replay as its forward (mode 9); the Qwen2
+                        // families share that oracle (see the forward match
+                        // arm above).
+                        VulkanTransformerArchitecture::Llama
+                        | VulkanTransformerArchitecture::Qwen2 => 9,
                         _ => 0,
                     },
                 };
@@ -61211,7 +61385,7 @@ impl VulkanTransformerLayer {
                         rotary_start: 0,
                         rotary_emb_base: self.rotary_emb_base,
                         interleaved_pairs: u32::from(config.rope_interleaved_pairs()),
-                        scaling_type: self.rope_scaling.layer_kernel_type(config.architecture),
+                        scaling_type: self.rope_scaling.layer_kernel_type(),
                         scaling_factor: self.rope_scaling.factor,
                         original_max_position_embeddings: self
                             .rope_scaling
@@ -63197,54 +63371,6 @@ fn record_transformer_linear_forward(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn record_transformer_linear_forward_lane4_base(
-    linear: &VulkanLinear,
-    commands: &mut vulkan::ComputeBatch,
-    kernels: &TransformerKernels,
-    input: &GpuBuffer,
-    output: &GpuBuffer,
-    rows: usize,
-    training: bool,
-    rng_step: u32,
-    rng_seed: u32,
-) -> Result<()> {
-    if training {
-        linear.record_forward_training_lane4_base(
-            commands, kernels, input, output, rows, rng_step, rng_seed,
-        )
-    } else {
-        linear.record_forward_lane4_base(commands, kernels, input, output, rows)
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn record_transformer_linear_forward_lane4_base_and_lora_b(
-    linear: &VulkanLinear,
-    commands: &mut vulkan::ComputeBatch,
-    kernels: &TransformerKernels,
-    input: &GpuBuffer,
-    output: &GpuBuffer,
-    rows: usize,
-    training: bool,
-    rng_step: u32,
-    rng_seed: u32,
-) -> Result<()> {
-    linear.record_forward_mode(
-        commands,
-        kernels,
-        input,
-        output,
-        rows,
-        training,
-        rng_step,
-        rng_seed,
-        true,
-        true,
-        false,
-    )
-}
-
-#[allow(clippy::too_many_arguments)]
 fn record_transformer_linear_forward_lora_a_lane8_muladd(
     linear: &VulkanLinear,
     commands: &mut vulkan::ComputeBatch,
@@ -63265,9 +63391,78 @@ fn record_transformer_linear_forward_lora_a_lane8_muladd(
         training,
         rng_step,
         rng_seed,
-        false,
-        false,
         true,
+    )
+}
+
+/// Records one routed-MoE expert projection.
+///
+/// The reference MoE calls an expert with only the tokens routed to it, so
+/// PyTorch's CPU GEMM accumulates at that row count instead of the dense
+/// dispatch's `rows`. `routing` carries the per-expert routed-row counts and the
+/// expert id. The counts select between two kernel modules (fused topologies and
+/// the products-materialized two-token topology), so the dispatch is a pair.
+/// Projections that carry a bias or an adapter keep the established kernels, as
+/// does a missing `routing`: shared experts are evaluated over every row by the
+/// reference as well.
+#[allow(clippy::too_many_arguments)]
+fn record_transformer_moe_expert_projection(
+    linear: &VulkanLinear,
+    commands: &mut vulkan::ComputeBatch,
+    kernels: &TransformerKernels,
+    input: &GpuBuffer,
+    output: &GpuBuffer,
+    rows: usize,
+    training: bool,
+    rng_step: u32,
+    rng_seed: u32,
+    routing: Option<(&GpuBuffer, usize)>,
+    num_experts: usize,
+) -> Result<()> {
+    if let Some((expert_counts, expert)) = routing {
+        if !linear.has_bias && linear.lora.is_none() {
+            let push = MoeExpertForwardPush {
+                rows: rows as u32,
+                input_dim: linear.input_dim as u32,
+                output_dim: linear.output_dim as u32,
+                experts: num_experts as u32,
+                expert: expert as u32,
+            };
+            let groups = [
+                div_ceil_u32(linear.output_dim, 16),
+                div_ceil_u32(rows, 16),
+                1,
+            ];
+            // Split across two modules by topology: a NoContraction multiply
+            // anywhere in a module makes the Gen9 driver split that module's FMA
+            // ext-instructions, so the products-materialized `routed == 2`
+            // topology shares no module with the fused ones.  Each module
+            // declines the other's experts, so exactly one writes each output
+            // element.
+            kernels.moe_expert_forward.record_dispatch(
+                commands,
+                &[input, &linear.weight.values, output, expert_counts],
+                bytemuck::bytes_of(&push),
+                groups,
+            )?;
+            return kernels.moe_expert_forward_muladd.record_dispatch(
+                commands,
+                &[input, &linear.weight.values, output, expert_counts],
+                bytemuck::bytes_of(&push),
+                groups,
+            );
+        }
+    }
+    record_transformer_linear_forward(
+        linear,
+        commands,
+        kernels,
+        input,
+        output,
+        rows,
+        training,
+        rng_step,
+        rng_seed,
     )
 }
 
@@ -65552,8 +65747,15 @@ impl VulkanTransformer {
                   .use_vector_cpu_rsqrt(
                       matches!(
                           config.architecture,
-                          VulkanTransformerArchitecture::MiniMaxM2
+                          VulkanTransformerArchitecture::Llama
+                              | VulkanTransformerArchitecture::MiniMaxM2
                               | VulkanTransformerArchitecture::Gemma3
+                              | VulkanTransformerArchitecture::SmolLm3
+                              | VulkanTransformerArchitecture::Mistral4
+                              | VulkanTransformerArchitecture::Qwen35
+                              | VulkanTransformerArchitecture::MiniMaxM3VLText
+                              | VulkanTransformerArchitecture::Gemma4
+                              | VulkanTransformerArchitecture::Qwen2
                       ),
                   )
               }
@@ -92002,6 +92204,35 @@ mod tests {
             "eos_token_id": 0,
             "tie_word_embeddings": false
         })
+    }
+
+    #[test]
+    fn qwen4_exp_accepts_legacy_and_modern_indexer_layer_types() -> Result<()> {
+        // Transformers renamed the indexer-backed full-attention layer type
+        // from `qwen_sparse_attention` to `indexed_attention`; every spelling
+        // must select the same native full-attention schedule.
+        for layer_type in [
+            "qwen_sparse_attention",
+            "indexed_attention",
+            "full_attention",
+        ] {
+            let mut value = tiny_qwen4_exp_config();
+            value["layer_types"] = serde_json::json!([layer_type]);
+            value["indexer_n_heads"] = serde_json::json!(2);
+            value["indexer_kv_heads"] = serde_json::json!(1);
+            value["indexer_head_dim"] = serde_json::json!(8);
+            value["indexer_budget"] = serde_json::json!(2);
+            value["indexer_compress_ratio"] = serde_json::json!(2);
+            let config = VulkanTransformerConfig::from_hf_value(&value)
+                .unwrap_or_else(|error| panic!("{layer_type} should parse: {error:#}"));
+            assert_eq!(config.architecture, VulkanTransformerArchitecture::Qwen4Exp);
+            assert_eq!(
+                config.linear_attention_layers,
+                vec![false],
+                "{layer_type} must select the full-attention schedule"
+            );
+        }
+        Ok(())
     }
 
     fn tiny_qwen4_peft_vulkan_graph(device: VulkanDevice) -> Result<VulkanTransformer> {

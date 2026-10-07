@@ -1,6 +1,7 @@
 #version 450
 
 #extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
 #include "fp32_sqrt_recip.glsl"
 #include "fp32_sleef_exp.glsl"
 

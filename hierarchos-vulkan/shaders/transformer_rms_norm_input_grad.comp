@@ -19,6 +19,7 @@ layout(push_constant) uniform Push {
     float weight_offset;
     uint pow_rstd;
     uint unfused_products;
+    uint exact_pow_backward;
 } pc;
 
 void main() {
@@ -111,8 +112,13 @@ void main() {
         // autograd differentiates the original pow(mean, -0.5) operation and
         // evaluates pow(mean, -1.5) independently; reusing rstd changes the
         // derivative by several ulps on Gemma4's small per-head norms.
-        precise float pow_neg_three_halves =
-            sleef_powf_neg_three_halves_u10(mean_squared_values[row]);
+        //
+        // `exact_pow_backward` selects the correctly rounded x^(-3/2) for the
+        // norms whose reference reaches the scalar CPU pow kernel. The SLEEF
+        // paraphrase stays available for the rows that were qualified with it.
+        precise float pow_neg_three_halves = pc.exact_pow_backward != 0u
+            ? fp32_pow_neg_three_halves(mean_squared_values[row])
+            : sleef_powf_neg_three_halves_u10(mean_squared_values[row]);
         precise float grad_mean = (dot * -0.5) * pow_neg_three_halves;
         precise float grad_square = grad_mean / float(pc.dim);
         for (uint col = 0; col < pc.dim; ++col) {

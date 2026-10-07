@@ -1,0 +1,63 @@
+#version 450
+
+// Intel Gen9 (HD Graphics 520-class) candidate for linear_forward.
+//
+// Contract preserved from the portable kernel:
+//   * one invocation owns exactly one (row, out_col) output element
+//   * the accumulation chain is the same ascending-k sequence of fma() calls
+//     with the same operands, so the FP32 result is bit-identical
+// Only the data path changes: a 16x16 output tile stages its x/w k-slices in
+// workgroup memory, cutting global loads per FMA by ~8x on bandwidth-starved
+// integrated parts. Workgroup geometry and dispatch mapping are unchanged.
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+// 17-float rows keep the k-slice reads bank-conflict free on Gen9.
+shared float x_tile[16][17];
+shared float w_tile[16][17];
+
+void main() {
+    uint tx = gl_LocalInvocationID.x;
+    uint ty = gl_LocalInvocationID.y;
+    uint lane = ty * 16u + tx;
+    uint out_col = gl_WorkGroupID.x * 16u + tx;
+    uint row = gl_WorkGroupID.y * 16u + ty;
+
+    uint tile_r = lane >> 4u;
+    uint tile_c = lane & 15u;
+    uint tile_row = gl_WorkGroupID.y * 16u + tile_r;
+    uint tile_col = gl_WorkGroupID.x * 16u + tile_r;
+    bool row_in_range = tile_row < pc.rows;
+    bool col_in_range = tile_col < pc.output_dim;
+    uint x_tile_base = tile_row * pc.input_dim;
+    uint w_tile_base = tile_col * pc.input_dim;
+
+    float sum = 0.0;
+    for (uint k0 = 0u; k0 < pc.input_dim; k0 += 16u) {
+        uint k = k0 + tile_c;
+        bool k_in_range = k < pc.input_dim;
+        x_tile[tile_r][tile_c] = (row_in_range && k_in_range) ? x[x_tile_base + k] : 0.0;
+        w_tile[tile_r][tile_c] = (col_in_range && k_in_range) ? weight[w_tile_base + k] : 0.0;
+        barrier();
+
+        uint k_end = min(16u, pc.input_dim - k0);
+        for (uint c = 0u; c < k_end; ++c) {
+            sum = fma(x_tile[ty][c], w_tile[tx][c], sum);
+        }
+        barrier();
+    }
+
+    if (row < pc.rows && out_col < pc.output_dim) {
+        output_values[row * pc.output_dim + out_col] = sum;
+    }
+}

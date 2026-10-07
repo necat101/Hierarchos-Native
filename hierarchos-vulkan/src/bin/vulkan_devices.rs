@@ -1,13 +1,16 @@
 use anyhow::{bail, Result};
-use hierarchos_vulkan::VulkanDevice;
+use hierarchos_vulkan::{vendor_kernel_plan, VulkanDevice};
 use serde_json::json;
 
 fn main() -> Result<()> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
-    let probe_external_self = match args.as_slice() {
-        [] => false,
-        [flag] if flag == "--probe-external-self" => true,
-        _ => bail!("usage: hierarchos-vulkan-devices [--probe-external-self]"),
+    let (probe_external_self, include_kernel_plan) = match args.as_slice() {
+        [] => (false, false),
+        [flag] if flag == "--probe-external-self" => (true, false),
+        [flag] if flag == "--kernel-plan" => (false, true),
+        _ => bail!(
+            "usage: hierarchos-vulkan-devices [--probe-external-self | --kernel-plan]"
+        ),
     };
     let devices = VulkanDevice::enumerate_compute_devices()?;
     let output = devices
@@ -48,6 +51,36 @@ fn main() -> Result<()> {
                     "platform_handle": device.external_semaphore.platform_handle_name(),
                 },
             });
+            if include_kernel_plan {
+                // The vendor tuning decision is derived from the physical device
+                // itself, so this reflects what the training backend would select
+                // on this machine. Matmul families are reported as capabilities:
+                // their variant is only dispatched for geometries that clear the
+                // measured crossover, which is decided per dispatch.
+                let selected = VulkanDevice::new_with_index(device.index).ok().map(|device| {
+                    let plan = vendor_kernel_plan(&device);
+                    json!({
+                        "vendor_id": format!("0x{:04x}", device.vendor_id()),
+                        "device_id": format!("0x{:04x}", device.device_id()),
+                        "driver_version": device.driver_version(),
+                        "integrated": device.is_integrated_gpu(),
+                        "kernels": plan
+                            .iter()
+                            .map(|selection| json!({
+                                "family": selection.family.label(),
+                                "vendor": selection.vendor.label(),
+                                "variant": selection.variant,
+                                "vendor_specific": selection.vendor_specific,
+                                "geometry_gated": selection.geometry_gated,
+                            }))
+                            .collect::<Vec<_>>(),
+                    })
+                });
+                value["vendor_kernel_plan"] = match selected {
+                    Some(plan) => plan,
+                    None => json!({"error": "could not open the physical device for a kernel plan"}),
+                };
+            }
             if probe_external_self {
                 value["opaque_external_self_probe"] = if external_candidate {
                     match VulkanDevice::probe_opaque_external_transport_indices(

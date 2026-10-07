@@ -4,15 +4,12 @@ use anyhow::{bail, Context, Result};
 use bytemuck::{Pod, Zeroable};
 
 use crate::{
-    read_f32_tensor, replace_f32_tensors, vulkan, AdamWHyperParams, GpuBuffer, VulkanDevice,
+    read_f32_tensor, replace_f32_tensors, vendor, vulkan, AdamWHyperParams, GpuBuffer, VulkanDevice,
 };
 
-const LINEAR_FORWARD_SPV: &[u8] = include_bytes!("../shaders/linear_forward.spv");
-const LINEAR_BIAS_FORWARD_SPV: &[u8] = include_bytes!("../shaders/linear_bias_forward.spv");
 const LINEAR_WEIGHT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_weight_grad.spv");
 const LINEAR_INPUT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad.spv");
 const BIAS_GRAD_SPV: &[u8] = include_bytes!("../shaders/bias_grad.spv");
-const ADAMW_SPV: &[u8] = include_bytes!("../shaders/adamw.spv");
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -75,8 +72,8 @@ pub struct LinearProjectionTrainer {
     output_readback: GpuBuffer,
     grad_input_readback: GpuBuffer,
 
-    linear_forward: vulkan::ComputeKernel,
-    linear_bias_forward: vulkan::ComputeKernel,
+    linear_forward: vendor::VendorMatmulKernel,
+    linear_bias_forward: vendor::VendorMatmulKernel,
     linear_weight_grad: vulkan::ComputeKernel,
     linear_input_grad: vulkan::ComputeKernel,
     bias_grad: vulkan::ComputeKernel,
@@ -149,21 +146,18 @@ impl LinearProjectionTrainer {
             .transpose()?;
 
         Ok(Self {
-            linear_forward: vulkan::ComputeKernel::new_with_access(
+            linear_forward: vendor::VendorMatmulKernel::new_with_access(
                 &device,
-                LINEAR_FORWARD_SPV,
+                vendor::VendorKernelFamily::LinearForward,
                 &[
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::MayWrite,
                 ],
-                std::mem::size_of::<LinearPush>() as u32,
             )?,
-            linear_bias_forward: vulkan::ComputeKernel::new(
+            linear_bias_forward: vendor::VendorMatmulKernel::new(
                 &device,
-                LINEAR_BIAS_FORWARD_SPV,
-                4,
-                std::mem::size_of::<LinearPush>() as u32,
+                vendor::VendorKernelFamily::LinearBiasForward,
             )?,
             linear_weight_grad: vulkan::ComputeKernel::new_with_access(
                 &device,
@@ -191,12 +185,7 @@ impl LinearProjectionTrainer {
                 2,
                 std::mem::size_of::<BiasPush>() as u32,
             )?,
-            adamw: vulkan::ComputeKernel::new(
-                &device,
-                ADAMW_SPV,
-                4,
-                std::mem::size_of::<AdamWPush>() as u32,
-            )?,
+            adamw: vendor::adamw_kernel(&device)?,
             weight: GpuBuffer::from_f32(&device, weight)?,
             bias: bias_buffer,
             input: GpuBuffer::zeros_f32(&device, input_len)?,

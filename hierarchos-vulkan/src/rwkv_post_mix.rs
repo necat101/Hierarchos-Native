@@ -8,7 +8,7 @@ use anyhow::{bail, Context, Result};
 use bytemuck::{Pod, Zeroable};
 
 use crate::rwkv_optimizer::{RwkvDecayClass, RwkvTrainableRef};
-use crate::{read_f32_tensor, vulkan, GpuBuffer, VulkanDevice};
+use crate::{read_f32_tensor, vendor, vulkan, GpuBuffer, VulkanDevice};
 
 const GROUP_NORM_FORWARD_SPV: &[u8] = include_bytes!("../shaders/rwkv_group_norm_forward.spv");
 const GROUP_NORM_BONUS_GATE_FORWARD_FUSED_SPV: &[u8] =
@@ -32,8 +32,6 @@ const GROUP_NORM_PARAM_GRAD_SPV: &[u8] =
 const BONUS_GATE_FORWARD_SPV: &[u8] = include_bytes!("../shaders/rwkv_bonus_gate_forward.spv");
 const BONUS_GATE_BACKWARD_SPV: &[u8] = include_bytes!("../shaders/rwkv_bonus_gate_backward.spv");
 const CHANNEL_REDUCE_SPV: &[u8] = include_bytes!("../shaders/channel_reduce.spv");
-const LINEAR_FORWARD_SPV: &[u8] = include_bytes!("../shaders/linear_forward.spv");
-const LINEAR_RESIDUAL_FORWARD_SPV: &[u8] = include_bytes!("../shaders/linear_residual_forward.spv");
 const LINEAR_INPUT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad.spv");
 const LINEAR_WEIGHT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_weight_grad.spv");
 
@@ -224,8 +222,8 @@ pub struct RwkvPostMixOp {
     bonus_gate_forward: vulkan::ComputeKernel,
     bonus_gate_backward: vulkan::ComputeKernel,
     channel_reduce: vulkan::ComputeKernel,
-    linear_forward: vulkan::ComputeKernel,
-    linear_residual_forward: vulkan::ComputeKernel,
+    linear_forward: vendor::VendorMatmulKernel,
+    linear_residual_forward: vendor::VendorMatmulKernel,
     linear_input_grad: vulkan::ComputeKernel,
     linear_weight_grad: vulkan::ComputeKernel,
 }
@@ -476,22 +474,19 @@ impl RwkvPostMixOp {
                 2,
                 std::mem::size_of::<ReducePush>() as u32,
             )?,
-            linear_forward: vulkan::ComputeKernel::new(
+            linear_forward: vendor::VendorMatmulKernel::new(
                 &device,
-                LINEAR_FORWARD_SPV,
-                3,
-                std::mem::size_of::<LinearPush>() as u32,
+                vendor::VendorKernelFamily::LinearForward,
             )?,
-            linear_residual_forward: vulkan::ComputeKernel::new_with_access(
+            linear_residual_forward: vendor::VendorMatmulKernel::new_with_access(
                 &device,
-                LINEAR_RESIDUAL_FORWARD_SPV,
+                vendor::VendorKernelFamily::LinearResidualForward,
                 &[
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::MayWrite,
                 ],
-                std::mem::size_of::<LinearPush>() as u32,
             )?,
             linear_input_grad: vulkan::ComputeKernel::new_with_access(
                 &device,
