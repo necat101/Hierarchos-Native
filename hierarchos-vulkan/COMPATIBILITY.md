@@ -399,6 +399,58 @@ now hoists creation to match (see `VENDOR_TUNING.md`, "Gen9 rows16 driver quirk
 (resolved)"). See [VENDOR_TUNING.md](VENDOR_TUNING.md) for the matrix, measured
 results, rejected candidates, and the qualification checklist.
 
+### Host ATen vector shape (AVX2 vs AVX-512)
+
+Kernel *variants* are selected by GPU vendor. Two reductions whose oracle is the
+host's PyTorch CPU library are selected by **host CPU capability** instead,
+because ATen dispatches its vectorized kernels by ISA at run time and the
+reduction shape changes with that dispatch:
+
+| Host | Vector width | Narrow-output (`N == 8`) GEMM | Log-softmax fold |
+| --- | --- | --- | --- |
+| AVX2-only (Gen9 target class) | 8 `f32` | two interleaved fused FMA lanes | 8 interleaved lanes, sequential fold |
+| AVX-512 (`avx512f` present) | 16 `f32` | four interleaved lanes, materialized products | 16 interleaved lanes, sequential fold |
+
+Both shapes are correct; only one matches a given machine, and the wrong one is
+not merely imprecise. Measured on the AMD Radeon target (Ryzen Z1 Extreme, an
+AVX-512 host) with the AVX2 shape applied everywhere: the `saved`-stage
+`model.embed_tokens` adjoint moved from `7.45e-9` to `3.22e-6` on Gemma 4 and
+from `1.79e-7` to `2.98e-7` on Qwen2.5-sliding-tied, which pushed six
+previously green PEFT saved-module fixtures (`gemma3`, `gemma4`, `minimax_m2`,
+`minimax_m3`, `smollm3`, `qwen2_5_sliding_tied`) past the `2e-7` gate. The same
+kernels are one ulp off in the other direction on an AVX2-only host, so neither
+shape can be baked in.
+
+Selection is a capability probe (`transformer::aten_vector_width`), cached once
+per process and asserted by `aten_vector_width_follows_host_avx512_support_not_the_gpu_vendor`
+and `narrow_gemm_and_log_softmax_kernels_track_the_host_vector_width`. It is not
+a GPU-vendor choice: the modules are `linear_forward_lane2` /
+`linear_forward_lane4` and the two `transformer_cross_entropy.comp` builds
+(`falcon_h1_cross_entropy.spv` at 8 lanes, `falcon_h1_cross_entropy_lanes16.spv`
+at 16). `HIERARCHOS_ATEN_VECTOR_WIDTH=8|16` pins the shape for qualification
+when the reference wheel's kernels differ from the CPU's capability.
+
+On an AVX2-only host the probe resolves to 8 and the dispatched modules and
+parameters are exactly the Gen9-tuned ones, so the Intel target is unchanged —
+verified by forcing `HIERARCHOS_ATEN_VECTOR_WIDTH=8` on the AMD machine and
+reproducing the AVX2 numbers to the last bit (`3.219e-6`, `8.345e-7`,
+`2.086e-7`, `1.639e-7` on Gemma 4, the exact values that run produces). With the
+probe resolving to 16 on that same machine, all six fixtures return to the pass
+band: Gemma 4's `saved` adjoints fall back to `7.451e-9` / `3.725e-9` /
+`7.451e-9`, and Qwen2.5-sliding-tied's `model.embed_tokens` to `1.788e-7` against
+a `1.937e-7`–`2.980e-7` AVX2-shaped range.
+
+The same host-ISA choice moves a handful of fixture logits by one to three
+`f32` ulps in the *forward* set, in both directions: on the AMD target the
+21-comparison headline forward stays green with zero failing values, and its
+worst row moves from `8.941e-8` (AVX2 shape) to `1.192e-7` (AVX-512 shape)
+against the unchanged `2e-7` ceiling, while Gemma 4's unmasked row *improves*
+from `8.941e-8` to `4.657e-8`. Per-family calibration of the narrow shape
+(Gemma3/4 on the four-lane module, families whose fixtures measured better on
+the two-lane one kept there) is the next refinement; the uniform rule above is
+what the current evidence supports, because the saved-module stage is the
+surface where a mismatched shape is amplified rather than lost in the noise.
+
 ## Remaining parity work
 
 - Hundreds of unregistered architectures still require native graph operations,

@@ -2216,6 +2216,9 @@ glslc shaders/linear3_forward.comp -o shaders/linear3_forward.spv
 glslc shaders/linear3_input_grad.comp -o shaders/linear3_input_grad.spv
 glslc shaders/linear3_time_mix_backward_fused.comp -o shaders/linear3_time_mix_backward_fused.spv
 glslc shaders/linear3_weight_grad.comp -o shaders/linear3_weight_grad.spv
+glslangValidator -V --target-env vulkan1.0 -Ishaders shaders/transformer_cross_entropy.comp -o shaders/transformer_cross_entropy.spv
+glslangValidator -V --target-env vulkan1.0 -DHIERARCHOS_LOG_SOFTMAX_GRAD=1 -Ishaders shaders/transformer_cross_entropy.comp -o shaders/falcon_h1_cross_entropy.spv
+glslangValidator -V --target-env vulkan1.0 -DHIERARCHOS_LOG_SOFTMAX_GRAD=1 -DHIERARCHOS_LOG_SOFTMAX_LANES=16 -Ishaders shaders/transformer_cross_entropy.comp -o shaders/falcon_h1_cross_entropy_lanes16.spv
 glslc shaders/cross_entropy_grad.comp -o shaders/cross_entropy_grad.spv
 glslc shaders/cross_entropy_linear_row_stats_streaming.comp -o shaders/cross_entropy_linear_row_stats_streaming.spv
 glslc shaders/cross_entropy_linear_row_stats_streaming_fp16_packed.comp -o shaders/cross_entropy_linear_row_stats_streaming_fp16_packed.spv

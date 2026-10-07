@@ -94,9 +94,23 @@ dispatches the portable module — never a guess.
 | `HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS` | Force the portable modules everywhere. |
 | `HIERARCHOS_VULKAN_FORCE_VENDOR` | Override classification on one adapter (`amd`, `intel`, `nvidia`, ..., `portable`). |
 | `HIERARCHOS_VULKAN_FORCE_NATIVE_FP16_LM_COMPUTE` | Re-enable the packed-FP16 LM adjoint kernels on Intel Gen9 for driver re-qualification (see below). |
+| `HIERARCHOS_ATEN_VECTOR_WIDTH` | Pin the host ATen vector shape (`8` AVX2 / `16` AVX-512) that the narrow-GEMM and log-softmax modules mirror; default is the CPU capability probe. |
 
 All are read at kernel-construction time, so the same binary can be A/B'd
 without a rebuild.
+
+### Host ATen vector shape is not a vendor choice
+
+The narrow-output GEMM (`output_dim == 8`) and the materialized log-softmax fold
+reproduce PyTorch's CPU kernels, and ATen selects those kernels by CPU ISA. The
+Gen9 target is an AVX2-only machine, so its tuned modules are the 8-float shape
+(`linear_forward_lane2`, `falcon_h1_cross_entropy.spv` with an 8-lane fold),
+while an AVX-512 host runs the 16-float shape (`linear_forward_lane4`, and
+`falcon_h1_cross_entropy_lanes16.spv`, built from the same source with
+`-DHIERARCHOS_LOG_SOFTMAX_LANES=16`). Selection follows the CPU capability probe,
+not the GPU vendor, so both hosts stay bit-exact to their own oracle; on an
+AVX2-only host the probe resolves to 8 and the Gen9-tuned modules are dispatched
+unchanged. See `COMPATIBILITY.md`, "Host ATen vector shape (AVX2 vs AVX-512)".
 
 ### Intel Gen9 FP16 LM reliability policy
 
@@ -420,6 +434,15 @@ so the AMD-side record remains the 2026-09-30 32/32 all-stage statement on the
 older `5.16.0.dev0` oracle documented in `COMPATIBILITY.md`; what this machine
 contributes is that the portable (AMD-target) modules and the tuned Intel
 modules produce identical numbers on every surface both of them can run.
+
+The seven red rows above were measured while the narrow-GEMM and log-softmax
+modules were hard-coded to the AVX2 shape on every host. Selection now follows
+the host CPU ISA (see `COMPATIBILITY.md`, "Host ATen vector shape"), which on
+this AVX2-only laptop resolves to the same 8-lane modules, so the record above
+still describes the Gen9 target exactly. Because its red set overlaps five of the
+six rows those same kernels pushed past the gate on an AVX-512 host, re-running
+one of them here with `HIERARCHOS_ATEN_VECTOR_WIDTH=16` is the cheapest way to
+confirm the oracle-boundary explanation above.
 
 ## Qualification checklist
 

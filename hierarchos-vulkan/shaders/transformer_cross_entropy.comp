@@ -3,6 +3,15 @@
 #ifndef HIERARCHOS_LOG_SOFTMAX_GRAD
 #define HIERARCHOS_LOG_SOFTMAX_GRAD 0
 #endif
+// Number of interleaved accumulator lanes in the materialized log-softmax
+// reduction below.  ATen runs that reduction on the host's vector width, so the
+// shape is a property of the machine, not of the model or the GPU: an AVX2-only
+// host reduces 8 floats per vector and an AVX-512 host 16.  The module the
+// process dispatches is chosen to match the host (`aten_vector_width` in the
+// Rust side); 8 stays the default so the AVX2 build is unchanged.
+#ifndef HIERARCHOS_LOG_SOFTMAX_LANES
+#define HIERARCHOS_LOG_SOFTMAX_LANES 8
+#endif
 #if HIERARCHOS_LOG_SOFTMAX_GRAD
 #extension GL_GOOGLE_include_directive : require
 #include "fp32_fma_exact.glsl"
@@ -72,31 +81,31 @@ void main() {
 #if HIERARCHOS_LOG_SOFTMAX_GRAD
     gradient_scale = fp32_div(row_weight, weight_sum);
     // PyTorch's CPU log-softmax reduces the `exp(x - max)` terms with
-    // `vec::map_reduce_all`.  On AVX2 the accumulator is one 8-wide vector:
-    // it is seeded with the first vocabulary chunk, every later chunk adds
-    // into the same lanes, and the eight lane totals are then folded
-    // *sequentially* into lane 0 (slow `vec_reduce_all`).  The balanced
-    // 16-wide tree that an AVX512 map would use is NOT what this build does.
-    // The association is load-bearing: a 16-lane balanced tree leaves 30 of
-    // the 128 gemma4 layer-0 logits adjoints one ulp away from the HF oracle
-    // and propagates past the 2e-7 saved-module gate, while the 8-lane
-    // sequential fold reproduces `torch.log_softmax` bit-for-bit.  Reproduce
-    // the reduction with SLEEF expf_u10, keep LogSoftmax's materialized
-    // log-probability before its backward exp, and use the correctly rounded
-    // fp32 log and division.  The scalar log remains a single rounded FP32
-    // operation, matching the CPU kernel's staging much more closely than the
-    // algebraically collapsed softmax derivative.
-    precise float lane_sum[8];
-    for (uint lane = 0u; lane < 8u; ++lane) {
+    // `vec::map_reduce_all`: the accumulator is one vector of the host's ATen
+    // width, it is seeded with the first vocabulary chunk, every later chunk
+    // adds into the same lanes, and the lane totals are then folded
+    // *sequentially* into lane 0 (slow `vec_reduce_all`).  The association is
+    // load-bearing and the lane count follows the host: an 8-lane sequential
+    // fold reproduces `torch.log_softmax` bit-for-bit on an AVX2-only machine,
+    // while an AVX-512 machine reduces 16 floats per vector and a mismatched
+    // fold leaves logits adjoints one ulp away from the HF oracle and
+    // propagates past the 2e-7 saved-module gate.  Reproduce the reduction with
+    // SLEEF expf_u10, keep LogSoftmax's materialized log-probability before its
+    // backward exp, and use the correctly rounded fp32 log and division.  The
+    // scalar log remains a single rounded FP32 operation, matching the CPU
+    // kernel's staging much more closely than the algebraically collapsed
+    // softmax derivative.
+    precise float lane_sum[HIERARCHOS_LOG_SOFTMAX_LANES];
+    for (uint lane = 0u; lane < uint(HIERARCHOS_LOG_SOFTMAX_LANES); ++lane) {
         lane_sum[lane] = 0.0;
     }
     for (uint v = 0; v < pc.vocab_size; ++v) {
         precise float shifted = logits[base + v] - max_logit;
-        uint lane = v & 7u;
+        uint lane = v & uint(HIERARCHOS_LOG_SOFTMAX_LANES - 1);
         lane_sum[lane] += sleef_expf_u10(shifted);
     }
     precise float torch_sum = lane_sum[0];
-    for (uint lane = 1u; lane < 8u; ++lane) {
+    for (uint lane = 1u; lane < uint(HIERARCHOS_LOG_SOFTMAX_LANES); ++lane) {
         torch_sum += lane_sum[lane];
     }
     precise float torch_log_sum = sleef_logf_u10_positive(torch_sum);

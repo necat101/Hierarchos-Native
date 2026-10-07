@@ -42,6 +42,7 @@ use crate::{
 };
 
 const LINEAR_FORWARD_LANE2_SPV: &[u8] = include_bytes!("../shaders/linear_forward_lane2.spv");
+const LINEAR_FORWARD_LANE4_SPV: &[u8] = include_bytes!("../shaders/linear_forward_lane4.spv");
 const LINEAR_BIAS_FORWARD_LANE2_SPV: &[u8] =
     include_bytes!("../shaders/linear_bias_forward_lane2.spv");
 const LORA_A_FORWARD_SPV: &[u8] = include_bytes!("../shaders/lora_a_forward.spv");
@@ -25797,12 +25798,96 @@ struct RopePush {
     position_stride: u32,
 }
 
+/// Override the host ATen vector width probed by [`aten_vector_width`].
+///
+/// Accepts `8` (AVX2-shaped) or `16` (AVX-512-shaped) and exists so a
+/// qualification run can pin the shape its oracle was built with, for example
+/// when the reference wheel has no AVX-512 kernels even though the CPU has
+/// them.
+pub const HIERARCHOS_ATEN_VECTOR_WIDTH_ENV: &str = "HIERARCHOS_ATEN_VECTOR_WIDTH";
+
+/// Vector width (in `f32` lanes) of the ATen CPU kernels the narrow-GEMM and
+/// reduction modules mirror.
+///
+/// ATen dispatches its vectorized CPU code by ISA at run time, and several of
+/// the reductions this crate reproduces change shape with that dispatch: an
+/// AVX-512 host works on 16-float vectors (four interleaved narrow-GEMM lanes
+/// with materialized products, a 16-lane log-softmax fold), an AVX2-only host
+/// on 8-float vectors (two interleaved fused FMA lanes, an 8-lane fold).  Which
+/// shape is the correct oracle is therefore a property of the *host*, not of
+/// the GPU: baking either one in makes the same binary bit-exact on one machine
+/// and one ulp away on the other, and that ulp is amplified by every lower norm
+/// on the saved-module gradient path.
+///
+/// The check is a CPU capability probe, not a build-time assumption, because a
+/// shipped binary runs on both kinds of machine.  The result is cached after
+/// the first call so per-dispatch callers pay nothing.
+pub fn aten_vector_width() -> u32 {
+    static WIDTH: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    *WIDTH.get_or_init(|| {
+        let requested = std::env::var_os(HIERARCHOS_ATEN_VECTOR_WIDTH_ENV)
+            .and_then(|raw| raw.to_string_lossy().trim().parse::<u32>().ok());
+        aten_vector_width_for(requested, host_has_avx512())
+    })
+}
+
+/// Device-independent form of [`aten_vector_width`]: the override wins when it
+/// names a supported width, and the host capability decides otherwise.  Pure so
+/// the policy can be asserted without depending on the machine running the
+/// tests or on the process-wide cache.
+pub fn aten_vector_width_for(requested: Option<u32>, host_has_avx512: bool) -> u32 {
+    match requested {
+        Some(8) => 8,
+        Some(16) => 16,
+        _ if host_has_avx512 => 16,
+        _ => 8,
+    }
+}
+
+/// Narrow-output (`output_dim == 8`) GEMM module a host dispatches.
+///
+/// ATen's narrow-GEMM micro-kernel is the two-lane interleaved FMA shape on an
+/// AVX2-only machine and the four-lane materialized-product shape where
+/// AVX-512 is available, so the module follows the host rather than the GPU
+/// vendor.  Kept as a pure function of the width so it can be asserted by
+/// tests without a device.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum NarrowGemmPlan {
+    /// Two interleaved fused FMA lanes, folded by one horizontal add.
+    Lane2,
+    /// Four interleaved lanes over materialized products, balanced reduction.
+    Lane4,
+}
+
+fn narrow_gemm_plan(vector_width: u32) -> NarrowGemmPlan {
+    if vector_width < 16 {
+        NarrowGemmPlan::Lane2
+    } else {
+        NarrowGemmPlan::Lane4
+    }
+}
+
+/// Whether the host exposes the AVX-512 foundation state ATen gates its 16-float
+/// vector kernels on.
+#[cfg(target_arch = "x86_64")]
+fn host_has_avx512() -> bool {
+    std::arch::is_x86_feature_detected!("avx512f")
+}
+
+/// Non-x86 hosts have no ATen AVX-512 vector kernels; they take the 8-float
+/// shape, which is also what a build without AVX-512 support would run.
+#[cfg(not(target_arch = "x86_64"))]
+fn host_has_avx512() -> bool {
+    false
+}
+
 struct TransformerKernels {
     /// Geometry-gated vendor slot: the shared transformer matmul runs at every
     /// row count (prefill and single-row cached decode), so the module is
     /// chosen per dispatch rather than at construction.
     linear_forward: vendor::VendorMatmulKernel,
     linear_forward_lane2: vulkan::ComputeKernel,
+    linear_forward_lane4: vulkan::ComputeKernel,
     linear_bias_forward_lane2: vulkan::ComputeKernel,
     lora_a_forward: vulkan::ComputeKernel,
     lora_a_forward_lane8_muladd: vulkan::ComputeKernel,
@@ -25838,6 +25923,7 @@ struct TransformerKernels {
     roberta_position_grad: vulkan::ComputeKernel,
     cross_entropy: vulkan::ComputeKernel,
     falcon_cross_entropy: vulkan::ComputeKernel,
+    falcon_cross_entropy_lanes16: vulkan::ComputeKernel,
     gelu_tanh_forward: vulkan::ComputeKernel,
     gelu_tanh_backward: vulkan::ComputeKernel,
     gelu_erf_forward: vulkan::ComputeKernel,
@@ -25963,6 +26049,30 @@ struct TransformerKernels {
 }
 
 impl TransformerKernels {
+    /// Materialized log-softmax cross-entropy at the host's ATen vector width.
+    ///
+    /// The two modules are the same source built with 16 and 8 interleaved
+    /// reduction lanes; only the lane count differs, so the AVX2 build stays
+    /// byte-identical to the module the Gen9 tuning measured while an AVX-512
+    /// host reproduces its own `torch.log_softmax`.
+    fn falcon_cross_entropy(&self) -> &vulkan::ComputeKernel {
+        if aten_vector_width() >= 16 {
+            &self.falcon_cross_entropy_lanes16
+        } else {
+            &self.falcon_cross_entropy
+        }
+    }
+
+    /// Narrow-output (`output_dim == 8`) GEMM module at the host's ATen vector
+    /// shape.  Both modules are always constructed; only the dispatched one
+    /// changes, so each host stays byte-identical to its own oracle.
+    fn narrow_output_forward(&self) -> &vulkan::ComputeKernel {
+        match narrow_gemm_plan(aten_vector_width()) {
+            NarrowGemmPlan::Lane4 => &self.linear_forward_lane4,
+            NarrowGemmPlan::Lane2 => &self.linear_forward_lane2,
+        }
+    }
+
     fn new(device: &VulkanDevice) -> Result<Self> {
         Ok(Self {
             linear_forward: vendor::VendorMatmulKernel::new(
@@ -25972,6 +26082,12 @@ impl TransformerKernels {
             linear_forward_lane2: vulkan::ComputeKernel::new(
                 device,
                 LINEAR_FORWARD_LANE2_SPV,
+                3,
+                12,
+            )?,
+            linear_forward_lane4: vulkan::ComputeKernel::new(
+                device,
+                LINEAR_FORWARD_LANE4_SPV,
                 3,
                 12,
             )?,
@@ -26108,6 +26224,12 @@ impl TransformerKernels {
             )?,
             cross_entropy: vulkan::ComputeKernel::new(device, CROSS_ENTROPY_SPV, 5, 8)?,
             falcon_cross_entropy: vulkan::ComputeKernel::new(device, include_bytes!("../shaders/falcon_h1_cross_entropy.spv"), 5, 8)?,
+            falcon_cross_entropy_lanes16: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../shaders/falcon_h1_cross_entropy_lanes16.spv"),
+                5,
+                8,
+            )?,
             gelu_tanh_forward: vulkan::ComputeKernel::new(device, GELU_TANH_FORWARD_SPV, 2, 4)?,
             gelu_tanh_backward: vulkan::ComputeKernel::new(device, GELU_TANH_BACKWARD_SPV, 3, 4)?,
             gelu_erf_forward: vulkan::ComputeKernel::new(device, GELU_ERF_FORWARD_SPV, 2, 4)?,
@@ -27509,14 +27631,15 @@ impl VulkanLinear {
             .map(|lora| &lora.base_output)
             .unwrap_or(output);
         if self.has_bias {
-            // PyTorch CPU's narrow-output (N == 8) GEMM path is also used for
-            // the biased K/V projections of the Qwen2 family (and any other
-            // `attention_bias` model whose K/V width is 8): two interleaved
-            // FMA lanes folded by a single add, with the bias applied in the
-            // epilogue.  The serial-FMA `linear_bias_forward` module is the
-            // wrong oracle for that width, so the biased slot routes through
-            // `linear_bias_forward_lane2` exactly like the biasless slot above.
-            if self.output_dim == 8 {
+            // PyTorch CPU's narrow-output (N == 8) GEMM path also covers the
+            // biased K/V projections of the Qwen2 family (and any other
+            // `attention_bias` model whose K/V width is 8), but its accumulator
+            // shape follows the host's ATen vector width: an AVX2-only host
+            // folds two interleaved FMA lanes, and an AVX-512 host runs the
+            // wider serial kernel this slot already holds.  Only the AVX2 shape
+            // has a dedicated module, so the narrow biased slot uses it when the
+            // host asks for that shape and the shared kernel otherwise.
+            if self.output_dim == 8 && aten_vector_width() < 16 {
                 kernels.linear_bias_forward_lane2.record_dispatch(
                     commands,
                     &[input, &self.weight.values, &self.bias.values, base_output],
@@ -27532,10 +27655,11 @@ impl VulkanLinear {
                 )?;
             }
         } else if self.output_dim == 8 {
-            // PyTorch CPU's narrow-output (N == 8) GEMM path accumulates on
-            // two interleaved FMA lanes folded by a single add.  Match it so
-            // narrow K/V projections stay bit-exact (linear_forward_lane2.comp).
-            kernels.linear_forward_lane2.record_dispatch(
+            // PyTorch CPU's narrow-output (N == 8) GEMM path keeps the host's
+            // ATen vector shape: two fused lanes on an AVX2-only host, four
+            // materialized-product lanes on an AVX-512 host
+            // (`TransformerKernels::narrow_output_forward`).
+            kernels.narrow_output_forward().record_dispatch(
                 commands,
                 &[input, &self.weight.values, base_output],
                 bytemuck::bytes_of(&push),
@@ -27636,12 +27760,12 @@ impl VulkanLinear {
             } else {
                 // Gemma3/4's narrow K/V projections follow PyTorch's
                 // small-output CPU GEMM path for both the frozen base
-                // projection and the rank-2 LoRA-B projection: two interleaved
-                // FMA lanes folded by a single add.  Reuse the already-scoped
-                // K/V selector rather than changing the shared linear kernel
-                // or all other LoRA-B projections.
+                // projection and the rank-2 LoRA-B projection, at the host's
+                // ATen vector shape.  Reuse the already-scoped K/V selector
+                // rather than changing the shared linear kernel or all other
+                // LoRA-B projections.
                 if self.output_dim == 8 {
-                    kernels.linear_forward_lane2.record_dispatch(
+                    kernels.narrow_output_forward().record_dispatch(
                         commands,
                         &[&lora.a_output, &lora.b.values, &lora.b_output],
                         bytemuck::bytes_of(&b_push),
@@ -27678,7 +27802,7 @@ impl VulkanLinear {
                 )?;
                 let (dora_base, dora_base_has_bias) = if training && lora.dropout > 0.0 {
                     if self.output_dim == 8 {
-                        kernels.linear_forward_lane2.record_dispatch(
+                        kernels.narrow_output_forward().record_dispatch(
                             commands,
                             &[lora_input, &self.weight.values, &dora.branch_base_output],
                             bytemuck::bytes_of(&push),
@@ -27914,15 +28038,14 @@ impl VulkanLinear {
                 }
             }
             // The B adjoint's reduction is `self.output_dim` and its width is
-            // the LoRA rank, so PyTorch's CPU `mm` lands on the two-lane
-            // interleaved kernel for narrow ranks regardless of architecture.
-            // This is not a vendor choice: measured over every LoRA-B adjoint
-            // of the strict fixtures (K in {8, 16, 32}), only the two-lane
-            // fused topology reproduces `torch.mm` bit-exactly, and the serial
-            // FMA / multiply-add kernels the architecture flags used to pick
-            // both miss by one ulp.  `unfused_lora_b` still governs the wide
-            // ranks that no fixture exercises.
-            let b_input_kernel = if lora.rank <= 8 {
+            // the LoRA rank, so PyTorch's CPU `mm` lands on a narrow-rank
+            // interleaved kernel.  Which one is again the host's ATen vector
+            // shape, not the GPU's vendor: the two-lane fused topology
+            // reproduces `torch.mm` bit-exactly on an AVX2-only host, while the
+            // AVX-512 host's `mm` reduction is the serial / multiply-add shape
+            // the architecture flags already pick.  `unfused_lora_b` still
+            // governs the wide ranks that no fixture exercises.
+            let b_input_kernel = if lora.rank <= 8 && aten_vector_width() < 16 {
                 &kernels.linear_input_grad_lane2
             } else if unfused_lora_b {
                 &kernels.linear_input_grad_muladd
@@ -81310,7 +81433,7 @@ impl VulkanTransformer {
         // existing materialized log-softmax derivative to preserve FP32 staging.
         let ce_kernel = if self.lora_config.is_some()
             || self.config.architecture == VulkanTransformerArchitecture::FalconH1 {
-            &self.kernels.falcon_cross_entropy
+            self.kernels.falcon_cross_entropy()
         } else { &self.kernels.cross_entropy };
         ce_kernel.record_dispatch(
             &mut commands,
@@ -129224,6 +129347,71 @@ mod tests {
                 );
             }
         }
+        Ok(())
+    }
+
+    #[test]
+    fn aten_vector_width_override_names_a_supported_width_or_defers() {
+        // An explicit, supported width wins even when it disagrees with the
+        // host, so a qualification run can pin the shape its oracle was built
+        // with.  Anything else defers to the capability probe.
+        assert_eq!(aten_vector_width_for(Some(8), true), 8);
+        assert_eq!(aten_vector_width_for(Some(16), false), 16);
+        for unsupported in [Some(0), Some(1), Some(4), Some(32), Some(512), None] {
+            assert_eq!(aten_vector_width_for(unsupported, true), 16);
+            assert_eq!(aten_vector_width_for(unsupported, false), 8);
+        }
+    }
+
+    #[test]
+    fn aten_vector_width_follows_host_avx512_support_not_the_gpu_vendor() {
+        // The 16-float ATen kernels are gated on the CPU's AVX-512 state.  A
+        // Gen9 host without it must keep the 8-float shape, including on the
+        // tuned Intel path, and an AVX-512 host must not.
+        assert_eq!(aten_vector_width_for(None, false), 8);
+        assert_eq!(aten_vector_width_for(None, true), 16);
+    }
+
+    #[test]
+    fn narrow_gemm_plan_follows_host_vector_width() {
+        // An AVX2-only host keeps the two-lane shape the Gen9 tuning measured;
+        // an AVX-512 host uses the four-lane materialized-product shape.
+        assert_eq!(narrow_gemm_plan(8), NarrowGemmPlan::Lane2);
+        assert_eq!(narrow_gemm_plan(16), NarrowGemmPlan::Lane4);
+    }
+
+    #[test]
+    fn narrow_gemm_and_log_softmax_kernels_track_the_host_vector_width() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let kernels = TransformerKernels::new(&device)?;
+        let wide = aten_vector_width() >= 16;
+
+        // The narrow-output GEMM and the materialized log-softmax reduction are
+        // the two places where ATen's per-ISA kernel shape is observable in the
+        // saved-module gradients, so both selectors have to follow the probe
+        // rather than a fixed or vendor-derived constant.
+        let narrow = kernels.narrow_output_forward();
+        assert_eq!(
+            std::ptr::eq(narrow, &kernels.linear_forward_lane4),
+            wide,
+            "narrow-output GEMM module must follow aten_vector_width()"
+        );
+        assert_eq!(
+            std::ptr::eq(narrow, &kernels.linear_forward_lane2),
+            !wide,
+            "the narrow-output GEMM module must be the other shape when the host is not AVX-512"
+        );
+        assert!(
+            !std::ptr::eq(&kernels.linear_forward_lane2, &kernels.linear_forward_lane4),
+            "the two narrow-output modules must stay distinct"
+        );
+        assert_eq!(
+            std::ptr::eq(kernels.falcon_cross_entropy(), &kernels.falcon_cross_entropy_lanes16),
+            wide,
+            "log-softmax cross-entropy module must follow aten_vector_width()"
+        );
         Ok(())
     }
 }
