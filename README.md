@@ -93,6 +93,49 @@ For normal native use you need:
 
 Python and PyTorch are used only by optional development/reference validation scripts. They are not runtime dependencies of the native training backend.
 
+## Cross-platform support: multiple GPU vendors and host CPU instruction sets
+
+The native backend drives Vulkan compute directly through Rust `ash`, so there
+is no vendor-specific compute stack to install: no CUDA, ROCm, oneAPI, or
+PyTorch device plugin participates in the native path. Qualification is
+recorded against two host classes that differ in both dimensions, and the same
+checkout is bit-exact on each:
+
+| Qualification host | GPU | Host CPU dispatch | Selected reduction shapes |
+| --- | --- | --- | --- |
+| Intel Gen9 target (i5-6200U, Skylake-U) | HD Graphics 520 | AVX2 only, `avx512f` absent | two interleaved fused-FMA GEMM lanes; 8-lane log-softmax fold |
+| AMD Radeon target (Ryzen Z1 Extreme) | Radeon | AVX-512, `avx512f` present | four interleaved GEMM lanes with materialized products; 16-lane log-softmax fold |
+
+Kernel *variants* are selected by GPU vendor, but two reductions whose
+reference is the host's own PyTorch CPU library are selected by **host CPU
+capability** instead: ATen dispatches its vectorized CPU kernels by instruction
+set at run time, and that dispatch changes the reduction shape. Both shapes are
+correct, only one matches a given machine, and the wrong one is not merely
+imprecise - applying the AVX2 shape on an AVX-512 host moved the `saved`-stage
+`model.embed_tokens` adjoint from `7.45e-9` to `3.22e-6` on Gemma 4 and pushed
+six previously green fixtures past the fixed `2e-7` gate. The backend therefore
+probes the host once per process (`transformer::aten_vector_width`, cached) and
+dispatches the matching module pair instead of baking one host's shape into the
+portable path. `HIERARCHOS_ATEN_VECTOR_WIDTH=8|16` pins the shape for
+qualification when a reference wheel's kernels differ from the CPU's own
+capability.
+
+Both host classes pass the full three-stage PEFT matrix at the unchanged `2e-7`
+gate: 32/32 ordinary LoRA, 32/32 named-adapter switching, and 32/32 saved-module
+fixtures, each qualification run reporting provenance `inputs_unchanged=true`
+against its documented oracle pin. On the AVX2-only Gen9 host the post-change
+matrix is bit-identical, field for field, to the pre-change report across all
+32 families, and the committed 8-lane modules rebuild byte-for-byte from the
+checked-in GLSL. The AVX-512 dispatch is qualified on the AMD machine, the only
+host that executes it natively. The shape table and the per-host measurements
+are in [COMPATIBILITY.md](hierarchos-vulkan/COMPATIBILITY.md) and
+[VENDOR_TUNING.md](hierarchos-vulkan/VENDOR_TUNING.md).
+
+Nothing here is Windows-specific: the backend is plain Rust plus a Vulkan 1.x
+loader, and SPIR-V is checked in, so an ordinary build needs no shader compiler.
+The recipe snippets use PowerShell; Quick start notes the non-Windows
+adjustments.
+
 ## Quick start
 
 Clone the repository:
@@ -552,6 +595,8 @@ Hierarchos Native intentionally fails closed when a requested execution contract
 - [Pure-Rust Hierarchos inference](hierarchos-inference/README.md)
 - [Native desktop GUI](hierarchos-gui/README.md)
 - [Standalone distribution layout](hierarchos-vulkan/standalone/README.md)
+- [Vendor tuning, per-host measurements, and rejected kernels](hierarchos-vulkan/VENDOR_TUNING.md)
+- [AMD regression audit and the host-ISA change record](AMD_REGRESSION_AUDIT.md)
 
 ## Support the Developer:
 [Patreon](https://www.patreon.com/cw/MakhiBurroughs)
