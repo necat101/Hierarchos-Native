@@ -8,9 +8,10 @@ evidence that the Intel target is unchanged.
 ## Verdict
 
 - **AMD is green again**: headline forward and two-step-AdamW training pass
-  strict (`2e-7`), the full 32-family × 3-stage PEFT matrix is green with a valid
-  provenance receipt (`inputs_unchanged=true`), and `693 passed / 0 failed` in
-  both debug and release lib suites.
+  strict (`2e-7`), the full 32-family × 3-stage PEFT matrix is green with a
+  provenance receipt that still matches the pushed tree input-for-input
+  (`inputs_unchanged=true`, 3881 hashes re-derived), and `693 passed / 0 failed`
+  in both debug and release lib suites.
 - **Intel is provably unchanged**: the dispatched modules and parameters on an
   AVX2-only host are the Gen9-tuned ones, and the shader edit emits
   *byte-identical* SPIR-V at the AVX2 shape.
@@ -93,12 +94,21 @@ and [VENDOR_TUNING.md](hierarchos-vulkan/VENDOR_TUNING.md).
 | Full PEFT matrix (32 families × LoRA/saved/switching) | **32 families, 0 failures**, provenance `inputs_unchanged=true` (3881 hashed inputs), 32/32 on *every* stage |
 
 Because the corrupted artifacts above had to be cleared, the qualification
-binaries were rebuilt from the same frozen source and the whole ladder was
-re-qualified on them, reproducing the recorded results exactly: `693 passed / 0
-failed` in both debug and release, headline forward `pass` (21 comparisons, 0
-failing values, worst `1.192e-07`), and the full two-step-AdamW run `pass` (34
-rows, worst `1.192e-07`). The matrix receipt's file hashes describe the
-run-time copies of those binaries, not these later rebuilds.
+binaries were rebuilt from the same frozen source (`cargo build -j 4`) and the
+whole ladder was re-qualified on them, reproducing the recorded results
+exactly: `693 passed / 0 failed` in both debug and release, headline forward
+`pass` (21 comparisons, 0 failing values, worst `1.192e-07`), and the full
+two-step-AdamW run `pass` (34 rows, worst `1.192e-07`).
+
+The PEFT matrix was then re-run end to end on those rebuilt binaries, so the
+receipt describes the tree as pushed rather than the pre-repair copies: **32
+families, 0 failures**, 32/32 on each of LoRA, switching and saved, provenance
+`inputs_unchanged=true`, worst `two_step_adamw_max_abs` `2.28e-8`
+(`phi4_multimodal_text`). Re-deriving the run's 3881-input fingerprint from the
+pushed tree reproduces it exactly — zero changed, zero missing, zero added —
+across every `.spv` (the new 16-lane module included), every `.comp`/`.glsl`,
+every `.rs`, `Cargo.toml`/`Cargo.lock`, `COMPATIBILITY.md`, the three debug
+qualification binaries and the local Transformers oracle checkout.
 
 The six previously failing fixtures now pass with every metric at or below
 `5e-8`:
@@ -116,17 +126,25 @@ The six previously failing fixtures now pass with every metric at or below
 
 Four independent layers, strongest first:
 
-1. **Shader edit is a no-op at the AVX2 shape.** Rebuilding HEAD's
-   `transformer_cross_entropy.comp` and the modified one with the same toolchain
-   at 8 lanes produces **byte-identical** SPIR-V
-   (`58f6e92f…`), with identical disassembly.
-2. **The committed Intel binaries are untouched.** `transformer_cross_entropy.spv`
-   and `falcon_h1_cross_entropy.spv` are unmodified tracked artifacts, so the
-   Gen9 path executes exactly the bytes it executed before. (A local rebuild
-   differs from the committed files only because the committed files were built
-   by glslang 939 and the local SDK ships 940; id-normalized instruction streams
-   differ solely in how `+inf` is materialized — `OpConstant 0x1p+128` vs
-   `OpBitcast %uint 0x7F800000` — i.e. the same value.)
+1. **Shader edit is a no-op at the AVX2 shape.** Rebuilding the pre-fix
+   revision `985192e`'s `transformer_cross_entropy.comp` and the committed one
+   with the *same* local toolchain at 8 lanes (the `-DHIERARCHOS_LOG_SOFTMAX_GRAD=1`
+   build) produces **byte-identical** SPIR-V — same md5
+   (`998b807b…`), identical disassembly. The new lane parameter is inert
+   whenever the lane count is left at its default.
+2. **The committed Intel binaries are untouched and reproducible.** The commit
+   adds only the new `falcon_h1_cross_entropy_lanes16.spv`; the two 8-lane
+   modules are unmodified tracked blobs, so the Gen9 path executes exactly the
+   bytes it executed before. Both are also reproducible from the committed
+   source with the recipe in `README.md`: `transformer_cross_entropy.spv`
+   rebuilds byte-for-byte (md5 `b6bda655…`), and the new 16-lane module does
+   too (md5 `ab6b9d45…`, identical disassembly). `falcon_h1_cross_entropy.spv`
+   alone differs from a local rebuild, and only because it was built by glslang
+   939 while the local SDK ships 940: with ids normalized, the two instruction
+   streams differ on 7 lines, all of them the same `+inf` materialized two ways
+   (hoisted `OpConstant %float 0x1p+128` vs an inline
+   `OpBitcast %float %uint 2139095040`). Same value, same control flow, and an
+   artifact of the pre-existing tracked file rather than of this change.
 3. **Dispatch is a pure function of host ISA.** On an AVX2-only host the probe
    resolves to 8, selecting `linear_forward_lane2` and the 8-lane CE module —
    exactly the Gen9-tuned pair — asserted by
@@ -169,10 +187,13 @@ one-line answer, and the env override exists precisely so it needs no rebuild.
 
 ## 7. Residual notes
 
-- The AVX-512 twin is built by glslang 940 while the committed 8-lane modules
-  came from 939 (same front end, Vulkan 1.0 target). Both are valid SPIR-V 1.0
-  and qualified green; rebuilding all of them with one toolchain is a housekeeping
-  item, not a correctness one.
+- The AVX-512 twin is built by glslang 940 while the committed
+  `falcon_h1_cross_entropy.spv` came from 939 (same front end, Vulkan 1.0
+  target). Measured: the only normalized difference is the `+inf`
+  materialization above. Both are valid SPIR-V 1.0 and qualified green;
+  rebuilding the 8-lane grad module with the local 940 to match is a
+  housekeeping item, not a correctness one — it would touch a tracked Gen9
+  binary, so it is deliberately left out of this change.
 - The forward headline moved slightly *between shapes* on this box (worst row
   `8.94e-8` under the AVX2 shape → `1.192e-7` under AVX-512, both far inside
   `2e-7`), while gemma4's unmasked row *improved* (`8.94e-8` → `4.66e-8`) and the
