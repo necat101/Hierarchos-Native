@@ -1,14 +1,25 @@
 #version 450
 
-// Intel Gen9 (HD Graphics 520-class) candidate for linear_forward.
+// Intel Gen9 (HD Graphics 520-class) variant of linear_forward.
 //
 // Contract preserved from the portable kernel:
 //   * one invocation owns exactly one (row, out_col) output element
 //   * the accumulation chain is the same ascending-k sequence of fma() calls
 //     with the same operands, so the FP32 result is bit-identical
-// Only the data path changes: a 16x16 output tile stages its x/w k-slices in
-// workgroup memory, cutting global loads per FMA by ~8x on bandwidth-starved
-// integrated parts. Workgroup geometry and dispatch mapping are unchanged.
+//
+// Schedule: the portable module's 32-wide shared-memory K stage, which the
+// 2026-10-15 tiling pass gave the portable single-projection kernels. Each
+// input/weight value is loaded once per k-slice and reused across the 16x16
+// output tile, and both operands are staged into padded rows so the consumers
+// read them without a stride-32 bank conflict. Widening the stage from the
+// variant's original 16 to 32 halves the barrier count per k, which is what the
+// portable module measured its advantage on. Workgroup geometry and dispatch
+// mapping are unchanged.
+//
+// Small shapes never reach this module: the host-side gate keeps them on the
+// portable module (see `vendor::intel_matmul_geometry_supports_for`). The
+// schedule below is nonetheless correct for any geometry, because every load
+// and every store is guarded and the tail slice is bounded by `min`.
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
@@ -22,42 +33,58 @@ layout(push_constant) uniform Push {
     uint output_dim;
 } pc;
 
-// 17-float rows keep the k-slice reads bank-conflict free on Gen9.
-shared float x_tile[16][17];
-shared float w_tile[16][17];
+const uint INPUT_TILE = 32u;
+// 33-float row stride on the input tile and 17-float row stride on the weight
+// tile keep the k-slice reads bank-conflict free on Gen9.
+shared float input_tile[16u * 33u];
+shared float weight_tile[INPUT_TILE * 17u];
 
 void main() {
-    uint tx = gl_LocalInvocationID.x;
-    uint ty = gl_LocalInvocationID.y;
-    uint lane = ty * 16u + tx;
-    uint out_col = gl_WorkGroupID.x * 16u + tx;
-    uint row = gl_WorkGroupID.y * 16u + ty;
-
-    uint tile_r = lane >> 4u;
-    uint tile_c = lane & 15u;
-    uint tile_row = gl_WorkGroupID.y * 16u + tile_r;
-    uint tile_col = gl_WorkGroupID.x * 16u + tile_r;
-    bool row_in_range = tile_row < pc.rows;
-    bool col_in_range = tile_col < pc.output_dim;
-    uint x_tile_base = tile_row * pc.input_dim;
-    uint w_tile_base = tile_col * pc.input_dim;
-
+    uint local_x = gl_LocalInvocationID.x;
+    uint local_y = gl_LocalInvocationID.y;
+    uint out_col = gl_WorkGroupID.x * 16u + local_x;
+    uint row = gl_WorkGroupID.y * 16u + local_y;
+    bool lane_valid = row < pc.rows && out_col < pc.output_dim;
     float sum = 0.0;
-    for (uint k0 = 0u; k0 < pc.input_dim; k0 += 16u) {
-        uint k = k0 + tile_c;
-        bool k_in_range = k < pc.input_dim;
-        x_tile[tile_r][tile_c] = (row_in_range && k_in_range) ? x[x_tile_base + k] : 0.0;
-        w_tile[tile_r][tile_c] = (col_in_range && k_in_range) ? weight[w_tile_base + k] : 0.0;
-        barrier();
 
-        uint k_end = min(16u, pc.input_dim - k0);
-        for (uint c = 0u; c < k_end; ++c) {
-            sum = fma(x_tile[ty][c], w_tile[tx][c], sum);
+    for (uint k_base = 0u; k_base < pc.input_dim; k_base += INPUT_TILE) {
+        // Two k values per lane, so a 32-wide slice is loaded by the 16 lanes
+        // of the workgroup in one coalesced pass.
+        uint load_k = k_base + local_x * 2u;
+        uint input_slot = local_y * 33u + local_x * 2u;
+        input_tile[input_slot] =
+            row < pc.rows && load_k < pc.input_dim
+                ? x[row * pc.input_dim + load_k] : 0.0;
+        input_tile[input_slot + 1u] =
+            row < pc.rows && load_k + 1u < pc.input_dim
+                ? x[row * pc.input_dim + load_k + 1u] : 0.0;
+
+        // Load each weight row contiguously, then transpose into padded shared
+        // memory so the consumers read adjacent output columns.
+        uint weight_col = gl_WorkGroupID.x * 16u + local_y;
+        uint weight_slot = local_x * 2u * 17u + local_y;
+        weight_tile[weight_slot] =
+            weight_col < pc.output_dim && load_k < pc.input_dim
+                ? weight[weight_col * pc.input_dim + load_k] : 0.0;
+        weight_tile[weight_slot + 17u] =
+            weight_col < pc.output_dim && load_k + 1u < pc.input_dim
+                ? weight[weight_col * pc.input_dim + load_k + 1u] : 0.0;
+
+        // Padded/masked lanes participate in both barriers; they must never
+        // return before the rest of the workgroup has consumed the shared tile.
+        barrier();
+        if (lane_valid) {
+            uint count = min(INPUT_TILE, pc.input_dim - k_base);
+            for (uint k = 0u; k < count; ++k) {
+                sum = fma(input_tile[local_y * 33u + k],
+                          weight_tile[k * 17u + local_x], sum);
+            }
         }
         barrier();
     }
 
-    if (row < pc.rows && out_col < pc.output_dim) {
-        output_values[row * pc.output_dim + out_col] = sum;
+    if (lane_valid) {
+        uint output_index = row * pc.output_dim + out_col;
+        output_values[output_index] = sum;
     }
 }

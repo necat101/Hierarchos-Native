@@ -1281,6 +1281,13 @@ impl RwkvPackedCellOp {
         )
     }
 
+    /// Whether this op runs the single fused channel-mix/state forward shader.
+    /// `false` means the cell composes its forward from the multi-kernel graph
+    /// (and therefore through the vendor linear modules when they qualify).
+    pub fn packed_channel_mix_forward_fused(&self) -> bool {
+        self.packed_channel_mix_state_forward_fused.is_some()
+    }
+
     pub(crate) fn packed_forward_only_active(&self) -> bool {
         self.packed_forward_only_enabled && self.cell.time_mix.can_record_packed_forward_only()
     }

@@ -8,9 +8,7 @@ fn main() -> Result<()> {
         [] => (false, false),
         [flag] if flag == "--probe-external-self" => (true, false),
         [flag] if flag == "--kernel-plan" => (false, true),
-        _ => bail!(
-            "usage: hierarchos-vulkan-devices [--probe-external-self | --kernel-plan]"
-        ),
+        _ => bail!("usage: hierarchos-vulkan-devices [--probe-external-self | --kernel-plan]"),
     };
     let devices = VulkanDevice::enumerate_compute_devices()?;
     let output = devices

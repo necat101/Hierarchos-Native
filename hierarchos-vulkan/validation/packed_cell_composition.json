@@ -1,0 +1,126 @@
+{
+  "result": "pass",
+  "width": 128,
+  "head_size": 16,
+  "batch": 8,
+  "steps": 3,
+  "comparisons": 15,
+  "worst_max_abs": 0.0,
+  "atol": 0.0001,
+  "rtol": 1e-05,
+  "forward_kernels": {
+    "fused": "fused",
+    "composed": "composed"
+  },
+  "vendor_plan": "linear-forward=intel-gen9-lds linear-bias-forward=intel-gen9-lds linear-residual-forward=intel-gen9-lds linear3-forward=intel-gen9-lds silu-forward=portable silu-backward=portable adamw=portable",
+  "fused_dispatch": "",
+  "composed_dispatch": "linear-forward=1 linear-residual-forward=1",
+  "negative_control": "rejected",
+  "rows": [
+    {
+      "label": "step 0 output",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 0 packed_new_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 0 grad_x",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 0 grad_packed_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 0 token_feature_grad",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 output",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 packed_new_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 grad_x",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 grad_packed_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 token_feature_grad",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 output",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 packed_new_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 grad_x",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 grad_packed_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 token_feature_grad",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    }
+  ]
+}

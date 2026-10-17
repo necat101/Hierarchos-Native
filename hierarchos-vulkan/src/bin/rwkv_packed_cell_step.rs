@@ -68,6 +68,20 @@ fn main() -> Result<()> {
     };
 
     let device = VulkanDevice::new()?;
+    // Mirrors `transformer_logits`: the plan prints before the graph exists, so a
+    // skipped tuned family is distinguishable from an expected dispatch that
+    // never happened. The packed cell resolves its own fused shaders, so the
+    // CPU-bridge harness reads this trace to record that this leg is the
+    // portable fused path rather than the tuned vendor lattice.
+    let trace = std::env::var_os("HIERARCHOS_VULKAN_VARIANT_TRACE").is_some();
+    if trace {
+        let plan = hierarchos_vulkan::vendor_kernel_plan(&device)
+            .into_iter()
+            .map(|selection| format!("{}={}", selection.family.label(), selection.variant))
+            .collect::<Vec<_>>()
+            .join(" ");
+        eprintln!("variant-plan: {plan}");
+    }
     let mut op = RwkvPackedCellOp::from_model_package(
         device,
         model_dir,
@@ -89,6 +103,14 @@ fn main() -> Result<()> {
             op.token_feature_width()
         );
     }
+    eprintln!(
+        "packed-cell-forward-kernel: {}",
+        if op.packed_channel_mix_forward_fused() {
+            "fused"
+        } else {
+            "composed"
+        }
+    );
     let result = op.forward_backward(
         case.batch,
         &case.x,
@@ -97,6 +119,15 @@ fn main() -> Result<()> {
         &case.grad_output,
         &case.grad_packed_new_state,
     )?;
+    if trace {
+        let counts = hierarchos_vulkan::variant_dispatch_counts()
+            .into_iter()
+            .filter(|(_, count)| *count > 0)
+            .map(|(family, count)| format!("{family}={count}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        eprintln!("variant-dispatch: {counts}");
+    }
     println!(
         "{}",
         serde_json::to_string(&Output {

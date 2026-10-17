@@ -15,8 +15,8 @@ use crate::rwkv_low_rank::{
 };
 use crate::rwkv_optimizer::{RwkvDecayClass, RwkvTrainableRef};
 use crate::{
-    read_f32_tensor, vendor, vulkan, GpuBuffer, RwkvLowRankOp, RwkvLowRankResult,
-    RwkvPostMixOp, RwkvPostMixResult, VulkanDevice,
+    read_f32_tensor, vendor, vulkan, GpuBuffer, RwkvLowRankOp, RwkvLowRankResult, RwkvPostMixOp,
+    RwkvPostMixResult, VulkanDevice,
 };
 
 const TIME_MIX_FORWARD_SPV: &[u8] = include_bytes!("../shaders/rwkv_time_mix3_forward.spv");

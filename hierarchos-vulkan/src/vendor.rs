@@ -263,11 +263,19 @@ impl VendorKernelFamily {
 
     /// Minimum `maxComputeSharedMemorySize` the Intel variant needs, or `None`
     /// when the family has no workgroup-memory variant.
+    ///
+    /// The three single-projection families carry the 32-wide K stage ported
+    /// from the portable modules: a 16-row input tile with a 33-float row stride
+    /// and a 32-wide weight tile with a 17-float row stride. `linear3-forward`
+    /// still stages six 16x17 tiles. `spirv_workgroup_bytes` decodes these
+    /// totals back out of the committed modules in
+    /// `committed_vendor_modules_declare_their_capability_contract`, so the
+    /// constant cannot drift from the artifacts it gates.
     pub const fn intel_shared_memory_bytes(self) -> Option<u32> {
         match self {
-            Self::LinearForward
-            | Self::LinearBiasForward
-            | Self::LinearResidualForward => Some(2 * 16 * 17 * 4),
+            Self::LinearForward | Self::LinearBiasForward | Self::LinearResidualForward => {
+                Some(16 * 33 * 4 + 32 * 17 * 4)
+            }
             Self::Linear3Forward => Some(6 * 16 * 17 * 4),
             Self::SiluForward | Self::SiluBackward | Self::AdamW => None,
         }
@@ -284,6 +292,100 @@ impl VendorKernelFamily {
         "intel-gen9-lds"
     }
 
+    /// The pre-tuning scalar schedule of one matmul family, vendored unchanged
+    /// from the initial publish of this crate.
+    ///
+    /// The portable modules stage a k-slice in workgroup memory and fall back to
+    /// this exact dot-product schedule below eight rows. That fallback is not
+    /// free: the shared-memory declaration is part of the module, so a
+    /// single-row dispatch pays it even while it runs the scalar path, and on the
+    /// Gen9 target that measured 0.81x against the pre-tuning module at
+    /// 1x448x512. Dispatching the scalar module itself for those shapes recovers
+    /// the pre-tuning number, and it is bit-identical by construction -- it *is*
+    /// the module those kernels were recorded against.
+    ///
+    /// The artifacts live in `shaders/portable_scalar/` rather than `shaders/`
+    /// because they are byte-identical to the pre-tuning portable modules, and
+    /// `build.rs` refuses two artifacts with one SPIR-V signature (the registry it
+    /// generates maps signature to name). The nested directory is outside that
+    /// registry on purpose; the parity test compares these bytes against the
+    /// portable modules on the device instead.
+    const fn scalar_spirv(self) -> Option<&'static [u8]> {
+        match self {
+            Self::LinearForward => Some(include_bytes!(
+                "../shaders/portable_scalar/linear_forward.spv"
+            )),
+            Self::LinearBiasForward => Some(include_bytes!(
+                "../shaders/portable_scalar/linear_bias_forward.spv"
+            )),
+            Self::LinearResidualForward => Some(include_bytes!(
+                "../shaders/portable_scalar/linear_residual_forward.spv"
+            )),
+            Self::Linear3Forward => Some(include_bytes!(
+                "../shaders/portable_scalar/linear3_forward.spv"
+            )),
+            Self::SiluForward | Self::SiluBackward | Self::AdamW => None,
+        }
+    }
+
+    /// True when this family has a measured AMD RDNA3 module. Every matmul
+    /// family has one, including `linear3-forward`, because the RDNA3 stage
+    /// covers all six of that family's operands in the 64 KiB LDS budget.
+    pub const fn has_amd_variant(self) -> bool {
+        matches!(
+            self,
+            Self::LinearForward
+                | Self::LinearBiasForward
+                | Self::LinearResidualForward
+                | Self::Linear3Forward
+        )
+    }
+
+    /// Workgroup storage the RDNA3 module declares.
+    ///
+    /// The three single-projection families stage a 64-wide K slice: a 16-row
+    /// input tile with a 65-float row stride and a 64-wide weight tile with a
+    /// 17-float row stride, so `16 * 65 * 4 + 64 * 17 * 4 = 8512` bytes.
+    /// `linear3-forward` stages six 16x65 tiles, `6 * 16 * 65 * 4 = 24960`.
+    /// Both fit inside RDNA3's 64 KiB LDS; `spirv_workgroup_bytes` decodes the
+    /// totals back out of the committed modules, so these cannot drift from the
+    /// artifacts they gate.
+    pub const fn amd_shared_memory_bytes(self) -> Option<u32> {
+        match self {
+            Self::LinearForward | Self::LinearBiasForward | Self::LinearResidualForward => {
+                Some(16 * 65 * 4 + 64 * 17 * 4)
+            }
+            Self::Linear3Forward => Some(6 * 16 * 65 * 4),
+            Self::SiluForward | Self::SiluBackward | Self::AdamW => None,
+        }
+    }
+
+    /// Workgroup dimensions the RDNA3 module declares; the host grid contract is
+    /// the same 16x16 element tile as the portable module.
+    pub const fn amd_local_size(self) -> [u32; 3] {
+        [16, 16, 1]
+    }
+
+    pub const fn amd_variant_label(self) -> &'static str {
+        "amd-rdna3-lds64"
+    }
+
+    const fn amd_spirv(self) -> Option<&'static [u8]> {
+        match self {
+            Self::LinearForward => Some(include_bytes!("../shaders/linear_forward_amd_rdna3.spv")),
+            Self::LinearBiasForward => Some(include_bytes!(
+                "../shaders/linear_bias_forward_amd_rdna3.spv"
+            )),
+            Self::LinearResidualForward => Some(include_bytes!(
+                "../shaders/linear_residual_forward_amd_rdna3.spv"
+            )),
+            Self::Linear3Forward => {
+                Some(include_bytes!("../shaders/linear3_forward_amd_rdna3.spv"))
+            }
+            Self::SiluForward | Self::SiluBackward | Self::AdamW => None,
+        }
+    }
+
     const fn intel_spirv(self) -> Option<&'static [u8]> {
         match self {
             Self::LinearForward => Some(include_bytes!("../shaders/linear_forward_intel_gen9.spv")),
@@ -293,9 +395,9 @@ impl VendorKernelFamily {
             Self::LinearResidualForward => Some(include_bytes!(
                 "../shaders/linear_residual_forward_intel_gen9.spv"
             )),
-            Self::Linear3Forward => Some(include_bytes!(
-                "../shaders/linear3_forward_intel_gen9.spv"
-            )),
+            Self::Linear3Forward => {
+                Some(include_bytes!("../shaders/linear3_forward_intel_gen9.spv"))
+            }
             Self::SiluForward | Self::SiluBackward | Self::AdamW => None,
         }
     }
@@ -342,6 +444,13 @@ pub const INTEL_MATMUL_MIN_OUTPUT_DIM: u32 = 128;
 /// Fewest output columns for dispatches with four to seven rows.
 pub const INTEL_MATMUL_MIN_OUTPUT_DIM_LOW_ROWS: u32 = 192;
 
+/// Rows below which a matmul dispatch uses the scalar schedule instead of the
+/// tiled portable module. This is the portable modules' own scalar-vs-tiled
+/// threshold, so the two decisions cannot disagree about which schedule a shape
+/// was measured under; a vendor variant admitted for the geometry still wins
+/// first, because its gate is the measured crossover for that part.
+pub const SCALAR_MATMUL_MAX_ROWS: u32 = 8;
+
 /// Pure geometry gate shared by per-dispatch selection and its regression
 /// tests. `false` always means "use the portable module".
 pub const fn intel_matmul_geometry_supports(rows: u32, input_dim: u32, output_dim: u32) -> bool {
@@ -387,22 +496,17 @@ fn vendor_kernels_disabled() -> bool {
     std::env::var_os(HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS_ENV).is_some()
 }
 
-/// Pure Intel Gen9/Gen9.5 PCI device-ID test for the reliability policy below.
-/// Skylake and its refresh share one Windows image compiler generation:
+/// Pure Intel Gen9/Gen9.5 PCI device-ID test: the one Gen9 classification the
+/// crate publishes, shared by the FP16 LM reliability policy below and the
+/// watchdog submission-slicing policy ported onto this part class.
 ///
-/// * Skylake GT1-GT4: `0x1902`, `0x1906`, `0x190B`, `0x1912`-`0x191E`, `0x1921`,
-///   `0x1923`, `0x1926`, `0x1927`, `0x192A`, `0x192B`, `0x1932`, `0x193A`,
-///   `0x193B`, `0x193D` (HD Graphics 510/515/520/530, Iris 540/550).
-/// * Kaby Lake / Apollo Lake / Amber Lake refresh: `0x5900`-`0x593F` (which
-///   includes `0x591C`), `0x5A84`, `0x5A85`, `0x87C0`.
-///
-/// Newer Intel generations (Gen11 Ice Lake `0x8A00`+, Xe `0x9A00`+, Arc) use a
-/// different compiler and are deliberately not matched.
+/// The ID table itself lives in `vulkan.rs`, because the shader harnesses
+/// compile that module standalone and cannot resolve `crate::vendor`; this is
+/// the vendor layer's view of the same list, and
+/// `vulkan::gen9_pci_table_is_the_one_the_vendor_layer_publishes` asserts the
+/// two agree across every range boundary.
 pub const fn is_intel_gen9_pci_id(vendor_id: u32, device_id: u32) -> bool {
-    if vendor_id != PCI_VENDOR_INTEL {
-        return false;
-    }
-    matches!(device_id, 0x1900..=0x193F | 0x5900..=0x593F | 0x5A84 | 0x5A85 | 0x87C0)
+    crate::vulkan::is_intel_gen9_pci_id(vendor_id, device_id)
 }
 
 /// Whether the opt-in native-FP16-compute LM backward tranche is usable on this
@@ -442,6 +546,91 @@ pub const fn native_fp16_lm_compute_reliable_for(vendor_id: u32, device_id: u32)
 // recording, and the regression now hoists pipeline creation. Every rows16
 // variant measures green on the Gen9 target (see VENDOR_TUNING.md, "Gen9
 // rows16 driver quirk (resolved)").
+
+/// PCI device IDs of the AMD RDNA3 parts this layer tunes for: Navi 31
+/// (`gfx1100`), Navi 32 (`gfx1101`), Navi 33 (`gfx1102`) and the RDNA3
+/// integrated parts Phoenix / Hawk Point (`gfx1103`). From the PCI ID database
+/// and the AMDGPU device list, not from the marketing name.
+///
+/// Vulkan exposes no architecture-generation property, so an ID table is the
+/// only reliable test; an ID outside it keeps the portable module, which is the
+/// safe direction for a part this layer has not been tuned for.
+pub const AMD_RDNA3_PCI_IDS: &[u32] = &[
+    // Navi 31 / gfx1100
+    0x7448, 0x7449, 0x744A, 0x744B, 0x744C, 0x745E, // Navi 32 / gfx1101
+    0x7460, 0x7461, 0x7470, 0x747E, // Navi 33 / gfx1102
+    0x7480, 0x7481, 0x7483, 0x7487, 0x7489, 0x748B, 0x7499, 0x749F,
+    // Phoenix / Hawk Point integrated / gfx1103
+    0x15BF, 0x15C8, 0x1900, 0x1901,
+];
+
+/// Pure RDNA3 classification: AMD vendor ID plus one of the tuned device IDs.
+pub const fn is_amd_rdna3_pci_id(vendor_id: u32, device_id: u32) -> bool {
+    if vendor_id != PCI_VENDOR_AMD {
+        return false;
+    }
+    let mut index = 0;
+    while index < AMD_RDNA3_PCI_IDS.len() {
+        if AMD_RDNA3_PCI_IDS[index] == device_id {
+            return true;
+        }
+        index += 1;
+    }
+    false
+}
+
+/// Whether this adapter is an RDNA3 part, i.e. whether the RDNA3 modules may be
+/// selected. Classification is by PCI ID, never by the reported device name.
+pub fn is_amd_rdna3(device: &VulkanDevice) -> bool {
+    is_amd_rdna3_pci_id(device.vendor_id(), device.device_id())
+}
+
+/// Geometry gate for the RDNA3 matmul modules.
+///
+/// Deliberately the same structural threshold the portable modules use to pick
+/// their own 32-wide tiled schedule over the scalar path: below it the portable
+/// module is a scalar dot product, which is the measured right answer for
+/// single-row decode, short reduction dimensions and thin output tiles (see
+/// [`intel_matmul_geometry_supports`] for the measured crossover on the other
+/// tuned part). No RDNA3-specific crossover has been measured -- there is no
+/// RDNA3 adapter on the machine this layer was tuned on -- so the gate claims
+/// only what is structural: use the tuned module exactly where the portable
+/// module would itself tile. Every admitted RDNA3 module is compared bit-exact
+/// with the portable one on the executing adapter.
+pub const fn amd_matmul_geometry_supports(rows: u32, input_dim: u32, output_dim: u32) -> bool {
+    rows >= 8 && input_dim >= 64 && output_dim >= 16
+}
+
+/// Capability gate for the RDNA3 variant of one family on one device.
+fn amd_variant_supported(device: &VulkanDevice, family: VendorKernelFamily) -> bool {
+    if family.amd_spirv().is_none() {
+        return false;
+    }
+    if !device.supports_storage_buffer_bindings(family.binding_count() as u32) {
+        return false;
+    }
+    if !device.supports_compute_work_group_size(family.amd_local_size()) {
+        return false;
+    }
+    match family.amd_shared_memory_bytes() {
+        Some(bytes) => device.max_compute_shared_memory_bytes() >= bytes,
+        None => true,
+    }
+}
+
+/// Capability gate for the tuned module of a family on this device, whichever
+/// vendor's module the selection resolved to.
+fn variant_supported(device: &VulkanDevice, family: VendorKernelFamily) -> bool {
+    if family.intel_spirv().is_some()
+        && effective_vendor(device).is_intel()
+        && intel_variant_supported(device, family)
+    {
+        return true;
+    }
+    effective_vendor(device) == GpuVendor::Amd
+        && is_amd_rdna3(device)
+        && amd_variant_supported(device, family)
+}
 
 /// Capability gate for the Intel variant of one family on one device.
 fn intel_variant_supported(device: &VulkanDevice, family: VendorKernelFamily) -> bool {
@@ -483,25 +672,39 @@ pub fn select_kernel(device: &VulkanDevice, family: VendorKernelFamily) -> Vendo
     if vendor_kernels_disabled() {
         return portable;
     }
-    if !vendor.is_intel() {
-        return portable;
+    if vendor.is_intel() {
+        if !intel_variant_supported(device, family) {
+            return portable;
+        }
+        let Some(spirv) = family.intel_spirv() else {
+            return portable;
+        };
+        return VendorKernelSelection {
+            family,
+            vendor,
+            variant: family.intel_variant_label(),
+            spirv,
+            vendor_specific: true,
+            // Only the matmul families carry a variant, and their variant is used
+            // only when the dispatch geometry clears the measured crossover.
+            geometry_gated: family.is_matmul(),
+        };
     }
-    if !intel_variant_supported(device, family) {
-        return portable;
+    // AMD only leaves the portable module on an RDNA3 part: every other AMD
+    // generation, and every non-AMD vendor, keeps the exact pre-tuning bytes.
+    if vendor == GpuVendor::Amd && is_amd_rdna3(device) && amd_variant_supported(device, family) {
+        if let Some(spirv) = family.amd_spirv() {
+            return VendorKernelSelection {
+                family,
+                vendor,
+                variant: family.amd_variant_label(),
+                spirv,
+                vendor_specific: true,
+                geometry_gated: family.is_matmul(),
+            };
+        }
     }
-    let Some(spirv) = family.intel_spirv() else {
-        return portable;
-    };
-    VendorKernelSelection {
-        family,
-        vendor,
-        variant: family.intel_variant_label(),
-        spirv,
-        vendor_specific: true,
-        // Only the matmul families carry a variant, and their variant is used
-        // only when the dispatch geometry clears the measured crossover.
-        geometry_gated: family.is_matmul(),
-    }
+    portable
 }
 
 /// Diagnostic view of the kernel plan for one device. The device-listing CLI and
@@ -526,9 +729,20 @@ pub fn vendor_kernel_plan(device: &VulkanDevice) -> Vec<VendorKernelSelection> {
 /// `(rows, input_dim, output_dim)` layout every linear-family push struct in
 /// this crate uses. Host grids, bindings, and results are unchanged.
 pub(crate) struct VendorMatmulKernel {
+    /// Read by the dispatch counter that proves the vendor path ran, not just
+    /// that the plan selected it. Always compiled: the logits probe asserts the
+    /// counter at runtime, so a release build needs the family too.
     family: VendorKernelFamily,
     portable: ComputeKernel,
-    variant: Option<ComputeKernel>,
+    /// The tuned pipeline and the per-dispatch geometry gate it is admitted by.
+    /// The gate is chosen by the vendor the selection resolved to, so one slot
+    /// can hold either the Intel or the RDNA3 module without the call sites
+    /// knowing which.
+    variant: Option<(ComputeKernel, fn(u32, u32, u32) -> bool)>,
+    /// The scalar schedule the portable modules fall back to, dispatched directly
+    /// below [`SCALAR_MATMUL_MAX_ROWS`] so a small dispatch does not carry the
+    /// tiled module's workgroup-memory reservation.
+    scalar: Option<ComputeKernel>,
 }
 
 impl VendorMatmulKernel {
@@ -587,22 +801,26 @@ impl VendorMatmulKernel {
             }
         };
         let portable = create(family.portable_spirv())?;
-        let variant = if family.has_intel_variant()
-            && effective_vendor(device).is_intel()
-            && !vendor_kernels_disabled()
-            && intel_variant_supported(device, family)
-        {
-            family
-                .intel_spirv()
-                .map(|spirv| create(spirv))
-                .transpose()?
+        let selection = select_kernel(device, family);
+        let variant = if selection.vendor_specific {
+            let gate: fn(u32, u32, u32) -> bool = if selection.vendor.is_intel() {
+                intel_matmul_geometry_supports
+            } else {
+                amd_matmul_geometry_supports
+            };
+            Some((create(selection.spirv)?, gate))
         } else {
             None
+        };
+        let scalar = match family.scalar_spirv() {
+            Some(spirv) => Some(create(spirv)?),
+            None => None,
         };
         Ok(Self {
             family,
             portable,
             variant,
+            scalar,
         })
     }
 
@@ -623,7 +841,23 @@ impl VendorMatmulKernel {
     /// The module [`Self::record_dispatch`] would use for this geometry.
     #[cfg(test)]
     pub(crate) fn selects_variant_for(&self, rows: u32, input_dim: u32, output_dim: u32) -> bool {
-        self.variant.is_some() && intel_matmul_geometry_supports(rows, input_dim, output_dim)
+        self.variant
+            .as_ref()
+            .is_some_and(|(_, gate)| gate(rows, input_dim, output_dim))
+    }
+
+    /// True when these rows are below the scalar threshold. A vendor module
+    /// admitted for the same dispatch still wins, so this is the fallback order's
+    /// second rung, not a promise that the scalar module runs.
+    #[cfg(test)]
+    pub(crate) fn selects_scalar_for(&self, rows: u32) -> bool {
+        self.scalar.is_some() && rows < SCALAR_MATMUL_MAX_ROWS
+    }
+
+    /// True when this slot holds the scalar schedule.
+    #[cfg(test)]
+    pub(crate) fn scalar_available(&self) -> bool {
+        self.scalar.is_some()
     }
 
     /// Dispatch through whichever module the geometry selects.
@@ -634,17 +868,23 @@ impl VendorMatmulKernel {
         push_constants: &[u8],
         groups: [u32; 3],
     ) -> Result<()> {
+        let geometry = push_geometry(push_constants);
         let kernel = match &self.variant {
-            Some(variant)
-                if push_geometry(push_constants).is_some_and(
-                    |(rows, input_dim, output_dim)| {
-                        intel_matmul_geometry_supports(rows, input_dim, output_dim)
-                    },
-                ) =>
+            Some((variant, gate))
+                if geometry.is_some_and(|(rows, input_dim, output_dim)| {
+                    gate(rows, input_dim, output_dim)
+                }) =>
             {
-                #[cfg(test)]
                 record_variant_dispatch(self.family);
                 variant
+            }
+            // The scalar fallback is the portable modules' own below-eight-row
+            // schedule, dispatched directly: the tiled module would run the same
+            // arithmetic while still reserving its workgroup memory.
+            _ if geometry.is_some_and(|(rows, _, _)| rows < SCALAR_MATMUL_MAX_ROWS)
+                && self.scalar.is_some() =>
+            {
+                self.scalar.as_ref().expect("checked above")
             }
             _ => &self.portable,
         };
@@ -652,20 +892,324 @@ impl VendorMatmulKernel {
     }
 }
 
+/// Environment switch that disables the attention-backward watchdog budget.
+pub const HIERARCHOS_VULKAN_IGNORE_ATTENTION_WORK_BUDGET_ENV: &str =
+    "HIERARCHOS_VULKAN_IGNORE_ATTENTION_WORK_BUDGET";
+
+/// Serial work one attention-backward invocation performs.
+///
+/// Attention backward launches one invocation per (batch row, KV head) and each
+/// invocation walks the whole query and key range for the query heads mapped to
+/// its KV head, so its inner loops are proportional to this product. Strict
+/// adjoint modes (`unfused_qk` 1, 2 and 9) measured 1.44x the cost of the same
+/// geometry in mode 0, which is folded in here.
+pub const fn attention_backward_work(
+    queries_per_kv: u64,
+    head_dim: u64,
+    query_seq_len: u64,
+    key_value_seq_len: u64,
+    strict: bool,
+) -> u64 {
+    let base = queries_per_kv
+        .saturating_mul(head_dim)
+        .saturating_mul(query_seq_len)
+        .saturating_mul(key_value_seq_len);
+    if strict {
+        base.saturating_mul(144) / 100
+    } else {
+        base
+    }
+}
+
+/// Work units one dispatch admits on the adapter class the budget was measured on.
+///
+/// Calibrated on Intel HD Graphics 520 (Gen9), 2026-10-15, one invocation per
+/// dispatch, where the driver's watchdog interval is about three seconds: mode 0
+/// passes seq 256 (4.19e6 units, 2576 ms) and loses the device at seq 320
+/// (6.55e6), while strict mode passes seq 240 (5.31e6, 2973 ms) and loses it at
+/// seq 248 (5.67e6). The budget sits below the first loss and about a tenth below
+/// the last passing point, so what it refuses is what runs within a tenth of the
+/// watchdog.
+pub const ATTENTION_BACKWARD_WORK_BUDGET: u64 = 5_000_000;
+
+/// Shared-memory size of the adapter class the budget was measured on.
+const ATTENTION_BACKWARD_BUDGET_CLASS_SHARED_BYTES: u32 = 32 * 1024;
+
+/// The attention-backward work budget for `device`, or `None` when none applies.
+///
+/// `None` means "refuse nothing". Only the class the budget was measured on is
+/// bounded, because a bound derived from the slowest measured adapter would reject
+/// sequences that run in well under a second on a discrete GPU -- a functional
+/// regression rather than a safety net. Extend the class list when a boundary is
+/// measured on another adapter.
+pub fn attention_backward_work_budget(device: &VulkanDevice) -> Option<u64> {
+    if std::env::var(HIERARCHOS_VULKAN_IGNORE_ATTENTION_WORK_BUDGET_ENV).is_ok() {
+        return None;
+    }
+    let measured_class = GpuVendor::from_pci_vendor_id(device.vendor_id()).is_intel()
+        && device.max_compute_shared_memory_bytes() <= ATTENTION_BACKWARD_BUDGET_CLASS_SHARED_BYTES;
+    measured_class.then_some(ATTENTION_BACKWARD_WORK_BUDGET)
+}
+
+/// Most key-range blocks one attention-backward dispatch is split into.
+///
+/// A split turns a dispatch that would reset the device into several sequential
+/// submissions, each covering its own slice of the key range. The cap stops a caller
+/// from turning one unusable geometry into a long sequence of tiny submissions for no
+/// gain; beyond it the dispatch is refused as before. It also bounds how wide the
+/// rescue reaches: at 257 queries and head dim 8 the measured loss at key span 16
+/// needs six blocks, and a geometry needing more than eight is still refused.
+pub const ATTENTION_BACKWARD_MAX_KEY_BLOCKS: u32 = 8;
+
+/// Rows of row statistics the strict adjoint caches invocation-privately.
+///
+/// The backward module keeps a row's softmax statistics while `(batch rows) *
+/// queries per KV head * query length` fits here and streams them above it, so this
+/// is also the boundary between the two adjoints a split has to respect.
+pub const ATTENTION_BACKWARD_STATS_CACHE_SIZE: u64 = 512;
+
+/// True when the strict adjoint would keep its row statistics in the invocation's
+/// private cache instead of streaming them, mirroring the module's own test.
+pub const fn attention_backward_statistics_are_cached(
+    queries_per_kv: u64,
+    query_seq_len: u64,
+    batch_rows: u64,
+) -> bool {
+    batch_rows
+        .saturating_mul(queries_per_kv)
+        .saturating_mul(query_seq_len)
+        <= ATTENTION_BACKWARD_STATS_CACHE_SIZE
+}
+
+/// Streamed-adjoint work units for `key_span` outer keys of a `key_total`-long range.
+///
+/// The streamed strict adjoint has no shared row statistics to reuse: it replays the
+/// softmax for every outer key, and it does that inside the head-dimension loop, so
+/// its cost carries the full key span and a second head-dimension factor. A key-range
+/// block bounds only the outer key loop, which is why the full span stays in the
+/// model and a split divides the total by the block count rather than by its square.
+pub const fn attention_backward_streamed_work(
+    queries_per_kv: u64,
+    head_dim: u64,
+    query_seq_len: u64,
+    key_span: u64,
+    key_total: u64,
+) -> u64 {
+    queries_per_kv
+        .saturating_mul(head_dim)
+        .saturating_mul(head_dim)
+        .saturating_mul(query_seq_len)
+        .saturating_mul(key_span)
+        .saturating_mul(key_total)
+}
+
+/// Work units the streamed strict adjoint admits on the measured adapter class.
+///
+/// This is a different model from the cached budget above, so it is a different number
+/// for the same adapter, and it is bracketed on both sides by measurement. On Intel HD
+/// Graphics 520 (Gen9), at 257 queries, head dim 8 and 2 queries per KV head, the
+/// streamed adjoint completed key spans 1, 4 and 8 in 61 ms, 395 ms and 1394 ms, and
+/// lost the device at key span 16, so its boundary lies between 2.11e6 and 8.42e6 of
+/// these units and the budget below is a tenth under the last span measured to
+/// complete. Head dim 32 is out of reach at every span driven -- 320 x 320 and 512 x
+/// 512 both lost the device -- which this model reproduces.
+///
+/// A first version of this bound was anchored on the losing side alone and came out
+/// about a thousand times too generous, admitting shapes that reset the device.
+/// Read by the tests that pin the derived percentage above to this measured
+/// number, so it is a test-build oracle rather than a value production reads.
 #[cfg(test)]
+pub const ATTENTION_BACKWARD_STREAMED_WORK_BUDGET: u64 = 1_900_000;
+
+/// The streamed bound as a percentage of the cached budget of the same class.
+///
+/// The two models count different work, so the streamed bound scales the budget the
+/// caller derived from its device (5.0e6 cached -> 1.9e6 streamed) instead of
+/// replacing it with a constant, which would ignore the caller's device gating and
+/// bound every adapter as if it were this one.
+pub const ATTENTION_BACKWARD_STREAMED_BUDGET_PERCENT: u64 = 38;
+
+/// Sequential key-range blocks this geometry is dispatched in.
+///
+/// Returns 1 whenever splitting would not help or would not be safe:
+///
+/// * The fused path (`unfused_qk` 0 or 3) is never split. Its `grad_q`, `grad_k`
+///   and `grad_v` all come from the shared primary pass, whose `softmax_dot` is a
+///   running prefix feeding `ds` across the whole key range, so blocking keys would
+///   change the reduction order. The shader ignores the split grid for that path,
+///   and this keeps the caller from paying for duplicate full-range blocks.
+/// * A device whose boundary has not been measured (`None`) is never split, so its
+///   dispatch is exactly what it was before the split existed.
+/// * A geometry that already fits its budget is not split; the extra dispatches
+///   would only add overhead.
+///
+/// The count is derived from the largest slice rather than from the total, so every
+/// block's own work -- not just the average -- lands under `budget`.
+pub const fn attention_backward_key_blocks(
+    budget: Option<u64>,
+    queries_per_kv: u64,
+    head_dim: u64,
+    query_seq_len: u64,
+    key_value_seq_len: u64,
+    batch_rows: u64,
+    strict: bool,
+) -> u32 {
+    let budget = match budget {
+        Some(budget) => budget,
+        None => return 1,
+    };
+    if !strict || budget == 0 || key_value_seq_len == 0 {
+        return 1;
+    }
+    // A split cannot use the adjoint's cached row statistics, which are private to
+    // the invocation that computed them, so it takes the streaming adjoint instead.
+    // That one is far more expensive per key than the cached path -- measured at
+    // 2365 ms against 22.3 ms at 1024 rows and head dim 257 -- so splitting a
+    // geometry whose statistics *are* cacheable would make it slower, not safer:
+    // strict seq 248 took the device out at 4 blocks where it had been refused
+    // cleanly. Only geometries that already stream, where the blocks divide the work
+    // the unsplit dispatch would have done, are split.
+    if attention_backward_statistics_are_cached(queries_per_kv, query_seq_len, batch_rows) {
+        return 1;
+    }
+    // A streamed geometry is split only as far as the measured boundary allows, and it
+    // is split at all only because each block is its own submission: a grid partition
+    // inside one submission leaves that submission's duration unchanged, and measured
+    // at 257 queries and head dim 8 one dispatch and eight key-range blocks of the same
+    // span both lost the device. That is why the caller submits the blocks one at a
+    // time instead of sizing a grid.
+    //
+    // The streamed adjoint replays the whole key range for every outer key, so a
+    // block's cost carries the full key length and its own span:
+    //
+    //     block work = queries per KV head * head dim^2 * queries * block keys * keys
+    //
+    // The keys one block may own is therefore the streamed bound divided by that
+    // per-key cost, and the block count follows from the range. When a single key
+    // already costs more than the bound, no block count can bring a submission inside
+    // it: at 257 queries and head dim 8 the whole sequence is such a shape, one key
+    // costing 8.45e6 units against a 1.9e6 bound, so it keeps its refusal.
+    let limit = budget.saturating_mul(ATTENTION_BACKWARD_STREAMED_BUDGET_PERCENT) / 100;
+    let per_key = attention_backward_streamed_work(
+        queries_per_kv,
+        head_dim,
+        query_seq_len,
+        1,
+        key_value_seq_len,
+    );
+    if per_key == 0 {
+        return 1;
+    }
+    let max_keys = limit / per_key;
+    if max_keys == 0 {
+        return 1;
+    }
+    let blocks = key_value_seq_len.saturating_add(max_keys - 1) / max_keys;
+    if blocks == 0 {
+        return 1;
+    }
+    let cap = ATTENTION_BACKWARD_MAX_KEY_BLOCKS as u64;
+    (if blocks > cap { cap } else { blocks }) as u32
+}
+
+/// The refusal message for an attention-backward geometry that still exceeds
+/// `budget` once split into `key_blocks` sequential dispatches, or `None` when it
+/// fits.
+///
+/// Split out from the dispatch site so the refusal itself can be driven by a test:
+/// the only other way to reach it is to dispatch a geometry that resets the
+/// device, which is what it exists to prevent. `key_blocks` is the count the site is
+/// about to dispatch, so the bound applies to the widest block rather than to the
+/// whole geometry.
+pub fn attention_backward_budget_error(
+    budget: u64,
+    queries_per_kv: u64,
+    head_dim: u64,
+    query_seq_len: u64,
+    key_value_seq_len: u64,
+    batch_rows: u64,
+    strict: bool,
+    key_blocks: u32,
+) -> Option<String> {
+    let blocks = key_blocks.max(1) as u64;
+    // The shader partitions the key range as [b * len / blocks, (b + 1) * len /
+    // blocks), so the widest block is the ceiling of that division. A block bounds
+    // the outer key loop only, so the streamed model keeps the whole span in its cost.
+    let max_block_keys = (key_value_seq_len + blocks - 1) / blocks;
+    let streams_statistics = strict
+        && !attention_backward_statistics_are_cached(queries_per_kv, query_seq_len, batch_rows);
+    let (work, limit) = if streams_statistics {
+        (
+            // Each block is its own submission, so the bound applies to the widest block
+            // rather than to one submission holding every block.
+            attention_backward_streamed_work(
+                queries_per_kv,
+                head_dim,
+                query_seq_len,
+                max_block_keys,
+                key_value_seq_len,
+            ),
+            budget.saturating_mul(ATTENTION_BACKWARD_STREAMED_BUDGET_PERCENT) / 100,
+        )
+    } else {
+        (
+            attention_backward_work(
+                queries_per_kv,
+                head_dim,
+                query_seq_len,
+                max_block_keys,
+                strict,
+            ),
+            budget,
+        )
+    };
+    (work > limit).then(|| {
+        if blocks > 1 {
+            format!(
+                "attention backward for {query_seq_len} queries x {key_value_seq_len} keys at head dim {head_dim} (strict {strict}) needs {blocks} key-range blocks and still leaves {work} work units in its widest block, past the {limit} this adapter resets the device at; shorten the sequence, or set {HIERARCHOS_VULKAN_IGNORE_ATTENTION_WORK_BUDGET_ENV} to dispatch anyway"
+            )
+        } else if streams_statistics
+            && attention_backward_streamed_work(
+                queries_per_kv,
+                head_dim,
+                query_seq_len,
+                1,
+                key_value_seq_len,
+            ) > limit
+        {
+            // The useful diagnosis for a shape a split cannot rescue: one key of it is
+            // already a full replay of the key range, so blocking keys buys nothing.
+            format!(
+                "attention backward for {query_seq_len} queries x {key_value_seq_len} keys at head dim {head_dim} (strict {strict}) streams its row statistics, and a single one of its keys already costs {per_key} work units against the {limit} this adapter resets the device above, because the streaming adjoint replays the whole key range for every key -- no key-range split can bring a submission inside that bound; shorten the sequence, or set {HIERARCHOS_VULKAN_IGNORE_ATTENTION_WORK_BUDGET_ENV} to dispatch anyway",
+                per_key = attention_backward_streamed_work(
+                    queries_per_kv,
+                    head_dim,
+                    query_seq_len,
+                    1,
+                    key_value_seq_len,
+                ),
+            )
+        } else {
+            format!(
+                "attention backward for {query_seq_len} queries x {key_value_seq_len} keys at head dim {head_dim} (strict {strict}) needs {work} work units and this adapter resets the device above {limit}; shorten the sequence, or set {HIERARCHOS_VULKAN_IGNORE_ATTENTION_WORK_BUDGET_ENV} to dispatch anyway"
+            )
+        }
+    })
+}
+
 const VARIANT_DISPATCH_SLOTS: usize = 9;
 
-#[cfg(test)]
 thread_local! {
-    /// Dispatches routed to an Intel variant on this thread, per family, so a
-    /// device test can prove a model consumed the vendor module instead of
-    /// silently falling back to the portable one - and that the *specific*
-    /// families a graph is supposed to use were really exercised.
+    /// Dispatches routed to a vendor variant on this thread, per family, so a
+    /// device test or a probe binary can prove a model consumed the vendor
+    /// module instead of silently falling back to the portable one - and that
+    /// the *specific* families a graph is supposed to use were really
+    /// exercised. Compiled into release too, because the logits probe asserts
+    /// it at runtime: a one-word thread-local bump per admitted dispatch.
     static VARIANT_DISPATCH_COUNTS: std::cell::Cell<[u64; VARIANT_DISPATCH_SLOTS]> =
         const { std::cell::Cell::new([0; VARIANT_DISPATCH_SLOTS]) };
 }
 
-#[cfg(test)]
 fn record_variant_dispatch(family: VendorKernelFamily) {
     let index = family as usize;
     VARIANT_DISPATCH_COUNTS.with(|counts| {
@@ -673,6 +1217,22 @@ fn record_variant_dispatch(family: VendorKernelFamily) {
         slots[index] += 1;
         counts.set(slots);
     });
+}
+
+/// Per-family vendor-variant dispatch counts for the current thread.
+///
+/// Only dispatches that cleared the family's geometry gate are counted, so a
+/// non-zero entry is proof that the tuned module ran rather than that the plan
+/// merely selected it. Probes print this when
+/// `HIERARCHOS_VULKAN_VARIANT_TRACE` is set; see `transformer_logits`.
+pub fn variant_dispatch_counts() -> Vec<(&'static str, u64)> {
+    VARIANT_DISPATCH_COUNTS.with(|counts| {
+        let slots = counts.get();
+        VendorKernelFamily::ALL
+            .iter()
+            .map(|family| (family.label(), slots[*family as usize]))
+            .collect()
+    })
 }
 
 /// Test-only read of the per-thread Intel dispatch count across all families.
@@ -709,7 +1269,7 @@ fn build_kernel(device: &VulkanDevice, family: VendorKernelFamily) -> Result<Com
     let selection = select_kernel(device, family);
     // Re-check the gate here so a future selection change cannot hand an
     // unsupported module to the driver.
-    if selection.vendor_specific && !intel_variant_supported(device, family) {
+    if selection.vendor_specific && !variant_supported(device, family) {
         return ComputeKernel::new(
             device,
             family.portable_spirv(),
@@ -742,6 +1302,7 @@ mod tests {
     use super::*;
     use crate::vulkan::ComputeBatch;
     use crate::GpuBuffer;
+    use sha2::{Digest, Sha256};
 
     const WARMUP_DISPATCHES: usize = 3;
     const TIMED_DISPATCHES: usize = 20;
@@ -831,6 +1392,148 @@ mod tests {
             .collect()
     }
 
+    fn families_with_amd_variants() -> Vec<VendorKernelFamily> {
+        VendorKernelFamily::ALL
+            .into_iter()
+            .filter(|family| family.has_amd_variant())
+            .collect()
+    }
+
+    fn families_with_scalar_schedule() -> Vec<VendorKernelFamily> {
+        VendorKernelFamily::ALL
+            .into_iter()
+            .filter(|family| family.scalar_spirv().is_some())
+            .collect()
+    }
+
+    /// The scalar schedule is the pre-tuning module, so it has to agree with the
+    /// portable module raw-bit at every geometry -- and it is the module a
+    /// below-eight-row dispatch now runs, which is what recovers the 0.81x that
+    /// the tiled module's workgroup-memory reservation cost on single-row decode.
+    #[test]
+    fn scalar_schedule_reproduces_the_portable_kernels() -> Result<()> {
+        let Some(device) = test_device()? else {
+            return Ok(());
+        };
+        for family in families_with_scalar_schedule() {
+            let module = family
+                .scalar_spirv()
+                .expect("a family with a scalar schedule has a module");
+            for (rows, input_dim, output_dim) in linear_layout_geometries() {
+                if family == VendorKernelFamily::Linear3Forward {
+                    linear3_forward_case_with(&device, rows, input_dim, output_dim, module)?;
+                } else {
+                    linear_layout_case_with(&device, family, rows, input_dim, output_dim, module)?;
+                }
+            }
+            let slot = VendorMatmulKernel::new(&device, family)?;
+            assert!(
+                slot.scalar_available(),
+                "{} has no scalar pipeline",
+                family.label()
+            );
+            assert!(slot.selects_scalar_for(1), "single-row decode is scalar");
+            assert!(slot.selects_scalar_for(SCALAR_MATMUL_MAX_ROWS - 1));
+            assert!(!slot.selects_scalar_for(SCALAR_MATMUL_MAX_ROWS));
+        }
+        Ok(())
+    }
+
+    /// The RDNA3 classification is an AMD PCI device-ID table, never a name.
+    #[test]
+    fn rdna3_classification_is_amd_pci_ids_only() {
+        assert!(is_amd_rdna3_pci_id(PCI_VENDOR_AMD, 0x744C), "Navi 31");
+        assert!(is_amd_rdna3_pci_id(PCI_VENDOR_AMD, 0x747E), "Navi 32");
+        assert!(is_amd_rdna3_pci_id(PCI_VENDOR_AMD, 0x7480), "Navi 33");
+        assert!(is_amd_rdna3_pci_id(PCI_VENDOR_AMD, 0x15BF), "Phoenix");
+        // The vendor ID is part of the test: the same device ID on another
+        // vendor is not an RDNA3 part.
+        assert!(!is_amd_rdna3_pci_id(PCI_VENDOR_INTEL, 0x744C));
+        // Earlier AMD generations keep the portable module.
+        assert!(
+            !is_amd_rdna3_pci_id(PCI_VENDOR_AMD, 0x731F),
+            "Navi 10, RDNA1"
+        );
+        assert!(
+            !is_amd_rdna3_pci_id(PCI_VENDOR_AMD, 0x73BF),
+            "Navi 21, RDNA2"
+        );
+        assert!(!is_amd_rdna3_pci_id(PCI_VENDOR_AMD, 0x744D));
+    }
+
+    /// Every admitted RDNA3 module has to fit the 64 KiB LDS budget and declare
+    /// the local size and workgroup footprint the capability gate publishes; the
+    /// footprint is decoded from the artifact, not trusted from the constant.
+    #[test]
+    fn committed_rdna3_modules_declare_their_capability_contract() {
+        const RDNA3_LDS_BYTES: u32 = 64 * 1024;
+        for family in families_with_amd_variants() {
+            let module = family
+                .amd_spirv()
+                .expect("a family with an RDNA3 variant has a module");
+            assert_eq!(
+                spirv_local_size(module),
+                family.amd_local_size(),
+                "{} RDNA3 module declares an unexpected local size",
+                family.label()
+            );
+            let bytes = family
+                .amd_shared_memory_bytes()
+                .expect("an RDNA3 module always stages workgroup memory");
+            assert!(
+                bytes <= RDNA3_LDS_BYTES,
+                "{} stages {bytes} bytes against the {RDNA3_LDS_BYTES}-byte RDNA3 LDS",
+                family.label()
+            );
+            assert_eq!(
+                spirv_workgroup_bytes(module),
+                bytes,
+                "{} RDNA3 module's declared workgroup footprint disagrees with the capability gate",
+                family.label()
+            );
+            let (barriers, workgroup_variables) = spirv_workgroup_usage(module);
+            assert!(
+                workgroup_variables >= 2 && barriers >= 2,
+                "{} RDNA3 module claims workgroup memory but declares {workgroup_variables} \
+                 variables / {barriers} barriers",
+                family.label()
+            );
+            // The 64-wide stage is the whole point of the module, so the
+            // declared footprint has to be larger than the portable 32-wide one
+            // could explain by padding alone.
+            assert!(
+                bytes > family.intel_shared_memory_bytes().unwrap_or(0),
+                "{} RDNA3 stage is not wider than the 32-wide stage it replaces",
+                family.label()
+            );
+        }
+    }
+
+    /// The RDNA3 gate is exactly the portable modules' own tiled-vs-scalar
+    /// threshold, so the tuned module is used where the portable schedule would
+    /// tile and never where it would fall back to a scalar dot product.
+    #[test]
+    fn rdna3_geometry_gate_matches_the_portable_tiling_threshold() {
+        assert!(amd_matmul_geometry_supports(8, 64, 16));
+        assert!(amd_matmul_geometry_supports(16, 448, 2048));
+        assert!(amd_matmul_geometry_supports(32, 448, 2048));
+        assert!(
+            !amd_matmul_geometry_supports(1, 448, 512),
+            "single-row decode"
+        );
+        assert!(!amd_matmul_geometry_supports(7, 448, 512));
+        assert!(!amd_matmul_geometry_supports(8, 63, 512), "short k");
+        assert!(!amd_matmul_geometry_supports(8, 64, 15), "thin n");
+        // Every geometry the gate admits has to have its local size covered by
+        // the 16x16 workgroup the module declares.
+        for family in families_with_amd_variants() {
+            assert_eq!(
+                family.amd_local_size().iter().product::<u32>(),
+                family.workgroup_elements()
+            );
+        }
+    }
+
     #[test]
     fn portable_fallback_bytes_are_the_mainline_artifacts() {
         let tuned = families_with_intel_variants();
@@ -857,6 +1560,47 @@ mod tests {
                     family.label()
                 ),
             }
+        }
+    }
+
+    /// The scalar rung is the pre-tuning module for every family, so a dispatch
+    /// below [`SCALAR_MATMUL_MAX_ROWS`] reproduces exactly what the publish commit
+    /// shipped -- on every vendor, RDNA3 included. The retile that won the measured
+    /// geometry replaced the *mainline* portable modules, so identity with the
+    /// published bytes is asserted from the frozen copies in
+    /// `shaders/portable_scalar/`: each digest below is that artifact's SHA-256 at
+    /// the publish commit, and the source beside it rebuilds it byte-for-byte with
+    /// glslc 2023.8 (`training_shader_manifest.json` pins both).
+    #[test]
+    fn scalar_fallbacks_are_the_published_modules() {
+        let published = [
+            (
+                VendorKernelFamily::LinearForward,
+                "74313348d543b2048dbf3bbfe62e895e8d43b9693bdfe4de5907e17a39f1af29",
+            ),
+            (
+                VendorKernelFamily::LinearBiasForward,
+                "332972cee5de8929e0eef1a8640c801d2cd04ebc1ddcab570ada2cdfdbf8dbad",
+            ),
+            (
+                VendorKernelFamily::LinearResidualForward,
+                "daf250cb5c167e1a1cd94911400ce8a6d9eed2e09f24842d03bbdb25d352d6de",
+            ),
+            (
+                VendorKernelFamily::Linear3Forward,
+                "d18345aab759196e8365deb08b85012501ef0ab03ce3002172007acc4bc285bc",
+            ),
+        ];
+        for (family, expected) in published {
+            let bytes = family
+                .scalar_spirv()
+                .unwrap_or_else(|| panic!("{} has no scalar rung", family.label()));
+            assert_eq!(
+                format!("{:x}", Sha256::digest(bytes)),
+                expected,
+                "{} scalar fallback is no longer the published module",
+                family.label()
+            );
         }
     }
 
@@ -1091,6 +1835,97 @@ mod tests {
         (barriers, workgroup_variables)
     }
 
+    /// Byte size of one SPIR-V type, following array and vector wrapping down to
+    /// the scalar it is built from. `0` for anything this decoder does not
+    /// recognize, which makes an unrecognized declaration fail the footprint
+    /// assertion below rather than pass it silently.
+    fn spirv_type_bytes(
+        type_id: u32,
+        scalar_bytes: &std::collections::HashMap<u32, u32>,
+        vector: &std::collections::HashMap<u32, (u32, u32)>,
+        array: &std::collections::HashMap<u32, (u32, u32)>,
+        constant: &std::collections::HashMap<u32, u32>,
+    ) -> u32 {
+        if let Some(bytes) = scalar_bytes.get(&type_id) {
+            return *bytes;
+        }
+        if let Some((component, count)) = vector.get(&type_id) {
+            return spirv_type_bytes(*component, scalar_bytes, vector, array, constant) * *count;
+        }
+        if let Some((element, length_id)) = array.get(&type_id) {
+            let length = *constant.get(length_id).unwrap_or(&0);
+            return spirv_type_bytes(*element, scalar_bytes, vector, array, constant) * length;
+        }
+        0
+    }
+
+    /// Total bytes of workgroup storage a module declares, decoded from its
+    /// `Workgroup` `OpVariable`s and the types they point at. GLSL `shared`
+    /// arrays are plain `OpTypeArray`s over a scalar, so the sum of
+    /// `length * element_bytes` is exactly what `maxComputeSharedMemorySize`
+    /// has to cover. This is what makes
+    /// [`VendorKernelFamily::intel_shared_memory_bytes`] a checked claim rather
+    /// than a comment: the capability gate is compared against the artifact it
+    /// actually gates.
+    fn spirv_workgroup_bytes(spirv: &[u8]) -> u32 {
+        const OP_TYPE_INT: u32 = 21;
+        const OP_TYPE_FLOAT: u32 = 22;
+        const OP_TYPE_VECTOR: u32 = 23;
+        const OP_TYPE_ARRAY: u32 = 28;
+        const OP_TYPE_POINTER: u32 = 32;
+        const OP_CONSTANT: u32 = 43;
+        const OP_VARIABLE: u32 = 59;
+        const STORAGE_CLASS_WORKGROUP: u32 = 4;
+        use std::collections::HashMap;
+        let words = spirv_words(spirv);
+        let mut scalar_bytes: HashMap<u32, u32> = HashMap::new();
+        let mut vector: HashMap<u32, (u32, u32)> = HashMap::new();
+        let mut array: HashMap<u32, (u32, u32)> = HashMap::new();
+        let mut pointer: HashMap<u32, u32> = HashMap::new();
+        let mut constant: HashMap<u32, u32> = HashMap::new();
+        let mut variables: Vec<u32> = Vec::new();
+        let mut index = 5usize;
+        while index < words.len() {
+            let instruction = words[index];
+            let word_count = (instruction >> 16) as usize;
+            let opcode = instruction & 0xffff;
+            if word_count == 0 {
+                break;
+            }
+            // Types precede the variables that use them, and constants precede
+            // the array types that reference them, so one forward pass is
+            // enough to have every operand resolved when it is read.
+            match opcode {
+                OP_TYPE_INT | OP_TYPE_FLOAT if word_count >= 3 => {
+                    scalar_bytes.insert(words[index + 1], words[index + 2] / 8);
+                }
+                OP_TYPE_VECTOR if word_count >= 4 => {
+                    vector.insert(words[index + 1], (words[index + 2], words[index + 3]));
+                }
+                OP_TYPE_ARRAY if word_count >= 4 => {
+                    array.insert(words[index + 1], (words[index + 2], words[index + 3]));
+                }
+                OP_TYPE_POINTER if word_count >= 4 => {
+                    // OpTypePointer: result id, storage class, pointee type.
+                    pointer.insert(words[index + 1], words[index + 3]);
+                }
+                OP_CONSTANT if word_count >= 4 => {
+                    // OpConstant: result type, result id, value.
+                    constant.insert(words[index + 2], words[index + 3]);
+                }
+                OP_VARIABLE if word_count >= 4 && words[index + 3] == STORAGE_CLASS_WORKGROUP => {
+                    variables.push(*pointer.get(&words[index + 1]).unwrap_or(&0));
+                }
+                _ => {}
+            }
+            index += word_count;
+        }
+        variables
+            .into_iter()
+            .map(|type_id| spirv_type_bytes(type_id, &scalar_bytes, &vector, &array, &constant))
+            .sum()
+    }
+
     /// The committed Intel modules must actually declare what the capability
     /// gates and the host dispatch assume. A stale or mistargeted `.spv` (wrong
     /// local size, missing shared-memory staging, missing barriers) fails here
@@ -1107,10 +1942,19 @@ mod tests {
             );
             let (barriers, workgroup_variables) = spirv_workgroup_usage(intel);
             match family.intel_shared_memory_bytes() {
-                Some(_) => {
+                Some(bytes) => {
                     assert!(
                         workgroup_variables >= 2 && barriers >= 2,
                         "{} Intel module claims workgroup memory but declares {workgroup_variables} variables / {barriers} barriers",
+                        family.label()
+                    );
+                    // The declared footprint is what `maxComputeSharedMemorySize`
+                    // has to cover, so decode it from the artifact instead of
+                    // trusting the constant next to it.
+                    assert_eq!(
+                        spirv_workgroup_bytes(intel),
+                        bytes,
+                        "{} Intel module's declared workgroup footprint disagrees with the capability gate",
                         family.label()
                     );
                 }
@@ -1136,6 +1980,208 @@ mod tests {
         }
     }
 
+    /// The budget must admit every shape the device completes and refuse the
+    /// shapes that reset it, so it is pinned to the measured ladder rather than
+    /// to a fitted curve.
+    #[test]
+    fn attention_backward_budget_matches_the_measured_boundary() {
+        let work = |seq: u64, strict: bool| attention_backward_work(2, 32, seq, seq, strict);
+        assert!(work(64, false) <= ATTENTION_BACKWARD_WORK_BUDGET);
+        assert!(
+            work(256, false) <= ATTENTION_BACKWARD_WORK_BUDGET,
+            "mode 0 seq 256 completes in 2576 ms"
+        );
+        assert!(
+            work(320, false) > ATTENTION_BACKWARD_WORK_BUDGET,
+            "mode 0 seq 320 loses the device"
+        );
+        assert!(
+            work(224, true) <= ATTENTION_BACKWARD_WORK_BUDGET,
+            "strict seq 224 completes in 2714 ms"
+        );
+        assert!(
+            work(248, true) > ATTENTION_BACKWARD_WORK_BUDGET,
+            "strict seq 248 loses the device"
+        );
+        assert!(
+            work(512, false) > ATTENTION_BACKWARD_WORK_BUDGET,
+            "mode 0 seq 512 loses the device"
+        );
+        assert_eq!(
+            attention_backward_work(2, 32, 128, 128, true),
+            attention_backward_work(2, 32, 128, 128, false) * 144 / 100,
+            "strict modes carry their measured 1.44x factor"
+        );
+    }
+
+    /// The dispatch site refuses through this function, so its decision and the
+    /// message it carries are checked here, without dispatching a geometry that
+    /// would reset the device -- the only other way to reach the refusal.
+    #[test]
+    fn attention_backward_budget_error_names_the_geometry_and_the_override() {
+        let budget = ATTENTION_BACKWARD_WORK_BUDGET;
+        assert!(
+            attention_backward_budget_error(budget, 2, 32, 256, 256, 1, false, 1).is_none(),
+            "seq 256 completes in 2576 ms"
+        );
+
+        let message = attention_backward_budget_error(budget, 2, 32, 512, 512, 1, false, 1)
+            .expect("seq 512 resets this device");
+        assert!(message.contains("512 queries x 512 keys"), "{message}");
+        assert!(message.contains("head dim 32"), "{message}");
+        assert!(message.contains(&budget.to_string()), "{message}");
+        assert!(
+            message.contains(HIERARCHOS_VULKAN_IGNORE_ATTENTION_WORK_BUDGET_ENV),
+            "the override has to be discoverable from the failure: {message}"
+        );
+
+        let strict = attention_backward_budget_error(budget, 2, 32, 248, 248, 1, true, 1)
+            .expect("strict seq 248 resets this device");
+        assert!(strict.contains("strict true"), "{strict}");
+
+        // An adapter with no measured boundary is never refused.
+        assert!(attention_backward_budget_error(u64::MAX, 2, 32, 4096, 4096, 1, true, 1).is_none());
+    }
+
+    /// The split turns the strict shapes the guard used to refuse into several
+    /// sequential key-range dispatches, and leaves every shape it cannot help alone.
+    #[test]
+    fn attention_backward_key_blocks_split_only_the_strict_adjoint() {
+        let budget = ATTENTION_BACKWARD_WORK_BUDGET;
+        assert_eq!(
+            budget.saturating_mul(ATTENTION_BACKWARD_STREAMED_BUDGET_PERCENT) / 100,
+            ATTENTION_BACKWARD_STREAMED_WORK_BUDGET,
+            "the streamed bound is the measured cached bound scaled to its model"
+        );
+        let blocks = |seq: u64, strict: bool| {
+            attention_backward_key_blocks(Some(budget), 2, 32, seq, seq, 1, strict)
+        };
+        // Shapes that already fit are never split.
+        assert_eq!(blocks(256, false), 1);
+        assert_eq!(blocks(224, true), 1);
+        // The fused shape measured to lose the device at seq 320 cannot be split:
+        // its gradients come from the shared primary pass, whose softmax_dot is a
+        // running prefix across the whole key range.
+        assert_eq!(blocks(320, false), 1);
+        // A strict shape whose row statistics are cached keeps its refusal: splitting
+        // it would move it onto the streamed adjoint, and 4 blocks of that took the
+        // device out at seq 248 where a single dispatch had been refused cleanly. The
+        // measured shape has to stay refused until the cached adjoint itself is
+        // splittable.
+        assert_eq!(blocks(248, true), 1);
+        assert!(
+            attention_backward_budget_error(budget, 2, 32, 248, 248, 1, true, 1).is_some(),
+            "strict seq 248 must stay refused rather than split onto the streamed adjoint"
+        );
+        // Past the statistics cache the adjoint streams, and that is where a split
+        // earns its keep: each block is its own submission, so the block count is what
+        // decides whether a submission fits the measured boundary.
+        assert_eq!(blocks(512, true), 1);
+        assert!(
+            attention_backward_streamed_work(2, 8, 257, 4, 4)
+                <= ATTENTION_BACKWARD_STREAMED_WORK_BUDGET
+        );
+        // The shape the ladder measured losing the device -- 257 queries, head dim 8,
+        // key span 16 -- is now admitted as six submissions. Its streamed cost carries
+        // the full key span, so one block may own three keys and six of those stay
+        // inside the bound.
+        let blocks_for = |queries: u64, key_span: u64, head_dim: u64| {
+            attention_backward_key_blocks(Some(budget), 2, head_dim, queries, key_span, 1, true)
+        };
+        assert_eq!(
+            blocks_for(257, 4, 8),
+            1,
+            "span 4 completed in 395 ms unsplit"
+        );
+        assert_eq!(blocks_for(257, 16, 8), 6);
+        assert!(
+            attention_backward_budget_error(budget, 2, 8, 257, 16, 1, true, 6).is_none(),
+            "six blocks of the span that lost the device have to fit the streamed bound"
+        );
+        // This is the regression the test exists to catch, stated as an invariant: a
+        // credited count is sound only when the widest block it leaves behind fits the
+        // streamed bound, and a count that cannot get there has to be the policy's cap
+        // with the guard refusing the geometry. An earlier policy credited eight blocks
+        // to the shape above while its blocks were workgroups of one submission, which
+        // left that submission exactly as long as it had been.
+        let streamed_limit =
+            budget.saturating_mul(ATTENTION_BACKWARD_STREAMED_BUDGET_PERCENT) / 100;
+        for (queries, key_span, head_dim) in [
+            (257u64, 4u64, 8u64),
+            (257, 16, 8),
+            (257, 21, 8),
+            (257, 64, 8),
+            (257, 257, 8),
+            (512, 512, 32),
+            (4096, 4096, 32),
+        ] {
+            let count = blocks_for(queries, key_span, head_dim);
+            assert!(count >= 1);
+            if count > 1 {
+                let widest = (key_span + count as u64 - 1) / count as u64;
+                let widest_work =
+                    attention_backward_streamed_work(2, head_dim, queries, widest, key_span);
+                if widest_work <= streamed_limit {
+                    assert!(
+                        attention_backward_budget_error(
+                            budget, 2, head_dim, queries, key_span, 1, true, count
+                        )
+                        .is_none(),
+                        "the guard has to admit streamed {queries}x{key_span} at head dim {head_dim}, which the policy split into {count} blocks"
+                    );
+                } else {
+                    assert_eq!(
+                        count, ATTENTION_BACKWARD_MAX_KEY_BLOCKS,
+                        "streamed {queries}x{key_span} at head dim {head_dim} left {widest_work} work units in its widest block, past the {streamed_limit} bound, without being split to the cap"
+                    );
+                    assert!(
+                        attention_backward_budget_error(
+                            budget, 2, head_dim, queries, key_span, 1, true, count
+                        )
+                        .is_some(),
+                        "a geometry split to the cap that still does not fit has to be refused"
+                    );
+                }
+            } else {
+                // A count of one has to mean no split could help: either the geometry
+                // fits unsplit, or even a single key of it costs more than the bound.
+                let whole_span =
+                    attention_backward_streamed_work(2, head_dim, queries, key_span, key_span);
+                let one_key = attention_backward_streamed_work(2, head_dim, queries, 1, key_span);
+                assert!(
+                    whole_span <= streamed_limit || one_key > streamed_limit,
+                    "streamed {queries}x{key_span} at head dim {head_dim} was left unsplit although a split could have brought a submission inside the bound"
+                );
+            }
+        }
+        // The shapes measured to lose the device at head dim 32 stay refused even at the
+        // cap, because their streamed work needs more blocks than it allows.
+        for seq in [320u64, 512] {
+            let count = attention_backward_key_blocks(Some(budget), 2, 32, seq, seq, 1, true);
+            assert_eq!(count, 1, "a streamed geometry is never split");
+            assert!(
+                attention_backward_budget_error(budget, 2, 32, seq, seq, 1, true, count).is_some(),
+                "strict seq {seq} is past the streamed bound and stays refused"
+            );
+        }
+        // The longest shape here streams too, so it is refused un-split.
+        let capped = attention_backward_key_blocks(Some(budget), 2, 32, 1024, 1024, 1, true);
+        assert_eq!(capped, 1);
+        let message = attention_backward_budget_error(budget, 2, 32, 1024, 1024, 1, true, capped)
+            .expect("strict seq 1024 streams and is far past its bound");
+        assert!(message.contains("1024 queries x 1024 keys"), "{message}");
+        // An adapter with no measured boundary is never split.
+        assert_eq!(
+            attention_backward_key_blocks(None, 2, 32, 4096, 4096, 1, true),
+            1
+        );
+        assert_eq!(
+            attention_backward_key_blocks(Some(budget), 2, 32, 8192, 8192, 1, true),
+            1,
+            "a length at head dim 32 costs more in one key than the bound allows"
+        );
+    }
+
     /// On a non-Intel adapter the selection must return the exact pre-existing
     /// module bytes for every family, which is what guarantees zero AMD/NVIDIA
     /// behavioral change from this module's introduction.
@@ -1148,6 +2194,11 @@ mod tests {
             return Ok(());
         }
         if GpuVendor::from_pci_vendor_id(device.vendor_id()).is_intel() {
+            return Ok(());
+        }
+        // An RDNA3 adapter is the one AMD class that leaves the portable
+        // modules, and `rdna3_devices_select_the_rdna3_modules` is its claim.
+        if is_amd_rdna3(&device) {
             return Ok(());
         }
         for family in VendorKernelFamily::ALL {
@@ -1192,6 +2243,59 @@ mod tests {
         linear_bias_forward_matches_portable(&device)?;
         linear_residual_forward_matches_portable(&device)?;
         linear3_forward_matches_portable(&device)?;
+        Ok(())
+    }
+
+    /// The plan on an actual RDNA3 adapter: every family with a tuned module is
+    /// selected there, and nothing else is.
+    #[test]
+    fn rdna3_devices_select_the_rdna3_modules() -> Result<()> {
+        let Some(device) = test_device()? else {
+            return Ok(());
+        };
+        if !is_amd_rdna3(&device) || std::env::var(HIERARCHOS_VULKAN_FORCE_VENDOR_ENV).is_ok() {
+            return Ok(());
+        }
+        for family in VendorKernelFamily::ALL {
+            let selection = select_kernel(&device, family);
+            if family.has_amd_variant() {
+                assert_eq!(
+                    selection.variant,
+                    family.amd_variant_label(),
+                    "{} keeps the portable module on an RDNA3 adapter",
+                    family.label()
+                );
+                assert_eq!(selection.spirv, family.amd_spirv().expect("module"));
+            } else {
+                assert!(!selection.vendor_specific, "{}", family.label());
+                assert_eq!(selection.spirv, family.portable_spirv());
+            }
+        }
+        Ok(())
+    }
+
+    /// The RDNA3 modules are executed and compared with the portable ones on
+    /// *every* adapter, so their numeric contract does not depend on owning
+    /// RDNA3 hardware -- only their timing does. Every geometry the gate admits
+    /// is covered, plus every geometry the gate rejects, because a module must
+    /// be correct where it is not selected too.
+    #[test]
+    fn rdna3_variants_are_bit_exact_with_portable_kernels() -> Result<()> {
+        let Some(device) = test_device()? else {
+            return Ok(());
+        };
+        for family in families_with_amd_variants() {
+            let module = family
+                .amd_spirv()
+                .expect("a family with an RDNA3 variant has a module");
+            for (rows, input_dim, output_dim) in linear_layout_geometries() {
+                if family == VendorKernelFamily::Linear3Forward {
+                    linear3_forward_case_with(&device, rows, input_dim, output_dim, module)?;
+                } else {
+                    linear_layout_case_with(&device, family, rows, input_dim, output_dim, module)?;
+                }
+            }
+        }
         Ok(())
     }
 
@@ -1355,7 +2459,7 @@ mod tests {
             family.label()
         );
         println!(
-            "vendor-kernel A/B {} [{case}]: portable={:.4}ms intel={:.4}ms speedup={:.3}x bit_exact=true max_abs_delta={max_abs_delta:.1e} (<= {REFERENCE_LOGIT_DRIFT:.1e}) max_ulp_delta={max_ulp_delta}",
+            "vendor-kernel A/B {} [{case}]: portable={:.4}ms variant={:.4}ms speedup={:.3}x bit_exact=true max_abs_delta={max_abs_delta:.1e} (<= {REFERENCE_LOGIT_DRIFT:.1e}) max_ulp_delta={max_ulp_delta}",
             family.label(),
             outcome.portable_ms,
             outcome.variant_ms,
@@ -1363,9 +2467,12 @@ mod tests {
         );
     }
 
-    fn kernel_pair(
+    /// The portable/variant pair, from an explicitly named tuned module, so the
+    /// RDNA3 modules can be executed on an adapter that will never select them.
+    fn kernel_pair_with(
         device: &VulkanDevice,
         family: VendorKernelFamily,
+        variant_spirv: &'static [u8],
     ) -> Result<(ComputeKernel, ComputeKernel)> {
         let portable = ComputeKernel::new(
             device,
@@ -1373,9 +2480,6 @@ mod tests {
             family.binding_count(),
             family.push_constant_bytes(),
         )?;
-        let variant_spirv = family
-            .intel_spirv()
-            .ok_or_else(|| anyhow::anyhow!("{} has no Intel variant", family.label()))?;
         let variant = ComputeKernel::new(
             device,
             variant_spirv,
@@ -1406,7 +2510,21 @@ mod tests {
         input_dim: usize,
         output_dim: usize,
     ) -> Result<()> {
-        let (portable, variant) = kernel_pair(device, family)?;
+        let variant_spirv = family
+            .intel_spirv()
+            .ok_or_else(|| anyhow::anyhow!("{} has no Intel variant", family.label()))?;
+        linear_layout_case_with(device, family, rows, input_dim, output_dim, variant_spirv)
+    }
+
+    fn linear_layout_case_with(
+        device: &VulkanDevice,
+        family: VendorKernelFamily,
+        rows: usize,
+        input_dim: usize,
+        output_dim: usize,
+        variant_spirv: &'static [u8],
+    ) -> Result<()> {
+        let (portable, variant) = kernel_pair_with(device, family, variant_spirv)?;
         let input = pseudo_random(rows * input_dim, 0x51ed);
         let weight = pseudo_random(output_dim * input_dim, 0x9a13);
         let bias = pseudo_random(output_dim, 0x77);
@@ -1726,7 +2844,21 @@ mod tests {
         output_dim: usize,
     ) -> Result<()> {
         let family = VendorKernelFamily::Linear3Forward;
-        let (portable, variant) = kernel_pair(device, family)?;
+        let variant_spirv = family
+            .intel_spirv()
+            .ok_or_else(|| anyhow::anyhow!("{} has no Intel variant", family.label()))?;
+        linear3_forward_case_with(device, rows, input_dim, output_dim, variant_spirv)
+    }
+
+    fn linear3_forward_case_with(
+        device: &VulkanDevice,
+        rows: usize,
+        input_dim: usize,
+        output_dim: usize,
+        variant_spirv: &'static [u8],
+    ) -> Result<()> {
+        let family = VendorKernelFamily::Linear3Forward;
+        let (portable, variant) = kernel_pair_with(device, family, variant_spirv)?;
         let input_r = pseudo_random(rows * input_dim, 0x71ed);
         let weight_r = pseudo_random(output_dim * input_dim, 0x7a13);
         let input_k = pseudo_random(rows * input_dim, 0x72ed);
@@ -1816,5 +2948,4 @@ mod tests {
         }
         Ok(())
     }
-
 }

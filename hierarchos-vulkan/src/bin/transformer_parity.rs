@@ -84,10 +84,17 @@ fn run() -> Result<()> {
                     args.next().context("missing --output value")?,
                 ))
             }
-            "--gradient-output" => gradient_output = Some(PathBuf::from(args.next().context("missing --gradient-output value")?)),
-            "--debug-first-layer-output" => debug_first_layer_output = Some(PathBuf::from(
-                args.next().context("missing --debug-first-layer-output value")?,
-            )),
+            "--gradient-output" => {
+                gradient_output = Some(PathBuf::from(
+                    args.next().context("missing --gradient-output value")?,
+                ))
+            }
+            "--debug-first-layer-output" => {
+                debug_first_layer_output = Some(PathBuf::from(
+                    args.next()
+                        .context("missing --debug-first-layer-output value")?,
+                ))
+            }
             "--base-output" => {
                 base_output = Some(PathBuf::from(
                     args.next().context("missing --base-output value")?,
@@ -128,8 +135,16 @@ fn run() -> Result<()> {
                     args.next().context("missing --lora-adapter value")?,
                 ))
             }
-            "--resume-lora" => resume_lora = Some(PathBuf::from(args.next().context("missing --resume-lora value")?)),
-            "--training-checkpoint" => training_checkpoint = Some(PathBuf::from(args.next().context("missing --training-checkpoint value")?)),
+            "--resume-lora" => {
+                resume_lora = Some(PathBuf::from(
+                    args.next().context("missing --resume-lora value")?,
+                ))
+            }
+            "--training-checkpoint" => {
+                training_checkpoint = Some(PathBuf::from(
+                    args.next().context("missing --training-checkpoint value")?,
+                ))
+            }
             "--seed" => {
                 let raw = args.next().context("missing --seed value")?;
                 seed = raw
@@ -210,7 +225,9 @@ fn run() -> Result<()> {
     };
     let hyper = if let Some(checkpoint) = resume_lora.as_deref() {
         graph.load_lora_optimizer_state(checkpoint)?
-    } else { requested_hyper };
+    } else {
+        requested_hyper
+    };
     let mut losses = Vec::with_capacity(steps);
     let mut final_result = None;
     for _ in 0..steps {
@@ -226,7 +243,10 @@ fn run() -> Result<()> {
     }
     let result = final_result.context("parity trajectory produced no optimizer steps")?;
     if let Some(path) = gradient_output {
-        fs::write(path, serde_json::to_vec_pretty(&graph.lora_gradient_values()?)?)?;
+        fs::write(
+            path,
+            serde_json::to_vec_pretty(&graph.lora_gradient_values()?)?,
+        )?;
     }
     if let Some(path) = debug_first_layer_output {
         fs::write(
@@ -248,16 +268,19 @@ fn run() -> Result<()> {
         graph.export_hf_package(&model, &output)?;
     }
     let report = Report {
-            device: graph.device_name().to_owned(),
-            architecture: graph.config().architecture.model_type().to_owned(),
-            loss: result.loss,
-            losses,
-            step: result.step,
-            supervised_tokens: result.supervised_tokens,
-            peft,
-            logits_after: graph.forward_logits(&fixture.input_ids, &fixture.attention_mask)?,
-        };
-    fs::write(output.join("training_report.json"), serde_json::to_vec_pretty(&report)?)?;
+        device: graph.device_name().to_owned(),
+        architecture: graph.config().architecture.model_type().to_owned(),
+        loss: result.loss,
+        losses,
+        step: result.step,
+        supervised_tokens: result.supervised_tokens,
+        peft,
+        logits_after: graph.forward_logits(&fixture.input_ids, &fixture.attention_mask)?,
+    };
+    fs::write(
+        output.join("training_report.json"),
+        serde_json::to_vec_pretty(&report)?,
+    )?;
     println!("{}", serde_json::to_string(&report)?);
     Ok(())
 }

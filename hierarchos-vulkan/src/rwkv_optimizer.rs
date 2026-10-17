@@ -3852,16 +3852,59 @@ impl RwkvPersistentAdamW {
             .collect()
     }
 
+    /// Snapshot the canonical Adam state with every moment copied back in one submission.
+    ///
+    /// Reading each moment buffer directly costs two blocking submissions per slot:
+    /// `GpuBuffer::read_f32` on a device-local buffer allocates a staging window and
+    /// submits-and-waits its own copy, so a snapshot is one fence per tensor. That is
+    /// invisible in a checkpoint but not in a trajectory check, which snapshots after
+    /// every optimizer step: on the Intel Gen9 part it was about a second per step, more
+    /// than the step itself. This records the same copies into one host-visible staging
+    /// allocation and submits once, so every value is read from the same source buffer it
+    /// was read from before -- identical bits, and therefore identical digests -- while the
+    /// fence count goes from two per slot to one per snapshot.
     pub fn state_snapshot(&self) -> Result<AdamWOptimizerState> {
         let (step, slot_steps) = self.exact_step_metadata()?;
+        if self.slots.is_empty() {
+            return Ok(AdamWOptimizerState {
+                step,
+                slots: Vec::new(),
+            });
+        }
+        let mut offsets = Vec::with_capacity(self.slots.len());
+        let mut total = 0usize;
+        for slot in &self.slots {
+            offsets.push(total);
+            total = total
+                .checked_add(
+                    slot.len
+                        .checked_mul(2)
+                        .context("Adam state snapshot size overflow")?,
+                )
+                .context("Adam state snapshot size overflow")?;
+        }
+        let staging = GpuBuffer::uninitialized_host_f32(&self.device, total)?;
+        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        for (slot, &offset) in self.slots.iter().zip(&offsets) {
+            commands.readback_f32_range(&slot.exp_avg, 0, &staging, offset, slot.len)?;
+            commands.readback_f32_range(
+                &slot.exp_avg_sq,
+                0,
+                &staging,
+                offset + slot.len,
+                slot.len,
+            )?;
+        }
+        commands.submit()?;
+        let values = staging.read_f32(total)?;
         let mut slots = Vec::with_capacity(self.slots.len());
-        for (slot, slot_step) in self.slots.iter().zip(slot_steps) {
+        for ((slot, slot_step), &offset) in self.slots.iter().zip(slot_steps).zip(&offsets) {
             slots.push(AdamWOptimizerSlotState {
                 name: slot.name.clone(),
                 step: slot_step,
                 decay_class: Some(slot.decay_class),
-                exp_avg: slot.exp_avg.read_f32(slot.len)?,
-                exp_avg_sq: slot.exp_avg_sq.read_f32(slot.len)?,
+                exp_avg: values[offset..offset + slot.len].to_vec(),
+                exp_avg_sq: values[offset + slot.len..offset + 2 * slot.len].to_vec(),
             });
         }
         Ok(AdamWOptimizerState { step, slots })

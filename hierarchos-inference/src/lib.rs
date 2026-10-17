@@ -14,6 +14,8 @@ mod model;
 mod rosa;
 mod rwkv;
 mod sampler;
+
+pub use rwkv::rwkv_cell_step;
 mod weights;
 
 pub use bootstrap::{initialize_model_package, NativeBootstrapConfig};

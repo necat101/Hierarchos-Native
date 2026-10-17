@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "note": "Measured LN1/low-rank kernel-topology decisions, one entry per (family, device, geometry). Written only by `validation/verify_topology_decisions.py --record`, which merges this machine's replayed decisions and leaves every other device's entries as they were; `timings_ms` are the medians the choice was made from and `selected` is the variant the device chose. `margin_fraction` is how much the fastest candidate beat the structural default, so 0 means the default was kept rather than that nothing was measured.",
+  "decisions": [
+    {
+      "family": "ln-low-rank-f32",
+      "device": "Intel(R) HD Graphics 520",
+      "subgroup_size": 32,
+      "width": 64,
+      "w_rank": 8,
+      "a_rank": 8,
+      "g_rank": 8,
+      "batch_pairs": 1,
+      "has_unpaired_tail": false,
+      "timings_ms": {
+        "ln-low-rank-f32-one-row": 0.077036,
+        "ln-low-rank-f32-two-rows": 0.087536,
+        "ln-low-rank-f32-column-slices": 0.081307
+      },
+      "selected": "ln-low-rank-f32-one-row",
+      "margin_fraction": 0.0
+    },
+    {
+      "family": "ln-low-rank-f32",
+      "device": "Intel(R) HD Graphics 520",
+      "subgroup_size": 32,
+      "width": 128,
+      "w_rank": 32,
+      "a_rank": 32,
+      "g_rank": 64,
+      "batch_pairs": 1,
+      "has_unpaired_tail": false,
+      "timings_ms": {
+        "ln-low-rank-f32-one-row": 0.230181,
+        "ln-low-rank-f32-two-rows": 0.27952,
+        "ln-low-rank-f32-column-slices": 0.201494
+      },
+      "selected": "ln-low-rank-f32-column-slices",
+      "margin_fraction": 0.124629
+    },
+    {
+      "family": "ln-low-rank-f32",
+      "device": "Intel(R) HD Graphics 520",
+      "subgroup_size": 32,
+      "width": 128,
+      "w_rank": 32,
+      "a_rank": 32,
+      "g_rank": 64,
+      "batch_pairs": 2,
+      "has_unpaired_tail": true,
+      "timings_ms": {
+        "ln-low-rank-f32-one-row": 0.228327,
+        "ln-low-rank-f32-two-rows": 0.25928,
+        "ln-low-rank-f32-column-slices": 0.191687
+      },
+      "selected": "ln-low-rank-f32-column-slices",
+      "margin_fraction": 0.160473
+    },
+    {
+      "family": "ln-low-rank-f32",
+      "device": "Intel(R) HD Graphics 520",
+      "subgroup_size": 32,
+      "width": 128,
+      "w_rank": 32,
+      "a_rank": 32,
+      "g_rank": 64,
+      "batch_pairs": 16,
+      "has_unpaired_tail": false,
+      "timings_ms": {
+        "ln-low-rank-f32-one-row": 0.24841,
+        "ln-low-rank-f32-two-rows": 0.281957,
+        "ln-low-rank-f32-column-slices": 0.206187
+      },
+      "selected": "ln-low-rank-f32-column-slices",
+      "margin_fraction": 0.169976
+    }
+  ]
+}

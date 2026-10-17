@@ -1,0 +1,66 @@
+#version 450
+
+// AMD RDNA3 (gfx11) variant of linear_residual_forward.
+//
+// Identical contract, schedule and arithmetic to linear_forward_amd_rdna3,
+// except for the epilogue the portable module uses: the residual is folded into
+// the store as `residual[index] + sum`, in that operand order.
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer ResidualBuffer { float residual[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+const uint INPUT_TILE = 64u;
+shared float input_tile[16u * 65u];
+shared float weight_tile[INPUT_TILE * 17u];
+
+void main() {
+    uint local_x = gl_LocalInvocationID.x;
+    uint local_y = gl_LocalInvocationID.y;
+    uint out_col = gl_WorkGroupID.x * 16u + local_x;
+    uint row = gl_WorkGroupID.y * 16u + local_y;
+    bool lane_valid = row < pc.rows && out_col < pc.output_dim;
+    float sum = 0.0;
+
+    for (uint k_base = 0u; k_base < pc.input_dim; k_base += INPUT_TILE) {
+        uint load_k = k_base + local_x * 4u;
+        uint input_slot = local_y * 65u + local_x * 4u;
+        for (uint j = 0u; j < 4u; ++j) {
+            input_tile[input_slot + j] =
+                row < pc.rows && load_k + j < pc.input_dim
+                    ? x[row * pc.input_dim + load_k + j] : 0.0;
+        }
+
+        uint weight_col = gl_WorkGroupID.x * 16u + local_y;
+        uint weight_slot = local_x * 4u * 17u + local_y;
+        for (uint j = 0u; j < 4u; ++j) {
+            weight_tile[weight_slot + j * 17u] =
+                weight_col < pc.output_dim && load_k + j < pc.input_dim
+                    ? weight[weight_col * pc.input_dim + load_k + j] : 0.0;
+        }
+
+        barrier();
+        if (lane_valid) {
+            uint count = min(INPUT_TILE, pc.input_dim - k_base);
+            for (uint k = 0u; k < count; ++k) {
+                sum = fma(input_tile[local_y * 65u + k],
+                          weight_tile[k * 17u + local_x], sum);
+            }
+        }
+        barrier();
+    }
+
+    if (lane_valid) {
+        uint output_index = row * pc.output_dim + out_col;
+        output_values[output_index] = residual[output_index] + sum;
+    }
+}

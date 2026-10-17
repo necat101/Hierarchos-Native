@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use crate::{
     error::{Error, Result},
@@ -423,6 +423,49 @@ impl RwkvCell {
         finite_clamp_vec(&mut new_state.matrix, self.state_clamp);
         (output, new_state)
     }
+}
+
+/// One coherent-v9 RWKV cell step from an explicit packed state.
+///
+/// This is the cross-backend seam: the Vulkan `rwkv-packed-cell-step` runner
+/// takes the same case fields and reports the same `(output, packed_new_state)`
+/// pair, so a generated fixture can be compared on both runtimes without either
+/// side re-implementing the other's graph. The packed state is the
+/// `[width, 4 + head_size]` explicit-output layout documented on
+/// [`RwkvState::to_explicit_output_packed`].
+#[allow(clippy::too_many_arguments)]
+pub fn rwkv_cell_step(
+    model_dir: &Path,
+    prefix: &str,
+    width: usize,
+    head_size: usize,
+    state_clamp: f32,
+    channel_mix_key_clamp: f32,
+    channel_mix_deepembed_clamp: f32,
+    x: &[f32],
+    deepembed: &[f32],
+    packed_state: &[f32],
+) -> Result<(Vec<f32>, Vec<f32>)> {
+    if x.len() != width {
+        return Err(Error::Invalid(format!(
+            "RWKV cell step expected {width} input values; got {}",
+            x.len()
+        )));
+    }
+    let loader = WeightLoader::open(&model_dir.join("model.safetensors"))?;
+    let cell = RwkvCell::load(
+        &loader,
+        prefix,
+        width,
+        head_size,
+        state_clamp,
+        channel_mix_key_clamp,
+        channel_mix_deepembed_clamp,
+    )?;
+    let state = RwkvState::from_explicit_output_packed(width, head_size, packed_state)?;
+    let (output, new_state) = cell.step(x, &state, Some(deepembed));
+    let packed = new_state.to_explicit_output_packed(width, head_size)?;
+    Ok((output, packed))
 }
 
 fn load_parameter_matrix(loader: &WeightLoader, name: &str, rows: usize) -> Result<Matrix> {

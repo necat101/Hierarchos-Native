@@ -32,14 +32,14 @@ use tokenizers::Tokenizer;
 
 use crate::training_numerics::VulkanOrderedF32SumReducer;
 mod falcon_h1;
-mod peft_state;
 mod peft_registry;
-pub use peft_registry::{PeftCapability, PeftModuleClass};
+mod peft_state;
 use crate::{
-    hierarchos_canonical_philox_word, hierarchos_dropout_threshold, read_f32_tensor, vendor, vulkan,
-    AdamWHyperParams, CanonicalDropoutVulkanOp, GpuBuffer, HierarchosCanonicalRngReservation,
-    SharedLmHeadParameter, TiedTokenEmbeddingOp, VulkanDevice,
+    hierarchos_canonical_philox_word, hierarchos_dropout_threshold, read_f32_tensor, vendor,
+    vulkan, AdamWHyperParams, CanonicalDropoutVulkanOp, GpuBuffer,
+    HierarchosCanonicalRngReservation, SharedLmHeadParameter, TiedTokenEmbeddingOp, VulkanDevice,
 };
+pub use peft_registry::{PeftCapability, PeftModuleClass};
 
 const LINEAR_FORWARD_LANE2_SPV: &[u8] = include_bytes!("../shaders/linear_forward_lane2.spv");
 const LINEAR_FORWARD_LANE4_SPV: &[u8] = include_bytes!("../shaders/linear_forward_lane4.spv");
@@ -50,7 +50,8 @@ const LORA_A_FORWARD_LANE8_MULADD_SPV: &[u8] =
     include_bytes!("../shaders/lora_a_forward_lane8_muladd.spv");
 const LINEAR_WEIGHT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_weight_grad.spv");
 const LINEAR_INPUT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad.spv");
-const LINEAR_INPUT_GRAD_MULADD_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad_muladd.spv");
+const LINEAR_INPUT_GRAD_MULADD_SPV: &[u8] =
+    include_bytes!("../shaders/linear_input_grad_muladd.spv");
 const LINEAR_INPUT_GRAD_LANE2_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad_lane2.spv");
 const BIAS_GRAD_SPV: &[u8] = include_bytes!("../shaders/bias_grad.spv");
 const BIAS_ADD_SPV: &[u8] = include_bytes!("../shaders/transformer_bias_add.spv");
@@ -99,8 +100,7 @@ const KIMI_ATTN_RES_SOFTMAX_SPV: &[u8] =
     include_bytes!("../shaders/transformer_kimi_attn_res_softmax.spv");
 const KIMI_ATTN_RES_SOFTMAX_BACKWARD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_kimi_attn_res_softmax_backward.spv");
-const KIMI_ATTN_RES_MIX_SPV: &[u8] =
-    include_bytes!("../shaders/transformer_kimi_attn_res_mix.spv");
+const KIMI_ATTN_RES_MIX_SPV: &[u8] = include_bytes!("../shaders/transformer_kimi_attn_res_mix.spv");
 const KIMI_ATTN_RES_MIX_BACKWARD_PROB_SPV: &[u8] =
     include_bytes!("../shaders/transformer_kimi_attn_res_mix_backward_prob.spv");
 const KIMI_ATTN_RES_MIX_BACKWARD_CANDIDATE_SPV: &[u8] =
@@ -206,8 +206,7 @@ const QWEN_GDN_GATE_NORM_PARAM_GRAD_SPV: &[u8] =
 const CLAMP_FORWARD_SPV: &[u8] = include_bytes!("../shaders/transformer_clamp_forward.spv");
 const CLAMP_BACKWARD_SPV: &[u8] = include_bytes!("../shaders/transformer_clamp_backward.spv");
 const SCALED_ADD_SPV: &[u8] = include_bytes!("../shaders/transformer_scaled_add.spv");
-const LORA_SCALED_ADD_SPV: &[u8] =
-    include_bytes!("../shaders/transformer_lora_scaled_add.spv");
+const LORA_SCALED_ADD_SPV: &[u8] = include_bytes!("../shaders/transformer_lora_scaled_add.spv");
 const SCALE_COPY_SPV: &[u8] = include_bytes!("../shaders/transformer_scale_copy.spv");
 const ROW_SCALE_SPV: &[u8] = include_bytes!("../shaders/transformer_row_scale.spv");
 const DORA_SCALE_SPV: &[u8] = include_bytes!("../shaders/transformer_dora_scale.spv");
@@ -230,8 +229,7 @@ const MOE_EXPERT_FORWARD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_moe_expert_forward.spv");
 const MOE_EXPERT_FORWARD_MULADD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_moe_expert_forward_muladd.spv");
-const MOE_EXPERT_COUNT_SPV: &[u8] =
-    include_bytes!("../shaders/transformer_moe_expert_count.spv");
+const MOE_EXPERT_COUNT_SPV: &[u8] = include_bytes!("../shaders/transformer_moe_expert_count.spv");
 const GPT_OSS_SWIGLU_FORWARD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_gpt_oss_swiglu_forward.spv");
 const GPT_OSS_SWIGLU_BACKWARD_SPV: &[u8] =
@@ -6556,7 +6554,9 @@ impl VulkanTransformerArchitecture {
     }
 
     fn uses_llama_layout(self) -> bool {
-        if self == Self::FalconH1 { return true; }
+        if self == Self::FalconH1 {
+            return true;
+        }
         matches!(
             self,
             Self::StableLm
@@ -7190,7 +7190,9 @@ impl VulkanTransformerArchitecture {
     }
 
     fn uses_configurable_mlp_bias(self) -> bool {
-        if self == Self::FalconH1 { return true; }
+        if self == Self::FalconH1 {
+            return true;
+        }
         matches!(
             self,
             Self::Llama
@@ -8097,7 +8099,11 @@ impl VulkanRopeScaling {
 
     fn layer_kernel_type(&self) -> u32 {
         // Internal dispatch mode; serialized scaling semantics remain unchanged.
-        if self.uses_precomputed_frequencies() { 7 } else { self.kernel_type() }
+        if self.uses_precomputed_frequencies() {
+            7
+        } else {
+            self.kernel_type()
+        }
     }
 
     fn kernel_type(&self) -> u32 {
@@ -25343,6 +25349,35 @@ struct AttentionPush {
     unfused_qk: u32,
 }
 
+/// The attention push block plus the key-range block one backward submission owns.
+///
+/// The watchdog bounds a submission, so a key-range split only shortens anything when
+/// each block is submitted on its own -- and a separately submitted block cannot be
+/// identified by the grid it was launched with, because every split submission is
+/// launched with a z of one. These two words carry the block's identity instead. Only
+/// the backward kernel's push range grows: the forward kernel keeps `AttentionPush`
+/// and every forward dispatch is unchanged.
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct AttentionBackwardPush {
+    base: AttentionPush,
+    key_block_index: u32,
+    key_block_count: u32,
+}
+
+impl AttentionPush {
+    /// This geometry as the push block of a backward dispatch that owns
+    /// `key_block_index` of `key_block_count` key-range blocks. A count of one is the
+    /// unsplit dispatch, which owns the whole range.
+    fn as_backward_push(self, key_block_index: u32, key_block_count: u32) -> AttentionBackwardPush {
+        AttentionBackwardPush {
+            base: self,
+            key_block_index,
+            key_block_count,
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct DsaIndexScoresPush {
@@ -25882,6 +25917,10 @@ fn host_has_avx512() -> bool {
 }
 
 struct TransformerKernels {
+    /// Attention-backward work this adapter's watchdog tolerates, derived from its
+    /// vendor and shared-memory class at construction. `None` means no boundary has
+    /// been measured for that class, so nothing is refused.
+    attention_backward_work_budget: Option<u64>,
     /// Geometry-gated vendor slot: the shared transformer matmul runs at every
     /// row count (prefill and single-row cached decode), so the module is
     /// chosen per dispatch rather than at construction.
@@ -26075,6 +26114,7 @@ impl TransformerKernels {
 
     fn new(device: &VulkanDevice) -> Result<Self> {
         Ok(Self {
+            attention_backward_work_budget: vendor::attention_backward_work_budget(device),
             linear_forward: vendor::VendorMatmulKernel::new(
                 device,
                 vendor::VendorKernelFamily::LinearForward,
@@ -26110,8 +26150,18 @@ impl TransformerKernels {
             )?,
             linear_weight_grad: vulkan::ComputeKernel::new(device, LINEAR_WEIGHT_GRAD_SPV, 3, 12)?,
             linear_input_grad: vulkan::ComputeKernel::new(device, LINEAR_INPUT_GRAD_SPV, 3, 12)?,
-            linear_input_grad_muladd: vulkan::ComputeKernel::new(device, LINEAR_INPUT_GRAD_MULADD_SPV, 3, 12)?,
-            linear_input_grad_lane2: vulkan::ComputeKernel::new(device, LINEAR_INPUT_GRAD_LANE2_SPV, 3, 12)?,
+            linear_input_grad_muladd: vulkan::ComputeKernel::new(
+                device,
+                LINEAR_INPUT_GRAD_MULADD_SPV,
+                3,
+                12,
+            )?,
+            linear_input_grad_lane2: vulkan::ComputeKernel::new(
+                device,
+                LINEAR_INPUT_GRAD_LANE2_SPV,
+                3,
+                12,
+            )?,
             bias_grad: vulkan::ComputeKernel::new(device, BIAS_GRAD_SPV, 2, 8)?,
             bias_add: vulkan::ComputeKernel::new(device, BIAS_ADD_SPV, 2, 8)?,
             layer_norm_forward: vulkan::ComputeKernel::new(device, LAYER_NORM_FORWARD_SPV, 6, 12)?,
@@ -26181,7 +26231,9 @@ impl TransformerKernels {
                 device,
                 ATTENTION_BACKWARD_SPV,
                 15,
-                std::mem::size_of::<AttentionPush>() as u32,
+                // The backward push block carries the key-range block the submission
+                // owns, so its range is two words wider than the forward one.
+                std::mem::size_of::<AttentionBackwardPush>() as u32,
             )?,
             alibi_positions: vulkan::ComputeKernel::new(device, ALIBI_POSITIONS_SPV, 2, 8)?,
             position_add: vulkan::ComputeKernel::new(
@@ -26223,7 +26275,12 @@ impl TransformerKernels {
                 24,
             )?,
             cross_entropy: vulkan::ComputeKernel::new(device, CROSS_ENTROPY_SPV, 5, 8)?,
-            falcon_cross_entropy: vulkan::ComputeKernel::new(device, include_bytes!("../shaders/falcon_h1_cross_entropy.spv"), 5, 8)?,
+            falcon_cross_entropy: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../shaders/falcon_h1_cross_entropy.spv"),
+                5,
+                8,
+            )?,
             falcon_cross_entropy_lanes16: vulkan::ComputeKernel::new(
                 device,
                 include_bytes!("../shaders/falcon_h1_cross_entropy_lanes16.spv"),
@@ -26647,12 +26704,7 @@ impl TransformerKernels {
                 3,
                 20,
             )?,
-            moe_expert_forward: vulkan::ComputeKernel::new(
-                device,
-                MOE_EXPERT_FORWARD_SPV,
-                4,
-                20,
-            )?,
+            moe_expert_forward: vulkan::ComputeKernel::new(device, MOE_EXPERT_FORWARD_SPV, 4, 20)?,
             moe_expert_forward_muladd: vulkan::ComputeKernel::new(
                 device,
                 MOE_EXPERT_FORWARD_MULADD_SPV,
@@ -26911,11 +26963,15 @@ impl TrainableParameter {
     }
 
     fn training_state_bytes(&self) -> usize {
-        [self.grad.as_ref(), self.exp_avg.as_ref(), self.exp_avg_sq.as_ref()]
-            .into_iter()
-            .flatten()
-            .map(|buffer| buffer.f32_capacity() * std::mem::size_of::<f32>())
-            .sum::<usize>()
+        [
+            self.grad.as_ref(),
+            self.exp_avg.as_ref(),
+            self.exp_avg_sq.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        .map(|buffer| buffer.f32_capacity() * std::mem::size_of::<f32>())
+        .sum::<usize>()
             + self
                 .grad_accumulate
                 .as_ref()
@@ -27205,10 +27261,7 @@ struct VulkanLoraBank {
 
 impl VulkanLoraBank {
     fn as_ref(&self) -> Option<&VulkanLora> {
-        let adapter_id = self
-            .active_adapter_id
-            .as_ref()?
-            .load(Ordering::Acquire);
+        let adapter_id = self.active_adapter_id.as_ref()?.load(Ordering::Acquire);
         if adapter_id == 0 {
             return None;
         }
@@ -27216,10 +27269,7 @@ impl VulkanLoraBank {
     }
 
     fn as_mut(&mut self) -> Option<&mut VulkanLora> {
-        let adapter_id = self
-            .active_adapter_id
-            .as_ref()?
-            .load(Ordering::Acquire);
+        let adapter_id = self.active_adapter_id.as_ref()?.load(Ordering::Acquire);
         if adapter_id == PEFT_DISABLED_ADAPTER_ID {
             return None;
         }
@@ -27524,8 +27574,7 @@ impl VulkanLinear {
             b_bias_values,
             dora_magnitude_values,
         )?;
-        self.lora
-            .insert(adapter_id, active_adapter_id, lora)
+        self.lora.insert(adapter_id, active_adapter_id, lora)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -27575,8 +27624,7 @@ impl VulkanLinear {
         lora.a_grad_accumulate = accumulate_a_grad
             .then(|| GpuBuffer::zeros_f32(device, rank * self.input_dim))
             .transpose()?;
-        self.lora
-            .insert(adapter_id, active_adapter_id, lora)
+        self.lora.insert(adapter_id, active_adapter_id, lora)
     }
 
     fn record_forward(
@@ -27587,9 +27635,7 @@ impl VulkanLinear {
         output: &GpuBuffer,
         rows: usize,
     ) -> Result<()> {
-        self.record_forward_mode(
-            commands, kernels, input, output, rows, false, 0, 0, false,
-        )
+        self.record_forward_mode(commands, kernels, input, output, rows, false, 0, 0, false)
     }
 
     fn record_forward_training(
@@ -27864,7 +27910,15 @@ impl VulkanLinear {
         grad_input: &GpuBuffer,
         rows: usize,
     ) -> Result<()> {
-        self.record_backward_impl(commands, kernels, input, grad_output, grad_input, rows, false)
+        self.record_backward_impl(
+            commands,
+            kernels,
+            input,
+            grad_output,
+            grad_input,
+            rows,
+            false,
+        )
     }
 
     fn record_backward_impl(
@@ -28016,7 +28070,11 @@ impl VulkanLinear {
             if lora.trainable {
                 kernels.linear_weight_grad.record_dispatch(
                     commands,
-                    &[&lora.a_output, &lora.scaled_grad_output, lora.b.grad_buffer()?],
+                    &[
+                        &lora.a_output,
+                        &lora.scaled_grad_output,
+                        lora.b.grad_buffer()?,
+                    ],
                     bytemuck::bytes_of(&b_push),
                     [
                         div_ceil_u32(lora.rank, 16),
@@ -28328,9 +28386,7 @@ impl VulkanLayerNorm {
             // value as torch.rsqrt on Gemma4's strict fixtures, so the shader
             // uses the correctly-rounded reciprocal-square-root helper for
             // this pow-specific path.
-            .map(|norm| {
-                norm.use_unfused_rms_products(true)
-            })
+            .map(|norm| norm.use_unfused_rms_products(true))
     }
 
     fn new_rms_with_pow(
@@ -28486,9 +28542,8 @@ impl VulkanLayerNorm {
             // when only bias trains. Keep weight-gradient scratch without
             // allocating frozen weight AdamW moments.
             if self.weight.grad.is_none() {
-                self.weight.grad = Some(GpuBuffer::zeros_f32(
-                    &self.weight.device, self.weight.len,
-                )?);
+                self.weight.grad =
+                    Some(GpuBuffer::zeros_f32(&self.weight.device, self.weight.len)?);
             }
         }
         Ok(())
@@ -28641,9 +28696,7 @@ impl VulkanLayerNorm {
                 // backward amplifies that seed through every lower norm, so
                 // the vector-CPU-rsqrt pow norms round the exact rational
                 // value with integer arithmetic instead.
-                exact_pow_backward: u32::from(
-                    self.pow_rstd && self.extra_rsqrt_refinement == 3,
-                ),
+                exact_pow_backward: u32::from(self.pow_rstd && self.extra_rsqrt_refinement == 3),
             };
             kernels.rms_norm_input_grad.record_dispatch(
                 commands,
@@ -28807,9 +28860,7 @@ impl VulkanLayerNorm {
             },
             // Keep the correctly rounded pow-RMS derivative aligned with the
             // ordinary backward path (see record_backward).
-            exact_pow_backward: u32::from(
-                self.pow_rstd && self.extra_rsqrt_refinement == 3,
-            ),
+            exact_pow_backward: u32::from(self.pow_rstd && self.extra_rsqrt_refinement == 3),
         };
         kernels.rms_norm_input_grad_residual.record_dispatch(
             commands,
@@ -30124,16 +30175,10 @@ impl VulkanQwen4GatedResidual {
         // Without these flags the hyper mixer used a fused square reduction
         // plus the device-native inversesqrt approximation, which is enough to
         // move the strict mixed+PLE fixture by one FP32 ulp before layer 0.
-        let norm = VulkanLayerNorm::new_grouped_rms(
-            device,
-            hidden_size,
-            hc_count,
-            eps,
-            norm_weight,
-            1.0,
-        )?
-        .use_unfused_rms_products(true)
-        .use_torch_cpu_rsqrt(true);
+        let norm =
+            VulkanLayerNorm::new_grouped_rms(device, hidden_size, hc_count, eps, norm_weight, 1.0)?
+                .use_unfused_rms_products(true)
+                .use_torch_cpu_rsqrt(true);
         let input_mix_weight_down =
             VulkanLinear::new_no_bias(device, hc_hidden_size, hc_lowrank, input_mix_weight_down)?;
         let input_mix_weight_up =
@@ -33393,9 +33438,13 @@ fn configure_peft_saved_layer_norm(
         }
     }
     if adapter.is_none() {
-        norm.weight = norm.weight.fork_for_peft_replacement(!config.inference_mode)?;
+        norm.weight = norm
+            .weight
+            .fork_for_peft_replacement(!config.inference_mode)?;
         if norm.has_bias && !norm.rms {
-            norm.bias = norm.bias.fork_for_peft_replacement(!config.inference_mode)?;
+            norm.bias = norm
+                .bias
+                .fork_for_peft_replacement(!config.inference_mode)?;
         }
     }
     if !config.inference_mode {
@@ -41599,51 +41648,53 @@ fn load_qwen_hybrid_gated_delta_nets(
         _ => unreachable!(),
     };
     let package = transformer_text_config_from_package(model_dir)?;
-    let (conv_kernel_size, num_key_heads, num_value_heads, key_head_dim, value_head_dim) =
-        if config.architecture == VulkanTransformerArchitecture::Glm5Next {
-            let positive = |field: &str| -> Result<usize> {
-                package
-                    .get(field)
-                    .and_then(serde_json::Value::as_u64)
-                    .map(|value| value as usize)
-                    .filter(|value| *value != 0)
-                    .with_context(|| format!("GLM-5 Next {field} must be a positive integer"))
-            };
-            let conv_kernel_size = positive("linear_conv_kernel_dim")?;
-            let num_heads = positive("linear_num_heads")?;
-            let head_dim = positive("linear_head_dim")?;
-            (conv_kernel_size, num_heads, num_heads, head_dim, head_dim)
-        } else if config.architecture == VulkanTransformerArchitecture::KimiLinear {
-            let linear = package
-                .get("linear_attn_config")
-                .and_then(serde_json::Value::as_object)
-                .context("KimiLinear config is missing linear_attn_config")?;
-            let positive = |field: &str| -> Result<usize> {
-                linear
-                    .get(field)
-                    .and_then(serde_json::Value::as_u64)
-                    .map(|value| value as usize)
-                    .filter(|value| *value != 0)
-                    .with_context(|| {
-                        format!("KimiLinear linear_attn_config.{field} must be a positive integer")
-                    })
-            };
-            if linear
-                .get("use_full_rank_gate")
-                .and_then(serde_json::Value::as_bool)
-                != Some(true)
-            {
-                bail!(
+    let (conv_kernel_size, num_key_heads, num_value_heads, key_head_dim, value_head_dim) = if config
+        .architecture
+        == VulkanTransformerArchitecture::Glm5Next
+    {
+        let positive = |field: &str| -> Result<usize> {
+            package
+                .get(field)
+                .and_then(serde_json::Value::as_u64)
+                .map(|value| value as usize)
+                .filter(|value| *value != 0)
+                .with_context(|| format!("GLM-5 Next {field} must be a positive integer"))
+        };
+        let conv_kernel_size = positive("linear_conv_kernel_dim")?;
+        let num_heads = positive("linear_num_heads")?;
+        let head_dim = positive("linear_head_dim")?;
+        (conv_kernel_size, num_heads, num_heads, head_dim, head_dim)
+    } else if config.architecture == VulkanTransformerArchitecture::KimiLinear {
+        let linear = package
+            .get("linear_attn_config")
+            .and_then(serde_json::Value::as_object)
+            .context("KimiLinear config is missing linear_attn_config")?;
+        let positive = |field: &str| -> Result<usize> {
+            linear
+                .get(field)
+                .and_then(serde_json::Value::as_u64)
+                .map(|value| value as usize)
+                .filter(|value| *value != 0)
+                .with_context(|| {
+                    format!("KimiLinear linear_attn_config.{field} must be a positive integer")
+                })
+        };
+        if linear
+            .get("use_full_rank_gate")
+            .and_then(serde_json::Value::as_bool)
+            != Some(true)
+        {
+            bail!(
                     "KimiLinear native KDA currently requires linear_attn_config.use_full_rank_gate=true"
                 );
-            }
-            let conv_kernel_size = positive("short_conv_kernel_size")?;
-            let num_heads = positive("num_heads")?;
-            let head_dim = positive("head_dim")?;
-            (conv_kernel_size, num_heads, num_heads, head_dim, head_dim)
-        } else {
-            qwen_hybrid_attention_geometry(&package, family)?
-        };
+        }
+        let conv_kernel_size = positive("short_conv_kernel_size")?;
+        let num_heads = positive("num_heads")?;
+        let head_dim = positive("head_dim")?;
+        (conv_kernel_size, num_heads, num_heads, head_dim, head_dim)
+    } else {
+        qwen_hybrid_attention_geometry(&package, family)?
+    };
     let key_dim = num_key_heads
         .checked_mul(key_head_dim)
         .context("Qwen Gated DeltaNet key width overflow")?;
@@ -41743,10 +41794,8 @@ fn load_qwen_hybrid_gated_delta_nets(
                     bias: None,
                 },
                 forget_b: HostLinear {
-                    weight: store.take_expected(
-                        &format!("{p}.f_b_proj.weight"),
-                        &[key_dim, low_rank],
-                    )?,
+                    weight: store
+                        .take_expected(&format!("{p}.f_b_proj.weight"), &[key_dim, low_rank])?,
                     bias: None,
                 },
                 beta: HostLinear {
@@ -42159,10 +42208,8 @@ fn load_qwen_hybrid_attention_gates(
                 .context("KimiLinear MLA output-gate width overflow")?;
             let p = backbone_name(&format!("layers.{layer}.self_attn.g_proj"));
             gates.push(Some(HostLinear {
-                weight: store.take_expected(
-                    &format!("{p}.weight"),
-                    &[gate_width, config.hidden_size],
-                )?,
+                weight: store
+                    .take_expected(&format!("{p}.weight"), &[gate_width, config.hidden_size])?,
                 bias: None,
             }));
             continue;
@@ -42199,7 +42246,10 @@ fn load_llama_weights(
     if config.architecture == VulkanTransformerArchitecture::FalconH1 {
         store = store.rebase_prefix("model.final_layernorm", "model.norm")?;
         for layer in 0..config.num_layers {
-            store = store.rebase_prefix(&format!("model.layers.{layer}.feed_forward"), &format!("model.layers.{layer}.mlp"))?;
+            store = store.rebase_prefix(
+                &format!("model.layers.{layer}.feed_forward"),
+                &format!("model.layers.{layer}.mlp"),
+            )?;
         }
     }
     let package_model_type = transformer_package_model_type(model_dir)?;
@@ -43110,14 +43160,15 @@ fn load_llama_weights(
                     let package = package_config.as_ref().context(
                         "hybrid Gated DeltaNet package config is unavailable while loading weights",
                     )?;
-                    let (linear_value_dim, output_name) =
-                        if config.architecture == VulkanTransformerArchitecture::KimiLinear {
-                            let linear = package
-                                .get("linear_attn_config")
-                                .and_then(serde_json::Value::as_object)
-                                .context("KimiLinear config is missing linear_attn_config")?;
-                            let positive = |field: &str| -> Result<usize> {
-                                linear
+                    let (linear_value_dim, output_name) = if config.architecture
+                        == VulkanTransformerArchitecture::KimiLinear
+                    {
+                        let linear = package
+                            .get("linear_attn_config")
+                            .and_then(serde_json::Value::as_object)
+                            .context("KimiLinear config is missing linear_attn_config")?;
+                        let positive = |field: &str| -> Result<usize> {
+                            linear
                                     .get(field)
                                     .and_then(serde_json::Value::as_u64)
                                     .and_then(|value| usize::try_from(value).ok())
@@ -43127,33 +43178,33 @@ fn load_llama_weights(
                                             "KimiLinear linear_attn_config.{field} must be a positive integer"
                                         )
                                     })
-                            };
-                            let linear_value_dim = positive("num_heads")?
-                                .checked_mul(positive("head_dim")?)
-                                .context("KimiLinear KDA output width overflow")?;
-                            (linear_value_dim, format!("{p}.self_attn.o_proj.weight"))
-                        } else {
-                            let family = match config.architecture {
-                                VulkanTransformerArchitecture::OlmoHybrid => "OLMo Hybrid",
-                                VulkanTransformerArchitecture::Glm5Next => "GLM-5 Next",
-                                _ => "Qwen hybrid",
-                            };
-                            let (_, _, num_value_heads, _, value_head_dim) =
-                                qwen_hybrid_attention_geometry(package, family)?;
-                            let linear_value_dim = num_value_heads
-                                .checked_mul(value_head_dim)
-                                .context("hybrid Gated DeltaNet value width overflow")?;
-                            let output_name = if matches!(
-                                config.architecture,
-                                VulkanTransformerArchitecture::OlmoHybrid
-                                    | VulkanTransformerArchitecture::Glm5Next
-                            ) {
-                                format!("{p}.linear_attn.o_proj.weight")
-                            } else {
-                                format!("{p}.linear_attn.out_proj.weight")
-                            };
-                            (linear_value_dim, output_name)
                         };
+                        let linear_value_dim = positive("num_heads")?
+                            .checked_mul(positive("head_dim")?)
+                            .context("KimiLinear KDA output width overflow")?;
+                        (linear_value_dim, format!("{p}.self_attn.o_proj.weight"))
+                    } else {
+                        let family = match config.architecture {
+                            VulkanTransformerArchitecture::OlmoHybrid => "OLMo Hybrid",
+                            VulkanTransformerArchitecture::Glm5Next => "GLM-5 Next",
+                            _ => "Qwen hybrid",
+                        };
+                        let (_, _, num_value_heads, _, value_head_dim) =
+                            qwen_hybrid_attention_geometry(package, family)?;
+                        let linear_value_dim = num_value_heads
+                            .checked_mul(value_head_dim)
+                            .context("hybrid Gated DeltaNet value width overflow")?;
+                        let output_name = if matches!(
+                            config.architecture,
+                            VulkanTransformerArchitecture::OlmoHybrid
+                                | VulkanTransformerArchitecture::Glm5Next
+                        ) {
+                            format!("{p}.linear_attn.o_proj.weight")
+                        } else {
+                            format!("{p}.linear_attn.out_proj.weight")
+                        };
+                        (linear_value_dim, output_name)
+                    };
                     store.take_expected(&output_name, &[d, linear_value_dim])?
                 } else {
                     store.take_expected(
@@ -44829,17 +44880,25 @@ fn load_kimi_attn_res_stack(
         bail!("KimiLinear attn_res_block_size must be positive when specified");
     }
     let mut store = load_llama_layout_tensor_store(model_dir)?;
-    let backbone_prefix = ["model", "model.language_model", "model.text_model", "language_model", ""]
-        .into_iter()
-        .find(|prefix| {
-            let name = if prefix.is_empty() {
-                "embed_tokens.weight".to_owned()
-            } else {
-                format!("{prefix}.embed_tokens.weight")
-            };
-            store.contains(&name)
-        })
-        .context("Kimi AttnRes checkpoint is missing embed_tokens under a supported text-backbone prefix")?;
+    let backbone_prefix = [
+        "model",
+        "model.language_model",
+        "model.text_model",
+        "language_model",
+        "",
+    ]
+    .into_iter()
+    .find(|prefix| {
+        let name = if prefix.is_empty() {
+            "embed_tokens.weight".to_owned()
+        } else {
+            format!("{prefix}.embed_tokens.weight")
+        };
+        store.contains(&name)
+    })
+    .context(
+        "Kimi AttnRes checkpoint is missing embed_tokens under a supported text-backbone prefix",
+    )?;
     let backbone_name = |suffix: &str| {
         if backbone_prefix.is_empty() {
             suffix.to_owned()
@@ -44854,11 +44913,13 @@ fn load_kimi_attn_res_stack(
         layers.push(HostKimiAttnResLayer {
             self_attention: HostKimiAttnRes {
                 norm: HostLayerNorm {
-                    weight: store.take_expected(&format!("{p}.self_attention_res_norm.weight"), &[d])?,
+                    weight: store
+                        .take_expected(&format!("{p}.self_attention_res_norm.weight"), &[d])?,
                     bias: Vec::new(),
                 },
                 proj: HostLinear {
-                    weight: store.take_expected(&format!("{p}.self_attention_res_proj.weight"), &[1, d])?,
+                    weight: store
+                        .take_expected(&format!("{p}.self_attention_res_proj.weight"), &[1, d])?,
                     bias: None,
                 },
             },
@@ -44884,7 +44945,11 @@ fn load_kimi_attn_res_stack(
             bias: None,
         },
     };
-    Ok(Some(HostKimiAttnResStack { block_size, layers, output }))
+    Ok(Some(HostKimiAttnResStack {
+        block_size,
+        layers,
+        output,
+    }))
 }
 
 fn load_mla_attentions(
@@ -44971,14 +45036,14 @@ fn load_mla_attentions(
         }
     };
 
-    let attention_layer_indices = if config.architecture == VulkanTransformerArchitecture::KimiLinear
-    {
-        (0..config.num_layers)
-            .filter(|layer| !config.layer_uses_linear_attention(*layer))
-            .collect::<Vec<_>>()
-    } else {
-        (0..config.num_layers).collect::<Vec<_>>()
-    };
+    let attention_layer_indices =
+        if config.architecture == VulkanTransformerArchitecture::KimiLinear {
+            (0..config.num_layers)
+                .filter(|layer| !config.layer_uses_linear_attention(*layer))
+                .collect::<Vec<_>>()
+        } else {
+            (0..config.num_layers).collect::<Vec<_>>()
+        };
     let attention_count = attention_layer_indices.len();
     let q_latent_scale = if config.architecture == VulkanTransformerArchitecture::LongCatFlash {
         let rank = q_lora_rank.context("LongCat-Flash requires a non-null q_lora_rank")?;
@@ -45651,24 +45716,25 @@ fn load_mixtral_moe_layers(
                     .as_u64()
                     .and_then(|value| usize::try_from(value).ok())
                     .filter(|value| *value != 0)
-                    .context("KimiLinear routed_expert_hidden_size must be a positive integer or null")
+                    .context(
+                        "KimiLinear routed_expert_hidden_size must be a positive integer or null",
+                    )
             })
             .transpose()?
     } else {
         None
     };
-    let kimi_latent_moe_use_norm = if config.architecture
-        == VulkanTransformerArchitecture::KimiLinear
-    {
-        match package_config.get("latent_moe_use_norm") {
-            Some(value) if !value.is_null() => value
-                .as_bool()
-                .context("KimiLinear latent_moe_use_norm must be a boolean or null")?,
-            _ => false,
-        }
-    } else {
-        false
-    };
+    let kimi_latent_moe_use_norm =
+        if config.architecture == VulkanTransformerArchitecture::KimiLinear {
+            match package_config.get("latent_moe_use_norm") {
+                Some(value) if !value.is_null() => value
+                    .as_bool()
+                    .context("KimiLinear latent_moe_use_norm must be a boolean or null")?,
+                _ => false,
+            }
+        } else {
+            false
+        };
     if kimi_latent_moe_use_norm && kimi_routed_hidden.is_none() {
         bail!("KimiLinear latent_moe_use_norm=true requires routed_expert_hidden_size");
     }
@@ -45796,24 +45862,18 @@ fn load_mixtral_moe_layers(
                 let expert = format!("{p}.block_sparse_moe.experts.{expert_index}");
                 Ok(HostMoeExpert {
                     gate: Some(HostLinear {
-                        weight: store.take_expected(
-                            &format!("{expert}.w1.weight"),
-                            &[i, routed_hidden],
-                        )?,
+                        weight: store
+                            .take_expected(&format!("{expert}.w1.weight"), &[i, routed_hidden])?,
                         bias: None,
                     }),
                     up: HostLinear {
-                        weight: store.take_expected(
-                            &format!("{expert}.w3.weight"),
-                            &[i, routed_hidden],
-                        )?,
+                        weight: store
+                            .take_expected(&format!("{expert}.w3.weight"), &[i, routed_hidden])?,
                         bias: None,
                     },
                     down: HostLinear {
-                        weight: store.take_expected(
-                            &format!("{expert}.w2.weight"),
-                            &[routed_hidden, i],
-                        )?,
+                        weight: store
+                            .take_expected(&format!("{expert}.w2.weight"), &[routed_hidden, i])?,
                         bias: None,
                     },
                 })
@@ -46018,8 +46078,7 @@ fn load_mixtral_moe_layers(
                     None,
                 )
             }
-        } else if config.architecture == VulkanTransformerArchitecture::Llama4Text
-        {
+        } else if config.architecture == VulkanTransformerArchitecture::Llama4Text {
             let shared_i = moe.shared_expert_intermediate_size;
             (
                 Some(HostMoeExpert {
@@ -47828,7 +47887,7 @@ impl VulkanCrossAttention {
                 &self.grad_sink,
                 query_mask,
             ],
-            bytemuck::bytes_of(&push),
+            bytemuck::bytes_of(&push.as_backward_push(0, 1)),
             [self.num_heads as u32, batch_size as u32, 1],
         )?;
         let attention_query = if self.pre_norm {
@@ -48201,16 +48260,18 @@ impl VulkanKimiAttnRes {
             &workspace.grad_candidates_score,
             items,
         )?;
-        kernels.kimi_attn_res_mix_backward_candidate.record_dispatch(
-            commands,
-            &[
-                &workspace.probabilities,
-                grad_output,
-                &workspace.grad_candidates_direct,
-            ],
-            bytemuck::bytes_of(&push),
-            [div_ceil_u32(values, 256), 1, 1],
-        )?;
+        kernels
+            .kimi_attn_res_mix_backward_candidate
+            .record_dispatch(
+                commands,
+                &[
+                    &workspace.probabilities,
+                    grad_output,
+                    &workspace.grad_candidates_direct,
+                ],
+                bytemuck::bytes_of(&push),
+                [div_ceil_u32(values, 256), 1, 1],
+            )?;
         record_add(
             commands,
             kernels,
@@ -48485,13 +48546,9 @@ impl VulkanKimiAttnResStack {
     ) -> Result<()> {
         let archived = self.archived_after_count(layer_index)?;
         let sources = self.source_refs(archived)?;
-        let source_count = self.workspace.record_pack_candidates(
-            commands,
-            &sources,
-            prefix_sum,
-            rows,
-            hidden,
-        )?;
+        let source_count = self
+            .workspace
+            .record_pack_candidates(commands, &sources, prefix_sum, rows, hidden)?;
         self.layers[layer_index].mlp.record_forward(
             commands,
             kernels,
@@ -48512,13 +48569,9 @@ impl VulkanKimiAttnResStack {
         hidden: usize,
     ) -> Result<&GpuBuffer> {
         let sources = self.source_refs(self.block_residuals.len())?;
-        let source_count = self.workspace.record_pack_candidates(
-            commands,
-            &sources,
-            prefix_sum,
-            rows,
-            hidden,
-        )?;
+        let source_count = self
+            .workspace
+            .record_pack_candidates(commands, &sources, prefix_sum, rows, hidden)?;
         self.output.record_forward(
             commands,
             kernels,
@@ -48531,7 +48584,12 @@ impl VulkanKimiAttnResStack {
         Ok(&self.output_hidden)
     }
 
-    fn record_begin_backward(&self, commands: &mut vulkan::ComputeBatch, rows: usize, hidden: usize) -> Result<()> {
+    fn record_begin_backward(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        rows: usize,
+        hidden: usize,
+    ) -> Result<()> {
         let len = rows
             .checked_mul(hidden)
             .context("Kimi AttnRes gradient size overflow")?;
@@ -48574,13 +48632,9 @@ impl VulkanKimiAttnResStack {
         self.record_begin_backward(commands, rows, hidden)?;
         let archived = self.block_residuals.len();
         let sources = self.source_refs(archived)?;
-        let source_count = self.workspace.record_pack_candidates(
-            commands,
-            &sources,
-            prefix_sum,
-            rows,
-            hidden,
-        )?;
+        let source_count = self
+            .workspace
+            .record_pack_candidates(commands, &sources, prefix_sum, rows, hidden)?;
         self.output.record_backward(
             commands,
             kernels,
@@ -48615,13 +48669,9 @@ impl VulkanKimiAttnResStack {
     ) -> Result<()> {
         let archived = self.archived_after_count(layer_index)?;
         let sources = self.source_refs(archived)?;
-        let source_count = self.workspace.record_pack_candidates(
-            commands,
-            &sources,
-            prefix_sum,
-            rows,
-            hidden,
-        )?;
+        let source_count = self
+            .workspace
+            .record_pack_candidates(commands, &sources, prefix_sum, rows, hidden)?;
         self.layers[layer_index].mlp.record_backward(
             commands,
             kernels,
@@ -48661,13 +48711,9 @@ impl VulkanKimiAttnResStack {
             return Ok(false);
         }
         let sources = self.source_refs(archived)?;
-        let source_count = self.workspace.record_pack_candidates(
-            commands,
-            &sources,
-            input,
-            rows,
-            hidden,
-        )?;
+        let source_count = self
+            .workspace
+            .record_pack_candidates(commands, &sources, input, rows, hidden)?;
         self.layers[layer_index].self_attention.record_backward(
             commands,
             kernels,
@@ -48697,7 +48743,9 @@ impl VulkanKimiAttnResStack {
         hyper: AdamWHyperParams,
     ) -> Result<()> {
         for layer in &self.layers {
-            layer.self_attention.record_step(commands, kernels, step, hyper)?;
+            layer
+                .self_attention
+                .record_step(commands, kernels, step, hyper)?;
             layer.mlp.record_step(commands, kernels, step, hyper)?;
         }
         self.output.record_step(commands, kernels, step, hyper)
@@ -48935,7 +48983,9 @@ impl VulkanMoe {
                     .norm
                     .map(|norm| {
                         if !norm.bias.is_empty() {
-                            bail!("Stable LatentMoE routed_expert_norm must be RMSNorm without bias");
+                            bail!(
+                                "Stable LatentMoE routed_expert_norm must be RMSNorm without bias"
+                            );
                         }
                         VulkanLayerNorm::new_rms(device, routed_hidden, norm_eps, &norm.weight, 0.0)
                     })
@@ -49081,7 +49131,10 @@ impl VulkanMoe {
             .as_ref()
             .map(VulkanLinear::replicate_shared_base)
             .transpose()?;
-        let latent_norm = self.latent_norm.as_ref().map(VulkanLayerNorm::replicate_shared_base);
+        let latent_norm = self
+            .latent_norm
+            .as_ref()
+            .map(VulkanLayerNorm::replicate_shared_base);
         let latent_up_proj = self
             .latent_up_proj
             .as_ref()
@@ -49543,7 +49596,8 @@ impl VulkanMoe {
                 [div_ceil_u32(rows, 64), 1, 1],
             )?;
         }
-        let (routed_input, routed_output) = if let Some(down_proj) = self.latent_down_proj.as_ref() {
+        let (routed_input, routed_output) = if let Some(down_proj) = self.latent_down_proj.as_ref()
+        {
             let latent_input = self
                 .latent_input
                 .as_ref()
@@ -51709,7 +51763,7 @@ impl VulkanDeepseekV4Attention {
                 self.sinks.grad_target()?,
                 sparse_attention_mask.unwrap_or(attention_mask),
             ],
-            bytemuck::bytes_of(&attention_push),
+            bytemuck::bytes_of(&attention_push.as_backward_push(0, 1)),
             [1, 1, 1],
         )?;
         self.sinks.record_grad_accumulate(commands, kernels)?;
@@ -54720,8 +54774,7 @@ impl VulkanQwenGatedDeltaNet {
         let conv_dim = host.conv_dim();
         let vector_kda = matches!(
             &host.projection,
-            HostQwenGatedDeltaProjection::Glm5 { .. }
-                | HostQwenGatedDeltaProjection::Kimi { .. }
+            HostQwenGatedDeltaProjection::Glm5 { .. } | HostQwenGatedDeltaProjection::Kimi { .. }
         );
         let batch_capacity = rows / seq_len;
         let make_linear = |input_dim: usize,
@@ -55125,10 +55178,7 @@ impl VulkanQwenGatedDeltaNet {
         } else {
             values.insert(
                 format!("{p}.conv1d.weight"),
-                (
-                    vec![self.conv_dim(), 1, self.conv_kernel_size],
-                    conv_weight,
-                ),
+                (vec![self.conv_dim(), 1, self.conv_kernel_size], conv_weight),
             );
         }
         values.insert(
@@ -57282,14 +57332,18 @@ impl VulkanTransformerLayer {
         let rope_short_factor_values =
             if rotary.rope_scaling.scaling_type == VulkanRopeScalingType::LongRope {
                 rotary.rope_scaling.short_factors.clone()
-            } else if rotary.rotary_dim > 0
-                && rotary.rope_scaling.uses_precomputed_frequencies() {
+            } else if rotary.rotary_dim > 0 && rotary.rope_scaling.uses_precomputed_frequencies() {
                 // HF materializes the positive power before taking its FP32
                 // reciprocal. GPU pow(theta, -exponent) has different rounding.
                 // These are immutable configuration constants; rotation and
                 // its adjoint still execute in Vulkan.
                 (0..rotary.rotary_dim / 2)
-                    .map(|i| 1.0_f32 / rotary.rotary_emb_base.powf((2 * i) as f32 / rotary.rotary_dim as f32))
+                    .map(|i| {
+                        1.0_f32
+                            / rotary
+                                .rotary_emb_base
+                                .powf((2 * i) as f32 / rotary.rotary_dim as f32)
+                    })
                     .collect()
             } else {
                 vec![1.0]
@@ -57339,23 +57393,21 @@ impl VulkanTransformerLayer {
                         .use_extra_rsqrt_refinement(
                             config.architecture == VulkanTransformerArchitecture::FalconH1,
                         )
-                          .use_exact_rsqrt(config.architecture.uses_exact_rsqrt_norm())
-                          .use_torch_cpu_rsqrt(config.architecture.uses_torch_cpu_rsqrt_norm())
-                          .use_vector_cpu_rsqrt(
-                              matches!(
-                                  config.architecture,
-                                  VulkanTransformerArchitecture::Llama
-                                      | VulkanTransformerArchitecture::MiniMaxM2
-                                      | VulkanTransformerArchitecture::Gemma3
-                                      | VulkanTransformerArchitecture::SmolLm3
-                                      | VulkanTransformerArchitecture::Mistral4
-                                      | VulkanTransformerArchitecture::Qwen35
-                                      | VulkanTransformerArchitecture::MiniMaxM3VLText
-                                      | VulkanTransformerArchitecture::Gemma4
-                                      | VulkanTransformerArchitecture::Qwen2
-                              ),
-                          )
-                      })
+                        .use_exact_rsqrt(config.architecture.uses_exact_rsqrt_norm())
+                        .use_torch_cpu_rsqrt(config.architecture.uses_torch_cpu_rsqrt_norm())
+                        .use_vector_cpu_rsqrt(matches!(
+                            config.architecture,
+                            VulkanTransformerArchitecture::Llama
+                                | VulkanTransformerArchitecture::MiniMaxM2
+                                | VulkanTransformerArchitecture::Gemma3
+                                | VulkanTransformerArchitecture::SmolLm3
+                                | VulkanTransformerArchitecture::Mistral4
+                                | VulkanTransformerArchitecture::Qwen35
+                                | VulkanTransformerArchitecture::MiniMaxM3VLText
+                                | VulkanTransformerArchitecture::Gemma4
+                                | VulkanTransformerArchitecture::Qwen2
+                        ))
+                    })
                 }
             } else if host.bias.is_empty() {
                 VulkanLayerNorm::new_no_bias(device, d, sublayer_norm_eps, &host.weight)
@@ -57701,26 +57753,26 @@ impl VulkanTransformerLayer {
                                 norm.use_unfused_rms_products(
                                     config.architecture.uses_unfused_rms_products(),
                                 )
-                            .use_extra_rsqrt_refinement(
-                                config.architecture == VulkanTransformerArchitecture::FalconH1,
-                            )
-                              .use_exact_rsqrt(config.architecture.uses_exact_rsqrt_norm())
-                              .use_torch_cpu_rsqrt(config.architecture.uses_torch_cpu_rsqrt_norm())
-                              .use_vector_cpu_rsqrt(
-                                  matches!(
-                                      config.architecture,
-                                      VulkanTransformerArchitecture::Llama
-                                          | VulkanTransformerArchitecture::MiniMaxM2
-                                          | VulkanTransformerArchitecture::Gemma3
-                                          | VulkanTransformerArchitecture::SmolLm3
-                                          | VulkanTransformerArchitecture::Mistral4
-                                          | VulkanTransformerArchitecture::Qwen35
-                                          | VulkanTransformerArchitecture::MiniMaxM3VLText
-                                          | VulkanTransformerArchitecture::Gemma4
-                                          | VulkanTransformerArchitecture::Qwen2
-                                  ),
-                              )
-                          })
+                                .use_extra_rsqrt_refinement(
+                                    config.architecture == VulkanTransformerArchitecture::FalconH1,
+                                )
+                                .use_exact_rsqrt(config.architecture.uses_exact_rsqrt_norm())
+                                .use_torch_cpu_rsqrt(
+                                    config.architecture.uses_torch_cpu_rsqrt_norm(),
+                                )
+                                .use_vector_cpu_rsqrt(matches!(
+                                    config.architecture,
+                                    VulkanTransformerArchitecture::Llama
+                                        | VulkanTransformerArchitecture::MiniMaxM2
+                                        | VulkanTransformerArchitecture::Gemma3
+                                        | VulkanTransformerArchitecture::SmolLm3
+                                        | VulkanTransformerArchitecture::Mistral4
+                                        | VulkanTransformerArchitecture::Qwen35
+                                        | VulkanTransformerArchitecture::MiniMaxM3VLText
+                                        | VulkanTransformerArchitecture::Gemma4
+                                        | VulkanTransformerArchitecture::Qwen2
+                                ))
+                            })
                         }
                     } else if host.bias.is_empty() {
                         if config.architecture.uses_full_projection_qk_norm() {
@@ -57786,26 +57838,26 @@ impl VulkanTransformerLayer {
                                 norm.use_unfused_rms_products(
                                     config.architecture.uses_unfused_rms_products(),
                                 )
-                            .use_extra_rsqrt_refinement(
-                                config.architecture == VulkanTransformerArchitecture::FalconH1,
-                            )
-                              .use_exact_rsqrt(config.architecture.uses_exact_rsqrt_norm())
-                              .use_torch_cpu_rsqrt(config.architecture.uses_torch_cpu_rsqrt_norm())
-                              .use_vector_cpu_rsqrt(
-                                  matches!(
-                                      config.architecture,
-                                      VulkanTransformerArchitecture::Llama
-                                          | VulkanTransformerArchitecture::MiniMaxM2
-                                          | VulkanTransformerArchitecture::Gemma3
-                                          | VulkanTransformerArchitecture::SmolLm3
-                                          | VulkanTransformerArchitecture::Mistral4
-                                          | VulkanTransformerArchitecture::Qwen35
-                                          | VulkanTransformerArchitecture::MiniMaxM3VLText
-                                          | VulkanTransformerArchitecture::Gemma4
-                                          | VulkanTransformerArchitecture::Qwen2
-                                  ),
-                              )
-                          })
+                                .use_extra_rsqrt_refinement(
+                                    config.architecture == VulkanTransformerArchitecture::FalconH1,
+                                )
+                                .use_exact_rsqrt(config.architecture.uses_exact_rsqrt_norm())
+                                .use_torch_cpu_rsqrt(
+                                    config.architecture.uses_torch_cpu_rsqrt_norm(),
+                                )
+                                .use_vector_cpu_rsqrt(matches!(
+                                    config.architecture,
+                                    VulkanTransformerArchitecture::Llama
+                                        | VulkanTransformerArchitecture::MiniMaxM2
+                                        | VulkanTransformerArchitecture::Gemma3
+                                        | VulkanTransformerArchitecture::SmolLm3
+                                        | VulkanTransformerArchitecture::Mistral4
+                                        | VulkanTransformerArchitecture::Qwen35
+                                        | VulkanTransformerArchitecture::MiniMaxM3VLText
+                                        | VulkanTransformerArchitecture::Gemma4
+                                        | VulkanTransformerArchitecture::Qwen2
+                                ))
+                            })
                         }
                     } else if host.bias.is_empty() {
                         if config.architecture.uses_full_projection_qk_norm() {
@@ -58755,11 +58807,38 @@ impl VulkanTransformerLayer {
             &self.tape.ln1
         };
         let attention_input = if let Some(mamba) = self.falcon_h1.as_ref() {
-            let state = self_attention_cache.map(|(cache,_,_)|cache.falcon_h1_state.as_ref().context("Falcon H1 generation cache is missing conv/SSM state")).transpose()?;
-            mamba.forward(commands, kernels, attention_input, attention_mask, batch_size, seq_len, state, training, rng_step, rng_seed)?;
-            falcon_h1::scale(commands, kernels, attention_input, &mamba.attention_input, rows*d, mamba.attn_in)?;
+            let state = self_attention_cache
+                .map(|(cache, _, _)| {
+                    cache
+                        .falcon_h1_state
+                        .as_ref()
+                        .context("Falcon H1 generation cache is missing conv/SSM state")
+                })
+                .transpose()?;
+            mamba.forward(
+                commands,
+                kernels,
+                attention_input,
+                attention_mask,
+                batch_size,
+                seq_len,
+                state,
+                training,
+                rng_step,
+                rng_seed,
+            )?;
+            falcon_h1::scale(
+                commands,
+                kernels,
+                attention_input,
+                &mamba.attention_input,
+                rows * d,
+                mamba.attn_in,
+            )?;
             &mamba.attention_input
-        } else { attention_input };
+        } else {
+            attention_input
+        };
         let attention_projection = if let Some(deepseek_v4) = self.deepseek_v4_attention.as_ref() {
             if !causal_attention {
                 bail!("DeepSeek-V4 attention requires causal attention");
@@ -58912,7 +58991,14 @@ impl VulkanTransformerLayer {
                         rng_seed,
                     )?;
                     if let Some(mamba) = self.falcon_h1.as_ref() {
-                        falcon_h1::scale(commands, kernels, k_output, k_output, rows*key_hidden, mamba.key)?;
+                        falcon_h1::scale(
+                            commands,
+                            kernels,
+                            k_output,
+                            k_output,
+                            rows * key_hidden,
+                            mamba.key,
+                        )?;
                     }
                     if let Some(limit) = config.qkv_clip {
                         let clamp_targets: &[(&GpuBuffer, &GpuBuffer, usize)] =
@@ -59345,7 +59431,11 @@ impl VulkanTransformerLayer {
                     rng_site: 0x1000_0000u32.wrapping_add(self.layer_index),
                     rng_seed,
                     has_sink: u32::from(self.has_attention_sink),
-                    causal: if self.falcon_h1.is_some() { 2 } else { u32::from(causal_attention) },
+                    causal: if self.falcon_h1.is_some() {
+                        2
+                    } else {
+                        u32::from(causal_attention)
+                    },
                     relative_bias_mode: u32::from(relative_attention_bias.is_some()),
                     relative_bias_num_buckets: relative_attention_num_buckets as u32,
                     relative_bias_max_distance: relative_attention_max_distance as u32,
@@ -59372,7 +59462,7 @@ impl VulkanTransformerLayer {
                     // divide (mode bits 0, 1, and 2 => mode 9).
                     unfused_qk: match config.architecture {
                         VulkanTransformerArchitecture::Gemma3
-                            | VulkanTransformerArchitecture::Gemma4 => 1,
+                        | VulkanTransformerArchitecture::Gemma4 => 1,
                         // Qwen2's tiny-fixture oracle runs the same naive CPU
                         // BMM/softmax kernels as Llama's: the QK and P@V
                         // products stay materialized, the softmax uses the
@@ -59498,11 +59588,27 @@ impl VulkanTransformerLayer {
             &self.tape.attention_projection
         };
         let attention_projection = if let Some(mamba) = self.falcon_h1.as_ref() {
-            falcon_h1::scale(commands, kernels, attention_projection, &mamba.combined, rows*d, mamba.attn_out)?;
+            falcon_h1::scale(
+                commands,
+                kernels,
+                attention_projection,
+                &mamba.combined,
+                rows * d,
+                mamba.attn_out,
+            )?;
             // HF evaluates mamba + attention, then adds the original residual.
-            record_add(commands, kernels, &mamba.output, &mamba.combined, &mamba.combined, rows*d)?;
+            record_add(
+                commands,
+                kernels,
+                &mamba.output,
+                &mamba.combined,
+                &mamba.combined,
+                rows * d,
+            )?;
             &mamba.combined
-        } else { attention_projection };
+        } else {
+            attention_projection
+        };
         let attention_projection = if config.attention_output_dropout > 0.0 {
             record_transformer_dropout(
                 commands,
@@ -59823,7 +59929,14 @@ impl VulkanTransformerLayer {
                     rng_seed,
                 )?;
                 if let Some(mamba) = self.falcon_h1.as_ref() {
-                    falcon_h1::scale(commands, kernels, &self.tape.mlp_gate_pre, &self.tape.mlp_gate_pre, rows*i, mamba.mlp_gate)?;
+                    falcon_h1::scale(
+                        commands,
+                        kernels,
+                        &self.tape.mlp_gate_pre,
+                        &self.tape.mlp_gate_pre,
+                        rows * i,
+                        mamba.mlp_gate,
+                    )?;
                 }
                 if config.activation_function == "gpt_oss_swiglu" {
                     // MiniMax-M3 dense MLPs use the same clipped SwiGLU-OAI
@@ -59980,7 +60093,14 @@ impl VulkanTransformerLayer {
             }
         }
         if let Some(mamba) = self.falcon_h1.as_ref() {
-            falcon_h1::scale(commands, kernels, &self.tape.mlp_output, &self.tape.mlp_output, rows*d, mamba.mlp_down)?;
+            falcon_h1::scale(
+                commands,
+                kernels,
+                &self.tape.mlp_output,
+                &self.tape.mlp_output,
+                rows * d,
+                mamba.mlp_down,
+            )?;
         }
         let mlp_output = if config.mlp_output_dropout > 0.0 {
             record_transformer_dropout(
@@ -60369,9 +60489,18 @@ impl VulkanTransformerLayer {
             grad_mlp_before_dropout
         };
         let grad_mlp_output = if let Some(mamba) = self.falcon_h1.as_ref() {
-            falcon_h1::scale(commands, kernels, grad_mlp_output, &mamba.grad_branch, rows*d, mamba.mlp_down)?;
+            falcon_h1::scale(
+                commands,
+                kernels,
+                grad_mlp_output,
+                &mamba.grad_branch,
+                rows * d,
+                mamba.mlp_down,
+            )?;
             &mamba.grad_branch
-        } else { grad_mlp_output };
+        } else {
+            grad_mlp_output
+        };
         let mlp_linear_input = if deepseek_v4_hyper_backward || qwen4_hyper_backward {
             &self.tape.ln2
         } else if post_residual_norm {
@@ -60431,7 +60560,10 @@ impl VulkanTransformerLayer {
                 grad_mlp_output,
                 &self.tape.grad_mlp_activation,
                 rows,
-                matches!(config.architecture, VulkanTransformerArchitecture::Gemma3 | VulkanTransformerArchitecture::Gemma4),
+                matches!(
+                    config.architecture,
+                    VulkanTransformerArchitecture::Gemma3 | VulkanTransformerArchitecture::Gemma4
+                ),
             )?;
             let grad_mlp_activation = if config.architecture.uses_projection_sub_norms() {
                 self.post_mlp_norm
@@ -60546,10 +60678,20 @@ impl VulkanTransformerLayer {
                 &self.tape.grad_mlp_pre,
                 &self.tape.grad_ln2_up,
                 rows,
-                matches!(config.architecture, VulkanTransformerArchitecture::Gemma3 | VulkanTransformerArchitecture::Gemma4),
+                matches!(
+                    config.architecture,
+                    VulkanTransformerArchitecture::Gemma3 | VulkanTransformerArchitecture::Gemma4
+                ),
             )?;
             if let Some(mamba) = self.falcon_h1.as_ref() {
-                falcon_h1::scale(commands, kernels, &self.tape.grad_mlp_gate_pre, &self.tape.grad_mlp_gate_pre, rows*i, mamba.mlp_gate)?;
+                falcon_h1::scale(
+                    commands,
+                    kernels,
+                    &self.tape.grad_mlp_gate_pre,
+                    &self.tape.grad_mlp_gate_pre,
+                    rows * i,
+                    mamba.mlp_gate,
+                )?;
             }
             self.c_gate
                 .as_ref()
@@ -60561,20 +60703,43 @@ impl VulkanTransformerLayer {
                     &self.tape.grad_mlp_gate_pre,
                     &self.tape.grad_ln2_gate,
                     rows,
-                    matches!(config.architecture, VulkanTransformerArchitecture::Gemma3 | VulkanTransformerArchitecture::Gemma4),
+                    matches!(
+                        config.architecture,
+                        VulkanTransformerArchitecture::Gemma3
+                            | VulkanTransformerArchitecture::Gemma4
+                    ),
                 )?;
-            let gemma_gate_lora = self.c_gate.as_ref()
+            let gemma_gate_lora = self
+                .c_gate
+                .as_ref()
                 .and_then(|gate| gate.lora.as_ref())
-                .filter(|lora| matches!(config.architecture, VulkanTransformerArchitecture::Gemma3 | VulkanTransformerArchitecture::Gemma4)
-                    && lora.dora.is_none());
+                .filter(|lora| {
+                    matches!(
+                        config.architecture,
+                        VulkanTransformerArchitecture::Gemma3
+                            | VulkanTransformerArchitecture::Gemma4
+                    ) && lora.dora.is_none()
+                });
             if let Some(lora) = gemma_gate_lora {
                 // Eager PEFT autograd visits the up projection first, then
                 // adds the gate's LoRA and base paths independently. Folding
                 // gate_base + gate_lora before this join changes FP32 rounding.
-                record_add(commands, kernels, &self.tape.grad_ln2_up,
-                    &lora.grad_input_lora, &self.tape.grad_ln2, rows * d)?;
-                record_add(commands, kernels, &self.tape.grad_ln2,
-                    &lora.grad_input_base, &self.tape.grad_ln2, rows * d)?;
+                record_add(
+                    commands,
+                    kernels,
+                    &self.tape.grad_ln2_up,
+                    &lora.grad_input_lora,
+                    &self.tape.grad_ln2,
+                    rows * d,
+                )?;
+                record_add(
+                    commands,
+                    kernels,
+                    &self.tape.grad_ln2,
+                    &lora.grad_input_base,
+                    &self.tape.grad_ln2,
+                    rows * d,
+                )?;
             } else {
                 record_add(
                     commands,
@@ -61136,10 +61301,26 @@ impl VulkanTransformerLayer {
             grad_attention_before_dropout
         };
         let grad_attention_projection = if let Some(mamba) = self.falcon_h1.as_ref() {
-            mamba.backward(commands, kernels, attention_mask, grad_attention_projection, batch_size, seq_len)?;
-            falcon_h1::scale(commands, kernels, grad_attention_projection, &mamba.grad_branch, rows*d, mamba.attn_out)?;
+            mamba.backward(
+                commands,
+                kernels,
+                attention_mask,
+                grad_attention_projection,
+                batch_size,
+                seq_len,
+            )?;
+            falcon_h1::scale(
+                commands,
+                kernels,
+                grad_attention_projection,
+                &mamba.grad_branch,
+                rows * d,
+                mamba.attn_out,
+            )?;
             &mamba.grad_branch
-        } else { grad_attention_projection };
+        } else {
+            grad_attention_projection
+        };
         if let Some(deepseek_v4) = self.deepseek_v4_attention.as_ref() {
             if self.attention_gate.is_some() || config.architecture.uses_projection_sub_norms() {
                 bail!("DeepSeek-V4 attention cannot use the generic attention gate/sub-norm path");
@@ -61181,7 +61362,10 @@ impl VulkanTransformerLayer {
                 grad_attention_projection,
                 &self.tape.grad_attention,
                 rows,
-                matches!(config.architecture, VulkanTransformerArchitecture::Gemma3 | VulkanTransformerArchitecture::Gemma4),
+                matches!(
+                    config.architecture,
+                    VulkanTransformerArchitecture::Gemma3 | VulkanTransformerArchitecture::Gemma4
+                ),
             )?;
             let grad_attention_output = if config.architecture.uses_projection_sub_norms() {
                 self.post_attention_norm
@@ -61323,7 +61507,11 @@ impl VulkanTransformerLayer {
                     rng_site: 0x1000_0000u32.wrapping_add(self.layer_index),
                     rng_seed,
                     has_sink: u32::from(self.has_attention_sink),
-                    causal: if self.falcon_h1.is_some() { 2 } else { u32::from(causal_attention) },
+                    causal: if self.falcon_h1.is_some() {
+                        2
+                    } else {
+                        u32::from(causal_attention)
+                    },
                     relative_bias_mode: u32::from(relative_attention_bias.is_some()),
                     relative_bias_num_buckets: relative_attention_num_buckets as u32,
                     relative_bias_max_distance: relative_attention_max_distance as u32,
@@ -61336,7 +61524,7 @@ impl VulkanTransformerLayer {
                     kv_page_table_stride: 1,
                     unfused_qk: match config.architecture {
                         VulkanTransformerArchitecture::Gemma3
-                            | VulkanTransformerArchitecture::Gemma4 => 1,
+                        | VulkanTransformerArchitecture::Gemma4 => 1,
                         // Backward-only arithmetic mode used to reproduce the
                         // CPU PEFT oracle's deterministic MiniMax-M2 attention
                         // adjoints; switching it to the forward's mode 9 was
@@ -61400,53 +61588,93 @@ impl VulkanTransformerLayer {
                             &self.tape.grad_k,
                         )
                     };
-                kernels.attention_backward.record_dispatch(
-                    commands,
-                    &[
-                        attention_q,
-                        attention_k,
-                        if self.rope_scaling.rotate_values {
-                            &self.tape.v_rotary
-                        } else if self.v_norm.is_some() {
-                            &self.tape.v_norm
-                        } else {
-                            &self.tape.v
-                        },
-                        attention_mask,
-                        attention_mask,
-                        alibi_positions,
-                        grad_attention,
-                        grad_attention_q,
-                        grad_attention_k,
-                        if self.rope_scaling.rotate_values {
-                            &self.tape.grad_v_rotary
-                        } else if self.v_norm.is_some() {
-                            &self.tape.grad_v_norm
-                        } else {
-                            &self.tape.grad_v
-                        },
-                        &self.attention_sink.values,
-                        self.attention_sink.grad_buffer()?,
-                        relative_attention_bias
-                            .map(|parameter| &parameter.values)
-                            .unwrap_or(&self.attention_sink.values),
-                        relative_attention_bias
-                            .map(TrainableParameter::grad_buffer)
-                            .transpose()?
-                            .unwrap_or(self.attention_sink.grad_buffer()?),
-                        sparse_attention_mask.unwrap_or(attention_mask),
-                    ],
-                    bytemuck::bytes_of(&attention_push),
-                    [
-                        num_key_value_heads as u32,
-                        if self.has_attention_sink || relative_attention_bias.is_some() {
-                            1
-                        } else {
-                            batch_size as u32
-                        },
-                        1,
-                    ],
-                )?;
+                let strict_adjoint = matches!(attention_push.unfused_qk, 1 | 2 | 9);
+                // A strict shape that streams its row statistics and exceeds the
+                // measured budget is split across sequential key-range dispatches
+                // instead of being refused, so the bound the guard applies is the
+                // widest block's work rather than the whole sequence's. Everything
+                // else stays at one block and keeps its refusal: the fused path, a
+                // device with no measured boundary, and a geometry whose statistics
+                // are cached, which a split would move onto the slower streamed
+                // adjoint.
+                let batch_rows = if self.has_attention_sink || relative_attention_bias.is_some() {
+                    1
+                } else {
+                    batch_size as u32
+                };
+                let key_blocks = vendor::attention_backward_key_blocks(
+                    kernels.attention_backward_work_budget,
+                    (self.num_heads / num_key_value_heads.max(1)) as u64,
+                    self.head_dim as u64,
+                    attention_push.query_seq_len as u64,
+                    attention_push.key_value_seq_len as u64,
+                    batch_rows as u64,
+                    strict_adjoint,
+                );
+                if let Some(budget) = kernels.attention_backward_work_budget {
+                    if let Some(message) = vendor::attention_backward_budget_error(
+                        budget,
+                        (self.num_heads / num_key_value_heads.max(1)) as u64,
+                        self.head_dim as u64,
+                        attention_push.query_seq_len as u64,
+                        attention_push.key_value_seq_len as u64,
+                        batch_rows as u64,
+                        strict_adjoint,
+                        key_blocks,
+                    ) {
+                        bail!("{message}");
+                    }
+                }
+                let backward_bindings = [
+                    attention_q,
+                    attention_k,
+                    if self.rope_scaling.rotate_values {
+                        &self.tape.v_rotary
+                    } else if self.v_norm.is_some() {
+                        &self.tape.v_norm
+                    } else {
+                        &self.tape.v
+                    },
+                    attention_mask,
+                    attention_mask,
+                    alibi_positions,
+                    grad_attention,
+                    grad_attention_q,
+                    grad_attention_k,
+                    if self.rope_scaling.rotate_values {
+                        &self.tape.grad_v_rotary
+                    } else if self.v_norm.is_some() {
+                        &self.tape.grad_v_norm
+                    } else {
+                        &self.tape.grad_v
+                    },
+                    &self.attention_sink.values,
+                    self.attention_sink.grad_buffer()?,
+                    relative_attention_bias
+                        .map(|parameter| &parameter.values)
+                        .unwrap_or(&self.attention_sink.values),
+                    relative_attention_bias
+                        .map(TrainableParameter::grad_buffer)
+                        .transpose()?
+                        .unwrap_or(self.attention_sink.grad_buffer()?),
+                    sparse_attention_mask.unwrap_or(attention_mask),
+                ];
+                // One block per submission. The watchdog bounds a submission rather
+                // than an invocation, so a split only shortens anything when each block
+                // is submitted on its own; the wait between blocks preserves the order
+                // they accumulate in. A count of one leaves this a single dispatch with
+                // no extra submission, exactly as it was before the split existed.
+                for key_block in 0..key_blocks {
+                    kernels.attention_backward.record_dispatch(
+                        commands,
+                        &backward_bindings,
+                        bytemuck::bytes_of(&attention_push.as_backward_push(key_block, key_blocks)),
+                        [num_key_value_heads as u32, batch_rows, 1],
+                    )?;
+                    if key_block + 1 < key_blocks {
+                        commands.submit_and_restart()?;
+                    }
+                }
                 if post_rope_qk_norm {
                     if let (Some(q_norm), Some(k_norm)) =
                         (self.q_norm.as_ref(), self.k_norm.as_ref())
@@ -61722,7 +61950,14 @@ impl VulkanTransformerLayer {
                             (&self.tape.grad_q, &self.tape.grad_k, &self.tape.grad_v)
                         };
                     if let Some(mamba) = self.falcon_h1.as_ref() {
-                        falcon_h1::scale(commands, kernels, grad_k_for_linear, grad_k_for_linear, rows*key_hidden, mamba.key)?;
+                        falcon_h1::scale(
+                            commands,
+                            kernels,
+                            grad_k_for_linear,
+                            grad_k_for_linear,
+                            rows * key_hidden,
+                            mamba.key,
+                        )?;
                     }
                     self.q_proj
                         .as_ref()
@@ -61773,8 +62008,11 @@ impl VulkanTransformerLayer {
                         // every branch separate so a module-local base+LoRA
                         // join cannot perturb the graph accumulation order
                         // seen by HF PEFT.
-                        if let Some(lora) = self.v_proj.as_ref()
-                            .and_then(|p| p.lora.as_ref()).filter(|l| l.dora.is_none())
+                        if let Some(lora) = self
+                            .v_proj
+                            .as_ref()
+                            .and_then(|p| p.lora.as_ref())
+                            .filter(|l| l.dora.is_none())
                         {
                             record_add(
                                 commands,
@@ -61785,7 +62023,10 @@ impl VulkanTransformerLayer {
                                 rows * d,
                             )?;
                         } else {
-                            let copy_push = ScalePush { len: (rows * d) as u32, scale: 1.0 };
+                            let copy_push = ScalePush {
+                                len: (rows * d) as u32,
+                                scale: 1.0,
+                            };
                             kernels.scale_copy.record_dispatch(
                                 commands,
                                 &[&self.tape.grad_ln1_v, &self.tape.grad_ln1_qk],
@@ -61794,28 +62035,70 @@ impl VulkanTransformerLayer {
                             )?;
                         }
 
-                        if let Some(lora) = self.k_proj.as_ref()
-                            .and_then(|p| p.lora.as_ref()).filter(|l| l.dora.is_none())
+                        if let Some(lora) = self
+                            .k_proj
+                            .as_ref()
+                            .and_then(|p| p.lora.as_ref())
+                            .filter(|l| l.dora.is_none())
                         {
-                            record_add(commands, kernels, &self.tape.grad_ln1_qk,
-                                &lora.grad_input_lora, &self.tape.grad_ln1_qk, rows * d)?;
-                            record_add(commands, kernels, &self.tape.grad_ln1_qk,
-                                &lora.grad_input_base, &self.tape.grad_ln1_qk, rows * d)?;
+                            record_add(
+                                commands,
+                                kernels,
+                                &self.tape.grad_ln1_qk,
+                                &lora.grad_input_lora,
+                                &self.tape.grad_ln1_qk,
+                                rows * d,
+                            )?;
+                            record_add(
+                                commands,
+                                kernels,
+                                &self.tape.grad_ln1_qk,
+                                &lora.grad_input_base,
+                                &self.tape.grad_ln1_qk,
+                                rows * d,
+                            )?;
                         } else {
-                            record_add(commands, kernels, &self.tape.grad_ln1_qk,
-                                &self.tape.grad_ln1_k, &self.tape.grad_ln1_qk, rows * d)?;
+                            record_add(
+                                commands,
+                                kernels,
+                                &self.tape.grad_ln1_qk,
+                                &self.tape.grad_ln1_k,
+                                &self.tape.grad_ln1_qk,
+                                rows * d,
+                            )?;
                         }
 
-                        if let Some(lora) = self.q_proj.as_ref()
-                            .and_then(|p| p.lora.as_ref()).filter(|l| l.dora.is_none())
+                        if let Some(lora) = self
+                            .q_proj
+                            .as_ref()
+                            .and_then(|p| p.lora.as_ref())
+                            .filter(|l| l.dora.is_none())
                         {
-                            record_add(commands, kernels, &self.tape.grad_ln1_qk,
-                                &lora.grad_input_lora, &self.tape.grad_ln1_qk, rows * d)?;
-                            record_add(commands, kernels, &self.tape.grad_ln1_qk,
-                                &lora.grad_input_base, &self.tape.grad_ln1, rows * d)?;
+                            record_add(
+                                commands,
+                                kernels,
+                                &self.tape.grad_ln1_qk,
+                                &lora.grad_input_lora,
+                                &self.tape.grad_ln1_qk,
+                                rows * d,
+                            )?;
+                            record_add(
+                                commands,
+                                kernels,
+                                &self.tape.grad_ln1_qk,
+                                &lora.grad_input_base,
+                                &self.tape.grad_ln1,
+                                rows * d,
+                            )?;
                         } else {
-                            record_add(commands, kernels, &self.tape.grad_ln1_qk,
-                                &self.tape.grad_ln1_q, &self.tape.grad_ln1, rows * d)?;
+                            record_add(
+                                commands,
+                                kernels,
+                                &self.tape.grad_ln1_qk,
+                                &self.tape.grad_ln1_q,
+                                &self.tape.grad_ln1,
+                                rows * d,
+                            )?;
                         }
                     } else {
                         record_add(
@@ -61886,8 +62169,22 @@ impl VulkanTransformerLayer {
             }
         }
         if let Some(mamba) = self.falcon_h1.as_ref() {
-            falcon_h1::scale(commands, kernels, &self.tape.grad_ln1, &self.tape.grad_ln1, rows*d, mamba.attn_in)?;
-            record_add(commands, kernels, &mamba.grad_input, &self.tape.grad_ln1, &self.tape.grad_ln1, rows*d)?;
+            falcon_h1::scale(
+                commands,
+                kernels,
+                &self.tape.grad_ln1,
+                &self.tape.grad_ln1,
+                rows * d,
+                mamba.attn_in,
+            )?;
+            record_add(
+                commands,
+                kernels,
+                &mamba.grad_input,
+                &self.tape.grad_ln1,
+                &self.tape.grad_ln1,
+                rows * d,
+            )?;
         }
         let grad_attention_linear_input = if self.attention_gate.is_some() {
             record_add(
@@ -62745,7 +63042,11 @@ fn attach_qwen_hybrid_packed_q_proj_lora(
     let (a, packed_b) = if let Some((weights_path, tensors, allow_bare)) = adapter {
         if olora_init {
             let (_, _, residual) = initialize_olora_pair_and_residual(
-                &packed_base, rank, input_dim, 2 * output_dim, scale,
+                &packed_base,
+                rank,
+                input_dim,
+                2 * output_dim,
+                scale,
             )?;
             install_residual(&residual)?;
         } else if let Some(niter) = pissa_niter {
@@ -62771,7 +63072,11 @@ fn attach_qwen_hybrid_packed_q_proj_lora(
         )?
     } else if olora_init {
         let (a, b, residual) = initialize_olora_pair_and_residual(
-            &packed_base, rank, input_dim, 2 * output_dim, scale,
+            &packed_base,
+            rank,
+            input_dim,
+            2 * output_dim,
+            scale,
         )?;
         install_residual(&residual)?;
         (a, b)
@@ -62796,8 +63101,7 @@ fn attach_qwen_hybrid_packed_q_proj_lora(
             module_seed,
         )?
     };
-    let (query_b, gate_b) =
-        split_qwen_hybrid_query_gate(&packed_b, rank, num_heads, head_dim)?;
+    let (query_b, gate_b) = split_qwen_hybrid_query_gate(&packed_b, rank, num_heads, head_dim)?;
 
     let packed_b_bias = if config.lora_bias {
         if let Some((weights_path, tensors, allow_bare)) = adapter {
@@ -62823,8 +63127,7 @@ fn attach_qwen_hybrid_packed_q_proj_lora(
     };
     let (query_b_bias, gate_b_bias) = match packed_b_bias.as_deref() {
         Some(values) => {
-            let (query, gate) =
-                split_qwen_hybrid_query_gate_bias(values, num_heads, head_dim)?;
+            let (query, gate) = split_qwen_hybrid_query_gate_bias(values, num_heads, head_dim)?;
             (Some(query), Some(gate))
         }
         None => (None, None),
@@ -62855,8 +63158,7 @@ fn attach_qwen_hybrid_packed_q_proj_lora(
     };
     let (query_magnitude, gate_magnitude) = match packed_magnitude.as_deref() {
         Some(values) => {
-            let (query, gate) =
-                split_qwen_hybrid_query_gate_bias(values, num_heads, head_dim)?;
+            let (query, gate) = split_qwen_hybrid_query_gate_bias(values, num_heads, head_dim)?;
             (Some(query), Some(gate))
         }
         None => (None, None),
@@ -63506,15 +63808,7 @@ fn record_transformer_linear_forward_lora_a_lane8_muladd(
     rng_seed: u32,
 ) -> Result<()> {
     linear.record_forward_mode(
-        commands,
-        kernels,
-        input,
-        output,
-        rows,
-        training,
-        rng_step,
-        rng_seed,
-        true,
+        commands, kernels, input, output, rows, training, rng_step, rng_seed, true,
     )
 }
 
@@ -63577,15 +63871,7 @@ fn record_transformer_moe_expert_projection(
         }
     }
     record_transformer_linear_forward(
-        linear,
-        commands,
-        kernels,
-        input,
-        output,
-        rows,
-        training,
-        rng_step,
-        rng_seed,
+        linear, commands, kernels, input, output, rows, training, rng_step, rng_seed,
     )
 }
 
@@ -65850,9 +66136,7 @@ impl VulkanTransformer {
                 // input is bit-identical to HF, and the existing eight-lane
                 // sequential reducer reproduces torch.pow(x.square().mean(),
                 // -0.5) exactly for that boundary.
-                .use_vector_cpu_rsqrt(
-                    config.architecture == VulkanTransformerArchitecture::Gemma4,
-                )
+                .use_vector_cpu_rsqrt(config.architecture == VulkanTransformerArchitecture::Gemma4)
             } else {
                 VulkanLayerNorm::new_rms(
                     &device,
@@ -65865,23 +66149,21 @@ impl VulkanTransformer {
                 .use_extra_rsqrt_refinement(
                     config.architecture == VulkanTransformerArchitecture::FalconH1,
                 )
-                  .use_exact_rsqrt(config.architecture.uses_exact_rsqrt_norm())
-                  .use_torch_cpu_rsqrt(config.architecture.uses_torch_cpu_rsqrt_norm())
-                  .use_vector_cpu_rsqrt(
-                      matches!(
-                          config.architecture,
-                          VulkanTransformerArchitecture::Llama
-                              | VulkanTransformerArchitecture::MiniMaxM2
-                              | VulkanTransformerArchitecture::Gemma3
-                              | VulkanTransformerArchitecture::SmolLm3
-                              | VulkanTransformerArchitecture::Mistral4
-                              | VulkanTransformerArchitecture::Qwen35
-                              | VulkanTransformerArchitecture::MiniMaxM3VLText
-                              | VulkanTransformerArchitecture::Gemma4
-                              | VulkanTransformerArchitecture::Qwen2
-                      ),
-                  )
-              }
+                .use_exact_rsqrt(config.architecture.uses_exact_rsqrt_norm())
+                .use_torch_cpu_rsqrt(config.architecture.uses_torch_cpu_rsqrt_norm())
+                .use_vector_cpu_rsqrt(matches!(
+                    config.architecture,
+                    VulkanTransformerArchitecture::Llama
+                        | VulkanTransformerArchitecture::MiniMaxM2
+                        | VulkanTransformerArchitecture::Gemma3
+                        | VulkanTransformerArchitecture::SmolLm3
+                        | VulkanTransformerArchitecture::Mistral4
+                        | VulkanTransformerArchitecture::Qwen35
+                        | VulkanTransformerArchitecture::MiniMaxM3VLText
+                        | VulkanTransformerArchitecture::Gemma4
+                        | VulkanTransformerArchitecture::Qwen2
+                ))
+            }
         } else if host.final_norm.bias.is_empty() {
             VulkanLayerNorm::new_no_bias(
                 &device,
@@ -66378,9 +66660,7 @@ impl VulkanTransformer {
     }
 
     #[doc(hidden)]
-    pub fn debug_kimi_layer0_mlp_attn_res(
-        &self,
-    ) -> Result<(Vec<f32>, Vec<f32>, Vec<f32>)> {
+    pub fn debug_kimi_layer0_mlp_attn_res(&self) -> Result<(Vec<f32>, Vec<f32>, Vec<f32>)> {
         let stack = self
             .kimi_attn_res
             .as_ref()
@@ -66416,15 +66696,16 @@ impl VulkanTransformer {
         commands.submit()?;
         Ok((
             stack.workspace.scores.read_f32(rows * source_count)?,
-            stack.workspace.probabilities.read_f32(rows * source_count)?,
+            stack
+                .workspace
+                .probabilities
+                .read_f32(rows * source_count)?,
             stack.workspace.recompute_output.read_f32(rows * hidden)?,
         ))
     }
 
     #[doc(hidden)]
-    pub fn debug_kimi_output_attn_res(
-        &self,
-    ) -> Result<(Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>)> {
+    pub fn debug_kimi_output_attn_res(&self) -> Result<(Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>)> {
         let stack = self
             .kimi_attn_res
             .as_ref()
@@ -66437,7 +66718,10 @@ impl VulkanTransformer {
             .checked_add(1)
             .context("debug Kimi output AttnRes source-count overflow")?;
         Ok((
-            stack.workspace.candidates.read_f32(rows * sources * hidden)?,
+            stack
+                .workspace
+                .candidates
+                .read_f32(rows * sources * hidden)?,
             stack.workspace.scores.read_f32(rows * sources)?,
             stack.workspace.probabilities.read_f32(rows * sources)?,
             stack.output_hidden.read_f32(rows * hidden)?,
@@ -66475,10 +66759,7 @@ impl VulkanTransformer {
             .checked_mul(self.config.num_key_value_heads)
             .context("debug Qwen3.5 key norm stats size overflow")?;
         let mut out = BTreeMap::new();
-        out.insert(
-            "embed".to_owned(),
-            self.input_hidden.read_f32(hidden_len)?,
-        );
+        out.insert("embed".to_owned(), self.input_hidden.read_f32(hidden_len)?);
         for (index, layer) in self.layers.iter().enumerate() {
             if self.config.layer_uses_linear_attention(index) {
                 continue;
@@ -66492,7 +66773,10 @@ impl VulkanTransformer {
                 format!("{prefix}.ln1_rstd"),
                 layer.tape.ln1_rstd.read_f32(self.rows)?,
             );
-            out.insert(format!("{prefix}.ln1"), layer.tape.ln1.read_f32(hidden_len)?);
+            out.insert(
+                format!("{prefix}.ln1"),
+                layer.tape.ln1.read_f32(hidden_len)?,
+            );
             out.insert(format!("{prefix}.q"), layer.tape.q.read_f32(q_len)?);
             out.insert(format!("{prefix}.k"), layer.tape.k.read_f32(k_len)?);
             out.insert(format!("{prefix}.v"), layer.tape.v.read_f32(v_len)?);
@@ -66548,7 +66832,10 @@ impl VulkanTransformer {
                 format!("{prefix}.residual1"),
                 layer.tape.residual1.read_f32(hidden_len)?,
             );
-            out.insert(format!("{prefix}.ln2"), layer.tape.ln2.read_f32(hidden_len)?);
+            out.insert(
+                format!("{prefix}.ln2"),
+                layer.tape.ln2.read_f32(hidden_len)?,
+            );
             out.insert(
                 format!("{prefix}.ln2_mean"),
                 layer.tape.ln2_mean.read_f32(self.rows)?,
@@ -66600,19 +66887,25 @@ impl VulkanTransformer {
             .checked_mul(layer.attention_hidden_size)
             .context("debug first-layer attention-state size overflow")?;
         let mut out = BTreeMap::new();
+        out.insert("input".to_owned(), self.input_hidden.read_f32(hidden_len)?);
         out.insert(
-            "input".to_owned(),
-            self.input_hidden.read_f32(hidden_len)?,
+            "norm_output".to_owned(),
+            layer.tape.ln1.read_f32(hidden_len)?,
         );
-        out.insert("norm_output".to_owned(), layer.tape.ln1.read_f32(hidden_len)?);
-        out.insert("mlp_norm_output".to_owned(), layer.tape.ln2.read_f32(hidden_len)?);
+        out.insert(
+            "mlp_norm_output".to_owned(),
+            layer.tape.ln2.read_f32(hidden_len)?,
+        );
         if let Some(last_layer) = self.layers.last() {
             out.insert(
                 "final_prefix".to_owned(),
                 last_layer.forward_output().read_f32(hidden_len)?,
             );
         }
-        out.insert("final_norm_output".to_owned(), self.final_norm_output.read_f32(hidden_len)?);
+        out.insert(
+            "final_norm_output".to_owned(),
+            self.final_norm_output.read_f32(hidden_len)?,
+        );
         out.insert(
             "final_norm_mean".to_owned(),
             self.final_norm_mean.read_f32(self.rows)?,
@@ -66641,13 +66934,23 @@ impl VulkanTransformer {
             "debug_rope_llama4_scaling_beta".to_owned(),
             vec![self.config.rope_scaling.llama4_scaling_beta],
         );
-        out.insert("grad_final_norm_output".to_owned(), self.grad_final_norm_output.read_f32(hidden_len)?);
-        out.insert("grad_final_norm_input".to_owned(), self.grad_final_norm_input.read_f32(hidden_len)?);
+        out.insert(
+            "grad_final_norm_output".to_owned(),
+            self.grad_final_norm_output.read_f32(hidden_len)?,
+        );
+        out.insert(
+            "grad_final_norm_input".to_owned(),
+            self.grad_final_norm_input.read_f32(hidden_len)?,
+        );
         out.insert(
             "grad_token_embedding_output".to_owned(),
             self.grad_token_embedding_output.read_f32(hidden_len)?,
         );
-        out.insert("grad_logits".to_owned(), self.grad_logits.read_f32(self.rows * self.config.vocab_size)?);
+        out.insert(
+            "grad_logits".to_owned(),
+            self.grad_logits
+                .read_f32(self.rows * self.config.vocab_size)?,
+        );
         out.insert(
             "norm_mean".to_owned(),
             layer.tape.ln1_mean.read_f32(self.rows)?,
@@ -66698,11 +67001,17 @@ impl VulkanTransformer {
         );
         out.insert(
             "q_norm_mean".to_owned(),
-            layer.tape.q_norm_mean.read_f32(self.rows * layer.num_heads)?,
+            layer
+                .tape
+                .q_norm_mean
+                .read_f32(self.rows * layer.num_heads)?,
         );
         out.insert(
             "q_norm_rstd".to_owned(),
-            layer.tape.q_norm_rstd.read_f32(self.rows * layer.num_heads)?,
+            layer
+                .tape
+                .q_norm_rstd
+                .read_f32(self.rows * layer.num_heads)?,
         );
         out.insert(
             "q_norm_output".to_owned(),
@@ -66866,8 +67175,7 @@ impl VulkanTransformer {
                     );
                     out.insert(
                         format!("{name}_lora_b_output"),
-                        lora.b_output
-                            .read_f32(self.rows * projection.output_dim)?,
+                        lora.b_output.read_f32(self.rows * projection.output_dim)?,
                     );
                     out.insert(
                         format!("{name}_lora_grad_input_base"),
@@ -66998,14 +67306,14 @@ impl VulkanTransformer {
                 } else {
                     self.layers[index - 1].forward_output()
                 };
-                out.insert(
-                    format!("{prefix}.input"),
-                    input.read_f32(hidden_len)?,
-                );
+                out.insert(format!("{prefix}.input"), input.read_f32(hidden_len)?);
                 for (name, buffer) in [
                     ("norm_output", &layer.tape.ln1),
                     ("attention_projection", &layer.tape.attention_projection),
-                    ("post_attention_norm_output", &layer.tape.post_attention_norm),
+                    (
+                        "post_attention_norm_output",
+                        &layer.tape.post_attention_norm,
+                    ),
                     ("residual1", &layer.tape.residual1),
                     ("mlp_norm_output", &layer.tape.ln2),
                     ("mlp_output", &layer.tape.mlp_output),
@@ -67015,7 +67323,10 @@ impl VulkanTransformer {
                     out.insert(format!("{prefix}.{name}"), buffer.read_f32(hidden_len)?);
                 }
                 for (name, buffer) in [
-                    ("grad_post_attention_norm", &layer.tape.grad_post_attention_norm),
+                    (
+                        "grad_post_attention_norm",
+                        &layer.tape.grad_post_attention_norm,
+                    ),
                     ("grad_post_mlp_norm", &layer.tape.grad_post_mlp_norm),
                 ] {
                     out.insert(format!("{prefix}.{name}"), buffer.read_f32(hidden_len)?);
@@ -67023,22 +67334,50 @@ impl VulkanTransformer {
                 for (name, buffer, width) in [
                     ("q_linear_output", &layer.tape.q, layer.query_hidden_size),
                     ("q_norm_output", &layer.tape.q_norm, layer.query_hidden_size),
-                    ("q_rotary_output", &layer.tape.q_rotary, layer.query_hidden_size),
+                    (
+                        "q_rotary_output",
+                        &layer.tape.q_rotary,
+                        layer.query_hidden_size,
+                    ),
                     ("k_linear_output", &layer.tape.k, layer.key_hidden_size),
                     ("k_norm_output", &layer.tape.k_norm, layer.key_hidden_size),
-                    ("k_rotary_output", &layer.tape.k_rotary, layer.key_hidden_size),
+                    (
+                        "k_rotary_output",
+                        &layer.tape.k_rotary,
+                        layer.key_hidden_size,
+                    ),
                     ("v_linear_output", &layer.tape.v, layer.value_hidden_size),
                     ("v_norm_output", &layer.tape.v_norm, layer.value_hidden_size),
-                    ("attention_output", &layer.tape.attention, layer.attention_hidden_size),
-                    ("mlp_up_output", &layer.tape.mlp_pre, self.config.intermediate_size),
-                    ("mlp_gate_output", &layer.tape.mlp_gate_pre, self.config.intermediate_size),
-                    ("mlp_activation", &layer.tape.mlp_activation, self.config.intermediate_size),
-                    ("mlp_product", &layer.tape.mlp_product, self.config.intermediate_size),
+                    (
+                        "attention_output",
+                        &layer.tape.attention,
+                        layer.attention_hidden_size,
+                    ),
+                    (
+                        "mlp_up_output",
+                        &layer.tape.mlp_pre,
+                        self.config.intermediate_size,
+                    ),
+                    (
+                        "mlp_gate_output",
+                        &layer.tape.mlp_gate_pre,
+                        self.config.intermediate_size,
+                    ),
+                    (
+                        "mlp_activation",
+                        &layer.tape.mlp_activation,
+                        self.config.intermediate_size,
+                    ),
+                    (
+                        "mlp_product",
+                        &layer.tape.mlp_product,
+                        self.config.intermediate_size,
+                    ),
                 ] {
                     let len = self
                         .rows
                         .checked_mul(width)
-                    .context("debug saved-module forward-state size overflow")?;
+                        .context("debug saved-module forward-state size overflow")?;
                     out.insert(format!("{prefix}.{name}"), buffer.read_f32(len)?);
                 }
                 for (name, projection) in [
@@ -67059,8 +67398,7 @@ impl VulkanTransformer {
                             );
                             out.insert(
                                 format!("{prefix}.{name}_lora_b_output"),
-                                lora.b_output
-                                    .read_f32(self.rows * projection.output_dim)?,
+                                lora.b_output.read_f32(self.rows * projection.output_dim)?,
                             );
                         }
                     }
@@ -67082,23 +67420,44 @@ impl VulkanTransformer {
                     .read_f32(self.rows * input_width)?,
             );
             if let Some(hyper) = layer.qwen4_attn_hyper_connection.as_ref() {
-                let hc_len = self.rows.checked_mul(hyper.hc_hidden_size)
+                let hc_len = self
+                    .rows
+                    .checked_mul(hyper.hc_hidden_size)
                     .context("debug Qwen4 attention hyper-state size overflow")?;
-                let norm_rows = self.rows.checked_mul(hyper.hc_count)
+                let norm_rows = self
+                    .rows
+                    .checked_mul(hyper.hc_count)
                     .context("debug Qwen4 attention hyper norm row count overflow")?;
                 let hyper_input = if layer.qwen4_ple.is_some() {
-                    layer.qwen4_ple_input.as_ref()
+                    layer
+                        .qwen4_ple_input
+                        .as_ref()
                         .context("debug Qwen4 attention hyper trace is missing post-PLE input")?
                 } else if index == 0 {
                     &self.input_hidden
                 } else {
                     self.layers[index - 1].forward_output()
                 };
-                out.insert(format!("{prefix}.attn_hyper.input"), hyper_input.read_f32(hc_len)?);
-                out.insert(format!("{prefix}.attn_hyper.normed"), hyper.tape.normed.read_f32(hc_len)?);
-                out.insert(format!("{prefix}.attn_hyper.norm_mean"), hyper.tape.norm_mean.read_f32(norm_rows)?);
-                out.insert(format!("{prefix}.attn_hyper.norm_rstd"), hyper.tape.norm_rstd.read_f32(norm_rows)?);
-                out.insert(format!("{prefix}.attn_hyper.grad_norm_total"), hyper.tape.grad_norm_total.read_f32(hc_len)?);
+                out.insert(
+                    format!("{prefix}.attn_hyper.input"),
+                    hyper_input.read_f32(hc_len)?,
+                );
+                out.insert(
+                    format!("{prefix}.attn_hyper.normed"),
+                    hyper.tape.normed.read_f32(hc_len)?,
+                );
+                out.insert(
+                    format!("{prefix}.attn_hyper.norm_mean"),
+                    hyper.tape.norm_mean.read_f32(norm_rows)?,
+                );
+                out.insert(
+                    format!("{prefix}.attn_hyper.norm_rstd"),
+                    hyper.tape.norm_rstd.read_f32(norm_rows)?,
+                );
+                out.insert(
+                    format!("{prefix}.attn_hyper.grad_norm_total"),
+                    hyper.tape.grad_norm_total.read_f32(hc_len)?,
+                );
                 if let Some(grad) = layer.qwen4_grad_hyper_input_mixer.as_ref() {
                     let name = if layer.qwen4_ple.is_some() {
                         "attn_hyper.grad_ple_input"
@@ -67109,10 +67468,16 @@ impl VulkanTransformer {
                 }
                 if layer.qwen4_ple.is_some() {
                     if let Some(grad) = layer.qwen4_grad_hyper_input_pre_ple.as_ref() {
-                        out.insert(format!("{prefix}.attn_hyper.grad_pre_ple"), grad.read_f32(hc_len)?);
+                        out.insert(
+                            format!("{prefix}.attn_hyper.grad_pre_ple"),
+                            grad.read_f32(hc_len)?,
+                        );
                     }
                     if let Some(grad) = layer.qwen4_grad_hyper_input.as_ref() {
-                        out.insert(format!("{prefix}.attn_hyper.grad_post_ple"), grad.read_f32(hc_len)?);
+                        out.insert(
+                            format!("{prefix}.attn_hyper.grad_post_ple"),
+                            grad.read_f32(hc_len)?,
+                        );
                     }
                 }
                 if let Some(grad) = layer.qwen4_grad_hyper_after_attention.as_ref() {
@@ -67135,17 +67500,25 @@ impl VulkanTransformer {
                 }
             }
             if let Some(ple) = layer.qwen4_ple.as_ref() {
-                let hc_len = self.rows.checked_mul(ple.hc_hidden_size)
+                let hc_len = self
+                    .rows
+                    .checked_mul(ple.hc_hidden_size)
                     .context("debug Qwen4 PLE hyper-state size overflow")?;
-                let norm_rows = self.rows.checked_mul(ple.hc_count)
+                let norm_rows = self
+                    .rows
+                    .checked_mul(ple.hc_count)
                     .context("debug Qwen4 PLE norm row count overflow")?;
                 let pre_ple_input = if index == 0 {
-                    self.qwen4_initial_hyper.as_ref()
-                        .context("debug Qwen4 PLE trace is missing the initial repeated hyper-state")?
+                    self.qwen4_initial_hyper.as_ref().context(
+                        "debug Qwen4 PLE trace is missing the initial repeated hyper-state",
+                    )?
                 } else {
                     self.layers[index - 1].forward_output()
                 };
-                out.insert(format!("{prefix}.ple.input"), pre_ple_input.read_f32(hc_len)?);
+                out.insert(
+                    format!("{prefix}.ple.input"),
+                    pre_ple_input.read_f32(hc_len)?,
+                );
                 for (name, buffer) in [
                     ("key_normed", &ple.key_normed),
                     ("query_normed", &ple.query_normed),
@@ -67164,22 +67537,26 @@ impl VulkanTransformer {
                 ] {
                     out.insert(format!("{prefix}.ple.{name}"), buffer.read_f32(hc_len)?);
                 }
-                let value_len = self.rows.checked_mul(ple.hidden_size)
+                let value_len = self
+                    .rows
+                    .checked_mul(ple.hidden_size)
                     .context("debug Qwen4 PLE value size overflow")?;
-                for (name, buffer) in [
-                    ("value", &ple.value),
-                    ("grad_value", &ple.grad_value),
-                ] {
+                for (name, buffer) in [("value", &ple.value), ("grad_value", &ple.grad_value)] {
                     out.insert(format!("{prefix}.ple.{name}"), buffer.read_f32(value_len)?);
                 }
-                let embedding_len = self.rows.checked_mul(ple.ple_embed_dim)
+                let embedding_len = self
+                    .rows
+                    .checked_mul(ple.ple_embed_dim)
                     .context("debug Qwen4 PLE embedding size overflow")?;
                 for (name, buffer) in [
                     ("embedding", &ple.embedding),
                     ("grad_embedding_key", &ple.grad_embedding_key),
                     ("grad_embedding_value", &ple.grad_embedding_value),
                 ] {
-                    out.insert(format!("{prefix}.ple.{name}"), buffer.read_f32(embedding_len)?);
+                    out.insert(
+                        format!("{prefix}.ple.{name}"),
+                        buffer.read_f32(embedding_len)?,
+                    );
                 }
                 out.insert(
                     format!("{prefix}.ple.query_norm_mean"),
@@ -67207,19 +67584,41 @@ impl VulkanTransformer {
                 );
             }
             if let Some(hyper) = layer.qwen4_mlp_hyper_connection.as_ref() {
-                let hc_len = self.rows.checked_mul(hyper.hc_hidden_size)
+                let hc_len = self
+                    .rows
+                    .checked_mul(hyper.hc_hidden_size)
                     .context("debug Qwen4 MLP hyper-state size overflow")?;
-                let norm_rows = self.rows.checked_mul(hyper.hc_count)
+                let norm_rows = self
+                    .rows
+                    .checked_mul(hyper.hc_count)
                     .context("debug Qwen4 MLP hyper norm row count overflow")?;
                 if let Some(hyper_input) = layer.qwen4_hyper_after_attention.as_ref() {
-                    out.insert(format!("{prefix}.mlp_hyper.input"), hyper_input.read_f32(hc_len)?);
+                    out.insert(
+                        format!("{prefix}.mlp_hyper.input"),
+                        hyper_input.read_f32(hc_len)?,
+                    );
                 }
-                out.insert(format!("{prefix}.mlp_hyper.normed"), hyper.tape.normed.read_f32(hc_len)?);
-                out.insert(format!("{prefix}.mlp_hyper.norm_mean"), hyper.tape.norm_mean.read_f32(norm_rows)?);
-                out.insert(format!("{prefix}.mlp_hyper.norm_rstd"), hyper.tape.norm_rstd.read_f32(norm_rows)?);
-                out.insert(format!("{prefix}.mlp_hyper.grad_norm_total"), hyper.tape.grad_norm_total.read_f32(hc_len)?);
+                out.insert(
+                    format!("{prefix}.mlp_hyper.normed"),
+                    hyper.tape.normed.read_f32(hc_len)?,
+                );
+                out.insert(
+                    format!("{prefix}.mlp_hyper.norm_mean"),
+                    hyper.tape.norm_mean.read_f32(norm_rows)?,
+                );
+                out.insert(
+                    format!("{prefix}.mlp_hyper.norm_rstd"),
+                    hyper.tape.norm_rstd.read_f32(norm_rows)?,
+                );
+                out.insert(
+                    format!("{prefix}.mlp_hyper.grad_norm_total"),
+                    hyper.tape.grad_norm_total.read_f32(hc_len)?,
+                );
                 if let Some(grad) = layer.qwen4_grad_hyper_after_attention_mixer.as_ref() {
-                    out.insert(format!("{prefix}.mlp_hyper.grad_norm_input"), grad.read_f32(hc_len)?);
+                    out.insert(
+                        format!("{prefix}.mlp_hyper.grad_norm_input"),
+                        grad.read_f32(hc_len)?,
+                    );
                 }
             }
             // Keep per-layer generic decoder adjoints available as well.  The
@@ -67237,22 +67636,86 @@ impl VulkanTransformer {
                 out.insert(format!("{prefix}.{name}"), buffer.read_f32(hidden_len)?);
             }
             for (name, buffer, width) in [
-                ("grad_q_linear_output", &layer.tape.grad_q, layer.query_hidden_size),
-                ("grad_q_norm_output", &layer.tape.grad_q_norm, layer.query_hidden_size),
-                ("grad_q_rotary_output", &layer.tape.grad_q_rotary, layer.query_hidden_size),
-                ("grad_k_linear_output", &layer.tape.grad_k, layer.key_hidden_size),
-                ("grad_k_norm_output", &layer.tape.grad_k_norm, layer.key_hidden_size),
-                ("grad_k_rotary_output", &layer.tape.grad_k_rotary, layer.key_hidden_size),
-                ("grad_v_linear_output", &layer.tape.grad_v, layer.value_hidden_size),
-                ("grad_v_norm_output", &layer.tape.grad_v_norm, layer.value_hidden_size),
-                ("grad_attention_output", &layer.tape.grad_attention, layer.attention_hidden_size),
-                ("grad_mlp_output", &layer.tape.grad_post_mlp_norm, self.config.hidden_size),
-                ("grad_mlp_product", &layer.tape.grad_mlp_activation, self.config.intermediate_size),
-                ("grad_mlp_gate_activation", &layer.tape.grad_mlp_gate_activation, self.config.intermediate_size),
-                ("grad_mlp_gate_output", &layer.tape.grad_mlp_gate_pre, self.config.intermediate_size),
-                ("grad_mlp_up_output", &layer.tape.grad_mlp_pre, self.config.intermediate_size),
-                ("grad_mlp_gate_input", &layer.tape.grad_ln2_gate, self.config.hidden_size),
-                ("grad_mlp_up_input", &layer.tape.grad_ln2_up, self.config.hidden_size),
+                (
+                    "grad_q_linear_output",
+                    &layer.tape.grad_q,
+                    layer.query_hidden_size,
+                ),
+                (
+                    "grad_q_norm_output",
+                    &layer.tape.grad_q_norm,
+                    layer.query_hidden_size,
+                ),
+                (
+                    "grad_q_rotary_output",
+                    &layer.tape.grad_q_rotary,
+                    layer.query_hidden_size,
+                ),
+                (
+                    "grad_k_linear_output",
+                    &layer.tape.grad_k,
+                    layer.key_hidden_size,
+                ),
+                (
+                    "grad_k_norm_output",
+                    &layer.tape.grad_k_norm,
+                    layer.key_hidden_size,
+                ),
+                (
+                    "grad_k_rotary_output",
+                    &layer.tape.grad_k_rotary,
+                    layer.key_hidden_size,
+                ),
+                (
+                    "grad_v_linear_output",
+                    &layer.tape.grad_v,
+                    layer.value_hidden_size,
+                ),
+                (
+                    "grad_v_norm_output",
+                    &layer.tape.grad_v_norm,
+                    layer.value_hidden_size,
+                ),
+                (
+                    "grad_attention_output",
+                    &layer.tape.grad_attention,
+                    layer.attention_hidden_size,
+                ),
+                (
+                    "grad_mlp_output",
+                    &layer.tape.grad_post_mlp_norm,
+                    self.config.hidden_size,
+                ),
+                (
+                    "grad_mlp_product",
+                    &layer.tape.grad_mlp_activation,
+                    self.config.intermediate_size,
+                ),
+                (
+                    "grad_mlp_gate_activation",
+                    &layer.tape.grad_mlp_gate_activation,
+                    self.config.intermediate_size,
+                ),
+                (
+                    "grad_mlp_gate_output",
+                    &layer.tape.grad_mlp_gate_pre,
+                    self.config.intermediate_size,
+                ),
+                (
+                    "grad_mlp_up_output",
+                    &layer.tape.grad_mlp_pre,
+                    self.config.intermediate_size,
+                ),
+                (
+                    "grad_mlp_gate_input",
+                    &layer.tape.grad_ln2_gate,
+                    self.config.hidden_size,
+                ),
+                (
+                    "grad_mlp_up_input",
+                    &layer.tape.grad_ln2_up,
+                    self.config.hidden_size,
+                ),
             ] {
                 let len = self
                     .rows
@@ -67288,9 +67751,21 @@ impl VulkanTransformer {
             }
             let prefix = format!("layers.{index}");
             for (name, buffer, len) in [
-                ("grad_attention_projection_input", &layer.tape.grad_attention, q_len),
-                ("grad_attention_ungated", &layer.tape.grad_attention_ungated, q_len),
-                ("grad_attention_gate_pre", &layer.tape.grad_attention_gate_pre, q_len),
+                (
+                    "grad_attention_projection_input",
+                    &layer.tape.grad_attention,
+                    q_len,
+                ),
+                (
+                    "grad_attention_ungated",
+                    &layer.tape.grad_attention_ungated,
+                    q_len,
+                ),
+                (
+                    "grad_attention_gate_pre",
+                    &layer.tape.grad_attention_gate_pre,
+                    q_len,
+                ),
                 ("grad_q_rotary", &layer.tape.grad_q_rotary, q_len),
                 ("grad_k_rotary", &layer.tape.grad_k_rotary, k_len),
                 ("grad_q_norm", &layer.tape.grad_q_norm, q_len),
@@ -67354,11 +67829,20 @@ impl VulkanTransformer {
                 format!("{prefix}.attention_gated"),
                 layer.tape.attention_gated.read_f32(q_len)?,
             );
-            out.insert(format!("{prefix}.q_rotary"), layer.tape.q_rotary.read_f32(q_len)?);
-            out.insert(format!("{prefix}.k_rotary"), layer.tape.k_rotary.read_f32(k_len)?);
+            out.insert(
+                format!("{prefix}.q_rotary"),
+                layer.tape.q_rotary.read_f32(q_len)?,
+            );
+            out.insert(
+                format!("{prefix}.k_rotary"),
+                layer.tape.k_rotary.read_f32(k_len)?,
+            );
             out.insert(format!("{prefix}.v"), layer.tape.v.read_f32(k_len)?);
         }
-        out.insert("grad_input_hidden".to_owned(), self.grad_input_hidden.read_f32(hidden_len)?);
+        out.insert(
+            "grad_input_hidden".to_owned(),
+            self.grad_input_hidden.read_f32(hidden_len)?,
+        );
         Ok(out)
     }
 
@@ -67390,7 +67874,10 @@ impl VulkanTransformer {
             .clone();
         self.save_peft_progress();
         self.activate_peft_saved_module_adapter(adapter_name)?;
-        let (step, seed) = self.lora_progress.get(adapter_name).copied()
+        let (step, seed) = self
+            .lora_progress
+            .get(adapter_name)
+            .copied()
             .context("missing adapter training progress")?;
         self.step = step;
         self.dropout_seed = seed;
@@ -67404,7 +67891,10 @@ impl VulkanTransformer {
 
     pub fn disable_adapter(&mut self) -> Result<()> {
         if let Some(config) = self.lora_config.as_ref() {
-            if (config.modules_to_save.as_ref().is_some_and(|m| !m.is_empty())
+            if (config
+                .modules_to_save
+                .as_ref()
+                .is_some_and(|m| !m.is_empty())
                 && !self.supports_verified_modules_to_save_bank())
                 || config.trainable_token_indices.is_some()
             {
@@ -67442,29 +67932,43 @@ impl VulkanTransformer {
             return Ok(());
         }
         if !self.supports_verified_modules_to_save_bank()
-            && (config.modules_to_save.as_ref().is_some_and(|v| !v.is_empty())
-                || self.lora_configs.values().any(|v| v.modules_to_save.as_ref().is_some_and(|m| !m.is_empty())))
+            && (config
+                .modules_to_save
+                .as_ref()
+                .is_some_and(|v| !v.is_empty())
+                || self
+                    .lora_configs
+                    .values()
+                    .any(|v| v.modules_to_save.as_ref().is_some_and(|m| !m.is_empty())))
         {
             bail!("adapter-local modules_to_save is not qualified for this architecture");
         }
         if config.trainable_token_indices.is_some()
-            || self.lora_configs.values().any(|v| v.trainable_token_indices.is_some())
+            || self
+                .lora_configs
+                .values()
+                .any(|v| v.trainable_token_indices.is_some())
         {
             bail!("multiple PEFT adapters with trainable_token_indices are not yet supported losslessly");
         }
         let bias_count = usize::from(!config.bias.eq_ignore_ascii_case("none"))
-            + self.lora_configs.values().filter(|v| !v.bias.eq_ignore_ascii_case("none")).count();
+            + self
+                .lora_configs
+                .values()
+                .filter(|v| !v.bias.eq_ignore_ascii_case("none"))
+                .count();
         if bias_count > 1 {
             bail!("only one loaded PEFT adapter may use a non-none bias setting");
         }
         if config.layer_replication.is_some()
-            || self.lora_configs.values().any(|v| v.layer_replication.is_some())
+            || self
+                .lora_configs
+                .values()
+                .any(|v| v.layer_replication.is_some())
         {
             bail!("multiple PEFT adapters with layer_replication are not yet supported by the native graph");
         }
-        let mutates_shared_base = |value: &VulkanTransformerLoraConfig| {
-            matches!(&value.init_lora_weights, VulkanTransformerLoraInit::Name(name) if name.eq_ignore_ascii_case("olora") || name.to_ascii_lowercase().starts_with("pissa"))
-        };
+        let mutates_shared_base = |value: &VulkanTransformerLoraConfig| matches!(&value.init_lora_weights, VulkanTransformerLoraInit::Name(name) if name.eq_ignore_ascii_case("olora") || name.to_ascii_lowercase().starts_with("pissa"));
         if mutates_shared_base(config) || self.lora_configs.values().any(mutates_shared_base) {
             bail!("multiple OLoRA/PiSSA adapters cannot share one native base because their initialization mutates the frozen base weights");
         }
@@ -67617,11 +68121,7 @@ impl VulkanTransformer {
         &mut self,
         adapter_dir: impl AsRef<Path>,
     ) -> Result<usize> {
-        self.load_lora_adapter_named_with_trainable(
-            PEFT_DEFAULT_ADAPTER_NAME,
-            adapter_dir,
-            true,
-        )
+        self.load_lora_adapter_named_with_trainable(PEFT_DEFAULT_ADAPTER_NAME, adapter_dir, true)
     }
 
     pub fn load_lora_adapter_named_for_training(
@@ -67662,8 +68162,7 @@ impl VulkanTransformer {
             && matches!(
                 self.source_model_type.as_deref(),
                 Some("kimi_k2") | Some("kimi_k25")
-            )
-        {
+            ) {
             "model.language_model"
         } else {
             "model"
@@ -67716,7 +68215,12 @@ impl VulkanTransformer {
         for (index, layer) in self.layers.iter().enumerate() {
             match self.config.architecture {
                 VulkanTransformerArchitecture::FalconH1 => {
-                    available.extend(layer.falcon_peft_linears(index)?.into_iter().map(|(name, _)| name));
+                    available.extend(
+                        layer
+                            .falcon_peft_linears(index)?
+                            .into_iter()
+                            .map(|(name, _)| name),
+                    );
                 }
                 VulkanTransformerArchitecture::KimiLinear => {
                     let p = format!("model.layers.{index}");
@@ -67724,8 +68228,8 @@ impl VulkanTransformer {
                         match &gated_delta.projection {
                             VulkanQwenGatedDeltaProjection::Kimi { .. } => {
                                 for name in [
-                                    "q_proj", "k_proj", "v_proj", "f_a_proj", "f_b_proj",
-                                    "b_proj", "g_proj", "o_proj",
+                                    "q_proj", "k_proj", "v_proj", "f_a_proj", "f_b_proj", "b_proj",
+                                    "g_proj", "o_proj",
                                 ] {
                                     available.push(format!("{p}.self_attn.{name}"));
                                 }
@@ -68696,7 +69200,11 @@ impl VulkanTransformer {
                 modules.push("model.norm".to_owned());
                 modules
             }
-            _ if self.config.architecture.peft_base_verified() => self.peft_graph_norms().into_iter().map(|(name, _)| name).collect(),
+            _ if self.config.architecture.peft_base_verified() => self
+                .peft_graph_norms()
+                .into_iter()
+                .map(|(name, _)| name)
+                .collect(),
             _ => Vec::new(),
         }
     }
@@ -68835,13 +69343,12 @@ impl VulkanTransformer {
             .any(|(_, _, module)| module == "embed_tokens" || module.ends_with(".embed_tokens"))
         {
             let decoder_layer = self.peft_decoder_layer_prefix(0);
-            let decoder_root = decoder_layer
-                .strip_suffix(".layers.0")
-                .unwrap_or("model");
+            let decoder_root = decoder_layer.strip_suffix(".layers.0").unwrap_or("model");
             let canonical = format!("{decoder_root}.embed_tokens");
             if !candidates.iter().any(|(_, _, module)| module == &canonical) {
-                let rank = Self::peft_input_embedding_parameter_rank(&format!("{canonical}.weight"))
-                    .expect("canonical embed_tokens alias must have an embedding rank");
+                let rank =
+                    Self::peft_input_embedding_parameter_rank(&format!("{canonical}.weight"))
+                        .expect("canonical embed_tokens alias must have an embedding rank");
                 candidates.push((rank, canonical.len(), canonical));
             }
         }
@@ -68956,14 +69463,21 @@ impl VulkanTransformer {
             self.promote_tied_lm_head_for_peft_module_clone()?;
         }
         if saved_embedding.is_some() {
-            self.shared_embedding = self.shared_embedding.fork_for_peft_replacement(!config.inference_mode)?;
-            self.token_embedding.rebind_shared_parameter(self.shared_embedding.clone())?;
+            self.shared_embedding = self
+                .shared_embedding
+                .fork_for_peft_replacement(!config.inference_mode)?;
+            self.token_embedding
+                .rebind_shared_parameter(self.shared_embedding.clone())?;
         }
         if config.saves_module("lm_head") && adapter.is_none() {
             let head = self.lm_head.as_mut().context("missing saved lm_head")?;
-            head.weight = head.weight.fork_for_peft_replacement(!config.inference_mode)?;
+            head.weight = head
+                .weight
+                .fork_for_peft_replacement(!config.inference_mode)?;
             if head.has_bias {
-                head.bias = head.bias.fork_for_peft_replacement(!config.inference_mode)?;
+                head.bias = head
+                    .bias
+                    .fork_for_peft_replacement(!config.inference_mode)?;
             }
         }
         if let (Some(module), Some((weights_path, tensors, allow_bare))) =
@@ -69016,8 +69530,7 @@ impl VulkanTransformer {
             && matches!(
                 self.source_model_type.as_deref(),
                 Some("kimi_k2") | Some("kimi_k25")
-            )
-        {
+            ) {
             "model.language_model"
         } else {
             "model"
@@ -69496,10 +70009,9 @@ impl VulkanTransformer {
                         .q_proj
                         .as_mut()
                         .context("Qwen hybrid full-attention layer is missing q_proj")?;
-                    let gate = layer
-                        .attention_gate
-                        .as_mut()
-                        .context("Qwen hybrid full-attention layer is missing its packed q_proj gate")?;
+                    let gate = layer.attention_gate.as_mut().context(
+                        "Qwen hybrid full-attention layer is missing its packed q_proj gate",
+                    )?;
                     attached += usize::from(attach_qwen_hybrid_packed_q_proj_lora(
                         &device,
                         rows,
@@ -69512,21 +70024,23 @@ impl VulkanTransformer {
                         seed,
                         adapter,
                     )?);
-                    for (module, linear) in [
-                        (
-                            format!("{p}.self_attn.k_proj"),
-                            layer.k_proj.as_mut().context(
-                                "Qwen hybrid full-attention layer is missing k_proj",
-                            )?,
-                        ),
-                        (
-                            format!("{p}.self_attn.v_proj"),
-                            layer.v_proj.as_mut().context(
-                                "Qwen hybrid full-attention layer is missing v_proj",
-                            )?,
-                        ),
-                        (format!("{p}.self_attn.o_proj"), &mut layer.c_proj),
-                    ] {
+                    for (module, linear) in
+                        [
+                            (
+                                format!("{p}.self_attn.k_proj"),
+                                layer.k_proj.as_mut().context(
+                                    "Qwen hybrid full-attention layer is missing k_proj",
+                                )?,
+                            ),
+                            (
+                                format!("{p}.self_attn.v_proj"),
+                                layer.v_proj.as_mut().context(
+                                    "Qwen hybrid full-attention layer is missing v_proj",
+                                )?,
+                            ),
+                            (format!("{p}.self_attn.o_proj"), &mut layer.c_proj),
+                        ]
+                    {
                         attached += usize::from(attach_lora_to_linear(
                             &device, rows, &config, &module, linear, seed, adapter, None,
                         )?);
@@ -69876,10 +70390,9 @@ impl VulkanTransformer {
                                 None,
                             )?);
                         }
-                        for (name, linear) in [
-                            ("up_proj", &mut shared.up),
-                            ("down_proj", &mut shared.down),
-                        ] {
+                        for (name, linear) in
+                            [("up_proj", &mut shared.up), ("down_proj", &mut shared.down)]
+                        {
                             attached += usize::from(attach_lora_to_linear(
                                 &device,
                                 rows,
@@ -71058,7 +71571,9 @@ impl VulkanTransformer {
                 continue;
             }
             let (attn_qkv, attn_proj, mlp_in, mlp_out) = match self.config.architecture {
-                VulkanTransformerArchitecture::FalconH1 => bail!("Falcon H1 PEFT is not implemented"),
+                VulkanTransformerArchitecture::FalconH1 => {
+                    bail!("Falcon H1 PEFT is not implemented")
+                }
                 VulkanTransformerArchitecture::KimiLinear => {
                     bail!(
                         "Kimi-Linear PEFT attachment is not implemented; native full-parameter K3 training remains supported"
@@ -71592,8 +72107,13 @@ impl VulkanTransformer {
             )?;
         }
         if self.config.architecture.peft_base_verified()
-            && !matches!(self.config.architecture, VulkanTransformerArchitecture::Gpt2
-                | VulkanTransformerArchitecture::Llama | VulkanTransformerArchitecture::Qwen2) {
+            && !matches!(
+                self.config.architecture,
+                VulkanTransformerArchitecture::Gpt2
+                    | VulkanTransformerArchitecture::Llama
+                    | VulkanTransformerArchitecture::Qwen2
+            )
+        {
             for (name, norm) in self.peft_graph_norms_mut() {
                 configure_peft_saved_layer_norm(&device, &config, &name, norm, adapter)?;
             }
@@ -71687,7 +72207,8 @@ impl VulkanTransformer {
             );
         }
         self.capture_peft_saved_module_adapter(adapter_name, &config, saved_embedding.as_deref())?;
-        self.lora_progress.insert(adapter_name.to_owned(), (0, self.dropout_seed));
+        self.lora_progress
+            .insert(adapter_name.to_owned(), (0, self.dropout_seed));
         self.step = 0;
         self.lora_saved_embedding_module = saved_embedding;
         self.lora_trainable_token_module =
@@ -72589,16 +73110,16 @@ impl VulkanTransformer {
                         weight
                     };
                     let (shape, weight) = if config.fan_in_fan_out {
-                        (vec![linear.input_dim, linear.output_dim], transpose(&weight, linear.output_dim, linear.input_dim))
+                        (
+                            vec![linear.input_dim, linear.output_dim],
+                            transpose(&weight, linear.output_dim, linear.input_dim),
+                        )
                     } else {
                         (vec![linear.output_dim, linear.input_dim], weight)
                     };
                     owned.insert(
                         peft_saved_module_tensor_key(&module, "weight"),
-                        (
-                            shape,
-                            f32_le_bytes(&weight),
-                        ),
+                        (shape, f32_le_bytes(&weight)),
                     );
                     if linear.has_bias {
                         let bias = linear.bias.read()?;
@@ -72805,8 +73326,13 @@ impl VulkanTransformer {
             export_peft_saved_layer_norm(&mut owned, config, "model.norm", &self.final_norm)?;
         }
         if self.config.architecture.peft_base_verified()
-            && !matches!(self.config.architecture, VulkanTransformerArchitecture::Gpt2
-                | VulkanTransformerArchitecture::Llama | VulkanTransformerArchitecture::Qwen2) {
+            && !matches!(
+                self.config.architecture,
+                VulkanTransformerArchitecture::Gpt2
+                    | VulkanTransformerArchitecture::Llama
+                    | VulkanTransformerArchitecture::Qwen2
+            )
+        {
             for (name, norm) in self.peft_graph_norms() {
                 export_peft_saved_layer_norm(&mut owned, config, &name, norm)?;
             }
@@ -76436,7 +76962,15 @@ impl VulkanTransformer {
         commands.upload_f32(&cache.attention_mask, &visible_mask)?;
         for (layer, layer_cache) in self.layers.iter().zip(cache.layers.iter()) {
             if let Some(mamba) = layer.falcon_h1.as_ref() {
-                mamba.prefill_cache(&mut commands, &cache.attention_mask, layer_cache.falcon_h1_state.as_ref().context("Falcon H1 cache missing")?, prefix.len())?;
+                mamba.prefill_cache(
+                    &mut commands,
+                    &cache.attention_mask,
+                    layer_cache
+                        .falcon_h1_state
+                        .as_ref()
+                        .context("Falcon H1 cache missing")?,
+                    prefix.len(),
+                )?;
             }
             if let Some(deepseek_v4) = layer.deepseek_v4_attention.as_ref() {
                 commands.copy_f32(
@@ -76581,7 +77115,11 @@ impl VulkanTransformer {
                         .generation_indexer_cache_width()
                         .map(|width| GpuBuffer::zeros_f32(&self.device, self.seq_len * width))
                         .transpose()?,
-                    falcon_h1_state: layer.falcon_h1.as_ref().map(|m|GpuBuffer::zeros_f32(&self.device,m.cache_len())).transpose()?,
+                    falcon_h1_state: layer
+                        .falcon_h1
+                        .as_ref()
+                        .map(|m| GpuBuffer::zeros_f32(&self.device, m.cache_len()))
+                        .transpose()?,
                     qwen_gated_delta_conv_state: layer
                         .qwen_gated_delta
                         .as_ref()
@@ -76715,7 +77253,17 @@ impl VulkanTransformer {
                 }
             }
             if let Some(mamba) = model_layer.falcon_h1.as_ref() {
-                commands.copy_f32(source_layer.falcon_h1_state.as_ref().context("Falcon H1 source cache missing")?, destination_layer.falcon_h1_state.as_ref().context("Falcon H1 destination cache missing")?, mamba.cache_len())?;
+                commands.copy_f32(
+                    source_layer
+                        .falcon_h1_state
+                        .as_ref()
+                        .context("Falcon H1 source cache missing")?,
+                    destination_layer
+                        .falcon_h1_state
+                        .as_ref()
+                        .context("Falcon H1 destination cache missing")?,
+                    mamba.cache_len(),
+                )?;
             }
             match (
                 &model_layer.qwen_gated_delta,
@@ -77292,20 +77840,36 @@ impl VulkanTransformer {
         // cache path when requested, so diagnostics exercise selective decode.
         let mut falcon_cache = if requested > 0
             && self.config.architecture == VulkanTransformerArchitecture::FalconH1
-            && config.use_cache && self.supports_generation_kv_cache()
+            && config.use_cache
+            && self.supports_generation_kv_cache()
             && !collect_hidden_states
-            && encoder_hidden_states.is_none() && encoder_attention_mask.is_none()
+            && encoder_hidden_states.is_none()
+            && encoder_attention_mask.is_none()
         {
-            Some(self.generation_prefill_kv_cache_with_policy(prompt, config.uses_paged_kv_cache())?)
-        } else { None };
+            Some(
+                self.generation_prefill_kv_cache_with_policy(prompt, config.uses_paged_kv_cache())?,
+            )
+        } else {
+            None
+        };
 
         for step in 0..requested {
             let logits = if let Some((prefill_logits, cache)) = falcon_cache.as_mut() {
-                if step == 0 { std::mem::take(prefill_logits) } else {
-                    self.generation_cached_step_logits(*sequence.last().context("empty generation sequence")?, cache, sequence.len()-1)?
+                if step == 0 {
+                    std::mem::take(prefill_logits)
+                } else {
+                    self.generation_cached_step_logits(
+                        *sequence.last().context("empty generation sequence")?,
+                        cache,
+                        sequence.len() - 1,
+                    )?
                 }
             } else {
-                self.generation_last_logits(&sequence, encoder_hidden_states, encoder_attention_mask)?
+                self.generation_last_logits(
+                    &sequence,
+                    encoder_hidden_states,
+                    encoder_attention_mask,
+                )?
             };
             if let Some(output) = hidden_states_output.as_mut() {
                 output.push(self.generation_hidden_states_for_last_forward(
@@ -80615,8 +81179,10 @@ impl VulkanTransformer {
                 )?;
             }
             for relative_attention_bias in &self.per_layer_relative_attention_bias {
-                commands
-                    .fill_zero_f32(relative_attention_bias.grad_buffer()?, relative_attention_bias.len)?;
+                commands.fill_zero_f32(
+                    relative_attention_bias.grad_buffer()?,
+                    relative_attention_bias.len,
+                )?;
             }
             if let Some(token_type_embedding) = self.token_type_embedding.as_ref() {
                 token_type_embedding.record_zero_grad(&mut commands)?;
@@ -81210,7 +81776,7 @@ impl VulkanTransformer {
                     [div_ceil_u32(self.rows * output_width, 256), 1, 1],
                 )?;
             }
-            commands.watchdog_checkpoint()?;
+            commands.force_watchdog_checkpoint()?;
         }
         let final_prefix = self
             .layers
@@ -81432,9 +81998,12 @@ impl VulkanTransformer {
         // PEFT compares actual gradients, including replacement biases. Use the
         // existing materialized log-softmax derivative to preserve FP32 staging.
         let ce_kernel = if self.lora_config.is_some()
-            || self.config.architecture == VulkanTransformerArchitecture::FalconH1 {
+            || self.config.architecture == VulkanTransformerArchitecture::FalconH1
+        {
             self.kernels.falcon_cross_entropy()
-        } else { &self.kernels.cross_entropy };
+        } else {
+            &self.kernels.cross_entropy
+        };
         ce_kernel.record_dispatch(
             &mut commands,
             &[
@@ -81715,9 +82284,10 @@ impl VulkanTransformer {
             };
             let grad_output = if layer_index + 1 == self.layers.len() {
                 kimi_final_prefix_grad
-                    .or(self.deepseek_v4_grad_final_hyper
-                    .as_ref()
-                    .or(self.qwen4_grad_final_hyper.as_ref()))
+                    .or(self
+                        .deepseek_v4_grad_final_hyper
+                        .as_ref()
+                        .or(self.qwen4_grad_final_hyper.as_ref()))
                     .unwrap_or(&self.grad_final_norm_input)
             } else {
                 self.layers[layer_index + 1].backward_input_gradient()
@@ -81788,7 +82358,7 @@ impl VulkanTransformer {
                     )?;
                 }
             }
-            commands.watchdog_checkpoint()?;
+            commands.force_watchdog_checkpoint()?;
         }
         self.record_encoder_hidden_gradient_sum(&mut commands, encoder_seq_len)?;
         let layer0_backward_grad = if let Some(hc_mult) = self
@@ -81949,7 +82519,10 @@ impl VulkanTransformer {
                         .as_ref()
                         .filter(|_| self.position_embeddings_trainable)
                     {
-                        commands.fill_zero_f32(position_embedding.grad_buffer()?, position_embedding.len)?;
+                        commands.fill_zero_f32(
+                            position_embedding.grad_buffer()?,
+                            position_embedding.len,
+                        )?;
                         let position_grad_push = PositionPush {
                             rows_or_batch: self.batch_size as u32,
                             seq_len: self.seq_len as u32,
@@ -82029,7 +82602,10 @@ impl VulkanTransformer {
                         .as_ref()
                         .filter(|_| self.position_embeddings_trainable)
                     {
-                        commands.fill_zero_f32(position_embedding.grad_buffer()?, position_embedding.len)?;
+                        commands.fill_zero_f32(
+                            position_embedding.grad_buffer()?,
+                            position_embedding.len,
+                        )?;
                         if self.config.architecture.uses_roberta_position_ids() {
                             let position_grad_push = self.roberta_position_push()?;
                             self.kernels.roberta_position_grad.record_dispatch(
@@ -82119,7 +82695,10 @@ impl VulkanTransformer {
             } else {
                 if let Some(position_embedding) = self.position_embedding.as_ref() {
                     if self.position_embeddings_trainable {
-                        commands.fill_zero_f32(position_embedding.grad_buffer()?, position_embedding.len)?;
+                        commands.fill_zero_f32(
+                            position_embedding.grad_buffer()?,
+                            position_embedding.len,
+                        )?;
                         if self.config.architecture == VulkanTransformerArchitecture::BioGpt {
                             let position_grad_push = OffsetPositionPush {
                                 rows_or_batch: self.batch_size as u32,
@@ -82148,7 +82727,11 @@ impl VulkanTransformer {
                             };
                             self.kernels.opt_position_grad.record_dispatch(
                                 &mut commands,
-                                &[input_grad, &self.attention_mask, position_embedding.grad_buffer()?],
+                                &[
+                                    input_grad,
+                                    &self.attention_mask,
+                                    position_embedding.grad_buffer()?,
+                                ],
                                 bytemuck::bytes_of(&position_grad_push),
                                 [
                                     div_ceil_u32(self.config.hidden_size, 16),
@@ -82447,7 +83030,7 @@ impl VulkanTransformer {
             if *active {
                 layer.record_step(&mut commands, &self.kernels, next_step, hyper)?;
             }
-            commands.watchdog_checkpoint()?;
+            commands.force_watchdog_checkpoint()?;
         }
         if let Some(stack) = self.kimi_attn_res.as_ref() {
             stack.record_step(&mut commands, &self.kernels, next_step, hyper)?;
@@ -88983,17 +89566,18 @@ impl VulkanTransformer {
                 // be loaded by the same HF model that produced the source.
                 let mut gate_up = Vec::with_capacity(moe.num_experts * 2 * i * d);
                 let mut down = Vec::with_capacity(moe.num_experts * d * i);
-                let mut append_expert =
-                    |gate: &VulkanLinear, up: &VulkanLinear, expert_down: &VulkanLinear|
-                     -> Result<()> {
-                        if gate.has_bias || up.has_bias || expert_down.has_bias {
-                            bail!("Mixtral routed experts must be bias-free");
-                        }
-                        gate_up.extend(gate.weight.read()?);
-                        gate_up.extend(up.weight.read()?);
-                        down.extend(expert_down.weight.read()?);
-                        Ok(())
-                    };
+                let mut append_expert = |gate: &VulkanLinear,
+                                         up: &VulkanLinear,
+                                         expert_down: &VulkanLinear|
+                 -> Result<()> {
+                    if gate.has_bias || up.has_bias || expert_down.has_bias {
+                        bail!("Mixtral routed experts must be bias-free");
+                    }
+                    gate_up.extend(gate.weight.read()?);
+                    gate_up.extend(up.weight.read()?);
+                    down.extend(expert_down.weight.read()?);
+                    Ok(())
+                };
                 append_expert(expert0_gate, &layer.c_fc, &layer.c_mlp_proj)?;
                 for expert in &moe.experts {
                     append_expert(
@@ -89837,9 +90421,7 @@ impl VulkanTransformer {
         Ok(values)
     }
 
-    fn kimi_linear_parameter_tensors(
-        &self,
-    ) -> Result<BTreeMap<String, (Vec<usize>, Vec<f32>)>> {
+    fn kimi_linear_parameter_tensors(&self) -> Result<BTreeMap<String, (Vec<usize>, Vec<f32>)>> {
         if self.config.architecture != VulkanTransformerArchitecture::KimiLinear {
             bail!("Kimi-Linear parameter export requires a KimiLinear graph");
         }
@@ -89913,39 +90495,38 @@ impl VulkanTransformer {
 
             let routed_i = self.config.layer_intermediate_size(index);
             let routed_hidden = moe.routed_hidden;
-            let mut export_expert =
-                |expert_index: usize, expert: &VulkanMoeExpert| -> Result<()> {
-                    let gate = expert
-                        .gate
-                        .as_ref()
-                        .context("KimiLinear routed expert is missing w1/gate projection")?;
-                    if gate.has_bias || expert.up.has_bias || expert.down.has_bias {
-                        bail!("KimiLinear routed experts must be bias-free");
-                    }
-                    if gate.input_dim != routed_hidden
-                        || gate.output_dim != routed_i
-                        || expert.up.input_dim != routed_hidden
-                        || expert.up.output_dim != routed_i
-                        || expert.down.input_dim != routed_i
-                        || expert.down.output_dim != routed_hidden
-                    {
-                        bail!("KimiLinear routed expert {expert_index} geometry is inconsistent");
-                    }
-                    let expert_prefix = format!("{block}.experts.{expert_index}");
-                    values.insert(
-                        format!("{expert_prefix}.w1.weight"),
-                        (vec![routed_i, routed_hidden], gate.weight.read()?),
-                    );
-                    values.insert(
-                        format!("{expert_prefix}.w3.weight"),
-                        (vec![routed_i, routed_hidden], expert.up.weight.read()?),
-                    );
-                    values.insert(
-                        format!("{expert_prefix}.w2.weight"),
-                        (vec![routed_hidden, routed_i], expert.down.weight.read()?),
-                    );
-                    Ok(())
-                };
+            let mut export_expert = |expert_index: usize, expert: &VulkanMoeExpert| -> Result<()> {
+                let gate = expert
+                    .gate
+                    .as_ref()
+                    .context("KimiLinear routed expert is missing w1/gate projection")?;
+                if gate.has_bias || expert.up.has_bias || expert.down.has_bias {
+                    bail!("KimiLinear routed experts must be bias-free");
+                }
+                if gate.input_dim != routed_hidden
+                    || gate.output_dim != routed_i
+                    || expert.up.input_dim != routed_hidden
+                    || expert.up.output_dim != routed_i
+                    || expert.down.input_dim != routed_i
+                    || expert.down.output_dim != routed_hidden
+                {
+                    bail!("KimiLinear routed expert {expert_index} geometry is inconsistent");
+                }
+                let expert_prefix = format!("{block}.experts.{expert_index}");
+                values.insert(
+                    format!("{expert_prefix}.w1.weight"),
+                    (vec![routed_i, routed_hidden], gate.weight.read()?),
+                );
+                values.insert(
+                    format!("{expert_prefix}.w3.weight"),
+                    (vec![routed_i, routed_hidden], expert.up.weight.read()?),
+                );
+                values.insert(
+                    format!("{expert_prefix}.w2.weight"),
+                    (vec![routed_hidden, routed_i], expert.down.weight.read()?),
+                );
+                Ok(())
+            };
             export_expert(
                 0,
                 moe.owned_expert0
@@ -97026,7 +97607,11 @@ mod tests {
         let k_values = vec![-0.4_f32, 0.3, -0.2, 0.1, -1.4, 1.3, -1.2, 1.1];
         let grad_q_values = vec![0.8_f32, -0.7, 0.6, -0.5, 0.4, -0.3, 0.2, -0.1];
         let grad_k_values = vec![-0.15_f32, 0.25, -0.35, 0.45, -0.55, 0.65, -0.75, 0.85];
-        let factors = if precomputed { vec![1.0_f32, 0.01] } else { vec![1.0_f32, 2.5] };
+        let factors = if precomputed {
+            vec![1.0_f32, 0.01]
+        } else {
+            vec![1.0_f32, 2.5]
+        };
         let q_input = GpuBuffer::from_f32(&device, &q_values)?;
         let k_input = GpuBuffer::from_f32(&device, &k_values)?;
         let q_output = GpuBuffer::zeros_f32(&device, q_values.len())?;
@@ -97087,8 +97672,11 @@ mod tests {
                 for offset in 0..4 {
                     let frequency_index = if offset < 2 { offset } else { offset - 2 };
                     let exponent = 2.0 * frequency_index as f32 / 4.0;
-                    let inv_frequency = if precomputed { factors[frequency_index] }
-                        else { 10_000.0_f32.powf(-exponent) / factors[frequency_index] };
+                    let inv_frequency = if precomputed {
+                        factors[frequency_index]
+                    } else {
+                        10_000.0_f32.powf(-exponent) / factors[frequency_index]
+                    };
                     let angle = position * inv_frequency;
                     let (sin, cos) = angle.sin_cos();
                     let first = offset < 2;
@@ -97108,8 +97696,11 @@ mod tests {
                 for offset in 0..4 {
                     let frequency_index = if offset < 2 { offset } else { offset - 2 };
                     let exponent = 2.0 * frequency_index as f32 / 4.0;
-                    let inv_frequency = if precomputed { factors[frequency_index] }
-                        else { 10_000.0_f32.powf(-exponent) / factors[frequency_index] };
+                    let inv_frequency = if precomputed {
+                        factors[frequency_index]
+                    } else {
+                        10_000.0_f32.powf(-exponent) / factors[frequency_index]
+                    };
                     let angle = position * inv_frequency;
                     let (sin, cos) = angle.sin_cos();
                     let first = offset < 2;
@@ -106883,7 +107474,8 @@ mod tests {
     }
 
     #[test]
-    fn kimi_linear_latent_moe_runs_situ_forward_and_backward_with_finite_difference() -> Result<()> {
+    fn kimi_linear_latent_moe_runs_situ_forward_and_backward_with_finite_difference() -> Result<()>
+    {
         let Ok(device) = VulkanDevice::new() else {
             return Ok(());
         };
@@ -106915,9 +107507,7 @@ mod tests {
             down: linear(&[-0.19, 0.27, 0.23, -0.11, 0.35, 0.06]),
         };
         let host = HostMoeLayer {
-            router: linear(&[
-                0.23, -0.31, 0.17, 0.09, -0.14, 0.26, 0.37, -0.21,
-            ]),
+            router: linear(&[0.23, -0.31, 0.17, 0.09, -0.14, 0.26, 0.37, -0.21]),
             router_correction_bias: vec![0.07, -0.03],
             hash_router: None,
             expert_capacity: 0,
@@ -106928,16 +107518,12 @@ mod tests {
             shared_expert_gate: None,
             latent: Some(HostMoeLatent {
                 hidden_size: routed_hidden,
-                down_proj: linear(&[
-                    0.41, -0.16, 0.24, 0.08, -0.12, 0.35, -0.27, 0.19,
-                ]),
+                down_proj: linear(&[0.41, -0.16, 0.24, 0.08, -0.12, 0.35, -0.27, 0.19]),
                 norm: Some(HostLayerNorm {
                     weight: vec![1.15, 0.85],
                     bias: Vec::new(),
                 }),
-                up_proj: linear(&[
-                    0.29, -0.18, -0.11, 0.32, 0.25, 0.14, -0.21, 0.38,
-                ]),
+                up_proj: linear(&[0.29, -0.18, -0.11, 0.32, 0.25, 0.14, -0.21, 0.38]),
             }),
         };
         let moe = VulkanMoe::new(
@@ -106959,13 +107545,10 @@ mod tests {
 
         let dummy_gate =
             VulkanLinear::new_no_bias(&device, routed_hidden, intermediate, &[0.0; 6])?;
-        let dummy_up =
-            VulkanLinear::new_no_bias(&device, routed_hidden, intermediate, &[0.0; 6])?;
+        let dummy_up = VulkanLinear::new_no_bias(&device, routed_hidden, intermediate, &[0.0; 6])?;
         let dummy_down =
             VulkanLinear::new_no_bias(&device, intermediate, routed_hidden, &[0.0; 6])?;
-        let input_values = [
-            0.37_f32, -0.52, 0.18, 0.44, -0.21, 0.63, -0.35, 0.27,
-        ];
+        let input_values = [0.37_f32, -0.52, 0.18, 0.44, -0.21, 0.63, -0.35, 0.27];
         let grad_output_values = [0.41_f32, -0.23, 0.17, 0.36, -0.28, 0.19, 0.33, -0.14];
         let output = GpuBuffer::zeros_f32(&device, rows * hidden)?;
         let grad_output = GpuBuffer::from_f32(&device, &grad_output_values)?;
@@ -107087,8 +107670,8 @@ mod tests {
         )?;
         let workspace = VulkanKimiAttnResWorkspace::new(&device, rows, sources, hidden)?;
         let values = [
-            0.37_f32, -0.52, 0.18, 0.44, -0.21, 0.63, -0.35, 0.27, 0.48, 0.11, -0.29, 0.56,
-            -0.32, 0.24, 0.51, -0.17, 0.29, -0.46, 0.13, 0.62, 0.41, 0.07, -0.38, 0.22,
+            0.37_f32, -0.52, 0.18, 0.44, -0.21, 0.63, -0.35, 0.27, 0.48, 0.11, -0.29, 0.56, -0.32,
+            0.24, 0.51, -0.17, 0.29, -0.46, 0.13, 0.62, 0.41, 0.07, -0.38, 0.22,
         ];
         let output = GpuBuffer::zeros_f32(&device, rows * hidden)?;
         let forward = |candidate_values: &[f32]| -> Result<Vec<f32>> {
@@ -109728,13 +110311,12 @@ mod tests {
             .map(|i| 0.15 + ((i * 11 + 2) % 17) as f32 / 23.0)
             .collect::<Vec<_>>();
 
-        let run = |
-            packed: &[f32],
-            decay: &[f32],
-            beta: &[f32],
-            seq_len: usize,
-            initial: Option<&[f32]>,
-        | -> Result<(Vec<f32>, Vec<f32>)> {
+        let run = |packed: &[f32],
+                   decay: &[f32],
+                   beta: &[f32],
+                   seq_len: usize,
+                   initial: Option<&[f32]>|
+         -> Result<(Vec<f32>, Vec<f32>)> {
             let packed_gpu = GpuBuffer::from_f32(&device, packed)?;
             let decay_gpu = GpuBuffer::from_f32(&device, decay)?;
             let beta_gpu = GpuBuffer::from_f32(&device, beta)?;
@@ -109776,8 +110358,7 @@ mod tests {
             ))
         };
 
-        let (monolithic_output, monolithic_state) =
-            run(&packed, &decay, &beta, seq_len, None)?;
+        let (monolithic_output, monolithic_state) = run(&packed, &decay, &beta, seq_len, None)?;
         let (_, prefix_state) = run(
             &packed[..prefix_len * packed_width],
             &decay[..prefix_len * key_dim],
@@ -109794,8 +110375,10 @@ mod tests {
         )?;
         let monolithic_last =
             &monolithic_output[prefix_len * value_dim..(prefix_len + 1) * value_dim];
-        for (index, (&actual, &expected)) in
-            resumed_output.iter().zip(monolithic_last.iter()).enumerate()
+        for (index, (&actual, &expected)) in resumed_output
+            .iter()
+            .zip(monolithic_last.iter())
+            .enumerate()
         {
             assert_eq!(
                 actual.to_bits(),
@@ -109803,14 +110386,84 @@ mod tests {
                 "split KDA output mismatch at {index}: resumed={actual} monolithic={expected}"
             );
         }
-        for (index, (&actual, &expected)) in
-            resumed_state.iter().zip(monolithic_state.iter()).enumerate()
+        for (index, (&actual, &expected)) in resumed_state
+            .iter()
+            .zip(monolithic_state.iter())
+            .enumerate()
         {
             assert_eq!(
                 actual.to_bits(),
                 expected.to_bits(),
                 "split KDA state mismatch at {index}: resumed={actual} monolithic={expected}"
             );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn qwen_gdn_params_kernel_applies_the_pushed_beta_scale() -> Result<()> {
+        // The forward kernel and its own backward kernel must read the same push
+        // block: the backward step multiplies `grad_beta` by `pc.beta_scale`, and
+        // OLMo Hybrid pushes 2.0. A forward module built before that member existed
+        // still ran -- Vulkan only requires the declared range to cover the bytes
+        // the shader reads -- and silently dropped the factor, so this pins the
+        // forward side of the contract on a device.
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let kernels = TransformerKernels::new(&device)?;
+        let rows = 1usize;
+        let num_value_heads = 4usize;
+        let b = [0.3_f32, -0.7, 1.4, -1.9];
+        let a = [0.2_f32, -0.4, 0.6, -0.8];
+        let a_log = [0.1_f32, -0.2, 0.3, -0.4];
+        let dt_bias = [0.05_f32, -0.15, 0.25, -0.35];
+        let b_gpu = GpuBuffer::from_f32(&device, &b)?;
+        let a_gpu = GpuBuffer::from_f32(&device, &a)?;
+        let a_log_gpu = GpuBuffer::from_f32(&device, &a_log)?;
+        let dt_bias_gpu = GpuBuffer::from_f32(&device, &dt_bias)?;
+
+        let softplus = |x: f32| x.max(0.0) + (1.0 + (-x.abs()).exp()).ln();
+        for beta_scale in [1.0_f32, 2.0_f32] {
+            let decay_gpu = GpuBuffer::zeros_f32(&device, b.len())?;
+            let beta_gpu = GpuBuffer::zeros_f32(&device, b.len())?;
+            let push = QwenGdnParamsPush {
+                rows: rows as u32,
+                num_value_heads: num_value_heads as u32,
+                beta_scale,
+            };
+            let mut commands = vulkan::ComputeBatch::new(&device)?;
+            kernels.qwen_gdn_params.record_dispatch(
+                &mut commands,
+                &[
+                    &b_gpu,
+                    &a_gpu,
+                    &a_log_gpu,
+                    &dt_bias_gpu,
+                    &decay_gpu,
+                    &beta_gpu,
+                ],
+                bytemuck::bytes_of(&push),
+                [1, 1, 1],
+            )?;
+            commands.submit()?;
+            let beta = beta_gpu.read_f32(b.len())?;
+            let decay = decay_gpu.read_f32(b.len())?;
+            for index in 0..b.len() {
+                let sigmoid = 1.0 / (1.0 + (-b[index]).exp());
+                let expected_beta = beta_scale * sigmoid;
+                assert!(
+                    (beta[index] - expected_beta).abs() <= 1.0e-6,
+                    "beta at {index} for scale {beta_scale}: actual={} expected={expected_beta}",
+                    beta[index]
+                );
+                let expected_decay = -a_log[index].exp() * softplus(a[index] + dt_bias[index]);
+                assert!(
+                    (decay[index] - expected_decay).abs() <= 1.0e-6,
+                    "decay at {index} for scale {beta_scale}: actual={} expected={expected_decay}",
+                    decay[index]
+                );
+            }
         }
         Ok(())
     }
@@ -110304,7 +110957,10 @@ mod tests {
             "model.layers.0.self_attn.A_log",
             "model.layers.0.self_attn.o_norm.weight",
         ] {
-            assert!(tensors.contains_key(name), "Kimi KDA export is missing {name}");
+            assert!(
+                tensors.contains_key(name),
+                "Kimi KDA export is missing {name}"
+            );
         }
         assert!(!tensors.contains_key("model.layers.0.self_attn.conv1d.weight"));
         assert!(
@@ -110325,9 +110981,18 @@ mod tests {
             tensors["model.layers.0.self_attn.v_conv1d.weight"].0,
             vec![value_dim, conv_kernel_size]
         );
-        assert_eq!(tensors["model.layers.0.self_attn.q_conv1d.weight"].1[0], 0.031);
-        assert_eq!(tensors["model.layers.0.self_attn.k_conv1d.weight"].1[0], 0.047);
-        assert_eq!(tensors["model.layers.0.self_attn.v_conv1d.weight"].1[0], 0.059);
+        assert_eq!(
+            tensors["model.layers.0.self_attn.q_conv1d.weight"].1[0],
+            0.031
+        );
+        assert_eq!(
+            tensors["model.layers.0.self_attn.k_conv1d.weight"].1[0],
+            0.047
+        );
+        assert_eq!(
+            tensors["model.layers.0.self_attn.v_conv1d.weight"].1[0],
+            0.059
+        );
 
         let input = GpuBuffer::from_f32(
             &device,
@@ -110564,7 +111229,10 @@ mod tests {
         let mla_kv_expanded = num_heads * (qk_nope_head_dim + v_head_dim);
         let mla_compressed = kv_lora_rank + qk_rope_head_dim;
         let mla_value_width = num_heads * v_head_dim;
-        let moe = config.moe.as_ref().context("tiny KimiLinear config is missing MoE metadata")?;
+        let moe = config
+            .moe
+            .as_ref()
+            .context("tiny KimiLinear config is missing MoE metadata")?;
         let routed_hidden = 8usize;
 
         let values = |len: usize, marker: f32| {
@@ -110674,7 +111342,11 @@ mod tests {
                     identity_expert_start: moe.num_experts,
                     experts: (1..moe.num_experts).map(expert).collect(),
                     shared_expert: Some(HostMoeExpert {
-                        gate: Some(linear(d, moe.shared_expert_intermediate_size, marker + 0.040)),
+                        gate: Some(linear(
+                            d,
+                            moe.shared_expert_intermediate_size,
+                            marker + 0.040,
+                        )),
                         up: linear(d, moe.shared_expert_intermediate_size, marker + 0.041),
                         down: linear(moe.shared_expert_intermediate_size, d, marker + 0.042),
                     }),
@@ -110784,7 +111456,9 @@ mod tests {
         let graph = tiny_kimi_linear_vulkan_graph(device)?;
         assert!(graph.supports_generation_kv_cache());
         assert_eq!(graph.layers.len(), 4);
-        assert!(graph.layers[..3].iter().all(|layer| layer.qwen_gated_delta.is_some()));
+        assert!(graph.layers[..3]
+            .iter()
+            .all(|layer| layer.qwen_gated_delta.is_some()));
         assert!(graph.layers[3].mla_attention.is_some());
         assert!(graph.layers[0].moe.is_none());
         assert!(graph.layers[1..].iter().all(|layer| layer.moe.is_some()));
@@ -110803,12 +111477,15 @@ mod tests {
             .qwen_gated_delta
             .as_ref()
             .context("tiny KimiLinear layer 0 is missing KDA")?;
-        let prefill_conv_history =
-            prefill_layer0_kda.convolved_qkv.read_f32(prompt.len() * prefill_layer0_kda.conv_dim())?;
-        let prefill_decay_history =
-            prefill_layer0_kda.decay.read_f32(prompt.len() * prefill_layer0_kda.value_dim())?;
-        let prefill_beta_history =
-            prefill_layer0_kda.beta.read_f32(prompt.len() * prefill_layer0_kda.num_value_heads)?;
+        let prefill_conv_history = prefill_layer0_kda
+            .convolved_qkv
+            .read_f32(prompt.len() * prefill_layer0_kda.conv_dim())?;
+        let prefill_decay_history = prefill_layer0_kda
+            .decay
+            .read_f32(prompt.len() * prefill_layer0_kda.value_dim())?;
+        let prefill_beta_history = prefill_layer0_kda
+            .beta
+            .read_f32(prompt.len() * prefill_layer0_kda.num_value_heads)?;
         for (layer_index, layer) in graph.layers[..3].iter().enumerate() {
             let kda = layer
                 .qwen_gated_delta
@@ -110819,7 +111496,9 @@ mod tests {
                 .as_ref()
                 .context("tiny KimiLinear KDA layer cache is missing recurrent state")?
                 .read_f32(kda.generation_recurrent_state_len()?)?;
-            let full_state = kda.final_state.read_f32(kda.generation_recurrent_state_len()?)?;
+            let full_state = kda
+                .final_state
+                .read_f32(kda.generation_recurrent_state_len()?)?;
             let max_diff = cached_state
                 .iter()
                 .zip(full_state.iter())
@@ -110829,8 +111508,10 @@ mod tests {
                 "KimiLinear prefill recurrent-state max diff layer {layer_index}: {max_diff}"
             );
         }
-        for (index, (&cached, &reference)) in
-            prefill_logits.iter().zip(reference_prefill.iter()).enumerate()
+        for (index, (&cached, &reference)) in prefill_logits
+            .iter()
+            .zip(reference_prefill.iter())
+            .enumerate()
         {
             assert!(
                 (cached - reference).abs() <= 2.0e-7,
@@ -110865,8 +111546,9 @@ mod tests {
             let cached_conv = layer0_kda.convolved_qkv.read_f32(layer0_kda.conv_dim())?;
             let cached_decay = layer0_kda.decay.read_f32(layer0_kda.value_dim())?;
             let cached_beta = layer0_kda.beta.read_f32(layer0_kda.num_value_heads)?;
-            let cached_recurrent =
-                layer0_kda.recurrent_output.read_f32(layer0_kda.value_dim())?;
+            let cached_recurrent = layer0_kda
+                .recurrent_output
+                .read_f32(layer0_kda.value_dim())?;
             let cached_state = cache.layers[0]
                 .qwen_gated_delta_recurrent_state
                 .as_ref()
@@ -110933,8 +111615,9 @@ mod tests {
             let full_beta = layer0_kda
                 .beta
                 .read_f32(prefix.len() * layer0_kda.num_value_heads)?;
-            let full_state =
-                layer0_kda.final_state.read_f32(layer0_kda.generation_recurrent_state_len()?)?;
+            let full_state = layer0_kda
+                .final_state
+                .read_f32(layer0_kda.generation_recurrent_state_len()?)?;
             let full_packed_gpu = GpuBuffer::from_f32(&graph.device, &full_conv)?;
             let full_decay_gpu = GpuBuffer::from_f32(&graph.device, &full_decay)?;
             let full_beta_gpu = GpuBuffer::from_f32(&graph.device, &full_beta)?;
@@ -110974,8 +111657,8 @@ mod tests {
             full_commands.submit()?;
             let replay_full_output =
                 full_output_gpu.read_f32(prefix.len() * layer0_kda.value_dim())?;
-            let replay_full_last = &replay_full_output
-                [(prefix.len() - 1) * layer0_kda.value_dim()..prefix.len() * layer0_kda.value_dim()];
+            let replay_full_last = &replay_full_output[(prefix.len() - 1) * layer0_kda.value_dim()
+                ..prefix.len() * layer0_kda.value_dim()];
             let replay_full_state =
                 replay_full_state_gpu.read_f32(layer0_kda.generation_recurrent_state_len()?)?;
             let max_slice_diff = |a: &[f32], b: &[f32]| {
@@ -111039,8 +111722,8 @@ mod tests {
                 let full_hidden = layer
                     .forward_output()
                     .read_f32(prefix.len() * hidden_size)?;
-                let full_last = &full_hidden
-                    [(prefix.len() - 1) * hidden_size..prefix.len() * hidden_size];
+                let full_last =
+                    &full_hidden[(prefix.len() - 1) * hidden_size..prefix.len() * hidden_size];
                 let max_diff = cached_hidden
                     .iter()
                     .zip(full_last.iter())
@@ -111086,7 +111769,10 @@ mod tests {
             "model.output_attn_res_norm.weight",
             "model.output_attn_res_proj.weight",
         ] {
-            assert!(expected.contains_key(name), "KimiLinear export map is missing {name}");
+            assert!(
+                expected.contains_key(name),
+                "KimiLinear export map is missing {name}"
+            );
         }
 
         let root = std::env::temp_dir().join(format!(
@@ -111174,7 +111860,10 @@ mod tests {
                 ..AdamWHyperParams::default()
             },
         )?;
-        assert!(result.loss.is_finite(), "KimiLinear training loss must remain finite");
+        assert!(
+            result.loss.is_finite(),
+            "KimiLinear training loss must remain finite"
+        );
 
         let kda_q_after = match &graph.layers[0]
             .qwen_gated_delta
@@ -111194,7 +111883,10 @@ mod tests {
             .proj
             .weight
             .read()?;
-        assert_ne!(kda_q_after, kda_q_before, "KimiLinear KDA q_proj did not receive AdamW update");
+        assert_ne!(
+            kda_q_after, kda_q_before,
+            "KimiLinear KDA q_proj did not receive AdamW update"
+        );
         assert_ne!(
             attn_res_after, attn_res_before,
             "KimiLinear AttnRes projection did not receive AdamW update"
@@ -111225,7 +111917,10 @@ mod tests {
                 .as_nanos()
         ));
         fs::create_dir_all(&root)?;
-        fs::write(root.join("config.json"), serde_json::to_vec_pretty(&wrapper)?)?;
+        fs::write(
+            root.join("config.json"),
+            serde_json::to_vec_pretty(&wrapper)?,
+        )?;
         let error = validate_kimi_linear_package_quantization(&root, &config)
             .expect_err("official-style Kimi K3 MXFP4 packages must fail closed");
         let message = format!("{error:#}");
@@ -111242,7 +111937,10 @@ mod tests {
         }))
         .expect_err("Kimi K3 MoonViT execution must not enter the text-only Vulkan graph");
         let message = format!("{error:#}");
-        assert!(message.contains("moonvit"), "unexpected MoonViT rejection: {message}");
+        assert!(
+            message.contains("moonvit"),
+            "unexpected MoonViT rejection: {message}"
+        );
     }
 
     #[test]
@@ -111256,9 +111954,15 @@ mod tests {
         }))?;
 
         for config in [&direct, &wrapped] {
-            assert_eq!(config.architecture, VulkanTransformerArchitecture::KimiLinear);
+            assert_eq!(
+                config.architecture,
+                VulkanTransformerArchitecture::KimiLinear
+            );
             assert_eq!(config.num_layers, 4);
-            assert_eq!(config.linear_attention_layers, vec![true, true, true, false]);
+            assert_eq!(
+                config.linear_attention_layers,
+                vec![true, true, true, false]
+            );
             assert_eq!(config.rotary_dim, 0);
             assert_eq!(config.activation_function, "situ");
             assert_eq!(config.activation_situ_beta, 4.0);
@@ -111291,8 +111995,8 @@ mod tests {
     }
 
     #[test]
-    fn kimi_linear_full_attention_loader_is_hybrid_schedule_aware_and_loads_output_gate() -> Result<()>
-    {
+    fn kimi_linear_full_attention_loader_is_hybrid_schedule_aware_and_loads_output_gate(
+    ) -> Result<()> {
         let value = tiny_kimi_linear_config();
         let config = VulkanTransformerConfig::from_hf_value(&value)?;
         let d = config.hidden_size;
@@ -111381,7 +112085,11 @@ mod tests {
         serialize_to_file(views, None, &test_dir.join(GPT2_SAFETENSORS_FILENAME))?;
 
         let mla = load_mla_attentions(&test_dir, &config)?;
-        assert_eq!(mla.len(), 1, "only the configured full-attention layer owns MLA weights");
+        assert_eq!(
+            mla.len(),
+            1,
+            "only the configured full-attention layer owns MLA weights"
+        );
         assert_eq!(mla[0].q_lora_rank, Some(q_lora_rank));
         assert_eq!(mla[0].kv_lora_rank, kv_lora_rank);
         assert_eq!(mla[0].qk_nope_head_dim, qk_nope_head_dim);
@@ -111455,7 +112163,10 @@ mod tests {
         let error = VulkanTransformerConfig::kimi_linear_attention_layers(&overlap, 4)
             .expect_err("overlapping KDA/full-attention layer must fail closed")
             .to_string();
-        assert!(error.contains("appears in both kda_layers and full_attn_layers"), "{error}");
+        assert!(
+            error.contains("appears in both kda_layers and full_attn_layers"),
+            "{error}"
+        );
 
         let missing = serde_json::json!({
             "linear_attn_config": {
@@ -111477,7 +112188,10 @@ mod tests {
         let error = VulkanTransformerConfig::kimi_linear_attention_layers(&out_of_range, 4)
             .expect_err("out-of-range decoder layer must fail closed")
             .to_string();
-        assert!(error.contains("outside the one-indexed decoder layer range 1..=4"), "{error}");
+        assert!(
+            error.contains("outside the one-indexed decoder layer range 1..=4"),
+            "{error}"
+        );
     }
 
     #[test]
@@ -113895,8 +114609,7 @@ mod tests {
         let actual_no_linear = no_linear_output.read_f32(gate_values.len())?;
         for index in 0..gate_values.len() {
             let sigmoid = 1.0 / (1.0 + (-gate_values[index]).exp());
-            let expected =
-                beta * (gate_values[index] / beta).tanh() * sigmoid * up_values[index];
+            let expected = beta * (gate_values[index] / beta).tanh() * sigmoid * up_values[index];
             assert!(
                 (actual_no_linear[index] - expected).abs() <= 4.0e-6,
                 "SiTU unbounded up-branch mismatch at {index}: actual={} expected={expected}",
@@ -121223,13 +121936,23 @@ mod tests {
         config.init_lora_weights = VulkanTransformerLoraInit::Bool(false);
         graph.enable_lora(config, 27)?;
         graph.set_dropout_seed(991);
-        let ids = [1,2,3,4,5,6,7,8];
-        let targets = [2,3,4,5,6,7,8,9];
-        let mask = [1.0;8];
-        let hyper = AdamWHyperParams { lr: 0.001, eps: 0.001, weight_decay: 0.01, ..Default::default() };
+        let ids = [1, 2, 3, 4, 5, 6, 7, 8];
+        let targets = [2, 3, 4, 5, 6, 7, 8, 9];
+        let mask = [1.0; 8];
+        let hyper = AdamWHyperParams {
+            lr: 0.001,
+            eps: 0.001,
+            weight_decay: 0.01,
+            ..Default::default()
+        };
         graph.train_step(&ids, &targets, &mask, &mask, hyper)?;
-        let checkpoint = std::env::temp_dir().join(format!("hierarchos-lora-resume-{}-{}",
-            std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_nanos()));
+        let checkpoint = std::env::temp_dir().join(format!(
+            "hierarchos-lora-resume-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_nanos()
+        ));
         graph.save_lora_training_checkpoint(&checkpoint, hyper)?;
         assert!(!checkpoint.join("model.safetensors").exists());
         let mut resumed = tiny_gpt2_vulkan_graph(device)?;
@@ -121237,15 +121960,25 @@ mod tests {
         let saved_hyper = resumed.load_lora_optimizer_state(&checkpoint)?;
         assert_eq!(resumed.step(), 1);
         assert_eq!(resumed.dropout_seed(), 991);
-        assert_eq!(graph.forward_logits(&ids, &mask)?, resumed.forward_logits(&ids, &mask)?);
+        assert_eq!(
+            graph.forward_logits(&ids, &mask)?,
+            resumed.forward_logits(&ids, &mask)?
+        );
         let base_before = graph.parameter_values()?;
         graph.train_step(&ids, &targets, &mask, &mask, hyper)?;
         resumed.train_step(&ids, &targets, &mask, &mask, saved_hyper)?;
         assert_eq!(graph.parameter_values()?, base_before);
         assert_eq!(resumed.parameter_values()?, base_before);
-        assert_eq!(graph.forward_logits(&ids, &mask)?, resumed.forward_logits(&ids, &mask)?);
+        assert_eq!(
+            graph.forward_logits(&ids, &mask)?,
+            resumed.forward_logits(&ids, &mask)?
+        );
         for index in 0..graph.layers.len() {
-            for ((left_name, left), (right_name, right)) in graph.peft_layer_linears(index)?.into_iter().zip(resumed.peft_layer_linears(index)?) {
+            for ((left_name, left), (right_name, right)) in graph
+                .peft_layer_linears(index)?
+                .into_iter()
+                .zip(resumed.peft_layer_linears(index)?)
+            {
                 assert_eq!(left_name, right_name);
                 if let (Some(left), Some(right)) = (left.lora.as_ref(), right.lora.as_ref()) {
                     for (a, b) in [(&left.a, &right.a), (&left.b, &right.b)] {
@@ -121274,15 +122007,14 @@ mod tests {
         let prompt = [2_u32, 9, 4];
         let base_logits = graph.generation_last_logits(&prompt, None, None)?;
 
-        let mut config = VulkanTransformerLoraConfig::gpt2(
-            2,
-            4,
-            vec!["c_proj".to_owned()],
-        )?;
+        let mut config = VulkanTransformerLoraConfig::gpt2(2, 4, vec!["c_proj".to_owned()])?;
         config.init_lora_weights = VulkanTransformerLoraInit::Bool(false);
 
         let targets = graph.count_lora_target_modules(&config)?;
-        assert_eq!(graph.enable_lora_named("adapter_a", config.clone(), 11)?, targets);
+        assert_eq!(
+            graph.enable_lora_named("adapter_a", config.clone(), 11)?,
+            targets
+        );
         assert_eq!(graph.active_adapter_name(), Some("adapter_a"));
         assert!(graph.adapters_enabled());
         let adapter_a_logits = graph.generation_last_logits(&prompt, None, None)?;
@@ -121328,7 +122060,10 @@ mod tests {
         graph.disable_adapter()?;
         assert!(!graph.adapters_enabled());
         assert!(graph.layers[0].c_proj.lora.as_ref().is_none());
-        assert_eq!(graph.generation_last_logits(&prompt, None, None)?, base_logits);
+        assert_eq!(
+            graph.generation_last_logits(&prompt, None, None)?,
+            base_logits
+        );
 
         graph.enable_adapter()?;
         assert_eq!(graph.active_adapter_name(), Some("adapter_a"));
@@ -121349,10 +122084,12 @@ mod tests {
         let live_before = device.memory_stats()?.live_buffer_bytes;
         let base_state_before = graph.layers[0].c_proj.weight.training_state_bytes()
             + graph.layers[0].c_proj.bias.training_state_bytes();
-        assert!(base_state_before > 0, "full training must allocate projection training state");
+        assert!(
+            base_state_before > 0,
+            "full training must allocate projection training state"
+        );
 
-        let mut config =
-            VulkanTransformerLoraConfig::gpt2(2, 4, vec!["c_proj".to_owned()])?;
+        let mut config = VulkanTransformerLoraConfig::gpt2(2, 4, vec!["c_proj".to_owned()])?;
         config.init_lora_weights = VulkanTransformerLoraInit::Bool(false);
         graph.enable_lora(config, 31337)?;
 
@@ -121371,8 +122108,7 @@ mod tests {
             .lora
             .as_ref()
             .context("LoRA did not attach to the exercised GPT-2 c_proj")?;
-        let adapter_state_bytes =
-            lora.a.training_state_bytes() + lora.b.training_state_bytes();
+        let adapter_state_bytes = lora.a.training_state_bytes() + lora.b.training_state_bytes();
         assert!(adapter_state_bytes > 0);
 
         let live_after = device.memory_stats()?.live_buffer_bytes;
@@ -121390,10 +122126,15 @@ mod tests {
     #[test]
     fn named_modules_to_save_isolate_weights_gradients_moments_and_base() -> Result<()> {
         let device = VulkanDevice::new()?;
-        let ids = [1,2,3,4,5,6,7,8];
-        let targets = [2,3,4,5,6,7,8,9];
-        let mask = [1.0;8];
-        let hyper = AdamWHyperParams { lr: 0.001, eps: 0.001, weight_decay: 0.01, ..Default::default() };
+        let ids = [1, 2, 3, 4, 5, 6, 7, 8];
+        let targets = [2, 3, 4, 5, 6, 7, 8, 9];
+        let mask = [1.0; 8];
+        let hyper = AdamWHyperParams {
+            lr: 0.001,
+            eps: 0.001,
+            weight_decay: 0.01,
+            ..Default::default()
+        };
         for saved in ["attn.c_proj", "ln_1", "lm_head", "transformer.wte"] {
             let mut graph = tiny_gpt2_vulkan_graph(device.clone())?;
             let base = graph.parameter_values()?;
@@ -121408,18 +122149,34 @@ mod tests {
             graph.enable_lora_named("b", config.clone(), 202)?;
             let mut independent = tiny_gpt2_vulkan_graph(device.clone())?;
             independent.enable_lora_named("b", config.clone(), 202)?;
-            assert_eq!(graph.forward_logits(&ids, &mask)?, independent.forward_logits(&ids, &mask)?, "{saved}: B cloned modified A");
+            assert_eq!(
+                graph.forward_logits(&ids, &mask)?,
+                independent.forward_logits(&ids, &mask)?,
+                "{saved}: B cloned modified A"
+            );
             graph.set_adapter("a")?;
-            assert_eq!(graph.forward_logits(&ids, &mask)?, a_logits, "{saved}: A not restored");
+            assert_eq!(
+                graph.forward_logits(&ids, &mask)?,
+                a_logits,
+                "{saved}: A not restored"
+            );
             graph.disable_adapter()?;
-            assert_eq!(graph.parameter_values()?, base, "{saved}: canonical base changed");
+            assert_eq!(
+                graph.parameter_values()?,
+                base,
+                "{saved}: canonical base changed"
+            );
             assert_eq!(graph.forward_logits(&ids, &mask)?, base_logits);
             graph.enable_adapter()?;
             assert_eq!(graph.forward_logits(&ids, &mask)?, a_logits);
             graph.set_adapter("b")?;
             graph.train_step(&ids, &targets, &mask, &mask, hyper)?;
             independent.train_step(&ids, &targets, &mask, &mask, hyper)?;
-            assert_eq!(graph.parameter_values()?, independent.parameter_values()?, "{saved}: B optimizer contaminated");
+            assert_eq!(
+                graph.parameter_values()?,
+                independent.parameter_values()?,
+                "{saved}: B optimizer contaminated"
+            );
             let snapshot = |model: &VulkanTransformer| -> Result<BTreeMap<String, Vec<f32>>> {
                 let mut out = BTreeMap::new();
                 for (name, (len, avg, sq)) in model.lora_optimizer_buffers()? {
@@ -121439,9 +122196,22 @@ mod tests {
             assert_eq!(snapshot(&graph)?, b_moments, "inactive B moments mutated");
             graph.train_step(&ids, &targets, &mask, &mask, hyper)?;
             independent.train_step(&ids, &targets, &mask, &mask, hyper)?;
-            assert_eq!(graph.parameter_values()?, independent.parameter_values()?, "{saved}: B second step contaminated");
-            assert_eq!(graph.forward_logits(&ids, &mask)?, independent.forward_logits(&ids, &mask)?);
-            let checkpoint = std::env::temp_dir().join(format!("peft-bank-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_nanos()));
+            assert_eq!(
+                graph.parameter_values()?,
+                independent.parameter_values()?,
+                "{saved}: B second step contaminated"
+            );
+            assert_eq!(
+                graph.forward_logits(&ids, &mask)?,
+                independent.forward_logits(&ids, &mask)?
+            );
+            let checkpoint = std::env::temp_dir().join(format!(
+                "peft-bank-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)?
+                    .as_nanos()
+            ));
             let mut reloaded = tiny_gpt2_vulkan_graph(device.clone())?;
             for name in ["a", "b"] {
                 graph.set_adapter(name)?;
@@ -121452,7 +122222,11 @@ mod tests {
             for name in ["a", "b", "a"] {
                 graph.set_adapter(name)?;
                 reloaded.set_adapter(name)?;
-                assert_eq!(graph.forward_logits(&ids, &mask)?, reloaded.forward_logits(&ids, &mask)?, "{saved}: reload {name}");
+                assert_eq!(
+                    graph.forward_logits(&ids, &mask)?,
+                    reloaded.forward_logits(&ids, &mask)?,
+                    "{saved}: reload {name}"
+                );
             }
             for name in ["a", "b"] {
                 graph.set_adapter(name)?;
@@ -121461,7 +122235,11 @@ mod tests {
                 graph.train_step(&ids, &targets, &mask, &mask, hyper)?;
                 reloaded.train_step(&ids, &targets, &mask, &mask, hyper)?;
                 assert_eq!(snapshot(&graph)?, snapshot(&reloaded)?);
-                assert_eq!(graph.forward_logits(&ids, &mask)?, reloaded.forward_logits(&ids, &mask)?, "{saved}: resumed {name}");
+                assert_eq!(
+                    graph.forward_logits(&ids, &mask)?,
+                    reloaded.forward_logits(&ids, &mask)?,
+                    "{saved}: resumed {name}"
+                );
             }
             graph.disable_adapter()?;
             reloaded.disable_adapter()?;
@@ -121479,8 +122257,7 @@ mod tests {
             return Ok(());
         };
         let mut graph = tiny_gpt2_vulkan_graph(device)?;
-        let mut config =
-            VulkanTransformerLoraConfig::gpt2(2, 4, vec!["c_proj".to_owned()])?;
+        let mut config = VulkanTransformerLoraConfig::gpt2(2, 4, vec!["c_proj".to_owned()])?;
         config.init_lora_weights = VulkanTransformerLoraInit::Bool(false);
 
         graph.enable_lora_named("adapter_a", config.clone(), 101)?;
@@ -121523,13 +122300,8 @@ mod tests {
             ..AdamWHyperParams::default()
         };
 
-        let result_a = graph.train_step(
-            &input_ids,
-            &targets,
-            &attention_mask,
-            &loss_weights,
-            hyper,
-        )?;
+        let result_a =
+            graph.train_step(&input_ids, &targets, &attention_mask, &loss_weights, hyper)?;
         assert!(result_a.loss.is_finite());
         let adapter_a_after_a_step = graph.layers[0]
             .c_proj
@@ -121563,13 +122335,8 @@ mod tests {
 
         graph.set_adapter("adapter_b")?;
         let adapter_a_before_b_step = adapter_a_after_a_step.clone();
-        let result_b = graph.train_step(
-            &input_ids,
-            &targets,
-            &attention_mask,
-            &loss_weights,
-            hyper,
-        )?;
+        let result_b =
+            graph.train_step(&input_ids, &targets, &attention_mask, &loss_weights, hyper)?;
         assert!(result_b.loss.is_finite());
         let adapter_a_after_b_step = graph.layers[0]
             .c_proj
@@ -122264,11 +123031,14 @@ mod tests {
             let weight_buffer = GpuBuffer::from_f32(&device, &weight)?;
             let result = GpuBuffer::zeros_f32(&device, rows * input_dim)?;
             let push = LinearPush {
-                rows: rows as u32, input_dim: input_dim as u32, output_dim: output_dim as u32,
+                rows: rows as u32,
+                input_dim: input_dim as u32,
+                output_dim: output_dim as u32,
             };
             let mut commands = vulkan::ComputeBatch::new(&device)?;
             kernels.linear_input_grad_muladd.record_dispatch(
-                &mut commands, &[&grad_buffer, &weight_buffer, &result],
+                &mut commands,
+                &[&grad_buffer, &weight_buffer, &result],
                 bytemuck::bytes_of(&push),
                 [div_ceil_u32(input_dim, 16), div_ceil_u32(rows, 16), 1],
             )?;
@@ -124592,8 +125362,7 @@ mod tests {
         let embedding_dim = graph.shared_embedding.context_dim();
         let gradient = graph
             .shared_embedding
-            .gradient_buffer()
-            ?
+            .gradient_buffer()?
             .read_f32(graph.config.vocab_size * embedding_dim)?;
         let unseen_row = &gradient[30 * embedding_dim..31 * embedding_dim];
         assert!(
@@ -129019,6 +129788,131 @@ mod tests {
         Ok(())
     }
 
+    /// The split runs the strict adjoint as sequential key-range blocks through the
+    /// kernel the guarded site dispatches. The gradients have to come out
+    /// bit-identical to the single dispatch for the block count that site puts in the
+    /// grid to be safe. The grid is set directly here so the split is driven whatever
+    /// the geometry, while the site only splits the shapes that already stream.
+    #[test]
+    fn attention_backward_key_range_split_is_bit_exact() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let kernels = TransformerKernels::new(&device)?;
+        let seq_len = 8usize;
+        let head_dim = 4usize;
+        let values = |salt: usize| {
+            (0..seq_len * head_dim)
+                .map(|i| (((i * 73 + salt * 31) % 251) as f32 - 125.0) / 127.0)
+                .collect::<Vec<f32>>()
+        };
+        let query = GpuBuffer::from_f32(&device, &values(1))?;
+        let key = GpuBuffer::from_f32(&device, &values(2))?;
+        let value = GpuBuffer::from_f32(&device, &values(3))?;
+        let grad_output = GpuBuffer::from_f32(&device, &values(6))?;
+        let mask = GpuBuffer::from_f32(&device, &[1.0_f32; 8])?;
+        let dummy = GpuBuffer::zeros_f32(&device, 1)?;
+        let push = AttentionPush {
+            batch_size: 1,
+            query_seq_len: seq_len as u32,
+            key_value_seq_len: seq_len as u32,
+            query_hidden_size: head_dim as u32,
+            value_hidden_size: head_dim as u32,
+            num_heads: 1,
+            num_key_value_heads: 1,
+            window_size: 0,
+            scale: 0.7,
+            value_scale: 1.0,
+            softcap: 0.0,
+            alibi_mode: 0,
+            alibi_bias_max: 0.0,
+            dropout_p: 0.0,
+            rng_step: 0,
+            rng_site: 0,
+            rng_seed: 0,
+            has_sink: 0,
+            causal: 1,
+            relative_bias_mode: 0,
+            relative_bias_num_buckets: 0,
+            relative_bias_max_distance: 0,
+            query_position_offset: 0,
+            has_sparse_mask: 0,
+            compressed_key_count: 0,
+            compressed_key_rate: 0,
+            paged_kv: 0,
+            kv_page_size: 1,
+            kv_page_table_stride: 1,
+            // The split exists for the strict adjoint; the fused path ignores the
+            // grid's third dimension entirely.
+            unfused_qk: 1,
+        };
+        let run = |key_blocks: u32| -> Result<(Vec<f32>, Vec<f32>, Vec<f32>)> {
+            let grad_q = GpuBuffer::zeros_f32(&device, seq_len * head_dim)?;
+            let grad_k = GpuBuffer::zeros_f32(&device, seq_len * head_dim)?;
+            let grad_v = GpuBuffer::zeros_f32(&device, seq_len * head_dim)?;
+            let mut commands = vulkan::ComputeBatch::new(&device)?;
+            // One key-range block per submission, which is the whole point of the
+            // split: the watchdog bounds a submission, not an invocation.
+            for key_block in 0..key_blocks {
+                kernels.attention_backward.record_dispatch(
+                    &mut commands,
+                    &[
+                        &query,
+                        &key,
+                        &value,
+                        &mask,
+                        &mask,
+                        &dummy,
+                        &grad_output,
+                        &grad_q,
+                        &grad_k,
+                        &grad_v,
+                        &dummy,
+                        &dummy,
+                        &dummy,
+                        &dummy,
+                        &dummy,
+                    ],
+                    bytemuck::bytes_of(&push.as_backward_push(key_block, key_blocks)),
+                    [1, 1, 1],
+                )?;
+                if key_block + 1 < key_blocks {
+                    commands.submit_and_restart()?;
+                }
+            }
+            commands.submit()?;
+            Ok((
+                grad_q.read_f32(seq_len * head_dim)?,
+                grad_k.read_f32(seq_len * head_dim)?,
+                grad_v.read_f32(seq_len * head_dim)?,
+            ))
+        };
+        let single = run(1)?;
+        let split = run(4)?;
+        let bits = |values: &[f32]| {
+            values
+                .iter()
+                .map(|value| value.to_bits())
+                .collect::<Vec<u32>>()
+        };
+        assert_eq!(
+            bits(&single.0),
+            bits(&split.0),
+            "grad_q differs across the split"
+        );
+        assert_eq!(
+            bits(&single.1),
+            bits(&split.1),
+            "grad_k differs across the split"
+        );
+        assert_eq!(
+            bits(&single.2),
+            bits(&split.2),
+            "grad_v differs across the split"
+        );
+        Ok(())
+    }
+
     #[test]
     fn sparse_attention_backward_matches_cpu_reference() -> Result<()> {
         let Ok(device) = VulkanDevice::new() else {
@@ -129031,11 +129925,7 @@ mod tests {
         let key_values = [0.2_f32, 0.6, -0.4, 0.5, 0.8, -0.1];
         let value_values = [0.3_f32, -0.7, 0.9, 0.2, -0.4, 0.8];
         let grad_output_values = [0.6_f32, -0.1, -0.3, 0.5, 0.7, -0.4];
-        let sparse_values = [
-            1.0_f32, 0.0, 0.0,
-            1.0, 1.0, 0.0,
-            1.0, 0.0, 1.0,
-        ];
+        let sparse_values = [1.0_f32, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0];
         let scale = 0.7_f32;
 
         let query = GpuBuffer::from_f32(&device, &query_values)?;
@@ -129100,7 +129990,7 @@ mod tests {
                 &dummy,
                 &sparse,
             ],
-            bytemuck::bytes_of(&push),
+            bytemuck::bytes_of(&push.as_backward_push(0, 1)),
             [1, 1, 1],
         )?;
         commands.submit()?;
@@ -129140,8 +130030,8 @@ mod tests {
                     })
                     .sum::<f32>();
                 for channel in 0..head_dim {
-                    expected_v[key_index * head_dim + channel] += probs[slot]
-                        * grad_output_values[query_index * head_dim + channel];
+                    expected_v[key_index * head_dim + channel] +=
+                        probs[slot] * grad_output_values[query_index * head_dim + channel];
                 }
             }
             let softmax_dot = probs
@@ -129152,12 +130042,10 @@ mod tests {
             for (slot, &key_index) in visible.iter().enumerate() {
                 let dscore = probs[slot] * (dprob[slot] - softmax_dot);
                 for channel in 0..head_dim {
-                    expected_q[query_index * head_dim + channel] += scale
-                        * dscore
-                        * key_values[key_index * head_dim + channel];
-                    expected_k[key_index * head_dim + channel] += scale
-                        * dscore
-                        * query_values[query_index * head_dim + channel];
+                    expected_q[query_index * head_dim + channel] +=
+                        scale * dscore * key_values[key_index * head_dim + channel];
+                    expected_k[key_index * head_dim + channel] +=
+                        scale * dscore * query_values[query_index * head_dim + channel];
                 }
             }
         }
@@ -129190,22 +130078,14 @@ mod tests {
         let query_hidden = num_heads * head_dim;
         let value_hidden = num_key_value_heads * head_dim;
         let query_values = [
-            0.4_f32, -0.2, 0.7, 0.1,
-            0.1, 0.7, -0.3, 0.5,
-            -0.5, 0.3, 0.8, -0.6,
+            0.4_f32, -0.2, 0.7, 0.1, 0.1, 0.7, -0.3, 0.5, -0.5, 0.3, 0.8, -0.6,
         ];
         let key_values = [0.2_f32, 0.6, -0.4, 0.5, 0.8, -0.1];
         let value_values = [0.3_f32, -0.7, 0.9, 0.2, -0.4, 0.8];
         let grad_output_values = [
-            0.6_f32, -0.1, -0.2, 0.8,
-            -0.3, 0.5, 0.4, -0.7,
-            0.7, -0.4, -0.6, 0.2,
+            0.6_f32, -0.1, -0.2, 0.8, -0.3, 0.5, 0.4, -0.7, 0.7, -0.4, -0.6, 0.2,
         ];
-        let sparse_values = [
-            1.0_f32, 0.0, 0.0,
-            1.0, 1.0, 0.0,
-            1.0, 0.0, 1.0,
-        ];
+        let sparse_values = [1.0_f32, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0];
         let scale = 0.7_f32;
 
         let query = GpuBuffer::from_f32(&device, &query_values)?;
@@ -129270,7 +130150,7 @@ mod tests {
                 &dummy,
                 &sparse,
             ],
-            bytemuck::bytes_of(&push),
+            bytemuck::bytes_of(&push.as_backward_push(0, 1)),
             [num_key_value_heads as u32, 1, 1],
         )?;
         commands.submit()?;
@@ -129408,7 +130288,10 @@ mod tests {
             "the two narrow-output modules must stay distinct"
         );
         assert_eq!(
-            std::ptr::eq(kernels.falcon_cross_entropy(), &kernels.falcon_cross_entropy_lanes16),
+            std::ptr::eq(
+                kernels.falcon_cross_entropy(),
+                &kernels.falcon_cross_entropy_lanes16
+            ),
             wide,
             "log-softmax cross-entropy module must follow aten_vector_width()"
         );

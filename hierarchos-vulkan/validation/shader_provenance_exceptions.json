@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "note": "Embedded SPIR-V modules the manifest cannot pin, each with the reason it cannot and what recovering it requires. test_shader_provenance.py fails when an embedded module is neither pinned nor listed here, and when a listed module is no longer embedded, so this list cannot quietly grow or go stale.",
+  "modules": [
+    {
+      "artifact": "falcon_h1_adamw.spv",
+      "reason": "Only the SPIR-V was ever committed: no .comp sits beside it, no historical revision of the tree carries one, and a search over every committed source and the pinned recipes reproduces it with none of them. Recovering its source means decompiling the module (spirv-cross or equivalent) and re-qualifying it; until then these are production kernels the manifest cannot rebuild."
+    },
+    {
+      "artifact": "falcon_h1_cross_entropy.spv",
+      "reason": "Same as falcon_h1_adamw.spv: the module was committed without its GLSL and no committed source reproduces it."
+    },
+    {
+      "artifact": "falcon_h1_cross_entropy_lanes16.spv",
+      "reason": "Same as falcon_h1_adamw.spv: the module was committed without its GLSL and no committed source reproduces it."
+    },
+    {
+      "artifact": "parameter_matmul_weight_grad.spv",
+      "reason": "Restored byte-for-byte from the stable oracle tree, because it is the validated shipping module: that build inlines accumulate_backward_product() into main, while the pinned glslc outlines it into a Function-scope helper with local memory. No release or flag set on offer reproduces the oracle bytes (default, -O, -Os, -O0 all differ, 2024-3208 bytes versus the oracle's 2804), so this one artifact is kept as the oracle's bytes rather than regenerated."
+    }
+  ]
+}

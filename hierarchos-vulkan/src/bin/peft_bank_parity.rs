@@ -2,20 +2,41 @@
 use anyhow::{ensure, Context, Result};
 use hierarchos_vulkan::{AdamWHyperParams, VulkanDevice, VulkanTransformer};
 use serde::Deserialize;
-use std::{collections::BTreeMap, fs, path::{Path, PathBuf}};
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 #[derive(Deserialize)]
 struct Fixture {
-    batch_size: usize, seq_len: usize,
-    input_ids: Vec<u32>, targets: Vec<u32>, attention_mask: Vec<f32>, loss_weights: Vec<f32>,
-    learning_rate: f32, beta1: f32, beta2: f32, eps: f32, weight_decay: f32,
+    batch_size: usize,
+    seq_len: usize,
+    input_ids: Vec<u32>,
+    targets: Vec<u32>,
+    attention_mask: Vec<f32>,
+    loss_weights: Vec<f32>,
+    learning_rate: f32,
+    beta1: f32,
+    beta2: f32,
+    eps: f32,
+    weight_decay: f32,
 }
 fn train(g: &mut VulkanTransformer, f: &Fixture, h: AdamWHyperParams) -> Result<()> {
-    g.train_step(&f.input_ids, &f.targets, &f.attention_mask, &f.loss_weights, h)?;
+    g.train_step(
+        &f.input_ids,
+        &f.targets,
+        &f.attention_mask,
+        &f.loss_weights,
+        h,
+    )?;
     Ok(())
 }
 fn equal_payload(a: &Path, b: &Path) -> Result<()> {
-    for name in ["adapter_model.safetensors", "hierarchos_adapter_optimizer.safetensors"] {
+    for name in [
+        "adapter_model.safetensors",
+        "hierarchos_adapter_optimizer.safetensors",
+    ] {
         let left = fs::read(a.join(name))?;
         let right = fs::read(b.join(name))?;
         let left = safetensors::SafeTensors::deserialize(&left)?;
@@ -24,8 +45,10 @@ fn equal_payload(a: &Path, b: &Path) -> Result<()> {
         for key in left.names() {
             let l = left.tensor(key)?;
             let r = right.tensor(key)?;
-            ensure!(l.shape() == r.shape() && l.dtype() == r.dtype() && l.data() == r.data(),
-                "{name}: interleaved optimizer isolation differs at {key}");
+            ensure!(
+                l.shape() == r.shape() && l.dtype() == r.dtype() && l.data() == r.data(),
+                "{name}: interleaved optimizer isolation differs at {key}"
+            );
         }
     }
     Ok(())
@@ -35,7 +58,9 @@ fn safetensor_files(root: &Path) -> Result<BTreeMap<PathBuf, PathBuf>> {
     for entry in fs::read_dir(root)? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("safetensors") {
+        if path.is_file()
+            && path.extension().and_then(|value| value.to_str()) == Some("safetensors")
+        {
             files.insert(PathBuf::from(entry.file_name()), path);
         }
     }
@@ -74,11 +99,23 @@ fn equal_model_payload(a: &Path, b: &Path) -> Result<()> {
     Ok(())
 }
 fn run() -> Result<()> {
-    let args = std::env::args_os().skip(1).map(PathBuf::from).collect::<Vec<_>>();
-    ensure!(args.len() == 5, "usage: peft_bank_parity BASE FIXTURE ADAPTER_A ADAPTER_B OUTPUT");
+    let args = std::env::args_os()
+        .skip(1)
+        .map(PathBuf::from)
+        .collect::<Vec<_>>();
+    ensure!(
+        args.len() == 5,
+        "usage: peft_bank_parity BASE FIXTURE ADAPTER_A ADAPTER_B OUTPUT"
+    );
     let (base, fixture, a, b, out) = (&args[0], &args[1], &args[2], &args[3], &args[4]);
     let f: Fixture = serde_json::from_slice(&fs::read(fixture)?)?;
-    let h = AdamWHyperParams { lr:f.learning_rate, beta1:f.beta1, beta2:f.beta2, eps:f.eps, weight_decay:f.weight_decay };
+    let h = AdamWHyperParams {
+        lr: f.learning_rate,
+        beta1: f.beta1,
+        beta2: f.beta2,
+        eps: f.eps,
+        weight_decay: f.weight_decay,
+    };
     fs::create_dir_all(out)?;
     let device = VulkanDevice::new()?;
     let make = || VulkanTransformer::from_hf_package(device.clone(), base, f.batch_size, f.seq_len);
@@ -97,15 +134,27 @@ fn run() -> Result<()> {
     let logits_b = g.forward_logits(&f.input_ids, &f.attention_mask)?;
     g.save_lora_training_checkpoint(out.join("b1"), h)?;
     g.set_adapter("adapter_a")?;
-    ensure!(g.lora_gradient_values()? == grad_a, "B training contaminated A gradients");
-    ensure!(g.forward_logits(&f.input_ids, &f.attention_mask)? == logits_a, "B training contaminated A output");
+    ensure!(
+        g.lora_gradient_values()? == grad_a,
+        "B training contaminated A gradients"
+    );
+    ensure!(
+        g.forward_logits(&f.input_ids, &f.attention_mask)? == logits_a,
+        "B training contaminated A output"
+    );
     g.save_lora_training_checkpoint(out.join("a1-restored"), h)?;
     equal_payload(&out.join("a1"), &out.join("a1-restored"))?;
     train(&mut g, &f, h)?;
     g.save_lora_training_checkpoint(out.join("a2"), h)?;
     g.set_adapter("adapter_b")?;
-    ensure!(g.lora_gradient_values()? == grad_b, "A training contaminated B gradients");
-    ensure!(g.forward_logits(&f.input_ids, &f.attention_mask)? == logits_b, "A training contaminated B output");
+    ensure!(
+        g.lora_gradient_values()? == grad_b,
+        "A training contaminated B gradients"
+    );
+    ensure!(
+        g.forward_logits(&f.input_ids, &f.attention_mask)? == logits_b,
+        "A training contaminated B output"
+    );
     g.save_lora_training_checkpoint(out.join("b1-restored"), h)?;
     equal_payload(&out.join("b1"), &out.join("b1-restored"))?;
     train(&mut g, &f, h)?;
@@ -155,7 +204,10 @@ fn run() -> Result<()> {
     Ok(())
 }
 fn main() -> Result<()> {
-    std::thread::Builder::new().stack_size(16 * 1024 * 1024).spawn(run)?
-        .join().map_err(|_| anyhow::anyhow!("PEFT bank probe panicked"))?
+    std::thread::Builder::new()
+        .stack_size(16 * 1024 * 1024)
+        .spawn(run)?
+        .join()
+        .map_err(|_| anyhow::anyhow!("PEFT bank probe panicked"))?
         .context("native PEFT bank validation")
 }

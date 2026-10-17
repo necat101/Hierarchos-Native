@@ -7,6 +7,11 @@
 **/__pycache__/
 *.py[cod]
 
+# Repo-local shader toolchain (validation/install_shader_toolchain.sh):
+# the pinned glslang release, a micromamba-unpacked glslc/spirv-val and the
+# generated env.sh. Local tooling, never committed.
+.tools/
+
 # Local model downloads, oracle fixtures, recovery snapshots and scratch state.
 .hierarchos-hf-cache/
 .k3-native-export-*/

@@ -169,16 +169,58 @@ Both debug and release verification pass on the qualified AMD device:
 
 - **406 exact kernel comparisons:** 144 dense, 183 reduction, and 79 attention
   invocations against the original embedded artifacts, also checked with frozen
-  output digests.
-- **3,817 exact full-state tensor digests over 13 optimizer steps:** every
+  output digests. Which invocations each device exercises is checked in as well, in
+  `validation/kernel_golden_coverage.json`: a harness fails when an invocation its
+  device is recorded as exercising is no longer exercised, when the golden holds a
+  digest for that device that the run did not reproduce, or when the device has no
+  entry at all, so a dropped case or a lost kernel is a failure rather than a lower
+  invocation count in the pass line. `--record-coverage` merges this machine's
+  coverage in without touching another device's entry, and refuses to shrink one
+  unless `--allow-coverage-shrink` says the loss is intended; `--bootstrap-coverage`
+  is the deliberate first run on a new device, creating only the entries that device
+  is missing and printing the diff it wrote (default stays fail-closed). The same
+  audit, merge, refusal and bootstrap serve this record and
+  `validation/training_state_coverage.json`, from `src/coverage_record.rs`, with one
+  test suite covering both.
+- **3,817 + 4,088 exact full-state tensor digests over 27 optimizer steps:** every
   trainable parameter, both Adam moments, optimizer clocks, losses, recurrent
-  states, initial-state adjoints and context carriers across three fixtures.
-- **86 shader variants** rebuild byte-for-byte and validate with `spirv-val`.
-  `validation/training_shader_manifest.json` records the actual compiler and
-  flags per variant, including attention and mixed-precision specializations.
-- **706 library and 40 trainer tests** pass; nine explicit GPU microprofiles
-  remain ignored. Eight-way accumulation is checked against both fallback paths
-  across tensor counts, padded tails, and workgroup boundaries.
+  states, initial-state adjoints and context carriers across three fixtures, under
+  both training numerical policies -- `validation/kernel_golden/training_state.json`
+  for FP32 (the pre-optimization baseline) and `training_state_fp16.json` for
+  `fp16-storage-fp32-compute`, which is what dispatches the packed-FP16 producer
+  instead. Both goldens are device-keyed, and the Intel Gen9 target carries its own
+  trajectories for both (`validation/record_training_state.py` records a device
+  without touching any other), so the sliced path there is verified against a stored
+  trajectory rather than against two live runs. Which arms and cases each device
+  exercises is checked in too, in `validation/training_state_coverage.json`, along with
+  the cases each arm is absent from -- recorded as a rejected request or as the fused
+  producer never dispatching at that shape -- so a forced arm runs where it can show
+  something and re-checks the rest with one one-update canary instead of a full replay.
+  That is 29 runs and 32,162 compared digests in the shipped configuration, against 33
+  runs and 43,884 when every arm replays every case: 281.0 s versus 346.97 s measured back
+  to back on the Gen9 target, with the same trajectories, the same coverage audit and
+  every digest matching.
+- **467 shader variants** rebuild byte-for-byte and validate with `spirv-val`.
+  `validation/training_shader_manifest.json` records the actual compiler, the
+  release that compiler reports and the flags per variant, including attention and
+  mixed-precision specializations, and every artifact is checked by the release it
+  records, so a tree rebuilt across two releases of one compiler is still covered
+  rather than half-reported as drift. The three modules no committed GLSL
+  reproduces, and the pre-tuning `parameter_matmul_weight_grad.spv` that is kept as
+  the stable oracle's bytes, are listed with their reasons in
+  `validation/shader_provenance_exceptions.json` rather than silently skipped.
+- **The kernel ABI and the portable baseline are checked.**
+  `validation/check_push_constant_layouts.py` compares each kernel's push block
+  across the committed SPIR-V, the GLSL that builds it and the host struct whose
+  bytes are pushed, which catches a module built before a member was added; it
+  found a shipped forward kernel that ignored a beta scale its own backward kernel
+  applied. `validation/check_oracle_parity.py` compares every portable shader
+  artifact against the read-only stable baseline by bytes and fails on an
+  unexplained difference, which catches a regenerated module whose codegen moved
+  even when its math did not. Both are steps of the ladder below.
+- **762 library tests** pass; nine explicit GPU microprofiles remain ignored.
+  Eight-way accumulation is checked against both fallback paths across tensor
+  counts, padded tails, and workgroup boundaries.
 
 The reduction harness's A/B comparison now dispatches the candidate before reading
 its outputs. The ladder exercises that comparison path as well as the frozen
@@ -526,6 +568,26 @@ Current milestone:
   `model.safetensors` without transposition or renaming, and package-loaded
   execution is bit-identical to the inline-weight Vulkan path in the parity
   harness.
+- The RWKV cell has a CPU cross-check that does not depend on PyTorch: the
+  generated coherent-v9 package is stepped three times through
+  `hierarchos-vulkan-rwkv-packed-cell-step` and through
+  `hierarchos-inference`'s own loader/cell (`rwkv-cell-probe`), each leg feeding
+  its own packed state forward. `validation/verify_rwkv_cpu_bridge.py` compares
+  the output vector and the packed next state at every step under a disabled
+  clamp, the production `recurrent_state_clamp`, and an active clamp that is
+  asserted to bind on both sides, and it runs a perturbed negative control so a
+  comparison that cannot reject anything fails instead of passing. On this
+  machine the worst disagreement is `7.6e-6` absolute. The packed-cell runner
+  resolves its own fused shaders, so this check covers the portable cell path.
+- The fused packed cell is also A/B'd against the vendor-linear composition it
+  replaces: `HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION` forces the
+  staged channel-mix graph, in which `key_cm`/`value_cm` dispatch the tuned
+  `linear-forward`/`linear-residual-forward` modules, and
+  `validation/verify_rwkv_packed_cell_composition.py` compares output, packed
+  state and every returned gradient over three recurrent steps. On this host the
+  two graphs agree bit-for-bit (`0.0` worst absolute); the harness asserts the
+  composed leg really dispatched both vendor families and that the fused leg
+  dispatched nothing, and a perturbed negative control is rejected.
 - The RWKV-v8 low-rank `a/w/g` branches are Vulkan-native in both directions:
   `a = sigmoid(a0 + (xa @ a1) @ a2)`,
   `g = sigmoid(xg @ g1) @ g2`, and
@@ -543,6 +605,67 @@ Current milestone:
   just-produced values through workgroup memory instead of reading those three
   scratch tensors back from global memory. Devices with fewer storage bindings
   retain the older interpolation plus three-matmul chain.
+- Autotuned kernel-topology choices are published to a checked-in record: every
+  measured LN1/low-rank decision (FP16 and FP32 families) is appended as one JSON
+  line when `HIERARCHOS_RWKV_LOW_RANK_TOPOLOGY_RECORD` names a file, and
+  `validation/verify_topology_decisions.py` replays that geometry and three more
+  (`width 64` ranks 8/8/8, `width 128` at one pair, two pairs with an odd tail and
+  sixteen pairs) to audit `validation/topology_decisions.json` -- a recorded
+  decision that moves is a failure, timing drift is a note, a geometry that stops
+  measuring is a failure because the record is only as wide as the shapes that
+  produced it, and `--record` merges this device's measurements in without touching
+  another device's entries. The ladder's toolchain step installs and reports the
+  pinned compilers, so a fresh clone never degrades provenance to a bare "not on
+  PATH" blocker.
+- The FP32 LN1/low-rank producer has two alternative topologies, and which one
+  runs is measured per device and shape rather than assumed. The **two-row**
+  variant gives one 64-lane workgroup a pair of rows and shares every weight read
+  between them, which halves the weight bytes a row pays in the second stage at
+  the cost of half the workgroups. The **column-slice** variant goes the other way:
+  its grid is `[ceil(width/64), rows, 1]`, so one workgroup owns a 64-column slice
+  of one row, each lane produces exactly one output column, and the row-dependent
+  stages are recomputed identically by every slice of that row. A candidate can only
+  displace the one-row kernel by beating it in *every* one of seven interleaved
+  measurement rounds, so a geometry whose lead sits inside the run-to-run spread keeps
+  the kernel it shipped with and the record says why -- the decision is written as the
+  default with each candidate's round wins, not as a variant the device does not
+  actually reproduce (.`validation/topology_decisions.json`). All three keep each row's arithmetic
+  and its order, so the choice is scheduling and not numerics: on the Intel Gen9
+  target the pairing measured 18-20% slower and the column split 14-16% faster at
+  the only geometry the fused producer is enabled for (see VENDOR_TUNING.md), and
+  `validation/verify_training_state.py` runs its 3,817 exact tensor digests once per
+  arm -- the shipped choice and each variant forced through
+  `HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY=one-row|two-rows|column-slices` -- and
+  the ladder runs that suite, so each variant's bit-exactness is a shipped step. An
+  arm is only credited where the producer acknowledged the request it was given
+  (`--topologies` narrows the arms), because a variant this device rejects falls back
+  to the default kernel and would otherwise pass while proving nothing.
+- The packed-FP16 LN1/low-rank producer has the same arms, and what each device
+  exercises is checked in. Its six variants -- `one-row`, `one-row-cached`,
+  `one-row-rank128`, `two-rows`, `two-rows-wide` and `four-rows` -- are forced through
+  the same `HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY` override, which is one
+  variable for both families because `one-row` and `two-rows` name one variant in each.
+  The trajectory step runs one suite per training numerical policy: the FP32 golden
+  that is pinned to the pre-optimization baseline, and a packed-FP16 golden recorded
+  under `HIERARCHOS_VULKAN_TRAINING_PRECISION=fp16-storage-fp32-compute` (the policy a
+  golden was recorded under lives in the golden's own `env` block, so the recorder and
+  the verifier cannot disagree about which kernels produced it) that pins the FP16
+  variants to each other. Case set: `--batch 2` and `--batch 32` at width 128 and a
+  width-32 fixture, so the variants gated on width or ranks are exercised by at least
+  one case each. `validation/training_state_coverage.json` records the arms and golden
+  cases each device exercises and fails when that shrinks -- an arm or a case that
+  stops being tested, or a case that compares fewer steps or tensors than it did, is a
+  failure rather than a smaller fraction in a log line; a device with no entry fails;
+  and `--record-coverage` merges this machine's evidence in, refusing to shrink an
+  existing entry unless `--allow-coverage-shrink` says the loss is intended.
+  `--bootstrap-coverage` creates only the entries this device is missing and leaves
+  every existing entry as recorded, so a new machine can join without weakening
+  another machine's evidence; the record's rules are the shared
+  `src/coverage_record.rs` implementation, not a second copy in the Python driver.
+  Both dispatch sites build their grid through one method on the topology, because
+  a grid that disagrees with the kernel's own row/slice mapping is a wrong answer
+  rather than a slow one (the sliced variant's first production grid was the
+  row-per-workgroup one, and the training-state goldens caught it immediately).
 - FP16-storage recurrent rematerialization now has a 26-storage-binding full
   producer for low-rank shapes up to 128, including Hierarchos' production
   64/64/96 geometry. One 128-lane workgroup owns a row and keeps the w/a/g rank
@@ -1562,10 +1685,18 @@ benchmarks without this environment variable when comparing end-to-end
 throughput.
 
 The packed-FP16 LN1/low-rank producer also has a compact two-row specialization
-for `width <= 32` with all three low-rank dimensions `<= 32`. One 64-lane
+for `width <= 32` with all three low-rank dimensions `<= 32`.
+
+The FP32 LN1/low-rank producer has an analogous pair variant that is *not* gated on
+width: it owns two rows with one 64-lane workgroup and shares the weight loads
+between them, and the FP32 path measures it against the one-row kernel on each
+device (see the topology table in VENDOR_TUNING.md). One 64-lane
 workgroup owns two rows, preserving each row's scalar LayerNorm reduction/FMA
 order while avoiding a mostly idle second half-wave on the common width-32
-training geometry. Set
+training geometry. Its column-slice sibling spends workgroups instead of saving
+them: `[ceil(width/64), rows, 1]`, one output column per lane, the row-only stages
+recomputed identically in every slice, and the writes of the shared backward tape
+kept to slice 0 so replicated values never race. Set
 `HIERARCHOS_RWKV_LOW_RANK_DISABLE_TWO_ROW_LN_FORWARD_FUSION=1` to force the
 one-row kernel for same-build A/Bs. On the wave64 AMD Radeon Graphics fixture
 (`width=32`, ranks `8/8/8`, batch `2`, 8 token positions, FP16-storage parity),
@@ -2435,6 +2566,8 @@ glslc --target-env=vulkan1.1 -DRWKV_LOW_RANK_FIRST_STAGE_SUBGROUP_PACKED_SHARE=1
 glslc shaders/layer_norm_low_rank_producer_forward_fused.comp -o shaders/layer_norm_low_rank_producer_forward_fused.spv
 glslc shaders/layer_norm_low_rank_producer_forward_fused_fp16_packed.comp -o shaders/layer_norm_low_rank_producer_forward_fused_fp16_packed.spv
 glslc shaders/layer_norm_low_rank_producer_forward_fused_fp16_packed_two_rows.comp -o shaders/layer_norm_low_rank_producer_forward_fused_fp16_packed_two_rows.spv
+glslc shaders/layer_norm_low_rank_producer_forward_fused_two_rows.comp -o shaders/layer_norm_low_rank_producer_forward_fused_two_rows.spv
+glslc shaders/layer_norm_low_rank_producer_forward_fused_column_slices.comp -o shaders/layer_norm_low_rank_producer_forward_fused_column_slices.spv
 glslc shaders/rwkv_time_mix3_linear3_key_state_forward_fused.comp -o shaders/rwkv_time_mix3_linear3_key_state_forward_fused.spv
 glslc -DRWKV_TIME_MIX_FORWARD_WORKGROUP_SIZE=32 shaders/rwkv_time_mix3_linear3_key_state_forward_fused.comp -o shaders/rwkv_time_mix3_linear3_key_state_forward_fused_wg32.spv
 glslc shaders/rwkv_time_mix3_linear3_key_state_forward_fused_two_rows.comp -o shaders/rwkv_time_mix3_linear3_key_state_forward_fused_two_rows.spv

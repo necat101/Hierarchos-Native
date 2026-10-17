@@ -15,17 +15,26 @@ mod kernel_golden;
 mod vulkan;
 
 use anyhow::{bail, ensure, Context, Result};
-use kernel_golden::Golden;
+use kernel_golden::{coverage_args, Golden};
 use serde::Serialize;
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use vulkan::{BindingAccess, ComputeBatch, ComputeKernel, GpuBuffer, VulkanDevice};
 
 const NAMES: &[&str] = &[
-    "linear_forward", "linear_bias_forward", "linear_residual_forward",
-    "linear_forward_fp16_packed", "linear_bias_forward_fp16_packed",
-    "parameter_matmul_forward", "parameter_matmul_bias_forward",
-    "parameter_matmul_forward_fp16_packed", "parameter_matmul_bias_forward_fp16_packed",
-    "parameter_matmul_input_grad", "parameter_matmul_input_grad_fp16_packed",
+    "linear_forward",
+    "linear_bias_forward",
+    "linear_residual_forward",
+    "linear_forward_fp16_packed",
+    "linear_bias_forward_fp16_packed",
+    "parameter_matmul_forward",
+    "parameter_matmul_bias_forward",
+    "parameter_matmul_forward_fp16_packed",
+    "parameter_matmul_bias_forward_fp16_packed",
+    "parameter_matmul_input_grad",
+    "parameter_matmul_input_grad_fp16_packed",
     "parameter_matmul_input_grad_fp16_native_compute",
 ];
 
@@ -68,7 +77,9 @@ fn half(value: f32) -> u16 {
     let exponent = ((bits >> 23) & 255) as i32 - 127 + 15;
     let mantissa = bits & 0x7fffff;
     if exponent <= 0 {
-        return if exponent < -10 { sign } else {
+        return if exponent < -10 {
+            sign
+        } else {
             sign | round_shift(mantissa | 0x800000, (14 - exponent) as u32) as u16
         };
     }
@@ -84,20 +95,32 @@ fn widen(value: u16) -> f32 {
     if exponent == 0 {
         sign * f32::from(mantissa) * (1.0 / 16777216.0)
     } else {
-        f32::from_bits(((value as u32 & 0x8000) << 16)
-            | ((exponent as u32 + 112) << 23) | ((mantissa as u32) << 13))
+        f32::from_bits(
+            ((value as u32 & 0x8000) << 16)
+                | ((exponent as u32 + 112) << 23)
+                | ((mantissa as u32) << 13),
+        )
     }
 }
 fn samples(len: usize, seed: u32) -> Vec<f32> {
-    (0..len).map(|i| {
-        let mut bits = (i as u32).wrapping_add(seed).wrapping_mul(747796405).wrapping_add(2891336453);
-        bits = ((bits >> ((bits >> 28) + 4)) ^ bits).wrapping_mul(277803737);
-        (((bits >> 22) ^ bits) % 2001) as f32 / 1031.0 - 0.97
-    }).collect()
+    (0..len)
+        .map(|i| {
+            let mut bits = (i as u32)
+                .wrapping_add(seed)
+                .wrapping_mul(747796405)
+                .wrapping_add(2891336453);
+            bits = ((bits >> ((bits >> 28) + 4)) ^ bits).wrapping_mul(277803737);
+            (((bits >> 22) ^ bits) % 2001) as f32 / 1031.0 - 0.97
+        })
+        .collect()
 }
 fn packed(values: &[f32]) -> Vec<u32> {
-    values.chunks(2).map(|pair| u32::from(half(pair[0]))
-        | (pair.get(1).map(|v| u32::from(half(*v))).unwrap_or(0) << 16)).collect()
+    values
+        .chunks(2)
+        .map(|pair| {
+            u32::from(half(pair[0])) | (pair.get(1).map(|v| u32::from(half(*v))).unwrap_or(0) << 16)
+        })
+        .collect()
 }
 struct Data {
     first: GpuBuffer,
@@ -110,7 +133,13 @@ struct Data {
     extra_binding: bool,
 }
 impl Data {
-    fn new(device: &VulkanDevice, name: &str, rows: usize, input: usize, output: usize) -> Result<Self> {
+    fn new(
+        device: &VulkanDevice,
+        name: &str,
+        rows: usize,
+        input: usize,
+        output: usize,
+    ) -> Result<Self> {
         let parameter = name.starts_with("parameter");
         let backward = name.contains("input_grad");
         let fp16 = name.contains("fp16");
@@ -132,7 +161,11 @@ impl Data {
                     } else {
                         k * width + column
                     };
-                    let w = if fp16 { widen(half(weights[w_index])) } else { weights[w_index] };
+                    let w = if fp16 {
+                        widen(half(weights[w_index]))
+                    } else {
+                        weights[w_index]
+                    };
                     let value = first_values[row * reduction + k];
                     sum = if native {
                         sum + widen(half(widen(half(value)) * w))
@@ -144,29 +177,45 @@ impl Data {
                     sum + extra_values[column]
                 } else if residual {
                     extra_values[row * width + column] + sum
-                } else { sum };
+                } else {
+                    sum
+                };
             }
         }
         let packed_columns = parameter && fp16 && !backward;
         Ok(Self {
             first: GpuBuffer::from_f32(device, &first_values)?,
-            weight: if fp16 { GpuBuffer::from_u32(device, &packed(&weights))? }
-                    else { GpuBuffer::from_f32(device, &weights)? },
+            weight: if fp16 {
+                GpuBuffer::from_u32(device, &packed(&weights))?
+            } else {
+                GpuBuffer::from_f32(device, &weights)?
+            },
             extra: GpuBuffer::from_f32(device, &extra_values)?,
             output: GpuBuffer::zeros_f32(device, rows * width)?,
             reference,
             push: [rows as u32, input as u32, output as u32],
-            groups: [width.div_ceil(if packed_columns { 32 } else { 16 }) as u32,
-                     rows.div_ceil(16) as u32, 1],
+            groups: [
+                width.div_ceil(if packed_columns { 32 } else { 16 }) as u32,
+                rows.div_ceil(16) as u32,
+                1,
+            ],
             extra_binding: bias || residual,
         })
     }
     fn buffers(&self) -> Vec<&GpuBuffer> {
-        if self.extra_binding { vec![&self.first, &self.weight, &self.extra, &self.output] }
-        else { vec![&self.first, &self.weight, &self.output] }
+        if self.extra_binding {
+            vec![&self.first, &self.weight, &self.extra, &self.output]
+        } else {
+            vec![&self.first, &self.weight, &self.output]
+        }
     }
     fn record(&self, kernel: &ComputeKernel, batch: &mut ComputeBatch) -> Result<()> {
-        kernel.record_dispatch(batch, &self.buffers(), bytemuck::cast_slice(&self.push), self.groups)
+        kernel.record_dispatch(
+            batch,
+            &self.buffers(),
+            bytemuck::cast_slice(&self.push),
+            self.groups,
+        )
     }
     fn run(&self, device: &VulkanDevice, kernel: &ComputeKernel) -> Result<Vec<f32>> {
         let mut batch = ComputeBatch::new(device)?;
@@ -178,10 +227,14 @@ impl Data {
         self.run(device, kernel)?;
         let mut times = Vec::new();
         for _ in 0..5 {
-            times.push(device.time_compute_batch_ms(|batch| {
-                for _ in 0..8 { self.record(kernel, batch)?; }
-                Ok(())
-            })? / 8.0);
+            times.push(
+                device.time_compute_batch_ms(|batch| {
+                    for _ in 0..8 {
+                        self.record(kernel, batch)?;
+                    }
+                    Ok(())
+                })? / 8.0,
+            );
         }
         times.sort_by(f64::total_cmp);
         Ok(times[times.len() / 2])
@@ -191,8 +244,12 @@ fn kernel(device: &VulkanDevice, dir: &Path, name: &str) -> Result<ComputeKernel
     let extra = name.contains("bias") || name.contains("residual");
     let mut accesses = vec![BindingAccess::ReadOnly; if extra { 4 } else { 3 }];
     *accesses.last_mut().unwrap() = BindingAccess::WriteOnly;
-    ComputeKernel::new_with_access(device, &fs::read(dir.join(format!("{name}.spv")))?,
-                                  &accesses, 12)
+    ComputeKernel::new_with_access(
+        device,
+        &fs::read(dir.join(format!("{name}.spv")))?,
+        &accesses,
+        12,
+    )
 }
 fn main() -> Result<()> {
     let mut baseline_dir = None;
@@ -204,20 +261,43 @@ fn main() -> Result<()> {
     let mut golden_strict = false;
     let mut bench = false;
     let mut device_index = 0;
-    let mut args = std::env::args().skip(1);
+    let arguments = std::env::args().skip(1).collect::<Vec<String>>();
+    let mut args = arguments.iter().cloned();
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--baseline-dir" => baseline_dir = Some(PathBuf::from(args.next().context("missing baseline directory")?)),
+            "--baseline-dir" => {
+                baseline_dir = Some(PathBuf::from(
+                    args.next().context("missing baseline directory")?,
+                ))
+            }
             // Overriding the candidate directory lets the same reference model
             // compare two historical artifacts, so a failure can be attributed
             // to the kernel change rather than to the model itself.
-            "--candidate-dir" => candidate_dir = Some(PathBuf::from(args.next().context("missing candidate directory")?)),
+            "--candidate-dir" => {
+                candidate_dir = Some(PathBuf::from(
+                    args.next().context("missing candidate directory")?,
+                ))
+            }
             "--only" => only = Some(args.next().context("missing shader name")?),
-            "--output" => output_path = Some(PathBuf::from(args.next().context("missing output file")?)),
-            "--golden" => golden_path = Some(PathBuf::from(args.next().context("missing golden file")?)),
-            "--write-golden" => write_golden_path = Some(PathBuf::from(args.next().context("missing golden file")?)),
+            "--output" => {
+                output_path = Some(PathBuf::from(args.next().context("missing output file")?))
+            }
+            "--golden" => {
+                golden_path = Some(PathBuf::from(args.next().context("missing golden file")?))
+            }
+            "--write-golden" => {
+                write_golden_path = Some(PathBuf::from(args.next().context("missing golden file")?))
+            }
             "--golden-strict" => golden_strict = true,
-            "--device-index" => device_index = args.next().context("missing device index")?.parse()?,
+            "--coverage" | "--coverage-key" => {
+                // Resolved by `coverage_args` below; consumed here so the harness does not
+                // read the flag's value as its own argument.
+                let _ = args.next().context("missing coverage argument")?;
+            }
+            "--record-coverage" | "--allow-coverage-shrink" | "--bootstrap-coverage" => {}
+            "--device-index" => {
+                device_index = args.next().context("missing device index")?.parse()?
+            }
             "--bench" => bench = true,
             _ => bail!("unknown argument {arg}"),
         }
@@ -229,33 +309,69 @@ fn main() -> Result<()> {
     if golden_strict && golden_path.is_none() {
         bail!("--golden-strict needs a --golden file to verify against");
     }
+    // Coverage is audited or recorded whenever a golden is involved: the record describes
+    // the invocations this device exercises, which is exactly what a golden run exercises.
+    let coverage = coverage_args(&arguments)?;
     let mut golden = match (&golden_path, &write_golden_path) {
-        (Some(path), _) => Some(Golden::compare(path, device.name())?.strict(golden_strict)),
-        (None, Some(path)) => Some(Golden::write(path, device.name())?),
+        (Some(path), _) => Some(
+            Golden::compare(path, device.name())?
+                .strict(golden_strict)
+                .with_coverage(coverage, path)
+                // `--only` deliberately exercises one kernel, which is not the coverage
+                // shrink the record exists to catch.
+                .restricted(only.is_some()),
+        ),
+        (None, Some(path)) => {
+            Some(Golden::write(path, device.name())?.with_coverage(coverage, path))
+        }
         (None, None) => None,
     };
-    let current_dir = candidate_dir
-        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("shaders"));
-    let mut report = Report { device: device.name().to_string(), checks: Vec::new(), timings: Vec::new() };
-    let cases = [(1, 1, 1), (1, 65, 33), (7, 64, 16), (8, 63, 17),
-                 (8, 64, 16), (8, 65, 33), (16, 96, 64), (17, 65, 67),
-                 (31, 97, 95), (33, 129, 131), (2, 31, 9), (16, 64, 63)];
+    let current_dir =
+        candidate_dir.unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("shaders"));
+    let mut report = Report {
+        device: device.name().to_string(),
+        checks: Vec::new(),
+        timings: Vec::new(),
+    };
+    let cases = [
+        (1, 1, 1),
+        (1, 65, 33),
+        (7, 64, 16),
+        (8, 63, 17),
+        (8, 64, 16),
+        (8, 65, 33),
+        (16, 96, 64),
+        (17, 65, 67),
+        (31, 97, 95),
+        (33, 129, 131),
+        (2, 31, 9),
+        (16, 64, 63),
+    ];
     for name in NAMES {
         if only.as_deref().is_some_and(|only| only != *name) {
             continue;
         }
-        if name.contains("native_compute") && !device.mixed_precision_capabilities().shader_float16_enabled {
+        if name.contains("native_compute")
+            && !device.mixed_precision_capabilities().shader_float16_enabled
+        {
             continue;
         }
         let current = kernel(&device, &current_dir, name)?;
-        let baseline = baseline_dir.as_ref().map(|dir| kernel(&device, dir, name)).transpose()?;
+        let baseline = baseline_dir
+            .as_ref()
+            .map(|dir| kernel(&device, dir, name))
+            .transpose()?;
         for (rows, input, output) in cases {
             let data = Data::new(&device, name, rows, input, output)?;
             let values = data.run(&device, &current)?;
             if let Some(golden) = golden.as_mut() {
                 golden.observe(&format!("{name}:{rows}x{input}x{output}"), &values);
             }
-            let max_error = values.iter().zip(&data.reference).map(|(a,b)| (a-b).abs()).fold(0.0f32, f32::max);
+            let max_error = values
+                .iter()
+                .zip(&data.reference)
+                .map(|(a, b)| (a - b).abs())
+                .fold(0.0f32, f32::max);
             let mut tolerance = 0.0005f32;
             let parity = if let Some(old) = &baseline {
                 let previous = data.run(&device, old)?;
@@ -263,17 +379,29 @@ fn main() -> Result<()> {
                 // strict contract for a kernel optimization. Check it before
                 // the independent reference model, which cannot always express
                 // exact Float16 product rounding.
-                let equal = values.iter().zip(&previous).all(|(a,b)| a.to_bits() == b.to_bits());
-                ensure!(equal, "{name} ({rows},{input},{output}) differs from baseline");
+                let equal = values
+                    .iter()
+                    .zip(&previous)
+                    .all(|(a, b)| a.to_bits() == b.to_bits());
+                ensure!(
+                    equal,
+                    "{name} ({rows},{input},{output}) differs from baseline"
+                );
                 // Calibrate the advisory model against the unoptimized artifact
                 // so a change that widens the deviation still fails here.
-                let baseline_error = previous.iter().zip(&data.reference).map(|(a,b)| (a-b).abs()).fold(0.0f32, f32::max);
+                let baseline_error = previous
+                    .iter()
+                    .zip(&data.reference)
+                    .map(|(a, b)| (a - b).abs())
+                    .fold(0.0f32, f32::max);
                 if baseline_error > tolerance {
                     println!("reference-model calibration {name} ({rows},{input},{output}): baseline error {baseline_error} exceeds {tolerance}");
                     tolerance = baseline_error * 1.25 + 1e-6;
                 }
                 Some(equal)
-            } else { None };
+            } else {
+                None
+            };
             if baseline_dir.is_some() {
                 ensure!(max_error <= tolerance, "{name} ({rows},{input},{output}) reference max error {max_error} (tolerance {tolerance})");
             } else {
@@ -284,19 +412,37 @@ fn main() -> Result<()> {
                 println!("reference-model advisory {name} ({rows},{input},{output}): max error {max_error} (tolerance {tolerance})");
             }
             report.checks.push(Check {
-                kernel: name.to_string(), rows, input_dim: input, output_dim: output,
-                elements: values.len(), baseline_bitwise_equal: parity, max_reference_error: max_error,
+                kernel: name.to_string(),
+                rows,
+                input_dim: input,
+                output_dim: output,
+                elements: values.len(),
+                baseline_bitwise_equal: parity,
+                max_reference_error: max_error,
             });
         }
         if bench {
-            for (rows, input, output) in [(1,512,512), (8,64,16), (16,256,256),
-                                          (32,512,512), (64,1024,256), (17,65,33)] {
+            for (rows, input, output) in [
+                (1, 512, 512),
+                (8, 64, 16),
+                (16, 256, 256),
+                (32, 512, 512),
+                (64, 1024, 256),
+                (17, 65, 33),
+            ] {
                 let data = Data::new(&device, name, rows, input, output)?;
-                let old_time = baseline.as_ref().map(|old| data.time(&device, old)).transpose()?;
+                let old_time = baseline
+                    .as_ref()
+                    .map(|old| data.time(&device, old))
+                    .transpose()?;
                 let current_time = data.time(&device, &current)?;
                 report.timings.push(Timing {
-                    kernel: name.to_string(), rows, input_dim: input, output_dim: output,
-                    current_ms: current_time, baseline_ms: old_time,
+                    kernel: name.to_string(),
+                    rows,
+                    input_dim: input,
+                    output_dim: output,
+                    current_ms: current_time,
+                    baseline_ms: old_time,
                     speedup: old_time.map(|old| old / current_time),
                 });
             }
@@ -304,8 +450,12 @@ fn main() -> Result<()> {
         eprintln!("validated {name}");
     }
     let json = serde_json::to_string_pretty(&report)?;
-    if let Some(path) = output_path { fs::write(path, &json)?; }
+    if let Some(path) = output_path {
+        fs::write(path, &json)?;
+    }
     println!("{json}");
-    if let Some(golden) = golden { golden.finish()?; }
+    if let Some(golden) = golden {
+        golden.finish()?;
+    }
     Ok(())
 }

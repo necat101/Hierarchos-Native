@@ -3,7 +3,12 @@
 use super::VulkanTransformerArchitecture;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PeftModuleClass { Linear, LayerNorm, LmHead, Embedding }
+pub enum PeftModuleClass {
+    Linear,
+    LayerNorm,
+    LmHead,
+    Embedding,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct PeftCapability {
@@ -25,11 +30,29 @@ impl VulkanTransformerArchitecture {
     /// Independent native base gate, including the additional README families.
     /// This creates PEFT follow-up work; it never asserts PEFT qualification.
     pub fn peft_base_verified(self) -> bool {
-        matches!(self, Self::Gpt2 | Self::Llama | Self::Mixtral | Self::Qwen3Next
-            | Self::DeepseekV4 | Self::Phi3 | Self::DeepseekV3
-            | Self::KimiLinear | Self::GptOss | Self::SmolLm3 | Self::Qwen2
-            | Self::Qwen35 | Self::Qwen35Moe | Self::Qwen4Exp | Self::Mistral4
-            | Self::MiniMaxM3VLText | Self::Gemma4 | Self::MiniMaxM2 | Self::Gemma3 | Self::FalconH1)
+        matches!(
+            self,
+            Self::Gpt2
+                | Self::Llama
+                | Self::Mixtral
+                | Self::Qwen3Next
+                | Self::DeepseekV4
+                | Self::Phi3
+                | Self::DeepseekV3
+                | Self::KimiLinear
+                | Self::GptOss
+                | Self::SmolLm3
+                | Self::Qwen2
+                | Self::Qwen35
+                | Self::Qwen35Moe
+                | Self::Qwen4Exp
+                | Self::Mistral4
+                | Self::MiniMaxM3VLText
+                | Self::Gemma4
+                | Self::MiniMaxM2
+                | Self::Gemma3
+                | Self::FalconH1
+        )
     }
     /// Audited capabilities, never inferred from a loader alias or base support.
     pub fn peft_capability(self) -> PeftCapability {
@@ -127,8 +150,16 @@ mod tests {
 
     #[test]
     fn documented_peft_families_have_independent_saved_module_qualification() {
-        assert!(VulkanTransformerArchitecture::Gpt2.peft_capability().modules_to_save_validated);
-        assert!(VulkanTransformerArchitecture::Llama.peft_capability().modules_to_save_validated);
+        assert!(
+            VulkanTransformerArchitecture::Gpt2
+                .peft_capability()
+                .modules_to_save_validated
+        );
+        assert!(
+            VulkanTransformerArchitecture::Llama
+                .peft_capability()
+                .modules_to_save_validated
+        );
         assert!(
             VulkanTransformerArchitecture::Qwen3Next
                 .peft_capability()
@@ -171,7 +202,10 @@ mod tests {
             VulkanTransformerArchitecture::Gemma3,
             VulkanTransformerArchitecture::FalconH1,
         ] {
-            assert!(architecture.peft_capability().supports_peft, "{architecture:?}");
+            assert!(
+                architecture.peft_capability().supports_peft,
+                "{architecture:?}"
+            );
         }
 
         for architecture in [
@@ -181,14 +215,19 @@ mod tests {
             let capability = architecture.peft_capability();
             assert!(capability.supports_peft, "{architecture:?}");
             assert!(capability.modules_to_save_validated, "{architecture:?}");
-            assert!(capability.saved_module_classes.contains(&super::PeftModuleClass::LayerNorm));
+            assert!(capability
+                .saved_module_classes
+                .contains(&super::PeftModuleClass::LayerNorm));
             assert!(!capability.exclusions.contains("fail-closed"));
         }
     }
 
     #[test]
     fn unqualified_architectures_remain_fail_closed() {
-        for architecture in [VulkanTransformerArchitecture::Bert, VulkanTransformerArchitecture::Gemma] {
+        for architecture in [
+            VulkanTransformerArchitecture::Bert,
+            VulkanTransformerArchitecture::Gemma,
+        ] {
             let capability = architecture.peft_capability();
             assert!(!capability.supports_peft);
             assert!(!capability.modules_to_save_validated);

@@ -56,10 +56,139 @@ const LAYER_NORM_LOW_RANK_PRODUCER_FORWARD_FUSED_FP16_PACKED_TWO_ROWS_WIDE_SPV: 
 const LAYER_NORM_LOW_RANK_PRODUCER_FORWARD_FUSED_FP16_PACKED_FOUR_ROWS_SPV: &[u8] = include_bytes!(
     "../shaders/layer_norm_low_rank_producer_forward_fused_fp16_packed_four_rows.spv"
 );
+const LAYER_NORM_LOW_RANK_PRODUCER_FORWARD_FUSED_TWO_ROWS_SPV: &[u8] =
+    include_bytes!("../shaders/layer_norm_low_rank_producer_forward_fused_two_rows.spv");
+const LAYER_NORM_LOW_RANK_PRODUCER_FORWARD_FUSED_COLUMN_SLICES_SPV: &[u8] =
+    include_bytes!("../shaders/layer_norm_low_rank_producer_forward_fused_column_slices.spv");
 const HIERARCHOS_RWKV_LOW_RANK_DISABLE_LN_FORWARD_AUTOTUNE_ENV: &str =
     "HIERARCHOS_RWKV_LOW_RANK_DISABLE_LN_FORWARD_AUTOTUNE";
 const HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG_ENV: &str =
     "HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG";
+/// Force one LN1/low-rank producer topology instead of the measured choice, in either
+/// family. The FP32 variants are `one-row`, `two-rows` and `column-slices`; the
+/// packed-FP16 family -- the one the FP16-storage policy actually dispatches -- offers
+/// `one-row`, `one-row-cached`, `one-row-rank128`, `two-rows`, `two-rows-wide` and
+/// `four-rows`. One variable covers both because they are the same scheduling trade on
+/// the same shapes, and `one-row`/`two-rows` deliberately name one variant in each: a
+/// run under the FP16-storage policy then exercises the variant it asked for wherever
+/// that variant exists. Every variant is arithmetic-identical to the kernel its own
+/// timing selects, and the committed trajectories were recorded with the structural
+/// default, so this is how a verification run exercises a variant the device's own
+/// timing would not choose.
+const HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY_ENV: &str =
+    "HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY";
+/// Name a file to append every measured LN1/low-rank topology decision to, one JSON
+/// object per line. The producer stays the source of the measurement while the
+/// checked-in record and its policy live in `validation/topology_decisions.json`,
+/// owned by `validation/verify_topology_decisions.py`.
+const HIERARCHOS_RWKV_LOW_RANK_TOPOLOGY_RECORD_ENV: &str =
+    "HIERARCHOS_RWKV_LOW_RANK_TOPOLOGY_RECORD";
+
+fn json_escape(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            character if (character as u32) < 0x20 => {
+                escaped.push_str(&format!("\\u{:04x}", character as u32))
+            }
+            character => escaped.push(character),
+        }
+    }
+    escaped
+}
+
+/// Publish one measured topology decision as a JSON line, when asked to.
+///
+/// `timings` is the same median-per-candidate set the decision was made from, so
+/// the record carries both the choice and what it was chosen against. `round_wins` is
+/// how many of the `rounds` interleaved rounds each candidate beat the default by the
+/// material margin, and `decisive_margin` is the narrowest per-round lead of the
+/// selected variant, so the record shows whether a variant was chosen unanimously or the
+/// default was kept because no variant won every round. Lines are appended rather than
+/// rewritten: a decision is emitted once per process (the cache holds it afterwards), and
+/// an interrupted run still says what it measured.
+fn emit_topology_decision(
+    family: &str,
+    device: &str,
+    subgroup_size: u32,
+    key: &LayerNormLowRankForwardAutotuneKey,
+    timings: &[(String, f64)],
+    round_wins: &[(String, usize)],
+    rounds: usize,
+    decisive_margin: f64,
+    selected: &str,
+    structural_default: &str,
+) {
+    let Some(path) = std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_TOPOLOGY_RECORD_ENV) else {
+        return;
+    };
+    let best_ms = timings
+        .iter()
+        .map(|(_, ms)| *ms)
+        .fold(f64::INFINITY, f64::min);
+    let default_ms = timings
+        .iter()
+        .find(|(label, _)| label == structural_default)
+        .map(|(_, ms)| *ms);
+    let margin_fraction = match default_ms {
+        Some(default_ms) if default_ms.is_finite() && default_ms > 0.0 && best_ms.is_finite() => {
+            (default_ms - best_ms) / default_ms
+        }
+        _ => 0.0,
+    };
+    let timings = timings
+        .iter()
+        .map(|(label, ms)| format!("\"{}\":{ms:.6}", json_escape(label)))
+        .collect::<Vec<_>>()
+        .join(",");
+    let round_wins = round_wins
+        .iter()
+        .map(|(label, wins)| format!("\"{}\":{wins}", json_escape(label)))
+        .collect::<Vec<_>>()
+        .join(",");
+    let line = format!(
+        concat!(
+            "{{\"family\":\"{}\",\"device\":\"{}\",\"subgroup_size\":{},",
+            "\"width\":{},\"w_rank\":{},\"a_rank\":{},\"g_rank\":{},",
+            "\"batch_pairs\":{},\"has_unpaired_tail\":{},",
+            "\"timings_ms\":{{{}}},\"rounds\":{},\"round_wins\":{{{}}},",
+            "\"decisive_margin_fraction\":{:.6},",
+            "\"selected\":\"{}\",\"structural_default\":\"{}\",",
+            "\"margin_fraction\":{:.6}}}"
+        ),
+        json_escape(family),
+        json_escape(device),
+        subgroup_size,
+        key.width,
+        key.w_rank,
+        key.a_rank,
+        key.g_rank,
+        key.batch_pairs,
+        key.has_unpaired_tail,
+        timings,
+        rounds,
+        round_wins,
+        decisive_margin,
+        json_escape(selected),
+        json_escape(structural_default),
+        margin_fraction
+    );
+    use std::io::Write as _;
+    if let Err(error) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .and_then(|mut file| writeln!(file, "{line}"))
+    {
+        eprintln!(
+            "{}={}: {error}",
+            HIERARCHOS_RWKV_LOW_RANK_TOPOLOGY_RECORD_ENV,
+            path.to_string_lossy()
+        );
+    }
+}
 const PARAMETER_MATMUL_FORWARD_SPV: &[u8] =
     include_bytes!("../shaders/parameter_matmul_forward.spv");
 const PARAMETER_MATMUL_FORWARD_FP16_PACKED_SPV: &[u8] =
@@ -164,6 +293,163 @@ impl LayerNormLowRankForwardTopology {
             Self::FourRows => 4,
         }
     }
+
+    /// The `HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY` value that selects this
+    /// topology, exactly as the FP32 table does it: the parser, the rejection message
+    /// and the acceptance message all read this one string, so a value cannot name one
+    /// topology when it is parsed and another when the run reports what it ran. The
+    /// verification harness credits an arm from those reports.
+    fn env_value(self) -> &'static str {
+        match self {
+            Self::OneRow => "one-row",
+            Self::OneRowCached => "one-row-cached",
+            Self::OneRowRank128 => "one-row-rank128",
+            Self::TwoRows => "two-rows",
+            Self::TwoRowsWide => "two-rows-wide",
+            Self::FourRows => "four-rows",
+        }
+    }
+
+    const ALL: [Self; 6] = [
+        Self::OneRow,
+        Self::OneRowCached,
+        Self::OneRowRank128,
+        Self::TwoRows,
+        Self::TwoRowsWide,
+        Self::FourRows,
+    ];
+}
+
+/// Dispatch topology for the FP32 LN1/low-rank producer. The FP32 path shipped
+/// one kernel: `rows` 64-lane workgroups, one row each. The pair variant gives one
+/// workgroup two rows whose weight reads are shared, which halves the weight bytes
+/// per row at the cost of half the workgroups, so the choice is measured on the
+/// device rather than assumed.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+enum LayerNormLowRankForwardF32Topology {
+    OneRow,
+    TwoRows,
+    ColumnSlices,
+}
+
+impl LayerNormLowRankForwardF32Topology {
+    fn label(self) -> &'static str {
+        match self {
+            Self::OneRow => "ln-low-rank-f32-one-row",
+            Self::TwoRows => "ln-low-rank-f32-two-rows",
+            Self::ColumnSlices => "ln-low-rank-f32-column-slices",
+        }
+    }
+
+    fn rows_per_workgroup(self) -> usize {
+        match self {
+            Self::OneRow => 1,
+            Self::TwoRows => 2,
+            // Column slices replicate a row across workgroups rather than grouping
+            // rows inside one: the grid is [ceil(width/64), rows, 1].
+            Self::ColumnSlices => 1,
+        }
+    }
+
+    /// The dispatch grid this topology's kernel reads. Only `ColumnSlices` maps a
+    /// second grid dimension: its kernel takes the row from `gl_WorkGroupID.y` and
+    /// its column slice from `gl_WorkGroupID.x`, so dispatching it with the
+    /// row-per-workgroup grid would leave every row but the first unwritten. Both the
+    /// timing path and the production path ask this method, because a grid that
+    /// disagrees with the kernel's own mapping is a wrong answer rather than a slow
+    /// one, and only a golden catches it.
+    fn groups(self, batch: usize, width: usize) -> [u32; 3] {
+        match self {
+            Self::ColumnSlices => [(width as u32).div_ceil(64), batch as u32, 1],
+            _ => [batch.div_ceil(self.rows_per_workgroup()) as u32, 1, 1],
+        }
+    }
+
+    /// The `HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY` value that selects this
+    /// topology. The parser, the rejection message and the acceptance message all
+    /// read the same string, so a value cannot name one topology when parsed and
+    /// another when reported: the verification harness reads the request the producer
+    /// acknowledged out of that log, and an arm is only credited where the value it
+    /// asked for is the value that ran.
+    fn env_value(self) -> &'static str {
+        match self {
+            Self::OneRow => "one-row",
+            Self::TwoRows => "two-rows",
+            Self::ColumnSlices => "column-slices",
+        }
+    }
+
+    const ALL: [Self; 3] = [Self::OneRow, Self::TwoRows, Self::ColumnSlices];
+}
+
+#[derive(Clone, Copy, Debug)]
+struct LayerNormLowRankForwardF32Decision {
+    topology: LayerNormLowRankForwardF32Topology,
+    autotuned: bool,
+}
+
+/// The FP32 topology cache is separate from the FP16 one: their keys describe the
+/// same shapes, but the two families select among different kernels.
+static LAYER_NORM_LOW_RANK_FORWARD_F32_AUTOTUNE_CACHE: OnceLock<
+    Mutex<HashMap<LayerNormLowRankForwardAutotuneKey, LayerNormLowRankForwardF32Decision>>,
+> = OnceLock::new();
+
+/// Every value the override accepts, from either family's table.
+///
+/// The two families accept different subsets -- `column-slices` is FP32-only,
+/// `one-row-cached` and the other four are FP16-only, and `one-row`/`two-rows` appear in
+/// both -- so a value that one family does not offer is normal and is answered by that
+/// family's own rejection path, which the verification harness reads. Only a value in no
+/// table at all is a typo, and that is the only case worth a message. The list is
+/// deduplicated so the message names each value once.
+fn known_forced_topology_values() -> Vec<&'static str> {
+    let mut values: Vec<&'static str> = Vec::with_capacity(9);
+    for value in LayerNormLowRankForwardF32Topology::ALL
+        .into_iter()
+        .map(LayerNormLowRankForwardF32Topology::env_value)
+        .chain(
+            LayerNormLowRankForwardTopology::ALL
+                .into_iter()
+                .map(LayerNormLowRankForwardTopology::env_value),
+        )
+    {
+        if !values.contains(&value) {
+            values.push(value);
+        }
+    }
+    values
+}
+
+/// The requested override value, or `None` when unset, blank, or unknown.
+fn forced_topology_value() -> Option<String> {
+    let raw = std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY_ENV)?;
+    let value = raw.to_str()?.trim();
+    if value.is_empty() {
+        return None;
+    }
+    if known_forced_topology_values().contains(&value) {
+        return Some(value.to_owned());
+    }
+    let expected = known_forced_topology_values().join(", ");
+    eprintln!(
+        "{} expects one of {expected}; ignoring {value:?}",
+        HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY_ENV
+    );
+    None
+}
+
+fn forced_layer_norm_forward_f32_topology() -> Option<LayerNormLowRankForwardF32Topology> {
+    let value = forced_topology_value()?;
+    LayerNormLowRankForwardF32Topology::ALL
+        .into_iter()
+        .find(|topology| topology.env_value() == value)
+}
+
+fn forced_layer_norm_forward_fp16_topology() -> Option<LayerNormLowRankForwardTopology> {
+    let value = forced_topology_value()?;
+    LayerNormLowRankForwardTopology::ALL
+        .into_iter()
+        .find(|topology| topology.env_value() == value)
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -226,31 +512,184 @@ static LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_CACHE: OnceLock<
     Mutex<HashMap<LayerNormLowRankForwardAutotuneKey, LayerNormLowRankForwardDecision>>,
 > = OnceLock::new();
 
-fn select_layer_norm_low_rank_forward_topology(
-    timings: &[(LayerNormLowRankForwardTopology, f64)],
-    structural_default: LayerNormLowRankForwardTopology,
-) -> LayerNormLowRankForwardTopology {
-    let Some((_, default_ms)) = timings
-        .iter()
-        .find(|(topology, _)| *topology == structural_default)
-    else {
-        return structural_default;
-    };
-    let Some(&(best, best_ms)) = timings
-        .iter()
-        .filter(|(_, ms)| ms.is_finite() && *ms > 0.0)
-        .min_by(|lhs, rhs| lhs.1.total_cmp(&rhs.1))
-    else {
-        return structural_default;
-    };
+/// Rounds each LN1/low-rank autotuner measures every candidate in, interleaved.
+///
+/// Seven, not three, because unanimity is what makes the choice stable on a geometry whose
+/// lead sits inside the run-to-run spread. On the packed-FP16 producer's width-128 shape
+/// the shipped default and `one-row-cached` differ by about 3%, which is the same size as
+/// the round-to-round noise: with three rounds a run still came out unanimous about 40% of
+/// the time, so the schedule flipped. Seven carries that below a percent for a lead that is
+/// a coin flip per round, and a variant that is genuinely faster (the FP32 column-slice
+/// shape leads by 12-17%) stays unanimous. The cost is one more timing sweep per geometry
+/// per process -- these kernels are tens of microseconds and the decision is cached, so it
+/// is a few milliseconds against a training step's milliseconds.
+const LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_ROUNDS: usize = 7;
 
-    // Two-row ownership is the established compact-width default. Require a
-    // material (>2%) win before a device-specific probe displaces it so submit
-    // jitter cannot turn effectively equivalent kernels into schedule churn.
-    if best_ms < *default_ms * 0.98 {
-        best
-    } else {
-        structural_default
+/// How far a variant must beat the structural default in *every* round before it
+/// displaces it, as a fraction of the default's own time in that round.
+///
+/// The median-only rule this replaced accepted a single 2%-margin test on the median of
+/// three samples: on the packed-FP16 producer the same geometry selected `one-row-cached`
+/// in three of five identical runs, which is a schedule that changes with nothing changed.
+/// A variant now has to win the same way in every round, so a lead that lives inside the
+/// run-to-run spread keeps the default and the variation shows up as the evidence rather
+/// than as a different kernel.
+const LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_MARGIN: f64 = 0.02;
+
+/// One autotuner's verdict, with the evidence it was reached from.
+struct LayerNormLowRankForwardAutotune<T> {
+    /// The variant to dispatch: a candidate that beat the structural default in every
+    /// round, or the structural default when no candidate did.
+    selected: T,
+    /// Median per candidate: the set the record carries as `timings_ms`.
+    medians: Vec<(T, f64)>,
+    /// How many rounds each candidate beat the default by the material margin.
+    round_wins: Vec<(T, usize)>,
+    /// Rounds measured: a candidate that won all of them is unanimous.
+    rounds: usize,
+    /// The narrowest per-round lead of the selected variant over the default. `None` means
+    /// the default was kept, which is also the answer when the rounds disagree.
+    decisive_margin: Option<f64>,
+}
+
+/// Measure every candidate in interleaved rounds, reversing the candidate order each
+/// round so a drifting clock cannot favour one position. A failed measurement is an error
+/// for the whole autotune: a round with a missing candidate cannot be adjudicated.
+fn measure_layer_norm_low_rank_forward_rounds<T, F>(
+    candidates: &[T],
+    mut time_ms: F,
+) -> Result<Vec<Vec<(T, f64)>>>
+where
+    T: Copy,
+    F: FnMut(T) -> Result<f64>,
+{
+    let mut rounds = Vec::with_capacity(LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_ROUNDS);
+    for round in 0..LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_ROUNDS {
+        let mut samples = Vec::with_capacity(candidates.len());
+        for offset in 0..candidates.len() {
+            let index = if round % 2 == 0 {
+                offset
+            } else {
+                candidates.len() - 1 - offset
+            };
+            let candidate = candidates[index];
+            samples.push((candidate, time_ms(candidate)?));
+        }
+        rounds.push(samples);
+    }
+    Ok(rounds)
+}
+
+/// Adjudicate interleaved rounds: a variant is selected only when it beats the structural
+/// default by the material margin in every round, otherwise the default is kept.
+///
+/// The medians are still reported, because they are what the record holds, but they no
+/// longer decide. A round is won by the fastest candidate that clears the margin against
+/// that round's own default sample, ties going to the earlier candidate in `candidates`,
+/// so the verdict is deterministic and does not depend on measurement order.
+fn adjudicate_layer_norm_low_rank_forward_rounds<T: Copy + PartialEq>(
+    rounds: &[Vec<(T, f64)>],
+    candidates: &[T],
+    structural_default: T,
+) -> LayerNormLowRankForwardAutotune<T> {
+    let mut medians = Vec::with_capacity(candidates.len());
+    for candidate in candidates {
+        let mut samples = rounds
+            .iter()
+            .filter_map(|round| round.iter().find(|(measured, _)| measured == candidate))
+            .map(|(_, ms)| *ms)
+            .collect::<Vec<_>>();
+        samples.sort_by(f64::total_cmp);
+        medians.push((
+            *candidate,
+            if samples.is_empty() {
+                f64::INFINITY
+            } else {
+                samples[samples.len() / 2]
+            },
+        ));
+    }
+
+    let mut round_wins = candidates
+        .iter()
+        .map(|candidate| (*candidate, 0usize))
+        .collect::<Vec<_>>();
+    for round in rounds {
+        let Some(default_ms) = round
+            .iter()
+            .find(|(measured, _)| *measured == structural_default)
+            .map(|(_, ms)| *ms)
+        else {
+            // A round without the default cannot be compared against it.
+            continue;
+        };
+        let mut best: Option<(usize, f64)> = None;
+        for (candidate, ms) in round {
+            let position = candidates
+                .iter()
+                .position(|known| known == candidate)
+                .expect("every measured candidate comes from the candidate list");
+            if !ms.is_finite() || *ms <= 0.0 {
+                continue;
+            }
+            if *ms >= default_ms * (1.0 - LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_MARGIN) {
+                continue;
+            }
+            match best {
+                // A tie goes to the earlier candidate rather than to whichever one the
+                // round happened to measure first: the next round reverses that order, so
+                // a verdict that followed it would depend on the measurement order.
+                Some((best_position, best_ms)) => {
+                    if *ms < best_ms || (*ms == best_ms && position < best_position) {
+                        best = Some((position, *ms));
+                    }
+                }
+                None => best = Some((position, *ms)),
+            }
+        }
+        if let Some((position, _)) = best {
+            round_wins[position].1 += 1;
+        }
+    }
+
+    let rounds_measured = rounds.len();
+    let mut decided: Option<(T, usize)> = None;
+    for (position, candidate) in candidates.iter().enumerate() {
+        if *candidate == structural_default || round_wins[position].1 == 0 {
+            continue;
+        }
+        if round_wins[position].1 == rounds_measured {
+            decided = Some((*candidate, position));
+            break;
+        }
+    }
+    let decisive_margin = decided.map(|(_, position)| {
+        let candidate = candidates[position];
+        rounds
+            .iter()
+            .map(|round| {
+                let default_ms = round
+                    .iter()
+                    .find(|(measured, _)| *measured == structural_default)
+                    .map(|(_, ms)| *ms)
+                    .unwrap_or_default();
+                let candidate_ms = round
+                    .iter()
+                    .find(|(measured, _)| *measured == candidate)
+                    .map(|(_, ms)| *ms)
+                    .unwrap_or_default();
+                (default_ms - candidate_ms) / default_ms
+            })
+            .fold(f64::INFINITY, f64::min)
+    });
+    LayerNormLowRankForwardAutotune {
+        selected: decided
+            .map(|(candidate, _)| candidate)
+            .unwrap_or(structural_default),
+        medians,
+        round_wins,
+        rounds: rounds_measured,
+        decisive_margin,
     }
 }
 
@@ -505,6 +944,8 @@ pub struct RwkvLowRankOp {
     time_mix_forward: vulkan::ComputeKernel,
     low_rank_producer_forward_fused: Option<vulkan::ComputeKernel>,
     layer_norm_low_rank_producer_forward_fused: Option<vulkan::ComputeKernel>,
+    layer_norm_low_rank_producer_forward_fused_two_rows: Option<vulkan::ComputeKernel>,
+    layer_norm_low_rank_producer_forward_fused_column_slices: Option<vulkan::ComputeKernel>,
     low_rank_producer_forward_fused_fp16_packed: Option<vulkan::ComputeKernel>,
     low_rank_full_forward_fused_fp16_packed: Option<vulkan::ComputeKernel>,
     low_rank_full_forward_first_stage_arm: Option<RwkvLowRankFirstStageArm>,
@@ -907,6 +1348,22 @@ impl RwkvLowRankOp {
                 let selected_arm = kernel.as_ref().map(|_| first_stage_arm);
                 (kernel, selected_arm)
             };
+        let layer_norm_low_rank_producer_forward_fused_two_rows =
+            create_layer_norm_low_rank_producer_forward_kernel(
+                &device,
+                LAYER_NORM_LOW_RANK_PRODUCER_FORWARD_FUSED_TWO_ROWS_SPV,
+                w_rank,
+                a_rank,
+                g_rank,
+            )?;
+        let layer_norm_low_rank_producer_forward_fused_column_slices =
+            create_layer_norm_low_rank_producer_forward_kernel(
+                &device,
+                LAYER_NORM_LOW_RANK_PRODUCER_FORWARD_FUSED_COLUMN_SLICES_SPV,
+                w_rank,
+                a_rank,
+                g_rank,
+            )?;
         let layer_norm_low_rank_producer_forward_fused_fp16_packed =
             create_layer_norm_low_rank_producer_forward_kernel(
                 &device,
@@ -1111,6 +1568,8 @@ impl RwkvLowRankOp {
             )?,
             low_rank_producer_forward_fused,
             layer_norm_low_rank_producer_forward_fused,
+            layer_norm_low_rank_producer_forward_fused_two_rows,
+            layer_norm_low_rank_producer_forward_fused_column_slices,
             low_rank_producer_forward_fused_fp16_packed,
             low_rank_full_forward_fused_fp16_packed,
             low_rank_full_forward_first_stage_arm,
@@ -2078,6 +2537,35 @@ impl RwkvLowRankOp {
         let structural_default = self
             .structural_fp16_layer_norm_forward_topology()
             .context("RWKV FP16 LN1/low-rank producer fusion is unavailable")?;
+        // The FP32 family has had this arm since its own variants were audited; the FP16
+        // family needs it for the same reason. A forced variant this device cannot offer
+        // is reported and answered by the structural default rather than silently
+        // ignored: the equivalence suite reads these two lines to know whether an arm ran
+        // the variant it asked for, and a run that fell back passes while proving nothing.
+        if let Some(forced) = forced_layer_norm_forward_fp16_topology() {
+            if candidates.contains(&forced) {
+                if std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG_ENV).is_some()
+                {
+                    eprintln!(
+                        "RWKV LN1/low-rank FP16 forward forced topology={} requested={} device={} batch={batch}",
+                        forced.label(),
+                        forced.env_value(),
+                        self.device.name()
+                    );
+                }
+                return Ok(LayerNormLowRankForwardDecision {
+                    topology: forced,
+                    autotuned: false,
+                });
+            }
+            eprintln!(
+                "RWKV LN1/low-rank FP16 forward topology={} requested={} is unavailable on device={}; using {}",
+                forced.label(),
+                forced.env_value(),
+                self.device.name(),
+                structural_default.label()
+            );
+        }
         if candidates.len() == 1
             || std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_DISABLE_LN_FORWARD_AUTOTUNE_ENV).is_some()
         {
@@ -2133,65 +2621,53 @@ impl RwkvLowRankOp {
             });
         }
 
-        let mut samples = candidates
-            .iter()
-            .copied()
-            .map(|topology| (topology, Vec::with_capacity(3)))
-            .collect::<HashMap<_, _>>();
-        for round in 0..3 {
-            for offset in 0..candidates.len() {
-                let index = if round % 2 == 0 {
-                    offset
-                } else {
-                    candidates.len() - 1 - offset
-                };
-                let topology = candidates[index];
-                match time_topology(topology) {
-                    Ok(ms) => samples
-                        .get_mut(&topology)
-                        .expect("autotune candidate sample bucket must exist")
-                        .push(ms),
-                    Err(err) => {
-                        if std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG_ENV)
-                            .is_some()
-                        {
-                            eprintln!(
-                                "RWKV LN1/low-rank forward autotune failed device={} batch={batch} candidate={}: {err:#}; using {}",
-                                self.device.name(),
-                                topology.label(),
-                                structural_default.label()
-                            );
-                        }
-                        return Ok(LayerNormLowRankForwardDecision {
-                            topology: structural_default,
-                            autotuned: false,
-                        });
-                    }
+        let rounds = match measure_layer_norm_low_rank_forward_rounds(&candidates, |topology| {
+            time_topology(topology).with_context(|| {
+                format!(
+                    "timing RWKV LN1/low-rank FP16 forward candidate {}",
+                    topology.label()
+                )
+            })
+        }) {
+            Ok(rounds) => rounds,
+            Err(err) => {
+                if std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG_ENV).is_some()
+                {
+                    eprintln!(
+                        "RWKV LN1/low-rank forward autotune failed device={} batch={batch}: {err:#}; using {}",
+                        self.device.name(),
+                        structural_default.label()
+                    );
                 }
+                return Ok(LayerNormLowRankForwardDecision {
+                    topology: structural_default,
+                    autotuned: false,
+                });
             }
-        }
-        let mut timings = Vec::with_capacity(candidates.len());
-        for topology in candidates {
-            let values = samples
-                .get_mut(&topology)
-                .expect("autotune candidate sample bucket must exist");
-            values.sort_by(f64::total_cmp);
-            timings.push((topology, values[values.len() / 2]));
-        }
-        let selected = select_layer_norm_low_rank_forward_topology(&timings, structural_default);
+        };
+        let adjudication =
+            adjudicate_layer_norm_low_rank_forward_rounds(&rounds, &candidates, structural_default);
+        let selected = adjudication.selected;
         let decision = LayerNormLowRankForwardDecision {
             topology: selected,
             autotuned: true,
         };
 
         if std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG_ENV).is_some() {
-            let summary = timings
+            let summary = adjudication
+                .medians
                 .iter()
                 .map(|(topology, ms)| format!("{}={ms:.5}ms", topology.label()))
                 .collect::<Vec<_>>()
                 .join(" ");
+            let wins = adjudication
+                .round_wins
+                .iter()
+                .map(|(topology, wins)| format!("{}:{wins}", topology.label()))
+                .collect::<Vec<_>>()
+                .join(" ");
             eprintln!(
-                "RWKV LN1/low-rank forward autotune device={} subgroup={} width={} ranks={}/{}/{} batch_pairs={} tail={} {} selected={} autotuned={}",
+                "RWKV LN1/low-rank forward autotune device={} subgroup={} width={} ranks={}/{}/{} batch_pairs={} tail={} {} rounds={} round_wins={} selected={} autotuned={}",
                 self.device.name(),
                 subgroup_size,
                 self.width,
@@ -2201,10 +2677,391 @@ impl RwkvLowRankOp {
                 key.batch_pairs,
                 key.has_unpaired_tail,
                 summary,
+                adjudication.rounds,
+                wins,
                 selected.label(),
                 decision.autotuned
             );
         }
+        let labels = adjudication
+            .medians
+            .iter()
+            .map(|(topology, ms)| (topology.label().to_string(), *ms))
+            .collect::<Vec<_>>();
+        let wins = adjudication
+            .round_wins
+            .iter()
+            .map(|(topology, wins)| (topology.label().to_string(), *wins))
+            .collect::<Vec<_>>();
+        emit_topology_decision(
+            "ln-low-rank-fp16",
+            self.device.name(),
+            subgroup_size,
+            &key,
+            &labels,
+            &wins,
+            adjudication.rounds,
+            adjudication.decisive_margin.unwrap_or(0.0),
+            selected.label(),
+            structural_default.label(),
+        );
+
+        cache
+            .lock()
+            .map_err(|_| {
+                anyhow::anyhow!("RWKV LN1/low-rank forward autotune cache lock was poisoned")
+            })?
+            .insert(key, decision);
+        Ok(decision)
+    }
+
+    fn available_f32_layer_norm_forward_topologies(
+        &self,
+    ) -> Vec<LayerNormLowRankForwardF32Topology> {
+        let mut topologies = Vec::with_capacity(2);
+        if self.layer_norm_low_rank_producer_forward_fused.is_some() {
+            topologies.push(LayerNormLowRankForwardF32Topology::OneRow);
+        }
+        if self
+            .layer_norm_low_rank_producer_forward_fused_two_rows
+            .is_some()
+        {
+            topologies.push(LayerNormLowRankForwardF32Topology::TwoRows);
+        }
+        if self
+            .layer_norm_low_rank_producer_forward_fused_column_slices
+            .is_some()
+        {
+            topologies.push(LayerNormLowRankForwardF32Topology::ColumnSlices);
+        }
+        topologies
+    }
+
+    /// The FP32 path keeps the one-row kernel -- the shape the committed
+    /// trajectories were recorded with -- unless a measured candidate beats it by
+    /// the material margin the selector applies.
+    fn structural_f32_layer_norm_forward_topology(
+        &self,
+    ) -> Option<LayerNormLowRankForwardF32Topology> {
+        if self.layer_norm_low_rank_producer_forward_fused.is_some() {
+            Some(LayerNormLowRankForwardF32Topology::OneRow)
+        } else if self
+            .layer_norm_low_rank_producer_forward_fused_two_rows
+            .is_some()
+        {
+            Some(LayerNormLowRankForwardF32Topology::TwoRows)
+        } else {
+            None
+        }
+    }
+
+    fn f32_layer_norm_forward_kernel(
+        &self,
+        topology: LayerNormLowRankForwardF32Topology,
+    ) -> Option<&vulkan::ComputeKernel> {
+        match topology {
+            LayerNormLowRankForwardF32Topology::OneRow => {
+                self.layer_norm_low_rank_producer_forward_fused.as_ref()
+            }
+            LayerNormLowRankForwardF32Topology::TwoRows => self
+                .layer_norm_low_rank_producer_forward_fused_two_rows
+                .as_ref(),
+            LayerNormLowRankForwardF32Topology::ColumnSlices => self
+                .layer_norm_low_rank_producer_forward_fused_column_slices
+                .as_ref(),
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn record_f32_layer_norm_forward_topology_into(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        batch: usize,
+        previous: &GpuBuffer,
+        norm: &LayerNormProducerInput<'_>,
+        outputs: &LayerNormLowRankForwardOutputs<'_>,
+        topology: LayerNormLowRankForwardF32Topology,
+    ) -> Result<()> {
+        let kernel = self
+            .f32_layer_norm_forward_kernel(topology)
+            .with_context(|| {
+                format!(
+                    "RWKV LN1/low-rank FP32 forward topology {} is unavailable",
+                    topology.label()
+                )
+            })?;
+        let producer_push = LayerNormLowRankProducerPush {
+            rows: batch as u32,
+            width: self.width as u32,
+            w_rank: self.w_rank as u32,
+            a_rank: self.a_rank as u32,
+            g_rank: self.g_rank as u32,
+            eps: norm.eps,
+        };
+        let groups = topology.groups(batch, self.width);
+        kernel.record_dispatch(
+            commands,
+            &[
+                norm.x,
+                norm.weight,
+                norm.bias,
+                previous,
+                &self.mix_w,
+                &self.mix_a,
+                &self.mix_g,
+                &self.w1,
+                &self.a1,
+                &self.g1,
+                outputs.x_norm,
+                norm.mean,
+                norm.rstd,
+                outputs.xw,
+                outputs.xa,
+                outputs.xg,
+                outputs.w_hidden,
+                outputs.a_hidden,
+                outputs.g_hidden,
+                outputs.w_tanh,
+                &self.w2,
+                &self.w0,
+                outputs.w_pre,
+                outputs.w,
+                &self.a2,
+                &self.a0,
+                outputs.a_pre,
+                outputs.a,
+                outputs.g_sigmoid,
+                &self.g2,
+                outputs.g,
+            ],
+            bytemuck::bytes_of(&producer_push),
+            groups,
+        )
+    }
+
+    fn time_f32_layer_norm_forward_topology_ms(
+        &self,
+        batch: usize,
+        probe: &LayerNormLowRankForwardProbeBuffers,
+        norm: &LayerNormProducerInput<'_>,
+        topology: LayerNormLowRankForwardF32Topology,
+    ) -> Result<f64> {
+        // Same shape as the FP16 probe: these kernels are only a few dozen
+        // microseconds on compact fixtures, so repeat inside one submission rather
+        // than let queue and fence latency dominate the comparison.
+        let repetitions = if batch >= 64 { 4 } else { 16 };
+        let probe_norm = LayerNormProducerInput {
+            x: &probe.x,
+            weight: norm.weight,
+            bias: norm.bias,
+            mean: &probe.mean,
+            rstd: &probe.rstd,
+            eps: norm.eps,
+        };
+        let outputs = LayerNormLowRankForwardOutputs {
+            x_norm: &probe.x_norm,
+            xw: &probe.xw,
+            xa: &probe.xa,
+            xg: &probe.xg,
+            w_hidden: &probe.w_hidden,
+            a_hidden: &probe.a_hidden,
+            g_hidden: &probe.g_hidden,
+            w_tanh: &probe.w_tanh,
+            w_pre: &probe.w_pre,
+            w: &probe.w,
+            a_pre: &probe.a_pre,
+            a: &probe.a,
+            g_sigmoid: &probe.g_sigmoid,
+            g: &probe.g,
+        };
+        let elapsed_ms = self.device.time_compute_batch_ms(|commands| {
+            for _ in 0..repetitions {
+                self.record_f32_layer_norm_forward_topology_into(
+                    commands,
+                    batch,
+                    &probe.previous,
+                    &probe_norm,
+                    &outputs,
+                    topology,
+                )?;
+            }
+            Ok(())
+        })?;
+        Ok(elapsed_ms / repetitions as f64)
+    }
+
+    fn choose_f32_layer_norm_forward_topology(
+        &self,
+        batch: usize,
+        norm: &LayerNormProducerInput<'_>,
+    ) -> Result<LayerNormLowRankForwardF32Decision> {
+        let candidates = self.available_f32_layer_norm_forward_topologies();
+        // The caller's own message for this shape is kept: this decision is only
+        // asked for when a layer norm is being fused, and the dispatch site reports
+        // an unavailable kernel with it.
+        let structural_default = self.structural_f32_layer_norm_forward_topology().context(
+            "RWKV LN1/low-rank producer fusion is unavailable on this device/rank shape",
+        )?;
+        if let Some(forced) = forced_layer_norm_forward_f32_topology() {
+            if candidates.contains(&forced) {
+                if std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG_ENV).is_some()
+                {
+                    eprintln!(
+                        "RWKV LN1/low-rank FP32 forward forced topology={} requested={} device={} batch={batch}",
+                        forced.label(),
+                        forced.env_value(),
+                        self.device.name()
+                    );
+                }
+                return Ok(LayerNormLowRankForwardF32Decision {
+                    topology: forced,
+                    autotuned: false,
+                });
+            }
+            eprintln!(
+                "RWKV LN1/low-rank FP32 forward topology={} requested={} is unavailable on device={}; using {}",
+                forced.label(),
+                forced.env_value(),
+                self.device.name(),
+                structural_default.label()
+            );
+        }
+        if candidates.len() == 1
+            || std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_DISABLE_LN_FORWARD_AUTOTUNE_ENV).is_some()
+        {
+            return Ok(LayerNormLowRankForwardF32Decision {
+                topology: structural_default,
+                autotuned: false,
+            });
+        }
+
+        let subgroup_size = self.device.subgroup_capabilities().subgroup_size;
+        let key = LayerNormLowRankForwardAutotuneKey {
+            device_name: self.device.name().to_owned(),
+            subgroup_size,
+            width: self.width,
+            w_rank: self.w_rank,
+            a_rank: self.a_rank,
+            g_rank: self.g_rank,
+            batch_pairs: batch.div_ceil(2),
+            has_unpaired_tail: batch % 2 != 0,
+        };
+        let cache = LAYER_NORM_LOW_RANK_FORWARD_F32_AUTOTUNE_CACHE
+            .get_or_init(|| Mutex::new(HashMap::new()));
+        if let Some(decision) = cache
+            .lock()
+            .map_err(|_| {
+                anyhow::anyhow!("RWKV LN1/low-rank forward autotune cache lock was poisoned")
+            })?
+            .get(&key)
+            .copied()
+        {
+            return Ok(decision);
+        }
+
+        // Keep synchronous autotune submissions off the caller's pending
+        // x/previous buffers, exactly as the FP16 probe does.
+        let probe = self.allocate_fp16_layer_norm_forward_autotune_probe(batch)?;
+        let time_topology =
+            |topology| self.time_f32_layer_norm_forward_topology_ms(batch, &probe, norm, topology);
+        if let Err(err) = time_topology(structural_default) {
+            if std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG_ENV).is_some() {
+                eprintln!(
+                    "RWKV LN1/low-rank FP32 forward autotune warmup failed device={} batch={batch}: {err:#}; using {}",
+                    self.device.name(),
+                    structural_default.label()
+                );
+            }
+            return Ok(LayerNormLowRankForwardF32Decision {
+                topology: structural_default,
+                autotuned: false,
+            });
+        }
+
+        let rounds = match measure_layer_norm_low_rank_forward_rounds(&candidates, |topology| {
+            time_topology(topology).with_context(|| {
+                format!(
+                    "timing RWKV LN1/low-rank FP32 forward candidate {}",
+                    topology.label()
+                )
+            })
+        }) {
+            Ok(rounds) => rounds,
+            Err(err) => {
+                if std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG_ENV).is_some()
+                {
+                    eprintln!(
+                        "RWKV LN1/low-rank FP32 forward autotune failed device={} batch={batch}: {err:#}; using {}",
+                        self.device.name(),
+                        structural_default.label()
+                    );
+                }
+                return Ok(LayerNormLowRankForwardF32Decision {
+                    topology: structural_default,
+                    autotuned: false,
+                });
+            }
+        };
+        let adjudication =
+            adjudicate_layer_norm_low_rank_forward_rounds(&rounds, &candidates, structural_default);
+        let selected = adjudication.selected;
+        let decision = LayerNormLowRankForwardF32Decision {
+            topology: selected,
+            autotuned: true,
+        };
+
+        if std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG_ENV).is_some() {
+            let summary = adjudication
+                .medians
+                .iter()
+                .map(|(topology, ms)| format!("{}={ms:.5}ms", topology.label()))
+                .collect::<Vec<_>>()
+                .join(" ");
+            let wins = adjudication
+                .round_wins
+                .iter()
+                .map(|(topology, wins)| format!("{}:{wins}", topology.label()))
+                .collect::<Vec<_>>()
+                .join(" ");
+            eprintln!(
+                "RWKV LN1/low-rank FP32 forward autotune device={} subgroup={} width={} ranks={}/{}/{} batch_pairs={} tail={} {} rounds={} round_wins={} selected={} autotuned={}",
+                self.device.name(),
+                subgroup_size,
+                self.width,
+                self.w_rank,
+                self.a_rank,
+                self.g_rank,
+                key.batch_pairs,
+                key.has_unpaired_tail,
+                summary,
+                adjudication.rounds,
+                wins,
+                selected.label(),
+                decision.autotuned
+            );
+        }
+        let labels = adjudication
+            .medians
+            .iter()
+            .map(|(topology, ms)| (topology.label().to_string(), *ms))
+            .collect::<Vec<_>>();
+        let wins = adjudication
+            .round_wins
+            .iter()
+            .map(|(topology, wins)| (topology.label().to_string(), *wins))
+            .collect::<Vec<_>>();
+        emit_topology_decision(
+            "ln-low-rank-f32",
+            self.device.name(),
+            subgroup_size,
+            &key,
+            &labels,
+            &wins,
+            adjudication.rounds,
+            adjudication.decisive_margin.unwrap_or(0.0),
+            selected.label(),
+            structural_default.label(),
+        );
 
         cache
             .lock()
@@ -2340,22 +3197,33 @@ impl RwkvLowRankOp {
         } else {
             self.low_rank_producer_forward_fused.as_ref()
         };
-        let (layer_norm_fused_kernel, layer_norm_rows_per_workgroup) =
-            if let Some(mirrors) = fp16_mirrors {
-                let topology = if let Some(norm) = layer_norm.as_ref() {
-                    self.choose_fp16_layer_norm_forward_topology(batch, norm, mirrors)?
-                        .topology
-                } else {
-                    self.structural_fp16_layer_norm_forward_topology()
-                        .context("RWKV FP16 LN1/low-rank producer fusion is unavailable")?
-                };
-                (
-                    self.fp16_layer_norm_forward_kernel(topology),
-                    topology.rows_per_workgroup(),
-                )
+        let (layer_norm_fused_kernel, layer_norm_groups) = if let Some(mirrors) = fp16_mirrors {
+            let topology = if let Some(norm) = layer_norm.as_ref() {
+                self.choose_fp16_layer_norm_forward_topology(batch, norm, mirrors)?
+                    .topology
             } else {
-                (self.layer_norm_low_rank_producer_forward_fused.as_ref(), 1)
+                self.structural_fp16_layer_norm_forward_topology()
+                    .context("RWKV FP16 LN1/low-rank producer fusion is unavailable")?
             };
+            (
+                self.fp16_layer_norm_forward_kernel(topology),
+                // Every FP16 topology groups rows inside one workgroup, so its grid
+                // is the row count over that grouping and nothing else.
+                [batch.div_ceil(topology.rows_per_workgroup()) as u32, 1, 1],
+            )
+        } else if let Some(norm) = layer_norm.as_ref() {
+            let topology = self
+                .choose_f32_layer_norm_forward_topology(batch, norm)?
+                .topology;
+            (
+                self.f32_layer_norm_forward_kernel(topology),
+                topology.groups(batch, self.width),
+            )
+        } else {
+            // No layer norm to fuse: the plain producer branches below own this
+            // dispatch, and the FP32 LN producer kernel may or may not exist.
+            (None, [1, 1, 1])
+        };
 
         if let Some(norm) = layer_norm {
             let kernel = layer_norm_fused_kernel.context(
@@ -2417,7 +3285,7 @@ impl RwkvLowRankOp {
                     &self.g,
                 ],
                 bytemuck::bytes_of(&producer_push),
-                [batch.div_ceil(layer_norm_rows_per_workgroup) as u32, 1, 1],
+                layer_norm_groups,
             )?;
         } else if let (Some(kernel), Some(mirrors)) = (
             self.low_rank_full_forward_fused_fp16_packed.as_ref(),
@@ -3489,4 +4357,255 @@ fn read_second_matrix(path: &Path, name: &str, rank: usize, width: usize) -> Res
 
 fn div_ceil_u32(value: usize, divisor: usize) -> u32 {
     value.div_ceil(divisor) as u32
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn row_per_workgroup_topologies_keep_one_grid_dimension() {
+        assert_eq!(
+            LayerNormLowRankForwardF32Topology::OneRow.groups(3, 128),
+            [3, 1, 1]
+        );
+        assert_eq!(
+            LayerNormLowRankForwardF32Topology::TwoRows.groups(3, 128),
+            [2, 1, 1]
+        );
+        assert_eq!(
+            LayerNormLowRankForwardF32Topology::TwoRows.groups(4, 128),
+            [2, 1, 1]
+        );
+    }
+
+    #[test]
+    fn column_slices_grid_carries_rows_in_the_second_dimension() {
+        // The kernel reads the row from `gl_WorkGroupID.y` and its column slice from
+        // `gl_WorkGroupID.x`, so a row belongs in the second grid dimension and the
+        // first one has to cover every 64-column slice of the row.
+        assert_eq!(
+            LayerNormLowRankForwardF32Topology::ColumnSlices.groups(2, 128),
+            [2, 2, 1]
+        );
+        for (batch, width) in [(1usize, 64usize), (2, 128), (9, 256), (32, 100)] {
+            let groups = LayerNormLowRankForwardF32Topology::ColumnSlices.groups(batch, width);
+            assert_eq!(groups[1], batch as u32);
+            assert_eq!(groups[2], 1);
+            assert!(groups[0] >= (width as u32).div_ceil(64));
+        }
+    }
+
+    #[test]
+    fn column_slices_is_never_dispatched_with_a_row_per_workgroup_grid() {
+        // The production site used to reduce a topology to its rows per workgroup and
+        // build `[batch / rows, 1, 1]` from it. For the sliced kernel that grid is a
+        // wrong answer rather than a slow one -- the kernel reads the row from
+        // `gl_WorkGroupID.y`, so every row but the first would go unwritten -- and the
+        // same reduction stays correct for the topologies that do take their row from
+        // the first grid dimension.
+        let batch = 2usize;
+        let width = 128usize;
+        assert_eq!(
+            LayerNormLowRankForwardF32Topology::ColumnSlices.rows_per_workgroup(),
+            1
+        );
+        assert_ne!(
+            LayerNormLowRankForwardF32Topology::ColumnSlices.groups(batch, width),
+            [batch as u32, 1, 1]
+        );
+        assert_eq!(
+            LayerNormLowRankForwardF32Topology::OneRow.groups(batch, width),
+            [batch as u32, 1, 1]
+        );
+    }
+
+    /// Every FP16 variant is addressed by one distinct override value and identified by
+    /// one distinct record label: the equivalence harness credits an arm from the value
+    /// the producer reports, and the decision record keys an entry by the label, so a
+    /// duplicate in either table would silently fold two variants into one.
+    #[test]
+    fn every_fp16_variant_has_a_distinct_override_value_and_label() {
+        let mut values = LayerNormLowRankForwardTopology::ALL
+            .into_iter()
+            .map(LayerNormLowRankForwardTopology::env_value)
+            .collect::<Vec<_>>();
+        let mut labels = LayerNormLowRankForwardTopology::ALL
+            .into_iter()
+            .map(LayerNormLowRankForwardTopology::label)
+            .collect::<Vec<_>>();
+        for list in [&mut values, &mut labels] {
+            list.sort_unstable();
+            list.dedup();
+        }
+        assert_eq!(values.len(), 6, "{values:?}");
+        assert_eq!(labels.len(), 6, "{labels:?}");
+        // The rows-per-workgroup each dispatch divides the batch by. Every FP16 kernel
+        // takes its row from the first grid dimension -- the FP32 column-slice kernel is
+        // the one that reads `gl_WorkGroupID.y` -- so this is the whole grid difference
+        // between the six variants.
+        for (topology, rows) in [
+            (LayerNormLowRankForwardTopology::OneRow, 1usize),
+            (LayerNormLowRankForwardTopology::OneRowCached, 1),
+            (LayerNormLowRankForwardTopology::OneRowRank128, 1),
+            (LayerNormLowRankForwardTopology::TwoRows, 2),
+            (LayerNormLowRankForwardTopology::TwoRowsWide, 2),
+            (LayerNormLowRankForwardTopology::FourRows, 4),
+        ] {
+            assert_eq!(topology.rows_per_workgroup(), rows);
+        }
+    }
+
+    /// The two families share one override variable, so the parser's vocabulary is the
+    /// union of their tables. A value that only one family offers is normal and is
+    /// answered by that family's own rejection path; only a value in neither table is a
+    /// typo worth a message.
+    #[test]
+    fn the_override_vocabulary_is_the_union_of_both_families() {
+        let known = known_forced_topology_values();
+        for value in LayerNormLowRankForwardTopology::ALL
+            .into_iter()
+            .map(LayerNormLowRankForwardTopology::env_value)
+            .chain(
+                LayerNormLowRankForwardF32Topology::ALL
+                    .into_iter()
+                    .map(LayerNormLowRankForwardF32Topology::env_value),
+            )
+        {
+            assert!(known.contains(&value), "{value} is missing from {known:?}");
+        }
+        // `one-row` and `two-rows` are the shared names -- each family offers one variant
+        // under them -- so the union is 7 values rather than 6 + 3.
+        assert_eq!(known.len(), 7, "{known:?}");
+        assert!(known.contains(&"column-slices"), "{known:?}");
+        assert!(known.contains(&"one-row-cached"), "{known:?}");
+    }
+
+    fn rounds(
+        samples: &[&[(LayerNormLowRankForwardTopology, f64)]],
+    ) -> Vec<Vec<(LayerNormLowRankForwardTopology, f64)>> {
+        samples.iter().map(|round| round.to_vec()).collect()
+    }
+
+    /// A variant that beats the default by the material margin in every round is selected,
+    /// and the record says how narrow its worst round was.
+    #[test]
+    fn a_unanimous_win_displaces_the_structural_default() {
+        use LayerNormLowRankForwardTopology::{OneRow, OneRowCached};
+        let measured = rounds(&[
+            &[(OneRow, 1.00), (OneRowCached, 0.90)],
+            &[(OneRow, 0.99), (OneRowCached, 0.88)],
+            &[(OneRow, 1.01), (OneRowCached, 0.91)],
+        ]);
+        let adjudication = adjudicate_layer_norm_low_rank_forward_rounds(
+            &measured,
+            &[OneRow, OneRowCached],
+            OneRow,
+        );
+        assert_eq!(adjudication.selected, OneRowCached);
+        assert_eq!(adjudication.rounds, 3);
+        assert_eq!(
+            adjudication.round_wins,
+            vec![(OneRow, 0), (OneRowCached, 3)]
+        );
+        // The narrowest lead is the third round's: 1.01 - 0.91 over 1.01.
+        let decisive = adjudication
+            .decisive_margin
+            .expect("a unanimous winner has a margin");
+        assert!((decisive - 0.09900990099).abs() < 1e-6, "{decisive}");
+    }
+
+    /// The rule this replaced selected on the median of three rounds alone. Here the
+    /// candidate leads the medians by 10% yet fails the material margin in one round, so
+    /// the old rule would have dispatched it and the unanimous rule keeps the default.
+    #[test]
+    fn a_lead_that_loses_a_round_keeps_the_default() {
+        use LayerNormLowRankForwardTopology::{OneRow, OneRowCached};
+        let measured = rounds(&[
+            &[(OneRow, 1.000), (OneRowCached, 0.900)],
+            &[(OneRow, 1.000), (OneRowCached, 0.990)],
+            &[(OneRow, 1.000), (OneRowCached, 0.900)],
+        ]);
+        let adjudication = adjudicate_layer_norm_low_rank_forward_rounds(
+            &measured,
+            &[OneRow, OneRowCached],
+            OneRow,
+        );
+        assert_eq!(adjudication.selected, OneRow);
+        assert_eq!(
+            adjudication.round_wins,
+            vec![(OneRow, 0), (OneRowCached, 2)]
+        );
+        assert!(adjudication.decisive_margin.is_none());
+        // The medians are still reported, because that is what the record holds, and this
+        // is the pair the record shows beside a kept default.
+        assert_eq!(
+            adjudication.medians,
+            vec![(OneRow, 1.000), (OneRowCached, 0.900)]
+        );
+    }
+
+    /// Two variants that each win a round leave the default in place: the rounds have to
+    /// agree, so a lead that depends on which variant happened to be measured is not a
+    /// decision.
+    #[test]
+    fn split_rounds_leave_the_default() {
+        use LayerNormLowRankForwardTopology::{OneRow, OneRowCached, TwoRows};
+        let measured = rounds(&[
+            &[(OneRow, 1.0), (OneRowCached, 0.90), (TwoRows, 0.95)],
+            &[(OneRow, 1.0), (OneRowCached, 0.96), (TwoRows, 0.90)],
+            &[(OneRow, 1.0), (OneRowCached, 0.95), (TwoRows, 0.97)],
+        ]);
+        let adjudication = adjudicate_layer_norm_low_rank_forward_rounds(
+            &measured,
+            &[OneRow, OneRowCached, TwoRows],
+            OneRow,
+        );
+        assert_eq!(adjudication.selected, OneRow);
+        assert_eq!(
+            adjudication.round_wins,
+            vec![(OneRow, 0), (OneRowCached, 2), (TwoRows, 1)]
+        );
+    }
+
+    /// Ties go to the earlier candidate, so the verdict does not depend on the order the
+    /// interleaved rounds happened to measure in, and a missing round withholds a win
+    /// rather than inventing one.
+    #[test]
+    fn the_verdict_is_order_independent_and_withholds_unmeasured_rounds() {
+        use LayerNormLowRankForwardTopology::{OneRow, OneRowCached, TwoRows};
+        let measured = rounds(&[
+            &[(TwoRows, 0.90), (OneRowCached, 0.90), (OneRow, 1.0)],
+            &[(OneRowCached, 0.90), (OneRow, 1.0), (TwoRows, 0.90)],
+        ]);
+        let adjudication = adjudicate_layer_norm_low_rank_forward_rounds(
+            &measured,
+            &[OneRow, OneRowCached, TwoRows],
+            OneRow,
+        );
+        assert_eq!(adjudication.selected, OneRowCached);
+        assert_eq!(
+            adjudication.round_wins,
+            vec![(OneRow, 0), (OneRowCached, 2), (TwoRows, 0)]
+        );
+        // `TwoRows` was never measured, so it cannot win a round it is absent from.
+        let incomplete = rounds(&[&[(OneRow, 1.0), (OneRowCached, 0.90)], &[(OneRow, 1.0)]]);
+        let adjudication = adjudicate_layer_norm_low_rank_forward_rounds(
+            &incomplete,
+            &[OneRow, OneRowCached],
+            OneRow,
+        );
+        assert_eq!(adjudication.selected, OneRow);
+    }
+
+    /// No rounds at all is not a win: the default stands.
+    #[test]
+    fn no_measured_rounds_keeps_the_default() {
+        use LayerNormLowRankForwardTopology::{OneRow, OneRowCached};
+        let adjudication =
+            adjudicate_layer_norm_low_rank_forward_rounds(&[], &[OneRow, OneRowCached], OneRow);
+        assert_eq!(adjudication.selected, OneRow);
+        assert_eq!(adjudication.rounds, 0);
+        assert!(adjudication.decisive_margin.is_none());
+    }
 }

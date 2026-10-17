@@ -1,5 +1,5 @@
 {
-  "note": "Expectation for validation/verify_training_stack.py. probe_args, dispatch_count and shader_barrier_count_max describe the fixture structurally and are compared for every device; the barrier count is an upper bound so an elision improvement does not fail the ladder. mean_loss is recorded per device name and compared bit-for-bit, because bit-identical arithmetic is only guaranteed within one driver. Re-record with --record-expectation after an intended numerical change.",
+  "note": "Expectation for validation/verify_training_stack.py. probe_args and shader_barrier_count_max come from the fixture: the barrier count is a device-independent upper bound so an elision improvement does not fail the ladder. mean_loss and dispatch_count are recorded per device and compared for that device only: bit-identical arithmetic is only guaranteed within one driver, and the vendor layer selects different kernels on different parts, so the same fixture does not dispatch the same number of times on every device. Re-record with --record-expectation after an intended numerical change; that adds this device's entry and leaves every other device's entry as recorded.",
   "probe_args": [
     "--batch",
     "2",
@@ -10,11 +10,15 @@
     "--warmup",
     "0"
   ],
-  "dispatch_count": 6464,
   "shader_barrier_count_max": 3076,
   "devices": {
     "AMD Radeon Graphics": {
-      "mean_loss": 5.543217
+      "mean_loss": 5.543217,
+      "dispatch_count": 6464
+    },
+    "Intel(R) HD Graphics 520": {
+      "mean_loss": 5.5432177,
+      "dispatch_count": 6368
     }
   }
 }

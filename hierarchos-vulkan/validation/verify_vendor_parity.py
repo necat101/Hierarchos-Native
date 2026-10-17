@@ -8,12 +8,17 @@ paths are numerically identical, and the claim has to be checkable on whatever
 adapter is installed - including a machine that is *not* the vendor the variant
 was tuned for.
 
-This harness runs the headline forward-logit qualification twice on the
-executing adapter:
+This harness runs the whole forward-logit registry twice on the executing
+adapter:
 
 1. with the vendor plan resolved normally for the physical device, and
 2. with `HIERARCHOS_VULKAN_FORCE_VENDOR=amd`, which pins kernel selection to the
    portable modules (the AMD target's modules) regardless of the hardware.
+
+The registry includes the gate-width `gpt2_wide`/`llama_wide` fixtures, whose
+projections are above the Intel Gen9 gate, so the tuned modules are dispatched
+in run 1 and compared against the portable dispatch in run 2 -- below-gate
+fixtures only exercise the portable path whatever the plan says.
 
 Both runs must pass at the unchanged absolute gate, and every comparison must
 report the same `max_abs` and `failing_values`. On an Intel adapter that is the
@@ -37,7 +42,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parent
-HEADLINE = ROOT / "validation" / "verify_hf_logits.py"
+REGISTRY = ROOT / "validation" / "verify_hf_logits.py"
 FORCED_VENDOR = "amd"
 
 
@@ -49,18 +54,21 @@ def _json_report(stdout: str) -> dict:
     return json.loads(normalized[start:end])
 
 
-def _run_headline(timeout: int, extra_env: dict[str, str]) -> tuple[int, str]:
+def _run_registry(timeout: int, extra_env: dict[str, str]) -> tuple[int, str]:
     env = dict(os.environ)
     env.update(extra_env)
     completed = subprocess.run(
-        [sys.executable, str(HEADLINE), "--headline-strict"],
+        [sys.executable, str(REGISTRY)],
         capture_output=True,
         text=True,
         cwd=REPO,
         env=env,
         timeout=timeout,
     )
-    return completed.returncode, completed.stdout
+    # stderr carries the probe's kernel plan and dispatch counters for the
+    # gate-width fixtures; keep it in the log so the coverage claim is readable
+    # without re-running the harness by hand.
+    return completed.returncode, completed.stdout + completed.stderr
 
 
 def _comparisons(report: dict) -> dict[tuple[str, str], tuple[float, int]]:
@@ -122,21 +130,21 @@ def main() -> int:
     _device_vendor_plan()
 
     print(
-        f"\n[1/2] headline logits with the resolved plan (FORCE_VENDOR unset)",
+        "\n[1/2] full-registry logits with the resolved plan (FORCE_VENDOR unset)",
         flush=True,
     )
-    default_status, default_stdout = _run_headline(args.timeout, {})
+    default_status, default_stdout = _run_registry(args.timeout, {})
     print(default_stdout, flush=True)
     if default_status != 0:
         print(f"FAIL: resolved-plan run exited {default_status}")
         return 1
 
     print(
-        f"\n[2/2] headline logits with portable modules "
+        "\n[2/2] full-registry logits with portable modules "
         f"(HIERARCHOS_VULKAN_FORCE_VENDOR={FORCED_VENDOR})",
         flush=True,
     )
-    forced_status, forced_stdout = _run_headline(
+    forced_status, forced_stdout = _run_registry(
         args.timeout, {"HIERARCHOS_VULKAN_FORCE_VENDOR": FORCED_VENDOR}
     )
     print(forced_stdout, flush=True)
@@ -166,7 +174,7 @@ def main() -> int:
         return 1
 
     print(
-        "PASS: every headline comparison is identical with the tuned modules and "
+        "PASS: every registry comparison is identical with the tuned modules and "
         "with the portable (AMD-target) modules"
     )
     return 0

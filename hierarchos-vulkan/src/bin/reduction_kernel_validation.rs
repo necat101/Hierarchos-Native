@@ -21,13 +21,19 @@ mod kernel_golden;
 mod vulkan;
 
 use anyhow::{bail, Context, Result};
-use kernel_golden::Golden;
-use std::{fs, path::{Path, PathBuf}};
+use kernel_golden::{coverage_args, Golden};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use vulkan::{BindingAccess, ComputeBatch, ComputeKernel, GpuBuffer, VulkanDevice};
 
 fn signal(len: usize, seed: u32) -> Vec<f32> {
     (0..len)
-        .map(|i| (((i as u32).wrapping_mul(1664525).wrapping_add(seed) >> 10) % 4093) as f32 / 2048.0 - 1.0)
+        .map(|i| {
+            (((i as u32).wrapping_mul(1664525).wrapping_add(seed) >> 10) % 4093) as f32 / 2048.0
+                - 1.0
+        })
         .collect()
 }
 
@@ -65,7 +71,12 @@ fn dispatch(
     groups: u32,
 ) -> Result<()> {
     let mut batch = ComputeBatch::new(device)?;
-    kernel.record_dispatch(&mut batch, &buffers.iter().collect::<Vec<_>>(), bytemuck::cast_slice(push), [groups, 1, 1])?;
+    kernel.record_dispatch(
+        &mut batch,
+        &buffers.iter().collect::<Vec<_>>(),
+        bytemuck::cast_slice(push),
+        [groups, 1, 1],
+    )?;
     batch.submit()
 }
 
@@ -73,7 +84,13 @@ fn dispatch(
 struct Mismatches(Vec<String>);
 
 impl Mismatches {
-    fn record(&mut self, label: &str, left: &GpuBuffer, right: &GpuBuffer, len: usize) -> Result<()> {
+    fn record(
+        &mut self,
+        label: &str,
+        left: &GpuBuffer,
+        right: &GpuBuffer,
+        len: usize,
+    ) -> Result<()> {
         let a = left.read_f32(len)?;
         let b = right.read_f32(len)?;
         let mut differing = 0usize;
@@ -135,15 +152,30 @@ fn qwen(
         &[R, R, R, W],
         16,
     )?;
-    let cases = [(1, 1, 1), (7, 3, 7), (21, 3, 32), (32, 2, 63), (65, 1, 64), (43, 3, 65), (128, 4, 128), (256, 4, 192)];
+    let cases = [
+        (1, 1, 1),
+        (7, 3, 7),
+        (21, 3, 32),
+        (32, 2, 63),
+        (65, 1, 64),
+        (43, 3, 65),
+        (128, 4, 128),
+        (256, 4, 192),
+    ];
     for &(rows, heads, dim) in &cases {
         let len = (rows * heads * dim) as usize;
         let label = format!("qwen gated RMS weight gradient rows={rows} heads={heads} dim={dim}");
         let inputs = [signal(len, 101), signal(len, 701), signal(len, 1701)];
-        let mut new = inputs.iter().map(|x| GpuBuffer::from_f32(device, x)).collect::<Result<Vec<_>>>()?;
+        let mut new = inputs
+            .iter()
+            .map(|x| GpuBuffer::from_f32(device, x))
+            .collect::<Result<Vec<_>>>()?;
         new.push(GpuBuffer::zeros_f32(device, dim as usize)?);
         let old = if old_kernel.is_some() {
-            let mut buffers = inputs.iter().map(|x| GpuBuffer::from_f32(device, x)).collect::<Result<Vec<_>>>()?;
+            let mut buffers = inputs
+                .iter()
+                .map(|x| GpuBuffer::from_f32(device, x))
+                .collect::<Result<Vec<_>>>()?;
             buffers.push(GpuBuffer::zeros_f32(device, dim as usize)?);
             Some(buffers)
         } else {
@@ -180,9 +212,18 @@ fn rms(
     use BindingAccess::{ReadOnly as R, WriteOnly as W};
     let mut checked = 0;
     for residual in [false, true] {
-        let name = if residual { "transformer_rms_norm_input_grad_residual" } else { "transformer_rms_norm_input_grad" };
-        let accesses = if residual { vec![R, R, R, R, R, R, W, W] } else { vec![R, R, R, R, R, W] };
-        let (old_kernel, new_kernel) = kernel_pair(device, baseline, candidate, name, &accesses, 28)?;
+        let name = if residual {
+            "transformer_rms_norm_input_grad_residual"
+        } else {
+            "transformer_rms_norm_input_grad"
+        };
+        let accesses = if residual {
+            vec![R, R, R, R, R, R, W, W]
+        } else {
+            vec![R, R, R, R, R, W]
+        };
+        let (old_kernel, new_kernel) =
+            kernel_pair(device, baseline, candidate, name, &accesses, 28)?;
         for &(rows, dim) in &[(1u32, 1u32), (3, 7), (65, 32), (7, 63), (128, 256)] {
             let len = (rows * dim) as usize;
             let input = signal(len, 101);
@@ -191,14 +232,19 @@ fn rms(
             let mean = vec![0.351f32; rows as usize];
             let rstd = vec![1.0f32 / 0.351f32.sqrt(); rows as usize];
             let mut inputs = vec![grad, input, weight, rstd, mean];
-            if residual { inputs.push(signal(len, 1901)); }
+            if residual {
+                inputs.push(signal(len, 1901));
+            }
             let outputs = if residual { 2 } else { 1 };
             for pow in 0..=1u32 {
                 for products in 0..=3u32 {
                     for exact in 0..=1u32 {
                         let label = format!("{name} rows={rows} dim={dim} pow={pow} products={products} exact={exact}");
                         let build = |device: &VulkanDevice| -> Result<Vec<GpuBuffer>> {
-                            let mut buffers = inputs.iter().map(|x| GpuBuffer::from_f32(device, x)).collect::<Result<Vec<_>>>()?;
+                            let mut buffers = inputs
+                                .iter()
+                                .map(|x| GpuBuffer::from_f32(device, x))
+                                .collect::<Result<Vec<_>>>()?;
                             for _ in 0..outputs {
                                 buffers.push(GpuBuffer::zeros_f32(device, len)?);
                             }
@@ -256,24 +302,46 @@ fn adamw(
     golden: &mut Option<Golden>,
 ) -> Result<usize> {
     use BindingAccess::{ReadOnly as R, ReadWrite as RW};
-    let (old_kernel, new_kernel) = kernel_pair(device, baseline, candidate, "adamw", &[RW, R, RW, RW], 28)?;
+    let (old_kernel, new_kernel) =
+        kernel_pair(device, baseline, candidate, "adamw", &[RW, R, RW, RW], 28)?;
     let mut checked = 0;
     for len in [1u32, 255, 256, 257, 65537] {
         for step in [1u32, 17, 4096] {
             let label = format!("adamw len={len} step={step}");
-            let inputs = [signal(len as usize, 101), signal(len as usize, 701), signal(len as usize, 1701), vec![0.15; len as usize]];
+            let inputs = [
+                signal(len as usize, 101),
+                signal(len as usize, 701),
+                signal(len as usize, 1701),
+                vec![0.15; len as usize],
+            ];
             let build = |device: &VulkanDevice| -> Result<Vec<GpuBuffer>> {
-                inputs.iter().map(|x| GpuBuffer::from_f32(device, x)).collect::<Result<Vec<_>>>()
+                inputs
+                    .iter()
+                    .map(|x| GpuBuffer::from_f32(device, x))
+                    .collect::<Result<Vec<_>>>()
             };
             let new = build(device)?;
-            let push = [len, step, 0.001f32.to_bits(), 0.9f32.to_bits(), 0.999f32.to_bits(), 1.0e-8f32.to_bits(), 0.01f32.to_bits()];
+            let push = [
+                len,
+                step,
+                0.001f32.to_bits(),
+                0.9f32.to_bits(),
+                0.999f32.to_bits(),
+                1.0e-8f32.to_bits(),
+                0.01f32.to_bits(),
+            ];
             let groups = len.div_ceil(256);
             dispatch(device, &new_kernel, &new, &push, groups)?;
             if let Some(kernel) = &old_kernel {
                 let old = build(device)?;
                 dispatch(device, kernel, &old, &push, groups)?;
                 for index in [0, 2, 3] {
-                    mismatches.record(&format!("{label} output={index}"), &old[index], &new[index], len as usize)?;
+                    mismatches.record(
+                        &format!("{label} output={index}"),
+                        &old[index],
+                        &new[index],
+                        len as usize,
+                    )?;
                 }
             }
             if let Some(golden) = golden.as_mut() {
@@ -293,7 +361,10 @@ fn adamw(
                     let old = build(device)?;
                     let old_ms = time(device, kernel, &old, &push, groups)?;
                     let new_ms = time(device, &new_kernel, &new, &push, groups)?;
-                    println!("adamw len={len} old_ms={old_ms:.6} new_ms={new_ms:.6} speedup={:.3}", old_ms / new_ms);
+                    println!(
+                        "adamw len={len} old_ms={old_ms:.6} new_ms={new_ms:.6} speedup={:.3}",
+                        old_ms / new_ms
+                    );
                 }
             }
         }
@@ -307,20 +378,27 @@ fn main() -> Result<()> {
     let mut golden_compare = None;
     let mut golden_write = None;
     let mut golden_strict = false;
-    let mut args = std::env::args_os().skip(1);
+    let arguments = std::env::args().skip(1).collect::<Vec<String>>();
+    let mut args = arguments.iter().cloned();
     while let Some(arg) = args.next() {
-        match arg.to_str() {
-            Some("--candidate-dir") => {
+        match arg.as_str() {
+            "--candidate-dir" => {
                 candidate = PathBuf::from(args.next().context("missing candidate directory")?);
             }
-            Some("--golden") => {
+            "--golden" => {
                 golden_compare = Some(PathBuf::from(args.next().context("missing golden file")?));
             }
-            Some("--write-golden") => {
+            "--write-golden" => {
                 golden_write = Some(PathBuf::from(args.next().context("missing golden file")?));
             }
-            Some("--golden-strict") => golden_strict = true,
-            Some(flag) if flag.starts_with("--") => bail!("unknown argument {flag}"),
+            "--golden-strict" => golden_strict = true,
+            // Resolved by `coverage_args` below; consumed here so the harness does not read
+            // the flag's value as its own argument.
+            "--coverage" | "--coverage-key" => {
+                let _ = args.next().context("missing coverage argument")?;
+            }
+            "--record-coverage" | "--allow-coverage-shrink" | "--bootstrap-coverage" => {}
+            flag if flag.starts_with("--") => bail!("unknown argument {flag}"),
             _ => baseline = Some(PathBuf::from(arg)),
         }
     }
@@ -338,9 +416,16 @@ fn main() -> Result<()> {
     if golden_strict && golden_compare.is_none() {
         bail!("--golden-strict needs a --golden file to verify against");
     }
+    let coverage = coverage_args(&arguments)?;
     let mut golden = match (&golden_compare, &golden_write) {
-        (Some(path), _) => Some(Golden::compare(path, device.name())?.strict(golden_strict)),
-        (None, Some(path)) => Some(Golden::write(path, device.name())?),
+        (Some(path), _) => Some(
+            Golden::compare(path, device.name())?
+                .strict(golden_strict)
+                .with_coverage(coverage, path),
+        ),
+        (None, Some(path)) => {
+            Some(Golden::write(path, device.name())?.with_coverage(coverage, path))
+        }
         (None, None) => None,
     };
     let mut mismatches = Mismatches::default();
@@ -352,9 +437,14 @@ fn main() -> Result<()> {
         for mismatch in &mismatches.0 {
             eprintln!("mismatch {mismatch}");
         }
-        bail!("{} compared outputs differ from the baseline", mismatches.0.len());
+        bail!(
+            "{} compared outputs differ from the baseline",
+            mismatches.0.len()
+        );
     }
     println!("PASS: {checked} GPU cases, all compared outputs bit-identical");
-    if let Some(golden) = golden { golden.finish()?; }
+    if let Some(golden) = golden {
+        golden.finish()?;
+    }
     Ok(())
 }

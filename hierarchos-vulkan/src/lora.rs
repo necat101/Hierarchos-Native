@@ -154,8 +154,14 @@ pub fn merge_peft_lora_safetensors(
     adapter_dir: &Path,
     destination: &Path,
 ) -> Result<HierarchosNativeLoraMergeReport> {
-    let bound = adapter_dir.join(HIERARCHOS_LORA_ADAPTER_MANIFEST_FILENAME).exists()
-        || adapter_dir.join(format!("{HIERARCHOS_LORA_ADAPTER_MANIFEST_FILENAME}.sha256")).exists();
+    let bound = adapter_dir
+        .join(HIERARCHOS_LORA_ADAPTER_MANIFEST_FILENAME)
+        .exists()
+        || adapter_dir
+            .join(format!(
+                "{HIERARCHOS_LORA_ADAPTER_MANIFEST_FILENAME}.sha256"
+            ))
+            .exists();
     apply_lora_safetensors(base_weights, adapter_dir, destination, bound, false)
 }
 
@@ -192,7 +198,8 @@ fn apply_lora_safetensors(
         );
     }
     if base_weights == destination
-        || (destination.exists() && fs::canonicalize(base_weights)? == fs::canonicalize(destination)?)
+        || (destination.exists()
+            && fs::canonicalize(base_weights)? == fs::canonicalize(destination)?)
     {
         bail!("native LoRA merge requires a distinct destination checkpoint");
     }
@@ -205,10 +212,16 @@ fn apply_lora_safetensors(
     validate_adapter_config(&config)?;
     if unmerge {
         let raw: serde_json::Value = serde_json::from_slice(&fs::read(&config_path)?)?;
-        let init = raw.get("init_lora_weights").and_then(serde_json::Value::as_str).unwrap_or("");
+        let init = raw
+            .get("init_lora_weights")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
         if config.use_dora
             || !matches!(config.bias.as_str(), "" | "none")
-            || config.modules_to_save.as_ref().is_some_and(|v| !v.is_empty())
+            || config
+                .modules_to_save
+                .as_ref()
+                .is_some_and(|v| !v.is_empty())
             || nonempty_json_option(&config.trainable_token_indices)
             || (!init.is_empty() && !matches!(init, "gaussian" | "eva" | "orthogonal"))
         {
@@ -217,13 +230,17 @@ fn apply_lora_safetensors(
     }
     let base_sha256 = sha256_file(base_weights)?;
     let adapter_sha256 = sha256_file(&adapter_weights)?;
-    let architecture_contract_sha256 = if require_binding { validate_bound_manifest(
-        base_weights,
-        &config_path,
-        &adapter_weights,
-        &manifest_path,
-        &base_sha256,
-    )? } else { String::new() };
+    let architecture_contract_sha256 = if require_binding {
+        validate_bound_manifest(
+            base_weights,
+            &config_path,
+            &adapter_weights,
+            &manifest_path,
+            &base_sha256,
+        )?
+    } else {
+        String::new()
+    };
 
     let base_bytes = fs::read(base_weights)
         .with_context(|| format!("reading base model {}", base_weights.display()))?;
@@ -1652,28 +1669,51 @@ mod tests {
         let base = root.join("base.safetensors");
         let merged = root.join("merged.safetensors");
         let restored = root.join("restored.safetensors");
-        write_tensors(&base, &[
-            ("block.key.weight", vec![2, 3], vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
-            ("untouched.weight", vec![2], vec![-0.0, 9.0]),
-        ])?;
+        write_tensors(
+            &base,
+            &[
+                (
+                    "block.key.weight",
+                    vec![2, 3],
+                    vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+                ),
+                ("untouched.weight", vec![2], vec![-0.0, 9.0]),
+            ],
+        )?;
         let original_bytes = fs::read(&base)?;
         let config = json!({"peft_type":"LORA", "r":2, "lora_alpha":4,
             "target_modules":["key"], "bias":"none"});
         let config_path = adapter.join(HIERARCHOS_LORA_ADAPTER_CONFIG_FILENAME);
         fs::write(&config_path, serde_json::to_vec(&config)?)?;
-        write_tensors(&adapter.join(HIERARCHOS_LORA_ADAPTER_WEIGHTS_FILENAME), &[
-            ("base_model.model.block.key.lora_A.weight", vec![2,3], vec![0.25,0.0,0.5,0.0,0.25,0.25]),
-            ("base_model.model.block.key.lora_B.weight", vec![2,2], vec![0.25,0.5,0.75,1.0]),
-        ])?;
+        write_tensors(
+            &adapter.join(HIERARCHOS_LORA_ADAPTER_WEIGHTS_FILENAME),
+            &[
+                (
+                    "base_model.model.block.key.lora_A.weight",
+                    vec![2, 3],
+                    vec![0.25, 0.0, 0.5, 0.0, 0.25, 0.25],
+                ),
+                (
+                    "base_model.model.block.key.lora_B.weight",
+                    vec![2, 2],
+                    vec![0.25, 0.5, 0.75, 1.0],
+                ),
+            ],
+        )?;
         merge_peft_lora_safetensors(&base, &adapter, &merged)?;
         assert_eq!(fs::read(&base)?, original_bytes);
         unmerge_peft_lora_safetensors(&merged, &adapter, &restored)?;
-        assert_eq!(crate::checkpoint::read_f32_tensor(&base, "block.key.weight")?,
-            crate::checkpoint::read_f32_tensor(&restored, "block.key.weight")?);
+        assert_eq!(
+            crate::checkpoint::read_f32_tensor(&base, "block.key.weight")?,
+            crate::checkpoint::read_f32_tensor(&restored, "block.key.weight")?
+        );
         let merged_bytes = fs::read(&merged)?;
         let original = SafeTensors::deserialize(&original_bytes)?;
         let output = SafeTensors::deserialize(&merged_bytes)?;
-        assert_eq!(original.tensor("untouched.weight")?.data(), output.tensor("untouched.weight")?.data());
+        assert_eq!(
+            original.tensor("untouched.weight")?.data(),
+            output.tensor("untouched.weight")?.data()
+        );
         // No output is published when subtraction cannot restore the base.
         for field in ["use_dora", "modules_to_save", "bias", "init_lora_weights"] {
             let mut invalid = config.clone();

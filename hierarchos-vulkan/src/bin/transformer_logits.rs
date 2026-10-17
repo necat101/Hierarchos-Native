@@ -144,8 +144,25 @@ fn run() -> Result<()> {
         Some(index) => VulkanDevice::new_with_index(index)?,
         None => VulkanDevice::new()?,
     };
+    // Printed before the graph is built so a harness can tell a skipped vendor
+    // module (plan resolves to `portable`, for example under
+    // `HIERARCHOS_VULKAN_FORCE_VENDOR`) from an expected dispatch that never
+    // happened. Without that distinction a coverage assertion would fire on
+    // every adapter that simply has no module for the family.
+    if std::env::var_os("HIERARCHOS_VULKAN_VARIANT_TRACE").is_some() {
+        let plan = hierarchos_vulkan::vendor_kernel_plan(&device)
+            .into_iter()
+            .map(|selection| format!("{}={}", selection.family.label(), selection.variant))
+            .collect::<Vec<_>>()
+            .join(" ");
+        eprintln!("variant-plan: {plan}");
+    }
     if let Some(encoder_ids) = fixture.encoder_input_ids.as_deref() {
-        if lora_adapter.is_some() || !named_lora_adapters.is_empty() || selected_adapter.is_some() || bypass_adapters {
+        if lora_adapter.is_some()
+            || !named_lora_adapters.is_empty()
+            || selected_adapter.is_some()
+            || bypass_adapters
+        {
             bail!("LoRA adapter controls are not supported by the seq2seq logits harness");
         }
         if fixture.batch_size == 0 || fixture.token_type_ids.is_some() {
@@ -228,7 +245,10 @@ fn run() -> Result<()> {
             graph.export_hf_package(&model, export_dir)?;
         }
         if let Some(trace_path) = std::env::var_os("HIERARCHOS_FALCON_H1_TRACE") {
-            fs::write(trace_path, serde_json::to_vec(&graph.debug_falcon_h1_last_forward_states()?)?)?;
+            fs::write(
+                trace_path,
+                serde_json::to_vec(&graph.debug_falcon_h1_last_forward_states()?)?,
+            )?;
         }
         eprintln!("transformer_logits: forward complete");
         let loaded_adapters = graph
@@ -250,6 +270,19 @@ fn run() -> Result<()> {
             adapters_enabled,
         }
     };
+    // Proof of coverage rather than of intent: the geometry gate can reject a
+    // dispatch the plan selected, so only this counter shows that a tuned
+    // module actually ran. The validation harness turns it on for the
+    // gate-width fixtures and fails when the expected family is absent.
+    if std::env::var_os("HIERARCHOS_VULKAN_VARIANT_TRACE").is_some() {
+        let counts = hierarchos_vulkan::variant_dispatch_counts()
+            .into_iter()
+            .filter(|(_, count)| *count > 0)
+            .map(|(family, count)| format!("{family}={count}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        eprintln!("variant-dispatch: {counts}");
+    }
     let encoded = serde_json::to_vec(&report)?;
     if let Some(output) = output {
         fs::write(&output, &encoded).with_context(|| format!("writing {}", output.display()))?;

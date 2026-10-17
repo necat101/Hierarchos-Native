@@ -192,9 +192,18 @@ pub(crate) fn group_norm(
     out
 }
 
+/// Clamp a finite value to `[-max_abs, max_abs]`, passing non-finite values
+/// through unchanged.
+///
+/// A non-positive `max_abs` disables the clamp, matching
+/// `clamp_preserve_nonfinite` in the Vulkan state shaders and
+/// [`l2_norm_clamp`] below. Without that convention `0.0` would be read as
+/// "clamp to zero" and silently erase every recurrent-state channel.
 #[inline]
 pub(crate) fn finite_clamp(value: f32, max_abs: f32) -> f32 {
-    if value.is_finite() {
+    if max_abs <= 0.0 {
+        value
+    } else if value.is_finite() {
         value.clamp(-max_abs, max_abs)
     } else {
         value
@@ -235,6 +244,17 @@ mod tests {
         let var = out.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / out.len() as f32;
         assert!(mean.abs() < 1e-6);
         assert!((var - 1.0).abs() < 2e-5);
+    }
+
+    #[test]
+    fn non_positive_clamp_limit_disables_clamping() {
+        // The Vulkan state shaders treat `state_clamp <= 0` as "no clamp"; the
+        // CPU runtime must agree or the same state pack means two things.
+        assert_eq!(finite_clamp(3.5, 0.0), 3.5);
+        assert_eq!(finite_clamp(-3.5, -1.0), -3.5);
+        assert_eq!(finite_clamp(3.5, 2.0), 2.0);
+        assert_eq!(finite_clamp(-3.5, 2.0), -2.0);
+        assert!(finite_clamp(f32::INFINITY, 2.0).is_infinite());
     }
 
     #[test]

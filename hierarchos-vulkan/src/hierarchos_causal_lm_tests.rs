@@ -888,7 +888,10 @@ fn continuation_matches_cpu_across_manager_and_rosa_boundaries() -> Result<()> {
             &planned.full_model_parameter_snapshots()?,
             0.,
         );
-        assert_eq!(planned.snapshot_portable_frontend_state(1)?, before_frontend);
+        assert_eq!(
+            planned.snapshot_portable_frontend_state(1)?,
+            before_frontend
+        );
         eprintln!("PASS CPU/Vulkan continuation, manager/ROSA rollover, planned continuation rejection, TBPTT={chunk_size:?}");
     }
     Ok(())
@@ -1035,8 +1038,9 @@ fn vendor_kernels_match_portable() -> Result<()> {
     let linear_residual_dispatches = crate::vendor::variant_dispatch_count_for(
         crate::vendor::VendorKernelFamily::LinearResidualForward,
     );
-    let linear3_dispatches =
-        crate::vendor::variant_dispatch_count_for(crate::vendor::VendorKernelFamily::Linear3Forward);
+    let linear3_dispatches = crate::vendor::variant_dispatch_count_for(
+        crate::vendor::VendorKernelFamily::Linear3Forward,
+    );
     let vendor_gradients = vendor.full_model_pending_gradient_snapshots()?;
     assert!(
         vendor_dispatches > 0,

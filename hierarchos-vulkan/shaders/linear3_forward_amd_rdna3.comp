@@ -1,0 +1,90 @@
+#version 450
+
+// AMD RDNA3 (gfx11) variant of linear3_forward.
+//
+// The portable module evaluates the three RWKV time-mix projections (r/k/v) in
+// one invocation, each as its own ascending-k serial fma() chain. This variant
+// keeps those three chains untouched and stages all six operands of a 16x16
+// output tile in workgroup memory, a 64-wide K slice at a time:
+// 6 arrays x 16 rows x 65 floats = 24 960 bytes, inside the RDNA3 64 KiB LDS
+// budget. Global loads per FMA drop from six to roughly 6/64, and the workgroup
+// pays two barriers per 64 k.
+//
+// The arithmetic sequence is unchanged, so results stay bit-identical, and the
+// host grid is unchanged (16x16, one output element per invocation). Small
+// shapes stay on the portable module through the host-side gate (rows < 8,
+// input_dim < 64 or output_dim < 16).
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RInputBuffer { float xr[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RWeightBuffer { float wr[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KInputBuffer { float xk[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KWeightBuffer { float wk[]; };
+layout(set = 0, binding = 4, std430) readonly buffer VInputBuffer { float xv[]; };
+layout(set = 0, binding = 5, std430) readonly buffer VWeightBuffer { float wv[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer ROutputBuffer { float r[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer KOutputBuffer { float raw_k[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer VOutputBuffer { float v[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+shared float xr_tile[16][65];
+shared float wr_tile[16][65];
+shared float xk_tile[16][65];
+shared float wk_tile[16][65];
+shared float xv_tile[16][65];
+shared float wv_tile[16][65];
+
+void main() {
+    uint tx = gl_LocalInvocationID.x;
+    uint ty = gl_LocalInvocationID.y;
+    uint out_col = gl_WorkGroupID.x * 16u + tx;
+    uint row = gl_WorkGroupID.y * 16u + ty;
+
+    uint tile_row = gl_WorkGroupID.y * 16u + ty;
+    uint tile_col = gl_WorkGroupID.x * 16u + ty;
+    bool row_in_range = tile_row < pc.rows;
+    bool col_in_range = tile_col < pc.output_dim;
+    uint x_tile_base = tile_row * pc.input_dim;
+    uint w_tile_base = tile_col * pc.input_dim;
+
+    float r_sum = 0.0;
+    float k_sum = 0.0;
+    float v_sum = 0.0;
+    for (uint k_base = 0u; k_base < pc.input_dim; k_base += 64u) {
+        uint load_k = k_base + tx * 4u;
+        for (uint j = 0u; j < 4u; ++j) {
+            bool k_in_range = load_k + j < pc.input_dim;
+            bool x_in_range = row_in_range && k_in_range;
+            bool w_in_range = col_in_range && k_in_range;
+            uint slot = tx * 4u + j;
+            xr_tile[ty][slot] = x_in_range ? xr[x_tile_base + load_k + j] : 0.0;
+            wr_tile[ty][slot] = w_in_range ? wr[w_tile_base + load_k + j] : 0.0;
+            xk_tile[ty][slot] = x_in_range ? xk[x_tile_base + load_k + j] : 0.0;
+            wk_tile[ty][slot] = w_in_range ? wk[w_tile_base + load_k + j] : 0.0;
+            xv_tile[ty][slot] = x_in_range ? xv[x_tile_base + load_k + j] : 0.0;
+            wv_tile[ty][slot] = w_in_range ? wv[w_tile_base + load_k + j] : 0.0;
+        }
+        barrier();
+
+        uint k_end = min(64u, pc.input_dim - k_base);
+        for (uint c = 0u; c < k_end; ++c) {
+            r_sum = fma(xr_tile[ty][c], wr_tile[tx][c], r_sum);
+            k_sum = fma(xk_tile[ty][c], wk_tile[tx][c], k_sum);
+            v_sum = fma(xv_tile[ty][c], wv_tile[tx][c], v_sum);
+        }
+        barrier();
+    }
+
+    if (row < pc.rows && out_col < pc.output_dim) {
+        uint output_index = row * pc.output_dim + out_col;
+        r[output_index] = r_sum;
+        raw_k[output_index] = k_sum;
+        v[output_index] = v_sum;
+    }
+}

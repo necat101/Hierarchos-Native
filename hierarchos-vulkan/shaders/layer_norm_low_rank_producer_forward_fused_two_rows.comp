@@ -1,0 +1,334 @@
+#version 450
+
+// Two-row specialization of the f32 LN1 + RWKV-v8 low-rank producer.
+//
+// One 64-lane workgroup owns a pair of batch rows. Lane 0 reduces the first row
+// and lane 1 the second, each in the canonical scalar order of
+// layer_norm_forward.comp, and every weight element is then loaded once and folded
+// into both rows: the first-stage weight of a (column, rank) pair and the
+// w2/a2/g2 element of an output column each serve two FMAs instead of one. The
+// second stage is what this kernel waits on, so halving the weight bytes per row
+// is the point of the pairing; the price is half the workgroups, which is why the
+// Rust side times this variant against the one-row kernel on the device instead of
+// assuming it (LayerNormLowRankForwardF32Topology).
+//
+// The per-row arithmetic and its order are unchanged, so this variant is
+// bit-identical to layer_norm_low_rank_producer_forward_fused.comp and the choice
+// between them is scheduling, not numerics. An odd row count leaves the pair's
+// second row idle.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer LnWeightBuffer { float ln_weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer LnBiasBuffer { float ln_bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MixWBuffer { float mix_w[]; };
+layout(set = 0, binding = 5, std430) readonly buffer MixABuffer { float mix_a[]; };
+layout(set = 0, binding = 6, std430) readonly buffer MixGBuffer { float mix_g[]; };
+layout(set = 0, binding = 7, std430) readonly buffer W1Buffer { float w1[]; };
+layout(set = 0, binding = 8, std430) readonly buffer A1Buffer { float a1[]; };
+layout(set = 0, binding = 9, std430) readonly buffer G1Buffer { float g1[]; };
+
+layout(set = 0, binding = 10, std430) writeonly buffer XNormBuffer { float x_norm[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer MixedWBuffer { float xw[]; };
+layout(set = 0, binding = 14, std430) writeonly buffer MixedABuffer { float xa[]; };
+layout(set = 0, binding = 15, std430) writeonly buffer MixedGBuffer { float xg[]; };
+layout(set = 0, binding = 16, std430) writeonly buffer WHiddenBuffer { float w_hidden[]; };
+layout(set = 0, binding = 17, std430) writeonly buffer AHiddenBuffer { float a_hidden[]; };
+layout(set = 0, binding = 18, std430) writeonly buffer GHiddenBuffer { float g_hidden[]; };
+layout(set = 0, binding = 19, std430) writeonly buffer WTanhBuffer { float w_tanh[]; };
+layout(set = 0, binding = 20, std430) readonly buffer W2Buffer { float w2[]; };
+layout(set = 0, binding = 21, std430) readonly buffer W0Buffer { float w0[]; };
+layout(set = 0, binding = 22, std430) writeonly buffer WPreBuffer { float w_pre[]; };
+layout(set = 0, binding = 23, std430) writeonly buffer WOutputBuffer { float w_output[]; };
+layout(set = 0, binding = 24, std430) readonly buffer A2Buffer { float a2[]; };
+layout(set = 0, binding = 25, std430) readonly buffer A0Buffer { float a0[]; };
+layout(set = 0, binding = 26, std430) writeonly buffer APreBuffer { float a_pre[]; };
+layout(set = 0, binding = 27, std430) writeonly buffer AOutputBuffer { float a_output[]; };
+layout(set = 0, binding = 28, std430) writeonly buffer GSigmoidBuffer { float g_sigmoid[]; };
+layout(set = 0, binding = 29, std430) readonly buffer G2Buffer { float g2[]; };
+layout(set = 0, binding = 30, std430) writeonly buffer GOutputBuffer { float g_output[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint width;
+    uint w_rank;
+    uint a_rank;
+    uint g_rank;
+    float eps;
+} pc;
+
+shared float row_mean[2];
+shared float row_rstd[2];
+shared float reduce_tile[2][64];
+shared float mixed_w_tile[2][64];
+shared float mixed_a_tile[2][64];
+shared float mixed_g_tile[2][64];
+shared float w_tanh_tile[2][64];
+shared float a_hidden_tile[2][64];
+shared float g_sigmoid_tile[2][64];
+
+float softplus(float value) {
+    if (value > 20.0) {
+        return value;
+    }
+    if (value < -20.0) {
+        return exp(value);
+    }
+    return log(1.0 + exp(value));
+}
+
+float stable_sigmoid(float value) {
+    if (value >= 0.0) {
+        return 1.0 / (1.0 + exp(-value));
+    }
+    float e = exp(value);
+    return e / (1.0 + e);
+}
+
+void main() {
+    uint lane = gl_LocalInvocationID.x;
+    uint row0 = gl_WorkGroupID.x * 2u;
+    uint row1 = row0 + 1u;
+    if (row0 >= pc.rows) {
+        return;
+    }
+    bool row1_active = row1 < pc.rows;
+    uint base0 = row0 * pc.width;
+    uint base1 = row1 * pc.width;
+    // `reduce_lane` is 0 for the first row of the pair and 1 for the second, so one
+    // register pair holds the chain and reads the matching shared tile. The rows are
+    // independent, so which lane adds a row's values cannot change them.
+    bool reduce_lane = lane < 2u && (lane == 0u || row1_active);
+
+    float mean = 0.0;
+    float variance = 0.0;
+    for (uint tile = 0u; tile < pc.width; tile += 64u) {
+        uint tile_len = min(64u, pc.width - tile);
+        if (lane < tile_len) {
+            reduce_tile[0][lane] = x[base0 + tile + lane];
+            if (row1_active) {
+                reduce_tile[1][lane] = x[base1 + tile + lane];
+            }
+        }
+        memoryBarrierShared();
+        barrier();
+        if (reduce_lane) {
+            for (uint i = 0u; i < tile_len; ++i) {
+                mean += reduce_tile[lane][i];
+            }
+        }
+        memoryBarrierShared();
+        barrier();
+    }
+    if (reduce_lane) {
+        mean /= float(pc.width);
+    }
+    for (uint tile = 0u; tile < pc.width; tile += 64u) {
+        uint tile_len = min(64u, pc.width - tile);
+        if (lane < tile_len) {
+            reduce_tile[0][lane] = x[base0 + tile + lane];
+            if (row1_active) {
+                reduce_tile[1][lane] = x[base1 + tile + lane];
+            }
+        }
+        memoryBarrierShared();
+        barrier();
+        if (reduce_lane) {
+            for (uint i = 0u; i < tile_len; ++i) {
+                float centered = reduce_tile[lane][i] - mean;
+                variance = fma(centered, centered, variance);
+            }
+        }
+        memoryBarrierShared();
+        barrier();
+    }
+    if (reduce_lane) {
+        variance /= float(pc.width);
+        float rstd = inversesqrt(variance + pc.eps);
+        row_mean[lane] = mean;
+        row_rstd[lane] = rstd;
+        uint row = row0 + lane;
+        mean_values[row] = mean;
+        rstd_values[row] = rstd;
+    }
+    memoryBarrierShared();
+    barrier();
+
+    bool w_active = lane < pc.w_rank;
+    bool a_active = lane < pc.a_rank;
+    bool g_active = lane < pc.g_rank;
+    float w_sum0 = 0.0;
+    float a_sum0 = 0.0;
+    float g_sum0 = 0.0;
+    float w_sum1 = 0.0;
+    float a_sum1 = 0.0;
+    float g_sum1 = 0.0;
+
+    for (uint tile = 0u; tile < pc.width; tile += 64u) {
+        uint in_col = tile + lane;
+        float mixed_w0 = 0.0;
+        float mixed_a0 = 0.0;
+        float mixed_g0 = 0.0;
+        float mixed_w1 = 0.0;
+        float mixed_a1 = 0.0;
+        float mixed_g1 = 0.0;
+
+        if (in_col < pc.width) {
+            uint index0 = base0 + in_col;
+            float normalized0 = (x[index0] - row_mean[0]) * row_rstd[0];
+            float xn0 = fma(normalized0, ln_weight[in_col], ln_bias[in_col]);
+            x_norm[index0] = xn0;
+            float delta0 = previous[index0] - xn0;
+            mixed_w0 = fma(delta0, mix_w[in_col], xn0);
+            mixed_a0 = fma(delta0, mix_a[in_col], xn0);
+            mixed_g0 = fma(delta0, mix_g[in_col], xn0);
+            xw[index0] = mixed_w0;
+            xa[index0] = mixed_a0;
+            xg[index0] = mixed_g0;
+        }
+        if (row1_active && in_col < pc.width) {
+            uint index1 = base1 + in_col;
+            float normalized1 = (x[index1] - row_mean[1]) * row_rstd[1];
+            float xn1 = fma(normalized1, ln_weight[in_col], ln_bias[in_col]);
+            x_norm[index1] = xn1;
+            float delta1 = previous[index1] - xn1;
+            mixed_w1 = fma(delta1, mix_w[in_col], xn1);
+            mixed_a1 = fma(delta1, mix_a[in_col], xn1);
+            mixed_g1 = fma(delta1, mix_g[in_col], xn1);
+            xw[index1] = mixed_w1;
+            xa[index1] = mixed_a1;
+            xg[index1] = mixed_g1;
+        }
+
+        mixed_w_tile[0][lane] = mixed_w0;
+        mixed_a_tile[0][lane] = mixed_a0;
+        mixed_g_tile[0][lane] = mixed_g0;
+        mixed_w_tile[1][lane] = mixed_w1;
+        mixed_a_tile[1][lane] = mixed_a1;
+        mixed_g_tile[1][lane] = mixed_g1;
+        memoryBarrierShared();
+        barrier();
+
+        uint tile_len = min(64u, pc.width - tile);
+        for (uint i = 0u; i < tile_len; ++i) {
+            uint weight_input = tile + i;
+            if (w_active) {
+                float weight = w1[weight_input * pc.w_rank + lane];
+                w_sum0 = fma(mixed_w_tile[0][i], weight, w_sum0);
+                w_sum1 = fma(mixed_w_tile[1][i], weight, w_sum1);
+            }
+            if (a_active) {
+                float weight = a1[weight_input * pc.a_rank + lane];
+                a_sum0 = fma(mixed_a_tile[0][i], weight, a_sum0);
+                a_sum1 = fma(mixed_a_tile[1][i], weight, a_sum1);
+            }
+            if (g_active) {
+                float weight = g1[weight_input * pc.g_rank + lane];
+                g_sum0 = fma(mixed_g_tile[0][i], weight, g_sum0);
+                g_sum1 = fma(mixed_g_tile[1][i], weight, g_sum1);
+            }
+        }
+
+        memoryBarrierShared();
+        barrier();
+    }
+
+    if (w_active) {
+        uint hidden0 = row0 * pc.w_rank + lane;
+        w_hidden[hidden0] = w_sum0;
+        float activated0 = tanh(w_sum0);
+        w_tanh[hidden0] = activated0;
+        w_tanh_tile[0][lane] = activated0;
+        if (row1_active) {
+            uint hidden1 = row1 * pc.w_rank + lane;
+            w_hidden[hidden1] = w_sum1;
+            float activated1 = tanh(w_sum1);
+            w_tanh[hidden1] = activated1;
+            w_tanh_tile[1][lane] = activated1;
+        }
+    }
+    if (a_active) {
+        uint hidden0 = row0 * pc.a_rank + lane;
+        a_hidden[hidden0] = a_sum0;
+        a_hidden_tile[0][lane] = a_sum0;
+        if (row1_active) {
+            uint hidden1 = row1 * pc.a_rank + lane;
+            a_hidden[hidden1] = a_sum1;
+            a_hidden_tile[1][lane] = a_sum1;
+        }
+    }
+    if (g_active) {
+        uint hidden0 = row0 * pc.g_rank + lane;
+        g_hidden[hidden0] = g_sum0;
+        float activated0 = stable_sigmoid(g_sum0);
+        g_sigmoid[hidden0] = activated0;
+        g_sigmoid_tile[0][lane] = activated0;
+        if (row1_active) {
+            uint hidden1 = row1 * pc.g_rank + lane;
+            g_hidden[hidden1] = g_sum1;
+            float activated1 = stable_sigmoid(g_sum1);
+            g_sigmoid[hidden1] = activated1;
+            g_sigmoid_tile[1][lane] = activated1;
+        }
+    }
+
+    memoryBarrierShared();
+    barrier();
+    for (uint out_col = lane; out_col < pc.width; out_col += 64u) {
+        float w_sum_out0 = 0.0;
+        float w_sum_out1 = 0.0;
+        for (uint in_col = 0u; in_col < pc.w_rank; ++in_col) {
+            float weight = w2[in_col * pc.width + out_col];
+            w_sum_out0 = fma(w_tanh_tile[0][in_col], weight, w_sum_out0);
+            if (row1_active) {
+                w_sum_out1 = fma(w_tanh_tile[1][in_col], weight, w_sum_out1);
+            }
+        }
+        uint output0 = base0 + out_col;
+        float w_pre_value0 = w_sum_out0 + w0[out_col];
+        w_pre[output0] = w_pre_value0;
+        w_output[output0] = -softplus(-w_pre_value0) - 0.5;
+        if (row1_active) {
+            uint output1 = base1 + out_col;
+            float w_pre_value1 = w_sum_out1 + w0[out_col];
+            w_pre[output1] = w_pre_value1;
+            w_output[output1] = -softplus(-w_pre_value1) - 0.5;
+        }
+
+        float a_sum_out0 = 0.0;
+        float a_sum_out1 = 0.0;
+        for (uint in_col = 0u; in_col < pc.a_rank; ++in_col) {
+            float weight = a2[in_col * pc.width + out_col];
+            a_sum_out0 = fma(a_hidden_tile[0][in_col], weight, a_sum_out0);
+            if (row1_active) {
+                a_sum_out1 = fma(a_hidden_tile[1][in_col], weight, a_sum_out1);
+            }
+        }
+        float a_pre_value0 = a_sum_out0 + a0[out_col];
+        a_pre[output0] = a_pre_value0;
+        a_output[output0] = stable_sigmoid(a_pre_value0);
+        if (row1_active) {
+            uint output1 = base1 + out_col;
+            float a_pre_value1 = a_sum_out1 + a0[out_col];
+            a_pre[output1] = a_pre_value1;
+            a_output[output1] = stable_sigmoid(a_pre_value1);
+        }
+
+        float g_sum_out0 = 0.0;
+        float g_sum_out1 = 0.0;
+        for (uint in_col = 0u; in_col < pc.g_rank; ++in_col) {
+            float weight = g2[in_col * pc.width + out_col];
+            g_sum_out0 = fma(g_sigmoid_tile[0][in_col], weight, g_sum_out0);
+            if (row1_active) {
+                g_sum_out1 = fma(g_sigmoid_tile[1][in_col], weight, g_sum_out1);
+            }
+        }
+        g_output[output0] = g_sum_out0;
+        if (row1_active) {
+            g_output[base1 + out_col] = g_sum_out1;
+        }
+    }
+}

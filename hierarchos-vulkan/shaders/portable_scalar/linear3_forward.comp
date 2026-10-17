@@ -1,0 +1,49 @@
+#version 450
+
+// Three independent PyTorch-layout linear projections with the same shape.
+// RWKV time-mix always evaluates r/k/v together, so one invocation can reuse
+// the row/output coordinates while preserving each branch's serial FP32 dot
+// product order exactly.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RInputBuffer { float xr[]; };
+layout(set = 0, binding = 1, std430) readonly buffer RWeightBuffer { float wr[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KInputBuffer { float xk[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KWeightBuffer { float wk[]; };
+layout(set = 0, binding = 4, std430) readonly buffer VInputBuffer { float xv[]; };
+layout(set = 0, binding = 5, std430) readonly buffer VWeightBuffer { float wv[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer ROutputBuffer { float r[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer KOutputBuffer { float raw_k[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer VOutputBuffer { float v[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+void main() {
+    uint out_col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || out_col >= pc.output_dim) {
+        return;
+    }
+
+    float r_sum = 0.0;
+    float k_sum = 0.0;
+    float v_sum = 0.0;
+    uint x_base = row * pc.input_dim;
+    uint w_base = out_col * pc.input_dim;
+    for (uint i = 0; i < pc.input_dim; ++i) {
+        uint x_index = x_base + i;
+        uint w_index = w_base + i;
+        r_sum = fma(xr[x_index], wr[w_index], r_sum);
+        k_sum = fma(xk[x_index], wk[w_index], k_sum);
+        v_sum = fma(xv[x_index], wv[w_index], v_sum);
+    }
+
+    uint output_index = row * pc.output_dim + out_col;
+    r[output_index] = r_sum;
+    raw_k[output_index] = k_sum;
+    v[output_index] = v_sum;
+}

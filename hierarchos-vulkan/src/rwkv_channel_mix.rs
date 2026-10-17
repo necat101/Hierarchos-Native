@@ -25,6 +25,22 @@ const RELU2_DEEPEMBED_BACKWARD_SPV: &[u8] =
 const LINEAR_INPUT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad.spv");
 const LINEAR_WEIGHT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_weight_grad.spv");
 const VECTOR_ADD_SPV: &[u8] = include_bytes!("../shaders/vector_add.spv");
+
+/// Forcing this environment variable on makes the channel-mix graph use its
+/// multi-kernel composition (`layer-norm+key` fused producer, then the vendor
+/// `linear-forward`/`linear-residual-forward` modules for `key_cm`/`value_cm`)
+/// instead of the single fused channel-mix modules. The packed-cell op reads the
+/// same switch through [`RwkvChannelMixOp::supports_full_forward_fusion`], so
+/// this also selects the composed packed cell rather than the packed fused
+/// kernel. `validation/verify_rwkv_packed_cell_composition.py` uses it to
+/// cross-check the fused kernel against the vendor linear composition.
+pub const HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION_ENV: &str =
+    "HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION";
+
+fn channel_mix_forward_fusion_disabled() -> bool {
+    std::env::var_os(HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION_ENV).is_some()
+}
+
 const LAYER_NORM_FUSED_ADD_ACCESS: [vulkan::BindingAccess; 9] = [
     vulkan::BindingAccess::ReadOnly,
     vulkan::BindingAccess::ReadOnly,
@@ -132,6 +148,9 @@ pub struct RwkvChannelMixOp {
     max_batch: usize,
     key_clamp: f32,
     deepembed_clamp: f32,
+    /// Resolved once at construction from
+    /// [`HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION_ENV`].
+    forward_fusion_disabled: bool,
 
     layer_norm_weight: GpuBuffer,
     layer_norm_bias: GpuBuffer,
@@ -331,6 +350,7 @@ impl RwkvChannelMixOp {
         };
 
         Ok(Self {
+            forward_fusion_disabled: channel_mix_forward_fusion_disabled(),
             layer_norm_channel_mix_forward_fused: vulkan::ComputeKernel::new_with_access(
                 &device,
                 LAYER_NORM_CHANNEL_MIX_FORWARD_FUSED_SPV,
@@ -572,7 +592,7 @@ impl RwkvChannelMixOp {
     }
 
     pub(crate) fn supports_full_forward_fusion(&self) -> bool {
-        self.layer_norm_channel_mix_full_forward_fused.is_some()
+        self.layer_norm_channel_mix_full_forward_fused.is_some() && !self.forward_fusion_disabled
     }
 
     pub(crate) fn layer_norm_weight_buffer(&self) -> &GpuBuffer {
@@ -672,37 +692,39 @@ impl RwkvChannelMixOp {
         deepembed: &GpuBuffer,
     ) -> Result<()> {
         self.validate_batch(batch)?;
-        if let Some(kernel) = &self.layer_norm_channel_mix_full_forward_fused {
-            let push = ChannelMixProducerPush {
-                rows: batch as u32,
-                width: self.width as u32,
-                hidden_width: self.hidden_width as u32,
-                eps: 1.0e-5,
-                key_clamp: self.key_clamp,
-                deepembed_clamp: self.deepembed_clamp,
-            };
-            return kernel.record_dispatch(
-                commands,
-                &[
-                    x,
-                    &self.layer_norm_weight,
-                    &self.layer_norm_bias,
-                    previous,
-                    &self.mix_k,
-                    &self.key_weight,
-                    deepembed,
-                    &self.value_weight,
-                    &self.normalized,
-                    &self.norm_mean,
-                    &self.norm_rstd,
-                    &self.mixed,
-                    &self.cm_key,
-                    &self.ffn,
-                    &self.output,
-                ],
-                bytemuck::bytes_of(&push),
-                [batch as u32, 1, 1],
-            );
+        if !self.forward_fusion_disabled {
+            if let Some(kernel) = &self.layer_norm_channel_mix_full_forward_fused {
+                let push = ChannelMixProducerPush {
+                    rows: batch as u32,
+                    width: self.width as u32,
+                    hidden_width: self.hidden_width as u32,
+                    eps: 1.0e-5,
+                    key_clamp: self.key_clamp,
+                    deepembed_clamp: self.deepembed_clamp,
+                };
+                return kernel.record_dispatch(
+                    commands,
+                    &[
+                        x,
+                        &self.layer_norm_weight,
+                        &self.layer_norm_bias,
+                        previous,
+                        &self.mix_k,
+                        &self.key_weight,
+                        deepembed,
+                        &self.value_weight,
+                        &self.normalized,
+                        &self.norm_mean,
+                        &self.norm_rstd,
+                        &self.mixed,
+                        &self.cm_key,
+                        &self.ffn,
+                        &self.output,
+                    ],
+                    bytemuck::bytes_of(&push),
+                    [batch as u32, 1, 1],
+                );
+            }
         }
         self.record_forward_producer(commands, batch, x, previous, deepembed)?;
         let value_push = LinearPush {
@@ -727,35 +749,37 @@ impl RwkvChannelMixOp {
         deepembed: &GpuBuffer,
     ) -> Result<()> {
         self.validate_batch(batch)?;
-        if let Some(kernel) = &self.layer_norm_channel_mix_key_relu2_deepembed_forward_fused {
-            let push = ChannelMixProducerPush {
-                rows: batch as u32,
-                width: self.width as u32,
-                hidden_width: self.hidden_width as u32,
-                eps: 1.0e-5,
-                key_clamp: self.key_clamp,
-                deepembed_clamp: self.deepembed_clamp,
-            };
-            return kernel.record_dispatch(
-                commands,
-                &[
-                    x,
-                    &self.layer_norm_weight,
-                    &self.layer_norm_bias,
-                    previous,
-                    &self.mix_k,
-                    &self.key_weight,
-                    deepembed,
-                    &self.normalized,
-                    &self.norm_mean,
-                    &self.norm_rstd,
-                    &self.mixed,
-                    &self.cm_key,
-                    &self.ffn,
-                ],
-                bytemuck::bytes_of(&push),
-                [batch as u32, 1, 1],
-            );
+        if !self.forward_fusion_disabled {
+            if let Some(kernel) = &self.layer_norm_channel_mix_key_relu2_deepembed_forward_fused {
+                let push = ChannelMixProducerPush {
+                    rows: batch as u32,
+                    width: self.width as u32,
+                    hidden_width: self.hidden_width as u32,
+                    eps: 1.0e-5,
+                    key_clamp: self.key_clamp,
+                    deepembed_clamp: self.deepembed_clamp,
+                };
+                return kernel.record_dispatch(
+                    commands,
+                    &[
+                        x,
+                        &self.layer_norm_weight,
+                        &self.layer_norm_bias,
+                        previous,
+                        &self.mix_k,
+                        &self.key_weight,
+                        deepembed,
+                        &self.normalized,
+                        &self.norm_mean,
+                        &self.norm_rstd,
+                        &self.mixed,
+                        &self.cm_key,
+                        &self.ffn,
+                    ],
+                    bytemuck::bytes_of(&push),
+                    [batch as u32, 1, 1],
+                );
+            }
         }
 
         let hidden_len = batch * self.hidden_width;

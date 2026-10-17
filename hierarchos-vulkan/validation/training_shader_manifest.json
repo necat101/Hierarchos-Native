@@ -5,15 +5,100 @@
       "artifact": "adamw.spv",
       "source": "adamw.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-O"
       ],
       "target_env": "vulkan1.0"
     },
     {
+      "artifact": "adamw_controlled.spv",
+      "source": "adamw_controlled.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "adamw_fp16_mirror.spv",
+      "source": "adamw_fp16_mirror.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "adamw_fp16_mirror_controlled.spv",
+      "source": "adamw_fp16_mirror_controlled.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "adamw_range.spv",
+      "source": "adamw_range.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "adamw_range_controlled.spv",
+      "source": "adamw_range_controlled.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "adamw_range_grad_scaler_controlled.spv",
+      "source": "adamw_range_grad_scaler_controlled.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "adamw_step_grad_scaler_controlled.spv",
+      "source": "adamw_step_grad_scaler_controlled.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "bf16_packed_to_fp32.spv",
+      "source": "bf16_packed_to_fp32.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "bias_grad.spv",
+      "source": "bias_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "bias_grad_fp16_native_compute.spv",
+      "source": "bias_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DHIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
       "artifact": "buffer_zero_on_optimizer_skip.spv",
       "source": "buffer_zero_on_optimizer_skip.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -21,6 +106,71 @@
       "artifact": "canonical_dropout.spv",
       "source": "canonical_dropout.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "channel_reduce.spv",
+      "source": "channel_reduce.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "commitment_accumulate.spv",
+      "source": "commitment_accumulate.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "commitment_backward.spv",
+      "source": "commitment_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "commitment_finalize.spv",
+      "source": "commitment_finalize.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "concat_token_context.spv",
+      "source": "concat_token_context.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "context_lerp_concat_backward.spv",
+      "source": "context_lerp_concat_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "context_lerp_concat_forward.spv",
+      "source": "context_lerp_concat_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "cross_entropy_grad.spv",
+      "source": "cross_entropy_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -28,6 +178,7 @@
       "artifact": "cross_entropy_linear_adjoints_tape_fp16_packed_fused.spv",
       "source": "cross_entropy_linear_adjoints_tape_fp16_packed_fused.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1"
       ],
@@ -37,6 +188,7 @@
       "artifact": "cross_entropy_linear_adjoints_tape_fp16_packed_fused_private_hidden.spv",
       "source": "cross_entropy_linear_adjoints_tape_fp16_packed_fused.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_CE_FUSED_PRIVATE_HIDDEN=1",
@@ -49,6 +201,7 @@
       "artifact": "cross_entropy_linear_adjoints_tape_fp16_packed_fused_private_hidden_tile128.spv",
       "source": "cross_entropy_linear_adjoints_tape_fp16_packed_fused.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_CE_FUSED_PRIVATE_HIDDEN=1",
@@ -61,6 +214,7 @@
       "artifact": "cross_entropy_linear_adjoints_tape_fp16_packed_fused_private_hidden_tile128_wg128.spv",
       "source": "cross_entropy_linear_adjoints_tape_fp16_packed_fused.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_CE_FUSED_PRIVATE_HIDDEN=1",
@@ -73,6 +227,7 @@
       "artifact": "cross_entropy_linear_adjoints_tape_fp16_packed_fused_private_hidden_tile256.spv",
       "source": "cross_entropy_linear_adjoints_tape_fp16_packed_fused.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_CE_FUSED_PRIVATE_HIDDEN=1",
@@ -85,6 +240,7 @@
       "artifact": "cross_entropy_linear_adjoints_tape_fp16_packed_fused_private_hidden_tile256_wg128.spv",
       "source": "cross_entropy_linear_adjoints_tape_fp16_packed_fused.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_CE_FUSED_PRIVATE_HIDDEN=1",
@@ -97,6 +253,7 @@
       "artifact": "cross_entropy_linear_adjoints_tape_fp16_packed_fused_private_hidden_tile256_wg256.spv",
       "source": "cross_entropy_linear_adjoints_tape_fp16_packed_fused.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_CE_FUSED_PRIVATE_HIDDEN=1",
@@ -106,9 +263,18 @@
       "target_env": "vulkan1.1"
     },
     {
+      "artifact": "cross_entropy_linear_input_grad.spv",
+      "source": "cross_entropy_linear_input_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "cross_entropy_linear_input_grad_streaming.spv",
       "source": "cross_entropy_linear_input_grad_streaming.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1"
       ],
@@ -118,6 +284,7 @@
       "artifact": "cross_entropy_linear_input_grad_streaming_fp16_native.spv",
       "source": "cross_entropy_linear_input_grad_streaming_fp16_native.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1"
       ],
@@ -127,6 +294,7 @@
       "artifact": "cross_entropy_linear_input_grad_streaming_fp16_native_compute.spv",
       "source": "cross_entropy_linear_input_grad_streaming_fp16_native.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_NATIVE_FP16_BACKWARD_COMPUTE=1"
@@ -137,6 +305,7 @@
       "artifact": "cross_entropy_linear_input_grad_streaming_fp16_native_reuse128.spv",
       "source": "cross_entropy_linear_input_grad_streaming_fp16_native.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_WEIGHT_REUSE_PAIRS=128"
@@ -147,6 +316,7 @@
       "artifact": "cross_entropy_linear_input_grad_streaming_fp16_native_reuse224.spv",
       "source": "cross_entropy_linear_input_grad_streaming_fp16_native.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_WEIGHT_REUSE_PAIRS=224"
@@ -157,6 +327,7 @@
       "artifact": "cross_entropy_linear_input_grad_streaming_fp16_native_reuse64.spv",
       "source": "cross_entropy_linear_input_grad_streaming_fp16_native.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_WEIGHT_REUSE_PAIRS=64"
@@ -167,6 +338,7 @@
       "artifact": "cross_entropy_linear_input_grad_streaming_fp16_packed.spv",
       "source": "cross_entropy_linear_input_grad_streaming_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1"
       ],
@@ -176,6 +348,7 @@
       "artifact": "cross_entropy_linear_input_grad_tape_fp16_packed.spv",
       "source": "cross_entropy_linear_input_grad_tape_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1"
       ],
@@ -185,6 +358,7 @@
       "artifact": "cross_entropy_linear_input_grad_tile_reduce.spv",
       "source": "cross_entropy_linear_input_grad_tile_reduce.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -192,6 +366,7 @@
       "artifact": "cross_entropy_linear_input_grad_tile_reduce_tile128.spv",
       "source": "cross_entropy_linear_input_grad_tile_reduce.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-DLM_CE_FUSED_VOCAB_TILE=128"
       ],
@@ -201,15 +376,64 @@
       "artifact": "cross_entropy_linear_input_grad_tile_reduce_tile256.spv",
       "source": "cross_entropy_linear_input_grad_tile_reduce.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-DLM_CE_FUSED_VOCAB_TILE=256"
       ],
       "target_env": "vulkan1.0"
     },
     {
+      "artifact": "cross_entropy_linear_logit_tape_fp16_packed_rows16.spv",
+      "source": "cross_entropy_linear_logit_tape_fp16_packed_rows8.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DLM_CE_VOCAB_TILE=16",
+        "-DLM_CE_PACKED_SHARED=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "cross_entropy_linear_logit_tape_fp16_packed_rows16_cluster4.spv",
+      "source": "cross_entropy_linear_logit_tape_fp16_packed_rows8.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DLM_CE_VOCAB_TILE=16",
+        "-DLM_CE_PACKED_SHARED=1",
+        "-DLM_CE_USE_CLUSTERED_REDUCTION=1",
+        "-DLM_CE_DOT_LANES_PER_VOCAB=4"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "cross_entropy_linear_logit_tape_fp16_packed_rows16_dot4.spv",
+      "source": "cross_entropy_linear_logit_tape_fp16_packed_rows8.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DLM_CE_VOCAB_TILE=16",
+        "-DLM_CE_PACKED_SHARED=1",
+        "-DLM_CE_DOT_LANES_PER_VOCAB=4"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "cross_entropy_linear_logit_tape_fp16_packed_rows8.spv",
+      "source": "cross_entropy_linear_logit_tape_fp16_packed_rows8.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "cross_entropy_linear_row_stats_streaming.spv",
       "source": "cross_entropy_linear_row_stats_streaming.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1"
       ],
@@ -219,6 +443,7 @@
       "artifact": "cross_entropy_linear_row_stats_streaming_fp16_packed.spv",
       "source": "cross_entropy_linear_row_stats_streaming_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1"
       ],
@@ -228,6 +453,7 @@
       "artifact": "cross_entropy_linear_row_stats_streaming_fp16_packed_tape.spv",
       "source": "cross_entropy_linear_row_stats_streaming_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_CE_WRITE_LOGIT_TAPE=1"
@@ -235,9 +461,18 @@
       "target_env": "vulkan1.1"
     },
     {
+      "artifact": "cross_entropy_linear_weight_grad.spv",
+      "source": "cross_entropy_linear_weight_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "cross_entropy_linear_weight_grad_streaming.spv",
       "source": "cross_entropy_linear_weight_grad_streaming.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1"
       ],
@@ -247,6 +482,7 @@
       "artifact": "cross_entropy_linear_weight_grad_streaming_fp16_native_compute.spv",
       "source": "cross_entropy_linear_weight_grad_streaming_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_DW_VOCAB_ROWS_PER_GROUP=8",
@@ -258,6 +494,7 @@
       "artifact": "cross_entropy_linear_weight_grad_streaming_fp16_native_compute_rows16.spv",
       "source": "cross_entropy_linear_weight_grad_streaming_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_DW_VOCAB_ROWS_PER_GROUP=16",
@@ -269,6 +506,7 @@
       "artifact": "cross_entropy_linear_weight_grad_streaming_fp16_native_compute_rows4.spv",
       "source": "cross_entropy_linear_weight_grad_streaming_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_DW_VOCAB_ROWS_PER_GROUP=4",
@@ -280,6 +518,7 @@
       "artifact": "cross_entropy_linear_weight_grad_streaming_fp16_packed.spv",
       "source": "cross_entropy_linear_weight_grad_streaming_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_DW_VOCAB_ROWS_PER_GROUP=8"
@@ -290,6 +529,7 @@
       "artifact": "cross_entropy_linear_weight_grad_streaming_fp16_packed_rows16.spv",
       "source": "cross_entropy_linear_weight_grad_streaming_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_DW_VOCAB_ROWS_PER_GROUP=16"
@@ -300,6 +540,7 @@
       "artifact": "cross_entropy_linear_weight_grad_streaming_fp16_packed_rows4.spv",
       "source": "cross_entropy_linear_weight_grad_streaming_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_DW_VOCAB_ROWS_PER_GROUP=4"
@@ -310,6 +551,7 @@
       "artifact": "cross_entropy_linear_weight_grad_tape_fp16_packed.spv",
       "source": "cross_entropy_linear_weight_grad_tape_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_DW_VOCAB_ROWS_PER_GROUP=8"
@@ -320,6 +562,7 @@
       "artifact": "cross_entropy_linear_weight_grad_tape_fp16_packed_rows16.spv",
       "source": "cross_entropy_linear_weight_grad_tape_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_DW_VOCAB_ROWS_PER_GROUP=16"
@@ -330,6 +573,7 @@
       "artifact": "cross_entropy_linear_weight_grad_tape_fp16_packed_rows4.spv",
       "source": "cross_entropy_linear_weight_grad_tape_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_DW_VOCAB_ROWS_PER_GROUP=4"
@@ -340,15 +584,33 @@
       "artifact": "cross_entropy_logits_to_grad_inplace.spv",
       "source": "cross_entropy_logits_to_grad_inplace.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1"
       ],
       "target_env": "vulkan1.1"
     },
     {
+      "artifact": "cross_entropy_row_loss_extract.spv",
+      "source": "cross_entropy_row_loss_extract.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "cross_entropy_row_stats.spv",
+      "source": "cross_entropy_row_stats.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "cross_entropy_row_stats_tape.spv",
       "source": "cross_entropy_row_stats_tape.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1"
       ],
@@ -358,6 +620,7 @@
       "artifact": "cross_entropy_row_stats_tile_partials.spv",
       "source": "cross_entropy_row_stats_tile_partials.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1"
       ],
@@ -367,6 +630,7 @@
       "artifact": "cross_entropy_row_stats_tile_partials_rows16.spv",
       "source": "cross_entropy_row_stats_tile_partials.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1",
         "-DLM_CE_VOCAB_TILE=16"
@@ -374,9 +638,58 @@
       "target_env": "vulkan1.1"
     },
     {
+      "artifact": "drift_update_backward.spv",
+      "source": "drift_update_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "drift_update_forward.spv",
+      "source": "drift_update_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "dynamic_loss_scale_control.spv",
+      "source": "dynamic_loss_scale_control.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "embedding_forward.spv",
+      "source": "embedding_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "embedding_grad_accumulate.spv",
+      "source": "embedding_grad_accumulate.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "embedding_grad_segmented.spv",
+      "source": "embedding_grad_segmented.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "embedding_radix_histogram.spv",
       "source": "embedding_radix_histogram.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -384,6 +697,7 @@
       "artifact": "embedding_radix_prefix.spv",
       "source": "embedding_radix_prefix.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -391,6 +705,7 @@
       "artifact": "embedding_radix_scatter.spv",
       "source": "embedding_radix_scatter.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -398,6 +713,7 @@
       "artifact": "embedding_token_sort.spv",
       "source": "embedding_token_sort.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -405,6 +721,79 @@
       "artifact": "falcon_h1.spv",
       "source": "falcon_h1.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "finite_clamp_backward.spv",
+      "source": "finite_clamp_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "finite_clamp_forward.spv",
+      "source": "finite_clamp_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "fp16_packed_to_fp32.spv",
+      "source": "fp16_packed_to_fp32.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "fp32_to_bf16_packed.spv",
+      "source": "fp32_to_bf16_packed.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "fp32_to_fp16_packed.spv",
+      "source": "fp32_to_fp16_packed.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gelu_backward.spv",
+      "source": "gelu_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gelu_forward.spv",
+      "source": "gelu_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gradient_accumulate.spv",
+      "source": "gradient_accumulate.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gradient_accumulate4.spv",
+      "source": "gradient_accumulate4.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -412,13 +801,246 @@
       "artifact": "gradient_accumulate8.spv",
       "source": "gradient_accumulate8.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gradient_accumulate_scaled.spv",
+      "source": "gradient_accumulate_scaled.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gradient_clip_coefficient.spv",
+      "source": "gradient_clip_coefficient.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gradient_lassq_partials.spv",
+      "source": "gradient_lassq_partials.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gradient_lassq_reduce.spv",
+      "source": "gradient_lassq_reduce.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gradient_nonfinite_flag.spv",
+      "source": "gradient_nonfinite_flag.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gradient_scale.spv",
+      "source": "gradient_scale.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gradient_scale_from_buffer.spv",
+      "source": "gradient_scale_from_buffer.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gradient_scale_from_buffer_indexed.spv",
+      "source": "gradient_scale_from_buffer_indexed.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "gradient_scale_strided_from_buffer.spv",
+      "source": "gradient_scale_strided_from_buffer.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "hard_act_depth_backward.spv",
+      "source": "hard_act_depth_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "hard_act_select.spv",
+      "source": "hard_act_select.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "indexed_step_gather.spv",
+      "source": "indexed_step_gather.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "indexed_step_scatter_backward.spv",
+      "source": "indexed_step_scatter_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_adapter_forward_fused_256.spv",
+      "source": "layer_norm_adapter_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_adapter_forward_fused_512.spv",
+      "source": "layer_norm_adapter_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DADAPTER_WORKGROUP_SIZE=512"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_adapter_forward_fused_64.spv",
+      "source": "layer_norm_adapter_forward_fused.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-DADAPTER_WORKGROUP_SIZE=64"
+      ],
       "target_env": "vulkan1.0"
     },
     {
       "artifact": "layer_norm_affine_clamp_backward_inplace.spv",
       "source": "layer_norm_affine_clamp_backward_inplace.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_backward_fused_add.spv",
+      "source": "layer_norm_backward_fused_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_backward_fused_add_residual.spv",
+      "source": "layer_norm_backward_fused_add_residual.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_channel_mix_forward_fused.spv",
+      "source": "layer_norm_channel_mix_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_channel_mix_full_forward_fused.spv",
+      "source": "layer_norm_channel_mix_full_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_channel_mix_key_relu2_deepembed_forward_fused.spv",
+      "source": "layer_norm_channel_mix_key_relu2_deepembed_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_forward.spv",
+      "source": "layer_norm_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_input_grad.spv",
+      "source": "layer_norm_input_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_input_grad_fp16_native_compute.spv",
+      "source": "layer_norm_input_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DHIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "layer_norm_input_grad_residual_fused.spv",
+      "source": "layer_norm_input_grad_residual_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_linear_forward_fused.spv",
+      "source": "layer_norm_linear_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-O"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_linear_silu_forward_fused.spv",
+      "source": "layer_norm_linear_silu_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -426,6 +1048,301 @@
       "artifact": "layer_norm_low_rank_producer_forward_fused.spv",
       "source": "layer_norm_low_rank_producer_forward_fused.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_low_rank_producer_forward_fused_column_slices.spv",
+      "source": "layer_norm_low_rank_producer_forward_fused_column_slices.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_low_rank_producer_forward_fused_fp16_packed.spv",
+      "source": "layer_norm_low_rank_producer_forward_fused_fp16_packed.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "layer_norm_low_rank_producer_forward_fused_fp16_packed_cached.spv",
+      "source": "layer_norm_low_rank_producer_forward_fused_fp16_packed_cached.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "layer_norm_low_rank_producer_forward_fused_fp16_packed_four_rows.spv",
+      "source": "layer_norm_low_rank_producer_forward_fused_fp16_packed_four_rows.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_low_rank_producer_forward_fused_fp16_packed_rank128.spv",
+      "source": "layer_norm_low_rank_producer_forward_fused_fp16_packed_rank128.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "layer_norm_low_rank_producer_forward_fused_fp16_packed_two_rows.spv",
+      "source": "layer_norm_low_rank_producer_forward_fused_fp16_packed_two_rows.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_low_rank_producer_forward_fused_fp16_packed_two_rows_wide.spv",
+      "source": "layer_norm_low_rank_producer_forward_fused_fp16_packed_two_rows_wide.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "layer_norm_low_rank_producer_forward_fused_two_rows.spv",
+      "source": "layer_norm_low_rank_producer_forward_fused_two_rows.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_param_grad.spv",
+      "source": "layer_norm_param_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "layer_norm_param_grad_fp16_native_compute.spv",
+      "source": "layer_norm_param_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DHIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "layer_norm_stats.spv",
+      "source": "layer_norm_stats.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_forward.spv",
+      "source": "linear3_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_forward_amd_rdna3.spv",
+      "source": "linear3_forward_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_forward_intel_gen9.spv",
+      "source": "linear3_forward_intel_gen9.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_input_grad.spv",
+      "source": "linear3_input_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_input_grad_fp16_scaled.spv",
+      "source": "linear3_input_grad_fp16_scaled.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_input_grad_fp16_source_scaled.spv",
+      "source": "linear3_input_grad_fp16_source_scaled.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_input_grad_weight_reuse2.spv",
+      "source": "linear3_input_grad_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_input_grad_weight_reuse2_tile32.spv",
+      "source": "linear3_input_grad_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_BACKWARD_WEIGHT_REUSE_TILE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_input_grad_weight_reuse2_tile64.spv",
+      "source": "linear3_input_grad_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_BACKWARD_WEIGHT_REUSE_TILE=64"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_input_grad_weight_reuse4.spv",
+      "source": "linear3_input_grad_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_BACKWARD_WEIGHT_REUSE_ROWS=4"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_input_grad_weight_reuse4_tile32.spv",
+      "source": "linear3_input_grad_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_BACKWARD_WEIGHT_REUSE_ROWS=4",
+        "-DRWKV_BACKWARD_WEIGHT_REUSE_TILE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_input_grad_weight_reuse4_tile64.spv",
+      "source": "linear3_input_grad_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_BACKWARD_WEIGHT_REUSE_ROWS=4",
+        "-DRWKV_BACKWARD_WEIGHT_REUSE_TILE=64"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_input_grad_weight_reuse8.spv",
+      "source": "linear3_input_grad_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_BACKWARD_WEIGHT_REUSE_ROWS=8"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_input_grad_weight_reuse8_tile32.spv",
+      "source": "linear3_input_grad_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_BACKWARD_WEIGHT_REUSE_ROWS=8",
+        "-DRWKV_BACKWARD_WEIGHT_REUSE_TILE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_input_grad_weight_reuse8_tile64.spv",
+      "source": "linear3_input_grad_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_BACKWARD_WEIGHT_REUSE_ROWS=8",
+        "-DRWKV_BACKWARD_WEIGHT_REUSE_TILE=64"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_time_mix_backward_fused.spv",
+      "source": "linear3_time_mix_backward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_weight_grad.spv",
+      "source": "linear3_weight_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear3_weight_grad_tiled.spv",
+      "source": "linear3_weight_grad_tiled.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -433,27 +1350,165 @@
       "artifact": "linear_bias_forward.spv",
       "source": "linear_bias_forward.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_bias_forward_amd_rdna3.spv",
+      "source": "linear_bias_forward_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
       "target_env": "vulkan1.0"
     },
     {
       "artifact": "linear_bias_forward_fp16_packed.spv",
       "source": "linear_bias_forward_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_bias_forward_intel_gen9.spv",
+      "source": "linear_bias_forward_intel_gen9.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_bias_forward_lane2.spv",
+      "source": "linear_bias_forward_lane2.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
       "target_env": "vulkan1.0"
     },
     {
       "artifact": "linear_forward.spv",
       "source": "linear_forward.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_forward_amd_rdna3.spv",
+      "source": "linear_forward_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
       "target_env": "vulkan1.0"
     },
     {
       "artifact": "linear_forward_fp16_packed.spv",
       "source": "linear_forward_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_forward_intel_gen9.spv",
+      "source": "linear_forward_intel_gen9.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_forward_lane2.spv",
+      "source": "linear_forward_lane2.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_forward_lane4.spv",
+      "source": "linear_forward_lane4.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_input_grad.spv",
+      "source": "linear_input_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_input_grad_fp16_native_compute.spv",
+      "source": "linear_input_grad_fp16_packed.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DHIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "linear_input_grad_fp16_packed.spv",
+      "source": "linear_input_grad_fp16_packed.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_input_grad_lane2.spv",
+      "source": "linear_input_grad_lane2.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_input_grad_muladd.spv",
+      "source": "linear_input_grad_muladd.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -461,6 +1516,209 @@
       "artifact": "linear_residual_forward.spv",
       "source": "linear_residual_forward.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_residual_forward_amd_rdna3.spv",
+      "source": "linear_residual_forward_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_residual_forward_intel_gen9.spv",
+      "source": "linear_residual_forward_intel_gen9.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_weight_grad.spv",
+      "source": "linear_weight_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_weight_grad_fp16_native_compute.spv",
+      "source": "linear_weight_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DHIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "lora_a_forward.spv",
+      "source": "lora_a_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "lora_a_forward_lane8_muladd.spv",
+      "source": "lora_a_forward_lane8_muladd.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-O"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "ltm_alignment_control.spv",
+      "source": "ltm_alignment_control.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "ltm_gather_gate.spv",
+      "source": "ltm_gather_gate.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "ltm_gather_gate_backward.spv",
+      "source": "ltm_gather_gate_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "ltm_gather_gate_backward_reduce.spv",
+      "source": "ltm_gather_gate_backward_reduce.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "ltm_similarity.spv",
+      "source": "ltm_similarity.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "ltm_similarity_key_grad.spv",
+      "source": "ltm_similarity_key_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "ltm_similarity_query_grad.spv",
+      "source": "ltm_similarity_query_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "ltm_topk.spv",
+      "source": "ltm_topk.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "ltm_value_alignment_backward.spv",
+      "source": "ltm_value_alignment_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "ordered_f32_sum.spv",
+      "source": "ordered_f32_sum.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "packed_cell_channel_mix_state_forward_fused.spv",
+      "source": "packed_cell_channel_mix_state_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "packed_cell_channel_mix_state_forward_fused_wg128.spv",
+      "source": "packed_cell_channel_mix_state_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DPACKED_CELL_FORWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "packed_cell_channel_mix_state_forward_fused_wg32.spv",
+      "source": "packed_cell_channel_mix_state_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DPACKED_CELL_FORWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "packed_cell_channel_mix_state_forward_fused_wg64.spv",
+      "source": "packed_cell_channel_mix_state_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DPACKED_CELL_FORWARD_WORKGROUP_SIZE=64"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "packed_state_slot_backward.spv",
+      "source": "packed_state_slot_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "packed_state_slot_forward.spv",
+      "source": "packed_state_slot_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -468,6 +1726,7 @@
       "artifact": "parameter_matmul_bias_forward.spv",
       "source": "parameter_matmul_bias_forward.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -475,6 +1734,7 @@
       "artifact": "parameter_matmul_bias_forward_fp16_packed.spv",
       "source": "parameter_matmul_bias_forward_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -482,6 +1742,7 @@
       "artifact": "parameter_matmul_forward.spv",
       "source": "parameter_matmul_forward.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -489,6 +1750,7 @@
       "artifact": "parameter_matmul_forward_fp16_packed.spv",
       "source": "parameter_matmul_forward_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -496,6 +1758,7 @@
       "artifact": "parameter_matmul_input_grad.spv",
       "source": "parameter_matmul_input_grad.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -503,6 +1766,7 @@
       "artifact": "parameter_matmul_input_grad_fp16_native_compute.spv",
       "source": "parameter_matmul_input_grad_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-DHIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE=1"
       ],
@@ -512,6 +1776,1001 @@
       "artifact": "parameter_matmul_input_grad_fp16_packed.spv",
       "source": "parameter_matmul_input_grad_fp16_packed.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "parameter_matmul_weight_grad_fp16_compensated_compute.spv",
+      "source": "parameter_matmul_weight_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DHIERARCHOS_FP16_DW_COMPENSATED_OPERANDS=1",
+        "-DHIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "parameter_matmul_weight_grad_fp16_native_compute.spv",
+      "source": "parameter_matmul_weight_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DHIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "parameter_matmul_weight_grad_fp16_widened_compute.spv",
+      "source": "parameter_matmul_weight_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DHIERARCHOS_FP16_DW_WIDEN_PRODUCT=1",
+        "-DHIERARCHOS_NATIVE_FP16_BACKWARD_COMPUTE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "portable_scalar/linear3_forward.spv",
+      "source": "portable_scalar/linear3_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "portable_scalar/linear_bias_forward.spv",
+      "source": "portable_scalar/linear_bias_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "portable_scalar/linear_forward.spv",
+      "source": "portable_scalar/linear_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "portable_scalar/linear_residual_forward.spv",
+      "source": "portable_scalar/linear_residual_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "relu2_deepembed_backward.spv",
+      "source": "relu2_deepembed_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "relu2_deepembed_forward.spv",
+      "source": "relu2_deepembed_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rosa_gate_backward.spv",
+      "source": "rosa_gate_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rosa_gate_grad_reduce.spv",
+      "source": "rosa_gate_grad_reduce.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rosa_gate_mix.spv",
+      "source": "rosa_gate_mix.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rosa_predict_bounded.spv",
+      "source": "rosa_predict_bounded.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes.spv",
+      "source": "rosa_predict_bounded_lanes.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_128.spv",
+      "source": "rosa_predict_bounded_lanes.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_128_cache_tiled.spv",
+      "source": "rosa_predict_bounded_lanes.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_WORKGROUP_SIZE=128",
+        "-DROSA_CACHE_HISTORY_STATE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_256.spv",
+      "source": "rosa_predict_bounded_lanes.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_WORKGROUP_SIZE=256"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_256_single_pair.spv",
+      "source": "rosa_predict_bounded_lanes.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_WORKGROUP_SIZE=256",
+        "-DROSA_SINGLE_PACKED_PAIR_PER_LANE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_256_single_pair_cache_tiled.spv",
+      "source": "rosa_predict_bounded_lanes.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_WORKGROUP_SIZE=256",
+        "-DROSA_SINGLE_PACKED_PAIR_PER_LANE=1",
+        "-DROSA_CACHE_HISTORY_STATE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_32.spv",
+      "source": "rosa_predict_bounded_lanes.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_lanes_subgroup_64.spv",
+      "source": "rosa_predict_bounded_lanes.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-O",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_WORKGROUP_SIZE=64"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_subgroup_128.spv",
+      "source": "rosa_predict_bounded.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_subgroup_256.spv",
+      "source": "rosa_predict_bounded.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_WORKGROUP_SIZE=256"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_subgroup_256_single_pair.spv",
+      "source": "rosa_predict_bounded.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_WORKGROUP_SIZE=256",
+        "-DROSA_SINGLE_PACKED_PAIR_PER_LANE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_subgroup_32.spv",
+      "source": "rosa_predict_bounded.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rosa_predict_bounded_subgroup_64.spv",
+      "source": "rosa_predict_bounded.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DROSA_USE_SUBGROUP_REDUCTION=1",
+        "-DROSA_WORKGROUP_SIZE=64"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "row_keep_backward.spv",
+      "source": "row_keep_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "row_keep_forward.spv",
+      "source": "row_keep_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_bonus_gate_backward.spv",
+      "source": "rwkv_bonus_gate_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_bonus_gate_forward.spv",
+      "source": "rwkv_bonus_gate_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_channel_mix_backward.spv",
+      "source": "rwkv_channel_mix_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_decay_backward.spv",
+      "source": "rwkv_decay_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_decay_forward.spv",
+      "source": "rwkv_decay_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_group_norm_bonus_gate_forward_fused.spv",
+      "source": "rwkv_group_norm_bonus_gate_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_group_norm_bonus_gate_linear_residual_forward_fused.spv",
+      "source": "rwkv_group_norm_bonus_gate_linear_residual_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_group_norm_bonus_gate_linear_residual_forward_fused_compact_one_row.spv",
+      "source": "rwkv_group_norm_bonus_gate_linear_residual_forward_fused_compact_one_row.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_group_norm_bonus_gate_linear_residual_forward_fused_two_rows.spv",
+      "source": "rwkv_group_norm_bonus_gate_linear_residual_forward_fused_two_rows.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_group_norm_forward.spv",
+      "source": "rwkv_group_norm_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_group_norm_input_grad.spv",
+      "source": "rwkv_group_norm_input_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_group_norm_param_grad.spv",
+      "source": "rwkv_group_norm_param_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_key_state_forward_fused.spv",
+      "source": "rwkv_key_state_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_key_transform_backward.spv",
+      "source": "rwkv_key_transform_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_key_transform_backward_subgroup.spv",
+      "source": "rwkv_key_transform_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DRWKV_KEY_TRANSFORM_USE_SUBGROUP_REDUCTION=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_key_transform_forward.spv",
+      "source": "rwkv_key_transform_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_key_transform_param_reduce.spv",
+      "source": "rwkv_key_transform_param_reduce.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_low_rank_full_forward_fused_fp16_packed.spv",
+      "source": "rwkv_low_rank_full_forward_fused_fp16_packed.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_low_rank_full_forward_fused_fp16_packed_subgroup.spv",
+      "source": "rwkv_low_rank_full_forward_fused_fp16_packed.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DRWKV_LOW_RANK_FIRST_STAGE_SUBGROUP_PACKED_SHARE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_low_rank_producer_forward_fused.spv",
+      "source": "rwkv_low_rank_producer_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_low_rank_producer_forward_fused_fp16_packed.spv",
+      "source": "rwkv_low_rank_producer_forward_fused_fp16_packed.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_cols.spv",
+      "source": "rwkv_matrix_state_backward_cols.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused.spv",
+      "source": "rwkv_matrix_state_backward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rk_add.spv",
+      "source": "rwkv_matrix_state_backward_fused_rk_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_packed.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_PACKED_STATE_INPUT=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_recurrent_subgroup.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DRWKV_FAST_SUBGROUP_RECURRENT_FUSION=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_recurrent_subgroup_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DRWKV_FAST_SUBGROUP_RECURRENT_FUSION=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_recurrent_subgroup_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DRWKV_FAST_SUBGROUP_RECURRENT_FUSION=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DFUSE_KEY_PARAM_REDUCE=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_recurrent_subgroup.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_FAST_SUBGROUP_RECURRENT_FUSION=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_recurrent_subgroup_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_FAST_SUBGROUP_RECURRENT_FUSION=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_recurrent_subgroup_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_FAST_SUBGROUP_RECURRENT_FUSION=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_subgroup.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_FAST_SUBGROUP_KEY_NORM=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_subgroup_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_FAST_SUBGROUP_KEY_NORM=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_subgroup_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_FAST_SUBGROUP_KEY_NORM=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_tiled.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_FAST_TILED_RECURRENT_REDUCTIONS=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_tiled_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_FAST_TILED_RECURRENT_REDUCTIONS=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_tiled_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_FAST_TILED_RECURRENT_REDUCTIONS=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_tree.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_FAST_TREE_RECURRENT_REDUCTIONS=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_tree_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_FAST_TREE_RECURRENT_REDUCTIONS=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_tree_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_FAST_TREE_RECURRENT_REDUCTIONS=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_subgroup.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DRWKV_FAST_SUBGROUP_KEY_NORM=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_subgroup_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DRWKV_FAST_SUBGROUP_KEY_NORM=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_subgroup_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DRWKV_FAST_SUBGROUP_KEY_NORM=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_tiled.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_FAST_TILED_RECURRENT_REDUCTIONS=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_tiled_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_FAST_TILED_RECURRENT_REDUCTIONS=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_tiled_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_FAST_TILED_RECURRENT_REDUCTIONS=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_tree.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_FAST_TREE_RECURRENT_REDUCTIONS=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_tree_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_FAST_TREE_RECURRENT_REDUCTIONS=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_tree_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_FAST_TREE_RECURRENT_REDUCTIONS=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_recurrent_subgroup.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DRWKV_FAST_SUBGROUP_RECURRENT_FUSION=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_recurrent_subgroup_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DRWKV_FAST_SUBGROUP_RECURRENT_FUSION=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_recurrent_subgroup_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1",
+        "-DRWKV_FAST_SUBGROUP_RECURRENT_FUSION=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_rows.spv",
+      "source": "rwkv_matrix_state_backward_rows.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_forward.spv",
+      "source": "rwkv_matrix_state_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_state_grad_pack.spv",
+      "source": "rwkv_state_grad_pack.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_state_pack.spv",
+      "source": "rwkv_state_pack.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_state_pack_backward.spv",
+      "source": "rwkv_state_pack_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_state_pack_backward_fused_add.spv",
+      "source": "rwkv_state_pack_backward_fused_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -519,13 +2778,156 @@
       "artifact": "rwkv_state_pack_vectors.spv",
       "source": "rwkv_state_pack_vectors.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_state_unpack.spv",
+      "source": "rwkv_state_unpack.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_state_unpack_vectors.spv",
+      "source": "rwkv_state_unpack_vectors.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward.spv",
+      "source": "rwkv_time_mix3_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_fused_add.spv",
+      "source": "rwkv_time_mix3_backward_fused_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_fused_add_outer.spv",
+      "source": "rwkv_time_mix3_backward_fused_add_outer.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_fused_add_outer_wg128.spv",
+      "source": "rwkv_time_mix3_backward_fused_add_outer.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_fused_add_outer_wg32.spv",
+      "source": "rwkv_time_mix3_backward_fused_add_outer.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_fused_add_wg128.spv",
+      "source": "rwkv_time_mix3_backward_fused_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_fused_add_wg32.spv",
+      "source": "rwkv_time_mix3_backward_fused_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_wg128.spv",
+      "source": "rwkv_time_mix3_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_wg32.spv",
+      "source": "rwkv_time_mix3_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_forward.spv",
+      "source": "rwkv_time_mix3_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_fused.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_fused_two_rows.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_fused_two_rows.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_fused_wg32.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_TIME_MIX_FORWARD_WORKGROUP_SIZE=32"
+      ],
       "target_env": "vulkan1.0"
     },
     {
       "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_fast.spv",
       "source": "rwkv_time_mix3_linear3_key_state_forward_packed_fast.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -533,6 +2935,7 @@
       "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse2.spv",
       "source": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse2.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -540,6 +2943,7 @@
       "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse2_tile32.spv",
       "source": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse2.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-DRWKV_WEIGHT_REUSE_TILE=32"
       ],
@@ -549,6 +2953,7 @@
       "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse2_tile64.spv",
       "source": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse2.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-DRWKV_WEIGHT_REUSE_TILE=64"
       ],
@@ -558,6 +2963,7 @@
       "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse4.spv",
       "source": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse2.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-DRWKV_WEIGHT_REUSE_ROWS=4"
       ],
@@ -567,6 +2973,7 @@
       "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse4_tile32.spv",
       "source": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse2.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-DRWKV_WEIGHT_REUSE_TILE=32",
         "-DRWKV_WEIGHT_REUSE_ROWS=4"
@@ -577,6 +2984,7 @@
       "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse4_tile64.spv",
       "source": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse2.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-DRWKV_WEIGHT_REUSE_TILE=64",
         "-DRWKV_WEIGHT_REUSE_ROWS=4"
@@ -587,6 +2995,7 @@
       "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse8.spv",
       "source": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse2.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-DRWKV_WEIGHT_REUSE_ROWS=8"
       ],
@@ -596,6 +3005,7 @@
       "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse8_tile32.spv",
       "source": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse2.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-DRWKV_WEIGHT_REUSE_TILE=32",
         "-DRWKV_WEIGHT_REUSE_ROWS=8"
@@ -606,6 +3016,7 @@
       "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse8_tile64.spv",
       "source": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_weight_reuse2.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-DRWKV_WEIGHT_REUSE_TILE=64",
         "-DRWKV_WEIGHT_REUSE_ROWS=8"
@@ -616,15 +3027,220 @@
       "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_fast_wg32.spv",
       "source": "rwkv_time_mix3_linear3_key_state_forward_packed_fast.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-DRWKV_PACKED_FAST_WORKGROUP_SIZE=32"
       ],
       "target_env": "vulkan1.0"
     },
     {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_tape.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_packed_tape.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_packed_tape_wg32.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_packed_tape.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_TIME_MIX_FORWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse2.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse2_tile32.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_WEIGHT_REUSE_TILE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse2_tile64.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_WEIGHT_REUSE_TILE=64"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse4.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_WEIGHT_REUSE_ROWS=4"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse4_tile32.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_WEIGHT_REUSE_ROWS=4",
+        "-DRWKV_WEIGHT_REUSE_TILE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse4_tile64.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_WEIGHT_REUSE_ROWS=4",
+        "-DRWKV_WEIGHT_REUSE_TILE=64"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse8.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_WEIGHT_REUSE_ROWS=8"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse8_tile32.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_WEIGHT_REUSE_ROWS=8",
+        "-DRWKV_WEIGHT_REUSE_TILE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse8_tile64.spv",
+      "source": "rwkv_time_mix3_linear3_key_state_forward_weight_reuse2.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DRWKV_WEIGHT_REUSE_ROWS=8",
+        "-DRWKV_WEIGHT_REUSE_TILE=64"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "sigmoid_backward.spv",
+      "source": "sigmoid_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "sigmoid_forward.spv",
+      "source": "sigmoid_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "silu_backward.spv",
+      "source": "silu_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "silu_forward.spv",
+      "source": "silu_forward.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.6.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "split_token_context_grad.spv",
+      "source": "split_token_context_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "tanh_backward.spv",
+      "source": "tanh_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "tanh_forward.spv",
+      "source": "tanh_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "token_frontend_assemble.spv",
+      "source": "token_frontend_assemble.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "token_frontend_split_grad.spv",
+      "source": "token_frontend_split_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_alibi_positions.spv",
+      "source": "transformer_alibi_positions.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "transformer_attention_backward.spv",
       "source": "transformer_attention_backward.comp",
       "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
       "flags": [
         "-V",
         "--target-env",
@@ -645,6 +3261,7 @@
       "artifact": "transformer_attention_forward.spv",
       "source": "transformer_attention_forward.comp",
       "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
       "flags": [
         "-V",
         "--target-env",
@@ -654,9 +3271,359 @@
       "target_env": "vulkan1.0"
     },
     {
+      "artifact": "transformer_attention_gate_backward.spv",
+      "source": "transformer_attention_gate_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_attention_gate_forward.spv",
+      "source": "transformer_attention_gate_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_bias_add.spv",
+      "source": "transformer_bias_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_clamp_backward.spv",
+      "source": "transformer_clamp_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_clamp_forward.spv",
+      "source": "transformer_clamp_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_cross_entropy.spv",
+      "source": "transformer_cross_entropy.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_csa_compress_backward.spv",
+      "source": "transformer_deepseek_v4_csa_compress_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_csa_compress_forward.spv",
+      "source": "transformer_deepseek_v4_csa_compress_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_csa_index_scores.spv",
+      "source": "transformer_deepseek_v4_csa_index_scores.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_csa_position_bias_grad.spv",
+      "source": "transformer_deepseek_v4_csa_position_bias_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_csa_sparse_mask.spv",
+      "source": "transformer_deepseek_v4_csa_sparse_mask.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_hca_compress_backward.spv",
+      "source": "transformer_deepseek_v4_hca_compress_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_hca_compress_forward.spv",
+      "source": "transformer_deepseek_v4_hca_compress_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_hca_position_bias_grad.spv",
+      "source": "transformer_deepseek_v4_hca_position_bias_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_hyper_head_backward.spv",
+      "source": "transformer_deepseek_v4_hyper_head_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_hyper_head_forward.spv",
+      "source": "transformer_deepseek_v4_hyper_head_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_hyper_head_param_grad.spv",
+      "source": "transformer_deepseek_v4_hyper_head_param_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_kv_concat.spv",
+      "source": "transformer_deepseek_v4_kv_concat.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_kv_split.spv",
+      "source": "transformer_deepseek_v4_kv_split.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_mhc_collapse_backward.spv",
+      "source": "transformer_deepseek_v4_mhc_collapse_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_mhc_collapse_forward.spv",
+      "source": "transformer_deepseek_v4_mhc_collapse_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_mhc_param_grad.spv",
+      "source": "transformer_deepseek_v4_mhc_param_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_mhc_recombine_backward.spv",
+      "source": "transformer_deepseek_v4_mhc_recombine_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_mhc_recombine_forward.spv",
+      "source": "transformer_deepseek_v4_mhc_recombine_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_mhc_weights_backward.spv",
+      "source": "transformer_deepseek_v4_mhc_weights_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_mhc_weights_forward.spv",
+      "source": "transformer_deepseek_v4_mhc_weights_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_swiglu_backward.spv",
+      "source": "transformer_deepseek_v4_swiglu_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v4_swiglu_forward.spv",
+      "source": "transformer_deepseek_v4_swiglu_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_depthwise_causal_conv1d.spv",
+      "source": "transformer_depthwise_causal_conv1d.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_depthwise_causal_conv1d_dilated_update.spv",
+      "source": "transformer_depthwise_causal_conv1d_dilated_update.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_depthwise_causal_conv1d_input_grad.spv",
+      "source": "transformer_depthwise_causal_conv1d_input_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_depthwise_causal_conv1d_update.spv",
+      "source": "transformer_depthwise_causal_conv1d_update.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_depthwise_causal_conv1d_weight_grad.spv",
+      "source": "transformer_depthwise_causal_conv1d_weight_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_dora_forward.spv",
+      "source": "transformer_dora_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_dora_grad_scale.spv",
+      "source": "transformer_dora_grad_scale.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_dora_magnitude_grad.spv",
+      "source": "transformer_dora_magnitude_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_dora_scale.spv",
+      "source": "transformer_dora_scale.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_dsa_index_scores.spv",
+      "source": "transformer_dsa_index_scores.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_dsa_topk_mask.spv",
+      "source": "transformer_dsa_topk_mask.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_elementwise_mul_backward.spv",
+      "source": "transformer_elementwise_mul_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_elementwise_mul_forward.spv",
+      "source": "transformer_elementwise_mul_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "transformer_gated_delta_qk_norm_backward.spv",
       "source": "transformer_gated_delta_qk_norm_backward.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_gated_delta_recurrent.spv",
+      "source": "transformer_gated_delta_recurrent.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_gated_delta_recurrent_packed.spv",
+      "source": "transformer_gated_delta_recurrent_packed.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -664,6 +3631,87 @@
       "artifact": "transformer_gated_delta_recurrent_packed_backward.spv",
       "source": "transformer_gated_delta_recurrent_packed_backward.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_gelu_tanh_backward.spv",
+      "source": "transformer_gelu_tanh_backward.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.6.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_gelu_tanh_forward.spv",
+      "source": "transformer_gelu_tanh_forward.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.6.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_glm5_kda_gate_norm.spv",
+      "source": "transformer_glm5_kda_gate_norm.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_glm5_kda_gate_norm_backward.spv",
+      "source": "transformer_glm5_kda_gate_norm_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_glm5_kda_gate_norm_param_grad.spv",
+      "source": "transformer_glm5_kda_gate_norm_param_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_glm5_kda_param_grad.spv",
+      "source": "transformer_glm5_kda_param_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_glm5_kda_params.spv",
+      "source": "transformer_glm5_kda_params.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_glm5_kda_params_backward.spv",
+      "source": "transformer_glm5_kda_params_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_glm5_kda_recurrent_packed.spv",
+      "source": "transformer_glm5_kda_recurrent_packed.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -671,6 +3719,63 @@
       "artifact": "transformer_glm5_kda_recurrent_packed_backward.spv",
       "source": "transformer_glm5_kda_recurrent_packed_backward.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_gpt_oss_swiglu_backward.spv",
+      "source": "transformer_gpt_oss_swiglu_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_gpt_oss_swiglu_forward.spv",
+      "source": "transformer_gpt_oss_swiglu_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_group_scatter.spv",
+      "source": "transformer_group_scatter.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_group_slice.spv",
+      "source": "transformer_group_slice.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_grouped_layer_norm_forward.spv",
+      "source": "transformer_grouped_layer_norm_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_grouped_layer_norm_input_grad.spv",
+      "source": "transformer_grouped_layer_norm_input_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_grouped_layer_norm_param_grad.spv",
+      "source": "transformer_grouped_layer_norm_param_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -678,6 +3783,7 @@
       "artifact": "transformer_kimi_attn_res_mix.spv",
       "source": "transformer_kimi_attn_res_mix.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -685,6 +3791,7 @@
       "artifact": "transformer_kimi_attn_res_mix_backward_candidate.spv",
       "source": "transformer_kimi_attn_res_mix_backward_candidate.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
@@ -692,20 +3799,91 @@
       "artifact": "transformer_kimi_attn_res_mix_backward_prob.spv",
       "source": "transformer_kimi_attn_res_mix_backward_prob.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_kimi_attn_res_softmax.spv",
+      "source": "transformer_kimi_attn_res_softmax.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.6.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0"
+      ],
       "target_env": "vulkan1.0"
     },
     {
       "artifact": "transformer_kimi_attn_res_softmax_backward.spv",
       "source": "transformer_kimi_attn_res_softmax_backward.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
     {
-      "artifact": "transformer_moe_hash_router.spv",
-      "source": "transformer_moe_hash_router.comp",
+      "artifact": "transformer_lora_scaled_add.spv",
+      "source": "transformer_lora_scaled_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_minimax_m3_block_mask.spv",
+      "source": "transformer_minimax_m3_block_mask.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_minimax_m3_index_scores.spv",
+      "source": "transformer_minimax_m3_index_scores.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_mla_compressed_concat.spv",
+      "source": "transformer_mla_compressed_concat.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_mla_compressed_split.spv",
+      "source": "transformer_mla_compressed_split.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_mla_materialize.spv",
+      "source": "transformer_mla_materialize.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_mla_materialize_backward.spv",
+      "source": "transformer_mla_materialize_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_moe_expert_count.spv",
+      "source": "transformer_moe_expert_count.comp",
       "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
       "flags": [
         "-V",
         "--target-env",
@@ -715,34 +3893,347 @@
       "target_env": "vulkan1.0"
     },
     {
-      "artifact": "transformer_moe_row_dot.spv",
-      "source": "transformer_moe_row_dot.comp",
+      "artifact": "transformer_moe_expert_forward.spv",
+      "source": "transformer_moe_expert_forward.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_moe_expert_forward_muladd.spv",
+      "source": "transformer_moe_expert_forward_muladd.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_moe_hash_router.spv",
+      "source": "transformer_moe_hash_router.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.0",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_moe_router_backward.spv",
+      "source": "transformer_moe_router_backward.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     },
     {
-      "artifact": "transformer_offset_position_grad.spv",
-      "source": "transformer_offset_position_grad.comp",
+      "artifact": "transformer_moe_router_topk.spv",
+      "source": "transformer_moe_router_topk.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.6.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "transformer_moe_row_dot.spv",
+      "source": "transformer_moe_row_dot.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_moe_row_scale.spv",
+      "source": "transformer_moe_row_scale.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_moe_weighted_accumulate.spv",
+      "source": "transformer_moe_weighted_accumulate.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_offset_position_add.spv",
+      "source": "transformer_offset_position_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "--target-env=vulkan1.1"
       ],
       "target_env": "vulkan1.1"
     },
     {
+      "artifact": "transformer_offset_position_grad.spv",
+      "source": "transformer_offset_position_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "transformer_opt_position_add.spv",
+      "source": "transformer_opt_position_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_opt_position_grad.spv",
+      "source": "transformer_opt_position_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_position_add.spv",
+      "source": "transformer_position_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_position_grad.spv",
+      "source": "transformer_position_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qkv_concat.spv",
+      "source": "transformer_qkv_concat.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qkv_concat_asymmetric.spv",
+      "source": "transformer_qkv_concat_asymmetric.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qkv_split.spv",
+      "source": "transformer_qkv_split.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qkv_split_asymmetric.spv",
+      "source": "transformer_qkv_split_asymmetric.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen4_inject.spv",
+      "source": "transformer_qwen4_inject.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen4_inject_backward.spv",
+      "source": "transformer_qwen4_inject_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen4_ple_gate.spv",
+      "source": "transformer_qwen4_ple_gate.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen4_ple_gate_backward.spv",
+      "source": "transformer_qwen4_ple_gate_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen4_qsa_mask.spv",
+      "source": "transformer_qwen4_qsa_mask.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen4_repeat_streams.spv",
+      "source": "transformer_qwen4_repeat_streams.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen4_stream_mean.spv",
+      "source": "transformer_qwen4_stream_mean.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen4_stream_mean_backward.spv",
+      "source": "transformer_qwen4_stream_mean_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen_gdn_gate_norm.spv",
+      "source": "transformer_qwen_gdn_gate_norm.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen_gdn_gate_norm_backward.spv",
+      "source": "transformer_qwen_gdn_gate_norm_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "transformer_qwen_gdn_gate_norm_param_grad.spv",
       "source": "transformer_qwen_gdn_gate_norm_param_grad.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-O"
       ],
       "target_env": "vulkan1.0"
     },
     {
+      "artifact": "transformer_qwen_gdn_params.spv",
+      "source": "transformer_qwen_gdn_params.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen_gdn_params_backward.spv",
+      "source": "transformer_qwen_gdn_params_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen_gdn_shared_param_grad.spv",
+      "source": "transformer_qwen_gdn_shared_param_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen_next_gdn_prepare.spv",
+      "source": "transformer_qwen_next_gdn_prepare.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_qwen_next_gdn_prepare_backward.spv",
+      "source": "transformer_qwen_next_gdn_prepare_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_relu2_backward.spv",
+      "source": "transformer_relu2_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_relu2_forward.spv",
+      "source": "transformer_relu2_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_relu_backward.spv",
+      "source": "transformer_relu_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_relu_forward.spv",
+      "source": "transformer_relu_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_rms_norm_forward.spv",
+      "source": "transformer_rms_norm_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "transformer_rms_norm_input_grad.spv",
       "source": "transformer_rms_norm_input_grad.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-O"
       ],
@@ -752,15 +4243,155 @@
       "artifact": "transformer_rms_norm_input_grad_residual.spv",
       "source": "transformer_rms_norm_input_grad_residual.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [
         "-O"
       ],
       "target_env": "vulkan1.0"
     },
     {
+      "artifact": "transformer_rms_norm_param_grad.spv",
+      "source": "transformer_rms_norm_param_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_roberta_position_add.spv",
+      "source": "transformer_roberta_position_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_roberta_position_grad.spv",
+      "source": "transformer_roberta_position_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_rope_backward.spv",
+      "source": "transformer_rope_backward.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "transformer_rope_forward.spv",
+      "source": "transformer_rope_forward.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.5.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "transformer_row_scale.spv",
+      "source": "transformer_row_scale.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_scale_copy.spv",
+      "source": "transformer_scale_copy.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_scaled_add.spv",
+      "source": "transformer_scaled_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_situ_backward.spv",
+      "source": "transformer_situ_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_situ_forward.spv",
+      "source": "transformer_situ_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "transformer_uniform_jitter.spv",
       "source": "transformer_uniform_jitter.comp",
       "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_xielu_backward.spv",
+      "source": "transformer_xielu_backward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_xielu_forward.spv",
+      "source": "transformer_xielu_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_xielu_param_grad.spv",
+      "source": "transformer_xielu_param_grad.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "vector_add.spv",
+      "source": "vector_add.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "vector_add3.spv",
+      "source": "vector_add3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "worker_convergence.spv",
+      "source": "worker_convergence.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
     }

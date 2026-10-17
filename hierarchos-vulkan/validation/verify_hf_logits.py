@@ -176,7 +176,30 @@ QWEN25_STRICT_FAMILIES = (
     "qwen2_5_sliding_tied",
 )
 
+# Fixtures wide enough to clear the Intel Gen9 gate (`rows >= 4`,
+# `input_dim >= 32`, `output_dim >= 128`). Every other fixture is deliberately
+# tiny (`hidden_size` 16, `intermediate_size`/`vocab_size` 32), so its matmuls are
+# below that gate and the tuned `intel-gen9-lds` modules are never dispatched --
+# the resolved plan selects them, the geometry rejects them. These two fixtures
+# exist so the tuned modules are measured against Transformers, not only against
+# the portable modules in the vendor bit-exact A/B tests.
+WIDE_LOGIT_FAMILIES = (
+    "gpt2_wide",
+    "llama_wide",
+)
+
+# The geometry gate can reject a dispatch the resolved plan selected, so a
+# faithful check has to read the probe's dispatch counter, not the plan. Each
+# gate-width fixture must show at least one dispatch on the tuned family its
+# graph uses.
+VARIANT_TRACE_ENV = "HIERARCHOS_VULKAN_VARIANT_TRACE"
+WIDE_FAMILY_VARIANT = {
+    "gpt2_wide": "linear-bias-forward",
+    "llama_wide": "linear-forward",
+}
+
 STRICT_LOGIT_FAMILIES = (
+    *WIDE_LOGIT_FAMILIES,
     "smollm3",
     "smollm3_yarn",
     *KIMI_K3_ORACLE_FAMILIES,
@@ -1256,6 +1279,65 @@ def tiny_models(*, training_reference: bool = False) -> list[tuple[str, torch.nn
     return models
 
 
+def production_width_models() -> list[tuple[str, torch.nn.Module, bool]]:
+    """Causal LMs whose projections clear the Intel Gen9 geometry gate.
+
+    `hidden_size` 64, `intermediate_size` 256 and `vocab_size` 320 place the
+    attention, MLP and LM-head projections at or above `input_dim >= 32` and
+    `output_dim >= 128`; the harness's token batch supplies 12 rows, also above
+    `rows >= 4`. The tuned modules are therefore selected and compared against
+    the reference implementation instead of being skipped as below-gate. GPT-2
+    carries biases (`linear-bias-forward`) and Llama does not
+    (`linear-forward`), which are the two families a decoder-only Transformer
+    dispatches at this width.
+    """
+    wide = {
+        "vocab_size": 320,
+        "hidden_size": 64,
+        "intermediate_size": 256,
+        "num_hidden_layers": 2,
+        "num_attention_heads": 4,
+        "num_key_value_heads": 2,
+        "max_position_embeddings": 16,
+        "tie_word_embeddings": False,
+    }
+    return [
+        (
+            "gpt2_wide",
+            GPT2LMHeadModel(
+                GPT2Config(
+                    vocab_size=wide["vocab_size"],
+                    n_positions=16,
+                    n_ctx=16,
+                    n_embd=wide["hidden_size"],
+                    n_layer=wide["num_hidden_layers"],
+                    n_head=wide["num_attention_heads"],
+                    n_inner=wide["intermediate_size"],
+                    resid_pdrop=0.0,
+                    embd_pdrop=0.0,
+                    attn_pdrop=0.0,
+                    tie_word_embeddings=False,
+                    bos_token_id=1,
+                    eos_token_id=2,
+                )
+            ),
+            False,
+        ),
+        (
+            "llama_wide",
+            LlamaForCausalLM(
+                LlamaConfig(
+                    **wide,
+                    attention_bias=False,
+                    mlp_bias=False,
+                    rms_norm_eps=1.0e-5,
+                )
+            ),
+            False,
+        ),
+    ]
+
+
 def compare_family(
     binary: Path,
     root: Path,
@@ -1337,7 +1419,48 @@ def compare_family(
     ]
     if device_index is not None:
         command.extend(["--device-index", str(device_index)])
-    subprocess.run(command, cwd=ROOT.parent, check=True)
+    trace_family = WIDE_FAMILY_VARIANT.get(name)
+    env = dict(os.environ)
+    if trace_family is not None:
+        env[VARIANT_TRACE_ENV] = "1"
+    completed = subprocess.run(
+        command, cwd=ROOT.parent, check=True, capture_output=True, text=True, env=env
+    )
+    for stream, text in ((sys.stdout, completed.stdout), (sys.stderr, completed.stderr)):
+        if text:
+            stream.write(text)
+    variant_dispatches: dict[str, int] = {}
+    if trace_family is not None:
+        variant_plan: dict[str, str] = {}
+        for line in completed.stderr.splitlines():
+            if line.startswith("variant-plan:"):
+                for entry in line.split(":", 1)[1].split():
+                    key, _, value = entry.partition("=")
+                    variant_plan[key] = value
+            elif line.startswith("variant-dispatch:"):
+                for entry in line.split(":", 1)[1].split():
+                    key, _, value = entry.partition("=")
+                    variant_dispatches[key] = int(value)
+        if trace_family not in variant_plan:
+            raise AssertionError(
+                f"{name}: probe reported no kernel plan; saw {variant_plan or 'nothing'}"
+            )
+        # A plan that resolves to `portable` means this adapter has no module for
+        # the family (or the run forced the portable path on purpose), and then the
+        # tuned module must not be dispatched at all. An admitted plan must be
+        # dispatched, otherwise the geometry gate silently swallowed the fixture.
+        dispatched = variant_dispatches.get(trace_family, 0)
+        if variant_plan[trace_family] == "portable":
+            if dispatched:
+                raise AssertionError(
+                    f"{name}: {trace_family} is planned portable but dispatched "
+                    f"{dispatched} vendor modules"
+                )
+        elif not dispatched:
+            raise AssertionError(
+                f"{name}: {trace_family} planned {variant_plan[trace_family]} but "
+                f"dispatched 0 modules; counter reported {variant_dispatches or 'nothing'}"
+            )
     report = json.loads(report_path.read_text(encoding="utf-8"))
     actual = torch.tensor(report["logits"], dtype=torch.float32)
     if actual.shape != reference.shape:
@@ -1357,6 +1480,7 @@ def compare_family(
     result = {
         "family": name,
         "case": case,
+        "variant_dispatches": variant_dispatches,
         "architecture": report["architecture"],
         "device": report["device"],
         "values": actual.numel(),
@@ -1385,7 +1509,7 @@ def main() -> None:
         raise RuntimeError(
             f"expected local Transformers checkout under {TRANSFORMERS_SOURCE}, imported {source}"
         )
-    models = tiny_models()
+    models = tiny_models() + production_width_models()
     if args.headline_eight and args.families:
         raise ValueError("--headline-strict cannot be combined with --families")
     if args.headline_eight:

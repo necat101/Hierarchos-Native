@@ -1322,14 +1322,21 @@ impl HierarchosTokenFrontendOp {
             if active.len() != rows || active.iter().any(|&v| v != 0.0 && v != 1.0) {
                 bail!("ROSA active mask must contain one binary 0/1 entry per lane");
             }
-            Some(reset_lanes.iter().zip(active)
-                .map(|(&reset, &active)| reset | if active == 0.0 { 2 } else { 0 })
-                .collect::<Vec<u32>>())
+            Some(
+                reset_lanes
+                    .iter()
+                    .zip(active)
+                    .map(|(&reset, &active)| reset | if active == 0.0 { 2 } else { 0 })
+                    .collect::<Vec<u32>>(),
+            )
         } else {
             None
         };
         commands.upload_u32(&self.token_ids, token_ids)?;
-        commands.upload_u32(&self.rosa_reset_lanes, controls.as_deref().unwrap_or(reset_lanes))?;
+        commands.upload_u32(
+            &self.rosa_reset_lanes,
+            controls.as_deref().unwrap_or(reset_lanes),
+        )?;
         let push = RosaPredictPush {
             rows: rows as u32,
             max_context: self.config.rosa_max_context as u32,
@@ -1442,7 +1449,13 @@ impl HierarchosTokenFrontendOp {
 
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
         let prepared_rosa = if let Some(reset_lanes) = reset_lanes {
-            self.record_rosa_lane_predictions(&mut commands, input.token_ids, reset_lanes, None, true)?;
+            self.record_rosa_lane_predictions(
+                &mut commands,
+                input.token_ids,
+                reset_lanes,
+                None,
+                true,
+            )?;
             None
         } else {
             self.record_rosa_predictions(&mut commands, input.token_ids, true)?
@@ -2106,11 +2119,7 @@ impl HierarchosTokenFrontendOp {
             self.config.persistent_dim,
         )?;
         let lm_head_gradient = self.embedding.shared_parameter().gradient_buffer()?;
-        commands.readback_f32(
-            &lm_head_gradient,
-            &self.grad_lm_head_readback,
-            lm_head_len,
-        )?;
+        commands.readback_f32(&lm_head_gradient, &self.grad_lm_head_readback, lm_head_len)?;
         commands.readback_f32(
             &self.grad_ltm_keys,
             &self.grad_ltm_keys_readback,
@@ -2351,11 +2360,7 @@ impl HierarchosTokenFrontendOp {
             self.config.context_dim,
         )?;
         let lm_head_gradient = self.embedding.shared_parameter().gradient_buffer()?;
-        commands.readback_f32(
-            &lm_head_gradient,
-            &self.grad_lm_head_readback,
-            lm_head_len,
-        )?;
+        commands.readback_f32(&lm_head_gradient, &self.grad_lm_head_readback, lm_head_len)?;
         commands.submit()?;
 
         Ok(HierarchosTokenFrontendBackwardResult {
@@ -2761,7 +2766,13 @@ impl HierarchosTokenFrontendOp {
         active_lanes: Option<&[f32]>,
     ) -> Result<usize> {
         let rows = self.validate_memory_input(&input)?;
-        self.record_rosa_lane_predictions(commands, input.token_ids, reset_lanes, active_lanes, false)?;
+        self.record_rosa_lane_predictions(
+            commands,
+            input.token_ids,
+            reset_lanes,
+            active_lanes,
+            false,
+        )?;
         self.record_memory_tensor_forward(commands, input, rows)?;
         Ok(rows)
     }
@@ -3694,13 +3705,26 @@ mod tests {
             (64, true, ROSA_PREDICT_BOUNDED_LANES_SUBGROUP_64_SPV),
             (128, true, ROSA_PREDICT_BOUNDED_LANES_SUBGROUP_128_SPV),
             (256, true, ROSA_PREDICT_BOUNDED_LANES_SUBGROUP_256_SPV),
-            (256, true, ROSA_PREDICT_BOUNDED_LANES_SUBGROUP_256_SINGLE_PAIR_SPV),
-            (128, true, ROSA_PREDICT_BOUNDED_LANES_SUBGROUP_128_CACHE_TILED_SPV),
-            (256, true, ROSA_PREDICT_BOUNDED_LANES_SUBGROUP_256_SINGLE_PAIR_CACHE_TILED_SPV),
+            (
+                256,
+                true,
+                ROSA_PREDICT_BOUNDED_LANES_SUBGROUP_256_SINGLE_PAIR_SPV,
+            ),
+            (
+                128,
+                true,
+                ROSA_PREDICT_BOUNDED_LANES_SUBGROUP_128_CACHE_TILED_SPV,
+            ),
+            (
+                256,
+                true,
+                ROSA_PREDICT_BOUNDED_LANES_SUBGROUP_256_SINGLE_PAIR_CACHE_TILED_SPV,
+            ),
         ];
         for (variant, (width, subgroup, spirv)) in variants.into_iter().enumerate() {
             if !device.supports_compute_work_group_size_x(width)
-                || (subgroup && !device.supports_compute_subgroup_arithmetic()) {
+                || (subgroup && !device.supports_compute_subgroup_arithmetic())
+            {
                 eprintln!("SKIP unsupported ROSA variant {variant}");
                 continue;
             }
@@ -3718,35 +3742,65 @@ mod tests {
             for step in 0..24 {
                 // Lane 0 runs; lane 1 pauses and resumes; lane 2 resets while masked.
                 let token_ids = [1 + step % 2, 3 + step % 2, 5 + step % 2];
-                let mut flags = [0u32, if step % 3 == 0 { 2 } else { 0 },
-                    if step % 5 == 0 { 3 } else { 0 }];
-                if step == 0 { for flag in &mut flags { *flag |= 1; } }
+                let mut flags = [
+                    0u32,
+                    if step % 3 == 0 { 2 } else { 0 },
+                    if step % 5 == 0 { 3 } else { 0 },
+                ];
+                if step == 0 {
+                    for flag in &mut flags {
+                        *flag |= 1;
+                    }
+                }
                 tokens.write_u32(&token_ids)?;
                 controls.write_u32(&flags)?;
                 let mut expected = Vec::new();
                 for row in 0..rows {
-                    if flags[row] & 1 != 0 { oracle[row] = RosaState::new(); }
-                    expected.push(if flags[row] & 2 != 0 { None } else {
+                    if flags[row] & 1 != 0 {
+                        oracle[row] = RosaState::new();
+                    }
+                    expected.push(if flags[row] & 2 != 0 {
+                        None
+                    } else {
                         oracle[row].predict_and_push(token_ids[row], max_context)
                     });
                 }
                 let mut commands = vulkan::ComputeBatch::new(&device)?;
-                kernel.record_dispatch(&mut commands,
-                    &[&history, &lengths, &tokens, &controls, &matches, &predictions, &valid],
-                    bytemuck::bytes_of(&RosaPredictPush { rows: rows as u32, max_context: max_context as u32 }),
-                    [rows as u32, 1, 1])?;
+                kernel.record_dispatch(
+                    &mut commands,
+                    &[
+                        &history,
+                        &lengths,
+                        &tokens,
+                        &controls,
+                        &matches,
+                        &predictions,
+                        &valid,
+                    ],
+                    bytemuck::bytes_of(&RosaPredictPush {
+                        rows: rows as u32,
+                        max_context: max_context as u32,
+                    }),
+                    [rows as u32, 1, 1],
+                )?;
                 commands.submit()?;
                 let actual_ids = predictions.read_f32(rows)?;
                 let actual_valid = valid.read_f32(rows)?;
                 let actual_lengths = lengths.read_f32(rows)?;
                 let actual_history = history.read_f32(rows * max_context)?;
                 for row in 0..rows {
-                    let actual = (actual_valid[row].to_bits() != 0).then_some(actual_ids[row].to_bits());
-                    assert_eq!(actual, expected[row], "variant {variant}, step {step}, row {row}");
+                    let actual =
+                        (actual_valid[row].to_bits() != 0).then_some(actual_ids[row].to_bits());
+                    assert_eq!(
+                        actual, expected[row],
+                        "variant {variant}, step {step}, row {row}"
+                    );
                     let len = actual_lengths[row].to_bits() as usize;
                     assert_eq!(len, oracle[row].len());
-                    let history = actual_history[row*max_context..row*max_context+len]
-                        .iter().map(|v| v.to_bits()).collect::<Vec<_>>();
+                    let history = actual_history[row * max_context..row * max_context + len]
+                        .iter()
+                        .map(|v| v.to_bits())
+                        .collect::<Vec<_>>();
                     assert_eq!(history, oracle[row].snapshot().tokens);
                 }
             }

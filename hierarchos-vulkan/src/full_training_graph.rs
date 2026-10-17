@@ -24625,8 +24625,9 @@ impl HierarchosTrainingGraph {
     /// First execution-fused training entrypoint. H-RWKV, L-RWKV, their shared
     /// tied-embedding gradients, out_norm, dense LM loss, and all three current
     /// optimizer islands are encoded into one logical compute batch. That batch
-    /// is normally one queue submission, but Linux AMD watchdog protection may
-    /// split it at dispatch boundaries. Projection seams remain recordable but are not yet
+    /// is normally one queue submission, but watchdog protection may split it at
+    /// dispatch boundaries on the devices whose driver timeout bounds a job
+    /// (Linux AMD, and the ported Intel Gen9/Gen9.5 target). Projection seams remain recordable but are not yet
     /// interleaved here because this compatibility entrypoint still accepts
     /// host-materialized recurrent inputs/gradients.
     pub fn train_recurrent_and_loss_one_submit(

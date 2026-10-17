@@ -163,6 +163,26 @@ would have measured oracle rounding rather than native fidelity. Two-step AdamW
 parameter parity is green at the same gate for every decoder-only fixture
 family (34/34; worst observed `1.192092896e-7`).
 
+On 2026-10-17 two gate-width forward fixtures were added, because every earlier
+fixture is smaller than the Intel Gen9 matmul gate (`rows >= 4`, `input_dim >=
+32`, `output_dim >= 128`) and therefore never dispatched the tuned modules it
+was supposed to check. `gpt2_wide` and `llama_wide` use `hidden_size` 64,
+`intermediate_size` 256 and `vocab_size` 320 with a 2x6 token batch, so their
+attention, MLP and LM-head projections are admitted; the bias and no-bias
+variants cover `linear-bias-forward` and `linear-forward`. The default registry
+now runs 75 comparisons over 39 families, all at `atol=2e-7, rtol=0`, and the
+widest observed drift is `1.788139343e-7` on those two fixtures -- inside the
+ceiling, but the tightest margin in the set, because at 64-wide reductions the
+oracle's own FP32 summation order is the dominant term. Those two rows also
+prove at runtime that the tuned modules ran: the probe prints its per-family
+dispatch counter under `HIERARCHOS_VULKAN_VARIANT_TRACE` and the harness fails
+if the expected family is missing (`linear-bias-forward` 4 dispatches for
+`gpt2_wide`, `linear-forward` 5 for `llama_wide`), because the geometry gate can
+reject a dispatch the plan selected. The rule is two-sided: a family the plan
+resolves to `portable` must be dispatched zero times, which is also how the
+forced-portable run is checked and how the assertion stays valid on an adapter
+without that module.
+
 Run exactly the claim above with:
 
 ```powershell
@@ -187,7 +207,11 @@ are in `validation/verify_falcon_h1.py`; the audit is
 Measured forward drift is at most `8.940696716e-8`, cached decode across prefill
 lengths 1/3/4/7/9 at most `7.450580597e-8`, and two-step parameter drift at most
 `1.192092896e-7`. Cached native logits match full-prefix native logits at every
-checked token; the harness also requires actual recurrent dispatches.
+checked token; the harness also requires actual recurrent dispatches. The second
+AdamW trajectory runs with trailing padding and its padded labels masked; a
+mid-sequence mask gap is not scored because the reference's own fp32-vs-fp64
+backward spread there is `4.209578e-7`, above the gate, and the harness comment
+keeps those measurements as the reason.
 Full-parameter training/fine-tuning uses the CLI and GUI. Falcon H1/H1R LoRA
 and registered saved modules also pass all three PEFT fixtures; HF interoperability
 excludes Mamba `out_proj` and `conv1d`, but includes Mamba `in_proj`. Official H1R-7B config/shard metadata was checked;
@@ -329,18 +353,218 @@ Rust GPU tests follow the existing convention of returning early when no device
 is available; the Python numerical probes require an actual Vulkan device.
 Run those probes when hardware execution is an acceptance requirement.
 
-### Linux AMD watchdog-safe submissions
+### Watchdog-safe submissions (Linux AMD, and the ported Intel Gen9 target)
 
-Linux AMD training now protects the stock `amdgpu` scheduler timeout by
+Linux AMD training protects the stock `amdgpu` scheduler timeout by
 retiring compute dispatches as dispatch-granular synchronous Vulkan jobs instead of
 allowing an entire forward/backward/optimizer phase to accumulate into one
 long-running submission. The policy is enabled automatically for AMD PCI vendor
 `0x1002` on Linux and is deliberately not enabled by default on other
 platforms or vendors.
 
+The same failure class is bound by the Windows display driver's timer on the
+Intel Gen9/Gen9.5 target, so that pattern was ported onto exactly the part class
+the vendor layer already singles out (`vendor::is_intel_gen9_pci_id`, the same
+IDs the FP16 LM reliability policy uses) on Windows -- at a *measured,
+length-based* slice point rather than at the AMD target's per-dispatch one,
+because porting the latter unchanged was measured costing about 5x per training
+step here while buying no headroom the submission needed. A driver watchdog
+bounds a submitted job in *time*, so the bound is not a count chosen once: every
+retirement is timed on the host, and the budget becomes the count whose measured
+cost fits `GEN9_WATCHDOG_SLICE_MICROS` (400 ms), inside a window bounded below by
+the 1024 dispatches the port shipped at and above by a mis-measurement guard of
+8192. The target is the safety bound and the guard is not: a training step of the
+canonical fixture is 320-350 ms of measured work at the rate its own retirements
+measure, so a target below one step forces a retirement on every step for a
+submission that is already five times inside the driver's timeout, and a guard at
+8192 cannot bind a submission the measurement has already priced (the step is
+6,368 dispatches). What the guard still bounds is the composite in which a cheap
+sample sizes the submission and every dispatch after it is the slowest class
+measured here (`layer_norm_low_rank_producer_forward_fused`, 175.0 us):
+8192 x 175.0 us is 1.43 s, and that class is 2.3% of a step's dispatches, so no
+real graph composes a submission that way. A sample can only *widen* the bound, so
+the policy costs at most what the fixed count cost, and the widest measurement a
+device has taken is published for the batches after it, so a bound learned while
+the graph warms up is not re-learned on every step. The measurement is below.
+Every other
+combination keeps the legacy single-submit path: other Intel generations, other
+vendors, platforms outside each policy's own, and AMD outside Linux. The policy
+reproduces no vendor variant and touches no shader: it changes submission
+granularity, not shader math or optimizer ordering.
+
+What the slice point costs and whether it buys anything here, measured on the
+tuning target itself (Intel HD Graphics 520, `0x8086:0x1916`, driver
+31.0.101.2115, Windows, debug build) with `training_step_probe --batch 2
+--tokens 8 --steps 6`, every arm interleaved in five rounds so the machine's own
+drift reaches every arm equally, median of the rounds:
+
+| Arm | Median step | vs legacy |
+| --- | --- | --- |
+| legacy single submit | 381.8 ms | -- |
+| 8192 dispatches, forced (what the measurement converges to) | 381.7 ms | -0.0% |
+| **shipped default (measured bound, 400 ms target)** | **382.7 ms** | **+0.2%** |
+| 4096 dispatches, forced (the port's earlier ceiling) | 385.1-399.5 ms | +1.2 to +1.8% |
+| 1024 dispatches, forced (the fixed count the port shipped) | 405.6 ms | +5.7% |
+| 512 dispatches, forced | 426.1 ms | +12% |
+| 256 dispatches, forced | 449.7 ms | +18% |
+| 64 dispatches, forced | 556.7 ms | +46% |
+| 1 dispatch (the AMD slice point) | 1928.3 ms | +407% |
+
+The last four rows are the earlier forced sweep, whose legacy step was 380.0 ms in
+that session; their ratios reproduce, while their absolute milliseconds belong to
+the session that took them. The first five rows are one interleaved session, which
+is what makes them comparable.
+
+The shipped arm's +0.2% is one *calibration* retirement per process: the budget
+starts at the floor, the first retirement measures the stream, and the bound then
+sits at the guard for the rest of the process, which is the -0.0% row. On a
+seven-step probe that is one retirement amortized over seven steps; on a real run
+it is amortized over thousands and is 0.00%. The fixed 1,024-dispatch count this
+replaced costs +5.7% on the same fixture, and an intermediate configuration whose
+guard was 4,096 dispatches -- below the fixture's own 6,368-dispatch step, so it
+could never accept a step in one submission -- measured +0.9% before it was fixed.
+That is the whole reason the guard is 8,192 and the target is 400 ms: a bound that
+binds a submission the measurement has already priced is a cost with no protection
+attached to it.
+
+The policy is a *net speedup*, not merely a recovered regression, on the second
+fixture: `cargo test --lib -- hierarchos_causal_lm_` (six tests, ten seconds of
+real training work) runs in 10.28 s with the measured bound live against 10.49 s
+with slicing off (`HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS=0`), median of three
+interleaved repetitions each -- about 2% faster than the same binary's unsliced
+path, because retiring a slice lets the GPU start on it while the host is still
+recording the next one. On this fixture and the probe together, the port is
+between -2% and +0.2% of the pre-port unsliced path rather than the +407% its
+per-dispatch reading cost.
+`validation/slice_point_ab.py` is the tool that takes the step numbers: it runs the
+arms round-robin and then hashes the golden's own three cases under every arm,
+failing if any arm disagrees.
+
+So the per-dispatch slice point is what made this port unaffordable at about 5x
+per step, and a *fixed* length bound still cost about 6% while meaning something:
+at this fixture's measured per-dispatch cost 1024 dispatches is roughly 60 ms of
+work, and it holds a submission under a three-second watchdog for every
+per-dispatch cost measured here except the single-dispatch attention-backward
+class that only the kernel-level split can shorten. The transformer recorders also
+retire at their phase boundaries whatever the budget says, so a step's submission
+count is the larger of its phase count and its dispatch count over the budget.
+
+Every arm is **bit-exact**, and now by hash instead of by comparison: running the
+golden's own three cases under the legacy single-submit path, under the measured
+default and under a forced 1024-dispatch point produces the same three trajectory
+dumps byte for byte -- `95f48308...` (`batch2`), `6c97733e...` (`batch32`),
+`cc4cb821...` (`odd_multi_sequence`) -- the ladder's recorded-trajectory check
+passes on all three arms (13 steps, 3,817 exact tensor digests each), the library
+suite is 717 passed / 0 failed with the policy live, and
+`watchdog_submission_slicing_preserves_dependent_dispatch_results` executes a
+sliced stream with a data dependency across the slice boundary on the adapter
+that is actually present.
+
+Retiring a submission is a change of granularity, so the structural counters a
+caller reads still describe the whole recorded stream: `dispatch_count`,
+`shader_barrier_count`, `pipeline_bind_count`, `descriptor_bind_count`, the
+push-constant writes and the allocated descriptor sets are carried across a
+retirement, and only the since-retirement dispatch count drives the budget. That
+is more than bookkeeping -- `validation/verify_training_stack.py` compares
+`dispatch_count` against the expectation recorded for the device it ran on, and
+reporting only the open slice made a sliced run look like it had recorded 224
+dispatches where the fixture records 6,368. With the counters carried, that check
+reports the same 6,368 on both arms, which is what makes it a check of the graph
+rather than of the submission policy. A split does cost one extra barrier across
+each slice boundary (2,983 versus 2,980 on the two-step probe), inside the
+recorded upper bound.
+
+The Gen9 slice point is therefore ported, wired and **shipped on**:
+`GEN9_WATCHDOG_SLICING_DEFAULT` is `true` for this class at the measured +0.5%
+per step, and `HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS=0` restores the legacy
+single-submit path for anyone who wants that half point back. What decided it
+against the per-dispatch reading, and then against a fixed count, was not taste
+but the measurements above, and the constants that carry them --
+`GEN9_WATCHDOG_SLICE_DISPATCHES`, its ceiling and `GEN9_WATCHDOG_SLICE_MICROS` --
+live together in the source.
+
+### The Gen9 target's own training-state trajectory
+
+The golden is device-keyed, so a machine it has no trajectory for cannot be
+verified against it -- which is why every claim above started as a live two-run
+comparison. `validation/kernel_golden/training_state.json` now carries the Gen9
+target's trajectory for all three cases (13 training steps, 3,817 exact tensor
+digests), recorded through the legacy single-submit path so the stored baseline
+is the un-sliced one, and `validation/record_training_state.py` is the recorder
+that added it: it runs the probe exactly as the verifier does, adds one device's
+trajectories without rewriting any other device's, refuses unless every case ran
+and reported the same device, and refuses to overwrite an existing trajectory
+without `--replace`. Stripping the new entry reproduces the previous file
+byte-for-byte, so the AMD trajectories are untouched.
+
+With that recorded, the A/B is checked against a repository artifact in both
+directions instead of against two live runs:
+
+| Arm | `validation/verify_training_state.py` |
+| --- | --- |
+| policy at its default (measured bound) | PASS, 13 steps, 3,817 digests |
+| `HIERARCHOS_VULKAN_WATCHDOG_SLICE_DISPATCHES=1024` (the fixed count it replaced) | PASS, 13 steps, 3,817 digests |
+| `HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS=0` | PASS, 13 steps, 3,817 digests |
+
+The device trajectories are an input artifact, so
+`validation/release_parity/source_inventory.json` still holds this file's
+previous hash; that inventory is a release-audit snapshot and already disagrees
+with this working tree on 470 of its 1,005 entries, so it is refreshed by the
+release flow rather than by hand here.
+
+The ladder's other fixture record, `validation/training_step_probe/step_expectation.json`,
+is now device-keyed for the same reason the trajectory golden is. The graph this
+target builds is not the AMD one -- the vendor layer selects Gen9 kernels here --
+so the same probe arguments dispatch a different number of times: 6,368 on this
+part against the 6,464 recorded on the AMD target, on **both** arms, which is what
+says the difference is the graph and not the slicing policy. While
+`dispatch_count` sat at the top level as one number "compared for every device",
+the second device could only fail that comparison or overwrite the first device's
+record when re-recorded. It now lives in the device entry beside `mean_loss`,
+`--record-expectation` merges this machine's entry and leaves every other entry
+as recorded, and the barrier bound is device-independent and only ever widens. AMD's
+entry keeps `6,464` and `shader_barrier_count_max` keeps `3,076`; the Gen9 entry
+records `6,368` and its own loss, and the training-step probe passes on both arms
+against it.
+
+The port is only real if the shipped constructors act on it, so
+`watchdog_slicing_is_wired_into_the_training_path_on_this_adapter` asserts that
+the plain constructor never slices a caller's stream unasked while
+`ComputeBatch::new_with_persistent_upload_arena` -- the one the training graph
+builds its phases with -- comes out slicing exactly when the pure policy says so
+on the running adapter, with the same dispatch budget the policy resolves. Where
+that adapter is this class, the same test asserts both directions of the slice
+point, so the wiring cannot pass vacuously on a machine the policy does not
+cover. The vendor/device/platform matrix is asserted without a device by
+`gpu_job_boundary_policy_defaults_to_amd_and_scopes_the_gen9_port` and
+`gpu_job_boundary_policy_honors_explicit_override`, the granularity by
+`watchdog_slice_budget_is_per_dispatch_on_amd_and_length_based_on_gen9`, and the
+gate itself on device by `watchdog_slice_budget_retires_on_accumulated_length`,
+which requires a stream below the budget to stay batched, the budget's dispatch
+to retire, the replacement batch to keep the policy and its granularity, and a
+phase boundary to retire without waiting for the budget. The measured bound
+itself is asserted twice more: without a device by
+`watchdog_slice_budget_is_a_measured_bound_inside_a_measured_window` (the
+extrapolation, both clamps, the unusable samples, and the sample that must *not*
+tighten a wider budget) and on device by
+`watchdog_slice_budget_follows_the_measured_retirement_on_this_adapter`, which
+requires a real retirement of cheap dispatches to leave the floor behind, to stay
+inside the window, to publish what it measured for the batches after it, and a
+pinned budget to survive the same retirement untouched.
+
+It does not reach a single dispatch that is itself longer than the watchdog:
+slicing retires between dispatches, so a submission with one over-long dispatch
+in it is shortened only at the kernel level (see the attention-backward
+key-range split, whose per-block submissions use the same primitive). The Gen9
+resets recorded for the attention backward are that single-dispatch class.
+
 Slicing is activated only on synchronous training/inference command streams;
 batches that acquire external or device-group semaphore dependencies retain
-their original deferred-submission behavior.
+their original deferred-submission behavior. On the Gen9 target the ported slice
+point is the shipped default, so `HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS=0` is
+what restores the legacy path there, `=1` forces it on any device, and
+`HIERARCHOS_VULKAN_WATCHDOG_SLICE_DISPATCHES` chooses the granularity for the
+A/B the table above reports.
 
 This changes submission granularity, not shader math or optimizer ordering. The
 same path can be forced for validation on any platform with

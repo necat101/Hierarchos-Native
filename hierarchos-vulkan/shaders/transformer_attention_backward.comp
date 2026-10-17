@@ -81,6 +81,14 @@ layout(push_constant) uniform Push {
     uint kv_page_size;
     uint kv_page_table_stride;
     uint unfused_qk;
+    // The key-range block this submission owns. The watchdog bounds a
+    // submission, so a split can only pay off when each block is submitted on
+    // its own, and a separately submitted block cannot identify itself from the
+    // grid it was launched with -- every such submission is launched with a z of
+    // one. These two words carry its identity instead. A count of one is the
+    // unsplit path.
+    uint key_block_index;
+    uint key_block_count;
 } pc;
 
 bool h1_fully_masked(uint batch, uint query) {
@@ -302,6 +310,30 @@ void main() {
     if (shared_score_parameter && invocation_batch != 0u) {
         return;
     }
+    // Key-range split. One block is one submission, and this invocation's block
+    // index and count arrive in the push constants, so the key range a
+    // submission owns no longer has to be encoded in its grid. Every split
+    // submission is therefore launched with a z of one; a z above one would
+    // repeat a block rather than add one. The watchdog bounds a submission
+    // rather than an invocation, so dividing the work inside a single submission
+    // buys nothing -- measured at 257 queries and head dim 8, one dispatch and
+    // eight key-range blocks of the same span both lost the device. A count of
+    // one is byte-for-byte today's single-dispatch path. Only the strict adjoint
+    // (unfused_qk 1/2/9) may be split: its per-key K/V outputs are self-contained
+    // assignments, so blocking keys leaves every reduction order intact. The
+    // shared primary pass and the fused path accumulate a running softmax_dot
+    // over keys and would need cross-submission state, so every other mode runs
+    // one block however the caller sized the count.
+    uint key_blocks = (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u)
+        ? max(pc.key_block_count, 1u) : 1u;
+    uint key_block = min(pc.key_block_index, key_blocks - 1u);
+    bool split_active = key_blocks > 1u;
+    bool split_owner = !split_active || key_block == 0u;
+    uint split_begin = split_active
+        ? (key_block * pc.key_value_seq_len) / key_blocks : 0u;
+    uint split_end = split_active
+        ? ((key_block + 1u) * pc.key_value_seq_len) / key_blocks
+        : pc.key_value_seq_len;
     uint qk_head_dim = pc.query_hidden_size / pc.num_heads;
     uint key_hidden_size = qk_head_dim * pc.num_key_value_heads;
     uint value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
@@ -314,11 +346,15 @@ void main() {
     bool cache_stats = (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u)
         && (last_batch - first_batch) * queries_per_kv * pc.query_seq_len <= STATS_CACHE_SIZE;
 
+    // Per-key K/V gradients are zeroed over this block's own key range only:
+    // key ownership is disjoint, so no block writes an element that another
+    // block owns and the zeroing cannot race the assignments the other blocks
+    // make for their own keys.
     // This invocation exclusively owns the shared K/V slice. Sink-bearing
     // attention owns all batches for the KV head so its per-query-head sink
     // gradient can be reduced deterministically without float atomics.
     for (uint batch = first_batch; batch < last_batch; ++batch) {
-        for (uint position = 0; position < pc.key_value_seq_len; ++position) {
+        for (uint position = split_begin; position < split_end; ++position) {
             uint key_base = (batch * pc.key_value_seq_len + position) * key_hidden_size + kv_head * qk_head_dim;
             uint value_base = (batch * pc.key_value_seq_len + position) * pc.value_hidden_size + kv_head * value_head_dim;
             for (uint d = 0; d < qk_head_dim; ++d) {
@@ -329,6 +365,13 @@ void main() {
             }
         }
     }
+
+    // The shared primary pass: the row statistics and grad_q accumulate across
+    // the whole key range and are not per-key, so exactly one block owns them --
+    // the split owner, or the sole block when the grid is unsplit. Later blocks
+    // run only the per-key strict adjoint below. (Deliberately un-indented, so
+    // the gate stays visible without reflowing 200 lines of reduction code.)
+    if (split_owner) {
     for (uint head = first_head; head < last_head; ++head) {
         if (pc.has_sink != 0u) {
             grad_sink[head] = 0.0;
@@ -556,6 +599,7 @@ void main() {
             }
         }
     }
+    }
 
     if (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u) {
         // The strict adjoint still reduces queries from zero for each repeated
@@ -563,83 +607,97 @@ void main() {
         // those loops so each (query, key) score/dp is evaluated once. Reusing
         // row statistics removes the former full-softmax replay per key and
         // channel. Every element retains its original FP32 reduction order.
-        if (cache_stats && max(qk_head_dim, value_head_dim) <= HEAD_CACHE_SIZE) {
+        // The strict adjoint reuses the row statistics the primary pass recorded.
+        // Only the accumulators are bounded by HEAD_CACHE_SIZE, and each output
+        // element accumulates independently, so the head dimension is processed in
+        // windows here instead of bounding the whole path: a head dimension above the
+        // cache bound otherwise fell through to a replay that recomputed every
+        // d-independent statistic once per head-dimension element.
+        // The cached-statistics adjoint reads the row statistics the owner block
+        // recorded, so it is only valid unsplit; a split run takes the streaming
+        // adjoint below, which recomputes what it needs from the key range it owns.
+        if (cache_stats && !split_active) {
             uint max_head_dim = max(qk_head_dim, value_head_dim);
             for (uint batch = first_batch; batch < last_batch; ++batch) {
-                for (uint key = 0u; key < pc.key_value_seq_len; ++key) {
+                for (uint key = split_begin; key < split_end; ++key) {
                     uint key_row = batch * pc.key_value_seq_len + key;
                     uint k_base = key_row * key_hidden_size + kv_head * qk_head_dim;
                     uint v_base = key_row * pc.value_hidden_size + kv_head * value_head_dim;
-                    for (uint d = 0u; d < max_head_dim; ++d) {
-                        shared_k_cache[d] = 0.0;
-                        shared_v_cache[d] = 0.0;
-                    }
-                    for (uint head = first_head; head < last_head; ++head) {
-                        for (uint d = 0u; d < max_head_dim; ++d) {
-                            head_k_cache[d] = 0.0;
-                            head_v_cache[d] = 0.0;
+                    for (uint d_base = 0u; d_base < max_head_dim; d_base += HEAD_CACHE_SIZE) {
+                    uint window = min(HEAD_CACHE_SIZE, max_head_dim - d_base);
+                    uint k_window = d_base < qk_head_dim ? min(window, qk_head_dim - d_base) : 0u;
+                    uint v_window = d_base < value_head_dim ? min(window, value_head_dim - d_base) : 0u;
+                        for (uint d = 0u; d < window; ++d) {
+                            shared_k_cache[d] = 0.0;
+                            shared_v_cache[d] = 0.0;
                         }
-                        for (uint query = 0u; query < pc.query_seq_len; ++query) {
-                            uint stats_index = ((batch - first_batch) * queries_per_kv + head - first_head)
-                                * pc.query_seq_len + query;
-                            float inv_sum = row_inverse[stats_index];
-                            if (inv_sum == 0.0) continue;
-                            uint absolute_query = pc.query_position_offset + query;
-                            uint first_key = 0u;
-                            uint last_key = pc.key_value_seq_len - 1u;
-                            if (pc.compressed_key_count == 0u && pc.causal != 0u && !h1_fully_masked(batch,query)) {
-                                last_key = min(absolute_query, pc.key_value_seq_len - 1u);
+                        for (uint head = first_head; head < last_head; ++head) {
+                            for (uint d = 0u; d < window; ++d) {
+                                head_k_cache[d] = 0.0;
+                                head_v_cache[d] = 0.0;
                             }
-                            if (pc.compressed_key_count == 0u && pc.window_size != 0u) {
-                                if (pc.causal != 0u) {
-                                    first_key = absolute_query + 1u > pc.window_size
-                                        ? absolute_query + 1u - pc.window_size : 0u;
-                                } else {
-                                    first_key = absolute_query > pc.window_size ? absolute_query - pc.window_size : 0u;
-                                    uint right = min(pc.window_size, pc.key_value_seq_len - 1u - absolute_query);
-                                    last_key = absolute_query + right;
+                            for (uint query = 0u; query < pc.query_seq_len; ++query) {
+                                uint stats_index = ((batch - first_batch) * queries_per_kv + head - first_head)
+                                    * pc.query_seq_len + query;
+                                float inv_sum = row_inverse[stats_index];
+                                if (inv_sum == 0.0) continue;
+                                uint absolute_query = pc.query_position_offset + query;
+                                uint first_key = 0u;
+                                uint last_key = pc.key_value_seq_len - 1u;
+                                if (pc.compressed_key_count == 0u && pc.causal != 0u && !h1_fully_masked(batch,query)) {
+                                    last_key = min(absolute_query, pc.key_value_seq_len - 1u);
+                                }
+                                if (pc.compressed_key_count == 0u && pc.window_size != 0u) {
+                                    if (pc.causal != 0u) {
+                                        first_key = absolute_query + 1u > pc.window_size
+                                            ? absolute_query + 1u - pc.window_size : 0u;
+                                    } else {
+                                        first_key = absolute_query > pc.window_size ? absolute_query - pc.window_size : 0u;
+                                        uint right = min(pc.window_size, pc.key_value_seq_len - 1u - absolute_query);
+                                        last_key = absolute_query + right;
+                                    }
+                                }
+                                if (key < first_key || key > last_key || !key_is_visible(batch, head, query, key)) continue;
+                                uint query_row = batch * pc.query_seq_len + query;
+                                uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+                                precise float dp = 0.0;
+                                for (uint d = 0u; d < value_head_dim; ++d) {
+                                    precise float scaled_value = v_values[v_base + d] * pc.value_scale;
+                                    precise float product = grad_output[grad_out_base + d] * scaled_value;
+                                    dp += product;
+                                }
+                                float p = probability(batch, head, query, key, row_max[stats_index], inv_sum);
+                                float dropout = dropout_scale(batch, head, query, key);
+                                precise float dp_dropout = dp * dropout;
+                                precise float softmax_delta = dp_dropout - row_softmax_dot[stats_index];
+                                precise float ds = p * softmax_delta;
+                                float softcap_derivative = score_derivative(batch, head, query, key);
+                                uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+                                for (uint d = 0u; d < k_window; ++d) {
+                                    precise float scaled_ds = pc.scale * softcap_derivative;
+                                    scaled_ds = scaled_ds * ds;
+                                    precise float product = scaled_ds * q_values[q_base + d_base + d];
+                                    precise float next_k = head_k_cache[d] + product;
+                                    head_k_cache[d] = next_k;
+                                }
+                                for (uint d = 0u; d < v_window; ++d) {
+                                    precise float weighted_p = p * dropout;
+                                    precise float product = weighted_p * grad_output[grad_out_base + d_base + d];
+                                    product = product * pc.value_scale;
+                                    precise float next_v = head_v_cache[d] + product;
+                                    head_v_cache[d] = next_v;
                                 }
                             }
-                            if (key < first_key || key > last_key || !key_is_visible(batch, head, query, key)) continue;
-                            uint query_row = batch * pc.query_seq_len + query;
-                            uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
-                            precise float dp = 0.0;
-                            for (uint d = 0u; d < value_head_dim; ++d) {
-                                precise float scaled_value = v_values[v_base + d] * pc.value_scale;
-                                precise float product = grad_output[grad_out_base + d] * scaled_value;
-                                dp += product;
-                            }
-                            float p = probability(batch, head, query, key, row_max[stats_index], inv_sum);
-                            float dropout = dropout_scale(batch, head, query, key);
-                            precise float dp_dropout = dp * dropout;
-                            precise float softmax_delta = dp_dropout - row_softmax_dot[stats_index];
-                            precise float ds = p * softmax_delta;
-                            float softcap_derivative = score_derivative(batch, head, query, key);
-                            uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
-                            for (uint d = 0u; d < qk_head_dim; ++d) {
-                                precise float scaled_ds = pc.scale * softcap_derivative;
-                                scaled_ds = scaled_ds * ds;
-                                precise float product = scaled_ds * q_values[q_base + d];
-                                precise float next_k = head_k_cache[d] + product;
-                                head_k_cache[d] = next_k;
-                            }
-                            for (uint d = 0u; d < value_head_dim; ++d) {
-                                precise float weighted_p = p * dropout;
-                                precise float product = weighted_p * grad_output[grad_out_base + d];
-                                product = product * pc.value_scale;
-                                precise float next_v = head_v_cache[d] + product;
-                                head_v_cache[d] = next_v;
+                            for (uint d = 0u; d < window; ++d) {
+                                precise float next_k = shared_k_cache[d] + head_k_cache[d];
+                                precise float next_v = shared_v_cache[d] + head_v_cache[d];
+                                shared_k_cache[d] = next_k;
+                                shared_v_cache[d] = next_v;
                             }
                         }
-                        for (uint d = 0u; d < max_head_dim; ++d) {
-                            precise float next_k = shared_k_cache[d] + head_k_cache[d];
-                            precise float next_v = shared_v_cache[d] + head_v_cache[d];
-                            shared_k_cache[d] = next_k;
-                            shared_v_cache[d] = next_v;
-                        }
+                        for (uint d = 0u; d < k_window; ++d) grad_k[k_base + d_base + d] = shared_k_cache[d];
+                        for (uint d = 0u; d < v_window; ++d) grad_v[v_base + d_base + d] = shared_v_cache[d];
                     }
-                    for (uint d = 0u; d < qk_head_dim; ++d) grad_k[k_base + d] = shared_k_cache[d];
-                    for (uint d = 0u; d < value_head_dim; ++d) grad_v[v_base + d] = shared_v_cache[d];
                 }
             }
             return;
@@ -653,7 +711,7 @@ void main() {
         // followed by the shared-head reduction.
         uint max_head_dim = max(qk_head_dim, value_head_dim);
         for (uint batch = first_batch; batch < last_batch; ++batch) {
-            for (uint key = 0u; key < pc.key_value_seq_len; ++key) {
+            for (uint key = split_begin; key < split_end; ++key) {
                 uint key_row = batch * pc.key_value_seq_len + key;
                 uint k_base = key_row * key_hidden_size + kv_head * qk_head_dim;
                 uint v_base = key_row * pc.value_hidden_size + kv_head * value_head_dim;

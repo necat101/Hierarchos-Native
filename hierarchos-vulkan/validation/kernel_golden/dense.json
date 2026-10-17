@@ -2,436 +2,580 @@
   "schema": 1,
   "entries": {
     "linear_bias_forward:16x64x63": {
-      "AMD Radeon Graphics": "5fc3d971aca049ebd43f3af21fa7dc62ed8e953e3a5bda1062ad9b02486d07b7"
+      "AMD Radeon Graphics": "5fc3d971aca049ebd43f3af21fa7dc62ed8e953e3a5bda1062ad9b02486d07b7",
+      "Intel(R) HD Graphics 520": "5fc3d971aca049ebd43f3af21fa7dc62ed8e953e3a5bda1062ad9b02486d07b7"
     },
     "linear_bias_forward:16x96x64": {
-      "AMD Radeon Graphics": "171e7e7d85625213e2cf48a29b8b1c7b7e8aebb83021c3ac94384984011da2b5"
+      "AMD Radeon Graphics": "171e7e7d85625213e2cf48a29b8b1c7b7e8aebb83021c3ac94384984011da2b5",
+      "Intel(R) HD Graphics 520": "171e7e7d85625213e2cf48a29b8b1c7b7e8aebb83021c3ac94384984011da2b5"
     },
     "linear_bias_forward:17x65x67": {
-      "AMD Radeon Graphics": "0ed3f83985786ed61cf05518bced6d7fcea489d479d12fc6eb57049ba2c319d2"
+      "AMD Radeon Graphics": "0ed3f83985786ed61cf05518bced6d7fcea489d479d12fc6eb57049ba2c319d2",
+      "Intel(R) HD Graphics 520": "0ed3f83985786ed61cf05518bced6d7fcea489d479d12fc6eb57049ba2c319d2"
     },
     "linear_bias_forward:1x1x1": {
-      "AMD Radeon Graphics": "11c8ae32c0c2f1419f2e942576833a6f76fe30f119cfbd44f5b758a7326f1db9"
+      "AMD Radeon Graphics": "11c8ae32c0c2f1419f2e942576833a6f76fe30f119cfbd44f5b758a7326f1db9",
+      "Intel(R) HD Graphics 520": "11c8ae32c0c2f1419f2e942576833a6f76fe30f119cfbd44f5b758a7326f1db9"
     },
     "linear_bias_forward:1x65x33": {
-      "AMD Radeon Graphics": "cc69282ee976275779b5044d8ad8c180f20b84c5d5b9acd7a16f9ea97f890755"
+      "AMD Radeon Graphics": "cc69282ee976275779b5044d8ad8c180f20b84c5d5b9acd7a16f9ea97f890755",
+      "Intel(R) HD Graphics 520": "cc69282ee976275779b5044d8ad8c180f20b84c5d5b9acd7a16f9ea97f890755"
     },
     "linear_bias_forward:2x31x9": {
-      "AMD Radeon Graphics": "17339887577dad82f44f46b5f46795328004f6c921bd423609c3f048278a95bc"
+      "AMD Radeon Graphics": "17339887577dad82f44f46b5f46795328004f6c921bd423609c3f048278a95bc",
+      "Intel(R) HD Graphics 520": "17339887577dad82f44f46b5f46795328004f6c921bd423609c3f048278a95bc"
     },
     "linear_bias_forward:31x97x95": {
-      "AMD Radeon Graphics": "668c7acd13811d3ab64e70bdb2913009f7d4a89bcd973c2f15d06c29cb675750"
+      "AMD Radeon Graphics": "668c7acd13811d3ab64e70bdb2913009f7d4a89bcd973c2f15d06c29cb675750",
+      "Intel(R) HD Graphics 520": "668c7acd13811d3ab64e70bdb2913009f7d4a89bcd973c2f15d06c29cb675750"
     },
     "linear_bias_forward:33x129x131": {
-      "AMD Radeon Graphics": "ccd8e4764304326f26ee6914350c1062ec25437aa4dcd204f85fadf86795a309"
+      "AMD Radeon Graphics": "ccd8e4764304326f26ee6914350c1062ec25437aa4dcd204f85fadf86795a309",
+      "Intel(R) HD Graphics 520": "ccd8e4764304326f26ee6914350c1062ec25437aa4dcd204f85fadf86795a309"
     },
     "linear_bias_forward:7x64x16": {
-      "AMD Radeon Graphics": "c153e163fc9affecb79210b4de083c6db1f50c8ad4a03b0643d193fe4161efa8"
+      "AMD Radeon Graphics": "c153e163fc9affecb79210b4de083c6db1f50c8ad4a03b0643d193fe4161efa8",
+      "Intel(R) HD Graphics 520": "c153e163fc9affecb79210b4de083c6db1f50c8ad4a03b0643d193fe4161efa8"
     },
     "linear_bias_forward:8x63x17": {
-      "AMD Radeon Graphics": "5c040ac7abf3d53be86d7963732db71a477306f4824c85124ef88065e04e9ba1"
+      "AMD Radeon Graphics": "5c040ac7abf3d53be86d7963732db71a477306f4824c85124ef88065e04e9ba1",
+      "Intel(R) HD Graphics 520": "5c040ac7abf3d53be86d7963732db71a477306f4824c85124ef88065e04e9ba1"
     },
     "linear_bias_forward:8x64x16": {
-      "AMD Radeon Graphics": "c343633ad3bb013e2499cdc2ec5ad16a44b58983cdbb068063fa41c73c6250a2"
+      "AMD Radeon Graphics": "c343633ad3bb013e2499cdc2ec5ad16a44b58983cdbb068063fa41c73c6250a2",
+      "Intel(R) HD Graphics 520": "c343633ad3bb013e2499cdc2ec5ad16a44b58983cdbb068063fa41c73c6250a2"
     },
     "linear_bias_forward:8x65x33": {
-      "AMD Radeon Graphics": "f7ba5a8b2a0ad2ac96d9d1a0817a1d69c67dc270b74a13075c8ef7e39b4405d1"
+      "AMD Radeon Graphics": "f7ba5a8b2a0ad2ac96d9d1a0817a1d69c67dc270b74a13075c8ef7e39b4405d1",
+      "Intel(R) HD Graphics 520": "f7ba5a8b2a0ad2ac96d9d1a0817a1d69c67dc270b74a13075c8ef7e39b4405d1"
     },
     "linear_bias_forward_fp16_packed:16x64x63": {
-      "AMD Radeon Graphics": "081f3904fe5374d902974b70a07d54086455572f73730a9f5da68ee439cf8e1b"
+      "AMD Radeon Graphics": "081f3904fe5374d902974b70a07d54086455572f73730a9f5da68ee439cf8e1b",
+      "Intel(R) HD Graphics 520": "081f3904fe5374d902974b70a07d54086455572f73730a9f5da68ee439cf8e1b"
     },
     "linear_bias_forward_fp16_packed:16x96x64": {
-      "AMD Radeon Graphics": "2b200290811faa1de7d66a3193c2e3d3468c9cf6bb63824b6536a1a2301c7874"
+      "AMD Radeon Graphics": "2b200290811faa1de7d66a3193c2e3d3468c9cf6bb63824b6536a1a2301c7874",
+      "Intel(R) HD Graphics 520": "2b200290811faa1de7d66a3193c2e3d3468c9cf6bb63824b6536a1a2301c7874"
     },
     "linear_bias_forward_fp16_packed:17x65x67": {
-      "AMD Radeon Graphics": "b37d63e7fcf45b3221edb6e124e07be34564b6b626095573cd7c836c479e2576"
+      "AMD Radeon Graphics": "b37d63e7fcf45b3221edb6e124e07be34564b6b626095573cd7c836c479e2576",
+      "Intel(R) HD Graphics 520": "b37d63e7fcf45b3221edb6e124e07be34564b6b626095573cd7c836c479e2576"
     },
     "linear_bias_forward_fp16_packed:1x1x1": {
-      "AMD Radeon Graphics": "97cab043f3d8a836e857b7d5e02bcfa5e0ecf7dfced3ddeec2ae6dcb894d0ebe"
+      "AMD Radeon Graphics": "97cab043f3d8a836e857b7d5e02bcfa5e0ecf7dfced3ddeec2ae6dcb894d0ebe",
+      "Intel(R) HD Graphics 520": "97cab043f3d8a836e857b7d5e02bcfa5e0ecf7dfced3ddeec2ae6dcb894d0ebe"
     },
     "linear_bias_forward_fp16_packed:1x65x33": {
-      "AMD Radeon Graphics": "5688d6f6699f2e92633e6de445b0630d3ef26a4a2e9e24634d0a73e0c4199f44"
+      "AMD Radeon Graphics": "5688d6f6699f2e92633e6de445b0630d3ef26a4a2e9e24634d0a73e0c4199f44",
+      "Intel(R) HD Graphics 520": "5688d6f6699f2e92633e6de445b0630d3ef26a4a2e9e24634d0a73e0c4199f44"
     },
     "linear_bias_forward_fp16_packed:2x31x9": {
-      "AMD Radeon Graphics": "df04378b591a647982e38cd4db391cb1af24f384081e10a03b8539a6fc4cfed7"
+      "AMD Radeon Graphics": "df04378b591a647982e38cd4db391cb1af24f384081e10a03b8539a6fc4cfed7",
+      "Intel(R) HD Graphics 520": "df04378b591a647982e38cd4db391cb1af24f384081e10a03b8539a6fc4cfed7"
     },
     "linear_bias_forward_fp16_packed:31x97x95": {
-      "AMD Radeon Graphics": "570e02edc1b2b1fa6965eeceaddecbaabe730ccdc0c0862d0b101267b7777b78"
+      "AMD Radeon Graphics": "570e02edc1b2b1fa6965eeceaddecbaabe730ccdc0c0862d0b101267b7777b78",
+      "Intel(R) HD Graphics 520": "570e02edc1b2b1fa6965eeceaddecbaabe730ccdc0c0862d0b101267b7777b78"
     },
     "linear_bias_forward_fp16_packed:33x129x131": {
-      "AMD Radeon Graphics": "53c6d2e6b8f688608343ad5271580d5229c267a86886f5a9a89fa1ff6c838f53"
+      "AMD Radeon Graphics": "53c6d2e6b8f688608343ad5271580d5229c267a86886f5a9a89fa1ff6c838f53",
+      "Intel(R) HD Graphics 520": "53c6d2e6b8f688608343ad5271580d5229c267a86886f5a9a89fa1ff6c838f53"
     },
     "linear_bias_forward_fp16_packed:7x64x16": {
-      "AMD Radeon Graphics": "1dae6dca25c18df033ec8175b91b8f350a75e399127281e8f1973f2cf8df7d60"
+      "AMD Radeon Graphics": "1dae6dca25c18df033ec8175b91b8f350a75e399127281e8f1973f2cf8df7d60",
+      "Intel(R) HD Graphics 520": "1dae6dca25c18df033ec8175b91b8f350a75e399127281e8f1973f2cf8df7d60"
     },
     "linear_bias_forward_fp16_packed:8x63x17": {
-      "AMD Radeon Graphics": "0182d3c4246ea8ad39d26d2034a4dd3c55a086f18086e4ddef1a01500f751692"
+      "AMD Radeon Graphics": "0182d3c4246ea8ad39d26d2034a4dd3c55a086f18086e4ddef1a01500f751692",
+      "Intel(R) HD Graphics 520": "0182d3c4246ea8ad39d26d2034a4dd3c55a086f18086e4ddef1a01500f751692"
     },
     "linear_bias_forward_fp16_packed:8x64x16": {
-      "AMD Radeon Graphics": "34ee016c8d6df430f162c64bdeeb7722450cf74d02e8fbdae24473839b00cd10"
+      "AMD Radeon Graphics": "34ee016c8d6df430f162c64bdeeb7722450cf74d02e8fbdae24473839b00cd10",
+      "Intel(R) HD Graphics 520": "34ee016c8d6df430f162c64bdeeb7722450cf74d02e8fbdae24473839b00cd10"
     },
     "linear_bias_forward_fp16_packed:8x65x33": {
-      "AMD Radeon Graphics": "91b67de9a407ec04ddf7ee2b21b096438461502c6295588fa22ff4bb40a50caa"
+      "AMD Radeon Graphics": "91b67de9a407ec04ddf7ee2b21b096438461502c6295588fa22ff4bb40a50caa",
+      "Intel(R) HD Graphics 520": "91b67de9a407ec04ddf7ee2b21b096438461502c6295588fa22ff4bb40a50caa"
     },
     "linear_forward:16x64x63": {
-      "AMD Radeon Graphics": "e15fb2cb93a2f8415addbce82a30cb0df06caeda5d933a437233b6afe79f7f9b"
+      "AMD Radeon Graphics": "e15fb2cb93a2f8415addbce82a30cb0df06caeda5d933a437233b6afe79f7f9b",
+      "Intel(R) HD Graphics 520": "e15fb2cb93a2f8415addbce82a30cb0df06caeda5d933a437233b6afe79f7f9b"
     },
     "linear_forward:16x96x64": {
-      "AMD Radeon Graphics": "bcab1b2754c5155ba4d179d577e5648f108169e94925464babdf3cfd2f33c4b4"
+      "AMD Radeon Graphics": "bcab1b2754c5155ba4d179d577e5648f108169e94925464babdf3cfd2f33c4b4",
+      "Intel(R) HD Graphics 520": "bcab1b2754c5155ba4d179d577e5648f108169e94925464babdf3cfd2f33c4b4"
     },
     "linear_forward:17x65x67": {
-      "AMD Radeon Graphics": "e80d13c242bf9fa5fd37482a0416176a1a587900a684d5341fc103d93ab3c071"
+      "AMD Radeon Graphics": "e80d13c242bf9fa5fd37482a0416176a1a587900a684d5341fc103d93ab3c071",
+      "Intel(R) HD Graphics 520": "e80d13c242bf9fa5fd37482a0416176a1a587900a684d5341fc103d93ab3c071"
     },
     "linear_forward:1x1x1": {
-      "AMD Radeon Graphics": "b99c6ebfbd5f2e8e75c47992287608464d52c8355986845a91d3586400616dc8"
+      "AMD Radeon Graphics": "b99c6ebfbd5f2e8e75c47992287608464d52c8355986845a91d3586400616dc8",
+      "Intel(R) HD Graphics 520": "b99c6ebfbd5f2e8e75c47992287608464d52c8355986845a91d3586400616dc8"
     },
     "linear_forward:1x65x33": {
-      "AMD Radeon Graphics": "1782e96a3e4cbc24cac40f9c2bb8cf79259e7a29fe98af2a6ab64bdbfc091660"
+      "AMD Radeon Graphics": "1782e96a3e4cbc24cac40f9c2bb8cf79259e7a29fe98af2a6ab64bdbfc091660",
+      "Intel(R) HD Graphics 520": "1782e96a3e4cbc24cac40f9c2bb8cf79259e7a29fe98af2a6ab64bdbfc091660"
     },
     "linear_forward:2x31x9": {
-      "AMD Radeon Graphics": "0f55c81452989467ecdaf97ad32647e169e2e81a2a8164bee8a8ecfecf3be654"
+      "AMD Radeon Graphics": "0f55c81452989467ecdaf97ad32647e169e2e81a2a8164bee8a8ecfecf3be654",
+      "Intel(R) HD Graphics 520": "0f55c81452989467ecdaf97ad32647e169e2e81a2a8164bee8a8ecfecf3be654"
     },
     "linear_forward:31x97x95": {
-      "AMD Radeon Graphics": "1e54ca2cbe8076a06c20baf9180cf43c3aed26b701c1642adaeba8bc7188b6e7"
+      "AMD Radeon Graphics": "1e54ca2cbe8076a06c20baf9180cf43c3aed26b701c1642adaeba8bc7188b6e7",
+      "Intel(R) HD Graphics 520": "1e54ca2cbe8076a06c20baf9180cf43c3aed26b701c1642adaeba8bc7188b6e7"
     },
     "linear_forward:33x129x131": {
-      "AMD Radeon Graphics": "645cbbcc0aec4b55f6b776f6dab47ffcb68425f7044b5eb05e66fe4bdbdea05f"
+      "AMD Radeon Graphics": "645cbbcc0aec4b55f6b776f6dab47ffcb68425f7044b5eb05e66fe4bdbdea05f",
+      "Intel(R) HD Graphics 520": "645cbbcc0aec4b55f6b776f6dab47ffcb68425f7044b5eb05e66fe4bdbdea05f"
     },
     "linear_forward:7x64x16": {
-      "AMD Radeon Graphics": "eb6db7499bd8c6c2848091e60254f906e213ea82dec97b2db7eca83cd53ddf51"
+      "AMD Radeon Graphics": "eb6db7499bd8c6c2848091e60254f906e213ea82dec97b2db7eca83cd53ddf51",
+      "Intel(R) HD Graphics 520": "eb6db7499bd8c6c2848091e60254f906e213ea82dec97b2db7eca83cd53ddf51"
     },
     "linear_forward:8x63x17": {
-      "AMD Radeon Graphics": "50489f794a715a671e675a0baecfb1509f42290786186b2cfdb8fcba859d5ef7"
+      "AMD Radeon Graphics": "50489f794a715a671e675a0baecfb1509f42290786186b2cfdb8fcba859d5ef7",
+      "Intel(R) HD Graphics 520": "50489f794a715a671e675a0baecfb1509f42290786186b2cfdb8fcba859d5ef7"
     },
     "linear_forward:8x64x16": {
-      "AMD Radeon Graphics": "99a93c0f231a5599856aafb036efa71fbb2f870937865f1f6de352a30597523e"
+      "AMD Radeon Graphics": "99a93c0f231a5599856aafb036efa71fbb2f870937865f1f6de352a30597523e",
+      "Intel(R) HD Graphics 520": "99a93c0f231a5599856aafb036efa71fbb2f870937865f1f6de352a30597523e"
     },
     "linear_forward:8x65x33": {
-      "AMD Radeon Graphics": "a2c8d89d4d5e1b9d04087096226e27e117fee3564c181fb029fef0c3a5a994e2"
+      "AMD Radeon Graphics": "a2c8d89d4d5e1b9d04087096226e27e117fee3564c181fb029fef0c3a5a994e2",
+      "Intel(R) HD Graphics 520": "a2c8d89d4d5e1b9d04087096226e27e117fee3564c181fb029fef0c3a5a994e2"
     },
     "linear_forward_fp16_packed:16x64x63": {
-      "AMD Radeon Graphics": "2abbddc6e8ca0aa4e24c68cdc0fb6f92400973e557dd4651c2f6a00303ddbff8"
+      "AMD Radeon Graphics": "2abbddc6e8ca0aa4e24c68cdc0fb6f92400973e557dd4651c2f6a00303ddbff8",
+      "Intel(R) HD Graphics 520": "2abbddc6e8ca0aa4e24c68cdc0fb6f92400973e557dd4651c2f6a00303ddbff8"
     },
     "linear_forward_fp16_packed:16x96x64": {
-      "AMD Radeon Graphics": "a67645378d284c40571f75a47595cb1fe9f04cc3572694a5ba61ff0a999f8fbb"
+      "AMD Radeon Graphics": "a67645378d284c40571f75a47595cb1fe9f04cc3572694a5ba61ff0a999f8fbb",
+      "Intel(R) HD Graphics 520": "a67645378d284c40571f75a47595cb1fe9f04cc3572694a5ba61ff0a999f8fbb"
     },
     "linear_forward_fp16_packed:17x65x67": {
-      "AMD Radeon Graphics": "cf033cd0d5a169e94725fa834179dfb2e1f9a3367886da5b123b013fb0b1a7a0"
+      "AMD Radeon Graphics": "cf033cd0d5a169e94725fa834179dfb2e1f9a3367886da5b123b013fb0b1a7a0",
+      "Intel(R) HD Graphics 520": "cf033cd0d5a169e94725fa834179dfb2e1f9a3367886da5b123b013fb0b1a7a0"
     },
     "linear_forward_fp16_packed:1x1x1": {
-      "AMD Radeon Graphics": "9b5e2e7b7bb79d4184465d995a6e52081dcd85536cfde16c52dbe0381cceee67"
+      "AMD Radeon Graphics": "9b5e2e7b7bb79d4184465d995a6e52081dcd85536cfde16c52dbe0381cceee67",
+      "Intel(R) HD Graphics 520": "9b5e2e7b7bb79d4184465d995a6e52081dcd85536cfde16c52dbe0381cceee67"
     },
     "linear_forward_fp16_packed:1x65x33": {
-      "AMD Radeon Graphics": "ef6dd98aa255258d5ade1730661ef4c2d038756570ae6e88ccc73889e2b858c6"
+      "AMD Radeon Graphics": "ef6dd98aa255258d5ade1730661ef4c2d038756570ae6e88ccc73889e2b858c6",
+      "Intel(R) HD Graphics 520": "ef6dd98aa255258d5ade1730661ef4c2d038756570ae6e88ccc73889e2b858c6"
     },
     "linear_forward_fp16_packed:2x31x9": {
-      "AMD Radeon Graphics": "3ad2295730b8d5d9f92325502ac22904123d062a55291a68398bfeec3e28870e"
+      "AMD Radeon Graphics": "3ad2295730b8d5d9f92325502ac22904123d062a55291a68398bfeec3e28870e",
+      "Intel(R) HD Graphics 520": "3ad2295730b8d5d9f92325502ac22904123d062a55291a68398bfeec3e28870e"
     },
     "linear_forward_fp16_packed:31x97x95": {
-      "AMD Radeon Graphics": "d9966a3a769ea6b52ab76abc4cd8151ef685ac7e2cd4360cb4e5a8ff1b55a73a"
+      "AMD Radeon Graphics": "d9966a3a769ea6b52ab76abc4cd8151ef685ac7e2cd4360cb4e5a8ff1b55a73a",
+      "Intel(R) HD Graphics 520": "d9966a3a769ea6b52ab76abc4cd8151ef685ac7e2cd4360cb4e5a8ff1b55a73a"
     },
     "linear_forward_fp16_packed:33x129x131": {
-      "AMD Radeon Graphics": "0c0a36b99606845902a59e2b7940bef417056582fbe631ef5d27c7cdd347d7e1"
+      "AMD Radeon Graphics": "0c0a36b99606845902a59e2b7940bef417056582fbe631ef5d27c7cdd347d7e1",
+      "Intel(R) HD Graphics 520": "0c0a36b99606845902a59e2b7940bef417056582fbe631ef5d27c7cdd347d7e1"
     },
     "linear_forward_fp16_packed:7x64x16": {
-      "AMD Radeon Graphics": "919064b6691e755ac463b2c2b051e0995e66ff3cc10e1b934db014a83aff17d6"
+      "AMD Radeon Graphics": "919064b6691e755ac463b2c2b051e0995e66ff3cc10e1b934db014a83aff17d6",
+      "Intel(R) HD Graphics 520": "919064b6691e755ac463b2c2b051e0995e66ff3cc10e1b934db014a83aff17d6"
     },
     "linear_forward_fp16_packed:8x63x17": {
-      "AMD Radeon Graphics": "68065dcc8d09af50a813ef7d8f3fa68ce5cfb71dbc4df03c004930085361ec27"
+      "AMD Radeon Graphics": "68065dcc8d09af50a813ef7d8f3fa68ce5cfb71dbc4df03c004930085361ec27",
+      "Intel(R) HD Graphics 520": "68065dcc8d09af50a813ef7d8f3fa68ce5cfb71dbc4df03c004930085361ec27"
     },
     "linear_forward_fp16_packed:8x64x16": {
-      "AMD Radeon Graphics": "d38ea6470629be6539d08b123f0d284b3adcfa5de4b39b3edff76a84beb773af"
+      "AMD Radeon Graphics": "d38ea6470629be6539d08b123f0d284b3adcfa5de4b39b3edff76a84beb773af",
+      "Intel(R) HD Graphics 520": "d38ea6470629be6539d08b123f0d284b3adcfa5de4b39b3edff76a84beb773af"
     },
     "linear_forward_fp16_packed:8x65x33": {
-      "AMD Radeon Graphics": "9171c9c6d6519e8a09a77e707f9abf21e971c21342ee4e229dd2de3cabee2896"
+      "AMD Radeon Graphics": "9171c9c6d6519e8a09a77e707f9abf21e971c21342ee4e229dd2de3cabee2896",
+      "Intel(R) HD Graphics 520": "9171c9c6d6519e8a09a77e707f9abf21e971c21342ee4e229dd2de3cabee2896"
     },
     "linear_residual_forward:16x64x63": {
-      "AMD Radeon Graphics": "88101b7f0ad861ce8ab2b786892a9689e549d07cd424619aafe4306e5c1fadc6"
+      "AMD Radeon Graphics": "88101b7f0ad861ce8ab2b786892a9689e549d07cd424619aafe4306e5c1fadc6",
+      "Intel(R) HD Graphics 520": "88101b7f0ad861ce8ab2b786892a9689e549d07cd424619aafe4306e5c1fadc6"
     },
     "linear_residual_forward:16x96x64": {
-      "AMD Radeon Graphics": "ca141535ec5f765e834d64d8a77e020255d12be1eb7c7e367cf7198f595f55ea"
+      "AMD Radeon Graphics": "ca141535ec5f765e834d64d8a77e020255d12be1eb7c7e367cf7198f595f55ea",
+      "Intel(R) HD Graphics 520": "ca141535ec5f765e834d64d8a77e020255d12be1eb7c7e367cf7198f595f55ea"
     },
     "linear_residual_forward:17x65x67": {
-      "AMD Radeon Graphics": "c54e0df75cb7e84c90c7e94f7e0110a6092f741ada6c0ed730911539bd03bfe2"
+      "AMD Radeon Graphics": "c54e0df75cb7e84c90c7e94f7e0110a6092f741ada6c0ed730911539bd03bfe2",
+      "Intel(R) HD Graphics 520": "c54e0df75cb7e84c90c7e94f7e0110a6092f741ada6c0ed730911539bd03bfe2"
     },
     "linear_residual_forward:1x1x1": {
-      "AMD Radeon Graphics": "11c8ae32c0c2f1419f2e942576833a6f76fe30f119cfbd44f5b758a7326f1db9"
+      "AMD Radeon Graphics": "11c8ae32c0c2f1419f2e942576833a6f76fe30f119cfbd44f5b758a7326f1db9",
+      "Intel(R) HD Graphics 520": "11c8ae32c0c2f1419f2e942576833a6f76fe30f119cfbd44f5b758a7326f1db9"
     },
     "linear_residual_forward:1x65x33": {
-      "AMD Radeon Graphics": "cc69282ee976275779b5044d8ad8c180f20b84c5d5b9acd7a16f9ea97f890755"
+      "AMD Radeon Graphics": "cc69282ee976275779b5044d8ad8c180f20b84c5d5b9acd7a16f9ea97f890755",
+      "Intel(R) HD Graphics 520": "cc69282ee976275779b5044d8ad8c180f20b84c5d5b9acd7a16f9ea97f890755"
     },
     "linear_residual_forward:2x31x9": {
-      "AMD Radeon Graphics": "9a040b328002e0209ba4c8dac07f3a677932fe1a45db7a6e9a6657228f949bcf"
+      "AMD Radeon Graphics": "9a040b328002e0209ba4c8dac07f3a677932fe1a45db7a6e9a6657228f949bcf",
+      "Intel(R) HD Graphics 520": "9a040b328002e0209ba4c8dac07f3a677932fe1a45db7a6e9a6657228f949bcf"
     },
     "linear_residual_forward:31x97x95": {
-      "AMD Radeon Graphics": "779faffecfd844b83687f132392f692183fc19731f3e0a5ec245f806dea76b8a"
+      "AMD Radeon Graphics": "779faffecfd844b83687f132392f692183fc19731f3e0a5ec245f806dea76b8a",
+      "Intel(R) HD Graphics 520": "779faffecfd844b83687f132392f692183fc19731f3e0a5ec245f806dea76b8a"
     },
     "linear_residual_forward:33x129x131": {
-      "AMD Radeon Graphics": "8e0e2eae10e66d7d95b6f2f8293f221413cc5cbfc468a86600904548800e012b"
+      "AMD Radeon Graphics": "8e0e2eae10e66d7d95b6f2f8293f221413cc5cbfc468a86600904548800e012b",
+      "Intel(R) HD Graphics 520": "8e0e2eae10e66d7d95b6f2f8293f221413cc5cbfc468a86600904548800e012b"
     },
     "linear_residual_forward:7x64x16": {
-      "AMD Radeon Graphics": "c40796bb37572b8d173f84c97c6dcb4a4b6d034be8e42c49681c265096032294"
+      "AMD Radeon Graphics": "c40796bb37572b8d173f84c97c6dcb4a4b6d034be8e42c49681c265096032294",
+      "Intel(R) HD Graphics 520": "c40796bb37572b8d173f84c97c6dcb4a4b6d034be8e42c49681c265096032294"
     },
     "linear_residual_forward:8x63x17": {
-      "AMD Radeon Graphics": "7bcf2e7972dbefeb089c40bd940b2ce5edf2349f3dc73878a7ca0b27f80d139d"
+      "AMD Radeon Graphics": "7bcf2e7972dbefeb089c40bd940b2ce5edf2349f3dc73878a7ca0b27f80d139d",
+      "Intel(R) HD Graphics 520": "7bcf2e7972dbefeb089c40bd940b2ce5edf2349f3dc73878a7ca0b27f80d139d"
     },
     "linear_residual_forward:8x64x16": {
-      "AMD Radeon Graphics": "fe94851aa9117afa14072a65ccdaf815268218a5e55cf7e9ff0928af459b2563"
+      "AMD Radeon Graphics": "fe94851aa9117afa14072a65ccdaf815268218a5e55cf7e9ff0928af459b2563",
+      "Intel(R) HD Graphics 520": "fe94851aa9117afa14072a65ccdaf815268218a5e55cf7e9ff0928af459b2563"
     },
     "linear_residual_forward:8x65x33": {
-      "AMD Radeon Graphics": "595dce8c97256dca6a64f09d504824f79963255de06e6a5447039f5560e4c8b5"
+      "AMD Radeon Graphics": "595dce8c97256dca6a64f09d504824f79963255de06e6a5447039f5560e4c8b5",
+      "Intel(R) HD Graphics 520": "595dce8c97256dca6a64f09d504824f79963255de06e6a5447039f5560e4c8b5"
     },
     "parameter_matmul_bias_forward:16x64x63": {
-      "AMD Radeon Graphics": "dc400c2696d213e5d7e50b513613fef1dd59fb1919cecf550537babd6dc334b7"
+      "AMD Radeon Graphics": "dc400c2696d213e5d7e50b513613fef1dd59fb1919cecf550537babd6dc334b7",
+      "Intel(R) HD Graphics 520": "dc400c2696d213e5d7e50b513613fef1dd59fb1919cecf550537babd6dc334b7"
     },
     "parameter_matmul_bias_forward:16x96x64": {
-      "AMD Radeon Graphics": "6d898be6bfec5dc29029757b94727d0869ef8d74cc6cb1aa39bd9e697e956499"
+      "AMD Radeon Graphics": "6d898be6bfec5dc29029757b94727d0869ef8d74cc6cb1aa39bd9e697e956499",
+      "Intel(R) HD Graphics 520": "6d898be6bfec5dc29029757b94727d0869ef8d74cc6cb1aa39bd9e697e956499"
     },
     "parameter_matmul_bias_forward:17x65x67": {
-      "AMD Radeon Graphics": "29ccfe985b0ea4ae7356146d2c88d43e2315a86805fdd4eb45ba01b20b9ad9cf"
+      "AMD Radeon Graphics": "29ccfe985b0ea4ae7356146d2c88d43e2315a86805fdd4eb45ba01b20b9ad9cf",
+      "Intel(R) HD Graphics 520": "29ccfe985b0ea4ae7356146d2c88d43e2315a86805fdd4eb45ba01b20b9ad9cf"
     },
     "parameter_matmul_bias_forward:1x1x1": {
-      "AMD Radeon Graphics": "11c8ae32c0c2f1419f2e942576833a6f76fe30f119cfbd44f5b758a7326f1db9"
+      "AMD Radeon Graphics": "11c8ae32c0c2f1419f2e942576833a6f76fe30f119cfbd44f5b758a7326f1db9",
+      "Intel(R) HD Graphics 520": "11c8ae32c0c2f1419f2e942576833a6f76fe30f119cfbd44f5b758a7326f1db9"
     },
     "parameter_matmul_bias_forward:1x65x33": {
-      "AMD Radeon Graphics": "cdff15bc2d8034af86df0a9f5d198ab0b9a7b3ec9e013fe4de0dc209b1c29133"
+      "AMD Radeon Graphics": "cdff15bc2d8034af86df0a9f5d198ab0b9a7b3ec9e013fe4de0dc209b1c29133",
+      "Intel(R) HD Graphics 520": "cdff15bc2d8034af86df0a9f5d198ab0b9a7b3ec9e013fe4de0dc209b1c29133"
     },
     "parameter_matmul_bias_forward:2x31x9": {
-      "AMD Radeon Graphics": "416723faa361c073868e30838bd980da41d3261cb874df3cc08d255eec67cf22"
+      "AMD Radeon Graphics": "416723faa361c073868e30838bd980da41d3261cb874df3cc08d255eec67cf22",
+      "Intel(R) HD Graphics 520": "416723faa361c073868e30838bd980da41d3261cb874df3cc08d255eec67cf22"
     },
     "parameter_matmul_bias_forward:31x97x95": {
-      "AMD Radeon Graphics": "62ed45c8e58e2296a99bc45118ede516ae116543d2295b22038af13e642211b9"
+      "AMD Radeon Graphics": "62ed45c8e58e2296a99bc45118ede516ae116543d2295b22038af13e642211b9",
+      "Intel(R) HD Graphics 520": "62ed45c8e58e2296a99bc45118ede516ae116543d2295b22038af13e642211b9"
     },
     "parameter_matmul_bias_forward:33x129x131": {
-      "AMD Radeon Graphics": "67d69b7907978e49a6f23cf86856e441c5a900e41ef77581f536cd682e75cabb"
+      "AMD Radeon Graphics": "67d69b7907978e49a6f23cf86856e441c5a900e41ef77581f536cd682e75cabb",
+      "Intel(R) HD Graphics 520": "67d69b7907978e49a6f23cf86856e441c5a900e41ef77581f536cd682e75cabb"
     },
     "parameter_matmul_bias_forward:7x64x16": {
-      "AMD Radeon Graphics": "43f7c3c44ba5da7dd8218570b78270a6dbaab9967defb172a47922ea1952dba0"
+      "AMD Radeon Graphics": "43f7c3c44ba5da7dd8218570b78270a6dbaab9967defb172a47922ea1952dba0",
+      "Intel(R) HD Graphics 520": "43f7c3c44ba5da7dd8218570b78270a6dbaab9967defb172a47922ea1952dba0"
     },
     "parameter_matmul_bias_forward:8x63x17": {
-      "AMD Radeon Graphics": "965407aedc9884ad9842f8d753bf03163098c29ef8b945c30ed4b24859f28f1d"
+      "AMD Radeon Graphics": "965407aedc9884ad9842f8d753bf03163098c29ef8b945c30ed4b24859f28f1d",
+      "Intel(R) HD Graphics 520": "965407aedc9884ad9842f8d753bf03163098c29ef8b945c30ed4b24859f28f1d"
     },
     "parameter_matmul_bias_forward:8x64x16": {
-      "AMD Radeon Graphics": "900d9a19aa093555ae9eda9afe1accc0649e3962029c2eeb453117c2a05d282b"
+      "AMD Radeon Graphics": "900d9a19aa093555ae9eda9afe1accc0649e3962029c2eeb453117c2a05d282b",
+      "Intel(R) HD Graphics 520": "900d9a19aa093555ae9eda9afe1accc0649e3962029c2eeb453117c2a05d282b"
     },
     "parameter_matmul_bias_forward:8x65x33": {
-      "AMD Radeon Graphics": "b5416f93def8654b088b94a4be82450b44ec745545a8eb7d2de37030c26f4933"
+      "AMD Radeon Graphics": "b5416f93def8654b088b94a4be82450b44ec745545a8eb7d2de37030c26f4933",
+      "Intel(R) HD Graphics 520": "b5416f93def8654b088b94a4be82450b44ec745545a8eb7d2de37030c26f4933"
     },
     "parameter_matmul_bias_forward_fp16_packed:16x64x63": {
-      "AMD Radeon Graphics": "c5f4ffdb475f5d7d41e31f2a45bfea318b10ba9f90fd0bc2871582b8ec9ec67a"
+      "AMD Radeon Graphics": "c5f4ffdb475f5d7d41e31f2a45bfea318b10ba9f90fd0bc2871582b8ec9ec67a",
+      "Intel(R) HD Graphics 520": "c5f4ffdb475f5d7d41e31f2a45bfea318b10ba9f90fd0bc2871582b8ec9ec67a"
     },
     "parameter_matmul_bias_forward_fp16_packed:16x96x64": {
-      "AMD Radeon Graphics": "af5c49297e2bca81d41c5a75c3866315d3e8c477acc830077f780ba1cecaf962"
+      "AMD Radeon Graphics": "af5c49297e2bca81d41c5a75c3866315d3e8c477acc830077f780ba1cecaf962",
+      "Intel(R) HD Graphics 520": "af5c49297e2bca81d41c5a75c3866315d3e8c477acc830077f780ba1cecaf962"
     },
     "parameter_matmul_bias_forward_fp16_packed:17x65x67": {
-      "AMD Radeon Graphics": "2a3d6e3ceb79d0edd65e36217176e6e006bf6069b2a513d4dcaabc96c86786ca"
+      "AMD Radeon Graphics": "2a3d6e3ceb79d0edd65e36217176e6e006bf6069b2a513d4dcaabc96c86786ca",
+      "Intel(R) HD Graphics 520": "2a3d6e3ceb79d0edd65e36217176e6e006bf6069b2a513d4dcaabc96c86786ca"
     },
     "parameter_matmul_bias_forward_fp16_packed:1x1x1": {
-      "AMD Radeon Graphics": "97cab043f3d8a836e857b7d5e02bcfa5e0ecf7dfced3ddeec2ae6dcb894d0ebe"
+      "AMD Radeon Graphics": "97cab043f3d8a836e857b7d5e02bcfa5e0ecf7dfced3ddeec2ae6dcb894d0ebe",
+      "Intel(R) HD Graphics 520": "97cab043f3d8a836e857b7d5e02bcfa5e0ecf7dfced3ddeec2ae6dcb894d0ebe"
     },
     "parameter_matmul_bias_forward_fp16_packed:1x65x33": {
-      "AMD Radeon Graphics": "47185d2b624c04404ee13d4f0d26292cdae584857c47548b6239b457769f7933"
+      "AMD Radeon Graphics": "47185d2b624c04404ee13d4f0d26292cdae584857c47548b6239b457769f7933",
+      "Intel(R) HD Graphics 520": "47185d2b624c04404ee13d4f0d26292cdae584857c47548b6239b457769f7933"
     },
     "parameter_matmul_bias_forward_fp16_packed:2x31x9": {
-      "AMD Radeon Graphics": "6288a300c96738aac70238f9622e924d298fe2941d334f283299c2959c216d38"
+      "AMD Radeon Graphics": "6288a300c96738aac70238f9622e924d298fe2941d334f283299c2959c216d38",
+      "Intel(R) HD Graphics 520": "6288a300c96738aac70238f9622e924d298fe2941d334f283299c2959c216d38"
     },
     "parameter_matmul_bias_forward_fp16_packed:31x97x95": {
-      "AMD Radeon Graphics": "09da9ed7979efd91ea56310e11d59fa7277774e032283e05c3a2f14ef01f422e"
+      "AMD Radeon Graphics": "09da9ed7979efd91ea56310e11d59fa7277774e032283e05c3a2f14ef01f422e",
+      "Intel(R) HD Graphics 520": "09da9ed7979efd91ea56310e11d59fa7277774e032283e05c3a2f14ef01f422e"
     },
     "parameter_matmul_bias_forward_fp16_packed:33x129x131": {
-      "AMD Radeon Graphics": "eebaba84caece13ff0a29e88c966dee769a1e31b7544e8b89b4d1d3cc7872586"
+      "AMD Radeon Graphics": "eebaba84caece13ff0a29e88c966dee769a1e31b7544e8b89b4d1d3cc7872586",
+      "Intel(R) HD Graphics 520": "eebaba84caece13ff0a29e88c966dee769a1e31b7544e8b89b4d1d3cc7872586"
     },
     "parameter_matmul_bias_forward_fp16_packed:7x64x16": {
-      "AMD Radeon Graphics": "341bd9e7d48ae5508dd18062aaa475530c5d3f6464597e1a82d88352d5a6fd28"
+      "AMD Radeon Graphics": "341bd9e7d48ae5508dd18062aaa475530c5d3f6464597e1a82d88352d5a6fd28",
+      "Intel(R) HD Graphics 520": "341bd9e7d48ae5508dd18062aaa475530c5d3f6464597e1a82d88352d5a6fd28"
     },
     "parameter_matmul_bias_forward_fp16_packed:8x63x17": {
-      "AMD Radeon Graphics": "ad74ff9190d565ee23c7711b95d798330008ffd27f8ce424496b4fdbbf95dced"
+      "AMD Radeon Graphics": "ad74ff9190d565ee23c7711b95d798330008ffd27f8ce424496b4fdbbf95dced",
+      "Intel(R) HD Graphics 520": "ad74ff9190d565ee23c7711b95d798330008ffd27f8ce424496b4fdbbf95dced"
     },
     "parameter_matmul_bias_forward_fp16_packed:8x64x16": {
-      "AMD Radeon Graphics": "ce8a732713da85eec4bd1321151b7f92c68525cc197c8e31d01f779630ded1ea"
+      "AMD Radeon Graphics": "ce8a732713da85eec4bd1321151b7f92c68525cc197c8e31d01f779630ded1ea",
+      "Intel(R) HD Graphics 520": "ce8a732713da85eec4bd1321151b7f92c68525cc197c8e31d01f779630ded1ea"
     },
     "parameter_matmul_bias_forward_fp16_packed:8x65x33": {
-      "AMD Radeon Graphics": "a51e2305c56b36ccecb46d55c2babb008dd0e6db49c7d11bafc5d0d094d66253"
+      "AMD Radeon Graphics": "a51e2305c56b36ccecb46d55c2babb008dd0e6db49c7d11bafc5d0d094d66253",
+      "Intel(R) HD Graphics 520": "a51e2305c56b36ccecb46d55c2babb008dd0e6db49c7d11bafc5d0d094d66253"
     },
     "parameter_matmul_forward:16x64x63": {
-      "AMD Radeon Graphics": "e74cb64958ce3a7564a287d4bda91af5dc925c770e91c0ddb988c65bcb7aff07"
+      "AMD Radeon Graphics": "e74cb64958ce3a7564a287d4bda91af5dc925c770e91c0ddb988c65bcb7aff07",
+      "Intel(R) HD Graphics 520": "e74cb64958ce3a7564a287d4bda91af5dc925c770e91c0ddb988c65bcb7aff07"
     },
     "parameter_matmul_forward:16x96x64": {
-      "AMD Radeon Graphics": "3bb789ca90e68047688c9de85343e47d97a65c1f95925c1316b55047d1951695"
+      "AMD Radeon Graphics": "3bb789ca90e68047688c9de85343e47d97a65c1f95925c1316b55047d1951695",
+      "Intel(R) HD Graphics 520": "3bb789ca90e68047688c9de85343e47d97a65c1f95925c1316b55047d1951695"
     },
     "parameter_matmul_forward:17x65x67": {
-      "AMD Radeon Graphics": "cf01fd9830a68a1fbcf3e86bc3898974c4e95d212f4aff8b4695cb35bf2d1e5f"
+      "AMD Radeon Graphics": "cf01fd9830a68a1fbcf3e86bc3898974c4e95d212f4aff8b4695cb35bf2d1e5f",
+      "Intel(R) HD Graphics 520": "cf01fd9830a68a1fbcf3e86bc3898974c4e95d212f4aff8b4695cb35bf2d1e5f"
     },
     "parameter_matmul_forward:1x1x1": {
-      "AMD Radeon Graphics": "b99c6ebfbd5f2e8e75c47992287608464d52c8355986845a91d3586400616dc8"
+      "AMD Radeon Graphics": "b99c6ebfbd5f2e8e75c47992287608464d52c8355986845a91d3586400616dc8",
+      "Intel(R) HD Graphics 520": "b99c6ebfbd5f2e8e75c47992287608464d52c8355986845a91d3586400616dc8"
     },
     "parameter_matmul_forward:1x65x33": {
-      "AMD Radeon Graphics": "09c18895b1de7a8911f80d6b701b1627fd072311f63ff5f3b367618ab0a5f110"
+      "AMD Radeon Graphics": "09c18895b1de7a8911f80d6b701b1627fd072311f63ff5f3b367618ab0a5f110",
+      "Intel(R) HD Graphics 520": "09c18895b1de7a8911f80d6b701b1627fd072311f63ff5f3b367618ab0a5f110"
     },
     "parameter_matmul_forward:2x31x9": {
-      "AMD Radeon Graphics": "6c36ad93b9b5d51c83a092f8e2330ac03ca8f9c3bfa811a2498910866133169a"
+      "AMD Radeon Graphics": "6c36ad93b9b5d51c83a092f8e2330ac03ca8f9c3bfa811a2498910866133169a",
+      "Intel(R) HD Graphics 520": "6c36ad93b9b5d51c83a092f8e2330ac03ca8f9c3bfa811a2498910866133169a"
     },
     "parameter_matmul_forward:31x97x95": {
-      "AMD Radeon Graphics": "499688fd9e56d0cc499052a4d5f16d8eb0e4011d9cb74f1a173182c19c0adb6a"
+      "AMD Radeon Graphics": "499688fd9e56d0cc499052a4d5f16d8eb0e4011d9cb74f1a173182c19c0adb6a",
+      "Intel(R) HD Graphics 520": "499688fd9e56d0cc499052a4d5f16d8eb0e4011d9cb74f1a173182c19c0adb6a"
     },
     "parameter_matmul_forward:33x129x131": {
-      "AMD Radeon Graphics": "fc68789ce8a758a3284cb1e58e95f0441c05636d96d3003ab2a9edac2eb6b055"
+      "AMD Radeon Graphics": "fc68789ce8a758a3284cb1e58e95f0441c05636d96d3003ab2a9edac2eb6b055",
+      "Intel(R) HD Graphics 520": "fc68789ce8a758a3284cb1e58e95f0441c05636d96d3003ab2a9edac2eb6b055"
     },
     "parameter_matmul_forward:7x64x16": {
-      "AMD Radeon Graphics": "91ec46f84a5eec7867764f46c672ee6125c15cb1db73963e0ea2315ec1c893f2"
+      "AMD Radeon Graphics": "91ec46f84a5eec7867764f46c672ee6125c15cb1db73963e0ea2315ec1c893f2",
+      "Intel(R) HD Graphics 520": "91ec46f84a5eec7867764f46c672ee6125c15cb1db73963e0ea2315ec1c893f2"
     },
     "parameter_matmul_forward:8x63x17": {
-      "AMD Radeon Graphics": "5c7de6eb6695c39e40ce7a88308a94790af5028bf237e1073638f8f5c593c7bb"
+      "AMD Radeon Graphics": "5c7de6eb6695c39e40ce7a88308a94790af5028bf237e1073638f8f5c593c7bb",
+      "Intel(R) HD Graphics 520": "5c7de6eb6695c39e40ce7a88308a94790af5028bf237e1073638f8f5c593c7bb"
     },
     "parameter_matmul_forward:8x64x16": {
-      "AMD Radeon Graphics": "c650e8b5515ba0a60fe6d6c45c9b4e202e6bbdabc9fe5a73ec91a5812bdc8db5"
+      "AMD Radeon Graphics": "c650e8b5515ba0a60fe6d6c45c9b4e202e6bbdabc9fe5a73ec91a5812bdc8db5",
+      "Intel(R) HD Graphics 520": "c650e8b5515ba0a60fe6d6c45c9b4e202e6bbdabc9fe5a73ec91a5812bdc8db5"
     },
     "parameter_matmul_forward:8x65x33": {
-      "AMD Radeon Graphics": "093302fcad4c8f4ca77c05b46e6cbfdf6198638098dd08e35506b586066a8152"
+      "AMD Radeon Graphics": "093302fcad4c8f4ca77c05b46e6cbfdf6198638098dd08e35506b586066a8152",
+      "Intel(R) HD Graphics 520": "093302fcad4c8f4ca77c05b46e6cbfdf6198638098dd08e35506b586066a8152"
     },
     "parameter_matmul_forward_fp16_packed:16x64x63": {
-      "AMD Radeon Graphics": "32182cb4691bf40e1ee3c1c6fea79fce4a1d028518074461a1d2c717f2484384"
+      "AMD Radeon Graphics": "32182cb4691bf40e1ee3c1c6fea79fce4a1d028518074461a1d2c717f2484384",
+      "Intel(R) HD Graphics 520": "32182cb4691bf40e1ee3c1c6fea79fce4a1d028518074461a1d2c717f2484384"
     },
     "parameter_matmul_forward_fp16_packed:16x96x64": {
-      "AMD Radeon Graphics": "acd4ce25b28d0a4ea8819df7bd215638bb2eacc540c08fafa2b4f19679709c7c"
+      "AMD Radeon Graphics": "acd4ce25b28d0a4ea8819df7bd215638bb2eacc540c08fafa2b4f19679709c7c",
+      "Intel(R) HD Graphics 520": "acd4ce25b28d0a4ea8819df7bd215638bb2eacc540c08fafa2b4f19679709c7c"
     },
     "parameter_matmul_forward_fp16_packed:17x65x67": {
-      "AMD Radeon Graphics": "24dde99438c7b7434a33e30b0ff5074788729e02407363b945ed6a920bc83ac1"
+      "AMD Radeon Graphics": "24dde99438c7b7434a33e30b0ff5074788729e02407363b945ed6a920bc83ac1",
+      "Intel(R) HD Graphics 520": "24dde99438c7b7434a33e30b0ff5074788729e02407363b945ed6a920bc83ac1"
     },
     "parameter_matmul_forward_fp16_packed:1x1x1": {
-      "AMD Radeon Graphics": "9b5e2e7b7bb79d4184465d995a6e52081dcd85536cfde16c52dbe0381cceee67"
+      "AMD Radeon Graphics": "9b5e2e7b7bb79d4184465d995a6e52081dcd85536cfde16c52dbe0381cceee67",
+      "Intel(R) HD Graphics 520": "9b5e2e7b7bb79d4184465d995a6e52081dcd85536cfde16c52dbe0381cceee67"
     },
     "parameter_matmul_forward_fp16_packed:1x65x33": {
-      "AMD Radeon Graphics": "7f93b944dcfd4f36b2f70c7e50709dce2a99d53db7a91e66a75ce312ec31aee2"
+      "AMD Radeon Graphics": "7f93b944dcfd4f36b2f70c7e50709dce2a99d53db7a91e66a75ce312ec31aee2",
+      "Intel(R) HD Graphics 520": "7f93b944dcfd4f36b2f70c7e50709dce2a99d53db7a91e66a75ce312ec31aee2"
     },
     "parameter_matmul_forward_fp16_packed:2x31x9": {
-      "AMD Radeon Graphics": "285c1df7a8ba57512368083b8711ee7eecdae01635c6b22b53b50d4fd5b1e956"
+      "AMD Radeon Graphics": "285c1df7a8ba57512368083b8711ee7eecdae01635c6b22b53b50d4fd5b1e956",
+      "Intel(R) HD Graphics 520": "285c1df7a8ba57512368083b8711ee7eecdae01635c6b22b53b50d4fd5b1e956"
     },
     "parameter_matmul_forward_fp16_packed:31x97x95": {
-      "AMD Radeon Graphics": "ef0e826beab13a496f2e290e880156645b1f8ff887c664f8188e70cc9ec90265"
+      "AMD Radeon Graphics": "ef0e826beab13a496f2e290e880156645b1f8ff887c664f8188e70cc9ec90265",
+      "Intel(R) HD Graphics 520": "ef0e826beab13a496f2e290e880156645b1f8ff887c664f8188e70cc9ec90265"
     },
     "parameter_matmul_forward_fp16_packed:33x129x131": {
-      "AMD Radeon Graphics": "41f3ef92b2e1738cec30bfd6b9d6a350dc3e08fbcf78555ce56e3f588b164ed6"
+      "AMD Radeon Graphics": "41f3ef92b2e1738cec30bfd6b9d6a350dc3e08fbcf78555ce56e3f588b164ed6",
+      "Intel(R) HD Graphics 520": "41f3ef92b2e1738cec30bfd6b9d6a350dc3e08fbcf78555ce56e3f588b164ed6"
     },
     "parameter_matmul_forward_fp16_packed:7x64x16": {
-      "AMD Radeon Graphics": "890574d91ca358ce6cacd73d1afd57dcc0fd140ecd876df02fa619f83cb5debe"
+      "AMD Radeon Graphics": "890574d91ca358ce6cacd73d1afd57dcc0fd140ecd876df02fa619f83cb5debe",
+      "Intel(R) HD Graphics 520": "890574d91ca358ce6cacd73d1afd57dcc0fd140ecd876df02fa619f83cb5debe"
     },
     "parameter_matmul_forward_fp16_packed:8x63x17": {
-      "AMD Radeon Graphics": "3ec7923343d7ebc3bcf7b4779a4e39ee3302db1dcf8175e6df40c1f45e55e4d0"
+      "AMD Radeon Graphics": "3ec7923343d7ebc3bcf7b4779a4e39ee3302db1dcf8175e6df40c1f45e55e4d0",
+      "Intel(R) HD Graphics 520": "3ec7923343d7ebc3bcf7b4779a4e39ee3302db1dcf8175e6df40c1f45e55e4d0"
     },
     "parameter_matmul_forward_fp16_packed:8x64x16": {
-      "AMD Radeon Graphics": "54cb6053f19be6c13211207372641c2392ba61f8117ad0056d1a599ff8559010"
+      "AMD Radeon Graphics": "54cb6053f19be6c13211207372641c2392ba61f8117ad0056d1a599ff8559010",
+      "Intel(R) HD Graphics 520": "54cb6053f19be6c13211207372641c2392ba61f8117ad0056d1a599ff8559010"
     },
     "parameter_matmul_forward_fp16_packed:8x65x33": {
-      "AMD Radeon Graphics": "210e128fec943d552be1067906e25266aab8d7de1f5cfed19e84cb5f025f37cf"
+      "AMD Radeon Graphics": "210e128fec943d552be1067906e25266aab8d7de1f5cfed19e84cb5f025f37cf",
+      "Intel(R) HD Graphics 520": "210e128fec943d552be1067906e25266aab8d7de1f5cfed19e84cb5f025f37cf"
     },
     "parameter_matmul_input_grad:16x64x63": {
-      "AMD Radeon Graphics": "0578bde663c703aede3d00cf80de02042a6932e51d05594de32d6cf75a6752ec"
+      "AMD Radeon Graphics": "0578bde663c703aede3d00cf80de02042a6932e51d05594de32d6cf75a6752ec",
+      "Intel(R) HD Graphics 520": "0578bde663c703aede3d00cf80de02042a6932e51d05594de32d6cf75a6752ec"
     },
     "parameter_matmul_input_grad:16x96x64": {
-      "AMD Radeon Graphics": "8ce703726cc22d9e62f78d5722536c86ce12187d59b9adc517c48eb5a7a02b69"
+      "AMD Radeon Graphics": "8ce703726cc22d9e62f78d5722536c86ce12187d59b9adc517c48eb5a7a02b69",
+      "Intel(R) HD Graphics 520": "8ce703726cc22d9e62f78d5722536c86ce12187d59b9adc517c48eb5a7a02b69"
     },
     "parameter_matmul_input_grad:17x65x67": {
-      "AMD Radeon Graphics": "e9cd2b9a26e10c34971678977adf8aed1a8f5d2575de33262861fed81c742343"
+      "AMD Radeon Graphics": "e9cd2b9a26e10c34971678977adf8aed1a8f5d2575de33262861fed81c742343",
+      "Intel(R) HD Graphics 520": "e9cd2b9a26e10c34971678977adf8aed1a8f5d2575de33262861fed81c742343"
     },
     "parameter_matmul_input_grad:1x1x1": {
-      "AMD Radeon Graphics": "b99c6ebfbd5f2e8e75c47992287608464d52c8355986845a91d3586400616dc8"
+      "AMD Radeon Graphics": "b99c6ebfbd5f2e8e75c47992287608464d52c8355986845a91d3586400616dc8",
+      "Intel(R) HD Graphics 520": "b99c6ebfbd5f2e8e75c47992287608464d52c8355986845a91d3586400616dc8"
     },
     "parameter_matmul_input_grad:1x65x33": {
-      "AMD Radeon Graphics": "34285e629d2e7ed8b44b913fb79a5068ce59730638f004bd66d8b1b7529f0425"
+      "AMD Radeon Graphics": "34285e629d2e7ed8b44b913fb79a5068ce59730638f004bd66d8b1b7529f0425",
+      "Intel(R) HD Graphics 520": "34285e629d2e7ed8b44b913fb79a5068ce59730638f004bd66d8b1b7529f0425"
     },
     "parameter_matmul_input_grad:2x31x9": {
-      "AMD Radeon Graphics": "906594272a809d28a06b831193728a2b409601f0ccd668f717a2c0b8f08f7670"
+      "AMD Radeon Graphics": "906594272a809d28a06b831193728a2b409601f0ccd668f717a2c0b8f08f7670",
+      "Intel(R) HD Graphics 520": "906594272a809d28a06b831193728a2b409601f0ccd668f717a2c0b8f08f7670"
     },
     "parameter_matmul_input_grad:31x97x95": {
-      "AMD Radeon Graphics": "e5332214aa79da33ec0b47d2b1ee552e7062930151ab5c4ed552de934169e533"
+      "AMD Radeon Graphics": "e5332214aa79da33ec0b47d2b1ee552e7062930151ab5c4ed552de934169e533",
+      "Intel(R) HD Graphics 520": "e5332214aa79da33ec0b47d2b1ee552e7062930151ab5c4ed552de934169e533"
     },
     "parameter_matmul_input_grad:33x129x131": {
-      "AMD Radeon Graphics": "a488a5ed65e4dd61603f0caeae50451fd179110cfa4517b95f5a2657b5501ea7"
+      "AMD Radeon Graphics": "a488a5ed65e4dd61603f0caeae50451fd179110cfa4517b95f5a2657b5501ea7",
+      "Intel(R) HD Graphics 520": "a488a5ed65e4dd61603f0caeae50451fd179110cfa4517b95f5a2657b5501ea7"
     },
     "parameter_matmul_input_grad:7x64x16": {
-      "AMD Radeon Graphics": "3bb8f3d1ba8aed4b9e2b2b2e1a7ac3dd0889e3361516982e0cc519ce394c4fdc"
+      "AMD Radeon Graphics": "3bb8f3d1ba8aed4b9e2b2b2e1a7ac3dd0889e3361516982e0cc519ce394c4fdc",
+      "Intel(R) HD Graphics 520": "3bb8f3d1ba8aed4b9e2b2b2e1a7ac3dd0889e3361516982e0cc519ce394c4fdc"
     },
     "parameter_matmul_input_grad:8x63x17": {
-      "AMD Radeon Graphics": "c06462491d493f81706f72eac0f347f7ba632e1573f84a1c8c7d1de58293661b"
+      "AMD Radeon Graphics": "c06462491d493f81706f72eac0f347f7ba632e1573f84a1c8c7d1de58293661b",
+      "Intel(R) HD Graphics 520": "c06462491d493f81706f72eac0f347f7ba632e1573f84a1c8c7d1de58293661b"
     },
     "parameter_matmul_input_grad:8x64x16": {
-      "AMD Radeon Graphics": "f2c5ce93f120bb74333f31594c69c7b99cb6980959dd6021a6b486c38c208b57"
+      "AMD Radeon Graphics": "f2c5ce93f120bb74333f31594c69c7b99cb6980959dd6021a6b486c38c208b57",
+      "Intel(R) HD Graphics 520": "f2c5ce93f120bb74333f31594c69c7b99cb6980959dd6021a6b486c38c208b57"
     },
     "parameter_matmul_input_grad:8x65x33": {
-      "AMD Radeon Graphics": "2d7a634300588beb007bfcb873faeed4b57da607a96c23caa4f31db641ca7823"
+      "AMD Radeon Graphics": "2d7a634300588beb007bfcb873faeed4b57da607a96c23caa4f31db641ca7823",
+      "Intel(R) HD Graphics 520": "2d7a634300588beb007bfcb873faeed4b57da607a96c23caa4f31db641ca7823"
     },
     "parameter_matmul_input_grad_fp16_native_compute:16x64x63": {
-      "AMD Radeon Graphics": "d2491e739860ad61e5dc8e4636163d944b93ddc09c3713326d71d6ae00a602da"
+      "AMD Radeon Graphics": "d2491e739860ad61e5dc8e4636163d944b93ddc09c3713326d71d6ae00a602da",
+      "Intel(R) HD Graphics 520": "c46c87642ae06206eeddad9f10c548e221e12e7aca3646d2bd9bbbfbc54e28ac"
     },
     "parameter_matmul_input_grad_fp16_native_compute:16x96x64": {
-      "AMD Radeon Graphics": "8c1b43b08caedfc303e3a553c385df323940fbb5bb01e184881e75d4126f058e"
+      "AMD Radeon Graphics": "8c1b43b08caedfc303e3a553c385df323940fbb5bb01e184881e75d4126f058e",
+      "Intel(R) HD Graphics 520": "468edfa27a4153998a697eb47f8dcb4ba97e990222d79bfbfc0ea5b9893f06b0"
     },
     "parameter_matmul_input_grad_fp16_native_compute:17x65x67": {
-      "AMD Radeon Graphics": "478c5f51800dbee7a658cd9e46c71413646b92a1f3c5f8b9615fc7c595d4b462"
+      "AMD Radeon Graphics": "478c5f51800dbee7a658cd9e46c71413646b92a1f3c5f8b9615fc7c595d4b462",
+      "Intel(R) HD Graphics 520": "75ab5fbc44b34abb21f0e4cdec70a86d54a9be4bae14fb3043479ddfcdf6e6f2"
     },
     "parameter_matmul_input_grad_fp16_native_compute:1x1x1": {
-      "AMD Radeon Graphics": "ae0cff91a399a7a640dac9f331ef84bd23cb3bc9d63b26266531d924b44ea5dd"
+      "AMD Radeon Graphics": "ae0cff91a399a7a640dac9f331ef84bd23cb3bc9d63b26266531d924b44ea5dd",
+      "Intel(R) HD Graphics 520": "9b5e2e7b7bb79d4184465d995a6e52081dcd85536cfde16c52dbe0381cceee67"
     },
     "parameter_matmul_input_grad_fp16_native_compute:1x65x33": {
-      "AMD Radeon Graphics": "a943606b5d210edfc0cf4fe7beba623727d9c555a3c4195a30b98d9a1b1438ef"
+      "AMD Radeon Graphics": "a943606b5d210edfc0cf4fe7beba623727d9c555a3c4195a30b98d9a1b1438ef",
+      "Intel(R) HD Graphics 520": "97b6e10e9649c0e3b5404d174a45afc569cc9d99b163c176731f94f49b6dd61f"
     },
     "parameter_matmul_input_grad_fp16_native_compute:2x31x9": {
-      "AMD Radeon Graphics": "d666bc5ceba656f692aed928d52f958e28721a2a0a7e4dca6de1a84a12e8d24b"
+      "AMD Radeon Graphics": "d666bc5ceba656f692aed928d52f958e28721a2a0a7e4dca6de1a84a12e8d24b",
+      "Intel(R) HD Graphics 520": "20c0d122d529121b9aa0d1502d4181b85912d8d442dd6d0c342cc339ac1a771a"
     },
     "parameter_matmul_input_grad_fp16_native_compute:31x97x95": {
-      "AMD Radeon Graphics": "2ec8b01856eecc04b607e94528cb1ddfa3b9953150f23321a5a9f30a4fb2ec02"
+      "AMD Radeon Graphics": "2ec8b01856eecc04b607e94528cb1ddfa3b9953150f23321a5a9f30a4fb2ec02",
+      "Intel(R) HD Graphics 520": "cedf60cbbfcbe81eefa7c6ab7ce51cd2ebf5e3786f57e4d4100f5e4ef76c2481"
     },
     "parameter_matmul_input_grad_fp16_native_compute:33x129x131": {
-      "AMD Radeon Graphics": "3fd74303fb9e505ef96972ea9b40ffa387060bd0345746bf699b22ccfa913cb6"
+      "AMD Radeon Graphics": "3fd74303fb9e505ef96972ea9b40ffa387060bd0345746bf699b22ccfa913cb6",
+      "Intel(R) HD Graphics 520": "7353583efbbb31a9c2028c735506776756fe69966f0f3cce03565e8bfa836ef9"
     },
     "parameter_matmul_input_grad_fp16_native_compute:7x64x16": {
-      "AMD Radeon Graphics": "b3b86de37b4d2835ee6bdbe61a80e5939cab9c0cb01b5c0a2988b7a7086c67c7"
+      "AMD Radeon Graphics": "b3b86de37b4d2835ee6bdbe61a80e5939cab9c0cb01b5c0a2988b7a7086c67c7",
+      "Intel(R) HD Graphics 520": "a1188db5625ed08b8972d303d33436b86006b5ac7144788481b47ffe0bfeb98a"
     },
     "parameter_matmul_input_grad_fp16_native_compute:8x63x17": {
-      "AMD Radeon Graphics": "09870f707601e3944b89f049274beeb234c856716fece620631bdd00cfc0da58"
+      "AMD Radeon Graphics": "09870f707601e3944b89f049274beeb234c856716fece620631bdd00cfc0da58",
+      "Intel(R) HD Graphics 520": "ac36c2d92464a884634ca7d44471152e4c531e370ffa2251d284044edd5e6762"
     },
     "parameter_matmul_input_grad_fp16_native_compute:8x64x16": {
-      "AMD Radeon Graphics": "13d2323e069e9ab33437db77ac8b6994892d57de86cec5b6bea1e29ec36be6ef"
+      "AMD Radeon Graphics": "13d2323e069e9ab33437db77ac8b6994892d57de86cec5b6bea1e29ec36be6ef",
+      "Intel(R) HD Graphics 520": "93aeae36b287de07001789a09c0abf3f0231a356b33273b4d5dd9b091b8945e7"
     },
     "parameter_matmul_input_grad_fp16_native_compute:8x65x33": {
-      "AMD Radeon Graphics": "6ebd18770c3b25cef57373870c63679ae4b0f8c7d3e04e0a9e6e1836e1ad7fbd"
+      "AMD Radeon Graphics": "6ebd18770c3b25cef57373870c63679ae4b0f8c7d3e04e0a9e6e1836e1ad7fbd",
+      "Intel(R) HD Graphics 520": "019ecd38555143e239afbcb1f5d95ded7f44312da955330316259f30d6c00720"
     },
     "parameter_matmul_input_grad_fp16_packed:16x64x63": {
-      "AMD Radeon Graphics": "c46c87642ae06206eeddad9f10c548e221e12e7aca3646d2bd9bbbfbc54e28ac"
+      "AMD Radeon Graphics": "c46c87642ae06206eeddad9f10c548e221e12e7aca3646d2bd9bbbfbc54e28ac",
+      "Intel(R) HD Graphics 520": "c46c87642ae06206eeddad9f10c548e221e12e7aca3646d2bd9bbbfbc54e28ac"
     },
     "parameter_matmul_input_grad_fp16_packed:16x96x64": {
-      "AMD Radeon Graphics": "468edfa27a4153998a697eb47f8dcb4ba97e990222d79bfbfc0ea5b9893f06b0"
+      "AMD Radeon Graphics": "468edfa27a4153998a697eb47f8dcb4ba97e990222d79bfbfc0ea5b9893f06b0",
+      "Intel(R) HD Graphics 520": "468edfa27a4153998a697eb47f8dcb4ba97e990222d79bfbfc0ea5b9893f06b0"
     },
     "parameter_matmul_input_grad_fp16_packed:17x65x67": {
-      "AMD Radeon Graphics": "75ab5fbc44b34abb21f0e4cdec70a86d54a9be4bae14fb3043479ddfcdf6e6f2"
+      "AMD Radeon Graphics": "75ab5fbc44b34abb21f0e4cdec70a86d54a9be4bae14fb3043479ddfcdf6e6f2",
+      "Intel(R) HD Graphics 520": "75ab5fbc44b34abb21f0e4cdec70a86d54a9be4bae14fb3043479ddfcdf6e6f2"
     },
     "parameter_matmul_input_grad_fp16_packed:1x1x1": {
-      "AMD Radeon Graphics": "9b5e2e7b7bb79d4184465d995a6e52081dcd85536cfde16c52dbe0381cceee67"
+      "AMD Radeon Graphics": "9b5e2e7b7bb79d4184465d995a6e52081dcd85536cfde16c52dbe0381cceee67",
+      "Intel(R) HD Graphics 520": "9b5e2e7b7bb79d4184465d995a6e52081dcd85536cfde16c52dbe0381cceee67"
     },
     "parameter_matmul_input_grad_fp16_packed:1x65x33": {
-      "AMD Radeon Graphics": "97b6e10e9649c0e3b5404d174a45afc569cc9d99b163c176731f94f49b6dd61f"
+      "AMD Radeon Graphics": "97b6e10e9649c0e3b5404d174a45afc569cc9d99b163c176731f94f49b6dd61f",
+      "Intel(R) HD Graphics 520": "97b6e10e9649c0e3b5404d174a45afc569cc9d99b163c176731f94f49b6dd61f"
     },
     "parameter_matmul_input_grad_fp16_packed:2x31x9": {
-      "AMD Radeon Graphics": "20c0d122d529121b9aa0d1502d4181b85912d8d442dd6d0c342cc339ac1a771a"
+      "AMD Radeon Graphics": "20c0d122d529121b9aa0d1502d4181b85912d8d442dd6d0c342cc339ac1a771a",
+      "Intel(R) HD Graphics 520": "20c0d122d529121b9aa0d1502d4181b85912d8d442dd6d0c342cc339ac1a771a"
     },
     "parameter_matmul_input_grad_fp16_packed:31x97x95": {
-      "AMD Radeon Graphics": "cedf60cbbfcbe81eefa7c6ab7ce51cd2ebf5e3786f57e4d4100f5e4ef76c2481"
+      "AMD Radeon Graphics": "cedf60cbbfcbe81eefa7c6ab7ce51cd2ebf5e3786f57e4d4100f5e4ef76c2481",
+      "Intel(R) HD Graphics 520": "cedf60cbbfcbe81eefa7c6ab7ce51cd2ebf5e3786f57e4d4100f5e4ef76c2481"
     },
     "parameter_matmul_input_grad_fp16_packed:33x129x131": {
-      "AMD Radeon Graphics": "7353583efbbb31a9c2028c735506776756fe69966f0f3cce03565e8bfa836ef9"
+      "AMD Radeon Graphics": "7353583efbbb31a9c2028c735506776756fe69966f0f3cce03565e8bfa836ef9",
+      "Intel(R) HD Graphics 520": "7353583efbbb31a9c2028c735506776756fe69966f0f3cce03565e8bfa836ef9"
     },
     "parameter_matmul_input_grad_fp16_packed:7x64x16": {
-      "AMD Radeon Graphics": "a1188db5625ed08b8972d303d33436b86006b5ac7144788481b47ffe0bfeb98a"
+      "AMD Radeon Graphics": "a1188db5625ed08b8972d303d33436b86006b5ac7144788481b47ffe0bfeb98a",
+      "Intel(R) HD Graphics 520": "a1188db5625ed08b8972d303d33436b86006b5ac7144788481b47ffe0bfeb98a"
     },
     "parameter_matmul_input_grad_fp16_packed:8x63x17": {
-      "AMD Radeon Graphics": "ac36c2d92464a884634ca7d44471152e4c531e370ffa2251d284044edd5e6762"
+      "AMD Radeon Graphics": "ac36c2d92464a884634ca7d44471152e4c531e370ffa2251d284044edd5e6762",
+      "Intel(R) HD Graphics 520": "ac36c2d92464a884634ca7d44471152e4c531e370ffa2251d284044edd5e6762"
     },
     "parameter_matmul_input_grad_fp16_packed:8x64x16": {
-      "AMD Radeon Graphics": "93aeae36b287de07001789a09c0abf3f0231a356b33273b4d5dd9b091b8945e7"
+      "AMD Radeon Graphics": "93aeae36b287de07001789a09c0abf3f0231a356b33273b4d5dd9b091b8945e7",
+      "Intel(R) HD Graphics 520": "93aeae36b287de07001789a09c0abf3f0231a356b33273b4d5dd9b091b8945e7"
     },
     "parameter_matmul_input_grad_fp16_packed:8x65x33": {
-      "AMD Radeon Graphics": "019ecd38555143e239afbcb1f5d95ded7f44312da955330316259f30d6c00720"
+      "AMD Radeon Graphics": "019ecd38555143e239afbcb1f5d95ded7f44312da955330316259f30d6c00720",
+      "Intel(R) HD Graphics 520": "019ecd38555143e239afbcb1f5d95ded7f44312da955330316259f30d6c00720"
     }
   }
 }

@@ -1,8 +1,13 @@
 """Rebuild and validate every shader covered by the training optimization release.
 
-The manifest records the actual compiler and flags for each embedded variant;
-attention, reductions and mixed-precision variants do not share one build recipe.
-Compilation goes to temporary files and never overwrites the shipping artifacts.
+The manifest records the actual compiler, that compiler's release and the flags
+for each embedded variant; attention, reductions and mixed-precision variants do
+not share one build recipe, and a tree rebuilt across two compiler releases can
+pin a release per artifact. Every recipe is therefore compiled by the candidate
+that reports the release it records (`--compiler-path NAME=PATH` replaces PATH for
+one name), which checks a spanned tree instead of reporting its untranslated
+artifacts as drift. Compilation goes to temporary files and never overwrites the
+shipping artifacts.
 """
 from __future__ import annotations
 
@@ -14,6 +19,8 @@ import shutil
 import subprocess
 import struct
 import tempfile
+
+from check_shader_provenance import choose, discover_local, gather, parse_compiler_paths
 
 CRATE = Path(__file__).resolve().parents[1]
 MANIFEST = Path(__file__).with_name("training_shader_manifest.json")
@@ -35,18 +42,35 @@ def shader_storage_usage(binary):
     return {"workgroup_variables": variables, "local_size": local_size}
 
 
-def verify(manifest=MANIFEST):
+def pinned_toolchain_problem(recipe, decision):
+    """Explain why no installed candidate reports an artifact's recorded release."""
+    observed = ", ".join(str(item) for item in decision.get("observed_versions", [])) or "nothing"
+    return (
+        f"{recipe['compiler']} reports {observed} but {recipe['artifact']} records "
+        f"{decision['expected_version']}; install that release or pass "
+        "--compiler-path NAME=PATH"
+    )
+
+
+def verify(manifest=MANIFEST, overrides=None):
     recipes = json.loads(Path(manifest).read_text(encoding="utf-8"))["shaders"]
     validator = shutil.which("spirv-val")
     if validator is None:
         raise RuntimeError("spirv-val must be on PATH")
+    toolchains = gather(sorted({recipe["compiler"] for recipe in recipes}), overrides or {})
     rows = []
     digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
     with tempfile.TemporaryDirectory(prefix="training-shader-release-") as scratch:
         for recipe in recipes:
-            compiler = shutil.which(recipe["compiler"])
-            if compiler is None:
-                raise RuntimeError(f"{recipe['compiler']} must be on PATH")
+            toolchain, decision = choose(recipe, toolchains.get(recipe["compiler"], []))
+            if toolchain is None:
+                if decision["status"] == "missing_compiler":
+                    raise RuntimeError(f"{recipe['compiler']} must be on PATH")
+                rows.append({**recipe, "compile_exit": None, "matches": False, "valid": False,
+                             "policy_matches": True, "toolchain": decision["status"],
+                             "error": pinned_toolchain_problem(recipe, decision)})
+                continue
+            compiler = toolchain.path
             source = CRATE / "shaders" / recipe["source"]
             embedded = CRATE / "shaders" / recipe["artifact"]
             rebuilt = Path(scratch) / embedded.name
@@ -54,7 +78,7 @@ def verify(manifest=MANIFEST):
             result = subprocess.run(command, cwd=CRATE, text=True, capture_output=True)
             row = {**recipe, "source_sha256": digest(source), "sha256": digest(embedded),
                    "compile_exit": result.returncode, "matches": False, "valid": False,
-                   "policy_matches": True}
+                   "policy_matches": True, "toolchain_version": toolchain.version}
             if result.returncode == 0:
                 validation = subprocess.run(
                     [validator, "--target-env", recipe["target_env"], str(rebuilt)],
@@ -83,9 +107,24 @@ def verify(manifest=MANIFEST):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--manifest", type=Path, default=MANIFEST)
+    parser.add_argument(
+        "--compiler-path",
+        action="append",
+        default=[],
+        metavar="NAME=PATH",
+        help="a candidate binary for a manifest compiler name (repeatable; replaces PATH for that name)",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    report = verify()
+    overrides = parse_compiler_paths(args.compiler_path, parser.error)
+    # Installed releases are candidates too; the manifest names which one each
+    # artifact records, so a tree spanning two releases needs no extra flags.
+    root = Path(__file__).resolve().parents[1]
+    for name, paths in discover_local(root).items():
+        known = overrides.setdefault(name, [])
+        known.extend(path for path in paths if path not in known)
+    report = verify(args.manifest, overrides)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

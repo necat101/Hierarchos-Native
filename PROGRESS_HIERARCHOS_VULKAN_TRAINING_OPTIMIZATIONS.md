@@ -561,8 +561,11 @@ for every run, and compares against
 [step_expectation.json](hierarchos-vulkan/validation/training_step_probe/step_expectation.json):
 dispatch count must match, the barrier count is an upper bound (so the elision work
 below cannot fail the ladder by improving), and the loss is compared bit-for-bit
-per device name. `--record-expectation` rewrites that file on the device in front of
-you.
+per device name. `--record-expectation` adds that device's entry and leaves every
+other device's entry as recorded. `dispatch_count` is recorded per device too now,
+for the same reason the loss is: the vendor layer dispatches the fixture a
+different number of times on different parts (see the 2026-10-15 slice-point
+section below).
 
 ## The gate is non-vacuous, checked six ways
 
@@ -1467,3 +1470,1229 @@ Full timings, scope and commands: hierarchos-vulkan/validation/ATTENTION_BACKWAR
 Raw paired results: hierarchos-vulkan/validation/release_parity/attention_backward/.
 Cross-vendor performance remains unqualified. Long strict-mode jobs can still hit
 the driver watchdog; the safe 8-query/8-key strict check passes exactly.
+
+
+# Gen9 watchdog slice point is length-based and shipped on — 2026-10-15
+
+> Superseded by the next section: the fixed 1,024-dispatch count described here
+> was replaced later the same day by a bound measured from each retirement, with a
+> 400 ms target and an 8,192-dispatch mis-measurement guard. The numbers below are
+> what this pass shipped and are kept as the record it worked from.
+
+The ported Gen9 slice point retired every dispatch: bit-exact on the Intel HD
+Graphics 520 target, but priced at about 5x per training step (1,928.3 ms against
+the same binary's 380.0 ms legacy step on `training_step_probe --batch 2 --tokens
+8 --steps 6`), which is why it stayed reachable instead of being imposed. It now
+retires on accumulated submission length: `watchdog_checkpoint()` consults a
+dispatch budget per class, the transformer recorders' phase boundaries call
+`force_watchdog_checkpoint()`, and the AMD target's budget is 1 — its behaviour is
+unchanged by construction rather than by measurement.
+
+Median step against that legacy baseline, same fixture and binary:
+
+| slice point | median step | vs legacy |
+| --- | --- | --- |
+| 1 (the AMD point) | 1,928.3 ms | +407% |
+| 64 | 556.7 ms | +46% |
+| 256 | 449.7 ms | +18% |
+| 512 | 426.1 ms | +12% |
+| **1024 (shipped)** | 401.7 ms | **+6%** |
+| 4096 | 384.3 ms | +1% |
+
+1024 is what ships and `GEN9_WATCHDOG_SLICING_DEFAULT` is now `true`;
+`HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS=0` restores the legacy single-submit path.
+The causal-LM suite no longer separates the arms (10.36 s / 10.30 s sliced versus
+10.56 s / 10.31 s legacy), so the 2.2x it used to cost is gone.
+
+Two defects surfaced only because the policy went live, and both are fixed.
+Retiring a submission reset the structural counters, so a sliced run reported the
+slice that happened to be open rather than the recorded stream — 224 dispatches
+where the fixture records 6,368; they are now carried across a retirement and both
+arms report 6,368. The ladder's `step_expectation.json` then turned out to hold
+one device's `dispatch_count` as a single value "compared for every device", and
+this part dispatches the same fixture 6,368 times against the AMD-recorded 6,464 on
+both arms — a graph difference, not a policy one. `mean_loss` and `dispatch_count`
+are now per device, `--record-expectation` merges this machine's entry and leaves
+every other entry as recorded, and the barrier bound only widens.
+`validation/test_training_stack.py` (6 tests) pins that comparison.
+
+The A/B no longer needs two live runs: `validation/kernel_golden/training_state.json`
+carries this target's own trajectories for all three cases (13 steps, 3,817 exact
+tensor digests), recorded through the legacy path by
+`validation/record_training_state.py`, and `validation/verify_training_state.py`
+passes on both arms against it.
+
+After the final code changes: `cargo test --lib` 715 passed / 0 failed / 9 ignored;
+the ladder is 6/7 with every runnable step PASS and shader provenance BLOCKED
+because `spirv-val` is not installed on this machine (it PASSES on the release
+machine, per `validation/release_parity/release_final_receipt.json`).
+
+Policy, overrides and the full record: `hierarchos-vulkan/COMPATIBILITY.md`,
+"Watchdog-safe submissions" and "The Gen9 target's own training-state trajectory";
+the machine-level check table is in `hierarchos-vulkan/VENDOR_TUNING.md`.
+
+
+# The Gen9 slice point is measured, not chosen as a count — 2026-10-15
+
+The pass above shipped a *fixed* 1024-dispatch slice point. It is safe and it
+still costs about 6% per training step on a step whose whole submission is an
+order of magnitude short of the watchdog — on the Gen9/AVX2 target that is roughly
+2.55 against 2.40 training steps/s, or 40.7 against 38.3 tokens/s at this fixture's
+16 tokens per step, paid for protection nothing on this path needed. It was fixed
+because a count was the only bound the mechanism had; a watchdog, though, bounds a
+submitted job in *time*, so the count is now derived from the time a retirement
+actually takes.
+
+Each retirement is timed where it is already synchronous (`submit_and_restart`),
+and `watchdog_slice_budget_after_retirement` turns that sample into the count
+whose measured cost fits `GEN9_WATCHDOG_SLICE_MICROS` (400 ms), floored at the
+1024 dispatches the port shipped at (179 ms at the slowest per-dispatch class
+measured here, `layer_norm_low_rank_producer_forward_fused` at 175.0 us) and
+guarded at 8192. The target is the safety bound and the guard is not: the guard
+exists so that a cheap sample cannot size a submission without limit, and it is set
+above the fixture's own 6,368-dispatch step, because a guard below one step forces
+every step to pay for a retirement the measurement would not have asked for -- that
+is the 0.9% regression this pass fixed (below). Two properties keep it honest. A
+sample can only *widen*
+the bound, so the policy can never cost more than the fixed count it replaced, and
+no cold first slice can pin a run at its own warmup granularity; and the widest
+bound a device has measured is published on the device for the batches after it,
+so a graph that warms up once does not re-learn the bound on every step. A forced
+`HIERARCHOS_VULKAN_WATCHDOG_SLICE_DISPATCHES` pins the budget and skips the
+measurement entirely, which is what keeps the granularity A/B and the per-device
+validation arms reproducible. AMD has no window at all: its per-dispatch point is
+a policy constant, so no sample can loosen it.
+
+Measured on this target (Intel HD Graphics 520, `0x8086:0x1916`, driver
+31.0.101.2115, Windows, debug build), `training_step_probe --batch 2 --tokens 8
+--steps 6`, every arm interleaved in five rounds so the machine's own drift reaches
+every arm equally:
+
+| arm | median step | vs legacy |
+| --- | --- | --- |
+| legacy single submit | 381.8 ms | -- |
+| 8192 dispatches, forced (what the measurement converges to) | 381.7 ms | -0.0% |
+| **shipped default (measured bound, 400 ms target)** | **382.7 ms** | **+0.2%** |
+| 4096 dispatches, forced (the port's earlier guard) | 385.1-399.5 ms | +1.2 to +1.8% |
+| 1024 dispatches, forced (the fixed count it replaced) | 405.6 ms | +5.7% |
+
+The measured bound gives back all but half a point of the 6% the fixed count cost —
+about **5.5% per training step** — and it costs nothing at all once it has
+calibrated: the forced-8192 row measures -0.0%, and the +0.2% the shipped arm still
+shows on a *seven-step* probe is the single calibration retirement per process
+(the budget starts at the floor, the first retirement sizes it, and it then sits at
+the guard). A real run amortizes that over thousands of steps and does not see it.
+
+This pass also fixed a regression the first version of the measured bound
+introduced, which is worth recording because it is the same mistake the port made
+twice: a bound that binds a submission the measurement has already priced is a cost
+with no protection attached. With the guard at 4096 — below the fixture's own
+6,368-dispatch step — every step retired once regardless of how cheap its work was,
+and an interleaved six-round A/B against the unsliced path measured **387.8 ms
+against 384.4 ms, +0.9%**. Raising the guard above one step and giving the target
+the 400 ms that one step's measured work needs takes the same comparison to
+**382.7 ms against 381.8 ms, +0.2%**, and the forced-8192 control to -0.0%.
+
+Absolute milliseconds drift between sessions on this laptop (380.0 ms for the same
+legacy arm in the previous pass, 392.6 and 378.6 ms in two earlier sessions of this
+one), which is why every table above shares one interleaved session and the earlier
+forced sweep is quoted as ratios.
+
+On the second fixture the port is a speedup rather than a recovered regression:
+`cargo test --lib -- hierarchos_causal_lm_` (six tests, ten seconds of real
+training work) runs in **10.28 s** with the measured bound live against **10.49 s**
+with `HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS=0` (median of three interleaved
+repetitions each) -- about 2% *faster* than the same binary's unsliced path,
+because retiring a slice starts the GPU on it while the host records the next one.
+The per-dispatch reading of the same policy cost 1,928 ms per step on the probe
+fixture, so this is the first configuration of the port that is faster than not
+having it at all.
+
+Nothing numerical moved: the golden's own three cases run under the legacy path,
+the measured default and a forced 1024-dispatch point hash byte-for-byte alike
+(`95f48308...` batch2, `6c97733e...` batch32, `cc4cb821...` odd_multi_sequence),
+and `validation/verify_training_state.py` passes on all three arms against the
+recorded trajectories (13 steps, 3,817 exact tensor digests). The strict `2e-7`
+model gate was then re-exercised on the shipped default rather than inherited from
+an earlier pass: `validation/verify_hf_logits.py --families smollm3 smollm3_yarn
+phi3 --atol 2e-7 --rtol 0` in the repo's `.venv-vulkan` oracle -- which rebuilds
+the logits binary from the current source first -- reports 0 failing values over
+six cases with the worst `max_abs` `5.96e-08`, four times inside the ceiling, on
+this adapter with the measured bound live. `smollm3` was re-run once more after the
+guard and target change, on the final build, with the same result (`2.98e-08`
+unmasked, `5.96e-08` padded, 0 failing values).
+
+```powershell
+cd hierarchos-vulkan
+python validation/slice_point_ab.py --rounds 5   # interleaved timing + per-arm trajectory hashes
+python validation/verify_training_stack.py --skip-build
+cargo test --lib
+```
+
+After the change: `cargo test --lib` 717 passed / 0 failed / 9 ignored (two new
+tests: the pure bound's window and clamps, and a real retirement on this adapter
+widening the floor, staying inside the window and publishing what it measured); the
+ladder is 6/7 with every runnable step PASS — including the training-state parity
+check on the new default — and shader provenance BLOCKED because `spirv-val` is not
+installed here. The bound does not touch the one class it never could: a single
+dispatch longer than the watchdog is still only shortened at the kernel level.
+
+Policy, overrides and the full record: `hierarchos-vulkan/COMPATIBILITY.md`,
+"Watchdog-safe submissions"; the machine-level check table is in
+`hierarchos-vulkan/VENDOR_TUNING.md`.
+---
+
+# Gen9 shader-free lever inventory: what is left above the kernels — 2026-10-16
+
+The slice-point work moved submission granularity. This pass asks the next
+question the port owes before it ships: with no SPIR-V compiler on this machine,
+which remaining lever actually moves a Gen9 training step, and by how much?
+Every number below is either a runtime switch on one binary or an interleaved
+A/B of two binaries on the same fixture, because this machine's absolute level
+drifts by more than the effects being measured.
+
+**Machine state, stated up front.** The same fixture
+(`training_step_probe --batch 2 --tokens 8 --steps 6 --warmup 1`) that the
+earlier passes recorded at 156-168 ms per step now measures 269-275 ms, and at
+32 rows 833 ms against a recorded 200 ms. Nothing in the tree explains a factor
+of 1.7-4: `HEAD` (`git archive HEAD`, built into its own target directory) and
+the working tree are within 0.2% of each other on both fixtures, the vendor and
+portable kernel paths are within 1%, and the slice path retires zero times per
+step at these sizes. The absolute level is therefore this machine's current
+power/clock state, not a code change, and only the interleaved deltas below are
+used as evidence. The recorded absolute tables remain the reference for
+comparable machine state.
+
+## The step is 93% GPU, and the host is no longer a lever
+
+`hierarchos_vulkan_kernel_profile` at rows 2 (stride 17, release):
+
+| quantity | ms/step | share |
+| --- | --- | --- |
+| wall | 270.4 | 100% |
+| GPU span (first bracket begin to last bracket end) | 249.8 | 92.4% |
+| of which dispatch brackets | 234.2 | 86.6% |
+| of which no bracket covers (barrier flush, launch latency, idle) | 15.5 | 5.7% |
+| host (wall minus span: recording, submission, readback, digests) | ~20 | ~7% |
+
+The eighth pass's ~10 us per recorded dispatch was an upper bound from a run its
+own instrumentation inflated; the tenth pass put the honest range at 1.5-3.6 us.
+6,368 dispatches at that rate is 9.5-23 ms, which is the whole of the host
+column — so even a *free* recording path, and therefore even a fully overlapped
+one, is worth at most the 7% the host holds. That closes the async-retirement
+idea the slice port made tempting: pipelining the host against the GPU can only
+collect host time, and here the host is not what the step spends its time on.
+
+What the GPU does with the 234 ms, by shader:
+
+| shader | dispatches | us/dispatch | ms/step | share |
+| --- | --- | --- | --- | --- |
+| `layer_norm_low_rank_producer_forward_fused` | 125 | 271.2 | 34.1 | 16.2% |
+| `packed_cell_channel_mix_state_forward_fused` | 125 | 238.7 | 30.0 | 14.3% |
+| `linear_input_grad` | 334 | 57.5 | 19.2 | 9.1% |
+| `layer_norm_adapter_forward_fused_512` | 125 | 88.5 | 11.1 | 5.3% |
+| `linear_weight_grad` | 334 | 31.9 | 10.7 | 5.1% |
+| `gradient_accumulate8` | 499 | 20.3 | 10.2 | 4.8% |
+
+By category the same step is `rwkv.recurrent` 59.2 ms (28.1%),
+`normalization.layer-norm` 55.4 (26.3%), `projection.linear` 53.5 (25.5%),
+`control` 12.0, `optimizer.gradient-bookkeeping` 11.6 and
+`elementwise-reduction` 10.3. Two fused kernels are 30.5% of the GPU step, and
+at rows 2 each dispatch of them launches only `rows` workgroups, so they are
+latency-bound rather than arithmetic-bound. That is the frontier, and it is a
+kernel-shape problem: the producer's f32 path is one row per workgroup (its
+multi-row modules exist only for the fp16-packed path, which is different
+arithmetic), and the packed-cell channel mix is one row per workgroup too.
+
+## Three shader-free levers, measured and rejected
+
+**Workgroup size for the packed-cell channel mix (14.3% of the step).** Four
+modules exist and are numerically identical: `wg32`, `wg64`, `wg128` and the
+shipped 256 differ in exactly two SPIR-V words (`OpExecutionMode LocalSize` and
+the `gl_WorkGroupSize` constant) and nothing else, and the host already selects
+between them by `HIERARCHOS_VULKAN_PACKED_CELL_FORWARD_WORKGROUP_SIZE`. Two
+interleaved rounds per arm at rows 2:
+
+| workgroup | step ms | vs shipped 256 |
+| --- | --- | --- |
+| 256 (shipped) | 282.9, 281.3 | — |
+| 128 | 276.8, 285.5 | within noise |
+| 64 | 313.0, 307.5 | +9 to +11% |
+| 32 | 382.4, 385.4 | +36% |
+
+The kernel spreads its element loops across the workgroup, so shrinking the
+workgroup removes parallelism instead of adding occupancy: the shipped 256 is
+already the best of the four on this target. No change.
+
+**The Gen9 vendor modules (25.5% of the step is `projection.linear`).**
+`HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS` switches the whole admitted Gen9 set
+(tiled `linear-forward`, `linear-bias-forward`, `linear-residual-forward`,
+`linear3-forward`) for the portable modules, interleaved: rows 2 +1.2% slower
+*with* the Gen9 modules, rows 8 -0.1%, rows 32 +-0.5% with mixed signs. Neutral,
+and the reason is already in the selection layer: the geometry gate keeps the
+small shapes this probe uses on the portable modules (`VENDOR_TUNING.md` records
+the eight-row measurement at 0.93x-0.95x for the Intel module), so the arms
+mostly agree by construction and the residual is the families above the gate.
+There is no regression to revert and no win to take here; the table is in
+`hierarchos-vulkan/VENDOR_TUNING.md`.
+
+**The pending-region hasher.** `prepare_shader_dispatch` probes and
+`finish_shader_dispatch` fills three `HashSet<BufferRegionKey>` once per binding
+per recorded dispatch, with the default SipHash. Those probes are the hottest
+hashed structure in a step, so the sets now carry a local FNV-1a hasher
+(`Fnv1a64Hasher` in `vulkan.rs`, the same function the crate already uses for
+shader signatures and `build.rs` uses for the artifact registry, no new
+dependency). It is membership-equivalent by construction — the sets are only
+probed for containment and cleared as a whole, never iterated for anything that
+reaches a barrier decision — and four interleaved pairs per fixture put the
+step-time effect inside this machine's noise:
+
+| fixture | pre-change ms | post-change ms | paired median |
+| --- | --- | --- | --- |
+| rows 2 | 268.51, 278.61, 270.15, 269.61 | 269.21, 270.25, 271.53, 268.00 | -0.06% |
+| rows 8 | 364.34, 362.29, 359.28, 359.52 | 357.22, 365.24, 359.07, 357.23 | -0.8%, one pair reversed |
+
+It is kept for the work it removes per probe, not for a measured win, and it is
+verified inert where it matters: dispatch and barrier counts are *identical*
+between the arms (6,368 / 2,980 at rows 2, 6,560 / 3,124 at rows 8), the loss is
+`5.290753` on both, and `--state-output` from the two binaries hashes
+byte-for-byte alike (`dec3e2bf...`, 162,302 bytes). SipHash's randomized seed
+also made that set layout vary per process; FNV's fixed seed does not.
+
+## What the row sweep says today
+
+Same probe, 8 tokens per sequence, fresh fixture per point:
+
+| rows | tokens/step | step ms | tokens/s |
+| --- | --- | --- | --- |
+| 2 | 16 | 275.3 | 58.1 |
+| 8 | 64 | 363.8 | 175.9 |
+| 16 | 128 | 529.2 | 241.9 |
+| 32 | 256 | 833.0 | 307.3 |
+| 64 | 512 | 1475.1 | 347.1 |
+
+The shape matches the fourth pass's conclusion — rows amortize the fixed
+per-dispatch cost, sequence length does not — and on today's machine the curve is
+still climbing at the trainer's default of 32 rows (+13% tokens/s at 64 rows).
+The knee itself has moved with the clocks: the earlier sweep put the practical
+point at 512 rows, this one is still rising at 64, so the default stays where it
+is and the curve is the argument for raising rows, not a constant.
+
+## The frontier this pass cannot cross
+
+The remaining 30% of the step is two latency-bound fused kernels, and every
+cheaper shape for them is a *new SPIR-V module*: a multi-row f32 producer, more
+rows per workgroup for the packed-cell channel mix, and the tenth pass's
+`gradient_accumulate8` fusion candidate (499 dispatches, 4.8% of the GPU step,
+one operation). This machine has neither `glslang` nor `spirv-val` — no Vulkan
+SDK is installed — so no shader here can be compiled, and the tree's own rule
+that every `.spv` must be byte-reproducible from the command recorded in
+`README.md` cannot be met for a new one. That is the whole blocker: with a
+toolchain, the producer and the packed-cell channel mix are each worth up to a
+measured 15% of the GPU step, and nothing else on the shelf is.
+
+To reproduce the interleaved switch A/Bs (run them on a quiet machine; the arms
+must alternate, and a concurrent build moves the numbers by more than the effect):
+
+```
+cd hierarchos-vulkan
+HIERARCHOS_VULKAN_PACKED_CELL_FORWARD_WORKGROUP_SIZE=128 ./target/release/training_step_probe.exe --model-dir target/ff/wg128 --batch 2 --tokens 8 --steps 6 --warmup 1
+HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS=1 ./target/release/training_step_probe.exe --model-dir target/ff/voff --batch 32 --tokens 8 --steps 4 --warmup 1
+# HEAD-vs-tree A/B: git archive HEAD into a scratch directory, build it there, alternate the two binaries
+```
+
+Verified on the changed build: `cargo test --lib` **717 passed / 0 failed / 9
+ignored** in 108.74 s, and the ladder is **6/7** with every runnable step PASS —
+binding-access audit (0 narrower bindings over 468 modules), the three golden
+digest sets (144 / 183 / 79 invocations), the training-step probe at **6,368
+dispatches and 2,980 barriers against the 3,076 upper bound, loss 5.5432177**,
+and the training-state parity over 13 steps and 3,817 tensor digests — with
+shader provenance BLOCKED exactly as before, because `spirv-val` is not on this
+machine. The strict model gate was re-run on the changed build rather than
+inherited: `validation/verify_hf_logits.py --families smollm3 --atol 2e-7
+--rtol 0` in the repo's `.venv-vulkan` oracle exits 0 with both cases at **0
+failing values** (`max_abs` 2.98e-08 unmasked, 5.96e-08 padded), the same values
+the slice-point pass recorded on the pre-change binary. The state-digest
+equality above is the direct check on the change; nothing else moved because it
+touches no ordering, no barrier decision and no shader.
+---
+
+# Pinned shader toolchain installed locally, and what it found — 2026-10-16
+
+Every pass so far ended with the same caveat: shader provenance was **BLOCKED**
+because `spirv-val` is not installed on this machine, and no shader could be
+compiled here at all. That gate is not decorative — the tree's rule is that one
+recorded toolchain reproduces every committed artifact byte-for-byte — so this
+pass installs that toolchain inside the repository, without administrator
+rights, and runs the gates it unlocks.
+
+## What is installed, and where
+
+`validation/install_shader_toolchain.sh` puts the pinned toolchain under the
+repository's gitignored `.tools/` and writes `.tools/env.sh` to put it on `PATH`:
+
+| binary | source | version |
+| --- | --- | --- |
+| `glslangValidator` | official Khronos glslang Windows release asset, SHA-256 checked before extracting | **16.5.0** |
+| `glslc` | conda-forge `shaderc` package, unpacked by a micromamba the script downloads | **2025.3** |
+| `spirv-val`, `spirv-dis` | conda-forge `spirv-tools` package, same environment | SPIRV-Tools 2025.5 |
+
+Neither SPIRV-Tools nor shaderc publishes Windows binaries of its own, which is
+why two of the three arrive as conda packages; nothing is installed system-wide
+and no path outside the checkout is touched. `PATH` order is part of the pin:
+the glslang directory comes first so `glslangValidator` is the pinned release
+rather than the glslang that the shaderc package depends on (15.4.0 for the pinned
+2025.3 package; the 2026.4 package pulls 16.6.0, which does not reproduce the
+attention kernels). A fresh install was tested end to end by
+deleting `.tools/glslang-16.5.0` and `.tools/env`, re-running the script, and
+re-checking provenance from what it installed.
+
+```bash
+cd hierarchos-vulkan
+bash validation/install_shader_toolchain.sh
+source ../.tools/env.sh
+python validation/check_shader_provenance.py
+python validation/verify_training_shaders.py
+```
+
+## The gate's first real run found a toolchain split, not a stale artifact
+
+The first install took the newest conda shaderc (2026.4) and reported 83 of 86
+artifacts `identical` with three `drifted`. Each was diagnosed rather than
+assumed:
+
+* **`transformer_rms_norm_input_grad.spv` and
+  `transformer_rms_norm_input_grad_residual.spv`** (manifest compiler `glslc`,
+  flags `-O`) rebuild to 40,780 and 41,540 bytes under shaderc 2026.4 against
+  committed 40,916 and 41,676, and rebuild to the committed bytes **exactly**
+  under **shaderc 2025.3**. Disassembly puts the difference at six fewer integer
+  index adds and one fewer float `OpBitcast` — a later optimizer, no floating-
+  point opcode difference, no source difference. So the tree is spanned by two
+  shaderc releases, and 2025.3 is the one that explains all of it; with it
+  installed, the check reports `{"identical": 86}` and passes.
+* **`transformer_attention_backward.spv`** (manifest compiler
+  `glslangValidator`, flags `-V --target-env vulkan1.0 -Ishaders`) rebuilds to
+  104,544 bytes under the pinned 16.5.0 but the committed working-tree bytes were
+  104,528 — and those bytes reproduce **exactly** under glslang **16.6.0**
+  (`c428846b...`). The session had rebuilt that kernel with a different glslang
+  release than the pin names. No single glslang release explains the tree in that
+  state: 16.6.0 reproduces the backward kernel but drifts
+  `transformer_attention_forward.spv`, which 16.5.0 reproduces.
+
+The repair is the pin's own recipe, applied to the artifact that was out of
+step: `glslangValidator -V --target-env vulkan1.0 -Ishaders
+shaders/transformer_attention_backward.comp -o shaders/transformer_attention_backward.spv`
+with 16.5.0 (`e78cb292...`, 104,544 bytes). One toolchain now explains every
+artifact, and the manifest needed no change because it already recorded that
+recipe.
+
+## Why the swap is arithmetic-preserving, measured not assumed
+
+The two builds of the same source differ only in how the kernel's `+Inf` clamp
+constant is materialized. Disassembling both (`spirv-dis`, IDs normalized):
+
+| | 16.5.0 build (shipped) | 16.6.0 build (what the session had) |
+| --- | --- | --- |
+| size / ID bound | 104,544 bytes / 4368 | 104,528 bytes / 4367 |
+| the constant | `OpBitcast %float %uint_2139095040` | `%float_0x1p_128 = OpConstant %float 0x1p+128` |
+| its uses | 2 x `OpReturnValue` | 2 x `OpReturnValue %float_0x1p_128` |
+| floating-point opcode counts | **identical** | **identical** |
+
+`0x7F800000` is exactly `+Inf` in binary32 and `0x1p+128` is `+Inf` as well, so
+the two modules return the same value; the 16-byte difference is that constant's
+path, not the kernel's arithmetic. (The pin table above records the 16.6.0
+difference as making a module "16 bytes larger"; for this module as it now
+stands the pinned build is the larger one, for the reason in the table here.)
+
+## Verified on the rebuilt module
+
+* `python validation/check_shader_provenance.py` → `{"identical": 86}`, **PASS:
+every checked artifact reproduces byte-for-byte**, exit 0. Run twice: against the
+in-place toolchain and again from a from-scratch install of
+`install_shader_toolchain.sh`. (At the time of that run the command named the
+glslang pin on its command line; the release is now recorded per artifact and
+neither checker needs the flag — see the next section.)
+* `python validation/verify_training_stack.py` → **7/7**, with the provenance step
+running instead of blocked: `shader provenance 86 variant(s) match their sources
+and flags`, binding-access audit clean over 468 modules, goldens
+144/183/79 invocations, probe `6,368 dispatches, 2,980 barriers (upper bound
+3,076), loss 5.5432177`, training-state parity 13 steps / 3,817 exact tensor
+digests. The attention golden step ran against the harness binary linked *after*
+the module was rebuilt (module 02:10, binary 02:20), so those 79 invocations are
+the rebuilt kernel's.
+* `cargo test --lib -j 1 -- --test-threads=1` → **717 passed / 0 failed / 9
+ignored**, exit 0, on the rebuilt module.
+* Strict model gate `verify_hf_logits.py --families smollm3 --atol 2e-7 --rtol 0`
+→ exit 0, both cases **0 failing values** (`max_abs` 2.98e-08 unmasked, 5.96e-08
+padded), unchanged from the pre-rebuild binary.
+
+The rebuilt module is therefore verified numerically (goldens, state digests,
+model gate, unit suite) and textually (one toolchain reproduces it), which is what
+makes it safe to ship in place of the 16.6.0 build the session had produced from
+the same source.
+
+## The pin is recorded per artifact, not per compiler
+
+The toolchain split found above was survived rather than expressed: the manifest
+named a compiler per artifact and the check resolved one binary per name, so a
+tree whose artifacts came from two releases could only be checked one release at a
+time. Entries in `training_shader_manifest.json` now also record
+`compiler_version` — the release that compiler reported about itself when the
+artifact was rebuilt — and both checkers choose the toolchain per artifact.
+
+* `check_shader_provenance.py` accepts repeated `--compiler-path NAME=PATH`
+  candidates (else `PATH`), compiles each artifact with the candidate that reports
+  the release that artifact records, and reports an installed-but-wrong toolchain
+  as `wrong_version` listing the candidates it saw instead of as drift. A
+  `--require-version NAME=VERSION` flag still pins entries that record no release
+  of their own; contradicting a recorded release is a `pin_conflict` — the
+  manifest wins, loudly — rather than a silent override.
+* `--record-versions` writes the release that reproduced each artifact back into
+  the manifest, so a pin comes from a verified rebuild instead of hand editing. It
+  records only artifacts that were byte-identical and leaves the others alone. All
+  86 entries were recorded this way: 3 `glslangValidator` at `16.5.0` and 83
+  `glslc` at `2023.8` (84 once the two-row producer below joined the manifest), the
+  release the pinned shaderc package reports about itself
+  (the package version is 2025.3; the newest package reports `v2026.4`, so the two
+  are distinguishable from the banner alone).
+* `verify_training_shaders.py` — the ladder's shader-provenance step — uses the
+  same selection, so a spanned tree passes the ladder rather than being reported as
+  drift.
+
+Verified against the recorded pins, with the toolchain that reports them on
+`PATH`:
+
+* `python validation/check_shader_provenance.py` with no flags →
+  `{"identical": 86}`, **PASS**, exit 0.
+* A copy of the manifest with `adamw.spv` recorded at `2026.4`, run with **both**
+  shaderc installs offered and the 2026.4 one first: 86/86 identical, `adamw.spv`
+  compiled by 2026.4 and the other 82 by 2023.8 — the recorded release chooses the
+  binary, not the candidate order.
+* The same copy with only 2026.4 available: 82 `wrong_version`, 4 identical, exit
+  1 — a wrong toolchain is never reported as an artifact difference.
+* `python validation/verify_training_shaders.py` → PASS 86 on the pinned
+  environment and on the spanned copy given two candidates; with only 2026.4 it
+  fails naming the artifact, the release it records and what the compiler reports.
+* `python -m unittest discover -s hierarchos-vulkan/validation -p 'test_*.py'` in
+  `.venv-vulkan` → 41 tests OK, 1 skipped. The provenance suite is 26 of them; it
+  grew cases for candidate selection, a spanned tree, `pin_conflict`, recording
+  only what reproduced, and the release lines real compilers print.
+
+## The FP32 LN1/low-rank producer has a two-row variant, and the measurement declined it
+
+`layer_norm_low_rank_producer_forward_fused` is the FP32 LN1/low-rank producer, and
+on this device it is the step's normalization class: 144 dispatches and 25.19 ms of
+a step (26.2%) in `validation/training_step_probe/profile_step.log`, and the class
+the watchdog prices at 175.0 us. It dispatched `rows` 64-lane workgroups with one
+row each, so every row read the whole `w1/a1/g1` and `w2/a2/g2` working set again.
+
+The new `layer_norm_low_rank_producer_forward_fused_two_rows.comp` gives one
+workgroup a pair of rows and shares every weight read between them: the first-stage
+weight of a (column, rank) pair and the w2/a2/g2 element of an output column each
+serve two FMAs, so a row pays half the weight bytes. Each row keeps its own scalar
+LayerNorm reduction order -- lane 0 reduces the first row of the pair and lane 1 the
+second, which cannot change either row's values -- and its own ascending FMA chain,
+so the variant is bit-identical to the one-row kernel and only schedules
+differently. An odd row count leaves the pair's second row idle.
+
+The FP32 path now measures the two topologies on the device the way the FP16 path
+already did: the same probe buffers, the same three interleaved rounds, the same
+median and the same 2% material-win guard, with its own cache because the two
+families select among different kernels. The one-row kernel stays the default and
+the pair only displaces it where it is faster.
+`HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY=one-row|two-rows` forces one of them
+for verification and for bisecting a scheduling regression; the column-slice
+variant in the later section inherits both this measurement machinery and the
+cache, and is the variant this device now selects.
+
+Measured on the HD Graphics 520. The producer's fused form is enabled only for ranks
+`<= 64`, which in this family is `width = 128, ranks 32/32/64`, so that is the whole
+measurable domain:
+
+| batch | one row | two rows | selected |
+| --- | --- | --- | --- |
+| 2 (1 pair) | 0.2285 ms | 0.2771 ms | one-row, pair 21% slower |
+| 8 (4 pairs) | 0.2283 ms | 0.2847 ms | one-row, pair 25% slower |
+| 32 (16 pairs) | 0.2391 ms | 0.2866 ms | one-row, pair 20% slower |
+
+The pairing loses here for two reasons the table shows: at `width = 128` the second
+stage's weight working set is small enough that cache serves it whatever the
+schedule does, so sharing those reads saves nothing, and halving the workgroups
+halves the parallelism the kernel actually runs on (1 and 4 workgroups in the first
+two rows). The variant is kept because that trade can move the other way on a wider
+geometry or a part with more resident workgroups per EU, and because the choice is
+per device and shape; it is not selected on this one, which is the result of
+measuring it rather than assuming it. The variant this device does select takes the
+opposite trade (see *The FP32 LN1/low-rank producer splits its second stage across
+workgroups* below).
+
+Verified:
+
+* Provenance: `check_shader_provenance.py` → `{"identical": 87}` PASS, and the new
+  artifact recorded its own release through `--record-versions` instead of having it
+  typed in. `spirv-val` accepts the module and `audit_shader_artifacts.py` reports
+  it matching its source.
+* Ladder: `verify_training_stack.py --skip-build` → **7/7**, the binding-access
+  audit clean over 469 modules (468 plus the new one), goldens 144/183/79, probe
+  unchanged at 6,368 dispatches / 2,980 barriers / loss 5.5432177, training-state
+  parity 13 steps / 3,817 digests. A topology change alters workgroups per dispatch,
+  not the number of dispatches, so the probe's per-device expectation still holds.
+* Arithmetic: `verify_training_state.py` → PASS, 13 steps and 3,817 exact tensor
+  digests, under `..._TOPOLOGY=two-rows`, under `=one-row`, and with no override
+  (the measured choice). The golden was recorded with the one-row kernel, so the
+  pair variant reproducing it exactly is the equivalence proof.
+* `cargo test --lib -j 1 -- --test-threads=1` → 717 passed / 0 failed / 9 ignored.
+* Strict model gate `verify_hf_logits.py --families smollm3 --atol 2e-7 --rtol 0`
+  (`.venv-vulkan`) → exit 0, 288 values, **0 failing**, worst `max_abs`
+  5.96e-08 against the fixed 2e-07 ceiling, unchanged from the pre-change result.
+* `python -m unittest discover -s hierarchos-vulkan/validation -p 'test_*.py'` in
+  `.venv-vulkan` → 41 tests OK, 1 skipped.
+* `verify_vendor_parity.py` (`.venv-vulkan`) → PASS, 21 comparisons on both the
+  resolved plan and the forced-portable path, worst `max_abs` 5.960e-08 on both,
+  exit 0 -- a second kernel-selection choice in this graph is still numerically
+  inert. (Run it with the venv python: it drives `verify_hf_logits.py` with
+  `sys.executable`, so a bare interpreter without torch exits 1 in a second.)
+
+## The autotuner's decisions are now a checked-in, replayable record
+
+A topology choice used to exist only as an env-gated log line, so a device that
+began selecting a different variant changed every training step's schedule with
+nothing on disk saying it had. The producer now appends every **measured** decision
+as one JSON line when `HIERARCHOS_RWKV_LOW_RANK_TOPOLOGY_RECORD` names a file (the
+Rust side stays the source of the measurement; the record's format and policy live
+in Python), and `validation/topology_decisions.json` is the checked-in result: one
+entry per (family, device, geometry) with the medians the choice was made from,
+`selected`, and `margin_fraction`. Both families publish through it -- the FP16 and
+FP32 LN1/low-rank autotuners.
+
+`validation/verify_topology_decisions.py` replays several probe geometries --
+`REPLAY_GEOMETRIES`, each with the reporter pointed at its own scratch file and with
+the force and disable variables stripped so it always records a measurement -- and
+then:
+
+* every decision the replay measured must be recorded for this device and must still
+  select the same variant -- a decision that moves is a failure, because the
+  scheduling choice is what the record documents;
+* timing drift is a note with the recorded/observed ratio, never a failure: a median
+  from a shared GPU moves between runs even when the choice does not;
+* every geometry in the replay must measure something. A geometry is a promise that
+  this device decides a kernel at that shape, and the record is only as wide as the
+  geometries that produced it: a shape that goes quiet -- the fused producer went
+  away, ranks grew past the kernel's limit -- would otherwise shrink the audited
+  coverage while the step kept passing, so it fails instead and names the geometry;
+* recorded decisions the replay does not exercise (another device, or a geometry the
+  replay no longer drives) are notes, so auditing one device does not erase or
+  mis-check the rest;
+* `--record` merges this run's decisions in and leaves every other device's entries
+  untouched. Only measured decisions are ever written.
+
+The replay used to be one fixture at `width 128, batch 2`, which is one cell of the
+space a decision lives in and not the one where the newest variant loses. It now
+drives four shapes whose keys differ in every field the autotuners use -- width,
+ranks, `batch_pairs` and `has_unpaired_tail` -- two of which exist because they
+disagree with the others:
+
+| geometry | width | ranks | pairs | selected | margin |
+| --- | --- | --- | --- | --- | --- |
+| `width64-batch2` | 64 | 8/8/8 | 1 | one-row | 0.000 |
+| `width128-batch2` | 128 | 32/32/64 | 1 | column-slices | 0.125 |
+| `width128-batch3-tail` | 128 | 32/32/64 | 2 + tail | column-slices | 0.160 |
+| `width128-batch32` | 128 | 32/32/64 | 16 | column-slices | 0.170 |
+
+The `width 64` row is why the set is not just `batch 2` at several sizes: there the
+sliced kernel has a single 64-column slice, measures 0.08131 ms against the one-row
+kernel's 0.07704 ms, and the material margin keeps the kernel the device shipped
+with. So the record now documents that this device selects **different** variants at
+different shapes, and the audit fails if either row moves in either direction.
+
+Verified: the record started as a single measurement (`ln-low-rank-f32`, width 128,
+ranks 32/32/64, batch_pairs 1, one-row 0.226572 ms against two-rows 0.277692 ms,
+selected one-row) and now holds this device's four geometries above, written by
+`--record`; the first multi-geometry audit run failed on the three shapes the record
+did not have yet (`measured here but not recorded`, exit 1), which is the guard
+working end to end, and the audit passes on all four afterwards. A copy of the record
+with `selected` flipped fails naming both variants and exits 1; a copy with the
+timings tripled passes with `0.33x` drift notes and exits 0; 20 unit tests pin the
+parser, the format checks (duplicates and unsorted entries mean hand editing), the
+comparison rules and the geometry-coverage rule.
+
+## The ladder installs and reports the pinned shader toolchain itself
+
+A fresh clone used to get `BLOCKED shader provenance ... glslc must be on PATH`,
+which says nothing about what to do. The ladder now has a toolchain step ahead of
+it: it prepends the repository's `.tools/` install to `PATH` when it exists, runs
+`validation/install_shader_toolchain.sh` when the pins are still missing, and
+reports the releases it ended up using. `--no-toolchain-install` reports instead of
+installing. When the pins cannot be produced the step is BLOCKED with the exact
+commands, and the provenance step that follows inherits the `PATH` either way.
+
+Verified: a run without sourcing `.tools/env.sh` reports `prepended
+...glslang-16.5.0\bin, ...env\Library\bin to PATH: glslangValidator 16.5.0; glslc
+2023.8; spirv-val 2025.5` and the ladder is **9/9**, with provenance checking 87
+variants in the same run. With `.tools` moved aside and installs disabled the step
+is BLOCKED with the install commands and exits 1, and `.tools` was restored
+afterwards. 5 unit tests drive the injected lookup/directories/installer paths.
+
+## The FP32 LN1/low-rank producer splits its second stage across workgroups
+
+`layer_norm_low_rank_producer_forward_fused` runs one 64-lane workgroup per batch
+row, so a small batch is one to four workgroups on a 24-EU part, and at
+`width = 128` each lane produces two output columns. The stages before the second
+one cannot be shared across workgroups without changing their order -- lane 0 owns
+the row's LayerNorm reduction, and each lane's first-stage sums are chains over the
+whole row -- so `layer_norm_low_rank_producer_forward_fused_column_slices.comp`
+trades replicated work for parallelism instead: the grid is `[ceil(width/64), rows,
+1]`, every workgroup owns one 64-column slice of one row, and each lane produces
+exactly one output column through the same chain, in the same order.
+
+Replication is safe here because the stages that depend only on the row compute the
+same values in every slice: the reduction's addition order, the mixed
+`x_norm/xw/xa/xg` values and the w/a/g rank activations are all recomputed
+identically, and nothing is reduced across workgroups. Only the writes are
+partitioned -- identical bytes written by several workgroups would still be a race
+-- so slice 0 owns the materialized backward tape and the caller's hidden vectors,
+and each w/a/g column is written by the slice that owns its range.
+
+Measured on the HD Graphics 520 (`width = 128`, ranks 32/32/64, medians of three
+interleaved rounds; `HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG=1` prints
+them):
+
+| batch | one row | two rows | column slices | selected |
+| --- | --- | --- | --- | --- |
+| 2 | 0.2328 ms | 0.2797 ms | 0.1956 ms | column slices, 16% faster |
+| 8 | 0.2308 ms | 0.2773 ms | 0.1972 ms | column slices, 15% faster |
+| 32 | 0.2376 ms | 0.2799 ms | 0.2037 ms | column slices, 14% faster |
+
+The win is parallelism rather than reuse: the two-row variant halves the number of
+workgroups and loses 18-20%, while splitting one row across workgroups adds them and
+wins at every measured batch. The variant only exists where the fused producer does,
+which is ranks `<= 64`, so this is the whole measurable domain in this family. The
+device's decision moved with it -- `validation/topology_decisions.json` now records
+`ln-low-rank-f32-column-slices` at 0.191937 ms against one-row's 0.232166 ms
+(`margin_fraction` 0.173) instead of the one-row entry the pair variant left behind
+-- and `HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY=one-row|two-rows|column-slices`
+forces any of the three for verification or bisection.
+
+**The first version of this shipped a wrong grid, and the goldens caught it.** The
+kernel takes its row from `gl_WorkGroupID.y` and its column slice from
+`gl_WorkGroupID.x`, but the production dispatch site reduced a topology to its
+`rows_per_workgroup()` -- 1 for the sliced kernel -- and built `[batch / rows, 1, 1]`
+from it, so every row but the first went unwritten and the rows it did write were
+written by the wrong slices. The timing path built its own, correct two-dimensional
+grid, so the autotuner measured the variant honestly, selected it, and then the step
+it selected it for computed the wrong answer: `verify_training_state.py` failed at
+step 0 on both geometries that use the fused producer (1,533 of 1,752 tensor digests
+at batch 2) while the other two topologies passed, which is what localized it to
+this one rather than to the selection machinery.
+
+The fix is that both sites now ask one method,
+`LayerNormLowRankForwardF32Topology::groups(batch, width)`, for the grid, so a grid
+that disagrees with the kernel's own row/slice mapping is not expressible at one
+site and not at the other. Three unit tests pin that method, including the specific
+mistake: the sliced topology's grid is asserted different from the row-per-workgroup
+grid for a shape with more than one slice.
+
+Verified:
+
+* Arithmetic: `verify_training_state.py` PASS, 13 training steps and 3,817 exact
+  tensor digests, under `..._TOPOLOGY=column-slices`, under `=two-rows`, under
+  `=one-row`, and with no override -- and the no-override run selects column slices
+  on this device. The golden was recorded with the one-row kernel, so the other two
+  reproducing it exactly is the equivalence proof.
+* Ladder: `verify_training_stack.py` → **9/9** with the toolchain step, 88 variants
+  reproducing their sources and flags, the binding-access audit clean over 470
+  modules, goldens 144/183/79, the probe unchanged at 6,368 dispatches / 2,980
+  barriers / loss 5.5432177, topology decisions matching the refreshed record, and
+  training-state parity. A topology change alters workgroups per dispatch, not the
+  number of dispatches, so the probe's per-device expectation still holds.
+* `cargo test --lib` → 720 passed / 0 failed / 9 ignored (717 before, plus the three
+  grid tests).
+* The failure itself was reproduced twice: a forced `column-slices` run and the
+  default run (which selects it) both failed the same goldens at step 0 before the
+  fix, and a scratch kernel that only moved the one-row kernel's row to
+  `gl_WorkGroupID.y` under a two-dimensional grid failed identically -- which is how
+  the dispatch, not the arithmetic, was identified as the cause while the two
+  kernels' code-only diffs were empty apart from the row/slice mapping and the write
+  guards.
+
+## Training-trajectory parity runs once per LN1/low-rank topology arm
+
+Every LN1/low-rank variant is supposed to be bit-identical to the kernel the committed
+trajectories were recorded with, but that equivalence was proved by hand: three runs of
+`verify_training_state.py` with `HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY` set to a
+different value, done once and written down. The ladder now runs it, so a later change
+that breaks one variant's arithmetic cannot land behind a green default run.
+
+The state step runs the suite once per arm -- the shipped choice first, then
+`one-row`, `two-rows` and `column-slices` forced -- and every arm must reproduce the
+same 13 steps and 3,817 exact tensor digests as the recorded baseline.
+
+**Forcing is not proof, though.** A variant this device cannot offer is rejected by the
+producer, which then runs the default kernel: that arm would pass while proving nothing
+about the variant it named. So the producer now logs both sides of that decision -- the
+request it acknowledged (`forced topology=<label> requested=<value>`) and the one it
+had to fall back from (`... topology=<label> requested=<value> is unavailable on
+device=...; using <default>`) -- and the values come from the topology's own
+`env_value()`, so the string that selects a kernel, the string that is printed and the
+string a harness matches cannot drift apart. `verify_training_state.py` reads the
+probe's stream and credits an arm only where the value it asked for is the value that
+ran; `--topologies` narrows the arms, and with no values runs only the shipped choice.
+
+Coverage is reported rather than assumed, case by case:
+
+    note  one-row: the forced variant ran in 2/3 case(s) (batch2, batch32)
+    note  two-rows: the forced variant ran in 2/3 case(s) (batch2, batch32)
+    note  column-slices: the forced variant ran in 2/3 case(s) (batch2, batch32)
+    PASS: 4 arm(s) x 13 training steps, 3817 exact tensor digests each (measured first);
+          forced arms exercised: one-row 2/3, two-rows 2/3, column-slices 2/3
+
+The third case (`odd_multi_sequence`, width 256) does not fuse this producer at all --
+the FP16 family owns that shape -- so no arm is credited for it and the line reads
+`2/3` instead of implying the arm covered the suite. The rules are:
+
+* an arm that ran the variant in at least one case is verified there, and the cases it
+  fell back in are named next to it;
+* an arm this device rejects in every case is a note: the device cannot exercise the
+  variant, and saying so is more useful than a red step;
+* an arm that ran nowhere *and* was never rejected is a failure, because then the fused
+  producer never dispatched at all and nothing was verified.
+
+Verified:
+
+* Ladder: `verify_training_stack.py` → **10/10**, with the state step reporting `4
+  arm(s) x 13 training steps, 3817 exact tensor digests each (measured first); forced
+  arms exercised: one-row 2/3, two-rows 2/3, column-slices 2/3` and the topology step
+  auditing four measured decisions. Provenance 88 variants, binding audit 470 modules,
+  goldens 144/183/79, probe 6,368 dispatches / 2,980 barriers / loss 5.5432177.
+* The failure path end to end: `--topologies nonsense` exits 1 with `nonsense: the
+  forced variant ran in no case and was never reported unavailable, so the fused
+  producer did not dispatch and nothing was verified; pass --topologies for the arms
+  this device can run`, and `--topologies` with no values runs only the measured arm
+  and passes.
+* A value nobody defines reports what is available instead of silently ignoring it:
+  `HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY expects one of one-row, two-rows,
+  column-slices; ignoring "nonsense"`.
+* `python -m unittest discover -s hierarchos-vulkan/validation -p 'test_*.py'` in
+  `.venv-vulkan` → 74 tests OK, 1 skipped (63 before): 8 cases pin which request
+  credits an arm and which arms fail, 3 pin the new geometry-coverage rule.
+* `cargo test --lib` → 720 passed / 0 failed / 9 ignored.
+
+## The packed-FP16 producer has the same arms, and coverage is checked in
+
+The FP32 arms above can never exercise the packed-FP16 producer, and that is not an
+oversight in the arm list: the training numerical policy picks the family. Under the
+default FP32 policy the probe's LN1/low-rank decisions are the FP32 family's alone, and
+under `HIERARCHOS_VULKAN_TRAINING_PRECISION=fp16-storage-fp32-compute` the FP32 producer
+does not dispatch at all -- the packed kernel prints instead. So the FP16 family needed
+its own suite, not another arm in the FP32 one.
+
+`HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY` now names a variant in either family. The
+FP16 table is `one-row`, `one-row-cached`, `one-row-rank128`, `two-rows`,
+`two-rows-wide` and `four-rows`, and the vocabulary is their union with the FP32 table
+(seven values, because `one-row` and `two-rows` deliberately name one variant in each --
+a single arm then exercises both families when both dispatch). A value in neither table
+is reported once with the whole vocabulary, and a value only one family offers is
+answered by that family's own path: an accepted request prints `forced topology=<label>
+requested=<value>`, and a request this device cannot offer prints `topology=<label>
+requested=<value> is unavailable on device=...; using <default>` and falls back. Both
+strings come from the topology's own `env_value()`, exactly as the FP32 side does it, so
+the arm the harness credits is the arm that ran.
+
+The FP16 suite is a second golden, `validation/kernel_golden/training_state_fp16.json`,
+because FP16 storage rounds the operands and a trajectory recorded under one policy
+cannot be compared with the other. Its three cases are `batch2` and `batch32` at width
+128 -- where this part offers `one-row`, `one-row-cached` and `two-rows-wide` -- and
+`small_hidden32`, where the width/rank gates admit `two-rows` and `four-rows` as well, so
+every variant that exists at a covered shape is exercised by at least one case. The
+policy a golden was recorded under lives in the golden's own `env` block, read by both
+`record_training_state.py` and `verify_training_state.py`, so the recorder cannot record
+one policy's arithmetic and the verifier replay it under another.
+
+This golden is not a pre-optimization baseline and does not pretend to be one: it was
+recorded on the shipped kernels, so it pins the FP16 variants to *each other* while
+`training_state.json` keeps pinning the FP32 trajectory to the earlier baseline. The
+packed family's arm coverage on the Gen9 part is:
+
+| arm | batch2 (w128) | batch32 (w128) | small_hidden32 |
+| --- | --- | --- | --- |
+| `one-row` | exercised | exercised | exercised |
+| `one-row-cached` | exercised | exercised | exercised |
+| `one-row-rank128` | unavailable | unavailable | unavailable |
+| `two-rows` | unavailable | unavailable | exercised |
+| `two-rows-wide` | exercised | exercised | unavailable |
+| `four-rows` | unavailable | unavailable | exercised |
+
+`one-row-rank128` is gated on a rank above 64 and this device's shapes are 8/8/8 and
+32/32/64, so the arm verifies nothing here and its record says so: the coverage entry is
+`unavailable` in all three cases, which is also what makes it a failure if the variant
+ever disappears.
+
+### What each device exercises is checked in
+
+The per-arm fraction above used to be a line in the run's output and nothing more, so a
+device that quietly stopped exercising a variant read as `2/3` forever and no step went
+red. `validation/training_state_coverage.json` closes that: one entry per (suite,
+device) holding the golden cases the measured arm compares, how much each one compares,
+and where every forced arm ran and where this device reported it unavailable. A run now
+fails when any of it shrinks -- an arm that no longer runs where it ran, a golden case
+that is no longer measured, or a case that compares fewer steps or tensors than the
+record has. Growth is a note. A device with no entry fails rather than passing by
+default, and `--record-coverage` merges this machine's evidence in, replacing only the
+entries this run measured and refusing to shrink an existing entry unless
+`--allow-coverage-shrink` says the loss is intended -- removing coverage from a file that
+exists to prove a variant is still tested has to be an explicit edit. `--topologies`
+restricts the arms and skips the audit, because a run that forces fewer arms than the
+record covers has not verified what the record claims.
+
+### The FP16 family stays out of the decision record, and that is a measurement
+
+(This was written under the median-only rule. The unanimous-round rule landed after it and
+is measured in the 2026-10-16 pass at the end of this file: the choice is now stable at the
+structural default -- thirty-five consecutive runs, all `one-row` -- and the reason the
+family is still absent from the record is structural: the replay that writes the record runs
+at the FP32 policy, where the packed producer never dispatches.)
+
+The FP32 decisions are replayed because a different variant is 14-17% faster there and a
+selection that moved would be a scheduling change worth failing on. The packed family
+does not have that headroom on this part. At width 128 the measured candidates were
+`one-row-cached` 0.2713 ms, `one-row` 0.2813 ms and `two-rows-wide` 0.2852 ms in one run,
+and 0.27789, 0.28005 and 0.28442 in another, where the cached arm's 0.8% lead was inside
+the 2% material margin and the selector kept `one-row`. Runs disagree about which variant
+this part should ship, which means the decision is not stable enough to check in:
+recording it would turn ordinary timing noise into a red ladder step. So the FP16
+producer ships its structural default with every variant proven bit-identical, and the
+few-percent question stays open rather than being answered with a coin flip. That is the
+honest shape of the speed claim: the FP32 split is a stable 14-17% kernel-level decision
+that is recorded and replayed, and the FP16 margin is not.
+
+Verified:
+
+* Ladder: `verify_training_stack.py` → **10/10**. The state step reports `2 suite(s), 33
+  run(s), 43884 exact tensor digests compared; coverage audited against
+  validation/training_state_coverage.json`; the topology step still audits its four
+  FP32 decisions, and the probe still reports 6,368 dispatches / 2,980 barriers / loss
+  5.5432177 unchanged, because the override is opt-in and the measured path never reads
+  it.
+* The packed family's six arms reproduce the FP16 trajectory exactly where they run:
+  `one-row 3/3`, `one-row-cached 3/3`, `two-rows-wide 2/3`, `two-rows 1/3`, `four-rows
+  1/3`, `one-row-rank128 0/3` (unavailable on this part, and the record says so).
+* The coverage rule, failing end to end: the run before the record existed reported
+  `no coverage recorded for this device` for both suites, and a doctored record claiming
+  `column-slices` also ran in `odd_multi_sequence` plus a `ghost_case` failed with
+  exactly those two messages while the suite's 15,268 digests still matched. The
+  recorder refuses the same shrink: `refusing to record a shrunken entry` plus `pass
+  --allow-coverage-shrink if losing this coverage is intended`.
+* `--topologies` with no values runs only the shipped choice in both suites, passes, and
+  says `coverage not audited` rather than claiming a check it did not perform; a value
+  naming no variant at all still lists the seven the override accepts.
+* Decision stability, five consecutive width-128 runs: `one-row-cached` 0.2718 / 0.2747
+  / 0.2767 / 0.2727 / 0.2721 ms against `one-row` 0.2787 / 0.2787 / 0.2783 / 0.2830 /
+  0.2789 ms, selecting the cached arm three times and `one-row` twice. The lead straddles
+  the 2% material margin, which is why those geometries are not in the decision record.
+* End to end, shipped versus `one-row` forced, two runs each: batch 2 361.2 / 376.3 ms
+  against 367.6 / 381.0 ms, batch 32 923.0 / 926.2 ms against 930.2 / 941.4 ms. Never
+  slower, and the difference is smaller than the repeat-to-repeat spread of the step, so
+  the LN1/low-rank choice is documented as the kernel-level 12-17% the record measures
+  rather than as an end-to-end speedup.
+* `cargo test --lib` → 722 passed / 0 failed / 9 ignored (720 before, plus the FP16
+  table's distinctness and the shared override vocabulary).
+* `python -m unittest discover -s hierarchos-vulkan/validation -p 'test_*.py'` in
+  `.venv-vulkan` → 93 tests OK, 1 skipped (74 before): the new cases pin the coverage
+  entry's shape, an arm that stops running, an arm that becomes unavailable where it
+  ran, a case that stops being measured, a case that compares less than it did, growth
+  as a note, the recorder's refusal to shrink, and each suite's golden naming its own
+  policy.
+* Cost: the state step is now the ladder's longest by far -- 33 trajectory runs, about
+  six minutes in debug -- because every arm replays every case of both goldens. Superseded
+  by the 2026-10-16 pass below: 29 runs and 281.0 s with the same coverage, measured on the
+  same machine.
+# The parity step stops replaying what it cannot show, and the kernel goldens get the coverage rule -- 2026-10-16
+
+Three changes are in this pass: the training-state parity step no longer pays for the cases
+an arm cannot exist in, the dense/reduction/attention kernel goldens now fail when a device
+stops exercising an invocation its record says it exercises, and the LN1/low-rank autotuners
+only displace the structural default on a unanimous round. The third was already built --
+the rule was in the code and the record carried the evidence -- so this pass measured it,
+and what it measured is why the packed family stays out of the decision record.
+
+## The trajectory step lost the runs that could not show anything
+
+Every arm used to replay every case of both goldens. Some of those runs could only
+re-confirm a verdict the record already held: `one-row-rank128` was forced in all three FP16
+cases and reported unavailable in each, `two-rows` and `four-rows` were forced in the two
+width-128 cases where only the wide pairing exists, and all three FP32 arms were forced in
+the width-256 `odd_multi_sequence` case, where the FP32 producer is not in the shape at all
+and the override changed nothing. A probe run of one case is 10-26 s of wall time, most of
+it model load and pipeline setup the arm has no influence on.
+
+The coverage record now says which cases an arm is absent from, and keeps the two reasons
+apart because they are not the same claim: `unavailable` is the producer rejecting the
+request on this device, `not_dispatched` is the fused producer never seeing it at that shape
+at all -- the FP32 producer above rank 64, which is the width-256 case. Forcing a variant in
+either kind of case measures the fallback kernel, and reporting that as an arm result is what
+made those runs look like coverage while they were not.
+
+So a forced arm now runs every case the record has it verified in, every case the record says
+nothing about, and one **canary**: the widest absent case, replayed for a *single* update.
+The canary is what keeps the claim device evidence instead of an assumption -- existence at a
+shape is settled by the first dispatch, and a case the variant never ran in has no trajectory
+to compare, so a full replay there buys nothing -- and the other absent cases are written as
+`asserted` and carried from the record. If the canary disagrees, the variant ran where the
+record says it is absent, so the record's claim is stale: that run then measures every
+carried case of that arm in full instead of trusting it, which is what makes a device or a
+gate change restore the coverage it just invalidated rather than passing on a stale record.
+
+Two details keep the accounting honest. A shortened canary counts only the digests it
+actually compared, so it cannot inflate the run's total, and the record's per-case counts
+still come from the measured arm, which always replays every case in full. And the model
+package is now shared by every arm of a case instead of being re-created per arm: the probe
+initializes a package when it is missing and only ever reads it, which was verified directly
+-- the package's content hash is identical before and after two consecutive six-update runs
+(`110db052739d39257b8018c15757e660` both times) and the two snapshots are byte-identical
+files -- and the same case takes **10.85 s from a fresh directory against 9.64 s from one
+that already existed**.
+
+Measured on this part, both suites, the two runs back to back in one session so the machine's
+regime is shared: **33 runs / 346.97 s against 29 runs / 281.02 s (-19.0%)**, with the same
+trajectories compared, the same coverage audited and every digest matching. The pre-change
+side is measured the same way the change is: the verifier is pointed at a record whose
+absence verdicts are all blank, which makes every arm replay every case exactly as it used
+to, and it prints the old `2 suite(s), 33 run(s), 43884 exact tensor digests compared`. That
+number also cross-checks the Adam copyback pass above, which measured the same step at
+346.8 s against the 346.97 s of the all-cases run here. The shipped side reports `2 suite(s),
+29 run(s), 32162 exact tensor digests compared`.
+
+The row-level digest count falls 43,884 to 32,162 because a canary compares one update. That
+is not lost evidence: in a case an arm never runs in, the fallback trajectory is compared in
+full by the measured arm and by every arm that does dispatch there, so the canary only stands
+in for a verdict about the *variant's* existence, and every run re-checks that verdict on
+this machine.
+
+## The kernel goldens now fail when a device stops exercising an invocation
+
+The dense, reduction and attention harnesses already caught a changed kernel, because every
+invocation's output digest is recorded per device. What they could not catch was a harness or
+a device *stopping* to exercise an invocation -- a deleted case, or a part losing a kernel it
+used to run -- because that only lowers the invocation count in the pass line while every
+remaining digest still matches. That is the same gap the trajectory check closed, so the same
+rule now covers these goldens, in `validation/kernel_golden_coverage.json`: one entry per
+(golden, device), on this part `dense` 144, `reduction` 183 and `attention` 79, which is
+exactly what the goldens hold digests for there.
+
+A harness run fails when an invocation its device is recorded as exercising is no longer
+exercised, when the golden holds a digest for that device the run did not reproduce, or when
+the device has no entry at all; growth is a note. `--record-coverage` merges this machine's
+coverage in and leaves every other device's entry alone, refusing to shrink one unless
+`--allow-coverage-shrink` says the loss is intended. A `--only` run exercises one kernel on
+purpose, so it reports `coverage was not audited` instead of a shrink. The audit and its merge
+are pure -- no device, no Vulkan -- and live in `src/kernel_golden_coverage.rs` so
+`cargo test --lib` checks them without a GPU.
+
+Proven by making it fail first, on the harnesses themselves and not only in unit tests:
+
+* a record claiming `adamw len=1 step=ghost` in `reduction` exits 1 with `Error: reduction on
+  Intel(R) HD Graphics 520: invocation adamw len=1 step=ghost was covered and this run did not
+  exercise it`, printed after that same run's `PASS: 183 GPU cases, all compared outputs
+  bit-identical` -- the digests all still matched, which is exactly the hole the rule closes;
+* the same record with this device's `reduction` entry removed exits 1 with `no coverage
+  recorded for this device; run with --record-coverage on this machine to add its entry`;* a `dense` record with a ghost label exits 1 the same way (`invocation gemm rows=8 ghost
+  was covered and this run did not exercise it`) and so does an `attention` one
+  (`invocation forward_cache_1024 backward=ghost was covered and this run did not exercise
+  it`), so the rule is wired into every harness rather than into the one that was drilled;
+* all three harnesses exit 0 against the checked-in record and report `144`, `183` and `79`
+  invocations audited.
+
+## The LN1/low-rank rule is unanimous or nothing, and the FP16 family measures why
+
+The autotuners pick between kernels by timing them, and the rule is that a candidate may only
+displace the structural default by beating it by the 2% material margin in **every** one of
+seven interleaved rounds. The round count is what makes the verdict stable: if each round's
+winner is a fair coin flip, some candidate still wins every round about a quarter of the time
+in three rounds and about one run in sixty-four in seven, so three rounds is not enough and
+seven is.
+
+The packed-FP16 family is the case that motivated it. Under the earlier median-only rule, five
+consecutive width-128 runs selected `one-row-cached` three times and `one-row` twice, with a
+0.6-3.6% median lead straddling the material margin. Thirty-five consecutive runs under the
+rule -- thirty, then five -- all kept `one-row` instead, and the five were adjudicated on the
+narrowest evidence of the set:
+
+| run | `one-row` | `one-row-cached` | `two-rows-wide` | cached round wins (of 7) | selected |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 0.28326 ms | 0.27299 ms | 0.28329 ms | 4 | `one-row` (default kept) |
+| 2 | 0.27960 ms | 0.27492 ms | 0.28535 ms | 3 | `one-row` (default kept) |
+| 3 | 0.28728 ms | 0.27496 ms | 0.28233 ms | 3 | `one-row` (default kept) |
+| 4 | 0.28150 ms | 0.27356 ms | 0.28562 ms | 5 | `one-row` (default kept) |
+| 5 | 0.28495 ms | 0.27642 ms | 0.28319 ms | 4 | `one-row` (default kept) |
+
+Every one of those is a 1.7-4.3% median lead that never held in all seven rounds, so the
+producer records the default with its round wins and the narrowest per-round lead (`"rounds":
+7, "round_wins": {...}, "decisive_margin_fraction": 0.0, "structural_default":
+"ln-low-rank-fp16-one-row"`) rather than a variant this device does not actually reproduce.
+`validation/verify_topology_decisions.py` audits that evidence as well as the choice: a
+variant claimed after winning fewer than every round, a kept default that claims a round it
+won, or a candidate that stops being timed at a geometry are each failures, and a record
+written before the fields existed is audited for its choice alone.
+
+The four FP32 decisions are unchanged and still unanimous where they are recorded
+(`width128-batch2`, `width128-batch3-tail` and `width128-batch32` select `column-slices` at
+12-17%, `width64-batch2` keeps `one-row`), so the rule costs the ladder nothing. And the
+packed family is not in `topology_decisions.json` for a structural reason rather than a
+stability one: the replay that writes that record runs the probe at the default FP32 precision
+policy, where the packed producer is never dispatched, so it emits no `ln-low-rank-fp16`
+decision line at all -- the replay's own scratch record is eight `ln-low-rank-f32` lines and
+nothing else.
+
+## Verified
+
+* Ladder on this part: `validation/verify_training_stack.py` -> **10/10**, with the state step
+  reporting `2 suite(s), 29 run(s), 32162 exact tensor digests compared; coverage audited
+  against validation/training_state_coverage.json`. The dense, reduction and attention steps
+  report `144`, `183` and `79` invocations audited against
+  `validation/kernel_golden_coverage.json`; the topology step still audits its four FP32
+  decisions; the probe still reports 6,368 dispatches / 2,980 barriers / loss 5.5432177.
+* The runtime pair, one session, back to back: **33 runs / 346.97 s -> 29 runs / 281.02 s
+  (-19.0%)**, every digest matching on both sides. Earlier sessions measured the same all-cases
+  step at 402.7 s and 365.8 s, so the absolute seconds belong to the session while the run
+  count and the ratio do not.
+* Coverage is not merely audited but *earned*: the shipped run reports `one-row-rank128 0/1 +2
+  carried`, `two-rows 1/2 +1 carried`, `two-rows-wide 2/3`, `four-rows 1/2 +1 carried` for the
+  packed suite and `2/3 +1 carried` for each FP32 arm, so exactly the cases the record says the
+  variant is absent in are the ones carried.
+* The package is read-only across runs: content hash identical before and after two six-update
+  runs, snapshots byte-identical, and 10.85 s versus 9.64 s for the same case from a fresh and
+  an existing directory.
+* Kernel-golden coverage, all three harnesses: exit 0 against the checked-in record;
+  `reduction` exits 1 on a ghost invocation and on a missing device entry, `dense` and
+  `attention` exit 1 on a ghost invocation each, with the 183 / 144 GPU cases still reporting
+  bit-identical outputs in the failing runs and the attention harness's 79 invocations
+  audited on the passing side.
+* Decision stability: 35 consecutive width-128 runs (30, then 5) all kept the structural
+  default, against 3 of 5 selecting the cached arm under the median-only rule; the FP32 record
+  replays unchanged.
+* `cargo test --lib` -> **736 passed / 0 failed / 9 ignored** (722 before, plus the coverage
+  record's own tests). `python -m unittest` over the four affected validation modules ->
+  **109 tests OK** (`test_training_state` 45, `test_topology_decisions` 27,
+  `test_shader_provenance` 26, `test_training_stack` 11). A full `unittest discover` over
+  `validation/` runs 114 and reports one pre-existing environment error --
+  `test_peft_oracle_provenance` imports `torch`, which is not installed in this interpreter --
+  plus one skip, so that module is not part of the numbers above.
+
+## One coverage implementation, an RDNA3 module set, and the decode shape that got slower (2026-10-16)
+
+This pass did three things: it gave both per-device coverage records a single implementation
+and a deliberate first-run path, it added AMD RDNA3 kernels next to the Gen9 ones with the
+portable module still universal, and it closed the one shape where the tuned tree was slower
+than the artifacts it started from.
+
+### The two coverage records are one implementation now
+
+`validation/training_state_coverage.json` and `validation/kernel_golden_coverage.json`
+answered the same three questions -- audit, merge, refusal -- in two languages, with two sets
+of rules and two sets of tests. They now share `src/coverage_record.rs`: the envelope
+(`schema`, `note`, `coverage`), the keyed audit (everything recorded still holds, growth is a
+note, an unrecorded device fails), the merge that replaces only the entries this run measured,
+the shrink refusal and its wording, and the bootstrap. Each record contributes one method,
+`diff`, saying what a loss is for one of its entries -- invocation labels plus the digests the
+golden holds for this device, or golden cases, per-case comparison counts and each arm's
+verdicts -- and `summary` for the printed diff.
+
+The Python driver kept only what is its own (which arm ran where, which cases a canary stands
+in for). It asks the engine through a new `coverage_record` tool built beside
+`training_step_probe`; `validation/test_training_state.py` lost the 20 tests that pinned the
+Python copy (45 -> 25), and the shared suite in `src/coverage_record.rs` covers both models
+plus the machinery: 26 tests.
+
+`--bootstrap-coverage` is the deliberate first run on a device the record has never seen. The
+default stays fail-closed -- no entry is a failure, because an entry is what makes the record
+evidence -- and bootstrap creates *only* the entries this run is missing, leaves every existing
+entry exactly as recorded, cannot shrink anything (so it has nothing to refuse), prints the
+diff it wrote, and is mutually exclusive with `--record-coverage` and `--allow-coverage-shrink`.
+
+Proven on the GPU: `matmul_kernel_validation` against a scratch record printed
+`bootstrap added 1 coverage entry (0 already recorded)` and
+`+ dense on 'Intel(R) HD Graphics 520': 144 invocation(s)`, passed, and audited clean on the
+next run; without the flag the same run exited 1 with `... is missing; create it with
+--record-coverage on this machine, or --bootstrap-coverage to create only the entries this run
+is missing`. The trajectory driver bootstrapped one suite end to end:
+`--suite fp32 --bootstrap-coverage` added `fp32 3 case(s), 3 arm(s)` and passed with
+`1 suite(s), 12 run(s), 15268 exact tensor digests compared`. Tool-level checks: a scratch
+record bootstrapped from one entry, audited clean, reported a shrunken case and a lost arm as
+two problems, refused `mode: record` with the shared wording, wrote it with `allow_shrink`, and
+a second bootstrap over the same record reported `every entry of this run already recorded; ...
+nothing was written`.
+
+### AMD RDNA3 kernels, with the portable module still universal
+
+Four new modules -- `linear_forward`, `linear_bias_forward`, `linear_residual_forward` and
+`linear3_forward`, suffixed `_amd_rdna3` -- stage a **64-wide** K slice (four k values per lane)
+where the portable and Gen9 modules stage 32, which halves the barriers per k on a part with
+64 KiB of LDS. Footprints: `16*65*4 + 64*17*4 = 8512` bytes for the three single-projection
+families and `6*16*65*4 = 24960` for `linear3-forward`; the capability test decodes those
+totals, `LocalSize` and the barrier count out of the committed `.spv` files rather than trusting
+the constants. Workgroup, dispatch mapping, epilogues and the ascending-k `fma` chain are
+unchanged, so the numeric contract is the portable one.
+
+Selection is `vendor == AMD && is_amd_rdna3(device)`, classified by an AMD PCI device-ID table
+(Navi 31/32/33 and the Phoenix/Hawk Point integrated parts), because Vulkan exposes no
+architecture-generation property; RDNA1/RDNA2 IDs are pinned as negative controls, and every
+other vendor and AMD generation keeps the exact portable bytes. The per-dispatch gate is the
+portable modules' own tiled-vs-scalar threshold (`rows >= 8, k >= 64, n >= 16`), because no
+RDNA3 crossover has been measured here -- there is no RDNA3 adapter on this machine. That is
+recorded as a structural tuning, not a measured win.
+
+What is proven here: all four modules are executed on this Gen9 adapter against the portable
+module at the same six geometries the Intel A/B uses, **24 comparisons, every one
+`max_ulp_delta=0`**. The RDNA3 timing that run prints is not RDNA3 evidence: on Gen9 the 64-wide
+stage loses where k is long (0.71-0.73x at 8x448x512) and wins on `linear3-forward` (2.52x at
+8x448x512, 1.77x at 6x96x320), which is why the two families keep different modules and the
+selection is per vendor.
+
+### The deliverable against the artifacts it started from (measured)
+
+`A` is the module from the initial publish (`git show a100338:.../<family>.spv`), `B` is the
+module this machine selects today; same adapter, same session, 20 timed dispatches after 3
+warmups, median, every row bit-exact. Queue timestamps, so the ratios are host-build
+independent (these rows were measured in a debug binary).
+
+| Family | Geometry | Pre-tuning | Today | Speedup |
+| --- | --- | --- | --- | --- |
+| `linear-forward` | 16x448x2048 | 5.7041 ms | 0.9197 ms | 6.20x |
+| `linear-forward` | 8x448x512 | 0.7595 ms | 0.2277 ms | 3.34x |
+| `linear-forward` | 6x96x320 | 0.0917 ms | 0.0436 ms | 2.10x |
+| `linear-bias-forward` | 8x448x512 | 0.7680 ms | 0.2254 ms | 3.41x |
+| `linear-residual-forward` | 16x448x2048 | 5.7380 ms | 0.9217 ms | 6.23x |
+| `linear-residual-forward` | 8x448x512 | 0.7663 ms | 0.2256 ms | 3.40x |
+| `linear3-forward` | 16x448x2048 | 17.0464 ms | 2.3921 ms | 7.13x |
+| `linear3-forward` | 8x448x512 | 2.2253 ms | 0.6355 ms | 3.50x |
+
+The portable path -- every vendor without a tuned module -- also beats the pre-tuning artifacts
+at training geometry (6.24x at 16x448x2048 and 3.34x at 8x448x512 for `linear-forward`), but it
+lost single-row decode: 0.1839 ms against the pre-tuning 0.1502 ms at `1x448x512` (**0.82x**),
+because the tiled module's `shared` declaration is reserved even when the scalar path runs.
+
+That regression is closed rather than documented: `VendorMatmulKernel` now holds the pre-tuning
+scalar artifact for each matmul family (`shaders/portable_scalar/*.spv`, byte-for-byte the
+initial-publish modules -- vendored in a nested directory because `build.rs` refuses two shaders
+with one SPIR-V signature) and dispatches it below `SCALAR_MATMUL_MAX_ROWS = 8`, the portable
+modules' own threshold. Selection order is vendor variant first (its gate is that part's
+measured crossover), then scalar below eight rows, then the tiled portable module. The shape
+measures **0.1502 ms, 1.22x against the tiled portable, parity with the pre-tuning module**, and
+`scalar_schedule_reproduces_the_portable_kernels` executes the scalar modules against the
+portable ones on the executing adapter (raw-bit, every geometry) so a stale copy cannot ship.
+
+### Verified
+
+* Ladder on this part: **10/10**, state step `2 suite(s), 29 run(s), 32162 exact tensor digests
+  compared; coverage audited against validation/training_state_coverage.json` (audited through
+  the shared tool), dense/reduction/attention at 144/183/79 invocations, probe unchanged at
+  6368 dispatches / 2980 barriers / loss 5.5432177.
+* `cargo test --lib` -> **761 passed / 0 failed / 9 ignored** (26 of them the shared coverage
+  suite; the 24 RDNA3 A/B comparisons and the scalar-schedule A/B run in the same suite).
+* `python -m unittest test_training_state test_topology_decisions test_shader_provenance
+  test_training_stack` -> **89 tests OK**; the coverage-semantic half moved to Rust.
+* One caveat measured, not hidden: the first full ladder run in this session failed the topology
+  step with `recorded ln-low-rank-f32-column-slices but this device now selects
+  ln-low-rank-f32-one-row` immediately after the five-minute parity step; two standalone
+  replays and a second full ladder run were green. The decision rule needs all seven rounds to
+  agree, so a post-parity thermal regime can still flip a 2% margin.

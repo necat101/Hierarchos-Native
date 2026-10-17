@@ -116,62 +116,75 @@ fn build_case(
     if rows == 0 || input_dim == 0 || output_dim == 0 {
         bail!("shape dimensions must be positive");
     }
-    let (accesses, push, groups, shared, output_len): (Vec<BindingAccess>, Vec<u8>, [u32; 3], Vec<Vec<f32>>, usize) =
-        match name {
-            "linear_forward" => (
-                vec![BindingAccess::ReadOnly, BindingAccess::ReadOnly, BindingAccess::WriteOnly],
-                linear_push(rows, input_dim, output_dim),
-                [
-                    (output_dim as u32).div_ceil(16),
-                    (rows as u32).div_ceil(16),
-                    1,
-                ],
-                vec![
-                    values(rows * input_dim, 97),
-                    values(input_dim * output_dim, 701),
-                ],
-                rows * output_dim,
-            ),
-            "linear_bias_forward" => (
-                vec![
-                    BindingAccess::ReadOnly,
-                    BindingAccess::ReadOnly,
-                    BindingAccess::ReadOnly,
-                    BindingAccess::WriteOnly,
-                ],
-                linear_push(rows, input_dim, output_dim),
-                [
-                    (output_dim as u32).div_ceil(16),
-                    (rows as u32).div_ceil(16),
-                    1,
-                ],
-                vec![
-                    values(rows * input_dim, 97),
-                    values(input_dim * output_dim, 701),
-                    values(output_dim, 439),
-                ],
-                rows * output_dim,
-            ),
-            "vector_add" => (
-                vec![BindingAccess::ReadOnly, BindingAccess::ReadOnly, BindingAccess::WriteOnly],
-                65536u32.to_le_bytes().to_vec(),
-                [65536u32.div_ceil(256), 1, 1],
-                vec![values(65536, 11), values(65536, 13)],
-                65536,
-            ),
-            "finite_clamp_forward" => (
-                vec![BindingAccess::ReadOnly, BindingAccess::WriteOnly],
-                {
-                    let mut push = 65536u32.to_le_bytes().to_vec();
-                    push.extend_from_slice(&6.0f32.to_le_bytes());
-                    push
-                },
-                [65536u32.div_ceil(256), 1, 1],
-                vec![values(65536, 17)],
-                65536,
-            ),
-            other => bail!("unknown kernel {other}; known: {KERNELS:?}"),
-        };
+    let (accesses, push, groups, shared, output_len): (
+        Vec<BindingAccess>,
+        Vec<u8>,
+        [u32; 3],
+        Vec<Vec<f32>>,
+        usize,
+    ) = match name {
+        "linear_forward" => (
+            vec![
+                BindingAccess::ReadOnly,
+                BindingAccess::ReadOnly,
+                BindingAccess::WriteOnly,
+            ],
+            linear_push(rows, input_dim, output_dim),
+            [
+                (output_dim as u32).div_ceil(16),
+                (rows as u32).div_ceil(16),
+                1,
+            ],
+            vec![
+                values(rows * input_dim, 97),
+                values(input_dim * output_dim, 701),
+            ],
+            rows * output_dim,
+        ),
+        "linear_bias_forward" => (
+            vec![
+                BindingAccess::ReadOnly,
+                BindingAccess::ReadOnly,
+                BindingAccess::ReadOnly,
+                BindingAccess::WriteOnly,
+            ],
+            linear_push(rows, input_dim, output_dim),
+            [
+                (output_dim as u32).div_ceil(16),
+                (rows as u32).div_ceil(16),
+                1,
+            ],
+            vec![
+                values(rows * input_dim, 97),
+                values(input_dim * output_dim, 701),
+                values(output_dim, 439),
+            ],
+            rows * output_dim,
+        ),
+        "vector_add" => (
+            vec![
+                BindingAccess::ReadOnly,
+                BindingAccess::ReadOnly,
+                BindingAccess::WriteOnly,
+            ],
+            65536u32.to_le_bytes().to_vec(),
+            [65536u32.div_ceil(256), 1, 1],
+            vec![values(65536, 11), values(65536, 13)],
+            65536,
+        ),
+        "finite_clamp_forward" => (
+            vec![BindingAccess::ReadOnly, BindingAccess::WriteOnly],
+            {
+                let mut push = 65536u32.to_le_bytes().to_vec();
+                push.extend_from_slice(&6.0f32.to_le_bytes());
+                push
+            },
+            [65536u32.div_ceil(256), 1, 1],
+            vec![values(65536, 17)],
+            65536,
+        ),
+        other => bail!("unknown kernel {other}; known: {KERNELS:?}"),
+    };
     let push_constant_size = u32::try_from(push.len()).context("push-constant size overflow")?;
     let kernel = ComputeKernel::new_with_access(
         device,
@@ -299,11 +312,14 @@ fn measure(
         );
     }
 
-    let samples_before = device.submission_arena_stats()?.kernel_timestamp_profile_samples;
-    let gpu_ms = device.time_compute_batch_ms(|batch| {
-        record_block(case, kernel, batch, placement, block)
-    })?;
-    let samples_after = device.submission_arena_stats()?.kernel_timestamp_profile_samples;
+    let samples_before = device
+        .submission_arena_stats()?
+        .kernel_timestamp_profile_samples;
+    let gpu_ms = device
+        .time_compute_batch_ms(|batch| record_block(case, kernel, batch, placement, block))?;
+    let samples_after = device
+        .submission_arena_stats()?
+        .kernel_timestamp_profile_samples;
     let from_timestamps = samples_after.saturating_sub(samples_before) == 1;
 
     let mut wall = ComputeBatch::new(device)?;
@@ -399,7 +415,10 @@ fn run_shape(
 
     let warm = summarize(Placement::BackToBack, &readings);
     let cold = summarize(Placement::AfterBarrier, &readings);
-    if readings.iter().any(|reading| !reading.gpu_timed_from_timestamps) {
+    if readings
+        .iter()
+        .any(|reading| !reading.gpu_timed_from_timestamps)
+    {
         eprintln!(
             "warning: at least one reading fell back to wall time because the device produced no timestamp sample"
         );
@@ -460,7 +479,10 @@ fn run() -> Result<()> {
 
     let mut rest = std::env::args().skip(1);
     while let Some(arg) = rest.next() {
-        let mut value = || rest.next().with_context(|| format!("missing value for {arg}"));
+        let mut value = || {
+            rest.next()
+                .with_context(|| format!("missing value for {arg}"))
+        };
         match arg.as_str() {
             "--device-index" => device_index = value()?.parse()?,
             "--blocks" => {

@@ -8,9 +8,11 @@
 mod adapter;
 mod checkpoint;
 mod control;
+pub mod coverage_record;
 mod full_training_graph;
 #[cfg(test)]
 mod hierarchos_ce_mask_tests;
+mod kernel_golden_coverage;
 mod lm_execution;
 mod lora;
 mod mixed_precision;
@@ -43,6 +45,12 @@ use bytemuck::{Pod, Zeroable};
 use hierarchos_inference::ModelConfig;
 
 pub use adapter::{AdapterStepResult, SharedTokenAdapterTrainer};
+// The kernel-golden coverage record is pure (no device, no Vulkan) and is audited by the
+// parity harnesses, which include `kernel_golden.rs` by path; it lives here so the audit
+// and its merge are testable with `cargo test --lib`.
+// Both coverage records share one implementation of the contract (audit, merge, shrink
+// refusal, bootstrap) in `coverage_record`; each contributes only what a loss means for one
+// of its entries.
 pub use checkpoint::{
     decode_portable_replay_json, encode_portable_replay_json, encode_portable_running_carriers,
     read_adamw_optimizer_state, read_f32_tensor, read_model_ltm_running_state,
@@ -56,6 +64,10 @@ pub use checkpoint::{
 pub use control::{
     ContextDriftVulkanOp, ContextLerpConcatResult, DriftUpdateResult, HardActResult,
     HardActVulkanOp,
+};
+pub use coverage_record::{
+    ArmCoverage, Audit, Bootstrap, CaseCounts, CoverageFile, CoverageModel, Merge,
+    TrainingStateEntry,
 };
 pub use full_training_graph::{
     hierarchos_portable_fisher_yates_permutation, HierarchosBudgetedTokenTapeTrainResult,
@@ -103,6 +115,11 @@ pub use full_training_graph::{
     HIERARCHOS_VULKAN_PORTABLE_SAMPLER_RNG_ALGORITHM, HIERARCHOS_VULKAN_TRAINING_MANIFEST_FILENAME,
     HIERARCHOS_VULKAN_TRAINING_PRECISION_ENV, HIERARCHOS_VULKAN_TRAINING_SESSION_FORMAT,
 };
+pub use kernel_golden_coverage::{
+    bootstrap_coverage, coverage_args, coverage_key, coverage_problems, default_coverage_path,
+    merge_coverage, read_coverage, write_coverage, CoverageArgs, CoverageEntry, COVERAGE_NOTE,
+    COVERAGE_SCHEMA,
+};
 pub use lm_execution::{
     HierarchosLmExecutionArm, HierarchosLmWeightGradTopology,
     HIERARCHOS_VULKAN_LM_AUTOTUNE_CACHE_PATH_ENV, HIERARCHOS_VULKAN_LM_AUTOTUNE_DISABLE_ENV,
@@ -111,10 +128,9 @@ pub use lm_execution::{
     HIERARCHOS_VULKAN_LM_REAUTOTUNE_ENV,
 };
 pub use lora::{
-    merge_hierarchos_lora_safetensors, merge_peft_lora_safetensors,
-    unmerge_peft_lora_safetensors, HierarchosNativeLoraMergeReport,
-    HIERARCHOS_LORA_ADAPTER_CONFIG_FILENAME, HIERARCHOS_LORA_ADAPTER_MANIFEST_FILENAME,
-    HIERARCHOS_LORA_ADAPTER_WEIGHTS_FILENAME,
+    merge_hierarchos_lora_safetensors, merge_peft_lora_safetensors, unmerge_peft_lora_safetensors,
+    HierarchosNativeLoraMergeReport, HIERARCHOS_LORA_ADAPTER_CONFIG_FILENAME,
+    HIERARCHOS_LORA_ADAPTER_MANIFEST_FILENAME, HIERARCHOS_LORA_ADAPTER_WEIGHTS_FILENAME,
 };
 pub use mixed_precision::{VulkanFp32MasterParameterMirror, VulkanParameterStorageFormat};
 pub use projection::{LinearProjectionTrainer, ProjectionStepResult};
@@ -162,9 +178,8 @@ pub use token_frontend::{
 };
 pub use training_numerics::VulkanGradientNonfiniteDetector;
 pub use transformer::{
-    PeftCapability, PeftModuleClass,
-    VulkanSeq2SeqTransformer, VulkanTransformer, VulkanTransformerArchitecture,
-    VulkanTransformerConfig, VulkanTransformerGenerationAttention,
+    PeftCapability, PeftModuleClass, VulkanSeq2SeqTransformer, VulkanTransformer,
+    VulkanTransformerArchitecture, VulkanTransformerConfig, VulkanTransformerGenerationAttention,
     VulkanTransformerGenerationConfig, VulkanTransformerGenerationHiddenState,
     VulkanTransformerGenerationMode, VulkanTransformerGenerationOutput,
     VulkanTransformerGenerationSequenceOutput, VulkanTransformerLoraConfig,
@@ -172,8 +187,8 @@ pub use transformer::{
     VULKAN_TRANSFORMER_ADAPTER_WEIGHTS_FILENAME,
 };
 pub use vendor::{
-    effective_vendor, native_fp16_lm_compute_reliable, select_kernel, vendor_kernel_plan,
-    GpuVendor, VendorKernelFamily, VendorKernelSelection,
+    effective_vendor, native_fp16_lm_compute_reliable, select_kernel, variant_dispatch_counts,
+    vendor_kernel_plan, GpuVendor, VendorKernelFamily, VendorKernelSelection,
     HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS_ENV,
     HIERARCHOS_VULKAN_FORCE_NATIVE_FP16_LM_COMPUTE_ENV, HIERARCHOS_VULKAN_FORCE_VENDOR_ENV,
 };

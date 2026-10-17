@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "note": "Shared shader files that deliberately differ from the read-only stable oracle, one entry per path with the reason and the reason it stays. check_oracle_parity.py fails on a shared file that differs without an entry here, and also fails when an entry no longer differs, so this list cannot rot into blanket permission. Vendor modules and the pre-tuning scalar fallbacks are additions, not divergences, and need no entry.",
+  "divergences": [
+    {
+      "path": "transformer_attention_backward.comp",
+      "reason": "Adds the key-range split (push words key_block_index/key_block_count). A single-block submission runs the oracle's arithmetic: the split bounds cover the whole key range and the per-key work is unchanged. The recorded attention digests on the oracle device are identical."
+    },
+    {
+      "path": "transformer_attention_backward.spv",
+      "reason": "Built from the split source above; the single-block path is the oracle's arithmetic, verified by the unchanged attention digests and by attention_kernel_cache_check on the Gen9 target."
+    },
+    {
+      "path": "transformer_qwen_gdn_params.spv",
+      "reason": "Rebuilt from the unchanged GLSL to read the three-word push block the host already pushes (rows, num_value_heads, beta_scale). The oracle module reads two words and drops OLMo Hybrid's 2.0 beta scale, which the forward kernel's own backward kernel applies. At beta_scale 1.0 the rebuilt module is bit-identical to the oracle's."
+    }
+  ]
+}

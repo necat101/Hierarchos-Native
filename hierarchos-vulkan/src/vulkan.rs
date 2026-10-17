@@ -1,9 +1,10 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     ffi::{CStr, CString, OsStr},
+    hash::{BuildHasherDefault, Hasher},
     io::Cursor,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
         Arc, Mutex, Weak,
     },
     time::Instant,
@@ -44,6 +45,12 @@ struct DeviceInner {
     submission_timeline_next_values: Vec<AtomicU64>,
     submission_timeline_enabled: bool,
     scheduler_kernel_timestamp_collection_enabled: AtomicBool,
+    /// The widest slice-point measurement any batch on this device has taken, so
+    /// a bound learned while a training graph is warming up is not re-learned by
+    /// every batch after it. Monotone by construction: only
+    /// `watchdog_slice_budget_after_retirement` writes it and that bound only
+    /// ever widens, inside the device class's window.
+    watchdog_slice_dispatch_budget_hint: AtomicUsize,
     kernel_timestamp_profile_samples: AtomicU64,
     kernel_timestamp_profile_dispatches: AtomicU64,
     kernel_timestamp_profile_gpu_ns_total: AtomicU64,
@@ -1417,6 +1424,7 @@ impl VulkanDevice {
                     .collect(),
                 submission_timeline_enabled: timeline_semaphore_enabled,
                 scheduler_kernel_timestamp_collection_enabled: AtomicBool::new(false),
+                watchdog_slice_dispatch_budget_hint: AtomicUsize::new(0),
                 kernel_timestamp_profile_samples: AtomicU64::new(0),
                 kernel_timestamp_profile_dispatches: AtomicU64::new(0),
                 kernel_timestamp_profile_gpu_ns_total: AtomicU64::new(0),
@@ -1734,6 +1742,7 @@ impl VulkanDevice {
             submission_timeline_next_values: vec![AtomicU64::new(0)],
             submission_timeline_enabled: timeline_semaphore_enabled,
             scheduler_kernel_timestamp_collection_enabled: AtomicBool::new(false),
+            watchdog_slice_dispatch_budget_hint: AtomicUsize::new(0),
             kernel_timestamp_profile_samples: AtomicU64::new(0),
             kernel_timestamp_profile_dispatches: AtomicU64::new(0),
             kernel_timestamp_profile_gpu_ns_total: AtomicU64::new(0),
@@ -4625,9 +4634,9 @@ pub(crate) struct ComputeBatch {
     bound_descriptor_buffers: Vec<BufferRegionKey>,
     pushed_constant_layout: Option<PipelineLayoutSignature>,
     pushed_constants: Vec<u8>,
-    pending_shader_buffers: HashSet<BufferRegionKey>,
-    pending_shader_reads: HashSet<BufferRegionKey>,
-    pending_shader_writes: HashSet<BufferRegionKey>,
+    pending_shader_buffers: PendingRegionSet,
+    pending_shader_reads: PendingRegionSet,
+    pending_shader_writes: PendingRegionSet,
     /// Set by `shader_barrier` and cleared by the next recorded dispatch, so the
     /// kernel profiler can label a bracket as following a barrier.
     barrier_since_last_dispatch: bool,
@@ -4635,7 +4644,50 @@ pub(crate) struct ComputeBatch {
     kernel_timestamp_profile: Option<KernelTimestampProfile>,
     watchdog_submission_slicing_recommended: bool,
     watchdog_submission_slicing: bool,
+    watchdog_slice_dispatch_budget: usize,
+    /// The count window a measured retirement may move the budget within, or
+    /// `None` when the budget is pinned by an explicit
+    /// `HIERARCHOS_VULKAN_WATCHDOG_SLICE_DISPATCHES` or is a device class's
+    /// constant rather than a measured bound.
+    watchdog_slice_budget_window: Option<(usize, usize)>,
+    /// Dispatches recorded since the last retirement. Separate from
+    /// `dispatch_count`, which reports the whole recorded stream.
+    dispatches_since_submission: usize,
     finished: bool,
+}
+
+/// The structural counters of one recorded stream, carried across a watchdog
+/// retirement so a caller (or a validation probe) still sees what it recorded
+/// rather than the tail slice.
+struct StreamCounters {
+    dispatch_count: usize,
+    shader_barrier_count: usize,
+    pipeline_bind_count: usize,
+    descriptor_bind_count: usize,
+    push_constant_write_count: usize,
+    descriptor_sets_allocated: usize,
+}
+
+impl StreamCounters {
+    fn from_batch(batch: &ComputeBatch) -> Self {
+        Self {
+            dispatch_count: batch.dispatch_count,
+            shader_barrier_count: batch.shader_barrier_count,
+            pipeline_bind_count: batch.pipeline_bind_count,
+            descriptor_bind_count: batch.descriptor_bind_count,
+            push_constant_write_count: batch.push_constant_write_count,
+            descriptor_sets_allocated: batch.descriptor_sets_allocated,
+        }
+    }
+
+    fn carry_into(self, batch: &mut ComputeBatch) {
+        batch.dispatch_count += self.dispatch_count;
+        batch.shader_barrier_count += self.shader_barrier_count;
+        batch.pipeline_bind_count += self.pipeline_bind_count;
+        batch.descriptor_bind_count += self.descriptor_bind_count;
+        batch.push_constant_write_count += self.push_constant_write_count;
+        batch.descriptor_sets_allocated += self.descriptor_sets_allocated;
+    }
 }
 
 /// An in-flight Vulkan compute batch whose command-buffer resources remain
@@ -4952,12 +5004,198 @@ const KERNEL_PROFILE_SAMPLE_STRIDE_ENV: &str = "HIERARCHOS_VULKAN_PROFILE_SAMPLE
 /// timing for anyone who needs it.
 const KERNEL_PROFILE_DEFAULT_SAMPLE_STRIDE: usize = 17;
 const WATCHDOG_SUBMISSIONS_ENV: &str = "HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS";
+const WATCHDOG_SLICE_DISPATCHES_ENV: &str = "HIERARCHOS_VULKAN_WATCHDOG_SLICE_DISPATCHES";
 const AMD_PCI_VENDOR_ID: u32 = 0x1002;
+const INTEL_PCI_VENDOR_ID: u32 = 0x8086;
 
+/// Platforms where the driver's watchdog is known to bound one submitted GPU
+/// job: Linux's `amdgpu` scheduler timeout for the AMD target, and the Windows
+/// display driver's timer, which is where the Gen9 target's resets were
+/// measured. Both are inputs to the pure policy below rather than `cfg!` calls
+/// inside it, so every platform combination is asserted by regression tests.
+const AMD_WATCHDOG_PLATFORM: bool = cfg!(target_os = "linux");
+const INTEL_WATCHDOG_PLATFORM: bool = cfg!(target_os = "windows");
+
+/// Whether the ported Gen9 slice point is imposed or merely available.
+///
+/// The port was measured and kept opt-in while its slice point retired every
+/// dispatch: that granularity cost about 5x per training step (state digests
+/// byte-identical, 380.0 ms unsliced versus 1,928.3 ms sliced on the recorded
+/// probe fixture) for a step whose submission is an order of magnitude short of
+/// the driver's watchdog. The boundary now retires on accumulated submission
+/// length *measured on the machine* (`watchdog_slice_budget_after_retirement`),
+/// which the same fixture prices at +1% (384.3 ms) against the legacy 380.0 ms,
+/// so this class runs the slice point by default and
+/// `HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS=0` is what restores the legacy
+/// single-submit path. Flipping this constant is the whole of changing that.
+const GEN9_WATCHDOG_SLICING_DEFAULT: bool = true;
+
+/// Dispatches one submission may accumulate on the Gen9 class before the
+/// automatic checkpoint retires it.
+///
+/// The AMD target retires every dispatch, the strictest bound and the one its
+/// scheduler timeout wants. On the Gen9 target that granularity was measured at
+/// about 5x per training step for a step that is nowhere near the watchdog, so
+/// this class retires on accumulated length instead, and the budget is where the
+/// measurement put it. Median step of `training_step_probe --batch 2 --tokens 8
+/// --steps 6` with the budget forced, against the same binary's legacy
+/// single-submit step of 380.0 ms:
+///
+/// | budget | median step | vs legacy |
+/// | --- | --- | --- |
+/// | 4096 | 384.3 ms | +1% |
+/// | 1024 | 401.7 ms | +6% |
+/// | 512 | 426.1 ms | +12% |
+/// | 256 | 449.7 ms | +18% |
+/// | 64 | 556.7 ms | +46% |
+/// | 1 (the AMD slice point) | 1928.3 ms | +407% |
+///
+/// 1024 is the floor and the value the port shipped at, and the measured bound
+/// below is what replaces it: at this fixture's measured per-dispatch cost it is
+/// roughly 60 ms of work, and it keeps a submission under a three-second watchdog
+/// for per-dispatch costs up to about 3 ms, which is the whole measured spread
+/// here apart from the single-dispatch attention-backward class that only the
+/// kernel-level split can shorten. The transformer recorders additionally retire
+/// at their phase boundaries whatever this budget says, so a step's submission
+/// count is the larger of its phase count and its dispatch count over this.
+///
+/// `HIERARCHOS_VULKAN_WATCHDOG_SLICE_DISPATCHES` overrides it (1 restores the AMD
+/// target's per-dispatch granularity for an on-device A/B), and an override is
+/// authoritative: it pins the budget instead of seeding the measurement below.
+const GEN9_WATCHDOG_SLICE_DISPATCHES: usize = 1024;
+
+/// Wall-clock target for one Gen9 submission, and the count window a measured
+/// retirement may move the slice point within.
+///
+/// A driver watchdog bounds a submitted job in *time*, so a fixed dispatch count
+/// can only approximate it: the count that is safe depends on what the kernels in
+/// the submission cost, which changes with every kernel edit. This class therefore
+/// retires on what a retirement is measured to cost. Each retirement is timed on
+/// the host, and the budget becomes the count whose measured cost fits this
+/// target, inside the window below. The measurement only ever *widens* the bound
+/// from the floor, so this policy costs at most what the shipped 1024-dispatch
+/// bound cost, and a device whose dispatches are slow keeps that bound rather
+/// than having it loosened around it.
+///
+/// The floor (`GEN9_WATCHDOG_SLICE_DISPATCHES`, 1024) is where the port shipped,
+/// and at the slowest per-dispatch class measured here
+/// (`layer_norm_low_rank_producer_forward_fused`, 175.0 us) it prices a
+/// submission at 179 ms.
+///
+/// The target is 400 ms because one training step of the canonical fixture is
+/// about 320-350 ms of measured work at the rate its own retirements measure, and
+/// a bound below that buys nothing: it forces a retirement on every step for a
+/// submission that is already five times inside the driver's timeout, which is
+/// exactly what the port's fixed count cost (0.5% per step, measured against the
+/// same binary's unsliced path). Protection on this class is aimed where it is
+/// needed instead -- multi-step accumulations, larger shapes, and any kernel that
+/// makes a dispatch expensive -- and those still retire on their own measurement:
+/// at the 512-row shape's measured 188 us per dispatch a submission is sized at
+/// about 2100 dispatches, so it retires well inside a step.
+///
+/// The ceiling is a *mis-measurement* guard, not the safety bound: the target is
+/// the safety bound, and the measurement is what sizes every submission against
+/// it. It is set at 8192 so that it cannot bind a submission the measurement has
+/// already priced -- the fixture's own step is 6,368 dispatches, so a ceiling any
+/// lower makes a step pay a retirement it does not need, which is how the port's
+/// fixed count came to cost 0.9% per step on a step that is nowhere near the
+/// watchdog. What the ceiling still bounds is the composite where a cheap sample
+/// sizes the submission and the dispatches after it are all the slowest class
+/// measured here: 8192 x 175.0 us is 1.43 s, inside the driver's watchdog window,
+/// and that class is 144 of a step's 6,368 dispatches (2.3%), so no real graph
+/// composes a submission that way. Every submission a real graph sizes is priced
+/// at the 400 ms target by its own measurement instead.
+const GEN9_WATCHDOG_SLICE_MICROS: u64 = 400_000;
+const GEN9_WATCHDOG_SLICE_DISPATCHES_CEILING: usize = 8192;
+
+/// The window a measured retirement may move the Gen9 class's slice point
+/// within, or `None` for a device whose budget is a policy constant rather than a
+/// measured bound -- the AMD target's per-dispatch point, other Intel
+/// generations, and every other vendor.
+fn watchdog_slice_budget_window_for(vendor_id: u32, device_id: u32) -> Option<(usize, usize)> {
+    is_intel_gen9_pci_id(vendor_id, device_id).then_some((
+        GEN9_WATCHDOG_SLICE_DISPATCHES,
+        GEN9_WATCHDOG_SLICE_DISPATCHES_CEILING,
+    ))
+}
+
+/// The next slice budget after a submission of `dispatches` dispatches retired in
+/// `elapsed_micros` of wall time.
+///
+/// The extrapolation is what makes the bound a time bound rather than a count
+/// chosen once: if `dispatches` cost `elapsed_micros`, a submission may hold
+/// `dispatches * target / elapsed_micros` and still be priced at the target. It is
+/// clamped to the device's window, and `None` -- a pinned override or a device
+/// outside the ported class -- leaves the budget untouched. A retirement that
+/// recorded nothing, or was not timed, also leaves it untouched rather than
+/// extrapolating from nothing.
+///
+/// The result is never narrower than the budget it was given. A sample is one
+/// measurement of one submission, and the first retirement of a process is the
+/// *cold* one -- it carries pipeline creation, descriptor allocation and uploads
+/// the steady state does not repeat -- so letting a sample tighten the bound
+/// would hold a whole run at a granularity set by its own warmup. Widening is
+/// also the safe direction: the budget can only ever retire fewer submissions
+/// than the count the port shipped, never more.
+fn watchdog_slice_budget_after_retirement(
+    budget: usize,
+    dispatches: usize,
+    elapsed_micros: u64,
+    target_micros: u64,
+    window: Option<(usize, usize)>,
+) -> usize {
+    let Some((floor, ceiling)) = window else {
+        return budget;
+    };
+    if dispatches == 0 || elapsed_micros == 0 {
+        return budget;
+    }
+    let fitted =
+        u128::from(dispatches as u64) * u128::from(target_micros) / u128::from(elapsed_micros);
+    (fitted.clamp(floor as u128, ceiling as u128) as usize).max(budget)
+}
+
+/// Pure Intel Gen9/Gen9.5 PCI device-ID test. The table lives in this file
+/// rather than in `vendor.rs` because the shader harnesses compile this module
+/// standalone and cannot resolve `crate::vendor`; `vendor::is_intel_gen9_pci_id`
+/// is the vendor layer's public view of exactly this list, so the two cannot
+/// drift. Skylake and its refresh share one Windows image compiler generation:
+///
+/// * Skylake GT1-GT4: `0x1902`, `0x1906`, `0x190B`, `0x1912`-`0x191E`, `0x1921`,
+///   `0x1923`, `0x1926`, `0x1927`, `0x192A`, `0x192B`, `0x1932`, `0x193A`,
+///   `0x193B`, `0x193D` (HD Graphics 510/515/520/530, Iris 540/550).
+/// * Kaby Lake / Apollo Lake / Amber Lake refresh: `0x5900`-`0x593F` (which
+///   includes `0x591C`), `0x5A84`, `0x5A85`, `0x87C0`.
+///
+/// Newer Intel generations (Gen11 Ice Lake `0x8A00`+, Xe `0x9A00`+, Arc) use a
+/// different compiler and are deliberately not matched.
+pub(crate) const fn is_intel_gen9_pci_id(vendor_id: u32, device_id: u32) -> bool {
+    if vendor_id != INTEL_PCI_VENDOR_ID {
+        return false;
+    }
+    matches!(device_id, 0x1900..=0x193F | 0x5900..=0x593F | 0x5A84 | 0x5A85 | 0x87C0)
+}
+
+/// Whether dispatch-granular submission slicing is the default for this device
+/// on this platform.
+///
+/// The AMD target shipped this policy first, scoped to Linux, where `amdgpu`'s
+/// scheduler timeout bounds one submitted GPU job. The failure it addresses --
+/// a single submission long enough that the driver's watchdog resets the
+/// device -- is measured on the Intel Gen9 target too, under the Windows
+/// driver's timer, so the equivalent policy is ported onto the same Gen9/Gen9.5
+/// part class the vendor layer already singles out. Everything else keeps the
+/// legacy single-submit path: other vendors, other Intel generations, other
+/// platforms, and any AMD device outside its measured platform. An explicit
+/// `HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS` still overrides every case both
+/// ways, which is also how the unmeasured combinations above are A/B'd.
 fn watchdog_submission_slicing_enabled_for(
     vendor_id: u32,
+    device_id: u32,
     env_override: Option<&OsStr>,
-    watchdog_os: bool,
+    amd_watchdog_platform: bool,
+    intel_watchdog_platform: bool,
+    gen9_default: bool,
 ) -> bool {
     if let Some(value) = env_override {
         let value = value.to_string_lossy();
@@ -4966,7 +5204,39 @@ fn watchdog_submission_slicing_enabled_for(
             "0" | "false" | "off" | "no" | "disable" | "disabled"
         );
     }
-    watchdog_os && vendor_id == AMD_PCI_VENDOR_ID
+    if vendor_id == AMD_PCI_VENDOR_ID {
+        return amd_watchdog_platform;
+    }
+    intel_watchdog_platform && is_intel_gen9_pci_id(vendor_id, device_id) && gen9_default
+}
+
+/// Dispatches one submission may accumulate before the automatic checkpoint
+/// retires it. `1` is the AMD target's per-dispatch granularity, which every
+/// other device keeps; the Gen9 class is the one that retires on accumulated
+/// length. An explicit override wins in every case, and a value that does not
+/// parse as a positive count falls back to the device's own policy rather than
+/// silently disabling the bound.
+fn watchdog_slice_dispatch_budget_for(
+    vendor_id: u32,
+    device_id: u32,
+    env_override: Option<&OsStr>,
+) -> usize {
+    if let Some(value) = env_override {
+        if let Some(parsed) = value
+            .to_string_lossy()
+            .trim()
+            .parse::<usize>()
+            .ok()
+            .filter(|budget| *budget > 0)
+        {
+            return parsed;
+        }
+    }
+    if is_intel_gen9_pci_id(vendor_id, device_id) {
+        GEN9_WATCHDOG_SLICE_DISPATCHES
+    } else {
+        1
+    }
 }
 
 struct DescriptorPoolArenaChunk {
@@ -5259,6 +5529,44 @@ struct BufferRegionKey {
     size: u64,
 }
 
+/// FNV-1a, and the hasher the per-dispatch pending-region sets use.
+///
+/// Those sets are the hottest hashed structure in a recorded step: every
+/// dispatch probes them once per binding for aliasing and inserts each binding's
+/// region into them, which on the Gen9 target is thousands of dispatches at ~20
+/// bindings each. FNV-1a over a 24-byte key is several times cheaper than the
+/// default SipHash, needs no dependency (this crate already carries the same
+/// function for shader signatures and `build.rs` uses it too), and is
+/// membership-equivalent by construction: the sets are only ever probed for
+/// containment and cleared as a whole, so a different hash cannot change which
+/// barrier is emitted, only what the probe costs. Its fixed seed also makes the
+/// set layout reproducible across runs, which the default randomized state does
+/// not.
+struct Fnv1a64Hasher(u64);
+
+impl Default for Fnv1a64Hasher {
+    fn default() -> Self {
+        Self(0xcbf29ce484222325)
+    }
+}
+
+impl Hasher for Fnv1a64Hasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        let mut hash = self.0;
+        for &byte in bytes {
+            hash ^= u64::from(byte);
+            hash = hash.wrapping_mul(0x100000001b3);
+        }
+        self.0 = hash;
+    }
+}
+
+type PendingRegionSet = HashSet<BufferRegionKey, BuildHasherDefault<Fnv1a64Hasher>>;
+
 #[derive(Hash, Eq, PartialEq)]
 struct DescriptorSetCacheKey {
     layout: DescriptorLayoutSignature,
@@ -5421,10 +5729,19 @@ impl ComputeBatch {
                 .instance
                 .get_physical_device_properties(device.physical_device)
         };
+        let watchdog_slice_dispatch_budget_override =
+            std::env::var_os(WATCHDOG_SLICE_DISPATCHES_ENV);
+        let watchdog_slice_dispatch_budget_hint = device
+            .inner
+            .watchdog_slice_dispatch_budget_hint
+            .load(Ordering::Relaxed);
         let watchdog_submission_slicing_recommended = watchdog_submission_slicing_enabled_for(
             physical_properties.vendor_id,
+            physical_properties.device_id,
             std::env::var_os(WATCHDOG_SUBMISSIONS_ENV).as_deref(),
-            cfg!(target_os = "linux"),
+            AMD_WATCHDOG_PLATFORM,
+            INTEL_WATCHDOG_PLATFORM,
+            GEN9_WATCHDOG_SLICING_DEFAULT,
         );
         Ok(Self {
             inner: Arc::clone(&device.inner),
@@ -5450,9 +5767,9 @@ impl ComputeBatch {
             bound_descriptor_buffers: Vec::new(),
             pushed_constant_layout: None,
             pushed_constants: Vec::new(),
-            pending_shader_buffers: HashSet::new(),
-            pending_shader_reads: HashSet::new(),
-            pending_shader_writes: HashSet::new(),
+            pending_shader_buffers: PendingRegionSet::default(),
+            pending_shader_reads: PendingRegionSet::default(),
+            pending_shader_writes: PendingRegionSet::default(),
             barrier_since_last_dispatch: false,
             dispatch_dependency_trace: std::env::var_os("HIERARCHOS_VULKAN_TRACE_DISPATCH_CHAINS")
                 .map(|_| DispatchDependencyTrace {
@@ -5465,6 +5782,38 @@ impl ComputeBatch {
             kernel_timestamp_profile,
             watchdog_submission_slicing_recommended,
             watchdog_submission_slicing: false,
+            dispatches_since_submission: 0,
+            // A forced budget is authoritative on its own terms, so the device's
+            // measured hint is only consulted when nothing was forced: it is the
+            // widest this device's own retirements have been measured to be, and
+            // it keeps every batch after the first from re-learning it at the
+            // floor. Devices outside the ported class never publish a hint, so
+            // their policy constant is what this evaluates to.
+            watchdog_slice_dispatch_budget: if watchdog_slice_dispatch_budget_override.is_some() {
+                watchdog_slice_dispatch_budget_for(
+                    physical_properties.vendor_id,
+                    physical_properties.device_id,
+                    watchdog_slice_dispatch_budget_override.as_deref(),
+                )
+            } else {
+                watchdog_slice_dispatch_budget_for(
+                    physical_properties.vendor_id,
+                    physical_properties.device_id,
+                    None,
+                )
+                .max(watchdog_slice_dispatch_budget_hint)
+            },
+            // An explicit budget is the one this batch must keep, so it is not a
+            // seed for a measurement: a forced budget is how the granularity A/B
+            // and the per-device validation arms are made reproducible.
+            watchdog_slice_budget_window: if watchdog_slice_dispatch_budget_override.is_some() {
+                None
+            } else {
+                watchdog_slice_budget_window_for(
+                    physical_properties.vendor_id,
+                    physical_properties.device_id,
+                )
+            },
             finished: false,
         })
     }
@@ -5474,15 +5823,30 @@ impl ComputeBatch {
     }
 
     /// Split long synchronous command streams at safe command boundaries on
-    /// Linux AMD GPUs, where amdgpu's scheduler timeout applies to submitted
-    /// GPU jobs. Waiting for each slice before recording the next preserves
-    /// command and FP evaluation order while giving the kernel regular
-    /// retirement points.
+    /// devices whose driver watchdog applies to a submitted GPU job: the AMD
+    /// target on Linux (amdgpu's scheduler timeout) and the Intel Gen9/Gen9.5
+    /// target on Windows, where the same pattern was ported after those parts
+    /// were measured losing the device the other way. Waiting for each slice
+    /// before recording the next preserves command and FP evaluation order
+    /// while giving the kernel regular retirement points.
     ///
     /// Set HIERARCHOS_VULKAN_WATCHDOG_SUBMISSIONS=0 to restore the legacy
     /// single-submit path, or =1 to force this behavior on another platform.
     pub(crate) fn watchdog_checkpoint(&mut self) -> Result<()> {
-        if self.watchdog_submission_slicing && self.dispatch_count > 0 {
+        self.watchdog_checkpoint_when(
+            self.dispatches_since_submission >= self.watchdog_slice_dispatch_budget,
+        )
+    }
+
+    /// Retire the current submission unconditionally when slicing is on. Phase
+    /// boundaries ask for a host-visible completion point at a known place, not
+    /// for a length estimate, so they do not consult the dispatch budget.
+    pub(crate) fn force_watchdog_checkpoint(&mut self) -> Result<()> {
+        self.watchdog_checkpoint_when(true)
+    }
+
+    fn watchdog_checkpoint_when(&mut self, due: bool) -> Result<()> {
+        if self.watchdog_submission_slicing && due && self.dispatches_since_submission > 0 {
             // `submit_and_restart` replaces the batch and therefore clears the
             // ordinary per-batch hazard sets. Publish shader writes before the
             // split so a dependent dispatch recorded in the next submission
@@ -6283,6 +6647,8 @@ impl ComputeBatch {
     pub(crate) fn submit_and_restart(&mut self) -> Result<()> {
         let device = self.device.clone();
         let watchdog_submission_slicing = self.watchdog_submission_slicing;
+        let watchdog_slice_dispatch_budget = self.watchdog_slice_dispatch_budget;
+        let watchdog_slice_budget_window = self.watchdog_slice_budget_window;
         let persistent_arena = match &self.upload_arena {
             UploadArenaStorage::Persistent(arena) => Some(Arc::clone(arena)),
             UploadArenaStorage::Local(_) => None,
@@ -6292,13 +6658,52 @@ impl ComputeBatch {
         // so install a short-lived local placeholder before submitting `current`.
         // Once submission/wait releases the arena, the replacement can acquire
         // that same arena for the reverse phase.
+        // Structural counters describe the stream a caller recorded, not the slice
+        // that happens to be open at the end of it, so they survive a retirement
+        // and are carried into the replacement batch. Reporting only the last
+        // slice made the numbers a validation script compares (`dispatch_count`,
+        // barrier and bind counts) shrink to the tail of a sliced stream, which
+        // reads as a regression in the recorded structure when it is only a change
+        // of submission granularity. The gate below uses the since-retirement
+        // count instead, so it is unaffected.
+        let retired_counts = StreamCounters::from_batch(self);
+        // What the retirement is about to cost, which is the bound's own input:
+        // the length of the submission that is retiring, and the wall time its
+        // submission and completion actually take. This is the one place where
+        // "what one submission holds" is a measurement rather than an estimate.
+        let retired_dispatches = self.dispatches_since_submission;
+        let budget_is_measured = watchdog_submission_slicing
+            && watchdog_slice_budget_window.is_some()
+            && retired_dispatches > 0;
         let placeholder = Self::new(&device)?;
         let current = std::mem::replace(self, placeholder);
-        current.submit()?;
+        let started = Instant::now();
+        let submitted = current.submit();
+        let elapsed_micros = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
+        submitted?;
         if let Some(arena) = persistent_arena {
             *self = Self::new_with_persistent_upload_arena(&device, arena)?;
         }
+        retired_counts.carry_into(self);
         self.watchdog_submission_slicing = watchdog_submission_slicing;
+        self.watchdog_slice_budget_window = watchdog_slice_budget_window;
+        self.watchdog_slice_dispatch_budget = if budget_is_measured {
+            let calibrated = watchdog_slice_budget_after_retirement(
+                watchdog_slice_dispatch_budget,
+                retired_dispatches,
+                elapsed_micros,
+                GEN9_WATCHDOG_SLICE_MICROS,
+                watchdog_slice_budget_window,
+            );
+            // Publish it for the batches that follow this one, so a bound learned
+            // while the graph warms up is not re-learned per step.
+            self.inner
+                .watchdog_slice_dispatch_budget_hint
+                .fetch_max(calibrated, Ordering::Relaxed);
+            calibrated
+        } else {
+            watchdog_slice_dispatch_budget
+        };
         Ok(())
     }
 
@@ -6683,9 +7088,10 @@ impl ComputeBatch {
             return Ok(());
         }
         profile.sampled += 1;
-        let needs_chunk = profile.chunks.last().is_none_or(|chunk| {
-            chunk.samples.len() == KERNEL_PROFILE_DISPATCHES_PER_POOL
-        });
+        let needs_chunk = profile
+            .chunks
+            .last()
+            .is_none_or(|chunk| chunk.samples.len() == KERNEL_PROFILE_DISPATCHES_PER_POOL);
         if needs_chunk {
             let query_count = u32::try_from(KERNEL_PROFILE_DISPATCHES_PER_POOL * 2)
                 .context("Vulkan kernel-profile query count exceeds u32 range")?;
@@ -7070,7 +7476,9 @@ impl Drop for ComputeBatch {
                 for chunk in profile.chunks.drain(..) {
                     self.inner.device.destroy_query_pool(chunk.pool, None);
                 }
-                self.inner.device.destroy_query_pool(profile.span_pool, None);
+                self.inner
+                    .device
+                    .destroy_query_pool(profile.span_pool, None);
             }
         }
         for chunk in self.descriptor_pools.drain(..) {
@@ -7127,9 +7535,7 @@ fn emit_kernel_timestamp_profile_for_inner(
             let stats = by_shader.entry(sample.shader).or_default();
             stats.sampled = stats.sampled.saturating_add(1);
             stats.ticks = stats.ticks.saturating_add(ticks);
-            let entry = placement
-                .entry((sample.shader, sample.shape))
-                .or_default();
+            let entry = placement.entry((sample.shader, sample.shape)).or_default();
             entry.groups = sample.groups;
             if sample.after_barrier {
                 entry.after_barrier_dispatches = entry.after_barrier_dispatches.saturating_add(1);
@@ -7145,10 +7551,8 @@ fn emit_kernel_timestamp_profile_for_inner(
     // was timed. With the default stride of one this is exactly the old sum.
     for stats in by_shader.values_mut() {
         if stats.sampled > 0 && stats.dispatches > 0 {
-            stats.ticks = stats
-                .ticks
-                .saturating_mul(stats.dispatches as u128)
-                / stats.sampled as u128;
+            stats.ticks =
+                stats.ticks.saturating_mul(stats.dispatches as u128) / stats.sampled as u128;
         }
         total_ticks = total_ticks.saturating_add(stats.ticks);
         total_dispatches = total_dispatches.saturating_add(stats.dispatches);
@@ -7198,8 +7602,7 @@ fn emit_kernel_timestamp_profile_for_inner(
         ) as u128;
         let unattributed_ticks = unattributed_span_ticks(span_ticks, total_ticks);
         let span_ms = span_ticks as f64 * profile.timestamp_period_ns / 1_000_000.0;
-        let unattributed_ms =
-            unattributed_ticks as f64 * profile.timestamp_period_ns / 1_000_000.0;
+        let unattributed_ms = unattributed_ticks as f64 * profile.timestamp_period_ns / 1_000_000.0;
         let unattributed_pct = if span_ticks == 0 {
             0.0
         } else {
@@ -7611,6 +8014,10 @@ impl ComputeKernel {
             .dispatch_count
             .checked_add(1)
             .context("Vulkan compute-batch dispatch count overflow")?;
+        batch.dispatches_since_submission = batch
+            .dispatches_since_submission
+            .checked_add(1)
+            .context("Vulkan compute-batch slice dispatch count overflow")?;
 
         if batch.bound_pipeline != Some(self.pipeline) {
             self.inner.with_command_pool_host_access(|| unsafe {
@@ -7708,13 +8115,17 @@ impl ComputeKernel {
         })?;
         batch.record_kernel_timestamp_end()?;
         batch.finish_shader_dispatch(self.shader_signature, buffers, &self.binding_accesses);
-        // On Linux AMD, a single command buffer containing a full training
-        // phase can run far beyond amdgpu's default scheduler timeout even
-        // when each dispatch is healthy. Retire each dispatch as its own job
-        // on the watchdog-safe path. This intentionally trades throughput for
-        // liveness only on the affected default platform; other platforms keep
-        // the legacy batching behavior, and the environment override can
-        // disable/force the policy for diagnosis.
+        // On the watchdog platforms (Linux AMD, and the Intel Gen9 target on
+        // Windows), a single command buffer containing a full training phase can
+        // run far beyond the driver's default job timeout even when each dispatch
+        // is healthy. Retire at the device class's own slice point on the
+        // watchdog-safe path: every dispatch on the AMD target, and every
+        // its own measured length bound on the Gen9 class, whose per-dispatch
+        // granularity was measured buying nothing. This intentionally
+        // trades throughput for liveness only on the affected device classes;
+        // every other device keeps the legacy batching behavior, and the
+        // environment overrides can disable/force or re-granulate the policy for
+        // diagnosis.
         batch.watchdog_checkpoint()?;
         Ok(())
     }
@@ -7745,14 +8156,18 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        insert_free_range, intern_kernel_layouts, kernel_profile_category, take_aligned_range,
-        timestamp_delta, view_key_overlaps, watchdog_submission_slicing_enabled_for,
-        BufferRegionKey, ComputeBatch, ComputeKernel,
-        DescriptorLayoutSignature, GpuBuffer, MemoryRange, PipelineLayoutSignature,
-        SubmissionCompletion, UploadArenaStorage, VulkanDevice, VulkanDeviceGroupInfo,
-        VulkanExternalBufferCapabilities, VulkanExternalSemaphoreCapabilities,
-        VulkanGradientTransportBackend, VulkanMemoryBudget, VulkanPhysicalDeviceInfo,
-        AMD_PCI_VENDOR_ID,
+        insert_free_range, intern_kernel_layouts, is_intel_gen9_pci_id, kernel_profile_category,
+        take_aligned_range, timestamp_delta, view_key_overlaps,
+        watchdog_slice_budget_after_retirement, watchdog_slice_budget_window_for,
+        watchdog_slice_dispatch_budget_for, watchdog_submission_slicing_enabled_for,
+        BufferRegionKey, ComputeBatch, ComputeKernel, DescriptorLayoutSignature, GpuBuffer,
+        MemoryRange, PersistentUploadArena, PipelineLayoutSignature, SubmissionCompletion,
+        UploadArenaStorage, VulkanDevice, VulkanDeviceGroupInfo, VulkanExternalBufferCapabilities,
+        VulkanExternalSemaphoreCapabilities, VulkanGradientTransportBackend, VulkanMemoryBudget,
+        VulkanPhysicalDeviceInfo, AMD_PCI_VENDOR_ID, AMD_WATCHDOG_PLATFORM,
+        GEN9_WATCHDOG_SLICE_DISPATCHES, GEN9_WATCHDOG_SLICE_DISPATCHES_CEILING,
+        GEN9_WATCHDOG_SLICE_MICROS, GEN9_WATCHDOG_SLICING_DEFAULT, INTEL_PCI_VENDOR_ID,
+        INTEL_WATCHDOG_PLATFORM, WATCHDOG_SLICE_DISPATCHES_ENV, WATCHDOG_SUBMISSIONS_ENV,
     };
     use anyhow::{anyhow, Context, Result};
 
@@ -7826,7 +8241,11 @@ mod tests {
 
     #[test]
     fn overlapping_view_detection_distinguishes_overlap_from_distinct_ranges() {
-        let key = |buffer: u64, offset: u64, size: u64| BufferRegionKey { buffer, offset, size };
+        let key = |buffer: u64, offset: u64, size: u64| BufferRegionKey {
+            buffer,
+            offset,
+            size,
+        };
         // Same buffer, ranges that share bytes: the case the exact-key check misses.
         assert!(view_key_overlaps(key(1, 0, 4096), key(1, 2048, 4096)));
         assert!(view_key_overlaps(key(1, 2048, 4096), key(1, 0, 4096)));
@@ -8540,32 +8959,511 @@ mod tests {
     }
 
     #[test]
-    fn gpu_job_boundary_policy_defaults_to_amd_on_watchdog_oses() {
+    fn gpu_job_boundary_policy_defaults_to_amd_and_scopes_the_gen9_port() {
+        // AMD is unchanged: every AMD device, Linux only, and the Gen9 switch
+        // cannot leak into it.
         assert!(watchdog_submission_slicing_enabled_for(
             AMD_PCI_VENDOR_ID,
+            0x164E,
             None,
-            true
+            true,
+            true,
+            true,
         ));
         assert!(!watchdog_submission_slicing_enabled_for(
             AMD_PCI_VENDOR_ID,
+            0x164E,
             None,
-            false
+            false,
+            true,
+            true,
         ));
-        assert!(!watchdog_submission_slicing_enabled_for(0x10de, None, true));
+        // The port's device class: the Gen9/Gen9.5 parts, on the Windows platform
+        // whose timer the Gen9 resets were measured against, and nowhere else.
+        assert!(watchdog_submission_slicing_enabled_for(
+            INTEL_PCI_VENDOR_ID,
+            0x1916,
+            None,
+            false,
+            true,
+            true,
+        ));
+        assert!(!watchdog_submission_slicing_enabled_for(
+            INTEL_PCI_VENDOR_ID,
+            0x1916,
+            None,
+            true,
+            false,
+            true,
+        ));
+        // With the switch off the same class on the same platform keeps the legacy
+        // single-submit path, so the term that decides is the switch and not the
+        // class, and the switch is on because the boundary it selects is now the
+        // length-based one rather than the per-dispatch one.
+        assert!(!watchdog_submission_slicing_enabled_for(
+            INTEL_PCI_VENDOR_ID,
+            0x1916,
+            None,
+            false,
+            true,
+            false,
+        ));
+        assert!(
+            GEN9_WATCHDOG_SLICING_DEFAULT,
+            "the default must follow the measured boundary, not the withdrawn one"
+        );
+        // Nothing wider: another Intel generation, and another vendor.
+        assert!(!watchdog_submission_slicing_enabled_for(
+            INTEL_PCI_VENDOR_ID,
+            0x8A52,
+            None,
+            true,
+            true,
+            true,
+        ));
+        assert!(!watchdog_submission_slicing_enabled_for(
+            INTEL_PCI_VENDOR_ID,
+            0x56A0,
+            None,
+            true,
+            true,
+            true,
+        ));
+        assert!(!watchdog_submission_slicing_enabled_for(
+            0x10de, 0x1C82, None, true, true, true
+        ));
     }
 
     #[test]
     fn gpu_job_boundary_policy_honors_explicit_override() {
         assert!(watchdog_submission_slicing_enabled_for(
             0x10de,
+            0x1C82,
             Some(std::ffi::OsStr::new("1")),
+            false,
+            false,
             false,
         ));
         assert!(!watchdog_submission_slicing_enabled_for(
             AMD_PCI_VENDOR_ID,
+            0x164E,
             Some(std::ffi::OsStr::new("0")),
             true,
+            true,
+            true,
         ));
+        // The override is what reaches the ported Gen9 slice point while its
+        // default stays off, so it has to beat both terms.
+        assert!(watchdog_submission_slicing_enabled_for(
+            INTEL_PCI_VENDOR_ID,
+            0x1916,
+            Some(std::ffi::OsStr::new("1")),
+            false,
+            true,
+            false,
+        ));
+        assert!(!watchdog_submission_slicing_enabled_for(
+            INTEL_PCI_VENDOR_ID,
+            0x1916,
+            Some(std::ffi::OsStr::new("disabled")),
+            true,
+            true,
+            true,
+        ));
+    }
+
+    #[test]
+    fn watchdog_slice_budget_is_per_dispatch_on_amd_and_length_based_on_gen9() {
+        // AMD keeps the per-dispatch granularity its scheduler timeout wants, and
+        // every other vendor keeps it too.
+        assert_eq!(
+            watchdog_slice_dispatch_budget_for(AMD_PCI_VENDOR_ID, 0x164E, None),
+            1
+        );
+        assert_eq!(watchdog_slice_dispatch_budget_for(0x10de, 0x1C82, None), 1);
+        assert_eq!(
+            watchdog_slice_dispatch_budget_for(INTEL_PCI_VENDOR_ID, 0x8A52, None),
+            1
+        );
+        assert_eq!(
+            watchdog_slice_dispatch_budget_for(INTEL_PCI_VENDOR_ID, 0x56A0, None),
+            1
+        );
+        // Only the ported class retires on accumulated length.
+        assert_eq!(
+            watchdog_slice_dispatch_budget_for(INTEL_PCI_VENDOR_ID, 0x1916, None),
+            GEN9_WATCHDOG_SLICE_DISPATCHES
+        );
+        assert!(
+            GEN9_WATCHDOG_SLICE_DISPATCHES > 1,
+            "a length-based slice point that retires every dispatch is the AMD one"
+        );
+        // The override reaches every device, and an unusable value falls back to
+        // the device's own policy instead of quietly removing the bound.
+        assert_eq!(
+            watchdog_slice_dispatch_budget_for(
+                AMD_PCI_VENDOR_ID,
+                0x164E,
+                Some(std::ffi::OsStr::new("4")),
+            ),
+            4
+        );
+        assert_eq!(
+            watchdog_slice_dispatch_budget_for(
+                INTEL_PCI_VENDOR_ID,
+                0x1916,
+                Some(std::ffi::OsStr::new("1")),
+            ),
+            1
+        );
+        for unusable in ["0", "nope", "-3", ""] {
+            assert_eq!(
+                watchdog_slice_dispatch_budget_for(
+                    INTEL_PCI_VENDOR_ID,
+                    0x1916,
+                    Some(std::ffi::OsStr::new(unusable)),
+                ),
+                GEN9_WATCHDOG_SLICE_DISPATCHES,
+                "{unusable:?} must fall back to the policy"
+            );
+        }
+    }
+
+    #[test]
+    fn watchdog_slice_budget_retires_on_accumulated_length() -> Result<()> {
+        // The budget is a real gate, not a comment: below it a stream stays in one
+        // submission, at it the submission is retired, and the replacement batch
+        // keeps both the policy and its granularity. A forced checkpoint ignores
+        // the budget, which is what the per-layer phase boundaries ask for.
+        let device = VulkanDevice::new()?;
+        let input = GpuBuffer::zeros_f32(&device, 4)?;
+        let weight = GpuBuffer::zeros_f32(&device, 4)?;
+        let output = GpuBuffer::zeros_f32(&device, 4)?;
+        let kernel = ComputeKernel::new(
+            &device,
+            include_bytes!("../shaders/linear_forward.spv"),
+            3,
+            16,
+        )?;
+        let mut commands = ComputeBatch::new(&device)?;
+        commands.watchdog_submission_slicing = true;
+        // A budget the caller fixed -- the same thing an explicit
+        // HIERARCHOS_VULKAN_WATCHDOG_SLICE_DISPATCHES produces -- is not a seed
+        // for the measured bound, so this test pins it the way the constructor
+        // does when that override is set.
+        commands.watchdog_slice_budget_window = None;
+        commands.watchdog_slice_dispatch_budget = 4;
+        commands.upload_f32(&input, &[1.0, 2.0, 3.0, 4.0])?;
+        commands.upload_f32(&weight, &[2.0, 3.0, 4.0, 5.0])?;
+        let push_words = [1u32, 4, 1, 0];
+        let record = |commands: &mut ComputeBatch| {
+            kernel.record_dispatch(
+                commands,
+                &[&input, &weight, &output],
+                bytemuck::cast_slice(&push_words),
+                [1, 1, 1],
+            )
+        };
+        for recorded in 1..=3u32 {
+            record(&mut commands)?;
+            assert_eq!(
+                commands.dispatch_count, recorded as usize,
+                "below the budget the stream stays batched"
+            );
+        }
+        record(&mut commands)?;
+        assert_eq!(
+            commands.dispatches_since_submission, 0,
+            "the budget's dispatch retires the submission"
+        );
+        assert_eq!(
+            commands.dispatch_count, 4,
+            "and the structural count still reports the whole recorded stream"
+        );
+        assert!(
+            commands.watchdog_submission_slicing,
+            "the replacement batch keeps the policy"
+        );
+        assert_eq!(commands.watchdog_slice_dispatch_budget, 4);
+        record(&mut commands)?;
+        commands.force_watchdog_checkpoint()?;
+        assert_eq!(
+            commands.dispatches_since_submission, 0,
+            "a phase boundary retires without waiting for the budget"
+        );
+        assert_eq!(commands.dispatch_count, 5, "carried, not reset");
+        commands.submit()?;
+        let values = output.read_f32(4)?;
+        assert!(values.iter().all(|value| value.is_finite()));
+        Ok(())
+    }
+
+    #[test]
+    fn watchdog_slice_budget_is_a_measured_bound_inside_a_measured_window() {
+        // The Gen9 budget is derived from what a retirement actually cost rather
+        // than chosen for one fixture: a submission that was cheap for its length
+        // widens it, a slow one cannot tighten it below the shipped count, and
+        // neither can leave the window. Devices outside the ported class have no
+        // window at all, so their budget cannot drift away from their policy.
+        let window = watchdog_slice_budget_window_for(INTEL_PCI_VENDOR_ID, 0x1916);
+        assert_eq!(
+            window,
+            Some((
+                GEN9_WATCHDOG_SLICE_DISPATCHES,
+                GEN9_WATCHDOG_SLICE_DISPATCHES_CEILING
+            ))
+        );
+        assert!(watchdog_slice_budget_window_for(AMD_PCI_VENDOR_ID, 0x164E).is_none());
+        assert!(watchdog_slice_budget_window_for(INTEL_PCI_VENDOR_ID, 0x8A52).is_none());
+        assert!(watchdog_slice_budget_window_for(0x10de, 0x1C82).is_none());
+
+        let target = GEN9_WATCHDOG_SLICE_MICROS;
+        // 1024 dispatches in 30 ms is 8533 at the target, past the ceiling, so the
+        // window is what answers -- the bound is a time bound, not an extrapolation
+        // without a limit.
+        assert_eq!(
+            watchdog_slice_budget_after_retirement(1024, 1024, 30_000, target, window),
+            GEN9_WATCHDOG_SLICE_DISPATCHES_CEILING
+        );
+        // The same 1024 dispatches in 200 ms is 2048 at the target: inside the
+        // window and above the floor, which is the case the port pays for.
+        assert_eq!(
+            watchdog_slice_budget_after_retirement(1024, 1024, 200_000, target, window),
+            2048
+        );
+        // A retirement too slow for the target cannot tighten the shipped count,
+        // and neither can one that is slower than a budget already wider than it:
+        // a sample widens or it is ignored, which is what keeps a cold first
+        // slice from pinning a whole run at its own warmup granularity.
+        assert_eq!(
+            watchdog_slice_budget_after_retirement(1024, 1024, 2_000_000, target, window),
+            GEN9_WATCHDOG_SLICE_DISPATCHES
+        );
+        assert_eq!(
+            watchdog_slice_budget_after_retirement(4000, 1024, 2_000_000, target, window),
+            4000
+        );
+        // No measurement, no movement: an empty retirement or an unmeasurable
+        // clock leaves the bound alone instead of extrapolating from nothing.
+        for (dispatches, elapsed_micros) in [(0usize, 30_000u64), (1024, 0)] {
+            assert_eq!(
+                watchdog_slice_budget_after_retirement(
+                    1024,
+                    dispatches,
+                    elapsed_micros,
+                    target,
+                    window
+                ),
+                GEN9_WATCHDOG_SLICE_DISPATCHES
+            );
+        }
+        // No window is a device whose budget is a policy constant: the sample is
+        // ignored outright, which is what keeps AMD at one dispatch per
+        // submission even though its dispatches are cheap enough to extrapolate.
+        assert_eq!(
+            watchdog_slice_budget_after_retirement(1, 1024, 30_000, target, None),
+            1
+        );
+    }
+
+    #[test]
+    fn watchdog_slice_budget_follows_the_measured_retirement_on_this_adapter() -> Result<()> {
+        // The measurement is only a port if a real retirement moves the budget on
+        // the adapter that is present. On the ported class a retirement that was
+        // cheap for its length must leave the shipped floor behind and stay inside
+        // the window; a pinned budget must survive the same retirement untouched.
+        let device = VulkanDevice::new()?;
+        let input = GpuBuffer::zeros_f32(&device, 4)?;
+        let weight = GpuBuffer::zeros_f32(&device, 4)?;
+        let output = GpuBuffer::zeros_f32(&device, 4)?;
+        let kernel = ComputeKernel::new(
+            &device,
+            include_bytes!("../shaders/linear_forward.spv"),
+            3,
+            16,
+        )?;
+        let push_words = [1u32, 4, 1, 0];
+        let record = |commands: &mut ComputeBatch| {
+            kernel.record_dispatch(
+                commands,
+                &[&input, &weight, &output],
+                bytemuck::cast_slice(&push_words),
+                [1, 1, 1],
+            )
+        };
+        let window = watchdog_slice_budget_window_for(device.vendor_id(), device.device_id());
+        assert_eq!(
+            window.is_some(),
+            is_intel_gen9_pci_id(device.vendor_id(), device.device_id()),
+            "the window belongs to exactly the class the ported policy covers"
+        );
+
+        let mut pinned = ComputeBatch::new(&device)?;
+        pinned.watchdog_submission_slicing = true;
+        pinned.watchdog_slice_budget_window = None;
+        pinned.watchdog_slice_dispatch_budget = 8;
+        for _ in 0..8 {
+            record(&mut pinned)?;
+        }
+        assert_eq!(
+            pinned.dispatches_since_submission, 0,
+            "a pinned budget still retires the submission"
+        );
+        assert_eq!(
+            pinned.watchdog_slice_dispatch_budget, 8,
+            "a pinned budget is not a seed for a measurement"
+        );
+        pinned.submit()?;
+
+        let Some((floor, ceiling)) = window else {
+            // The other arms are the shipped policy's, and this adapter is not the
+            // class that ports it. The pinned arm above is device-independent.
+            return Ok(());
+        };
+        let mut measured = ComputeBatch::new(&device)?;
+        measured.watchdog_submission_slicing = true;
+        measured.watchdog_slice_dispatch_budget = floor;
+        // The floor is 1024 of these dispatches -- far cheaper than the 250 ms
+        // target -- so the retirement has to widen the bound, and the window's
+        // ceiling is what caps it.
+        for _ in 0..floor {
+            record(&mut measured)?;
+        }
+        assert_eq!(
+            measured.dispatches_since_submission, 0,
+            "the measured budget retires the submission at the floor"
+        );
+        assert!(
+            measured.watchdog_slice_dispatch_budget > floor,
+            "a retirement this cheap for its length must widen the {floor}-dispatch floor, not pin it"
+        );
+        assert!(
+            measured.watchdog_slice_dispatch_budget <= ceiling,
+            "the window is the ceiling, and {} exceeds it",
+            measured.watchdog_slice_dispatch_budget
+        );
+        // The bound is published for the batches that follow, which is what keeps
+        // every step of a run from re-learning it at the floor.
+        let hint = device
+            .inner
+            .watchdog_slice_dispatch_budget_hint
+            .load(std::sync::atomic::Ordering::Relaxed);
+        assert_eq!(
+            hint, measured.watchdog_slice_dispatch_budget,
+            "the calibrated bound is what this device has measured"
+        );
+        let next_batch = ComputeBatch::new(&device)?;
+        assert_eq!(
+            next_batch.watchdog_slice_dispatch_budget, hint,
+            "a later batch starts from the device's measurement, not from the floor"
+        );
+        assert_eq!(
+            next_batch.watchdog_slice_budget_window, window,
+            "and its window is the same class's"
+        );
+        measured.submit()?;
+        Ok(())
+    }
+
+    #[test]
+    fn gen9_pci_table_is_the_one_the_vendor_layer_publishes() {
+        // The table is defined in this file so the standalone shader harnesses
+        // can compile it; the vendor layer must agree for every ID it matches,
+        // and for the neighbours on either side of each range.
+        for device_id in [
+            0x1902u32, 0x1906, 0x190B, 0x1912, 0x1916, 0x191E, 0x1921, 0x1923, 0x1926, 0x1927,
+            0x192A, 0x192B, 0x1932, 0x193A, 0x193B, 0x193D, 0x5900, 0x591C, 0x593F, 0x5A84, 0x5A85,
+            0x87C0, 0x18FF, 0x1940, 0x58FF, 0x5940, 0x87BF, 0x87C1,
+        ] {
+            assert_eq!(
+                is_intel_gen9_pci_id(INTEL_PCI_VENDOR_ID, device_id),
+                crate::vendor::is_intel_gen9_pci_id(INTEL_PCI_VENDOR_ID, device_id),
+                "Gen9 classification disagrees for device 0x{device_id:04X}",
+            );
+            assert!(!is_intel_gen9_pci_id(AMD_PCI_VENDOR_ID, device_id));
+        }
+    }
+
+    #[test]
+    fn watchdog_slicing_is_wired_into_the_training_path_on_this_adapter() {
+        // A policy is only a port if the shipped batch constructors act on it.
+        // `new_with_persistent_upload_arena` is the constructor the training
+        // graph builds its phases with, so it must come out of construction with
+        // slicing enabled exactly when the pure policy says so on the adapter
+        // that is actually present -- which is the assertion that cannot pass
+        // vacuously on a machine whose device class the policy does not cover.
+        let Ok(device) = VulkanDevice::new() else {
+            return;
+        };
+        let expected = watchdog_submission_slicing_enabled_for(
+            device.vendor_id(),
+            device.device_id(),
+            std::env::var_os(WATCHDOG_SUBMISSIONS_ENV).as_deref(),
+            AMD_WATCHDOG_PLATFORM,
+            INTEL_WATCHDOG_PLATFORM,
+            GEN9_WATCHDOG_SLICING_DEFAULT,
+        );
+        let plain = ComputeBatch::new(&device).expect("compute batch");
+        assert_eq!(plain.watchdog_submission_slicing_recommended, expected);
+        assert_eq!(
+            plain.watchdog_slice_dispatch_budget,
+            watchdog_slice_dispatch_budget_for(
+                device.vendor_id(),
+                device.device_id(),
+                std::env::var_os(WATCHDOG_SLICE_DISPATCHES_ENV).as_deref(),
+            ),
+            "the slice granularity must follow the same device class as the policy"
+        );
+        assert!(
+            !plain.watchdog_submission_slicing,
+            "the plain constructor must not slice a caller's stream unasked"
+        );
+        let arena = PersistentUploadArena::new();
+        let training =
+            ComputeBatch::new_with_persistent_upload_arena(&device, std::sync::Arc::clone(&arena))
+                .expect("persistent-arena batch");
+        assert_eq!(
+            training.watchdog_submission_slicing,
+            expected,
+            "the training-path constructor and the pure policy disagree on {:?}",
+            device.name(),
+        );
+        // Agreeing on `false` would prove nothing, so where the adapter really is
+        // the ported part class, assert both directions of the slice point: the
+        // unforced recommendation follows the shipped switch, and the override
+        // reaches it. Without this the constructor wiring could pass vacuously on
+        // a machine whose class the policy does not cover.
+        if is_intel_gen9_pci_id(device.vendor_id(), device.device_id())
+            && std::env::var_os(WATCHDOG_SUBMISSIONS_ENV).is_none()
+        {
+            assert!(
+                INTEL_WATCHDOG_PLATFORM,
+                "the Gen9 port is scoped to the platform its resets were measured on"
+            );
+            assert_eq!(expected, GEN9_WATCHDOG_SLICING_DEFAULT);
+            assert!(
+                watchdog_submission_slicing_enabled_for(
+                    device.vendor_id(),
+                    device.device_id(),
+                    Some(std::ffi::OsStr::new("1")),
+                    AMD_WATCHDOG_PLATFORM,
+                    INTEL_WATCHDOG_PLATFORM,
+                    GEN9_WATCHDOG_SLICING_DEFAULT,
+                ),
+                "the ported slice point must be reachable on the part it was ported to"
+            );
+        }
+        // The key-range split's per-block loop calls `submit_and_restart` between
+        // blocks, and with this policy live each block's single dispatch is
+        // already retired by the checkpoint in `record_dispatch`, so that call
+        // submits an empty command stream. Submitting both emptied batches here
+        // keeps that path honest instead of discovering it on a training run.
+        plain
+            .submit()
+            .expect("submitting a batch with no dispatches");
+        training
+            .submit()
+            .expect("submitting the training batch with no dispatches");
     }
 
     #[test]
