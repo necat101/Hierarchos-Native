@@ -363,7 +363,11 @@ silently collapse onto one graph.
 | `verify_rwkv_packed_cell_composition.py` | 3 steps, 15 comparisons, exit 0, worst `0.0` on every tensor |
 | ... kernel selection | fused leg `packed-cell-forward-kernel: fused` with empty `variant-dispatch`; composed leg `composed` with `linear-forward=1 linear-residual-forward=1` per step |
 | ... vendor plan | `linear-forward=intel-gen9-lds linear-residual-forward=intel-gen9-lds` on this host |
+| ... vendor qualification (`--expected-vendor intel`) | exit 0; the receipt records `expected_vendor=intel`, `qualified_vendor=intel` and the two resolved variants |
+| ... wrong-vendor guard (`--expected-vendor amd` on this host) | exit 1: `linear-forward resolved 'intel-gen9-lds', not an amd module; this host cannot qualify the amd path` |
+| `test_rwkv_composition_receipt.py` | 7 tests OK, 1 skipped (live GPU leg gated by `HIERARCHOS_RUN_GPU_VALIDATION=1`) |
 | Negative control (`x` scaled by `1.01` on the composed leg) | rejected at `1.586200e-4` against a `1.038859e-4` bound |
+| `bench_rwkv_packed_cell_composition.py`, batch 8 / 16 / 32 | composed median `0.946x` / `0.882x` / `0.872x` of fused, bit-identical results |
 
 The comparison is bit-exact, not merely within tolerance: the fused shader keeps the
 same lane-serial accumulation order as the portable linear modules and the Gen9
@@ -374,12 +378,26 @@ bit-identical implementations of the same bug. The CPU bridge remains the
 independent oracle for correctness; this check closes the **vendor-linear coverage**
 gap, not the numerical-oracle gap.
 
+The recorded evidence is also a test: `test_rwkv_composition_receipt.py` fails the
+ordinary `unittest discover` run if the receipt loses the per-leg kernel marker, a
+vendor dispatch family, a vendor-specific plan or the negative control. It reads
+evidence rather than re-running the GPU; `HIERARCHOS_RUN_GPU_VALIDATION=1` enables
+the live leg, which is what catches a code regression rather than a stale record.
+
+Throughput (release build, HD 520, width 128, 30 interleaved samples per graph):
+the composed graph is `0.946x` the fused median at batch 8 and `0.872x` at batch 32,
+with `0.0` difference in output and packed state. The fused packed shader is a
+single-dispatch convenience, not a throughput feature on this part; the full table
+and the caveats before deleting it are in
+[PACKED_CELL_COMPOSITION.md](PACKED_CELL_COMPOSITION.md).
+
 **What this does not cover.** Only the channel-mix/state forward is swapped; the
 time-mix, adapter and all backward dispatches are shared between the two legs, so
 their gradients agree by construction once the forward activations agree. This host
-resolves the Intel Gen9 modules only -- the RDNA3 `linear*` modules still need the
-same A/B on an AMD adapter (`HIERARCHOS_VULKAN_FORCE_VENDOR=amd` selects a plan, not
-the hardware).
+resolves the Intel Gen9 modules only: `--expected-vendor amd` is implemented and
+fails closed here, but the RDNA3 `linear*` modules still need the same run on an AMD
+adapter (and `HIERARCHOS_VULKAN_FORCE_VENDOR` is rejected precisely because it would
+name those modules without the hardware).
 
 All 14 headline architectures are covered: the 13 the registry carries
 (`deepseek_v4`, `phi4_multimodal_text`, `phi3`, `kimi_k25_text`, `kimi_k3_text`,

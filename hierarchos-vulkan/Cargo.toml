@@ -106,6 +106,10 @@ name = "hierarchos-vulkan-rwkv-packed-cell-step"
 path = "src/bin/rwkv_packed_cell_step.rs"
 
 [[bin]]
+name = "hierarchos-vulkan-rwkv-packed-cell-composition-bench"
+path = "src/bin/rwkv_packed_cell_composition_bench.rs"
+
+[[bin]]
 name = "hierarchos-vulkan-rwkv-tbptt-sequence-step"
 path = "src/bin/rwkv_tbptt_sequence_step.rs"
 

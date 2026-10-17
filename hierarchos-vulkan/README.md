@@ -587,7 +587,13 @@ Current milestone:
   state and every returned gradient over three recurrent steps. On this host the
   two graphs agree bit-for-bit (`0.0` worst absolute); the harness asserts the
   composed leg really dispatched both vendor families and that the fused leg
-  dispatched nothing, and a perturbed negative control is rejected.
+  dispatched nothing, and a perturbed negative control is rejected. The check
+  names the vendor it qualifies (`--expected-vendor intel|amd`) and refuses a
+  portable or wrong-vendor plan, so the same command qualifies the RDNA3 modules
+  on an AMD adapter. A benchmark shows the fused shader is not a throughput win:
+  the composition is `0.946x` its median at batch 8 and `0.872x` at batch 32, so
+  the fused path is a deletion candidate once the TBPTT forward-only transition
+  is measured ([details](validation/PACKED_CELL_COMPOSITION.md)).
 - The RWKV-v8 low-rank `a/w/g` branches are Vulkan-native in both directions:
   `a = sigmoid(a0 + (xa @ a1) @ a2)`,
   `g = sigmoid(xg @ g1) @ g2`, and

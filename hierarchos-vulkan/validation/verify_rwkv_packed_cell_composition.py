@@ -21,8 +21,18 @@ really dispatched both vendor linear families, because an agreement produced by
 two portable paths would not close the coverage gap, and it runs a perturbed
 negative control through the same comparison.
 
+The tuned modules are per-vendor, so qualification names the vendor it intends
+to cover: `--expected-vendor amd` requires the resolved plan to carry
+`amd-rdna3-*` modules for both linear families and must be run on an RDNA3
+adapter, while `--expected-vendor intel` requires `intel-gen9-*`. `auto` accepts
+whichever vendor the attached adapter resolves, but still refuses a plan that
+falls back to the portable modules. A `HIERARCHOS_VULKAN_FORCE_VENDOR` override
+is rejected outright: it changes which module the plan names without changing
+the hardware that would execute it.
+
 Usage:
     python hierarchos-vulkan/validation/verify_rwkv_packed_cell_composition.py
+    python hierarchos-vulkan/validation/verify_rwkv_packed_cell_composition.py --expected-vendor amd --record receipt.json
 """
 
 from __future__ import annotations
@@ -43,10 +53,12 @@ import verify_rwkv_cpu_bridge as bridge  # noqa: E402  (shared fixture builder)
 
 FUSION_DISABLE_ENV = "HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION"
 VENDOR_FAMILIES = ("linear-forward", "linear-residual-forward")
+VENDOR_PREFIXES = {"intel": "intel-", "amd": "amd-"}
 STEPS = bridge.STEPS
-# Eight rows clear both Gen9 matmul gates: at four to seven rows the value_cm
-# projection (`output_dim` 128) stays on the portable module, so a four-row
-# fixture would not exercise the vendor residual-linear arm at all.
+# Eight rows clear both vendor matmul gates: the Gen9 gate needs `output_dim`
+# 192 below eight rows (value_cm has 128) and the RDNA3 gate needs eight rows
+# outright, so a four-row fixture would not exercise the vendor residual-linear
+# arm on either part.
 BATCH = 8
 
 
@@ -69,29 +81,29 @@ def write_package(directory: Path) -> None:
     save_file({name: value.contiguous() for name, value in tensors.items()}, directory / "model.safetensors")
 
 
-def make_inputs() -> dict:
+def make_inputs(batch: int = BATCH) -> dict:
     generator = torch.Generator().manual_seed(0x48494553)
     state_size = 4 + bridge.HEAD_SIZE
-    initial_state = bridge.tensor((BATCH, bridge.WIDTH, state_size), generator=generator).reshape(-1)
-    xs = [bridge.tensor((BATCH, bridge.WIDTH), generator=generator).reshape(-1).tolist() for _ in range(STEPS)]
+    initial_state = bridge.tensor((batch, bridge.WIDTH, state_size), generator=generator).reshape(-1)
+    xs = [bridge.tensor((batch, bridge.WIDTH), generator=generator).reshape(-1).tolist() for _ in range(STEPS)]
     return {"initial_state": initial_state.tolist(), "xs": xs}
 
 
-def make_gradients() -> dict[str, list[float]]:
+def make_gradients(batch: int = BATCH) -> dict[str, list[float]]:
     generator = torch.Generator().manual_seed(0x48494555)
     return {
-        "grad_output": bridge.tensor((BATCH, bridge.WIDTH), generator=generator).reshape(-1).tolist(),
+        "grad_output": bridge.tensor((batch, bridge.WIDTH), generator=generator).reshape(-1).tolist(),
         "grad_packed_new_state": bridge.tensor(
-            (BATCH, bridge.WIDTH, 4 + bridge.HEAD_SIZE), generator=generator
+            (batch, bridge.WIDTH, 4 + bridge.HEAD_SIZE), generator=generator
         )
         .reshape(-1)
         .tolist(),
     }
 
 
-def payload(x: list[float], packed_state: list[float], grads: dict[str, list[float]]) -> dict:
+def payload(x: list[float], packed_state: list[float], grads: dict[str, list[float]], batch: int = BATCH) -> dict:
     return {
-        "batch": BATCH,
+        "batch": batch,
         "width": bridge.WIDTH,
         "head_size": bridge.HEAD_SIZE,
         "input_dim": bridge.INPUT_DIM,
@@ -99,7 +111,7 @@ def payload(x: list[float], packed_state: list[float], grads: dict[str, list[flo
         "state_clamp": 0.0,
         "x": x,
         "packed_state": packed_state,
-        "token_features": [0.0] * (BATCH * bridge.INPUT_DIM),
+        "token_features": [0.0] * (batch * bridge.INPUT_DIM),
         **grads,
     }
 
@@ -146,6 +158,45 @@ def dispatch_counts(trace: dict) -> dict[str, int]:
     return counts
 
 
+def plan_variants(trace: dict) -> dict[str, str]:
+    variants = {}
+    for entry in trace.get("variant-plan", "").split():
+        family, _, variant = entry.partition("=")
+        variants[family] = variant
+    return variants
+
+
+def require_vendor_plan(trace: dict, expected_vendor: str) -> dict[str, str]:
+    """Fail unless both channel-mix projections resolved a tuned module.
+
+    Returns the two family/variant pairs so the receipt names what was actually
+    qualified. A portable resolution is a coverage failure here, not a pass with
+    a footnote: it means the composed leg ran the same arithmetic as the fused
+    leg through a different scheduler, which is not the comparison this harness
+    exists to make.
+    """
+    variants = plan_variants(trace)
+    for family in VENDOR_FAMILIES:
+        if family not in variants:
+            raise bridge.Mismatch(
+                f"variant plan has no entry for {family}; the runner lost its plan trace"
+            )
+        if variants[family] == "portable":
+            raise bridge.Mismatch(
+                f"{family} resolved the portable module on this adapter; {expected_vendor} "
+                "qualification needs the tuned module, so run this on an adapter that has one"
+            )
+    if expected_vendor != "auto":
+        prefix = VENDOR_PREFIXES[expected_vendor]
+        for family in VENDOR_FAMILIES:
+            if not variants[family].startswith(prefix):
+                raise bridge.Mismatch(
+                    f"{family} resolved {variants[family]!r}, not an {expected_vendor} module; "
+                    f"this host cannot qualify the {expected_vendor} path"
+                )
+    return {family: variants[family] for family in VENDOR_FAMILIES}
+
+
 def negative_control(
     binary: Path,
     model_dir: Path,
@@ -183,9 +234,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--atol", type=float, default=1.0e-4, help="absolute part of the agreement bound")
     parser.add_argument("--rtol", type=float, default=1.0e-5, help="relative part of the agreement bound")
+    parser.add_argument(
+        "--expected-vendor",
+        choices=("auto", "intel", "amd"),
+        default="auto",
+        help="require the resolved channel-mix modules to be this vendor's tuned variants",
+    )
     parser.add_argument("--keep-fixtures", type=Path)
     parser.add_argument("--record", type=Path, help="write the JSON receipt here")
     args = parser.parse_args()
+
+    if "HIERARCHOS_VULKAN_FORCE_VENDOR" in os.environ:
+        raise bridge.Mismatch(
+            "HIERARCHOS_VULKAN_FORCE_VENDOR is set; qualification must run on the adapter it "
+            "names, because a forced plan dispatches modules the hardware was not classified for"
+        )
 
     binary = bridge.build_binary(bridge.VULKAN_MANIFEST, "hierarchos-vulkan-rwkv-packed-cell-step")
     cleanup = None
@@ -261,6 +324,14 @@ def main() -> int:
                 "ran portable modules, so it does not exercise the vendor-linear graph this check exists "
                 "to cover"
             )
+        composed_variants = require_vendor_plan(traces["composed"], args.expected_vendor)
+        qualified_vendor = "amd" if any(
+            variant.startswith("amd-") for variant in composed_variants.values()
+        ) else "intel"
+        if args.expected_vendor != "auto" and qualified_vendor != args.expected_vendor:
+            raise bridge.Mismatch(
+                f"qualified {qualified_vendor} modules while asking for {args.expected_vendor}"
+            )
 
         print("negative control")
         control = negative_control(
@@ -292,6 +363,9 @@ def main() -> int:
             "fused": traces["fused"].get("packed-cell-forward-kernel", ""),
             "composed": traces["composed"].get("packed-cell-forward-kernel", ""),
         },
+        "expected_vendor": args.expected_vendor,
+        "qualified_vendor": qualified_vendor,
+        "composed_variants": composed_variants,
         "vendor_plan": traces["composed"].get("variant-plan", ""),
         "fused_dispatch": traces["fused"].get("variant-dispatch", ""),
         "composed_dispatch": traces["composed"].get("variant-dispatch", ""),

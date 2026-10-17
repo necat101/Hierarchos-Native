@@ -1,0 +1,27 @@
+{
+  "device": "Intel(R) HD Graphics 520",
+  "width": 128,
+  "state_size": 20,
+  "batch": 8,
+  "fused_kernel_marker": true,
+  "composed_kernel_marker": true,
+  "max_abs_output": 0.0,
+  "max_abs_packed_state": 0.0,
+  "fused": {
+    "kernel": "fused",
+    "samples": 30,
+    "median_ms": 4.201650000000001,
+    "mean_ms": 4.211463333333333,
+    "min_ms": 4.0412,
+    "max_ms": 4.435
+  },
+  "composed": {
+    "kernel": "composed",
+    "samples": 30,
+    "median_ms": 3.9737,
+    "mean_ms": 4.007866666666668,
+    "min_ms": 3.8593,
+    "max_ms": 4.5886
+  },
+  "composed_over_fused": 0.9457475039567788
+}

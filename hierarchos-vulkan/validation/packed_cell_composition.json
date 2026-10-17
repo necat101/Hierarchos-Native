@@ -12,6 +12,12 @@
     "fused": "fused",
     "composed": "composed"
   },
+  "expected_vendor": "intel",
+  "qualified_vendor": "intel",
+  "composed_variants": {
+    "linear-forward": "intel-gen9-lds",
+    "linear-residual-forward": "intel-gen9-lds"
+  },
   "vendor_plan": "linear-forward=intel-gen9-lds linear-bias-forward=intel-gen9-lds linear-residual-forward=intel-gen9-lds linear3-forward=intel-gen9-lds silu-forward=portable silu-backward=portable adamw=portable",
   "fused_dispatch": "",
   "composed_dispatch": "linear-forward=1 linear-residual-forward=1",
