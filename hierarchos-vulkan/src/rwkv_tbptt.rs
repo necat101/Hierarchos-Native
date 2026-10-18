@@ -2121,6 +2121,14 @@ impl RwkvTbpttSequenceOp {
         self.state_size
     }
 
+    /// Which full-forward time-mix projection graph this sequence dispatches
+    /// for `batch`; see `RwkvPackedCellOp::time_mix_full_forward_projection_label`.
+    /// The sequence owns one packed cell, so the end-to-end TBPTT benchmark can
+    /// prove which projection its forward sweep is really running.
+    pub fn time_mix_full_forward_projection_label(&self, batch: usize) -> &'static str {
+        self.cell.time_mix_full_forward_projection_label(batch)
+    }
+
     /// Whether first-pass TBPTT forward transitions keep recurrent matrix
     /// state packed and suppress backward-only tape stores on this device.
     pub fn packed_forward_only_active(&self) -> bool {

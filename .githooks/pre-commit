@@ -1,0 +1,41 @@
+#!/bin/sh
+# One-pass workspace gate for the four native crates.
+#
+# Runs check-workspace.ps1, which covers every crate library and every binary
+# target in a single `cargo check --workspace --bins` invocation. Install it
+# once with `git config core.hooksPath .githooks`.
+#
+# Set SKIP_WORKSPACE_CHECK=1 (or use `git commit --no-verify`) for a commit that
+# must bypass the gate.
+set -e
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+if [ -n "$SKIP_WORKSPACE_CHECK" ]; then
+    echo "pre-commit: SKIP_WORKSPACE_CHECK is set; skipping the workspace check"
+    exit 0
+fi
+
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) ;;
+    *)
+        # The crates are Windows-first and check-workspace.ps1 builds its
+        # workspace from directory junctions, which Unix PowerShell lacks.
+        echo "pre-commit: the workspace check is Windows-only; skipping"
+        exit 0
+        ;;
+esac
+
+if command -v pwsh >/dev/null 2>&1; then
+    powershell=pwsh
+elif command -v powershell >/dev/null 2>&1; then
+    powershell=powershell
+else
+    echo "pre-commit: PowerShell not found, so check-workspace.ps1 cannot run; skipping" >&2
+    echo "pre-commit: the workspace-check CI job still gates this change on Windows" >&2
+    exit 0
+fi
+
+echo "pre-commit: one-pass workspace check (4 crates, every binary target)"
+exec "$powershell" -NoProfile -ExecutionPolicy Bypass -File "$root/check-workspace.ps1"

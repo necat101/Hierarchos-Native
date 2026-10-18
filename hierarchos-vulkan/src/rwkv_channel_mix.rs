@@ -29,11 +29,9 @@ const VECTOR_ADD_SPV: &[u8] = include_bytes!("../shaders/vector_add.spv");
 /// Forcing this environment variable on makes the channel-mix graph use its
 /// multi-kernel composition (`layer-norm+key` fused producer, then the vendor
 /// `linear-forward`/`linear-residual-forward` modules for `key_cm`/`value_cm`)
-/// instead of the single fused channel-mix modules. The packed-cell op reads the
-/// same switch through [`RwkvChannelMixOp::supports_full_forward_fusion`], so
-/// this also selects the composed packed cell rather than the packed fused
-/// kernel. `validation/verify_rwkv_packed_cell_composition.py` uses it to
-/// cross-check the fused kernel against the vendor linear composition.
+/// instead of the single fused channel-mix modules. The packed cell always uses
+/// that composition, so this switch changes the channel-mix op's own graph, not
+/// the packed cell's.
 pub const HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION_ENV: &str =
     "HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION";
 
@@ -589,58 +587,6 @@ impl RwkvChannelMixOp {
 
     pub(crate) fn normalized_buffer(&self) -> &GpuBuffer {
         &self.normalized
-    }
-
-    pub(crate) fn supports_full_forward_fusion(&self) -> bool {
-        self.layer_norm_channel_mix_full_forward_fused.is_some() && !self.forward_fusion_disabled
-    }
-
-    pub(crate) fn layer_norm_weight_buffer(&self) -> &GpuBuffer {
-        &self.layer_norm_weight
-    }
-
-    pub(crate) fn layer_norm_bias_buffer(&self) -> &GpuBuffer {
-        &self.layer_norm_bias
-    }
-
-    pub(crate) fn mix_k_buffer(&self) -> &GpuBuffer {
-        &self.mix_k
-    }
-
-    pub(crate) fn key_weight_buffer(&self) -> &GpuBuffer {
-        &self.key_weight
-    }
-
-    pub(crate) fn value_weight_buffer(&self) -> &GpuBuffer {
-        &self.value_weight
-    }
-
-    pub(crate) fn norm_mean_buffer(&self) -> &GpuBuffer {
-        &self.norm_mean
-    }
-
-    pub(crate) fn norm_rstd_buffer(&self) -> &GpuBuffer {
-        &self.norm_rstd
-    }
-
-    pub(crate) fn mixed_buffer(&self) -> &GpuBuffer {
-        &self.mixed
-    }
-
-    pub(crate) fn key_buffer(&self) -> &GpuBuffer {
-        &self.cm_key
-    }
-
-    pub(crate) fn ffn_buffer(&self) -> &GpuBuffer {
-        &self.ffn
-    }
-
-    pub(crate) fn key_clamp(&self) -> f32 {
-        self.key_clamp
-    }
-
-    pub(crate) fn deepembed_clamp(&self) -> f32 {
-        self.deepembed_clamp
     }
 
     pub(crate) fn trainables(&self) -> Vec<RwkvTrainableRef<'_>> {

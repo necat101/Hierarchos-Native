@@ -333,71 +333,78 @@ Gate: `atol=1e-4` + `rtol=1e-5`, loose enough for fp32 accumulation-order differ
 still four orders of magnitude below any structural disagreement (the first run of this
 harness, against a CPU clamp that read `0.0` as "clamp to zero", reported `4.25`).
 
-**What this does not cover.** The packed-cell runner resolves its own fused packed-cell
-shaders, so the harness prints `variant-plan:` but expects an empty
-`variant-dispatch:` -- it exercises the portable fused cell, not the tuned Intel Gen9
-`linear*` modules. Those are covered by `verify_vendor_parity.py` and the gate-width
-fixtures above, and by the fused-vs-composition check below.
+**What this does not cover.** The packed-cell runner traces the resolved plan and its
+real dispatches, so the harness below qualifies the tuned Intel Gen9 and AMD RDNA3
+`linear*` modules on the packed cell itself.
 
-## RWKV fused packed cell vs vendor-linear composition (2026-10-17)
+## RWKV packed-cell vendor-linear qualification (2026-10-17)
 
-`HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION` selects the staged
-channel-mix graph instead of the single fused packed-cell shader. On that path
-`key_cm` and `value_cm` dispatch the vendor `linear-forward` and
-`linear-residual-forward` modules, so the same recurrent cell can be run once
-through the fused shader and once through the composition the rest of the training
-graph uses.
+`RwkvPackedCellOp` composes its channel mix from the vendor
+`linear-forward`/`linear-residual-forward` modules and, where the tuned module is
+admitted, from `linear3-forward`. The fused packed-cell shader that used to bypass
+the channel-mix modules was removed after it lost both the training pass and the
+TBPTT forward-only transition. The fused *time-mix projection* was kept in part:
+an A/B found the `linear3-forward` composition `0.960-0.978x` the fused kernel at
+batches 8/16/32, where the tuned module is admitted, and `1.006-1.009x` at
+batches 1/2/4, where it would fall back to the portable module. The packed cell
+now composes exactly where the module's own admission gate (the predicate its
+dispatch already uses) admits it and keeps the fused kernel elsewhere; both
+graphs are bit-identical, so the change is scheduling. Three switches force each
+graph in the qualification legs:
+`HIERARCHOS_VULKAN_DISABLE_TIME_MIX_FORWARD_FUSION` drops the fused time-mix
+projection, `HIERARCHOS_RWKV_TIME_MIX_FORCE_FORWARD_FUSION` restores it at every
+batch, and `HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION` reaches
+`linear-forward`/`linear-residual-forward`.
 
-`validation/verify_rwkv_packed_cell_composition.py` runs both graphs over the same
-generated package (`width=128`, `head_size=16`, `batch=8`, live DeepEmbed adapter),
-steps them three times with each leg consuming its own packed state, and compares
-`output`, `packed_new_state`, `grad_x`, `grad_packed_state` and
-`token_feature_grad` at every step. Batch 8 is required: at the bridge's four rows
-the Gen9 low-row gate (`output_dim >= 192`) leaves `value_cm` (128 outputs) on the
-portable module, and the harness would not be comparing the vendor graph. The
-runner reports which packed forward kernel it built, so the two legs cannot
-silently collapse onto one graph.
+`validation/verify_rwkv_packed_cell_composition.py` runs the tuned and portable
+modules over the same generated package (`width=128`, `head_size=16`, `batch=8`,
+live DeepEmbed adapter), steps them three times with each leg consuming its own
+packed state, and compares `output`, `packed_new_state`, `grad_x`,
+`grad_packed_state` and `token_feature_grad` at every step. Batch 8 is required: at
+the bridge's four rows the Gen9 low-row gate (`output_dim >= 192`) leaves `value_cm`
+(128 outputs) on the portable module, and the harness would not be comparing the
+vendor graph. The portable leg must dispatch nothing and the vendor leg must
+dispatch all three families, so the two legs cannot silently collapse onto one
+graph.
 
 | Check | Result |
 | --- | --- |
 | `verify_rwkv_packed_cell_composition.py` | 3 steps, 15 comparisons, exit 0, worst `0.0` on every tensor |
-| ... kernel selection | fused leg `packed-cell-forward-kernel: fused` with empty `variant-dispatch`; composed leg `composed` with `linear-forward=1 linear-residual-forward=1` per step |
-| ... vendor plan | `linear-forward=intel-gen9-lds linear-residual-forward=intel-gen9-lds` on this host |
-| ... vendor qualification (`--expected-vendor intel`) | exit 0; the receipt records `expected_vendor=intel`, `qualified_vendor=intel` and the two resolved variants |
+| ... vendor dispatch | `linear-forward=1 linear-residual-forward=1 linear3-forward=1` per step; portable leg empty |
+| ... vendor plan | `linear-forward=intel-gen9-lds linear-residual-forward=intel-gen9-lds linear3-forward=intel-gen9-lds` on this host |
+| ... vendor qualification (`--expected-vendor intel`) | exit 0; the receipt records `expected_vendor=intel`, `qualified_vendor=intel` and the three resolved variants |
 | ... wrong-vendor guard (`--expected-vendor amd` on this host) | exit 1: `linear-forward resolved 'intel-gen9-lds', not an amd module; this host cannot qualify the amd path` |
 | `test_rwkv_composition_receipt.py` | 7 tests OK, 1 skipped (live GPU leg gated by `HIERARCHOS_RUN_GPU_VALIDATION=1`) |
-| Negative control (`x` scaled by `1.01` on the composed leg) | rejected at `1.586200e-4` against a `1.038859e-4` bound |
-| `bench_rwkv_packed_cell_composition.py`, batch 8 / 16 / 32 | composed median `0.946x` / `0.882x` / `0.872x` of fused, bit-identical results |
+| Negative control (`x` scaled by `1.01` on the vendor leg) | rejected at `1.586200e-4` against a `1.038859e-4` bound |
+| Removed packed-cell fused A/B | fused lost by 4% on `forward_backward` and 11% on the TBPTT forward-only transition at batch 8 |
 
-The comparison is bit-exact, not merely within tolerance: the fused shader keeps the
-same lane-serial accumulation order as the portable linear modules and the Gen9
-module preserves it, so no reordering drift appears. That is the strongest form of
-the agreement -- a composed-cell only user can trust the fused accelerator and vice
-versa -- but it also means this check cannot tell a genuine `0.0` from two
-bit-identical implementations of the same bug. The CPU bridge remains the
-independent oracle for correctness; this check closes the **vendor-linear coverage**
-gap, not the numerical-oracle gap.
+The comparison is bit-exact, not merely within tolerance: the vendor modules keep
+the portable modules' lane-serial accumulation order, so no reordering drift
+appears. That is the strongest form of the agreement, but it also means this check
+cannot tell a genuine `0.0` from two bit-identical implementations of the same bug.
+The CPU bridge remains the independent oracle for correctness; this check closes the
+**vendor-linear coverage** gap, not the numerical-oracle gap.
 
 The recorded evidence is also a test: `test_rwkv_composition_receipt.py` fails the
-ordinary `unittest discover` run if the receipt loses the per-leg kernel marker, a
-vendor dispatch family, a vendor-specific plan or the negative control. It reads
+ordinary `unittest discover` run if the receipt loses a vendor dispatch family, a
+vendor-specific plan, a forward-fusion switch or the negative control. It reads
 evidence rather than re-running the GPU; `HIERARCHOS_RUN_GPU_VALIDATION=1` enables
 the live leg, which is what catches a code regression rather than a stale record.
 
-Throughput (release build, HD 520, width 128, 30 interleaved samples per graph):
-the composed graph is `0.946x` the fused median at batch 8 and `0.872x` at batch 32,
-with `0.0` difference in output and packed state. The fused packed shader is a
-single-dispatch convenience, not a throughput feature on this part; the full table
-and the caveats before deleting it are in
+The removal decision came from one process building both packed-cell graphs and
+interleaving them at batch 8: `forward_backward` medians were `4.039 ms` fused vs
+`3.871 ms` composed, and the TBPTT forward-only transition was `1.870 ms` vs
+`1.664 ms`, bit-identical in both runs. The benchmark binary and receipt were
+retired with the kernel; the table and caveats are in
 [PACKED_CELL_COMPOSITION.md](PACKED_CELL_COMPOSITION.md).
 
-**What this does not cover.** Only the channel-mix/state forward is swapped; the
-time-mix, adapter and all backward dispatches are shared between the two legs, so
-their gradients agree by construction once the forward activations agree. This host
-resolves the Intel Gen9 modules only: `--expected-vendor amd` is implemented and
-fails closed here, but the RDNA3 `linear*` modules still need the same run on an AMD
-adapter (and `HIERARCHOS_VULKAN_FORCE_VENDOR` is rejected precisely because it would
-name those modules without the hardware).
+**What this does not cover.** The adapter and all backward dispatches are shared
+between the two legs, so their gradients agree by construction once the forward
+activations agree. This host resolves the Intel Gen9 modules only:
+`--expected-vendor amd` is implemented and fails closed here, but the RDNA3
+`linear*` modules still need the same run on an AMD adapter (and
+`HIERARCHOS_VULKAN_FORCE_VENDOR` is rejected precisely because it would name those
+modules without the hardware).
 
 All 14 headline architectures are covered: the 13 the registry carries
 (`deepseek_v4`, `phi4_multimodal_text`, `phi3`, `kimi_k25_text`, `kimi_k3_text`,
@@ -450,3 +457,47 @@ because it was made to pass.
 Transformer harness does not build; they remain covered by
 `intel_variants_are_bit_exact_with_portable_kernels`, which passed here at
 `(8,448,512)` and `(6,96,320)` and at geometries the gate rejects.
+
+## Time-mix promotion ladder (2026-10-18)
+
+The time-mix projection is now promoted per geometry from a recorded per-device
+measurement (see `PACKED_CELL_COMPOSITION.md`), so the full ladder was re-run on
+the promoted default rather than trusting the bench alone.
+
+| Check | Result |
+| --- | --- |
+| `verify_training_stack.py` (debug, current bins) | **12/12** steps PASS |
+| `verify_training_stack.py --release --skip-build` (release bins built first, exit 0) | **11/11** steps PASS |
+| Kernel goldens | 144 dense + 183 reduction + 79 attention, unchanged |
+| Shader provenance | 463 variants match their sources and flags (was 467) |
+| Oracle parity | 805 portable files, 3 documented divergences, 5 retired, 20 only here |
+| `training_step_probe` | `mean_loss 5.5432177`, 6512 dispatches, 3020 barriers (bound 3076) |
+| Topology decisions | 4 measured decisions match the record |
+| Training trajectories | 2 suites, 29 runs, 32162 exact tensor digests |
+
+**Every receipt that moved, and why.**
+
+* `training_step_probe/step_expectation.json`, Intel entry: 6368 -> 6512
+  dispatches and 2980 -> 3020 barriers, with `mean_loss` unchanged at
+  5.5432177. The composition dispatches `linear3-forward` plus the key/state
+  kernels where the fused projection was a single dispatch; 144 extra dispatches
+  over 72 layer-timesteps is exactly that difference. The barrier bound (3076)
+  did not move.
+* `oracle_divergences.json`: five `state: "removed"` entries for the retired
+  packed-cell channel-mix/state kernel and its four artifacts.
+  `check_oracle_parity.py` now distinguishes removals from modifications and
+  rejects a stale entry of either kind, so a retirement is documented and a
+  reappearing file still fails.
+* Shader provenance count: 467 -> 463, the four artifacts retired above.
+
+Nothing else moved: the kernel goldens, the 32162 state digests, the four
+topology decisions, the push-constant audit and the binding-access audit are
+identical to their recorded values.
+
+**One timing flake, recorded rather than hidden.** The first release pass
+reported `ln-low-rank-f32` at `width=128 ranks=32/32/64` moving from
+`column-slices` to `one-row`. That pass overlapped an abandoned background ladder
+on the same adapter. Re-running only the topology step passed, and the clean
+second pass passed with all four decisions matching, so the recorded decision did
+not change; the autotuner's 2% margin can react to GPU contention. A future
+failure that reproduces on an idle adapter is a real move and still fails.

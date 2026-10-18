@@ -1078,7 +1078,7 @@ The native Hierarchos architecture is pinned at the model level by
 `hierarchos_causal_lm_vendor_kernels_match_portable`
 (`cargo test --release --lib hierarchos_causal_lm_vendor_kernels_match_portable`):
 it runs one causal-LM accumulation step at vendor-eligible geometry (width 128,
-batch 16) with the Intel modules and again with
+batch 8) with the Intel modules and again with
 `HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS=1`, requires identical losses,
 recurrent states, and parameter gradients (`2e-7` ceiling), and uses a
 test-only per-thread, **per-family** dispatch counter to prove the vendor run
@@ -1086,25 +1086,31 @@ really executed the Intel modules while the portable run executed none, so the
 comparison cannot pass vacuously. Adapters without an Intel variant (the AMD
 target included) skip the comparison instead of failing it.
 
-Batch 16 is the fixture's vendor-eligible geometry as of the portable-tiling
-gate change above: the step dispatches its channel mix and projections as
-`(rows = batch, k = 128, n = 512)`, and an eight-row step is now a shape the gate
-keeps on the portable module (it measured 0.93x-0.95x on the Intel module). The
-fixture asserts its own geometry still reaches the variant, so a gate change
-that quietly stopped exercising the Intel modules fails the test instead of
-passing on a portable-versus-portable comparison.
+Batch 8 is the fixture's vendor-eligible geometry: the step dispatches its
+channel mix and projections as `(rows = batch, k = 128, n = 512)`, and the
+fixture asserts its own geometry still reaches the variant, so a gate change that
+quietly stopped exercising the Intel modules fails the test instead of passing on
+a portable-versus-portable comparison. A later tuning pass moved the eight-row
+`(rows = batch, k = 128, n = 512)` shape onto the Intel module by measurement
+(`0.93x-0.95x` on the portable schedule), which is why this batch is eligible
+again; the assertion is what keeps that fact honest rather than a number in this
+file.
 
 The counter histogram is printed on every run and asserts the families the
-fixture actually owns. At the fixture width the native graph routes its
-time-mix and channel-mix projections through the fused producers, so the
-measured histogram is
+fixture actually owns. At the fixture width the native graph still routes its
+channel mix through the fused producer, while its time-mix projection now takes
+the geometry-aware composition (the tuned `linear3-forward` module is admitted at
+this batch), so the measured histogram is
 `linear-forward=44, linear-bias-forward=56, linear-residual-forward=0,
-linear3-forward=0` (100 Intel dispatches, portable run 0). The two zero families
-are therefore pinned by the on-device A/B test at production geometry instead,
-and they are the slots a wider (non-fused) native configuration uses. This is
-recorded rather than asserted away so a future configuration change that starts
-exercising them shows up as a histogram change, not as a silent loss of
-coverage.
+linear3-forward=20` (120 Intel dispatches, portable run 0), and the test now
+asserts `linear3-forward == 20` and `linear-residual-forward == 0` instead of
+discarding them, so a regression that reroutes either call site fails on the
+count rather than only on the numbers.
+`linear-residual-forward` is the remaining zero family; it is pinned by the
+on-device A/B test at production geometry instead, and it is the slot a wider
+(non-fused) channel-mix configuration uses. This is recorded rather than
+asserted away so a future configuration change that starts exercising it shows
+up as a histogram change, not as a silent loss of coverage.
 
 The LM auto-tuner suite (`cargo test --release --lib lm_execution::`) pins the
 plan level: `rows16_cross_row_arms_are_offered_and_cache_admission_requires_the_arm`

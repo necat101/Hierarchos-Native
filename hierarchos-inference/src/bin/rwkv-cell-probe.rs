@@ -56,9 +56,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     args.next().ok_or("missing --model-dir value")?,
                 ))
             }
-            "--case" => {
-                case_path = Some(PathBuf::from(args.next().ok_or("missing --case value")?))
-            }
+            "--case" => case_path = Some(PathBuf::from(args.next().ok_or("missing --case value")?)),
             "--cell-prefix" => prefix = args.next().ok_or("missing --cell-prefix value")?,
             other => return Err(format!("unknown argument {other:?}").into()),
         }
@@ -95,7 +93,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     for row in 0..case.batch {
         let x = &case.x[row * case.width..(row + 1) * case.width];
         let deepembed = &case.deepembed[row * case.width * 4..(row + 1) * case.width * 4];
-        let packed = &case.packed_state[row * case.width * state_size..(row + 1) * case.width * state_size];
+        let packed =
+            &case.packed_state[row * case.width * state_size..(row + 1) * case.width * state_size];
         let (row_output, row_state) = rwkv_cell_step(
             &model_dir,
             &prefix,

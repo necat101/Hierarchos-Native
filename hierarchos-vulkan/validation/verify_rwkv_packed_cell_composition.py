@@ -1,29 +1,31 @@
 #!/usr/bin/env python3
-"""Cross-check the fused packed RWKV cell against the vendor-linear composition.
+"""Qualify the vendor modules the packed RWKV cell composes.
 
-`RwkvPackedCellOp` normally runs the recurrent cell with a single fused portable
-shader (`packed_cell_channel_mix_state_forward_fused.spv`). Nothing else
-dispatches on that path, so `verify_rwkv_cpu_bridge.py` cannot say anything about
-the tuned vendor matmul modules.
+`RwkvPackedCellOp` builds its channel mix from the vendor
+`linear-forward`/`linear-residual-forward` modules and its time-mix projection
+from the vendor `linear3-forward` module. Two switches make that composition
+observable:
 
-Setting `HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION` forces the
-multi-kernel composition instead: the channel-mix producer stays fused at
-layer-norm/mix granularity, while `key_cm` and `value_cm` run through the
-vendor `linear-forward` and `linear-residual-forward` modules that the rest of
-the training graph uses. The packed-cell op follows the same switch (it gates
-its fused shader on the channel mix's fused capability), so one environment
-variable selects a complete alternative cell graph.
+* `HIERARCHOS_VULKAN_DISABLE_TIME_MIX_FORWARD_FUSION` forces the time-mix
+  projection through its portable `linear3-forward` composition. Without it the
+  fused projection/key/state kernel bypasses the vendor module entirely, so
+  `linear3-forward` would have no RWKV coverage.
+* `HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION` does the same for the
+  channel mix, whose fused forward would otherwise absorb `key_cm`/`value_cm`.
+* `HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS` selects the portable modules for
+  every family, which is the A/B arm.
 
-This harness runs both graphs over identical package/inputs and compares the
-cell output, the packed next state and every returned gradient after each step,
-each leg consuming its own recurrent state. It asserts that the composed leg
-really dispatched both vendor linear families, because an agreement produced by
-two portable paths would not close the coverage gap, and it runs a perturbed
-negative control through the same comparison.
+This harness runs the packed cell twice over identical package/inputs, once with
+the tuned modules and once with the portable ones, each leg carrying its own
+packed recurrent state. It compares the cell output, the packed next state and
+every returned gradient after each step, asserts that the vendor leg really
+dispatched all three linear families (an agreement produced without them would
+not close the coverage gap), and runs a perturbed negative control through the
+same comparison.
 
 The tuned modules are per-vendor, so qualification names the vendor it intends
 to cover: `--expected-vendor amd` requires the resolved plan to carry
-`amd-rdna3-*` modules for both linear families and must be run on an RDNA3
+`amd-rdna3-*` modules for all three families and must be run on an RDNA3
 adapter, while `--expected-vendor intel` requires `intel-gen9-*`. `auto` accepts
 whichever vendor the attached adapter resolves, but still refuses a plan that
 falls back to the portable modules. A `HIERARCHOS_VULKAN_FORCE_VENDOR` override
@@ -51,8 +53,10 @@ from safetensors.torch import load_file, save_file
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import verify_rwkv_cpu_bridge as bridge  # noqa: E402  (shared fixture builder)
 
-FUSION_DISABLE_ENV = "HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION"
-VENDOR_FAMILIES = ("linear-forward", "linear-residual-forward")
+TIME_MIX_FUSION_DISABLE_ENV = "HIERARCHOS_VULKAN_DISABLE_TIME_MIX_FORWARD_FUSION"
+CHANNEL_MIX_FUSION_DISABLE_ENV = "HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION"
+VENDOR_DISABLE_ENV = "HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS"
+VENDOR_FAMILIES = ("linear-forward", "linear-residual-forward", "linear3-forward")
 VENDOR_PREFIXES = {"intel": "intel-", "amd": "amd-"}
 STEPS = bridge.STEPS
 # Eight rows clear both vendor matmul gates: the Gen9 gate needs `output_dim`
@@ -116,12 +120,14 @@ def payload(x: list[float], packed_state: list[float], grads: dict[str, list[flo
     }
 
 
-def run(binary: Path, model_dir: Path, case: dict, case_path: Path, *, composed: bool) -> dict:
+def run(binary: Path, model_dir: Path, case: dict, case_path: Path, *, vendor: bool) -> dict:
     case_path.write_text(json.dumps(case), encoding="utf-8")
     env = dict(os.environ, HIERARCHOS_VULKAN_VARIANT_TRACE="1")
-    env.pop(FUSION_DISABLE_ENV, None)
-    if composed:
-        env[FUSION_DISABLE_ENV] = "1"
+    env[TIME_MIX_FUSION_DISABLE_ENV] = "1"
+    env[CHANNEL_MIX_FUSION_DISABLE_ENV] = "1"
+    env.pop(VENDOR_DISABLE_ENV, None)
+    if not vendor:
+        env[VENDOR_DISABLE_ENV] = "1"
     completed = subprocess.run(
         [
             str(binary),
@@ -143,7 +149,7 @@ def run(binary: Path, model_dir: Path, case: dict, case_path: Path, *, composed:
     result = json.loads(completed.stdout)
     trace = {}
     for line in completed.stderr.splitlines():
-        for key in ("variant-plan", "variant-dispatch", "packed-cell-forward-kernel"):
+        for key in ("variant-plan", "variant-dispatch"):
             if line.startswith(f"{key}:"):
                 trace[key] = line.split(":", 1)[1].strip()
     result["_trace"] = trace
@@ -167,11 +173,11 @@ def plan_variants(trace: dict) -> dict[str, str]:
 
 
 def require_vendor_plan(trace: dict, expected_vendor: str) -> dict[str, str]:
-    """Fail unless both channel-mix projections resolved a tuned module.
+    """Fail unless all three composed projections resolved a tuned module.
 
-    Returns the two family/variant pairs so the receipt names what was actually
+    Returns the family/variant pairs so the receipt names what was actually
     qualified. A portable resolution is a coverage failure here, not a pass with
-    a footnote: it means the composed leg ran the same arithmetic as the fused
+    a footnote: it means the vendor leg ran the same arithmetic as the portable
     leg through a different scheduler, which is not the comparison this harness
     exists to make.
     """
@@ -207,23 +213,23 @@ def negative_control(
     atol: float,
     rtol: float,
 ) -> dict:
-    """A perturbed composed leg must fail the same comparison.
+    """A perturbed vendor leg must fail the same comparison.
 
     The perturbation is far above fp32 reassociation noise but far below a
     structural bug, so this pins the tolerance's discriminating power instead of
     letting a comparison that never rejects anything report agreement.
     """
-    fused = run(binary, model_dir, payload(x, initial_state, grads), work / "fused-case.json", composed=False)
+    baseline = run(binary, model_dir, payload(x, initial_state, grads), work / "vendor-case.json", vendor=True)
     perturbed = [value * 1.01 for value in x]
-    composed = run(
+    control = run(
         binary,
         model_dir,
         payload(perturbed, initial_state, grads),
-        work / "composed-case.json",
-        composed=True,
+        work / "perturbed-case.json",
+        vendor=True,
     )
     try:
-        bridge.compare("negative control cell output", fused["output"], composed["output"], atol, rtol)
+        bridge.compare("negative control cell output", baseline["output"], control["output"], atol, rtol)
     except bridge.Mismatch as exc:
         print(f"  negative control rejected the perturbation as expected: {exc}")
         return {"result": "rejected", "detail": str(exc)}
@@ -238,7 +244,7 @@ def main() -> int:
         "--expected-vendor",
         choices=("auto", "intel", "amd"),
         default="auto",
-        help="require the resolved channel-mix modules to be this vendor's tuned variants",
+        help="require the resolved modules to be this vendor's tuned variants",
     )
     parser.add_argument("--keep-fixtures", type=Path)
     parser.add_argument("--record", type=Path, help="write the JSON receipt here")
@@ -263,27 +269,27 @@ def main() -> int:
         write_package(model_dir)
         inputs = make_inputs()
         grads = make_gradients()
-        fused_state = list(inputs["initial_state"])
-        composed_state = list(inputs["initial_state"])
+        vendor_state = list(inputs["initial_state"])
+        portable_state = list(inputs["initial_state"])
         comparisons = []
         traces = {}
         for step, step_input in enumerate(inputs["xs"]):
-            fused = run(
+            vendor = run(
                 binary,
                 model_dir,
-                payload(step_input, fused_state, grads),
-                fixture_root / "fused-case.json",
-                composed=False,
+                payload(step_input, vendor_state, grads),
+                fixture_root / "vendor-case.json",
+                vendor=True,
             )
-            composed = run(
+            portable = run(
                 binary,
                 model_dir,
-                payload(step_input, composed_state, grads),
-                fixture_root / "composed-case.json",
-                composed=True,
+                payload(step_input, portable_state, grads),
+                fixture_root / "portable-case.json",
+                vendor=False,
             )
             if step == 0:
-                traces = {"fused": fused["_trace"], "composed": composed["_trace"]}
+                traces = {"vendor": vendor["_trace"], "portable": portable["_trace"]}
             for field in (
                 "output",
                 "packed_new_state",
@@ -294,39 +300,31 @@ def main() -> int:
                 comparisons.append(
                     bridge.compare(
                         f"step {step} {field}",
-                        fused[field],
-                        composed[field],
+                        vendor[field],
+                        portable[field],
                         args.atol,
                         args.rtol,
                     )
                 )
-            fused_state = fused["packed_new_state"]
-            composed_state = composed["packed_new_state"]
+            vendor_state = vendor["packed_new_state"]
+            portable_state = portable["packed_new_state"]
 
-        for leg, expected in (("fused", "fused"), ("composed", "composed")):
-            observed = traces[leg].get("packed-cell-forward-kernel")
-            if observed != expected:
-                raise bridge.Mismatch(
-                    f"{leg} leg reported packed-cell forward kernel {observed!r}, expected {expected!r}; "
-                    f"check that {FUSION_DISABLE_ENV} selects the composed graph"
-                )
-        fused_counts = dispatch_counts(traces["fused"])
-        composed_counts = dispatch_counts(traces["composed"])
-        if fused_counts:
+        portable_counts = dispatch_counts(traces["portable"])
+        if portable_counts:
             raise bridge.Mismatch(
-                f"fused leg dispatched vendor modules {fused_counts}; it is supposed to run the fused "
-                "shader only, so this run cannot be read as fused-vs-composed"
+                f"portable leg dispatched vendor modules {portable_counts}; it must run the "
+                "portable modules only, so this run cannot be read as a vendor A/B"
             )
-        missing = [family for family in VENDOR_FAMILIES if composed_counts.get(family, 0) == 0]
+        vendor_counts = dispatch_counts(traces["vendor"])
+        missing = [family for family in VENDOR_FAMILIES if vendor_counts.get(family, 0) == 0]
         if missing:
             raise bridge.Mismatch(
-                f"composed leg did not dispatch {missing} (counts {composed_counts}); the composition "
-                "ran portable modules, so it does not exercise the vendor-linear graph this check exists "
-                "to cover"
+                f"vendor leg did not dispatch {missing} (counts {vendor_counts}); the packed cell "
+                "did not exercise the vendor-linear graph this check exists to cover"
             )
-        composed_variants = require_vendor_plan(traces["composed"], args.expected_vendor)
+        vendor_variants = require_vendor_plan(traces["vendor"], args.expected_vendor)
         qualified_vendor = "amd" if any(
-            variant.startswith("amd-") for variant in composed_variants.values()
+            variant.startswith("amd-") for variant in vendor_variants.values()
         ) else "intel"
         if args.expected_vendor != "auto" and qualified_vendor != args.expected_vendor:
             raise bridge.Mismatch(
@@ -359,17 +357,16 @@ def main() -> int:
         "worst_max_abs": worst,
         "atol": args.atol,
         "rtol": args.rtol,
-        "forward_kernels": {
-            "fused": traces["fused"].get("packed-cell-forward-kernel", ""),
-            "composed": traces["composed"].get("packed-cell-forward-kernel", ""),
-        },
+        "time_mix_forward_fusion": "disabled",
+        "channel_mix_forward_fusion": "disabled",
         "expected_vendor": args.expected_vendor,
         "qualified_vendor": qualified_vendor,
-        "composed_variants": composed_variants,
-        "vendor_plan": traces["composed"].get("variant-plan", ""),
-        "fused_dispatch": traces["fused"].get("variant-dispatch", ""),
-        "composed_dispatch": traces["composed"].get("variant-dispatch", ""),
+        "vendor_variants": vendor_variants,
+        "vendor_plan": traces["vendor"].get("variant-plan", ""),
+        "vendor_dispatch": traces["vendor"].get("variant-dispatch", ""),
+        "portable_dispatch": traces["portable"].get("variant-dispatch", ""),
         "negative_control": control["result"],
+        "negative_control_detail": control.get("detail", ""),
         "rows": comparisons,
     }
     if args.record is not None:

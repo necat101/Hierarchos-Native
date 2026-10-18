@@ -1,0 +1,222 @@
+{
+  "result": "pass",
+  "device": "Intel(R) HD Graphics 520",
+  "width": 128,
+  "head_size": 16,
+  "state_size": 20,
+  "steps": 8,
+  "linear3_variant": "intel-gen9-lds",
+  "promotion": "geometry-aware",
+  "batches": [
+    {
+      "batch": 1,
+      "fused_ms": 21.685200000000002,
+      "composed_ms": 21.5509,
+      "default_ms": 21.436999999999998,
+      "fused_ms_per_step": 2.7106500000000002,
+      "composed_ms_per_step": 2.6938625,
+      "default_ms_per_step": 2.6796249999999997,
+      "composed_over_fused": 0.9938068359987455,
+      "default_over_fused": 0.9885544057698337,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "fused_linear3_dispatches": 0,
+      "composed_linear3_dispatches": 0,
+      "default_linear3_dispatches": 0,
+      "composed_ran_vendor_linear3": false,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000492110848427
+        },
+        {
+          "label": "final_packed_state",
+          "values": 2560,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001000015658250777
+        },
+        {
+          "label": "grad_x",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000107648484119
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000230849880609
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 2560,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        }
+      ]
+    },
+    {
+      "batch": 4,
+      "fused_ms": 25.9737,
+      "composed_ms": 25.98785,
+      "default_ms": 25.94765,
+      "fused_ms_per_step": 3.2467125,
+      "composed_ms_per_step": 3.24848125,
+      "default_ms_per_step": 3.24345625,
+      "composed_over_fused": 1.0005447818370121,
+      "default_over_fused": 0.9989970624131332,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "fused_linear3_dispatches": 0,
+      "composed_linear3_dispatches": 0,
+      "default_linear3_dispatches": 0,
+      "composed_ran_vendor_linear3": false,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000060006976129
+        },
+        {
+          "label": "final_packed_state",
+          "values": 10240,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000017204081815
+        },
+        {
+          "label": "grad_x",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000125109465443
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000020170200515
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 10240,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        }
+      ]
+    },
+    {
+      "batch": 8,
+      "fused_ms": 31.81975,
+      "composed_ms": 31.216950000000004,
+      "default_ms": 31.185499999999998,
+      "fused_ms_per_step": 3.97746875,
+      "composed_ms_per_step": 3.9021187500000005,
+      "default_ms_per_step": 3.8981874999999997,
+      "composed_over_fused": 0.9810557908217382,
+      "default_over_fused": 0.9800674109633167,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "composed",
+      "fused_linear3_dispatches": 0,
+      "composed_linear3_dispatches": 8,
+      "default_linear3_dispatches": 8,
+      "composed_ran_vendor_linear3": true,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000082672573627
+        },
+        {
+          "label": "final_packed_state",
+          "values": 20480,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000028599046345
+        },
+        {
+          "label": "grad_x",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000061662416556
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000009231050172
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 20480,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        }
+      ]
+    },
+    {
+      "batch": 16,
+      "fused_ms": 49.548449999999995,
+      "composed_ms": 47.34845,
+      "default_ms": 47.754400000000004,
+      "fused_ms_per_step": 6.193556249999999,
+      "composed_ms_per_step": 5.91855625,
+      "default_ms_per_step": 5.9693000000000005,
+      "composed_over_fused": 0.9555990147017718,
+      "default_over_fused": 0.9637920056025973,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "composed",
+      "fused_linear3_dispatches": 0,
+      "composed_linear3_dispatches": 8,
+      "default_linear3_dispatches": 8,
+      "composed_ran_vendor_linear3": true,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001000001186132431
+        },
+        {
+          "label": "final_packed_state",
+          "values": 40960,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000037654121115
+        },
+        {
+          "label": "grad_x",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000019747429178
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000009231050172
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 40960,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        }
+      ]
+    }
+  ],
+  "median_composed_over_fused": 0.9874313134102419,
+  "winner": "mixed",
+  "samples": 8,
+  "warmup": 2,
+  "atol": 0.0001,
+  "rtol": 1e-05
+}

@@ -28,6 +28,7 @@ mod rwkv_post_mix;
 mod rwkv_state;
 mod rwkv_tbptt;
 mod rwkv_time_mix_core;
+mod rwkv_time_mix_decisions;
 mod shared_lm_head;
 mod stochastic;
 mod tape_profiles;

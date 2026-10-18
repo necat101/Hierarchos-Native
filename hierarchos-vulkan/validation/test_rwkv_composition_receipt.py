@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Contract tests for the RWKV fused-vs-composed parity evidence.
+"""Contract tests for the RWKV packed-cell vendor-composition evidence.
 
 `verify_rwkv_packed_cell_composition.py` produces
-`validation/packed_cell_composition.json`. This module turns that evidence into a
-test the ordinary `unittest discover` run executes, so a receipt that loses the
-per-leg kernel marker, the vendor dispatch counts or the negative control fails
+`validation/packed_cell_composition.json`. This module turns that evidence into
+a test the ordinary `unittest discover` run executes, so a receipt that loses a
+vendor dispatch count, the time-mix fusion switch or the negative control fails
 the suite instead of sitting in the tree as a stale artifact.
 
 The receipt is evidence, not a live run: these tests catch a regressed or
@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RECEIPT = ROOT / "validation" / "packed_cell_composition.json"
 HARNESS = ROOT / "validation" / "verify_rwkv_packed_cell_composition.py"
 
-VENDOR_FAMILIES = ("linear-forward", "linear-residual-forward")
+VENDOR_FAMILIES = ("linear-forward", "linear-residual-forward", "linear3-forward")
 VENDOR_PREFIXES = {"intel": "intel-", "amd": "amd-"}
 
 
@@ -54,22 +54,27 @@ class CompositionReceiptTest(unittest.TestCase):
         self.assertEqual(self.receipt["comparisons"], self.receipt["steps"] * 5)
         self.assertLessEqual(self.receipt["worst_max_abs"], self.receipt["atol"])
 
-    def test_forward_kernel_markers(self) -> None:
+    def test_forward_fusion_switches_were_disabled(self) -> None:
         self.assertEqual(
-            self.receipt["forward_kernels"],
-            {"fused": "fused", "composed": "composed"},
-            "the receipt no longer proves which packed forward kernel each leg built",
+            self.receipt["time_mix_forward_fusion"],
+            "disabled",
+            "the receipt no longer proves the time-mix took the linear3-forward composition",
+        )
+        self.assertEqual(
+            self.receipt["channel_mix_forward_fusion"],
+            "disabled",
+            "the receipt no longer proves key_cm/value_cm reached the vendor linears",
         )
 
-    def test_fused_leg_dispatches_no_vendor_modules(self) -> None:
+    def test_portable_leg_dispatches_no_vendor_modules(self) -> None:
         self.assertEqual(
-            parse_pairs(self.receipt["fused_dispatch"]),
+            parse_pairs(self.receipt["portable_dispatch"]),
             {},
-            "the fused leg must not dispatch vendor modules, or the run is not an A/B",
+            "the portable leg must not dispatch vendor modules, or the run is not an A/B",
         )
 
-    def test_composed_leg_dispatches_both_vendor_linears(self) -> None:
-        counts = parse_pairs(self.receipt["composed_dispatch"])
+    def test_vendor_leg_dispatches_all_three_linears(self) -> None:
+        counts = parse_pairs(self.receipt["vendor_dispatch"])
         for family in VENDOR_FAMILIES:
             with self.subTest(family=family):
                 self.assertIn(family, counts)
@@ -83,7 +88,7 @@ class CompositionReceiptTest(unittest.TestCase):
                 self.assertNotEqual(
                     variants[family],
                     "portable",
-                    "the composed leg resolved the portable module; the check is vacuous",
+                    "the vendor leg resolved the portable module; the check is vacuous",
                 )
 
     def test_expected_vendor_matches_the_recorded_plan(self) -> None:
@@ -108,7 +113,7 @@ class CompositionReceiptTest(unittest.TestCase):
 
 
 class LiveCompositionTest(unittest.TestCase):
-    """Re-run the harness, which fails on a marker or dispatch regression."""
+    """Re-run the harness, which fails on a dispatch or parity regression."""
 
     @unittest.skipUnless(
         os.environ.get("HIERARCHOS_RUN_GPU_VALIDATION") == "1",

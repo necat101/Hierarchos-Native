@@ -838,8 +838,12 @@ impl VendorMatmulKernel {
         &self.portable
     }
 
-    /// The module [`Self::record_dispatch`] would use for this geometry.
-    #[cfg(test)]
+    /// The module [`Self::record_dispatch`] would use for this geometry. Call
+    /// sites outside the vendor layer use this as a prediction gate: the fused
+    /// RWKV time-mix projection yields to the composed `linear3-forward` module
+    /// exactly where this returns `true` (see
+    /// `RwkvTimeMixCoreOp::prefer_composed_projection`), so the two decisions
+    /// cannot disagree about whether a tuned module would run.
     pub(crate) fn selects_variant_for(&self, rows: u32, input_dim: u32, output_dim: u32) -> bool {
         self.variant
             .as_ref()

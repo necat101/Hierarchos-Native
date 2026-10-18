@@ -242,6 +242,34 @@ result. These optimization changes have not yet received cross-vendor numerical
 qualification. See [SHIP_PARITY.md](validation/SHIP_PARITY.md) for baseline scope,
 negative controls, receipts, and the complete reproduction procedure.
 
+## One-pass workspace check
+
+The four native crates are separate Cargo packages, so a change can leave one of
+them compiling in isolation while another stops building. From the repository
+root, run:
+
+```powershell
+.\check-workspace.ps1
+```
+
+The script creates a throwaway workspace from directory junctions, then runs
+`cargo check --workspace --bins` once, so every crate's library and every binary
+target are verified together. It does not copy sources and needs no administrator
+rights. Pass `-AllTargets` to include tests, benches and examples, or
+`-KeepWorkDir` to inspect the generated workspace. `package-standalone.ps1`
+still performs the release build and packaging.
+
+Enable the tracked pre-commit hook once per checkout:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+`.githooks/pre-commit` runs the same check before every commit; set
+`SKIP_WORKSPACE_CHECK=1` or use `git commit --no-verify` to bypass it. The
+`.github/workflows/workspace-check.yml` job runs it on every push and pull
+request, so a change cannot land with a crate or binary that stopped building.
+
 ## Standalone distribution
 
 The native backend can be staged and built without the surrounding Python
@@ -590,10 +618,45 @@ Current milestone:
   dispatched nothing, and a perturbed negative control is rejected. The check
   names the vendor it qualifies (`--expected-vendor intel|amd`) and refuses a
   portable or wrong-vendor plan, so the same command qualifies the RDNA3 modules
-  on an AMD adapter. A benchmark shows the fused shader is not a throughput win:
-  the composition is `0.946x` its median at batch 8 and `0.872x` at batch 32, so
-  the fused path is a deletion candidate once the TBPTT forward-only transition
-  is measured ([details](validation/PACKED_CELL_COMPOSITION.md)).
+  on an AMD adapter. The fused shader it replaced is gone: it lost the composition
+  at every measured batch and the TBPTT forward-only transition by 11% as well,
+  so the shader, its benchmark and its receipt were retired
+  ([details](validation/PACKED_CELL_COMPOSITION.md)).
+- The time-mix projection was A/B'd the same way and is now promoted per
+  geometry. The fused projection/key/state kernel and the composed
+  `linear3-forward` projection are bit-identical (`0.0` worst absolute over six
+  batch sizes); the composition is `0.960-0.978x` the fused median at batches
+  8/16/32, where the tuned module is admitted, and `1.006-1.009x` at batches
+  1/2/4, where it would fall back to the portable module. The packed cell
+  therefore composes exactly where the module's own admission gate admits it and
+  keeps the fused kernel elsewhere, so a device with no tuned `linear3-forward`
+  module never changes graph. The crossover itself is now a recorded per-device
+  measurement: `prefer_composed_projection` consults
+  `validation/time_mix_projection_decisions.json` (compiled in by
+  `src/rwkv_time_mix_decisions.rs`), a device with an entry follows its own
+  winner, and a device without one keeps the gate rule. The record is produced
+  offline by `--record-decisions` rather than by timing inside the training
+  graph, and `validation/verify_time_mix_projection_decisions.py` replays every
+  entry on the attached adapter and checks the shipped default builds the graph
+  the record names. `HIERARCHOS_RWKV_TIME_MIX_FORCE_FORWARD_FUSION` restores the
+  fused kernel at every batch (the A/B's fused arm), and
+  `validation/bench_rwkv_packed_cell_time_mix.py` records the fused, composed and
+  production-default legs with dispatch accounting and a bit-exactness gate
+  ([receipt](validation/packed_cell_time_mix_bench.json)).
+- The promotion was then read end to end, because one `forward_backward` is not
+  what a training run pays for. `validation/bench_rwkv_tbptt_time_mix.py`
+  (`hierarchos-vulkan-rwkv-tbptt-time-mix-bench`) times a whole 8-step TBPTT
+  window — forward sweep, reverse pass, state pack/unpack — under both graphs
+  plus the shipped default. The window keeps the split: `0.994`/`1.001x` at
+  batches 1/4 and `0.981`/`0.956x` at 8/16, so the promoted graph saves `2.2 ms`
+  of a `49.5 ms` batch-16 window (`0.28 ms` per step) ([receipt](validation/packed_cell_tbptt_time_mix_bench.json)).
+  The small-batch result is a tie rather than a fused win, which is why the
+  record keeps the fused kernel there and the receipt test asserts only that the
+  composition does not win at those geometries.
+  `.github/workflows/time-mix-ab.yml` re-runs both A/Bs plus the decision replay
+  on a self-hosted Vulkan runner and fails when the default stops following the
+  record, so the rule is gated on hardware and not only against a checked-in
+  receipt.
 - The RWKV-v8 low-rank `a/w/g` branches are Vulkan-native in both directions:
   `a = sigmoid(a0 + (xa @ a1) @ a2)`,
   `g = sigmoid(xg @ g1) @ g2`, and
@@ -2632,10 +2695,6 @@ glslc shaders/rwkv_state_pack.comp -o shaders/rwkv_state_pack.spv
 glslc shaders/rwkv_state_pack_backward.comp -o shaders/rwkv_state_pack_backward.spv
 glslc shaders/rwkv_state_pack_backward_fused_add.comp -o shaders/rwkv_state_pack_backward_fused_add.spv
 glslc shaders/rwkv_state_grad_pack.comp -o shaders/rwkv_state_grad_pack.spv
-glslc shaders/packed_cell_channel_mix_state_forward_fused.comp -o shaders/packed_cell_channel_mix_state_forward_fused.spv
-glslc -DPACKED_CELL_FORWARD_WORKGROUP_SIZE=32 shaders/packed_cell_channel_mix_state_forward_fused.comp -o shaders/packed_cell_channel_mix_state_forward_fused_wg32.spv
-glslc -DPACKED_CELL_FORWARD_WORKGROUP_SIZE=64 shaders/packed_cell_channel_mix_state_forward_fused.comp -o shaders/packed_cell_channel_mix_state_forward_fused_wg64.spv
-glslc -DPACKED_CELL_FORWARD_WORKGROUP_SIZE=128 shaders/packed_cell_channel_mix_state_forward_fused.comp -o shaders/packed_cell_channel_mix_state_forward_fused_wg128.spv
 glslc shaders/packed_state_slot_forward.comp -o shaders/packed_state_slot_forward.spv
 glslc shaders/packed_state_slot_backward.comp -o shaders/packed_state_slot_backward.spv
 glslc shaders/gradient_accumulate.comp -o shaders/gradient_accumulate.spv
@@ -2840,7 +2899,11 @@ sample did not survive an unprofiled WG256/WG128/WG256 sandwich (`34.011 / 34.69
 / 35.325 ms`), so no target-specific heuristic was baked into the runtime. All
 four geometries passed the packed-cell PyTorch oracle with the same `2.68e-7`
 worst packed-state drift. These retained arms are intended for cross-vendor
-profiling rather than assumed portable wins.
+profiling rather than assumed portable wins. The fused packed-cell kernel was
+later removed outright after the vendor-linear composition beat it by 4% on
+`forward_backward` and 11% on the TBPTT forward-only transition at batch 8; the
+receipt and timing table are in
+`validation/PACKED_CELL_COMPOSITION.md`.
 The next recurrent optimization therefore attacks traffic rather than lane
 count. First-pass TBPTT now has a packed forward-only transition: it unpacks
 only the O(width) time/channel/vector cache slots, reads the O(width*head_size)

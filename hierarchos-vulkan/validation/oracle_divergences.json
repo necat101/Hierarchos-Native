@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "note": "Shared shader files that deliberately differ from the read-only stable oracle, one entry per path with the reason and the reason it stays. check_oracle_parity.py fails on a shared file that differs without an entry here, and also fails when an entry no longer differs, so this list cannot rot into blanket permission. Vendor modules and the pre-tuning scalar fallbacks are additions, not divergences, and need no entry.",
+  "note": "Shared shader files that deliberately differ from the read-only stable oracle, one entry per path with the reason and the reason it stays. `state` is `modified` (default) or `removed`: a retired kernel's source and artifacts are present in the baseline and deliberately absent here. check_oracle_parity.py fails on a shared file that differs or is missing without an entry here, and also fails when an entry no longer describes the tree in the way it names (a `modified` entry whose file matches again, or a `removed` entry whose file came back), so this list cannot rot into blanket permission. Vendor modules and the pre-tuning scalar fallbacks are additions, not divergences, and need no entry.",
   "divergences": [
     {
       "path": "transformer_attention_backward.comp",
@@ -13,6 +13,31 @@
     {
       "path": "transformer_qwen_gdn_params.spv",
       "reason": "Rebuilt from the unchanged GLSL to read the three-word push block the host already pushes (rows, num_value_heads, beta_scale). The oracle module reads two words and drops OLMo Hybrid's 2.0 beta scale, which the forward kernel's own backward kernel applies. At beta_scale 1.0 the rebuilt module is bit-identical to the oracle's."
+    },
+    {
+      "path": "packed_cell_channel_mix_state_forward_fused.comp",
+      "state": "removed",
+      "reason": "Retired with the kernel: the fused channel-mix/packed-state dispatch lost the composition at every measured batch and the TBPTT forward-only transition by 11% (validation/PACKED_CELL_COMPOSITION.md). The kernel, its benchmark and its receipt were removed together; no source or artifact of it remains."
+    },
+    {
+      "path": "packed_cell_channel_mix_state_forward_fused.spv",
+      "state": "removed",
+      "reason": "Artifact of the retired fused channel-mix/packed-state kernel above; the composition it lost to is the packed cell's only channel-mix graph now."
+    },
+    {
+      "path": "packed_cell_channel_mix_state_forward_fused_wg32.spv",
+      "state": "removed",
+      "reason": "Workgroup-size variant of the retired fused channel-mix/packed-state kernel above."
+    },
+    {
+      "path": "packed_cell_channel_mix_state_forward_fused_wg64.spv",
+      "state": "removed",
+      "reason": "Workgroup-size variant of the retired fused channel-mix/packed-state kernel above."
+    },
+    {
+      "path": "packed_cell_channel_mix_state_forward_fused_wg128.spv",
+      "state": "removed",
+      "reason": "Workgroup-size variant of the retired fused channel-mix/packed-state kernel above."
     }
   ]
 }

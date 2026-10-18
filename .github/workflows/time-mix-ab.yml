@@ -1,0 +1,84 @@
+name: time-mix A/B
+
+# The packed-cell time-mix promotion is a measured rule, so it is checked by
+# measuring: this job re-runs both A/B harnesses (one `forward_backward` call and
+# a whole multi-step TBPTT sequence) on a GPU runner and fails when the shipped
+# default stops composing exactly where the tuned `linear3-forward` module is
+# admitted. The checked-in receipts can go stale without anyone editing them, and
+# the unit tests that read those receipts run on CPU-only CI, so this is the job
+# that proves the rule on real hardware.
+#
+# `runs-on` expects a self-hosted runner with a Vulkan adapter that has a tuned
+# `linear3-forward` module (Intel Gen9 or AMD); the harnesses refuse to report a
+# vacuous A/B when the module resolves to `portable`. Register the runner with
+# the `vulkan` label. Without such a runner this job stays queued rather than
+# silently passing on a CPU-only host.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "hierarchos-vulkan/src/rwkv_time_mix_core.rs"
+      - "hierarchos-vulkan/src/vendor.rs"
+      - "hierarchos-vulkan/src/bin/rwkv_packed_cell_time_mix_bench.rs"
+      - "hierarchos-vulkan/src/bin/rwkv_tbptt_time_mix_bench.rs"
+      - "hierarchos-vulkan/validation/bench_rwkv_packed_cell_time_mix.py"
+      - "hierarchos-vulkan/validation/bench_rwkv_tbptt_time_mix.py"
+      - "hierarchos-vulkan/validation/test_rwkv_time_mix_receipt.py"
+      - "hierarchos-vulkan/validation/test_rwkv_tbptt_time_mix_receipt.py"
+      - ".github/workflows/time-mix-ab.yml"
+  schedule:
+    # Weekly, so a driver or shader change that only shifts the crossover still
+    # surfaces even when the touched paths do not match the filters above.
+    - cron: "23 4 * * 1"
+
+jobs:
+  time-mix-ab:
+    runs-on: [self-hosted, windows, vulkan]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install fixture dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install safetensors numpy
+
+      - name: Single-step A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_time_mix.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --iterations 20 --warmup 5
+          --record hierarchos-vulkan/validation/packed_cell_time_mix_bench.json
+
+      - name: Multi-step TBPTT A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_time_mix.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --steps 8 --iterations 8 --warmup 2
+          --record hierarchos-vulkan/validation/packed_cell_tbptt_time_mix_bench.json
+
+      - name: Replay this adapter's recorded decisions
+        run: python hierarchos-vulkan/validation/verify_time_mix_projection_decisions.py
+
+      - name: Receipt contracts and live promotion check
+        env:
+          HIERARCHOS_RUN_GPU_VALIDATION: "1"
+        run: |
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_time_mix_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_tbptt_time_mix_receipt.py" -v
+
+      - name: Keep the measured receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: time-mix-ab-receipts
+          path: |
+            hierarchos-vulkan/validation/packed_cell_time_mix_bench.json
+            hierarchos-vulkan/validation/packed_cell_tbptt_time_mix_bench.json
+          if-no-files-found: warn

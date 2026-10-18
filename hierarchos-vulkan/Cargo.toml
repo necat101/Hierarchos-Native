@@ -106,12 +106,20 @@ name = "hierarchos-vulkan-rwkv-packed-cell-step"
 path = "src/bin/rwkv_packed_cell_step.rs"
 
 [[bin]]
-name = "hierarchos-vulkan-rwkv-packed-cell-composition-bench"
-path = "src/bin/rwkv_packed_cell_composition_bench.rs"
-
-[[bin]]
 name = "hierarchos-vulkan-rwkv-tbptt-sequence-step"
 path = "src/bin/rwkv_tbptt_sequence_step.rs"
+
+# A/B: the packed cell's fused time-mix projection against its linear3-forward
+# composition, in one process, with dispatch accounting and a parity gate.
+[[bin]]
+name = "hierarchos-vulkan-rwkv-packed-cell-time-mix-bench"
+path = "src/bin/rwkv_packed_cell_time_mix_bench.rs"
+
+# The same A/B read end to end: a whole multi-step TBPTT sequence, forward
+# sweep plus reverse pass, under each projection graph.
+[[bin]]
+name = "hierarchos-vulkan-rwkv-tbptt-time-mix-bench"
+path = "src/bin/rwkv_tbptt_time_mix_bench.rs"
 
 [[bin]]
 name = "hierarchos-vulkan-rwkv-tbptt-branch-accumulation"

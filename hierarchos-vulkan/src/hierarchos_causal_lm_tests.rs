@@ -1049,9 +1049,12 @@ fn vendor_kernels_match_portable() -> Result<()> {
     // The native graph must really route every tuned matmul family this fixture
     // exercises through the Intel modules, so a regression that silently moved
     // a call site back to the portable module cannot pass just because the
-    // numbers agree. The fixture's width takes the fused channel-mix / time-mix
-    // routes, so `linear-residual-forward` and `linear3-forward` legitimately
-    // stay at zero here; those modules are pinned by the on-device A/B test at
+    // numbers agree. The fixture's width keeps the fused channel-mix route, so
+    // `linear-residual-forward` legitimately stays at zero; `linear3-forward`
+    // now runs through the geometry-aware time-mix promotion at this batch, and
+    // its absence where the promotion does not apply is still pinned by the
+    // packed-cell vendor composition check, which forces both compositions and
+    // asserts `linear3-forward` dispatch, and by the on-device A/B test at
     // production geometry (`vendor::intel_variants_are_bit_exact_with_portable_kernels`).
     assert!(
         linear_forward_dispatches > 0 && linear_bias_forward_dispatches > 0,
@@ -1065,7 +1068,14 @@ fn vendor_kernels_match_portable() -> Result<()> {
             crate::vendor::variant_dispatch_count_for(family)
         );
     }
-    let _ = (linear_residual_dispatches, linear3_dispatches);
+    assert_eq!(
+        linear_residual_dispatches, 0,
+        "the fixture's fused channel-mix route should not reach linear-residual-forward"
+    );
+    assert_eq!(
+        linear3_dispatches, 20,
+        "the geometry-aware promotion should dispatch linear3-forward once per layer-timestep"
+    );
 
     let guard = EnvVarGuard::set(crate::HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS_ENV, "1");
     crate::vendor::reset_variant_dispatch_count();

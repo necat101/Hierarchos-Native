@@ -2696,3 +2696,132 @@ portable ones on the executing adapter (raw-bit, every geometry) so a stale copy
   ln-low-rank-f32-one-row` immediately after the five-minute parity step; two standalone
   replays and a second full ladder run were green. The decision rule needs all seven rounds to
   agree, so a post-parity thermal regime can still flip a 2% margin.
+
+### Packed-cell fusion removal, linear3 coverage and a one-pass workspace gate
+
+The packed-cell fused channel/state kernel was measured once more on its last
+plausible niche, the TBPTT forward-only transition: at batch 8 the composition
+was `1.664 ms` against `1.870 ms` fused (`0.890x`), and `forward_backward` was
+`3.871 ms` against `4.039 ms` (`0.958x`), bit-identical in both runs. The fused
+kernel, its four SPIR-V variants, its workgroup switch, the A/B bench and its
+receipt were removed; `validation/PACKED_CELL_COMPOSITION.md` records the final
+table. The remaining packed cell composes its channel mix from the vendor
+`linear-forward`/`linear-residual-forward` modules, and its non-fused time-mix
+projection from `linear3-forward`. A new
+`HIERARCHOS_VULKAN_DISABLE_TIME_MIX_FORWARD_FUSION`
+switch forces that time-mix composition, and
+`validation/verify_rwkv_packed_cell_composition.py` now runs vendor-vs-portable
+over three steps and asserts all three dispatch families; the CPU bridge still
+passes independently at its usual `7.6e-6` worst drift.
+
+`check-workspace.ps1` builds a reusable workspace from directory junctions and
+runs `cargo check --workspace --bins` in one pass: **4 crates, 55 binaries**,
+with a warm run around one minute.
+
+### Time-mix projection A/B and a geometry-aware promotion
+
+The packed cell's time-mix projection still had a fused projection/key/state
+kernel next to the `linear3-forward` composition. The three-leg bench
+(`hierarchos-vulkan-rwkv-packed-cell-time-mix-bench` plus
+`validation/bench_rwkv_packed_cell_time_mix.py`) runs fused-forced,
+composition-forced and production-default graphs over one fixture, interleaved
+with a rotated order, and records each leg's reported graph plus its vendor
+`linear3-forward` dispatch count. All five returned tensors were bit-identical
+(`0.0`) across all six batch sizes, so the choice is scheduling only.
+
+| batch | fused | composed | ratio | tuned `linear3-forward` | default |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 2.592 | 2.617 | 1.009 | no | fused |
+| 2 | 2.795 | 2.819 | 1.009 | no | fused |
+| 4 | 3.232 | 3.253 | 1.006 | no | fused |
+| 8 | 4.067 | 3.979 | 0.978 | yes | composed |
+| 16 | 6.382 | 6.159 | 0.965 | yes | composed |
+| 32 | 11.095 | 10.647 | 0.960 | yes | composed |
+
+The composition wins exactly where the tuned module is admitted and the fused
+kernel wins where the composition falls back to the portable module, so the
+promotion is the vendor layer's own geometry gate, not a new constant:
+`prefer_composed_projection` asks the `linear3-forward` slot whether it would
+select its variant for the dispatch geometry. Both outcomes are bit-identical,
+so no golden state moved. `HIERARCHOS_RWKV_TIME_MIX_FORCE_FORWARD_FUSION` keeps
+the fused kernel at every batch for A/B work.
+
+`validation/test_rwkv_time_mix_receipt.py` enforces the contract on the receipt:
+the default must compose wherever the composed leg dispatched the tuned module,
+keep the fused kernel elsewhere, and the per-group timing medians must favor the
+chosen graph. The live leg (enabled by `HIERARCHOS_RUN_GPU_VALIDATION=1`)
+re-runs the bench and fails on a promotion or parity regression.
+
+### The promotion read end to end, recorded per device, and gated in CI
+
+A single `forward_backward` is not the unit a training run pays for, so the same
+A/B was re-read through a whole 8-step TBPTT window
+(`hierarchos-vulkan-rwkv-tbptt-time-mix-bench` plus
+`validation/bench_rwkv_tbptt_time_mix.py`, 8 samples per leg, rotated order).
+Every returned tensor over the whole sequence stayed bit-identical (`0.0`).
+
+| batch | fused window | composed window | ratio | per step | default |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 21.685 | 21.551 | 0.994 | 2.711 -> 2.694 | fused |
+| 4 | 25.974 | 25.988 | 1.001 | 3.247 -> 3.248 | fused |
+| 8 | 31.820 | 31.217 | 0.981 | 3.977 -> 3.902 | composed |
+| 16 | 49.548 | 47.348 | 0.956 | 6.194 -> 5.919 | composed |
+
+The window keeps the split (`0.956x` at batch 16 is `2.2 ms` of a `49.5 ms`
+sequence, `0.28 ms` per step) and turns the small-batch result into an honest
+tie: the composition is not faster there, and the fused kernel is not visibly
+faster either. The record therefore keeps the fused kernel at those geometries
+and the receipt test asserts "the composition does not win", not a win the
+window does not show.
+
+The static gate rule became a measured per-device record.
+`validation/time_mix_projection_decisions.json` holds one entry per
+(adapter, width, batch) with `compose`, the ratio that produced it and
+`source: measured`; `src/rwkv_time_mix_decisions.rs` compiles it in, so the
+shipped decision and the checked-in record cannot drift. The runtime still asks
+the vendor gate first (the composition only wins as a tuned module) and then the
+record decides that device's crossover; an unrecorded adapter keeps the gate
+rule. Recording is offline (`--record-decisions`), not a hot-path autotune, and
+`verify_time_mix_projection_decisions.py` replays all six entries on the
+attached adapter and checks the shipped default builds the graph the record
+names.
+
+Both A/Bs now fail closed when the default stops following the record, and
+`.github/workflows/time-mix-ab.yml` runs them, the replay and both receipt
+suites on a self-hosted Vulkan runner, so the rule is measured on hardware and
+not only against a checked-in JSON file.
+
+### Full ladder on the promoted default
+
+`verify_training_stack.py` passed **12/12** in debug and **11/11** in release
+(`--skip-build`, release bins built first, exit 0). Receipts that moved:
+
+* `training_step_probe/step_expectation.json` (Intel entry): 6368 -> **6512
+  dispatches**, 2980 -> **3020 barriers** (bound 3076 unchanged), `mean_loss`
+  **unchanged** at 5.5432177. The 144 extra dispatches are the promotion: the
+  composed projection dispatches `linear3-forward` plus the key/state kernels
+  where the fused kernel was one dispatch, over 72 layer-timesteps.
+* `oracle_divergences.json`: five `state: "removed"` entries for the retired
+  packed-cell channel-mix/state kernel and its four artifacts.
+  `check_oracle_parity.py` now supports and validates removals (a `removed`
+  entry fails when the file comes back, a `modified` one when it stops
+  differing), so a retirement is recorded rather than worked around.
+  Oracle: 805 portable files, 3 documented divergences, 5 retired, 20 only here.
+* Shader provenance: 467 -> **463** variants, four artifacts retired with that
+  kernel.
+
+Unchanged: kernel goldens (144 dense / 183 reduction / 79 attention), training
+state (2 suites, 29 runs, 32162 exact digests), topology decisions (4 entries),
+push-constant layouts, binding-access audit. One flake is recorded rather than
+hidden: the first release pass reported the `ln-low-rank-f32` decision moving
+from `column-slices` to `one-row` while an abandoned background ladder was still
+running on the adapter; the same step replayed and the clean second pass both
+passed with all four decisions matching. The autotuner's 2% margin can react to
+GPU contention; the recorded decision did not change.
+
+The remaining fused forward producers were audited against their compositions
+and ranked (`validation/FUSED_FORWARD_PRODUCER_AUDIT.md`): the packed path's
+channel-mix producer (one existing dispatch replacing two), the LN1/low-rank
+full-forward producer (one replacing the staged chain), and
+`rwkv_key_state_forward_fused` (one replacing two). No A/B has been run for
+those yet; the audit ranks them by expected payoff and states that explicitly.

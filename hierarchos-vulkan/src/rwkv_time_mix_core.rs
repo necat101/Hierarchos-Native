@@ -95,6 +95,12 @@ const HIERARCHOS_RWKV_TIME_MIX_ENABLE_TWO_ROW_FORWARD_FUSION_ENV: &str =
     "HIERARCHOS_RWKV_TIME_MIX_ENABLE_TWO_ROW_FORWARD_FUSION";
 const HIERARCHOS_RWKV_TIME_MIX_ENABLE_WEIGHT_REUSE2_ENV: &str =
     "HIERARCHOS_RWKV_TIME_MIX_ENABLE_WEIGHT_REUSE2";
+/// Forces the projection through the portable `linear3-forward` composition
+/// instead of the fused projection/key/state kernel. The fused kernel calls no
+/// vendor module, so this switch is the only way to qualify the tuned
+/// `linear3-forward` module inside the RWKV time-mix.
+pub const HIERARCHOS_VULKAN_DISABLE_TIME_MIX_FORWARD_FUSION_ENV: &str =
+    "HIERARCHOS_VULKAN_DISABLE_TIME_MIX_FORWARD_FUSION";
 const HIERARCHOS_RWKV_TIME_MIX_WEIGHT_REUSE2_DISABLE_AUTOTUNE_ENV: &str =
     "HIERARCHOS_RWKV_TIME_MIX_WEIGHT_REUSE2_DISABLE_AUTOTUNE";
 const HIERARCHOS_RWKV_TIME_MIX_WEIGHT_REUSE2_AUTOTUNE_LOG_ENV: &str =
@@ -107,6 +113,21 @@ const HIERARCHOS_RWKV_PROJECTION_WEIGHT_GRAD_TILED_DISABLE_AUTOTUNE_ENV: &str =
     "HIERARCHOS_RWKV_PROJECTION_WEIGHT_GRAD_TILED_DISABLE_AUTOTUNE";
 const HIERARCHOS_RWKV_PROJECTION_WEIGHT_GRAD_TILED_AUTOTUNE_LOG_ENV: &str =
     "HIERARCHOS_RWKV_PROJECTION_WEIGHT_GRAD_TILED_AUTOTUNE_LOG";
+
+fn time_mix_forward_fusion_disabled() -> bool {
+    std::env::var_os(HIERARCHOS_VULKAN_DISABLE_TIME_MIX_FORWARD_FUSION_ENV).is_some()
+}
+/// Restores the fused time-mix projection where the measured geometry rule
+/// would take the composition instead (see
+/// `RwkvTimeMixCoreOp::prefer_composed_projection`). The A/B harness uses it to
+/// hold one arm on the fused kernel at every batch.
+pub const HIERARCHOS_RWKV_TIME_MIX_FORCE_FORWARD_FUSION_ENV: &str =
+    "HIERARCHOS_RWKV_TIME_MIX_FORCE_FORWARD_FUSION";
+
+fn time_mix_forward_fusion_forced() -> bool {
+    std::env::var_os(HIERARCHOS_RWKV_TIME_MIX_FORCE_FORWARD_FUSION_ENV).is_some()
+}
+
 const LINEAR3_WEIGHT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear3_weight_grad.spv");
 const LINEAR3_WEIGHT_GRAD_TILED_SPV: &[u8] =
     include_bytes!("../shaders/linear3_weight_grad_tiled.spv");
@@ -928,6 +949,11 @@ pub struct RwkvTimeMixCoreOp {
     time_mix_linear3_key_state_forward_packed_fast: Option<vulkan::ComputeKernel>,
     time_mix_linear3_key_state_forward_packed_fast_weight_reuse: MultiRowWeightReuseKernels,
     time_mix_linear3_key_state_forward_packed_tape: Option<vulkan::ComputeKernel>,
+    /// Resolved once from
+    /// [`HIERARCHOS_RWKV_TIME_MIX_FORCE_FORWARD_FUSION_ENV`], like the disable
+    /// switch, so a per-dispatch `prefer_composed_projection` never reads the
+    /// environment on the hot path.
+    forward_fusion_forced: bool,
     linear3_weight_grad: vulkan::ComputeKernel,
     linear3_weight_grad_tiled: Option<vulkan::ComputeKernel>,
     linear3_input_grad: vulkan::ComputeKernel,
@@ -1330,7 +1356,9 @@ impl RwkvTimeMixCoreOp {
         } else {
             TIME_MIX_LINEAR3_KEY_STATE_FORWARD_FUSED_SPV
         };
+        let forward_fusion_disabled = time_mix_forward_fusion_disabled();
         let time_mix_linear3_key_state_forward_fused = if head_size <= 64
+            && !forward_fusion_disabled
             && device.supports_storage_buffer_bindings(24)
             && device.supports_compute_work_group_size_x(forward_workgroup_size)
         {
@@ -1343,6 +1371,7 @@ impl RwkvTimeMixCoreOp {
         };
         let time_mix_linear3_key_state_forward_fused_two_rows = if width <= 32
             && head_size <= 32
+            && !forward_fusion_disabled
             && device.supports_storage_buffer_bindings(24)
             && device.supports_compute_work_group_size_x(64)
             && std::env::var_os(HIERARCHOS_VULKAN_TIME_MIX_FORWARD_WORKGROUP_SIZE_ENV).is_none()
@@ -1361,6 +1390,7 @@ impl RwkvTimeMixCoreOp {
         let create_full_forward_weight_reuse_set =
             |rows: u32, shared_bytes: [u32; 3], spirv: [&[u8]; 3]| -> Result<WeightReuseKernels> {
                 if !weight_reuse2_enabled
+                    || forward_fusion_disabled
                     || head_size > 64
                     || forward_workgroup_size != 64
                     || !device.supports_storage_buffer_bindings(24)
@@ -1978,6 +2008,7 @@ impl RwkvTimeMixCoreOp {
             time_mix_linear3_key_state_forward_packed_fast,
             time_mix_linear3_key_state_forward_packed_fast_weight_reuse,
             time_mix_linear3_key_state_forward_packed_tape,
+            forward_fusion_forced: time_mix_forward_fusion_forced(),
             linear3_weight_grad: vulkan::ComputeKernel::new_with_access(
                 &device,
                 LINEAR3_WEIGHT_GRAD_SPV,
@@ -2615,6 +2646,27 @@ impl RwkvTimeMixCoreOp {
                 )
             };
         if let Some(kernel) = fused_kernel {
+            // The fused kernel yields to the composed projection where a tuned
+            // `linear3-forward` module would run; see
+            // `prefer_composed_projection` for the measurement behind the rule.
+            if self.prefer_composed_projection(batch) {
+                return self.record_composed_projection_key_state_forward(
+                    commands,
+                    batch,
+                    state,
+                    x_norm,
+                    previous,
+                    a,
+                    w,
+                    mix_push,
+                    linear_push,
+                    key_push,
+                    state_push,
+                    linear_forward_groups,
+                    head_groups,
+                    vector_groups,
+                );
+            }
             let linear_heads = batch
                 .checked_mul(self.heads)
                 .context("RWKV fused time-mix/projection/state workgroup count overflow")?;
@@ -2659,6 +2711,44 @@ impl RwkvTimeMixCoreOp {
             );
         }
 
+        self.record_composed_projection_key_state_forward(
+            commands,
+            batch,
+            state,
+            x_norm,
+            previous,
+            a,
+            w,
+            mix_push,
+            linear_push,
+            key_push,
+            state_push,
+            linear_forward_groups,
+            head_groups,
+            vector_groups,
+        )
+    }
+
+    /// The composed projection: time-mix activation, then the
+    /// `linear3-forward` module, then the fused key/state kernels.
+    #[allow(clippy::too_many_arguments)]
+    fn record_composed_projection_key_state_forward(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        batch: usize,
+        state: &GpuBuffer,
+        x_norm: &GpuBuffer,
+        previous: &GpuBuffer,
+        a: &GpuBuffer,
+        w: &GpuBuffer,
+        mix_push: &MixPush,
+        linear_push: &LinearPush,
+        key_push: &KeyPush,
+        state_push: &StatePush,
+        linear_forward_groups: [u32; 3],
+        head_groups: [u32; 3],
+        vector_groups: [u32; 3],
+    ) -> Result<()> {
         self.time_mix_forward.record_dispatch(
             commands,
             &[
@@ -7275,6 +7365,70 @@ impl RwkvTimeMixCoreOp {
 
     pub fn device_name(&self) -> &str {
         self.device.name()
+    }
+
+    /// The full-forward projection graph this op dispatches for `batch`:
+    /// `fused`/`fused-two-rows` for the fused projection/key/state kernel, or
+    /// `composed` for the `linear3-forward` module followed by the key/state
+    /// kernels. Opt-in weight-reuse topologies are not reported here because
+    /// their arms are measured rather than structural. The packed-cell A/B
+    /// harness reads this to prove both arms ran different graphs.
+    pub fn full_forward_projection_label(&self, batch: usize) -> &'static str {
+        let fused = if self
+            .time_mix_linear3_key_state_forward_fused_two_rows
+            .is_some()
+        {
+            "fused-two-rows"
+        } else if self.time_mix_linear3_key_state_forward_fused.is_some() {
+            "fused"
+        } else {
+            "none"
+        };
+        if fused == "none" || self.prefer_composed_projection(batch) {
+            "composed"
+        } else {
+            fused
+        }
+    }
+
+    /// The measured rule from the packed-cell time-mix A/B
+    /// (`validation/PACKED_CELL_COMPOSITION.md`): the composed projection wins
+    /// where a tuned `linear3-forward` module runs, and the fused
+    /// projection/key/state kernel wins everywhere else, where the composition
+    /// would fall back to the portable module.
+    ///
+    /// The *crossover* is now a per-device measurement rather than this host's
+    /// constant: the tuned module's own admission predicate decides whether the
+    /// comparison is even about a tuned module, and then the recorded decision
+    /// table (`validation/time_mix_projection_decisions.json`, compiled in by
+    /// `rwkv_time_mix_decisions`) decides that device's winning graph. A device
+    /// with no recorded entry keeps the conservative default -- compose wherever
+    /// its own tuned module is admitted -- which is the rule this host measured,
+    /// applied to an adapter whose crossover has not been measured yet.
+    ///
+    /// The admission predicate is still required because the composition only
+    /// wins as a *tuned* module: where it would run the portable module the
+    /// measured data shows no gain, so a recorded `compose` cannot override a
+    /// geometry that has no tuned module to compose.
+    fn prefer_composed_projection(&self, batch: usize) -> bool {
+        let measured = if self.forward_fusion_forced {
+            None
+        } else {
+            crate::rwkv_time_mix_decisions::measured_compose_decision(
+                self.device.name(),
+                self.width as u32,
+                batch as u32,
+            )
+        };
+        crate::rwkv_time_mix_decisions::prefers_composition(
+            self.forward_fusion_forced,
+            self.linear3_forward.selects_variant_for(
+                batch as u32,
+                self.width as u32,
+                self.width as u32,
+            ),
+            measured,
+        )
     }
 
     pub fn numerics_policy(&self) -> RwkvNumericsPolicy {

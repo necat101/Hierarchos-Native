@@ -22,6 +22,12 @@ path with the reason and who owns the decision. An entry only silences a
 divergence that exists; if the file matches the oracle again the entry is stale
 and fails, so the list cannot rot into blanket permission.
 
+An entry is `"state": "modified"` (the default) or `"state": "removed"`, because
+retiring a kernel is a legitimate oracle difference too: its source and artifacts
+are present in the baseline and deliberately absent here. A `modified` entry is
+stale when the file matches again; a `removed` entry is stale when the file comes
+back. Neither kind can silence the other.
+
 Exit codes:
 
     0  every shared shader matches the oracle, or diverges only where listed
@@ -107,15 +113,26 @@ def digest(path: Path) -> str:
     return hashlib.sha256(normalize(path)).hexdigest()
 
 
-def read_divergences(path: Path) -> dict[str, str]:
+DIVERGENCE_KINDS = ("modified", "removed")
+
+
+def read_divergences(path: Path) -> dict[str, tuple[str, str]]:
+    """Map each documented path to (reason, state)."""
     if not path.is_file():
         return {}
     document = json.loads(path.read_text(encoding="utf-8"))
-    return {
-        entry["path"].replace("\\", "/"): entry.get("reason", "")
-        for entry in document.get("divergences", [])
-        if "path" in entry
-    }
+    divergences = {}
+    for entry in document.get("divergences", []):
+        if "path" not in entry:
+            continue
+        state = entry.get("state", "modified")
+        if state not in DIVERGENCE_KINDS:
+            raise SystemExit(
+                f"FAIL {entry['path']}: unknown divergence state {state!r}; "
+                f"expected one of {', '.join(DIVERGENCE_KINDS)}"
+            )
+        divergences[entry["path"].replace("\\", "/")] = (entry.get("reason", ""), state)
+    return divergences
 
 
 def compare(local: Path, oracle: Path) -> dict:
@@ -138,28 +155,37 @@ def compare(local: Path, oracle: Path) -> dict:
     }
 
 
-def evaluate(report: dict, divergences: dict[str, str]) -> list[str]:
+def evaluate(report: dict, divergences: dict[str, tuple[str, str]]) -> list[str]:
     """Turn a comparison into problems, applying the documented divergences.
 
-    A divergence is only accepted for a file that actually differs, and only for a
-    shared file: a listed path that is missing or identical is a stale entry, not
-    permission.
+    A divergence is only accepted for a file that actually differs in the way its
+    entry names, and only for a shared file: a `modified` entry whose file now
+    matches, or a `removed` entry whose file came back, is a stale entry rather
+    than permission.
     """
     modified = set(report["modified"])
+    missing = set(report["missing"])
     problems = []
     for name in report["modified"]:
-        if name not in divergences:
+        documented = divergences.get(name)
+        if documented is None or documented[1] != "modified":
             problems.append(
                 f"{name}: differs from the oracle (local {digest(report['local'][name])[:16]}, "
                 f"oracle {digest(report['oracle'][name])[:16]})"
             )
     for name in report["missing"]:
-        if name not in divergences:
+        documented = divergences.get(name)
+        if documented is None or documented[1] != "removed":
             problems.append(f"{name}: present in the oracle, missing here")
-    for name in sorted(divergences):
-        if name not in modified:
+    for name, (_, state) in sorted(divergences.items()):
+        if state == "modified" and name not in modified:
             problems.append(
                 f"{name}: listed as a deliberate divergence but does not differ from the oracle "
+                f"(stale entry)"
+            )
+        elif state == "removed" and name not in missing:
+            problems.append(
+                f"{name}: listed as a deliberate removal but is not missing from this tree "
                 f"(stale entry)"
             )
     return problems
@@ -230,8 +256,9 @@ def main(argv: list[str]) -> int:
             print(f"FAIL {problem}")
         print(
             f"compared {report['shared']} portable shader file(s) against {shader_dir(oracle_root)}; "
-            f"{len(report['modified'])} differ ({len(divergences)} documented), "
-            f"{len(report['missing'])} missing, {len(report['added'])} only here, "
+            f"{len(report['modified'])} differ ({sum(1 for _, kind in divergences.values() if kind == 'modified')} documented), "
+            f"{len(report['missing'])} missing ({sum(1 for _, kind in divergences.values() if kind == 'removed')} retired), "
+            f"{len(report['added'])} only here, "
             f"{report['vendor_shared']} vendor file(s) excluded"
         )
     if problems:

@@ -601,6 +601,7 @@ The repository keeps registry coverage, Rust tests, and numerical reference chec
 Useful source-level checks include:
 
 ```powershell
+.\check-workspace.ps1
 cargo check --manifest-path hierarchos-vulkan/Cargo.toml --all-targets
 cargo test --manifest-path hierarchos-vulkan/Cargo.toml --lib
 cargo test --manifest-path hierarchos-native-cli/Cargo.toml
@@ -608,6 +609,13 @@ cargo test --manifest-path hierarchos-gui/Cargo.toml
 python -m unittest discover -s hierarchos-vulkan/validation -p "test_*.py"
 python hierarchos-vulkan/validation/generate_supported_architectures.py --check
 ```
+
+The first command is the one-pass workspace gate: it checks all four crates and
+every binary target together, warm in about a minute. Enable the tracked hook
+once with `git config core.hooksPath .githooks` so it runs before every commit,
+and `.github/workflows/workspace-check.yml` repeats it on every push and pull
+request. `SKIP_WORKSPACE_CHECK=1` or `git commit --no-verify` bypasses the local
+commit gate.
 
 The registry integration test needs a local Hugging Face Transformers source
 checkout. Set `TRANSFORMERS_CHECKOUT` to that checkout before running the Python
