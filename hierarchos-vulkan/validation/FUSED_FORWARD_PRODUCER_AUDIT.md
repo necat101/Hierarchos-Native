@@ -20,7 +20,7 @@ a forward verdict.
 | `packed_cell_channel_mix_state_forward_fused` (channel mix + packed-state write) | **Removed** | `PACKED_CELL_COMPOSITION.md`; lost the composition at every batch and the forward-only transition by 11% |
 | `group_norm_bonus_gate_linear_residual_forward_fused_{compact_one_row,two_rows}` | **Not reachable at production width** | gated on `width <= 32` in `rwkv_post_mix.rs`; the audit does not rank a kernel the width-128 graph never builds |
 | `layer_norm_low_rank_producer_forward_fused*` (six FP16 arms) | **Measured among themselves and against the staged chain**; the fusion stays | `topology_decisions.json`, `verify_topology_decisions.py` for the arm choice; `packed_cell_low_rank_forward_bench.json` and `low_rank_full_forward_decisions.json` for the route (rank 2 below); `low_rank_fp16_forward_bench.json` for the deep FP16 arm |
-| `rwkv_key_state_forward_fused*` (key transform + state update) | **Measured: the wider-group variant with an all-lane transform phase removed the chain's batch-16 win; the chain still wins batch 32** | `key_state_forward_bench.json`, `key_state_forward_profile.json` and `key_state_forward_decisions.json` (rank 3 below) |
+| `rwkv_key_state_forward_fused*` (key transform + state update) | **Measured: the wider-group variant wins every measured batch after two shape fixes — an all-lane transform phase and channel-invariant operands staged out of the row loop** | `key_state_forward_bench.json`, `key_state_forward_profile.json` and `key_state_forward_decisions.json` (rank 3 below) |
 
 Three of the five are settled because the measurement went against the fusion
 somewhere. That is the reason this audit exists at all: the default should not be
@@ -168,7 +168,7 @@ need the LN fusion structurally) and are measured by the packed-cell composition
 A/B, not here — the record's notes say so, so a staged entry can never be read as
 a claim about a graph it did not measure.
 
-### 3. The fused key/state producer — one dispatch replacing two — **measured: the chain won batch 16, the wider group with an all-lane transform removed that win, and the chain still wins batch 32**
+### 3. The fused key/state producer — one dispatch replacing two — **measured: the wider group wins every measured batch, 1 through 32**
 
 `record_key_state_forward` uses a fused key-transform/state-update kernel when
 `head_size <= 64` and falls back to `key_transform_forward` + `state_forward`
@@ -219,47 +219,58 @@ the chain's 184 µs), because the redundant transform is four times the loads an
 FMAs once the launch is throughput-bound. The published-constant form is what
 shipped.
 
+**Why batch 32 collapsed, and the fix.** After the all-lane transform the wide
+kernel still lost batch 32 by 19%, and the profile put the whole difference in its
+state phase: 50.4 ns per row against the chain state kernel's 27.0 ns, with the
+same rows, the same lanes and the same access pattern. The state phase was
+recomputing its channel-invariant operands once per row -- `decay = exp(-exp(w))`,
+`b = kk * a`, and the receptance read `r` -- although all three depend only on the
+channel. That is `head_size` (16) times the transcendentals and three extra global
+loads per row. At small batches the launch dominates and the redundancy hides; at
+batch 32 the row work is what the 64 workgroups have to get through, so the
+redundancy set the throughput. The transform phase already visits every channel,
+so it now stages `decay`, `kk * a` and `r` in shared memory and the row loop reads
+only its state row, its value and shared memory: 132 bytes of global traffic per
+row instead of 320, and one exponential pair per channel instead of sixteen. The
+expressions, their order and their inputs are unchanged, so the receipt's exact
+zero (`worst_max_abs_wide_vs_narrow`, and `worst_max_abs` against the chain) still
+holds; this was redundant work, not a numerics trade. Batch 32 went from 232.1 µs
+to 161.7 µs (-30%), and the profile's per-row cost from 50.4 ns to 30.3 ns.
+
 **Result.** Four legs (wide, narrow, chain, default) rotate through every sampling
 position in one process; the table is the shipped receipt, `--iterations 20
 --repetitions 50`, Intel Gen9 part, milliseconds of one forward:
 
 | batch | wide | narrow | staged | narrow/wide | staged/narrow | staged/wide | default |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 50.8 µs | 51.4 µs | 60.0 µs | 1.013 | 1.167 | 1.183 | fused, wide |
-| 4 | 56.4 µs | 58.7 µs | 66.2 µs | 1.041 | 1.127 | 1.174 | fused, wide |
-| 8 | 71.4 µs | 82.4 µs | 82.4 µs | 1.155 | 0.999 | 1.153 | fused, wide |
-| 16 | 99.7 µs | 119.8 µs | 113.5 µs | 1.201 | 0.948 | 1.139 | fused, wide |
-| 32 | 232.1 µs | 188.8 µs | 187.4 µs | 0.814 | 0.993 | 0.808 | staged |
+| 1 | 36.9 µs | 42.9 µs | 51.5 µs | 1.161 | 1.202 | 1.395 | fused, wide |
+| 4 | 53.1 µs | 58.4 µs | 66.8 µs | 1.100 | 1.144 | 1.259 | fused, wide |
+| 8 | 71.3 µs | 81.2 µs | 82.5 µs | 1.138 | 1.016 | 1.156 | fused, wide |
+| 16 | 100.0 µs | 119.8 µs | 112.0 µs | 1.199 | 0.935 | 1.120 | fused, wide |
+| 32 | 161.7 µs | 183.8 µs | 183.0 µs | 1.136 | 0.996 | 1.132 | fused, wide |
 
-The crossover question is answered: the wider group now wins **every** geometry up
-to batch 16, by 15% at batch 8 and 14% at batch 16, so the narrow kernel no longer
-wins a single measured geometry and batch 16 is no longer the chain's. The gap does
-**not** close at batch 32. There the wide grid launches 64 workgroups and its cost
-per row jumps from 32 ns at batch 16 to 51 ns, while the narrow kernel and the chain
-stay near 32 ns; the chain wins by 19%. That is a throughput-bound collapse of the
-wide kernel, not a return of the original lane-utilization story (the narrow arm is
-just as fast there and uses 16 of 64 lanes), and its cause is not established: the
-remaining candidate is register pressure from the transform loop inflating the wide
-kernel's allocation, which the driver would have to report to prove. The record
-runs the chain there, so the shipped route is the faster one at every measured
-geometry either way.
+The crossover question is answered on both ends: the wider group wins **every**
+measured geometry, by 12-28% over the chain, so neither the batch-16 crossover nor
+the batch-32 collapse survives, and the narrow kernel no longer wins a single
+measured geometry. Both were kernel-shape problems in the fused route -- first the
+lane mapping, then the state phase's redundant per-row work -- not a limit of
+fusing the stage.
 
 **Phase attribution.** `validation/profile_rwkv_key_state_forward.py` reads the
 device's per-dispatch GPU timestamps (`HIERARCHOS_VULKAN_PROFILE_KERNELS`) and
 attributes the stage to its phases; `key_state_forward_profile.json` is the receipt.
-The chain's key transform is nearly flat in batch (14.8 / 15.9 / 16.7 / 21.6 µs at
-1/8/16/32) while its state phase grows with the row count (17.2 / 29.8 / 52.4 /
-110.7 µs), so the state share rises 54% -> 65% -> 76% -> 84%: the phase that scales
+The chain's key transform is nearly flat in batch (14.4 / 16.3 / 16.8 / 21.7 µs at
+1/8/16/32) while its state phase grows with the row count (17.2 / 31.0 / 52.1 /
+107.8 µs), so the state share rises 54% -> 66% -> 76% -> 83%: the phase that scales
 with rows is the phase that decides the crossover, exactly as the original
 explanation predicted, and it is why the chain's per-row cost falls as rows grow.
 The same profile attributes the fused kernel itself, which has no phase seam of its
 own: measured against the chain's state phase -- the same rows at the same 64-lane
-occupancy -- the wide dispatch costs a flat **+13.3 / +13.5 / +12.4 µs** at batches
-1/8/16, which is its transform phase plus one launch, and **+96.9 µs** at batch 32.
-That is where the remaining time goes: through batch 16 the fusion's own overhead is
-constant and its row work matches the chain's, so the geometry it wins is decided by
-that constant; at batch 32 the state phase's schedule, not the transform whose
-all-lane rewrite removed the crossover, is what costs the 19%.
+occupancy -- the wide dispatch now costs an almost constant **+9.5 / +11.2 / +11.9 /
++16.3 µs** at batches 1/8/16/32, which is its transform phase plus one launch. The
+batch-32 figure was **+96.9 µs** before the state phase's operands were staged; that
+column is what identified the collapse as redundant per-row work rather than the
+transform or the group width.
 
 The vendor EU counters (Intel Metrics Discovery / GPA) are not reachable from a
 plain Vulkan process here, so the report carries GPU microseconds per phase and the

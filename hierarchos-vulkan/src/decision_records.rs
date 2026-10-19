@@ -483,23 +483,20 @@ mod tests {
     }
 
     /// The three-way dimension: the wider-group fusion, the narrow fusion it
-    /// replaced, and the chain are all named routes of the key/state record, so a
-    /// geometry can carry the fusion *and* say which fused kernel it means.
-    /// The three-way dimension: the wider-group fusion, the narrow fusion it
     /// replaced, and the chain are all routes of one record, so a geometry can
     /// carry the fusion *and* say which fused kernel it means in the same field.
-    /// After the all-lane transform phase the wider group wins every measured
-    /// geometry up to batch 16 -- including batch 16, the old crossover -- so those
-    /// entries name `wide-fused`, and batch 32, where the launch is throughput-bound,
-    /// names the chain.
+    /// The wider group now wins every measured geometry, batch 32 included: the
+    /// all-lane transform removed the batch-16 crossover, and staging the state
+    /// phase's channel-invariant operands removed the batch-32 collapse, so no
+    /// entry names the chain or the narrow arm on this adapter.
     #[test]
     fn key_state_record_names_the_route_that_won_each_geometry() {
         let table = DecisionTable::load(KEY_STATE_FORWARD, "rwkv-key-state-forward");
         assert_eq!(
             table.route("Intel(R) HD Graphics 520", 128, 1),
-            None,
-            "batch 1 is a tie: the wider group leads the narrow arm by well under the 2% band, \
-             so the record carries no entry and the structural default dispatches instead"
+            Some(Route::WideFused),
+            "the wider group wins batch 1 by 12% once its state phase stages the per-channel \
+             operands, so this is a measured decision rather than the old tie"
         );
         assert_eq!(
             table.route("Intel(R) HD Graphics 520", 128, 4),
@@ -519,8 +516,9 @@ mod tests {
         );
         assert_eq!(
             table.route("Intel(R) HD Graphics 520", 128, 32),
-            Some(Route::Staged),
-            "at batch 32 the launch is throughput-bound and the two-dispatch chain measures faster"
+            Some(Route::WideFused),
+            "batch 32 was the state-phase collapse: with the operands staged the fused route leads \
+             the chain, so the record no longer stages this geometry"
         );
         assert_eq!(
             table.route("Some Other GPU", 128, 8),

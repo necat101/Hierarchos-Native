@@ -3,17 +3,31 @@
   "kind": "rwkv-key-state-forward",
   "measured_by": "validation/bench_rwkv_key_state_forward.py",
   "margin": 0.02,
-  "notes": "One entry per (adapter, width, batch) the key-transform/state-update forward route was measured at, and only where the measured winner is not the structural default. `route` is the winning graph, from the three candidates the stage builds: `wide-fused` is the wider-group fused kernel (64 / head_size heads per workgroup, all 64 lanes in both phases), `narrow-fused` is the one-workgroup-per-head kernel it replaced, and `staged` is the two-dispatch chain (`key_transform_forward` then `state_forward`). `candidates` holds each candidate's measured median milliseconds, so the recorded route has to agree with the measurement that produced it; the loader rejects an entry whose route is not its fastest candidate. Naming each fused arm as its own route is what replaced the earlier compose-plus-arm pair. On this Intel Gen9 part the wider group now wins at every batch up to 16 -- its all-lane transform phase removed both the batch-16 crossover and the reason the narrow arm existed -- while batch 32, where the launch is throughput-bound, still favours the chain; the staged entry is why the shipped default dispatches two kernels there. An entry may carry `parameter_storage` to scope the whole route, arm included, to one storage policy; the policy-less entry is what every other policy reads. An empty list means no adapter has been measured yet, and a device with no entry keeps the structural default: the fusion with the wider-group arm. A geometry measured inside the 2% noise band is a tie and carries no entry at all. Re-record a new adapter's own entries with `--record-decisions`. Phase-level GPU time behind these numbers is in `key_state_forward_profile.json` (`validation/profile_rwkv_key_state_forward.py`).",
+  "notes": "One entry per (adapter, width, batch) the key-transform/state-update forward route was measured at. `route` is the winning graph, from the three candidates the stage builds: `wide-fused` is the wider-group fused kernel (64 / head_size heads per workgroup, all 64 lanes in both phases), `narrow-fused` is the one-workgroup-per-head kernel it replaced, and `staged` is the two-dispatch chain (`key_transform_forward` then `state_forward`). `candidates` holds each candidate's measured median milliseconds, so the recorded route has to agree with the measurement that produced it; the loader rejects an entry whose route is not its fastest candidate. Naming each fused arm as its own route is what replaced the earlier compose-plus-arm pair. On this Intel Gen9 part the wider group wins every measured batch, 1 through 32. Its all-lane transform phase removed the batch-16 crossover and the reason the narrow arm existed; what was left at batch 32 was the state phase, whose row loop re-evaluated its channel-invariant operands (exp(-exp(w)), kk * a, r) for every row and lost 19% to the chain there. The transform phase now stages those operands once per channel through shared memory, which removed the remaining gap while keeping the graphs bit-identical, so batch 32 is a wide entry rather than a staged one. An entry may carry `parameter_storage` to scope the whole route, arm included, to one storage policy; the policy-less entry is what every other policy reads. An empty list means no adapter has been measured yet, and a device with no entry keeps the structural default: the fusion with the wider-group arm. A geometry measured inside the 2% noise band is a tie and carries no entry at all. Re-record a new adapter's own entries with `--record-decisions`. Phase-level GPU time behind these numbers is in `key_state_forward_profile.json` (`validation/profile_rwkv_key_state_forward.py`).",
   "decisions": [
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 1,
+      "route": "wide-fused",
+      "candidates": {
+        "wide-fused": 0.036929,
+        "narrow-fused": 0.042867,
+        "staged": 0.051514
+      },
+      "probe": "key-state-forward",
+      "source": "measured",
+      "measured_by": "validation/bench_rwkv_key_state_forward.py"
+    },
     {
       "device": "Intel(R) HD Graphics 520",
       "width": 128,
       "batch": 4,
       "route": "wide-fused",
       "candidates": {
-        "wide-fused": 0.058231,
-        "narrow-fused": 0.05957,
-        "staged": 0.067434
+        "wide-fused": 0.053064,
+        "narrow-fused": 0.058358,
+        "staged": 0.066787
       },
       "probe": "key-state-forward",
       "source": "measured",
@@ -25,9 +39,9 @@
       "batch": 8,
       "route": "wide-fused",
       "candidates": {
-        "wide-fused": 0.073027,
-        "narrow-fused": 0.082698,
-        "staged": 0.082953
+        "wide-fused": 0.071342,
+        "narrow-fused": 0.081171,
+        "staged": 0.082458
       },
       "probe": "key-state-forward",
       "source": "measured",
@@ -39,9 +53,9 @@
       "batch": 16,
       "route": "wide-fused",
       "candidates": {
-        "wide-fused": 0.100411,
-        "narrow-fused": 0.119241,
-        "staged": 0.113748
+        "wide-fused": 0.099977,
+        "narrow-fused": 0.119849,
+        "staged": 0.112008
       },
       "probe": "key-state-forward",
       "source": "measured",
@@ -51,11 +65,11 @@
       "device": "Intel(R) HD Graphics 520",
       "width": 128,
       "batch": 32,
-      "route": "staged",
+      "route": "wide-fused",
       "candidates": {
-        "wide-fused": 0.230878,
-        "narrow-fused": 0.188133,
-        "staged": 0.186374
+        "wide-fused": 0.161687,
+        "narrow-fused": 0.183756,
+        "staged": 0.182968
       },
       "probe": "key-state-forward",
       "source": "measured",

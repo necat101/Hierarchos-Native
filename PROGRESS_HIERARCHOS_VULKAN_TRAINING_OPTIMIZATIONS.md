@@ -14,11 +14,14 @@ there are enough rows to amortize them; at batch 1 the extra dispatch cost still
 won the other way, which is why the old table looked geometry-dependent.
 
 `shaders/rwkv_key_state_forward_fused_wide.comp` packs `64 / head_size` heads into
-the workgroup (four at this width). Lanes 0..3 each transform one head with the
-same serial order, then `lane / head_size` selects a head slot and
+the workgroup (four at this width). `lane / head_size` selects a head slot and
 `lane % head_size` its row, so all 64 lanes advance rows and the grid shrinks by
-the same factor (batch 1: 8 groups to 2; batch 16: 128 to 32). At `head_size` 64 the
-mapping degenerates to the original kernel's.
+the same factor (batch 1: 8 groups to 2; batch 16: 128 to 32). The transform phase
+uses all 64 lanes as well: one lane per head publishes the normalization constant
+in the standalone kernel's FMA order, then every lane writes one column of `kk` and
+`scaled_k`, and stages the row loop's channel-invariant operands (`decay`, `kk * a`,
+`r`) alongside them. At `head_size` 64 the mapping degenerates to the original
+kernel's.
 
 `bench_rwkv_key_state_forward.py` now measures four legs -- wide fused, narrow
 fused, chain, default -- rotating through every sampling position in one process
@@ -27,21 +30,19 @@ counter proving which kernel each leg dispatched:
 
 | batch | wide | narrow | staged | narrow/wide | staged/narrow | staged/wide | default (arm) |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 55.2 us | 52.3 us | 60.8 us | 0.947 | 1.162 | 1.101 | 53.6 us (fused, narrow) |
-| 4 | 58.7 us | 57.0 us | 64.9 us | 0.970 | 1.139 | 1.105 | 57.3 us (fused, narrow) |
-| 8 | 77.2 us | 83.1 us | 83.0 us | 1.076 | 1.000 | 1.075 | 78.6 us (fused, wide) |
-| 16 | 97.8 us | 108.6 us | 102.4 us | 1.111 | 0.943 | 1.047 | 97.0 us (fused, wide) |
-| 32 | 186.7 us | 186.5 us | 186.1 us | 0.999 | 0.998 | 0.997 | 188.0 us (fused, wide) |
+| 1 | 36.9 us | 42.9 us | 51.5 us | 1.161 | 1.202 | 1.395 | 38.1 us (fused, wide) |
+| 4 | 53.1 us | 58.4 us | 66.8 us | 1.100 | 1.144 | 1.259 | 53.7 us (fused, wide) |
+| 8 | 71.3 us | 81.2 us | 82.5 us | 1.138 | 1.016 | 1.156 | 72.9 us (fused, wide) |
+| 16 | 100.0 us | 119.8 us | 112.0 us | 1.199 | 0.935 | 1.120 | 101.6 us (fused, wide) |
+| 32 | 161.7 us | 183.8 us | 183.0 us | 1.136 | 0.996 | 1.132 | 161.9 us (fused, wide) |
 
 The narrow kernel still loses batch 16 to the chain (`0.943`, reproducing the old
-`0.937-0.948`), and the wide kernel wins it (`1.047`). The crossover is removed, not
-moved. Batches 1 and 4 are the other way: the wider group launches too few
-workgroups to spread over the 24 EUs while the narrow kernel's finer grid still
-fills them, so the record names `fused_arm: narrow` there and `wide` from batch 8
-up -- a per-geometry measurement rather than a batch threshold that would match
-this adapter and be wrong on another. All three graphs stay bit-identical
-(`worst_max_abs` and `worst_max_abs_wide_vs_narrow` exactly 0), so the widening is
-scheduling and the receipt asserts that rather than a tolerance.
+`0.937-0.948`), and the wide kernel wins it (`1.145`). The crossover is removed, not
+moved, and every measured geometry now names the wide route -- batch 1 and 4
+included once the state phase stopped recomputing its channel-invariant operands.
+All three graphs stay bit-identical (`worst_max_abs` and
+`worst_max_abs_wide_vs_narrow` exactly 0), so the widening is scheduling and the
+receipt asserts that rather than a tolerance.
 
 ### The records are now keyed by parameter-storage policy
 
@@ -73,10 +74,10 @@ consults the route.
   arm-lookup, arm-validation and policy-scoping tests.
 * `bench_rwkv_key_state_forward.py --record --record-decisions` over batches
   1/4/8/16/32: receipt `validation/key_state_forward_bench.json` (`result: pass`,
-  promotion `geometry-aware`), four fused entries with their arms, batch 32 in the
-  band; re-running with the record in place dispatches the narrow arm at 1/4 and the
-  wide arm from 8 up, and the batch-16 entry now names the fusion rather than the
-  chain.
+  promotion `geometry-aware`), wide entries at 1/4/8/16/32, and every leg bit-identical
+  (`worst_max_abs` and `worst_max_abs_wide_vs_narrow` exactly 0); re-running with the
+  record in place dispatches the wide arm at every batch, including batch 32, which
+  the earlier record staged.
 * `bench_rwkv_low_rank_fp16_forward.py --record --record-decisions` over the same
   batches: receipt `validation/low_rank_fp16_forward_bench.json` with
   `follows_recorded_route_everywhere: true`, and the policy-less entries in
@@ -97,14 +98,21 @@ column each of `kk` and `scaled_k`. A first attempt that recomputed the norm in 
 row lane -- one fewer barrier, four times the transform loads and FMAs -- was also
 measured and rejected: 23% slower at batch 32 once the launch is throughput-bound.
 
-Measured staged/wide on the Intel Gen9 part: 1.183 / 1.174 / 1.153 / 1.139 / 0.808 at
-batches 1/4/8/16/32 (against 1.101 / 1.105 / 1.075 / 1.047 / 0.997 before). The
-batch-16 crossover is gone by 14%, and the narrow arm no longer wins any measured
-geometry -- but batch 32 does not close: the wide grid's cost per row jumps from
-32 ns at batch 16 to 51 ns, the chain wins by 19%, and the cause is not established
-(register pressure from the transform loop is the remaining candidate). The record
-runs the chain there, so the shipped default is the faster graph at every measured
-geometry. All three graphs stay bit-identical, including wide against narrow.
+**Then the row loop's own redundancy showed up.** Measured staged/wide on the Intel
+Gen9 part: 1.183 / 1.174 / 1.153 / 1.139 at batches 1/4/8/16 (against 1.101 / 1.105 /
+1.075 / 1.047 before), and 0.808 at batch 32. The
+batch-16 crossover was gone by 14% and the narrow arm no longer won any measured
+geometry, but batch 32 still lost by 19%: the profile put the whole difference in the
+state phase (50.4 ns per row against the chain state kernel's 27.0 ns with the same
+rows and lanes). The state loop was recomputing its channel-invariant operands per
+row -- `exp(-exp(w))`, `kk * a` and `r` -- which is 16 times the transcendentals and
+three extra global loads per row. Those are now staged once per channel by the
+transform phase and published through shared memory, leaving 132 bytes of global
+traffic per row instead of 320. Batch 32 went 232.1 -> 161.7 us (-30%, 50.4 -> 30.3
+ns per row), staged/wide became 1.395 / 1.259 / 1.156 / 1.120 / 1.132 across
+1/4/8/16/32, and the record now names the wide route at every measured geometry. All
+three graphs stay bit-identical, including wide against narrow: the staged operands
+are the same expressions on the same inputs, evaluated once.
 
 ### Phase attribution from the device's own timestamps
 
@@ -139,24 +147,27 @@ discarding it as a tie.
 ### Verification for this round
 
 * `cargo check --lib --bins` exit 0; `cargo fmt --check` clean.
-* `cargo test --release --lib decision_records` green, including the new
-  route-vocabulary, candidates, policy-scope and three-way key/state tests.
-* `cargo test --release --lib bench_ab` green.
+* `cargo test --release --lib` green (790 passed, 9 ignored), including the
+  route-vocabulary, candidates, policy-scope and three-way key/state tests in
+  `decision_records` (16) and the `bench_ab` suite.
 * `verify_training_shaders.py` recompiles the whole manifest and reproduces the new
-  `rwkv_key_state_forward_fused_wide.spv` byte-for-byte.
-* Receipt suites green: key/state (10), key/state profile (4), time-mix (7),
-  channel-mix (9), low-rank + FP16 (15), plus the composition, topology, training
-  state and training stack suites.
+  `rwkv_key_state_forward_fused_wide.spv` byte-for-byte after the state-operand
+  staging; the provenance, push-constant and binding-access checkers pass too.
+* Receipt suites green: key/state, key/state profile, time-mix, channel-mix,
+  low-rank + FP16, plus the composition, topology, training state and training
+  stack suites (197 tests, 9 GPU-gated skips).
 * `bench_rwkv_key_state_forward.py` and `profile_rwkv_key_state_forward.py` receipts
-  re-recorded on the attached Gen9 part; `bench_rwkv_low_rank_fp16_forward.py`
-  re-recorded with its 1% band and a 40-iteration sweep.
+  re-recorded on the attached Gen9 part after both kernel changes, and the decision
+  record written from the same run as the receipt (so the drift check compares one
+  measurement, not two); `bench_rwkv_low_rank_fp16_forward.py` re-recorded with its
+  1% band and a 40-iteration sweep.
 * AMD: not measured. No AMD adapter is attached to this machine; the
   `cross-adapter-ab` job and the recording runbook in `AMD_REGRESSION_AUDIT.md`
   section 10 are the handoff, and no AMD entries were invented.
 
 ### Final feature set (closed)
 
-These four are the round's final features; none is left as a follow-up:
+These five are the round's final features; none is left as a follow-up:
 
 1. **Phase profile with an explicit counter limit.** `profile_rwkv_key_state_forward.py`
    attributes the key/state stage with the device's own per-dispatch timestamps and
@@ -179,7 +190,13 @@ These four are the round's final features; none is left as a follow-up:
 4. **All-lane transform phase, re-measured.** The wider group's key transform keeps the
    standalone kernel's serial FMA order, publishes the constant through shared memory,
    and then writes all 64 lanes; the graphs remain bit-identical and the batch-16
-   crossover is gone (wide wins 1/4/8/16, the chain keeps batch 32).
+   crossover is gone.
+5. **State-phase operands staged once per channel.** `exp(-exp(w))`, `kk * a` and `r`
+   are loop-invariant across a head's rows, so the transform phase publishes them in
+   shared memory instead of the row loop recomputing them 16 times. That removed the
+   batch-32 collapse (-29% there, +96.9 us excess over the chain state phase down to
+   +16.3) and made the wide route the winner at every measured batch, 1 through 32,
+   with staged/wide at 1.395/1.259/1.156/1.120/1.132.
 
 Cross-validation status: the Intel Gen9 part is measured end to end. No AMD adapter is
 attached to this machine, so the AMD half is the `cross-adapter-ab` CI job plus the

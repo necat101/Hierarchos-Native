@@ -50,6 +50,8 @@ WIDE_ARM = "key-state-forward-fused-wide"
 NARROW_ARM = "key-state-forward-fused"
 # The order a tie breaks in, matching the record's vocabulary.
 ROUTE_ORDER = ("fused", "wide-fused", "narrow-fused", "staged")
+# The route an unrecorded geometry dispatches: the wider-group fusion.
+DEFAULT_ROUTE = "wide-fused"
 # The band inside which a measured sign is not a decision; the driver omits those
 # geometries and the structural default keeps deciding them.
 NOISE_BAND = 0.02
@@ -311,10 +313,11 @@ class KeyStateForwardReceiptTest(unittest.TestCase):
     def test_the_record_covers_every_decided_geometry(self) -> None:
         """A receipt that stopped covering geometries would hide a verdict.
 
-        Every measured geometry outside the band must carry an entry, and the
-        record's verdicts must match the receipt. The record is no longer required
-        to carry a composed verdict: the wider group moved batch 16 to the fusion,
-        which is the change this receipt documents.
+        The writer records a geometry when the structural default wins (that is a
+        measurement, not a tie) and when any other candidate wins outside the band,
+        so every measured row must carry an entry whose route is its fastest
+        candidate. A non-default winner inside the band is the one case that carries
+        no entry, and that geometry is allowed to fall back to the default.
         """
         verdicts = set()
         for row in self.batches:
@@ -326,13 +329,16 @@ class KeyStateForwardReceiptTest(unittest.TestCase):
                     "staged": row["composed_ms"],
                 }
                 best = min(timings, key=lambda label: (timings[label], ROUTE_ORDER.index(label)))
-                outside = abs(timings[best] / timings["wide-fused"] - 1.0) > NOISE_BAND
-                if outside:
-                    self.assertIsNotNone(
-                        entry,
-                        "a geometry outside the band must carry a recorded decision",
-                    )
-                    verdicts.add(entry["route"])
+                outside = abs(timings[best] / timings[DEFAULT_ROUTE] - 1.0) > NOISE_BAND
+                if best != DEFAULT_ROUTE and not outside:
+                    continue
+                self.assertIsNotNone(
+                    entry,
+                    "a decided geometry must carry a recorded decision: the default winning "
+                    "is recorded, and so is a winner outside the band",
+                )
+                self.assertEqual(entry["route"], best)
+                verdicts.add(entry["route"])
         self.assertTrue(
             verdicts,
             "the record carries no decision at all, so the default is unmeasured here",

@@ -29,6 +29,18 @@
 // The arithmetic per row is unchanged -- the same products in the same order --
 // so the graphs stay bit-identical and this remains a scheduling change, not a
 // numerics one.
+//
+// *Staged state operands.* The row loop's operands depend only on the channel:
+// `decay` is exp(-exp(w)), `context` is kk * a, and the receptance is r. The row
+// loop used to re-evaluate all three for every row, which is head_size times the
+// transcendentals and three more global reads per row than the row work needs.
+// It was invisible while the launch dominated, and then it was the whole gap at
+// batch 32: with 64 workgroups resident the redundant exponentials and loads set
+// the throughput, and the kernel lost 19% to the chain. The transform phase
+// already visits every channel, so it publishes the three operands through shared
+// memory and the row loop reads only the state row, its own value and shared
+// memory. Same expressions, same order, evaluated once -- the wide-vs-narrow
+// comparison stays exactly zero.
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
@@ -61,6 +73,14 @@ shared float kk_shared[64];
 // lane. Keeping it out of every lane's registers is what lets the elementwise
 // pass below run on all 64 lanes without each of them re-reading the head.
 shared float denom_shared[64];
+// The state phase's per-channel operands, staged once by the transform phase.
+// `decay` is exp(-exp(w)) and `context` is kk * a; both depend only on the
+// channel, yet the row loop would recompute them head_size times per head --
+// 16x the transcendentals and three more global reads per row than the row work
+// needs. Staging them here is the same products in the same order, just once.
+shared float decay_shared[64];
+shared float context_shared[64];
+shared float receptance_shared[64];
 
 void main() {
     uint heads = pc.width / pc.head_size;
@@ -119,6 +139,15 @@ void main() {
         uint shared_index = slot * pc.head_size + row;
         kk_shared[shared_index] = normalized;
         scaled_k_shared[shared_index] = scaled;
+        // Same expressions the row loop used to evaluate per row, evaluated once
+        // per channel and published. `bounded_w` keeps the guest-value handling
+        // exactly as it was, so the staged decay is bit-identical.
+        float bounded_w = (isnan(w[index]) || isinf(w[index]))
+            ? w[index]
+            : clamp(w[index], -60.0, 30.0);
+        decay_shared[shared_index] = exp(-exp(bounded_w));
+        context_shared[shared_index] = normalized * a[index];
+        receptance_shared[shared_index] = r[index];
     }
 
     memoryBarrierShared();
@@ -146,18 +175,12 @@ void main() {
     float row_tmix = 0.0;
     float value_row = v[base + row];
     for (uint col = 0; col < pc.head_size; ++col) {
-        uint channel_col = base + col;
         uint matrix_index = matrix_row_base + col;
-        float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
-            ? w[channel_col]
-            : clamp(w[channel_col], -60.0, 30.0);
-        float decay = exp(-exp(bounded_w));
-        float b = kk_shared[shared_base + col] * a[channel_col];
-        float updated = state_values[matrix_index] * decay
-            + sa * b
+        float updated = state_values[matrix_index] * decay_shared[shared_base + col]
+            + sa * context_shared[shared_base + col]
             + value_row * scaled_k_shared[shared_base + col];
         new_state[matrix_index] = updated;
-        row_tmix = fma(updated, r[channel_col], row_tmix);
+        row_tmix = fma(updated, receptance_shared[shared_base + col], row_tmix);
     }
     tmix[linear_row] = row_tmix;
 }

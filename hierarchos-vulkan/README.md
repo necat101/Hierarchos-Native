@@ -711,23 +711,24 @@ Current milestone:
   width) into the workgroup, so every lane advances a row, and its transform phase
   now uses all 64 lanes too: each head's normalization constant is computed once on
   that head's row-0 lane with the standalone kernel's FMA order, published through
-  shared memory, and all 64 lanes then write one column each. Measured staged/wide
-  is `1.183`/`1.174`/`1.153`/`1.139`/`0.808x` at batches 1/4/8/16/32 and
-  staged/narrow is `1.167`/`1.127`/`0.999`/`0.948`/`0.993x`: the wider group wins
-  every geometry up to batch 16 -- including the old batch-16 crossover -- and the
-  narrow arm no longer wins any measured geometry. Batch 32 is the exception: the
-  wide grid's cost per row jumps there (51 ns against 32 ns at batch 16) and the
-  chain wins by 19%, so the record runs the chain at that geometry and the wide
-  kernel there is the open question, not a shipped win. `validation/key_state_forward_profile.json`
+  shared memory, and all 64 lanes then write one column each. That left one gap:
+  at batch 32 the fused route lost 19% because its row loop re-evaluated the
+  channel-invariant operands of the update -- `exp(-exp(w))`, `kk * a` and `r` --
+  once per row, which is `head_size` times the transcendentals and three more
+  global reads per row than the row work needs. The transform phase now stages
+  those three operands once per channel through shared memory, so the row loop
+  reads only its state row, its value and shared memory. Measured staged/wide is
+  `1.395`/`1.259`/`1.156`/`1.120`/`1.132x` at batches 1/4/8/16/32 and staged/narrow
+  is `1.202`/`1.144`/`1.016`/`0.935`/`0.996x`: the wider group wins every measured
+  geometry, batch 32 included, and the narrow arm wins none. `validation/key_state_forward_profile.json`
   (`validation/profile_rwkv_key_state_forward.py`) attributes the stage with the
   device's per-dispatch GPU timestamps: the chain's transform phase is nearly flat
   in batch while its state phase grows with the row count (state share 54% -> 84%
   from batch 1 to 32), which is the measured form of the original explanation. The
   fused kernel has no seam of its own, so the profile measures it against the chain's
-  state phase -- the same rows at the same occupancy: the excess is flat at
-  +13.3/+13.5/+12.4 microseconds at batches 1/8/16 (its transform plus one launch)
-  and jumps to +96.9 at batch 32, which is why the remaining gap there is the state
-  phase's schedule rather than the transform.
+  state phase -- the same rows at the same occupancy: the excess is now almost
+  constant at +9.5/+11.2/+11.9/+16.3 microseconds at batches 1/8/16/32, against
+  +96.9 at batch 32 before the operands were staged.
   `validation/key_state_forward_decisions.json` is now a three-route record --
   `wide-fused`, `narrow-fused`, `staged` -- with every candidate's median beside the
   route, so one field says both whether the stage fused and which fused kernel ran;
