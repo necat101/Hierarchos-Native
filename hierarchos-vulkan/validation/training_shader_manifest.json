@@ -2154,6 +2154,14 @@
       "target_env": "vulkan1.0"
     },
     {
+      "artifact": "rwkv_key_state_forward_fused_wide.spv",
+      "source": "rwkv_key_state_forward_fused_wide.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "rwkv_key_transform_backward.spv",
       "source": "rwkv_key_transform_backward.comp",
       "compiler": "glslc",

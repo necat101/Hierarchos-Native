@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Time a multi-step TBPTT sequence under each time-mix projection graph.
 
-The packed-cell A/B in `bench_rwkv_packed_cell_time_mix.py` measures one
-`forward_backward` call. A training run pays that call once per timestep inside
-a TBPTT window, plus the reverse pass and the state pack/unpack edges, so this
-driver re-runs the same comparison end to end: one `RwkvTbpttSequenceOp` per
-leg, a whole forward sweep plus reverse pass per sample, and the promotion
-checked on the sequence the default sequence would really dispatch.
+The packed-cell A/B measures one `forward_backward` call. A training run pays
+that call once per timestep inside a TBPTT window, plus the reverse pass and the
+state pack/unpack edges, so this driver re-runs the same comparison end to end:
+one `RwkvTbpttSequenceOp` per leg, a whole forward sweep plus reverse pass per
+sample, and the promotion checked on the sequence the default would really
+dispatch.
 
 The three legs differ only in the switches resolved at construction:
 
@@ -14,12 +14,11 @@ The three legs differ only in the switches resolved at construction:
 * forced composition (`HIERARCHOS_VULKAN_DISABLE_TIME_MIX_FORWARD_FUSION`),
 * the shipped default.
 
-The binary refuses to report a timing unless the fused leg dispatched no vendor
-`linear3-forward` module, the composed leg dispatched at least one, the default
-sequence followed the tuned module's admission, and all returned tensors agree
-within tolerance. This driver adds the cross-batch verdict: the composed
-projection may only be promoted where the tuned module ran, and the fused
-kernel must stay everywhere else.
+`ab_harness` owns the shared shape: the binary refuses to report a timing unless
+the fused leg dispatched no vendor `linear3-forward` module, the composed leg
+dispatched one per timestep, the default sequence followed the recorded
+decision, and all returned tensors agree within tolerance. This driver adds the
+cross-batch verdict and the per-step numbers a training run sees.
 
 Usage:
     python hierarchos-vulkan/validation/bench_rwkv_tbptt_time_mix.py
@@ -32,17 +31,25 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import bench_rwkv_packed_cell_time_mix as single_step  # noqa: E402  (release builder)
+import ab_harness as ab  # noqa: E402  (shared three-leg A/B driver harness)
 import verify_rwkv_cpu_bridge as bridge  # noqa: E402  (fixture constants)
 import verify_rwkv_packed_cell_composition as composition  # noqa: E402  (live fixture)
 
 BENCH_BINARY = "hierarchos-vulkan-rwkv-tbptt-time-mix-bench"
+PROBE_KEY = "linear3"
+VARIANT_KEY = "linear3_variant"
+TENSORS = {
+    "outputs",
+    "final_packed_state",
+    "grad_x",
+    "token_feature_grad",
+    "grad_initial_packed_state",
+}
 
 
 def run_batch(
@@ -56,7 +63,7 @@ def run_batch(
     atol: float,
     rtol: float,
 ) -> dict:
-    completed = subprocess.run(
+    return ab.run_json(
         [
             str(binary),
             "--model-dir",
@@ -82,73 +89,9 @@ def run_batch(
             "--rtol",
             repr(rtol),
         ],
-        cwd=bridge.REPO,
-        capture_output=True,
-        text=True,
+        batch=batch,
+        label="TBPTT benchmark",
     )
-    if completed.returncode != 0:
-        raise bridge.Mismatch(
-            f"TBPTT benchmark failed at batch {batch}: "
-            f"{completed.stderr.strip() or completed.stdout.strip()}"
-        )
-    return json.loads(completed.stdout)
-
-
-def summarise(runs: list[dict]) -> dict:
-    ratios = sorted(run["composed_over_fused"] for run in runs)
-    middle = len(ratios) // 2
-    median_ratio = (
-        ratios[middle] if len(ratios) % 2 else (ratios[middle - 1] + ratios[middle]) * 0.5
-    )
-    composed_wins = all(ratio < 1.0 for ratio in ratios)
-    fused_wins = all(ratio > 1.0 for ratio in ratios)
-    # Same contract the single-step receipt enforces, now over a whole sequence:
-    # compose where the tuned linear3 module ran, keep the fused kernel
-    # everywhere else.
-    promoted_where_vendor = all(
-        run["default"]["label"] == "composed"
-        for run in runs
-        if run["composed"]["linear3_dispatches"] > 0
-    ) and all(
-        run["default"]["label"].startswith("fused")
-        for run in runs
-        if run["composed"]["linear3_dispatches"] == 0
-    )
-    return {
-        "result": "pass",
-        "device": runs[0]["device"],
-        "width": runs[0]["width"],
-        "head_size": runs[0]["head_size"],
-        "state_size": runs[0]["state_size"],
-        "steps": runs[0]["steps"],
-        "linear3_variant": runs[0]["linear3_variant"],
-        "promotion": "geometry-aware" if promoted_where_vendor else "UNEXPECTED",
-        "batches": [
-            {
-                "batch": run["batch"],
-                "fused_ms": run["fused"]["timing"]["median_ms"],
-                "composed_ms": run["composed"]["timing"]["median_ms"],
-                "default_ms": run["default"]["timing"]["median_ms"],
-                "fused_ms_per_step": run["fused"]["ms_per_step"],
-                "composed_ms_per_step": run["composed"]["ms_per_step"],
-                "default_ms_per_step": run["default"]["ms_per_step"],
-                "composed_over_fused": run["composed_over_fused"],
-                "default_over_fused": run["default_over_fused"],
-                "worst_max_abs": run["worst_max_abs"],
-                "fused_label": run["fused"]["label"],
-                "composed_label": run["composed"]["label"],
-                "default_label": run["default"]["label"],
-                "fused_linear3_dispatches": run["fused"]["linear3_dispatches"],
-                "composed_linear3_dispatches": run["composed"]["linear3_dispatches"],
-                "default_linear3_dispatches": run["default"]["linear3_dispatches"],
-                "composed_ran_vendor_linear3": run["composed"]["linear3_dispatches"] > 0,
-                "tensors": run["tensors"],
-            }
-            for run in runs
-        ],
-        "median_composed_over_fused": median_ratio,
-        "winner": "composed" if composed_wins else ("fused" if fused_wins else "mixed"),
-    }
 
 
 def main() -> int:
@@ -176,7 +119,7 @@ def main() -> int:
     if args.steps <= 0 or args.iterations <= 0:
         parser.error("--steps and --iterations must be positive")
 
-    binary = single_step.build_release_binary(BENCH_BINARY)
+    binary = ab.build_release_binary(BENCH_BINARY)
     cleanup = None
     if args.keep_fixtures is not None:
         fixture_root = args.keep_fixtures.resolve()
@@ -199,6 +142,7 @@ def main() -> int:
                 atol=args.atol,
                 rtol=args.rtol,
             )
+            ab.require_tensors(run, TENSORS)
             runs.append(run)
             print(
                 f"batch {batch:>2} x {run['steps']} steps: fused "
@@ -218,18 +162,10 @@ def main() -> int:
         if cleanup is not None:
             cleanup.cleanup()
 
-    summary = summarise(runs)
-    if summary["promotion"] != "geometry-aware":
-        drifted = [
-            f"batch {row['batch']}: composed leg ran the tuned module "
-            f"{row['composed_ran_vendor_linear3']}, default built {row['default_label']}"
-            for row in summary["batches"]
-            if (row["default_label"] == "composed") != row["composed_ran_vendor_linear3"]
-        ]
-        raise bridge.Mismatch(
-            "the default sequence stopped following the tuned linear3 module's gate: "
-            + "; ".join(drifted)
-        )
+    summary = ab.summarise(
+        runs, probe_key=PROBE_KEY, variant_key=VARIANT_KEY, steps=args.steps
+    )
+    ab.require_geometry_aware(summary)
     summary["samples"] = args.iterations
     summary["warmup"] = args.warmup
     summary["atol"] = args.atol
@@ -240,7 +176,7 @@ def main() -> int:
         json.dumps(
             {
                 key: summary[key]
-                for key in ("device", "linear3_variant", "winner", "median_composed_over_fused")
+                for key in ("device", VARIANT_KEY, "winner", "median_composed_over_fused")
             },
             indent=2,
         )

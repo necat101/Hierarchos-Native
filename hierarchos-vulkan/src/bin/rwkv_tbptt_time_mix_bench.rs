@@ -1,12 +1,14 @@
-use std::{
-    path::{Path, PathBuf},
-    time::Instant,
-};
+use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use hierarchos_vulkan::{
-    variant_dispatch_counts, vendor_kernel_plan, RwkvStateReadoutMode, RwkvTbpttSchedule,
-    RwkvTbpttSequenceOp, VendorKernelFamily, VulkanDevice,
+    bench_ab::{
+        require_agreement, require_default_matches_decision, require_fused_leg_is_pure,
+        require_separated_legs, sample_three_legs, tensor_diff, variant_dispatches, EnvSwitch,
+        LegReport, Timing,
+    },
+    vendor_kernel_plan, RwkvStateReadoutMode, RwkvTbpttSchedule, RwkvTbpttSequenceOp,
+    RwkvTbpttSequenceResult, VendorKernelFamily, VulkanDevice,
 };
 use serde::Serialize;
 
@@ -15,34 +17,29 @@ use serde::Serialize;
 /// the harness repeats the literal rather than depending on a private constant.
 const TIME_MIX_FUSION_FORCE_ENV: &str = "HIERARCHOS_RWKV_TIME_MIX_FORCE_FORWARD_FUSION";
 const TIME_MIX_FUSION_DISABLE_ENV: &str = "HIERARCHOS_VULKAN_DISABLE_TIME_MIX_FORWARD_FUSION";
+const PROBE_FAMILY: &str = "linear3-forward";
 const DEFAULT_STEPS: usize = 8;
 
+/// The receipt's leg shape: the shared harness reports a generic
+/// `vendor_dispatches` and a per-unit median, and this adapter keeps the
+/// family-named key and `ms_per_step` the receipt and its tests already read.
 #[derive(Serialize)]
-struct Timing {
-    samples: usize,
-    median_ms: f64,
-    mean_ms: f64,
-    min_ms: f64,
-    max_ms: f64,
-}
-
-#[derive(Serialize)]
-struct TensorDiff {
+struct Leg {
     label: &'static str,
-    values: usize,
-    max_abs: f64,
-    worst_excess: f64,
-}
-
-#[derive(Serialize)]
-struct LegReport {
-    /// The graph the sequence reports it will dispatch for this batch.
-    label: &'static str,
-    /// Vendor `linear3-forward` dispatches one whole sequence performed.
     linear3_dispatches: u64,
-    /// Whole-sequence wall time, and the same divided by `steps`.
     timing: Timing,
     ms_per_step: f64,
+}
+
+impl From<LegReport> for Leg {
+    fn from(leg: LegReport) -> Self {
+        Self {
+            label: leg.label,
+            linear3_dispatches: leg.vendor_dispatches,
+            ms_per_step: leg.ms_per_unit.unwrap_or(0.0),
+            timing: leg.timing,
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -54,70 +51,16 @@ struct Output {
     batch: usize,
     steps: usize,
     linear3_variant: String,
-    fused: LegReport,
-    composed: LegReport,
-    default: LegReport,
+    fused: Leg,
+    composed: Leg,
+    default: Leg,
     composed_over_fused: f64,
     default_over_fused: f64,
     /// Worst per-tensor difference between the fused and composed legs over the
     /// whole sequence. The graphs must agree within tolerance, or the timing
     /// compares different work.
     worst_max_abs: f64,
-    tensors: Vec<TensorDiff>,
-}
-
-fn median(values: &mut [f64]) -> f64 {
-    values.sort_by(|left, right| left.total_cmp(right));
-    let middle = values.len() / 2;
-    if values.len() % 2 == 0 {
-        (values[middle - 1] + values[middle]) * 0.5
-    } else {
-        values[middle]
-    }
-}
-
-fn timing(mut samples: Vec<f64>) -> Timing {
-    let count = samples.len();
-    let sum: f64 = samples.iter().sum();
-    let median_ms = median(&mut samples);
-    Timing {
-        samples: count,
-        median_ms,
-        mean_ms: sum / count as f64,
-        min_ms: samples[0],
-        max_ms: samples[count - 1],
-    }
-}
-
-fn linear3_dispatches() -> u64 {
-    variant_dispatch_counts()
-        .into_iter()
-        .find(|(label, _)| *label == "linear3-forward")
-        .map(|(_, count)| count)
-        .unwrap_or(0)
-}
-
-fn tensor_diff(
-    label: &'static str,
-    fused: &[f32],
-    composed: &[f32],
-    atol: f64,
-    rtol: f64,
-) -> TensorDiff {
-    let mut max_abs = 0.0f64;
-    let mut worst_excess = f64::NEG_INFINITY;
-    for (left, right) in fused.iter().zip(composed) {
-        let difference = (*left as f64 - *right as f64).abs();
-        let bound = atol + rtol * (*right as f64).abs();
-        max_abs = max_abs.max(difference);
-        worst_excess = worst_excess.max(difference - bound);
-    }
-    TensorDiff {
-        label,
-        values: fused.len(),
-        max_abs,
-        worst_excess,
-    }
+    tensors: Vec<hierarchos_vulkan::bench_ab::TensorDiff>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -142,6 +85,29 @@ fn build_sequence(
         4.0,
         RwkvStateReadoutMode::ExplicitOutput,
         50.0,
+    )
+}
+
+/// One whole TBPTT window on a leg, so the harness closures stay one line each.
+#[allow(clippy::too_many_arguments)]
+fn step(
+    op: &mut RwkvTbpttSequenceOp,
+    batch: usize,
+    steps: usize,
+    x: &[f32],
+    token_features: &[f32],
+    initial_state: &[f32],
+    grad_output: &[f32],
+) -> Result<RwkvTbpttSequenceResult> {
+    op.run(
+        batch,
+        steps,
+        x,
+        token_features,
+        initial_state,
+        grad_output,
+        None,
+        RwkvTbpttSchedule::full_bptt(),
     )
 }
 
@@ -272,30 +238,30 @@ fn main() -> Result<()> {
     for batch in batches {
         // The three legs differ only in the switches resolved at construction;
         // fixture, geometry, seed and weights are identical.
-        std::env::set_var(TIME_MIX_FUSION_FORCE_ENV, "1");
-        let mut fused = build_sequence(
-            device.clone(),
-            &model_dir,
-            &cell_prefix,
-            &adapter_prefix,
-            head_size,
-            batch,
-            steps,
-        )?;
-        std::env::remove_var(TIME_MIX_FUSION_FORCE_ENV);
-
-        std::env::set_var(TIME_MIX_FUSION_DISABLE_ENV, "1");
-        let mut composed = build_sequence(
-            device.clone(),
-            &model_dir,
-            &cell_prefix,
-            &adapter_prefix,
-            head_size,
-            batch,
-            steps,
-        )?;
-        std::env::remove_var(TIME_MIX_FUSION_DISABLE_ENV);
-
+        let mut fused = {
+            let _forced = EnvSwitch::set(TIME_MIX_FUSION_FORCE_ENV);
+            build_sequence(
+                device.clone(),
+                &model_dir,
+                &cell_prefix,
+                &adapter_prefix,
+                head_size,
+                batch,
+                steps,
+            )?
+        };
+        let mut composed = {
+            let _disabled = EnvSwitch::set(TIME_MIX_FUSION_DISABLE_ENV);
+            build_sequence(
+                device.clone(),
+                &model_dir,
+                &cell_prefix,
+                &adapter_prefix,
+                head_size,
+                batch,
+                steps,
+            )?
+        };
         let mut default = build_sequence(
             device.clone(),
             &model_dir,
@@ -319,100 +285,108 @@ fn main() -> Result<()> {
         // A/B does, so the two harnesses time the same work per step.
         let token_features = vec![0.0f32; steps * batch * input_dim];
 
-        let run = |op: &mut RwkvTbpttSequenceOp| {
-            op.run(
-                batch,
-                steps,
-                &x,
-                &token_features,
-                &initial_state,
-                &grad_output,
-                None,
-                RwkvTbpttSchedule::full_bptt(),
-            )
-        };
-
         // Labels first, then one instrumented run per leg so the dispatch
         // counter proves which graph actually ran.
         let fused_label = fused.time_mix_full_forward_projection_label(batch);
         let composed_label = composed.time_mix_full_forward_projection_label(batch);
         let default_label = default.time_mix_full_forward_projection_label(batch);
+        require_separated_legs(fused_label, composed_label)?;
         if !fused_label.starts_with("fused") || composed_label != "composed" {
             bail!(
                 "the switches did not separate the two graphs: fused leg built {fused_label}, \
                  composed leg built {composed_label}"
             );
         }
-        let before = linear3_dispatches();
-        let mut fused_last = run(&mut fused)?;
-        let fused_dispatches = linear3_dispatches() - before;
-        let before = linear3_dispatches();
-        let mut composed_last = run(&mut composed)?;
-        let composed_dispatches = linear3_dispatches() - before;
-        let before = linear3_dispatches();
-        run(&mut default)?;
-        let default_dispatches = linear3_dispatches() - before;
-        if fused_dispatches != 0 {
-            bail!(
-                "the forced-fusion leg dispatched linear3-forward {fused_dispatches} time(s) over \
-                 {steps} steps; it did not run the fused projection, so this run is not an A/B"
-            );
-        }
-        // The promotion contract, now read end to end: the default sequence is
-        // the composed projection exactly where the tuned module ran for the
-        // composed sequence, and the fused kernel everywhere else.
-        let expected_default = if composed_dispatches > 0 {
-            "composed"
-        } else {
-            fused_label
-        };
-        if default_label != expected_default {
-            bail!(
-                "the default sequence built {default_label} at batch {batch} while the tuned \
-                 linear3 module {} run in the composed sequence (expected {expected_default})",
-                if composed_dispatches > 0 {
-                    "did"
-                } else {
-                    "did not"
-                }
-            );
-        }
 
-        for _ in 0..warmup {
-            run(&mut fused)?;
-            run(&mut composed)?;
-            run(&mut default)?;
-        }
+        let before = variant_dispatches(PROBE_FAMILY);
+        let mut fused_last = step(
+            &mut fused,
+            batch,
+            steps,
+            &x,
+            &token_features,
+            &initial_state,
+            &grad_output,
+        )?;
+        let fused_dispatches = variant_dispatches(PROBE_FAMILY) - before;
+        let before = variant_dispatches(PROBE_FAMILY);
+        let mut composed_last = step(
+            &mut composed,
+            batch,
+            steps,
+            &x,
+            &token_features,
+            &initial_state,
+            &grad_output,
+        )?;
+        let composed_dispatches = variant_dispatches(PROBE_FAMILY) - before;
+        let before = variant_dispatches(PROBE_FAMILY);
+        let _ = step(
+            &mut default,
+            batch,
+            steps,
+            &x,
+            &token_features,
+            &initial_state,
+            &grad_output,
+        )?;
+        let default_dispatches = variant_dispatches(PROBE_FAMILY) - before;
 
-        let mut fused_samples = Vec::with_capacity(iterations);
-        let mut composed_samples = Vec::with_capacity(iterations);
-        let mut default_samples = Vec::with_capacity(iterations);
-        for iteration in 0..iterations {
-            // Rotate which sequence runs first so neither warm buffers nor clock
-            // drift systematically favors one leg.
-            let order = match iteration % 3 {
-                0 => [0usize, 1, 2],
-                1 => [1, 2, 0],
-                _ => [2, 0, 1],
-            };
-            for leg in order {
-                let started = Instant::now();
-                match leg {
-                    0 => {
-                        fused_last = run(&mut fused)?;
-                        fused_samples.push(started.elapsed().as_secs_f64() * 1.0e3);
-                    }
-                    1 => {
-                        composed_last = run(&mut composed)?;
-                        composed_samples.push(started.elapsed().as_secs_f64() * 1.0e3);
-                    }
-                    _ => {
-                        run(&mut default)?;
-                        default_samples.push(started.elapsed().as_secs_f64() * 1.0e3);
-                    }
-                }
-            }
-        }
+        require_fused_leg_is_pure(PROBE_FAMILY, fused_dispatches, steps)?;
+        // The composed leg's count may be zero where the vendor gate is not
+        // admitted; the label above is the proof it built the composition, and
+        // the default is checked against the decision it actually follows.
+        require_default_matches_decision(
+            PROBE_FAMILY,
+            fused_label,
+            composed_dispatches,
+            default.time_mix_recorded_projection_decision(batch),
+            default_label,
+            batch,
+        )?;
+
+        // Warm up and sample with the shared rotated order, so a warm cache
+        // cannot favor one sequence graph.
+        let (fused_timing, composed_timing, default_timing, fused_sampled, composed_sampled, _) =
+            sample_three_legs(
+                iterations,
+                warmup,
+                || {
+                    step(
+                        &mut fused,
+                        batch,
+                        steps,
+                        &x,
+                        &token_features,
+                        &initial_state,
+                        &grad_output,
+                    )
+                },
+                || {
+                    step(
+                        &mut composed,
+                        batch,
+                        steps,
+                        &x,
+                        &token_features,
+                        &initial_state,
+                        &grad_output,
+                    )
+                },
+                || {
+                    step(
+                        &mut default,
+                        batch,
+                        steps,
+                        &x,
+                        &token_features,
+                        &initial_state,
+                        &grad_output,
+                    )
+                },
+            )?;
+        fused_last = fused_sampled;
+        composed_last = composed_sampled;
 
         let tensors = vec![
             tensor_diff(
@@ -451,23 +425,8 @@ fn main() -> Result<()> {
                 rtol,
             ),
         ];
-        if let Some(outside) = tensors.iter().find(|tensor| tensor.worst_excess > 0.0) {
-            bail!(
-                "the timed sequences disagree on {}: max abs {:e} exceeds atol {atol:e} + rtol \
-                 {rtol:e} (worst excess {:e}), so this timing compares different work",
-                outside.label,
-                outside.max_abs,
-                outside.worst_excess
-            );
-        }
-        let worst_max_abs = tensors
-            .iter()
-            .map(|tensor| tensor.max_abs)
-            .fold(0.0f64, f64::max);
+        let worst_max_abs = require_agreement(&tensors, atol, rtol)?;
 
-        let fused_timing = timing(fused_samples);
-        let composed_timing = timing(composed_samples);
-        let default_timing = timing(default_samples);
         let output = Output {
             device: fused.device_name().to_string(),
             width,
@@ -480,24 +439,21 @@ fn main() -> Result<()> {
             default_over_fused: default_timing.median_ms / fused_timing.median_ms,
             worst_max_abs,
             tensors,
-            fused: LegReport {
-                label: fused_label,
-                linear3_dispatches: fused_dispatches,
-                ms_per_step: fused_timing.median_ms / steps as f64,
-                timing: fused_timing,
-            },
-            composed: LegReport {
-                label: composed_label,
-                linear3_dispatches: composed_dispatches,
-                ms_per_step: composed_timing.median_ms / steps as f64,
-                timing: composed_timing,
-            },
-            default: LegReport {
-                label: default_label,
-                linear3_dispatches: default_dispatches,
-                ms_per_step: default_timing.median_ms / steps as f64,
-                timing: default_timing,
-            },
+            fused: LegReport::new(fused_label, fused_dispatches, fused_timing, steps as f64).into(),
+            composed: LegReport::new(
+                composed_label,
+                composed_dispatches,
+                composed_timing,
+                steps as f64,
+            )
+            .into(),
+            default: LegReport::new(
+                default_label,
+                default_dispatches,
+                default_timing,
+                steps as f64,
+            )
+            .into(),
         };
         println!("{}", serde_json::to_string(&output)?);
     }

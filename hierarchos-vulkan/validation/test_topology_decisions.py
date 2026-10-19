@@ -25,6 +25,7 @@ from verify_topology_decisions import (
     load_record,
     merge,
     read_jsonl,
+    recordable,
     stability_problems,
 )
 
@@ -37,7 +38,7 @@ TWO_ROWS = "ln-low-rank-f32-two-rows"
 def decision(device=GEN9, batch_pairs=1, selected=ONE_ROW,
              one=0.22848, two=0.27713, family="ln-low-rank-f32",
              round_wins=None, rounds=3, decisive_margin_fraction=0.0,
-             margin_fraction=0.0):
+             margin_fraction=0.0, contention_spread=1.02, contended=False):
     return {
         "family": family,
         "device": device,
@@ -58,6 +59,8 @@ def decision(device=GEN9, batch_pairs=1, selected=ONE_ROW,
         "selected": selected,
         "structural_default": ONE_ROW,
         "margin_fraction": margin_fraction,
+        "contention_spread": contention_spread,
+        "contended": contended,
     }
 
 
@@ -159,7 +162,8 @@ class RecordFileTests(unittest.TestCase):
 
     def test_a_record_without_stability_evidence_is_audited_for_its_choice_alone(self):
         legacy = decision()
-        for field in ("structural_default", "rounds", "round_wins", "decisive_margin_fraction"):
+        for field in ("structural_default", "rounds", "round_wins", "decisive_margin_fraction",
+                      "contention_spread", "contended"):
             legacy.pop(field)
         path = self.write({"schema": 1, "decisions": [legacy]})
         entries, problems = load_record(path)
@@ -223,6 +227,34 @@ class CompareTests(unittest.TestCase):
         self.assertTrue(any("1.9% median lead" in note for note in notes), notes)
         self.assertTrue(any("two-rows 2" in note for note in notes), notes)
 
+    def test_a_contended_record_entry_may_not_select_a_variant(self):
+        problems = stability_problems(
+            decision(selected=TWO_ROWS, round_wins={ONE_ROW: 0, TWO_ROWS: 3},
+                     decisive_margin_fraction=0.12, contended=True, contention_spread=1.4),
+            "geometry",
+        )
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("contended sweep", problems[0])
+        self.assertIn("is not evidence", problems[0])
+
+    def test_a_spread_that_contradicts_its_own_flag_is_rejected(self):
+        # An entry is hand-edited evidence if its numbers do not agree with its flag.
+        quiet_but_wide = decision(contended=False, contention_spread=1.9)
+        problems = stability_problems(quiet_but_wide, "geometry")
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("not marked contended", problems[0])
+        contended_but_tight = decision(contended=True, contention_spread=1.05)
+        problems = stability_problems(contended_but_tight, "geometry")
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("under the 1.15x threshold", problems[0])
+
+    def test_recordable_drops_the_contended_decisions(self):
+        quiet, contended = recordable(
+            [decision(), decision(batch_pairs=4, contended=True, contention_spread=1.3)]
+        )
+        self.assertEqual([entry["batch_pairs"] for entry in quiet], [1])
+        self.assertEqual([entry["batch_pairs"] for entry in contended], [4])
+
     def test_a_variant_may_only_be_selected_unanimously(self):
         problems = stability_problems(
             decision(selected=TWO_ROWS, round_wins={ONE_ROW: 0, TWO_ROWS: 3},
@@ -236,6 +268,38 @@ class CompareTests(unittest.TestCase):
         )
         self.assertEqual(len(problems), 1, problems)
         self.assertIn("only by beating it in every round", problems[0])
+
+    def test_a_contended_replay_does_not_move_the_record(self):
+        # The case that made this rule necessary: with a second process on the GPU the
+        # recorded column-slice win failed the margin in every round and the replay
+        # reported the default. That is the load, not the kernels, so it is a note.
+        contended = decision(
+            selected=ONE_ROW, round_wins={ONE_ROW: 0, TWO_ROWS: 2},
+            contention_spread=1.42, contended=True,
+        )
+        problems, notes = compare([contended], [decision(selected=TWO_ROWS)], GEN9)
+        self.assertEqual(problems, [], problems)
+        self.assertTrue(any("contended sweep" in note for note in notes), notes)
+        self.assertTrue(any("1.42x" in note for note in notes), notes)
+        self.assertTrue(any("stands" in note for note in notes), notes)
+
+    def test_a_contended_replay_at_an_unrecorded_geometry_is_a_note(self):
+        problems, notes = compare(
+            [decision(batch_pairs=4, contended=True, contention_spread=1.30)], [decision()], GEN9
+        )
+        self.assertEqual(problems, [], problems)
+        self.assertTrue(any("cannot record a decision" in note for note in notes), notes)
+
+    def test_a_contended_replay_that_claims_a_variant_is_still_a_failure(self):
+        # Skipping the comparison must not skip the entry's own contradictions.
+        problems, _ = compare(
+            [decision(selected=TWO_ROWS, round_wins={ONE_ROW: 0, TWO_ROWS: 3},
+                      decisive_margin_fraction=0.1, contended=True, contention_spread=1.4)],
+            [decision()],
+            GEN9,
+        )
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("contended sweep", problems[0])
 
     def test_a_candidate_that_stops_being_timed_is_a_failure(self):
         # A matching `selected` must not be able to hide a variant this device no longer

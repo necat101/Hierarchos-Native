@@ -1,30 +1,61 @@
-name: time-mix A/B
+name: packed-cell producer A/B
 
-# The packed-cell time-mix promotion is a measured rule, so it is checked by
-# measuring: this job re-runs both A/B harnesses (one `forward_backward` call and
-# a whole multi-step TBPTT sequence) on a GPU runner and fails when the shipped
-# default stops composing exactly where the tuned `linear3-forward` module is
-# admitted. The checked-in receipts can go stale without anyone editing them, and
-# the unit tests that read those receipts run on CPU-only CI, so this is the job
-# that proves the rule on real hardware.
+# The packed cell's projection promotions are measured rules, so they are checked
+# by measuring: this job re-runs the A/B harnesses on a GPU runner and fails when
+# the shipped default stops building the graph the decision record names. Three
+# harnesses: the time-mix projection in one `forward_backward` call, the same
+# promotion read end to end as a multi-step TBPTT sequence, and the channel-mix
+# producer (rank 1 of `validation/FUSED_FORWARD_PRODUCER_AUDIT.md`) against the
+# staged composition that dispatches the tuned `linear-residual-forward` module,
+# the LN1/low-rank producer (rank 2) against the staged chain it replaces, the deep
+# FP16 arm of that route under the training graph's parameter-storage policy, and
+# the key/state forward fusion (rank 3) against its two-dispatch chain.
+# The checked-in receipts and decision records can go stale without anyone editing
+# them, and the unit tests that read them run on CPU-only CI, so this is the job
+# that proves the rules on real hardware.
 #
 # `runs-on` expects a self-hosted runner with a Vulkan adapter that has a tuned
-# `linear3-forward` module (Intel Gen9 or AMD); the harnesses refuse to report a
-# vacuous A/B when the module resolves to `portable`. Register the runner with
-# the `vulkan` label. Without such a runner this job stays queued rather than
-# silently passing on a CPU-only host.
+# `linear3-forward` and `linear-residual-forward` module (Intel Gen9 or AMD); the
+# harnesses refuse to report a vacuous A/B when the module resolves to `portable`.
+# Register the runner with the `vulkan` label. Without such a runner this job
+# stays queued rather than silently passing on a CPU-only host.
 on:
   workflow_dispatch:
   push:
     paths:
       - "hierarchos-vulkan/src/rwkv_time_mix_core.rs"
+      - "hierarchos-vulkan/src/rwkv_channel_mix.rs"
       - "hierarchos-vulkan/src/vendor.rs"
+      # The shared A/B measurement and the shared decision-record loader: a change to
+      # either is a change to what every producer's receipt means.
+      - "hierarchos-vulkan/src/bench_ab.rs"
+      - "hierarchos-vulkan/src/decision_records.rs"
       - "hierarchos-vulkan/src/bin/rwkv_packed_cell_time_mix_bench.rs"
       - "hierarchos-vulkan/src/bin/rwkv_tbptt_time_mix_bench.rs"
+      - "hierarchos-vulkan/src/bin/rwkv_packed_cell_channel_mix_bench.rs"
+      - "hierarchos-vulkan/src/bin/rwkv_packed_cell_low_rank_forward_bench.rs"
+      - "hierarchos-vulkan/src/bin/rwkv_low_rank_fp16_forward_bench.rs"
+      - "hierarchos-vulkan/src/bin/rwkv_key_state_forward_bench.rs"
+      - "hierarchos-vulkan/src/rwkv_low_rank.rs"
+      - "hierarchos-vulkan/src/mixed_precision.rs"
+      - "hierarchos-vulkan/validation/ab_harness.py"
       - "hierarchos-vulkan/validation/bench_rwkv_packed_cell_time_mix.py"
       - "hierarchos-vulkan/validation/bench_rwkv_tbptt_time_mix.py"
+      - "hierarchos-vulkan/validation/bench_rwkv_packed_cell_channel_mix.py"
+      - "hierarchos-vulkan/validation/bench_rwkv_packed_cell_low_rank_forward.py"
+      - "hierarchos-vulkan/validation/bench_rwkv_low_rank_fp16_forward.py"
+      - "hierarchos-vulkan/validation/bench_rwkv_key_state_forward.py"
       - "hierarchos-vulkan/validation/test_rwkv_time_mix_receipt.py"
       - "hierarchos-vulkan/validation/test_rwkv_tbptt_time_mix_receipt.py"
+      - "hierarchos-vulkan/validation/test_rwkv_channel_mix_receipt.py"
+      - "hierarchos-vulkan/validation/test_rwkv_low_rank_forward_receipt.py"
+      - "hierarchos-vulkan/validation/test_rwkv_key_state_forward_receipt.py"
+      - "hierarchos-vulkan/validation/test_rwkv_key_state_profile.py"
+      - "hierarchos-vulkan/validation/profile_rwkv_key_state_forward.py"
+      - "hierarchos-vulkan/validation/time_mix_projection_decisions.json"
+      - "hierarchos-vulkan/validation/channel_mix_forward_decisions.json"
+      - "hierarchos-vulkan/validation/low_rank_full_forward_decisions.json"
+      - "hierarchos-vulkan/validation/key_state_forward_decisions.json"
       - ".github/workflows/time-mix-ab.yml"
   schedule:
     # Weekly, so a driver or shader change that only shifts the crossover still
@@ -32,7 +63,7 @@ on:
     - cron: "23 4 * * 1"
 
 jobs:
-  time-mix-ab:
+  producer-ab:
     runs-on: [self-hosted, windows, vulkan]
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +94,60 @@ jobs:
           --batch 1 --batch 4 --batch 8 --batch 16 --steps 8 --iterations 8 --warmup 2
           --record hierarchos-vulkan/validation/packed_cell_tbptt_time_mix_bench.json
 
+      # Rank 1 of the fused-producer audit. The step records the receipt but never
+      # `--record-decisions`: the per-device decision records are re-recorded
+      # deliberately on a quiet machine, where the A/B's own noise band decides which
+      # geometries are real decisions and which are ties left to the vendor gate.
+      - name: Channel-mix A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_channel_mix.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --iterations 20 --warmup 5
+          --record hierarchos-vulkan/validation/packed_cell_channel_mix_bench.json
+
+      # Rank 2 of the fused-producer audit: the LN1/low-rank producer against the
+      # staged chain it replaces. Same rule as rank 1 — the step records the receipt
+      # but never `--record-decisions`, because a per-device entry is re-recorded
+      # deliberately on a quiet machine where the A/B's own noise band decides which
+      # geometries are real decisions.
+      - name: LN1/low-rank forward A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_low_rank_forward.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --iterations 20 --warmup 5
+          --record hierarchos-vulkan/validation/packed_cell_low_rank_forward_bench.json
+
+      # Rank 2's scope gap: the deep FP16 producer under the training graph's
+      # `fp16-storage-fp32-compute` parameter-storage policy. This step records the
+      # policy-specific receipt only; the driver reports per geometry whether the FP16
+      # measurement follows the record entry its own storage policy reads, and writing
+      # those entries (`--record-decisions`, which tags them `fp16-storage`) is
+      # left to the deliberate quiet-machine run like every other record.
+      - name: FP16-storage low-rank forward A/B
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_low_rank_fp16_forward.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --iterations 20 --warmup 5
+          --record hierarchos-vulkan/validation/low_rank_fp16_forward_bench.json
+
+      # Rank 3 of the fused-producer audit: the fused key/state forward against the
+      # two-dispatch chain, measured in isolation because one dispatch against two is
+      # below a whole step's noise. Both fused arms (wider-group and
+      # one-workgroup-per-head) rotate against the chain, so the receipt shows whether
+      # the wider group is still the arm that removed the batch-16 crossover. Receipt
+      # only, same rule as ranks 1 and 2.
+      - name: Key/state forward A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_key_state_forward.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --iterations 20 --repetitions 50
+          --record hierarchos-vulkan/validation/key_state_forward_bench.json
+
+      # Rank 3's phase attribution: GPU timestamps per dispatch, so the receipt says
+      # which phase of the stage dominates at each geometry instead of inferring it
+      # from the fused/chain ratio. Receipt only.
+      - name: Key/state phase profile
+        run: >
+          python hierarchos-vulkan/validation/profile_rwkv_key_state_forward.py
+          --batch 1 --batch 8 --batch 16 --batch 32 --runs 5
+          --record hierarchos-vulkan/validation/key_state_forward_profile.json
+
       - name: Replay this adapter's recorded decisions
         run: python hierarchos-vulkan/validation/verify_time_mix_projection_decisions.py
 
@@ -72,13 +157,88 @@ jobs:
         run: |
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_time_mix_receipt.py" -v
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_tbptt_time_mix_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_channel_mix_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_low_rank_forward_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_key_state_forward_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_key_state_profile.py" -v
 
       - name: Keep the measured receipts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: time-mix-ab-receipts
+          name: producer-ab-receipts
           path: |
             hierarchos-vulkan/validation/packed_cell_time_mix_bench.json
             hierarchos-vulkan/validation/packed_cell_tbptt_time_mix_bench.json
+            hierarchos-vulkan/validation/packed_cell_channel_mix_bench.json
+            hierarchos-vulkan/validation/packed_cell_low_rank_forward_bench.json
+            hierarchos-vulkan/validation/low_rank_fp16_forward_bench.json
+            hierarchos-vulkan/validation/key_state_forward_bench.json
+            hierarchos-vulkan/validation/key_state_forward_profile.json
+          if-no-files-found: warn
+
+  # Cross-adapter evidence: the same A/Bs on a Vulkan adapter that is not the Intel
+  # Gen9 part the checked-in entries were measured on. This job records receipts
+  # only. A second adapter's entries are written deliberately
+  # (`--record-decisions` on a quiet machine), because each entry is that adapter's
+  # evidence and must not inherit another's crossover: the records are keyed by
+  # adapter, width, batch and parameter-storage policy for exactly that reason.
+  #
+  # Register the runner with the `amd` label (alongside `vulkan`) to make this job
+  # runnable. It stays queued rather than passing on a host without an AMD adapter.
+  cross-adapter-ab:
+    runs-on: [self-hosted, windows, vulkan, amd]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install fixture dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install safetensors numpy
+
+      - name: Key/state forward A/B (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_key_state_forward.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 20 --repetitions 50
+          --record hierarchos-vulkan/validation/key_state_forward_bench.json
+
+      - name: Key/state phase profile (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/profile_rwkv_key_state_forward.py
+          --batch 1 --batch 8 --batch 16 --batch 32 --runs 5
+          --record hierarchos-vulkan/validation/key_state_forward_profile.json
+
+      - name: Projection, channel-mix and low-rank A/Bs (AMD adapter)
+        run: |
+          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_time_mix.py --batch 1 --batch 8 --batch 16 --record hierarchos-vulkan/validation/packed_cell_time_mix_bench.json
+          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_channel_mix.py --batch 1 --batch 8 --batch 16 --record hierarchos-vulkan/validation/packed_cell_channel_mix_bench.json
+          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_low_rank_forward.py --batch 1 --batch 8 --batch 16 --record hierarchos-vulkan/validation/packed_cell_low_rank_forward_bench.json
+          python hierarchos-vulkan/validation/bench_rwkv_low_rank_fp16_forward.py --batch 1 --batch 8 --batch 16 --record hierarchos-vulkan/validation/low_rank_fp16_forward_bench.json
+
+      - name: Receipt contracts against this adapter's measurements
+        run: |
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_*receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_key_state_profile.py" -v
+
+      - name: Keep the cross-adapter receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-adapter-receipts
+          path: |
+            hierarchos-vulkan/validation/key_state_forward_bench.json
+            hierarchos-vulkan/validation/key_state_forward_profile.json
+            hierarchos-vulkan/validation/packed_cell_time_mix_bench.json
+            hierarchos-vulkan/validation/packed_cell_channel_mix_bench.json
+            hierarchos-vulkan/validation/packed_cell_low_rank_forward_bench.json
+            hierarchos-vulkan/validation/low_rank_fp16_forward_bench.json
           if-no-files-found: warn

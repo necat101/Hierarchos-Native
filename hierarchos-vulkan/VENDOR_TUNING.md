@@ -900,6 +900,56 @@ this part. Which of those each device exercises is checked in as
 verdict for the cases an arm is absent in is checked in too, so the arm only pays for a
 one-update canary there rather than a full replay (see the state-step section above).
 
+### The topology autotuner cannot flip under load (measured)
+
+The unanimous-round rule removed one way for the schedule to move with nothing changed --
+a lead inside the run-to-run spread -- but not the way that actually bit: a sweep taken
+while something else was using the GPU. The ladder recorded it once, on the
+`width128-batch2` decision, whose release pass reported `one-row` while an abandoned
+background run still held the adapter and then reproduced `column-slices` on the clean
+pass. The mechanism is not subtle: with a second process on the adapter every round is
+slower by a factor the interleaving cannot cancel, so a variant whose true lead is 12-16%
+can fail the 2% margin in all seven rounds. Nothing about the kernels changed; the machine
+did.
+
+Two changes, both in `src/rwkv_low_rank.rs`:
+
+* Each round now times each candidate **three times and keeps the fastest**. Contention is
+  additive -- it can make a sample slower, never faster -- so the minimum is the closest
+  estimate of the undisturbed cost, and one interrupted repeat no longer decides a round.
+* The round set is checked before it is adjudicated on. The structural default runs in every
+  round by construction, so its own per-round samples are the ground truth for whether the
+  sweep measured one machine: if the slowest is more than **1.15x** the fastest, no candidate
+  may displace the default and the record says `"contended": true` with the spread it
+  measured instead of recording what the load did. A quiet sweep records `"contended":
+  false` and the spread it saw.
+
+`validation/verify_topology_decisions.py` treats a contended replay as evidence about the
+machine rather than about the kernels: it is reported as a note, it never moves the record,
+and `--record` refuses to write one, so a run on a busy adapter can no longer turn another
+process's timing into this device's decision. The record's own stability audit is extended
+the same way -- an entry marked contended that selected a variant, or one whose spread
+contradicts its own flag, is a failure -- and `validation/test_topology_decisions.py` pins
+both directions of that check without a GPU.
+
+The four FP32 decisions were then re-recorded on the quiet laptop, with the new fields:
+
+| geometry (`--hidden 128`, ranks 32/32/64 unless noted) | selected | round wins | decisive lead | default spread | contended |
+| --- | --- | --- | --- | --- | --- |
+| width 64, ranks 8/8/8, batch 2 | `one-row` (default kept) | every candidate 0/7 | -- | 1.027x | no |
+| batch 2 (1 pair) | `column-slices` | 7/7 | 12.2% | 1.010x | no |
+| batch 3 (2 pairs + tail) | `column-slices` | 7/7 | 3.4% | 1.025x | no |
+| batch 32 (16 pairs) | `column-slices` | 7/7 | 9.2% | 1.050x | no |
+
+The choices are the same as before the rule changed -- the `width 64` geometry is the
+1.9%-median lead that wins no round, the three `width 128` shapes are unanimous -- so
+nothing in `topology_decisions.json` moved for a measurement reason. What moved is that
+each entry now carries its evidence, including how quiet its sweep was. The decisive lead
+recorded at the two-pair geometry (3.4%) is narrower than that row's 14-16% median would
+suggest, which is the honest direction: the rule records the narrowest round, and the
+per-round minimum is a tighter estimate than a single sample, so a real lead is recorded
+as smaller than it looked rather than as larger.
+
 ### Kernel-golden invocation coverage (checked in)
 
 The dense, reduction and attention harnesses already caught a changed kernel: every
@@ -1097,20 +1147,30 @@ again; the assertion is what keeps that fact honest rather than a number in this
 file.
 
 The counter histogram is printed on every run and asserts the families the
-fixture actually owns. At the fixture width the native graph still routes its
-channel mix through the fused producer, while its time-mix projection now takes
-the geometry-aware composition (the tuned `linear3-forward` module is admitted at
-this batch), so the measured histogram is
-`linear-forward=44, linear-bias-forward=56, linear-residual-forward=0,
-linear3-forward=20` (120 Intel dispatches, portable run 0), and the test now
-asserts `linear3-forward == 20` and `linear-residual-forward == 0` instead of
-discarding them, so a regression that reroutes either call site fails on the
-count rather than only on the numbers.
-`linear-residual-forward` is the remaining zero family; it is pinned by the
-on-device A/B test at production geometry instead, and it is the slot a wider
-(non-fused) channel-mix configuration uses. This is recorded rather than
-asserted away so a future configuration change that starts exercising it shows
-up as a histogram change, not as a silent loss of coverage.
+fixture actually owns. At the fixture width and batch both measured promotions are
+live: its time-mix projection takes the geometry-aware composition (the tuned
+`linear3-forward` module is admitted there) and, since the channel-mix A/B landed,
+its channel mix composes through the tuned `linear-residual-forward` module as
+well. The measured histogram is therefore
+`linear-forward=44, linear-bias-forward=56, linear-residual-forward=60,
+linear3-forward=20` (180 Intel dispatches, portable run 0), and the test asserts
+`linear3-forward == 20` and `linear-residual-forward == 60` instead of discarding
+them, so a regression that reroutes either call site fails on the count rather
+than only on the numbers.
+
+That histogram is also the record of a promotion, not just of coverage. When this
+section was first written the channel-mix family was the scorer's zero: the
+fixture kept the fused producer and `linear-residual-forward` was pinned by
+forcing the composition in the packed-cell check instead. The channel-mix A/B
+(`validation/FUSED_FORWARD_PRODUCER_AUDIT.md`, rank 1) then measured the
+composition faster at width 128 for batches 8/16/32, the per-device record took
+those geometries, and the fixture -- width 128 at batch 8 -- started exercising
+the family for real. So the run that first failed this assertion was the promotion
+working: the count moved because the graph did, and the test has been updated to
+the new measurement rather than the measurement weakened to the old count. The
+families that are still zero are the ones no fixture geometry reaches
+(`silu-forward`, `silu-backward`, `adamw`), and they stay in the printed histogram
+for the same reason.
 
 The LM auto-tuner suite (`cargo test --release --lib lm_execution::`) pins the
 plan level: `rows16_cross_row_arms_are_offered_and_cache_admission_requires_the_arm`

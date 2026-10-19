@@ -1,68 +1,44 @@
 {
-  "schema": 1,
+  "schema": 2,
   "kind": "rwkv-time-mix-projection",
-  "width": 128,
   "measured_by": "validation/bench_rwkv_packed_cell_time_mix.py",
-  "notes": "One entry per (adapter, width, batch) the projection crossover was measured at. `compose` is the winning graph for that geometry; `composed_over_fused` is the recorded median ratio that produced it (< 1 means the composition won). The runtime reads this table before falling back to the tuned linear3-forward module's admission, so a device with no entry here still composes exactly where its own vendor module is admitted.",
+  "margin": 0.02,
+  "notes": "One entry per (adapter, width, batch) the crossover was measured at. `route` is the graph that won there: `staged` is the composed graph (the tuned module followed by the fused key/state kernels) and `fused` is the single fused producer. `candidates` holds the measured median milliseconds of every candidate the sweep ran, and the loader refuses an entry whose route is not the fastest candidate it lists, so a hand-edited entry has to contradict its own measurement to load. An entry may carry `parameter_storage` to scope it to one storage policy (see `validation/FUSED_FORWARD_PRODUCER_AUDIT.md`); the policy-less entry is what every other policy reads. A geometry measured inside the 2% noise band is a tie and carries no entry at all: the driver withdraws any entry it finds there and the structural default decides that geometry until a quiet run measures a sign outside the band. Re-record a new adapter's own entries with `--record-decisions`.",
   "decisions": [
     {
       "device": "Intel(R) HD Graphics 520",
       "width": 128,
-      "batch": 1,
-      "compose": false,
-      "composed_over_fused": 1.0094907407407407,
-      "fused_ms": 2.592,
-      "composed_ms": 2.6166,
-      "source": "measured"
-    },
-    {
-      "device": "Intel(R) HD Graphics 520",
-      "width": 128,
-      "batch": 2,
-      "compose": false,
-      "composed_over_fused": 1.0086586282156786,
-      "fused_ms": 2.7949,
-      "composed_ms": 2.8191,
-      "source": "measured"
-    },
-    {
-      "device": "Intel(R) HD Graphics 520",
-      "width": 128,
-      "batch": 4,
-      "compose": false,
-      "composed_over_fused": 1.0063419387770884,
-      "fused_ms": 3.23245,
-      "composed_ms": 3.25295,
-      "source": "measured"
-    },
-    {
-      "device": "Intel(R) HD Graphics 520",
-      "width": 128,
       "batch": 8,
-      "compose": true,
-      "composed_over_fused": 0.9783022927039156,
-      "fused_ms": 4.06725,
-      "composed_ms": 3.979,
+      "route": "staged",
+      "candidates": {
+        "fused": 3.9794,
+        "staged": 3.87225
+      },
+      "probe": "linear3-forward",
       "source": "measured"
     },
     {
       "device": "Intel(R) HD Graphics 520",
       "width": 128,
       "batch": 16,
-      "compose": true,
-      "composed_over_fused": 0.9650822998519307,
-      "fused_ms": 6.38215,
-      "composed_ms": 6.1593,
+      "route": "staged",
+      "candidates": {
+        "fused": 5.9014500000000005,
+        "staged": 5.704649999999999
+      },
+      "probe": "linear3-forward",
       "source": "measured"
     },
     {
       "device": "Intel(R) HD Graphics 520",
       "width": 128,
       "batch": 32,
-      "compose": true,
-      "composed_over_fused": 0.9596529968454259,
-      "fused_ms": 11.094999999999999,
-      "composed_ms": 10.64735,
+      "route": "staged",
+      "candidates": {
+        "fused": 10.43975,
+        "staged": 9.8997
+      },
+      "probe": "linear3-forward",
       "source": "measured"
     }
   ]

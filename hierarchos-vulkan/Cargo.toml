@@ -121,6 +121,25 @@ path = "src/bin/rwkv_packed_cell_time_mix_bench.rs"
 name = "hierarchos-vulkan-rwkv-tbptt-time-mix-bench"
 path = "src/bin/rwkv_tbptt_time_mix_bench.rs"
 
+# Rank 1 of the fused-producer audit: the packed cell's single fused
+# channel-mix producer against the staged composition that dispatches the vendor
+# linear-residual module for `value_cm`.
+[[bin]]
+name = "hierarchos-vulkan-rwkv-packed-cell-channel-mix-bench"
+path = "src/bin/rwkv_packed_cell_channel_mix_bench.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-packed-cell-low-rank-forward-bench"
+path = "src/bin/rwkv_packed_cell_low_rank_forward_bench.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-low-rank-fp16-forward-bench"
+path = "src/bin/rwkv_low_rank_fp16_forward_bench.rs"
+
+[[bin]]
+name = "hierarchos-vulkan-rwkv-key-state-forward-bench"
+path = "src/bin/rwkv_key_state_forward_bench.rs"
+
 [[bin]]
 name = "hierarchos-vulkan-rwkv-tbptt-branch-accumulation"
 path = "src/bin/rwkv_tbptt_branch_accumulation.rs"

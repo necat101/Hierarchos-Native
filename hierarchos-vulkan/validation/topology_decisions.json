@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "note": "Measured LN1/low-rank kernel-topology decisions, one entry per (family, device, geometry). Written only by `validation/verify_topology_decisions.py --record`, which merges this machine's replayed decisions and leaves every other device's entries as they were; `timings_ms` are the medians the choice was made from and `selected` is the variant the device chose. `margin_fraction` is how much the fastest candidate beat the structural default, so 0 means the default was kept rather than that nothing was measured.",
+  "note": "Measured LN1/low-rank kernel-topology decisions, one entry per (family, device, geometry). Written only by `validation/verify_topology_decisions.py --record`, which merges this machine's replayed decisions and leaves every other device's entries as they were; `timings_ms` are the medians the choice was made from and `selected` is the variant the device chose. `margin_fraction` is how much the fastest candidate beat the structural default on those medians. A variant is only selected when it beats `structural_default` by the material margin in every one of `rounds` interleaved rounds: `round_wins` counts the rounds each candidate won, `decisive_margin_fraction` is the narrowest per-round lead of the selected variant, and a decision that is not unanimous records the default with the rounds it failed on instead of a variant the device does not actually reproduce. `contention_spread` is how far the default's own per-round samples moved (slowest/fastest) and `contended` says whether that was over the autotuner's threshold; a contended sweep is not evidence, so it keeps the structural default and never enters this record.",
   "decisions": [
     {
       "family": "ln-low-rank-f32",
@@ -13,12 +13,22 @@
       "batch_pairs": 1,
       "has_unpaired_tail": false,
       "timings_ms": {
-        "ln-low-rank-f32-one-row": 0.077036,
-        "ln-low-rank-f32-two-rows": 0.087536,
-        "ln-low-rank-f32-column-slices": 0.081307
+        "ln-low-rank-f32-one-row": 0.076302,
+        "ln-low-rank-f32-two-rows": 0.086646,
+        "ln-low-rank-f32-column-slices": 0.076791
       },
+      "rounds": 7,
+      "round_wins": {
+        "ln-low-rank-f32-one-row": 0,
+        "ln-low-rank-f32-two-rows": 0,
+        "ln-low-rank-f32-column-slices": 0
+      },
+      "decisive_margin_fraction": 0.0,
       "selected": "ln-low-rank-f32-one-row",
-      "margin_fraction": 0.0
+      "structural_default": "ln-low-rank-f32-one-row",
+      "margin_fraction": 0.0,
+      "contention_spread": 1.0268,
+      "contended": false
     },
     {
       "family": "ln-low-rank-f32",
@@ -31,12 +41,22 @@
       "batch_pairs": 1,
       "has_unpaired_tail": false,
       "timings_ms": {
-        "ln-low-rank-f32-one-row": 0.230181,
-        "ln-low-rank-f32-two-rows": 0.27952,
-        "ln-low-rank-f32-column-slices": 0.201494
+        "ln-low-rank-f32-one-row": 0.228655,
+        "ln-low-rank-f32-two-rows": 0.279306,
+        "ln-low-rank-f32-column-slices": 0.190234
       },
+      "rounds": 7,
+      "round_wins": {
+        "ln-low-rank-f32-one-row": 0,
+        "ln-low-rank-f32-two-rows": 0,
+        "ln-low-rank-f32-column-slices": 7
+      },
+      "decisive_margin_fraction": 0.121538,
       "selected": "ln-low-rank-f32-column-slices",
-      "margin_fraction": 0.124629
+      "structural_default": "ln-low-rank-f32-one-row",
+      "margin_fraction": 0.168033,
+      "contention_spread": 1.0103,
+      "contended": false
     },
     {
       "family": "ln-low-rank-f32",
@@ -49,12 +69,22 @@
       "batch_pairs": 2,
       "has_unpaired_tail": true,
       "timings_ms": {
-        "ln-low-rank-f32-one-row": 0.228327,
-        "ln-low-rank-f32-two-rows": 0.25928,
-        "ln-low-rank-f32-column-slices": 0.191687
+        "ln-low-rank-f32-one-row": 0.226676,
+        "ln-low-rank-f32-two-rows": 0.252489,
+        "ln-low-rank-f32-column-slices": 0.194098
       },
+      "rounds": 7,
+      "round_wins": {
+        "ln-low-rank-f32-one-row": 0,
+        "ln-low-rank-f32-two-rows": 0,
+        "ln-low-rank-f32-column-slices": 7
+      },
+      "decisive_margin_fraction": 0.034397,
       "selected": "ln-low-rank-f32-column-slices",
-      "margin_fraction": 0.160473
+      "structural_default": "ln-low-rank-f32-one-row",
+      "margin_fraction": 0.14372,
+      "contention_spread": 1.0251,
+      "contended": false
     },
     {
       "family": "ln-low-rank-f32",
@@ -67,12 +97,22 @@
       "batch_pairs": 16,
       "has_unpaired_tail": false,
       "timings_ms": {
-        "ln-low-rank-f32-one-row": 0.24841,
-        "ln-low-rank-f32-two-rows": 0.281957,
-        "ln-low-rank-f32-column-slices": 0.206187
+        "ln-low-rank-f32-one-row": 0.237213,
+        "ln-low-rank-f32-two-rows": 0.282749,
+        "ln-low-rank-f32-column-slices": 0.205119
       },
+      "rounds": 7,
+      "round_wins": {
+        "ln-low-rank-f32-one-row": 0,
+        "ln-low-rank-f32-two-rows": 0,
+        "ln-low-rank-f32-column-slices": 7
+      },
+      "decisive_margin_fraction": 0.092218,
       "selected": "ln-low-rank-f32-column-slices",
-      "margin_fraction": 0.169976
+      "structural_default": "ln-low-rank-f32-one-row",
+      "margin_fraction": 0.135295,
+      "contention_spread": 1.0499,
+      "contended": false
     }
   ]
 }

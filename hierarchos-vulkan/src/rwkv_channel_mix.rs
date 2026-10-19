@@ -39,6 +39,27 @@ fn channel_mix_forward_fusion_disabled() -> bool {
     std::env::var_os(HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION_ENV).is_some()
 }
 
+/// Restores the single fused forward producer where the measured decision would
+/// take the composition instead (see [`RwkvChannelMixOp::full_forward_fusion_label`]).
+/// The A/B harness uses it to hold one arm on the fused graph at every batch.
+pub const HIERARCHOS_RWKV_CHANNEL_MIX_FORCE_FORWARD_FUSION_ENV: &str =
+    "HIERARCHOS_RWKV_CHANNEL_MIX_FORCE_FORWARD_FUSION";
+
+fn channel_mix_forward_fusion_forced() -> bool {
+    std::env::var_os(HIERARCHOS_RWKV_CHANNEL_MIX_FORCE_FORWARD_FUSION_ENV).is_some()
+}
+
+/// The checked-in per-device crossover record for this producer, compiled into
+/// the binary so the shipped decision and the measured record cannot drift.
+/// Recording is the offline A/B step (`bench_rwkv_packed_cell_channel_mix.py
+/// --record-decisions`), never a hot-path measurement inside a training graph.
+fn channel_mix_decisions() -> &'static crate::decision_records::DecisionTable {
+    const RECORD: &str = include_str!("../validation/channel_mix_forward_decisions.json");
+    static TABLE: std::sync::OnceLock<crate::decision_records::DecisionTable> =
+        std::sync::OnceLock::new();
+    crate::decision_records::table(&TABLE, RECORD, "rwkv-channel-mix-forward")
+}
+
 const LAYER_NORM_FUSED_ADD_ACCESS: [vulkan::BindingAccess; 9] = [
     vulkan::BindingAccess::ReadOnly,
     vulkan::BindingAccess::ReadOnly,
@@ -149,6 +170,17 @@ pub struct RwkvChannelMixOp {
     /// Resolved once at construction from
     /// [`HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION_ENV`].
     forward_fusion_disabled: bool,
+    /// Resolved once from
+    /// [`HIERARCHOS_RWKV_CHANNEL_MIX_FORCE_FORWARD_FUSION_ENV`], like the disable
+    /// switch, so a per-dispatch decision never reads the environment on the hot
+    /// path.
+    forward_fusion_forced: bool,
+    /// The parameter-storage policy this op's weights are held in, as the route
+    /// record keys it. The channel mix has no packed-mirror arm yet, so it starts
+    /// at `fp32`; the setter exists so the training graph can name the policy its
+    /// weights actually use once it installs one, and the record already accepts
+    /// policy-scoped entries for that geometry.
+    parameter_storage: &'static str,
 
     layer_norm_weight: GpuBuffer,
     layer_norm_bias: GpuBuffer,
@@ -349,6 +381,8 @@ impl RwkvChannelMixOp {
 
         Ok(Self {
             forward_fusion_disabled: channel_mix_forward_fusion_disabled(),
+            forward_fusion_forced: channel_mix_forward_fusion_forced(),
+            parameter_storage: "fp32",
             layer_norm_channel_mix_forward_fused: vulkan::ComputeKernel::new_with_access(
                 &device,
                 LAYER_NORM_CHANNEL_MIX_FORWARD_FUSED_SPV,
@@ -557,6 +591,90 @@ impl RwkvChannelMixOp {
         self.device.name()
     }
 
+    /// Which forward graph this op dispatches for `batch`: `fused` for the single
+    /// layer-norm/mix/key/activation/value producer, `composed` for the staged
+    /// graph that dispatches the tuned `linear-residual-forward` module for
+    /// `value_cm`. The packed-cell A/B harness reads this to prove both arms ran
+    /// different graphs.
+    pub fn full_forward_fusion_label(&self, batch: usize) -> &'static str {
+        if !self.forward_fusion_disabled
+            && !self.prefer_composed_forward(batch)
+            && self.layer_norm_channel_mix_full_forward_fused.is_some()
+        {
+            "fused"
+        } else {
+            "composed"
+        }
+    }
+
+    /// The measured rule from the packed-cell channel-mix A/B: the composition
+    /// wins where the tuned `linear-residual-forward` module is admitted for this
+    /// dispatch geometry, and the fused producer wins everywhere else, where the
+    /// composition would fall back to the portable module. The crossover itself
+    /// is the recorded per-device measurement in
+    /// `validation/channel_mix_forward_decisions.json`, compiled in by
+    /// [`channel_mix_decisions`]; an adapter with no entry keeps the gate rule,
+    /// and [`HIERARCHOS_RWKV_CHANNEL_MIX_FORCE_FORWARD_FUSION_ENV`] restores the
+    /// fused graph at every geometry for A/B work.
+    /// The decision the compiled-in record names for this adapter and geometry,
+    /// or `None` where the record has no entry and the vendor gate decides. The
+    /// A/B harness reads this so it can check the shipped default against the
+    /// rule that actually decided it.
+    pub fn recorded_full_forward_decision(&self, batch: usize) -> Option<bool> {
+        self.recorded_full_forward_route(batch)
+            .map(crate::decision_records::Route::is_staged)
+    }
+
+    /// The measured route for this adapter, geometry and parameter-storage policy,
+    /// or `None` where the channel-mix record has no entry for either.
+    pub fn recorded_full_forward_route(
+        &self,
+        batch: usize,
+    ) -> Option<crate::decision_records::Route> {
+        channel_mix_decisions().route_scoped(
+            self.device.name(),
+            self.width as u32,
+            batch as u32,
+            self.parameter_storage_policy(),
+        )
+    }
+
+    /// The recorded channel-mix route in the record's own vocabulary.
+    pub fn recorded_full_forward_route_label(&self, batch: usize) -> Option<&'static str> {
+        self.recorded_full_forward_route(batch)
+            .map(crate::decision_records::Route::label)
+    }
+
+    /// The parameter-storage policy this op's weights are held in, as the route
+    /// record keys it.
+    pub fn parameter_storage_policy(&self) -> &'static str {
+        self.parameter_storage
+    }
+
+    /// Name the storage policy these weights are held in, so a policy-scoped route
+    /// measured under it can apply. The channel mix ships one FP32 arm, so this is
+    /// only ever set by a caller that really installed other storage.
+    pub fn set_parameter_storage_policy(&mut self, policy: &'static str) {
+        self.parameter_storage = policy;
+    }
+
+    fn prefer_composed_forward(&self, batch: usize) -> bool {
+        let measured = if self.forward_fusion_forced {
+            None
+        } else {
+            self.recorded_full_forward_route(batch)
+        };
+        crate::decision_records::prefers_composition(
+            self.forward_fusion_forced,
+            self.linear_residual_forward.selects_variant_for(
+                batch as u32,
+                self.hidden_width as u32,
+                self.width as u32,
+            ),
+            measured,
+        )
+    }
+
     pub(crate) fn width(&self) -> usize {
         self.width
     }
@@ -638,7 +756,7 @@ impl RwkvChannelMixOp {
         deepembed: &GpuBuffer,
     ) -> Result<()> {
         self.validate_batch(batch)?;
-        if !self.forward_fusion_disabled {
+        if !self.forward_fusion_disabled && !self.prefer_composed_forward(batch) {
             if let Some(kernel) = &self.layer_norm_channel_mix_full_forward_fused {
                 let push = ChannelMixProducerPush {
                     rows: batch as u32,

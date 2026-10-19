@@ -2,7 +2,10 @@ use std::{
     collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
-    sync::{Mutex, OnceLock},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Mutex, OnceLock,
+    },
     time::Instant,
 };
 
@@ -128,6 +131,54 @@ fn time_mix_forward_fusion_forced() -> bool {
     std::env::var_os(HIERARCHOS_RWKV_TIME_MIX_FORCE_FORWARD_FUSION_ENV).is_some()
 }
 
+/// The checked-in per-device crossover record for this projection, compiled into
+/// the binary so the shipped decision and the measured record cannot drift.
+/// Recording is the offline A/B step (`bench_rwkv_packed_cell_time_mix.py
+/// --record-decisions`), never a hot-path measurement inside a training graph.
+fn time_mix_decisions() -> &'static crate::decision_records::DecisionTable {
+    const RECORD: &str = include_str!("../validation/time_mix_projection_decisions.json");
+    static TABLE: std::sync::OnceLock<crate::decision_records::DecisionTable> =
+        std::sync::OnceLock::new();
+    crate::decision_records::table(&TABLE, RECORD, "rwkv-time-mix-projection")
+}
+
+/// Rank 3 of `validation/FUSED_FORWARD_PRODUCER_AUDIT.md`: hold one arm on the
+/// fused key-transform/state-update kernel where the structural rule would take
+/// the two-dispatch chain.
+pub const HIERARCHOS_RWKV_FORCE_FUSED_KEY_STATE_FORWARD_ENV: &str =
+    "HIERARCHOS_RWKV_FORCE_FUSED_KEY_STATE_FORWARD";
+/// The other arm: dispatch `key_transform_forward` and `state_forward`
+/// separately even where the fused kernel exists.
+pub const HIERARCHOS_RWKV_FORCE_STAGED_KEY_STATE_FORWARD_ENV: &str =
+    "HIERARCHOS_RWKV_FORCE_STAGED_KEY_STATE_FORWARD";
+/// Measurement-only pin on the *narrow* fused key/state kernel, the one
+/// workgroup per head. The wider-group variant (`64 / head_size` heads per
+/// workgroup) is the shipped fused arm because it is what removed the batch-16
+/// crossover; this switch exists so the A/B can measure both fused arms against
+/// the chain instead of only asserting the wider one is better.
+pub const HIERARCHOS_RWKV_FORCE_NARROW_KEY_STATE_FORWARD_ENV: &str =
+    "HIERARCHOS_RWKV_FORCE_NARROW_KEY_STATE_FORWARD";
+/// The opposite measurement-only pin: dispatch the wider-group fused kernel even
+/// where the record names the narrow one. The A/B holds the wide arm on every
+/// geometry it sweeps, which is what makes the arm comparison independent of the
+/// record being re-recorded.
+pub const HIERARCHOS_RWKV_FORCE_WIDE_KEY_STATE_FORWARD_ENV: &str =
+    "HIERARCHOS_RWKV_FORCE_WIDE_KEY_STATE_FORWARD";
+/// Measure-only dispatch counter for the key/state forward route. Off in
+/// production, where the counter would be a per-dispatch atomic.
+const HIERARCHOS_RWKV_KEY_STATE_COUNT_FORWARD_DISPATCHES_ENV: &str =
+    "HIERARCHOS_RWKV_KEY_STATE_COUNT_FORWARD_DISPATCHES";
+
+/// The checked-in per-device route record for the key+state forward fusion,
+/// compiled in like the projection record so the shipped decision and the
+/// measurement cannot drift. Recording is the offline A/B step
+/// (`bench_rwkv_key_state_forward.py --record-decisions`).
+fn key_state_forward_decisions() -> &'static crate::decision_records::DecisionTable {
+    const RECORD: &str = include_str!("../validation/key_state_forward_decisions.json");
+    static TABLE: OnceLock<crate::decision_records::DecisionTable> = OnceLock::new();
+    crate::decision_records::table(&TABLE, RECORD, "rwkv-key-state-forward")
+}
+
 const LINEAR3_WEIGHT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear3_weight_grad.spv");
 const LINEAR3_WEIGHT_GRAD_TILED_SPV: &[u8] =
     include_bytes!("../shaders/linear3_weight_grad_tiled.spv");
@@ -171,6 +222,8 @@ const RWKV_MATRIX_STATE_FORWARD_SPV: &[u8] =
     include_bytes!("../shaders/rwkv_matrix_state_forward.spv");
 const RWKV_KEY_STATE_FORWARD_FUSED_SPV: &[u8] =
     include_bytes!("../shaders/rwkv_key_state_forward_fused.spv");
+const RWKV_KEY_STATE_FORWARD_FUSED_WIDE_SPV: &[u8] =
+    include_bytes!("../shaders/rwkv_key_state_forward_fused_wide.spv");
 const RWKV_MATRIX_STATE_BACKWARD_ROWS_SPV: &[u8] =
     include_bytes!("../shaders/rwkv_matrix_state_backward_rows.spv");
 const RWKV_MATRIX_STATE_BACKWARD_COLS_SPV: &[u8] =
@@ -820,6 +873,23 @@ pub struct RwkvFusedTimeMixCoreResult {
     pub grad_previous: Vec<f32>,
 }
 
+/// One isolated key/state forward measurement: the graph the route selected,
+/// how many dispatches it cost, and the tensors it produced.
+#[derive(Debug)]
+pub struct RwkvKeyStateForwardBenchmark {
+    pub route: &'static str,
+    pub dispatches_per_forward: f64,
+    pub warmup_iterations: usize,
+    pub measured_iterations: usize,
+    pub elapsed_seconds: f64,
+    pub forwards_per_second: f64,
+    pub new_state: Vec<f32>,
+    pub tmix: Vec<f32>,
+    pub scaled_k: Vec<f32>,
+    pub kk: Vec<f32>,
+    pub saved_sa: Vec<f32>,
+}
+
 #[derive(Debug)]
 pub struct RwkvFullTimeMixResult {
     pub core: RwkvTimeMixCoreResult,
@@ -954,6 +1024,13 @@ pub struct RwkvTimeMixCoreOp {
     /// switch, so a per-dispatch `prefer_composed_projection` never reads the
     /// environment on the hot path.
     forward_fusion_forced: bool,
+    /// The rank-3 key/state route, resolved once at construction for the same
+    /// reason. Both switches set is a construction error: one op cannot hold
+    /// both forward graphs.
+    key_state_forward_forced: bool,
+    key_state_forward_disabled: bool,
+    count_key_state_forward_dispatches: bool,
+    key_state_forward_dispatches: AtomicU64,
     linear3_weight_grad: vulkan::ComputeKernel,
     linear3_weight_grad_tiled: Option<vulkan::ComputeKernel>,
     linear3_input_grad: vulkan::ComputeKernel,
@@ -970,6 +1047,13 @@ pub struct RwkvTimeMixCoreOp {
     key_transform_param_reduce: vulkan::ComputeKernel,
     state_forward: vulkan::ComputeKernel,
     key_state_forward_fused: vulkan::ComputeKernel,
+    /// The wider-group fused key/state kernel: `64 / head_size` heads per
+    /// workgroup, so a full workgroup advances rows in the state phase instead of
+    /// the head's first 16 lanes. `None` above `head_size` 64, where the fusion is
+    /// not the route at all.
+    key_state_forward_fused_wide: Option<vulkan::ComputeKernel>,
+    key_state_narrow_forward_forced: bool,
+    key_state_wide_forward_forced: bool,
     state_backward_rows: vulkan::ComputeKernel,
     state_backward_cols: vulkan::ComputeKernel,
     state_backward_fused: vulkan::ComputeKernel,
@@ -1322,6 +1406,46 @@ impl RwkvTimeMixCoreOp {
         validate_len("receptance_weight", receptance_weight, weight_len)?;
         validate_len("key_weight", key_weight, weight_len)?;
         validate_len("value_weight", value_weight, weight_len)?;
+        // The rank-3 A/B switches name opposite graphs, so honoring both would
+        // make the measured leg depend on which check ran first.
+        if std::env::var_os(HIERARCHOS_RWKV_FORCE_FUSED_KEY_STATE_FORWARD_ENV).is_some()
+            && std::env::var_os(HIERARCHOS_RWKV_FORCE_STAGED_KEY_STATE_FORWARD_ENV).is_some()
+        {
+            bail!(
+                "{} and {} are both set; an A/B leg cannot hold both key/state forward graphs",
+                HIERARCHOS_RWKV_FORCE_FUSED_KEY_STATE_FORWARD_ENV,
+                HIERARCHOS_RWKV_FORCE_STAGED_KEY_STATE_FORWARD_ENV
+            );
+        }
+        if std::env::var_os(HIERARCHOS_RWKV_FORCE_NARROW_KEY_STATE_FORWARD_ENV).is_some()
+            && std::env::var_os(HIERARCHOS_RWKV_FORCE_STAGED_KEY_STATE_FORWARD_ENV).is_some()
+        {
+            bail!(
+                "{} and {} are both set; a leg cannot pin the narrow fused kernel and the \
+                 staged chain at once",
+                HIERARCHOS_RWKV_FORCE_NARROW_KEY_STATE_FORWARD_ENV,
+                HIERARCHOS_RWKV_FORCE_STAGED_KEY_STATE_FORWARD_ENV
+            );
+        }
+        if std::env::var_os(HIERARCHOS_RWKV_FORCE_NARROW_KEY_STATE_FORWARD_ENV).is_some()
+            && std::env::var_os(HIERARCHOS_RWKV_FORCE_WIDE_KEY_STATE_FORWARD_ENV).is_some()
+        {
+            bail!(
+                "{} and {} are both set; a leg cannot pin both fused key/state arms",
+                HIERARCHOS_RWKV_FORCE_NARROW_KEY_STATE_FORWARD_ENV,
+                HIERARCHOS_RWKV_FORCE_WIDE_KEY_STATE_FORWARD_ENV
+            );
+        }
+        if std::env::var_os(HIERARCHOS_RWKV_FORCE_WIDE_KEY_STATE_FORWARD_ENV).is_some()
+            && std::env::var_os(HIERARCHOS_RWKV_FORCE_STAGED_KEY_STATE_FORWARD_ENV).is_some()
+        {
+            bail!(
+                "{} and {} are both set; a leg cannot pin the wide fused kernel and the \
+                 staged chain at once",
+                HIERARCHOS_RWKV_FORCE_WIDE_KEY_STATE_FORWARD_ENV,
+                HIERARCHOS_RWKV_FORCE_STAGED_KEY_STATE_FORWARD_ENV
+            );
+        }
 
         let heads = width / head_size;
         let vector_len = max_batch
@@ -2009,6 +2133,19 @@ impl RwkvTimeMixCoreOp {
             time_mix_linear3_key_state_forward_packed_fast_weight_reuse,
             time_mix_linear3_key_state_forward_packed_tape,
             forward_fusion_forced: time_mix_forward_fusion_forced(),
+            key_state_forward_forced: std::env::var_os(
+                HIERARCHOS_RWKV_FORCE_FUSED_KEY_STATE_FORWARD_ENV,
+            )
+            .is_some(),
+            key_state_forward_disabled: std::env::var_os(
+                HIERARCHOS_RWKV_FORCE_STAGED_KEY_STATE_FORWARD_ENV,
+            )
+            .is_some(),
+            count_key_state_forward_dispatches: std::env::var_os(
+                HIERARCHOS_RWKV_KEY_STATE_COUNT_FORWARD_DISPATCHES_ENV,
+            )
+            .is_some(),
+            key_state_forward_dispatches: AtomicU64::new(0),
             linear3_weight_grad: vulkan::ComputeKernel::new_with_access(
                 &device,
                 LINEAR3_WEIGHT_GRAD_SPV,
@@ -2139,6 +2276,38 @@ impl RwkvTimeMixCoreOp {
                 10,
                 std::mem::size_of::<StatePush>() as u32,
             )?,
+            key_state_narrow_forward_forced: std::env::var_os(
+                HIERARCHOS_RWKV_FORCE_NARROW_KEY_STATE_FORWARD_ENV,
+            )
+            .is_some(),
+            key_state_wide_forward_forced: std::env::var_os(
+                HIERARCHOS_RWKV_FORCE_WIDE_KEY_STATE_FORWARD_ENV,
+            )
+            .is_some(),
+            key_state_forward_fused_wide: if head_size <= 64 {
+                Some(vulkan::ComputeKernel::new_with_access(
+                    &device,
+                    RWKV_KEY_STATE_FORWARD_FUSED_WIDE_SPV,
+                    &[
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::ReadOnly,
+                        vulkan::BindingAccess::MayWrite,
+                        vulkan::BindingAccess::MayWrite,
+                        vulkan::BindingAccess::MayWrite,
+                        vulkan::BindingAccess::MayWrite,
+                        vulkan::BindingAccess::MayWrite,
+                    ],
+                    std::mem::size_of::<StatePush>() as u32,
+                )?)
+            } else {
+                None
+            },
             key_state_forward_fused: vulkan::ComputeKernel::new_with_access(
                 &device,
                 RWKV_KEY_STATE_FORWARD_FUSED_SPV,
@@ -3916,6 +4085,147 @@ impl RwkvTimeMixCoreOp {
     }
 
     #[allow(clippy::too_many_arguments)]
+    /// Whether this geometry dispatches the fused key-transform/state-update
+    /// kernel rather than the two-dispatch `key_transform_forward` +
+    /// `state_forward` chain: rank 3 of
+    /// `validation/FUSED_FORWARD_PRODUCER_AUDIT.md`.
+    ///
+    /// The fusion is the structural default wherever the kernel exists, which is
+    /// exactly `head_size <= 64` (the shader's workgroup spans `64 / head_size`
+    /// heads and covers one head at 64, and the chain is the structurally correct
+    /// fallback above that). A recorded per-device measurement can withdraw it for
+    /// one (adapter, width, batch), and the two A/B switches pin either graph.
+    pub fn prefers_fused_key_state_forward(&self, batch: usize) -> bool {
+        let available = self.head_size <= 64;
+        let measured = if self.key_state_forward_forced || self.key_state_forward_disabled {
+            None
+        } else {
+            self.recorded_key_state_forward_route(batch)
+        };
+        crate::decision_records::prefers_fused_forward(
+            self.key_state_forward_disabled,
+            available,
+            measured,
+        )
+    }
+
+    /// The fused key/state producer arm this geometry dispatches, or `None` where
+    /// the route is the two-dispatch chain.
+    ///
+    /// The wider-group arm is the shipped fused kernel; the narrow one is what the
+    /// rank-3 measurement first recorded, kept reachable through
+    /// [`HIERARCHOS_RWKV_FORCE_NARROW_KEY_STATE_FORWARD_ENV`] so the A/B can time
+    /// both against the chain. Naming the arm here is what lets a receipt prove it
+    /// measured the kernel it reports.
+    pub fn key_state_forward_arm_label(&self, batch: usize) -> Option<&'static str> {
+        if !self.prefers_fused_key_state_forward(batch) {
+            return None;
+        }
+        if self.key_state_forward_kernel(batch).is_some() {
+            Some("key-state-forward-fused-wide")
+        } else {
+            Some("key-state-forward-fused")
+        }
+    }
+
+    /// The wider-group fused kernel this op dispatches, or `None` where the narrow
+    /// kernel is the fused arm: above `head_size` 64, where the A/B switch pins the
+    /// narrow kernel, or where the record measured the narrow kernel faster for
+    /// this geometry.
+    ///
+    /// The width trade is geometry-dependent in the direction the two grids
+    /// predict: a wider group fills every lane of the state phase, but it also
+    /// launches `64 / head_size` times fewer workgroups, which at tiny batches
+    /// leaves most of the EUs idle. Both arms were measured per geometry, so the
+    /// narrow one is dispatched where it won instead of by a batch threshold that
+    /// was never measured.
+    fn key_state_forward_kernel(&self, batch: usize) -> Option<&vulkan::ComputeKernel> {
+        if self.key_state_narrow_forward_forced {
+            return None;
+        }
+        let wide = self.key_state_forward_fused_wide.as_ref()?;
+        if self.key_state_wide_forward_forced {
+            return Some(wide);
+        }
+        if self.recorded_key_state_forward_route(batch)
+            == Some(crate::decision_records::Route::NarrowFused)
+        {
+            return None;
+        }
+        Some(wide)
+    }
+
+    /// The fused arm the record names for this adapter, geometry and storage
+    /// policy: a record that chose one of the two fused routes names the arm in
+    /// that same field, so there is no separate arm to keep consistent with it.
+    pub fn recorded_key_state_forward_arm(&self, batch: usize) -> Option<&'static str> {
+        match self.recorded_key_state_forward_route(batch)? {
+            crate::decision_records::Route::NarrowFused => Some("narrow"),
+            crate::decision_records::Route::WideFused => Some("wide"),
+            crate::decision_records::Route::Fused | crate::decision_records::Route::Staged => None,
+        }
+    }
+
+    /// The measured route for this adapter, geometry and parameter-storage policy,
+    /// or `None` where the record has no entry and the structural default decides.
+    pub fn recorded_key_state_forward_route(
+        &self,
+        batch: usize,
+    ) -> Option<crate::decision_records::Route> {
+        key_state_forward_decisions().route_scoped(
+            self.device.name(),
+            self.width as u32,
+            batch as u32,
+            self.parameter_storage_policy(),
+        )
+    }
+
+    /// The recorded key/state route in the record's own vocabulary, for receipts
+    /// that have to show which of the three candidates the default followed.
+    pub fn recorded_key_state_forward_route_label(&self, batch: usize) -> Option<&'static str> {
+        self.recorded_key_state_forward_route(batch)
+            .map(crate::decision_records::Route::label)
+    }
+
+    /// The recorded projection route in the record's own vocabulary.
+    pub fn recorded_full_forward_route_label(&self, batch: usize) -> Option<&'static str> {
+        self.recorded_full_forward_route(batch)
+            .map(crate::decision_records::Route::label)
+    }
+
+    /// The parameter-storage policy this op runs, as the decision records key it.
+    /// The key/state and projection weights are low-rank parameters, so the op's
+    /// policy is the one the low-rank producer reports: `fp16-storage` once the
+    /// training graph has installed the packed mirrors, `fp32` otherwise.
+    pub fn parameter_storage_policy(&self) -> &'static str {
+        self.low_rank
+            .as_ref()
+            .map_or("fp32", RwkvLowRankOp::parameter_storage_policy)
+    }
+
+    /// The graph this geometry dispatches, in the shared A/B vocabulary.
+    pub fn key_state_forward_route_label(&self, batch: usize) -> &'static str {
+        if self.prefers_fused_key_state_forward(batch) {
+            "fused"
+        } else {
+            "composed"
+        }
+    }
+
+    /// The compiled-in decision for this adapter and geometry, or `None` where
+    /// the record has no entry and the structural default decides. `Some(true)`
+    /// means the record names the two-dispatch chain.
+    pub fn recorded_key_state_forward_decision(&self, batch: usize) -> Option<bool> {
+        self.recorded_key_state_forward_route(batch)
+            .map(crate::decision_records::Route::is_staged)
+    }
+
+    /// Key/state forward dispatches since construction; see
+    /// `HIERARCHOS_RWKV_KEY_STATE_COUNT_FORWARD_DISPATCHES`.
+    pub fn key_state_forward_dispatches(&self) -> u64 {
+        self.key_state_forward_dispatches.load(Ordering::Relaxed)
+    }
+
     fn record_key_state_forward(
         &self,
         commands: &mut vulkan::ComputeBatch,
@@ -3928,14 +4238,59 @@ impl RwkvTimeMixCoreOp {
         head_groups: [u32; 3],
         vector_groups: [u32; 3],
     ) -> Result<()> {
-        if self.head_size <= 64 {
-            let groups = u32::try_from(
-                batch
-                    .checked_mul(self.heads)
-                    .context("RWKV fused key/state-forward workgroup count overflow")?,
-            )
-            .context("RWKV fused key/state-forward workgroup count exceeds Vulkan u32 range")?;
-            return self.key_state_forward_fused.record_dispatch(
+        // The A/B's dispatch accounting: the fused arm is one dispatch, the
+        // composed arm is the two kernels it replaces. Counted only when the
+        // measurement switch is on.
+        let before = commands.dispatch_count();
+        let result = self.record_key_state_forward_inner(
+            commands,
+            batch,
+            state,
+            a,
+            w,
+            key_push,
+            state_push,
+            head_groups,
+            vector_groups,
+        );
+        if self.count_key_state_forward_dispatches {
+            let dispatched = commands.dispatch_count().saturating_sub(before) as u64;
+            if dispatched > 0 {
+                self.key_state_forward_dispatches
+                    .fetch_add(dispatched, Ordering::Relaxed);
+            }
+        }
+        result
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn record_key_state_forward_inner(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        batch: usize,
+        state: &GpuBuffer,
+        a: &GpuBuffer,
+        w: &GpuBuffer,
+        key_push: &KeyPush,
+        state_push: &StatePush,
+        head_groups: [u32; 3],
+        vector_groups: [u32; 3],
+    ) -> Result<()> {
+        if self.prefers_fused_key_state_forward(batch) {
+            let total_heads = batch
+                .checked_mul(self.heads)
+                .context("RWKV fused key/state-forward workgroup count overflow")?;
+            // The wider-group variant covers `64 / head_size` heads per workgroup,
+            // so it launches that many times fewer groups for the same rows and
+            // keeps every lane busy in the state phase. The narrow kernel keeps
+            // the one-workgroup-per-head mapping it was measured with.
+            let (kernel, heads_per_group) = match self.key_state_forward_kernel(batch) {
+                Some(wide) => (wide, (64 / self.head_size).max(1)),
+                None => (&self.key_state_forward_fused, 1),
+            };
+            let groups = u32::try_from(total_heads.div_ceil(heads_per_group))
+                .context("RWKV fused key/state-forward workgroup count exceeds Vulkan u32 range")?;
+            return kernel.record_dispatch(
                 commands,
                 &[
                     &self.raw_k,
@@ -3987,6 +4342,162 @@ impl RwkvTimeMixCoreOp {
             bytemuck::bytes_of(state_push),
             vector_groups,
         )
+    }
+
+    /// Benchmark the key/state forward route in isolation, with the op's own
+    /// resident buffers.
+    ///
+    /// Warm-up and measured repetitions are each recorded into one submission
+    /// and the measured submit is the timed interval, so command recording and
+    /// the validation readback are outside the measurement — the whole time-mix
+    /// core would otherwise swamp the one dispatch this fusion saves. Both arms
+    /// dispatch exactly the graph `record_key_state_forward` selects, so the
+    /// measurement is of the shipped route and not of a copy of it.
+    #[allow(clippy::too_many_arguments)]
+    pub fn benchmark_key_state_forward(
+        &self,
+        batch: usize,
+        state: &[f32],
+        raw_k: &[f32],
+        a: &[f32],
+        w: &[f32],
+        r: &[f32],
+        v: &[f32],
+        warmup_iterations: usize,
+        measured_iterations: usize,
+    ) -> Result<RwkvKeyStateForwardBenchmark> {
+        if batch == 0 || batch > self.max_batch {
+            bail!(
+                "RWKV key/state benchmark batch must be in 1..={}; got {batch}",
+                self.max_batch
+            );
+        }
+        if measured_iterations == 0 {
+            bail!("RWKV key/state benchmark requires at least one measured iteration");
+        }
+        let vector_len = batch
+            .checked_mul(self.width)
+            .context("RWKV key/state benchmark vector length overflow")?;
+        let state_len = vector_len
+            .checked_mul(self.head_size)
+            .context("RWKV key/state benchmark state length overflow")?;
+        validate_len("state", state, state_len)?;
+        for (name, values) in [("raw_k", raw_k), ("a", a), ("w", w), ("r", r), ("v", v)] {
+            validate_len(name, values, vector_len)?;
+        }
+
+        let key_push = KeyPush {
+            batch: batch as u32,
+            width: self.width as u32,
+            head_size: self.head_size as u32,
+        };
+        let state_push = StatePush {
+            batch: batch as u32,
+            width: self.width as u32,
+            head_size: self.head_size as u32,
+        };
+        let head_workgroups = batch
+            .checked_mul(self.heads)
+            .context("RWKV key/state benchmark workgroup count overflow")?;
+        let head_groups = [div_ceil_u32(head_workgroups, 64), 1, 1];
+        let vector_groups = [div_ceil_u32(vector_len, 64), 1, 1];
+
+        let mut upload = vulkan::ComputeBatch::new(&self.device)?;
+        upload.upload_f32(&self.state, state)?;
+        upload.upload_f32(&self.raw_k, raw_k)?;
+        upload.upload_f32(&self.a, a)?;
+        upload.upload_f32(&self.w, w)?;
+        upload.upload_f32(&self.r, r)?;
+        upload.upload_f32(&self.v, v)?;
+        upload.submit()?;
+
+        let route = self.key_state_forward_route_label(batch);
+        let counted_before = self.key_state_forward_dispatches();
+        let mut total_calls = 0usize;
+
+        if warmup_iterations > 0 {
+            let mut warmup = vulkan::ComputeBatch::new(&self.device)?;
+            for _ in 0..warmup_iterations {
+                self.record_key_state_forward(
+                    &mut warmup,
+                    batch,
+                    &self.state,
+                    &self.a,
+                    &self.w,
+                    &key_push,
+                    &state_push,
+                    head_groups,
+                    vector_groups,
+                )?;
+            }
+            warmup.submit()?;
+            total_calls += warmup_iterations;
+        }
+
+        let mut measured = vulkan::ComputeBatch::new(&self.device)?;
+        for _ in 0..measured_iterations {
+            self.record_key_state_forward(
+                &mut measured,
+                batch,
+                &self.state,
+                &self.a,
+                &self.w,
+                &key_push,
+                &state_push,
+                head_groups,
+                vector_groups,
+            )?;
+        }
+        let started = Instant::now();
+        measured.submit()?;
+        let elapsed_seconds = started.elapsed().as_secs_f64();
+        total_calls += measured_iterations;
+
+        // One more pass, with a readback, to return the tensors this route
+        // produced. It is not part of the timed interval.
+        let new_state_readback = GpuBuffer::zeros_host_f32(&self.device, state_len)?;
+        let tmix_readback = GpuBuffer::zeros_host_f32(&self.device, vector_len)?;
+        let scaled_k_readback = GpuBuffer::zeros_host_f32(&self.device, vector_len)?;
+        let kk_readback = GpuBuffer::zeros_host_f32(&self.device, vector_len)?;
+        // `saved_sa` is a per-channel buffer (the backward pass's saved scale),
+        // not a state-sized one.
+        let saved_sa_readback = GpuBuffer::zeros_host_f32(&self.device, vector_len)?;
+        let mut validation = vulkan::ComputeBatch::new(&self.device)?;
+        self.record_key_state_forward(
+            &mut validation,
+            batch,
+            &self.state,
+            &self.a,
+            &self.w,
+            &key_push,
+            &state_push,
+            head_groups,
+            vector_groups,
+        )?;
+        validation.readback_f32(&self.new_state, &new_state_readback, state_len)?;
+        validation.readback_f32(&self.tmix, &tmix_readback, vector_len)?;
+        validation.readback_f32(&self.scaled_k, &scaled_k_readback, vector_len)?;
+        validation.readback_f32(&self.kk, &kk_readback, vector_len)?;
+        validation.readback_f32(&self.saved_sa, &saved_sa_readback, vector_len)?;
+        validation.submit()?;
+        total_calls += 1;
+
+        let measured_dispatches = self
+            .key_state_forward_dispatches()
+            .saturating_sub(counted_before);
+        Ok(RwkvKeyStateForwardBenchmark {
+            route,
+            dispatches_per_forward: measured_dispatches as f64 / total_calls as f64,
+            warmup_iterations,
+            measured_iterations,
+            elapsed_seconds,
+            forwards_per_second: measured_iterations as f64 / elapsed_seconds,
+            new_state: new_state_readback.read_f32(state_len)?,
+            tmix: tmix_readback.read_f32(vector_len)?,
+            scaled_k: scaled_k_readback.read_f32(vector_len)?,
+            kk: kk_readback.read_f32(vector_len)?,
+            saved_sa: saved_sa_readback.read_f32(vector_len)?,
+        })
     }
 
     fn configure_state_backward_schedules(&mut self) -> Result<()> {
@@ -6389,6 +6900,40 @@ impl RwkvTimeMixCoreOp {
             .is_some_and(RwkvLowRankOp::can_fuse_layer_norm_forward)
     }
 
+    /// Whether this geometry's dense forward should fuse LN1 into the low-rank
+    /// producer, which is the rank-2 route decision of
+    /// `validation/FUSED_FORWARD_PRODUCER_AUDIT.md`. `can_fuse_layer_norm_forward`
+    /// answers whether the device could; this answers whether it should.
+    pub(crate) fn prefers_layer_norm_forward_fusion(&self, batch: usize) -> bool {
+        self.low_rank
+            .as_ref()
+            .is_some_and(|low_rank| low_rank.prefers_layer_norm_forward_fusion(batch))
+    }
+
+    /// The low-rank forward graph this geometry dispatches (`fused` or
+    /// `composed`), for the A/B harness and its receipt.
+    pub(crate) fn low_rank_forward_chain_label(&self, batch: usize) -> &'static str {
+        self.low_rank
+            .as_ref()
+            .map_or("composed", |low_rank| low_rank.forward_chain_label(batch))
+    }
+
+    /// Forward kernels the low-rank op dispatched since construction, counted only
+    /// under `HIERARCHOS_RWKV_LOW_RANK_COUNT_FORWARD_DISPATCHES`.
+    pub(crate) fn low_rank_forward_dispatches(&self) -> u64 {
+        self.low_rank
+            .as_ref()
+            .map_or(0, |low_rank| low_rank.low_rank_forward_dispatches())
+    }
+
+    /// The compiled-in rank-2 decision for this adapter and geometry, or `None`
+    /// where the record has no entry and the structural default decides.
+    pub(crate) fn recorded_low_rank_forward_chain_decision(&self, batch: usize) -> Option<bool> {
+        self.low_rank
+            .as_ref()
+            .and_then(|low_rank| low_rank.recorded_forward_chain_decision(batch))
+    }
+
     pub(crate) fn can_record_packed_forward_only(&self) -> bool {
         (self
             .time_mix_linear3_key_state_forward_packed_fast
@@ -7276,7 +7821,7 @@ impl RwkvTimeMixCoreOp {
         &self.v
     }
 
-    pub(crate) fn width(&self) -> usize {
+    pub fn width(&self) -> usize {
         self.width
     }
 
@@ -7401,7 +7946,7 @@ impl RwkvTimeMixCoreOp {
     /// constant: the tuned module's own admission predicate decides whether the
     /// comparison is even about a tuned module, and then the recorded decision
     /// table (`validation/time_mix_projection_decisions.json`, compiled in by
-    /// `rwkv_time_mix_decisions`) decides that device's winning graph. A device
+    /// `decision_records`) decides that device's winning graph. A device
     /// with no recorded entry keeps the conservative default -- compose wherever
     /// its own tuned module is admitted -- which is the rule this host measured,
     /// applied to an adapter whose crossover has not been measured yet.
@@ -7410,17 +7955,36 @@ impl RwkvTimeMixCoreOp {
     /// wins as a *tuned* module: where it would run the portable module the
     /// measured data shows no gain, so a recorded `compose` cannot override a
     /// geometry that has no tuned module to compose.
+    /// The decision the compiled-in record names for this adapter and geometry,
+    /// or `None` where the record has no entry and the vendor gate decides. The
+    /// A/B harness reads this so it can check the shipped default against the
+    /// rule that actually decided it.
+    pub fn recorded_full_forward_decision(&self, batch: usize) -> Option<bool> {
+        self.recorded_full_forward_route(batch)
+            .map(crate::decision_records::Route::is_staged)
+    }
+
+    /// The measured route for this adapter, geometry and parameter-storage policy,
+    /// or `None` where the projection record has no entry for either.
+    pub fn recorded_full_forward_route(
+        &self,
+        batch: usize,
+    ) -> Option<crate::decision_records::Route> {
+        time_mix_decisions().route_scoped(
+            self.device.name(),
+            self.width as u32,
+            batch as u32,
+            self.parameter_storage_policy(),
+        )
+    }
+
     fn prefer_composed_projection(&self, batch: usize) -> bool {
         let measured = if self.forward_fusion_forced {
             None
         } else {
-            crate::rwkv_time_mix_decisions::measured_compose_decision(
-                self.device.name(),
-                self.width as u32,
-                batch as u32,
-            )
+            self.recorded_full_forward_route(batch)
         };
-        crate::rwkv_time_mix_decisions::prefers_composition(
+        crate::decision_records::prefers_composition(
             self.forward_fusion_forced,
             self.linear3_forward.selects_variant_for(
                 batch as u32,

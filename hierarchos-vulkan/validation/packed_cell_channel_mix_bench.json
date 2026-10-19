@@ -1,0 +1,265 @@
+{
+  "result": "pass",
+  "device": "Intel(R) HD Graphics 520",
+  "width": 128,
+  "linear_residual_variant": "intel-gen9-lds",
+  "promotion": "geometry-aware",
+  "batches": [
+    {
+      "batch": 1,
+      "fused_ms": 2.6052,
+      "composed_ms": 2.57615,
+      "default_ms": 2.5877499999999998,
+      "composed_over_fused": 0.9888492246276678,
+      "default_over_fused": 0.9933018578228159,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_compose": null,
+      "expected_default_label": "fused",
+      "fused_linear_residual_dispatches": 0,
+      "composed_linear_residual_dispatches": 0,
+      "default_linear_residual_dispatches": 0,
+      "composed_ran_vendor_linear_residual": false,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 128,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010003307491540909
+        },
+        {
+          "label": "packed_new_state",
+          "values": 2560,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000025191633541
+        },
+        {
+          "label": "grad_x",
+          "values": 128,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010003863394260407
+        },
+        {
+          "label": "grad_packed_state",
+          "values": 2560,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 128,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010210997253656388
+        }
+      ]
+    },
+    {
+      "batch": 4,
+      "fused_ms": 3.21765,
+      "composed_ms": 3.15895,
+      "default_ms": 3.237,
+      "composed_over_fused": 0.9817568722514879,
+      "default_over_fused": 1.006013705654748,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_compose": null,
+      "expected_default_label": "fused",
+      "fused_linear_residual_dispatches": 0,
+      "composed_linear_residual_dispatches": 0,
+      "default_linear_residual_dispatches": 0,
+      "composed_ran_vendor_linear_residual": false,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 512,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000447407364846
+        },
+        {
+          "label": "packed_new_state",
+          "values": 10240,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000065327803896
+        },
+        {
+          "label": "grad_x",
+          "values": 512,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010001528411172331
+        },
+        {
+          "label": "grad_packed_state",
+          "values": 10240,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 512,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010019566798582674
+        }
+      ]
+    },
+    {
+      "batch": 8,
+      "fused_ms": 4.066800000000001,
+      "composed_ms": 3.8054999999999994,
+      "default_ms": 3.93335,
+      "composed_over_fused": 0.9357480082620239,
+      "default_over_fused": 0.9671855021146846,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "composed",
+      "recorded_compose": true,
+      "expected_default_label": "composed",
+      "fused_linear_residual_dispatches": 0,
+      "composed_linear_residual_dispatches": 1,
+      "default_linear_residual_dispatches": 1,
+      "composed_ran_vendor_linear_residual": true,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000431269407273
+        },
+        {
+          "label": "packed_new_state",
+          "values": 20480,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000010954920072
+        },
+        {
+          "label": "grad_x",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010002365122549237
+        },
+        {
+          "label": "grad_packed_state",
+          "values": 20480,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001000233485735953
+        }
+      ]
+    },
+    {
+      "batch": 16,
+      "fused_ms": 6.059799999999999,
+      "composed_ms": 5.35245,
+      "default_ms": 5.669700000000001,
+      "composed_over_fused": 0.8832717251394437,
+      "default_over_fused": 0.9356249381167697,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "composed",
+      "recorded_compose": true,
+      "expected_default_label": "composed",
+      "fused_linear_residual_dispatches": 0,
+      "composed_linear_residual_dispatches": 1,
+      "default_linear_residual_dispatches": 1,
+      "composed_ran_vendor_linear_residual": true,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 2048,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000025853514672
+        },
+        {
+          "label": "packed_new_state",
+          "values": 40960,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000004856422039
+        },
+        {
+          "label": "grad_x",
+          "values": 2048,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000151738669957
+        },
+        {
+          "label": "grad_packed_state",
+          "values": 40960,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 2048,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001000236417958513
+        }
+      ]
+    },
+    {
+      "batch": 32,
+      "fused_ms": 10.722949999999999,
+      "composed_ms": 9.23085,
+      "default_ms": 9.8753,
+      "composed_over_fused": 0.8608498594136875,
+      "default_over_fused": 0.9209499251605202,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "composed",
+      "recorded_compose": true,
+      "expected_default_label": "composed",
+      "fused_linear_residual_dispatches": 0,
+      "composed_linear_residual_dispatches": 1,
+      "default_linear_residual_dispatches": 1,
+      "composed_ran_vendor_linear_residual": true,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000119790434838
+        },
+        {
+          "label": "packed_new_state",
+          "values": 81920,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000000830988256
+        },
+        {
+          "label": "grad_x",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000225167837926
+        },
+        {
+          "label": "grad_packed_state",
+          "values": 81920,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000735980691388
+        }
+      ]
+    }
+  ],
+  "median_composed_over_fused": 0.9357480082620239,
+  "winner": "composed",
+  "samples": 30,
+  "warmup": 5,
+  "atol": 0.0001,
+  "rtol": 1e-05
+}

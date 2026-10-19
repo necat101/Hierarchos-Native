@@ -2129,6 +2129,13 @@ impl RwkvTbpttSequenceOp {
         self.cell.time_mix_full_forward_projection_label(batch)
     }
 
+    /// The compiled-in recorded decision for the time-mix projection, or `None`
+    /// where this adapter and geometry have no entry; see
+    /// `RwkvPackedCellOp::time_mix_recorded_projection_decision`.
+    pub fn time_mix_recorded_projection_decision(&self, batch: usize) -> Option<bool> {
+        self.cell.time_mix_recorded_projection_decision(batch)
+    }
+
     /// Whether first-pass TBPTT forward transitions keep recurrent matrix
     /// state packed and suppress backward-only tape stores on this device.
     pub fn packed_forward_only_active(&self) -> bool {

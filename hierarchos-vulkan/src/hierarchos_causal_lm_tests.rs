@@ -1049,13 +1049,15 @@ fn vendor_kernels_match_portable() -> Result<()> {
     // The native graph must really route every tuned matmul family this fixture
     // exercises through the Intel modules, so a regression that silently moved
     // a call site back to the portable module cannot pass just because the
-    // numbers agree. The fixture's width keeps the fused channel-mix route, so
-    // `linear-residual-forward` legitimately stays at zero; `linear3-forward`
-    // now runs through the geometry-aware time-mix promotion at this batch, and
-    // its absence where the promotion does not apply is still pinned by the
-    // packed-cell vendor composition check, which forces both compositions and
-    // asserts `linear3-forward` dispatch, and by the on-device A/B test at
-    // production geometry (`vendor::intel_variants_are_bit_exact_with_portable_kernels`).
+    // numbers agree. Both measured promotions are live at this geometry, so both
+    // families have to be exercised: the channel mix composes through
+    // `linear-residual-forward` (the channel-mix A/B recorded composed wins at width
+    // 128, batches 8/16/32, and this fixture is width 128 at batch 8) and the time-mix
+    // projection composes through `linear3-forward`. The fused routes they replaced at
+    // other geometries are pinned by the packed-cell vendor composition check, which
+    // forces both graphs and asserts the tuned module's dispatch on each, and by the
+    // on-device A/Bs (`vendor::intel_variants_are_bit_exact_with_portable_kernels` and
+    // the two `bench_ab` receipts).
     assert!(
         linear_forward_dispatches > 0 && linear_bias_forward_dispatches > 0,
         "vendor-enabled Hierarchos step did not dispatch the linear-forward/\
@@ -1069,8 +1071,10 @@ fn vendor_kernels_match_portable() -> Result<()> {
         );
     }
     assert_eq!(
-        linear_residual_dispatches, 0,
-        "the fixture's fused channel-mix route should not reach linear-residual-forward"
+        linear_residual_dispatches, 60,
+        "the fixture's channel-mix route should compose through linear-residual-forward at \
+         this geometry; 60 dispatches over its 20 layer-timesteps is what that composition \
+         costs, and a regression back to the fused producer shows up here"
     );
     assert_eq!(
         linear3_dispatches, 20,

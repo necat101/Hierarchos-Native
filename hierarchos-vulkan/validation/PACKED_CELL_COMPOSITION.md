@@ -117,6 +117,19 @@ otherwise) followed by the fused key/state kernels. They are numerically
 the same graph: every returned tensor was bit-identical (`0.0` worst absolute)
 in every run below, which is why the choice is scheduling and not precision.
 
+The key/state half of that second graph now has its own route record
+(`validation/key_state_forward_decisions.json`, rank 3 of
+`FUSED_FORWARD_PRODUCER_AUDIT.md`), and that record is three-way: `wide-fused`,
+`narrow-fused` and `staged` are each a route, so an entry names the fused kernel as
+well as whether the stage fused at all. It is the wider-group fused kernel where
+the record has no entry, and `key_transform_forward` + `state_forward` where it
+records a staged win — on the Intel Gen9 part that is batch 32 after the all-lane
+transform phase, while batch 16, the old crossover, is now a measured wide-fusion
+win. A composed leg of this A/B and the key/state route can therefore disagree at
+the same batch, and that is not a contradiction: they measure different stages. The
+projection decision above is unchanged by that; the two are separate records, and
+both read the same parameter-storage policy scope.
+
 `validation/bench_rwkv_packed_cell_time_mix.py` and its
 `hierarchos-vulkan-rwkv-packed-cell-time-mix-bench` binary build three legs in
 one process over one fixture — the fused kernel forced on, the composition
@@ -150,7 +163,8 @@ threshold is not new: it is the vendor layer's own admission gate
 measurement, so `prefer_composed_projection` first asks the vendor gate whether
 the composition is even about a tuned module, then reads
 `validation/time_mix_projection_decisions.json` (compiled in by
-`src/rwkv_time_mix_decisions.rs`) for that adapter's own winning graph. A device
+`src/decision_records.rs`, which serves both producers' records by `kind`) for that
+adapter's own winning graph. A device
 with a recorded entry follows its measurement; a device without one keeps the
 conservative default — compose where its own tuned module is admitted — because
 the measured win belongs to the module, not to the three-way split. Recording is

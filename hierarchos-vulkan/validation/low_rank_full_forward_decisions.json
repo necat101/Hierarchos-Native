@@ -1,0 +1,103 @@
+{
+  "schema": 2,
+  "kind": "rwkv-low-rank-full-forward",
+  "measured_by": "validation/bench_rwkv_packed_cell_low_rank_forward.py",
+  "margin": 0.02,
+  "notes": "One entry per (adapter, width, batch, parameter-storage policy) the LN1/low-rank forward route was measured at. `route` is the graph that won there: `staged` is the separate layer norm plus the interpolation, the three first-stage matmuls and the second-stage matmuls on their own dispatches; `fused` is the single LN1/low-rank producer that keeps one row's w/a/g rank activations resident through the layer norm, the activation, the second-stage matmuls, decay and the final gate. `candidates` holds the measured median milliseconds of every candidate, and the loader refuses an entry whose route is not the fastest candidate it lists. An entry with no `parameter_storage` is the default verdict every storage policy falls back to; an entry carrying `parameter_storage` was measured under that execution-storage policy and applies only to a consumer running it. The `fp16-storage-*` training policies differ in compute, not storage, so they share one `fp16-storage` verdict, and the op-level `fp16-packed-mirror` label canonicalizes into it. The two policies crossover differently -- the deep FP16 producer takes the chain from batch 8 while the FP32 producer keeps the fusion there -- so the dimension is what lets the FP16 route take its own measured wins without moving the FP32 route. Each entry's `measured_by` names the driver that produced it. The runtime reads this table with the op's own policy, so a device with no entry keeps the structural default. Re-record a policy's own entries with that driver's `--record-decisions`. The `fp16-storage` entries were recorded with a 1% band rather than the dense route's 2%: that route's staged win at batch 16 measures 1.4-3.5% in every sweep and has never flipped sign, so a 2% band would discard a stable verdict. The band gates recording only; lookups read whatever entry exists.",
+  "decisions": [
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 1,
+      "route": "fused",
+      "candidates": {
+        "fused": 2.64145,
+        "staged": 2.72225
+      },
+      "probe": "low-rank-forward",
+      "source": "measured"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 1,
+      "route": "fused",
+      "candidates": {
+        "fused": 1.2625,
+        "staged": 1.3213
+      },
+      "probe": "low-rank-forward",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_low_rank_fp16_forward.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 4,
+      "route": "fused",
+      "candidates": {
+        "fused": 3.2327,
+        "staged": 3.34225
+      },
+      "probe": "low-rank-forward",
+      "source": "measured"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 4,
+      "route": "fused",
+      "candidates": {
+        "fused": 1.29455,
+        "staged": 1.37235
+      },
+      "probe": "low-rank-forward",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_low_rank_fp16_forward.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 8,
+      "route": "staged",
+      "candidates": {
+        "fused": 1.3436,
+        "staged": 1.3086
+      },
+      "probe": "low-rank-forward",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_low_rank_fp16_forward.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 16,
+      "route": "staged",
+      "candidates": {
+        "fused": 1.45405,
+        "staged": 1.4109
+      },
+      "probe": "low-rank-forward",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_low_rank_fp16_forward.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 32,
+      "route": "staged",
+      "candidates": {
+        "fused": 1.71845,
+        "staged": 1.64675
+      },
+      "probe": "low-rank-forward",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_low_rank_fp16_forward.py"
+    }
+  ]
+}

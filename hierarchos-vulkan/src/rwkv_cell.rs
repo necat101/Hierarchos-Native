@@ -3,7 +3,10 @@ use std::path::Path;
 use anyhow::{bail, Context, Result};
 use bytemuck::{Pod, Zeroable};
 
-use crate::rwkv_low_rank::{RwkvLowRankFp16ParameterMirrors, RwkvLowRankParameterGradArithmetic};
+use crate::rwkv_low_rank::{
+    RwkvLowRankFp16ParameterMirrors, RwkvLowRankParameterGradArithmetic,
+    HIERARCHOS_RWKV_LOW_RANK_COUNT_FORWARD_DISPATCHES_ENV,
+};
 use crate::rwkv_optimizer::{RwkvDecayClass, RwkvTrainableRef};
 use crate::{
     read_f32_tensor, replace_f32_tensors, vulkan, GpuBuffer, RwkvChannelMixOp,
@@ -112,6 +115,8 @@ pub struct RwkvCellSliceOp {
     layer_norm_input_grad_residual_fused: vulkan::ComputeKernel,
     layer_norm_param_grad: vulkan::ComputeKernel,
     vector_add: vulkan::ComputeKernel,
+    count_low_rank_forward_dispatches: bool,
+    standalone_layer_norm_dispatches: std::sync::atomic::AtomicU64,
 }
 
 impl RwkvCellSliceOp {
@@ -296,6 +301,11 @@ impl RwkvCellSliceOp {
             grad_previous_tm_readback: GpuBuffer::zeros_host_f32(&device, vector_len)?,
             grad_ln1_weight_readback: GpuBuffer::zeros_host_f32(&device, width)?,
             grad_ln1_bias_readback: GpuBuffer::zeros_host_f32(&device, width)?,
+            count_low_rank_forward_dispatches: std::env::var_os(
+                HIERARCHOS_RWKV_LOW_RANK_COUNT_FORWARD_DISPATCHES_ENV,
+            )
+            .is_some(),
+            standalone_layer_norm_dispatches: std::sync::atomic::AtomicU64::new(0),
             device,
             width,
             head_size,
@@ -449,7 +459,18 @@ impl RwkvCellSliceOp {
         self.deepembed_adapter
             .record_forward(commands, batch, token_features)?;
 
-        if self.time_mix.can_fuse_layer_norm_forward() {
+        // The rank-2 route: fuse LN1 into the low-rank producer, or run the chain
+        // step by step. `record_full_forward_with_layer_norm_residual` dispatches
+        // the producer, which normalizes internally; the staged branch dispatches
+        // the standalone layer norm and lets the low-rank route see normalized
+        // input. `prefers_layer_norm_forward_fusion` already requires the kernels,
+        // so the staged branch is never chosen because a kernel is missing.
+        //
+        // The dispatch accounting is split with the low-rank op, which counts its
+        // own forward kernels: this cell only adds the standalone layer norm, so the
+        // fused route totals one dispatch and the staged route the layer norm plus
+        // the chain.
+        if self.time_mix.prefers_layer_norm_forward_fusion(batch) {
             self.time_mix.record_full_forward_with_layer_norm_residual(
                 commands,
                 batch,
@@ -484,6 +505,10 @@ impl RwkvCellSliceOp {
                 bytemuck::bytes_of(&norm_forward),
                 [div_ceil_u32(batch, 64), 1, 1],
             )?;
+            if self.count_low_rank_forward_dispatches {
+                self.standalone_layer_norm_dispatches
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
             self.time_mix.record_full_forward_with_residual(
                 commands,
                 batch,
@@ -702,6 +727,32 @@ impl RwkvCellSliceOp {
 
     pub fn device_name(&self) -> &str {
         self.device.name()
+    }
+
+    /// The low-rank forward graph this geometry dispatches: `fused` for the
+    /// LN1/low-rank producer, `composed` for the staged chain it replaces. This is
+    /// the rank-2 route of `validation/FUSED_FORWARD_PRODUCER_AUDIT.md`.
+    pub fn low_rank_forward_chain_label(&self, batch: usize) -> &'static str {
+        self.time_mix.low_rank_forward_chain_label(batch)
+    }
+
+    /// The compiled-in rank-2 decision for this adapter and geometry, or `None`
+    /// where the record has no entry and the structural default decides.
+    pub fn recorded_low_rank_forward_chain_decision(&self, batch: usize) -> Option<bool> {
+        self.time_mix
+            .recorded_low_rank_forward_chain_decision(batch)
+    }
+
+    /// Dispatches the dense low-rank forward route performed since construction:
+    /// the low-rank op's own forward kernels plus the standalone layer norm this
+    /// cell dispatches on the staged route. Counted only under
+    /// [`HIERARCHOS_RWKV_LOW_RANK_COUNT_FORWARD_DISPATCHES_ENV`], so the A/B harness
+    /// reads the delta across one forward to prove which graph each leg ran.
+    pub fn low_rank_forward_dispatches(&self) -> u64 {
+        self.time_mix.low_rank_forward_dispatches()
+            + self
+                .standalone_layer_norm_dispatches
+                .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub fn width(&self) -> usize {
@@ -1442,6 +1493,43 @@ impl RwkvPackedCellOp {
     /// `batch`; see `RwkvTimeMixCoreOp::full_forward_projection_label`.
     pub fn time_mix_full_forward_projection_label(&self, batch: usize) -> &'static str {
         self.cell.time_mix.full_forward_projection_label(batch)
+    }
+
+    /// Which channel-mix forward graph this cell dispatches for `batch`; see
+    /// `RwkvChannelMixOp::full_forward_fusion_label`.
+    pub fn channel_mix_full_forward_fusion_label(&self, batch: usize) -> &'static str {
+        self.cell.channel_mix.full_forward_fusion_label(batch)
+    }
+
+    /// The low-rank forward graph this cell dispatches for `batch`: `fused` for
+    /// the LN1/low-rank producer, `composed` for the staged chain it replaces.
+    pub fn low_rank_forward_chain_label(&self, batch: usize) -> &'static str {
+        self.cell.low_rank_forward_chain_label(batch)
+    }
+
+    /// The compiled-in rank-2 decision for this adapter and geometry, or `None`
+    /// where the record has no entry and the structural default decides.
+    pub fn recorded_low_rank_forward_chain_decision(&self, batch: usize) -> Option<bool> {
+        self.cell.recorded_low_rank_forward_chain_decision(batch)
+    }
+
+    /// Dispatches the dense low-rank forward route performed since construction;
+    /// see `RwkvCellSliceOp::low_rank_forward_dispatches`.
+    pub fn low_rank_forward_dispatches(&self) -> u64 {
+        self.cell.low_rank_forward_dispatches()
+    }
+
+    /// The compiled-in recorded decision for the channel-mix forward graph, or
+    /// `None` where this adapter and geometry have no entry and the vendor gate
+    /// decides. The A/B harness compares the shipped default against it.
+    pub fn channel_mix_recorded_forward_decision(&self, batch: usize) -> Option<bool> {
+        self.cell.channel_mix.recorded_full_forward_decision(batch)
+    }
+
+    /// The compiled-in recorded decision for the time-mix projection, or `None`
+    /// where this adapter and geometry have no entry.
+    pub fn time_mix_recorded_projection_decision(&self, batch: usize) -> Option<bool> {
+        self.cell.time_mix.recorded_full_forward_decision(batch)
     }
 
     pub fn state_size(&self) -> usize {

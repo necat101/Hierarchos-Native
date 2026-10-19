@@ -13,6 +13,12 @@ at several geometries, with the reporter's record file pointed at scratch -- and
 * requires every decision the replay measured to be recorded for this device and to
   still select the same variant. A decision that moves is a failure: the scheduling
   choice is exactly what the record documents;
+* treats a sweep the autotuner itself calls contended -- the structural default's own
+  samples moving by more than its threshold across the rounds -- as not evidence. On
+  this Intel part that is not hypothetical: with a second process on the GPU the
+  recorded column-slice win at width 128 failed the margin in every round and the
+  replay reported the device selecting one-row. A contended sweep is reported as a
+  note, cannot move the record, and is never written to it;
 * reports timing drift as a note with the ratio, never as a failure, because a
   median from a shared GPU moves between runs even when the choice does not;
 * requires every geometry in the replay to measure something. A geometry is a promise
@@ -98,12 +104,23 @@ RECORD_NOTE = (
     "`rounds` interleaved rounds: `round_wins` counts the rounds each candidate won, "
     "`decisive_margin_fraction` is the narrowest per-round lead of the selected variant, "
     "and a decision that is not unanimous records the default with the rounds it failed "
-    "on instead of a variant the device does not actually reproduce."
+    "on instead of a variant the device does not actually reproduce. "
+    "`contention_spread` is how far the default's own per-round samples moved "
+    "(slowest/fastest) and `contended` says whether that was over the autotuner's "
+    "threshold; a contended sweep is not evidence, so it keeps the structural default "
+    "and never enters this record."
 )
 
 # Fields the unanimous-round rule introduced. A record from before it carries none of
 # them, and is audited for the choice alone rather than for evidence it never held.
-STABILITY_FIELDS = ("structural_default", "rounds", "round_wins")
+STABILITY_FIELDS = ("structural_default", "rounds", "round_wins", "contended")
+
+# Mirrors `LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_CONTENTION_SPREAD` in
+# `src/rwkv_low_rank.rs`: how far the structural default's own per-round samples may
+# spread, slowest over fastest, before the rounds are declared too contended to
+# adjudicate. Used here only to check that an entry's own numbers agree with its flag;
+# the autotuner is what decides.
+CONTENTION_SPREAD = 1.15
 
 
 def decision_key(entry):
@@ -188,8 +205,11 @@ def stability_problems(entry, label):
     The rule the record documents is that only a variant which beats the structural
     default in every interleaved round may be selected, so the fields it carries have to
     agree with each other: a non-default `selected` won every round and has a decisive
-    margin, and a kept default won none. A record written before those fields existed is
-    not a problem here -- it is audited for the choice, which is what it holds.
+    margin, and a kept default won none. The contention flag is part of that: a sweep the
+    autotuner called contended keeps the structural default, and an entry whose spread
+    contradicts its own flag was not written by the autotuner. A record written before
+    those fields existed is not a problem here -- it is audited for the choice, which is
+    what it holds.
     """
     problems = []
     if any(field not in entry for field in STABILITY_FIELDS):
@@ -203,6 +223,24 @@ def stability_problems(entry, label):
             f"{label}: selected {selected!r} is not among the measured candidates "
             f"{sorted(wins)}"
         ]
+    spread = entry.get("contention_spread")
+    if entry.get("contended"):
+        if selected != default:
+            problems.append(
+                f"{label}: {selected} is selected from a contended sweep; a sweep whose "
+                f"default samples spread more than {CONTENTION_SPREAD}x is not evidence, "
+                f"so it keeps {default!r}"
+            )
+        if spread is not None and spread <= CONTENTION_SPREAD:
+            problems.append(
+                f"{label}: records contended with a spread of {spread}x, under the "
+                f"{CONTENTION_SPREAD}x threshold"
+            )
+    elif spread is not None and spread > CONTENTION_SPREAD:
+        problems.append(
+            f"{label}: records a spread of {spread}x over the {CONTENTION_SPREAD}x "
+            "contention threshold but is not marked contended"
+        )
     if selected != default:
         if rounds <= 0 or wins.get(selected, 0) != rounds:
             problems.append(
@@ -234,9 +272,24 @@ def compare(replay, recorded, device):
         label = describe(entry)
         known = by_key.get(key)
         if known is None:
-            problems.append(f"{label}: measured here but not recorded; run with --record")
+            if entry.get("contended"):
+                notes.append(
+                    f"{label}: this sweep was contended (spread "
+                    f"{entry.get('contention_spread', 0.0):.2f}x), which cannot record a "
+                    "decision; re-run on a quiet device with --record"
+                )
+            else:
+                problems.append(f"{label}: measured here but not recorded; run with --record")
             continue
         problems.extend(stability_problems(entry, label))
+        if entry.get("contended"):
+            notes.append(
+                f"{label}: contended sweep (spread "
+                f"{entry.get('contention_spread', 0.0):.2f}x, over the "
+                f"{CONTENTION_SPREAD}x threshold), so this run did not adjudicate; the "
+                f"recorded {known['selected']} stands"
+            )
+            continue
         if known["selected"] != entry["selected"]:
             problems.append(
                 f"{label}: recorded {known['selected']} but this device now selects "
@@ -300,6 +353,19 @@ def compare(replay, recorded, device):
             )
         )
     return problems, notes
+
+
+def recordable(entries):
+    """Split a replay into the decisions a record may hold and the contended ones.
+
+    A sweep taken while something else was using the GPU is not evidence about the
+    kernels, so it never reaches the record: writing it would turn another process's
+    timing into this device's decision, which is exactly what a replay on a loaded
+    machine would then dutifully reproduce as "recorded".
+    """
+    quiet = [entry for entry in entries if not entry.get("contended")]
+    contended = [entry for entry in entries if entry.get("contended")]
+    return quiet, contended
 
 
 def merge(recorded, replay):
@@ -418,10 +484,16 @@ def main():
     device = measured[0]["device"] if measured else f"(unmeasured: {probe.name})"
 
     if args.record:
-        if not measured:
+        quiet, contended = recordable(measured)
+        if contended:
+            notes.append(
+                f"{len(contended)} decision(s) were measured under contention and were "
+                "not recorded; the record holds only sweeps that measured one machine"
+            )
+        if not quiet:
             notes.append("nothing was measured on this run, so the record is unchanged")
         else:
-            merged = merge(recorded, measured)
+            merged = merge(recorded, quiet)
             document = (
                 json.loads(args.record_file.read_text(encoding="utf-8"))
                 if args.record_file.is_file()
@@ -432,7 +504,7 @@ def main():
             document["decisions"] = merged
             args.record_file.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
             notes.append(
-                f"recorded {len(measured)} decision(s) for {device!r}; "
+                f"recorded {len(quiet)} decision(s) for {device!r}; "
                 f"the record now holds {len(merged)}"
             )
     elif measured:

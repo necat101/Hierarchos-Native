@@ -625,24 +625,143 @@ Current milestone:
 - The time-mix projection was A/B'd the same way and is now promoted per
   geometry. The fused projection/key/state kernel and the composed
   `linear3-forward` projection are bit-identical (`0.0` worst absolute over six
-  batch sizes); the composition is `0.960-0.978x` the fused median at batches
-  8/16/32, where the tuned module is admitted, and `1.006-1.009x` at batches
+  batch sizes); the composition is `0.948-0.973x` the fused median at batches
+  8/16/32, where the tuned module is admitted, and `1.004-1.012x` at batches
   1/2/4, where it would fall back to the portable module. The packed cell
   therefore composes exactly where the module's own admission gate admits it and
   keeps the fused kernel elsewhere, so a device with no tuned `linear3-forward`
-  module never changes graph. The crossover itself is now a recorded per-device
+  module never changes graph. The crossover itself is a recorded per-device
   measurement: `prefer_composed_projection` consults
   `validation/time_mix_projection_decisions.json` (compiled in by
-  `src/rwkv_time_mix_decisions.rs`), a device with an entry follows its own
-  winner, and a device without one keeps the gate rule. The record is produced
-  offline by `--record-decisions` rather than by timing inside the training
-  graph, and `validation/verify_time_mix_projection_decisions.py` replays every
-  entry on the attached adapter and checks the shipped default builds the graph
-  the record names. `HIERARCHOS_RWKV_TIME_MIX_FORCE_FORWARD_FUSION` restores the
+  `src/decision_records.rs`, which loads either producer's record by `kind`), a
+  device with an entry follows its own winner, and a device without one keeps the
+  gate rule. Recording is offline (`--record-decisions`) rather than timing inside
+  the training graph, and it is symmetric: a geometry measured **outside** the 2%
+  band is recorded with the ratio that produced it, and one measured **inside**
+  the band has its entry *withdrawn*, because a tie is not a decision and a
+  recorded crossover the current measurement no longer shows is stale evidence.
+  That is what caught batch 4 on the Intel part -- an entry recorded at `1.006x`
+  re-measured at `0.997x`, so the entry is gone and the gate decides there.
+  `validation/verify_time_mix_projection_decisions.py` replays every entry on the
+  attached adapter and checks the shipped default builds the graph the record
+  names. `HIERARCHOS_RWKV_TIME_MIX_FORCE_FORWARD_FUSION` restores the
   fused kernel at every batch (the A/B's fused arm), and
   `validation/bench_rwkv_packed_cell_time_mix.py` records the fused, composed and
   production-default legs with dispatch accounting and a bit-exactness gate
   ([receipt](validation/packed_cell_time_mix_bench.json)).
+- The packed path's **channel-mix** producer is rank 1 of the fused-producer audit
+  (`validation/FUSED_FORWARD_PRODUCER_AUDIT.md`), and it is measured the same way: the
+  single `layer_norm_channel_mix_full_forward_fused` producer against the staged
+  composition that dispatches the tuned `linear-residual-forward` module for `value_cm`,
+  one process, three legs (each forced graph plus the production default), rotated
+  sampling, per-leg label and vendor-dispatch accounting, and a bit-exactness gate over
+  the output, the packed state and both gradients. On the Intel Gen9 part the two
+  forced graphs agree exactly and the composition wins 6-14% at batches 8/16/32
+  (`0.936x`/`0.883x`/`0.861x`), while batches 1/4 measure inside the 2% noise band and
+  stay with the fused producer ([receipt](validation/packed_cell_channel_mix_bench.json)).
+  `validation/channel_mix_forward_decisions.json` is the per-device record that
+  decides it: one entry per (adapter, width, batch) with `route` and every candidate's
+  measured median in `candidates`, compiled in through `src/decision_records.rs`, so the
+  shipped graph and the checked-in measurement cannot drift and a hand-edited route has
+  to contradict its own timings to load; an adapter with no entry keeps the vendor
+  gate. `validation/bench_rwkv_packed_cell_channel_mix.py` re-measures and merges this
+  device's winners with `--record-decisions`.
+- Rank 2 of the audit is the LN1/low-rank producer against the staged chain it replaces,
+  and it came out the other way round: the fusion survives. One `layer_norm_low_rank_producer_forward_fused`
+  dispatch against twelve (the standalone layer norm, the interpolation, the three
+  first-stage matmuls, the tanh and the six second-stage dispatches) measures
+  `1.031`/`1.034`/`1.000`/`1.019`/`1.006x` at batches 1/4/8/16/32, so the chain never
+  wins; 1 and 4 are recorded fused wins and the rest sit inside the 2% band and keep the
+  structural default ([receipt](validation/packed_cell_low_rank_forward_bench.json)).
+  `HIERARCHOS_RWKV_LOW_RANK_FORCE_FUSED_FORWARD_CHAIN` and
+  `HIERARCHOS_RWKV_LOW_RANK_FORCE_STAGED_FORWARD_CHAIN` pin the two legs,
+  `validation/low_rank_full_forward_decisions.json` is the per-device record, and
+  `src/decision_records.rs` carries the rank-2 rule (`prefers_fused_forward`: no vendor
+  gate, the fusion is the structural default). These two graphs are **not**
+  bit-identical -- the fused arm normalizes inside the producer, the staged arm runs the
+  standalone layer-norm kernel -- so the receipt states a tolerance (`1.6e-5` worst
+  absolute) instead of claiming exactness. The switch also decides whether LN1 fuses at
+  all, and its scope is the dense cell forward: the TBPTT packed forward-only and
+  rematerialization chains keep their own fusions and their own receipt.
+- Rank 2's scope gap -- the deep FP16 producer
+  (`low_rank_full_forward_fused_fp16_packed`) under the training graph's
+  `fp16-storage-fp32-compute` policy -- is measured separately, because the packed
+  cell's low-rank parameters are FP32 and that arm only exists once packed FP16
+  mirrors are installed. `RwkvLowRankOp::enable_fp16_parameter_storage()` quantizes
+  the six FP32 masters into execution mirrors (masters stay canonical), and
+  `bench_rwkv_low_rank_fp16_forward.py` runs the same four-leg A/B on the
+  pre-normalized route: `1.053`/`1.062`/`0.977`/`0.971`/`0.969x` at batches
+  1/4/8/16/32, one dispatch against eleven. A dedicated
+  `deep_forward_arm_dispatches` counter proves the fused leg ran the deep arm (the
+  route's total cannot tell it from the first-stage producer), and the receipt
+  reports per geometry whether the measurement follows
+  `low_rank_full_forward_decisions.json`: it agrees at every geometry, because the
+  record is now keyed by parameter-storage policy too -- this driver writes its
+  verdicts under `fp16-storage`, which only a consumer running that storage policy
+  reads, so the FP16 route takes the chain from batch 8 up while the dense route keeps
+  the fusion there and the policy-less entries (the FP32 arm's) are untouched
+  ([receipt](validation/low_rank_fp16_forward_bench.json)).
+- Rank 3 came out geometry-dependent, and the geometry turned out to be the
+  kernel's own shape. The original fused key/state kernel gave one 64-lane
+  workgroup one (batch, head): lane 0 ran the serial key transform while 63 lanes
+  waited, then only `head_size` of the 64 lanes advanced state rows, so its cost
+  per row was fixed while the chain's `state_forward` gives every lane a row. The
+  fusion won at batches 1/4 by 13-14% and lost batch 16 to the chain by 6.3%.
+  `rwkv_key_state_forward_fused_wide` packs `64 / head_size` heads (four at this
+  width) into the workgroup, so every lane advances a row, and its transform phase
+  now uses all 64 lanes too: each head's normalization constant is computed once on
+  that head's row-0 lane with the standalone kernel's FMA order, published through
+  shared memory, and all 64 lanes then write one column each. Measured staged/wide
+  is `1.183`/`1.174`/`1.153`/`1.139`/`0.808x` at batches 1/4/8/16/32 and
+  staged/narrow is `1.167`/`1.127`/`0.999`/`0.948`/`0.993x`: the wider group wins
+  every geometry up to batch 16 -- including the old batch-16 crossover -- and the
+  narrow arm no longer wins any measured geometry. Batch 32 is the exception: the
+  wide grid's cost per row jumps there (51 ns against 32 ns at batch 16) and the
+  chain wins by 19%, so the record runs the chain at that geometry and the wide
+  kernel there is the open question, not a shipped win. `validation/key_state_forward_profile.json`
+  (`validation/profile_rwkv_key_state_forward.py`) attributes the stage with the
+  device's per-dispatch GPU timestamps: the chain's transform phase is nearly flat
+  in batch while its state phase grows with the row count (state share 54% -> 84%
+  from batch 1 to 32), which is the measured form of the original explanation. The
+  fused kernel has no seam of its own, so the profile measures it against the chain's
+  state phase -- the same rows at the same occupancy: the excess is flat at
+  +13.3/+13.5/+12.4 microseconds at batches 1/8/16 (its transform plus one launch)
+  and jumps to +96.9 at batch 32, which is why the remaining gap there is the state
+  phase's schedule rather than the transform.
+  `validation/key_state_forward_decisions.json` is now a three-route record --
+  `wide-fused`, `narrow-fused`, `staged` -- with every candidate's median beside the
+  route, so one field says both whether the stage fused and which fused kernel ran;
+  it replaced the earlier `compose` boolean plus `fused_arm` string, which could
+  disagree. All three graphs are bit-identical -- `worst_max_abs` and
+  `worst_max_abs_wide_vs_narrow` are exactly zero -- so the widening, including the
+  transform phase, is a scheduling change, and the receipt asserts that instead of a
+  tolerance. `HIERARCHOS_RWKV_FORCE_NARROW_KEY_STATE_FORWARD` /
+  `HIERARCHOS_RWKV_FORCE_WIDE_KEY_STATE_FORWARD` pin either fused arm, and
+  `HIERARCHOS_RWKV_FORCE_STAGED_KEY_STATE_FORWARD` pins the chain
+  ([receipt](validation/key_state_forward_bench.json)).
+- Every route record is keyed by parameter-storage policy, not only the rank-2 one.
+  `src/decision_records.rs` loads one `Route` per (adapter, width, batch, policy)
+  from `route` plus the `candidates` that justified it, checks that the route is the
+  fastest candidate it lists, and canonicalizes the policy to the storage it
+  selects (`fp16-storage-*` and the older `fp16-packed-mirror` are one verdict).
+  The time-mix projection, channel-mix and key/state ops resolve their tables with
+  their own policy -- `fp16-storage` once the packed mirrors are installed, `fp32`
+  otherwise -- so a measurement under one storage can never move another's route,
+  and a policy-less entry stays the fallback. The channel mix has one FP32 arm
+  today; its op carries the policy so a future packed-mirror arm can record and read
+  scoped entries without another schema change. Writing a scoped entry is reserved
+  for a driver whose graph actually runs that storage: the FP16 low-rank driver is
+  the only one today, while the projection, channel-mix and key/state benches time
+  the FP32 graph and therefore write policy-less entries rather than stamping a
+  policy their measurement did not use.
+- All of those A/Bs are the same measurement, so the shape lives in one place. The
+  Rust side is `src/bench_ab.rs` -- three- and four-leg rotated sampling, median/min/max per leg,
+  tensor agreement, dispatch proof, and the fail-closed checks that the default still
+  builds the graph the decision record names -- and the driver side is
+  `validation/ab_harness.py` -- building the release binary, one geometry per process,
+  the cross-batch verdict, and the merge into a per-device record. A new producer
+  measurement is now configuration: its probe family, record kind and the two graphs it
+  compares, not another copy of the loop.
 - The promotion was then read end to end, because one `forward_backward` is not
   what a training run pays for. `validation/bench_rwkv_tbptt_time_mix.py`
   (`hierarchos-vulkan-rwkv-tbptt-time-mix-bench`) times a whole 8-step TBPTT
@@ -653,10 +772,15 @@ Current milestone:
   The small-batch result is a tie rather than a fused win, which is why the
   record keeps the fused kernel there and the receipt test asserts only that the
   composition does not win at those geometries.
-  `.github/workflows/time-mix-ab.yml` re-runs both A/Bs plus the decision replay
-  on a self-hosted Vulkan runner and fails when the default stops following the
-  record, so the rule is gated on hardware and not only against a checked-in
-  receipt.
+  `.github/workflows/time-mix-ab.yml` (`packed-cell producer A/B`) re-runs every
+  producer A/B -- single-step, TBPTT, the channel-mix producer, the LN1/low-rank
+  route, the FP16-storage arm of that route and the key/state forward fusion --
+  plus the decision replay and the receipt suites on a self-hosted Vulkan
+  runner, and
+  fails when the default stops following the record, so the rules are gated on
+  hardware and not only against checked-in receipts. The harness steps record
+  the receipts but never `--record-decisions`: the per-device records are
+  re-recorded deliberately, on a quiet machine.
 - The RWKV-v8 low-rank `a/w/g` branches are Vulkan-native in both directions:
   `a = sigmoid(a0 + (xa @ a1) @ a2)`,
   `g = sigmoid(xg @ g1) @ g2`, and
@@ -683,9 +807,14 @@ Current milestone:
   decision that moves is a failure, timing drift is a note, a geometry that stops
   measuring is a failure because the record is only as wide as the shapes that
   produced it, and `--record` merges this device's measurements in without touching
-  another device's entries. The ladder's toolchain step installs and reports the
-  pinned compilers, so a fresh clone never degrades provenance to a bare "not on
-  PATH" blocker.
+  another device's entries. It also refuses to be moved by a busy machine: each round
+  times each candidate three times and keeps the fastest (contention only adds time),
+  and if the structural default's own per-round samples spread by more than 1.15x the
+  sweep is recorded as `"contended": true` with the default kept, because a second
+  process on the adapter is not evidence about the kernels -- the replay reports such a
+  run as a note instead of a moved decision, and `--record` never writes one. The
+  ladder's toolchain step installs and reports the pinned compilers, so a fresh clone
+  never degrades provenance to a bare "not on PATH" blocker.
 - The FP32 LN1/low-rank producer has two alternative topologies, and which one
   runs is measured per device and shape rather than assumed. The **two-row**
   variant gives one 64-lane workgroup a pair of rows and shares every weight read
@@ -2658,6 +2787,8 @@ glslc shaders/rwkv_time_mix3_backward_fused_add_outer.comp -o shaders/rwkv_time_
 glslc -DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=32 shaders/rwkv_time_mix3_backward_fused_add_outer.comp -o shaders/rwkv_time_mix3_backward_fused_add_outer_wg32.spv
 glslc -DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=128 shaders/rwkv_time_mix3_backward_fused_add_outer.comp -o shaders/rwkv_time_mix3_backward_fused_add_outer_wg128.spv
 glslc shaders/rwkv_key_transform_forward.comp -o shaders/rwkv_key_transform_forward.spv
+glslc shaders/rwkv_key_state_forward_fused.comp -o shaders/rwkv_key_state_forward_fused.spv
+glslc shaders/rwkv_key_state_forward_fused_wide.comp -o shaders/rwkv_key_state_forward_fused_wide.spv
 glslc shaders/rwkv_key_transform_backward.comp -o shaders/rwkv_key_transform_backward.spv
 glslc --target-env=vulkan1.1 -DRWKV_KEY_TRANSFORM_USE_SUBGROUP_REDUCTION=1 shaders/rwkv_key_transform_backward.comp -o shaders/rwkv_key_transform_backward_subgroup.spv
 glslc shaders/rwkv_key_transform_param_reduce.comp -o shaders/rwkv_key_transform_param_reduce.spv

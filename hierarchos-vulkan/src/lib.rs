@@ -6,9 +6,13 @@
 //! primitives, checkpoint conventions, and FP32-master training foundation.
 
 mod adapter;
+/// Shared three-leg A/B harness for the measurement receipts; see the module
+/// docs for the pattern and its fail-closed guarantees.
+pub mod bench_ab;
 mod checkpoint;
 mod control;
 pub mod coverage_record;
+pub mod decision_records;
 mod full_training_graph;
 #[cfg(test)]
 mod hierarchos_ce_mask_tests;
@@ -28,7 +32,6 @@ mod rwkv_post_mix;
 mod rwkv_state;
 mod rwkv_tbptt;
 mod rwkv_time_mix_core;
-mod rwkv_time_mix_decisions;
 mod shared_lm_head;
 mod stochastic;
 mod tape_profiles;
@@ -154,8 +157,8 @@ pub use rwkv_tbptt::{
     RwkvTbpttSequenceResult, RwkvTbpttTrainStepResult, SharedLmHeadTrainMode,
 };
 pub use rwkv_time_mix_core::{
-    RwkvFullTimeMixResult, RwkvFusedTimeMixCoreResult, RwkvNumericsPolicy, RwkvTimeMixCoreOp,
-    RwkvTimeMixCoreResult,
+    RwkvFullTimeMixResult, RwkvFusedTimeMixCoreResult, RwkvKeyStateForwardBenchmark,
+    RwkvNumericsPolicy, RwkvTimeMixCoreOp, RwkvTimeMixCoreResult,
 };
 pub use shared_lm_head::SharedLmHeadParameter;
 pub use stochastic::{

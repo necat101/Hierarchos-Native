@@ -1,0 +1,163 @@
+#version 450
+
+// Wider-group variant of rwkv_key_state_forward_fused.comp.
+//
+// The original kernel gives one 64-lane workgroup one (batch, head): one lane
+// performs the serial key normalization/scale, then head_size lanes (16 at
+// head_size 16) advance the matrix-state rows while the other 48 lanes retire.
+// That is 1/4 lane utilization in the state phase and one serial subgroup per
+// head, so its cost per element is fixed while the two-dispatch chain it
+// replaces scales with rows -- which is why it lost at batch 16 on Gen9.
+//
+// This variant packs as many heads into one workgroup as the head size allows
+// (64 / head_size: four heads at head_size 16), and gives every lane a row:
+//
+// * transform phase -- lane / head_size selects the head slot and lane %
+//   head_size the column, so all 64 lanes normalize and scale a different
+//   element at once instead of one lane writing 16 of them while 60 wait. Each
+//   lane recomputes its head's full `norm_sq` chain redundantly rather than
+//   reducing across lanes, which is the point: the reduction is the same
+//   products in the same order as the standalone key-transform kernel, so the
+//   result is bit-identical and only the *elementwise* work is parallel. A
+//   cross-lane reduction would be a different summation and would change the
+//   normalized keys;
+// * state phase -- the same mapping, so a full workgroup advances slot_count *
+//   head_size rows at once.
+//
+// At head_size 64 the mapping degenerates to exactly the original kernel's: one
+// head per group, one lane per row, and one lane per column in the transform.
+// The arithmetic per row is unchanged -- the same products in the same order --
+// so the graphs stay bit-identical and this remains a scheduling change, not a
+// numerics one.
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer RawKeyBuffer { float raw_k[]; };
+layout(set = 0, binding = 1, std430) readonly buffer InContextBuffer { float a[]; };
+layout(set = 0, binding = 2, std430) readonly buffer KeyNormScaleBuffer { float k_k[]; };
+layout(set = 0, binding = 3, std430) readonly buffer KeyContextScaleBuffer { float k_a[]; };
+layout(set = 0, binding = 4, std430) readonly buffer StateBuffer { float state_values[]; };
+layout(set = 0, binding = 5, std430) readonly buffer ReceptanceBuffer { float r[]; };
+layout(set = 0, binding = 6, std430) readonly buffer ValueBuffer { float v[]; };
+layout(set = 0, binding = 7, std430) readonly buffer DecayLogBuffer { float w[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer ScaledKeyBuffer { float scaled_k[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer NormalizedKeyBuffer { float kk[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer NewStateBuffer { float new_state[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer TimeMixBuffer { float tmix[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer SavedSaBuffer { float saved_sa[]; };
+
+layout(push_constant) uniform Push {
+    uint batch;
+    uint width;
+    uint head_size;
+} pc;
+
+// One slot per head the group covers; slot_count * head_size <= 64 because
+// slot_count is 64 / head_size. head_size is <= 64 wherever this kernel is
+// built, which is what keeps every row lane inside a workgroup.
+shared float scaled_k_shared[64];
+shared float kk_shared[64];
+// One normalization constant per head slot, published by that slot's first row
+// lane. Keeping it out of every lane's registers is what lets the elementwise
+// pass below run on all 64 lanes without each of them re-reading the head.
+shared float denom_shared[64];
+
+void main() {
+    uint heads = pc.width / pc.head_size;
+    uint heads_per_group = max(1u, 64u / pc.head_size);
+    uint total_heads = pc.batch * heads;
+    uint first_head = gl_WorkGroupID.x * heads_per_group;
+    if (first_head >= total_heads) {
+        return;
+    }
+    uint slot_count = min(heads_per_group, total_heads - first_head);
+    uint lane = gl_LocalInvocationID.x;
+
+    // Transform phase, part 1: one lane per head slot runs the serial
+    // normalization the standalone key-transform kernel runs, and publishes the
+    // constant. Computing it once rather than in every row lane matters at the
+    // geometries where the launch is throughput-bound: the redundant version is
+    // four times the transform's loads and FMAs at head_size 16, which showed up
+    // as a batch-32 regression.
+    uint slot = lane / pc.head_size;
+    uint row = lane - slot * pc.head_size;
+    // The last group can cover fewer heads than the group has slots. Those lanes
+    // skip their work but still reach the barriers: a return before a barrier is
+    // undefined for the invocations that do wait.
+    bool lane_active = slot < slot_count;
+    uint transform_head = first_head + slot;
+    uint transform_batch = transform_head / heads;
+    uint transform_head_index = transform_head - transform_batch * heads;
+    uint transform_base = transform_batch * pc.width + transform_head_index * pc.head_size;
+    uint transform_channel_base = transform_head_index * pc.head_size;
+
+    if (lane_active && row == 0) {
+        float norm_sq = 0.0;
+        for (uint col = 0; col < pc.head_size; ++col) {
+            float z = raw_k[transform_base + col] * k_k[transform_channel_base + col];
+            norm_sq = fma(z, z, norm_sq);
+        }
+        denom_shared[slot] = max(sqrt(norm_sq), 1.0e-12);
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    // Transform phase, part 2: this lane writes one column of the head's
+    // normalized and scaled keys, so all 64 lanes are doing elementwise work at
+    // once instead of one lane writing 16 values while the rest wait.
+    if (lane_active) {
+        float denom = denom_shared[slot];
+        uint index = transform_base + row;
+        uint channel = transform_channel_base + row;
+        float raw = raw_k[index];
+        float normalized = raw * k_k[channel] / denom;
+        float scale = 1.0 + (a[index] - 1.0) * k_a[channel];
+        float scaled = raw * scale;
+        kk[index] = normalized;
+        scaled_k[index] = scaled;
+        uint shared_index = slot * pc.head_size + row;
+        kk_shared[shared_index] = normalized;
+        scaled_k_shared[shared_index] = scaled;
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (!lane_active) {
+        return;
+    }
+
+    uint linear_head = first_head + slot;
+    uint batch_index = linear_head / heads;
+    uint head = linear_head - batch_index * heads;
+    uint base = batch_index * pc.width + head * pc.head_size;
+    uint shared_base = slot * pc.head_size;
+    uint linear_row = base + row;
+    uint matrix_head_base = linear_head * pc.head_size * pc.head_size;
+    uint matrix_row_base = matrix_head_base + row * pc.head_size;
+
+    float sa = 0.0;
+    for (uint col = 0; col < pc.head_size; ++col) {
+        sa = fma(state_values[matrix_row_base + col], -kk_shared[shared_base + col], sa);
+    }
+    saved_sa[linear_row] = sa;
+
+    float row_tmix = 0.0;
+    float value_row = v[base + row];
+    for (uint col = 0; col < pc.head_size; ++col) {
+        uint channel_col = base + col;
+        uint matrix_index = matrix_row_base + col;
+        float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
+            ? w[channel_col]
+            : clamp(w[channel_col], -60.0, 30.0);
+        float decay = exp(-exp(bounded_w));
+        float b = kk_shared[shared_base + col] * a[channel_col];
+        float updated = state_values[matrix_index] * decay
+            + sa * b
+            + value_row * scaled_k_shared[shared_base + col];
+        new_state[matrix_index] = updated;
+        row_tmix = fma(updated, r[channel_col], row_tmix);
+    }
+    tmix[linear_row] = row_tmix;
+}

@@ -1,0 +1,509 @@
+{
+  "result": "pass",
+  "device": "Intel(R) HD Graphics 520",
+  "width": 128,
+  "fused_arm": "low-rank-full-forward-fused-fp16-packed",
+  "promotion": "geometry-aware",
+  "batches": [
+    {
+      "batch": 1,
+      "fused_ms": 1.23625,
+      "composed_ms": 1.31235,
+      "default_ms": 1.2393999999999998,
+      "composed_over_fused": 1.0615571284125378,
+      "default_over_fused": 1.0025480283114254,
+      "worst_max_abs": 2.384185791015625e-07,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": "fused",
+      "recorded_compose": false,
+      "expected_default_label": "fused",
+      "fused_low_rank_forward_dispatches": 1,
+      "composed_low_rank_forward_dispatches": 11,
+      "default_low_rank_forward_dispatches": 1,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 128,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010419221311807634
+        },
+        {
+          "label": "w",
+          "values": 128,
+          "max_abs": 2.384185791015625e-07,
+          "worst_excess": -0.00011030506134033203
+        },
+        {
+          "label": "g",
+          "values": 128,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010004048799164594
+        },
+        {
+          "label": "grad_x_norm",
+          "values": 128,
+          "max_abs": 7.450580596923828e-09,
+          "worst_excess": -0.00010000796199892648
+        },
+        {
+          "label": "grad_previous",
+          "values": 128,
+          "max_abs": 1.862645149230957e-09,
+          "worst_excess": -0.00010000004158845969
+        },
+        {
+          "label": "grad_w1",
+          "values": 4096,
+          "max_abs": 3.725290298461914e-09,
+          "worst_excess": -0.00010000000036317964
+        },
+        {
+          "label": "grad_w2",
+          "values": 4096,
+          "max_abs": 7.916241884231567e-09,
+          "worst_excess": -9.999755335767987e-05
+        },
+        {
+          "label": "grad_a1",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000003772646097
+        },
+        {
+          "label": "grad_a2",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000000924330266
+        },
+        {
+          "label": "grad_g1",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000000128335202
+        },
+        {
+          "label": "grad_g2",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000012743551452
+        }
+      ]
+    },
+    {
+      "batch": 4,
+      "fused_ms": 1.3564500000000002,
+      "composed_ms": 1.43115,
+      "default_ms": 1.3404,
+      "composed_over_fused": 1.0550702200597146,
+      "default_over_fused": 0.9881676434811455,
+      "worst_max_abs": 2.384185791015625e-07,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": "fused",
+      "recorded_compose": false,
+      "expected_default_label": "fused",
+      "fused_low_rank_forward_dispatches": 1,
+      "composed_low_rank_forward_dispatches": 11,
+      "default_low_rank_forward_dispatches": 1,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 512,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010412021070718766
+        },
+        {
+          "label": "w",
+          "values": 512,
+          "max_abs": 2.384185791015625e-07,
+          "worst_excess": -0.00011021345496177673
+        },
+        {
+          "label": "g",
+          "values": 512,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000051763665398
+        },
+        {
+          "label": "grad_x_norm",
+          "values": 512,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_excess": -9.999745706678368e-05
+        },
+        {
+          "label": "grad_previous",
+          "values": 512,
+          "max_abs": 1.979060471057892e-09,
+          "worst_excess": -9.9999604941886e-05
+        },
+        {
+          "label": "grad_w1",
+          "values": 4096,
+          "max_abs": 7.450580596923828e-09,
+          "worst_excess": -9.999952438965011e-05
+        },
+        {
+          "label": "grad_w2",
+          "values": 4096,
+          "max_abs": 1.0244548320770264e-08,
+          "worst_excess": -9.999400067259558e-05
+        },
+        {
+          "label": "grad_a1",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000001423313052
+        },
+        {
+          "label": "grad_a2",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000000298331117
+        },
+        {
+          "label": "grad_g1",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000000134421043
+        },
+        {
+          "label": "grad_g2",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000000138777666
+        }
+      ]
+    },
+    {
+      "batch": 8,
+      "fused_ms": 1.3548499999999999,
+      "composed_ms": 1.3174000000000001,
+      "default_ms": 1.3075,
+      "composed_over_fused": 0.9723585636786362,
+      "default_over_fused": 0.965051481713843,
+      "worst_max_abs": 2.384185791015625e-07,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "composed",
+      "recorded_route": "staged",
+      "recorded_compose": true,
+      "expected_default_label": "composed",
+      "fused_low_rank_forward_dispatches": 1,
+      "composed_low_rank_forward_dispatches": 11,
+      "default_low_rank_forward_dispatches": 11,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010375891536474229
+        },
+        {
+          "label": "w",
+          "values": 1024,
+          "max_abs": 2.384185791015625e-07,
+          "worst_excess": -0.00011027186632156372
+        },
+        {
+          "label": "g",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000130580345285
+        },
+        {
+          "label": "grad_x_norm",
+          "values": 1024,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_excess": -9.999639326986654e-05
+        },
+        {
+          "label": "grad_previous",
+          "values": 1024,
+          "max_abs": 1.862645149230957e-09,
+          "worst_excess": -9.999976510805936e-05
+        },
+        {
+          "label": "grad_w1",
+          "values": 4096,
+          "max_abs": 7.450580596923828e-09,
+          "worst_excess": -9.999863153880143e-05
+        },
+        {
+          "label": "grad_w2",
+          "values": 4096,
+          "max_abs": 1.6763806343078613e-08,
+          "worst_excess": -9.999092487150848e-05
+        },
+        {
+          "label": "grad_a1",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000000455659148
+        },
+        {
+          "label": "grad_a2",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000000332127655
+        },
+        {
+          "label": "grad_g1",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001000000053751694
+        },
+        {
+          "label": "grad_g2",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001000000633813943
+        }
+      ]
+    },
+    {
+      "batch": 16,
+      "fused_ms": 1.3962,
+      "composed_ms": 1.377,
+      "default_ms": 1.38685,
+      "composed_over_fused": 0.9862483884830253,
+      "default_over_fused": 0.9933032516831398,
+      "worst_max_abs": 2.384185791015625e-07,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "composed",
+      "recorded_route": "staged",
+      "recorded_compose": true,
+      "expected_default_label": "composed",
+      "fused_low_rank_forward_dispatches": 1,
+      "composed_low_rank_forward_dispatches": 11,
+      "default_low_rank_forward_dispatches": 11,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 2048,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010402648597955705
+        },
+        {
+          "label": "w",
+          "values": 2048,
+          "max_abs": 2.384185791015625e-07,
+          "worst_excess": -0.00011013895750045777
+        },
+        {
+          "label": "g",
+          "values": 2048,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000085771811428
+        },
+        {
+          "label": "grad_x_norm",
+          "values": 2048,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_excess": -9.999463049229235e-05
+        },
+        {
+          "label": "grad_previous",
+          "values": 2048,
+          "max_abs": 5.587935447692871e-09,
+          "worst_excess": -9.999943799504308e-05
+        },
+        {
+          "label": "grad_w1",
+          "values": 4096,
+          "max_abs": 1.1874362826347351e-08,
+          "worst_excess": -9.999767345845613e-05
+        },
+        {
+          "label": "grad_w2",
+          "values": 4096,
+          "max_abs": 2.0023435354232788e-08,
+          "worst_excess": -9.998863773740595e-05
+        },
+        {
+          "label": "grad_a1",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000000397353716
+        },
+        {
+          "label": "grad_a2",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000003211049717
+        },
+        {
+          "label": "grad_g1",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000000256641699
+        },
+        {
+          "label": "grad_g2",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000085230378318
+        }
+      ]
+    },
+    {
+      "batch": 32,
+      "fused_ms": 1.74505,
+      "composed_ms": 1.7002000000000002,
+      "default_ms": 1.6835,
+      "composed_over_fused": 0.9742987306953956,
+      "default_over_fused": 0.964728804332254,
+      "worst_max_abs": 2.384185791015625e-07,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "composed",
+      "recorded_route": "staged",
+      "recorded_compose": true,
+      "expected_default_label": "composed",
+      "fused_low_rank_forward_dispatches": 1,
+      "composed_low_rank_forward_dispatches": 11,
+      "default_low_rank_forward_dispatches": 11,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010395165562629701
+        },
+        {
+          "label": "w",
+          "values": 4096,
+          "max_abs": 2.384185791015625e-07,
+          "worst_excess": -0.00010973044276237488
+        },
+        {
+          "label": "g",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000090883811936
+        },
+        {
+          "label": "grad_x_norm",
+          "values": 4096,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_excess": -9.999174499040237e-05
+        },
+        {
+          "label": "grad_previous",
+          "values": 4096,
+          "max_abs": 5.587935447692871e-09,
+          "worst_excess": -9.999920605093394e-05
+        },
+        {
+          "label": "grad_w1",
+          "values": 4096,
+          "max_abs": 1.862645149230957e-08,
+          "worst_excess": -9.999160670296988e-05
+        },
+        {
+          "label": "grad_w2",
+          "values": 4096,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_excess": -9.998661304081906e-05
+        },
+        {
+          "label": "grad_a1",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000000297738724
+        },
+        {
+          "label": "grad_a2",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000002822782109
+        },
+        {
+          "label": "grad_g1",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000002602524319
+        },
+        {
+          "label": "grad_g2",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000004162539881
+        }
+      ]
+    }
+  ],
+  "median_composed_over_fused": 0.9862483884830253,
+  "winner": "mixed",
+  "samples": 40,
+  "warmup": 5,
+  "atol": 0.0001,
+  "rtol": 1e-05,
+  "precision_policy": "fp16-storage-fp32-compute",
+  "parameter_storage": "fp16-storage",
+  "deep_arm": "low-rank-full-forward-fused-fp16-packed",
+  "decision_margin": 0.02,
+  "record": "hierarchos-vulkan\\validation\\low_rank_full_forward_decisions.json",
+  "route_following": [
+    {
+      "batch": 1,
+      "recorded_route": "fused",
+      "recorded_staged_over_fused": 1.0465742574257426,
+      "shipped_route": "fused",
+      "measured_route": "fused",
+      "measured_composed_over_fused": 1.0615571284125378,
+      "measured_inside_band": false,
+      "route_status": "agrees",
+      "fused_arm": "low-rank-full-forward-fused-fp16-packed"
+    },
+    {
+      "batch": 4,
+      "recorded_route": "fused",
+      "recorded_staged_over_fused": 1.0600981035881194,
+      "shipped_route": "fused",
+      "measured_route": "fused",
+      "measured_composed_over_fused": 1.0550702200597146,
+      "measured_inside_band": false,
+      "route_status": "agrees",
+      "fused_arm": "low-rank-full-forward-fused-fp16-packed"
+    },
+    {
+      "batch": 8,
+      "recorded_route": "staged",
+      "recorded_staged_over_fused": 0.9739505805299197,
+      "shipped_route": "staged",
+      "measured_route": "staged",
+      "measured_composed_over_fused": 0.9723585636786362,
+      "measured_inside_band": false,
+      "route_status": "agrees",
+      "fused_arm": "low-rank-full-forward-fused-fp16-packed"
+    },
+    {
+      "batch": 16,
+      "recorded_route": "staged",
+      "recorded_staged_over_fused": 0.9703242667033458,
+      "shipped_route": "staged",
+      "measured_route": "staged",
+      "measured_composed_over_fused": 0.9862483884830253,
+      "measured_inside_band": true,
+      "route_status": "tie",
+      "fused_arm": "low-rank-full-forward-fused-fp16-packed"
+    },
+    {
+      "batch": 32,
+      "recorded_route": "staged",
+      "recorded_staged_over_fused": 0.958276353690826,
+      "shipped_route": "staged",
+      "measured_route": "staged",
+      "measured_composed_over_fused": 0.9742987306953956,
+      "measured_inside_band": false,
+      "route_status": "agrees",
+      "fused_arm": "low-rank-full-forward-fused-fp16-packed"
+    }
+  ],
+  "follows_recorded_route_everywhere": true,
+  "route_following_note": "`shipped_route` is the graph the shipped default dispatches for this geometry: the `fp16-storage` entry where one exists, otherwise the policy-less entry the dense route also reads. `measured_route` is what this FP16 run measured, and `route_status` is agrees / tie / diverges. A diverging row means the FP16 arm does not yet follow its own measured crossover; recording it with `--record-decisions` writes that verdict under this storage policy only, so the FP32 route is untouched."
+}

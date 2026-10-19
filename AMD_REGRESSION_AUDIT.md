@@ -225,3 +225,139 @@ cargo test --lib                                    # 693 passed, 0 failed
 HIERARCHOS_ATEN_VECTOR_WIDTH=8  ../.venv-vulkan/Scripts/python.exe validation/verify_peft_lora_strict.py gemma4
 HIERARCHOS_ATEN_VECTOR_WIDTH=16 ../.venv-vulkan/Scripts/python.exe validation/verify_peft_lora_strict.py gemma4
 ```
+
+## 9. Handoff: the measured decisions this box has no entries for
+
+The ladder's kernel-topology and projection decisions are **per device**, and every
+recorded entry so far is for the Intel Gen9 laptop. That is deliberate -- a decision is
+evidence about one adapter -- but it means a green `cargo test` on this box does not
+tell you which graph the *shipped default* runs here. It runs the structural/gate
+default everywhere until this box measures its own entry. Five decision records and one
+policy-specific receipt are involved:
+
+| record | consumer | what it decides | re-record on this box with |
+| --- | --- | --- | --- |
+| `validation/topology_decisions.json` | `src/rwkv_low_rank.rs` (LN1/low-rank autotuner) | `one-row` vs `two-rows` vs `column-slices` per (device, width, ranks, batch pairs, tail) | `verify_topology_decisions.py --record` |
+| `validation/time_mix_projection_decisions.json` | `src/decision_records.rs` | fused time-mix projection vs its `linear3-forward` composition per (device, width, batch) | `bench_rwkv_packed_cell_time_mix.py --record-decisions` |
+| `validation/channel_mix_forward_decisions.json` | `src/decision_records.rs` | fused channel-mix producer vs the staged composition per (device, width, batch) | `bench_rwkv_packed_cell_channel_mix.py --record-decisions` |
+| `validation/low_rank_full_forward_decisions.json` | `src/decision_records.rs` | fused LN1/low-rank producer vs the staged chain it replaces per (device, width, batch, and optionally parameter-storage policy: the `fp16-storage` entries are the deep FP16 route's own verdicts) | `bench_rwkv_packed_cell_low_rank_forward.py --record-decisions` (dense) / `bench_rwkv_low_rank_fp16_forward.py --record-decisions` (FP16 policy) |
+| `validation/key_state_forward_decisions.json` | `src/rwkv_time_mix_core.rs` | one route per (device, width, batch, storage policy) from `wide-fused`, `narrow-fused` and `staged`, with every candidate's median in `candidates` | `bench_rwkv_key_state_forward.py --record-decisions` |
+| `validation/low_rank_fp16_forward_bench.json` (receipt, not a decision table) | operator evidence | deep FP16 producer vs the staged chain under FP16 parameter storage, and the policy-scoped verdicts it records for that route | `bench_rwkv_low_rank_fp16_forward.py --record` |
+
+```bash
+cd hierarchos-vulkan
+cargo build --release --bin training_step_probe
+
+# replay the topology decisions this tree ships; --record adds THIS box's entries and
+# leaves the Intel ones untouched. Pass --probe explicitly: the verifier prefers a
+# debug binary if one exists.
+../.venv-vulkan/Scripts/python.exe validation/verify_topology_decisions.py \
+    --probe target/release/training_step_probe.exe --record
+../.venv-vulkan/Scripts/python.exe validation/verify_topology_decisions.py \
+    --probe target/release/training_step_probe.exe
+
+# the two projection A/Bs: each rebuilds its own release binary, measures every
+# geometry, checks both graphs are bit-identical, and merges this adapter's winners
+python validation/bench_rwkv_packed_cell_time_mix.py --record-decisions validation/time_mix_projection_decisions.json
+python validation/bench_rwkv_packed_cell_channel_mix.py --record-decisions validation/channel_mix_forward_decisions.json
+# the LN1/low-rank route: one producer dispatch against the staged chain.
+# NOTE: this bench measures the packed cell, whose low-rank parameters are FP32, so
+# the fused arm is the portable producer here too. Do not set
+# HIERARCHOS_VULKAN_TRAINING_PRECISION expecting this command to change graph -- the
+# packed cell does not read that policy. The deep FP16 arm has its own driver below.
+python validation/bench_rwkv_packed_cell_low_rank_forward.py \
+    --record-decisions validation/low_rank_full_forward_decisions.json
+
+# the deep FP16 arm under the training graph's parameter-storage policy: the op
+# quantizes its own FP32 masters into packed mirrors, so this is the arm the
+# `fp16-storage-fp32-compute` policy installs. It reads the record above (its own
+# `fp16-packed-mirror` entries first, then the policy-less ones) and records under
+# that policy only, so the dense route's verdicts are untouched.
+python validation/bench_rwkv_low_rank_fp16_forward.py \
+    --record validation/low_rank_fp16_forward_bench.json \
+    --record-decisions validation/low_rank_full_forward_decisions.json
+
+# the key/state forward route: one fused dispatch against two, with both fused arms
+# (wider-group and one-workgroup-per-head) timed in the same rotation. Measured in
+# isolation (repeated dispatches per timed sample), and the record takes the arm and
+# the route this box measured per geometry.
+python validation/bench_rwkv_key_state_forward.py \
+    --record validation/key_state_forward_bench.json \
+    --record-decisions validation/key_state_forward_decisions.json
+
+# then the contracts on what was recorded (HIERARCHOS_RUN_GPU_VALIDATION=1 also re-runs
+# each A/B live, which is how the Intel receipts were taken)
+HIERARCHOS_RUN_GPU_VALIDATION=1 ../.venv-vulkan/Scripts/python.exe -m unittest discover \
+    -s validation -p "test_rwkv_*receipt.py" -t validation
+```
+
+Two properties of those runs are worth knowing before reading their output:
+
+* **Run them one at a time.** A second process on the adapter is now detected rather
+  than absorbed: each autotune round times each candidate three times and keeps the
+  fastest, and if the structural default's own per-round samples spread by more than
+  1.15x, the sweep keeps the default and records `"contended": true`. A contended
+  replay is reported as a note, never as a moved decision, and `--record` refuses to
+  write one -- so a busy box says "this run did not measure" instead of turning another
+  process's timing into this device's decision.
+* **A shortest-path check exists.** `cargo test --release --lib -- a_contended_sweep`
+  and `validation/test_topology_decisions.py` pin both directions of that rule without a
+  GPU, so the contention logic can be checked on a machine that is mid-qualification.
+
+Nothing above changes the arithmetic: every decision selects between complete Vulkan
+shader graphs whose outputs are compared bit-for-bit before a record entry is written,
+and the host only chooses which graph to dispatch.
+
+## 10. Cross-validation on AMD: status and the exact commands
+
+The four A/Bs, the phase profile and the records themselves are adapter-portable;
+the *entries* are not, which is the design. Every checked-in entry in this tree is
+the Intel Gen9 part's, so the AMD box runs the structural defaults until it measures
+its own rows. A cross-adapter run is therefore two things, and only the first is a
+CI job:
+
+1. **Evidence** -- `.github/workflows/time-mix-ab.yml` job `cross-adapter-ab` runs
+   the key/state A/B, the phase profile, the projection, channel-mix and low-rank
+   A/Bs on a runner labelled `[self-hosted, windows, vulkan, amd]`, then runs the
+   receipt contracts against *that adapter's* measurements and uploads the receipts.
+   It records no decisions. **This job has not run in this session**: the only
+   adapter attached to this machine is an Intel HD Graphics 520, and no AMD device
+   was reachable, so no AMD number appears anywhere in this tree and the AMD rows
+   remain absent rather than guessed.
+2. **Entries** -- on a quiet AMD machine, for each record:
+
+```bash
+cd hierarchos-vulkan
+# one forward, three candidates: wide-fused, narrow-fused, staged
+python validation/bench_rwkv_key_state_forward.py \
+    --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 \
+    --record validation/key_state_forward_bench.json \
+    --record-decisions validation/key_state_forward_decisions.json
+# the phase attribution behind whichever candidate wins above
+python validation/profile_rwkv_key_state_forward.py \
+    --batch 1 --batch 8 --batch 16 --batch 32 \
+    --record validation/key_state_forward_profile.json
+# the four producer routes, each keyed by (adapter, width, batch, parameter storage)
+python validation/bench_rwkv_packed_cell_time_mix.py \
+    --record-decisions validation/time_mix_projection_decisions.json
+python validation/bench_rwkv_packed_cell_channel_mix.py \
+    --record-decisions validation/channel_mix_forward_decisions.json
+python validation/bench_rwkv_packed_cell_low_rank_forward.py \
+    --record-decisions validation/low_rank_full_forward_decisions.json
+python validation/bench_rwkv_low_rank_fp16_forward.py \
+    --decision-margin 0.01 \
+    --record validation/low_rank_fp16_forward_bench.json \
+    --record-decisions validation/low_rank_full_forward_decisions.json
+```
+
+Each `--record-decisions` merges only `(device, width, batch, policy)` rows, so the
+Intel entries stay exactly as measured. Rebuild after recording: the records are
+`include_str!`-ed, and a route that is not its own fastest candidate fails at load,
+so a bad merge is a build error rather than a silently slower default.
+
+What to expect on a different adapter, stated as a check rather than a prediction:
+the key/state record's vocabulary is the same three routes, but which one wins at a
+given batch is unknown until measured -- the wider-group kernel's advantage came
+from 64-lane phases, and its batch-32 collapse on this part is tied to that part's
+EU count and workgroup placement. The AMD run is how that gets answered for AMD; it
+is not something this tree should claim in advance.

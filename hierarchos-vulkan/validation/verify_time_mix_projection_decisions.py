@@ -2,8 +2,8 @@
 """Replay the recorded time-mix projection decisions on this adapter.
 
 `validation/time_mix_projection_decisions.json` is the measured per-device
-crossover the runtime consumes (`src/rwkv_time_mix_decisions.rs`, compiled into
-the binary). This script is its replay: for every geometry recorded for the
+crossover the runtime consumes (`src/decision_records.rs`, compiled into the
+binary). This script is its replay: for every geometry recorded for the
 attached adapter it re-runs the A/B, and fails when
 
 * the recorded winner no longer wins (the measurement moved), or
@@ -31,7 +31,8 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import bench_rwkv_packed_cell_time_mix as bench  # noqa: E402  (release builder + runner)
+import ab_harness as ab  # noqa: E402  (shared release builder, for both producers)
+import bench_rwkv_packed_cell_time_mix as bench  # noqa: E402  (this producer's runner)
 import verify_rwkv_cpu_bridge as bridge  # noqa: E402  (fixture constants)
 import verify_rwkv_packed_cell_composition as composition  # noqa: E402  (live fixture)
 
@@ -63,13 +64,13 @@ def main() -> int:
     args = parser.parse_args()
 
     record = json.loads(args.decisions.read_text(encoding="utf-8"))
-    if record.get("schema") != 1:
+    if record.get("schema") != 2:
         raise bridge.Mismatch(f"unsupported decision record schema {record.get('schema')!r}")
     recorded = record["decisions"]
     if not recorded:
         raise bridge.Mismatch("the decision record carries no entries")
 
-    binary = bench.build_release_binary(bench.BENCH_BINARY)
+    binary = ab.build_release_binary(bench.BENCH_BINARY)
     cleanup = None
     if args.keep_fixtures is not None:
         fixture_root = args.keep_fixtures.resolve()
@@ -126,20 +127,24 @@ def main() -> int:
                 )
             ratio = run["composed_over_fused"]
             measured_compose = ratio < 1.0
-            expected_label = "composed" if entry["compose"] else run["fused"]["label"]
+            recorded_compose = entry["route"] == "staged"
+            recorded_ratio = entry["candidates"]["staged"] / entry["candidates"]["fused"]
+            expected_label = "composed" if recorded_compose else run["fused"]["label"]
             print(
-                f"width {entry['width']} batch {batch:>2}: recorded "
-                f"{'composed' if entry['compose'] else 'fused'} "
-                f"(ratio {entry['composed_over_fused']:.4f}), measured "
+                f"width {entry['width']} batch {batch:>2}: recorded {entry['route']} "
+                f"(ratio {recorded_ratio:.4f}), measured "
                 f"{'composed' if measured_compose else 'fused'} (ratio {ratio:.4f}), "
                 f"default {run['default']['label']}"
             )
-            lost = ratio > 1.0 + DECISION_MARGIN if entry["compose"] else ratio < 1.0 - DECISION_MARGIN
+            lost = (
+                ratio > 1.0 + DECISION_MARGIN
+                if recorded_compose
+                else ratio < 1.0 - DECISION_MARGIN
+            )
             if lost:
                 raise bridge.Mismatch(
-                    f"batch {batch}: the recorded decision is "
-                    f"{'composed' if entry['compose'] else 'fused'} at ratio "
-                    f"{entry['composed_over_fused']:.4f}, but this run measured the composition at "
+                    f"batch {batch}: the recorded route is {entry['route']} at ratio "
+                    f"{recorded_ratio:.4f}, but this run measured the composition at "
                     f"{ratio:.4f}, past the {DECISION_MARGIN:.1%} noise band; re-record the decision "
                     "(and rebuild) or restore the kernel that regressed"
                 )

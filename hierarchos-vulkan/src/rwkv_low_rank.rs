@@ -83,6 +83,41 @@ const HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY_ENV: &str =
 /// owned by `validation/verify_topology_decisions.py`.
 const HIERARCHOS_RWKV_LOW_RANK_TOPOLOGY_RECORD_ENV: &str =
     "HIERARCHOS_RWKV_LOW_RANK_TOPOLOGY_RECORD";
+/// Hold the dense forward on the fused LN1/low-rank producer at every geometry,
+/// ignoring the measured record. This is the first arm of the rank-2 A/B in
+/// `validation/FUSED_FORWARD_PRODUCER_AUDIT.md`; setting both this and
+/// [`HIERARCHOS_RWKV_LOW_RANK_FORCE_STAGED_FORWARD_CHAIN_ENV`] is a contradiction
+/// and construction fails instead of silently picking one.
+pub const HIERARCHOS_RWKV_LOW_RANK_FORCE_FUSED_FORWARD_CHAIN_ENV: &str =
+    "HIERARCHOS_RWKV_LOW_RANK_FORCE_FUSED_FORWARD_CHAIN";
+/// Hold the dense forward on the staged chain at every geometry: the standalone
+/// layer norm, then the interpolation, the three first-stage matmuls and the
+/// second-stage matmuls as separate dispatches. This is the second arm of the
+/// rank-2 A/B. Like the force switch it is a construction-time measurement
+/// switch; the shipped default follows
+/// `validation/low_rank_full_forward_decisions.json` instead.
+pub const HIERARCHOS_RWKV_LOW_RANK_FORCE_STAGED_FORWARD_CHAIN_ENV: &str =
+    "HIERARCHOS_RWKV_LOW_RANK_FORCE_STAGED_FORWARD_CHAIN";
+/// Measurement-only switch: count this op's forward kernels, so the rank-2 A/B
+/// can prove each leg dispatched the graph it claims. The counter is off by
+/// default; a training step must not pay for an atomic per forward just so a
+/// benchmark can read the number.
+pub const HIERARCHOS_RWKV_LOW_RANK_COUNT_FORWARD_DISPATCHES_ENV: &str =
+    "HIERARCHOS_RWKV_LOW_RANK_COUNT_FORWARD_DISPATCHES";
+
+/// The per-device answer to "does fusing LN1 with the low-rank forward beat
+/// running the chain step by step at this geometry?". The table is the record the
+/// rank-2 A/B writes; `compose` means the staged chain won for that
+/// (adapter, width, batch).
+fn low_rank_full_forward_decisions() -> &'static crate::decision_records::DecisionTable {
+    static TABLE: std::sync::OnceLock<crate::decision_records::DecisionTable> =
+        std::sync::OnceLock::new();
+    crate::decision_records::table(
+        &TABLE,
+        include_str!("../validation/low_rank_full_forward_decisions.json"),
+        "rwkv-low-rank-full-forward",
+    )
+}
 
 fn json_escape(value: &str) -> String {
     let mut escaped = String::with_capacity(value.len());
@@ -99,6 +134,36 @@ fn json_escape(value: &str) -> String {
     escaped
 }
 
+/// One autotune's verdict in the shape the record writes it.
+///
+/// The evidence travels as one value rather than as seven positional arguments, so a
+/// geometry with more candidates and the next producer's autotuner write the same fields
+/// without either call site having to keep two argument lists in step. Everything here is
+/// a measurement: the medians the choice was made from, how many rounds each candidate
+/// won, the narrowest per-round lead of the selected variant, and whether the rounds were
+/// quiet enough to adjudicate at all.
+#[derive(Clone, Copy)]
+struct LayerNormLowRankForwardTopologyEvidence<'a> {
+    /// Median per candidate: the set the record carries as `timings_ms`.
+    timings: &'a [(String, f64)],
+    /// How many rounds each candidate beat the default by the material margin.
+    round_wins: &'a [(String, usize)],
+    /// Rounds measured: a candidate that won all of them is unanimous.
+    rounds: usize,
+    /// The narrowest per-round lead of the selected variant, or `0.0` when the default was
+    /// kept.
+    decisive_margin: f64,
+    /// The variant to dispatch.
+    selected: &'a str,
+    /// The variant the topology rule names at this geometry, before any measurement.
+    structural_default: &'a str,
+    /// How far the structural default's own per-round samples spread (slowest/fastest).
+    contention_spread: f64,
+    /// True when that spread says the rounds did not all measure the same machine, so the
+    /// default was kept because the measurement was not evidence.
+    contended: bool,
+}
+
 /// Publish one measured topology decision as a JSON line, when asked to.
 ///
 /// `timings` is the same median-per-candidate set the decision was made from, so
@@ -106,21 +171,29 @@ fn json_escape(value: &str) -> String {
 /// how many of the `rounds` interleaved rounds each candidate beat the default by the
 /// material margin, and `decisive_margin` is the narrowest per-round lead of the
 /// selected variant, so the record shows whether a variant was chosen unanimously or the
-/// default was kept because no variant won every round. Lines are appended rather than
-/// rewritten: a decision is emitted once per process (the cache holds it afterwards), and
-/// an interrupted run still says what it measured.
+/// default was kept because no variant won every round. `contended` records the one case
+/// where the rounds were not evidence at all -- the default's own samples moved by more
+/// than the contention threshold -- so a replay on a busy device says that instead of
+/// handing the reader a decision that the load, not the hardware, produced. Lines are
+/// appended rather than rewritten: a decision is emitted once per process (the cache holds
+/// it afterwards), and an interrupted run still says what it measured.
 fn emit_topology_decision(
     family: &str,
     device: &str,
     subgroup_size: u32,
     key: &LayerNormLowRankForwardAutotuneKey,
-    timings: &[(String, f64)],
-    round_wins: &[(String, usize)],
-    rounds: usize,
-    decisive_margin: f64,
-    selected: &str,
-    structural_default: &str,
+    evidence: &LayerNormLowRankForwardTopologyEvidence<'_>,
 ) {
+    let LayerNormLowRankForwardTopologyEvidence {
+        timings,
+        round_wins,
+        rounds,
+        decisive_margin,
+        selected,
+        structural_default,
+        contention_spread,
+        contended,
+    } = *evidence;
     let Some(path) = std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_TOPOLOGY_RECORD_ENV) else {
         return;
     };
@@ -156,7 +229,8 @@ fn emit_topology_decision(
             "\"timings_ms\":{{{}}},\"rounds\":{},\"round_wins\":{{{}}},",
             "\"decisive_margin_fraction\":{:.6},",
             "\"selected\":\"{}\",\"structural_default\":\"{}\",",
-            "\"margin_fraction\":{:.6}}}"
+            "\"margin_fraction\":{:.6},",
+            "\"contention_spread\":{:.4},\"contended\":{}}}"
         ),
         json_escape(family),
         json_escape(device),
@@ -173,7 +247,9 @@ fn emit_topology_decision(
         decisive_margin,
         json_escape(selected),
         json_escape(structural_default),
-        margin_fraction
+        margin_fraction,
+        contention_spread,
+        contended
     );
     use std::io::Write as _;
     if let Err(error) = std::fs::OpenOptions::new()
@@ -255,6 +331,7 @@ struct LayerNormLowRankProducerPush {
     eps: f32,
 }
 
+#[derive(Clone, Copy)]
 struct LayerNormProducerInput<'a> {
     x: &'a GpuBuffer,
     weight: &'a GpuBuffer,
@@ -536,6 +613,28 @@ const LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_ROUNDS: usize = 7;
 /// than as a different kernel.
 const LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_MARGIN: f64 = 0.02;
 
+/// How many times each candidate is timed inside one round. The round takes the fastest
+/// repeat, because a dispatcher that shares the GPU can only *add* time: contention makes a
+/// sample slower, never faster, so the minimum is the closest estimate of the undisturbed
+/// cost and one interrupted repeat cannot decide a round. Three is enough to drop a single
+/// bad repeat without turning a decision the whole fixture waits on (the FP16 producer's
+/// 3% lead) into a long sweep.
+const LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_REPEATS: usize = 3;
+
+/// How far the structural default's own per-round samples may spread, slowest over fastest,
+/// before the rounds are declared too contended to adjudicate.
+///
+/// The unanimity rule protects the decision from a lead that lives inside the noise, but it
+/// cannot protect it from rounds that measured a busy machine: with another process sharing
+/// the GPU every round is slower by a factor the interleaving cannot cancel, and a variant
+/// whose true lead is real can fail the margin in all seven. That is how the recorded
+/// column-slice win at width 128 turned into "this device now selects one-row" on a loaded
+/// machine. Fifteen percent is above the spread a quiet run shows on the Gen9 part (the
+/// per-round medians move by a few percent) and below what a second process on the GPU
+/// produces, so a loaded run keeps the structural default and says `contended` instead of
+/// recording a choice the hardware did not make.
+const LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_CONTENTION_SPREAD: f64 = 1.15;
+
 /// One autotuner's verdict, with the evidence it was reached from.
 struct LayerNormLowRankForwardAutotune<T> {
     /// The variant to dispatch: a candidate that beat the structural default in every
@@ -548,8 +647,16 @@ struct LayerNormLowRankForwardAutotune<T> {
     /// Rounds measured: a candidate that won all of them is unanimous.
     rounds: usize,
     /// The narrowest per-round lead of the selected variant over the default. `None` means
-    /// the default was kept, which is also the answer when the rounds disagree.
+    /// the default was kept, which is also the answer when the rounds disagree or when they
+    /// were contended.
     decisive_margin: Option<f64>,
+    /// How far the structural default's own per-round samples spread (slowest/fastest).
+    /// `1.0` means every round measured the same default cost.
+    contention_spread: f64,
+    /// True when `contention_spread` crossed the threshold: the rounds did not all measure
+    /// the same machine, so no candidate was allowed to displace the default and the record
+    /// says the decision was not measured rather than recording the load.
+    contended: bool,
 }
 
 /// Measure every candidate in interleaved rounds, reversing the candidate order each
@@ -573,11 +680,49 @@ where
                 candidates.len() - 1 - offset
             };
             let candidate = candidates[index];
-            samples.push((candidate, time_ms(candidate)?));
+            // Repeats inside the round, keeping the fastest: contention only ever adds
+            // time, so the minimum is the closest estimate of the undisturbed cost and a
+            // single interrupted repeat cannot make a round read as a candidate's loss.
+            let repeats = (0..LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_REPEATS)
+                .map(|_| time_ms(candidate))
+                .collect::<Result<Vec<_>>>()?;
+            let fastest = repeats
+                .iter()
+                .copied()
+                .filter(|ms| ms.is_finite() && *ms > 0.0)
+                .fold(f64::INFINITY, f64::min);
+            // A round whose every repeat was unusable carries the last one, so adjudication
+            // sees it as unmeasured instead of as an implausibly fast candidate.
+            let sample = if fastest.is_finite() {
+                fastest
+            } else {
+                *repeats
+                    .last()
+                    .expect("a repeat count of zero would be a mistake here")
+            };
+            samples.push((candidate, sample));
         }
         rounds.push(samples);
     }
     Ok(rounds)
+}
+
+/// The structural default's own sample per round, in round order. These are the samples
+/// contention is judged from: the default runs in every round by construction, so its own
+/// spread is what says whether the rounds measured one machine or several.
+fn default_round_samples<T: Copy + PartialEq>(
+    rounds: &[Vec<(T, f64)>],
+    structural_default: T,
+) -> Vec<f64> {
+    rounds
+        .iter()
+        .filter_map(|round| {
+            round
+                .iter()
+                .find(|(measured, _)| *measured == structural_default)
+                .map(|(_, ms)| *ms)
+        })
+        .collect()
 }
 
 /// Adjudicate interleaved rounds: a variant is selected only when it beats the structural
@@ -587,6 +732,13 @@ where
 /// longer decide. A round is won by the fastest candidate that clears the margin against
 /// that round's own default sample, ties going to the earlier candidate in `candidates`,
 /// so the verdict is deterministic and does not depend on measurement order.
+///
+/// Before any of that, the rounds have to have measured one machine. Contention is not a
+/// candidate that wins or loses, it is the ground moving under every candidate at once, and
+/// a sweep taken under it is not evidence about the kernels: the default's own samples then
+/// spread by more than the contention threshold in the round order they were taken, so the
+/// verdict is the structural default with `contended` set, and the record says the decision
+/// was not measured rather than recording what the load did.
 fn adjudicate_layer_norm_low_rank_forward_rounds<T: Copy + PartialEq>(
     rounds: &[Vec<(T, f64)>],
     candidates: &[T],
@@ -653,14 +805,37 @@ fn adjudicate_layer_norm_low_rank_forward_rounds<T: Copy + PartialEq>(
     }
 
     let rounds_measured = rounds.len();
-    let mut decided: Option<(T, usize)> = None;
-    for (position, candidate) in candidates.iter().enumerate() {
-        if *candidate == structural_default || round_wins[position].1 == 0 {
-            continue;
+    let default_samples = default_round_samples(rounds, structural_default);
+    let contention_spread = {
+        let fastest = default_samples
+            .iter()
+            .copied()
+            .filter(|ms| ms.is_finite() && *ms > 0.0)
+            .fold(f64::INFINITY, f64::min);
+        let slowest = default_samples
+            .iter()
+            .copied()
+            .filter(|ms| ms.is_finite() && *ms > 0.0)
+            .fold(f64::NEG_INFINITY, f64::max);
+        if fastest.is_finite() && slowest.is_finite() && fastest > 0.0 {
+            slowest / fastest
+        } else {
+            // Nothing usable to judge from; the round-level rules below already keep the
+            // default for that case.
+            1.0
         }
-        if round_wins[position].1 == rounds_measured {
-            decided = Some((*candidate, position));
-            break;
+    };
+    let contended = contention_spread > LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_CONTENTION_SPREAD;
+    let mut decided: Option<(T, usize)> = None;
+    if !contended {
+        for (position, candidate) in candidates.iter().enumerate() {
+            if *candidate == structural_default || round_wins[position].1 == 0 {
+                continue;
+            }
+            if round_wins[position].1 == rounds_measured {
+                decided = Some((*candidate, position));
+                break;
+            }
         }
     }
     let decisive_margin = decided.map(|(_, position)| {
@@ -690,6 +865,8 @@ fn adjudicate_layer_norm_low_rank_forward_rounds<T: Copy + PartialEq>(
         round_wins,
         rounds: rounds_measured,
         decisive_margin,
+        contention_spread,
+        contended,
     }
 }
 
@@ -942,6 +1119,20 @@ pub struct RwkvLowRankOp {
     grad_g2_readback: GpuBuffer,
 
     time_mix_forward: vulkan::ComputeKernel,
+    /// `HIERARCHOS_RWKV_LOW_RANK_FORCE_FUSED_FORWARD_CHAIN`: skip the record and
+    /// keep the fused producer wherever its kernels exist.
+    fused_forward_forced: bool,
+    /// `HIERARCHOS_RWKV_LOW_RANK_FORCE_STAGED_FORWARD_CHAIN`: skip the record and
+    /// always dispatch the staged chain.
+    fused_forward_disabled: bool,
+    /// `HIERARCHOS_RWKV_LOW_RANK_COUNT_FORWARD_DISPATCHES`: measure-only counter of
+    /// this op's forward kernels.
+    count_forward_dispatches: bool,
+    forward_dispatches: std::sync::atomic::AtomicU64,
+    /// Dispatches of the deep FP16 full-forward producer specifically. The
+    /// total above cannot tell it from the first-stage producer because both
+    /// are one dispatch; this counter is what proves which arm ran.
+    full_forward_dispatches: std::sync::atomic::AtomicU64,
     low_rank_producer_forward_fused: Option<vulkan::ComputeKernel>,
     layer_norm_low_rank_producer_forward_fused: Option<vulkan::ComputeKernel>,
     layer_norm_low_rank_producer_forward_fused_two_rows: Option<vulkan::ComputeKernel>,
@@ -1216,6 +1407,19 @@ impl RwkvLowRankOp {
     ) -> Result<Self> {
         if width == 0 || w_rank == 0 || a_rank == 0 || g_rank == 0 || max_batch == 0 {
             bail!("RWKV low-rank dimensions and max_batch must be positive");
+        }
+        // The two A/B switches name opposite graphs, so honoring both would make
+        // the measured leg depend on which check ran first.
+        let fused_forward_forced =
+            std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_FORCE_FUSED_FORWARD_CHAIN_ENV).is_some();
+        let fused_forward_disabled =
+            std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_FORCE_STAGED_FORWARD_CHAIN_ENV).is_some();
+        if fused_forward_forced && fused_forward_disabled {
+            bail!(
+                "{} and {} are both set; an A/B leg cannot hold both forward graphs",
+                HIERARCHOS_RWKV_LOW_RANK_FORCE_FUSED_FORWARD_CHAIN_ENV,
+                HIERARCHOS_RWKV_LOW_RANK_FORCE_STAGED_FORWARD_CHAIN_ENV
+            );
         }
         validate_len("mix_w", mix_w, width)?;
         validate_len("mix_a", mix_a, width)?;
@@ -1566,6 +1770,14 @@ impl RwkvLowRankOp {
                 8,
                 std::mem::size_of::<MixPush>() as u32,
             )?,
+            fused_forward_forced,
+            fused_forward_disabled,
+            count_forward_dispatches: std::env::var_os(
+                HIERARCHOS_RWKV_LOW_RANK_COUNT_FORWARD_DISPATCHES_ENV,
+            )
+            .is_some(),
+            forward_dispatches: std::sync::atomic::AtomicU64::new(0),
+            full_forward_dispatches: std::sync::atomic::AtomicU64::new(0),
             low_rank_producer_forward_fused,
             layer_norm_low_rank_producer_forward_fused,
             layer_norm_low_rank_producer_forward_fused_two_rows,
@@ -2129,6 +2341,59 @@ impl RwkvLowRankOp {
         self.record_forward_inner(commands, batch, x_norm, previous, None)
     }
 
+    /// Quantize this op's canonical FP32 low-rank matrices into the packed FP16
+    /// execution mirrors the mixed-precision producer arms bind, and switch the
+    /// op to FP16 parameter storage.
+    ///
+    /// This is the op-level analogue of the full training graph's
+    /// `fp16-storage-fp32-compute` policy: the six matrices keep their FP32
+    /// buffers as the canonical checkpoint/optimizer identity, and the mirrors
+    /// are execution-only. One submission packs all six from the current FP32
+    /// values, so a caller that mutates the FP32 masters afterwards must
+    /// refresh them again (the training graph owns a per-step refresher for
+    /// exactly that reason).
+    ///
+    /// The device must have created the FP16 producer specializations; the
+    /// install step fails rather than silently leaving the FP32 arm active.
+    pub fn enable_fp16_parameter_storage(&mut self) -> Result<()> {
+        if self.fp16_parameter_mirrors.is_some() {
+            return Ok(());
+        }
+        let mirror = |len: usize| {
+            crate::mixed_precision::VulkanParameterStorageMirror::new(
+                &self.device,
+                VulkanParameterStorageFormat::Fp16,
+                len,
+            )
+        };
+        let w1 = mirror(self.width * self.w_rank)?;
+        let w2 = mirror(self.w_rank * self.width)?;
+        let a1 = mirror(self.width * self.a_rank)?;
+        let a2 = mirror(self.a_rank * self.width)?;
+        let g1 = mirror(self.width * self.g_rank)?;
+        let g2 = mirror(self.g_rank * self.width)?;
+        let refresher = crate::mixed_precision::VulkanParameterStorageMirrorRefresher::new(
+            &self.device,
+            VulkanParameterStorageFormat::Fp16,
+        )?;
+        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        refresher.record_refresh(&mut commands, &self.w1, &w1)?;
+        refresher.record_refresh(&mut commands, &self.w2, &w2)?;
+        refresher.record_refresh(&mut commands, &self.a1, &a1)?;
+        refresher.record_refresh(&mut commands, &self.a2, &a2)?;
+        refresher.record_refresh(&mut commands, &self.g1, &g1)?;
+        refresher.record_refresh(&mut commands, &self.g2, &g2)?;
+        commands.submit()?;
+        self.install_fp16_parameter_mirrors(RwkvLowRankFp16ParameterMirrors {
+            w1,
+            w2,
+            a1,
+            a2,
+            g1,
+            g2,
+        })
+    }
+
     pub(crate) fn install_fp16_parameter_mirrors(
         &mut self,
         mirrors: RwkvLowRankFp16ParameterMirrors,
@@ -2167,7 +2432,9 @@ impl RwkvLowRankOp {
         Ok(())
     }
 
-    pub(crate) fn fp16_parameter_storage_active(&self) -> bool {
+    /// Whether this op was switched to FP16 execution-storage mirrors, i.e. the
+    /// storage half of the training graph's `fp16-storage-fp32-compute` policy.
+    pub fn fp16_parameter_storage_active(&self) -> bool {
         self.fp16_parameter_mirrors.is_some()
     }
 
@@ -2667,7 +2934,7 @@ impl RwkvLowRankOp {
                 .collect::<Vec<_>>()
                 .join(" ");
             eprintln!(
-                "RWKV LN1/low-rank forward autotune device={} subgroup={} width={} ranks={}/{}/{} batch_pairs={} tail={} {} rounds={} round_wins={} selected={} autotuned={}",
+                "RWKV LN1/low-rank forward autotune device={} subgroup={} width={} ranks={}/{}/{} batch_pairs={} tail={} {} rounds={} round_wins={} selected={} contended={} autotuned={}",
                 self.device.name(),
                 subgroup_size,
                 self.width,
@@ -2680,6 +2947,7 @@ impl RwkvLowRankOp {
                 adjudication.rounds,
                 wins,
                 selected.label(),
+                adjudication.contended,
                 decision.autotuned
             );
         }
@@ -2698,12 +2966,16 @@ impl RwkvLowRankOp {
             self.device.name(),
             subgroup_size,
             &key,
-            &labels,
-            &wins,
-            adjudication.rounds,
-            adjudication.decisive_margin.unwrap_or(0.0),
-            selected.label(),
-            structural_default.label(),
+            &LayerNormLowRankForwardTopologyEvidence {
+                timings: &labels,
+                round_wins: &wins,
+                rounds: adjudication.rounds,
+                decisive_margin: adjudication.decisive_margin.unwrap_or(0.0),
+                selected: selected.label(),
+                structural_default: structural_default.label(),
+                contention_spread: adjudication.contention_spread,
+                contended: adjudication.contended,
+            },
         );
 
         cache
@@ -3024,7 +3296,7 @@ impl RwkvLowRankOp {
                 .collect::<Vec<_>>()
                 .join(" ");
             eprintln!(
-                "RWKV LN1/low-rank FP32 forward autotune device={} subgroup={} width={} ranks={}/{}/{} batch_pairs={} tail={} {} rounds={} round_wins={} selected={} autotuned={}",
+                "RWKV LN1/low-rank FP32 forward autotune device={} subgroup={} width={} ranks={}/{}/{} batch_pairs={} tail={} {} rounds={} round_wins={} selected={} contended={} autotuned={}",
                 self.device.name(),
                 subgroup_size,
                 self.width,
@@ -3037,6 +3309,7 @@ impl RwkvLowRankOp {
                 adjudication.rounds,
                 wins,
                 selected.label(),
+                adjudication.contended,
                 decision.autotuned
             );
         }
@@ -3055,12 +3328,16 @@ impl RwkvLowRankOp {
             self.device.name(),
             subgroup_size,
             &key,
-            &labels,
-            &wins,
-            adjudication.rounds,
-            adjudication.decisive_margin.unwrap_or(0.0),
-            selected.label(),
-            structural_default.label(),
+            &LayerNormLowRankForwardTopologyEvidence {
+                timings: &labels,
+                round_wins: &wins,
+                rounds: adjudication.rounds,
+                decisive_margin: adjudication.decisive_margin.unwrap_or(0.0),
+                selected: selected.label(),
+                structural_default: structural_default.label(),
+                contention_spread: adjudication.contention_spread,
+                contended: adjudication.contended,
+            },
         );
 
         cache
@@ -3070,6 +3347,109 @@ impl RwkvLowRankOp {
             })?
             .insert(key, decision);
         Ok(decision)
+    }
+
+    /// Whether this geometry should dispatch the fused LN1/low-rank producer
+    /// rather than the staged chain: the rank-2 decision of
+    /// `validation/FUSED_FORWARD_PRODUCER_AUDIT.md`.
+    ///
+    /// The fused graph is the structural default, because the producer exists
+    /// exactly where the staged chain's separate dispatches would otherwise run.
+    /// A measured record entry can withdraw it per (adapter, width, batch), and
+    /// the two A/B switches pin either graph for a measurement. The decision is
+    /// consulted by the dense cell forward and by the x_norm-in producer route it
+    /// calls; the TBPTT packed forward-only and packed-rematerialization paths keep
+    /// their own fused chains, which the packed-cell composition A/B measures.
+    pub fn prefers_fused_forward_chain(&self, batch: usize) -> bool {
+        let measured = if self.fused_forward_forced || self.fused_forward_disabled {
+            None
+        } else {
+            // The record is keyed by parameter-storage policy where a policy has
+            // its own measurement: the deep FP16 arm's crossover sits at different
+            // geometries from the FP32 route's, and an FP16-only win must not move
+            // the FP32 default. A policy with no entry falls back to the shared
+            // verdict.
+            low_rank_full_forward_decisions().route_scoped(
+                self.device.name(),
+                self.width as u32,
+                batch as u32,
+                self.parameter_storage_policy(),
+            )
+        };
+        crate::decision_records::prefers_fused_forward(
+            self.fused_forward_disabled,
+            self.fused_forward_kernel_available(),
+            measured,
+        )
+    }
+
+    /// Whether the fused producer's kernels exist for this device, rank shape and
+    /// storage policy. Both the deep FP16 arm and the portable first-stage
+    /// producer count: either one replaces the chain the staged route would run.
+    fn fused_forward_kernel_available(&self) -> bool {
+        if self.fp16_parameter_storage_active() {
+            self.low_rank_full_forward_fused_fp16_packed.is_some()
+                || self.low_rank_producer_forward_fused_fp16_packed.is_some()
+        } else {
+            self.low_rank_producer_forward_fused.is_some()
+        }
+    }
+
+    /// Whether the cell should fuse LN1 into that producer. The layer norm fuses
+    /// exactly when the producer does: a staged route that kept the LN inside would
+    /// not be the chain the record measured.
+    pub(crate) fn prefers_layer_norm_forward_fusion(&self, batch: usize) -> bool {
+        self.can_fuse_layer_norm_forward() && self.prefers_fused_forward_chain(batch)
+    }
+
+    /// The graph this geometry dispatches, in the shared A/B vocabulary.
+    pub fn forward_chain_label(&self, batch: usize) -> &'static str {
+        if self.prefers_fused_forward_chain(batch) {
+            "fused"
+        } else {
+            "composed"
+        }
+    }
+
+    /// The compiled-in route for this adapter, geometry and storage policy, or
+    /// `None` where the record has no entry and the structural default decides.
+    pub fn recorded_forward_chain_route(
+        &self,
+        batch: usize,
+    ) -> Option<crate::decision_records::Route> {
+        low_rank_full_forward_decisions().route_scoped(
+            self.device.name(),
+            self.width as u32,
+            batch as u32,
+            self.parameter_storage_policy(),
+        )
+    }
+
+    /// The recorded rank-2 route in the record's own vocabulary.
+    pub fn recorded_forward_chain_route_label(&self, batch: usize) -> Option<&'static str> {
+        self.recorded_forward_chain_route(batch)
+            .map(crate::decision_records::Route::label)
+    }
+
+    /// The compiled-in decision for this adapter and geometry, or `None` where the
+    /// record has no entry and the structural default decides. `Some(true)` means
+    /// the record names the staged chain.
+    pub fn recorded_forward_chain_decision(&self, batch: usize) -> Option<bool> {
+        self.recorded_forward_chain_route(batch)
+            .map(crate::decision_records::Route::is_staged)
+    }
+
+    /// The parameter-storage policy this op is running, as the decision records
+    /// key it. `fp32` is the canonical dense policy; `fp16-storage` is the
+    /// execution-storage policy the training graph installs under any
+    /// `fp16-storage-*` precision policy. The record canonicalizes its older
+    /// `fp16-packed-mirror` spelling into the same verdict.
+    pub fn parameter_storage_policy(&self) -> &'static str {
+        if self.fp16_parameter_storage_active() {
+            "fp16-storage"
+        } else {
+            "fp32"
+        }
     }
 
     pub(crate) fn can_fuse_layer_norm_forward(&self) -> bool {
@@ -3127,6 +3507,73 @@ impl RwkvLowRankOp {
     }
 
     fn record_forward_inner(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        batch: usize,
+        x_norm: &GpuBuffer,
+        previous: &GpuBuffer,
+        layer_norm: Option<LayerNormProducerInput<'_>>,
+    ) -> Result<()> {
+        // The A/B's dispatch accounting: the fused arm is one producer dispatch,
+        // and the staged arm is every kernel it replaces. Counted only when the
+        // measurement switch is on.
+        let before = commands.dispatch_count();
+        let result = self.record_forward_inner_impl(commands, batch, x_norm, previous, layer_norm);
+        if self.count_forward_dispatches {
+            let dispatched = commands.dispatch_count().saturating_sub(before) as u64;
+            if dispatched > 0 {
+                self.forward_dispatches
+                    .fetch_add(dispatched, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+        result
+    }
+
+    /// Forward kernels this op dispatched since construction; see
+    /// [`HIERARCHOS_RWKV_LOW_RANK_COUNT_FORWARD_DISPATCHES_ENV`].
+    pub fn low_rank_forward_dispatches(&self) -> u64 {
+        self.forward_dispatches
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Dispatches of the deep FP16 full-forward producer (the x_norm-in arm that
+    /// keeps one row's w/a/g rank activations resident). The route's total above
+    /// counts it and the first-stage producer as one dispatch each, so a receipt
+    /// that names the deep arm needs this count to prove it ran.
+    pub fn deep_forward_arm_dispatches(&self) -> u64 {
+        self.full_forward_dispatches
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// The fused producer the pre-normalized (`record_forward`) route dispatches
+    /// for this geometry, or `None` where the route is the staged chain.
+    ///
+    /// This names the arm, it does not time it: the deep FP16 producer is the
+    /// first branch when FP16 storage is active and its kernel exists, and the
+    /// first-stage producer is the fallback. The layer-norm route names its own
+    /// arms (`layer_norm_low_rank_producer_forward_fused*`), which is why this
+    /// label is scoped to the x_norm-in graph rather than trying to describe
+    /// both.
+    pub fn x_norm_forward_arm_label(&self, batch: usize) -> Option<&'static str> {
+        if !self.prefers_fused_forward_chain(batch) {
+            return None;
+        }
+        if self.fp16_parameter_storage_active() {
+            if self.low_rank_full_forward_fused_fp16_packed.is_some() {
+                Some("low-rank-full-forward-fused-fp16-packed")
+            } else if self.low_rank_producer_forward_fused_fp16_packed.is_some() {
+                Some("low-rank-producer-forward-fused-fp16-packed")
+            } else {
+                None
+            }
+        } else if self.low_rank_producer_forward_fused.is_some() {
+            Some("low-rank-producer-forward-fused")
+        } else {
+            None
+        }
+    }
+
+    fn record_forward_inner_impl(
         &self,
         commands: &mut vulkan::ComputeBatch,
         batch: usize,
@@ -3192,7 +3639,18 @@ impl RwkvLowRankOp {
             output_dim: self.width as u32,
         };
         let fp16_mirrors = self.fp16_parameter_mirrors.as_ref();
-        let low_rank_fused_kernel = if fp16_mirrors.is_some() {
+        // The rank-2 route decides both halves of the fusion: the deep FP16
+        // producer and the portable first-stage producer are the fused arm, and a
+        // staged route dispatches neither.
+        let fused_forward_route = self.prefers_fused_forward_chain(batch);
+        let full_forward_kernel = if fused_forward_route {
+            self.low_rank_full_forward_fused_fp16_packed.as_ref()
+        } else {
+            None
+        };
+        let low_rank_fused_kernel = if !fused_forward_route {
+            None
+        } else if fp16_mirrors.is_some() {
             self.low_rank_producer_forward_fused_fp16_packed.as_ref()
         } else {
             self.low_rank_producer_forward_fused.as_ref()
@@ -3287,10 +3745,7 @@ impl RwkvLowRankOp {
                 bytemuck::bytes_of(&producer_push),
                 layer_norm_groups,
             )?;
-        } else if let (Some(kernel), Some(mirrors)) = (
-            self.low_rank_full_forward_fused_fp16_packed.as_ref(),
-            fp16_mirrors,
-        ) {
+        } else if let (Some(kernel), Some(mirrors)) = (full_forward_kernel, fp16_mirrors) {
             let producer_push = LowRankProducerPush {
                 rows: batch as u32,
                 width: self.width as u32,
@@ -3331,6 +3786,10 @@ impl RwkvLowRankOp {
                 bytemuck::bytes_of(&producer_push),
                 [batch as u32, 1, 1],
             )?;
+            if self.count_forward_dispatches {
+                self.full_forward_dispatches
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
             low_rank_outputs_fused = true;
         } else if let Some(kernel) = low_rank_fused_kernel {
             let (w1, a1, g1) = if let Some(mirrors) = fp16_mirrors {
@@ -4301,7 +4760,7 @@ impl RwkvLowRankOp {
         (self.w_rank, self.a_rank, self.g_rank)
     }
 
-    pub(crate) fn width(&self) -> usize {
+    pub fn width(&self) -> usize {
         self.width
     }
 
@@ -4607,5 +5066,70 @@ mod tests {
         assert_eq!(adjudication.selected, OneRow);
         assert_eq!(adjudication.rounds, 0);
         assert!(adjudication.decisive_margin.is_none());
+        assert!(
+            !adjudication.contended,
+            "nothing measured is not contention"
+        );
+    }
+
+    /// The rounds have to have measured one machine. Here the candidate wins every round by
+    /// the material margin, yet the default's own samples move by 25% across the sweep --
+    /// another process was sharing the GPU -- so the sweep is not evidence about the kernels
+    /// and the structural default stands with the contention recorded.
+    #[test]
+    fn a_contended_sweep_keeps_the_default_and_says_so() {
+        use LayerNormLowRankForwardTopology::{OneRow, OneRowCached};
+        let measured = rounds(&[
+            &[(OneRow, 1.00), (OneRowCached, 0.90)],
+            &[(OneRow, 1.20), (OneRowCached, 0.95)],
+            &[(OneRow, 1.25), (OneRowCached, 0.96)],
+        ]);
+        let adjudication = adjudicate_layer_norm_low_rank_forward_rounds(
+            &measured,
+            &[OneRow, OneRowCached],
+            OneRow,
+        );
+        assert_eq!(
+            adjudication.selected, OneRow,
+            "a sweep taken under load must not move the decision"
+        );
+        assert!(adjudication.contended);
+        assert!(
+            (adjudication.contention_spread - 1.25).abs() < 1e-9,
+            "{}",
+            adjudication.contention_spread
+        );
+        assert!(adjudication.decisive_margin.is_none());
+        // The wins are still reported: they are what the record shows beside the kept
+        // default, and they are how a reader sees that the load, not the kernels, decided.
+        assert_eq!(
+            adjudication.round_wins,
+            vec![(OneRow, 0), (OneRowCached, 3)]
+        );
+    }
+
+    /// A sweep whose default samples stay inside the threshold is adjudicated normally, and
+    /// the spread it measured is what the record carries, so a run that was quiet enough to
+    /// decide says how quiet it was.
+    #[test]
+    fn a_quiet_sweep_still_decides_and_records_its_spread() {
+        use LayerNormLowRankForwardTopology::{OneRow, OneRowCached};
+        let measured = rounds(&[
+            &[(OneRow, 1.00), (OneRowCached, 0.90)],
+            &[(OneRow, 1.04), (OneRowCached, 0.92)],
+            &[(OneRow, 1.02), (OneRowCached, 0.91)],
+        ]);
+        let adjudication = adjudicate_layer_norm_low_rank_forward_rounds(
+            &measured,
+            &[OneRow, OneRowCached],
+            OneRow,
+        );
+        assert_eq!(adjudication.selected, OneRowCached);
+        assert!(!adjudication.contended);
+        assert!(
+            (adjudication.contention_spread - 1.04).abs() < 1e-9,
+            "{}",
+            adjudication.contention_spread
+        );
     }
 }
