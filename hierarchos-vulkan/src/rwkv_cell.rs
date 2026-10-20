@@ -902,6 +902,15 @@ impl RwkvCellSliceOp {
         self.time_mix.low_rank_fp16_parameter_storage_active()
     }
 
+    /// Switch the low-rank block to packed FP16 execution mirrors.
+    ///
+    /// The training graph installs mirrors the optimizer owns; this is the
+    /// op-level path for a caller that owns the low-rank op directly, and it is
+    /// the analogue of the `fp16-storage-fp32-compute` policy.
+    pub fn enable_low_rank_fp16_parameter_storage(&mut self) -> Result<()> {
+        self.time_mix.enable_low_rank_fp16_parameter_storage()
+    }
+
     pub(crate) fn low_rank_native_fp16_backward_compute_active(&self) -> bool {
         self.time_mix.low_rank_native_fp16_backward_compute_active()
     }
@@ -1672,6 +1681,12 @@ impl RwkvPackedCellOp {
 
     pub(crate) fn low_rank_fp16_parameter_storage_active(&self) -> bool {
         self.cell.low_rank_fp16_parameter_storage_active()
+    }
+
+    /// Quantize the low-rank masters into packed FP16 execution mirrors and
+    /// read the route records under the `fp16-storage` policy.
+    pub fn enable_low_rank_fp16_parameter_storage(&mut self) -> Result<()> {
+        self.cell.enable_low_rank_fp16_parameter_storage()
     }
 
     pub(crate) fn low_rank_native_fp16_backward_compute_active(&self) -> bool {

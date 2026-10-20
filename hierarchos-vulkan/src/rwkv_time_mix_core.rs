@@ -333,6 +333,19 @@ const RWKV_MATRIX_STATE_BACKWARD_FUSED_RKV_ADD3_KEY_TRANSFORM_REDUCE_TILED_WG32_
 const RWKV_MATRIX_STATE_BACKWARD_FUSED_RKV_ADD3_KEY_TRANSFORM_REDUCE_TILED_WG128_SPV: &[u8] = include_bytes!(
     "../shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_tiled_wg128.spv"
 );
+/// Guarded fold of the key-parameter reduction across the batch dimension. The
+/// plain `_reduce` specialization can only fold batch 1, where the historical
+/// reduction kernel is an identity copy; this one publishes the batch partials
+/// from the head's last workgroup in the reduction kernel's own ascending order.
+const RWKV_MATRIX_STATE_BACKWARD_FUSED_RKV_ADD3_KEY_TRANSFORM_REDUCE_BATCH_SPV: &[u8] = include_bytes!(
+    "../shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_batch.spv"
+);
+const RWKV_MATRIX_STATE_BACKWARD_FUSED_RKV_ADD3_KEY_TRANSFORM_REDUCE_BATCH_WG32_SPV: &[u8] = include_bytes!(
+    "../shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_batch_wg32.spv"
+);
+const RWKV_MATRIX_STATE_BACKWARD_FUSED_RKV_ADD3_KEY_TRANSFORM_REDUCE_BATCH_WG128_SPV: &[u8] = include_bytes!(
+    "../shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_batch_wg128.spv"
+);
 const VECTOR_ADD_SPV: &[u8] = include_bytes!("../shaders/vector_add.spv");
 const VECTOR_ADD3_SPV: &[u8] = include_bytes!("../shaders/vector_add3.spv");
 
@@ -969,6 +982,22 @@ pub struct RwkvTimeMixCoreOp {
     grad_a: GpuBuffer,
     grad_k_k_partial: GpuBuffer,
     grad_k_a_partial: GpuBuffer,
+    /// One arrival counter per head for the guarded cross-batch fold. The
+    /// reducing workgroup clears it again, so it stays zero between dispatches.
+    /// It is created at zero unless the negative-control hook seeds it, which is
+    /// the only way a fold can observe a wrong arrival count.
+    key_param_reduce_arrivals: GpuBuffer,
+    /// A scratch buffer the negative control can bind in place of
+    /// `grad_k_k`/`grad_k_a`. The batch-1 rung writes those gradients directly --
+    /// one row per channel, no reduction to synchronize -- so it has no arrival
+    /// protocol to corrupt; its publication step is the write itself. Redirecting
+    /// the two bindings leaves the gradients at their constructor zeros, which is
+    /// what the receipt's gates must reject. Never bound outside that control.
+    key_param_write_sink: GpuBuffer,
+    /// Whether the negative control redirected the batch-1 writes. Read once at
+    /// construction, like the arrival seed, so the switch only has to be set while
+    /// the cell is built rather than around every dispatch.
+    key_param_write_sink_active: bool,
     grad_k_k: GpuBuffer,
     grad_k_a: GpuBuffer,
     grad_xr: GpuBuffer,
@@ -1101,6 +1130,9 @@ pub struct RwkvTimeMixCoreOp {
     state_backward_fused_rkv_add3_key_transform_reduce_tiled: Option<vulkan::ComputeKernel>,
     state_backward_fused_rkv_add3_key_transform_reduce_tiled_wg32: Option<vulkan::ComputeKernel>,
     state_backward_fused_rkv_add3_key_transform_reduce_tiled_wg128: Option<vulkan::ComputeKernel>,
+    state_backward_fused_rkv_add3_key_transform_reduce_batch: Option<vulkan::ComputeKernel>,
+    state_backward_fused_rkv_add3_key_transform_reduce_batch_wg32: Option<vulkan::ComputeKernel>,
+    state_backward_fused_rkv_add3_key_transform_reduce_batch_wg128: Option<vulkan::ComputeKernel>,
     numerics_policy: RwkvNumericsPolicy,
     state_backward_schedule_batch1: Option<StateBackwardDecision>,
     state_backward_schedule_multi: Option<StateBackwardDecision>,
@@ -1132,6 +1164,11 @@ fn create_state_backward_geometry_kernel(
     }
     if binding_count >= 31 {
         accesses[29..31].fill(vulkan::BindingAccess::MayWrite);
+    }
+    if binding_count >= 32 {
+        // Arrival counter: atomically incremented and read back by the head's
+        // last workgroup.
+        accesses[31] = vulkan::BindingAccess::MayWrite;
     }
     Ok(Some(vulkan::ComputeKernel::new_with_access(
         device,
@@ -1760,6 +1797,48 @@ impl RwkvTimeMixCoreOp {
                 31,
                 128,
             )?;
+        // The cross-batch fold is compiled for one of two callers: a process that
+        // asks for it explicitly (the A/B, which has to be able to measure it), or
+        // a process whose backward-fusion record can actually select the folded
+        // route at this geometry. The second condition keeps an unmeasured depth
+        // out of everything else: the record only names `folded` where the sweep
+        // measured its key-parameter reduction exact, so the kernel set follows the
+        // record instead of preceding it.
+        let cross_batch_reduce_requested = cross_batch_key_param_reduce_requested()
+            || crate::rwkv_tbptt::folded_route_recorded(device.name(), width);
+        let state_backward_fused_rkv_add3_key_transform_reduce_batch =
+            if cross_batch_reduce_requested {
+                create_state_backward_geometry_kernel(
+                    &device,
+                    RWKV_MATRIX_STATE_BACKWARD_FUSED_RKV_ADD3_KEY_TRANSFORM_REDUCE_BATCH_SPV,
+                    32,
+                    64,
+                )?
+            } else {
+                None
+            };
+        let state_backward_fused_rkv_add3_key_transform_reduce_batch_wg32 =
+            if cross_batch_reduce_requested {
+                create_state_backward_geometry_kernel(
+                    &device,
+                    RWKV_MATRIX_STATE_BACKWARD_FUSED_RKV_ADD3_KEY_TRANSFORM_REDUCE_BATCH_WG32_SPV,
+                    32,
+                    32,
+                )?
+            } else {
+                None
+            };
+        let state_backward_fused_rkv_add3_key_transform_reduce_batch_wg128 =
+            if cross_batch_reduce_requested {
+                create_state_backward_geometry_kernel(
+                    &device,
+                    RWKV_MATRIX_STATE_BACKWARD_FUSED_RKV_ADD3_KEY_TRANSFORM_REDUCE_BATCH_WG128_SPV,
+                    32,
+                    128,
+                )?
+            } else {
+                None
+            };
 
         let subgroup_backward_available = device.supports_compute_subgroup_arithmetic();
         let subgroup_recurrent_available = subgroup_backward_available;
@@ -2553,6 +2632,9 @@ impl RwkvTimeMixCoreOp {
             state_backward_fused_rkv_add3_key_transform_reduce_tiled,
             state_backward_fused_rkv_add3_key_transform_reduce_tiled_wg32,
             state_backward_fused_rkv_add3_key_transform_reduce_tiled_wg128,
+            state_backward_fused_rkv_add3_key_transform_reduce_batch,
+            state_backward_fused_rkv_add3_key_transform_reduce_batch_wg32,
+            state_backward_fused_rkv_add3_key_transform_reduce_batch_wg128,
             numerics_policy: RwkvNumericsPolicy::StrictParity,
             state_backward_schedule_batch1: None,
             state_backward_schedule_multi: None,
@@ -2620,6 +2702,12 @@ impl RwkvTimeMixCoreOp {
             grad_a: GpuBuffer::zeros_f32(&device, vector_len)?,
             grad_k_k_partial: GpuBuffer::zeros_f32(&device, vector_len)?,
             grad_k_a_partial: GpuBuffer::zeros_f32(&device, vector_len)?,
+            key_param_reduce_arrivals: GpuBuffer::from_u32(
+                &device,
+                &vec![cross_batch_arrival_seed()?; heads],
+            )?,
+            key_param_write_sink: GpuBuffer::zeros_f32(&device, width)?,
+            key_param_write_sink_active: key_param_direct_write_sink_requested(),
             grad_k_k: GpuBuffer::zeros_f32(&device, width)?,
             grad_k_a: GpuBuffer::zeros_f32(&device, width)?,
             grad_xr: GpuBuffer::zeros_f32(&device, vector_len)?,
@@ -4162,7 +4250,14 @@ impl RwkvTimeMixCoreOp {
         match self.recorded_key_state_forward_route(batch)? {
             crate::decision_records::Route::NarrowFused => Some("narrow"),
             crate::decision_records::Route::WideFused => Some("wide"),
-            crate::decision_records::Route::Fused | crate::decision_records::Route::Staged => None,
+            crate::decision_records::Route::Fused
+            | crate::decision_records::Route::Staged
+            | crate::decision_records::Route::Packed
+            | crate::decision_records::Route::Legacy
+            // A folded entry can only come from the backward-fusion table, which
+            // this key/state record is not; the loader rejects it either way, so
+            // there is no arm for it to name.
+            | crate::decision_records::Route::Folded => None,
         }
     }
 
@@ -5151,6 +5246,37 @@ impl RwkvTimeMixCoreOp {
         )
     }
 
+    /// Whether the guarded cross-batch fold was compiled for this core. The
+    /// kernels only exist in a process that set
+    /// `HIERARCHOS_RWKV_CROSS_BATCH_KEY_PARAM_REDUCE` before creating the cell.
+    fn cross_batch_key_param_reduce_available(&self) -> bool {
+        self.state_backward_fused_rkv_add3_key_transform_reduce_batch
+            .is_some()
+            && self
+                .state_backward_fused_rkv_add3_key_transform_reduce_batch_wg32
+                .is_some()
+            && self
+                .state_backward_fused_rkv_add3_key_transform_reduce_batch_wg128
+                .is_some()
+    }
+
+    fn cross_batch_key_param_reduce_kernel_for_geometry(
+        &self,
+        geometry: BackwardKernelGeometry,
+    ) -> Option<&vulkan::ComputeKernel> {
+        match geometry {
+            BackwardKernelGeometry::Wg32 => self
+                .state_backward_fused_rkv_add3_key_transform_reduce_batch_wg32
+                .as_ref(),
+            BackwardKernelGeometry::Wg64 => self
+                .state_backward_fused_rkv_add3_key_transform_reduce_batch
+                .as_ref(),
+            BackwardKernelGeometry::Wg128 => self
+                .state_backward_fused_rkv_add3_key_transform_reduce_batch_wg128
+                .as_ref(),
+        }
+    }
+
     fn selected_backward_kernel_geometry(&self, batch: usize) -> BackwardKernelGeometry {
         if batch == 1 {
             self.backward_kernel_geometry_batch1
@@ -5417,10 +5543,17 @@ impl RwkvTimeMixCoreOp {
         if self.state_backward_fused_rkv_add3_key_transform.is_some() {
             schedules.push(StateBackwardSchedule::RkvAdd3KeyTransform);
         }
-        if batch == 1
-            && self
-                .state_backward_fused_rkv_add3_key_transform_reduce
-                .is_some()
+        // Batch 1 can always fold the reduction, because there the historical
+        // reduction kernel is an identity copy. Later batches need the guarded
+        // cross-batch specialization, and only the strict-parity kernels have
+        // one: a fast-numerics fold at batch > 1 would quietly swap the
+        // arithmetic contract the caller asked for.
+        if self
+            .state_backward_fused_rkv_add3_key_transform_reduce
+            .is_some()
+            && (batch == 1
+                || (self.numerics_policy == RwkvNumericsPolicy::StrictParity
+                    && self.cross_batch_key_param_reduce_available()))
         {
             schedules.push(StateBackwardSchedule::RkvAdd3KeyTransformReduce);
         }
@@ -5495,12 +5628,21 @@ impl RwkvTimeMixCoreOp {
                 self.device
                     .supports_compute_work_group_size_x(geometry.workgroup_size())
                     && schedules.iter().all(|&schedule| {
-                        self.state_backward_kernel_for_geometry_with_policy(
-                            schedule,
-                            geometry,
-                            numerics_policy,
-                        )
-                        .is_some()
+                        let batch1_kernel_available = self
+                            .state_backward_kernel_for_geometry_with_policy(
+                                schedule,
+                                geometry,
+                                numerics_policy,
+                            )
+                            .is_some();
+                        if !batch1_kernel_available {
+                            return false;
+                        }
+                        schedule != StateBackwardSchedule::RkvAdd3KeyTransformReduce
+                            || batch == 1
+                            || self
+                                .cross_batch_key_param_reduce_kernel_for_geometry(geometry)
+                                .is_some()
                     })
             })
             .collect::<Vec<_>>();
@@ -5776,55 +5918,85 @@ impl RwkvTimeMixCoreOp {
                 )?;
             }
             StateBackwardSchedule::RkvAdd3KeyTransformReduce => {
-                if batch != 1 {
-                    bail!("RWKV rkv-add3-key-reduce schedule is valid only for batch=1");
+                let bindings = [
+                    state,
+                    &self.new_state,
+                    &self.r,
+                    &self.scaled_k,
+                    &self.v,
+                    &self.kk,
+                    a,
+                    w,
+                    &self.saved_sa,
+                    grad_new_state,
+                    grad_tmix,
+                    post_grad_r,
+                    post_grad_k,
+                    post_grad_v,
+                    external_grad_v,
+                    &self.grad_state,
+                    &self.total_grad_v_external,
+                    &self.total_grad_r,
+                    &self.total_grad_scaled_k,
+                    &self.grad_kk,
+                    &self.grad_a_direct,
+                    &self.grad_w,
+                    &self.raw_k,
+                    &self.k_k,
+                    &self.k_a,
+                    &self.grad_raw_k,
+                    &self.grad_a,
+                    &self.grad_k_k_partial,
+                    &self.grad_k_a_partial,
+                    &self.grad_k_k,
+                    &self.grad_k_a,
+                ];
+                if batch == 1 {
+                    let kernel = self
+                        .state_backward_kernel_for_geometry(schedule, geometry)
+                        .with_context(|| {
+                            format!(
+                                "RWKV rwkv-add3-key-reduce state-backward kernel geometry {} is unavailable",
+                                geometry.label()
+                            )
+                        })?;
+                    // Batch 1 owns one row per channel, so the folded rung writes
+                    // the parameter gradients directly and publishes nothing else.
+                    // The negative control redirects those two writes into a
+                    // scratch buffer to prove the receipt rejects a fold that
+                    // publishes nothing; the default path binds the gradients.
+                    let mut bindings = bindings.to_vec();
+                    if self.key_param_write_sink_active {
+                        bindings[29] = &self.key_param_write_sink;
+                        bindings[30] = &self.key_param_write_sink;
+                    }
+                    kernel.record_dispatch(
+                        commands,
+                        &bindings,
+                        bytemuck::bytes_of(push),
+                        [groups, 1, 1],
+                    )?;
+                } else {
+                    // The very same graph, plus the head-owned arrival counter:
+                    // the fold stays one dispatch, and its reduction adds the
+                    // partials in the shipped reduction kernel's own order.
+                    let kernel = self
+                        .cross_batch_key_param_reduce_kernel_for_geometry(geometry)
+                        .with_context(|| {
+                            format!(
+                                "RWKV rwkv-add3-key-reduce cross-batch state-backward kernel geometry {} is unavailable; set HIERARCHOS_RWKV_CROSS_BATCH_KEY_PARAM_REDUCE before creating the cell",
+                                geometry.label()
+                            )
+                        })?;
+                    let mut bindings = bindings.to_vec();
+                    bindings.push(&self.key_param_reduce_arrivals);
+                    kernel.record_dispatch(
+                        commands,
+                        &bindings,
+                        bytemuck::bytes_of(push),
+                        [groups, 1, 1],
+                    )?;
                 }
-                let kernel = self
-                    .state_backward_kernel_for_geometry(schedule, geometry)
-                    .with_context(|| {
-                        format!(
-                            "RWKV rkv-add3-key-reduce state-backward kernel geometry {} is unavailable",
-                            geometry.label()
-                        )
-                    })?;
-                kernel.record_dispatch(
-                    commands,
-                    &[
-                        state,
-                        &self.new_state,
-                        &self.r,
-                        &self.scaled_k,
-                        &self.v,
-                        &self.kk,
-                        a,
-                        w,
-                        &self.saved_sa,
-                        grad_new_state,
-                        grad_tmix,
-                        post_grad_r,
-                        post_grad_k,
-                        post_grad_v,
-                        external_grad_v,
-                        &self.grad_state,
-                        &self.total_grad_v_external,
-                        &self.total_grad_r,
-                        &self.total_grad_scaled_k,
-                        &self.grad_kk,
-                        &self.grad_a_direct,
-                        &self.grad_w,
-                        &self.raw_k,
-                        &self.k_k,
-                        &self.k_a,
-                        &self.grad_raw_k,
-                        &self.grad_a,
-                        &self.grad_k_k_partial,
-                        &self.grad_k_a_partial,
-                        &self.grad_k_k,
-                        &self.grad_k_a,
-                    ],
-                    bytemuck::bytes_of(push),
-                    [groups, 1, 1],
-                )?;
             }
         }
 
@@ -8582,6 +8754,21 @@ impl RwkvTimeMixCoreOp {
             .and_then(RwkvLowRankOp::fp16_full_forward_first_stage_arm_label)
     }
 
+    /// Quantize the low-rank masters into packed FP16 execution mirrors and
+    /// switch this op to FP16 parameter storage.
+    ///
+    /// This is the op-level analogue of the training graph's
+    /// `fp16-storage-fp32-compute` policy: the canonical FP32 matrices stay the
+    /// checkpoint/optimizer identity and the mirrors are execution-only. The
+    /// chain A/B uses it so both arms read the same packed operands, which is
+    /// what makes its FP16 timing comparable to its FP32 one.
+    pub fn enable_low_rank_fp16_parameter_storage(&mut self) -> Result<()> {
+        self.low_rank
+            .as_mut()
+            .context("RWKV time-mix has no low-rank parameter block to mirror")?
+            .enable_fp16_parameter_storage()
+    }
+
     pub(crate) fn install_low_rank_fp16_parameter_mirrors(
         &mut self,
         mirrors: RwkvLowRankFp16ParameterMirrors,
@@ -8654,6 +8841,45 @@ fn read_matrix_tensor(path: &Path, name: &str, width: usize) -> Result<Vec<f32>>
 
 fn div_ceil_u32(value: usize, divisor: usize) -> u32 {
     value.div_ceil(divisor) as u32
+}
+
+/// The guarded multi-batch fold of the key-parameter reduction is opt-in. Its
+/// kernels are only created in a process that asks for them, so the shipped
+/// autotuner cannot reach a depth the release has not measured.
+fn cross_batch_key_param_reduce_requested() -> bool {
+    std::env::var_os("HIERARCHOS_RWKV_CROSS_BATCH_KEY_PARAM_REDUCE").is_some()
+}
+
+/// Fault-injection hook for the cross-batch fold's arrival protocol.
+///
+/// The fold trusts each head's counter to reach exactly `batch` once, so the
+/// workgroup that observes the last arrival reduces every batch row. Seeding the
+/// counters makes the fold observe phantom arrivals: a seed of `batch` means no
+/// arrival can ever be the `batch`-th, so the reduction never runs and the
+/// parameters keep their constructor zeros. The packed-chain benchmark's
+/// `--negative-control` builds one leg that way to prove the receipt's guards
+/// reject a broken fold, and nothing else sets it. Zero is the shipped counter.
+/// Fault-injection hook for the batch-1 rung's direct publication step.
+///
+/// At batch 1 the folded rung writes `grad_k_k`/`grad_k_a` one row per channel and
+/// has no arrival counter, so there is no count to corrupt: the equivalent bug is
+/// a write that never reaches the gradient. Setting this binds a scratch buffer
+/// in place of both gradients, which the packed-chain benchmark's
+/// `--negative-control` uses to prove the receipt's gates reject it. It is never
+/// set outside that control, and is read once when a cell is created.
+fn key_param_direct_write_sink_requested() -> bool {
+    std::env::var_os("HIERARCHOS_RWKV_KEY_PARAM_DIRECT_WRITE_SINK").is_some()
+}
+
+fn cross_batch_arrival_seed() -> Result<u32> {
+    let raw = match std::env::var("HIERARCHOS_RWKV_CROSS_BATCH_ARRIVAL_SEED") {
+        Ok(raw) => raw,
+        Err(std::env::VarError::NotPresent) => return Ok(0),
+        Err(err) => bail!("reading HIERARCHOS_RWKV_CROSS_BATCH_ARRIVAL_SEED: {err}"),
+    };
+    raw.trim()
+        .parse::<u32>()
+        .with_context(|| format!("parsing HIERARCHOS_RWKV_CROSS_BATCH_ARRIVAL_SEED={raw:?}"))
 }
 
 fn forced_state_backward_schedule() -> Result<Option<StateBackwardSchedule>> {

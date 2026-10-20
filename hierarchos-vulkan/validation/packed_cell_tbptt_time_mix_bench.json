@@ -7,21 +7,21 @@
   "batches": [
     {
       "batch": 1,
-      "fused_ms": 21.4569,
-      "composed_ms": 21.4303,
-      "default_ms": 21.372750000000003,
-      "composed_over_fused": 0.9987603055427391,
-      "default_over_fused": 0.9960781846399062,
+      "fused_ms": 21.5076,
+      "composed_ms": 21.5046,
+      "default_ms": 21.4439,
+      "composed_over_fused": 0.9998605144228087,
+      "default_over_fused": 0.9970382562443043,
       "worst_max_abs": 0.0,
       "fused_label": "fused",
       "composed_label": "composed",
       "default_label": "fused",
+      "recorded_route": null,
       "recorded_compose": null,
       "expected_default_label": "fused",
       "fused_linear3_dispatches": 0,
       "composed_linear3_dispatches": 0,
       "default_linear3_dispatches": 0,
-      "composed_ran_vendor_linear3": false,
       "tensors": [
         {
           "label": "outputs",
@@ -54,27 +54,30 @@
           "worst_excess": -0.0001
         }
       ],
-      "fused_ms_per_step": 2.6821125,
-      "composed_ms_per_step": 2.6787875,
-      "default_ms_per_step": 2.6715937500000004
+      "composed_ran_vendor_linear3": false,
+      "fused_ms_per_step": 2.68845,
+      "composed_ms_per_step": 2.688075,
+      "default_ms_per_step": 2.6804875,
+      "default_packed_forward": true,
+      "default_packed_rematerialization": false
     },
     {
       "batch": 4,
-      "fused_ms": 26.5151,
-      "composed_ms": 27.957949999999997,
-      "default_ms": 27.286550000000002,
-      "composed_over_fused": 1.0544161628656876,
-      "default_over_fused": 1.0290947422412136,
+      "fused_ms": 25.8011,
+      "composed_ms": 25.95365,
+      "default_ms": 25.8467,
+      "composed_over_fused": 1.0059125386126948,
+      "default_over_fused": 1.0017673665076294,
       "worst_max_abs": 0.0,
       "fused_label": "fused",
       "composed_label": "composed",
       "default_label": "fused",
+      "recorded_route": null,
       "recorded_compose": null,
       "expected_default_label": "fused",
       "fused_linear3_dispatches": 0,
       "composed_linear3_dispatches": 0,
       "default_linear3_dispatches": 0,
-      "composed_ran_vendor_linear3": false,
       "tensors": [
         {
           "label": "outputs",
@@ -107,27 +110,30 @@
           "worst_excess": -0.0001
         }
       ],
-      "fused_ms_per_step": 3.3143875,
-      "composed_ms_per_step": 3.4947437499999996,
-      "default_ms_per_step": 3.4108187500000002
+      "composed_ran_vendor_linear3": false,
+      "fused_ms_per_step": 3.2251375,
+      "composed_ms_per_step": 3.24420625,
+      "default_ms_per_step": 3.2308375,
+      "default_packed_forward": true,
+      "default_packed_rematerialization": false
     },
     {
       "batch": 8,
-      "fused_ms": 30.95965,
-      "composed_ms": 31.51005,
-      "default_ms": 31.13775,
-      "composed_over_fused": 1.0177779787562198,
-      "default_over_fused": 1.005752649012505,
+      "fused_ms": 30.23005,
+      "composed_ms": 29.28455,
+      "default_ms": 29.475,
+      "composed_over_fused": 0.968723174457204,
+      "default_over_fused": 0.9750231971167763,
       "worst_max_abs": 0.0,
       "fused_label": "fused",
       "composed_label": "composed",
       "default_label": "composed",
+      "recorded_route": null,
       "recorded_compose": null,
       "expected_default_label": "composed",
       "fused_linear3_dispatches": 0,
       "composed_linear3_dispatches": 8,
       "default_linear3_dispatches": 8,
-      "composed_ran_vendor_linear3": true,
       "tensors": [
         {
           "label": "outputs",
@@ -160,27 +166,30 @@
           "worst_excess": -0.0001
         }
       ],
-      "fused_ms_per_step": 3.86995625,
-      "composed_ms_per_step": 3.93875625,
-      "default_ms_per_step": 3.89221875
+      "composed_ran_vendor_linear3": true,
+      "fused_ms_per_step": 3.77875625,
+      "composed_ms_per_step": 3.66056875,
+      "default_ms_per_step": 3.684375,
+      "default_packed_forward": true,
+      "default_packed_rematerialization": false
     },
     {
       "batch": 16,
-      "fused_ms": 46.1654,
-      "composed_ms": 43.641799999999996,
-      "default_ms": 44.129400000000004,
-      "composed_over_fused": 0.9453356843003634,
-      "default_over_fused": 0.955897706940696,
+      "fused_ms": 43.5184,
+      "composed_ms": 39.35425,
+      "default_ms": 39.177749999999996,
+      "composed_over_fused": 0.9043128883414832,
+      "default_over_fused": 0.9002571326151696,
       "worst_max_abs": 0.0,
       "fused_label": "fused",
       "composed_label": "composed",
       "default_label": "composed",
+      "recorded_route": null,
       "recorded_compose": null,
       "expected_default_label": "composed",
       "fused_linear3_dispatches": 0,
-      "composed_linear3_dispatches": 8,
-      "default_linear3_dispatches": 8,
-      "composed_ran_vendor_linear3": true,
+      "composed_linear3_dispatches": 16,
+      "default_linear3_dispatches": 16,
       "tensors": [
         {
           "label": "outputs",
@@ -213,12 +222,15 @@
           "worst_excess": -0.0001
         }
       ],
-      "fused_ms_per_step": 5.770675,
-      "composed_ms_per_step": 5.4552249999999995,
-      "default_ms_per_step": 5.5161750000000005
+      "composed_ran_vendor_linear3": true,
+      "fused_ms_per_step": 5.4398,
+      "composed_ms_per_step": 4.91928125,
+      "default_ms_per_step": 4.8972187499999995,
+      "default_packed_forward": false,
+      "default_packed_rematerialization": false
     }
   ],
-  "median_composed_over_fused": 1.0082691421494794,
+  "median_composed_over_fused": 0.9842918444400064,
   "winner": "mixed",
   "steps": 8,
   "head_size": 16,

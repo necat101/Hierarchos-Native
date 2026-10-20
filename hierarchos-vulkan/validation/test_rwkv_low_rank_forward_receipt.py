@@ -32,6 +32,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -40,6 +41,9 @@ REPO = ROOT.parent
 RECEIPT = ROOT / "validation" / "packed_cell_low_rank_forward_bench.json"
 DECISIONS = ROOT / "validation" / "low_rank_full_forward_decisions.json"
 HARNESS = ROOT / "validation" / "bench_rwkv_packed_cell_low_rank_forward.py"
+
+sys.path.insert(0, str(ROOT / "validation"))
+import ab_harness as ab  # noqa: E402
 
 TENSORS = {"output", "packed_new_state", "grad_x", "grad_packed_state", "token_feature_grad"}
 # The band inside which a measured sign is not a decision; the driver omits those
@@ -289,13 +293,24 @@ class LowRankFp16ForwardReceiptTest(unittest.TestCase):
             for entry in cls.record["decisions"]
             if "parameter_storage" not in entry
         }
+        cls.withheld = {
+            (entry["device"].strip().lower(), entry["width"], entry["batch"]): entry
+            for entry in cls.record.get("withheld", [])
+            if ab.canonical_policy(entry.get("parameter_storage")) == "fp16-storage"
+        }
         cls.routes = {route["batch"]: route for route in cls.receipt["route_following"]}
 
     def skey(self, row: dict) -> tuple:
         return (self.receipt["device"].strip().lower(), self.receipt["width"], row["batch"])
 
     def recorded(self, row: dict) -> dict | None:
-        """The entry the FP16 route reads: its own policy, else the shared one."""
+        """The entry the FP16 route adopts: its own policy, else the shared one.
+
+        A withheld route is measured evidence, not an adopted decision: the
+        runtime skips it and keeps the structural fused graph.
+        """
+        if self.skey(row) in self.withheld:
+            return None
         return self.scoped.get(self.skey(row)) or self.shared.get(self.skey(row))
 
     def test_measured_the_deep_fp16_arm_not_a_proxy(self) -> None:
@@ -369,14 +384,28 @@ class LowRankFp16ForwardReceiptTest(unittest.TestCase):
                 if entry is not None:
                     # A rerun can land inside the 2% band the record's entries are
                     # gated by (batch 16 sits right at it); a tie is consistent with
-                    # the recorded route, a divergence is not.
+                    # the recorded route, a divergence is not. A withheld row is
+                    # neither: its recorded win is admitted to be non-adoptable.
                     self.assertIn(
                         route["route_status"],
-                        {"agrees", "tie"},
+                        {"agrees", "tie", "withheld"},
                         "the FP16 arm diverges from the recorded route at a geometry the "
                         "record covers; the audit's scope-gap claim needs re-deriving, not a "
                         "quiet edit to this test",
                     )
+                if route["route_status"] == "withheld":
+                    self.assertIn(
+                        self.skey(row),
+                        self.withheld,
+                        "the receipt says this win was withheld but the record no longer "
+                        "withholds it: the two artifacts were written by different runs",
+                    )
+                if self.skey(row) in self.withheld:
+                    self.assertEqual(route["route_status"], "withheld")
+                    self.assertEqual(
+                        route["withheld_route"], self.withheld[self.skey(row)]["route"]
+                    )
+                    self.assertTrue(route["withheld_reason"])
         self.assertEqual(
             self.receipt["follows_recorded_route_everywhere"],
             all(route["route_status"] != "diverges" for route in self.routes.values()),
@@ -434,6 +463,21 @@ class LowRankFp16ForwardReceiptTest(unittest.TestCase):
             "(by its own entry or by the structural default), which is the difference this "
             "policy dimension exists for",
         )
+        self.assertTrue(
+            self.withheld,
+            "the non-bit-identical FP16 staged wins are not recorded as withheld: the "
+            "training trajectory cannot adopt them, and dropping the evidence would hide why",
+        )
+        for key, entry in self.withheld.items():
+            self.assertIn(key, self.scoped, "a withheld route without a measured entry")
+            self.assertEqual(entry["route"], self.scoped[key]["route"])
+            self.assertGreater(
+                self.scoped[key]["candidates"]["staged"]
+                / self.scoped[key]["candidates"]["fused"],
+                0.0,
+                "a withheld staged route must still be the measured one",
+            )
+            self.assertTrue(entry["reason"].strip())
         for key in fps:
             self.assertGreater(
                 abs(
@@ -449,6 +493,99 @@ class LowRankFp16ForwardReceiptTest(unittest.TestCase):
         for row in self.batches:
             with self.subTest(batch=row["batch"]):
                 self.assertEqual({entry["label"] for entry in row["tensors"]}, FP16_TENSORS)
+
+
+class WithheldRouteAdoptionTest(unittest.TestCase):
+    """A rerun that closes the rounding gap adopts its own measured win.
+
+    The refusal is a fact about the measurement, not a permanent verdict: the
+    driver only withholds a staged win whose graphs differ, so a bit-identical
+    rerun records the route and the merge drops the older `withheld` entry.
+    """
+
+    RUN = {
+        "device": "GPU",
+        "width": 128,
+        "batch": 8,
+        "worst_max_abs": 0.0,
+        "fused": {"timing": {"median_ms": 1.0}},
+        "composed": {"timing": {"median_ms": 0.9}},
+    }
+
+    def merge(self, worst: float) -> dict:
+        sys.path.insert(0, str(ROOT / "validation"))
+        import bench_rwkv_low_rank_fp16_forward as driver  # noqa: E402  (torch fixture)
+
+        run = json.loads(json.dumps(self.RUN))
+        run["worst_max_abs"] = worst
+        with tempfile.TemporaryDirectory(prefix="fp16-adopt-") as scratch:
+            path = Path(scratch) / "record.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema": 2,
+                        "kind": "rwkv-low-rank-full-forward",
+                        "measured_by": "validation/bench_rwkv_low_rank_fp16_forward.py",
+                        "margin": 0.02,
+                        "decisions": [
+                            {
+                                "device": "GPU",
+                                "width": 128,
+                                "batch": 8,
+                                "route": "staged",
+                                "candidates": {"fused": 1.0, "staged": 0.9},
+                                "probe": "low-rank-forward",
+                                "source": "measured",
+                                "parameter_storage": "fp16-storage",
+                            }
+                        ],
+                        "withheld": [
+                            {
+                                "device": "GPU",
+                                "width": 128,
+                                "batch": 8,
+                                "route": "staged",
+                                "reason": "the graphs differ by 2.384e-07",
+                                "parameter_storage": "fp16-storage",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            merged, _ = ab.record_decisions(
+                path,
+                [run],
+                kind="rwkv-low-rank-full-forward",
+                probe_key="low-rank-forward",
+                margin=0.01,
+                probe_label="low-rank-forward",
+                parameter_storage="fp16-storage",
+                withhold_when=driver.withheld_reason,
+            )
+            return merged
+
+    def test_a_bit_identical_rerun_drops_the_withheld_entry(self) -> None:
+        merged = self.merge(worst=0.0)
+        self.assertEqual(
+            merged["withheld"],
+            [],
+            "a bit-identical staged win has nothing to refuse, so its refusal is dropped",
+        )
+        scoped = [
+            entry
+            for entry in merged["decisions"]
+            if entry.get("parameter_storage") == "fp16-storage"
+        ]
+        self.assertEqual(len(scoped), 1)
+        self.assertEqual(scoped[0]["route"], "staged")
+
+    def test_a_rerun_with_a_rounding_gap_keeps_the_refusal(self) -> None:
+        merged = self.merge(worst=2.384185791015625e-07)
+        self.assertEqual(len(merged["withheld"]), 1)
+        self.assertEqual(merged["withheld"][0]["batch"], 8)
+        self.assertEqual(merged["withheld"][0]["route"], "staged")
+        self.assertTrue(merged["withheld"][0]["reason"].strip())
 
 
 class LiveLowRankFp16ForwardBenchTest(unittest.TestCase):

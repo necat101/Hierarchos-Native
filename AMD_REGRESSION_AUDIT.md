@@ -232,8 +232,8 @@ The ladder's kernel-topology and projection decisions are **per device**, and ev
 recorded entry so far is for the Intel Gen9 laptop. That is deliberate -- a decision is
 evidence about one adapter -- but it means a green `cargo test` on this box does not
 tell you which graph the *shipped default* runs here. It runs the structural/gate
-default everywhere until this box measures its own entry. Five decision records and one
-policy-specific receipt are involved:
+default everywhere until this box measures its own entry. Seven decision records and two
+policy/chain receipts are involved:
 
 | record | consumer | what it decides | re-record on this box with |
 | --- | --- | --- | --- |
@@ -242,7 +242,17 @@ policy-specific receipt are involved:
 | `validation/channel_mix_forward_decisions.json` | `src/decision_records.rs` | fused channel-mix producer vs the staged composition per (device, width, batch) | `bench_rwkv_packed_cell_channel_mix.py --record-decisions` |
 | `validation/low_rank_full_forward_decisions.json` | `src/decision_records.rs` | fused LN1/low-rank producer vs the staged chain it replaces per (device, width, batch, and optionally parameter-storage policy: the `fp16-storage` entries are the deep FP16 route's own verdicts) | `bench_rwkv_packed_cell_low_rank_forward.py --record-decisions` (dense) / `bench_rwkv_low_rank_fp16_forward.py --record-decisions` (FP16 policy) |
 | `validation/key_state_forward_decisions.json` | `src/rwkv_time_mix_core.rs` | one route per (device, width, batch, storage policy) from `wide-fused`, `narrow-fused` and `staged`, with every candidate's median in `candidates` | `bench_rwkv_key_state_forward.py --record-decisions` |
+| `validation/tbptt_packed_forward_decisions.json` | `src/rwkv_tbptt.rs` | the TBPTT first-forward transition, `packed` vs `legacy`, per (device, width, batch) and optionally parameter-storage policy (the `fp16-storage` entries are that policy's own A/B) | `bench_rwkv_tbptt_packed_chains.py --chain forward --record-decisions` (FP32) / the same with `--parameter-storage fp16-storage` |
+| `validation/tbptt_packed_rematerialization_decisions.json` | `src/rwkv_tbptt.rs` | TBPTT reverse rematerialization, `packed` vs `legacy`, per (device, width, batch) and optionally parameter-storage policy | `bench_rwkv_tbptt_packed_chains.py --chain remat --record-decisions` (FP32) / the same with `--parameter-storage fp16-storage` |
 | `validation/low_rank_fp16_forward_bench.json` (receipt, not a decision table) | operator evidence | deep FP16 producer vs the staged chain under FP16 parameter storage, and the policy-scoped verdicts it records for that route | `bench_rwkv_low_rank_fp16_forward.py --record` |
+
+Both TBPTT chain tables are read under the active parameter-storage policy. The
+`fp16-storage` policy has its own receipts (`tbptt_packed_forward_fp16_bench.json`,
+`tbptt_packed_remat_fp16_bench.json`), recorded with the cell's packed execution
+mirrors installed: the forward A/B stays bit-identical there and repeats the FP32
+crossover, so that policy adopts its own measured `legacy` verdicts at batches 16
+and 32 and carries no `withheld` entry. Rematerialization's measured verdicts are
+all the structural default under both policies.
 
 ```bash
 cd hierarchos-vulkan
@@ -284,6 +294,24 @@ python validation/bench_rwkv_low_rank_fp16_forward.py \
 python validation/bench_rwkv_key_state_forward.py \
     --record validation/key_state_forward_bench.json \
     --record-decisions validation/key_state_forward_decisions.json
+
+# the two packed TBPTT chains, once per parameter-storage policy: the fp16-storage
+# pass installs the cell's packed FP16 execution mirrors on all three legs, which is
+# the op-level analogue of the training graph's fp16-storage-fp32-compute policy.
+python validation/bench_rwkv_tbptt_packed_chains.py --chain forward \
+    --record validation/tbptt_packed_forward_bench.json \
+    --record-decisions validation/tbptt_packed_forward_decisions.json
+python validation/bench_rwkv_tbptt_packed_chains.py --chain remat \
+    --record validation/tbptt_packed_remat_bench.json \
+    --record-decisions validation/tbptt_packed_rematerialization_decisions.json
+python validation/bench_rwkv_tbptt_packed_chains.py --chain forward \
+    --parameter-storage fp16-storage \
+    --record validation/tbptt_packed_forward_fp16_bench.json \
+    --record-decisions validation/tbptt_packed_forward_decisions.json
+python validation/bench_rwkv_tbptt_packed_chains.py --chain remat \
+    --parameter-storage fp16-storage \
+    --record validation/tbptt_packed_remat_fp16_bench.json \
+    --record-decisions validation/tbptt_packed_rematerialization_decisions.json
 
 # then the contracts on what was recorded (HIERARCHOS_RUN_GPU_VALIDATION=1 also re-runs
 # each A/B live, which is how the Intel receipts were taken)

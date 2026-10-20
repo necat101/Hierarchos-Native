@@ -1,0 +1,62 @@
+{
+  "schema": 2,
+  "kind": "rwkv-tbptt-packed-rematerialization",
+  "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py",
+  "margin": 0.02,
+  "notes": "One entry per (adapter, width, batch, parameter-storage policy) the TBPTT reverse-rematerialization crossover was measured at. `route` is `packed` (the reverse pass restores only vector caches and feeds packed matrix history directly into the fused state-backward kernel) or `legacy` (the reverse pass unpacks the full matrix tape before replaying the cell backward). Every candidate's measured median milliseconds are recorded beside the route. The structural default winning keeps an entry that documents the measurement without moving the route; a non-default winner inside the 2% noise band carries no entry, because the run withdraws it and `legacy` decides that geometry until a quiet run measures a sign outside the band. `RwkvTbpttSequenceOp` reads this table per batch under the active parameter-storage policy, unless a benchmark arm pinned the switch, so a recorded `packed` verdict promotes rematerialization only where it was measured. The `fp16-storage` policy has its own receipt (`tbptt_packed_remat_fp16_bench.json`): packed loses there too, and since every measured verdict is the structural default it needs no scoped entry. A policy that cannot adopt a measured move (its trajectory golden is pinned to the structural graph) records a `withheld` entry naming that measured route instead.",
+  "decisions": [
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 4,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 25.7093,
+        "packed": 26.1352
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 8,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 29.69795,
+        "packed": 31.63085
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 16,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 41.01565,
+        "packed": 45.8694
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 32,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 64.9684,
+        "packed": 75.68495
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    }
+  ],
+  "withheld": []
+}

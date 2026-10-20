@@ -242,6 +242,26 @@ result. These optimization changes have not yet received cross-vendor numerical
 qualification. See [SHIP_PARITY.md](validation/SHIP_PARITY.md) for baseline scope,
 negative controls, receipts, and the complete reproduction procedure.
 
+A receipt becomes the checked artifact through `validation/check_training_stack_receipt.py`:
+
+```powershell
+python validation/check_training_stack_receipt.py --compare target/debug_parity.json
+python validation/check_training_stack_receipt.py --record target/debug_parity.json
+```
+
+The guard is CPU-only and runs in `workspace-check`. It holds the committed
+`validation/training_stack_receipt.json` to the ladder's twelve steps in order,
+every one `PASS`, and a coverage floor for each count the ladder reports -- golden
+invocations (144/183/79), matched shader variants, comparison modules, the
+backward topology decisions and the training-state suites, runs and exact tensor
+digests. Dropping a step, renaming one, recording a `FAIL`/`BLOCKED` row or
+covering fewer cases than the receipt documents all fail. `--compare` applies the
+same rules to a fresh ladder run and additionally refuses any count below the
+committed one, so a GPU ladder that quietly stopped exercising a case cannot be
+re-recorded over the top; `--record` then adopts the fresh run after those checks
+pass. The floors live in the guard, not in the receipt, so hand-editing a count
+in the receipt fails until the spec is changed in the same diff.
+
 ## One-pass workspace check
 
 The four native crates are separate Cargo packages, so a change can leave one of
@@ -682,7 +702,18 @@ Current milestone:
   standalone layer-norm kernel -- so the receipt states a tolerance (`1.6e-5` worst
   absolute) instead of claiming exactness. The switch also decides whether LN1 fuses at
   all, and its scope is the dense cell forward: the TBPTT packed forward-only and
-  rematerialization chains keep their own fusions and their own receipt.
+  rematerialization chains keep their own fusions and now have their own records
+  (`tbptt_packed_forward_decisions.json`,
+  `tbptt_packed_rematerialization_decisions.json` and
+  `tbptt_backward_fusion_decisions.json`) that the TBPTT scheduler reads per
+  batch under the active parameter-storage policy. The `fp16-storage` policy
+  measured the same first-forward crossover with the packed execution mirrors
+  installed and records its own scoped verdicts, so it adopts the same `legacy`
+  transitions at batches 16 and 32 and the record carries no `withheld` entry.
+  The refusal mechanism remains for a policy whose trajectory golden pins the
+  structural graph: that geometry is listed in `withheld` for its policy and
+  keeps the structural default, which keeps the refusal per geometry and
+  auditable instead of a hidden early return in the consumer.
 - Rank 2's scope gap -- the deep FP16 producer
   (`low_rank_full_forward_fused_fp16_packed`) under the training graph's
   `fp16-storage-fp32-compute` policy -- is measured separately, because the packed
@@ -690,17 +721,22 @@ Current milestone:
   mirrors are installed. `RwkvLowRankOp::enable_fp16_parameter_storage()` quantizes
   the six FP32 masters into execution mirrors (masters stay canonical), and
   `bench_rwkv_low_rank_fp16_forward.py` runs the same four-leg A/B on the
-  pre-normalized route: `1.053`/`1.062`/`0.977`/`0.971`/`0.969x` at batches
+  pre-normalized route: `1.038`/`1.066`/`0.991`/`0.974`/`0.976x` at batches
   1/4/8/16/32, one dispatch against eleven. A dedicated
   `deep_forward_arm_dispatches` counter proves the fused leg ran the deep arm (the
   route's total cannot tell it from the first-stage producer), and the receipt
   reports per geometry whether the measurement follows
-  `low_rank_full_forward_decisions.json`: it agrees at every geometry, because the
-  record is now keyed by parameter-storage policy too -- this driver writes its
-  verdicts under `fp16-storage`, which only a consumer running that storage policy
-  reads, so the FP16 route takes the chain from batch 8 up while the dense route keeps
-  the fusion there and the policy-less entries (the FP32 arm's) are untouched
-  ([receipt](validation/low_rank_fp16_forward_bench.json)).
+  `low_rank_full_forward_decisions.json`: the record is keyed by parameter-storage
+  policy too, and this driver writes its verdicts under `fp16-storage`, which only
+  a consumer running that storage policy reads. The chain is ahead at 16 and 32
+  (2.6%/2.4%), batch 8 is a tie inside the route's 1% band, and the fused arm wins
+  1 and 4 where the dense route also keeps the fusion. Those wins do not ship: the
+  two FP16 graphs differ by `2.384e-07` while the FP16 training trajectory is held
+  bit-exact, so the geometries are recorded and listed under `withheld` and the
+  runtime keeps the structural fused graph (the withheld route does not fall back
+  to the dense FP32 verdict, and the policy-less entries the FP32 arm reads are
+  untouched). Adopting them is one edit: drop the `withheld` entry once an exact
+  FP16 route exists ([receipt](validation/low_rank_fp16_forward_bench.json)).
 - Rank 3 came out geometry-dependent, and the geometry turned out to be the
   kernel's own shape. The original fused key/state kernel gave one 64-lane
   workgroup one (batch, head): lane 0 ran the serial key transform while 63 lanes
@@ -729,6 +765,145 @@ Current milestone:
   state phase -- the same rows at the same occupancy: the excess is now almost
   constant at +9.5/+11.2/+11.9/+16.3 microseconds at batches 1/8/16/32, against
   +96.9 at batch 32 before the operands were staged.
+  That fix left the comparison asymmetric -- one staged row loop against two
+  un-staged ones -- so the same hoist was implemented in `rwkv_matrix_state_forward.comp`
+  and in the narrow fused kernel and measured: both came out **slower**, chain
+  `183.0 -> 192-196 us` and narrow `183.8 -> 190-196 us` at batch 32 over four runs,
+  and a build with the chain's unaligned fallback branch removed entirely reproduced
+  the same regression (`192.3 us`), so it is the staging rather than the code shape.
+  The reconciliation is what the two kernels pay: in a lane-per-row kernel those
+  five operand vectors are L1 broadcasts to the sixteen lanes of a head and the
+  exponential pairs hide behind the state row's memory traffic, while the wide
+  kernel's row loop had no register headroom to keep them live. Both baselines
+  therefore keep their un-staged form -- each arm runs the form it measured fastest,
+  and the wide arm's win does not rest on work the other two were never offered.
+  `validation/check_measured_producer_routes.py` guards every measured producer's
+  sweep from one table: the time-mix projection, the channel mix, the dense and
+  FP16-storage low-rank routes and the key/state fusion. For each it re-checks the
+  receipt against the record it was written into -- every recorded batch dispatched,
+  every outside-band geometry carrying a decision, every recorded route the fastest
+  candidate of its own entry, a non-default winner outside the driver's noise band
+  (2%, or the FP16 route's 1%), a receipt that now measures a different route
+  outside that band rejected as stale, each leg's label
+  and dispatch count consistent, the default leg building the recorded route (or the
+  documented fallback on an adapter with no entries), and parity exact where the
+  producer promises bit-identity or inside the stated tolerance where it does not.
+  The backward-fusion chain's third candidate is checked against its own gate: an
+  entry may list `folded` only where the receipt proves the cross-batch reduction
+  published `grad_k_k`/`grad_k_a` bit-identical to the two-dispatch chain, and it
+  must list it where that proof exists, so the record cannot claim a fold the
+  measurement did not clear.
+  The same table also checks the two receipts that consume a record rather than
+  write one: the multi-step TBPTT receipt against the time-mix projection's
+  verdict at each batch it dispatched, and the packed-cell composition receipt
+  against the `staged` route the time-mix and channel-mix records name. A batch
+  the consumer did not measure is the producer's own evidence, not a stray entry.
+  The two packed TBPTT chains are producers in their own right: each has a
+  `packed`/`legacy` record that `RwkvTbpttSequenceOp` reads per batch, a
+  bit-exact receipt, and its own guard spec. On the Gen9 part neither packed chain
+  wins, so the records keep the legacy transition at the geometries where it led
+  outside the noise band.  The reverse pass's state-backward fusion depth is a
+  third route on the same driver: `--chain backward` times the autotuner's
+  schedule against the most decomposed executable chain, with the projection
+  order and low-rank fan-in held fixed. In these labels `+` names a stage that
+  still dispatches and `-` one folded into the state-backward kernel, so
+  `rkv-add3+key+reduce` is the fully staged chain, `rkv-add3-key+reduce` folds
+  the key transform in, and `rkv-add3-key-reduce` folds the reduction in as
+  well. The fully staged chain compiles at every batch.  The fully folded
+  `rkv-add3-key-reduce` used to exist only at batch 1, where each channel owns
+  one row and its direct `grad_k_k`/`grad_k_a` writes need no cross-row
+  reduction; a guarded `FUSE_KEY_PARAM_CROSS_BATCH` specialization now extends
+  it to every batch.  A workgroup owns one (batch, head) row, so the fold cannot
+  be formed inside one workgroup: each stores its partials, publishes an
+  arrival through an atomic per-head counter, and the workgroup that completes
+  a head's last batch sums that head's partials in ascending batch order (the
+  order `rwkv_key_transform_param_reduce.comp` uses) before clearing the
+  counter.  The cell compiles those kernels for two callers only: a process
+  that asks for them through `HIERARCHOS_RWKV_CROSS_BATCH_KEY_PARAM_REDUCE`
+  (the A/B, which has to be able to measure the depth), and a process whose
+  backward-fusion record can actually select `folded` for that adapter and
+  width, which is what keeps the kernel set following the record rather than
+  preceding it.  The A/B pins the switch so all three fusion depths are timed
+  at every batch, and the folded rung is a routing candidate there.  Its
+  acceptance gate is the fold's own output: `grad_x` never consumes
+  `grad_k_k`/`grad_k_a`, so the receipt reads the reduction back after the
+  sequence and requires it to equal the two-dispatch chain exactly, recording
+  the staged arm's gradient magnitude beside the zero so the agreement cannot
+  be a vacuous zero-vs-zero.  The folded rung's `grad_k_k`/`grad_k_a` are
+  bit-identical at every batch under both storage policies; only a geometry
+  that clears that gate lists `folded` in its entry.  Its returned tensors are
+  a different question: the contract associates one FP32 product differently
+  and moves `grad_x` by at most `2.4e-7`, roughly two ulps, which is why the
+  receipt holds them to a `1e-6` allowance while the routing pair stays exactly
+  bit-identical.  In the committed receipts the shipped schedule is still
+  fastest at six of the ten measured geometries, the staged chain at two and
+  the folded rung at two, and nothing leads by more than `0.4%`: every geometry
+  is a tie inside the 2% band, so the record names `folded` nowhere and the
+  autotuner's schedule keeps those geometries.  Depth buys nothing here, and
+  `--profile-folded` splits the tie rather than asserting it: the folded leg is
+  timed beside a leg whose only difference is a full batch of phantom arrivals,
+  which removes the last-arriving workgroup's reduction loop while every arrival,
+  partial store and device-scope barrier stays. Both components land inside the
+  run's own sample resolution -- the committed profiles record a tail of `-0.23`
+  to `+0.18 ms` and counters of `-0.12` to `+0.09 ms` against a `0.4-2.1 ms`
+  resolution, and `validation/check_folded_publication_profile.py` fails if either
+  becomes visible. The reason is that folding a `width x batch` reduction removes
+  a launch and not any arithmetic: the same partials are written and read back,
+  in the same order, which is why the output stays bit-identical. The `fused` depth does win a little where the
+  stage it absorbs is elementwise over `batch x width x head_size` values; the
+  last stage left to absorb is a single wavefront, which is why the rung cannot
+  reach the 2% band at any batch this driver sweeps
+  (`validation/FUSED_FORWARD_PRODUCER_AUDIT.md`). One identical AdamW step on
+  each leg then diffs the parameter snapshots as a second gate (at most
+  `7.5e-8` against `1e-6`), which is weaker than it looks: AdamW's first update
+  is sign-normalized, so a fold that loses a batch row changes a gradient's
+  magnitude without changing the update it produces, and only the direct
+  readback covers the reduction itself.  `--negative-control` proves the gates reject a broken publication on both of
+  the fold's paths, building a clean pair and a corrupted pair in one process.
+  Above batch 1 it seeds one phantom arrival per batch row, so a head's counter
+  never completes (`HIERARCHOS_RWKV_CROSS_BATCH_ARRIVAL_SEED`, a test-only hook);
+  at batch 1 the rung owns one row per channel and writes the gradients directly,
+  with no counter to seed, so the control redirects those two writes into a
+  scratch buffer instead (`HIERARCHOS_RWKV_KEY_PARAM_DIRECT_WRITE_SINK`). Both
+  runs require the clean pair to pass both gates and the corrupted pair to fail
+  both: the corrupted `grad_k_k` stays at the constructor zeros while the staged
+  arm's is `9.4e-3`/`8.1e-3`, and the post-step delta is `1.0e-4` against the
+  `1e-6` window. Batch 1's clean pair is identical outright (`0.0` on both
+  gates), which is the strongest form of the parity the rung claims there.
+  The driver re-applies its own receipt gates to those measurements, so the
+  proven artifact is the guard the sweep uses, not a copy.  The topology table
+  had been ordered most-fused-first, so the staged arm resolved to the most
+  folded kernel instead of the autotuner's shipped schedule, and while that
+  kernel was still batch-1-only the sweep reported batches 4-32 `unmeasured`.
+  Ordering it stage-first makes the A/B measure the three-dispatch chain against
+  the autotuner's two-dispatch one at every batch, still bit-identical
+  (`worst_max_abs` exactly zero). With the folded rung in the candidate set the
+  three depths sit within a percent of each other: `tbptt_backward_fusion_decisions.json`
+  keeps a fused verdict at batches 4 and 32, where the autotuner's schedule led
+  the folded and staged arms, and withdraws batches 1, 8 and 16 as three-way
+  ties inside the 2% band. Those geometries keep the autotuner's schedule
+  without an entry, which is what a measured tie means. Each chain also has an FP16-storage receipt
+  (`tbptt_packed_forward_fp16_bench.json`, `tbptt_packed_remat_fp16_bench.json`,
+  `tbptt_backward_fusion_fp16_bench.json`)
+  recorded with the cell's packed execution mirrors installed: the forward A/B is
+  still bit-identical there and repeats the FP32 crossover, so the
+  `fp16-storage` policy now adopts its own measured `legacy`  verdicts at 16 and
+  32 and carries no `withheld` entry. The backward A/B under the mirrors repeats
+  that three-way tie: fused is fastest at four of five batches and staged at
+  batch 4 by `0.2%`, so the policy records the scoped fused entry where the
+  shared table has one and withdraws the rest instead of recording an unstable
+  move. The refusal mechanism
+  remains for a policy whose trajectory golden pins the structural graph, and
+  the guard exercises it against a fixture that withdraws the FP16
+  measurements.
+  It runs on the committed pairs with no GPU and again immediately after each A/B
+  step re-records that producer's receipt. Every job sweep now reaches every
+  recorded geometry: the projection, channel-mix, low-rank and FP16 steps gained
+  batch 32 the same way the key/state sweep did, which is where this stage's last
+  collapse lived. The per-producer steps in the A/B workflow are rendered from
+  that same spec table by `validation/render_ab_workflow.py`, so a new producer
+  cannot miss its sweep, its guard step, or either job; `workspace-check` fails
+  when the committed workflow and the table disagree.
   `validation/key_state_forward_decisions.json` is now a three-route record --
   `wide-fused`, `narrow-fused`, `staged` -- with every candidate's median beside the
   route, so one field says both whether the stage fused and which fused kernel ran;
@@ -775,9 +950,10 @@ Current milestone:
   composition does not win at those geometries.
   `.github/workflows/time-mix-ab.yml` (`packed-cell producer A/B`) re-runs every
   producer A/B -- single-step, TBPTT, the channel-mix producer, the LN1/low-rank
-  route, the FP16-storage arm of that route and the key/state forward fusion --
-  plus the decision replay and the receipt suites on a self-hosted Vulkan
-  runner, and
+  route, the FP16-storage arm of that route, the key/state forward fusion and the
+  packed-cell vendor composition -- with each producer's route guard immediately
+  after it, plus the decision replay and the receipt suites on a self-hosted
+  Vulkan runner, and
   fails when the default stops following the record, so the rules are gated on
   hardware and not only against checked-in receipts. The harness steps record
   the receipts but never `--record-decisions`: the per-device records are
@@ -839,6 +1015,14 @@ Current milestone:
   arm is only credited where the producer acknowledged the request it was given
   (`--topologies` narrows the arms), because a variant this device rejects falls back
   to the default kernel and would otherwise pass while proving nothing.
+  The same 3,817 digests are what
+  `validation/check_stable_probe_parity.py --stable <checkout>` compares against a
+  stable checkout: it builds `training_step_probe` in both trees, runs every golden
+  geometry against one shared model package per geometry and fails on a single
+  differing bit. It is the command form of the before/after comparison, so the
+  claim that the optimized step computes what the pre-optimization tree computed
+  is reproducible instead of remembered; dispatch counts and losses are reported
+  beside the result but are not gated, because a scheduling change may move them.
 - The packed-FP16 LN1/low-rank producer has the same arms, and what each device
   exercises is checked in. Its six variants -- `one-row`, `one-row-cached`,
   `one-row-rank128`, `two-rows`, `two-rows-wide` and `four-rows` -- are forced through
@@ -2742,6 +2926,9 @@ glslc -DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128 shaders/rwkv_matrix_state_backwar
 glslc -DFUSE_KEY_PARAM_REDUCE=1 shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp -o shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce.spv
 glslc -DFUSE_KEY_PARAM_REDUCE=1 -DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32 shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp -o shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_wg32.spv
 glslc -DFUSE_KEY_PARAM_REDUCE=1 -DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128 shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp -o shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_wg128.spv
+glslc -DFUSE_KEY_PARAM_REDUCE=1 -DFUSE_KEY_PARAM_CROSS_BATCH=1 shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp -o shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_batch.spv
+glslc -DFUSE_KEY_PARAM_REDUCE=1 -DFUSE_KEY_PARAM_CROSS_BATCH=1 -DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32 shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp -o shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_batch_wg32.spv
+glslc -DFUSE_KEY_PARAM_REDUCE=1 -DFUSE_KEY_PARAM_CROSS_BATCH=1 -DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128 shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp -o shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_batch_wg128.spv
 glslc --target-env=vulkan1.1 -DRWKV_FAST_SUBGROUP_KEY_NORM=1 shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp -o shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_subgroup.spv
 glslc --target-env=vulkan1.1 -DRWKV_FAST_SUBGROUP_KEY_NORM=1 -DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32 shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp -o shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_subgroup_wg32.spv
 glslc --target-env=vulkan1.1 -DRWKV_FAST_SUBGROUP_KEY_NORM=1 -DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128 shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp -o shaders/rwkv_matrix_state_backward_fused_rkv_add3_key_transform_subgroup_wg128.spv

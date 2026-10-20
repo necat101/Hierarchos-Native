@@ -17,6 +17,7 @@ serde = { version = "1", features = ["derive"] }
 # verbatim without changing serde_json's normal typed-number deserialization.
 serde_json = { version = "1", features = ["raw_value"] }
 sha2 = "0.10"
+libc = { version = "0.2", optional = true }
 # Production Rust PEFT schema/key interoperability only. Transformer LoRA
 # forward/backward/AdamW math remains implemented by our Vulkan graph.
 peft-rs = "=1.2.0"
@@ -120,6 +121,13 @@ path = "src/bin/rwkv_packed_cell_time_mix_bench.rs"
 [[bin]]
 name = "hierarchos-vulkan-rwkv-tbptt-time-mix-bench"
 path = "src/bin/rwkv_tbptt_time_mix_bench.rs"
+
+# The two packed TBPTT chains (first forward transition and reverse
+# rematerialization) against their legacy graphs, one chain per run so each
+# writes its own route record.
+[[bin]]
+name = "hierarchos-vulkan-rwkv-tbptt-packed-chains-bench"
+path = "src/bin/rwkv_tbptt_packed_chains_bench.rs"
 
 # Rank 1 of the fused-producer audit: the packed cell's single fused
 # channel-mix producer against the staged composition that dispatches the vendor
@@ -229,3 +237,15 @@ path = "src/bin/transformer_logits.rs"
 [[bin]]
 name = "attention_kernel_cache_check"
 path = "validation/attention_kernel_cache_check.rs"
+
+[build-dependencies]
+cc = { version = "1", optional = true }
+
+[features]
+default = []
+rdma = ["dep:cc", "dep:libc"]
+
+[[bin]]
+name = "network_recv_smoke"
+path = "src/bin/network_recv_smoke.rs"
+required-features = ["rdma"]

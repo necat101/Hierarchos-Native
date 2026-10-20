@@ -15,6 +15,30 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
+
+    // --- RDMA transport support (Phase R1) ---
+    // Copy the committed ibverbs bindings into OUT_DIR so distributed.rs can
+    // include! them, and compile the C shim that exposes the static-inline
+    // verbs (post_send/post_recv/poll_cq) plus opaque field accessors.
+    #[cfg(feature = "rdma")]
+    {
+        assert_eq!(
+            env::var("CARGO_CFG_TARGET_OS").as_deref(),
+            Ok("linux"),
+            "the rdma feature requires Linux/libibverbs; use --network-transport tcp on Windows"
+        );
+        let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+        let committed = manifest_dir.join("rdma_bindings.rs");
+        fs::copy(&committed, out_dir.join("bindings.rs"))
+            .expect("copy rdma_bindings.rs to OUT_DIR");
+        println!("cargo:rerun-if-changed=rdma_bindings.rs");
+        println!("cargo:rerun-if-changed=rdma_shim.c");
+        cc::Build::new()
+            .file(manifest_dir.join("rdma_shim.c"))
+            .compile("rdma_shim");
+        println!("cargo:rustc-link-lib=ibverbs");
+    }
+
     let shader_dir = manifest_dir.join("shaders");
     println!("cargo:rerun-if-changed={}", shader_dir.display());
 

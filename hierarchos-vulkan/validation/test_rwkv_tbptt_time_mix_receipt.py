@@ -79,10 +79,15 @@ class TbpttTimeMixReceiptTest(unittest.TestCase):
                 if row["composed_ran_vendor_linear3"]:
                     # One dispatch per timestep in the window, not one per
                     # sequence: the receipt proves the whole sweep composed.
+                    # The legacy first-forward transition replays the forward
+                    # pass for rematerialization, so the projection dispatches
+                    # in both passes and the count doubles.
+                    per_step = 1 if row["default_packed_forward"] else 2
                     self.assertEqual(
                         row["composed_linear3_dispatches"],
-                        self.receipt["steps"],
-                        "the composed sequence did not dispatch once per timestep",
+                        per_step * self.receipt["steps"],
+                        "the composed sequence did not dispatch once per timestep "
+                        "on the chain the default actually built",
                     )
 
     def test_promotion_is_geometry_aware(self) -> None:

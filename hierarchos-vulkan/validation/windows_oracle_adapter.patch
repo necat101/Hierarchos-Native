@@ -1,0 +1,53 @@
+diff --git a/hierarchos-vulkan/build.rs b/hierarchos-vulkan/build.rs
+index 0b44214..2f0a54f 100644
+--- a/hierarchos-vulkan/build.rs
++++ b/hierarchos-vulkan/build.rs
+@@ -20,7 +20,7 @@ fn main() {
+     // Copy the committed ibverbs bindings into OUT_DIR so distributed.rs can
+     // include! them, and compile the C shim that exposes the static-inline
+     // verbs (post_send/post_recv/poll_cq) plus opaque field accessors.
+-    {
++    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {
+         let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+         let committed = manifest_dir.join("rdma_bindings.rs");
+         fs::copy(&committed, out_dir.join("bindings.rs"))
+diff --git a/hierarchos-vulkan/src/distributed_windows_unavailable.rs b/hierarchos-vulkan/src/distributed_windows_unavailable.rs
+new file mode 100644
+index 0000000..e259846
+--- /dev/null
++++ b/hierarchos-vulkan/src/distributed_windows_unavailable.rs
+@@ -0,0 +1,19 @@
++// Build-only oracle adapter: remote RDMA is unavailable on Windows.
++// The upstream single-device graph and all shader bytes remain untouched.
++use std::net::{SocketAddr,TcpListener,TcpStream};
++use anyhow::{bail,Result};
++pub struct NetworkGradientSource;
++pub struct NetworkSendChannel;
++impl NetworkGradientSource {
++ pub fn connect(_: &str,_:SocketAddr,_:usize,_:usize)->Result<Self>{bail!("oracle RDMA unavailable on Windows")}
++ pub fn connect_with_control(_: &str,_:SocketAddr,_:usize,_:usize)->Result<(Self,TcpStream)>{bail!("oracle RDMA unavailable on Windows")}
++ pub fn connect_with_bound_listener(_: &str,_:TcpListener,_:usize,_:usize)->Result<(Self,TcpStream)>{bail!("oracle RDMA unavailable on Windows")}
++ pub fn receive_into(&mut self,_:&mut[f32])->Result<usize>{bail!("oracle RDMA unavailable on Windows")}
++ pub fn receive_bytes_into(&mut self,_:&mut[u8])->Result<usize>{bail!("oracle RDMA unavailable on Windows")}
++}
++impl NetworkSendChannel {
++ pub fn connect(_: &str,_:SocketAddr,_:bool,_:usize,_:usize)->Result<Self>{bail!("oracle RDMA unavailable on Windows")}
++ pub fn connect_with_control(_: &str,_:SocketAddr,_:bool,_:usize,_:usize)->Result<(Self,TcpStream)>{bail!("oracle RDMA unavailable on Windows")}
++ pub fn send_chunk(&mut self,_:&[f32])->Result<()>{bail!("oracle RDMA unavailable on Windows")}
++ pub fn flush(&mut self)->Result<()>{bail!("oracle RDMA unavailable on Windows")}
++}
+diff --git a/hierarchos-vulkan/src/lib.rs b/hierarchos-vulkan/src/lib.rs
+index c0f354f..032d879 100644
+--- a/hierarchos-vulkan/src/lib.rs
++++ b/hierarchos-vulkan/src/lib.rs
+@@ -8,6 +8,10 @@
+ mod adapter;
+ mod checkpoint;
+ mod control;
++#[cfg(not(target_os = "windows"))]
++pub mod distributed;
++#[cfg(target_os = "windows")]
++#[path = "distributed_windows_unavailable.rs"]
+ pub mod distributed;
+ mod full_training_graph;
+ #[cfg(test)]

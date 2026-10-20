@@ -1,0 +1,62 @@
+[
+  {
+    "step": "cargo build (ladder binaries)",
+    "status": "PASS",
+    "detail": "finished (debug)"
+  },
+  {
+    "step": "shader toolchain",
+    "status": "PASS",
+    "detail": "prepended C:\\Users\\User\\Hierarchos-Native\\.tools\\glslang-16.5.0\\bin, C:\\Users\\User\\Hierarchos-Native\\.tools\\glslang-16.6.0\\bin, C:\\Users\\User\\Hierarchos-Native\\.tools\\env\\Library\\bin to PATH: glslangValidator 16.5.0; glslc 2023.8; spirv-val 2025.5"
+  },
+  {
+    "step": "binding-access audit",
+    "status": "PASS",
+    "detail": "0 provably narrower binding(s) over 0 shader(s) out of 471 modules"
+  },
+  {
+    "step": "shader provenance",
+    "status": "PASS",
+    "detail": "464 variant(s) match their sources and flags"
+  },
+  {
+    "step": "push-constant layouts",
+    "status": "PASS",
+    "detail": "PASS: push-constant blocks agree across SPIR-V, GLSL and host structs"
+  },
+  {
+    "step": "oracle parity",
+    "status": "PASS",
+    "detail": "PASS: every shared shader matches the stable oracle"
+  },
+  {
+    "step": "golden dense (matmul)",
+    "status": "PASS",
+    "detail": "PASS: 144 invocation(s) exercised on this device match C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\validation\\kernel_golden_coverage.json for dense"
+  },
+  {
+    "step": "golden reduction",
+    "status": "PASS",
+    "detail": "PASS: 183 invocation(s) exercised on this device match C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\validation\\kernel_golden_coverage.json for reduction"
+  },
+  {
+    "step": "golden attention",
+    "status": "PASS",
+    "detail": "PASS: 79 invocation(s) exercised on this device match C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\validation\\kernel_golden_coverage.json for attention"
+  },
+  {
+    "step": "training-step probe",
+    "status": "PASS",
+    "detail": "6512 dispatches, 3021 barriers (upper bound 3076), loss 5.5432177 on Intel(R) HD Graphics 520"
+  },
+  {
+    "step": "topology decisions",
+    "status": "PASS",
+    "detail": "PASS: 4 measured decision(s) match the record on 'Intel(R) HD Graphics 520'"
+  },
+  {
+    "step": "training-state parity",
+    "status": "PASS",
+    "detail": "PASS: 2 suite(s), 29 run(s), 32162 exact tensor digests compared; coverage audited against C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\validation\\training_state_coverage.json"
+  }
+]

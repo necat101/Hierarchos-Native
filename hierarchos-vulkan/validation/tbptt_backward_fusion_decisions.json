@@ -1,0 +1,53 @@
+{
+  "schema": 2,
+  "kind": "rwkv-tbptt-backward-fusion",
+  "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py",
+  "margin": 0.02,
+  "notes": "One entry per (adapter, width, batch, parameter-storage policy) the TBPTT reverse-pass state-backward fusion depth was measured at. `route` is `fused` (the autotuner's shipped schedule: recurrence backward, vector add3 and the key transform in one kernel, with the key-parameter reduction separate on this adapter), `staged` (the most decomposed executable chain: the recurrence/add3 kernel, the key transform and the reduction each dispatched separately), or `folded` (both stages folded into the state-backward kernel, whose cross-batch key-parameter reduction is dispatched once per head), with the schedule's projection order and low-rank fan-in held fixed so the candidates differ only in fusion depth. The two-dispatch pair is bit-identical by construction and the receipt refuses to record unless it is. The folded rung is a candidate only where the receipt measured its `grad_k_k`/`grad_k_a` bit-identical to the two-dispatch reduction with a non-zero staged gradient -- the fold's own output, which no returned tensor consumes -- and its returned tensors then stay within a few contracted FP32 ulps on `grad_x`; `folded` is absent from an entry's candidates where that gate did not hold. Every candidate's measured median milliseconds are recorded beside the route. The structural default (`fused`) winning keeps an entry that documents the measurement without moving the route; a non-default winner inside the 2% noise band carries no entry, because the run withdraws it and the autotuner's schedule decides that geometry until a quiet run measures a sign outside the band. `RwkvTbpttSequenceOp` reads this table per batch under the active parameter-storage policy, unless a benchmark arm pinned the fusion depth, so a recorded `staged` verdict withdraws the fused backward and a recorded `folded` verdict pins the fully folded rung, failing closed where the device does not compile it. A policy-less entry is the default (FP32) measurement; an entry with `parameter_storage` is that policy's own A/B.",
+  "withheld": [],
+  "decisions": [
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 4,
+      "route": "fused",
+      "candidates": {
+        "staged": 25.82525,
+        "fused": 25.68045,
+        "folded": 25.7755
+      },
+      "probe": "tbptt-backward-fusion",
+      "source": "measured",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 32,
+      "route": "fused",
+      "candidates": {
+        "staged": 67.63915,
+        "fused": 67.50845,
+        "folded": 67.74055
+      },
+      "probe": "tbptt-backward-fusion",
+      "source": "measured",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 32,
+      "route": "fused",
+      "candidates": {
+        "staged": 68.97075,
+        "fused": 68.00745,
+        "folded": 68.88825
+      },
+      "probe": "tbptt-backward-fusion",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    }
+  ]
+}

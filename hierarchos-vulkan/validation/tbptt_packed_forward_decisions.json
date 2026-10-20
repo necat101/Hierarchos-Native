@@ -1,0 +1,104 @@
+{
+  "schema": 2,
+  "kind": "rwkv-tbptt-packed-forward",
+  "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py",
+  "margin": 0.02,
+  "notes": "One entry per (adapter, width, batch, parameter-storage policy) the TBPTT first-forward crossover was measured at. `route` is `packed` (the packed matrix-state transition with backward-only tape stores suppressed) or `legacy` (the unpacked transition followed by a pack copy). Every candidate's measured median milliseconds are recorded beside the route. The structural default winning keeps an entry that documents the measurement without moving the route; a non-default winner inside the 2% noise band carries no entry, because the run withdraws it and `packed` decides that geometry until a quiet run measures a sign outside the band. `RwkvTbpttSequenceOp` reads this table per batch under the active parameter-storage policy, unless a benchmark arm pinned the switch, so a recorded `legacy` verdict withdraws the packed transition at that geometry. A policy-less entry is the default (FP32) measurement; an entry with `parameter_storage` is that policy's own chain A/B. The `fp16-storage` policy now has its own receipt (`tbptt_packed_forward_fp16_bench.json`): both graphs stay bit-identical under the packed mirrors, it measures the same crossover, and it records its verdicts under its own scope, so the FP32 and FP16 policies can follow different measurements without either moving the other. A policy that has not measured the route keeps the structural packed default; that is expressed as a `withheld` entry naming the shared verdict it may not adopt, never as a rewrite of the measurement.",
+  "withheld": [],
+  "decisions": [
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 1,
+      "route": "packed",
+      "candidates": {
+        "legacy": 21.37375,
+        "packed": 21.3708
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 1,
+      "route": "packed",
+      "candidates": {
+        "legacy": 23.4423,
+        "packed": 23.4326
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 4,
+      "route": "packed",
+      "candidates": {
+        "legacy": 25.81535,
+        "packed": 25.72885
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 16,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 39.1636,
+        "packed": 40.80815
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 16,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 40.5465,
+        "packed": 42.42565
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 32,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 61.2263,
+        "packed": 65.2024
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "batch": 32,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 65.99675,
+        "packed": 70.0679
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    }
+  ]
+}

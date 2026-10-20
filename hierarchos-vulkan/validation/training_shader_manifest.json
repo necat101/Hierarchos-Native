@@ -2435,6 +2435,44 @@
       "target_env": "vulkan1.0"
     },
     {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_batch.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DFUSE_KEY_PARAM_CROSS_BATCH=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_batch_wg32.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DFUSE_KEY_PARAM_CROSS_BATCH=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_batch_wg128.spv",
+      "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "--target-env=vulkan1.0",
+        "-DFUSE_KEY_PARAM_REDUCE=1",
+        "-DFUSE_KEY_PARAM_CROSS_BATCH=1",
+        "-DRWKV_STATE_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform_reduce_tiled_wg32.spv",
       "source": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
       "compiler": "glslc",

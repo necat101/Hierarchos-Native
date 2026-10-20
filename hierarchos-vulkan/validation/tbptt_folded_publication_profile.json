@@ -1,0 +1,309 @@
+{
+  "result": "pass",
+  "profile": "folded-publication",
+  "parameter_storage": null,
+  "batches": [
+    {
+      "result": "pass",
+      "profile": "folded-publication",
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "head_size": 16,
+      "batch": 1,
+      "steps": 8,
+      "samples": 40,
+      "warmup": 3,
+      "staged_schedule": "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+      "fused_schedule": "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+      "folded_schedule": "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+      "key_parameter_atol": 0.0,
+      "staged_key_parameter_max_abs": 0.008072629570960999,
+      "folded_key_parameter_max_abs": 0.0,
+      "without_reduction_key_parameter_max_abs": null,
+      "legs": [
+        {
+          "label": "staged",
+          "median_ms": 21.45395,
+          "ms_per_step": 2.68174375,
+          "min_ms": 21.066100000000002,
+          "max_ms": 23.7335,
+          "iqr_ms": 0.4131
+        },
+        {
+          "label": "fused",
+          "median_ms": 21.4024,
+          "ms_per_step": 2.6753,
+          "min_ms": 21.0248,
+          "max_ms": 22.826099999999997,
+          "iqr_ms": 0.4852999999999952
+        },
+        {
+          "label": "folded",
+          "median_ms": 21.42585,
+          "ms_per_step": 2.67823125,
+          "min_ms": 21.0152,
+          "max_ms": 23.3889,
+          "iqr_ms": 0.2333999999999996
+        }
+      ],
+      "resolution_ms": 0.4852999999999952,
+      "range_resolution_ms": 1.3336999999999986,
+      "folded_over_fused": 1.0010956715134751,
+      "folded_minus_fused_ms": 0.023450000000000415,
+      "folded_beats_fused_beyond_resolution": false,
+      "folded_minus_without_reduction_ms": null,
+      "without_reduction_minus_fused_ms": null,
+      "reduction_tail_beyond_resolution": null,
+      "counters_beyond_resolution": null,
+      "note": "batch 1 has no arrival counter: the folded rung writes the parameter gradients directly, so this row measures the fold with neither counters nor a reduction."
+    },
+    {
+      "result": "pass",
+      "profile": "folded-publication",
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "head_size": 16,
+      "batch": 4,
+      "steps": 8,
+      "samples": 40,
+      "warmup": 3,
+      "staged_schedule": "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+      "fused_schedule": "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+      "folded_schedule": "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+      "key_parameter_atol": 0.0,
+      "staged_key_parameter_max_abs": 0.009440183639526367,
+      "folded_key_parameter_max_abs": 0.0,
+      "without_reduction_key_parameter_max_abs": 0.009440183639526367,
+      "legs": [
+        {
+          "label": "staged",
+          "median_ms": 25.8442,
+          "ms_per_step": 3.230525,
+          "min_ms": 25.4651,
+          "max_ms": 27.2974,
+          "iqr_ms": 0.2810999999999986
+        },
+        {
+          "label": "fused",
+          "median_ms": 25.8545,
+          "ms_per_step": 3.2318125,
+          "min_ms": 25.444499999999998,
+          "max_ms": 27.6649,
+          "iqr_ms": 0.2453000000000003
+        },
+        {
+          "label": "folded",
+          "median_ms": 25.80075,
+          "ms_per_step": 3.22509375,
+          "min_ms": 25.3956,
+          "max_ms": 27.587799999999998,
+          "iqr_ms": 0.2757000000000005
+        },
+        {
+          "label": "folded-without-reduction",
+          "median_ms": 25.8114,
+          "ms_per_step": 3.226425,
+          "min_ms": 25.426399999999997,
+          "max_ms": 27.532,
+          "iqr_ms": 0.45260000000000034
+        }
+      ],
+      "resolution_ms": 0.45260000000000034,
+      "range_resolution_ms": 1.1102000000000007,
+      "folded_over_fused": 0.9979210582297086,
+      "folded_minus_fused_ms": -0.05375000000000085,
+      "folded_beats_fused_beyond_resolution": false,
+      "folded_minus_without_reduction_ms": -0.010649999999998272,
+      "without_reduction_minus_fused_ms": -0.04310000000000258,
+      "reduction_tail_beyond_resolution": false,
+      "counters_beyond_resolution": false,
+      "note": "folded-minus-without-reduction is the reduction tail: one workgroup per head, one dependent add chain per channel, run after every other workgroup of the dispatch has finished. without-reduction-minus-fused is the atomics, barriers and partial stores credited against the separate reduce dispatch they replace, so its value is what the counters cost *after* that credit and may legitimately be negative. resolution_ms is the widest leg's interquartile range and range_resolution_ms its half-range; a delta at or below the former is inside this run's noise, which is why each component also carries a *_beyond_resolution flag rather than only a sign. At batch 1 there is no counter and no reduction; the folded leg is the whole fold."
+    },
+    {
+      "result": "pass",
+      "profile": "folded-publication",
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "head_size": 16,
+      "batch": 8,
+      "steps": 8,
+      "samples": 40,
+      "warmup": 3,
+      "staged_schedule": "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "fused_schedule": "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "folded_schedule": "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "key_parameter_atol": 0.0,
+      "staged_key_parameter_max_abs": 0.015710944309830666,
+      "folded_key_parameter_max_abs": 0.0,
+      "without_reduction_key_parameter_max_abs": 0.015710944309830666,
+      "legs": [
+        {
+          "label": "staged",
+          "median_ms": 29.459400000000002,
+          "ms_per_step": 3.6824250000000003,
+          "min_ms": 29.038999999999998,
+          "max_ms": 30.7196,
+          "iqr_ms": 0.3813999999999993
+        },
+        {
+          "label": "fused",
+          "median_ms": 29.4197,
+          "ms_per_step": 3.6774625,
+          "min_ms": 29.0134,
+          "max_ms": 31.6008,
+          "iqr_ms": 0.3791000000000011
+        },
+        {
+          "label": "folded",
+          "median_ms": 29.5308,
+          "ms_per_step": 3.69135,
+          "min_ms": 29.1801,
+          "max_ms": 31.0365,
+          "iqr_ms": 0.22499999999999787
+        },
+        {
+          "label": "folded-without-reduction",
+          "median_ms": 29.419199999999996,
+          "ms_per_step": 3.6773999999999996,
+          "min_ms": 28.9485,
+          "max_ms": 31.1488,
+          "iqr_ms": 0.38000000000000256
+        }
+      ],
+      "resolution_ms": 0.3813999999999993,
+      "range_resolution_ms": 1.2936999999999994,
+      "folded_over_fused": 1.0037763811323706,
+      "folded_minus_fused_ms": 0.11110000000000042,
+      "folded_beats_fused_beyond_resolution": false,
+      "folded_minus_without_reduction_ms": 0.11160000000000281,
+      "without_reduction_minus_fused_ms": -0.0005000000000023874,
+      "reduction_tail_beyond_resolution": false,
+      "counters_beyond_resolution": false,
+      "note": "folded-minus-without-reduction is the reduction tail: one workgroup per head, one dependent add chain per channel, run after every other workgroup of the dispatch has finished. without-reduction-minus-fused is the atomics, barriers and partial stores credited against the separate reduce dispatch they replace, so its value is what the counters cost *after* that credit and may legitimately be negative. resolution_ms is the widest leg's interquartile range and range_resolution_ms its half-range; a delta at or below the former is inside this run's noise, which is why each component also carries a *_beyond_resolution flag rather than only a sign. At batch 1 there is no counter and no reduction; the folded leg is the whole fold."
+    },
+    {
+      "result": "pass",
+      "profile": "folded-publication",
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "head_size": 16,
+      "batch": 16,
+      "steps": 8,
+      "samples": 40,
+      "warmup": 3,
+      "staged_schedule": "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "fused_schedule": "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "folded_schedule": "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "key_parameter_atol": 0.0,
+      "staged_key_parameter_max_abs": 0.02518707886338234,
+      "folded_key_parameter_max_abs": 0.0,
+      "without_reduction_key_parameter_max_abs": 0.02518707886338234,
+      "legs": [
+        {
+          "label": "staged",
+          "median_ms": 40.8843,
+          "ms_per_step": 5.1105375,
+          "min_ms": 40.510600000000004,
+          "max_ms": 43.2315,
+          "iqr_ms": 0.24730000000000274
+        },
+        {
+          "label": "fused",
+          "median_ms": 41.00905,
+          "ms_per_step": 5.12613125,
+          "min_ms": 40.4985,
+          "max_ms": 43.109500000000004,
+          "iqr_ms": 0.5859000000000023
+        },
+        {
+          "label": "folded",
+          "median_ms": 41.120850000000004,
+          "ms_per_step": 5.1401062500000005,
+          "min_ms": 40.7126,
+          "max_ms": 44.2148,
+          "iqr_ms": 0.5949000000000026
+        },
+        {
+          "label": "folded-without-reduction",
+          "median_ms": 40.94865,
+          "ms_per_step": 5.11858125,
+          "min_ms": 40.3612,
+          "max_ms": 42.9304,
+          "iqr_ms": 0.5794999999999959
+        }
+      ],
+      "resolution_ms": 0.5949000000000026,
+      "range_resolution_ms": 1.7510999999999974,
+      "folded_over_fused": 1.0027262275034414,
+      "folded_minus_fused_ms": 0.11180000000000234,
+      "folded_beats_fused_beyond_resolution": false,
+      "folded_minus_without_reduction_ms": 0.17220000000000368,
+      "without_reduction_minus_fused_ms": -0.06040000000000134,
+      "reduction_tail_beyond_resolution": false,
+      "counters_beyond_resolution": false,
+      "note": "folded-minus-without-reduction is the reduction tail: one workgroup per head, one dependent add chain per channel, run after every other workgroup of the dispatch has finished. without-reduction-minus-fused is the atomics, barriers and partial stores credited against the separate reduce dispatch they replace, so its value is what the counters cost *after* that credit and may legitimately be negative. resolution_ms is the widest leg's interquartile range and range_resolution_ms its half-range; a delta at or below the former is inside this run's noise, which is why each component also carries a *_beyond_resolution flag rather than only a sign. At batch 1 there is no counter and no reduction; the folded leg is the whole fold."
+    },
+    {
+      "result": "pass",
+      "profile": "folded-publication",
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "head_size": 16,
+      "batch": 32,
+      "steps": 8,
+      "samples": 40,
+      "warmup": 3,
+      "staged_schedule": "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "fused_schedule": "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "folded_schedule": "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "key_parameter_atol": 0.0,
+      "staged_key_parameter_max_abs": 0.03211284056305885,
+      "folded_key_parameter_max_abs": 0.0,
+      "without_reduction_key_parameter_max_abs": 0.03211284056305885,
+      "legs": [
+        {
+          "label": "staged",
+          "median_ms": 65.07284999999999,
+          "ms_per_step": 8.134106249999999,
+          "min_ms": 64.7464,
+          "max_ms": 67.0272,
+          "iqr_ms": 0.42369999999999663
+        },
+        {
+          "label": "fused",
+          "median_ms": 64.7764,
+          "ms_per_step": 8.09705,
+          "min_ms": 64.3093,
+          "max_ms": 67.8617,
+          "iqr_ms": 0.9441000000000059
+        },
+        {
+          "label": "folded",
+          "median_ms": 64.684,
+          "ms_per_step": 8.0855,
+          "min_ms": 64.21159999999999,
+          "max_ms": 66.5947,
+          "iqr_ms": 0.7608999999999924
+        },
+        {
+          "label": "folded-without-reduction",
+          "median_ms": 64.86699999999999,
+          "ms_per_step": 8.108374999999999,
+          "min_ms": 63.9904,
+          "max_ms": 67.5694,
+          "iqr_ms": 1.231800000000007
+        }
+      ],
+      "resolution_ms": 1.231800000000007,
+      "range_resolution_ms": 1.7895000000000003,
+      "folded_over_fused": 0.9985735545661691,
+      "folded_minus_fused_ms": -0.09239999999999782,
+      "folded_beats_fused_beyond_resolution": false,
+      "folded_minus_without_reduction_ms": -0.18299999999999272,
+      "without_reduction_minus_fused_ms": 0.0905999999999949,
+      "reduction_tail_beyond_resolution": false,
+      "counters_beyond_resolution": false,
+      "note": "folded-minus-without-reduction is the reduction tail: one workgroup per head, one dependent add chain per channel, run after every other workgroup of the dispatch has finished. without-reduction-minus-fused is the atomics, barriers and partial stores credited against the separate reduce dispatch they replace, so its value is what the counters cost *after* that credit and may legitimately be negative. resolution_ms is the widest leg's interquartile range and range_resolution_ms its half-range; a delta at or below the former is inside this run's noise, which is why each component also carries a *_beyond_resolution flag rather than only a sign. At batch 1 there is no counter and no reduction; the folded leg is the whole fold."
+    }
+  ]
+}

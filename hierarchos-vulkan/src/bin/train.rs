@@ -18,9 +18,10 @@ use hierarchos_vulkan::{
     encode_portable_replay_json, encode_portable_running_carriers, read_model_ltm_running_state,
     read_portable_replay_json_field, read_portable_running_carriers, AdamWHyperParams,
     HierarchosBudgetedTokenTapeTrainResult, HierarchosDataStreamCursorState,
-    HierarchosExecutionPolicyState, HierarchosFullModelReplicaTransportSource,
-    HierarchosJointTrainingAdapterConstraint, HierarchosLabeledSequenceObjective,
-    HierarchosLanguageLossSummary, HierarchosLearningRateScheduleState, HierarchosLossScalingState,
+    HierarchosExecutionPolicyState, HierarchosFullModelReplicaState,
+    HierarchosFullModelReplicaTransportSource, HierarchosJointTrainingAdapterConstraint,
+    HierarchosLabeledSequenceObjective, HierarchosLanguageLossSummary,
+    HierarchosLearningRateScheduleState, HierarchosLossScalingState,
     HierarchosPendingGradientTransportSource, HierarchosPortableLtmRunningState,
     HierarchosPortableReplayTensor, HierarchosPortableRunningCarriers,
     HierarchosPortableTrainingReplay, HierarchosRawTokenLabeledSequenceInput,
@@ -29,8 +30,9 @@ use hierarchos_vulkan::{
     HierarchosReplicaStateTimelineReservation, HierarchosStochasticRngPolicyState,
     HierarchosTapeMemoryPolicy, HierarchosTokenTapeReadbackPolicy, HierarchosTokenTapeUpdateMode,
     HierarchosTrainingCheckpointManifest, HierarchosTrainingGraph,
-    HierarchosTrainingPrecisionPolicy, HierarchosTrainingSessionState, VulkanDevice,
-    VulkanGradientTransportBackend, VulkanPhysicalDeviceInfo, VulkanSubmissionArenaStats,
+    HierarchosTrainingPrecisionPolicy, HierarchosTrainingSessionState,
+    PendingGradientShardMetadata, VulkanDevice, VulkanGradientTransportBackend,
+    VulkanPhysicalDeviceInfo, VulkanSubmissionArenaStats,
     HIERARCHOS_VULKAN_DATA_STREAM_CURSOR_FORMAT, HIERARCHOS_VULKAN_EXECUTION_POLICY_FORMAT,
     HIERARCHOS_VULKAN_PORTABLE_REPLAY_FORMAT, HIERARCHOS_VULKAN_PORTABLE_SAMPLER_RNG_ALGORITHM,
     HIERARCHOS_VULKAN_TRAINING_MANIFEST_FILENAME, HIERARCHOS_VULKAN_TRAINING_PRECISION_ENV,
@@ -174,6 +176,13 @@ struct Args {
     device_index: Option<usize>,
     device_indices: Option<Vec<usize>>,
     gradient_stream_chunk_values: usize,
+    remote_peer: Option<String>,
+    rank: usize,
+    world_size: usize,
+    peer_ip: Option<String>,
+    rdma_device: Option<String>,
+    network_transport: Option<String>,
+    distributed_mode: String,
     json_events: bool,
 }
 
@@ -412,6 +421,13 @@ fn parse_args() -> Result<Args> {
     let mut device_index = None;
     let mut device_indices = None;
     let mut gradient_stream_chunk_values = DEFAULT_MULTI_DEVICE_GRADIENT_STREAM_CHUNK_VALUES;
+    let mut remote_peer = None;
+    let mut rank = 0usize;
+    let mut world_size = 1usize;
+    let mut peer_ip = None;
+    let mut rdma_device = None;
+    let mut network_transport = None;
+    let mut distributed_mode = "param-server".to_string();
     let mut json_events = false;
 
     let mut args = std::env::args_os().skip(1);
@@ -563,6 +579,41 @@ fn parse_args() -> Result<Args> {
                     "--gradient-stream-chunk-values",
                 )?
             }
+            "--remote-peer" => {
+                remote_peer = Some(parse_value(
+                    required_value(&mut args, "--remote-peer")?,
+                    "--remote-peer",
+                )?)
+            }
+            "--rank" => rank = parse_value(required_value(&mut args, "--rank")?, "--rank")?,
+            "--world-size" => {
+                world_size =
+                    parse_value(required_value(&mut args, "--world-size")?, "--world-size")?
+            }
+            "--peer-ip" => {
+                peer_ip = Some(parse_value(
+                    required_value(&mut args, "--peer-ip")?,
+                    "--peer-ip",
+                )?)
+            }
+            "--network-transport" => {
+                network_transport = Some(parse_value(
+                    required_value(&mut args, "--network-transport")?,
+                    "--network-transport",
+                )?);
+            }
+            "--rdma-device" => {
+                rdma_device = Some(parse_value(
+                    required_value(&mut args, "--rdma-device")?,
+                    "--rdma-device",
+                )?)
+            }
+            "--distributed-mode" => {
+                distributed_mode = parse_value(
+                    required_value(&mut args, "--distributed-mode")?,
+                    "--distributed-mode",
+                )?
+            }
             "--persist-state" => persist_state = true,
             "--no-shuffle" => shuffle = false,
             "--json-events" => json_events = true,
@@ -578,6 +629,7 @@ fn parse_args() -> Result<Args> {
                      [--tbptt-chunk-size N] [--device-index N | --device-indices N,N,...] \
                      [--trainable-prefix CANONICAL_NAME_PREFIX]... \
                      [--gradient-stream-chunk-values N] \
+                     [--remote-peer IP_ADDR] \
                      [--joint-runtime-profile vulkan_joint_runtime_profile.v1.json] \
                      [--lock-joint-runtime-profile] \
                      [--persist-state] [--seed N] [--no-shuffle] [--json-events]\n\n\
@@ -594,6 +646,10 @@ fn parse_args() -> Result<Args> {
                      --device-indices enables synchronous data-parallel Vulkan training across the \
                      listed physical adapters; independent optimizer-window microbatches are sharded \
                      contiguously by token workload, then reduced in logical order on the first adapter.\n\
+                     --world-size 2 --rank 0|1 --peer-ip ADDRESS enables two-machine training; \
+                     --network-transport tcp works on Windows/Linux. Linux RDMA requires \
+                     --features rdma at build time and --network-transport rdma --rdma-device DEVICE. \
+                     --distributed-mode selects param-server (default) or allreduce.\n\
                      --gradient-stream-chunk-values bounds the FP32 values resident in each cross-adapter \
                      staging window; larger chunks reduce queue submissions at the cost of bounded host-visible memory.\n\
                      --batch-size defaults to 32 rows per step because that is where the measured \
@@ -660,6 +716,13 @@ fn parse_args() -> Result<Args> {
         device_index,
         device_indices,
         gradient_stream_chunk_values,
+        remote_peer,
+        rank,
+        world_size,
+        peer_ip,
+        rdma_device,
+        network_transport,
+        distributed_mode,
         json_events,
     };
     validate_args(&args)?;
@@ -706,6 +769,56 @@ fn validate_args(args: &Args) -> Result<()> {
     }
     if let Some(chunk) = args.tbptt_chunk_size {
         anyhow::ensure!(chunk > 0, "--tbptt-chunk-size must be positive");
+    }
+    if args.world_size > 1 {
+        anyhow::ensure!(
+            args.world_size == 2,
+            "distributed training currently supports exactly two ranks (--world-size 2)"
+        );
+        anyhow::ensure!(
+            args.rank < args.world_size,
+            "--rank must be smaller than --world-size"
+        );
+        anyhow::ensure!(
+            args.peer_ip.is_some(),
+            "--peer-ip is required when --world-size > 1"
+        );
+        let transport =
+            args.network_transport
+                .as_deref()
+                .unwrap_or(if args.rdma_device.is_some() {
+                    "rdma"
+                } else {
+                    "tcp"
+                });
+        anyhow::ensure!(
+            transport == "tcp" || transport == "rdma",
+            "--network-transport must be tcp or rdma"
+        );
+        anyhow::ensure!(
+            transport != "tcp" || args.rdma_device.is_none(),
+            "--rdma-device cannot be combined with --network-transport tcp"
+        );
+        let device = if transport == "tcp" {
+            "tcp"
+        } else {
+            args.rdma_device
+                .as_deref()
+                .context("--rdma-device is required for RDMA")?
+        };
+        hierarchos_vulkan::distributed::validate_transport(device)?;
+        anyhow::ensure!(
+            args.device_indices.is_none(),
+            "distributed multi-node training uses one device per rank; do not combine --world-size with --device-indices"
+        );
+        anyhow::ensure!(
+            !args.persist_state,
+            "--persist-state is not supported with --world-size > 1"
+        );
+        anyhow::ensure!(
+            args.distributed_mode == "param-server" || args.distributed_mode == "allreduce",
+            "--distributed-mode must be 'param-server' or 'allreduce'"
+        );
     }
     if !args.trainable_prefixes.is_empty() {
         anyhow::ensure!(
@@ -5402,6 +5515,517 @@ fn finish_dynamic_full_model_accumulation_behind_replica_broadcast(
     ))
 }
 
+/// Cross-node RDMA training ports and chunking (Phase R1e).
+const DISTRIBUTED_GRADIENT_CONTROL_PORT: u16 = 18515;
+const DISTRIBUTED_WEIGHT_CONTROL_PORT: u16 = 18516;
+const DISTRIBUTED_WEIGHT_CHUNK_BYTES: usize = 256 * 1024;
+const DISTRIBUTED_GRADIENT_RING: usize = 8;
+const DISTRIBUTED_WEIGHT_RING: usize = 16;
+
+/// One rank's pair of single-direction RDMA channels.
+///
+/// Gradient channel: replica -> primary. Weight channel: primary -> replica.
+/// Each channel keeps its TCP control socket open for per-message metadata
+/// (gradient shard headers, weight-state skeletons, READY handshake).
+#[allow(dead_code)]
+enum DistributedRankChannels {
+    Primary {
+        grad_source: hierarchos_vulkan::distributed::NetworkGradientSource,
+        grad_ctl: std::net::TcpStream,
+        weight_sink: hierarchos_vulkan::distributed::NetworkSendChannel,
+        weight_ctl: std::net::TcpStream,
+    },
+    Replica {
+        grad_sink: hierarchos_vulkan::distributed::NetworkSendChannel,
+        grad_ctl: std::net::TcpStream,
+        weight_source: hierarchos_vulkan::distributed::NetworkGradientSource,
+        weight_ctl: std::net::TcpStream,
+    },
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_distributed_epochs(
+    args: &Args,
+    graph: &mut HierarchosTrainingGraph,
+    dataset: &[DatasetRow],
+    dataset_lengths: &[u64],
+    full_batch_count: usize,
+    config: &ModelConfig,
+    cursor: &mut HierarchosDataStreamCursorState,
+    objective: HierarchosLabeledSequenceObjective,
+    schedule: &HierarchosLearningRateScheduleState,
+    context_len: usize,
+    training_precision: HierarchosTrainingPrecisionPolicy,
+    run_identity: &serde_json::Value,
+) -> Result<()> {
+    use std::io::{BufRead, Write};
+    let rank = args.rank;
+    let world_size = args.world_size;
+    let is_primary = rank == 0;
+    let peer = args
+        .peer_ip
+        .as_deref()
+        .context("--peer-ip is required for distributed training")?;
+    let rdma_device = args.rdma_device.as_deref().unwrap_or("tcp");
+    let network_transport = if rdma_device == "tcp" {
+        "network-tcp"
+    } else {
+        "network-rdma"
+    };
+    let grad_chunk_values = args.gradient_stream_chunk_values;
+    // In allreduce mode BOTH channels carry gradient chunks, so the weight
+    // channel must be sized to the gradient chunk width, not the weight width.
+    let weight_chunk_values = if args.distributed_mode == "allreduce" {
+        grad_chunk_values
+    } else {
+        DISTRIBUTED_WEIGHT_CHUNK_BYTES / 4
+    };
+
+    eprintln!(
+        "distributed_training rank={rank} world_size={world_size} role={} peer={peer} transport={network_transport} device={rdma_device} grad_chunk_values={grad_chunk_values}",
+        if is_primary { "primary" } else { "replica" }
+    );
+
+    // Deadlock-free channel setup. The replica signals READY over the gradient
+    // control socket only after binding its weight listener, so the primary
+    // cannot connect to the weight port before it exists.
+    let mut channels = if is_primary {
+        let grad_addr: std::net::SocketAddr =
+            format!("0.0.0.0:{DISTRIBUTED_GRADIENT_CONTROL_PORT}").parse()?;
+        let (grad_source, mut grad_ctl) =
+            hierarchos_vulkan::distributed::NetworkGradientSource::connect_with_control(
+                rdma_device,
+                grad_addr,
+                grad_chunk_values,
+                DISTRIBUTED_GRADIENT_RING,
+            )?;
+        let mut ready = String::new();
+        BufReader::new(&mut grad_ctl).read_line(&mut ready)?;
+        let weight_addr: std::net::SocketAddr =
+            format!("{peer}:{DISTRIBUTED_WEIGHT_CONTROL_PORT}").parse()?;
+        let (weight_sink, weight_ctl) =
+            hierarchos_vulkan::distributed::NetworkSendChannel::connect_with_control(
+                rdma_device,
+                weight_addr,
+                false,
+                weight_chunk_values,
+                DISTRIBUTED_WEIGHT_RING,
+            )?;
+        DistributedRankChannels::Primary {
+            grad_source,
+            grad_ctl,
+            weight_sink,
+            weight_ctl,
+        }
+    } else {
+        let grad_addr: std::net::SocketAddr =
+            format!("{peer}:{DISTRIBUTED_GRADIENT_CONTROL_PORT}").parse()?;
+        let (grad_sink, mut grad_ctl) =
+            hierarchos_vulkan::distributed::NetworkSendChannel::connect_with_control(
+                rdma_device,
+                grad_addr,
+                false,
+                grad_chunk_values,
+                DISTRIBUTED_GRADIENT_RING,
+            )?;
+        let weight_listener =
+            std::net::TcpListener::bind(format!("0.0.0.0:{DISTRIBUTED_WEIGHT_CONTROL_PORT}"))?;
+        grad_ctl.write_all(b"READY\n")?;
+        grad_ctl.flush()?;
+        let (weight_source, weight_ctl) =
+            hierarchos_vulkan::distributed::NetworkGradientSource::connect_with_bound_listener(
+                rdma_device,
+                weight_listener,
+                weight_chunk_values,
+                DISTRIBUTED_WEIGHT_RING,
+            )?;
+        DistributedRankChannels::Replica {
+            grad_sink,
+            grad_ctl,
+            weight_source,
+            weight_ctl,
+        }
+    };
+
+    // Initial state sync: both ranks built their graphs from the same model
+    // package, but the primary broadcasts its state once so the optimizer and
+    // training-step metadata are byte-identical from window zero in both modes.
+    // Identical filenames on two machines are not proof of identical weights.
+    match &mut channels {
+        DistributedRankChannels::Primary {
+            weight_sink,
+            weight_ctl,
+            ..
+        } => {
+            let state = graph.full_model_replica_state()?;
+            let bytes = state.send_full_model_replica_state_over_remote(
+                weight_sink,
+                weight_ctl,
+                weight_chunk_values
+                    .checked_mul(4)
+                    .context("weight chunk byte size overflow")?,
+            )?;
+            eprintln!("distributed_training initial_weight_sync bytes={bytes}");
+        }
+        DistributedRankChannels::Replica {
+            weight_source,
+            weight_ctl,
+            ..
+        } => {
+            let state =
+                HierarchosFullModelReplicaState::receive_full_model_replica_state_over_remote(
+                    weight_source,
+                    weight_ctl,
+                )?;
+            graph.load_full_model_replica_state(&state)?;
+            eprintln!("distributed_training initial_weight_sync applied");
+        }
+    }
+    let mut optimizer_step = graph.full_model_optimizer_state()?.step;
+
+    emit_gui_event(
+        args.json_events,
+        serde_json::json!({
+            "event": "training_started",
+            "backend": "vulkan-distributed",
+            "rank": rank,
+            "world_size": world_size,
+            "epochs": args.epochs,
+            "batches_per_epoch": full_batch_count,
+            "output_dir": args.output_dir.display().to_string(),
+            "checkpoint_abi": "pytorch-safetensors-fp32-master",
+        }),
+    );
+
+    let mut epoch_loss_sum = 0.0f64;
+    let mut epoch_loss_values = 0usize;
+
+    while cursor.epoch < args.epochs {
+        let epoch = cursor.epoch;
+        let batch_index = usize::try_from(cursor.batch_cursor)
+            .context("native batch cursor exceeds host usize range")?;
+        if batch_index % args.gradient_accumulation_steps == 0 {
+            let window_batch_count = args
+                .gradient_accumulation_steps
+                .min(full_batch_count - batch_index);
+            let mut window_cursor = cursor.clone();
+            let mut packed_batches = Vec::with_capacity(window_batch_count);
+            for window_batch_index in 0..window_batch_count {
+                let batch_indices = window_cursor
+                    .current_batch_indices(Some(dataset_lengths))?
+                    .context("native data cursor has no runnable budgeted batch")?;
+                anyhow::ensure!(
+                    batch_indices.len() == args.batch_size,
+                    "drop-last native trainer produced a partial budgeted batch"
+                );
+                let batch_rows = batch_indices
+                    .iter()
+                    .map(|&index| &dataset[index])
+                    .collect::<Vec<_>>();
+                packed_batches.push(pack_batch(&batch_rows, config.vocab_size)?);
+                let rolled_epoch = window_cursor.advance_batch()?;
+                anyhow::ensure!(
+                    !rolled_epoch || window_batch_index + 1 == window_batch_count,
+                    "distributed optimizer window crossed an epoch boundary before its final batch"
+                );
+            }
+
+            // Data-parallel shard: rank r trains on batches where i % world_size == r.
+            let my_packed: Vec<_> = packed_batches
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| i % world_size == rank)
+                .map(|(_, packed)| packed)
+                .collect();
+            anyhow::ensure!(
+                !my_packed.is_empty(),
+                "distributed rank shard is empty (world_size={world_size} >= window batches)"
+            );
+
+            let zero_context = vec![0.0f32; context_len];
+            let labeled_inputs = my_packed
+                .iter()
+                .map(|packed| HierarchosRawTokenLabeledSequenceInput {
+                    tokens: packed.tokens,
+                    input_ids: &packed.input_ids,
+                    labels: &packed.labels,
+                    attention_mask: Some(&packed.attention_mask),
+                    loss_weights: Some(&packed.loss_weights),
+                    initial_previous_context: &zero_context,
+                    initial_target_context: &zero_context,
+                    global_pos_offset: 0,
+                    reset_rosa_at_start: true,
+                    pytorch_tbptt_chunk_size: args.tbptt_chunk_size,
+                })
+                .collect::<Vec<_>>();
+            let live_lr = schedule_live_lr(schedule, args.learning_rate)?;
+            let hyper = AdamWHyperParams {
+                lr: live_lr,
+                beta1: args.beta1,
+                beta2: args.beta2,
+                eps: args.eps,
+                weight_decay: args.weight_decay,
+            };
+
+            let started = std::time::Instant::now();
+            let result = graph
+                .train_zero_state_raw_token_labeled_sequences_budgeted_with_update_mode(
+                    args.batch_size,
+                    &labeled_inputs,
+                    objective,
+                    hyper,
+                    HierarchosTokenTapeUpdateMode::BeginAccumulation,
+                    HierarchosTapeMemoryPolicy::default(),
+                    HierarchosTokenTapeReadbackPolicy::LossOnly,
+                )?;
+            let compute_seconds = started.elapsed().as_secs_f64();
+
+            if args.distributed_mode == "allreduce" {
+                // Phase R2: pairwise gradient allreduce + local optimizer step.
+                // Channel roles: rank 0 sends on the weight channel and
+                // receives on the gradient channel; rank 1 the inverse.
+                // Metadata ordering avoids deadlock: rank 1 sends then reads;
+                // rank 0 reads then sends.
+                let (send_sink, recv_source, send_ctl, recv_ctl, send_first) = match &mut channels {
+                    DistributedRankChannels::Primary {
+                        grad_source,
+                        grad_ctl,
+                        weight_sink,
+                        weight_ctl,
+                    } => (weight_sink, grad_source, weight_ctl, grad_ctl, false),
+                    DistributedRankChannels::Replica {
+                        grad_sink,
+                        grad_ctl,
+                        weight_source,
+                        weight_ctl,
+                    } => (grad_sink, weight_source, grad_ctl, weight_ctl, true),
+                };
+                let source = graph.full_model_pending_gradient_transport_source()?;
+                let my_metadata = source.metadata.clone();
+                let peer_metadata: PendingGradientShardMetadata = if send_first {
+                    let mut line = serde_json::to_string(&my_metadata)?;
+                    line.push('\n');
+                    send_ctl.write_all(line.as_bytes())?;
+                    send_ctl.flush()?;
+                    let mut line = String::new();
+                    BufReader::new(&mut *recv_ctl).read_line(&mut line)?;
+                    serde_json::from_str(line.trim()).context("peer gradient metadata")?
+                } else {
+                    let mut line = String::new();
+                    BufReader::new(&mut *recv_ctl).read_line(&mut line)?;
+                    let peer =
+                        serde_json::from_str(line.trim()).context("peer gradient metadata")?;
+                    let mut mine = serde_json::to_string(&my_metadata)?;
+                    mine.push('\n');
+                    send_ctl.write_all(mine.as_bytes())?;
+                    send_ctl.flush()?;
+                    peer
+                };
+                let stream = graph.allreduce_pending_gradients_with_remote(
+                    &source,
+                    &peer_metadata,
+                    send_sink,
+                    recv_source,
+                    args.gradient_stream_chunk_values,
+                )?;
+                let finish = graph
+                    .finish_full_model_accumulation_with_gradient_clipping(hyper, args.grad_clip)?;
+                anyhow::ensure!(
+                    finish.stepped,
+                    "allreduce optimizer window rejected non-finite gradients after normalization; global_norm={}",
+                    finish.total_norm
+                );
+                optimizer_step = finish.full_model_optimizer.step;
+                // Bit-exact weight verification across ranks.
+                let my_sum = graph.full_model_weight_checksum()?;
+                let peer_sum = if send_first {
+                    let mut msg = my_sum.clone();
+                    msg.push('\n');
+                    send_ctl.write_all(msg.as_bytes())?;
+                    send_ctl.flush()?;
+                    let mut line = String::new();
+                    BufReader::new(&mut *recv_ctl).read_line(&mut line)?;
+                    line.trim().to_string()
+                } else {
+                    let mut line = String::new();
+                    BufReader::new(&mut *recv_ctl).read_line(&mut line)?;
+                    let peer = line.trim().to_string();
+                    let mut msg = my_sum.clone();
+                    msg.push('\n');
+                    send_ctl.write_all(msg.as_bytes())?;
+                    send_ctl.flush()?;
+                    peer
+                };
+                let in_sync = my_sum == peer_sum;
+                eprintln!(
+                    "allreduce_window rank={rank} chunks={} values={} optimizer_step={optimizer_step} weights_in_sync={} compute_seconds={compute_seconds:.2}",
+                    stream.chunk_count, stream.value_count, in_sync
+                );
+                anyhow::ensure!(in_sync,
+                    "allreduce weight divergence at optimizer_step={optimizer_step}: local={} peer={}",
+                    my_sum, peer_sum);
+            } else {
+                match &mut channels {
+                    DistributedRankChannels::Replica {
+                        grad_sink,
+                        grad_ctl,
+                        weight_source,
+                        weight_ctl,
+                    } => {
+                        // Detach the open window's gradients, send the metadata then
+                        // the chunk stream, close the window, adopt the new state.
+                        let source = graph.full_model_pending_gradient_transport_source()?;
+                        let mut line = serde_json::to_string(&source.metadata)?;
+                        line.push('\n');
+                        grad_ctl.write_all(line.as_bytes())?;
+                        grad_ctl.flush()?;
+                        let stream = graph
+                            .stream_full_model_pending_gradients_from_source_to_remote(
+                                &source,
+                                grad_sink,
+                                args.gradient_stream_chunk_values,
+                            )?;
+                        graph.discard_full_model_accumulation_after_overflow()?;
+                        let state =
+                        HierarchosFullModelReplicaState::receive_full_model_replica_state_over_remote(
+                            weight_source, weight_ctl,
+                        )?;
+                        graph.load_full_model_replica_state(&state)?;
+                        optimizer_step = state.optimizer.step;
+                        eprintln!(
+                        "distributed_window rank={rank} gradient_stream_chunks={} gradient_stream_values={} optimizer_step={optimizer_step} compute_seconds={compute_seconds:.2}",
+                        stream.chunk_count, stream.value_count
+                    );
+                    }
+                    DistributedRankChannels::Primary {
+                        grad_source,
+                        grad_ctl,
+                        weight_sink,
+                        weight_ctl,
+                    } => {
+                        let mut line = String::new();
+                        BufReader::new(grad_ctl).read_line(&mut line)?;
+                        let metadata: PendingGradientShardMetadata =
+                            serde_json::from_str(line.trim())
+                                .context("replica gradient metadata")?;
+                        let stream = graph
+                            .accumulate_full_model_pending_gradients_streamed_from_remote(
+                                grad_source,
+                                &metadata,
+                                args.gradient_stream_chunk_values,
+                            )?;
+                        let finish = graph.finish_full_model_accumulation_with_gradient_clipping(
+                            hyper,
+                            args.grad_clip,
+                        )?;
+                        anyhow::ensure!(
+                        finish.stepped,
+                        "distributed optimizer window rejected non-finite gradients after normalization; global_norm={}",
+                        finish.total_norm
+                    );
+                        optimizer_step = finish.full_model_optimizer.step;
+                        let state = graph.full_model_replica_state()?;
+                        state.send_full_model_replica_state_over_remote(
+                            weight_sink,
+                            weight_ctl,
+                            DISTRIBUTED_WEIGHT_CHUNK_BYTES,
+                        )?;
+                        eprintln!(
+                        "distributed_window rank={rank} gradient_stream_chunks={} gradient_stream_values={} optimizer_step={optimizer_step} compute_seconds={compute_seconds:.2}",
+                        stream.chunk_count, stream.value_count
+                    );
+                    }
+                }
+            }
+
+            for loss in result
+                .sequences
+                .into_iter()
+                .flat_map(|sequence| sequence.losses)
+                .filter(|value| value.is_finite())
+            {
+                epoch_loss_sum += f64::from(loss);
+                epoch_loss_values += 1;
+            }
+        }
+
+        let rolled_epoch = cursor.advance_batch()?;
+        emit_gui_event(
+            args.json_events,
+            serde_json::json!({
+                "event": "training_metrics",
+                "backend": "vulkan-distributed",
+                "epoch": epoch + 1,
+                "step": batch_index + 1,
+                "optimizer_step": optimizer_step,
+                "loss": if epoch_loss_values == 0 { 0.0 } else { epoch_loss_sum / epoch_loss_values as f64 },
+                "loss_available": epoch_loss_values > 0,
+                "lr": schedule_live_lr(schedule, args.learning_rate)?,
+            }),
+        );
+        if rolled_epoch {
+            let mean_loss = if epoch_loss_values == 0 {
+                f64::NAN
+            } else {
+                epoch_loss_sum / epoch_loss_values as f64
+            };
+            eprintln!(
+                "epoch {}/{}: batches={} optimizer_step={} live_lr={:.8e} mean_recorded_loss={:.6}",
+                epoch + 1,
+                args.epochs,
+                full_batch_count,
+                optimizer_step,
+                schedule_live_lr(schedule, args.learning_rate)?,
+                mean_loss,
+            );
+            epoch_loss_sum = 0.0;
+            epoch_loss_values = 0;
+        }
+    }
+
+    if is_primary {
+        let previous_context = vec![0.0f32; context_len];
+        let target_context = vec![0.0f32; context_len];
+        graph
+            .synchronize_ltm_alignment_controller_metadata()
+            .context("synchronizing Vulkan LTM checkpoint metadata")?;
+        let execution_policy = training_execution_policy(training_precision, None);
+        let replay = portable_training_replay(
+            graph,
+            args,
+            cursor,
+            schedule,
+            0,
+            execution_policy,
+            None,
+            None,
+            &previous_context,
+            &target_context,
+            None,
+            run_identity,
+        )?;
+        graph
+            .export_training_checkpoint_package_with_replay(
+                &args.model_dir,
+                &args.output_dir,
+                &replay,
+            )
+            .with_context(|| {
+                format!(
+                    "exporting distributed training package to {}",
+                    args.output_dir.display()
+                )
+            })?;
+        eprintln!(
+            "distributed_training complete rank=0 output_dir={}",
+            args.output_dir.display()
+        );
+    } else {
+        eprintln!("distributed_training complete rank={rank}");
+    }
+    Ok(())
+}
+
 fn train_budgeted_window(
     primary: &mut HierarchosTrainingGraph,
     replica_pool: &ReplicaWorkerPool,
@@ -6890,6 +7514,18 @@ fn run() -> Result<()> {
             args.gradient_stream_chunk_values,
         )
         .context("building full Hierarchos Vulkan training graph")?;
+
+    // --remote-peer: cross-node RDMA gradient exchange is enabled.
+    // The graph's accumulate_from_remote is available for receiving gradient
+    // shards from the peer over the RoCE link (distributed::RdmaLink).
+    // Full send/receive orchestration is wired in Phase R1e.
+    if args.remote_peer.is_some() {
+        eprintln!(
+            "[remote-peer] RDMA receive path enabled (peer={}); accumulate_from_remote ready",
+            args.remote_peer.as_deref().unwrap_or("")
+        );
+    }
+
     let (active_trainable_tensors, frozen_trainable_tensors) = graph
         .set_trainable_parameter_prefixes(&args.trainable_prefixes)
         .context("configuring Vulkan trainable-parameter selection")?;
@@ -7233,6 +7869,24 @@ fn run() -> Result<()> {
     let mut total_replica_state_host_fallbacks = 0u64;
     let mut epoch_language_loss = HierarchosLanguageLossSummary::default();
     let start_epoch = cursor.epoch;
+
+    if args.world_size > 1 {
+        return run_distributed_epochs(
+            &args,
+            &mut graph,
+            &dataset,
+            &dataset_lengths,
+            full_batch_count,
+            &config,
+            &mut cursor,
+            objective,
+            &schedule,
+            context_len,
+            training_precision,
+            &run_identity,
+        )
+        .context("running distributed multi-node training epochs");
+    }
 
     while cursor.epoch < args.epochs {
         let epoch = cursor.epoch;
@@ -8088,6 +8742,8 @@ fn run() -> Result<()> {
             Some(VulkanGradientTransportBackend::HostVisibleStagedV2Pipelined) => {
                 "host-visible-staged-v2-pipelined"
             }
+            Some(VulkanGradientTransportBackend::NetworkRdma) => "network-rdma-v1-host-staged",
+            Some(VulkanGradientTransportBackend::NetworkTcp) => "network-tcp-v1-host-staged",
             None => "host-visible-staged-v2-pipelined",
         }
     } else if observed_gradient_stream_backends.len() > 1 {

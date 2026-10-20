@@ -4,6 +4,8 @@ mod hierarchos_causal_lm_tests;
 
 use std::{
     collections::VecDeque,
+    io::{BufRead, BufReader, Write},
+    net::TcpStream,
     path::Path,
     sync::{Arc, Mutex},
     time::Instant,
@@ -20,9 +22,9 @@ use crate::control::{
 use crate::projection_graph::{GraphPackedStateSlotOp, ManagerWorkerProjectionGraph};
 use crate::rwkv_low_rank::RwkvLowRankFp16ParameterMirrors;
 use crate::rwkv_optimizer::{
-    OptimizerGenerationRangeConsumer, RwkvDecayClass, RwkvDeviceControlledStepPending,
-    RwkvParameterStorageMirrorBinding, RwkvPendingGradientSource, RwkvPersistentAdamW,
-    RwkvReplicaStatePlane, RwkvReplicaStateSource, RwkvTrainableRef,
+    AdamWDecayClass, AdamWOptimizerSlotState, OptimizerGenerationRangeConsumer, RwkvDecayClass,
+    RwkvDeviceControlledStepPending, RwkvParameterStorageMirrorBinding, RwkvPendingGradientSource,
+    RwkvPersistentAdamW, RwkvReplicaStatePlane, RwkvReplicaStateSource, RwkvTrainableRef,
 };
 use crate::rwkv_tbptt::{RwkvTbpttGraphTicket, RwkvTbpttGraphWorkspace};
 use crate::stochastic::HierarchosCanonicalRngState;
@@ -4296,6 +4298,7 @@ struct JointTransportResidency {
     device_group_lanes: usize,
     opaque_external_lanes: usize,
     host_staged_lanes: usize,
+    network_lanes: usize,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -4339,6 +4342,13 @@ fn joint_transport_residency_for_backends(
                     .checked_add(1)
                     .context("host-staged transport lane count overflow")?;
             }
+            VulkanGradientTransportBackend::NetworkRdma
+            | VulkanGradientTransportBackend::NetworkTcp => {
+                residency.network_lanes = residency
+                    .network_lanes
+                    .checked_add(1)
+                    .context("network-rdma transport lane count overflow")?;
+            }
         }
     }
 
@@ -4370,8 +4380,11 @@ fn joint_transport_residency_for_backends(
     // slot; on UMA implementations that heap may also be DEVICE_LOCAL, so keep
     // one conservative transient lane in the device-local envelope. Opaque
     // external gradient windows are already charged as persistent cache above.
-    residency.transient_active_lanes =
-        usize::from(residency.device_group_lanes > 0 || residency.host_staged_lanes > 0);
+    residency.transient_active_lanes = usize::from(
+        residency.device_group_lanes > 0
+            || residency.host_staged_lanes > 0
+            || residency.network_lanes > 0,
+    );
     residency.transient_phase_bytes = one_lane_bytes
         .checked_mul(residency.transient_active_lanes as u64)
         .context("transient primary transport byte count overflow")?;
@@ -4416,6 +4429,14 @@ fn joint_adapter_transport_residencies_for_backends(
                     transient_phase_bytes: one_lane_bytes,
                 }
             }
+            // Network transport stages through host pinned memory + RDMA, like
+            // host-staged: no persistent GPU cache (data is remote), one transient
+            // staging plane per active lane.
+            VulkanGradientTransportBackend::NetworkRdma
+            | VulkanGradientTransportBackend::NetworkTcp => JointAdapterTransportResidency {
+                persistent_bytes: 0,
+                transient_phase_bytes: one_lane_bytes,
+            },
         };
         adapters.push(residency);
     }
@@ -5957,7 +5978,7 @@ fn budgeted_chunk_update_mode(
 
 /// Controls how an outer token tape converts accumulated per-token gradients
 /// into the gradient consumed by the single sequence-level AdamW step.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum HierarchosSequenceGradientNormalization {
     /// Preserve the historical behavior: optimize the sum of token gradients.
     Sum,
@@ -6855,6 +6876,244 @@ pub struct HierarchosFullModelReplicaState {
     pub ltm_alignment_controller: HierarchosLtmAlignmentControllerState,
 }
 
+/// Wire skeleton for [`HierarchosFullModelReplicaState`] over RDMA: every
+/// fixed-size field plus tensor names and lengths. The f32 payload is a
+/// concatenation of blobs in the documented order, and the skeleton records
+/// how to re-split it (Phase R1e weight broadcast).
+#[derive(serde::Serialize, serde::Deserialize)]
+struct ReplicaStateWireSkeleton {
+    architecture_revision: String,
+    training_precision_policy: String,
+    training_step: Option<u64>,
+    ltm_alignment_controller: HierarchosLtmAlignmentControllerState,
+    optimizer_step: u32,
+    parameter_names: Vec<String>,
+    parameter_lens: Vec<usize>,
+    optimizer_slot_names: Vec<String>,
+    optimizer_slot_steps: Vec<u32>,
+    optimizer_slot_decay: Vec<Option<AdamWDecayClass>>,
+    optimizer_exp_avg_lens: Vec<usize>,
+    optimizer_exp_avg_sq_lens: Vec<usize>,
+}
+
+impl ReplicaStateWireSkeleton {
+    fn payload_values(&self) -> Result<usize> {
+        let slots = self.optimizer_slot_names.len();
+        anyhow::ensure!(
+            self.parameter_names.len() == self.parameter_lens.len()
+                && self.optimizer_slot_steps.len() == slots
+                && self.optimizer_slot_decay.len() == slots
+                && self.optimizer_exp_avg_lens.len() == slots
+                && self.optimizer_exp_avg_sq_lens.len() == slots,
+            "replica state skeleton has inconsistent tensor metadata lengths"
+        );
+        self.parameter_lens
+            .iter()
+            .chain(&self.optimizer_exp_avg_lens)
+            .chain(&self.optimizer_exp_avg_sq_lens)
+            .try_fold(0usize, |total, len| {
+                total
+                    .checked_add(*len)
+                    .context("replica state payload length overflow")
+            })
+    }
+}
+
+impl HierarchosFullModelReplicaState {
+    /// Serialize into (skeleton JSON, f32 payload bytes). Payload order:
+    /// parameters (values), then optimizer slots (exp_avg, exp_avg_sq).
+    pub fn wire_encode(&self) -> (String, Vec<u8>) {
+        let mut payload: Vec<u8> = Vec::new();
+        for param in &self.parameters {
+            payload.extend_from_slice(bytemuck::cast_slice(&param.values));
+        }
+        for slot in &self.optimizer.slots {
+            payload.extend_from_slice(bytemuck::cast_slice(&slot.exp_avg));
+        }
+        for slot in &self.optimizer.slots {
+            payload.extend_from_slice(bytemuck::cast_slice(&slot.exp_avg_sq));
+        }
+        let skeleton = ReplicaStateWireSkeleton {
+            architecture_revision: self.architecture_revision.clone(),
+            training_precision_policy: self.training_precision_policy.clone(),
+            training_step: self.training_step,
+            ltm_alignment_controller: self.ltm_alignment_controller.clone(),
+            optimizer_step: self.optimizer.step,
+            parameter_names: self.parameters.iter().map(|p| p.name.clone()).collect(),
+            parameter_lens: self.parameters.iter().map(|p| p.values.len()).collect(),
+            optimizer_slot_names: self
+                .optimizer
+                .slots
+                .iter()
+                .map(|s| s.name.clone())
+                .collect(),
+            optimizer_slot_steps: self.optimizer.slots.iter().map(|s| s.step).collect(),
+            optimizer_slot_decay: self.optimizer.slots.iter().map(|s| s.decay_class).collect(),
+            optimizer_exp_avg_lens: self
+                .optimizer
+                .slots
+                .iter()
+                .map(|s| s.exp_avg.len())
+                .collect(),
+            optimizer_exp_avg_sq_lens: self
+                .optimizer
+                .slots
+                .iter()
+                .map(|s| s.exp_avg_sq.len())
+                .collect(),
+        };
+        (
+            serde_json::to_string(&skeleton).expect("serialize replica state skeleton"),
+            payload,
+        )
+    }
+
+    /// Reconstruct a state from (skeleton JSON, f32 payload bytes).
+    pub fn wire_decode(skeleton_json: &str, payload: &[u8]) -> Result<Self> {
+        anyhow::ensure!(
+            payload.len() % std::mem::size_of::<f32>() == 0,
+            "replica state payload is not f32-aligned"
+        );
+        let skeleton: ReplicaStateWireSkeleton =
+            serde_json::from_str(skeleton_json).context("replica state wire skeleton")?;
+        let expected_bytes = skeleton
+            .payload_values()?
+            .checked_mul(4)
+            .context("replica state payload byte length overflow")?;
+        anyhow::ensure!(
+            payload.len() == expected_bytes,
+            "replica state payload length mismatch"
+        );
+        // Byte buffers and network offsets need not have f32 alignment.
+        let all_len = payload.len() / 4;
+        let mut cursor = 0usize;
+        let mut take = |count: usize| -> Result<Vec<f32>> {
+            anyhow::ensure!(
+                count <= all_len.saturating_sub(cursor),
+                "replica state payload truncated"
+            );
+            // Decode straight into the final tensor allocation, avoiding an
+            // additional full-model FP32 copy for large optimizer broadcasts.
+            let values = payload[cursor * 4..(cursor + count) * 4]
+                .chunks_exact(4)
+                .map(|word| f32::from_le_bytes(word.try_into().unwrap()))
+                .collect();
+            cursor += count;
+            Ok(values)
+        };
+        let mut parameters = Vec::with_capacity(skeleton.parameter_names.len());
+        for (name, len) in skeleton
+            .parameter_names
+            .iter()
+            .zip(&skeleton.parameter_lens)
+        {
+            parameters.push(RwkvParameterSnapshot {
+                name: name.clone(),
+                values: take(*len)?,
+            });
+        }
+        let mut slots = Vec::with_capacity(skeleton.optimizer_slot_names.len());
+        // wire_encode writes ALL first moments, then ALL second moments.
+        // Interleaving these reads silently assigns another slot's moments.
+        let mut first_moments = skeleton
+            .optimizer_exp_avg_lens
+            .iter()
+            .map(|len| take(*len))
+            .collect::<Result<Vec<_>>>()?;
+        let mut second_moments = skeleton
+            .optimizer_exp_avg_sq_lens
+            .iter()
+            .map(|len| take(*len))
+            .collect::<Result<Vec<_>>>()?;
+        for i in 0..skeleton.optimizer_slot_names.len() {
+            slots.push(AdamWOptimizerSlotState {
+                name: skeleton.optimizer_slot_names[i].clone(),
+                step: skeleton.optimizer_slot_steps[i],
+                decay_class: skeleton.optimizer_slot_decay[i],
+                exp_avg: std::mem::take(&mut first_moments[i]),
+                exp_avg_sq: std::mem::take(&mut second_moments[i]),
+            });
+        }
+        anyhow::ensure!(
+            cursor == all_len,
+            "replica state payload has trailing bytes"
+        );
+        Ok(Self {
+            architecture_revision: skeleton.architecture_revision,
+            training_precision_policy: skeleton.training_precision_policy,
+            parameters,
+            optimizer: AdamWOptimizerState {
+                step: skeleton.optimizer_step,
+                slots,
+            },
+            training_step: skeleton.training_step,
+            ltm_alignment_controller: skeleton.ltm_alignment_controller,
+        })
+    }
+
+    /// Broadcast one closed optimizer boundary's portable state to a remote
+    /// replica over RDMA (Phase R1e weight broadcast). Serializes the state,
+    /// sends the skeleton over the control socket, then the f32 payload in
+    /// fixed-size RDMA chunks.
+    pub fn send_full_model_replica_state_over_remote(
+        &self,
+        sink: &mut crate::distributed::NetworkSendChannel,
+        control: &mut TcpStream,
+        max_chunk_bytes: usize,
+    ) -> Result<usize> {
+        anyhow::ensure!(
+            max_chunk_bytes > 0 && max_chunk_bytes % 4 == 0,
+            "weight chunk must be positive and f32-aligned"
+        );
+        let (skeleton, payload) = self.wire_encode();
+        let mut line = skeleton;
+        line.push('\n');
+        control.write_all(line.as_bytes())?;
+        control.flush()?;
+        let mut values = Vec::with_capacity(max_chunk_bytes.min(payload.len()) / 4);
+        let mut sent_bytes = 0usize;
+        for chunk in payload.chunks(max_chunk_bytes) {
+            // The byte payload may be unaligned. Decode only one bounded
+            // transport window, not a second full-model copy.
+            values.clear();
+            values.extend(
+                chunk
+                    .chunks_exact(4)
+                    .map(|word| f32::from_le_bytes(word.try_into().unwrap())),
+            );
+            sink.send_chunk(&values)?;
+            sent_bytes += chunk.len();
+        }
+        sink.flush()?;
+        Ok(sent_bytes)
+    }
+
+    /// Receive one closed optimizer boundary from a remote primary over RDMA
+    /// (Phase R1e weight broadcast replica side). Reads the skeleton from the
+    /// control socket, then the payload in fixed-size RDMA chunks.
+    pub fn receive_full_model_replica_state_over_remote(
+        source: &mut crate::distributed::NetworkGradientSource,
+        control: &mut TcpStream,
+    ) -> Result<Self> {
+        let mut line = String::new();
+        BufReader::new(control).read_line(&mut line)?;
+        let skeleton = line.trim();
+        let parsed: ReplicaStateWireSkeleton =
+            serde_json::from_str(skeleton).context("replica state wire skeleton")?;
+        let expected_bytes = parsed
+            .payload_values()?
+            .checked_mul(4)
+            .context("weight payload overflow")?;
+        let mut payload = vec![0u8; expected_bytes];
+        let mut received = 0usize;
+        while received < expected_bytes {
+            let got = source.receive_bytes_into(&mut payload[received..])?;
+            received += got;
+        }
+        Self::wire_decode(skeleton, &payload)
+    }
+}
+
 /// Immutable Vulkan-resident source for broadcasting one closed optimizer
 /// boundary to multiple training replicas concurrently.
 ///
@@ -6890,7 +7149,7 @@ pub struct HierarchosReplicaStateRangeRetirement {
 #[derive(Clone)]
 pub struct HierarchosPendingGradientTransportSource {
     device: VulkanDevice,
-    metadata: PendingGradientShardMetadata,
+    pub metadata: PendingGradientShardMetadata,
     optimizer: RwkvPendingGradientSource,
 }
 
@@ -6963,8 +7222,8 @@ struct FullModelAccumulationNormalizationState {
     target_supervision_mass: Option<f32>,
 }
 
-#[derive(Clone, Debug)]
-struct PendingGradientShardMetadata {
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct PendingGradientShardMetadata {
     architecture_revision: String,
     training_precision_policy: String,
     optimizer_step: u32,
@@ -19617,6 +19876,426 @@ impl HierarchosTrainingGraph {
                 .and_then(|submissions| submissions.checked_add(1))
                 .context("streamed gradient submission count overflow")?,
         })
+    }
+
+    /// Accumulate gradient chunks streamed from a remote replica over RDMA.
+    ///
+    /// The source is a separate process whose gradient chunks arrive over the
+    /// RoCE link into host-registered memory. Each chunk is received into a
+    /// host buffer, written into the slot's host-visible `source_readback`,
+    /// and then reduced into the canonical optimizer using the same
+    /// device-local accumulate path as the local transports. No GPU source
+    /// submission is needed: the RDMA receive already synchronized the data.
+    pub fn accumulate_full_model_pending_gradients_streamed_from_remote(
+        &mut self,
+        source: &mut crate::distributed::NetworkGradientSource,
+        metadata: &PendingGradientShardMetadata,
+        max_chunk_values: usize,
+    ) -> Result<HierarchosGradientStreamStats> {
+        if max_chunk_values == 0 {
+            bail!("streamed gradient transport chunk size must be positive");
+        }
+        let plan = self.plan_pending_gradient_merge(metadata)?;
+
+        let source_layout = self.full_model_optimizer.gradient_layout();
+        let destination_layout = self.full_model_optimizer.gradient_layout();
+        if source_layout != destination_layout {
+            bail!("remote gradient registry layout mismatch");
+        }
+        if source_layout.is_empty() {
+            bail!("streamed gradient transport requires at least one optimizer tensor");
+        }
+        let destination_direct_lm_gradient = self
+            .full_model_direct_lm_gradient
+            .context("open streamed destination window is missing lm_head gradient topology")?;
+        let destination_lm_gradient = if destination_direct_lm_gradient {
+            Some(self.shared_lm_head.gradient_buffer()?)
+        } else {
+            None
+        };
+        let destination_override = destination_lm_gradient
+            .as_ref()
+            .map(|gradient| (LM_HEAD_WEIGHT_TENSOR_NAME, gradient));
+
+        let largest_tensor = source_layout
+            .iter()
+            .map(|(_, tensor_len)| *tensor_len)
+            .max()
+            .context("remote gradient registry unexpectedly has no tensor lengths")?;
+        let chunk_capacity = max_chunk_values
+            .min(self.optimizer_transport_chunk_values)
+            .min(largest_tensor)
+            .max(1);
+
+        let mut transport_slots = (0..CROSS_ADAPTER_GRADIENT_PIPELINE_SLOTS)
+            .map(|_| {
+                PendingGradientTransportSlot::new(
+                    &self.device,
+                    &self.device,
+                    chunk_capacity,
+                    self.optimizer_transport_upload_slots[0].clone(),
+                    self.optimizer_transport_scratch_slots[0].clone(),
+                )
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let mut chunk_count = 0usize;
+        let mut value_count = 0usize;
+        let mut destination_mutated = false;
+        let transport_result = (|| -> Result<()> {
+            let mut source_chunk_index = 0usize;
+            for (tensor_index, (_, tensor_len)) in source_layout.iter().enumerate() {
+                let mut offset = 0usize;
+                while offset < *tensor_len {
+                    let len = chunk_capacity.min(*tensor_len - offset);
+                    let slot_index = source_chunk_index % transport_slots.len();
+                    let slot = &mut transport_slots[slot_index];
+
+                    // Receive the chunk over RDMA into a host buffer, then
+                    // write it into the slot's host-visible source_readback.
+                    let mut host_buf = vec![0u8; len * std::mem::size_of::<f32>()];
+                    let received = source.receive_into(bytemuck::cast_slice_mut(&mut host_buf))?;
+                    anyhow::ensure!(
+                        received == len,
+                        "remote gradient chunk truncated: expected {} f32s, got {}",
+                        len,
+                        received
+                    );
+                    slot.source_readback
+                        .write_f32(bytemuck::cast_slice(&host_buf))?;
+
+                    slot.pending = Some(PendingGradientTransportChunk {
+                        tensor_index,
+                        offset,
+                        len,
+                    });
+                    // No source_submission: the RDMA receive already
+                    // synchronized the data into source_readback.
+
+                    // Flush the previous slot before reusing this one.
+                    if source_chunk_index > 0 {
+                        let previous_slot_index = (source_chunk_index - 1) % transport_slots.len();
+                        if let Some(flushed_len) = self.flush_network_gradient_slot(
+                            &mut transport_slots[previous_slot_index],
+                            destination_override,
+                        )? {
+                            destination_mutated = true;
+                            chunk_count = chunk_count
+                                .checked_add(1)
+                                .context("remote gradient chunk counter overflow")?;
+                            value_count = value_count
+                                .checked_add(flushed_len)
+                                .context("remote gradient value counter overflow")?;
+                        }
+                    }
+
+                    source_chunk_index = source_chunk_index
+                        .checked_add(1)
+                        .context("remote gradient source chunk counter overflow")?;
+                    offset += len;
+                }
+            }
+
+            // Flush the final slot.
+            if source_chunk_index > 0 {
+                let final_slot_index = (source_chunk_index - 1) % transport_slots.len();
+                if let Some(flushed_len) = self.flush_network_gradient_slot(
+                    &mut transport_slots[final_slot_index],
+                    destination_override,
+                )? {
+                    destination_mutated = true;
+                    chunk_count = chunk_count
+                        .checked_add(1)
+                        .context("remote gradient chunk counter overflow")?;
+                    value_count = value_count
+                        .checked_add(flushed_len)
+                        .context("remote gradient value counter overflow")?;
+                }
+            }
+
+            for slot in &mut transport_slots {
+                slot.wait_destination()?;
+            }
+            if chunk_count != source_chunk_index {
+                bail!(
+                    "remote gradient pipeline retired {chunk_count} chunks after submitting {source_chunk_index}"
+                );
+            }
+
+            Ok(())
+        })();
+
+        if let Err(err) = transport_result {
+            for slot in &mut transport_slots {
+                let _ = slot.wait_destination();
+            }
+            return Err(err);
+        }
+
+        self.commit_pending_gradient_merge(plan);
+        Ok(HierarchosGradientStreamStats {
+            backend: source.backend(),
+            tensor_count: source_layout.len(),
+            chunk_count,
+            value_count,
+            max_chunk_values: chunk_capacity,
+            pipeline_slots: CROSS_ADAPTER_GRADIENT_PIPELINE_SLOTS,
+            persistent_transport_reused: false,
+            peak_host_gradient_bytes: 0,
+            peak_device_gradient_bytes: chunk_capacity
+                .checked_mul(std::mem::size_of::<f32>())
+                .and_then(|bytes| bytes.checked_mul(2))
+                .and_then(|bytes| bytes.checked_mul(CROSS_ADAPTER_GRADIENT_PIPELINE_SLOTS))
+                .context("remote gradient device-byte count overflow")?,
+            peak_host_heap_gradient_bytes: 0,
+            queue_submissions: chunk_count
+                .checked_mul(2)
+                .and_then(|submissions| submissions.checked_add(1))
+                .context("remote gradient submission count overflow")?,
+        })
+    }
+
+    /// Flush a pending network gradient slot into the destination optimizer.
+    ///
+    /// Unlike [`flush_pending_gradient_transport_slot`], there is no GPU
+    /// source submission to wait for: the RDMA receive already synchronized
+    /// the chunk data into `slot.source_readback` before this slot was
+    /// enqueued.
+    fn flush_network_gradient_slot(
+        &self,
+        slot: &mut PendingGradientTransportSlot,
+        destination_override: Option<(&str, &GpuBuffer)>,
+    ) -> Result<Option<usize>> {
+        let Some(pending) = slot.pending else {
+            return Ok(None);
+        };
+        // No source_submission.wait(): the RDMA receive already synchronized
+        // the data into source_readback.
+        slot.wait_destination()?;
+        slot.source_readback
+            .copy_host_visible_f32_to(&slot.destination_staging, pending.len)?;
+
+        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        commands.copy_f32_range(
+            &slot.destination_staging,
+            0,
+            &slot.destination_upload,
+            0,
+            pending.len,
+        )?;
+        self.full_model_optimizer
+            .record_accumulate_gradient_range_with_override(
+                &mut commands,
+                pending.tensor_index,
+                pending.offset,
+                &slot.destination_upload,
+                &slot.destination_scratch,
+                pending.len,
+                destination_override,
+            )?;
+        slot.destination_submission = Some(commands.submit_async()?);
+        slot.pending = None;
+        Ok(Some(pending.len))
+    }
+
+    /// Stream an open window's pending gradients to a remote primary rank
+    /// over RDMA (Phase R1e send side).
+    ///
+    /// The caller first detaches the window with
+    /// [`full_model_pending_gradient_transport_source`] and transmits
+    /// `source.metadata` over the control channel, then calls this method.
+    /// The layout walk order and chunk boundaries match the receiver's
+    /// `accumulate_full_model_pending_gradients_streamed_from_remote`
+    /// exactly, so both sides agree on the chunk sequence without extra
+    /// framing.
+    pub fn stream_full_model_pending_gradients_from_source_to_remote(
+        &self,
+        source: &HierarchosPendingGradientTransportSource,
+        sink: &mut crate::distributed::NetworkSendChannel,
+        max_chunk_values: usize,
+    ) -> Result<HierarchosGradientStreamStats> {
+        if max_chunk_values == 0 {
+            bail!("remote gradient stream chunk size must be positive");
+        }
+        let source_layout = source.optimizer.gradient_layout();
+        if source_layout.is_empty() {
+            bail!("remote gradient stream requires at least one optimizer tensor");
+        }
+        let largest_tensor = source_layout
+            .iter()
+            .map(|(_, tensor_len)| *tensor_len)
+            .max()
+            .context("gradient registry unexpectedly has no tensor lengths")?;
+        let chunk_capacity = max_chunk_values
+            .min(self.optimizer_transport_chunk_values)
+            .min(largest_tensor)
+            .max(1);
+        let mut chunk_count = 0usize;
+        let mut value_count = 0usize;
+        let mut submission_count = 0usize;
+        for (tensor_index, (_, tensor_len)) in source_layout.iter().enumerate() {
+            let mut offset = 0usize;
+            while offset < *tensor_len {
+                let len = chunk_capacity.min(*tensor_len - offset);
+                let mut readback = GpuBuffer::uninitialized_host_f32(&source.device, len)?;
+                let mut commands = vulkan::ComputeBatch::new(&source.device)?;
+                source.optimizer.record_gradient_range_readback(
+                    &mut commands,
+                    tensor_index,
+                    offset,
+                    len,
+                    &readback,
+                )?;
+                commands.submit()?;
+                let values = readback.read_f32(len)?;
+                sink.send_chunk(&values)?;
+                chunk_count = chunk_count
+                    .checked_add(1)
+                    .context("remote gradient chunk counter overflow")?;
+                value_count = value_count
+                    .checked_add(len)
+                    .context("remote gradient value counter overflow")?;
+                submission_count += 1;
+                offset += len;
+            }
+        }
+        Ok(HierarchosGradientStreamStats {
+            backend: sink.backend(),
+            tensor_count: source_layout.len(),
+            chunk_count,
+            value_count,
+            max_chunk_values: chunk_capacity,
+            pipeline_slots: 1,
+            persistent_transport_reused: false,
+            peak_host_gradient_bytes: chunk_capacity * std::mem::size_of::<f32>(),
+            peak_device_gradient_bytes: 0,
+            peak_host_heap_gradient_bytes: chunk_capacity * std::mem::size_of::<f32>(),
+            queue_submissions: submission_count,
+        })
+    }
+
+    /// Phase R2: deterministic cross-rank gradient allreduce over RDMA.
+    ///
+    /// Each rank detaches its own open window, exchanges the peer's merge
+    /// metadata, then walks the (identical) gradient layout. For every chunk it
+    /// reads its local raw gradient to host, SENDs it, RECEives the peer's raw
+    /// chunk, computes the SUM  in host memory (bit-identical
+    /// on both ranks since FP addition is commutative for two operands), and
+    /// writes the sum back into its own window. The caller then runs
+    /// , which divides
+    /// by the merged token count — matching the param-server reduction exactly.
+    pub fn allreduce_pending_gradients_with_remote(
+        &mut self,
+        source: &HierarchosPendingGradientTransportSource,
+        peer_metadata: &PendingGradientShardMetadata,
+        sink: &mut crate::distributed::NetworkSendChannel,
+        recv: &mut crate::distributed::NetworkGradientSource,
+        max_chunk_values: usize,
+    ) -> Result<HierarchosGradientStreamStats> {
+        if max_chunk_values == 0 {
+            bail!("allreduce chunk size must be positive");
+        }
+        // Merge normalization/token counters from the peer shard into this
+        // open window so the local finish normalizes by the world total.
+        let plan = self.plan_pending_gradient_merge(peer_metadata)?;
+        self.commit_pending_gradient_merge(plan);
+
+        let source_layout = source.optimizer.gradient_layout();
+        if source_layout.is_empty() {
+            bail!("allreduce requires at least one optimizer tensor");
+        }
+        let largest_tensor = source_layout
+            .iter()
+            .map(|(_, tensor_len)| *tensor_len)
+            .max()
+            .context("gradient registry unexpectedly has no tensor lengths")?;
+        let chunk_capacity = max_chunk_values
+            .min(self.optimizer_transport_chunk_values)
+            .min(largest_tensor)
+            .max(1);
+
+        let mut chunk_count = 0usize;
+        let mut value_count = 0usize;
+        let mut submission_count = 0usize;
+        for (tensor_index, (_, tensor_len)) in source_layout.iter().enumerate() {
+            let mut offset = 0usize;
+            while offset < *tensor_len {
+                let len = chunk_capacity.min(*tensor_len - offset);
+                // Read local raw gradient to host.
+                let local_readback = GpuBuffer::uninitialized_host_f32(&source.device, len)?;
+                let mut commands = vulkan::ComputeBatch::new(&source.device)?;
+                source.optimizer.record_gradient_range_readback(
+                    &mut commands,
+                    tensor_index,
+                    offset,
+                    len,
+                    &local_readback,
+                )?;
+                commands.submit()?;
+                let mut sum = local_readback.read_f32(len)?;
+
+                // Exchange: send local, receive peer, sum in host memory.
+                let mut peer = vec![0f32; len];
+                let received = sink.exchange_chunk(recv, &sum, &mut peer)?;
+                anyhow::ensure!(
+                    received == len,
+                    "allreduce chunk truncated: expected {} f32s, got {}",
+                    len,
+                    received
+                );
+                for (a, b) in sum.iter_mut().zip(&peer) {
+                    *a = *a + b;
+                }
+
+                // Write the deterministic sum back into this rank's window.
+                let write_buf = GpuBuffer::uninitialized_host_f32(&source.device, len)?;
+                write_buf.write_f32(&sum)?;
+                let mut wcommands = vulkan::ComputeBatch::new(&source.device)?;
+                source.optimizer.record_gradient_range_write(
+                    &mut wcommands,
+                    tensor_index,
+                    offset,
+                    len,
+                    &write_buf,
+                )?;
+                wcommands.submit()?;
+
+                chunk_count += 1;
+                value_count += len;
+                submission_count += 2;
+                offset += len;
+            }
+        }
+        Ok(HierarchosGradientStreamStats {
+            backend: recv.backend(),
+            tensor_count: source_layout.len(),
+            chunk_count,
+            value_count,
+            max_chunk_values: chunk_capacity,
+            pipeline_slots: 1,
+            persistent_transport_reused: false,
+            peak_host_gradient_bytes: chunk_capacity * std::mem::size_of::<f32>() * 3,
+            peak_device_gradient_bytes: 0,
+            peak_host_heap_gradient_bytes: chunk_capacity * std::mem::size_of::<f32>() * 3,
+            queue_submissions: submission_count,
+        })
+    }
+
+    /// SHA-256 over all parameter values (name + length + bits). Used to verify
+    /// that two ranks' optimizers stayed bit-identical after a distributed step.
+    pub fn full_model_weight_checksum(&self) -> Result<String> {
+        use sha2::{Digest, Sha256};
+        let snapshots = self.full_model_parameter_snapshots()?;
+        let mut hasher = Sha256::new();
+        for snap in &snapshots {
+            hasher.update(snap.name.as_bytes());
+            hasher.update(&(snap.values.len() as u64).to_le_bytes());
+            for v in &snap.values {
+                hasher.update(v.to_bits().to_le_bytes());
+            }
+        }
+        let digest = hasher.finalize();
+        Ok(format!("{digest:x}"))
     }
 
     fn validate_streamed_replica_state_source(

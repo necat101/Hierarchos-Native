@@ -58,6 +58,10 @@ PROBE_KEY = "low_rank_forward"
 VARIANT_KEY = "fused_arm"
 PRECISION_POLICY = "fp16-storage-fp32-compute"
 PARAMETER_STORAGE = "fp16-storage"
+# This route's staged wins are 1.4-3.5% and have never flipped sign, so it records
+# at 1% rather than the dense route's 2%; the record keeps declaring the dense
+# band and the guard carries this one per producer.
+DECISION_BAND = 0.01
 DEEP_ARM = "low-rank-full-forward-fused-fp16-packed"
 FIRST_STAGE_ARM = "low-rank-producer-forward-fused-fp16-packed"
 DECISIONS = Path(__file__).resolve().parent / "low_rank_full_forward_decisions.json"
@@ -73,9 +77,26 @@ RECORD_NOTES = (
     "producer's own verdicts: the runtime reads them only for a consumer running that storage "
     "policy, and falls back to the policy-less entry everywhere else, so recording the FP16 "
     "crossover cannot move the FP32 route. The several `fp16-storage-*` training policies "
-    "differ in compute, not storage, so they share this one verdict. A geometry measured inside the 2% noise band is a tie and "
-    "carries no entry for this policy at all. Re-record its own entries with "
+    "differ in compute, not storage, so they share this one verdict. This route records at "
+    "a 1% band rather than the dense route's 2%: its staged wins are 1.4-3.5% and have "
+    "never flipped sign, so the narrower band is what keeps the batch-8 crossover on the "
+    "record. A geometry measured inside that band is a tie and carries no entry for this "
+    "policy at all; the record's own `margin` stays the dense band, so this scoped "
+    "recording does not relabel entries it does not own. A geometry whose winner is not "
+    "bit-identical "
+    "between the two graphs is recorded and also listed in `withheld`: the training "
+    "trajectory is bit-exact and cannot adopt a route that changes the values, so the "
+    "runtime keeps the structural fused graph there while the measurement stays auditable. "
+    "A rerun that measures the two graphs bit-identical drops that entry and adopts the "
+    "route, so closing the rounding gap needs no hand edit. Re-record its own entries with "
     "`--record-decisions`."
+)
+
+WITHHELD_REASON = (
+    "The fused and staged graphs differ under fp16-storage parameter values "
+    "(worst |diff| above zero in this driver's parity comparison), while the training "
+    "trajectory is held bit-exact. The measured win stays in the record as evidence, but "
+    "the runtime does not adopt it and keeps the structural fused graph."
 )
 
 TENSORS = {
@@ -154,21 +175,51 @@ def run_batch(
     return run
 
 
-def recorded_route(
+def withheld_route(
     record: dict, device: str, width: int, batch: int, parameter_storage: str
 ) -> dict | None:
-    """The entry the FP16 route actually reads: its own policy, else the shared one.
+    """The measured-but-not-adopted route for this geometry, if the record has one."""
+    policy = ab.canonical_policy(parameter_storage)
+    for entry in record.get("withheld", []):
+        if (
+            entry["device"].strip().lower() != device.strip().lower()
+            or entry["width"] != width
+            or entry["batch"] != batch
+        ):
+            continue
+        entry_policy = ab.canonical_policy(entry.get("parameter_storage"))
+        if entry_policy is None or entry_policy == policy:
+            return entry
+    return None
 
-    This mirrors `DecisionTable::route_scoped` on the Rust side: the policy name is
-    canonicalized to the storage it selects, so the op's `fp16-storage` label and an
-    older `fp16-packed-mirror` entry are the same scope. A lookup that ignored
-    `parameter_storage` would report the FP32 verdict as the shipped FP16 route at
-    every geometry where the two differ, which is exactly the claim this receipt
-    exists to check.
+
+def withheld_reason(run: dict) -> str | None:
+    """Why this staged win may not ship, or `None` when it may.
+
+    A staged win is adopted only when the two graphs are bit-identical: the
+    training trajectory is held bit-exact, so a rerun that closes the rounding
+    gap (`worst_max_abs` exactly zero) lifts the refusal on its own. The next
+    `--record-decisions` drops the older `withheld` entry for that geometry and
+    records the route, which is what makes an improved FP16 route a measurement
+    rather than a hand edit.
     """
+    if run["composed"]["timing"]["median_ms"] >= run["fused"]["timing"]["median_ms"]:
+        return None
+    return None if run["worst_max_abs"] == 0.0 else WITHHELD_REASON
+
+
+def effective_route(
+    record: dict, device: str, width: int, batch: int, parameter_storage: str
+) -> dict | None:
+    """The entry the runtime actually adopts: `route_scoped` minus withheld routes.
+
+    A withheld scoped route does not fall back to the shared verdict, because the
+    reason it was withheld applies to the graph change itself; the structural
+    default decides that geometry instead.
+    """
+    policy = ab.canonical_policy(parameter_storage)
     scoped = None
     shared = None
-    policy = ab.canonical_policy(parameter_storage)
     for entry in record.get("decisions", []):
         if (
             entry["device"].strip().lower() != device.strip().lower()
@@ -181,7 +232,12 @@ def recorded_route(
             shared = entry
         elif entry_policy == policy:
             scoped = entry
-    return scoped if scoped is not None else shared
+    held = withheld_route(record, device, width, batch, parameter_storage)
+    if scoped is not None:
+        return None if held is not None and held["route"] == scoped["route"] else scoped
+    if shared is None or (held is not None and held["route"] == shared["route"]):
+        return None
+    return shared
 
 
 def main() -> int:
@@ -209,7 +265,7 @@ def main() -> int:
     parser.add_argument(
         "--decision-margin",
         type=float,
-        default=0.02,
+        default=DECISION_BAND,
         help="the band inside which this run reports a tie against the recorded route",
     )
     args = parser.parse_args()
@@ -228,6 +284,11 @@ def main() -> int:
         cleanup = tempfile.TemporaryDirectory(prefix="hierarchos-rwkv-low-rank-fp16-")
         fixture_root = Path(cleanup.name)
     record = json.loads(DECISIONS.read_text(encoding="utf-8"))
+    declared_margin = record.get("margin", args.decision_margin)
+    if args.record_decisions is not None and args.record_decisions.exists():
+        declared_margin = json.loads(
+            args.record_decisions.read_text(encoding="utf-8")
+        ).get("margin", args.decision_margin)
     try:
         model_dir = fixture_root / "model"
         composition.write_package(model_dir)
@@ -275,14 +336,20 @@ def main() -> int:
 
     routes = []
     for run in runs:
-        entry = recorded_route(
+        entry = effective_route(
+            record, summary["device"], summary["width"], run["batch"], PARAMETER_STORAGE
+        )
+        held = withheld_route(
             record, summary["device"], summary["width"], run["batch"], PARAMETER_STORAGE
         )
         recorded = entry["route"] if entry is not None else None
         shipped_compose = recorded == "staged"
         measured_compose = run["composed_over_fused"] < 1.0
+        measured_route = "staged" if measured_compose else "fused"
         tie = abs(run["composed_over_fused"] - 1.0) <= args.decision_margin
-        if tie:
+        if held is not None and held["route"] == measured_route and not shipped_compose:
+            status = "withheld"
+        elif tie:
             status = "tie"
         elif measured_compose == shipped_compose:
             status = "agrees"
@@ -302,6 +369,8 @@ def main() -> int:
                 "measured_composed_over_fused": run["composed_over_fused"],
                 "measured_inside_band": tie,
                 "route_status": status,
+                "withheld_route": held["route"] if held is not None else None,
+                "withheld_reason": held["reason"] if held is not None else None,
                 "fused_arm": run["fused_arm"],
             }
         )
@@ -312,14 +381,30 @@ def main() -> int:
     summary["route_following_note"] = (
         "`shipped_route` is the graph the shipped default dispatches for this geometry: the "
         "`fp16-storage` entry where one exists, otherwise the policy-less entry the dense "
-        "route also reads. `measured_route` is what this FP16 run measured, and "
-        "`route_status` is agrees / tie / diverges. A diverging row means the FP16 arm does "
-        "not yet follow its own measured crossover; recording it with `--record-decisions` "
-        "writes that verdict under this storage policy only, so the FP32 route is untouched."
+        "route also reads, minus any route the record withholds. `measured_route` is what "
+        "this FP16 run measured, and `route_status` is agrees / tie / withheld / diverges. "
+        "A withheld row is a measured win the runtime may not adopt because the graphs are "
+        "not bit-identical while the training trajectory is; it is recorded as evidence and "
+        "the structural fused graph stays. A rerun that measures the same win bit-identical "
+        "drops the withheld entry and adopts it. A diverging row means the FP16 arm does not yet "
+        "follow its own measured crossover; recording it with `--record-decisions` writes "
+        "that verdict under this storage policy only, so the FP32 route is untouched."
     )
     if args.record is not None:
         args.record.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     if args.record_decisions is not None:
+        previously_held = (
+            {
+                entry["batch"]
+                for entry in json.loads(
+                    args.record_decisions.read_text(encoding="utf-8")
+                ).get("withheld", [])
+                if ab.canonical_policy(entry.get("parameter_storage"))
+                == PARAMETER_STORAGE
+            }
+            if args.record_decisions.exists()
+            else set()
+        )
         merged, omitted = ab.record_decisions(
             args.record_decisions,
             runs,
@@ -328,8 +413,12 @@ def main() -> int:
             notes=RECORD_NOTES,
             measured_by="validation/bench_rwkv_low_rank_fp16_forward.py",
             margin=args.decision_margin,
+            # The file's own band is the dense route's; this scoped recording is
+            # stricter and must not relabel the entries it does not own.
+            record_margin=declared_margin,
             probe_label="low-rank-forward",
             parameter_storage=PARAMETER_STORAGE,
+            withhold_when=withheld_reason,
         )
         for entry in merged["decisions"]:
             if ab.canonical_policy(entry.get("parameter_storage")) == PARAMETER_STORAGE:
@@ -344,6 +433,34 @@ def main() -> int:
             print(
                 f"omitted inside the {args.decision_margin:.1%} noise band for "
                 f"{PARAMETER_STORAGE}: batches {', '.join(str(batch) for batch in omitted)}"
+            )
+        held = [
+            entry["batch"]
+            for entry in merged.get("withheld", [])
+            if ab.canonical_policy(entry.get("parameter_storage")) == PARAMETER_STORAGE
+        ]
+        if held:
+            print(
+                f"withheld from the runtime because the graphs are not bit-identical: "
+                f"batches {', '.join(str(batch) for batch in held)}"
+            )
+        adopted = sorted(
+            batch
+            for batch in previously_held - set(held)
+            # Only a geometry whose merged verdict is still the chain counts as
+            # adopted; a rerun that put the fused arm back has nothing to adopt.
+            if any(
+                entry["batch"] == batch
+                and ab.canonical_policy(entry.get("parameter_storage"))
+                == PARAMETER_STORAGE
+                and entry["route"] == "staged"
+                for entry in merged["decisions"]
+            )
+        )
+        if adopted:
+            print(
+                "adopted a bit-identical staged win (its withheld entry was dropped): "
+                f"batches {', '.join(str(batch) for batch in adopted)}"
             )
     for route in routes:
         print(

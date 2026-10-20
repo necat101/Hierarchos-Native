@@ -50,13 +50,30 @@ DEFAULT_RECORD_NOTES = (
 
 # Candidate route labels, in the order the record's vocabulary lists them. The
 # order only breaks exact ties, which cannot be a measurement.
-ROUTE_ORDER = ("fused", "wide-fused", "narrow-fused", "staged")
+ROUTE_ORDER = (
+    "packed",
+    "legacy",
+    "fused",
+    "wide-fused",
+    "narrow-fused",
+    "staged",
+    # The deepest rung of the state-backward fusion ladder. It is last because it
+    # is only a candidate where a receipt measured its key-parameter reduction
+    # exact; a tie with a shallower rung keeps the shallower graph.
+    "folded",
+)
 
 # The graph the structural default dispatches with no record entry. The key/state
-# producer's default is the wider-group fusion; the others default to their fused
-# producer (the vendor-gated producers compose where their module is admitted,
-# which the receipt's dispatch count proves).
-STRUCTURAL_DEFAULT_ROUTE = {"key-state-forward": "wide-fused"}
+# producer's default is the wider-group fusion; the TBPTT first-forward chain is
+# packed by default while reverse rematerialization is opt-in; the others default
+# to their fused producer (the vendor-gated producers compose where their module
+# is admitted, which the receipt's dispatch count proves).
+STRUCTURAL_DEFAULT_ROUTE = {
+    "key-state-forward": "wide-fused",
+    "tbptt-packed-forward": "packed",
+    "tbptt-packed-rematerialization": "legacy",
+    "tbptt-backward-fusion": "fused",
+}
 
 
 def canonical_policy(policy: str | None) -> str | None:
@@ -117,6 +134,84 @@ def build_release_binary(name: str) -> Path:
 
 def device_key(name: str) -> str:
     return name.strip().lower()
+
+
+def refuse_shared_verdicts(
+    path: Path,
+    *,
+    device: str,
+    width: int,
+    default_route: str,
+    refusals: dict[str, str],
+) -> dict:
+    """Record the measured verdicts one parameter-storage policy may not adopt.
+
+    A refusal is not a second measurement: the route it names is the verdict the
+    shared table already recorded, so the entry can only exist beside that
+    decision. It is keyed to the policy because the reason is policy-specific --
+    a frozen FP16 trajectory pins the structural graph, while the FP32 policy is
+    free to take the measured route -- and the runtime then keeps the structural
+    default for that policy without withdrawing the shared entry from the others.
+
+    The list is regenerated from the decisions on every recording, for this
+    adapter and width, so a verdict that flips cannot leave a stale refusal
+    behind and a verdict that returns to the structural route drops its refusal.
+    """
+    record = json.loads(path.read_text(encoding="utf-8"))
+    names = {canonical_policy(policy) for policy in refusals}
+    key = device_key(device)
+    kept = [
+        entry
+        for entry in record.get("withheld", [])
+        if not (
+            device_key(entry["device"]) == key
+            and entry["width"] == width
+            and canonical_policy(entry.get("parameter_storage")) in names
+        )
+    ]
+    shared = {
+        entry["batch"]: entry
+        for entry in record.get("decisions", [])
+        if device_key(entry["device"]) == key
+        and entry["width"] == width
+        and entry.get("parameter_storage") is None
+    }
+    # A policy that measured this geometry itself has its own verdict to adopt;
+    # the refusal only covers the fallback it would otherwise read.
+    adopted = {
+        (canonical_policy(entry.get("parameter_storage")), entry["batch"])
+        for entry in record.get("decisions", [])
+        if device_key(entry["device"]) == key
+        and entry["width"] == width
+        and entry.get("parameter_storage") is not None
+    }
+    for policy, reason in refusals.items():
+        scope = canonical_policy(policy)
+        for batch in sorted(shared):
+            entry = shared[batch]
+            if entry["route"] == default_route or (scope, batch) in adopted:
+                continue
+            kept.append(
+                {
+                    "device": device,
+                    "width": width,
+                    "batch": batch,
+                    "route": entry["route"],
+                    "reason": reason,
+                    "parameter_storage": scope,
+                }
+            )
+    kept.sort(
+        key=lambda entry: (
+            device_key(entry["device"]),
+            entry["width"],
+            entry["batch"],
+            entry.get("parameter_storage") or "",
+        )
+    )
+    record["withheld"] = kept
+    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    return record
 
 
 def packed_cell_case(batch: int) -> dict:
@@ -269,6 +364,13 @@ def summarise(
         if steps is not None:
             for leg in ("fused", "composed", "default"):
                 row[f"{leg}_ms_per_step"] = run[leg]["ms_per_step"]
+            # The TBPTT receipt is measured on the shipped default, which now
+            # follows the two packed-chain records. Carry the chains it built
+            # so the guard can reject a receipt recorded against another route.
+            row["default_packed_forward"] = run["default_packed_forward"]
+            row["default_packed_rematerialization"] = run[
+                "default_packed_rematerialization"
+            ]
         rows.append(row)
     summary = {
         "result": "pass",
@@ -345,9 +447,11 @@ def record_decisions(
     notes: str = DEFAULT_RECORD_NOTES,
     measured_by: str = "validation/bench_rwkv_packed_cell_*_bench.py",
     margin: float = 0.0,
+    record_margin: float | None = None,
     probe_label: str | None = None,
     parameter_storage: str | None = None,
     candidates=None,
+    withhold_when=None,
 ) -> tuple[dict, list[int]]:
     """Merge this run's per-geometry winners into a decision record.
 
@@ -365,9 +469,13 @@ def record_decisions(
 
     `candidates` maps one run to `{route label: median milliseconds}`; the default
     is the two-way `{"fused": ..., "staged": ...}` set. A three-way producer (the
-    key/state stage) passes all three labels, and the winner is the fastest of
-    them, so the record names the route and the arm in one field instead of a
-    compose flag plus an arm.
+    key/state stage, and the backward-fusion ladder where its deepest rung is
+    recordable) passes all three labels, and the winner is the fastest of them, so
+    the record names the route and the arm in one field instead of a compose flag
+    plus an arm. A producer whose candidate set varies per geometry -- the folded
+    rung is only recordable where the sweep proved its reduction exact -- passes a
+    callback that returns the labels that geometry has, and the record then names
+    exactly the graph that was measured against the others there.
 
     `parameter_storage` writes the entries under one storage policy. Entries are
     replaced and dropped per policy, so recording the FP16-storage arm never
@@ -376,6 +484,21 @@ def record_decisions(
     lets the FP16 route take a staged win at a geometry where the FP32 arm keeps
     the fusion. The policy name is canonicalized to the storage it selects, so
     `fp16-packed-mirror` and `fp16-storage-fp32-compute` write the same scope.
+
+    `withhold_when` receives one run and returns a reason when that run's winning
+    route must stay recorded but may not be adopted by the runtime -- the FP16
+    low-rank A/B is faster staged but not bit-identical, and a training trajectory
+    that is held bit-exact cannot follow it. Such a run keeps its decision entry
+    and gains a `withheld` entry naming the measured route and the reason, which
+    the embedded table skips at lookup time. The list is merged per policy and
+    geometry like the entries themselves, so recording the FP32 route cannot drop
+    an FP16-withheld verdict.
+
+    `record_margin` is the band the file itself declares, when it differs from the
+    band this recording gates on. A scoped recording can be stricter than the
+    record as a whole (the FP16 route records at 1% inside a 2% record) without
+    relabelling every other policy's entries with its own tighter band; the
+    per-producer guard carries the scoped band instead.
     """
     existing: dict = {}
     if path.exists():
@@ -393,9 +516,20 @@ def record_decisions(
     measured = {run["batch"] for run in runs}
     policy = canonical_policy(parameter_storage)
     baseline = STRUCTURAL_DEFAULT_ROUTE.get(probe_label or "", "fused")
+    declared_margin = margin if record_margin is None else record_margin
     kept = [
         entry
         for entry in existing.get("decisions", [])
+        if not (
+            device_key(entry["device"]) == device_key(device)
+            and entry["width"] == width
+            and entry["batch"] in measured
+            and canonical_policy(entry.get("parameter_storage")) == policy
+        )
+    ]
+    withheld_out = [
+        entry
+        for entry in existing.get("withheld", [])
         if not (
             device_key(entry["device"]) == device_key(device)
             and entry["width"] == width
@@ -443,6 +577,18 @@ def record_decisions(
         }
         if policy is not None:
             entry["parameter_storage"] = policy
+        reason = withhold_when(run) if withhold_when is not None else None
+        if reason:
+            withheld_entry = {
+                "device": device,
+                "width": width,
+                "batch": run["batch"],
+                "route": best,
+                "reason": reason,
+            }
+            if policy is not None:
+                withheld_entry["parameter_storage"] = policy
+            withheld_out.append(withheld_entry)
         # A record can now hold entries from more than one measurement driver
         # (the dense route and the FP16-storage route), so each entry names the
         # driver that produced it rather than inheriting the file-level claim.
@@ -460,8 +606,9 @@ def record_decisions(
         "schema": 2,
         "kind": kind,
         "measured_by": existing.get("measured_by", measured_by),
-        "margin": margin,
+        "margin": declared_margin,
         "notes": existing.get("notes", notes),
+        "withheld": withheld_out,
         "decisions": kept,
     }
     path.parent.mkdir(parents=True, exist_ok=True)

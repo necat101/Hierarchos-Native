@@ -29,3 +29,47 @@ jobs:
       - name: One-pass workspace check
         shell: pwsh
         run: ./check-workspace.ps1
+
+      # The measured route tables are checked in, so the cheapest guard against a
+      # stale one is a CPU-side comparison of each receipt with the record it was
+      # written into. The checker covers every producer with a route record -- the
+      # time-mix projection, the channel mix, the dense and FP16-storage low-rank
+      # routes, the key/state fusion, and the two packed TBPTT chains -- plus the
+      # TBPTT and packed-composition receipts that consume those records. It fails
+      # when a receipt stops covering a recorded batch, when a recorded route is no
+      # longer the fastest candidate in the receipt it was measured with, or when
+      # the default stops building it. The GPU job re-records each receipt and runs
+      # the same command.
+      #
+      # The A/B workflow's steps, test matrix and artifact paths are rendered from
+      # that same spec table, so --check fails when a producer was added to the
+      # guard but not to its sweep, guard step, tests or uploaded receipts.
+      - name: A/B workflow matches the route guard's spec table
+        run: python hierarchos-vulkan/validation/render_ab_workflow.py --check
+
+      - name: Recorded measurement routes
+        run: |
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+
+      # The committed ladder receipt is the only durable record of a green
+      # `verify_training_stack.py` run. This check is CPU-side: it holds the
+      # receipt to the ladder's twelve steps in order, every one PASS, and the
+      # coverage floors (golden invocations, matched shader variants, comparison
+      # modules, training-state runs and exact tensor digests) that the ladder
+      # verifies. A run that drops a step or exercises fewer cases fails here
+      # even though every remaining step passed. The GPU ladder run compares its
+      # fresh receipt with `--compare` before re-recording it.
+      - name: Committed training-stack receipt
+        run: python hierarchos-vulkan/validation/check_training_stack_receipt.py
+
+      # The folded-publication profiles are the measurement behind the audit's
+      # "the counters and the batch-order reduction are both below the noise"
+      # conclusion. This check is CPU-side: it re-derives every delta, ratio and
+      # resolution from the timed legs, requires the gates the legs cleared, and
+      # fails when the fold starts leading or either component becomes visible --
+      # which is a real result, but one that has to change the conclusion and this
+      # guard in the same diff rather than quietly contradict the document.
+      - name: Committed folded-publication profile
+        run: |
+          python hierarchos-vulkan/validation/check_folded_publication_profile.py
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_folded_publication_profile.py"

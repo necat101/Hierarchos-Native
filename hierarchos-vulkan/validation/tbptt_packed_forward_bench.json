@@ -1,0 +1,348 @@
+{
+  "result": "pass",
+  "device": "Intel(R) HD Graphics 520",
+  "width": 128,
+  "head_size": 16,
+  "steps": 8,
+  "chain": "forward",
+  "samples": 20,
+  "warmup": 2,
+  "margin": 0.02,
+  "batches": [
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "head_size": 16,
+      "batch": 1,
+      "steps": 8,
+      "chain": "forward",
+      "legacy": {
+        "label": "legacy",
+        "median_ms": 21.42875,
+        "ms_per_step": 2.67859375
+      },
+      "packed": {
+        "label": "packed",
+        "median_ms": 21.4572,
+        "ms_per_step": 2.68215
+      },
+      "default": {
+        "label": "packed",
+        "median_ms": 21.367,
+        "ms_per_step": 2.670875
+      },
+      "default_route": "packed",
+      "recorded_route": "packed",
+      "packed_over_legacy": 1.0013276556028698,
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 2560,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 2560,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "legacy_ms": 21.42875,
+      "packed_ms": 21.4572,
+      "default_ms": 21.367,
+      "default_over_legacy": 0.9971183573470221,
+      "legacy_label": "legacy",
+      "packed_label": "packed",
+      "default_label": "packed",
+      "expected_default_label": "packed"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "head_size": 16,
+      "batch": 4,
+      "steps": 8,
+      "chain": "forward",
+      "legacy": {
+        "label": "legacy",
+        "median_ms": 25.880850000000002,
+        "ms_per_step": 3.2351062500000003
+      },
+      "packed": {
+        "label": "packed",
+        "median_ms": 25.7876,
+        "ms_per_step": 3.22345
+      },
+      "default": {
+        "label": "packed",
+        "median_ms": 25.828000000000003,
+        "ms_per_step": 3.2285000000000004
+      },
+      "default_route": "packed",
+      "recorded_route": "packed",
+      "packed_over_legacy": 0.9963969498683389,
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 10240,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 10240,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "legacy_ms": 25.880850000000002,
+      "packed_ms": 25.7876,
+      "default_ms": 25.828000000000003,
+      "default_over_legacy": 0.9979579496036645,
+      "legacy_label": "legacy",
+      "packed_label": "packed",
+      "default_label": "packed",
+      "expected_default_label": "packed"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "head_size": 16,
+      "batch": 8,
+      "steps": 8,
+      "chain": "forward",
+      "legacy": {
+        "label": "legacy",
+        "median_ms": 28.8264,
+        "ms_per_step": 3.6033
+      },
+      "packed": {
+        "label": "packed",
+        "median_ms": 29.36645,
+        "ms_per_step": 3.67080625
+      },
+      "default": {
+        "label": "packed",
+        "median_ms": 29.469450000000002,
+        "ms_per_step": 3.6836812500000002
+      },
+      "default_route": "packed",
+      "recorded_route": null,
+      "packed_over_legacy": 1.0187345627619127,
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 20480,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 20480,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "legacy_ms": 28.8264,
+      "packed_ms": 29.36645,
+      "default_ms": 29.469450000000002,
+      "default_over_legacy": 1.022307676296728,
+      "legacy_label": "legacy",
+      "packed_label": "packed",
+      "default_label": "packed",
+      "expected_default_label": "packed"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "head_size": 16,
+      "batch": 16,
+      "steps": 8,
+      "chain": "forward",
+      "legacy": {
+        "label": "legacy",
+        "median_ms": 39.45525,
+        "ms_per_step": 4.93190625
+      },
+      "packed": {
+        "label": "packed",
+        "median_ms": 40.93495,
+        "ms_per_step": 5.11686875
+      },
+      "default": {
+        "label": "legacy",
+        "median_ms": 39.4046,
+        "ms_per_step": 4.925575
+      },
+      "default_route": "legacy",
+      "recorded_route": "legacy",
+      "packed_over_legacy": 1.0375032473498458,
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 40960,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 40960,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "legacy_ms": 39.45525,
+      "packed_ms": 40.93495,
+      "default_ms": 39.4046,
+      "default_over_legacy": 0.9987162671634321,
+      "legacy_label": "legacy",
+      "packed_label": "packed",
+      "default_label": "legacy",
+      "expected_default_label": "legacy"
+    },
+    {
+      "device": "Intel(R) HD Graphics 520",
+      "width": 128,
+      "head_size": 16,
+      "batch": 32,
+      "steps": 8,
+      "chain": "forward",
+      "legacy": {
+        "label": "legacy",
+        "median_ms": 65.37765,
+        "ms_per_step": 8.17220625
+      },
+      "packed": {
+        "label": "packed",
+        "median_ms": 69.05154999999999,
+        "ms_per_step": 8.631443749999999
+      },
+      "default": {
+        "label": "legacy",
+        "median_ms": 65.2337,
+        "ms_per_step": 8.1542125
+      },
+      "default_route": "legacy",
+      "recorded_route": "legacy",
+      "packed_over_legacy": 1.0561950452486437,
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 32768,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 81920,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 32768,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 32768,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 81920,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "legacy_ms": 65.37765,
+      "packed_ms": 69.05154999999999,
+      "default_ms": 65.2337,
+      "default_over_legacy": 0.9977981772058188,
+      "legacy_label": "legacy",
+      "packed_label": "packed",
+      "default_label": "legacy",
+      "expected_default_label": "legacy"
+    }
+  ]
+}

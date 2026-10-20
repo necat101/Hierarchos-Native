@@ -1,0 +1,18 @@
+{
+  "python": "3.12.15 (main, Oct  3 2026, 01:05:37) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "packages": {
+    "torch": "2.14.1",
+    "numpy": "2.5.3",
+    "safetensors": "0.8.0",
+    "accelerate": "1.15.0",
+    "huggingface-hub": "1.33.0",
+    "tokenizers": "0.23.2",
+    "transformers": "5.19.0.dev0"
+  },
+  "transformers_checkout": {
+    "path": "C:\\Users\\User\\transformers",
+    "commit": "469230357aab0f2b303b0d638c1f8d06edb14184",
+    "status": ""
+  }
+}

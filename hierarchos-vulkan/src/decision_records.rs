@@ -40,7 +40,10 @@
 //! label the low-rank producer reports) is the same storage policy under an older
 //! name.
 
-use std::{collections::HashMap, sync::OnceLock};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::OnceLock,
+};
 
 use serde::Deserialize;
 
@@ -59,6 +62,18 @@ pub enum Route {
     /// The two-dispatch chain (or, for the projection and channel mix, the
     /// `linear3`/`linear_residual` module composition).
     Staged,
+    /// The packed TBPTT chain: recurrent matrix state stays packed through the
+    /// first forward sweep (or through reverse rematerialization) and the
+    /// backward-only tape stores are suppressed.
+    Packed,
+    /// The legacy TBPTT chain: unpacked forward state and a full recorded tape.
+    Legacy,
+    /// The fully folded state-backward rung: the recurrence/vector-add3 kernel, the
+    /// key transform and the key-parameter reduction in one dispatch. It is only
+    /// recordable where the sweep measured it bit-exact against the two-dispatch
+    /// reduction (`grad_k_k`/`grad_k_a` exactly equal), and only where the device
+    /// compiles that depth.
+    Folded,
 }
 
 impl Route {
@@ -68,6 +83,9 @@ impl Route {
             Self::WideFused => "wide-fused",
             Self::NarrowFused => "narrow-fused",
             Self::Staged => "staged",
+            Self::Packed => "packed",
+            Self::Legacy => "legacy",
+            Self::Folded => "folded",
         }
     }
 
@@ -77,6 +95,9 @@ impl Route {
             "wide-fused" => Some(Self::WideFused),
             "narrow-fused" => Some(Self::NarrowFused),
             "staged" | "composed" => Some(Self::Staged),
+            "packed" => Some(Self::Packed),
+            "legacy" => Some(Self::Legacy),
+            "folded" => Some(Self::Folded),
             _ => None,
         }
     }
@@ -94,6 +115,13 @@ impl Route {
 fn allowed_routes(kind: &str) -> &'static [Route] {
     match kind {
         "rwkv-key-state-forward" => &[Route::WideFused, Route::NarrowFused, Route::Staged],
+        "rwkv-tbptt-packed-forward" | "rwkv-tbptt-packed-rematerialization" => {
+            &[Route::Packed, Route::Legacy]
+        }
+        // The backward-fusion table names the autotuner's depth (`fused`), the most
+        // decomposed chain (`staged`) and, where the sweep measured it exact, the
+        // fully folded rung (`folded`).
+        "rwkv-tbptt-backward-fusion" => &[Route::Fused, Route::Staged, Route::Folded],
         _ => &[Route::Fused, Route::Staged],
     }
 }
@@ -103,6 +131,30 @@ struct DecisionRecord {
     schema: u32,
     kind: String,
     decisions: Vec<Decision>,
+    /// Routes that were measured and won, but whose graph changed the values
+    /// enough that a training trajectory cannot adopt them. The entry stays in
+    /// `decisions` so the measurement is auditable; the runtime skips it and
+    /// keeps the structural default. A scoped entry withholds that policy's
+    /// lookup entirely -- including the shared fallback -- so a policy the
+    /// measurement was not taken under can refuse it without moving the policy
+    /// that was.
+    #[serde(default)]
+    withheld: Vec<Withheld>,
+}
+
+#[derive(Deserialize)]
+struct Withheld {
+    device: String,
+    width: u32,
+    batch: u32,
+    /// The route the run measured. It must be the fastest candidate in the
+    /// decision entry this policy would otherwise adopt (its own scoped entry,
+    /// or the shared one it falls back to), so a withheld route cannot be
+    /// invented beside the measurement either.
+    route: String,
+    #[serde(default, rename = "parameter_storage")]
+    parameter_storage: Option<String>,
+    reason: String,
 }
 
 #[derive(Deserialize)]
@@ -129,6 +181,12 @@ struct Decision {
 pub(crate) struct DecisionTable {
     entries: HashMap<(String, u32, u32), Route>,
     scoped: HashMap<(String, u32, u32, String), Route>,
+    /// Keys whose measured route is not adopted by the runtime. A shared (no
+    /// policy) key withholds the entry from every policy that would otherwise
+    /// fall back to it; a scoped key withholds that policy's lookup even when
+    /// its only evidence is the shared entry, so the structural default decides
+    /// there while other policies keep reading the measurement.
+    withheld: HashSet<(String, u32, u32, String)>,
 }
 
 impl DecisionTable {
@@ -257,16 +315,88 @@ impl DecisionTable {
                 }
             }
         }
-        Self { entries, scoped }
+        let mut withheld = HashSet::with_capacity(record.withheld.len());
+        for entry in record.withheld {
+            assert!(
+                !entry.reason.trim().is_empty(),
+                "withheld decision for {} at width {} batch {} carries no reason",
+                entry.device,
+                entry.width,
+                entry.batch
+            );
+            let route = Route::parse(&entry.route).unwrap_or_else(|| {
+                panic!(
+                    "withheld decision for {} at width {} batch {} names route {:?}, which is not \
+                     one of {allowed:?}",
+                    entry.device, entry.width, entry.batch, entry.route
+                )
+            });
+            assert!(
+                allowed.contains(&route),
+                "withheld decision for {} at width {} batch {} names route {:?}, which the {kind} \
+                 consumer does not dispatch",
+                entry.device,
+                entry.width,
+                entry.batch,
+                route.label()
+            );
+            let key = decision_key(&entry.device, entry.width, entry.batch);
+            let policy = entry
+                .parameter_storage
+                .as_deref()
+                .map(decision_policy)
+                .unwrap_or_default();
+            // The route a policy would otherwise adopt: its own entry when one
+            // was measured under it, else the shared verdict it falls back to.
+            // Withholding the shared fallback for one policy is the case a
+            // frozen trajectory creates -- the measurement is real and stays in
+            // `decisions`, but that policy may not move to it.
+            let measured = match entry.parameter_storage.as_deref() {
+                Some(_) => scoped
+                    .get(&(key.0.clone(), key.1, key.2, policy.clone()))
+                    .or_else(|| entries.get(&key)),
+                None => entries.get(&key),
+            };
+            assert_eq!(
+                measured.copied(),
+                Some(route),
+                "withheld decision for {} at width {} batch {} names {:?}, but neither its \
+                 scoped entry nor the shared fallback does; a withheld route has to be the \
+                 route this policy would otherwise adopt",
+                entry.device,
+                entry.width,
+                entry.batch,
+                route.label()
+            );
+            assert!(
+                withheld.insert((key.0, key.1, key.2, policy)),
+                "duplicate withheld decision for one device/width/batch in the {kind} record"
+            );
+        }
+        Self {
+            entries,
+            scoped,
+            withheld,
+        }
     }
 
-    /// The measured route for this adapter and geometry, if one was recorded.
-    /// `None` means no measurement exists, so the caller falls back to its own
-    /// structural default.
+    /// The measured route for this adapter and geometry under the policy-less
+    /// read, if one was recorded. `None` means no measurement exists, so the
+    /// caller falls back to its own structural default.
+    ///
+    /// Production consumers always name their parameter-storage policy through
+    /// [`Self::route_scoped`], because a scoped refusal must be visible to them;
+    /// this view exists for the loader's own tests.
+    #[cfg(test)]
     pub(crate) fn route(&self, device: &str, width: u32, batch: u32) -> Option<Route> {
-        self.entries
-            .get(&decision_key(device, width, batch))
-            .copied()
+        let key = decision_key(device, width, batch);
+        if self
+            .withheld
+            .contains(&(key.0.clone(), key.1, key.2, String::new()))
+        {
+            return None;
+        }
+        self.entries.get(&key).copied()
     }
 
     /// The measured route for this adapter, geometry and parameter-storage
@@ -283,10 +413,49 @@ impl DecisionTable {
     ) -> Option<Route> {
         let key = decision_key(device, width, batch);
         let scoped_key = (key.0.clone(), key.1, key.2, decision_policy(policy));
-        self.scoped
-            .get(&scoped_key)
-            .copied()
-            .or_else(|| self.entries.get(&key).copied())
+        // A withheld scoped route does not fall back to the shared verdict: the
+        // reason it was withheld (a numerical difference that the trajectory
+        // rejects) applies to any route that changes the graph, and the shared
+        // entry is a different policy's evidence. A scoped withhold with no
+        // scoped entry is exactly that case -- it names the shared verdict it
+        // refuses, and only this policy stops reading it.
+        if self.withheld.contains(&scoped_key) {
+            return None;
+        }
+        if let Some(route) = self.scoped.get(&scoped_key) {
+            return Some(*route);
+        }
+        if self
+            .withheld
+            .contains(&(key.0.clone(), key.1, key.2, String::new()))
+        {
+            return None;
+        }
+        self.entries.get(&key).copied()
+    }
+
+    /// Whether any verdict in this table names `route` for this adapter and width,
+    /// at any batch or storage policy.
+    ///
+    /// A consumer uses this to answer "can a record select this graph here?" before
+    /// paying to build kernels nothing may dispatch. It is deliberately not a
+    /// per-geometry lookup: the question is whether the route is selectable at all
+    /// on this adapter, which is settled before any batch is known.
+    pub(crate) fn any_route(&self, device: &str, width: u32, route: Route) -> bool {
+        let device = device.trim().to_ascii_lowercase();
+        let shared = self
+            .entries
+            .iter()
+            .any(|((name, entry_width, _), measured)| {
+                *name == device && *entry_width == width && *measured == route
+            });
+        let scoped = self
+            .scoped
+            .iter()
+            .any(|((name, entry_width, _, _), measured)| {
+                *name == device && *entry_width == width && *measured == route
+            });
+        shared || scoped
     }
 
     /// Number of recorded decisions, for coverage tests that must fail when the
@@ -369,6 +538,12 @@ mod tests {
     const LOW_RANK_FULL_FORWARD: &str =
         include_str!("../validation/low_rank_full_forward_decisions.json");
     const KEY_STATE_FORWARD: &str = include_str!("../validation/key_state_forward_decisions.json");
+    const TBPTT_PACKED_FORWARD: &str =
+        include_str!("../validation/tbptt_packed_forward_decisions.json");
+    const TBPTT_PACKED_REMATERIALIZATION: &str =
+        include_str!("../validation/tbptt_packed_rematerialization_decisions.json");
+    const TBPTT_BACKWARD_FUSION: &str =
+        include_str!("../validation/tbptt_backward_fusion_decisions.json");
 
     #[test]
     fn rule_prefers_the_record_over_the_gate() {
@@ -533,6 +708,60 @@ mod tests {
         assert!(table.route("Intel(R) HD Graphics 520", 128, 32).is_some());
     }
 
+    /// The backward-fusion ladder's third rung. The shipped record documents the
+    /// folded rung as a measured candidate at every geometry it keeps, but names
+    /// it as the winner nowhere: on this adapter the three depths sit inside the 2%
+    /// band, so no measurement justified moving off the autotuner's schedule and
+    /// the fold's kernels are not compiled into the shipped graph.
+    #[test]
+    fn the_backward_fusion_record_measures_the_folded_rung_without_adopting_it() {
+        let table = DecisionTable::load(TBPTT_BACKWARD_FUSION, "rwkv-tbptt-backward-fusion");
+        assert!(table.len() >= 1, "the record has to carry its measurements");
+        assert_eq!(
+            table.route("Intel(R) HD Graphics 520", 128, 4),
+            Some(Route::Fused),
+            "batch 4 keeps the autotuner's depth"
+        );
+        assert!(
+            !table.any_route("Intel(R) HD Graphics 520", 128, Route::Folded),
+            "the folded rung is a candidate everywhere but wins nowhere, so the cell does not \
+             compile a depth nothing dispatches"
+        );
+        assert!(
+            !table.any_route("Some Other GPU", 128, Route::Folded),
+            "an unmeasured adapter has no folded verdict at all"
+        );
+    }
+
+    /// The folded route is recordable: an entry that chose it is admitted, reads
+    /// back for its own policy, and is visible to the cell's "can anything select
+    /// this depth" question. It is still only a backward-fusion route -- a chain
+    /// record that builds two graphs may not name it.
+    #[test]
+    fn a_folded_entry_is_loadable_and_selectable() {
+        let json = r#"{"schema":2,"kind":"rwkv-tbptt-backward-fusion","decisions":[
+            {"device":"GPU","width":128,"batch":8,"route":"folded",
+             "candidates":{"staged":1.02,"fused":1.0,"folded":0.97}}]}"#;
+        let table = DecisionTable::load(json, "rwkv-tbptt-backward-fusion");
+        assert_eq!(
+            table.route_scoped("GPU", 128, 8, "fp32"),
+            Some(Route::Folded)
+        );
+        assert!(table.any_route("GPU", 128, Route::Folded));
+        assert_eq!(table.route_scoped("GPU", 128, 16, "fp32"), None);
+
+        let packed_forward = r#"{"schema":2,"kind":"rwkv-tbptt-packed-forward","decisions":[
+            {"device":"GPU","width":128,"batch":8,"route":"folded",
+             "candidates":{"packed":1.0,"legacy":1.02,"folded":0.97}}]}"#;
+        let result = std::panic::catch_unwind(|| {
+            DecisionTable::load(packed_forward, "rwkv-tbptt-packed-forward");
+        });
+        assert!(
+            result.is_err(),
+            "the packed-forward chain builds two graphs, so a folded route there is a typo"
+        );
+    }
+
     /// The closed vocabulary is what removes the old flag-plus-arm pair: a route
     /// the kind does not dispatch fails at load rather than being ignored.
     #[test]
@@ -641,8 +870,9 @@ mod tests {
     }
 
     /// The shipped record has to carry the FP16 route this dimension was added for:
-    /// the deep packed-mirror producer takes the chain where the dense route keeps
-    /// the fusion, and the dense route must not have moved.
+    /// the deep packed-mirror producer measured the chain a hair faster where the
+    /// dense route keeps the fusion, but that measurement is not bit-identical, so
+    /// it is recorded and withheld and the dense route must not have moved.
     #[test]
     fn the_fp16_route_reads_its_own_entries_and_the_dense_route_does_not() {
         let table = DecisionTable::load(LOW_RANK_FULL_FORWARD, "rwkv-low-rank-full-forward");
@@ -652,8 +882,19 @@ mod tests {
         );
         assert_eq!(
             table.route_scoped("Intel(R) HD Graphics 520", 128, 16, "fp16-storage"),
-            Some(Route::Staged),
-            "the FP16 route takes the staged chain at batch 16"
+            None,
+            "the FP16 staged win at batch 16 is measured but withheld, so the runtime \
+             keeps the structural fused graph"
+        );
+        assert_eq!(
+            table.route_scoped("Intel(R) HD Graphics 520", 128, 8, "fp16-storage"),
+            None,
+            "a withheld scoped route does not fall back to the shared FP32 verdict"
+        );
+        assert_eq!(
+            table.route_scoped("Intel(R) HD Graphics 520", 128, 4, "fp32"),
+            Some(Route::Fused),
+            "a withheld FP16 route does not withhold another policy's own verdict"
         );
         assert_eq!(
             table.route_scoped("Intel(R) HD Graphics 520", 128, 16, "fp32"),
@@ -715,6 +956,163 @@ mod tests {
         assert!(
             wrong.is_err(),
             "a key/state record loaded into the low-rank consumer must fail"
+        );
+    }
+
+    /// The two TBPTT chains use their own vocabulary: `packed` and `legacy`.
+    /// Batch 8 carries no first-forward entry (the legacy graph led inside the
+    /// 2% band, so the run withdrew it), while batches 16 and 32 record the
+    /// legacy transition as the winner. Rematerialization keeps legacy where it
+    /// was measured and leaves the structural default elsewhere.
+    #[test]
+    fn tbptt_chain_records_name_packed_or_legacy_per_geometry() {
+        let forward = DecisionTable::load(TBPTT_PACKED_FORWARD, "rwkv-tbptt-packed-forward");
+        assert_eq!(
+            forward.route("Intel(R) HD Graphics 520", 128, 16),
+            Some(Route::Legacy),
+            "the legacy first-forward transition led batch 16 outside the noise band"
+        );
+        assert_eq!(
+            forward.route("Intel(R) HD Graphics 520", 128, 32),
+            Some(Route::Legacy)
+        );
+        assert_eq!(
+            forward.route("Intel(R) HD Graphics 520", 128, 8),
+            None,
+            "batch 8 was inside the band, so it has no entry and the packed default decides it"
+        );
+        assert_eq!(forward.route("Some Other GPU", 128, 16), None);
+
+        let remat = DecisionTable::load(
+            TBPTT_PACKED_REMATERIALIZATION,
+            "rwkv-tbptt-packed-rematerialization",
+        );
+        assert_eq!(
+            remat.route("Intel(R) HD Graphics 520", 128, 8),
+            Some(Route::Legacy),
+            "packed reverse rematerialization lost every measured batch outside the band"
+        );
+        assert_eq!(remat.route("Intel(R) HD Graphics 520", 128, 1), None);
+    }
+
+    /// A policy reads the shared measurement, and a policy that measured the
+    /// transition itself reads its own entry: the FP16 chain A/B removed the
+    /// refusal this record used to carry by recording the same crossover under
+    /// `fp16-storage`, so both policies now follow their own receipt.
+    #[test]
+    fn a_chain_policy_reads_the_measurement_it_is_entitled_to() {
+        let forward = DecisionTable::load(TBPTT_PACKED_FORWARD, "rwkv-tbptt-packed-forward");
+        for batch in [16, 32] {
+            assert_eq!(
+                forward.route("Intel(R) HD Graphics 520", 128, batch),
+                Some(Route::Legacy),
+                "the default policy's measured verdict stays recorded at batch {batch}"
+            );
+            assert_eq!(
+                forward.route_scoped("Intel(R) HD Graphics 520", 128, batch, "fp16-storage"),
+                Some(Route::Legacy),
+                "the FP16 policy measured this transition itself at batch {batch}, so it \
+                 adopts its own verdict instead of falling back to the structural route"
+            );
+            assert_eq!(
+                forward.route_scoped("Intel(R) HD Graphics 520", 128, batch, "fp32"),
+                Some(Route::Legacy),
+                "another policy still reads the shared measurement"
+            );
+        }
+        assert_eq!(
+            forward.route_scoped("Intel(R) HD Graphics 520", 128, 1, "fp16-storage"),
+            Some(Route::Packed),
+            "a geometry whose measured verdict is the structural route needs no refusal"
+        );
+        let remat = DecisionTable::load(
+            TBPTT_PACKED_REMATERIALIZATION,
+            "rwkv-tbptt-packed-rematerialization",
+        );
+        assert_eq!(
+            remat.route_scoped("Intel(R) HD Graphics 520", 128, 8, "fp16-storage"),
+            Some(Route::Legacy),
+            "rematerialization's measured verdicts are the structural default, so no policy \
+             refuses anything there"
+        );
+    }
+
+    /// A scoped withhold has to name the route its policy would otherwise adopt:
+    /// either its own scoped entry or the shared fallback. A record that
+    /// withholds a route the policy never measured is fabricating a refusal.
+    #[test]
+    fn a_scoped_withhold_must_name_a_route_the_policy_has() {
+        let json = r#"{"schema":2,"kind":"rwkv-tbptt-packed-forward","decisions":[
+            {"device":"GPU","width":128,"batch":16,"route":"legacy",
+             "candidates":{"packed":1.2,"legacy":1.0}}],
+            "withheld":[{"device":"GPU","width":128,"batch":16,"route":"legacy",
+             "parameter_storage":"fp16-storage","reason":"the golden is packed"}]}"#;
+        let table = DecisionTable::load(json, "rwkv-tbptt-packed-forward");
+        assert_eq!(table.route_scoped("GPU", 128, 16, "fp16-storage"), None);
+        assert_eq!(
+            table.route_scoped("GPU", 128, 16, "fp32"),
+            Some(Route::Legacy),
+            "withholding the fallback for one policy must not withdraw the shared entry"
+        );
+
+        let json = r#"{"schema":2,"kind":"rwkv-tbptt-packed-forward","decisions":[
+            {"device":"GPU","width":128,"batch":16,"route":"legacy",
+             "candidates":{"packed":1.2,"legacy":1.0}}],
+            "withheld":[{"device":"GPU","width":128,"batch":16,"route":"packed",
+             "parameter_storage":"fp16-storage","reason":"the golden is packed"}]}"#;
+        let result = std::panic::catch_unwind(|| {
+            DecisionTable::load(json, "rwkv-tbptt-packed-forward");
+        });
+        assert!(
+            result.is_err(),
+            "a scoped withhold that names a route the policy does not have must be rejected"
+        );
+    }
+
+    #[test]
+    fn a_projection_route_is_rejected_by_a_chain_record() {
+        let json = r#"{"schema":2,"kind":"rwkv-tbptt-packed-forward","decisions":[
+            {"device":"GPU","width":128,"batch":8,"route":"fused",
+             "candidates":{"packed":1.0,"legacy":1.2}}]}"#;
+        let result = std::panic::catch_unwind(|| {
+            DecisionTable::load(json, "rwkv-tbptt-packed-forward");
+        });
+        assert!(
+            result.is_err(),
+            "a TBPTT chain record can only name the graphs that chain builds"
+        );
+    }
+
+    /// A withheld route is claimed beside a measurement, so it has to be that
+    /// measurement: a record that withholds a route the decision did not name is
+    /// fabricating a verdict, and one with no reason gives the runtime no record
+    /// of why the faster route was not adopted.
+    #[test]
+    fn a_withheld_route_must_match_its_measured_decision() {
+        let json = r#"{"schema":2,"kind":"rwkv-low-rank-full-forward","decisions":[
+            {"device":"GPU","width":128,"batch":8,"route":"staged",
+             "candidates":{"fused":1.0,"staged":0.9}}],
+            "withheld":[{"device":"GPU","width":128,"batch":8,"route":"fused",
+             "reason":"not bit-identical"}]}"#;
+        let result = std::panic::catch_unwind(|| {
+            DecisionTable::load(json, "rwkv-low-rank-full-forward");
+        });
+        assert!(
+            result.is_err(),
+            "a withheld route that is not the measured decision must be rejected"
+        );
+
+        let json = r#"{"schema":2,"kind":"rwkv-low-rank-full-forward","decisions":[
+            {"device":"GPU","width":128,"batch":8,"route":"staged",
+             "candidates":{"fused":1.0,"staged":0.9}}],
+            "withheld":[{"device":"GPU","width":128,"batch":8,"route":"staged",
+             "reason":" "}]}"#;
+        let result = std::panic::catch_unwind(|| {
+            DecisionTable::load(json, "rwkv-low-rank-full-forward");
+        });
+        assert!(
+            result.is_err(),
+            "a withheld route with no reason must be rejected, not adopted silently"
         );
     }
 

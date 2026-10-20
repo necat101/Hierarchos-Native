@@ -3,6 +3,10 @@
   "note": "Shared shader files that deliberately differ from the read-only stable oracle, one entry per path with the reason and the reason it stays. `state` is `modified` (default) or `removed`: a retired kernel's source and artifacts are present in the baseline and deliberately absent here. check_oracle_parity.py fails on a shared file that differs or is missing without an entry here, and also fails when an entry no longer describes the tree in the way it names (a `modified` entry whose file matches again, or a `removed` entry whose file came back), so this list cannot rot into blanket permission. Vendor modules and the pre-tuning scalar fallbacks are additions, not divergences, and need no entry.",
   "divergences": [
     {
+      "path": "rwkv_matrix_state_backward_fused_rkv_add3_key_transform.comp",
+      "reason": "Adds the opt-in FUSE_KEY_PARAM_CROSS_BATCH specialization for the folded key-parameter reduction. With that define disabled the existing shader artifacts reproduce byte-for-byte (verify_training_shaders.py). New reduce_batch artifacts are separate modules, remain opt-in, and retain the historical batch-order FP32 sum; their manifest/provenance, direct gradient readback and fault-injection controls cover the specialization."
+    },
+    {
       "path": "transformer_attention_backward.comp",
       "reason": "Adds the key-range split (push words key_block_index/key_block_count). A single-block submission runs the oracle's arithmetic: the split bounds cover the whole key range and the per-key work is unchanged. The recorded attention digests on the oracle device are identical."
     },

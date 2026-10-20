@@ -177,7 +177,9 @@ QWEN25_STRICT_FAMILIES = (
 )
 
 # Fixtures wide enough to clear the Intel Gen9 gate (`rows >= 4`,
-# `input_dim >= 32`, `output_dim >= 128`). Every other fixture is deliberately
+# `input_dim >= 32`, `output_dim >= 128`) and RDNA3's eight-row gate. Both
+# cases use two six-token rows, including the fully unmasked case.
+# Every other fixture is deliberately
 # tiny (`hidden_size` 16, `intermediate_size`/`vocab_size` 32), so its matmuls are
 # below that gate and the tuned `intel-gen9-lds` modules are never dispatched --
 # the resolved plan selects them, the geometry rejects them. These two fixtures
@@ -1367,6 +1369,9 @@ def compare_family(
 
     input_ids = torch.tensor([[1, 5, 9, 3, 7, 2]], dtype=torch.long)
     attention_mask = torch.ones_like(input_ids)
+    if name in WIDE_LOGIT_FAMILIES and not padded:
+        input_ids = torch.cat([input_ids, input_ids.flip(1)])
+        attention_mask = torch.ones_like(input_ids)
     if padded:
         attention_mask[0, -2:] = 0
     if padded:

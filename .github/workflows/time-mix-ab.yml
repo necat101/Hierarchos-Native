@@ -2,17 +2,29 @@ name: packed-cell producer A/B
 
 # The packed cell's projection promotions are measured rules, so they are checked
 # by measuring: this job re-runs the A/B harnesses on a GPU runner and fails when
-# the shipped default stops building the graph the decision record names. Three
-# harnesses: the time-mix projection in one `forward_backward` call, the same
-# promotion read end to end as a multi-step TBPTT sequence, and the channel-mix
+# the shipped default stops building the graph the decision record names. Every
+# measured producer from `validation/check_measured_producer_routes.py` runs here
+# in one sweep: the time-mix projection in one `forward_backward` call, the same
+# promotion read end to end as a multi-step TBPTT sequence, the channel-mix
 # producer (rank 1 of `validation/FUSED_FORWARD_PRODUCER_AUDIT.md`) against the
 # staged composition that dispatches the tuned `linear-residual-forward` module,
 # the LN1/low-rank producer (rank 2) against the staged chain it replaces, the deep
-# FP16 arm of that route under the training graph's parameter-storage policy, and
-# the key/state forward fusion (rank 3) against its two-dispatch chain.
+# FP16 arm of that route under the training graph's parameter-storage policy, the
+# key/state forward fusion (rank 3) against its two-dispatch chain, and the
+# packed-cell composition that qualifies the staged route itself.
 # The checked-in receipts and decision records can go stale without anyone editing
 # them, and the unit tests that read them run on CPU-only CI, so this is the job
 # that proves the rules on real hardware.
+#
+# The per-producer steps between the GENERATED markers are rendered from the
+# guard's spec table by `validation/render_ab_workflow.py`; edit that table (not
+# the block) so a new producer cannot miss its sweep, its guard, or either job.
+# `workspace-check.yml` fails when this file and the table disagree.
+#
+# The generated steps record receipts only (`--record`), never
+# `--record-decisions`: a per-device decision is re-recorded deliberately on a
+# quiet machine, where the A/B's own noise band decides which geometries are real
+# decisions and which are ties left to the documented fallback.
 #
 # `runs-on` expects a self-hosted runner with a Vulkan adapter that has a tuned
 # `linear3-forward` and `linear-residual-forward` module (Intel Gen9 or AMD); the
@@ -32,30 +44,64 @@ on:
       - "hierarchos-vulkan/src/decision_records.rs"
       - "hierarchos-vulkan/src/bin/rwkv_packed_cell_time_mix_bench.rs"
       - "hierarchos-vulkan/src/bin/rwkv_tbptt_time_mix_bench.rs"
+      - "hierarchos-vulkan/src/bin/rwkv_tbptt_packed_chains_bench.rs"
       - "hierarchos-vulkan/src/bin/rwkv_packed_cell_channel_mix_bench.rs"
       - "hierarchos-vulkan/src/bin/rwkv_packed_cell_low_rank_forward_bench.rs"
       - "hierarchos-vulkan/src/bin/rwkv_low_rank_fp16_forward_bench.rs"
       - "hierarchos-vulkan/src/bin/rwkv_key_state_forward_bench.rs"
       - "hierarchos-vulkan/src/rwkv_low_rank.rs"
       - "hierarchos-vulkan/src/mixed_precision.rs"
+      # The kernels themselves. The verdicts these jobs check are properties of the
+      # GLSL, so a shader edit -- a re-mapped lane, a staged operand, a re-ordered
+      # loop -- has to re-run the A/Bs even when no Rust file changes; without this
+      # the route could move on the next weekly run only.
+      - "hierarchos-vulkan/shaders/**"
       - "hierarchos-vulkan/validation/ab_harness.py"
       - "hierarchos-vulkan/validation/bench_rwkv_packed_cell_time_mix.py"
       - "hierarchos-vulkan/validation/bench_rwkv_tbptt_time_mix.py"
+      - "hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py"
       - "hierarchos-vulkan/validation/bench_rwkv_packed_cell_channel_mix.py"
       - "hierarchos-vulkan/validation/bench_rwkv_packed_cell_low_rank_forward.py"
       - "hierarchos-vulkan/validation/bench_rwkv_low_rank_fp16_forward.py"
       - "hierarchos-vulkan/validation/bench_rwkv_key_state_forward.py"
       - "hierarchos-vulkan/validation/test_rwkv_time_mix_receipt.py"
       - "hierarchos-vulkan/validation/test_rwkv_tbptt_time_mix_receipt.py"
+      - "hierarchos-vulkan/validation/test_rwkv_tbptt_packed_chains_receipt.py"
       - "hierarchos-vulkan/validation/test_rwkv_channel_mix_receipt.py"
       - "hierarchos-vulkan/validation/test_rwkv_low_rank_forward_receipt.py"
       - "hierarchos-vulkan/validation/test_rwkv_key_state_forward_receipt.py"
       - "hierarchos-vulkan/validation/test_rwkv_key_state_profile.py"
+      - "hierarchos-vulkan/validation/test_rwkv_composition_receipt.py"
       - "hierarchos-vulkan/validation/profile_rwkv_key_state_forward.py"
+      - "hierarchos-vulkan/validation/check_measured_producer_routes.py"
+      - "hierarchos-vulkan/validation/test_measured_producer_routes.py"
+      - "hierarchos-vulkan/validation/render_ab_workflow.py"
+      - "hierarchos-vulkan/validation/test_ab_workflow_rendering.py"
+      # The ladder receipt and its guard: a changed floor, a changed step list or
+      # a re-recorded receipt has to be re-run on the device it describes.
+      - "hierarchos-vulkan/validation/verify_training_stack.py"
+      - "hierarchos-vulkan/validation/check_training_stack_receipt.py"
+      - "hierarchos-vulkan/validation/test_training_stack.py"
+      - "hierarchos-vulkan/validation/training_stack_receipt.json"
+      - "hierarchos-vulkan/validation/verify_rwkv_packed_cell_composition.py"
       - "hierarchos-vulkan/validation/time_mix_projection_decisions.json"
       - "hierarchos-vulkan/validation/channel_mix_forward_decisions.json"
       - "hierarchos-vulkan/validation/low_rank_full_forward_decisions.json"
       - "hierarchos-vulkan/validation/key_state_forward_decisions.json"
+      - "hierarchos-vulkan/validation/tbptt_packed_forward_decisions.json"
+      - "hierarchos-vulkan/validation/tbptt_packed_rematerialization_decisions.json"
+      # A receipt is what the route guard reads, so a re-recorded one is worth a
+      # re-check on the adapter that produced it -- for every measured producer.
+      - "hierarchos-vulkan/validation/packed_cell_time_mix_bench.json"
+      - "hierarchos-vulkan/validation/packed_cell_tbptt_time_mix_bench.json"
+      - "hierarchos-vulkan/validation/tbptt_packed_forward_bench.json"
+      - "hierarchos-vulkan/validation/tbptt_packed_remat_bench.json"
+      - "hierarchos-vulkan/validation/packed_cell_channel_mix_bench.json"
+      - "hierarchos-vulkan/validation/packed_cell_low_rank_forward_bench.json"
+      - "hierarchos-vulkan/validation/low_rank_fp16_forward_bench.json"
+      - "hierarchos-vulkan/validation/key_state_forward_bench.json"
+      - "hierarchos-vulkan/validation/key_state_forward_profile.json"
+      - "hierarchos-vulkan/validation/packed_cell_composition.json"
       - ".github/workflows/time-mix-ab.yml"
   schedule:
     # Weekly, so a driver or shader change that only shifts the crossover still
@@ -82,11 +128,145 @@ jobs:
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install safetensors numpy
 
-      - name: Single-step A/B on the shipped default
+      # The committed ladder receipt is checked on the CPU in `workspace-check`,
+      # but only this job can re-run the ladder on the qualified adapter. A fresh
+      # run that drops or renames a step, reports a different result, records on
+      # another adapter or exercises fewer cases than the committed receipt fails
+      # here, before `--record` can adopt it. `workspace-check` pins the committed
+      # file; this pins the run that would replace it.
+      - name: Training-stack ladder matches the committed receipt
+        shell: pwsh
+        run: |
+          python hierarchos-vulkan/validation/verify_training_stack.py --receipt target/stack_receipt.json
+          python hierarchos-vulkan/validation/check_training_stack_receipt.py --compare target/stack_receipt.json
+
+      # BEGIN GENERATED STEPS: producer-ab
+      - name: Time-mix projection A/B on the shipped default
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_packed_cell_time_mix.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --iterations 20 --warmup 5
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 20 --warmup 5
           --record hierarchos-vulkan/validation/packed_cell_time_mix_bench.json
+
+      - name: Time-mix projection route across the sweep
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer time-mix-projection
+
+      - name: Channel-mix A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_channel_mix.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 20 --warmup 5
+          --record hierarchos-vulkan/validation/packed_cell_channel_mix_bench.json
+
+      - name: Channel-mix route across the sweep
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer channel-mix
+
+      - name: LN1/low-rank forward A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_low_rank_forward.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 20 --warmup 5
+          --record hierarchos-vulkan/validation/packed_cell_low_rank_forward_bench.json
+
+      - name: LN1/low-rank route across the sweep
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer low-rank-forward
+
+      - name: FP16-storage low-rank forward A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_low_rank_fp16_forward.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 20 --warmup 5
+          --record hierarchos-vulkan/validation/low_rank_fp16_forward_bench.json
+
+      - name: FP16-storage low-rank route across the sweep
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer low-rank-forward-fp16
+
+      - name: Key/state forward A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_key_state_forward.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 20 --repetitions 50
+          --record hierarchos-vulkan/validation/key_state_forward_bench.json
+
+      - name: Key/state route across the sweep
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer key-state-forward
+
+      - name: TBPTT packed forward A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain forward --steps 8 --iterations 20
+          --warmup 2
+          --record hierarchos-vulkan/validation/tbptt_packed_forward_bench.json
+
+      - name: TBPTT packed-forward route across the sweep
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-packed-forward
+
+      - name: TBPTT packed rematerialization A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain remat --steps 8 --iterations 20 --warmup
+          2
+          --record hierarchos-vulkan/validation/tbptt_packed_remat_bench.json
+
+      - name: TBPTT packed-rematerialization route across the sweep
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-packed-rematerialization
+
+      - name: TBPTT packed forward (fp16-storage) A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain forward --parameter-storage fp16-storage
+          --steps 8 --iterations 20 --warmup 2
+          --record hierarchos-vulkan/validation/tbptt_packed_forward_fp16_bench.json
+
+      - name: TBPTT packed-forward fp16-storage route across the sweep
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-packed-forward-fp16
+
+      - name: TBPTT packed rematerialization (fp16-storage) A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain remat --parameter-storage fp16-storage
+          --steps 8 --iterations 20 --warmup 2
+          --record hierarchos-vulkan/validation/tbptt_packed_remat_fp16_bench.json
+
+      - name: TBPTT packed-rematerialization fp16-storage route across the sweep
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-packed-rematerialization-fp16
+
+      - name: TBPTT backward fusion A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain backward --steps 8 --iterations 40
+          --warmup 3
+          --record hierarchos-vulkan/validation/tbptt_backward_fusion_bench.json
+
+      - name: TBPTT backward-fusion route across the sweep
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-backward-fusion
+
+      - name: TBPTT backward fusion (fp16-storage) A/B on the shipped default
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain backward --parameter-storage
+          fp16-storage --steps 8 --iterations 40 --warmup 3
+          --record hierarchos-vulkan/validation/tbptt_backward_fusion_fp16_bench.json
+
+      - name: TBPTT backward-fusion fp16-storage route across the sweep
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-backward-fusion-fp16
 
       - name: Multi-step TBPTT A/B on the shipped default
         run: >
@@ -94,50 +274,22 @@ jobs:
           --batch 1 --batch 4 --batch 8 --batch 16 --steps 8 --iterations 8 --warmup 2
           --record hierarchos-vulkan/validation/packed_cell_tbptt_time_mix_bench.json
 
-      # Rank 1 of the fused-producer audit. The step records the receipt but never
-      # `--record-decisions`: the per-device decision records are re-recorded
-      # deliberately on a quiet machine, where the A/B's own noise band decides which
-      # geometries are real decisions and which are ties left to the vendor gate.
-      - name: Channel-mix A/B on the shipped default
+      - name: TBPTT time-mix route across the sweep
         run: >
-          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_channel_mix.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --iterations 20 --warmup 5
-          --record hierarchos-vulkan/validation/packed_cell_channel_mix_bench.json
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-time-mix
 
-      # Rank 2 of the fused-producer audit: the LN1/low-rank producer against the
-      # staged chain it replaces. Same rule as rank 1 — the step records the receipt
-      # but never `--record-decisions`, because a per-device entry is re-recorded
-      # deliberately on a quiet machine where the A/B's own noise band decides which
-      # geometries are real decisions.
-      - name: LN1/low-rank forward A/B on the shipped default
+      - name: Packed-cell vendor composition
         run: >
-          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_low_rank_forward.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --iterations 20 --warmup 5
-          --record hierarchos-vulkan/validation/packed_cell_low_rank_forward_bench.json
+          python hierarchos-vulkan/validation/verify_rwkv_packed_cell_composition.py
+          --expected-vendor auto
+          --record hierarchos-vulkan/validation/packed_cell_composition.json
 
-      # Rank 2's scope gap: the deep FP16 producer under the training graph's
-      # `fp16-storage-fp32-compute` parameter-storage policy. This step records the
-      # policy-specific receipt only; the driver reports per geometry whether the FP16
-      # measurement follows the record entry its own storage policy reads, and writing
-      # those entries (`--record-decisions`, which tags them `fp16-storage`) is
-      # left to the deliberate quiet-machine run like every other record.
-      - name: FP16-storage low-rank forward A/B
+      - name: Packed-cell composition route
         run: >
-          python hierarchos-vulkan/validation/bench_rwkv_low_rank_fp16_forward.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --iterations 20 --warmup 5
-          --record hierarchos-vulkan/validation/low_rank_fp16_forward_bench.json
-
-      # Rank 3 of the fused-producer audit: the fused key/state forward against the
-      # two-dispatch chain, measured in isolation because one dispatch against two is
-      # below a whole step's noise. Both fused arms (wider-group and
-      # one-workgroup-per-head) rotate against the chain, so the receipt shows whether
-      # the wider group is still the arm that removed the batch-16 crossover. Receipt
-      # only, same rule as ranks 1 and 2.
-      - name: Key/state forward A/B on the shipped default
-        run: >
-          python hierarchos-vulkan/validation/bench_rwkv_key_state_forward.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --iterations 20 --repetitions 50
-          --record hierarchos-vulkan/validation/key_state_forward_bench.json
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer packed-cell-composition
+      # END GENERATED STEPS: producer-ab
 
       # Rank 3's phase attribution: GPU timestamps per dispatch, so the receipt says
       # which phase of the stage dominates at each geometry instead of inferring it
@@ -155,12 +307,18 @@ jobs:
         env:
           HIERARCHOS_RUN_GPU_VALIDATION: "1"
         run: |
+          # BEGIN GENERATED TESTS
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_time_mix_receipt.py" -v
-          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_tbptt_time_mix_receipt.py" -v
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_channel_mix_receipt.py" -v
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_low_rank_forward_receipt.py" -v
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_key_state_forward_receipt.py" -v
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_key_state_profile.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_tbptt_packed_chains_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_tbptt_time_mix_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_composition_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_measured_producer_routes.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_ab_workflow_rendering.py" -v
+          # END GENERATED TESTS
 
       - name: Keep the measured receipts
         if: always()
@@ -168,13 +326,22 @@ jobs:
         with:
           name: producer-ab-receipts
           path: |
+            # BEGIN GENERATED ARTIFACTS: producer-ab
             hierarchos-vulkan/validation/packed_cell_time_mix_bench.json
-            hierarchos-vulkan/validation/packed_cell_tbptt_time_mix_bench.json
             hierarchos-vulkan/validation/packed_cell_channel_mix_bench.json
             hierarchos-vulkan/validation/packed_cell_low_rank_forward_bench.json
             hierarchos-vulkan/validation/low_rank_fp16_forward_bench.json
             hierarchos-vulkan/validation/key_state_forward_bench.json
             hierarchos-vulkan/validation/key_state_forward_profile.json
+            hierarchos-vulkan/validation/tbptt_packed_forward_bench.json
+            hierarchos-vulkan/validation/tbptt_packed_remat_bench.json
+            hierarchos-vulkan/validation/tbptt_packed_forward_fp16_bench.json
+            hierarchos-vulkan/validation/tbptt_packed_remat_fp16_bench.json
+            hierarchos-vulkan/validation/tbptt_backward_fusion_bench.json
+            hierarchos-vulkan/validation/tbptt_backward_fusion_fp16_bench.json
+            hierarchos-vulkan/validation/packed_cell_tbptt_time_mix_bench.json
+            hierarchos-vulkan/validation/packed_cell_composition.json
+            # END GENERATED ARTIFACTS: producer-ab
           if-no-files-found: warn
 
   # Cross-adapter evidence: the same A/Bs on a Vulkan adapter that is not the Intel
@@ -205,11 +372,164 @@ jobs:
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install safetensors numpy
 
+      # Every producer is measured over the same sweep as the Intel job, because
+      # a shorter sweep cannot re-check a record entry at a batch it skipped --
+      # the gap that hid the key/state batch-32 collapse. This adapter has no
+      # entries yet, so the guard checks the sweep, the dispatch accounting,
+      # parity and the default's documented fallback rather than another
+      # adapter's verdicts. The guard never requires the wider group to win -- a
+      # device where another candidate wins passes as soon as its record names
+      # that candidate.
+      # BEGIN GENERATED STEPS: cross-adapter-ab
+      - name: Time-mix projection A/B (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_time_mix.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 20 --warmup 5
+          --record hierarchos-vulkan/validation/packed_cell_time_mix_bench.json
+
+      - name: Time-mix projection route across the sweep (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer time-mix-projection
+
+      - name: Channel-mix A/B (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_channel_mix.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 20 --warmup 5
+          --record hierarchos-vulkan/validation/packed_cell_channel_mix_bench.json
+
+      - name: Channel-mix route across the sweep (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer channel-mix
+
+      - name: LN1/low-rank forward A/B (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_low_rank_forward.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 20 --warmup 5
+          --record hierarchos-vulkan/validation/packed_cell_low_rank_forward_bench.json
+
+      - name: LN1/low-rank route across the sweep (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer low-rank-forward
+
+      - name: FP16-storage low-rank forward A/B (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_low_rank_fp16_forward.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 20 --warmup 5
+          --record hierarchos-vulkan/validation/low_rank_fp16_forward_bench.json
+
+      - name: FP16-storage low-rank route across the sweep (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer low-rank-forward-fp16
+
       - name: Key/state forward A/B (AMD adapter)
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_key_state_forward.py
           --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 20 --repetitions 50
           --record hierarchos-vulkan/validation/key_state_forward_bench.json
+
+      - name: Key/state route across the sweep (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer key-state-forward
+
+      - name: TBPTT packed forward A/B (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain forward --steps 8 --iterations 20
+          --warmup 2
+          --record hierarchos-vulkan/validation/tbptt_packed_forward_bench.json
+
+      - name: TBPTT packed-forward route across the sweep (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-packed-forward
+
+      - name: TBPTT packed rematerialization A/B (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain remat --steps 8 --iterations 20 --warmup
+          2
+          --record hierarchos-vulkan/validation/tbptt_packed_remat_bench.json
+
+      - name: TBPTT packed-rematerialization route across the sweep (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-packed-rematerialization
+
+      - name: TBPTT packed forward (fp16-storage) A/B (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain forward --parameter-storage fp16-storage
+          --steps 8 --iterations 20 --warmup 2
+          --record hierarchos-vulkan/validation/tbptt_packed_forward_fp16_bench.json
+
+      - name: TBPTT packed-forward fp16-storage route across the sweep (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-packed-forward-fp16
+
+      - name: TBPTT packed rematerialization (fp16-storage) A/B (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain remat --parameter-storage fp16-storage
+          --steps 8 --iterations 20 --warmup 2
+          --record hierarchos-vulkan/validation/tbptt_packed_remat_fp16_bench.json
+
+      - name: TBPTT packed-rematerialization fp16-storage route across the sweep (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-packed-rematerialization-fp16
+
+      - name: TBPTT backward fusion A/B (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain backward --steps 8 --iterations 40
+          --warmup 3
+          --record hierarchos-vulkan/validation/tbptt_backward_fusion_bench.json
+
+      - name: TBPTT backward-fusion route across the sweep (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-backward-fusion
+
+      - name: TBPTT backward fusion (fp16-storage) A/B (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain backward --parameter-storage
+          fp16-storage --steps 8 --iterations 40 --warmup 3
+          --record hierarchos-vulkan/validation/tbptt_backward_fusion_fp16_bench.json
+
+      - name: TBPTT backward-fusion fp16-storage route across the sweep (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-backward-fusion-fp16
+
+      - name: Multi-step TBPTT A/B (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/bench_rwkv_tbptt_time_mix.py
+          --batch 1 --batch 4 --batch 8 --batch 16 --steps 8 --iterations 8 --warmup 2
+          --record hierarchos-vulkan/validation/packed_cell_tbptt_time_mix_bench.json
+
+      - name: TBPTT time-mix route across the sweep (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer tbptt-time-mix
+
+      - name: Packed-cell vendor composition (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/verify_rwkv_packed_cell_composition.py
+          --expected-vendor auto
+          --record hierarchos-vulkan/validation/packed_cell_composition.json
+
+      - name: Packed-cell composition route (AMD adapter)
+        run: >
+          python hierarchos-vulkan/validation/check_measured_producer_routes.py
+          --producer packed-cell-composition
+      # END GENERATED STEPS: cross-adapter-ab
 
       - name: Key/state phase profile (AMD adapter)
         run: >
@@ -217,17 +537,20 @@ jobs:
           --batch 1 --batch 8 --batch 16 --batch 32 --runs 5
           --record hierarchos-vulkan/validation/key_state_forward_profile.json
 
-      - name: Projection, channel-mix and low-rank A/Bs (AMD adapter)
-        run: |
-          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_time_mix.py --batch 1 --batch 8 --batch 16 --record hierarchos-vulkan/validation/packed_cell_time_mix_bench.json
-          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_channel_mix.py --batch 1 --batch 8 --batch 16 --record hierarchos-vulkan/validation/packed_cell_channel_mix_bench.json
-          python hierarchos-vulkan/validation/bench_rwkv_packed_cell_low_rank_forward.py --batch 1 --batch 8 --batch 16 --record hierarchos-vulkan/validation/packed_cell_low_rank_forward_bench.json
-          python hierarchos-vulkan/validation/bench_rwkv_low_rank_fp16_forward.py --batch 1 --batch 8 --batch 16 --record hierarchos-vulkan/validation/low_rank_fp16_forward_bench.json
-
       - name: Receipt contracts against this adapter's measurements
         run: |
-          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_*receipt.py" -v
+          # BEGIN GENERATED TESTS
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_time_mix_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_channel_mix_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_low_rank_forward_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_key_state_forward_receipt.py" -v
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_key_state_profile.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_tbptt_packed_chains_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_tbptt_time_mix_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_rwkv_composition_receipt.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_measured_producer_routes.py" -v
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_ab_workflow_rendering.py" -v
+          # END GENERATED TESTS
 
       - name: Keep the cross-adapter receipts
         if: always()
@@ -235,10 +558,20 @@ jobs:
         with:
           name: cross-adapter-receipts
           path: |
-            hierarchos-vulkan/validation/key_state_forward_bench.json
-            hierarchos-vulkan/validation/key_state_forward_profile.json
+            # BEGIN GENERATED ARTIFACTS: cross-adapter-ab
             hierarchos-vulkan/validation/packed_cell_time_mix_bench.json
             hierarchos-vulkan/validation/packed_cell_channel_mix_bench.json
             hierarchos-vulkan/validation/packed_cell_low_rank_forward_bench.json
             hierarchos-vulkan/validation/low_rank_fp16_forward_bench.json
+            hierarchos-vulkan/validation/key_state_forward_bench.json
+            hierarchos-vulkan/validation/key_state_forward_profile.json
+            hierarchos-vulkan/validation/tbptt_packed_forward_bench.json
+            hierarchos-vulkan/validation/tbptt_packed_remat_bench.json
+            hierarchos-vulkan/validation/tbptt_packed_forward_fp16_bench.json
+            hierarchos-vulkan/validation/tbptt_packed_remat_fp16_bench.json
+            hierarchos-vulkan/validation/tbptt_backward_fusion_bench.json
+            hierarchos-vulkan/validation/tbptt_backward_fusion_fp16_bench.json
+            hierarchos-vulkan/validation/packed_cell_tbptt_time_mix_bench.json
+            hierarchos-vulkan/validation/packed_cell_composition.json
+            # END GENERATED ARTIFACTS: cross-adapter-ab
           if-no-files-found: warn

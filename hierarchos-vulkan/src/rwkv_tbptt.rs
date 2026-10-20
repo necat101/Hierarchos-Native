@@ -1,6 +1,8 @@
-use std::{cell::RefCell, path::Path};
+use std::{cell::RefCell, path::Path, sync::OnceLock};
 
 use anyhow::{bail, Context, Result};
+
+use crate::decision_records::{self, Route};
 
 use crate::rwkv_low_rank::{RwkvLowRankFp16ParameterMirrors, RwkvLowRankParameterGradArithmetic};
 use crate::rwkv_optimizer::{
@@ -208,6 +210,17 @@ pub struct RwkvTbpttSequenceOp {
     state_size: usize,
     optimizer: RwkvPersistentAdamW,
     tied_embedding: Option<TiedTokenEmbeddingOp>,
+    // A benchmark arm pins one chain with the public setters; the default
+    // sequence leaves both unpinned and follows the compiled-in records per
+    // batch. Pinning is what lets the A/B measure both graphs on the same
+    // adapter the records also govern, without the record overriding the arm.
+    packed_forward_only_pinned: bool,
+    packed_backward_rematerialization_pinned: bool,
+    // The reverse pass's state-backward fusion depth has its own measured
+    // record. A benchmark arm pins it to one topology; the default sequence
+    // leaves it unpinned and follows the record per batch, keeping the
+    // autotuner's choice where the adapter has no entry.
+    packed_backward_fusion_pinned: bool,
 
     x_steps: Vec<GpuBuffer>,
     token_steps: Vec<GpuBuffer>,
@@ -411,6 +424,9 @@ impl RwkvTbpttSequenceOp {
             state_size,
             optimizer,
             tied_embedding,
+            packed_forward_only_pinned: false,
+            packed_backward_rematerialization_pinned: false,
+            packed_backward_fusion_pinned: false,
         })
     }
 
@@ -1774,6 +1790,7 @@ impl RwkvTbpttSequenceOp {
         if schedule.detach_every_n_steps == Some(0) {
             bail!("TBPTT detach interval must be positive when enabled");
         }
+        self.apply_recorded_packed_chain_routes(batch)?;
         let vector_len = batch * self.width;
         let token_len = batch * self.token_feature_width;
         let state_len = vector_len * self.state_size;
@@ -2146,6 +2163,7 @@ impl RwkvTbpttSequenceOp {
     /// useful for parity/benchmark A/B checks; backward rematerialization is
     /// always recorded through the full training path.
     pub fn set_packed_forward_only_enabled(&mut self, enabled: bool) {
+        self.packed_forward_only_pinned = true;
         self.cell.set_packed_forward_only_enabled(enabled);
     }
 
@@ -2158,8 +2176,370 @@ impl RwkvTbpttSequenceOp {
     /// Opt into/out of the packed reverse-rematerialization A/B arm. It remains
     /// disabled by default until parity has been established for a target.
     pub fn set_packed_backward_rematerialization_enabled(&mut self, enabled: bool) {
+        self.packed_backward_rematerialization_pinned = true;
         self.cell
             .set_packed_backward_rematerialization_enabled(enabled);
+    }
+
+    /// Apply the measured per-geometry verdicts for the two packed TBPTT chains.
+    ///
+    /// The records are compiled in (`tbptt_packed_forward_decisions.json` and
+    /// `tbptt_packed_rematerialization_decisions.json`), and a geometry with no
+    /// entry keeps the structural default: the first-forward transition stays
+    /// packed, reverse rematerialization stays legacy. A benchmark arm that
+    /// pinned a chain with the public setters is left alone, which is what makes
+    /// the two forced legs and the shipped default one comparable A/B.
+    ///
+    /// The records were measured under the default FP32 parameter storage, so
+    /// the `fp16-storage-fp32-compute` policy reads them through its own scope:
+    /// the packed-forward record withholds the measured legacy transition at
+    /// batches 16 and 32 for that policy, because its trajectory golden is
+    /// pinned to the structural packed route and the legacy replay's FP16
+    /// rounding does not reproduce it bit-for-bit. The refusal is in the record
+    /// rather than in this function, so it is auditable per geometry and a chain
+    /// A/B under FP16 storage that records its own entries lifts it.
+    fn apply_recorded_packed_chain_routes(&mut self, batch: usize) -> Result<()> {
+        let device = self.device.name();
+        let width = self.width as u32;
+        let batch_key = batch as u32;
+        let policy = self.packed_chain_policy();
+        if !self.packed_forward_only_pinned {
+            let enabled = packed_forward_record()
+                .route_scoped(device, width, batch_key, policy)
+                .map(|route| route == Route::Packed)
+                .unwrap_or(true);
+            self.cell.set_packed_forward_only_enabled(enabled);
+        }
+        if !self.packed_backward_rematerialization_pinned {
+            let enabled = packed_rematerialization_record()
+                .route_scoped(device, width, batch_key, policy)
+                .map(|route| route == Route::Packed)
+                .unwrap_or(false);
+            self.cell
+                .set_packed_backward_rematerialization_enabled(enabled);
+        }
+        // The reverse pass's fusion depth is a measured route of its own. With no
+        // entry this keeps the autotuner's schedule, which is the structural
+        // default the record can only move where it measured a win. A recorded
+        // `fused` entry means exactly that: keep the autotuner's depth. A measured
+        // `staged` win replaces the schedule with the most decomposed chain, and a
+        // measured `folded` win with the deepest compiled rung.
+        if !self.packed_backward_fusion_pinned {
+            match backward_fusion_record().route_scoped(device, width, batch_key, policy) {
+                Some(Route::Staged) => {
+                    self.apply_backward_fusion(batch)?;
+                }
+                Some(Route::Folded) => {
+                    self.apply_folded_backward_fusion(batch)?;
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// The parameter-storage scope the two packed-chain tables are read under.
+    /// The packed mirrors the chains share with the low-rank producer are what
+    /// make the FP16 trajectory's rounding differ from the FP32 record's, so the
+    /// policy that installs them names the scope.
+    fn packed_chain_policy(&self) -> &'static str {
+        if self.low_rank_fp16_parameter_storage_active() {
+            "fp16-storage"
+        } else {
+            "fp32"
+        }
+    }
+
+    /// The recorded first-forward verdict for this geometry, or `None` where the
+    /// adapter has no entry. The benchmark uses it to prove its receipt was
+    /// measured against the same decision the default followed.
+    pub fn recorded_packed_forward_route(&self, batch: usize) -> Option<&'static str> {
+        packed_forward_record()
+            .route_scoped(
+                self.device.name(),
+                self.width as u32,
+                batch as u32,
+                self.packed_chain_policy(),
+            )
+            .map(Route::label)
+    }
+
+    /// The recorded reverse-rematerialization verdict for this geometry, or
+    /// `None` where the adapter has no entry.
+    pub fn recorded_packed_rematerialization_route(&self, batch: usize) -> Option<&'static str> {
+        packed_rematerialization_record()
+            .route_scoped(
+                self.device.name(),
+                self.width as u32,
+                batch as u32,
+                self.packed_chain_policy(),
+            )
+            .map(Route::label)
+    }
+
+    /// The exact backward-segment schedule label the reverse pass will use, so a
+    /// receipt can record the fusion depth it measured rather than only the
+    /// record's two-route name for it.
+    pub fn packed_backward_fusion_label(&self, batch: usize) -> Option<String> {
+        self.cell.backward_segment_schedule_label(batch)
+    }
+
+    /// Pin the reverse pass to one backward-fusion route. This is the A/B seam.
+    ///
+    /// `fused` keeps the device's fused schedule -- the autotuner's measured
+    /// fusion depth, which is what the shipped graph builds -- and `staged`
+    /// forces the most decomposed topology the device compiles, keeping the
+    /// schedule's projection order and low-rank fan-in where they exist so the
+    /// delta is the fusion depth alone.
+    pub fn set_packed_backward_fusion_enabled(&mut self, batch: usize, fused: bool) -> Result<()> {
+        let Some(label) = self.packed_backward_fusion_label(batch) else {
+            bail!(
+                "TBPTT backward-fusion A/B needs a measured backward-segment schedule, and \
+                 this device has none at batch {batch}"
+            );
+        };
+        if fused {
+            // Freeze the schedule the autotuner chose, so a recorded staged verdict
+            // cannot move this arm out from under the A/B.
+            self.cell
+                .set_backward_segment_schedule_label(batch, &label)?;
+        } else if !self.apply_backward_fusion(batch)? {
+            bail!(
+                "the shipped backward schedule at batch {batch} ({label}) is already the most \
+                 decomposed topology this device compiles, so it has no staged graph to be \
+                 measured against"
+            );
+        }
+        self.packed_backward_fusion_pinned = true;
+        Ok(())
+    }
+
+    /// Every state-backward fusion depth this device compiles at `batch`, in
+    /// increasing fusion order: the most decomposed chain first and the fully
+    /// folded kernel last. The labels are the same stable identifiers a route
+    /// record and `set_packed_backward_fusion_enabled` use.
+    pub fn packed_backward_fusion_labels(&self, batch: usize) -> Result<Vec<String>> {
+        self.cell.available_backward_segment_schedule_labels(batch)
+    }
+
+    /// Pin the reverse pass to one executable fusion depth. This is the A/B
+    /// seam for the fully folded end of the ladder: a depth that is compiled but
+    /// not the autotuner's choice still has to be measurable.
+    pub fn pin_packed_backward_fusion_schedule(&mut self, batch: usize, label: &str) -> Result<()> {
+        let labels = self.packed_backward_fusion_labels(batch)?;
+        if !labels.iter().any(|candidate| candidate == label) {
+            bail!(
+                "TBPTT backward-fusion depth {label:?} is unavailable at batch {batch}; this                  device compiles {labels:?}"
+            );
+        }
+        self.cell
+            .set_backward_segment_schedule_label(batch, label)?;
+        self.packed_backward_fusion_pinned = true;
+        Ok(())
+    }
+
+    /// The recorded reverse-pass fusion verdict for this geometry, or `None`
+    /// where the adapter has no entry.
+    pub fn recorded_packed_backward_fusion_route(&self, batch: usize) -> Option<&'static str> {
+        backward_fusion_record()
+            .route_scoped(
+                self.device.name(),
+                self.width as u32,
+                batch as u32,
+                self.packed_chain_policy(),
+            )
+            .map(Route::label)
+    }
+
+    /// The most decomposed backward schedule this device compiles at `batch`, or
+    /// `None` when the shipped schedule is already the most decomposed topology
+    /// available. The A/B uses it to learn whether a second graph exists at all
+    /// before pinning anything; the runtime uses it only for a recorded staged win.
+    pub fn decomposed_backward_schedule(&self, batch: usize) -> Result<Option<String>> {
+        let Some(current) = self.cell.backward_segment_schedule_label(batch) else {
+            return Ok(None);
+        };
+        let (current_state, projection, fan_in) = self
+            .cell
+            .backward_segment_schedule_factor_labels(batch, &current)?;
+        // Not every decomposition of the fused schedule exists: a fused fan-in
+        // stage and some projection orders have no fully staged sibling. The
+        // staged arm therefore takes the executable staged schedule that keeps
+        // the most of the fused arm's factors -- same projection first, then the
+        // same fan-in -- and nothing else. Whichever label it takes is named in
+        // the receipt, so the comparison is auditable instead of silently
+        // measuring a different decomposition.
+        let mut best: Option<(u8, String)> = None;
+        for label in self
+            .cell
+            .available_backward_segment_schedule_labels(batch)?
+        {
+            if label == current {
+                continue;
+            }
+            let (state, candidate_projection, candidate_fan_in) = self
+                .cell
+                .backward_segment_schedule_factor_labels(batch, &label)?;
+            let Some(depth) = STAGED_STATE_BACKWARD_PRIORITY
+                .iter()
+                .position(|candidate| *candidate == state)
+            else {
+                continue;
+            };
+            let Some(current_depth) = STAGED_STATE_BACKWARD_PRIORITY
+                .iter()
+                .position(|candidate| *candidate == current_state)
+            else {
+                continue;
+            };
+            // Only a strictly more decomposed topology is a staged arm: at a
+            // geometry where the shipped schedule is already the most decomposed
+            // depth the device compiles, there is no second graph to measure.
+            if depth >= current_depth {
+                continue;
+            }
+            // Decomposition first, then how much of the fused arm's
+            // decomposition is kept, so the delta stays the fusion depth.
+            let rank = (depth as u8) * 16
+                + u8::from(candidate_projection != projection) * 4
+                + u8::from(candidate_fan_in != fan_in) * 2;
+            if best.as_ref().is_none_or(|(best_rank, best_label)| {
+                rank < *best_rank || (rank == *best_rank && label < *best_label)
+            }) {
+                best = Some((rank, label));
+            }
+        }
+        Ok(best.map(|(_, label)| label))
+    }
+
+    /// The most fused backward schedule this device compiles at `batch` that
+    /// keeps the autotuner's projection order and low-rank fan-in, or `None`
+    /// when the shipped schedule is already the most fused topology. This is
+    /// the A/B seam for the folded end of the ladder: the projection order and
+    /// fan-in stay fixed, so the delta between the two arms is the fusion depth
+    /// alone.
+    pub fn fused_backward_schedule(&self, batch: usize) -> Result<Option<String>> {
+        let Some(current) = self.cell.backward_segment_schedule_label(batch) else {
+            return Ok(None);
+        };
+        let (current_state, projection, fan_in) = self
+            .cell
+            .backward_segment_schedule_factor_labels(batch, &current)?;
+        let Some(current_depth) = STAGED_STATE_BACKWARD_PRIORITY
+            .iter()
+            .position(|candidate| *candidate == current_state)
+        else {
+            return Ok(None);
+        };
+        let mut best: Option<(usize, String)> = None;
+        for label in self
+            .cell
+            .available_backward_segment_schedule_labels(batch)?
+        {
+            let (state, candidate_projection, candidate_fan_in) = self
+                .cell
+                .backward_segment_schedule_factor_labels(batch, &label)?;
+            if candidate_projection != projection || candidate_fan_in != fan_in {
+                continue;
+            }
+            let Some(depth) = STAGED_STATE_BACKWARD_PRIORITY
+                .iter()
+                .position(|candidate| *candidate == state)
+            else {
+                continue;
+            };
+            // Only a strictly more fused topology is the fused arm: a shallower
+            // one is the staged direction, and the shipped depth is no change.
+            if depth <= current_depth {
+                continue;
+            }
+            if best.as_ref().is_none_or(|(best_depth, best_label)| {
+                depth > *best_depth || (depth == *best_depth && label < *best_label)
+            }) {
+                best = Some((depth, label));
+            }
+        }
+        Ok(best.map(|(_, label)| label))
+    }
+
+    /// Swap only the state-backward fusion depth of the live schedule to the
+    /// most decomposed compiled topology, keeping the projection order and
+    /// low-rank fan-in the autotuner (or the caller) chose. Returns whether a
+    /// distinct graph was installed.
+    fn apply_backward_fusion(&mut self, batch: usize) -> Result<bool> {
+        let Some(label) = self.decomposed_backward_schedule(batch)? else {
+            return Ok(false);
+        };
+        self.cell
+            .set_backward_segment_schedule_label(batch, &label)?;
+        Ok(true)
+    }
+
+    /// The fully folded state-backward rung this device compiles at `batch`, or
+    /// `None` where it compiles only shallower topologies.
+    ///
+    /// The record names a rung, not a label: `rkv-add3-key-reduce` has to stay the
+    /// folded chain whatever projection order and low-rank fan-in the autotuner
+    /// chose, so the resolved label keeps those factors and must be the folded one.
+    /// A deeper rung that is not this one is not the route the measurement named,
+    /// which is why this returns `None` rather than the most fused label it found.
+    pub fn folded_backward_schedule(&self, batch: usize) -> Result<Option<String>> {
+        let Some(current) = self.cell.backward_segment_schedule_label(batch) else {
+            return Ok(None);
+        };
+        let (state, _, _) = self
+            .cell
+            .backward_segment_schedule_factor_labels(batch, &current)?;
+        // The recorded verdict is applied at the start of every sequence, so this
+        // has to be idempotent: once the depth is installed there is nothing more
+        // fused to search for, and the schedule already installed *is* the answer.
+        if state == FOLDED_STATE_BACKWARD_RUNG {
+            return Ok(Some(current));
+        }
+        let Some(label) = self.fused_backward_schedule(batch)? else {
+            return Ok(None);
+        };
+        let (state, _, _) = self
+            .cell
+            .backward_segment_schedule_factor_labels(batch, &label)?;
+        if state != FOLDED_STATE_BACKWARD_RUNG {
+            return Ok(None);
+        }
+        Ok(Some(label))
+    }
+
+    /// Pin the reverse pass to the deepest fusion rung this device compiles, which
+    /// is the fully folded `rkv-add3-key-reduce` chain. A recorded `folded` verdict
+    /// names this depth and was only recorded after the sweep measured its
+    /// `grad_k_k`/`grad_k_a` exactly equal to the two-dispatch reduction.
+    ///
+    /// It is adopted only where the device compiles it: a record that names the
+    /// depth where it is missing is stale for this adapter, so this fails closed
+    /// rather than quietly keeping a different graph than the record measured.
+    fn apply_folded_backward_fusion(&mut self, batch: usize) -> Result<bool> {
+        let Some(label) = self.folded_backward_schedule(batch)? else {
+            // Fail closed with the device's own evidence: the record names a depth
+            // this geometry cannot resolve, and the two facts that decided it are
+            // the schedule the autotuner chose and the depths it compiled.
+            let current = self.cell.backward_segment_schedule_label(batch);
+            let compiled = self
+                .cell
+                .available_backward_segment_schedule_labels(batch)
+                .unwrap_or_default();
+            let folded: Vec<&String> = compiled
+                .iter()
+                .filter(|label| label.starts_with(FOLDED_STATE_BACKWARD_RUNG))
+                .collect();
+            bail!(
+                "the backward-fusion record names the folded route at batch {batch}, but this \
+                 device cannot build it: current schedule {current:?}, {folded:?} of {} compiled \
+                 labels match {FOLDED_STATE_BACKWARD_RUNG}",
+                compiled.len()
+            );
+        };
+        self.cell
+            .set_backward_segment_schedule_label(batch, &label)?;
+        Ok(true)
     }
 
     pub fn backward_segment_schedule_label(&self, batch: usize) -> Option<String> {
@@ -2287,6 +2667,20 @@ impl RwkvTbpttSequenceOp {
 
     pub fn low_rank_fp16_parameter_storage_active(&self) -> bool {
         self.cell.low_rank_fp16_parameter_storage_active()
+    }
+
+    /// Quantize this sequence op's low-rank masters into packed FP16 execution
+    /// mirrors and read the two packed-chain records under the `fp16-storage`
+    /// policy.
+    ///
+    /// This is the op-level analogue of the training graph's
+    /// `fp16-storage-fp32-compute` policy, so the chain A/B can time both arms
+    /// with the operands that policy actually uses. The FP32 masters stay the
+    /// canonical identity; a caller that mutates them must refresh the mirrors
+    /// through the training graph's per-step refresher, which this bench does
+    /// not do because its weights are constant.
+    pub fn enable_low_rank_fp16_parameter_storage(&mut self) -> Result<()> {
+        self.cell.enable_low_rank_fp16_parameter_storage()
     }
 
     pub fn low_rank_native_fp16_backward_compute_active(&self) -> bool {
@@ -2467,6 +2861,46 @@ impl RwkvTbpttSequenceOp {
         self.cell.parameter_snapshots()
     }
 
+    /// Read named parameter gradients back after the last submitted sequence.
+    ///
+    /// These are the per-parameter gradient buffers the optimizer consumes, not
+    /// an update derived from them: for the time mix, `k_k`/`k_a` are written by
+    /// the key-parameter reduction. Neither tensor is part of
+    /// `RwkvTbpttSequenceResult` (no sequence tensor consumes them), so this is
+    /// the only direct observation of what the reduction produced, and the only
+    /// way to compare the two-dispatch reduction against a fused fold without
+    /// going through an optimizer step. The transfer runs in its own submission
+    /// and leaves the gradients as the sequence left them.
+    pub fn parameter_gradient_snapshots(
+        &self,
+        names: &[&str],
+    ) -> Result<Vec<RwkvParameterSnapshot>> {
+        let trainables = self.cell.trainables()?;
+        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut pending = Vec::with_capacity(names.len());
+        for name in names {
+            let trainable = trainables
+                .iter()
+                .find(|trainable| trainable.name == *name)
+                .with_context(|| format!("unknown recurrent parameter gradient {name:?}"))?;
+            let snapshot = GpuBuffer::zeros_f32(&self.device, trainable.len)?;
+            let readback = GpuBuffer::zeros_host_f32(&self.device, trainable.len)?;
+            commands.copy_f32(trainable.gradient, &snapshot, trainable.len)?;
+            commands.readback_f32(&snapshot, &readback, trainable.len)?;
+            pending.push((name.to_string(), readback, trainable.len));
+        }
+        commands.submit()?;
+        pending
+            .into_iter()
+            .map(|(name, readback, len)| {
+                Ok(RwkvParameterSnapshot {
+                    name,
+                    values: readback.read_f32(len)?,
+                })
+            })
+            .collect()
+    }
+
     pub(crate) fn finalize_recorded_train_step_with_external_optimizer(
         &self,
         recorded: RwkvTbpttRecordedSequence,
@@ -2516,6 +2950,68 @@ impl RwkvTbpttSequenceOp {
         }
         Ok(())
     }
+}
+
+/// The TBPTT first-forward route table, compiled in from the checked-in record.
+fn packed_forward_record() -> &'static decision_records::DecisionTable {
+    const RECORD: &str = include_str!("../validation/tbptt_packed_forward_decisions.json");
+    static TABLE: OnceLock<decision_records::DecisionTable> = OnceLock::new();
+    decision_records::table(&TABLE, RECORD, "rwkv-tbptt-packed-forward")
+}
+
+/// The TBPTT reverse-rematerialization route table.
+fn packed_rematerialization_record() -> &'static decision_records::DecisionTable {
+    const RECORD: &str =
+        include_str!("../validation/tbptt_packed_rematerialization_decisions.json");
+    static TABLE: OnceLock<decision_records::DecisionTable> = OnceLock::new();
+    decision_records::table(&TABLE, RECORD, "rwkv-tbptt-packed-rematerialization")
+}
+
+/// The state-backward topologies, most decomposed first. In these labels a `+`
+/// names a stage that still runs as its own dispatch and a `-` names one folded
+/// into the state-backward kernel, so:
+///
+/// * `rkv-add3+key+reduce` is the fully staged chain: the recurrence/add3 kernel,
+///   then the key transform, then the key-parameter reduction, three dispatches.
+///   It compiles at every batch and is the staged arm the A/B measures.
+/// * `rkv-add3-key+reduce` folds the key transform into the kernel and keeps the
+///   reduction separate; it is the autotuner's usual choice on this adapter.
+/// * `rkv-add3-key-reduce` folds the reduction in as well. It only compiles at
+///   batch 1: each key channel owns exactly one row there, so the kernel can
+///   write `grad_k_k`/`grad_k_a` directly instead of reducing row partials.
+///
+/// The staged arm takes the most decomposed executable topology this geometry
+/// offers, and never the shipped one -- otherwise a "staged" arm could be the
+/// fused arm under a different name, which is a comparison of one graph with
+/// itself. Tensor layouts and FP32 reduction semantics are identical at every
+/// depth, so a route may only choose between bit-identical results.
+const STAGED_STATE_BACKWARD_PRIORITY: [&str; 3] = [
+    "rkv-add3+key+reduce",
+    "rkv-add3-key+reduce",
+    "rkv-add3-key-reduce",
+];
+
+/// The state-backward rung that folds every stage into one dispatch.
+const FOLDED_STATE_BACKWARD_RUNG: &str = "rkv-add3-key-reduce";
+
+/// The TBPTT reverse-pass fusion route table.
+pub(crate) fn backward_fusion_record() -> &'static decision_records::DecisionTable {
+    const RECORD: &str = include_str!("../validation/tbptt_backward_fusion_decisions.json");
+    static TABLE: OnceLock<decision_records::DecisionTable> = OnceLock::new();
+    decision_records::table(&TABLE, RECORD, "rwkv-tbptt-backward-fusion")
+}
+
+/// Whether the backward-fusion record can select the folded route for this
+/// adapter and width, at any batch or storage policy.
+///
+/// The fold's kernels are the only ones whose compilation follows the record
+/// rather than the adapter's feature set: a depth nothing may dispatch is not
+/// worth building, and a record that names it is the proof that the sweep measured
+/// its key-parameter reduction exact. The cell asks this question before it creates
+/// them, so the answer has to be cheap and side-effect free -- it is one pass over
+/// the compiled-in table.
+pub(crate) fn folded_route_recorded(device: &str, width: usize) -> bool {
+    backward_fusion_record().any_route(device, width as u32, Route::Folded)
 }
 
 fn device_buffers(device: &VulkanDevice, count: usize, len: usize) -> Result<Vec<GpuBuffer>> {

@@ -74,7 +74,7 @@ New-Item -ItemType Directory -Path $crateRoot | Out-Null
 
 Copy-NativeCrate -Name "hierarchos-inference"
 Copy-NativeCrate -Name "hierarchos-vulkan" `
-    -ExtraFiles @("build.rs", "COMPATIBILITY.md", "README_ARCHITECTURES.md") `
+    -ExtraFiles @("build.rs", "rdma_bindings.rs", "rdma_shim.c", "COMPATIBILITY.md", "README_ARCHITECTURES.md") `
     -ExtraDirectories @("shaders", "cases", "validation")
 Copy-NativeCrate -Name "hierarchos-native-cli"
 Copy-NativeCrate -Name "hierarchos-gui"

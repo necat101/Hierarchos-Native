@@ -13,6 +13,7 @@ mod checkpoint;
 mod control;
 pub mod coverage_record;
 pub mod decision_records;
+pub mod distributed;
 mod full_training_graph;
 #[cfg(test)]
 mod hierarchos_ce_mask_tests;
@@ -108,9 +109,9 @@ pub use full_training_graph::{
     HierarchosTrainingWorkingSetEntry, HierarchosTrainingWorkingSetEpoch,
     HierarchosTrainingWorkingSetLifetime, HierarchosTrainingWorkingSetPlan,
     HierarchosTrainingWorkingSetSlot, HierarchosWorkerRefinementLossInput,
-    HierarchosWorkerRefinementLossStepResult, HIERARCHOS_VULKAN_DATA_STREAM_CURSOR_FORMAT,
-    HIERARCHOS_VULKAN_EXECUTION_POLICY_FORMAT, HIERARCHOS_VULKAN_GRADIENTS_FILENAME,
-    HIERARCHOS_VULKAN_LM_FORCE_CANONICAL_GRAD_STAGING_ENV,
+    HierarchosWorkerRefinementLossStepResult, PendingGradientShardMetadata,
+    HIERARCHOS_VULKAN_DATA_STREAM_CURSOR_FORMAT, HIERARCHOS_VULKAN_EXECUTION_POLICY_FORMAT,
+    HIERARCHOS_VULKAN_GRADIENTS_FILENAME, HIERARCHOS_VULKAN_LM_FORCE_CANONICAL_GRAD_STAGING_ENV,
     HIERARCHOS_VULKAN_NATIVE_FP16_LOW_RANK_PARAMETER_GRAD_COMPENSATED_ENV,
     HIERARCHOS_VULKAN_NATIVE_FP16_LOW_RANK_PARAMETER_GRAD_WIDEN_PRODUCT_ENV,
     HIERARCHOS_VULKAN_OPTIMIZER_FILENAME, HIERARCHOS_VULKAN_PARAMETER_STATE_FORMAT,

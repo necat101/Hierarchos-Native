@@ -27,6 +27,125 @@ fn objective() -> HierarchosLabeledSequenceObjective {
     }
 }
 
+#[test]
+fn network_tcp_gradient_merge_matches_existing_transport_and_reload_logits() -> Result<()> {
+    std::thread::Builder::new()
+        .stack_size(64 * 1024 * 1024)
+        .spawn(network_tcp_gradient_merge_impl)?
+        .join()
+        .map_err(|_| anyhow::anyhow!("network gradient parity worker panicked"))?
+}
+
+fn network_tcp_gradient_merge_impl() -> Result<()> {
+    use crate::{
+        distributed::{NetworkGradientSource, NetworkSendChannel},
+        HierarchosFullModelReplicaState,
+    };
+    use std::net::TcpListener;
+    let path = fixture()?;
+    let device = VulkanDevice::new()?;
+    let mut reference = graph(&device, &path, 1)?;
+    let mut primary = graph(&device, &path, 1)?;
+    let mut replica = graph(&device, &path, 1)?;
+    for (g, ids, labels, mode) in [
+        (
+            &mut reference,
+            [1, 2],
+            [2i64, 3],
+            HierarchosTokenTapeUpdateMode::BeginAccumulation,
+        ),
+        (
+            &mut primary,
+            [1, 2],
+            [2i64, 3],
+            HierarchosTokenTapeUpdateMode::BeginAccumulation,
+        ),
+        (
+            &mut replica,
+            [4, 5],
+            [5i64, 6],
+            HierarchosTokenTapeUpdateMode::BeginAccumulation,
+        ),
+    ] {
+        run(g, 1, &ids, &labels, None, None, objective(), mode)?;
+    }
+    let source = replica.full_model_pending_gradient_transport_source()?;
+    reference.accumulate_full_model_pending_gradients_streamed_from_source(&source, 257)?;
+    let gradients = replica.full_model_pending_gradient_snapshots()?;
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    let addr = listener.local_addr()?;
+    let sender = std::thread::spawn(move || -> Result<()> {
+        let mut sink = NetworkSendChannel::connect("tcp", addr, false, 257, 2)?;
+        for tensor in gradients {
+            for chunk in tensor.values.chunks(257) {
+                sink.send_chunk(chunk)?;
+            }
+        }
+        sink.flush()
+    });
+    let (mut receiver, _control) =
+        NetworkGradientSource::connect_with_bound_listener("tcp", listener, 257, 2)?;
+    let statistics = primary.accumulate_full_model_pending_gradients_streamed_from_remote(
+        &mut receiver,
+        &source.metadata,
+        257,
+    )?;
+    assert_eq!(
+        statistics.backend,
+        crate::VulkanGradientTransportBackend::NetworkTcp
+    );
+    sender.join().unwrap()?;
+    reference.finish_full_model_accumulation_with_gradient_clipping(hyper(), 0.0)?;
+    primary.finish_full_model_accumulation_with_gradient_clipping(hyper(), 0.0)?;
+    let expected = reference.full_model_replica_state()?.wire_encode();
+    let actual = primary.full_model_replica_state()?.wire_encode();
+    assert!(
+        expected == actual,
+        "parameters, Adam moments/clocks and metadata must match the existing transport exactly"
+    );
+
+    // An unaligned network payload must round-trip without a bytemuck panic.
+    let mut unaligned = vec![0u8];
+    unaligned.extend_from_slice(&actual.1);
+    assert!(
+        HierarchosFullModelReplicaState::wire_decode(&actual.0, &unaligned[1..])?.wire_encode()
+            == actual,
+        "unaligned replica wire round-trip must preserve each slot's moments"
+    );
+    let mut broken: serde_json::Value = serde_json::from_str(&actual.0)?;
+    broken["optimizer_slot_steps"].as_array_mut().unwrap().pop();
+    assert!(HierarchosFullModelReplicaState::wire_decode(&broken.to_string(), &actual.1).is_err());
+    assert!(HierarchosFullModelReplicaState::wire_decode(
+        &actual.0,
+        &actual.1[..actual.1.len() - 4]
+    )
+    .is_err());
+
+    let mut all_logits = Vec::new();
+    for (name, g) in [("reference", &reference), ("network", &primary)] {
+        let checkpoint = path.join(name);
+        g.export_training_checkpoint_package(&path, &checkpoint)?;
+        let inference = HierarchosModel::load(&checkpoint)?;
+        let mut state = inference.new_state();
+        let mut bits = Vec::new();
+        for token in [1, 2, 4, 5] {
+            bits.extend(
+                inference
+                    .step(token, &mut state)?
+                    .iter()
+                    .map(|v| v.to_bits()),
+            );
+        }
+        all_logits.push(bits);
+    }
+    assert_eq!(
+        all_logits[0], all_logits[1],
+        "post-training recurrent logits"
+    );
+    fs::remove_dir_all(path)?;
+    Ok(())
+}
+
 fn hyper() -> AdamWHyperParams {
     AdamWHyperParams {
         lr: 0.001,

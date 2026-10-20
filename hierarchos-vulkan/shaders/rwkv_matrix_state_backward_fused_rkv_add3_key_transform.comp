@@ -29,6 +29,10 @@
 #define RWKV_PACKED_STATE_INPUT 0
 #endif
 
+#if defined(FUSE_KEY_PARAM_CROSS_BATCH) && !defined(FUSE_KEY_PARAM_REDUCE)
+#error FUSE_KEY_PARAM_CROSS_BATCH is a reduction mode and requires FUSE_KEY_PARAM_REDUCE
+#endif
+
 #if RWKV_FAST_TREE_RECURRENT_REDUCTIONS || RWKV_FAST_TILED_RECURRENT_REDUCTIONS
 #define RWKV_FAST_PARALLEL_RECURRENT_REDUCTIONS 1
 #else
@@ -68,11 +72,23 @@ layout(set = 0, binding = 23, std430) readonly buffer KeyNormScaleBuffer { float
 layout(set = 0, binding = 24, std430) readonly buffer KeyContextScaleBuffer { float k_a[]; };
 layout(set = 0, binding = 25, std430) writeonly buffer GradRawKeyBuffer { float grad_raw_k[]; };
 layout(set = 0, binding = 26, std430) writeonly buffer GradInContextBuffer { float grad_a[]; };
+#ifdef FUSE_KEY_PARAM_CROSS_BATCH
+// The fused fold reads these back inside the same dispatch, so they cannot stay
+// write-only in this specialization.
+layout(set = 0, binding = 27, std430) buffer GradKeyNormScalePartialBuffer { float grad_k_k_partial[]; };
+layout(set = 0, binding = 28, std430) buffer GradKeyContextScalePartialBuffer { float grad_k_a_partial[]; };
+#else
 layout(set = 0, binding = 27, std430) writeonly buffer GradKeyNormScalePartialBuffer { float grad_k_k_partial[]; };
 layout(set = 0, binding = 28, std430) writeonly buffer GradKeyContextScalePartialBuffer { float grad_k_a_partial[]; };
+#endif
 #ifdef FUSE_KEY_PARAM_REDUCE
 layout(set = 0, binding = 29, std430) writeonly buffer GradKeyNormScaleBuffer { float grad_k_k[]; };
 layout(set = 0, binding = 30, std430) writeonly buffer GradKeyContextScaleBuffer { float grad_k_a[]; };
+#endif
+#ifdef FUSE_KEY_PARAM_CROSS_BATCH
+// One arrival counter per head: the workgroup that observes the last batch of a
+// head reduces that head's parameter partials and clears the counter again.
+layout(set = 0, binding = 31, std430) buffer CrossBatchArrivalBuffer { uint arrivals[]; };
 #endif
 
 layout(push_constant) uniform Push {
@@ -99,6 +115,9 @@ shared float grad_kk_shared[64];
 shared float grad_a_direct_shared[64];
 shared float norm_sq_shared;
 shared float grad_dot_kk_shared;
+#ifdef FUSE_KEY_PARAM_CROSS_BATCH
+shared uint cross_batch_last;
+#endif
 #if RWKV_FAST_PARALLEL_RECURRENT_REDUCTIONS
 shared float recurrent_tree_0[RWKV_STATE_BACKWARD_WORKGROUP_SIZE];
 shared float recurrent_tree_1[RWKV_STATE_BACKWARD_WORKGROUP_SIZE];
@@ -117,6 +136,47 @@ shared float recurrent_subgroup_partial_2[RWKV_STATE_BACKWARD_WORKGROUP_SIZE];
 shared float recurrent_subgroup_partial_3[RWKV_STATE_BACKWARD_WORKGROUP_SIZE];
 shared float recurrent_subgroup_partial_4[RWKV_STATE_BACKWARD_WORKGROUP_SIZE];
 #endif
+
+#ifdef FUSE_KEY_PARAM_CROSS_BATCH
+// Guarded multi-batch fold of the key-parameter reduction. A workgroup owns one
+// (batch, head) row, so the sum across rows cannot be formed inside a single
+// workgroup. The workgroup whose arrival completes a head's batch therefore
+// reduces that head's partials for every batch in ascending order -- exactly the
+// order rwkv_key_transform_param_reduce.comp adds them -- so the folded route is
+// bit-for-bit identical to the shipped two-dispatch chain at every batch, not
+// only at batch 1.
+void publish_cross_batch_key_param_grads(uint channel_base, uint head_id) {
+    uint lane = gl_LocalInvocationID.x;
+    // Make this workgroup's partial stores visible before publishing arrival.
+    memoryBarrierBuffer();
+    barrier();
+    if (lane == 0u) {
+        uint arrived = atomicAdd(arrivals[head_id], 1u);
+        cross_batch_last = uint(arrived + 1u == pc.batch);
+    }
+    barrier();
+    if (cross_batch_last != 0u) {
+        memoryBarrierBuffer();
+        for (uint col = lane; col < pc.head_size; col += RWKV_STATE_BACKWARD_WORKGROUP_SIZE) {
+            uint channel = channel_base + col;
+            float sum_k_k = 0.0;
+            float sum_k_a = 0.0;
+            for (uint batch_index = 0u; batch_index < pc.batch; ++batch_index) {
+                uint index = batch_index * pc.width + channel;
+                sum_k_k += grad_k_k_partial[index];
+                sum_k_a += grad_k_a_partial[index];
+            }
+            grad_k_k[channel] = sum_k_k;
+            grad_k_a[channel] = sum_k_a;
+        }
+    }
+    barrier();
+    if (cross_batch_last != 0u && lane == 0u) {
+        arrivals[head_id] = 0u;
+    }
+}
+#endif
+
 
 void main() {
     uint heads = pc.width / pc.head_size;
@@ -253,11 +313,14 @@ void main() {
             float grad_k_a_value = lane_total_key * raw * (a[index] - 1.0);
             grad_k_k_partial[index] = grad_k_k_value;
             grad_k_a_partial[index] = grad_k_a_value;
-#ifdef FUSE_KEY_PARAM_REDUCE
+#if defined(FUSE_KEY_PARAM_REDUCE) && !defined(FUSE_KEY_PARAM_CROSS_BATCH)
             grad_k_k[channel] = grad_k_k_value;
             grad_k_a[channel] = grad_k_a_value;
 #endif
         }
+#ifdef FUSE_KEY_PARAM_CROSS_BATCH
+        publish_cross_batch_key_param_grads(channel_base, head);
+#endif
         return;
     }
 
@@ -468,11 +531,14 @@ void main() {
             float grad_k_a_value = total_key * raw * (a[index] - 1.0);
             grad_k_k_partial[index] = grad_k_k_value;
             grad_k_a_partial[index] = grad_k_a_value;
-#ifdef FUSE_KEY_PARAM_REDUCE
+#if defined(FUSE_KEY_PARAM_REDUCE) && !defined(FUSE_KEY_PARAM_CROSS_BATCH)
             grad_k_k[channel] = grad_k_k_value;
             grad_k_a[channel] = grad_k_a_value;
 #endif
         }
+#ifdef FUSE_KEY_PARAM_CROSS_BATCH
+        publish_cross_batch_key_param_grads(channel_base, head);
+#endif
         return;
     }
 
@@ -634,11 +700,14 @@ void main() {
             float grad_k_a_value = total_key * raw * (a[index] - 1.0);
             grad_k_k_partial[index] = grad_k_k_value;
             grad_k_a_partial[index] = grad_k_a_value;
-#ifdef FUSE_KEY_PARAM_REDUCE
+#if defined(FUSE_KEY_PARAM_REDUCE) && !defined(FUSE_KEY_PARAM_CROSS_BATCH)
             grad_k_k[channel] = grad_k_k_value;
             grad_k_a[channel] = grad_k_a_value;
 #endif
         }
+#ifdef FUSE_KEY_PARAM_CROSS_BATCH
+        publish_cross_batch_key_param_grads(channel_base, head);
+#endif
         return;
     }
 #endif
@@ -953,13 +1022,18 @@ void main() {
         float grad_k_a_value = grad_scaled * raw * (a[index] - 1.0);
         grad_k_k_partial[index] = grad_k_k_value;
         grad_k_a_partial[index] = grad_k_a_value;
-#ifdef FUSE_KEY_PARAM_REDUCE
+#if defined(FUSE_KEY_PARAM_REDUCE) && !defined(FUSE_KEY_PARAM_CROSS_BATCH)
         // The Rust scheduler only selects this SPIR-V specialization for
         // batch==1. In that case the historical param-reduction kernel is an
         // identity copy, so publishing the final parameter gradients here is
         // bit-for-bit equivalent while removing one dispatch/barrier seam.
+        // The cross-batch specialization reads the partials back instead and
+        // publishes them from the head's last workgroup.
         grad_k_k[channel] = grad_k_k_value;
         grad_k_a[channel] = grad_k_a_value;
 #endif
     }
+#ifdef FUSE_KEY_PARAM_CROSS_BATCH
+    publish_cross_batch_key_param_grads(channel_base, head);
+#endif
 }

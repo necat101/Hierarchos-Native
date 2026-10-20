@@ -458,6 +458,140 @@ Transformer harness does not build; they remain covered by
 `intel_variants_are_bit_exact_with_portable_kernels`, which passed here at
 `(8,448,512)` and `(6,96,320)` and at geometries the gate rejects.
 
+## Packed TBPTT chains under FP16 storage (2026-10-19)
+
+The two packed TBPTT chain A/Bs are now runnable under the training graph's
+parameter-storage policy: `bench_rwkv_tbptt_packed_chains.py
+--parameter-storage fp16-storage` installs the cell's packed FP16 execution
+mirrors on all three legs, refuses to report if they did not activate, writes
+the policy's own receipt, and records its verdicts under that scope. The
+forward A/B stays bit-identical under the mirrors (`worst_max_abs` exactly zero
+over all five returned tensors at every batch) and repeats the FP32 crossover --
+`legacy` ahead by 3.8%/5.3% at batches 16/32 -- so the `fp16-storage` policy
+now adopts its own measured `legacy` verdicts there and neither chain table
+carries a `withheld` entry. The refusal mechanism remains for a policy whose
+trajectory golden pins the structural graph, and the contract suite keeps it
+exercised by withdrawing the FP16 measurements in a fixture.
+
+| Check | Result |
+| --- | --- |
+| `verify_training_stack.py --receipt validation/training_stack_receipt.json` (debug, current bins) | **12/12** steps PASS |
+| Kernel goldens | 144 dense + 183 reduction + 79 attention, unchanged |
+| Shader provenance | 464 variants match their sources and flags |
+| `training_step_probe` | `mean_loss 5.5432177`, 6512 dispatches, 3021 barriers (bound 3076) |
+| Topology decisions | 4 measured decisions match the record |
+| Training trajectories | 2 suites, 29 runs, 32162 exact tensor digests, including the FP16-storage golden |
+| Chain receipts | FP32 and FP16 A/Bs both pass the route guard; FP16 forward scoped entries at batches 1, 16 and 32 |
+| Backward-fusion A/B | all five batches bit-identical; the fully staged three-dispatch chain, the autotuner's two-dispatch one and the fully folded rung all measured at every batch; `fused` recorded where it led (batches 4 and 32), 1/8/16 withdrawn as three-way ties inside the band |
+| Receipt guard | `check_training_stack_receipt.py` holds the committed 12 steps, the recorded adapter, the probe loss and 10 coverage floors |
+
+The FP16 trajectory suite passing after the route change is the confirmation
+that the lift is safe rather than merely measured: the golden was recorded on
+the structural packed-first-forward route, and the FP16 receipt shows the
+`legacy` replay reproduces that graph bit-for-bit at the geometries where the
+policy now adopts it.
+
+The reverse pass's state-backward fusion is the third chain on the same driver.
+It holds the projection order and low-rank fan-in fixed and times the autotuner's
+schedule against the most decomposed executable chain. The topology labels name
+stages: `+` still dispatches, `-` is folded into the kernel, so
+`rkv-add3+key+reduce` is fully staged and compiles at every batch; so does
+`rkv-add3-key-reduce` now that the guarded cross-batch fold exists, whose direct
+parameter-gradient writes otherwise need one row per channel. The selection
+table had been ordered most-fused-first, so the staged arm resolved to the most
+folded kernel instead of the shipped schedule, and while that kernel was
+batch-1-only the sweep reported batches 4-32 `unmeasured`. Ordering it stage-first makes the A/B measure
+the three-dispatch chain against the two-dispatch one at every batch, with
+`worst_max_abs` exactly zero. Fused holds at batches 1 and 4 (1.1%/0.5%); 8-32
+are inside the 2% band, and `tbptt_backward_fusion_decisions.json` records the
+fused verdict at all five without moving the shipped schedule. The FP16 pass
+measures fused ahead at 1 and 4 and staged ahead by at most 0.6% at 8-32, all
+inside the band, so the scoped table keeps the shared verdict.
+
+The sweep also times the fully folded rung at every batch, so all three fusion
+depths are measured rather than inferred. That rung used to be batch-1-only: its
+direct `grad_k_k`/`grad_k_a` writes assume one row per channel. The guarded
+`FUSE_KEY_PARAM_CROSS_BATCH` specialization stores each workgroup's partials,
+publishes an arrival through an atomic per-head counter, and lets the workgroup
+that completes a head's last batch reduce that head's partials in ascending
+batch order -- the order `rwkv_key_transform_param_reduce.comp` uses -- before
+clearing the counter. The driver pins it for the duration of the sweep, and the
+cell compiles those kernels either for that opt-in
+(`HIERARCHOS_RWKV_CROSS_BATCH_KEY_PARAM_REDUCE`) or for a record that can
+actually select `folded` on this adapter and width, so the kernel set follows
+the record.
+
+The folded rung is a routing candidate, and its acceptance gate is the fold's
+own output. `grad_x` never consumes `grad_k_k`/`grad_k_a`, so the driver reads
+the reduction back after the sequence and requires it to equal the two-dispatch
+chain exactly: the folded rung's `grad_k_k`/`grad_k_a` are bit-identical at all
+five batches, and the staged arm's gradient magnitude (`9.4e-3` at batch 4) is
+recorded beside the zero so the agreement cannot be zero-vs-zero. Only a
+geometry that clears it lists `folded` in its entry; the returned tensors are a
+separate bound, because the contract associates one FP32 product differently
+and moves `grad_x` by at most `2.4e-7` (a couple of ulps), so the receipt holds
+them to a `1e-6` allowance while the routing pair must stay exactly
+bit-identical. One identical AdamW step on each leg then diffs the parameter
+snapshots as a second gate; the delta is at most `7.5e-8` against a `1e-6`
+window, but that gate is the weaker of the two: AdamW's first update is
+sign-normalized, so a fold that drops a batch row changes a gradient's
+magnitude without changing the update, and only the direct readback covers the
+reduction itself.
+
+Recorded with all three candidates, the depths are a three-way tie on this
+adapter: in the committed receipts the shipped schedule is fastest at six of the
+ten measured geometries, the staged chain at two and the folded rung at two, and
+no winner is more than `0.4%` ahead. So
+`tbptt_backward_fusion_decisions.json` keeps `fused` at batches 4 and 32 -- where
+the autotuner's schedule led -- and withdraws 1, 8 and 16 as ties inside the
+band. The FP16-scoped table keeps one entry, batch 32. No entry names `folded`:
+the route is recordable, and the measurement says there is nothing to gain by
+recording it here.
+
+**The promoted route was exercised, not only recorded.** A route that no
+measurement on this adapter selects would otherwise be dead code with a passing
+guard, so the committed record was temporarily patched to name `folded` at batch
+4 and the driver re-run against it. The receipt then reported
+`default_route folded`, `default_schedule` equal to the folded leg's
+`rkv-add3-key-reduce` label, and the key-parameter readback at `0.0` again, so
+the record's verdict reached the graph through `folded_backward_schedule`,
+`apply_folded_backward_fusion` and the cell's schedule setter. The patch was then
+reverted and the record re-verified (`check_measured_producer_routes.py` and the
+297-test suite below).
+
+That check found one real defect: the recorded verdict is applied at the start of
+*every* sequence, and the first implementation only looked for a rung strictly
+more fused than the current one. The second sequence therefore found nothing
+above the folded depth it had just installed and failed closed, so a recorded
+`folded` route would have broken on its second run. `folded_backward_schedule`
+now returns the installed schedule when it is already the folded rung and only
+searches otherwise.
+
+`--negative-control` proves the gates reject such
+ a fold on both publication paths. Above batch 1 it seeds one phantom arrival per
+ batch row, so no arrival can complete a head; at batch 1 the rung writes the
+ gradients directly, so the control redirects those writes into a scratch buffer
+ instead. Either way it builds clean and corrupted pairs in one process and
+ requires the clean pair to pass both gates and the corrupted pair to fail both
+ (key-parameter delta `9.4e-3` at batch 4 and `8.1e-3` at batch 1, post-step
+ delta `1.0e-4`). The driver applies the same two gate
+functions to the control's rows, so the artifact under test is the receipt's
+own guard.
+
+The committed ladder receipt is now a checked artifact rather than a log.
+`check_training_stack_receipt.py` runs on the CPU in `workspace-check` and holds
+`training_stack_receipt.json` to the ladder's twelve steps in order, every one
+`PASS`, the adapter both device-aware steps name, the probe's loss value and
+the coverage floors -- matched shader variants, comparison modules, golden
+invocations (144/183/79), backward topology decisions and the training-state
+suites, runs and exact tensor digests. A dropped or renamed step, a non-PASS
+row, a receipt re-recorded on another adapter, a changed loss, a detail line
+that stops reporting a count, or coverage below a floor all fail. `--compare`
+applies the same rules to a fresh ladder run and additionally refuses any count
+below the committed one; `--record` adopts a fresh run only after those checks
+pass. The floors live in the guard, so hand-editing the receipt cannot lower
+them.
+
 ## Time-mix promotion ladder (2026-10-18)
 
 The time-mix projection is now promoted per geometry from a recorded per-device
@@ -501,3 +635,41 @@ on the same adapter. Re-running only the topology step passed, and the clean
 second pass passed with all four decisions matching, so the recorded decision did
 not change; the autotuner's 2% margin can react to GPU contention. A future
 failure that reproduces on an idle adapter is a real move and still fails.
+
+## Stable-checkout probe parity, as a script (2026-10-20)
+
+The trajectory comparison against the pre-optimization tree used to be a manual
+run: build the probe in both checkouts, point both at the same package and diff
+`--state-output` snapshots by hand. It is now
+`validation/check_stable_probe_parity.py --stable <checkout>`, and it fails on a
+single differing digest.
+
+The script takes the repository root of the stable tree (the directory that holds
+`hierarchos-vulkan/`, not the crate), builds `training_step_probe` from *both*
+trees with the same profile, and runs every geometry the golden records
+(`batch2`, `batch32`, `odd_multi_sequence`). One model package per geometry is
+initialized by the newer probe and handed to both legs, which is safe because the
+probe only ever reads a package it did not create: both legs therefore read
+byte-identical initial weights, and the comparison is the graph rather than the
+initialization. The gate compares raw FP32 bit patterns through the same
+`compare_snapshots` `verify_training_state.py` uses against its goldens -- every
+trainable parameter, both Adam moments, the per-slot clocks, the losses, the final
+recurrent states, the initial-state adjoints and the context carriers after every
+update. Dispatch counts and losses are printed beside the result but are not part
+of the gate: a scheduling change may move them, and no value may move.
+
+| Check | Result |
+| --- | --- |
+| `check_stable_probe_parity.py --stable ../Hierarchos-Native-stable/Hierarchos-Native` | 3 geometries, 3,817 exact tensor digests, **zero differences** |
+| `test_stable_probe_parity.py` | 10 tests OK (1 skipped: the live run is opt-in) |
+
+The test module drives the comparison with fabricated snapshots so its strictness
+is checked without an adapter: one differing bit, a missing tensor, a moved
+optimizer clock and a short run each fail. The live run is
+`HIERARCHOS_RUN_STABLE_PARITY=1 HIERARCHOS_STABLE_CHECKOUT=<checkout>`.
+
+**What it does not cover.** The stable checkout is whatever is on disk, so the
+script states the tree it compared against (`stable_crate` in its receipt) rather
+than pinning a commit; pass a checkout of the commit you intend to compare with.
+It compares the training step, not inference logits or kernel goldens, which have
+their own oracles.

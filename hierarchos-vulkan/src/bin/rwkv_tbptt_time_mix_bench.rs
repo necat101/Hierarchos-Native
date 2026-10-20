@@ -61,6 +61,11 @@ struct Output {
     /// compares different work.
     worst_max_abs: f64,
     tensors: Vec<hierarchos_vulkan::bench_ab::TensorDiff>,
+    /// Which packed TBPTT chains the default sequence built. The projection
+    /// receipt is measured on the shipped default, so its timing is only
+    /// comparable across runs when these match the chain route records.
+    default_packed_forward: bool,
+    default_packed_rematerialization: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -299,7 +304,7 @@ fn main() -> Result<()> {
         }
 
         let before = variant_dispatches(PROBE_FAMILY);
-        let mut fused_last = step(
+        let _ = step(
             &mut fused,
             batch,
             steps,
@@ -310,7 +315,7 @@ fn main() -> Result<()> {
         )?;
         let fused_dispatches = variant_dispatches(PROBE_FAMILY) - before;
         let before = variant_dispatches(PROBE_FAMILY);
-        let mut composed_last = step(
+        let _ = step(
             &mut composed,
             batch,
             steps,
@@ -385,8 +390,8 @@ fn main() -> Result<()> {
                     )
                 },
             )?;
-        fused_last = fused_sampled;
-        composed_last = composed_sampled;
+        let fused_last = fused_sampled;
+        let composed_last = composed_sampled;
 
         let tensors = vec![
             tensor_diff(
@@ -454,6 +459,8 @@ fn main() -> Result<()> {
                 steps as f64,
             )
             .into(),
+            default_packed_forward: default.packed_forward_only_active(),
+            default_packed_rematerialization: default.packed_backward_rematerialization_active(),
         };
         println!("{}", serde_json::to_string(&output)?);
     }
