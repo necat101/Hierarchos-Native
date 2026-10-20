@@ -8,6 +8,10 @@
 mod adapter;
 mod checkpoint;
 mod control;
+#[cfg(not(target_os = "windows"))]
+pub mod distributed;
+#[cfg(target_os = "windows")]
+#[path = "distributed_windows_unavailable.rs"]
 pub mod distributed;
 mod full_training_graph;
 #[cfg(test)]

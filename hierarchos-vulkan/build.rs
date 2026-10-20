@@ -20,7 +20,7 @@ fn main() {
     // Copy the committed ibverbs bindings into OUT_DIR so distributed.rs can
     // include! them, and compile the C shim that exposes the static-inline
     // verbs (post_send/post_recv/poll_cq) plus opaque field accessors.
-    {
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {
         let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
         let committed = manifest_dir.join("rdma_bindings.rs");
         fs::copy(&committed, out_dir.join("bindings.rs"))
