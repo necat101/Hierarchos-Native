@@ -8,6 +8,7 @@
 mod adapter;
 mod checkpoint;
 mod control;
+pub mod distributed;
 mod full_training_graph;
 #[cfg(test)]
 mod hierarchos_ce_mask_tests;
@@ -72,7 +73,7 @@ pub use full_training_graph::{
     HierarchosLossScalingState, HierarchosLowRankG2GradientTrace,
     HierarchosLtmAlignmentControllerState, HierarchosManagerHardActInput,
     HierarchosManagerHardActResult, HierarchosParameterStateContract,
-    HierarchosPendingGradientShard, HierarchosPendingGradientTransportSource,
+    HierarchosPendingGradientShard, HierarchosPendingGradientTransportSource, PendingGradientShardMetadata,
     HierarchosPortableTrainingReplay, HierarchosProjectionCoupledTokenInput,
     HierarchosProjectionCoupledTokenStepResult, HierarchosRawTokenLabeledSequenceInput,
     HierarchosRawTokenSequenceContextInput, HierarchosRawTokenTapeMicrobatchInput,

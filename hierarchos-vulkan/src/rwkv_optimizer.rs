@@ -34,7 +34,7 @@ const ADAMW_FP16_MIRROR_CONTROLLED_SPV: &[u8] =
 /// all of them. The final partial run is always accepted.
 const ADAMW_WAVEFRONT_MIN_COALESCED_RANGES: usize = 8;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum AdamWDecayClass {
     Decay,
     NoDecay,
@@ -320,6 +320,36 @@ impl RwkvPendingGradientSource {
             .iter()
             .map(|slot| (slot.name.clone(), slot.len))
             .collect()
+    }
+
+    /// Write one bounded host slice back into a pending gradient tensor range.
+    /// Used by the Phase R2 allreduce to replace raw local gradients with the
+    /// deterministic cross-rank sum before the local optimizer step.
+    pub(crate) fn record_gradient_range_write(
+        &self,
+        commands: &mut crate::vulkan::ComputeBatch,
+        tensor_index: usize,
+        offset: usize,
+        len: usize,
+        source: &crate::vulkan::GpuBuffer,
+    ) -> Result<()> {
+        let slot = self
+            .slots
+            .get(tensor_index)
+            .with_context(|| {
+                format!("allreduce tensor index {tensor_index} is out of range")
+            })?;
+        let end = offset
+            .checked_add(len)
+            .context("allreduce gradient write range overflow")?;
+        if len == 0 || end > slot.len {
+            bail!(
+                "allreduce gradient write range {offset}..{end} is outside tensor {:?} length {}",
+                slot.name,
+                slot.len
+            );
+        }
+        commands.copy_f32_range(source, 0, &slot.gradient, offset, len)
     }
 
     pub(crate) fn record_gradient_range_readback(

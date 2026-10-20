@@ -17,6 +17,7 @@ serde = { version = "1", features = ["derive"] }
 # verbatim without changing serde_json's normal typed-number deserialization.
 serde_json = { version = "1", features = ["raw_value"] }
 sha2 = "0.10"
+libc = "0.2"
 # Production Rust PEFT schema/key interoperability only. Transformer LoRA
 # forward/backward/AdamW math remains implemented by our Vulkan graph.
 peft-rs = "=1.2.0"
@@ -198,3 +199,10 @@ path = "src/bin/transformer_logits.rs"
 [[bin]]
 name = "attention_kernel_cache_check"
 path = "validation/attention_kernel_cache_check.rs"
+
+[build-dependencies]
+cc = "1"
+
+[[bin]]
+name = "network_recv_smoke"
+path = "src/bin/network_recv_smoke.rs"

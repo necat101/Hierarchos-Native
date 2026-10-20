@@ -964,6 +964,7 @@ pub enum VulkanGradientTransportBackend {
     HostVisibleStagedV2Pipelined,
     DeviceGroup,
     OpaqueExternalMemory,
+    NetworkRdma,
 }
 
 impl VulkanGradientTransportBackend {
@@ -972,6 +973,7 @@ impl VulkanGradientTransportBackend {
             Self::HostVisibleStagedV2Pipelined => "host-visible-staged-v2-pipelined",
             Self::DeviceGroup => "device-group",
             Self::OpaqueExternalMemory => "opaque-external-memory",
+            Self::NetworkRdma => "network-rdma",
         }
     }
 }
