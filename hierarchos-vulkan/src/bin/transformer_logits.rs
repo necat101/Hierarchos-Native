@@ -50,6 +50,7 @@ fn run() -> Result<()> {
     let mut fixture = None;
     let mut output = None;
     let mut export_model = None;
+    let mut debug_first_layer_output = None;
     let mut lora_adapter = None;
     let mut named_lora_adapters = Vec::new();
     let mut selected_adapter = None;
@@ -72,6 +73,11 @@ fn run() -> Result<()> {
             "--export-model" => {
                 export_model = Some(PathBuf::from(
                     args.next().context("missing --export-model value")?,
+                ))
+            }
+            "--debug-first-layer-output" => {
+                debug_first_layer_output = Some(PathBuf::from(
+                    args.next().context("missing --debug-first-layer-output value")?,
                 ))
             }
             "--lora-adapter" => {
@@ -243,6 +249,9 @@ fn run() -> Result<()> {
         };
         if let Some(export_dir) = export_model.as_deref() {
             graph.export_hf_package(&model, export_dir)?;
+        }
+        if let Some(trace_path) = debug_first_layer_output.as_deref() {
+            fs::write(trace_path, serde_json::to_vec(&graph.debug_first_layer_norm_states()?)?)?;
         }
         if let Some(trace_path) = std::env::var_os("HIERARCHOS_FALCON_H1_TRACE") {
             fs::write(

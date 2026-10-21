@@ -6,6 +6,17 @@ device is known. This document describes the contract that makes that swap safe,
 the current vendor matrix, the measured results, and how to add or qualify a
 variant.
 
+The physical ROG Ally qualification is tracked in
+[`../RDNA3_QUALIFICATION.md`](../RDNA3_QUALIFICATION.md). Its Z1 Extreme adapter
+is PCI `1002:15bf`, with 32 KiB LDS, subgroup size 64 and shared system memory.
+The historical AMD target A below has different memory characteristics; those
+values must not be substituted for the Ally's queried capabilities. AMD route
+records now include the PCI identity and driver alongside the adapter name.
+For that measured adapter and driver, low-rank topology adoption at width 128,
+ranks 32/32/64 requires a 15% win in all seven rounds; faster staged rows whose
+A/B changes any FP32 or FP16-storage value are withheld and the fused producer
+ships instead. Intel margins and all existing Intel rows are unchanged.
+
 ## Why not one kernel for everything
 
 The backend was developed primarily against an AMD Radeon (RDNA, `wave64`,

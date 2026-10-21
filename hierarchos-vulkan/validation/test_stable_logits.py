@@ -2,7 +2,7 @@
 import copy
 import unittest
 
-from check_stable_logits import compare
+from check_stable_logits import compare, comparisons_pass
 
 
 def report():
@@ -11,8 +11,21 @@ def report():
 
 
 class StableLogitTests(unittest.TestCase):
+    def test_hf_failure_cannot_be_hidden_by_stable_bit_identity(self):
+        self.assertFalse(comparisons_pass([{"pass": True, "hf_failing_values": 1}]))
+        self.assertFalse(comparisons_pass([{"pass": False, "hf_failing_values": 0}]))
+        self.assertFalse(comparisons_pass([]))
+        self.assertTrue(comparisons_pass([{"pass": True, "hf_failing_values": 0}]))
+
     def test_identical(self):
         self.assertTrue(compare(report(), report())["pass"])
+
+    def test_reported_error_uses_the_fp32_values_under_comparison(self):
+        candidate = report()
+        candidate["logits"][1] = 0.2500000001
+        result = compare(report(), candidate)
+        self.assertTrue(result["pass"])
+        self.assertEqual(result["max_abs"], 0.0)
 
     def test_single_ulp_is_rejected(self):
         candidate = report()

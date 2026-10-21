@@ -40,6 +40,25 @@ VARIANT_KEY = "linear3_variant"
 RECORD_KIND = "rwkv-time-mix-projection"
 TENSORS = {"output", "packed_new_state", "grad_x", "grad_packed_state", "token_feature_grad"}
 
+WITHHELD_DEVICE = "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]"
+WITHHELD_REASON = (
+    "The single-cell probe agrees, but the composed projection with the wide key/state "
+    "kernel changes the eight-timestep packed-forward result on this adapter/driver "
+    "(batch 8: 3.0547380447387695e-7; batch 32: 5.364418029785156e-7). "
+    "Controlled replays using the original fused producer or narrow key/state kernel "
+    "are exact. Keep the structural fused producer; this timing is evidence, not "
+    "permission to change the exact recurrent program."
+)
+
+
+def withheld_reason(run: dict) -> str | None:
+    # A one-cell zero difference does not establish recurrent equivalence. Until
+    # the wide composed graph is repaired, a faster measurement on this driver
+    # must not make its use depend on timing noise at any measured batch.
+    if run["device"] == WITHHELD_DEVICE and run["composed_over_fused"] < 1.0:
+        return WITHHELD_REASON
+    return None
+
 
 def run_batch(
     binary: Path,
@@ -161,6 +180,10 @@ def main() -> int:
     summary["warmup"] = args.warmup
     summary["atol"] = args.atol
     summary["rtol"] = args.rtol
+    summary["withheld_routes"] = [
+        {"batch": run["batch"], "route": "staged", "reason": reason}
+        for run in runs if (reason := withheld_reason(run)) is not None
+    ]
     if args.record is not None:
         args.record.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     if args.record_decisions is not None:
@@ -171,6 +194,7 @@ def main() -> int:
             probe_key=PROBE_KEY,
             measured_by="validation/bench_rwkv_packed_cell_time_mix.py",
             margin=args.decision_margin,
+            withhold_when=withheld_reason,
         )
         for entry in record["decisions"]:
             candidates = entry["candidates"]

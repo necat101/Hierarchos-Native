@@ -43,7 +43,7 @@ def hf_generation(model, input_ids, use_cache, steps):
             if use_cache and all(layer_type == "linear_attention" for layer_type in model.config.layer_types):
                 # Synthetic all-linear configs have no sequence-bearing QSA KV
                 # cache. Both effective masks are None for this unpadded case.
-                attention_mask = {"full_attention": None, "linear_attention": None}
+                attention_mask = {"indexed_attention": None, "linear_attention": None}
 
             output = model(
                 input_ids=model_input,

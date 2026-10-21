@@ -369,7 +369,7 @@ fn main() -> Result<()> {
     let worst_max_abs = require_agreement(&tensors, atol, rtol)?;
 
     let output = Output {
-        device: fused.device_name().to_string(),
+        device: fused.decision_device_name().to_owned(),
         width: fused.width(),
         w_rank: fused.ranks().0,
         a_rank: fused.ranks().1,

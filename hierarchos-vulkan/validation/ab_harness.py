@@ -361,6 +361,8 @@ def summarise(
             row[f"composed_ran_vendor_{probe_key}"] = (
                 run["composed"][f"{probe_key}_dispatches"] > 0
             )
+            if "unmeasured_compose" in run:
+                row["unmeasured_compose"] = run["unmeasured_compose"]
         if steps is not None:
             for leg in ("fused", "composed", "default"):
                 row[f"{leg}_ms_per_step"] = run[leg]["ms_per_step"]
@@ -408,7 +410,7 @@ def expected_default_pair(run: dict, probe_key: str, structural_default: bool = 
         return run["fused"]["label"]
     if structural_default:
         return run["fused"]["label"]
-    if run["composed"][f"{probe_key}_dispatches"] > 0:
+    if run.get("unmeasured_compose", run["composed"][f"{probe_key}_dispatches"] > 0):
         return "composed"
     return run["fused"]["label"]
 
@@ -515,6 +517,8 @@ def record_decisions(
     width = runs[0]["width"]
     measured = {run["batch"] for run in runs}
     policy = canonical_policy(parameter_storage)
+    if policy is None and "[pci=1002:" in device.lower():
+        policy = "fp32"
     baseline = STRUCTURAL_DEFAULT_ROUTE.get(probe_label or "", "fused")
     declared_margin = margin if record_margin is None else record_margin
     kept = [

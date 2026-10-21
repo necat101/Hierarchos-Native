@@ -1,0 +1,121 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+
+// Classic Transformer LayerNorm: eight interleaved Welford accumulators,
+// merged in 16-vector chunks with a binary cascade. This avoids the serial
+// sum-of-squares drift and preserves the CPU oracle's FP32 reduction order.
+// The legacy recurrent LayerNorm module remains a separate artifact.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BiasBuffer { float bias[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer RstdBuffer { float rstd_values[]; };
+layout(push_constant) uniform Push { uint rows; uint dim; float eps; } pc;
+
+struct Moments { vec4 mean0; vec4 mean1; vec4 var0; vec4 var1; };
+Moments merge_moments(Moments target, uint count, Moments add, uint added) {
+    precise float c = fp32_div(float(added), float(count + added));
+    precise vec4 d0 = add.mean0 - target.mean0;
+    precise vec4 d1 = add.mean1 - target.mean1;
+    precise vec4 cd0 = c * d0;
+    precise vec4 cd1 = c * d1;
+    precise vec4 md0 = d0 * float(count);
+    precise vec4 md1 = d1 * float(count);
+    precise vec4 v0 = target.var0 + add.var0;
+    precise vec4 v1 = target.var1 + add.var1;
+    precise vec4 m0 = target.mean0 + cd0;
+    precise vec4 m1 = target.mean1 + cd1;
+    return Moments(m0, m1, fma(md0, cd0, v0), fma(md1, cd1, v1));
+}
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint base = row * pc.dim;
+    uint vectors = pc.dim / 8u;
+    uint chunks = (vectors + 15u) / 16u;
+    // At most 2^29 vectors fit in the uint-indexed input. 32 levels also
+    // cover the scalar tail without narrowing the model's supported widths.
+    Moments stack[32];
+    uint counts[32];
+    for (uint i = 0u; i < 32u; ++i) counts[i] = 0u;
+    uint depth = 0u;
+    for (uint c = chunks; c > 1u; c = (c + 1u) / 2u) ++depth;
+    for (uint chunk = 0u; chunk < chunks; ++chunk) {
+        uint n = min(16u, vectors - chunk * 16u);
+        Moments m = Moments(vec4(0.0), vec4(0.0), vec4(0.0), vec4(0.0));
+        for (uint j = 0u; j < n; ++j) {
+            uint at = base + (chunk * 16u + j) * 8u;
+            vec4 a = vec4(x[at], x[at+1u], x[at+2u], x[at+3u]);
+            vec4 b = vec4(x[at+4u], x[at+5u], x[at+6u], x[at+7u]);
+            precise float reciprocal = fp32_div(1.0, float(j + 1u));
+            precise vec4 d0 = a - m.mean0;
+            precise vec4 d1 = b - m.mean1;
+            m.mean0 = fma(vec4(reciprocal), d0, m.mean0);
+            m.mean1 = fma(vec4(reciprocal), d1, m.mean1);
+            precise vec4 t0 = a - m.mean0;
+            precise vec4 t1 = b - m.mean1;
+            m.var0 = fma(d0, t0, m.var0);
+            m.var1 = fma(d1, t1, m.var1);
+        }
+        if (counts[0] == 0u) stack[0] = m;
+        else stack[0] = merge_moments(stack[0], counts[0], m, n);
+        counts[0] += n;
+        uint mask = chunk + 1u;
+        for (uint level = 1u; level < depth && (mask & 1u) == 0u; ++level) {
+            if (counts[level] == 0u) stack[level] = stack[level-1u];
+            else stack[level] = merge_moments(stack[level], counts[level], stack[level-1u], counts[level-1u]);
+            counts[level] += counts[level-1u];
+            counts[level-1u] = 0u;
+            mask >>= 1u;
+        }
+    }
+    for (uint level = 1u; level < depth; ++level) {
+        if (counts[level] == 0u) continue;
+        if (counts[0] == 0u) stack[0] = stack[level];
+        else stack[0] = merge_moments(stack[0], counts[0], stack[level], counts[level]);
+        counts[0] += counts[level];
+    }
+    precise float mean = 0.0;
+    precise float variance = 0.0;
+    uint count = 0u;
+    for (uint col = vectors * 8u; col < pc.dim; ++col) {
+        precise float delta = x[base + col] - mean;
+        ++count;
+        precise float increment = fp32_div(delta, float(count));
+        mean += increment;
+        precise float centered = x[base + col] - mean;
+        precise float product = delta * centered;
+        variance += product;
+    }
+    if (vectors != 0u) {
+        for (uint lane = 0u; lane < 8u; ++lane) {
+            float m = lane < 4u ? stack[0].mean0[lane] : stack[0].mean1[lane-4u];
+            float v = lane < 4u ? stack[0].var0[lane] : stack[0].var1[lane-4u];
+            precise float c = fp32_div(float(vectors), float(count + vectors));
+            precise float delta = m - mean;
+            precise float increment = c * delta;
+            mean += increment;
+            precise float dd = delta * delta;
+            precise float dc = dd * c;
+            precise float correction = dc * float(count);
+            precise float add = v + correction;
+            variance += add;
+            count += vectors;
+        }
+    }
+    variance = fp32_div(variance, float(pc.dim));
+    precise float with_eps = variance + pc.eps;
+    float rstd = fp32_sqrt_recip(with_eps);
+    mean_values[row] = mean;
+    rstd_values[row] = rstd;
+    for (uint col = 0u; col < pc.dim; ++col) {
+        precise float centered = x[base + col] - mean;
+        precise float normalized = centered * rstd;
+        precise float scaled = normalized * weight[col];
+        output_values[base + col] = scaled + bias[col];
+    }
+}
+

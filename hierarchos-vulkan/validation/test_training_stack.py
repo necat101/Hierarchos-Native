@@ -15,6 +15,7 @@ import copy
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from check_training_stack_receipt import (
@@ -35,6 +36,8 @@ from verify_training_stack import (
     SHADER_TOOLS,
     ensure_shader_toolchain,
     expectation_problems,
+    structural_probe_environment,
+    training_step,
 )
 
 RECEIPT = Path(__file__).resolve().parents[1] / "validation" / "training_stack_receipt.json"
@@ -60,6 +63,56 @@ def observed(device=GEN9, dispatches=6368, barriers=2983, loss=5.5432177):
 
 
 class ProbeExpectationTests(unittest.TestCase):
+    def structural_expectation(self):
+        document = expectation()
+        document['structural_probe_environments'] = {
+            'AMD Radeon Graphics [pci=1002:15bf;driver=00800184]': {
+                'HIERARCHOS_RWKV_STATE_BACKWARD_SCHEDULE': 'rkv',
+                'HIERARCHOS_RWKV_PROJECTION_BACKWARD_SCHEDULE': 'split-weight',
+                'HIERARCHOS_RWKV_LOW_RANK_FAN_IN_SCHEDULE': 'fused-outer'}}
+        return document
+
+    def test_structural_recipe_is_scoped_to_the_actual_adapter_and_driver(self):
+        document = self.structural_expectation()
+        key = next(iter(document['structural_probe_environments']))
+        self.assertEqual(structural_probe_environment({'decision_device':key}, document),
+                         document['structural_probe_environments'][key])
+        for other in (GEN9, key.replace('00800184', '00800185'), None):
+            self.assertEqual(structural_probe_environment({'decision_device':other}, document), {})
+
+    def run_structural_control(self, *, unforced_loss=5.543217, fixed_dispatches=6464):
+        document = self.structural_expectation()
+        key = next(iter(document['structural_probe_environments']))
+        unforced = {**observed(AMD, 6368, 2980, unforced_loss), 'decision_device':key}
+        fixed = {**observed(AMD, fixed_dispatches, 3076, 5.543217), 'decision_device':key}
+        with tempfile.TemporaryDirectory(prefix='structural-probe-test-') as directory:
+            scratch = Path(directory)
+            path = scratch / 'expectation.json'
+            path.write_text(json.dumps(document))
+            with patch('verify_training_stack.binary', return_value=Path(__file__)), \
+                 patch('verify_training_stack.SCRATCH', scratch), \
+                 patch('verify_training_stack.EXPECTATION', path), \
+                 patch('verify_training_stack.run', side_effect=[
+                     (0, json.dumps(unforced)), (0, json.dumps(fixed))]) as run:
+                result = training_step(False, 'release')
+                calls = run.call_args_list
+        return result, calls
+
+    def test_fixed_structure_keeps_the_original_exact_count_and_unforced_loss(self):
+        result, calls = self.run_structural_control()
+        self.assertTrue(result.ok, result.detail)
+        self.assertEqual(len(calls), 2)
+        environment = calls[1].kwargs['environment']
+        self.assertEqual(environment['HIERARCHOS_RWKV_LOW_RANK_FAN_IN_SCHEDULE'], 'fused-outer')
+        result, _ = self.run_structural_control(fixed_dispatches=6463)
+        self.assertFalse(result.ok)
+        self.assertIn('dispatch count', result.detail)
+
+    def test_a_correct_fixed_run_cannot_hide_shipping_numerical_drift(self):
+        result, _ = self.run_structural_control(unforced_loss=5.543216)
+        self.assertFalse(result.ok)
+        self.assertIn('loss', result.detail)
+
     def test_each_device_is_compared_against_its_own_entry(self):
         self.assertEqual(expectation_problems(observed(GEN9, 6368, loss=5.5432177), expectation(), GEN9), [])
         self.assertEqual(expectation_problems(observed(AMD, 6464, 3076, 5.543217), expectation(), AMD), [])

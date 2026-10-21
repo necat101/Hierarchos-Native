@@ -808,6 +808,44 @@ struct BackwardSegmentAutotuneKey {
     a_rank: usize,
     g_rank: usize,
     full_cell: bool,
+    // A constrained experiment must never overwrite (or reuse) the ordinary
+    // search's winner. Defaults retain the serialized identity of old,
+    // unconstrained Intel records.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    forced_state: Option<StateBackwardSchedule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    forced_projection: Option<ProjectionBackwardSchedule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    forced_low_rank_fan_in: Option<RwkvLowRankFanInSchedule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    fan_in_arithmetic: Option<crate::rwkv_low_rank::RwkvFanInArithmetic>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    vendor_constraints: Option<(Option<String>, bool, bool)>,
+    // Older AMD entries may have been written by a constrained search under
+    // the unconstrained key. Invalidate core as well as full-cell entries.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    constraint_revision: Option<u32>,
+}
+
+impl BackwardSegmentAutotuneKey {
+    fn may_persist(&self) -> bool {
+        // Old v1 readers ignore unknown key fields. Keeping constrained
+        // experiments in memory also prevents those readers from mistaking a
+        // forced entry for an unconstrained winner on the shared Intel key.
+        self.forced_state.is_none()
+            && self.forced_projection.is_none()
+            && self.forced_low_rank_fan_in.is_none()
+            && self.vendor_constraints.is_none()
+    }
+}
+
+fn backward_segment_vendor_constraints() -> Option<(Option<String>, bool, bool)> {
+    let forced = std::env::var("HIERARCHOS_VULKAN_FORCE_VENDOR")
+        .ok()
+        .map(|value| value.trim().to_ascii_lowercase());
+    let disabled = std::env::var_os("HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS").is_some();
+    let qualification = std::env::var_os("HIERARCHOS_VULKAN_QUALIFY_VENDOR_MODULES").is_some();
+    (forced.is_some() || disabled || qualification).then_some((forced, disabled, qualification))
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -1805,7 +1843,7 @@ impl RwkvTimeMixCoreOp {
         // measured its key-parameter reduction exact, so the kernel set follows the
         // record instead of preceding it.
         let cross_batch_reduce_requested = cross_batch_key_param_reduce_requested()
-            || crate::rwkv_tbptt::folded_route_recorded(device.name(), width);
+            || crate::rwkv_tbptt::folded_route_recorded(device.decision_device_name(), width);
         let state_backward_fused_rkv_add3_key_transform_reduce_batch =
             if cross_batch_reduce_requested {
                 create_state_backward_geometry_kernel(
@@ -3142,7 +3180,7 @@ impl RwkvTimeMixCoreOp {
 
         let subgroup_size = self.device.subgroup_capabilities().subgroup_size;
         let key = ForwardProjectionAutotuneKey {
-            device_name: self.device.name().to_owned(),
+            device_name: self.device.decision_device_name().to_owned(),
             subgroup_size,
             width: self.width,
             head_size: self.head_size,
@@ -3169,7 +3207,7 @@ impl RwkvTimeMixCoreOp {
             if std::env::var_os(HIERARCHOS_RWKV_TIME_MIX_WEIGHT_REUSE2_AUTOTUNE_LOG_ENV).is_some() {
                 eprintln!(
                     "RWKV forward-projection autotune warmup failed device={} recurrence={} batch={batch}: {err:#}; using {}",
-                    self.device.name(),
+                    self.device.decision_device_name(),
                     recurrence.label(),
                     baseline.label()
                 );
@@ -3225,7 +3263,7 @@ impl RwkvTimeMixCoreOp {
                 {
                     eprintln!(
                         "RWKV forward-projection factorized autotune failed device={} recurrence={} batch={batch}: {err:#}; using {}",
-                        self.device.name(),
+                        self.device.decision_device_name(),
                         recurrence.label(),
                         baseline.label()
                     );
@@ -3281,7 +3319,7 @@ impl RwkvTimeMixCoreOp {
                     {
                         eprintln!(
                             "RWKV forward-projection synthesized factorized candidate failed device={} recurrence={} batch={batch} candidate={}: {err:#}; using {}",
-                            self.device.name(),
+                            self.device.decision_device_name(),
                             recurrence.label(),
                             topology.label(),
                             baseline.label()
@@ -3308,7 +3346,7 @@ impl RwkvTimeMixCoreOp {
                 .join(" ");
             eprintln!(
                 "RWKV forward-projection autotune device={} subgroup={} width={} head_size={} batch_pairs={} tail={} recurrence={} policy=factorized-rows-tile measured_reuse_arms={} full_reuse_arms={} synthesized_unmeasured={} {} selected={} autotuned={}",
-                self.device.name(),
+                self.device.decision_device_name(),
                 subgroup_size,
                 self.width,
                 self.head_size,
@@ -3506,7 +3544,7 @@ impl RwkvTimeMixCoreOp {
 
         let subgroup_size = self.device.subgroup_capabilities().subgroup_size;
         let key = ProjectionWeightGradAutotuneKey {
-            device_name: self.device.name().to_owned(),
+            device_name: self.device.decision_device_name().to_owned(),
             subgroup_size,
             width: self.width,
             rows,
@@ -3530,7 +3568,7 @@ impl RwkvTimeMixCoreOp {
             {
                 eprintln!(
                     "RWKV projection weight-gradient autotune warmup failed device={} rows={rows}: {err:#}; using baseline",
-                    self.device.name()
+                    self.device.decision_device_name()
                 );
             }
             return Ok(ProjectionWeightGradDecision {
@@ -3558,7 +3596,7 @@ impl RwkvTimeMixCoreOp {
                         {
                             eprintln!(
                                 "RWKV projection weight-gradient autotune failed device={} rows={rows} candidate={}: {err:#}; using baseline",
-                                self.device.name(),
+                                self.device.decision_device_name(),
                                 topology.label()
                             );
                         }
@@ -3591,7 +3629,7 @@ impl RwkvTimeMixCoreOp {
                 .join(" ");
             eprintln!(
                 "RWKV projection weight-gradient autotune device={} subgroup={} width={} rows={} {} selected={} autotuned={}",
-                self.device.name(),
+                self.device.decision_device_name(),
                 subgroup_size,
                 self.width,
                 rows,
@@ -3905,7 +3943,7 @@ impl RwkvTimeMixCoreOp {
 
         let subgroup_size = self.device.subgroup_capabilities().subgroup_size;
         let key = ProjectionInputGradAutotuneKey {
-            device_name: self.device.name().to_owned(),
+            device_name: self.device.decision_device_name().to_owned(),
             subgroup_size,
             width: self.width,
             batch_pairs: batch.div_ceil(2),
@@ -3929,7 +3967,7 @@ impl RwkvTimeMixCoreOp {
             {
                 eprintln!(
                     "RWKV projection input-gradient autotune warmup failed device={} batch={batch}: {err:#}; using baseline",
-                    self.device.name()
+                    self.device.decision_device_name()
                 );
             }
             return Ok(ProjectionInputGradDecision {
@@ -3982,7 +4020,7 @@ impl RwkvTimeMixCoreOp {
                 {
                     eprintln!(
                         "RWKV projection input-gradient factorized autotune failed device={} batch={batch}: {err:#}; using baseline",
-                        self.device.name()
+                        self.device.decision_device_name()
                     );
                 }
                 return Ok(ProjectionInputGradDecision {
@@ -4039,7 +4077,7 @@ impl RwkvTimeMixCoreOp {
                     {
                         eprintln!(
                             "RWKV projection input-gradient synthesized factorized candidate failed device={} batch={batch} candidate={}: {err:#}; using baseline",
-                            self.device.name(),
+                            self.device.decision_device_name(),
                             topology.label()
                         );
                     }
@@ -4065,7 +4103,7 @@ impl RwkvTimeMixCoreOp {
                 .join(" ");
             eprintln!(
                 "RWKV projection input-gradient autotune device={} subgroup={} width={} batch_pairs={} tail={} policy=factorized-rows-tile measured_reuse_arms={} full_reuse_arms={} synthesized_unmeasured={} {} selected={} autotuned={}",
-                self.device.name(),
+                self.device.decision_device_name(),
                 subgroup_size,
                 self.width,
                 key.batch_pairs,
@@ -4268,7 +4306,7 @@ impl RwkvTimeMixCoreOp {
         batch: usize,
     ) -> Option<crate::decision_records::Route> {
         key_state_forward_decisions().route_scoped(
-            self.device.name(),
+            self.device.decision_device_name(),
             self.width as u32,
             batch as u32,
             self.parameter_storage_policy(),
@@ -4720,7 +4758,7 @@ impl RwkvTimeMixCoreOp {
             (0, 0, 0)
         };
         let key = BackwardSegmentAutotuneKey {
-            device_name: self.device.name().to_owned(),
+            device_name: self.device.decision_device_name().to_owned(),
             subgroup_size,
             width: self.width,
             head_size: self.head_size,
@@ -4729,6 +4767,22 @@ impl RwkvTimeMixCoreOp {
             a_rank,
             g_rank,
             full_cell,
+            forced_state: forced_state_backward_schedule()?,
+            forced_projection: forced_projection_backward_schedule()?,
+            forced_low_rank_fan_in: if full_cell {
+                forced_low_rank_fan_in_schedule()?
+            } else {
+                None
+            },
+            fan_in_arithmetic: if full_cell {
+                self.low_rank
+                    .as_ref()
+                    .and_then(|op| op.backward_fan_in_arithmetic())
+            } else {
+                None
+            },
+            vendor_constraints: backward_segment_vendor_constraints(),
+            constraint_revision: (self.device.vendor_id() == 0x1002).then_some(1),
         };
         let cache = BACKWARD_SEGMENT_AUTOTUNE_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
         if let Some(decision) = cache
@@ -4736,6 +4790,7 @@ impl RwkvTimeMixCoreOp {
             .map_err(|_| anyhow::anyhow!("RWKV backward-segment autotune cache lock was poisoned"))?
             .get(&key)
             .copied()
+            .filter(|decision| candidates.contains(&decision.schedule))
         {
             return Ok(decision);
         }
@@ -4758,7 +4813,7 @@ impl RwkvTimeMixCoreOp {
                     if std::env::var_os("HIERARCHOS_RWKV_BACKWARD_SEGMENT_AUTOTUNE_LOG").is_some() {
                         eprintln!(
                             "RWKV backward-segment autotune persistent-hit device={} subgroup={} width={} head_size={} batch={} ranks={}/{}/{} scope={} selected={}",
-                            self.device.name(),
+                            self.device.decision_device_name(),
                             subgroup_size,
                             self.width,
                             self.head_size,
@@ -4794,7 +4849,7 @@ impl RwkvTimeMixCoreOp {
                 if std::env::var_os("HIERARCHOS_RWKV_BACKWARD_SEGMENT_AUTOTUNE_LOG").is_some() {
                     eprintln!(
                         "RWKV backward-segment autotune failed device={} width={} head_size={} batch={} scope={}: {err:#}; using deepest compatible schedule",
-                        self.device.name(),
+                        self.device.decision_device_name(),
                         self.width,
                         self.head_size,
                         batch,
@@ -4822,7 +4877,7 @@ impl RwkvTimeMixCoreOp {
                 .join(" ");
             eprintln!(
                 "RWKV backward-segment autotune device={} subgroup={} width={} head_size={} batch={} scope={} {} selected={}",
-                self.device.name(),
+                self.device.decision_device_name(),
                 subgroup_size,
                 self.width,
                 self.head_size,
@@ -5684,7 +5739,7 @@ impl RwkvTimeMixCoreOp {
 
         let subgroup_size = self.device.subgroup_capabilities().subgroup_size;
         let key = StateBackwardAutotuneKey {
-            device_name: self.device.name().to_owned(),
+            device_name: self.device.decision_device_name().to_owned(),
             subgroup_size,
             width: self.width,
             head_size: self.head_size,
@@ -5708,7 +5763,7 @@ impl RwkvTimeMixCoreOp {
                     if std::env::var_os("HIERARCHOS_RWKV_STATE_BACKWARD_AUTOTUNE_LOG").is_some() {
                         eprintln!(
                             "RWKV state-backward autotune failed device={} width={} head_size={} batch={} candidate={}: {err:#}; using deepest compatible fusion",
-                            self.device.name(),
+                            self.device.decision_device_name(),
                             self.width,
                             self.head_size,
                             batch,
@@ -5737,7 +5792,7 @@ impl RwkvTimeMixCoreOp {
                 .join(" ");
             eprintln!(
                 "RWKV state-backward autotune device={} subgroup={} width={} head_size={} batch={} {} selected={}",
-                self.device.name(),
+                self.device.decision_device_name(),
                 subgroup_size,
                 self.width,
                 self.head_size,
@@ -8084,6 +8139,10 @@ impl RwkvTimeMixCoreOp {
         self.device.name()
     }
 
+    pub fn decision_device_name(&self) -> &str {
+        self.device.decision_device_name()
+    }
+
     /// The full-forward projection graph this op dispatches for `batch`:
     /// `fused`/`fused-two-rows` for the fused projection/key/state kernel, or
     /// `composed` for the `linear3-forward` module followed by the key/state
@@ -8143,7 +8202,7 @@ impl RwkvTimeMixCoreOp {
         batch: usize,
     ) -> Option<crate::decision_records::Route> {
         time_mix_decisions().route_scoped(
-            self.device.name(),
+            self.device.decision_device_name(),
             self.width as u32,
             batch as u32,
             self.parameter_storage_policy(),
@@ -8158,11 +8217,13 @@ impl RwkvTimeMixCoreOp {
         };
         crate::decision_records::prefers_composition(
             self.forward_fusion_forced,
-            self.linear3_forward.selects_variant_for(
-                batch as u32,
-                self.width as u32,
-                self.width as u32,
-            ),
+            (crate::vendor::unmeasured_composition_is_qualified(self.device.vendor_id())
+                || measured.is_some())
+                && self.linear3_forward.selects_variant_for(
+                    batch as u32,
+                    self.width as u32,
+                    self.width as u32,
+                ),
             measured,
         )
     }
@@ -8243,7 +8304,7 @@ impl RwkvTimeMixCoreOp {
                     let caps = self.device.subgroup_capabilities();
                     bail!(
                         "RWKV fast-subgroup numerics are unavailable on device={} subgroup={} compute={} basic={} arithmetic={}",
-                        self.device.name(),
+                        self.device.decision_device_name(),
                         caps.subgroup_size,
                         caps.compute_supported,
                         caps.basic_supported,
@@ -8252,19 +8313,19 @@ impl RwkvTimeMixCoreOp {
                 }
                 RwkvNumericsPolicy::FastRecurrentTree => bail!(
                     "RWKV fast-recurrent-tree numerics are unavailable on device={} head_size={}; no compiled workgroup geometry can split each recurrent row/column across multiple lanes",
-                    self.device.name(),
+                    self.device.decision_device_name(),
                     self.head_size
                 ),
                 RwkvNumericsPolicy::FastRecurrentTiled => bail!(
                     "RWKV fast-recurrent-tiled numerics are unavailable on device={} head_size={}; no compiled workgroup geometry can assign contiguous recurrent tiles to multiple lanes",
-                    self.device.name(),
+                    self.device.decision_device_name(),
                     self.head_size
                 ),
                 RwkvNumericsPolicy::FastRecurrentSubgroup => {
                     let caps = self.device.subgroup_capabilities();
                     bail!(
                         "RWKV fast-recurrent-subgroup numerics are unavailable on device={} subgroup={} head_size={} compute={} basic={} arithmetic={}; the policy requires subgroup arithmetic and a compiled complete-subgroup workgroup able to cover the head with one or two hardware subgroups",
-                        self.device.name(),
+                        self.device.decision_device_name(),
                         caps.subgroup_size,
                         self.head_size,
                         caps.compute_supported,
@@ -8458,7 +8519,7 @@ impl RwkvTimeMixCoreOp {
             .with_context(|| {
                 format!(
                     "RWKV backward-kernel geometry {label:?} is unavailable for device={} subgroup={} width={} head_size={} batch={batch} numerics={}",
-                    self.device.name(),
+                    self.device.decision_device_name(),
                     self.device.subgroup_capabilities().subgroup_size,
                     self.width,
                     self.head_size,
@@ -8519,7 +8580,7 @@ impl RwkvTimeMixCoreOp {
             .with_context(|| {
                 format!(
                     "RWKV backward-segment schedule {label:?} is unavailable for device={} width={} head_size={} batch={batch}",
-                    self.device.name(), self.width, self.head_size
+                    self.device.decision_device_name(), self.width, self.head_size
                 )
             })?;
         Ok((
@@ -8587,7 +8648,7 @@ impl RwkvTimeMixCoreOp {
             .with_context(|| {
                 format!(
                     "RWKV backward-kernel geometry {geometry_label:?} is unavailable for device={} subgroup={} width={} head_size={} batch={batch}",
-                    self.device.name(),
+                    self.device.decision_device_name(),
                     self.device.subgroup_capabilities().subgroup_size,
                     self.width,
                     self.head_size
@@ -8601,7 +8662,7 @@ impl RwkvTimeMixCoreOp {
             .with_context(|| {
                 format!(
                     "RWKV backward-segment schedule {current_label:?} is unavailable for device={} width={} head_size={} batch={batch}",
-                    self.device.name(), self.width, self.head_size
+                    self.device.decision_device_name(), self.width, self.head_size
                 )
             })?;
         let low_rank = self
@@ -8649,7 +8710,7 @@ impl RwkvTimeMixCoreOp {
             .with_context(|| {
                 format!(
                     "RWKV backward-segment schedule {label:?} is unavailable for device={} width={} head_size={} batch={batch}",
-                    self.device.name(), self.width, self.head_size
+                    self.device.decision_device_name(), self.width, self.head_size
                 )
             })?;
         let decision = BackwardSegmentDecision {
@@ -8992,6 +9053,9 @@ fn load_persistent_backward_segment_schedule(
     key: &BackwardSegmentAutotuneKey,
     candidates: &[BackwardSegmentSchedule],
 ) -> Result<Option<BackwardSegmentSchedule>> {
+    if !key.may_persist() {
+        return Ok(None);
+    }
     let Some(path) = backward_segment_persistent_cache_path() else {
         return Ok(None);
     };
@@ -9021,6 +9085,9 @@ fn store_persistent_backward_segment_schedule(
     key: &BackwardSegmentAutotuneKey,
     schedule: BackwardSegmentSchedule,
 ) -> Result<()> {
+    if !key.may_persist() {
+        return Ok(());
+    }
     let Some(path) = backward_segment_persistent_cache_path() else {
         return Ok(());
     };
@@ -9673,6 +9740,12 @@ mod state_backward_schedule_tests {
             a_rank: 0,
             g_rank: 0,
             full_cell: false,
+            forced_state: None,
+            forced_projection: None,
+            forced_low_rank_fan_in: None,
+            fan_in_arithmetic: None,
+            vendor_constraints: None,
+            constraint_revision: None,
         };
         let full_cell = BackwardSegmentAutotuneKey {
             w_rank: 32,
@@ -9682,12 +9755,57 @@ mod state_backward_schedule_tests {
             ..core.clone()
         };
         assert_ne!(core, full_cell);
+        assert!(core.may_persist());
+        assert!(full_cell.may_persist());
+        let qualified = BackwardSegmentAutotuneKey {
+            constraint_revision: Some(1),
+            ..full_cell.clone()
+        };
+        assert_ne!(full_cell, qualified);
+        assert!(qualified.may_persist());
+        let mut legacy_cache = std::collections::HashMap::new();
+        legacy_cache.insert(full_cell.clone(), "unqualified legacy winner");
+        assert_eq!(legacy_cache.get(&qualified), None);
 
         let different_ranks = BackwardSegmentAutotuneKey {
             w_rank: 64,
             ..full_cell.clone()
         };
         assert_ne!(full_cell, different_ranks);
+        for forced in [
+            BackwardSegmentAutotuneKey {
+                forced_state: Some(StateBackwardSchedule::RkvAdd3),
+                ..full_cell.clone()
+            },
+            BackwardSegmentAutotuneKey {
+                forced_projection: Some(ProjectionBackwardSchedule::WeightThenSplitMix),
+                ..full_cell.clone()
+            },
+            BackwardSegmentAutotuneKey {
+                forced_low_rank_fan_in: Some(RwkvLowRankFanInSchedule::Split),
+                ..full_cell.clone()
+            },
+            BackwardSegmentAutotuneKey {
+                fan_in_arithmetic: Some(crate::rwkv_low_rank::RwkvFanInArithmetic::Materialized),
+                ..full_cell.clone()
+            },
+            BackwardSegmentAutotuneKey {
+                vendor_constraints: Some((None, true, false)),
+                ..full_cell.clone()
+            },
+        ] {
+            assert_ne!(full_cell, forced);
+            assert_eq!(forced.may_persist(), forced.fan_in_arithmetic.is_some());
+            let mut cache = std::collections::HashMap::new();
+            cache.insert(forced, "constrained");
+            assert_eq!(cache.get(&full_cell), None);
+        }
+        let json = serde_json::to_value(&full_cell).unwrap();
+        assert!(json.get("forced_state").is_none());
+        assert!(json.get("forced_projection").is_none());
+        assert!(json.get("forced_low_rank_fan_in").is_none());
+        let old_key: BackwardSegmentAutotuneKey = serde_json::from_value(json).unwrap();
+        assert_eq!(old_key, full_cell);
     }
 
     #[test]
@@ -9750,6 +9868,12 @@ mod state_backward_schedule_tests {
             a_rank: 16,
             g_rank: 64,
             full_cell: true,
+            forced_state: None,
+            forced_projection: None,
+            forced_low_rank_fan_in: None,
+            fan_in_arithmetic: None,
+            vendor_constraints: None,
+            constraint_revision: None,
         };
         let schedule = BackwardSegmentSchedule {
             state: StateBackwardSchedule::RkvAdd3KeyTransform,

@@ -19,8 +19,10 @@ REPO_ROOT = ROOT.parent
 # checkout (for example an older release tag) without editing this file; the
 # provenance guard below still refuses to accept a site-packages import.
 TRANSFORMERS_ROOT = Path(
-    os.environ.get("HIERARCHOS_TRANSFORMERS_ROOT", r"C:\Users\User\transformers")
-)
+    os.environ.get("HIERARCHOS_TRANSFORMERS_ROOT")
+    or os.environ.get("HIERARCHOS_TRANSFORMERS_CHECKOUT")
+    or Path.home() / "transformers"
+).expanduser().resolve()
 FAMILY = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("HIERARCHOS_PEFT_ORACLE_FAMILY", "gpt2")
 SHARED_REFERENCE_FAMILIES = {
     "deepseek_v4", "phi4_multimodal_text", "phi3", "kimi_k25_text",

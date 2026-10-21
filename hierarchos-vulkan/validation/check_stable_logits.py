@@ -38,18 +38,21 @@ def identity(root: Path) -> dict:
             "status": git("status", "--porcelain"), "source_sha256": digest.hexdigest()}
 
 
-def build(crate: Path, profile: str) -> Path:
+def build(crate: Path, profile: str, binary: str = BINARY,
+          target_directory: Path | None = None) -> Path:
     command = ["cargo", "build", "--manifest-path", str(crate / "Cargo.toml"),
-               "--bin", BINARY, "--message-format=json-render-diagnostics"]
+               "--bin", binary, "--message-format=json-render-diagnostics"]
+    if target_directory is not None:
+        command += ["--target-dir", str(target_directory), "-j", "1"]
     if profile == "release":
         command.append("--release")
     completed = subprocess.run(command, cwd=crate, capture_output=True, text=True, check=True)
     for line in completed.stdout.splitlines():
         message = json.loads(line)
         if (message.get("reason") == "compiler-artifact" and message.get("executable")
-                and message["target"]["name"] == BINARY):
+                and message["target"]["name"] == binary):
             return Path(message["executable"])
-    raise RuntimeError(f"Cargo reported no {BINARY} in {crate}")
+    raise RuntimeError(f"Cargo reported no {binary} in {crate}")
 
 
 def compare(reference: dict, candidate: dict) -> dict:
@@ -64,17 +67,24 @@ def compare(reference: dict, candidate: dict) -> dict:
         raise ValueError(f"logit count {len(left)} != shape product {expected}")
     differing = []
     digest = hashlib.sha256()
+    max_abs = 0.0
     for index, (a, b) in enumerate(zip(left, right)):
         if not math.isfinite(a) or not math.isfinite(b):
             raise ValueError(f"non-finite logit at {index}")
         a_bits, b_bits = struct.pack("<f", a), struct.pack("<f", b)
+        max_abs = max(max_abs, abs(struct.unpack("<f", a_bits)[0] - struct.unpack("<f", b_bits)[0]))
         digest.update(a_bits)
         if a_bits != b_bits:
             differing.append(index)
     return {"values": len(left), "different_bits": len(differing),
             "first_differences": differing[:16],
-            "max_abs": max(abs(a - b) for a, b in zip(left, right)),
+            "max_abs": max_abs,
             "reference_fp32_sha256": digest.hexdigest(), "pass": not differing}
+
+
+def comparisons_pass(rows: list[dict]) -> bool:
+    """Neither stable bit identity nor the independent HF gate can waive the other."""
+    return bool(rows) and all(row["pass"] and row["hf_failing_values"] == 0 for row in rows)
 
 
 def main() -> int:
@@ -100,6 +110,14 @@ def main() -> int:
     candidate_identity = identity(CRATE.parent)
     current_binary = build(CRATE, args.profile)
     stable_binary = build(stable / "hierarchos-vulkan", args.profile)
+    # Preserve the legacy comparison separately. Only GPT-2 may use this
+    # minimal, independently rebuilt repair reference; all other families keep
+    # the clean stable executable as their exact-bit gate.
+    import numerical_repair_oracle as repair
+    repaired_crate, repair_metadata = repair.prepare(stable, CRATE,
+        CRATE / "target" / "numerical-repair-oracle" / "source")
+    repaired_binary = build(repaired_crate, args.profile, repair.BINARY,
+        stable / "hierarchos-vulkan" / "target")
     registry.torch.manual_seed(0x48494552)
     models = registry.tiny_models() + registry.production_width_models()
     names = [name for name, _, _ in models]
@@ -117,7 +135,8 @@ def main() -> int:
             case = "padded" if padded else "unmasked"
             print(f"Comparing {name}/{case}", flush=True)
             hf = registry.compare_family(current_binary, args.output / "fixtures", name,
-                                         model, token_types, None, 2e-7, 0.0, padded)
+                                         model, token_types, None, 2e-7, 0.0, padded,
+                                         raise_on_mismatch=False)
             model_dir = args.output / "fixtures" / name / case
             current_report = json.loads((model_dir / "vulkan_logits_report.json").read_text())
             stable_report_path = model_dir / "stable_logits_report.json"
@@ -125,24 +144,38 @@ def main() -> int:
                             str(model_dir / "vulkan_logits_fixture.json"), "--output",
                             str(stable_report_path)], cwd=stable, check=True,
                            capture_output=True, text=True)
+            legacy = compare(json.loads(stable_report_path.read_text()), current_report)
+            exact = legacy
+            if name in repair.REPAIRED_FAMILIES:
+                corrected_path = model_dir / "corrected_stable_logits_report.json"
+                subprocess.run([str(repaired_binary), "--model", str(model_dir), "--fixture",
+                    str(model_dir / "vulkan_logits_fixture.json"), "--output", str(corrected_path)],
+                    cwd=repaired_crate, check=True, capture_output=True, text=True)
+                exact = compare(json.loads(corrected_path.read_text()), current_report)
             row = {"family": name, "case": case, "device": current_report["device"],
                    "hf_max_abs": hf["max_abs"], "variant_dispatches": hf["variant_dispatches"],
-                   **compare(json.loads(stable_report_path.read_text()), current_report)}
+                   "hf_failing_values": hf["failing_values"],
+                   "reference": "stable-plus-numerical-repair" if name in repair.REPAIRED_FAMILIES else "clean-stable",
+                   "legacy_stable": legacy, **exact}
             rows.append(row)
             print(f"  {row['values']} logits, {row['different_bits']} differing bits", flush=True)
     if {(row["family"], row["case"]) for row in rows} != expected_cases:
         raise ValueError("registry comparison coverage is incomplete")
     if identity(stable) != baseline_identity or identity(CRATE.parent) != candidate_identity:
         raise ValueError("source tree changed during validation; rerun on a quiet checkout")
-    receipt = {"result": "pass" if all(row["pass"] for row in rows) else "fail",
+    repair.verify_prepared(repaired_crate, repair_metadata)
+    receipt = {"result": "pass" if comparisons_pass(rows) else "fail",
                "stable": baseline_identity, "candidate": candidate_identity,
                "profile": args.profile, "comparisons": len(rows),
                "transformers_source": str(transformers_source),
                "transformers_version": registry.transformers.__version__,
                "values": sum(row["values"] for row in rows),
                "different_bits": sum(row["different_bits"] for row in rows), "rows": rows,
+               "legacy_stable_different_bits": sum(row["legacy_stable"]["different_bits"] for row in rows),
+               "numerical_repair": repair_metadata,
                "binaries": {label: hashlib.sha256(path.read_bytes()).hexdigest()
-                            for label, path in (("stable", stable_binary), ("candidate", current_binary))}}
+                            for label, path in (("stable", stable_binary), ("candidate", current_binary),
+                                                ("stable_plus_repair", repaired_binary))}}
     (args.output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(f"{receipt['result'].upper()}: {receipt['comparisons']} comparisons, "
           f"{receipt['values']} logits, {receipt['different_bits']} differing bits")

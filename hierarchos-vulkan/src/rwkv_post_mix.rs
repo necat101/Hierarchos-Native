@@ -852,7 +852,7 @@ impl RwkvPostMixOp {
 
         let subgroup_size = self.device.subgroup_capabilities().subgroup_size;
         let key = PostMixForwardAutotuneKey {
-            device_name: self.device.name().to_owned(),
+            device_name: self.device.decision_device_name().to_owned(),
             subgroup_size,
             width: self.width,
             head_size: self.head_size,
@@ -879,7 +879,7 @@ impl RwkvPostMixOp {
             if std::env::var_os(HIERARCHOS_RWKV_POST_MIX_FORWARD_AUTOTUNE_LOG_ENV).is_some() {
                 eprintln!(
                     "RWKV post-mix forward autotune warmup failed device={} batch={batch}: {err:#}; using {}",
-                    self.device.name(),
+                    self.device.decision_device_name(),
                     structural_default.label()
                 );
             }
@@ -913,7 +913,7 @@ impl RwkvPostMixOp {
                         {
                             eprintln!(
                                 "RWKV post-mix forward autotune failed device={} batch={batch} candidate={}: {err:#}; using {}",
-                                self.device.name(),
+                                self.device.decision_device_name(),
                                 topology.label(),
                                 structural_default.label()
                             );
@@ -948,7 +948,7 @@ impl RwkvPostMixOp {
                 .join(" ");
             eprintln!(
                 "RWKV post-mix forward autotune device={} subgroup={} width={} head_size={} batch_pairs={} tail={} {} selected={} autotuned={}",
-                self.device.name(),
+                self.device.decision_device_name(),
                 subgroup_size,
                 self.width,
                 self.head_size,

@@ -1114,30 +1114,40 @@ fn hierarchos_causal_lm_vendor_kernels_match_portable() -> Result<()> {
     with_trainer_stack(vendor_kernels_match_portable)
 }
 
-/// Runs the native Hierarchos causal-LM step with the Intel modules and with
-/// them disabled, and requires identical losses, recurrent states, and
-/// parameter gradients. The test-only dispatch counter proves the vendor run
-/// really consumed an Intel module instead of silently falling back, so the
-/// comparison cannot pass vacuously. Keep `--test-threads=1`: the disable
-/// switch is process-wide while the second graph is built.
+/// Compare vendor and portable modules within the same explicitly composed
+/// graph. Shipping producer routes have separate stable trajectory gates: a
+/// vendor module's availability does not qualify an AMD fusion replacement.
+/// Dispatch counters prove all four vendor modules actually ran.
 fn vendor_kernels_match_portable() -> Result<()> {
+    // Module arithmetic qualification includes measured performance losers.
+    // Shipping geometry decisions are exercised by the ordinary trajectory gates.
+    let _modules = EnvVarGuard::set(
+        crate::vendor::HIERARCHOS_VULKAN_QUALIFY_VENDOR_MODULES_ENV, "1",
+    );
+    let _time_mix = EnvVarGuard::set(
+        crate::rwkv_time_mix_core::HIERARCHOS_VULKAN_DISABLE_TIME_MIX_FORWARD_FUSION_ENV, "1",
+    );
+    let _channel_mix = EnvVarGuard::set(
+        crate::rwkv_channel_mix::HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION_ENV, "1",
+    );
     let batch = 8usize;
     let context_dim = 128usize;
     let path = vendor_fixture()?;
     let device = VulkanDevice::new()?;
+    let vendor_label = crate::vendor::effective_vendor(&device).label();
     let probe = crate::vendor::VendorMatmulKernel::new(
         &device,
         crate::vendor::VendorKernelFamily::LinearForward,
     )?;
     if !probe.variant_available() {
-        eprintln!("SKIP Hierarchos causal-LM vendor parity: no Intel variant on this adapter");
+        eprintln!("SKIP Hierarchos causal-LM vendor parity: no tuned variant on this adapter");
         return Ok(());
     }
     // Each recurrent timestep dispatches the channel mix as
     // (rows = batch, k = width = context_dim, n = 4 * width).
     assert!(
         probe.selects_variant_for(batch as u32, context_dim as u32, (4 * context_dim) as u32),
-        "vendor parity fixture geometry must reach the Intel module"
+        "vendor parity fixture geometry must reach the tuned module"
     );
 
     let ids = [
@@ -1163,28 +1173,20 @@ fn vendor_kernels_match_portable() -> Result<()> {
     let vendor_gradients = vendor.full_model_pending_gradient_snapshots()?;
     assert!(
         vendor_dispatches > 0,
-        "vendor-enabled Hierarchos step did not dispatch an Intel module"
+        "vendor-enabled Hierarchos step did not dispatch a tuned module"
     );
-    // The native graph must really route every tuned matmul family this fixture
-    // exercises through the Intel modules, so a regression that silently moved
-    // a call site back to the portable module cannot pass just because the
-    // numbers agree. Both measured promotions are live at this geometry, so both
-    // families have to be exercised: the channel mix composes through
-    // `linear-residual-forward` (the channel-mix A/B recorded composed wins at width
-    // 128, batches 8/16/32, and this fixture is width 128 at batch 8) and the time-mix
-    // projection composes through `linear3-forward`. The fused routes they replaced at
-    // other geometries are pinned by the packed-cell vendor composition check, which
-    // forces both graphs and asserts the tuned module's dispatch on each, and by the
-    // on-device A/Bs (`vendor::intel_variants_are_bit_exact_with_portable_kernels` and
-    // the two `bench_ab` receipts).
+    // Both producer fusions are explicitly disabled above. All four matmul
+    // families must therefore execute, regardless of which producer graph this
+    // adapter's shipping route selects. Matching numbers without those actual
+    // dispatches would not prove vendor-module parity.
     assert!(
         linear_forward_dispatches > 0 && linear_bias_forward_dispatches > 0,
         "vendor-enabled Hierarchos step did not dispatch the linear-forward/\
-         linear-bias-forward Intel modules"
+         linear-bias-forward vendor modules"
     );
     for family in crate::vendor::VendorKernelFamily::ALL {
         eprintln!(
-            "Intel dispatch histogram: {:<24} {}",
+            "{vendor_label} dispatch histogram: {:<24} {}",
             family.label(),
             crate::vendor::variant_dispatch_count_for(family)
         );
@@ -1209,7 +1211,7 @@ fn vendor_kernels_match_portable() -> Result<()> {
     drop(guard);
     assert_eq!(
         portable_dispatches, 0,
-        "portable Hierarchos step must not dispatch an Intel module"
+        "portable Hierarchos step must not dispatch a vendor module"
     );
 
     close(
@@ -1232,7 +1234,7 @@ fn vendor_kernels_match_portable() -> Result<()> {
     );
     close_registry(&vendor_gradients, &portable_gradients, 2e-7);
     eprintln!(
-        "PASS Hierarchos causal-LM vendor parity: {vendor_dispatches} Intel dispatches \
+        "PASS Hierarchos causal-LM vendor parity: {vendor_dispatches} {vendor_label} dispatches \
          (linear-forward={linear_forward_dispatches}, \
          linear-bias-forward={linear_bias_forward_dispatches}), portable run {portable_dispatches}"
     );

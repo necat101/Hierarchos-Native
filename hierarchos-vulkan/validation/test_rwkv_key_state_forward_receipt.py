@@ -203,7 +203,12 @@ class KeyStateForwardReceiptTest(unittest.TestCase):
         rows = {row["batch"]: row for row in self.batches}
         for entry in self.record["decisions"]:
             self.assertEqual(entry["source"], "measured")
-            self.assertEqual(entry["device"].strip().lower(), device)
+            self.assertTrue(entry["device"].strip())
+            self.assertEqual(entry["candidates"][entry["route"]], min(entry["candidates"].values()))
+            # This historical receipt measures one adapter. Other adapters keep
+            # their own measurements and must not be compared to Intel timings.
+            if entry["device"].strip().lower() != device:
+                continue
             self.assertEqual(entry["width"], width)
             self.assertEqual(entry["probe"], "key-state-forward")
             self.assertIn(

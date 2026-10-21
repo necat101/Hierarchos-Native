@@ -1,0 +1,41 @@
+#version 450
+
+// Narrow, non-transposed CPU mm used by LoRA-B's adjoint on AVX-512
+// hosts: materialize four products, add adjacent pairs, then accumulate
+// each four-product group in increasing K order. This is distinct from
+// both the serial multiply-add and interleaved forward-GEMM reductions.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradOutput { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Weight { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradInput { float grad_input[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || col >= pc.input_dim) return;
+    precise float sum = 0.0;
+    for (uint k = 0u; k < pc.output_dim; k += 4u) {
+        precise float p0 = grad_output[row * pc.output_dim + k]
+            * weight[k * pc.input_dim + col];
+        precise float p1 = grad_output[row * pc.output_dim + k + 1u]
+            * weight[(k + 1u) * pc.input_dim + col];
+        precise float p2 = grad_output[row * pc.output_dim + k + 2u]
+            * weight[(k + 2u) * pc.input_dim + col];
+        precise float p3 = grad_output[row * pc.output_dim + k + 3u]
+            * weight[(k + 3u) * pc.input_dim + col];
+        // The odd final row of a two-column tail uses cross pairs. Four-
+        // column tiles retain adjacent pairs, including on that final row.
+        bool cross_pairs = (pc.rows & 1u) != 0u && row + 1u == pc.rows
+            && (pc.input_dim & 3u) == 2u && col + 2u >= pc.input_dim;
+        precise float pair0 = cross_pairs ? p0 + p2 : p0 + p1;
+        precise float pair1 = cross_pairs ? p1 + p3 : p2 + p3;
+        precise float group = pair0 + pair1;
+        sum = sum + group;
+    }
+    grad_input[row * pc.input_dim + col] = sum;
+}

@@ -19,6 +19,16 @@ const LAYER_NORM_INPUT_GRAD_RESIDUAL_FUSED_SPV: &[u8] =
     include_bytes!("../shaders/layer_norm_input_grad_residual_fused.spv");
 const LAYER_NORM_PARAM_GRAD_SPV: &[u8] = include_bytes!("../shaders/layer_norm_param_grad.spv");
 const VECTOR_ADD_SPV: &[u8] = include_bytes!("../shaders/vector_add.spv");
+const PACKED_CELL_CHANNEL_MIX_STATE_FORWARD_FUSED_SPV: &[u8] =
+    include_bytes!("../shaders/packed_cell_channel_mix_state_forward_fused.spv");
+const PACKED_CELL_CHANNEL_MIX_STATE_FORWARD_FUSED_WG32_SPV: &[u8] =
+    include_bytes!("../shaders/packed_cell_channel_mix_state_forward_fused_wg32.spv");
+const PACKED_CELL_CHANNEL_MIX_STATE_FORWARD_FUSED_WG64_SPV: &[u8] =
+    include_bytes!("../shaders/packed_cell_channel_mix_state_forward_fused_wg64.spv");
+const PACKED_CELL_CHANNEL_MIX_STATE_FORWARD_FUSED_WG128_SPV: &[u8] =
+    include_bytes!("../shaders/packed_cell_channel_mix_state_forward_fused_wg128.spv");
+const HIERARCHOS_VULKAN_PACKED_CELL_FORWARD_WORKGROUP_SIZE_ENV: &str =
+    "HIERARCHOS_VULKAN_PACKED_CELL_FORWARD_WORKGROUP_SIZE";
 const PACKED_CELL_FORWARD_ONLY_FLAG: u32 = 1;
 const PACKED_CELL_MATRIX_ALREADY_PACKED_FLAG: u32 = 2;
 
@@ -41,6 +51,21 @@ struct LayerNormBackwardPush {
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct LenPush {
     len: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct PackedCellChannelMixStatePush {
+    rows: u32,
+    width: u32,
+    hidden_width: u32,
+    head_size: u32,
+    matrix_offset: u32,
+    eps: f32,
+    key_clamp: f32,
+    deepembed_clamp: f32,
+    state_clamp: f32,
+    flags: u32,
 }
 
 #[derive(Debug)]
@@ -729,6 +754,10 @@ impl RwkvCellSliceOp {
         self.device.name()
     }
 
+    pub fn decision_device_name(&self) -> &str {
+        self.device.decision_device_name()
+    }
+
     /// The low-rank forward graph this geometry dispatches: `fused` for the
     /// LN1/low-rank producer, `composed` for the staged chain it replaces. This is
     /// the rank-2 route of `validation/FUSED_FORWARD_PRODUCER_AUDIT.md`.
@@ -986,6 +1015,7 @@ pub struct RwkvPackedCellOp {
     grad_output_total: GpuBuffer,
     zero_previous_v_first_grad: GpuBuffer,
 
+    packed_channel_mix_state_forward_fused: Option<vulkan::ComputeKernel>,
     packed_forward_only_enabled: bool,
     packed_backward_rematerialization_enabled: bool,
 
@@ -1052,6 +1082,66 @@ impl RwkvPackedCellOp {
         let packed_len = vector_len
             .checked_mul(state.state_size())
             .context("packed cell state capacity overflow")?;
+        let packed_channel_mix_state_forward_fused = if device.vendor_id() == 0x1002 {
+            let forward_workgroup_size = match std::env::var(
+            HIERARCHOS_VULKAN_PACKED_CELL_FORWARD_WORKGROUP_SIZE_ENV,
+        ) {
+            Ok(raw) => match raw.parse::<u32>() {
+                Ok(value @ (32 | 64 | 128 | 256)) => value,
+                _ => bail!(
+                    "{HIERARCHOS_VULKAN_PACKED_CELL_FORWARD_WORKGROUP_SIZE_ENV} must be 32, 64, 128, or 256, got {raw:?}"
+                ),
+            },
+            Err(std::env::VarError::NotPresent) => 256,
+            Err(err) => bail!(
+                "reading {HIERARCHOS_VULKAN_PACKED_CELL_FORWARD_WORKGROUP_SIZE_ENV}: {err}"
+            ),
+        };
+            let forward_spirv = match forward_workgroup_size {
+                32 => PACKED_CELL_CHANNEL_MIX_STATE_FORWARD_FUSED_WG32_SPV,
+                64 => PACKED_CELL_CHANNEL_MIX_STATE_FORWARD_FUSED_WG64_SPV,
+                128 => PACKED_CELL_CHANNEL_MIX_STATE_FORWARD_FUSED_WG128_SPV,
+                256 => PACKED_CELL_CHANNEL_MIX_STATE_FORWARD_FUSED_SPV,
+                _ => unreachable!("validated packed-cell forward workgroup size"),
+            };
+            let packed_channel_mix_state_forward_fused =
+                if cell.channel_mix.supports_full_forward_fusion()
+                    && device.supports_storage_buffer_bindings(19)
+                    && device.supports_compute_work_group_size_x(forward_workgroup_size)
+                {
+                    Some(vulkan::ComputeKernel::new_with_access(
+                        &device,
+                        forward_spirv,
+                        &[
+                            vulkan::BindingAccess::ReadOnly,
+                            vulkan::BindingAccess::ReadOnly,
+                            vulkan::BindingAccess::ReadOnly,
+                            vulkan::BindingAccess::ReadOnly,
+                            vulkan::BindingAccess::ReadOnly,
+                            vulkan::BindingAccess::ReadOnly,
+                            vulkan::BindingAccess::ReadOnly,
+                            vulkan::BindingAccess::ReadOnly,
+                            vulkan::BindingAccess::ReadOnly,
+                            vulkan::BindingAccess::ReadOnly,
+                            vulkan::BindingAccess::ReadOnly,
+                            vulkan::BindingAccess::MayWrite,
+                            vulkan::BindingAccess::MayWrite,
+                            vulkan::BindingAccess::MayWrite,
+                            vulkan::BindingAccess::MayWrite,
+                            vulkan::BindingAccess::MayWrite,
+                            vulkan::BindingAccess::MayWrite,
+                            vulkan::BindingAccess::MayWrite,
+                            vulkan::BindingAccess::MayWrite,
+                        ],
+                        std::mem::size_of::<PackedCellChannelMixStatePush>() as u32,
+                    )?)
+                } else {
+                    None
+                };
+            packed_channel_mix_state_forward_fused
+        } else {
+            None
+        };
         Ok(Self {
             x: GpuBuffer::zeros_f32(&device, vector_len)?,
             token_features: GpuBuffer::zeros_f32(&device, token_len)?,
@@ -1060,6 +1150,7 @@ impl RwkvPackedCellOp {
             grad_output: GpuBuffer::zeros_f32(&device, vector_len)?,
             grad_output_total: GpuBuffer::zeros_f32(&device, vector_len)?,
             zero_previous_v_first_grad: GpuBuffer::zeros_f32(&device, vector_len)?,
+            packed_channel_mix_state_forward_fused,
             packed_forward_only_enabled: true,
             packed_backward_rematerialization_enabled: false,
             output_readback: GpuBuffer::zeros_host_f32(&device, vector_len)?,
@@ -1307,6 +1398,52 @@ impl RwkvPackedCellOp {
             bail!("unsupported packed-cell channel/state flags {flags:#x}");
         }
 
+        if let Some(kernel) = self
+            .packed_channel_mix_state_forward_fused
+            .as_ref()
+            .filter(|_| self.cell.channel_mix.full_forward_fusion_label(batch) == "fused")
+        {
+            let channel_mix = &self.cell.channel_mix;
+            let push = PackedCellChannelMixStatePush {
+                rows: batch as u32,
+                width: self.cell.width as u32,
+                hidden_width: channel_mix.hidden_width() as u32,
+                head_size: self.cell.head_size as u32,
+                matrix_offset: self.state.matrix_offset() as u32,
+                eps: 1.0e-5,
+                key_clamp: channel_mix.key_clamp(),
+                deepembed_clamp: channel_mix.deepembed_clamp(),
+                state_clamp: self.state.state_clamp(),
+                flags,
+            };
+            return kernel.record_dispatch(
+                commands,
+                &[
+                    &self.cell.time_residual,
+                    channel_mix.layer_norm_weight_buffer(),
+                    channel_mix.layer_norm_bias_buffer(),
+                    self.state.previous_cm_buffer(),
+                    channel_mix.mix_k_buffer(),
+                    channel_mix.key_weight_buffer(),
+                    self.cell.deepembed_adapter.output_buffer(),
+                    channel_mix.value_weight_buffer(),
+                    &self.cell.x_norm,
+                    self.cell.time_mix.value_buffer(),
+                    self.cell.time_mix.new_state_buffer(),
+                    channel_mix.normalized_buffer(),
+                    channel_mix.norm_mean_buffer(),
+                    channel_mix.norm_rstd_buffer(),
+                    channel_mix.mixed_buffer(),
+                    channel_mix.key_buffer(),
+                    channel_mix.ffn_buffer(),
+                    output,
+                    packed_new_state,
+                ],
+                bytemuck::bytes_of(&push),
+                [batch as u32, 1, 1],
+            );
+        }
+
         self.cell
             .record_channel_mix_forward(commands, batch, self.state.previous_cm_buffer())?;
         if flags == forward_only_flags {
@@ -1494,6 +1631,10 @@ impl RwkvPackedCellOp {
         self.device.name()
     }
 
+    pub fn decision_device_name(&self) -> &str {
+        self.device.decision_device_name()
+    }
+
     pub fn width(&self) -> usize {
         self.cell.width
     }
@@ -1508,6 +1649,18 @@ impl RwkvPackedCellOp {
     /// `RwkvChannelMixOp::full_forward_fusion_label`.
     pub fn channel_mix_full_forward_fusion_label(&self, batch: usize) -> &'static str {
         self.cell.channel_mix.full_forward_fusion_label(batch)
+    }
+
+    /// The concrete producer and state-packing graph, including the restored
+    /// AMD fused producer. The route label above retains the decision vocabulary.
+    pub fn channel_mix_state_forward_graph_label(&self, batch: usize) -> &'static str {
+        if self.cell.channel_mix.full_forward_fusion_label(batch) == "composed" {
+            "composed-then-pack"
+        } else if self.packed_channel_mix_state_forward_fused.is_some() {
+            "fused-packed-state"
+        } else {
+            "fused-channel-then-pack"
+        }
     }
 
     /// The low-rank forward graph this cell dispatches for `batch`: `fused` for

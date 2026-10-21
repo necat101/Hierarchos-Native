@@ -31,6 +31,102 @@ const TIME_MIX_BACKWARD_FUSED_ADD_OUTER_WG32_SPV: &[u8] =
     include_bytes!("../shaders/rwkv_time_mix3_backward_fused_add_outer_wg32.spv");
 const TIME_MIX_BACKWARD_FUSED_ADD_OUTER_WG128_SPV: &[u8] =
     include_bytes!("../shaders/rwkv_time_mix3_backward_fused_add_outer_wg128.spv");
+
+/// These are distinct FP32 programs on the qualified AMD driver. Timing must
+/// never select between them: the historical trajectory fixes the association.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum RwkvFanInArithmetic {
+    LegacyFused,
+    Materialized,
+}
+
+#[derive(Deserialize)]
+struct FanInReferenceProfiles {
+    schema: u32,
+    device: String,
+    materialized: Vec<FanInReferenceGeometry>,
+}
+
+#[derive(Deserialize)]
+struct FanInReferenceGeometry {
+    width: usize,
+    w_rank: usize,
+    a_rank: usize,
+    g_rank: usize,
+    max_batch: usize,
+}
+
+fn fan_in_reference_arithmetic(
+    device: &str,
+    width: usize,
+    ranks: (usize, usize, usize),
+    max_batch: usize,
+) -> Option<RwkvFanInArithmetic> {
+    static PROFILES: OnceLock<FanInReferenceProfiles> = OnceLock::new();
+    let profiles = PROFILES.get_or_init(|| {
+        let profiles: FanInReferenceProfiles = serde_json::from_str(include_str!(
+            "../validation/rwkv_fan_in_reference_profiles.json"
+        ))
+        .expect("valid independently established fan-in reference profiles");
+        assert_eq!(profiles.schema, 1);
+        profiles
+    });
+    if device != profiles.device {
+        return None;
+    }
+    Some(
+        if profiles.materialized.iter().any(|row| {
+            row.width == width
+                && (row.w_rank, row.a_rank, row.g_rank) == ranks
+                && row.max_batch == max_batch
+        }) {
+            RwkvFanInArithmetic::Materialized
+        } else {
+            // The original fused module is the conservative reference for shapes
+            // without a recorded materialized trajectory. It is never rewritten.
+            RwkvFanInArithmetic::LegacyFused
+        },
+    )
+}
+
+fn time_mix_fan_in_spirv(rdna3: bool, outer: bool, workgroup: usize) -> &'static [u8] {
+    let index = match workgroup {
+        32 => 0,
+        64 => 1,
+        128 => 2,
+        _ => unreachable!("validated fan-in workgroup"),
+    };
+    match (rdna3, outer) {
+        (true, false) => [
+            include_bytes!("../shaders/rwkv_time_mix3_backward_fused_add_amd_rdna3_wg32.spv")
+                .as_slice(),
+            include_bytes!("../shaders/rwkv_time_mix3_backward_fused_add_amd_rdna3.spv").as_slice(),
+            include_bytes!("../shaders/rwkv_time_mix3_backward_fused_add_amd_rdna3_wg128.spv")
+                .as_slice(),
+        ][index],
+        (true, true) => [
+            include_bytes!("../shaders/rwkv_time_mix3_backward_fused_add_outer_amd_rdna3_wg32.spv")
+                .as_slice(),
+            include_bytes!("../shaders/rwkv_time_mix3_backward_fused_add_outer_amd_rdna3.spv")
+                .as_slice(),
+            include_bytes!(
+                "../shaders/rwkv_time_mix3_backward_fused_add_outer_amd_rdna3_wg128.spv"
+            )
+            .as_slice(),
+        ][index],
+        (false, false) => [
+            TIME_MIX_BACKWARD_FUSED_ADD_WG32_SPV,
+            TIME_MIX_BACKWARD_FUSED_ADD_SPV,
+            TIME_MIX_BACKWARD_FUSED_ADD_WG128_SPV,
+        ][index],
+        (false, true) => [
+            TIME_MIX_BACKWARD_FUSED_ADD_OUTER_WG32_SPV,
+            TIME_MIX_BACKWARD_FUSED_ADD_OUTER_SPV,
+            TIME_MIX_BACKWARD_FUSED_ADD_OUTER_WG128_SPV,
+        ][index],
+    }
+}
 const LOW_RANK_PRODUCER_FORWARD_FUSED_SPV: &[u8] =
     include_bytes!("../shaders/rwkv_low_rank_producer_forward_fused.spv");
 const LAYER_NORM_LOW_RANK_PRODUCER_FORWARD_FUSED_SPV: &[u8] =
@@ -153,6 +249,8 @@ struct LayerNormLowRankForwardTopologyEvidence<'a> {
     /// The narrowest per-round lead of the selected variant, or `0.0` when the default was
     /// kept.
     decisive_margin: f64,
+    /// Adapter/geometry-specific performance admission margin, not a numerical tolerance.
+    required_margin: f64,
     /// The variant to dispatch.
     selected: &'a str,
     /// The variant the topology rule names at this geometry, before any measurement.
@@ -189,6 +287,7 @@ fn emit_topology_decision(
         round_wins,
         rounds,
         decisive_margin,
+        required_margin,
         selected,
         structural_default,
         contention_spread,
@@ -228,6 +327,7 @@ fn emit_topology_decision(
             "\"batch_pairs\":{},\"has_unpaired_tail\":{},",
             "\"timings_ms\":{{{}}},\"rounds\":{},\"round_wins\":{{{}}},",
             "\"decisive_margin_fraction\":{:.6},",
+            "\"required_margin_fraction\":{:.6},",
             "\"selected\":\"{}\",\"structural_default\":\"{}\",",
             "\"margin_fraction\":{:.6},",
             "\"contention_spread\":{:.4},\"contended\":{}}}"
@@ -245,6 +345,7 @@ fn emit_topology_decision(
         rounds,
         round_wins,
         decisive_margin,
+        required_margin,
         json_escape(selected),
         json_escape(structural_default),
         margin_fraction,
@@ -613,6 +714,20 @@ const LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_ROUNDS: usize = 7;
 /// than as a different kernel.
 const LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_MARGIN: f64 = 0.02;
 
+fn f32_topology_adoption_margin(device: &str, width: usize, ranks: (usize, usize, usize)) -> f64 {
+    // Repeated quiet Ally replays alternated between one-row and column-slices
+    // on 3-6% leads while the default's own samples moved by up to 13.7%.
+    // Require a lead beyond that admitted noise envelope in every round.
+    // Preserve Intel and unmeasured adapter/driver/shape policies verbatim.
+    if device == "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]"
+        && width == 128 && ranks == (32, 32, 64)
+    {
+        LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_CONTENTION_SPREAD - 1.0
+    } else {
+        LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_MARGIN
+    }
+}
+
 /// How many times each candidate is timed inside one round. The round takes the fastest
 /// repeat, because a dispatcher that shares the GPU can only *add* time: contention makes a
 /// sample slower, never faster, so the minimum is the closest estimate of the undisturbed
@@ -744,6 +859,17 @@ fn adjudicate_layer_norm_low_rank_forward_rounds<T: Copy + PartialEq>(
     candidates: &[T],
     structural_default: T,
 ) -> LayerNormLowRankForwardAutotune<T> {
+    adjudicate_layer_norm_low_rank_forward_rounds_with_margin(
+        rounds, candidates, structural_default, LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_MARGIN,
+    )
+}
+
+fn adjudicate_layer_norm_low_rank_forward_rounds_with_margin<T: Copy + PartialEq>(
+    rounds: &[Vec<(T, f64)>],
+    candidates: &[T],
+    structural_default: T,
+    required_margin: f64,
+) -> LayerNormLowRankForwardAutotune<T> {
     let mut medians = Vec::with_capacity(candidates.len());
     for candidate in candidates {
         let mut samples = rounds
@@ -784,7 +910,7 @@ fn adjudicate_layer_norm_low_rank_forward_rounds<T: Copy + PartialEq>(
             if !ms.is_finite() || *ms <= 0.0 {
                 continue;
             }
-            if *ms >= default_ms * (1.0 - LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_MARGIN) {
+            if *ms >= default_ms * (1.0 - required_margin) {
                 continue;
             }
             match best {
@@ -1044,6 +1170,8 @@ pub struct RwkvLowRankOp {
     a_rank: usize,
     g_rank: usize,
     max_batch: usize,
+    fan_in_arithmetic: Option<RwkvFanInArithmetic>,
+    materialized_fan_in_fusion: bool,
 
     mix_w: GpuBuffer,
     mix_a: GpuBuffer,
@@ -1666,6 +1794,15 @@ impl RwkvLowRankOp {
             None
         };
 
+        let fan_in_arithmetic = fan_in_reference_arithmetic(
+            device.decision_device_name(),
+            width,
+            (w_rank, a_rank, g_rank),
+            max_batch,
+        );
+        let materialized_fan_in_fusion = fan_in_arithmetic
+            == Some(RwkvFanInArithmetic::Materialized)
+            && crate::vendor::rdna3_module_enabled(&device);
         let time_mix_backward_wg32 = create_time_mix_backward_geometry_kernel(
             &device,
             TIME_MIX_BACKWARD_WG32_SPV,
@@ -1682,28 +1819,28 @@ impl RwkvLowRankOp {
         )?;
         let time_mix_backward_fused_add_wg32 = create_time_mix_backward_geometry_kernel(
             &device,
-            TIME_MIX_BACKWARD_FUSED_ADD_WG32_SPV,
+            time_mix_fan_in_spirv(materialized_fan_in_fusion, false, 32),
             15,
             10,
             32,
         )?;
         let time_mix_backward_fused_add_wg128 = create_time_mix_backward_geometry_kernel(
             &device,
-            TIME_MIX_BACKWARD_FUSED_ADD_WG128_SPV,
+            time_mix_fan_in_spirv(materialized_fan_in_fusion, false, 128),
             15,
             10,
             128,
         )?;
         let time_mix_backward_fused_add_outer_wg32 = create_time_mix_backward_geometry_kernel(
             &device,
-            TIME_MIX_BACKWARD_FUSED_ADD_OUTER_WG32_SPV,
+            time_mix_fan_in_spirv(materialized_fan_in_fusion, true, 32),
             16,
             11,
             32,
         )?;
         let time_mix_backward_fused_add_outer_wg128 = create_time_mix_backward_geometry_kernel(
             &device,
-            TIME_MIX_BACKWARD_FUSED_ADD_OUTER_WG128_SPV,
+            time_mix_fan_in_spirv(materialized_fan_in_fusion, true, 128),
             16,
             11,
             128,
@@ -1712,7 +1849,7 @@ impl RwkvLowRankOp {
         let time_mix_backward_fused_add = if device.supports_storage_buffer_bindings(15) {
             Some(vulkan::ComputeKernel::new_with_access(
                 &device,
-                TIME_MIX_BACKWARD_FUSED_ADD_SPV,
+                time_mix_fan_in_spirv(materialized_fan_in_fusion, false, 64),
                 &[
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::ReadOnly,
@@ -1738,7 +1875,7 @@ impl RwkvLowRankOp {
         let time_mix_backward_fused_add_outer = if device.supports_storage_buffer_bindings(16) {
             Some(vulkan::ComputeKernel::new_with_access(
                 &device,
-                TIME_MIX_BACKWARD_FUSED_ADD_OUTER_SPV,
+                time_mix_fan_in_spirv(materialized_fan_in_fusion, true, 64),
                 &[
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::ReadOnly,
@@ -1764,6 +1901,8 @@ impl RwkvLowRankOp {
         };
 
         Ok(Self {
+            fan_in_arithmetic,
+            materialized_fan_in_fusion,
             time_mix_forward: vulkan::ComputeKernel::new(
                 &device,
                 TIME_MIX_FORWARD_SPV,
@@ -2817,7 +2956,7 @@ impl RwkvLowRankOp {
                         "RWKV LN1/low-rank FP16 forward forced topology={} requested={} device={} batch={batch}",
                         forced.label(),
                         forced.env_value(),
-                        self.device.name()
+                        self.device.decision_device_name()
                     );
                 }
                 return Ok(LayerNormLowRankForwardDecision {
@@ -2829,7 +2968,7 @@ impl RwkvLowRankOp {
                 "RWKV LN1/low-rank FP16 forward topology={} requested={} is unavailable on device={}; using {}",
                 forced.label(),
                 forced.env_value(),
-                self.device.name(),
+                self.device.decision_device_name(),
                 structural_default.label()
             );
         }
@@ -2844,7 +2983,7 @@ impl RwkvLowRankOp {
 
         let subgroup_size = self.device.subgroup_capabilities().subgroup_size;
         let key = LayerNormLowRankForwardAutotuneKey {
-            device_name: self.device.name().to_owned(),
+            device_name: self.device.decision_device_name().to_owned(),
             subgroup_size,
             width: self.width,
             w_rank: self.w_rank,
@@ -2878,7 +3017,7 @@ impl RwkvLowRankOp {
             if std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG_ENV).is_some() {
                 eprintln!(
                     "RWKV LN1/low-rank forward autotune warmup failed device={} batch={batch}: {err:#}; using {}",
-                    self.device.name(),
+                    self.device.decision_device_name(),
                     structural_default.label()
                 );
             }
@@ -2902,7 +3041,7 @@ impl RwkvLowRankOp {
                 {
                     eprintln!(
                         "RWKV LN1/low-rank forward autotune failed device={} batch={batch}: {err:#}; using {}",
-                        self.device.name(),
+                        self.device.decision_device_name(),
                         structural_default.label()
                     );
                 }
@@ -2935,7 +3074,7 @@ impl RwkvLowRankOp {
                 .join(" ");
             eprintln!(
                 "RWKV LN1/low-rank forward autotune device={} subgroup={} width={} ranks={}/{}/{} batch_pairs={} tail={} {} rounds={} round_wins={} selected={} contended={} autotuned={}",
-                self.device.name(),
+                self.device.decision_device_name(),
                 subgroup_size,
                 self.width,
                 self.w_rank,
@@ -2963,7 +3102,7 @@ impl RwkvLowRankOp {
             .collect::<Vec<_>>();
         emit_topology_decision(
             "ln-low-rank-fp16",
-            self.device.name(),
+            self.device.decision_device_name(),
             subgroup_size,
             &key,
             &LayerNormLowRankForwardTopologyEvidence {
@@ -2971,6 +3110,7 @@ impl RwkvLowRankOp {
                 round_wins: &wins,
                 rounds: adjudication.rounds,
                 decisive_margin: adjudication.decisive_margin.unwrap_or(0.0),
+                required_margin: LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_MARGIN,
                 selected: selected.label(),
                 structural_default: structural_default.label(),
                 contention_spread: adjudication.contention_spread,
@@ -3182,7 +3322,7 @@ impl RwkvLowRankOp {
                         "RWKV LN1/low-rank FP32 forward forced topology={} requested={} device={} batch={batch}",
                         forced.label(),
                         forced.env_value(),
-                        self.device.name()
+                        self.device.decision_device_name()
                     );
                 }
                 return Ok(LayerNormLowRankForwardF32Decision {
@@ -3194,7 +3334,7 @@ impl RwkvLowRankOp {
                 "RWKV LN1/low-rank FP32 forward topology={} requested={} is unavailable on device={}; using {}",
                 forced.label(),
                 forced.env_value(),
-                self.device.name(),
+                self.device.decision_device_name(),
                 structural_default.label()
             );
         }
@@ -3209,7 +3349,7 @@ impl RwkvLowRankOp {
 
         let subgroup_size = self.device.subgroup_capabilities().subgroup_size;
         let key = LayerNormLowRankForwardAutotuneKey {
-            device_name: self.device.name().to_owned(),
+            device_name: self.device.decision_device_name().to_owned(),
             subgroup_size,
             width: self.width,
             w_rank: self.w_rank,
@@ -3240,7 +3380,7 @@ impl RwkvLowRankOp {
             if std::env::var_os(HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG_ENV).is_some() {
                 eprintln!(
                     "RWKV LN1/low-rank FP32 forward autotune warmup failed device={} batch={batch}: {err:#}; using {}",
-                    self.device.name(),
+                    self.device.decision_device_name(),
                     structural_default.label()
                 );
             }
@@ -3264,7 +3404,7 @@ impl RwkvLowRankOp {
                 {
                     eprintln!(
                         "RWKV LN1/low-rank FP32 forward autotune failed device={} batch={batch}: {err:#}; using {}",
-                        self.device.name(),
+                        self.device.decision_device_name(),
                         structural_default.label()
                     );
                 }
@@ -3274,8 +3414,12 @@ impl RwkvLowRankOp {
                 });
             }
         };
-        let adjudication =
-            adjudicate_layer_norm_low_rank_forward_rounds(&rounds, &candidates, structural_default);
+        let required_margin = f32_topology_adoption_margin(
+            self.device.decision_device_name(), self.width, (self.w_rank, self.a_rank, self.g_rank),
+        );
+        let adjudication = adjudicate_layer_norm_low_rank_forward_rounds_with_margin(
+            &rounds, &candidates, structural_default, required_margin,
+        );
         let selected = adjudication.selected;
         let decision = LayerNormLowRankForwardF32Decision {
             topology: selected,
@@ -3297,7 +3441,7 @@ impl RwkvLowRankOp {
                 .join(" ");
             eprintln!(
                 "RWKV LN1/low-rank FP32 forward autotune device={} subgroup={} width={} ranks={}/{}/{} batch_pairs={} tail={} {} rounds={} round_wins={} selected={} contended={} autotuned={}",
-                self.device.name(),
+                self.device.decision_device_name(),
                 subgroup_size,
                 self.width,
                 self.w_rank,
@@ -3325,7 +3469,7 @@ impl RwkvLowRankOp {
             .collect::<Vec<_>>();
         emit_topology_decision(
             "ln-low-rank-f32",
-            self.device.name(),
+            self.device.decision_device_name(),
             subgroup_size,
             &key,
             &LayerNormLowRankForwardTopologyEvidence {
@@ -3333,6 +3477,7 @@ impl RwkvLowRankOp {
                 round_wins: &wins,
                 rounds: adjudication.rounds,
                 decisive_margin: adjudication.decisive_margin.unwrap_or(0.0),
+                required_margin,
                 selected: selected.label(),
                 structural_default: structural_default.label(),
                 contention_spread: adjudication.contention_spread,
@@ -3370,7 +3515,7 @@ impl RwkvLowRankOp {
             // the FP32 default. A policy with no entry falls back to the shared
             // verdict.
             low_rank_full_forward_decisions().route_scoped(
-                self.device.name(),
+                self.device.decision_device_name(),
                 self.width as u32,
                 batch as u32,
                 self.parameter_storage_policy(),
@@ -3418,7 +3563,7 @@ impl RwkvLowRankOp {
         batch: usize,
     ) -> Option<crate::decision_records::Route> {
         low_rank_full_forward_decisions().route_scoped(
-            self.device.name(),
+            self.device.decision_device_name(),
             self.width as u32,
             batch as u32,
             self.parameter_storage_policy(),
@@ -4053,7 +4198,18 @@ impl RwkvLowRankOp {
         if include_outer && self.time_mix_backward_fused_add_outer.is_some() {
             schedules.push(RwkvLowRankFanInSchedule::FusedOuter);
         }
+        schedules.retain(|schedule| match self.fan_in_arithmetic {
+            None => true,
+            Some(RwkvFanInArithmetic::LegacyFused) => *schedule != RwkvLowRankFanInSchedule::Split,
+            Some(RwkvFanInArithmetic::Materialized) => {
+                *schedule == RwkvLowRankFanInSchedule::Split || self.materialized_fan_in_fusion
+            }
+        });
         schedules
+    }
+
+    pub(crate) fn backward_fan_in_arithmetic(&self) -> Option<RwkvFanInArithmetic> {
+        self.fan_in_arithmetic
     }
 
     fn time_mix_backward_kernel(&self, workgroup_size: usize) -> Option<&vulkan::ComputeKernel> {
@@ -4094,6 +4250,12 @@ impl RwkvLowRankOp {
         schedule: RwkvLowRankFanInSchedule,
         workgroup_size: usize,
     ) -> bool {
+        if !self
+            .available_backward_fan_in_schedules(true)
+            .contains(&schedule)
+        {
+            return false;
+        }
         match schedule {
             RwkvLowRankFanInSchedule::Split => {
                 self.time_mix_backward_kernel(workgroup_size).is_some()
@@ -4196,13 +4358,20 @@ impl RwkvLowRankOp {
                 "RWKV low-rank fan-in workgroup size must be 32, 64, or 128; got {fan_in_workgroup_size}"
             );
         }
+        let fan_in_schedule = fan_in_schedule.or_else(|| {
+            accumulation.and_then(|_| {
+                self.available_backward_fan_in_schedules(outer_grad_x_norm.is_some())
+                    .last()
+                    .copied()
+            })
+        });
         if let Some(schedule) = fan_in_schedule {
             if !self.backward_fan_in_geometry_available(schedule, fan_in_workgroup_size) {
                 bail!(
                     "RWKV low-rank fan-in geometry {}@wg{} is unavailable on device {}",
                     schedule.label(),
                     fan_in_workgroup_size,
-                    self.device.name()
+                    self.device.decision_device_name()
                 );
             }
         }
@@ -4756,6 +4925,10 @@ impl RwkvLowRankOp {
         self.device.name()
     }
 
+    pub fn decision_device_name(&self) -> &str {
+        self.device.decision_device_name()
+    }
+
     pub fn ranks(&self) -> (usize, usize, usize) {
         (self.w_rank, self.a_rank, self.g_rank)
     }
@@ -4821,6 +4994,254 @@ fn div_ceil_u32(value: usize, divisor: usize) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ally_f32_topology_admission_rejects_weak_wins_and_preserves_other_profiles() {
+        use LayerNormLowRankForwardF32Topology::{OneRow, ColumnSlices};
+        let device = "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]";
+        let margin = f32_topology_adoption_margin(device, 128, (32, 32, 64));
+        assert!(margin > 0.14 && margin < 0.16);
+        for (name, width, ranks) in [
+            ("Intel(R) HD Graphics 520", 128, (32, 32, 64)),
+            ("AMD Radeon Graphics [pci=1002:15bf;driver=00800185]", 128, (32, 32, 64)),
+            (device, 64, (8, 8, 8)),
+        ] {
+            assert_eq!(f32_topology_adoption_margin(name, width, ranks), 0.02);
+        }
+        let weak = vec![vec![(OneRow, 1.0), (ColumnSlices, 0.95)]; 7];
+        let candidates = [OneRow, ColumnSlices];
+        assert_eq!(adjudicate_layer_norm_low_rank_forward_rounds_with_margin(
+            &weak, &candidates, OneRow, margin).selected, OneRow);
+        assert_eq!(adjudicate_layer_norm_low_rank_forward_rounds(
+            &weak, &candidates, OneRow).selected, ColumnSlices);
+        let strong = vec![vec![(OneRow, 1.0), (ColumnSlices, 0.8)]; 7];
+        assert_eq!(adjudicate_layer_norm_low_rank_forward_rounds_with_margin(
+            &strong, &candidates, OneRow, margin).selected, ColumnSlices);
+    }
+
+    #[test]
+    fn fan_in_reference_profile_is_adapter_driver_and_geometry_scoped() {
+        let device = "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]";
+        assert_eq!(
+            fan_in_reference_arithmetic(device, 128, (32, 32, 64), 32),
+            Some(RwkvFanInArithmetic::Materialized)
+        );
+        for (width, ranks, batch) in [
+            (128, (32, 32, 64), 2),
+            (128, (32, 32, 64), 64),
+            (256, (32, 32, 64), 32),
+            (128, (64, 32, 64), 32),
+        ] {
+            assert_eq!(
+                fan_in_reference_arithmetic(device, width, ranks, batch),
+                Some(RwkvFanInArithmetic::LegacyFused)
+            );
+        }
+        for other in [
+            "Intel(R) HD Graphics 520",
+            "AMD Radeon Graphics [pci=1002:15bf;driver=00800185]",
+        ] {
+            assert_eq!(
+                fan_in_reference_arithmetic(other, 128, (32, 32, 64), 32),
+                None
+            );
+        }
+    }
+
+    #[test]
+    fn fan_in_fusion_preserves_materialized_fp32_rounding() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        if !crate::vendor::is_amd_rdna3(&device) {
+            return Ok(());
+        }
+        let split = vulkan::ComputeKernel::new(&device, TIME_MIX_BACKWARD_SPV, 13, 8)?;
+        let add =
+            vulkan::ComputeKernel::new(&device, include_bytes!("../shaders/vector_add.spv"), 3, 4)?;
+        // External modules are accepted only by this diagnostic, so arithmetic
+        // repairs can be checked before rebuilding the production library.
+        let directory = std::env::var_os("HIERARCHOS_VALIDATION_FAN_IN_DIR");
+        let load = |name: &str, fallback: &[u8]| -> Result<Vec<u8>> {
+            Ok(match directory.as_ref() {
+                Some(path) => std::fs::read(Path::new(path).join(name))?,
+                None => fallback.to_vec(),
+            })
+        };
+        let mut seed = 0x7a193d51u32;
+        let mut random = |len: usize| {
+            (0..len)
+                .map(|index| {
+                    seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                    match index % 257 {
+                        0 => -0.0,
+                        1 => 0.0,
+                        _ => (seed >> 8) as f32 / 16777216.0 - 0.5,
+                    }
+                })
+                .collect::<Vec<_>>()
+        };
+        let workgroups: &[usize] = if directory.is_some() {
+            &[64]
+        } else {
+            &[32, 64, 128]
+        };
+        for &workgroup in workgroups {
+            let suffix = if workgroup == 64 {
+                String::new()
+            } else {
+                format!("_wg{workgroup}")
+            };
+            let base = vulkan::ComputeKernel::new(
+                &device,
+                &load(
+                    &format!("rwkv_time_mix3_backward_fused_add{suffix}.spv"),
+                    time_mix_fan_in_spirv(true, false, workgroup),
+                )?,
+                15,
+                8,
+            )?;
+            let outer = vulkan::ComputeKernel::new(
+                &device,
+                &load(
+                    &format!("rwkv_time_mix3_backward_fused_add_outer{suffix}.spv"),
+                    time_mix_fan_in_spirv(true, true, workgroup),
+                )?,
+                16,
+                8,
+            )?;
+            for (batch, width) in [(1usize, 32usize), (3, 65), (17, 128), (64, 128), (192, 128)] {
+                let len = batch * width;
+                let inputs = (0..11)
+                    .map(|index| {
+                        GpuBuffer::from_f32(
+                            &device,
+                            &random(if (2..5).contains(&index) { width } else { len }),
+                        )
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let outputs = (0..14)
+                    .map(|_| GpuBuffer::zeros_f32(&device, len))
+                    .collect::<Result<Vec<_>>>()?;
+                let push = [batch as u32, width as u32];
+                let element_push = [len as u32];
+                let groups = [div_ceil_u32(width, workgroup), 1, 1];
+                let element_groups = [div_ceil_u32(len, 256), 1, 1];
+                let mut commands = vulkan::ComputeBatch::new(&device)?;
+                split.record_dispatch(
+                    &mut commands,
+                    &[
+                        &inputs[0],
+                        &inputs[1],
+                        &inputs[2],
+                        &inputs[3],
+                        &inputs[4],
+                        &inputs[5],
+                        &inputs[6],
+                        &inputs[7],
+                        &outputs[0],
+                        &outputs[1],
+                        &outputs[2],
+                        &outputs[3],
+                        &outputs[4],
+                    ],
+                    bytemuck::cast_slice(&push),
+                    [div_ceil_u32(width, 64), 1, 1],
+                )?;
+                add.record_dispatch(
+                    &mut commands,
+                    &[&inputs[8], &outputs[0], &outputs[5]],
+                    bytemuck::cast_slice(&element_push),
+                    element_groups,
+                )?;
+                add.record_dispatch(
+                    &mut commands,
+                    &[&inputs[9], &outputs[1], &outputs[6]],
+                    bytemuck::cast_slice(&element_push),
+                    element_groups,
+                )?;
+                add.record_dispatch(
+                    &mut commands,
+                    &[&outputs[5], &inputs[10], &outputs[7]],
+                    bytemuck::cast_slice(&element_push),
+                    element_groups,
+                )?;
+                base.record_dispatch(
+                    &mut commands,
+                    &[
+                        &inputs[0],
+                        &inputs[1],
+                        &inputs[2],
+                        &inputs[3],
+                        &inputs[4],
+                        &inputs[5],
+                        &inputs[6],
+                        &inputs[7],
+                        &inputs[8],
+                        &inputs[9],
+                        &outputs[8],
+                        &outputs[9],
+                        &outputs[2],
+                        &outputs[3],
+                        &outputs[4],
+                    ],
+                    bytemuck::cast_slice(&push),
+                    groups,
+                )?;
+                outer.record_dispatch(
+                    &mut commands,
+                    &[
+                        &inputs[0],
+                        &inputs[1],
+                        &inputs[2],
+                        &inputs[3],
+                        &inputs[4],
+                        &inputs[5],
+                        &inputs[6],
+                        &inputs[7],
+                        &inputs[8],
+                        &inputs[9],
+                        &inputs[10],
+                        &outputs[10],
+                        &outputs[11],
+                        &outputs[2],
+                        &outputs[3],
+                        &outputs[4],
+                    ],
+                    bytemuck::cast_slice(&push),
+                    groups,
+                )?;
+                commands.submit()?;
+                for (label, expected, actual) in [
+                    ("base-x", 5, 8),
+                    ("base-previous", 6, 9),
+                    ("outer-x", 7, 10),
+                    ("outer-previous", 6, 11),
+                ] {
+                    let expected = outputs[expected].read_f32(len)?;
+                    let actual = outputs[actual].read_f32(len)?;
+                    let different = expected
+                        .iter()
+                        .zip(&actual)
+                        .filter(|(a, b)| a.to_bits() != b.to_bits())
+                        .count();
+                    let first = expected
+                        .iter()
+                        .zip(&actual)
+                        .enumerate()
+                        .filter(|(_, (a, b))| a.to_bits() != b.to_bits())
+                        .take(8)
+                        .map(|(index, (a, b))| (index, a.to_bits(), b.to_bits(), *a, *b))
+                        .collect::<Vec<_>>();
+                    assert_eq!(
+                        different, 0,
+                    "{label} changed materialized adjoint bits at {batch}x{width} wg={workgroup}: {first:?}"
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
 
     #[test]
     fn row_per_workgroup_topologies_keep_one_grid_dimension() {

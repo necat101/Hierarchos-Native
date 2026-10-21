@@ -274,7 +274,7 @@ fn autotuned_rosa_workgroup_size(
     let caps = device.subgroup_capabilities();
     let rows = profile_rows.clamp(1, 32);
     let key = RosaAutotuneKey {
-        device_name: device.name().to_owned(),
+        device_name: device.decision_device_name().to_owned(),
         subgroup_size: caps.subgroup_size,
         max_context,
         rows,

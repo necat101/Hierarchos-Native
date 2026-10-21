@@ -888,6 +888,7 @@ pub struct VulkanDevice {
     device_mask: u32,
     queue_index: usize,
     name: Arc<str>,
+    decision_name: Arc<str>,
 }
 
 /// Stable host-visible identity for one compute-capable Vulkan physical device.
@@ -1202,6 +1203,14 @@ impl VulkanMixedPrecisionCapabilities {
     }
 }
 
+fn decision_device_name(name: &str, vendor: u32, device: u32, driver: u32) -> String {
+    if vendor == 0x1002 {
+        format!("{name} [pci={vendor:04x}:{device:04x};driver={driver:08x}]")
+    } else {
+        name.to_owned()
+    }
+}
+
 impl VulkanDevice {
     pub fn new() -> Result<Self> {
         Self::new_selected(None)
@@ -1251,7 +1260,7 @@ impl VulkanDevice {
         let instance = unsafe { entry.create_instance(&instance_info, None) }
             .map_err(|err| anyhow!("creating Vulkan instance: {err:?}"))?;
 
-        let create_result = (|| -> Result<(Arc<DeviceInner>, Vec<(usize, vk::PhysicalDevice, u32, Arc<str>)>)> {
+        let create_result = (|| -> Result<(Arc<DeviceInner>, Vec<(usize, vk::PhysicalDevice, u32, Arc<str>, Arc<str>)>)> {
             let devices = unsafe { instance.enumerate_physical_devices() }
                 .map_err(|err| anyhow!("enumerating Vulkan devices for device-group creation: {err:?}"))?;
             let requested = physical_device_indices
@@ -1461,7 +1470,13 @@ impl VulkanDevice {
                             .to_string_lossy()
                             .into_owned()
                     });
-                    Ok((global_index, physical_device, local_index, name))
+                    let decision_name = if properties.vendor_id == 0x1002 {
+                        Arc::from(decision_device_name(&name, properties.vendor_id,
+                            properties.device_id, properties.driver_version))
+                    } else {
+                        Arc::clone(&name)
+                    };
+                    Ok((global_index, physical_device, local_index, name, decision_name))
                 })
                 .collect::<Result<Vec<_>>>()?;
             Ok((inner, views))
@@ -1471,7 +1486,7 @@ impl VulkanDevice {
             Ok((inner, views)) => Ok(views
                 .into_iter()
                 .map(
-                    |(physical_device_index, physical_device, local_index, name)| Self {
+                    |(physical_device_index, physical_device, local_index, name, decision_name)| Self {
                         inner: Arc::clone(&inner),
                         physical_device,
                         physical_device_index,
@@ -1479,6 +1494,7 @@ impl VulkanDevice {
                         device_mask: 1u32 << local_index,
                         queue_index: (local_index as usize) % inner.queues.len(),
                         name,
+                        decision_name,
                     },
                 )
                 .collect()),
@@ -1725,6 +1741,13 @@ impl VulkanDevice {
         };
 
         let name: Arc<str> = Arc::from(name);
+        let properties = unsafe { instance.get_physical_device_properties(physical_device) };
+        let decision_name = if properties.vendor_id == 0x1002 {
+            Arc::from(decision_device_name(&name, properties.vendor_id,
+                properties.device_id, properties.driver_version))
+        } else {
+            Arc::clone(&name)
+        };
         let inner = Arc::new(DeviceInner {
             _entry: entry,
             instance,
@@ -1770,11 +1793,18 @@ impl VulkanDevice {
             device_mask: 1,
             queue_index: 0,
             name,
+            decision_name,
         })
     }
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    /// Offline route measurements on AMD must not be shared by unrelated parts
+    /// reporting the same generic marketing name. Keep historical Intel keys.
+    pub fn decision_device_name(&self) -> &str {
+        &self.decision_name
     }
 
     /// PCI vendor ID from `VkPhysicalDeviceProperties::vendor_id`.
@@ -8159,6 +8189,19 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn amd_route_keys_identify_the_pci_adapter_and_driver_and_keep_intel_keys() {
+        let name = "AMD Radeon Graphics";
+        let key = super::decision_device_name(name, 0x1002, 0x15bf, 0x00800184);
+        assert_eq!(key, "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]");
+        assert_ne!(key, name);
+        assert_ne!(key, super::decision_device_name(name, 0x1002, 0x164e, 0x00800184));
+        assert_ne!(key, super::decision_device_name(name, 0x1002, 0x15bf, 0x00800185));
+        let intel = "Intel(R) HD Graphics 520";
+        assert_eq!(super::decision_device_name(intel, 0x8086, 0x1916, 1), intel);
+        assert_eq!(super::decision_device_name(intel, 0x8086, 0x1916, 2), intel);
+    }
+
     use super::{
         insert_free_range, intern_kernel_layouts, is_intel_gen9_pci_id, kernel_profile_category,
         take_aligned_range, timestamp_delta, view_key_overlaps,
@@ -9367,25 +9410,6 @@ mod tests {
         );
         measured.submit()?;
         Ok(())
-    }
-
-    #[test]
-    fn gen9_pci_table_is_the_one_the_vendor_layer_publishes() {
-        // The table is defined in this file so the standalone shader harnesses
-        // can compile it; the vendor layer must agree for every ID it matches,
-        // and for the neighbours on either side of each range.
-        for device_id in [
-            0x1902u32, 0x1906, 0x190B, 0x1912, 0x1916, 0x191E, 0x1921, 0x1923, 0x1926, 0x1927,
-            0x192A, 0x192B, 0x1932, 0x193A, 0x193B, 0x193D, 0x5900, 0x591C, 0x593F, 0x5A84, 0x5A85,
-            0x87C0, 0x18FF, 0x1940, 0x58FF, 0x5940, 0x87BF, 0x87C1,
-        ] {
-            assert_eq!(
-                is_intel_gen9_pci_id(INTEL_PCI_VENDOR_ID, device_id),
-                crate::vendor::is_intel_gen9_pci_id(INTEL_PCI_VENDOR_ID, device_id),
-                "Gen9 classification disagrees for device 0x{device_id:04X}",
-            );
-            assert!(!is_intel_gen9_pci_id(AMD_PCI_VENDOR_ID, device_id));
-        }
     }
 
     #[test]

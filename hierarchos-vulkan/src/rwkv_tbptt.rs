@@ -2130,6 +2130,10 @@ impl RwkvTbpttSequenceOp {
         self.device.name()
     }
 
+    pub fn decision_device_name(&self) -> &str {
+        self.device.decision_device_name()
+    }
+
     pub fn width(&self) -> usize {
         self.width
     }
@@ -2199,7 +2203,7 @@ impl RwkvTbpttSequenceOp {
     /// rather than in this function, so it is auditable per geometry and a chain
     /// A/B under FP16 storage that records its own entries lifts it.
     fn apply_recorded_packed_chain_routes(&mut self, batch: usize) -> Result<()> {
-        let device = self.device.name();
+        let device = self.device.decision_device_name();
         let width = self.width as u32;
         let batch_key = batch as u32;
         let policy = self.packed_chain_policy();
@@ -2256,7 +2260,7 @@ impl RwkvTbpttSequenceOp {
     pub fn recorded_packed_forward_route(&self, batch: usize) -> Option<&'static str> {
         packed_forward_record()
             .route_scoped(
-                self.device.name(),
+                self.device.decision_device_name(),
                 self.width as u32,
                 batch as u32,
                 self.packed_chain_policy(),
@@ -2269,7 +2273,7 @@ impl RwkvTbpttSequenceOp {
     pub fn recorded_packed_rematerialization_route(&self, batch: usize) -> Option<&'static str> {
         packed_rematerialization_record()
             .route_scoped(
-                self.device.name(),
+                self.device.decision_device_name(),
                 self.width as u32,
                 batch as u32,
                 self.packed_chain_policy(),
@@ -2343,7 +2347,7 @@ impl RwkvTbpttSequenceOp {
     pub fn recorded_packed_backward_fusion_route(&self, batch: usize) -> Option<&'static str> {
         backward_fusion_record()
             .route_scoped(
-                self.device.name(),
+                self.device.decision_device_name(),
                 self.width as u32,
                 batch as u32,
                 self.packed_chain_policy(),

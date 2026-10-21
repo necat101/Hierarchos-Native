@@ -25,7 +25,12 @@ Unlike the channel-mix A/B the two graphs are not bit-identical: the fused arm
 normalizes inside the producer while the staged arm runs the standalone
 layer-norm kernel, so the two reductions round differently. The receipt therefore
 records a tolerance and the tests state it, rather than claiming an exact match
-that would quietly turn a numerics change into a schedule change.
+that would quietly turn a numerics change into a schedule change. A staged win
+with a nonzero worst difference is written to the record as measured evidence but
+listed in `withheld`, so the runtime keeps the structural fused graph: the exact
+training trajectory cannot follow a changed association, and the TBPTT packed
+forward-only leg keeps its own fused chain. Only a bit-identical rerun adopts the
+win.
 
 Both legs are complete GPU shader sequences; the decision only chooses which one
 the default dispatches, and no arithmetic moves to the host.
@@ -56,6 +61,13 @@ PROBE_KEY = "low_rank_forward"
 VARIANT_KEY = "fused_arm"
 RECORD_KIND = "rwkv-low-rank-full-forward"
 TENSORS = {"output", "packed_new_state", "grad_x", "grad_packed_state", "token_feature_grad"}
+
+WITHHELD_REASON = (
+    "The fused and staged graphs differ under fp32 parameter values (worst |diff| above "
+    "zero in this driver's parity comparison), while the training trajectory is held "
+    "bit-exact. The measured win stays in the record as evidence, but the runtime does not "
+    "adopt it and keeps the structural fused graph."
+)
 
 RECORD_NOTES = (
     "One entry per (adapter, width, batch) the LN1/low-rank forward route was measured at. "
@@ -116,6 +128,33 @@ def run_batch(
         batch=batch,
         label="low-rank forward benchmark",
     )
+
+
+def withheld_reason(run: dict) -> str | None:
+    """Why this staged win may not ship, or `None` when it may.
+
+    A staged win is adopted only when the two graphs are bit-identical. The fused
+    arm normalizes inside the producer and the staged arm runs the standalone
+    layer-norm kernel, so the two reductions can round differently; adopting a
+    staged win that does so would move the dense forward of a trajectory the
+    exact gates hold bit-exact, and the TBPTT packed forward-only leg -- which
+    keeps its own fused chain -- would stop matching the dense leg. The measured
+    win stays in the record as evidence and the structural fused graph ships; a
+    rerun that closes the gap (`worst_max_abs` exactly zero) lifts the refusal on
+    its own.
+    """
+    if run["composed_over_fused"] >= 1.0:
+        return None
+    return None if run["worst_max_abs"] == 0.0 else WITHHELD_REASON
+
+
+def format_decision(entry: dict) -> str:
+    # Schema 2 stores canonical candidate timings for every storage policy.
+    # A merged file also contains retained entries from the FP16 driver.
+    ratio = entry["candidates"]["staged"] / entry["candidates"]["fused"]
+    return (f"decision {entry['device']} width {entry['width']} batch {entry['batch']:>2}: "
+            f"{'composed' if entry['route'] == 'staged' else 'fused'} "
+            f"(ratio {ratio:.4f}, storage {entry.get('parameter_storage', 'legacy-fp32')})")
 
 
 def main() -> int:
@@ -203,6 +242,21 @@ def main() -> int:
     summary["warmup"] = args.warmup
     summary["atol"] = args.atol
     summary["rtol"] = args.rtol
+    summary["withheld_routes"] = [
+        {
+            "batch": run["batch"],
+            "route": "staged",
+            "worst_max_abs": run["worst_max_abs"],
+            "reason": reason,
+        }
+        for run in runs
+        if (reason := withheld_reason(run)) is not None
+    ]
+    summary["withheld_note"] = (
+        "A staged arm that is faster but not bit-identical to the fused producer is measured "
+        "and recorded as evidence, and withheld from adoption: the training trajectory is "
+        "held bit-exact, so the structural fused graph keeps shipping at that geometry."
+    )
     if args.record is not None:
         args.record.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     if args.record_decisions is not None:
@@ -215,13 +269,10 @@ def main() -> int:
             measured_by="validation/bench_rwkv_packed_cell_low_rank_forward.py",
             margin=args.decision_margin,
             probe_label="low-rank-forward",
+            withhold_when=withheld_reason,
         )
         for entry in record["decisions"]:
-            print(
-                f"decision {entry['device']} width {entry['width']} batch {entry['batch']:>2}: "
-                f"{'composed' if entry['route'] == 'staged' else 'fused'} "
-                f"(ratio {entry['composed_over_fused']:.4f})"
-            )
+            print(format_decision(entry))
         if omitted:
             print(
                 f"omitted inside the {args.decision_margin:.1%} noise band (the structural "

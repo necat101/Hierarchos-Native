@@ -64,6 +64,18 @@ def decision(device=GEN9, batch_pairs=1, selected=ONE_ROW,
     }
 
 
+class PerformanceMarginTests(unittest.TestCase):
+    def test_a_unanimous_win_must_clear_its_recorded_admission_margin(self):
+        entry = decision(selected=TWO_ROWS, round_wins={ONE_ROW: 0, TWO_ROWS: 3},
+                         decisive_margin_fraction=0.05)
+        entry['required_margin_fraction'] = 0.15
+        self.assertTrue(any('below' in p for p in stability_problems(entry, 'AMD profile')))
+        entry['decisive_margin_fraction'] = 0.2
+        self.assertEqual(stability_problems(entry, 'AMD profile'), [])
+        entry['required_margin_fraction'] = float('nan')
+        self.assertTrue(any('invalid' in p for p in stability_problems(entry, 'AMD profile')))
+
+
 class ReplayParsingTests(unittest.TestCase):
     def write(self, lines):
         scratch = tempfile.TemporaryDirectory(prefix="topology-record-")
@@ -172,6 +184,12 @@ class RecordFileTests(unittest.TestCase):
 
 
 class CompareTests(unittest.TestCase):
+    def test_matching_selection_does_not_hide_a_changed_performance_admission_policy(self):
+        replay = decision()
+        replay['required_margin_fraction'] = 0.15
+        problems, _ = compare([replay], [decision()], GEN9)
+        self.assertTrue(any('admission margin changed' in p for p in problems))
+
     def test_the_recorded_choice_reproducing_is_a_pass_with_a_note(self):
         problems, notes = compare([decision()], [decision()], GEN9)
         self.assertEqual(problems, [])

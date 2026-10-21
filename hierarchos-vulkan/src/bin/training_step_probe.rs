@@ -48,6 +48,20 @@ struct StateSnapshot {
     optimizer_slot_steps: BTreeMap<String, u32>,
 }
 
+/// Opt-in exact-value companion to [`StateSnapshot`] for diagnosing a
+/// trajectory divergence: digests say that two runs differ, raw FP32 bits show
+/// how large the difference is and in which direction. Off unless
+/// `HIERARCHOS_PROBE_STATE_VALUES` names an output path.
+#[derive(Serialize)]
+struct ValueSnapshot {
+    step: usize,
+    optimizer_step: u32,
+    values: BTreeMap<String, Vec<u32>>,
+}
+
+const STATE_VALUES_ENV: &str = "HIERARCHOS_PROBE_STATE_VALUES";
+const ROUTE_LABELS_ENV: &str = "HIERARCHOS_PROBE_ROUTE_LABELS";
+
 #[derive(Serialize)]
 struct Sample {
     step: usize,
@@ -58,6 +72,7 @@ struct Sample {
 #[derive(Serialize)]
 struct Output {
     device: String,
+    decision_device: String,
     model_dir: String,
     batch: usize,
     tokens_per_sequence: usize,
@@ -267,6 +282,8 @@ fn probe() -> Result<()> {
     let commitment_cost_grad = vec![0.0f32; args.batch];
 
     let mut snapshots = Vec::new();
+    let mut value_snapshots = Vec::new();
+    let capture_values = std::env::var_os(STATE_VALUES_ENV).is_some();
     let mut run = |graph: &mut HierarchosTrainingGraph,
                    arena: &mut hierarchos_vulkan::HierarchosTokenTapeArena,
                    steps: usize|
@@ -325,6 +342,17 @@ fn probe() -> Result<()> {
                 args.readback,
             )?;
             elapsed.push(started.elapsed().as_secs_f64() * 1_000.0);
+            if std::env::var_os(ROUTE_LABELS_ENV).is_some() {
+                eprintln!(
+                    "route step={} batch={} h_geometry={:?} l_geometry={:?} h_segment={:?} l_segment={:?}",
+                    elapsed.len() - 1,
+                    args.batch,
+                    graph.h_recurrent().backward_kernel_geometry_label(args.batch),
+                    graph.l_recurrent().backward_kernel_geometry_label(args.batch),
+                    graph.h_recurrent().backward_segment_schedule_label(args.batch),
+                    graph.l_recurrent().backward_segment_schedule_label(args.batch),
+                );
+            }
             dispatch += result.dispatch_count;
             barriers += result.shader_barrier_count;
             submissions = result.queue_submissions;
@@ -339,13 +367,24 @@ fn probe() -> Result<()> {
                 .flat_map(|sequence| sequence.losses.iter().copied())
                 .sum::<f32>();
             mean_loss = loss_sum / (result.total_tokens.max(1) as f32);
-            if args.state_output.is_some() {
+            if args.state_output.is_some() || capture_values {
                 let mut tensors = BTreeMap::new();
+                let mut values = BTreeMap::new();
                 for parameter in graph.full_model_parameter_snapshots()? {
                     tensors.insert(
                         format!("parameter/{}", parameter.name),
                         vector_digest(&parameter.values)?,
                     );
+                    if capture_values {
+                        values.insert(
+                            format!("parameter/{}", parameter.name),
+                            parameter
+                                .values
+                                .iter()
+                                .map(|value| value.to_bits())
+                                .collect(),
+                        );
+                    }
                 }
                 let optimizer = graph.full_model_optimizer_state()?;
                 let mut optimizer_slot_steps = BTreeMap::new();
@@ -358,7 +397,27 @@ fn probe() -> Result<()> {
                         format!("exp_avg_sq/{}", slot.name),
                         vector_digest(&slot.exp_avg_sq)?,
                     );
+                    if capture_values {
+                        values.insert(
+                            format!("exp_avg/{}", slot.name),
+                            slot.exp_avg.iter().map(|value| value.to_bits()).collect(),
+                        );
+                        values.insert(
+                            format!("exp_avg_sq/{}", slot.name),
+                            slot.exp_avg_sq
+                                .iter()
+                                .map(|value| value.to_bits())
+                                .collect(),
+                        );
+                    }
                     optimizer_slot_steps.insert(slot.name, slot.step);
+                }
+                if capture_values {
+                    value_snapshots.push(ValueSnapshot {
+                        step: snapshots.len(),
+                        optimizer_step: optimizer.step,
+                        values,
+                    });
                 }
                 for (index, sequence) in result.sequences.iter().enumerate() {
                     for (name, values) in [
@@ -407,6 +466,13 @@ fn probe() -> Result<()> {
     let per_step_barriers = barriers / args.steps;
     let output = Output {
         device: device.name().to_string(),
+        decision_device: format!(
+            "{} [pci={:04x}:{:04x};driver={:08x}]",
+            device.name(),
+            device.vendor_id(),
+            device.device_id(),
+            device.driver_version()
+        ),
         model_dir: model_dir.display().to_string(),
         batch: args.batch,
         tokens_per_sequence: args.tokens,
@@ -447,6 +513,16 @@ fn probe() -> Result<()> {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::write(path, serde_json::to_vec_pretty(&snapshots)?)?;
+    }
+    if let Some(path) = std::env::var_os(STATE_VALUES_ENV) {
+        let path = PathBuf::from(path);
+        if let Some(parent) = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+        {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, serde_json::to_vec(&value_snapshots)?)?;
     }
     Ok(())
 }

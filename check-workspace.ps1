@@ -85,6 +85,20 @@ $members
 ]
 "@ | Set-Content -LiteralPath $workspaceManifest -Encoding ASCII
 
+    # A fresh virtual workspace has no lockfile, so cargo would resolve every
+    # dependency to the newest release instead of the versions the shipped
+    # crates pin.  Newer releases can require a toolchain the repository does
+    # not use (for example sysinfo 0.39.6 needs rustc 1.95 while the pinned
+    # 0.38.4 does not), which fails this check for reasons unrelated to the
+    # workspace's source.  Seed the lock from the main crate so the check reads
+    # the same dependency graph as the qualified binaries; cargo still adds
+    # entries that are only needed by the other members.
+    $seedLock = Join-Path $repoRoot "hierarchos-vulkan\Cargo.lock"
+    $workspaceLock = Join-Path $workRoot "Cargo.lock"
+    if ((Test-Path -LiteralPath $seedLock) -and -not (Test-Path -LiteralPath $workspaceLock)) {
+        Copy-Item -LiteralPath $seedLock -Destination $workspaceLock
+    }
+
     # Share the repository target directory so dependency builds stay warm.
     # The stable workspace path keeps the crate fingerprints warm too.
     if (-not $env:CARGO_TARGET_DIR) {

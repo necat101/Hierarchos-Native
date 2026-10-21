@@ -128,6 +128,11 @@ def run(binary: Path, model_dir: Path, case: dict, case_path: Path, *, vendor: b
     env.pop(VENDOR_DISABLE_ENV, None)
     if not vendor:
         env[VENDOR_DISABLE_ENV] = "1"
+        env.pop("HIERARCHOS_VULKAN_QUALIFY_VENDOR_MODULES", None)
+    else:
+        # Prove all raw modules execute even when the shipping measurement table
+        # correctly retains portable at this module-qualification geometry.
+        env["HIERARCHOS_VULKAN_QUALIFY_VENDOR_MODULES"] = "1"
     completed = subprocess.run(
         [
             str(binary),
@@ -359,6 +364,7 @@ def main() -> int:
         "rtol": args.rtol,
         "time_mix_forward_fusion": "disabled",
         "channel_mix_forward_fusion": "disabled",
+        "performance_admission": "explicit raw-module qualification override; shipping routes use amd_matmul_decisions.json",
         "expected_vendor": args.expected_vendor,
         "qualified_vendor": qualified_vendor,
         "vendor_variants": vendor_variants,

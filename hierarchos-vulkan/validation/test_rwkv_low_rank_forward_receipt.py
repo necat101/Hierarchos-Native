@@ -15,6 +15,9 @@ decision rather than only the numbers:
   normalizes inside the producer while the staged arm runs the standalone
   layer-norm kernel, so this test states the tolerance instead of claiming
   exactness;
+* a staged win whose graphs differ is recorded as evidence and withheld from
+  adoption, because the exact training trajectory cannot follow it and the TBPTT
+  packed forward-only leg keeps its own fused chain;
 * each leg really ran the graph it claims (label plus the route's own dispatch
   count: one producer dispatch against the chain);
 * the default follows the recorded decision where this adapter has an entry, and
@@ -44,6 +47,7 @@ HARNESS = ROOT / "validation" / "bench_rwkv_packed_cell_low_rank_forward.py"
 
 sys.path.insert(0, str(ROOT / "validation"))
 import ab_harness as ab  # noqa: E402
+from bench_rwkv_packed_cell_low_rank_forward import format_decision
 
 TENSORS = {"output", "packed_new_state", "grad_x", "grad_packed_state", "token_feature_grad"}
 # The band inside which a measured sign is not a decision; the driver omits those
@@ -55,6 +59,18 @@ MIN_CHAIN_DISPATCHES = 6
 
 
 class LowRankForwardReceiptTest(unittest.TestCase):
+    def test_mixed_storage_decisions_print_from_canonical_schema_without_legacy_ratio(self):
+        entries = json.loads(DECISIONS.read_text())["decisions"]
+        for entry in entries:
+            with self.subTest(device=entry['device'], policy=entry.get('parameter_storage')):
+                text = format_decision(entry)
+                self.assertIn(entry['device'], text)
+                self.assertIn('ratio ', text)
+        normalized = dict(device='AMD test adapter', width=128, batch=8, route='staged',
+                          parameter_storage='fp16-storage', candidates={'fused':4.0,'staged':3.0})
+        self.assertNotIn('composed_over_fused', normalized)
+        self.assertIn('ratio 0.7500, storage fp16-storage', format_decision(normalized))
+
     @classmethod
     def setUpClass(cls) -> None:
         if not RECEIPT.exists():
@@ -586,6 +602,103 @@ class WithheldRouteAdoptionTest(unittest.TestCase):
         self.assertEqual(merged["withheld"][0]["batch"], 8)
         self.assertEqual(merged["withheld"][0]["route"], "staged")
         self.assertTrue(merged["withheld"][0]["reason"].strip())
+
+
+class DenseRouteWithholdTest(unittest.TestCase):
+    """A dense staged win that changes bits is measured, not adopted.
+
+    The FP16 arm has its own policy-scoped refusal; this one covers the
+    policy-less dense route. The fused producer normalizes inside the kernel and
+    the staged chain runs a separate layer norm, so their reductions can round
+    differently. Adopting such a win moves the dense forward of a trajectory the
+    exact gates hold bit-exact, and stops the TBPTT packed forward-only leg
+    (which keeps its own fused chain) from matching the dense leg.
+    """
+
+    RUN = {
+        "device": "GPU",
+        "width": 128,
+        "batch": 8,
+        "worst_max_abs": 0.0,
+        "composed_over_fused": 0.9,
+        "fused": {"timing": {"median_ms": 1.0}},
+        "composed": {"timing": {"median_ms": 0.9}},
+    }
+
+    def merge(self, worst: float, ratio: float = 0.9) -> dict:
+        sys.path.insert(0, str(ROOT / "validation"))
+        import bench_rwkv_packed_cell_low_rank_forward as driver  # noqa: E402
+
+        run = json.loads(json.dumps(self.RUN))
+        run["worst_max_abs"] = worst
+        run["composed_over_fused"] = ratio
+        with tempfile.TemporaryDirectory(prefix="dense-adopt-") as scratch:
+            path = Path(scratch) / "record.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema": 2,
+                        "kind": "rwkv-low-rank-full-forward",
+                        "measured_by": "validation/bench_rwkv_packed_cell_low_rank_forward.py",
+                        "margin": 0.02,
+                        "decisions": [
+                            {
+                                "device": "GPU",
+                                "width": 128,
+                                "batch": 8,
+                                "route": "staged",
+                                "candidates": {"fused": 1.0, "staged": 0.9},
+                                "probe": "low-rank-forward",
+                                "source": "measured",
+                            }
+                        ],
+                        "withheld": [
+                            {
+                                "device": "GPU",
+                                "width": 128,
+                                "batch": 8,
+                                "route": "staged",
+                                "reason": "the graphs differ by 2.384e-07",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            merged, _ = ab.record_decisions(
+                path,
+                [run],
+                kind="rwkv-low-rank-full-forward",
+                probe_key="low-rank-forward",
+                margin=0.01,
+                probe_label="low-rank-forward",
+                withhold_when=driver.withheld_reason,
+            )
+            return merged
+
+    def test_a_bit_identical_win_is_adopted(self) -> None:
+        merged = self.merge(worst=0.0)
+        self.assertEqual(
+            merged["withheld"],
+            [],
+            "a bit-identical staged win has nothing to refuse, so its refusal is dropped",
+        )
+        self.assertEqual([entry["route"] for entry in merged["decisions"]], ["staged"])
+
+    def test_a_rounding_gap_keeps_the_refusal(self) -> None:
+        merged = self.merge(worst=2.086162567138672e-07)
+        self.assertEqual(len(merged["withheld"]), 1)
+        self.assertEqual(merged["withheld"][0]["route"], "staged")
+        self.assertTrue(merged["withheld"][0]["reason"].strip())
+        self.assertEqual(
+            merged["decisions"][0]["route"],
+            "staged",
+            "the measured win stays in the record as evidence",
+        )
+
+    def test_a_slower_staged_arm_is_not_withheld(self) -> None:
+        merged = self.merge(worst=2.086162567138672e-07, ratio=1.1)
+        self.assertEqual(merged["withheld"], [])
 
 
 class LiveLowRankFp16ForwardBenchTest(unittest.TestCase):

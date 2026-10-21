@@ -411,6 +411,23 @@ def folded_candidate(batch: int, run: dict) -> bool:
     return True
 
 
+def withheld_backward_reason(run: dict) -> str | None:
+    """Keep a measured folded win from changing an exact training trajectory.
+
+    The raw folded-module ABI retains its historical ULP allowance. Shipping a
+    timing winner must additionally preserve the trajectory's exact arithmetic.
+    """
+    if (run.get("folded_candidate")
+            and run["folded_ms"] < min(run["fused_ms"], run["staged_ms"])
+            and (run["folded_max_abs"] != 0.0 or run["folded_parameter_delta"] != 0.0)):
+        return (
+            "The folded rung passed the unchanged raw-module ULP and exact key-gradient "
+            "gates, but changed a returned tensor or updated parameter. Its measured win "
+            "is retained as evidence and withheld from the bit-exact recurrent trajectory."
+        )
+    return None
+
+
 def no_decomposed_graph(stderr: str) -> bool:
     """Whether the binary reported that this geometry has one backward graph.
 
@@ -909,6 +926,7 @@ def main() -> int:
                         else {}
                     ),
                 },
+                withhold_when=withheld_backward_reason,
             )
             merged = ab.refuse_shared_verdicts(
                 record_path,

@@ -406,7 +406,7 @@ fn main() -> Result<()> {
     let worst_max_abs_wide_vs_narrow = require_agreement(&wide_vs_narrow, atol, rtol)?;
 
     let output = Output {
-        device: fused.device_name().to_string(),
+        device: fused.decision_device_name().to_owned(),
         width: fused.width(),
         head_size: case.head_size,
         state_size: case.batch * fused.width() * case.head_size,

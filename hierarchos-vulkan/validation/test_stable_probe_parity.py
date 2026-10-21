@@ -46,6 +46,40 @@ def snapshot(*, value: str = "aa", extra: str = "bb") -> list[dict]:
 
 
 class SnapshotComparisonTest(unittest.TestCase):
+    def test_reference_association_is_adapter_driver_scoped_and_preserves_goldens(self):
+        from safetensors.numpy import save_file
+        import numpy as np
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory)
+            save_file({f"h_rnn.{name}": np.zeros((128, rank), dtype=np.float32)
+                       for name, rank in (("w1", 32), ("a1", 32), ("g1", 64))},
+                      str(package / "model.safetensors"))
+            device = "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]"
+            for batch, expected in ((2, "fused-base"), (32, "split"), (64, "fused-base")):
+                environment = parity.reference_fan_in_environment(device, package, ["--batch", str(batch)])
+                self.assertEqual(environment["HIERARCHOS_RWKV_LOW_RANK_FAN_IN_SCHEDULE"], expected)
+                self.assertEqual(environment["HIERARCHOS_RWKV_BACKWARD_SEGMENT_CACHE_PATH"], "")
+            self.assertEqual(parity.reference_fan_in_environment(
+                device.replace("00800184", "00800185"), package, ["--batch", "32"]), {})
+            self.assertEqual(parity.reference_fan_in_environment(None, package, []), {})
+
+    def test_extended_cases_include_long_context_and_masked_multi_sequence_accumulation(self):
+        long, masked = parity.EXTENDED_CASES[:2]
+        self.assertIn("128", long["args"])
+        self.assertEqual(masked["env"], {parity.PROBE_MASK_ENV: "1"})
+        self.assertIn("--sequences", masked["args"])
+        self.assertEqual(masked["args"][masked["args"].index("--sequences") + 1], "3")
+
+    def test_extended_catalog_keeps_raw_gradients_resume_and_both_policy_geometries(self):
+        cases = {case["name"]: case for case in parity.extended_catalog()}
+        self.assertTrue({"batch2", "batch32", "odd_multi_sequence", "small_hidden32"} <= cases.keys())
+        self.assertEqual(cases["raw_gradient_accumulation"]["env"][parity.PROBE_GRADIENT_ENV], "1")
+        self.assertEqual(cases["checkpoint_resume"]["env"][parity.PROBE_RESUME_ENV], "1")
+        for batch in (1, 4, 8, 9, 16, 17, 32, 64):
+            self.assertIn(f"batch{batch}_tokens16", cases)
+        self.assertEqual(cases["odd_multi_sequence"]["env_by_policy"]["fp16-storage-fp32-compute"]
+                         ["HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY"], "one-row-rank128")
+
     def test_identical_snapshots_pass(self) -> None:
         self.assertEqual(parity.diff_snapshots(snapshot(), snapshot()), [])
         self.assertEqual(parity.digests(snapshot()), 4)

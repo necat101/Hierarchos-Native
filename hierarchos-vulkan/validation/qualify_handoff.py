@@ -17,6 +17,27 @@ import time
 CRATE = Path(__file__).resolve().parents[1]
 
 
+def qualification_commands(python, stable: Path, output: Path, vendor: str):
+    """The same complete gate set runs before tuning and after route changes."""
+    yield "python-contracts", [sys.executable, "-m", "unittest", "discover", "-s", "validation", "-p", "test_*.py"]
+    yield "all-binaries", ["cargo", "check", "--all-targets", "-j", "1"]
+    yield "library-and-trainer", ["cargo", "test", "--lib", "--bin", "hierarchos-vulkan-train", "-j", "1", "--", "--test-threads=1"]
+    yield "two-rank-tcp", python("verify_network_training.py", "--output", output / "two-rank-tcp")
+    for crate in ("hierarchos-inference", "hierarchos-native-cli", "hierarchos-gui"):
+        yield crate, ["cargo", "test", "--manifest-path", str(CRATE.parent / crate / "Cargo.toml"), "-j", "1"]
+    yield "stable-recurrent", python("check_stable_probe_parity.py", "--stable", stable,
+        "--precision", "both", "--with-inference-logits", "--extended", "--keep-results", output / "recurrent-snapshots",
+        "--record", output / "stable-recurrent.json")
+    yield "stable-logits", python("check_stable_logits.py", "--stable", stable, "--output", output / "stable-logits")
+    yield "rwkv-vendor-composition", python("verify_rwkv_packed_cell_composition.py", "--expected-vendor", vendor,
+        "--record", output / "rwkv-vendor-composition.json")
+    yield "rwkv-cpu-bridge", python("verify_rwkv_cpu_bridge.py")
+    for profile in ("release", "debug"):
+        options = ["--release"] if profile == "release" else []
+        yield f"training-stack-{profile}", python("verify_training_stack.py", *options,
+            "--receipt", output / f"training-stack-{profile}.json")
+
+
 def protect_routes(paths, measure_and_verify, rebuild):
     """A failed tuning pass must leave the previously qualified routes intact."""
     originals = {path: path.read_bytes() for path in paths}
@@ -40,6 +61,9 @@ def main() -> int:
     parser.add_argument("--tune", action="store_true", help="measure and merge ONLY this adapter's route rows, then requalify")
     args = parser.parse_args()
     for key in ("HIERARCHOS_VULKAN_FORCE_VENDOR", "HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS",
+                "HIERARCHOS_VULKAN_QUALIFY_VENDOR_MODULES", "HIERARCHOS_VALIDATION_FAN_IN_DIR",
+                "HIERARCHOS_RWKV_STATE_BACKWARD_SCHEDULE", "HIERARCHOS_RWKV_PROJECTION_BACKWARD_SCHEDULE",
+                "HIERARCHOS_RWKV_LOW_RANK_FAN_IN_SCHEDULE",
                 "HIERARCHOS_RWKV_CROSS_BATCH_ARRIVAL_SEED", "HIERARCHOS_RWKV_KEY_PARAM_DIRECT_WRITE_SINK"):
         if key in os.environ:
             parser.error(f"unset {key} before qualification")
@@ -69,22 +93,12 @@ def main() -> int:
     def python(script: str, *arguments: object) -> list[str]:
         return [sys.executable, str(CRATE / "validation" / script), *map(str, arguments)]
 
-    run("python-contracts", [sys.executable, "-m", "unittest", "discover", "-s", "validation", "-p", "test_*.py"])
-    run("all-binaries", ["cargo", "check", "--bins", "-j", "1"])
-    run("library-and-trainer", ["cargo", "test", "--lib", "--bin", "hierarchos-vulkan-train", "-j", "1", "--", "--test-threads=1"])
-    run("two-rank-tcp", python("verify_network_training.py", "--output", out / "two-rank-tcp"))
-    for crate in ("hierarchos-inference", "hierarchos-native-cli", "hierarchos-gui"):
-        run(crate, ["cargo", "test", "--manifest-path", str(CRATE.parent / crate / "Cargo.toml"), "-j", "1"])
-    stable_args = ["--stable", args.stable.resolve(), "--precision", "both", "--with-inference-logits",
-                   "--keep-results", out / "recurrent-snapshots", "--record", out / "stable-recurrent.json"]
-    run("stable-recurrent", python("check_stable_probe_parity.py", *stable_args))
-    run("stable-logits", python("check_stable_logits.py", "--stable", args.stable.resolve(), "--output", out / "stable-logits"))
-    run("rwkv-vendor-composition", python("verify_rwkv_packed_cell_composition.py", "--expected-vendor", args.expected_vendor,
-                                         "--record", out / "rwkv-vendor-composition.json"))
-    run("rwkv-cpu-bridge", python("verify_rwkv_cpu_bridge.py"))
-    for profile in ("release", "debug"):
-        options = ["--release"] if profile == "release" else []
-        run(f"training-stack-{profile}", python("verify_training_stack.py", *options, "--receipt", out / f"training-stack-{profile}.json"))
+    def qualify(output, suffix=""):
+        output.mkdir(parents=True, exist_ok=True)
+        for name, command in qualification_commands(python, args.stable.resolve(), output, args.expected_vendor):
+            run(name + suffix, command)
+
+    qualify(out)
     if args.tune and all(row["exit_code"] == 0 for row in rows):
         tuning_start = len(rows)
         route_paths = list((CRATE / "validation").glob("*_decisions.json"))
@@ -102,17 +116,18 @@ def main() -> int:
                 ("bench_rwkv_low_rank_fp16_forward.py", "low_rank_full_forward_decisions.json"),
                 ("bench_rwkv_key_state_forward.py", "key_state_forward_decisions.json"),
             ):
-                run(script.removesuffix(".py"), python(script, "--record-decisions", CRATE / "validation" / record,
-                    "--record", out / (script.removesuffix(".py") + ".json")))
+                if not run(script.removesuffix(".py"), python(script, "--record-decisions", CRATE / "validation" / record,
+                    "--record", out / (script.removesuffix(".py") + ".json"))):
+                    return False
             for chain in ("forward", "remat", "backward"):
                 for policy in ("fp32", "fp16-storage"):
-                    run(f"tune-{chain}-{policy}", python("bench_rwkv_tbptt_packed_chains.py", "--chain", chain,
-                        "--parameter-storage", policy, "--iterations", "40", "--record-decisions"))
-                    run(f"receipt-{chain}-{policy}", python("bench_rwkv_tbptt_packed_chains.py", "--chain", chain,
-                        "--parameter-storage", policy, "--iterations", "40", "--record", out / f"{chain}-{policy}.json"))
-            run("stable-recurrent-after-tuning", python("check_stable_probe_parity.py", *stable_args))
-            run("stable-logits-after-tuning", python("check_stable_logits.py", "--stable", args.stable.resolve(), "--output", out / "stable-logits-tuned"))
-            run("training-stack-after-tuning", python("verify_training_stack.py", "--release", "--receipt", out / "training-stack-tuned.json"))
+                    if not run(f"tune-{chain}-{policy}", python("bench_rwkv_tbptt_packed_chains.py", "--chain", chain,
+                        "--parameter-storage", policy, "--iterations", "40", "--record-decisions")):
+                        return False
+                    if not run(f"receipt-{chain}-{policy}", python("bench_rwkv_tbptt_packed_chains.py", "--chain", chain,
+                        "--parameter-storage", policy, "--iterations", "40", "--record", out / f"{chain}-{policy}.json")):
+                        return False
+            qualify(out / "after-tuning", "-after-tuning")
             return all(row["exit_code"] == 0 for row in rows[tuning_start:])
         def rebuild_original_routes():
             print("Tuning failed: restored the qualified route records; rebuilding their binaries.", flush=True)

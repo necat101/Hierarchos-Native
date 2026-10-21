@@ -482,7 +482,9 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
     def test_a_consumer_receipt_that_contradicts_its_record_is_rejected(self) -> None:
         producer = guard.TBPTT_TIME_MIX
         receipt, record = load(producer)
-        entry = next(entry for entry in record["decisions"] if entry["batch"] == 16)
+        # Corrupt the receipt's own adapter, even when another adapter has the
+        # same batch earlier in the merged record.
+        entry = entries_by_batch(producer, receipt, record)[0][16]
         entry["route"] = "fused"
         entry["candidates"]["fused"] = entry["candidates"]["staged"] * 0.90
         self.assert_rejected(producer, receipt, record, "the record names")
@@ -619,9 +621,14 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
     def test_a_chain_win_outside_the_band_without_an_entry_is_rejected(self) -> None:
         chain = guard.ALL_SPECS_BY_NAME["tbptt-packed-forward"]
         receipt, record = load(chain)
-        measured = {entry["batch"] for entry in record["decisions"]}
-        batch = next(batch for batch in chain.sweep if batch not in measured)
-        row = rows_by_batch(receipt)[batch]
+        # A fully measured adapter leaves no geometry without a verdict, so the
+        # control removes one instead of depending on the record's coverage.
+        rows = rows_by_batch(receipt)
+        batch = next(batch for batch in chain.sweep if batch in rows)
+        record["decisions"] = [
+            entry for entry in record["decisions"] if entry["batch"] != batch
+        ]
+        row = rows[batch]
         row["legacy_ms"] = row["packed_ms"] * 0.92
         row["packed_over_legacy"] = row["packed_ms"] / row["legacy_ms"]
         row["default_over_legacy"] = row["default_ms"] / row["legacy_ms"]

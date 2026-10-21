@@ -29,6 +29,12 @@ void main() {
     uint row = gl_WorkGroupID.y * 16u + local_y;
     bool lane_valid = row < pc.rows && out_col < pc.output_dim;
     float sum = 0.0;
+#ifdef CPU_K_BLOCK128
+    // The CPU addmm contract applies bias to the first 128-element dot
+    // product, then adds subsequent independently accumulated blocks.
+    // This specialization is used only by the repaired GPT-2 graph.
+    float total = 0.0;
+#endif
 
     for (uint k_base = 0u; k_base < pc.input_dim; k_base += INPUT_TILE) {
         uint load_k = k_base + local_x * 4u;
@@ -54,12 +60,22 @@ void main() {
                 sum = fma(input_tile[local_y * 65u + k],
                           weight_tile[k * 17u + local_x], sum);
             }
+#ifdef CPU_K_BLOCK128
+            if (k_base + INPUT_TILE >= pc.input_dim || (k_base + INPUT_TILE) % 128u == 0u) {
+                total = k_base < 128u ? sum + bias[out_col] : total + sum;
+                sum = 0.0;
+            }
+#endif
         }
         barrier();
     }
 
     if (lane_valid) {
         uint output_index = row * pc.output_dim + out_col;
+#ifdef CPU_K_BLOCK128
+        output_values[output_index] = total;
+#else
         output_values[output_index] = sum + bias[out_col];
+#endif
     }
 }

@@ -78,7 +78,10 @@ arm replays every case of both goldens.
 The probe is compared against `validation/training_step_probe/step_expectation.json`.
 It runs on a fresh model package under `target/`, because an existing package keeps
 advancing through AdamW and every run would then measure a different point in
-training. The dispatch count is structural and must match, the barrier count is an
+training. The dispatch count is structural and must match. Where timing selects
+different fusion depths, an adapter/driver-scoped recipe reproduces the original
+count; unforced shipping loss is also checked exactly, and the separate trajectory
+gate retains normal shipping selection. The barrier count is an
 upper bound so that an elision improvement does not fail the ladder, and the loss is
 compared bit-for-bit per device name, since bit-identical arithmetic is only
 guaranteed within one driver. A device with no recorded loss is reported as
@@ -159,7 +162,7 @@ class Step:
         return "BLOCKED" if self.blocked else "FAIL"
 
 
-def run(command):
+def run(command, *, environment=None):
     """Run a command in the crate directory, returning (exit code, combined output).
 
     A missing executable is code 127 with the error text rather than an exception,
@@ -172,6 +175,7 @@ def run(command):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            env=environment,
         )
     except OSError as err:
         return 127, f"cannot execute {command[0]}: {err}"
@@ -413,12 +417,23 @@ def expectation_problems(observed, expectation, device):
         problems.append(
             f"barrier count {observed['shader_barrier_count']} exceeds the recorded upper bound {barrier_max}"
         )
-    recorded_loss = recorded.get("mean_loss")
+    problems.extend(exact_probe_loss_problems(observed, expectation, device))
+    return problems
+
+
+def exact_probe_loss_problems(observed, expectation, device):
+    problems = []
+    recorded_loss = expectation.get("devices", {}).get(device, {}).get("mean_loss")
     if recorded_loss is None:
         problems.append(f"no expectation recorded for {device}; run with --record-expectation on this device")
     elif observed["mean_loss"] != recorded_loss:
         problems.append(f"loss {observed['mean_loss']} != recorded {recorded_loss}")
     return problems
+
+
+def structural_probe_environment(observed, expectation):
+    return dict(expectation.get("structural_probe_environments", {}).get(
+        observed.get("decision_device"), {}))
 
 
 def training_step(record, profile):
@@ -439,6 +454,35 @@ def training_step(record, profile):
     device = observed["device"]
     expectation = json.loads(EXPECTATION.read_text(encoding="utf-8")) if EXPECTATION.exists() else {}
     devices = expectation.get("devices", {})
+    structural_environment = structural_probe_environment(observed, expectation)
+    if structural_environment:
+        # The original count describes one dispatch recipe. Independent timing
+        # can select different bit-equivalent fusion depths on this driver.
+        # Check shipping loss first, then reproduce that SAME original count
+        # with a fixed recipe. The normal shipping trajectory gate is separate.
+        if not record:
+            problems = exact_probe_loss_problems(observed, expectation, device)
+            if problems:
+                return Step("training-step probe", "; ".join(problems), output=output)
+        (SCRATCH / f"training_step_unforced_{profile}.json").write_text(
+            json.dumps(observed, indent=2) + "\n", encoding="utf-8")
+        print(f"note training-step: shipping loss checked exactly; unforced dispatches="
+              f"{observed['dispatch_count']}; recorded structural recipe={structural_environment}", flush=True)
+        decision_device = observed.get("decision_device")
+        environment = {**os.environ, **structural_environment}
+        code, fixed_output = run([executable, "--model-dir", fixture, *PROBE_ARGS],
+                                 environment=environment)
+        output += "\nFIXED STRUCTURAL RECIPE: " + json.dumps(structural_environment) + "\n" + fixed_output
+        if code:
+            return Step("training-step probe", f"fixed recipe exit {code}", output=output)
+        try:
+            observed = json.loads(fixed_output[fixed_output.index("{"):])
+        except (ValueError, KeyError) as err:
+            return Step("training-step probe", f"unparseable fixed recipe: {err}", output=output)
+        if observed.get("device") != device or observed.get("decision_device") != decision_device:
+            return Step("training-step probe", "fixed recipe changed the physical adapter", output=output)
+        (SCRATCH / f"training_step_fixed_{profile}.json").write_text(
+            json.dumps(observed, indent=2) + "\n", encoding="utf-8")
 
     if record:
         # This is a merge, not a rewrite: the numbers go into this machine's entry

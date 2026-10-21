@@ -52,6 +52,10 @@ pub const HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS_ENV: &str =
     "HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS";
 /// Override vendor classification for A/B qualification on one adapter.
 pub const HIERARCHOS_VULKAN_FORCE_VENDOR_ENV: &str = "HIERARCHOS_VULKAN_FORCE_VENDOR";
+/// Exercise raw modules in explicit qualification, including measured losers.
+/// This never changes the physical vendor or the shipping performance policy.
+pub const HIERARCHOS_VULKAN_QUALIFY_VENDOR_MODULES_ENV: &str =
+    "HIERARCHOS_VULKAN_QUALIFY_VENDOR_MODULES";
 /// Qualification override: run the packed-FP16 LM adjoint kernels even on the
 /// Intel Gen9 parts where [`native_fp16_lm_compute_reliable`] measures a driver
 /// fault, so a newer driver can be re-qualified with the existing tests.
@@ -66,6 +70,13 @@ pub const PCI_VENDOR_QUALCOMM: u32 = 0x5143;
 pub const PCI_VENDOR_IMAGINATION: u32 = 0x1010;
 pub const PCI_VENDOR_MICROSOFT: u32 = 0x1414;
 pub const PCI_VENDOR_APPLE: u32 = 0x106B;
+
+/// Only Intel's measurements qualified replacing these fused recurrent
+/// producers merely because a vendor matmul is available. Other adapters need
+/// their own measured, numerically qualified route entry.
+pub const fn unmeasured_composition_is_qualified(vendor_id: u32) -> bool {
+    vendor_id == PCI_VENDOR_INTEL
+}
 
 /// Hardware vendor of a Vulkan physical device.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -347,7 +358,7 @@ impl VendorKernelFamily {
     /// input tile with a 65-float row stride and a 64-wide weight tile with a
     /// 17-float row stride, so `16 * 65 * 4 + 64 * 17 * 4 = 8512` bytes.
     /// `linear3-forward` stages six 16x65 tiles, `6 * 16 * 65 * 4 = 24960`.
-    /// Both fit inside RDNA3's 64 KiB LDS; `spirv_workgroup_bytes` decodes the
+    /// Both fit inside the Ally's 32 KiB LDS; `spirv_workgroup_bytes` decodes the
     /// totals back out of the committed modules, so these cannot drift from the
     /// artifacts they gate.
     pub const fn amd_shared_memory_bytes(self) -> Option<u32> {
@@ -585,6 +596,23 @@ pub fn is_amd_rdna3(device: &VulkanDevice) -> bool {
     is_amd_rdna3_pci_id(device.vendor_id(), device.device_id())
 }
 
+/// Whether the RDNA3-only modules that are *not* covered by
+/// [`VendorKernelFamily`] -- today the time-mix fan-in family in
+/// `rwkv_low_rank` -- may be selected.
+///
+/// Those modules are vendor kernels like any other, so they obey the same two
+/// switches as [`select_kernel`]: `HIERARCHOS_VULKAN_FORCE_VENDOR` can pin the
+/// family to its portable module for a parity A/B, and
+/// `HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS` removes every vendor module. A
+/// selection that tested `is_amd_rdna3` alone would leave this family
+/// unreachable from either switch, so a candidate/stable comparison could not
+/// tell its arithmetic apart from the portable path.
+pub fn rdna3_module_enabled(device: &VulkanDevice) -> bool {
+    !vendor_kernels_disabled()
+        && effective_vendor(device) == GpuVendor::Amd
+        && is_amd_rdna3(device)
+}
+
 /// Geometry gate for the RDNA3 matmul modules.
 ///
 /// Deliberately the same structural threshold the portable modules use to pick
@@ -592,11 +620,10 @@ pub fn is_amd_rdna3(device: &VulkanDevice) -> bool {
 /// module is a scalar dot product, which is the measured right answer for
 /// single-row decode, short reduction dimensions and thin output tiles (see
 /// [`intel_matmul_geometry_supports`] for the measured crossover on the other
-/// tuned part). No RDNA3-specific crossover has been measured -- there is no
-/// RDNA3 adapter on the machine this layer was tuned on -- so the gate claims
-/// only what is structural: use the tuned module exactly where the portable
-/// module would itself tile. Every admitted RDNA3 module is compared bit-exact
-/// with the portable one on the executing adapter.
+/// tuned part). This is structural eligibility. The runtime additionally
+/// requires an exact adapter/driver/geometry measurement in
+/// `validation/amd_matmul_decisions.json`; unmeasured dispatches stay portable.
+/// Explicit module qualification exercises eligible raw modules separately.
 pub const fn amd_matmul_geometry_supports(rows: u32, input_dim: u32, output_dim: u32) -> bool {
     rows >= 8 && input_dim >= 64 && output_dim >= 16
 }
@@ -717,17 +744,94 @@ pub fn vendor_kernel_plan(device: &VulkanDevice) -> Vec<VendorKernelSelection> {
         .collect()
 }
 
-/// A matmul kernel slot whose concrete SPIR-V module is chosen per dispatch.
-///
-/// Every call site learns the true `(rows, input_dim, output_dim)` of a matmul
-/// only when it records the dispatch, and the Intel Gen9 modules win only on
-/// production-shaped work: single-row decode, short reduction dimensions, and
-/// thin output tiles all measured slower than the portable module (see
-/// [`intel_matmul_geometry_supports`]). The wrapper therefore owns the portable
-/// pipeline always, plus one Intel pipeline when the capability gates admit it,
-/// and picks between them from the push constants' leading three words — the
-/// `(rows, input_dim, output_dim)` layout every linear-family push struct in
-/// this crate uses. Host grids, bindings, and results are unchanged.
+/// Offline measurements pinned to the executing adapter, driver and SPIR-V.
+#[derive(serde::Deserialize)]
+struct AmdMatmulMeasurements {
+    schema: u32,
+    shader_sha256: std::collections::HashMap<String, String>,
+    decisions: Vec<AmdMatmulMeasurement>,
+}
+
+#[derive(serde::Deserialize)]
+struct AmdMatmulMeasurement {
+    device: String,
+    family: String,
+    rows: u32,
+    input_dim: u32,
+    output_dim: u32,
+    parameter_storage: String,
+    route: String,
+    bit_exact: bool,
+    portable_ms: f64,
+    amd_ms: f64,
+    ratio_min: f64,
+    ratio_max: f64,
+    samples: usize,
+}
+
+fn amd_matmul_measurements() -> &'static AmdMatmulMeasurements {
+    use sha2::Digest;
+    static RECORD: std::sync::OnceLock<AmdMatmulMeasurements> = std::sync::OnceLock::new();
+    RECORD.get_or_init(|| {
+        let record: AmdMatmulMeasurements =
+            serde_json::from_str(include_str!("../validation/amd_matmul_decisions.json"))
+                .expect("invalid checked-in AMD matmul measurements");
+        assert_eq!(
+            record.schema, 1,
+            "unsupported AMD matmul measurement schema"
+        );
+        let mut keys = std::collections::HashSet::new();
+        for row in &record.decisions {
+            assert!(
+                keys.insert((
+                    &row.device,
+                    &row.family,
+                    row.rows,
+                    row.input_dim,
+                    row.output_dim
+                )),
+                "duplicate AMD matmul measurement"
+            );
+            assert!(row.device.contains("[pci=1002:") && row.device.contains(";driver="));
+            assert_eq!(row.parameter_storage, "fp32-compute");
+            assert!(
+                row.bit_exact
+                    && row.samples >= 6
+                    && row.portable_ms.is_finite()
+                    && row.amd_ms.is_finite()
+                    && row.portable_ms > 0.0
+                    && row.amd_ms > 0.0
+                    && row.ratio_min.is_finite()
+                    && row.ratio_max.is_finite()
+                    && row.ratio_min > 0.0
+                    && row.ratio_max >= row.ratio_min,
+                "invalid or non-exact AMD matmul measurement"
+            );
+            let faster = amd_matmul_geometry_supports(row.rows, row.input_dim, row.output_dim)
+                && row.ratio_max < 0.98;
+            assert_eq!(
+                row.route,
+                if faster { "amd" } else { "portable" },
+                "AMD matmul route contradicts its paired measurements"
+            );
+        }
+        for family in VendorKernelFamily::ALL {
+            if let Some(spirv) = family.amd_spirv() {
+                let name = format!("{}_amd_rdna3.spv", family.label().replace('-', "_"));
+                assert_eq!(
+                    record.shader_sha256.get(&name),
+                    Some(&format!("{:x}", sha2::Sha256::digest(spirv))),
+                    "AMD matmul module changed since measurement: {name}"
+                );
+            }
+        }
+        record
+    })
+}
+
+/// Matmul dispatch slot. Intel retains its measured crossover; AMD requires
+/// a recorded win for the exact geometry. Unmeasured AMD work stays portable.
+/// Host grids, bindings and per-element FP32 arithmetic remain unchanged.
 pub(crate) struct VendorMatmulKernel {
     /// Read by the dispatch counter that proves the vendor path ran, not just
     /// that the plan selected it. Always compiled: the logits probe asserts the
@@ -739,6 +843,10 @@ pub(crate) struct VendorMatmulKernel {
     /// can hold either the Intel or the RDNA3 module without the call sites
     /// knowing which.
     variant: Option<(ComputeKernel, fn(u32, u32, u32) -> bool)>,
+    /// FP32 operand routes measured on this exact AMD PCI adapter and driver.
+    amd_routes: Option<std::collections::HashMap<[u32; 3], bool>>,
+    amd_device: Option<String>,
+    qualify_modules: bool,
     /// The scalar schedule the portable modules fall back to, dispatched directly
     /// below [`SCALAR_MATMUL_MAX_ROWS`] so a small dispatch does not carry the
     /// tiled module's workgroup-memory reservation.
@@ -802,6 +910,21 @@ impl VendorMatmulKernel {
         };
         let portable = create(family.portable_spirv())?;
         let selection = select_kernel(device, family);
+        let amd_device = (selection.vendor == GpuVendor::Amd && selection.vendor_specific)
+            .then(|| device.decision_device_name().to_owned());
+        let amd_routes = amd_device.as_ref().map(|key| {
+            amd_matmul_measurements()
+                .decisions
+                .iter()
+                .filter(|row| &row.device == key && row.family == family.label())
+                .map(|row| {
+                    (
+                        [row.rows, row.input_dim, row.output_dim],
+                        row.route == "amd",
+                    )
+                })
+                .collect()
+        });
         let variant = if selection.vendor_specific {
             let gate: fn(u32, u32, u32) -> bool = if selection.vendor.is_intel() {
                 intel_matmul_geometry_supports
@@ -821,6 +944,10 @@ impl VendorMatmulKernel {
             portable,
             variant,
             scalar,
+            amd_routes,
+            amd_device,
+            qualify_modules: std::env::var_os(HIERARCHOS_VULKAN_QUALIFY_VENDOR_MODULES_ENV)
+                .is_some(),
         })
     }
 
@@ -848,6 +975,12 @@ impl VendorMatmulKernel {
         self.variant
             .as_ref()
             .is_some_and(|(_, gate)| gate(rows, input_dim, output_dim))
+            && (self.qualify_modules
+                || self
+                    .amd_routes
+                    .as_ref()
+                    .map(|routes| routes.get(&[rows, input_dim, output_dim]) == Some(&true))
+                    .unwrap_or(true))
     }
 
     /// True when these rows are below the scalar threshold. A vendor module
@@ -873,10 +1006,29 @@ impl VendorMatmulKernel {
         groups: [u32; 3],
     ) -> Result<()> {
         let geometry = push_geometry(push_constants);
+        if let (Some(device), Some(routes), Some((rows, input_dim, output_dim))) =
+            (&self.amd_device, &self.amd_routes, geometry)
+        {
+            if !self.qualify_modules
+                && !self.selects_variant_for(rows, input_dim, output_dim)
+                && std::env::var_os("HIERARCHOS_VULKAN_VARIANT_TRACE").is_some()
+            {
+                eprintln!(
+                    "variant-fallback: {}",
+                    serde_json::json!({
+                        "device": device, "family": self.family.label(), "rows": rows,
+                        "input_dim": input_dim, "output_dim": output_dim,
+                        "parameter_storage": "fp32-compute",
+                        "reason": if routes.contains_key(&[rows,input_dim,output_dim]) {
+                            "measured-portable" } else { "unmeasured-portable" }
+                    })
+                );
+            }
+        }
         let kernel = match &self.variant {
-            Some((variant, gate))
+            Some((variant, _))
                 if geometry.is_some_and(|(rows, input_dim, output_dim)| {
-                    gate(rows, input_dim, output_dim)
+                    self.selects_variant_for(rows, input_dim, output_dim)
                 }) =>
             {
                 record_variant_dispatch(self.family);
@@ -1333,6 +1485,28 @@ mod tests {
     }
 
     #[test]
+    fn gen9_pci_table_is_the_one_the_vendor_layer_publishes() {
+        // The table is defined in this file so the standalone shader harnesses
+        // can compile it; the vendor layer must agree for every ID it matches,
+        // and for the neighbours on either side of each range.
+        for device_id in [
+            0x1902u32, 0x1906, 0x190B, 0x1912, 0x1916, 0x191E, 0x1921, 0x1923, 0x1926, 0x1927,
+            0x192A, 0x192B, 0x1932, 0x193A, 0x193B, 0x193D, 0x5900, 0x591C, 0x593F, 0x5A84, 0x5A85,
+            0x87C0, 0x18FF, 0x1940, 0x58FF, 0x5940, 0x87BF, 0x87C1,
+        ] {
+            assert_eq!(
+                crate::vulkan::is_intel_gen9_pci_id(PCI_VENDOR_INTEL, device_id),
+                is_intel_gen9_pci_id(PCI_VENDOR_INTEL, device_id),
+                "Gen9 classification disagrees for device 0x{device_id:04X}",
+            );
+            assert!(!crate::vulkan::is_intel_gen9_pci_id(
+                PCI_VENDOR_AMD,
+                device_id
+            ));
+        }
+    }
+
+    #[test]
     fn vendor_classification_uses_pci_ids_not_names() {
         assert_eq!(GpuVendor::from_pci_vendor_id(0x1002), GpuVendor::Amd);
         assert_eq!(GpuVendor::from_pci_vendor_id(0x8086), GpuVendor::Intel);
@@ -1716,9 +1890,8 @@ mod tests {
         assert!(native_fp16_lm_compute_reliable_for(0x8086, 0x22B0)); // Braswell Gen8
     }
 
-    /// On this Intel target the wrapper must hold the variant and route by
-    /// geometry; on any other vendor, or with the kill switch, it must behave
-    /// exactly like the portable kernel slot.
+    /// Each physical vendor uses its own geometry gate; capability availability
+    /// alone must not apply Intel's crossover to AMD.
     #[test]
     fn vendor_matmul_kernel_routes_dispatch_geometry_to_the_right_module() -> Result<()> {
         let Some(device) = test_device()? else {
@@ -1729,7 +1902,8 @@ mod tests {
                 continue;
             }
             let kernel = VendorMatmulKernel::new(&device, family)?;
-            let expects_variant = select_kernel(&device, family).vendor_specific;
+            let selection = select_kernel(&device, family);
+            let expects_variant = selection.vendor_specific;
             assert_eq!(
                 kernel.variant_available(),
                 expects_variant,
@@ -1745,15 +1919,102 @@ mod tests {
                 (4, 32, 128, false),
                 (8, 64, 128, true),
             ] {
+                let geometry_supported = match selection.vendor {
+                    GpuVendor::Amd => {
+                        amd_matmul_geometry_supports(rows, input_dim, output_dim)
+                            && kernel.amd_routes.as_ref().is_some_and(|routes| {
+                                routes.get(&[rows, input_dim, output_dim]) == Some(&true)
+                            })
+                    }
+                    GpuVendor::Intel => intel_is_faster,
+                    _ => false,
+                };
                 assert_eq!(
                     kernel.selects_variant_for(rows, input_dim, output_dim),
-                    expects_variant && intel_is_faster,
+                    expects_variant && geometry_supported,
                     "{} routed rows={rows} k={input_dim} n={output_dim} incorrectly",
                     family.label()
                 );
             }
         }
         Ok(())
+    }
+
+    #[test]
+    fn unmeasured_fusion_replacement_is_scoped_to_the_qualified_intel_target() {
+        assert!(super::unmeasured_composition_is_qualified(
+            super::PCI_VENDOR_INTEL
+        ));
+        assert!(!super::unmeasured_composition_is_qualified(
+            super::PCI_VENDOR_AMD
+        ));
+        assert!(!super::unmeasured_composition_is_qualified(
+            super::PCI_VENDOR_NVIDIA
+        ));
+        assert!(!crate::decision_records::prefers_composition(
+            false, false, None
+        ));
+        assert!(!crate::decision_records::prefers_composition(
+            false,
+            false,
+            Some(crate::decision_records::Route::Staged)
+        ));
+        assert!(crate::decision_records::prefers_composition(
+            false,
+            true,
+            Some(crate::decision_records::Route::Staged)
+        ));
+    }
+
+    #[test]
+    fn amd_matmul_measurements_do_not_admit_other_drivers_or_unmeasured_shapes() {
+        let record = amd_matmul_measurements();
+        let faster = record
+            .decisions
+            .iter()
+            .find(|row| row.route == "amd")
+            .unwrap();
+        let lookup = |device: &str, rows, input_dim, output_dim| {
+            record
+                .decisions
+                .iter()
+                .find(|row| {
+                    row.device == device
+                        && row.family == faster.family
+                        && row.rows == rows
+                        && row.input_dim == input_dim
+                        && row.output_dim == output_dim
+                })
+                .is_some_and(|row| row.route == "amd")
+        };
+        assert!(lookup(
+            &faster.device,
+            faster.rows,
+            faster.input_dim,
+            faster.output_dim
+        ));
+        assert!(!lookup(
+            "AMD Radeon Graphics",
+            faster.rows,
+            faster.input_dim,
+            faster.output_dim
+        ));
+        assert!(!lookup(
+            &faster.device.replace("00800184", "00800185"),
+            faster.rows,
+            faster.input_dim,
+            faster.output_dim
+        ));
+        assert!(!lookup(
+            &faster.device,
+            u32::MAX,
+            faster.input_dim,
+            faster.output_dim
+        ));
+        assert!(record
+            .decisions
+            .iter()
+            .any(|row| row.route == "portable" && row.ratio_min > 1.02));
     }
 
     /// Families without a variant must resolve to the portable module on every
@@ -2463,7 +2724,7 @@ mod tests {
             family.label()
         );
         println!(
-            "vendor-kernel A/B {} [{case}]: portable={:.4}ms variant={:.4}ms speedup={:.3}x bit_exact=true max_abs_delta={max_abs_delta:.1e} (<= {REFERENCE_LOGIT_DRIFT:.1e}) max_ulp_delta={max_ulp_delta}",
+            "vendor-kernel A/B {} [{case}]: portable={:.7}ms variant={:.7}ms speedup={:.3}x bit_exact=true max_abs_delta={max_abs_delta:.1e} (<= {REFERENCE_LOGIT_DRIFT:.1e}) max_ulp_delta={max_ulp_delta}",
             family.label(),
             outcome.portable_ms,
             outcome.variant_ms,

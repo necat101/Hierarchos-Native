@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+from verify_peft_green_matrix import transformers_checkout
 
 # The legacy CLI harness selects its family at import time from argv.
 with patch.object(sys, "argv", ["verify_peft_lora_strict.py", "gpt2"]):
@@ -13,6 +14,16 @@ with patch.object(sys, "argv", ["verify_peft_lora_strict.py", "gpt2"]):
 
 
 class LocalTransformersProvenanceTests(unittest.TestCase):
+    def test_matrix_fingerprints_the_configured_oracle_instead_of_a_fixed_user_directory(self):
+        for environment, expected in (
+            ({"HIERARCHOS_TRANSFORMERS_CHECKOUT": "pinned-oracle"}, Path("pinned-oracle")),
+            ({"HIERARCHOS_TRANSFORMERS_ROOT": "peft-oracle",
+              "HIERARCHOS_TRANSFORMERS_CHECKOUT": "other-oracle"}, Path("peft-oracle")),
+            ({}, Path.home() / "transformers"),
+        ):
+            with self.subTest(environment=environment):
+                self.assertEqual(transformers_checkout(environment), expected.resolve())
+
     def test_accepts_requested_checkout_and_records_import(self):
         source = strict.TRANSFORMERS_ROOT / "src/transformers/__init__.py"
         oracle = SimpleNamespace(__file__=str(source), __version__="test-local")

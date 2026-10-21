@@ -632,7 +632,7 @@ impl RwkvChannelMixOp {
         batch: usize,
     ) -> Option<crate::decision_records::Route> {
         channel_mix_decisions().route_scoped(
-            self.device.name(),
+            self.device.decision_device_name(),
             self.width as u32,
             batch as u32,
             self.parameter_storage_policy(),
@@ -666,7 +666,9 @@ impl RwkvChannelMixOp {
         };
         crate::decision_records::prefers_composition(
             self.forward_fusion_forced,
-            self.linear_residual_forward.selects_variant_for(
+            (crate::vendor::unmeasured_composition_is_qualified(self.device.vendor_id())
+                || measured.is_some())
+            && self.linear_residual_forward.selects_variant_for(
                 batch as u32,
                 self.hidden_width as u32,
                 self.width as u32,
@@ -705,6 +707,58 @@ impl RwkvChannelMixOp {
 
     pub(crate) fn normalized_buffer(&self) -> &GpuBuffer {
         &self.normalized
+    }
+
+    pub(crate) fn supports_full_forward_fusion(&self) -> bool {
+        self.layer_norm_channel_mix_full_forward_fused.is_some()
+    }
+
+    pub(crate) fn layer_norm_weight_buffer(&self) -> &GpuBuffer {
+        &self.layer_norm_weight
+    }
+
+    pub(crate) fn layer_norm_bias_buffer(&self) -> &GpuBuffer {
+        &self.layer_norm_bias
+    }
+
+    pub(crate) fn mix_k_buffer(&self) -> &GpuBuffer {
+        &self.mix_k
+    }
+
+    pub(crate) fn key_weight_buffer(&self) -> &GpuBuffer {
+        &self.key_weight
+    }
+
+    pub(crate) fn value_weight_buffer(&self) -> &GpuBuffer {
+        &self.value_weight
+    }
+
+    pub(crate) fn norm_mean_buffer(&self) -> &GpuBuffer {
+        &self.norm_mean
+    }
+
+    pub(crate) fn norm_rstd_buffer(&self) -> &GpuBuffer {
+        &self.norm_rstd
+    }
+
+    pub(crate) fn mixed_buffer(&self) -> &GpuBuffer {
+        &self.mixed
+    }
+
+    pub(crate) fn key_buffer(&self) -> &GpuBuffer {
+        &self.cm_key
+    }
+
+    pub(crate) fn ffn_buffer(&self) -> &GpuBuffer {
+        &self.ffn
+    }
+
+    pub(crate) fn key_clamp(&self) -> f32 {
+        self.key_clamp
+    }
+
+    pub(crate) fn deepembed_clamp(&self) -> f32 {
+        self.deepembed_clamp
     }
 
     pub(crate) fn trainables(&self) -> Vec<RwkvTrainableRef<'_>> {

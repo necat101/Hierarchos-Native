@@ -11,6 +11,13 @@
     "0"
   ],
   "shader_barrier_count_max": 3076,
+  "structural_probe_environments": {
+    "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]": {
+      "HIERARCHOS_RWKV_STATE_BACKWARD_SCHEDULE": "rkv",
+      "HIERARCHOS_RWKV_PROJECTION_BACKWARD_SCHEDULE": "split-weight",
+      "HIERARCHOS_RWKV_LOW_RANK_FAN_IN_SCHEDULE": "fused-outer"
+    }
+  },
   "devices": {
     "AMD Radeon Graphics": {
       "mean_loss": 5.543217,

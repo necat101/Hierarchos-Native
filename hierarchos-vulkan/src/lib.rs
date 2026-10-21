@@ -192,7 +192,8 @@ pub use transformer::{
     VULKAN_TRANSFORMER_ADAPTER_WEIGHTS_FILENAME,
 };
 pub use vendor::{
-    effective_vendor, native_fp16_lm_compute_reliable, select_kernel, variant_dispatch_counts,
+    effective_vendor, native_fp16_lm_compute_reliable, select_kernel,
+    unmeasured_composition_is_qualified, variant_dispatch_counts,
     vendor_kernel_plan, GpuVendor, VendorKernelFamily, VendorKernelSelection,
     HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS_ENV,
     HIERARCHOS_VULKAN_FORCE_NATIVE_FP16_LM_COMPUTE_ENV, HIERARCHOS_VULKAN_FORCE_VENDOR_ENV,

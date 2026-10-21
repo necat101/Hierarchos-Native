@@ -1350,6 +1350,8 @@ def compare_family(
     atol: float,
     rtol: float,
     padded: bool = False,
+    *,
+    raise_on_mismatch: bool = True,
 ) -> dict[str, object]:
     case = "padded" if padded else "unmasked"
     model_dir = root / name / case
@@ -1435,6 +1437,7 @@ def compare_family(
         if text:
             stream.write(text)
     variant_dispatches: dict[str, int] = {}
+    variant_fallbacks: list[dict] = []
     if trace_family is not None:
         variant_plan: dict[str, str] = {}
         for line in completed.stderr.splitlines():
@@ -1446,14 +1449,17 @@ def compare_family(
                 for entry in line.split(":", 1)[1].split():
                     key, _, value = entry.partition("=")
                     variant_dispatches[key] = int(value)
+            elif line.startswith("variant-fallback:"):
+                variant_fallbacks.append(json.loads(line.split(":", 1)[1]))
         if trace_family not in variant_plan:
             raise AssertionError(
                 f"{name}: probe reported no kernel plan; saw {variant_plan or 'nothing'}"
             )
         # A plan that resolves to `portable` means this adapter has no module for
         # the family (or the run forced the portable path on purpose), and then the
-        # tuned module must not be dispatched at all. An admitted plan must be
-        # dispatched, otherwise the geometry gate silently swallowed the fixture.
+        # tuned module must not be dispatched at all. AMD may explicitly retain
+        # portable after measurement, or while a geometry remains unmeasured;
+        # a zero vendor count then requires independently checked route evidence.
         dispatched = variant_dispatches.get(trace_family, 0)
         if variant_plan[trace_family] == "portable":
             if dispatched:
@@ -1462,10 +1468,14 @@ def compare_family(
                     f"{dispatched} vendor modules"
                 )
         elif not dispatched:
-            raise AssertionError(
-                f"{name}: {trace_family} planned {variant_plan[trace_family]} but "
-                f"dispatched 0 modules; counter reported {variant_dispatches or 'nothing'}"
-            )
+            from vendor_matmul_measurements import validates_fallback
+            if not (variant_plan[trace_family].startswith("amd-") and any(
+                    validates_fallback(row, trace_family) for row in variant_fallbacks)):
+                raise AssertionError(
+                    f"{name}: {trace_family} planned {variant_plan[trace_family]} but "
+                    f"dispatched 0 modules with no valid measured/default portable route; "
+                    f"counter reported {variant_dispatches or 'nothing'}"
+                )
     report = json.loads(report_path.read_text(encoding="utf-8"))
     actual = torch.tensor(report["logits"], dtype=torch.float32)
     if actual.shape != reference.shape:
@@ -1486,6 +1496,7 @@ def compare_family(
         "family": name,
         "case": case,
         "variant_dispatches": variant_dispatches,
+        "variant_fallbacks": variant_fallbacks,
         "architecture": report["architecture"],
         "device": report["device"],
         "values": actual.numel(),
@@ -1500,7 +1511,8 @@ def compare_family(
         result["worst_index"] = worst
         result["hf"] = float(reference[worst].item())
         result["vulkan"] = float(actual[worst].item())
-        raise AssertionError(json.dumps(result, indent=2))
+        if raise_on_mismatch:
+            raise AssertionError(json.dumps(result, indent=2))
     if not (math.isfinite(max_abs) and math.isfinite(max_rel)):
         raise AssertionError(f"{name}: non-finite parity metric")
     return result

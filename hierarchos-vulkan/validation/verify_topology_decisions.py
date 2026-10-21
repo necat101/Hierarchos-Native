@@ -108,7 +108,11 @@ RECORD_NOTE = (
     "`contention_spread` is how far the default's own per-round samples moved "
     "(slowest/fastest) and `contended` says whether that was over the autotuner's "
     "threshold; a contended sweep is not evidence, so it keeps the structural default "
-    "and never enters this record."
+    "and never enters this record. `required_margin_fraction` records the actual "
+    "performance admission margin for this adapter/geometry; older entries use 2%. "
+    "The measured Ally width-128 FP32 profile requires 15% in every round because "
+    "quiet 3-6% wins alternated between topologies inside a 13.7% sample spread. "
+    "This changes scheduling admission, not a numerical tolerance."
 )
 
 # Fields the unanimous-round rule introduced. A record from before it carries none of
@@ -218,6 +222,9 @@ def stability_problems(entry, label):
     default = entry["structural_default"]
     rounds = entry["rounds"]
     wins = entry["round_wins"]
+    required_margin = entry.get("required_margin_fraction", 0.02)
+    if not isinstance(required_margin, (int, float)) or not 0.0 < required_margin < 1.0:
+        problems.append(f"{label}: invalid performance admission margin {required_margin!r}")
     if selected not in wins:
         return [
             f"{label}: selected {selected!r} is not among the measured candidates "
@@ -252,6 +259,9 @@ def stability_problems(entry, label):
             problems.append(
                 f"{label}: {selected} won every round but records no decisive margin"
             )
+        elif (isinstance(required_margin, (int, float))
+              and entry["decisive_margin_fraction"] < required_margin):
+            problems.append(f"{label}: decisive margin is below the recorded performance admission margin")
     elif wins.get(selected, 0):
         problems.append(
             f"{label}: kept {selected} as the default yet records it winning "
@@ -282,6 +292,9 @@ def compare(replay, recorded, device):
                 problems.append(f"{label}: measured here but not recorded; run with --record")
             continue
         problems.extend(stability_problems(entry, label))
+        if known.get("required_margin_fraction", 0.02) != entry.get("required_margin_fraction", 0.02):
+            problems.append(f"{label}: performance admission margin changed; re-record its measurements")
+            continue
         if entry.get("contended"):
             notes.append(
                 f"{label}: contended sweep (spread "

@@ -4399,6 +4399,126 @@
       "compiler_version": "2023.8",
       "flags": [],
       "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_bias_forward_amd_rdna3_kblock128.spv",
+      "source": "linear_bias_forward_amd_rdna3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-DCPU_K_BLOCK128=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "linear_input_grad_group4_muladd.spv",
+      "source": "linear_input_grad_group4_muladd.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "packed_cell_channel_mix_state_forward_fused.spv",
+      "source": "packed_cell_channel_mix_state_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "packed_cell_channel_mix_state_forward_fused_wg128.spv",
+      "source": "packed_cell_channel_mix_state_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-DPACKED_CELL_FORWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "packed_cell_channel_mix_state_forward_fused_wg32.spv",
+      "source": "packed_cell_channel_mix_state_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-DPACKED_CELL_FORWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "packed_cell_channel_mix_state_forward_fused_wg64.spv",
+      "source": "packed_cell_channel_mix_state_forward_fused.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-DPACKED_CELL_FORWARD_WORKGROUP_SIZE=64"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_layer_norm_welford_forward.spv",
+      "source": "transformer_layer_norm_welford_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_fused_add_amd_rdna3_wg32.spv",
+      "source": "rwkv_time_mix3_backward_fused_add_amd_rdna3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_fused_add_amd_rdna3.spv",
+      "source": "rwkv_time_mix3_backward_fused_add_amd_rdna3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_fused_add_amd_rdna3_wg128.spv",
+      "source": "rwkv_time_mix3_backward_fused_add_amd_rdna3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_fused_add_outer_amd_rdna3_wg32.spv",
+      "source": "rwkv_time_mix3_backward_fused_add_outer_amd_rdna3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=32"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_fused_add_outer_amd_rdna3.spv",
+      "source": "rwkv_time_mix3_backward_fused_add_outer_amd_rdna3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rwkv_time_mix3_backward_fused_add_outer_amd_rdna3_wg128.spv",
+      "source": "rwkv_time_mix3_backward_fused_add_outer_amd_rdna3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=128"
+      ],
+      "target_env": "vulkan1.0"
     }
   ]
 }

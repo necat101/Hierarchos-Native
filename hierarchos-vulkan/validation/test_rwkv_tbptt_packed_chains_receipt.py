@@ -37,6 +37,20 @@ EXPECTED_TENSORS = {
     "token_feature_grad",
     "grad_initial_packed_state",
 }
+
+
+class FoldedTrajectoryAdmissionTest(unittest.TestCase):
+    def test_raw_ulp_allowance_does_not_waive_exact_shipping_trajectory(self):
+        run = dict(folded_candidate=True, folded_ms=0.8, fused_ms=1.0, staged_ms=1.1,
+                   folded_max_abs=1e-7, folded_parameter_delta=0.0)
+        self.assertIn("withheld", driver.withheld_backward_reason(run))
+        self.assertIsNone(driver.withheld_backward_reason(dict(run, folded_ms=1.2)))
+        self.assertIsNone(driver.withheld_backward_reason(dict(run, folded_candidate=False)))
+        self.assertIsNone(driver.withheld_backward_reason(dict(run, folded_max_abs=0.0)))
+        self.assertIsNotNone(driver.withheld_backward_reason(dict(run, folded_max_abs=0.0,
+                                                                 folded_parameter_delta=1e-8)))
+
+
 CHAINS = {
     "forward": {
         "receipt": ROOT / "validation" / "tbptt_packed_forward_bench.json",
@@ -319,7 +333,7 @@ class PackedChainReceiptTest(unittest.TestCase):
                         self.assertEqual(entry["route"], winner)
                 for entry in record["decisions"]:
                     with self.subTest(chain=chain, batch=entry["batch"]):
-                        self.assertEqual(entry["device"], "Intel(R) HD Graphics 520")
+                        self.assertTrue(entry["device"].strip())
                         self.assertEqual(entry["width"], 128)
                         self.assertEqual(entry["source"], "measured")
                         self.assertEqual(entry["probe"], spec["probe"])
@@ -397,6 +411,12 @@ class PackedChainReceiptTest(unittest.TestCase):
         so the refusal is gone and the shared FP32 entries are unchanged.
         """
         _, forward = self.pairs["forward"]
+        device = self.pairs["forward"][0]["device"]
+        # This control describes the archived receipt's adapter; other devices
+        # may independently choose different routes and storage-policy verdicts.
+        forward = dict(forward,
+                       decisions=[entry for entry in forward["decisions"] if entry["device"] == device],
+                       withheld=[entry for entry in forward["withheld"] if entry["device"] == device])
         structural = CHAINS["forward"]["default"]
         moves = {
             entry["batch"]
@@ -427,7 +447,7 @@ class PackedChainReceiptTest(unittest.TestCase):
             )
         _, remat = self.pairs["remat"]
         self.assertEqual(
-            remat["withheld"],
+            [entry for entry in remat["withheld"] if entry["device"] == device],
             [],
             "rematerialization's measured verdicts are its structural default, so no "
             "policy refuses anything there",

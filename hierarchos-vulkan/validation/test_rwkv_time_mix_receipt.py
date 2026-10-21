@@ -24,6 +24,7 @@ import os
 import statistics
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -38,6 +39,26 @@ TENSORS = {"output", "packed_new_state", "grad_x", "grad_packed_state", "token_f
 # entry for a geometry it measures in here and leaves the geometry to the vendor
 # gate, so the record can never claim a crossover the measurement no longer shows.
 NOISE_BAND = 0.02
+
+
+class RecurrentCompositionAdmissionTest(unittest.TestCase):
+    def test_single_cell_agreement_does_not_promote_the_known_recurrent_rounding_change(self):
+        import ab_harness as ab
+        import bench_rwkv_packed_cell_time_mix as driver
+        run = dict(device=driver.WITHHELD_DEVICE, width=128, batch=8,
+                   composed_over_fused=0.9, worst_max_abs=0.0,
+                   fused={"timing": {"median_ms": 1.0}},
+                   composed={"timing": {"median_ms": 0.9}})
+        with tempfile.TemporaryDirectory() as directory:
+            record, _ = ab.record_decisions(
+                Path(directory) / "routes.json", [run], kind=driver.RECORD_KIND,
+                probe_key=driver.PROBE_KEY, margin=0.02,
+                withhold_when=driver.withheld_reason)
+        self.assertEqual(record["decisions"][0]["route"], "staged")
+        self.assertEqual(record["withheld"][0]["parameter_storage"], "fp32")
+        self.assertIn("eight-timestep", record["withheld"][0]["reason"])
+        self.assertIsNone(driver.withheld_reason(dict(run, device="Intel(R) HD Graphics 520")))
+        self.assertIsNone(driver.withheld_reason(dict(run, composed_over_fused=1.1)))
 
 
 class TimeMixBenchReceiptTest(unittest.TestCase):

@@ -4,7 +4,83 @@
   "measured_by": "validation/bench_rwkv_key_state_forward.py",
   "margin": 0.02,
   "notes": "One entry per (adapter, width, batch) the key-transform/state-update forward route was measured at. `route` is the winning graph, from the three candidates the stage builds: `wide-fused` is the wider-group fused kernel (64 / head_size heads per workgroup, all 64 lanes in both phases), `narrow-fused` is the one-workgroup-per-head kernel it replaced, and `staged` is the two-dispatch chain (`key_transform_forward` then `state_forward`). `candidates` holds each candidate's measured median milliseconds, so the recorded route has to agree with the measurement that produced it; the loader rejects an entry whose route is not its fastest candidate. Naming each fused arm as its own route is what replaced the earlier compose-plus-arm pair. On this Intel Gen9 part the wider group wins every measured batch, 1 through 32. Its all-lane transform phase removed the batch-16 crossover and the reason the narrow arm existed; what was left at batch 32 was the state phase, whose row loop re-evaluated its channel-invariant operands (exp(-exp(w)), kk * a, r) for every row and lost 19% to the chain there. The transform phase now stages those operands once per channel through shared memory, which removed the remaining gap while keeping the graphs bit-identical, so batch 32 is a wide entry rather than a staged one. An entry may carry `parameter_storage` to scope the whole route, arm included, to one storage policy; the policy-less entry is what every other policy reads. An empty list means no adapter has been measured yet, and a device with no entry keeps the structural default: the fusion with the wider-group arm. A geometry measured inside the 2% noise band is a tie and carries no entry at all. Re-record a new adapter's own entries with `--record-decisions`. Phase-level GPU time behind these numbers is in `key_state_forward_profile.json` (`validation/profile_rwkv_key_state_forward.py`).",
+  "withheld": [],
   "decisions": [
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 1,
+      "route": "wide-fused",
+      "candidates": {
+        "wide-fused": 0.020828,
+        "narrow-fused": 0.022777,
+        "staged": 0.034407
+      },
+      "probe": "key-state-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_key_state_forward.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 4,
+      "route": "wide-fused",
+      "candidates": {
+        "wide-fused": 0.027322,
+        "narrow-fused": 0.028444,
+        "staged": 0.042042
+      },
+      "probe": "key-state-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_key_state_forward.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 8,
+      "route": "wide-fused",
+      "candidates": {
+        "wide-fused": 0.033438,
+        "narrow-fused": 0.034424,
+        "staged": 0.053512
+      },
+      "probe": "key-state-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_key_state_forward.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 16,
+      "route": "wide-fused",
+      "candidates": {
+        "wide-fused": 0.044826,
+        "narrow-fused": 0.05065,
+        "staged": 0.068223
+      },
+      "probe": "key-state-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_key_state_forward.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 32,
+      "route": "wide-fused",
+      "candidates": {
+        "wide-fused": 0.083139,
+        "narrow-fused": 0.090514,
+        "staged": 0.123265
+      },
+      "probe": "key-state-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_key_state_forward.py"
+    },
     {
       "device": "Intel(R) HD Graphics 520",
       "width": 128,

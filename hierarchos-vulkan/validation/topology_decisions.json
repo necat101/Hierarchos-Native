@@ -1,7 +1,65 @@
 {
   "schema": 1,
-  "note": "Measured LN1/low-rank kernel-topology decisions, one entry per (family, device, geometry). Written only by `validation/verify_topology_decisions.py --record`, which merges this machine's replayed decisions and leaves every other device's entries as they were; `timings_ms` are the medians the choice was made from and `selected` is the variant the device chose. `margin_fraction` is how much the fastest candidate beat the structural default on those medians. A variant is only selected when it beats `structural_default` by the material margin in every one of `rounds` interleaved rounds: `round_wins` counts the rounds each candidate won, `decisive_margin_fraction` is the narrowest per-round lead of the selected variant, and a decision that is not unanimous records the default with the rounds it failed on instead of a variant the device does not actually reproduce. `contention_spread` is how far the default's own per-round samples moved (slowest/fastest) and `contended` says whether that was over the autotuner's threshold; a contended sweep is not evidence, so it keeps the structural default and never enters this record.",
+  "note": "Measured LN1/low-rank kernel-topology decisions, one entry per (family, device, geometry). Written only by `validation/verify_topology_decisions.py --record`, which merges this machine's replayed decisions and leaves every other device's entries as they were; `timings_ms` are the medians the choice was made from and `selected` is the variant the device chose. `margin_fraction` is how much the fastest candidate beat the structural default on those medians. A variant is only selected when it beats `structural_default` by the material margin in every one of `rounds` interleaved rounds: `round_wins` counts the rounds each candidate won, `decisive_margin_fraction` is the narrowest per-round lead of the selected variant, and a decision that is not unanimous records the default with the rounds it failed on instead of a variant the device does not actually reproduce. `contention_spread` is how far the default's own per-round samples moved (slowest/fastest) and `contended` says whether that was over the autotuner's threshold; a contended sweep is not evidence, so it keeps the structural default and never enters this record. `required_margin_fraction` records the actual performance admission margin for this adapter/geometry; older entries use 2%. The measured Ally width-128 FP32 profile requires 15% in every round because quiet 3-6% wins alternated between topologies inside a 13.7% sample spread. This changes scheduling admission, not a numerical tolerance.",
   "decisions": [
+    {
+      "family": "ln-low-rank-f32",
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "subgroup_size": 64,
+      "width": 64,
+      "w_rank": 8,
+      "a_rank": 8,
+      "g_rank": 8,
+      "batch_pairs": 1,
+      "has_unpaired_tail": false,
+      "timings_ms": {
+        "ln-low-rank-f32-one-row": 0.057362,
+        "ln-low-rank-f32-two-rows": 0.068602,
+        "ln-low-rank-f32-column-slices": 0.057392
+      },
+      "rounds": 7,
+      "round_wins": {
+        "ln-low-rank-f32-one-row": 0,
+        "ln-low-rank-f32-two-rows": 0,
+        "ln-low-rank-f32-column-slices": 0
+      },
+      "decisive_margin_fraction": 0.0,
+      "required_margin_fraction": 0.02,
+      "selected": "ln-low-rank-f32-one-row",
+      "structural_default": "ln-low-rank-f32-one-row",
+      "margin_fraction": 0.0,
+      "contention_spread": 1.0025,
+      "contended": false
+    },
+    {
+      "family": "ln-low-rank-f32",
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "subgroup_size": 64,
+      "width": 128,
+      "w_rank": 32,
+      "a_rank": 32,
+      "g_rank": 64,
+      "batch_pairs": 2,
+      "has_unpaired_tail": true,
+      "timings_ms": {
+        "ln-low-rank-f32-one-row": 0.215908,
+        "ln-low-rank-f32-two-rows": 0.253482,
+        "ln-low-rank-f32-column-slices": 0.201167
+      },
+      "rounds": 7,
+      "round_wins": {
+        "ln-low-rank-f32-one-row": 0,
+        "ln-low-rank-f32-two-rows": 0,
+        "ln-low-rank-f32-column-slices": 0
+      },
+      "decisive_margin_fraction": 0.0,
+      "required_margin_fraction": 0.15,
+      "selected": "ln-low-rank-f32-one-row",
+      "structural_default": "ln-low-rank-f32-one-row",
+      "margin_fraction": 0.06827,
+      "contention_spread": 1.1281,
+      "contended": false
+    },
     {
       "family": "ln-low-rank-f32",
       "device": "Intel(R) HD Graphics 520",

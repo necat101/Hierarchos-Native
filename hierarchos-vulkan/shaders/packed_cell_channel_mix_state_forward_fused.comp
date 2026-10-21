@@ -1,0 +1,179 @@
+#version 450
+
+// Packed-cell scheduler fusion for coherent-v9 widths up to 512. This keeps
+// the public packed-state layout owned by the scheduler while reusing the same
+// channel-mix arithmetic/tapes as layer_norm_channel_mix_full_forward_fused.
+// Matrix-state production remains owned by time-mix and enters here read-only.
+#ifndef PACKED_CELL_FORWARD_WORKGROUP_SIZE
+#define PACKED_CELL_FORWARD_WORKGROUP_SIZE 256
+#endif
+
+layout(local_size_x = PACKED_CELL_FORWARD_WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BiasBuffer { float bias[]; };
+layout(set = 0, binding = 3, std430) readonly buffer PreviousBuffer { float previous[]; };
+layout(set = 0, binding = 4, std430) readonly buffer MixBuffer { float mix_coeff[]; };
+layout(set = 0, binding = 5, std430) readonly buffer KeyWeightBuffer { float key_weight[]; };
+layout(set = 0, binding = 6, std430) readonly buffer DeepEmbedBuffer { float deepembed[]; };
+layout(set = 0, binding = 7, std430) readonly buffer ValueWeightBuffer { float value_weight[]; };
+layout(set = 0, binding = 8, std430) readonly buffer XNormBuffer { float x_norm[]; };
+layout(set = 0, binding = 9, std430) readonly buffer VFirstBuffer { float v_first[]; };
+layout(set = 0, binding = 10, std430) readonly buffer MatrixStateBuffer { float matrix_state[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer NormalizedBuffer { float normalized_values[]; };
+layout(set = 0, binding = 12, std430) writeonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 13, std430) writeonly buffer RstdBuffer { float rstd_values[]; };
+layout(set = 0, binding = 14, std430) writeonly buffer MixedBuffer { float mixed[]; };
+layout(set = 0, binding = 15, std430) writeonly buffer KeyBuffer { float key_values[]; };
+layout(set = 0, binding = 16, std430) writeonly buffer FfnBuffer { float ffn[]; };
+layout(set = 0, binding = 17, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 18, std430) writeonly buffer PackedStateBuffer { float packed_state[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint width;
+    uint hidden_width;
+    uint head_size;
+    uint matrix_offset;
+    float eps;
+    float key_clamp;
+    float deepembed_clamp;
+    float state_clamp;
+    uint flags;
+} pc;
+
+const uint FORWARD_ONLY = 1u;
+const uint MATRIX_ALREADY_PACKED = 2u;
+
+shared float mixed_shared[512];
+shared float ffn_shared[2048];
+shared float row_mean;
+shared float row_rstd;
+
+float clamp_preserve_nonfinite(float value, float limit) {
+    if (limit <= 0.0 || isnan(value) || isinf(value)) {
+        return value;
+    }
+    return clamp(value, -limit, limit);
+}
+
+uint packed_index(uint vector_index, uint slot) {
+    return vector_index * (pc.matrix_offset + pc.head_size) + slot;
+}
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    uint lane = gl_LocalInvocationID.x;
+    uint base = row * pc.width;
+
+    if (lane == 0u) {
+        float mean = 0.0;
+        for (uint col = 0; col < pc.width; ++col) {
+            mean += x[base + col];
+        }
+        mean /= float(pc.width);
+
+        float variance = 0.0;
+        for (uint col = 0; col < pc.width; ++col) {
+            float centered = x[base + col] - mean;
+            variance = fma(centered, centered, variance);
+        }
+        variance /= float(pc.width);
+        float rstd = inversesqrt(variance + pc.eps);
+        row_mean = mean;
+        row_rstd = rstd;
+        if ((pc.flags & FORWARD_ONLY) == 0u) {
+            mean_values[row] = mean;
+            rstd_values[row] = rstd;
+        }
+    }
+
+    barrier();
+
+    // Mean/variance stay lane-0 serial so strict-parity reduction order is
+    // unchanged. Once those scalars are fixed, each normalized/mixed element is
+    // independent, so spread that formerly serial third width loop across the
+    // workgroup without changing the arithmetic performed for any element.
+    for (uint col = lane; col < pc.width; col += gl_WorkGroupSize.x) {
+        uint index = base + col;
+        float normalized = (x[index] - row_mean) * row_rstd;
+        float value = fma(normalized, weight[col], bias[col]);
+        float mixed_value = fma(previous[index] - value, mix_coeff[col], value);
+        if ((pc.flags & FORWARD_ONLY) == 0u) {
+            normalized_values[index] = value;
+            mixed[index] = mixed_value;
+        }
+        mixed_shared[col] = mixed_value;
+        packed_state[packed_index(index, 1u)] =
+            clamp_preserve_nonfinite(value, pc.state_clamp);
+    }
+
+    barrier();
+
+    uint hidden_base = row * pc.hidden_width;
+    for (uint out_col = lane; out_col < pc.hidden_width; out_col += gl_WorkGroupSize.x) {
+        float sum = 0.0;
+        uint w_base = out_col * pc.width;
+        for (uint col = 0; col < pc.width; ++col) {
+            sum = fma(mixed_shared[col], key_weight[w_base + col], sum);
+        }
+
+        uint hidden_index = hidden_base + out_col;
+        if ((pc.flags & FORWARD_ONLY) == 0u) {
+            key_values[hidden_index] = sum;
+        }
+        float key = clamp_preserve_nonfinite(sum, pc.key_clamp);
+        float activated = max(key, 0.0);
+        float deep = clamp_preserve_nonfinite(deepembed[hidden_index], pc.deepembed_clamp);
+        float value = activated * activated * deep;
+        if (pc.key_clamp > 0.0 && pc.deepembed_clamp > 0.0 && !isnan(value) && !isinf(value)) {
+            float limit = pc.key_clamp * pc.key_clamp * pc.deepembed_clamp;
+            value = clamp(value, -limit, limit);
+        }
+        if ((pc.flags & FORWARD_ONLY) == 0u) {
+            ffn[hidden_index] = value;
+        }
+        ffn_shared[out_col] = value;
+    }
+
+    barrier();
+
+    uint state_size = pc.matrix_offset + pc.head_size;
+    for (uint out_col = lane; out_col < pc.width; out_col += gl_WorkGroupSize.x) {
+        float sum = 0.0;
+        uint w_base = out_col * pc.hidden_width;
+        for (uint col = 0; col < pc.hidden_width; ++col) {
+            sum = fma(ffn_shared[col], value_weight[w_base + col], sum);
+        }
+        uint vector_index = base + out_col;
+        float output_value = x[vector_index] + sum;
+        output_values[vector_index] = output_value;
+
+        uint packed_base = vector_index * state_size;
+        packed_state[packed_base] = clamp_preserve_nonfinite(x_norm[vector_index], pc.state_clamp);
+        packed_state[packed_base + 2u] =
+            clamp_preserve_nonfinite(v_first[vector_index], pc.state_clamp);
+        if (pc.matrix_offset == 4u) {
+            packed_state[packed_base + 3u] =
+                clamp_preserve_nonfinite(output_value, pc.state_clamp);
+        }
+    }
+
+    if ((pc.flags & MATRIX_ALREADY_PACKED) == 0u) {
+        uint matrix_row_len = pc.width * pc.head_size;
+        for (uint matrix_local = lane; matrix_local < matrix_row_len;
+             matrix_local += gl_WorkGroupSize.x) {
+            uint col = matrix_local / pc.head_size;
+            uint matrix_col = matrix_local - col * pc.head_size;
+            uint vector_index = base + col;
+            uint matrix_index = vector_index * pc.head_size + matrix_col;
+            uint packed_base = vector_index * state_size;
+            packed_state[packed_base + pc.matrix_offset + matrix_col] =
+                clamp_preserve_nonfinite(matrix_state[matrix_index], pc.state_clamp);
+        }
+    }
+}

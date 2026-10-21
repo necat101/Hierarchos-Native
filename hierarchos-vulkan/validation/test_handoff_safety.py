@@ -4,11 +4,32 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from qualify_handoff import protect_routes
+from qualify_handoff import protect_routes, qualification_commands
 from check_stable_probe_parity import write_source
 
 
 class HandoffSafetyTests(unittest.TestCase):
+    def test_complete_requalification_includes_both_profiles_network_and_frontends(self):
+        def python(script, *args):
+            return [script, *map(str, args)]
+        before = dict(qualification_commands(python, Path("oracle"), Path("before"), "amd"))
+        after = dict(qualification_commands(python, Path("oracle"), Path("after"), "amd"))
+        self.assertEqual(set(before), {
+            "python-contracts", "all-binaries", "library-and-trainer", "two-rank-tcp",
+            "hierarchos-inference", "hierarchos-native-cli", "hierarchos-gui",
+            "stable-recurrent", "stable-logits", "rwkv-vendor-composition", "rwkv-cpu-bridge",
+            "training-stack-release", "training-stack-debug",
+        })
+        self.assertEqual(set(before), set(after))
+        self.assertIn("--release", after["training-stack-release"])
+        self.assertNotIn("--release", after["training-stack-debug"])
+        self.assertIn("both", after["stable-recurrent"])
+        self.assertIn("--with-inference-logits", after["stable-recurrent"])
+        self.assertIn("--extended", after["stable-recurrent"])
+        self.assertIn("amd", after["rwkv-vendor-composition"])
+        self.assertIn(str(Path("before") / "stable-recurrent.json"), before["stable-recurrent"])
+        self.assertIn(str(Path("after") / "stable-recurrent.json"), after["stable-recurrent"])
+
     def test_failed_tuning_restores_original_bytes_before_rebuilding(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "routes.json"

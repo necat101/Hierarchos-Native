@@ -361,7 +361,7 @@ fn main() -> Result<()> {
     let worst_max_abs = require_agreement(&tensors, atol, rtol)?;
 
     let output = Output {
-        device: fused.device_name().to_string(),
+        device: fused.decision_device_name().to_owned(),
         width: fused.width(),
         state_size: fused.state_size(),
         batch: case.batch,

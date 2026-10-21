@@ -45,6 +45,8 @@ const LINEAR_FORWARD_LANE2_SPV: &[u8] = include_bytes!("../shaders/linear_forwar
 const LINEAR_FORWARD_LANE4_SPV: &[u8] = include_bytes!("../shaders/linear_forward_lane4.spv");
 const LINEAR_BIAS_FORWARD_LANE2_SPV: &[u8] =
     include_bytes!("../shaders/linear_bias_forward_lane2.spv");
+const LINEAR_BIAS_FORWARD_AMD_KBLOCK128_SPV: &[u8] =
+    include_bytes!("../shaders/linear_bias_forward_amd_rdna3_kblock128.spv");
 const LORA_A_FORWARD_SPV: &[u8] = include_bytes!("../shaders/lora_a_forward.spv");
 const LORA_A_FORWARD_LANE8_MULADD_SPV: &[u8] =
     include_bytes!("../shaders/lora_a_forward_lane8_muladd.spv");
@@ -52,10 +54,14 @@ const LINEAR_WEIGHT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_weight_g
 const LINEAR_INPUT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad.spv");
 const LINEAR_INPUT_GRAD_MULADD_SPV: &[u8] =
     include_bytes!("../shaders/linear_input_grad_muladd.spv");
+const LINEAR_INPUT_GRAD_GROUP4_MULADD_SPV: &[u8] =
+    include_bytes!("../shaders/linear_input_grad_group4_muladd.spv");
 const LINEAR_INPUT_GRAD_LANE2_SPV: &[u8] = include_bytes!("../shaders/linear_input_grad_lane2.spv");
 const BIAS_GRAD_SPV: &[u8] = include_bytes!("../shaders/bias_grad.spv");
 const BIAS_ADD_SPV: &[u8] = include_bytes!("../shaders/transformer_bias_add.spv");
 const LAYER_NORM_FORWARD_SPV: &[u8] = include_bytes!("../shaders/layer_norm_forward.spv");
+const LAYER_NORM_WELFORD_FORWARD_SPV: &[u8] =
+    include_bytes!("../shaders/transformer_layer_norm_welford_forward.spv");
 const LAYER_NORM_INPUT_GRAD_SPV: &[u8] = include_bytes!("../shaders/layer_norm_input_grad.spv");
 const LAYER_NORM_PARAM_GRAD_SPV: &[u8] = include_bytes!("../shaders/layer_norm_param_grad.spv");
 const GROUPED_LAYER_NORM_FORWARD_SPV: &[u8] =
@@ -25931,9 +25937,13 @@ struct TransformerKernels {
     lora_a_forward: vulkan::ComputeKernel,
     lora_a_forward_lane8_muladd: vulkan::ComputeKernel,
     linear_bias_forward: vendor::VendorMatmulKernel,
+    linear_bias_forward_kblock128: Option<vulkan::ComputeKernel>,
     linear_weight_grad: vulkan::ComputeKernel,
     linear_input_grad: vulkan::ComputeKernel,
     linear_input_grad_muladd: vulkan::ComputeKernel,
+    /// PEFT-only pipeline: ordinary inference must not compile or allocate it.
+    linear_input_grad_group4_muladd: OnceLock<Result<vulkan::ComputeKernel, String>>,
+    peft_kernel_device: VulkanDevice,
     linear_input_grad_lane2: vulkan::ComputeKernel,
     bias_grad: vulkan::ComputeKernel,
     bias_add: vulkan::ComputeKernel,
@@ -26088,6 +26098,17 @@ struct TransformerKernels {
 }
 
 impl TransformerKernels {
+    fn lora_b_group4_adjoint(&self) -> Result<&vulkan::ComputeKernel> {
+        match self.linear_input_grad_group4_muladd.get_or_init(|| {
+            vulkan::ComputeKernel::new(
+                &self.peft_kernel_device, LINEAR_INPUT_GRAD_GROUP4_MULADD_SPV, 3, 12,
+            ).map_err(|error| error.to_string())
+        }) {
+            Ok(kernel) => Ok(kernel),
+            Err(error) => bail!("create LoRA-B group-four adjoint pipeline: {error}"),
+        }
+    }
+
     /// Materialized log-softmax cross-entropy at the host's ATen vector width.
     ///
     /// The two modules are the same source built with 16 and 8 interleaved
@@ -26113,6 +26134,10 @@ impl TransformerKernels {
     }
 
     fn new(device: &VulkanDevice) -> Result<Self> {
+        Self::new_with_layer_norm(device, LAYER_NORM_FORWARD_SPV)
+    }
+
+    fn new_with_layer_norm(device: &VulkanDevice, layer_norm_spv: &[u8]) -> Result<Self> {
         Ok(Self {
             attention_backward_work_budget: vendor::attention_backward_work_budget(device),
             linear_forward: vendor::VendorMatmulKernel::new(
@@ -26148,6 +26173,7 @@ impl TransformerKernels {
                 device,
                 vendor::VendorKernelFamily::LinearBiasForward,
             )?,
+            linear_bias_forward_kblock128: None,
             linear_weight_grad: vulkan::ComputeKernel::new(device, LINEAR_WEIGHT_GRAD_SPV, 3, 12)?,
             linear_input_grad: vulkan::ComputeKernel::new(device, LINEAR_INPUT_GRAD_SPV, 3, 12)?,
             linear_input_grad_muladd: vulkan::ComputeKernel::new(
@@ -26156,6 +26182,8 @@ impl TransformerKernels {
                 3,
                 12,
             )?,
+            linear_input_grad_group4_muladd: OnceLock::new(),
+            peft_kernel_device: device.clone(),
             linear_input_grad_lane2: vulkan::ComputeKernel::new(
                 device,
                 LINEAR_INPUT_GRAD_LANE2_SPV,
@@ -26164,7 +26192,7 @@ impl TransformerKernels {
             )?,
             bias_grad: vulkan::ComputeKernel::new(device, BIAS_GRAD_SPV, 2, 8)?,
             bias_add: vulkan::ComputeKernel::new(device, BIAS_ADD_SPV, 2, 8)?,
-            layer_norm_forward: vulkan::ComputeKernel::new(device, LAYER_NORM_FORWARD_SPV, 6, 12)?,
+            layer_norm_forward: vulkan::ComputeKernel::new(device, layer_norm_spv, 6, 12)?,
             layer_norm_input_grad: vulkan::ComputeKernel::new(
                 device,
                 LAYER_NORM_INPUT_GRAD_SPV,
@@ -27692,6 +27720,15 @@ impl VulkanLinear {
                     bytemuck::bytes_of(&push),
                     [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
                 )?;
+            } else if let Some(kernel) = kernels.linear_bias_forward_kblock128.as_ref()
+                .filter(|_| self.input_dim > 128)
+            {
+                kernel.record_dispatch(
+                    commands,
+                    &[input, &self.weight.values, &self.bias.values, base_output],
+                    bytemuck::bytes_of(&push),
+                    [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
+                )?;
             } else {
                 kernels.linear_bias_forward.record_dispatch(
                     commands,
@@ -27700,7 +27737,10 @@ impl VulkanLinear {
                     [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
                 )?;
             }
-        } else if self.output_dim == 8 {
+        } else if self.output_dim == 8
+            || (self.lora.is_some() && aten_vector_width() >= 16
+                && self.output_dim < 8 && self.input_dim.is_multiple_of(4))
+        {
             // PyTorch CPU's narrow-output (N == 8) GEMM path keeps the host's
             // ATen vector shape: two fused lanes on an AVX2-only host, four
             // materialized-product lanes on an AVX-512 host
@@ -27775,7 +27815,17 @@ impl VulkanLinear {
             // cross-half fold) is bit-exact and the sixteen-lane FMA replay
             // lands one ulp away on 3/64 outputs.
             let lane8_muladd = lane8_muladd_lora_a || self.input_dim >= 32;
-            let a_kernel = if lane8_muladd {
+            // On an AVX-512 host, the narrow CPU GEMM used by LoRA-A
+            // materializes products in four lanes. This differs from the
+            // AVX2 eight-lane dot even at K=16; sandwich RMSNorms amplify
+            // the resulting one-ULP forward difference during backward.
+            // Keep the qualified vector-aligned, N<=8 geometry explicit.
+            let a_kernel = if aten_vector_width() >= 16
+                && lora.rank <= 8
+                && self.input_dim.is_multiple_of(4)
+            {
+                &kernels.linear_forward_lane4
+            } else if lane8_muladd {
                 &kernels.lora_a_forward_lane8_muladd
             } else {
                 &kernels.lora_a_forward
@@ -27810,7 +27860,9 @@ impl VulkanLinear {
                 // ATen vector shape.  Reuse the already-scoped K/V selector
                 // rather than changing the shared linear kernel or all other
                 // LoRA-B projections.
-                if self.output_dim == 8 {
+                if self.output_dim == 8
+                    || (aten_vector_width() >= 16 && self.output_dim < 8)
+                {
                     kernels.narrow_output_forward().record_dispatch(
                         commands,
                         &[&lora.a_output, &lora.b.values, &lora.b_output],
@@ -28100,10 +28152,15 @@ impl VulkanLinear {
             // interleaved kernel.  Which one is again the host's ATen vector
             // shape, not the GPU's vendor: the two-lane fused topology
             // reproduces `torch.mm` bit-exactly on an AVX2-only host, while the
-            // AVX-512 host's `mm` reduction is the serial / multiply-add shape
-            // the architecture flags already pick.  `unfused_lora_b` still
-            // governs the wide ranks that no fixture exercises.
-            let b_input_kernel = if lora.rank <= 8 && aten_vector_width() < 16 {
+            // AVX-512 host's non-transposed mm sums adjacent four-product
+            // groups. Keep its multi-row, vector-aligned geometry separate
+            // from single-row GEMV and from the forward narrow-GEMM topology.
+            let b_input_kernel = if lora.rank <= 8 && lora.rank.is_multiple_of(2)
+                && aten_vector_width() >= 16
+                && rows >= 2 && self.output_dim.is_multiple_of(4)
+            {
+                kernels.lora_b_group4_adjoint()?
+            } else if lora.rank <= 8 && aten_vector_width() < 16 {
                 &kernels.linear_input_grad_lane2
             } else if unfused_lora_b {
                 &kernels.linear_input_grad_muladd
@@ -28515,6 +28572,13 @@ impl VulkanLayerNorm {
             self.extra_rsqrt_refinement = 3;
         }
         self
+    }
+
+    fn match_short_cpu_rsqrt_for_peft(&mut self) {
+        if self.rms && !self.pow_rstd && self.dim <= 32 && self.dim.is_power_of_two() {
+            self.extra_rsqrt_refinement = 3;
+            self.materialized_backward = true;
+        }
     }
 
     fn freeze(&mut self) {
@@ -66183,7 +66247,19 @@ impl VulkanTransformer {
         if config.uses_parameter_free_layer_norm() {
             final_norm.freeze();
         }
-        let kernels = Box::new(TransformerKernels::new(&device)?);
+        let repaired_gpt2 = vendor::is_amd_rdna3(&device)
+            && config.architecture == VulkanTransformerArchitecture::Gpt2;
+        let layer_norm_spv = if repaired_gpt2 {
+            LAYER_NORM_WELFORD_FORWARD_SPV
+        } else {
+            LAYER_NORM_FORWARD_SPV
+        };
+        let mut kernels = Box::new(TransformerKernels::new_with_layer_norm(&device, layer_norm_spv)?);
+        if repaired_gpt2 {
+            kernels.linear_bias_forward_kblock128 = Some(vulkan::ComputeKernel::new(
+                &device, LINEAR_BIAS_FORWARD_AMD_KBLOCK128_SPV, 4, 12,
+            )?);
+        }
         Ok(Self {
             token_ids: GpuBuffer::zeros_u32(&device, rows)?,
             token_type_ids: GpuBuffer::zeros_u32(&device, rows)?,
@@ -67295,9 +67371,44 @@ impl VulkanTransformer {
         }
         for (index, layer) in self.layers.iter().enumerate() {
             let prefix = format!("layers.{index}");
+            if let Some(mla) = layer.mla_attention.as_ref() {
+                for (name, buffer, width) in [
+                    ("kv_a_output", &mla.tape.compressed_kv, mla.kv_lora_rank + mla.qk_rope_head_dim),
+                    ("kv_norm_input", &mla.tape.kv_latent, mla.kv_lora_rank),
+                    ("kv_norm_output", &mla.tape.kv_latent_norm, mla.kv_lora_rank),
+                    ("grad_kv_norm_input", &mla.tape.grad_kv_latent, mla.kv_lora_rank),
+                    ("grad_kv_norm_output", &mla.tape.grad_kv_latent_norm, mla.kv_lora_rank),
+                    ("grad_kv_a_output", &mla.tape.grad_compressed_kv, mla.kv_lora_rank + mla.qk_rope_head_dim),
+                    ("q_b_output", &mla.tape.q_expanded, mla.num_heads * (mla.qk_nope_head_dim + mla.qk_rope_head_dim)),
+                    ("kv_b_output", &mla.tape.kv_expanded, mla.num_heads * (mla.qk_nope_head_dim + mla.v_head_dim)),
+                ] {
+                    out.insert(format!("{prefix}.mla.{name}"), buffer.read_f32(self.rows * width)?);
+                }
+                for (name, buffer) in [
+                    ("kv_norm_mean", &mla.tape.kv_latent_norm_mean),
+                    ("kv_norm_rstd", &mla.tape.kv_latent_norm_rstd),
+                ] {
+                    out.insert(format!("{prefix}.mla.{name}"), buffer.read_f32(self.rows)?);
+                }
+                if let Some(rank) = mla.q_lora_rank {
+                    for (name, buffer) in [
+                        ("q_a_output", &mla.tape.q_a),
+                        ("q_norm_output", &mla.tape.q_a_norm),
+                        ("grad_q_a_output", &mla.tape.grad_q_a),
+                        ("grad_q_norm_output", &mla.tape.grad_q_a_norm),
+                    ] {
+                        out.insert(format!("{prefix}.mla.{name}"), buffer.read_f32(self.rows * rank)?);
+                    }
+                    out.insert(format!("{prefix}.mla.q_norm_mean"), mla.tape.q_a_norm_mean.read_f32(self.rows)?);
+                    out.insert(format!("{prefix}.mla.q_norm_rstd"), mla.tape.q_a_norm_rstd.read_f32(self.rows)?);
+                }
+            }
             if matches!(
                 self.config.architecture,
-                VulkanTransformerArchitecture::MiniMaxM2
+                VulkanTransformerArchitecture::Gpt2
+                    | VulkanTransformerArchitecture::DeepseekV3
+                    | VulkanTransformerArchitecture::Mistral4
+                    | VulkanTransformerArchitecture::MiniMaxM2
                     | VulkanTransformerArchitecture::Gemma3
                     | VulkanTransformerArchitecture::Gemma4
             ) {
@@ -69538,11 +69649,30 @@ impl VulkanTransformer {
         let mut attached = 0usize;
         let materialized_peft_rms_backward =
             !self.config.architecture.peft_uses_unfused_rms_backward();
+        // The qualified RDNA3 MLA PEFT graph exposes short CPU RMSNorms
+        // through saved embedding gradients. Match their materialized square
+        // reduction, sqrt/reciprocal and adjoint together. This profile is
+        // installed only when attaching PEFT; ordinary inference keeps its
+        // independently qualified stable arithmetic.
+        let short_cpu_mla_norms = vendor::is_amd_rdna3(&device)
+            && matches!(self.config.architecture,
+                VulkanTransformerArchitecture::DeepseekV3
+                    | VulkanTransformerArchitecture::Mistral4);
         for (index, layer) in self.layers.iter_mut().enumerate() {
             // Retain the materialized rsqrt autograd chain when propagating
             // gradients through frozen RMSNorms to adapter parameters.
             layer.ln1.materialized_backward = materialized_peft_rms_backward;
             layer.ln2.materialized_backward = materialized_peft_rms_backward;
+            if short_cpu_mla_norms {
+                layer.ln1.match_short_cpu_rsqrt_for_peft();
+                layer.ln2.match_short_cpu_rsqrt_for_peft();
+                if let Some(mla) = layer.mla_attention.as_mut() {
+                    if let Some(norm) = mla.q_a_norm.as_mut() {
+                        norm.match_short_cpu_rsqrt_for_peft();
+                    }
+                    mla.kv_a_norm.match_short_cpu_rsqrt_for_peft();
+                }
+            }
             if self.config.architecture == VulkanTransformerArchitecture::SmolLm3 {
                 layer.ln1.unfused_products = true;
                 layer.ln2.unfused_products = true;
@@ -71926,6 +72056,9 @@ impl VulkanTransformer {
         }
         if self.config.architecture == VulkanTransformerArchitecture::MiniMaxM2 {
             self.final_norm.extra_rsqrt_refinement = 3;
+        }
+        if short_cpu_mla_norms {
+            self.final_norm.match_short_cpu_rsqrt_for_peft();
         }
         self.final_norm.freeze();
         if let Some(embedding_norm) = self.embedding_norm.as_mut() {
@@ -122933,6 +123066,135 @@ mod tests {
     }
 
     #[test]
+    fn avx512_lora_a_matches_independent_cpu_across_batches_widths_and_ranks() -> Result<()> {
+        if aten_vector_width() < 16 {
+            return Ok(());
+        }
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        #[derive(Deserialize)]
+        struct Case {
+            rows: usize,
+            dim: usize,
+            rank: usize,
+            x: Vec<f32>,
+            weight: Vec<f32>,
+            output: Vec<f32>,
+        }
+        #[derive(Deserialize)]
+        struct Fixture {
+            cases: Vec<Case>,
+        }
+        let fixture: Fixture = serde_json::from_str(include_str!(
+            "../validation/kernel_golden/transformer_lora_a_avx512.json"
+        ))?;
+        let kernels = TransformerKernels::new(&device)?;
+        for case in fixture.cases {
+            let mut linear = VulkanLinear::new_no_bias(
+                &device,
+                case.dim,
+                case.rank,
+                &vec![0.0; case.dim * case.rank],
+            )?;
+            let mut identity = vec![0.0; case.rank * case.rank];
+            for i in 0..case.rank {
+                identity[i * case.rank + i] = 1.0;
+            }
+            linear.enable_lora(
+                &device, case.rows, case.rank, 1.0, 0.0, 0, true,
+                &case.weight, &identity, None, None,
+            )?;
+            let input = GpuBuffer::from_f32(&device, &case.x)?;
+            let output = GpuBuffer::zeros_f32(&device, case.rows * case.rank)?;
+            // Exercise ordinary attention and the MLP's requested lane-eight
+            // path through the actual LoRA recorder, including its selector.
+            for request_lane8 in [false, true] {
+                let mut commands = vulkan::ComputeBatch::new(&device)?;
+                linear.record_forward_mode(
+                    &mut commands, &kernels, &input, &output, case.rows,
+                    true, 0, 0, request_lane8,
+                )?;
+                commands.submit()?;
+                assert!(kernels.linear_input_grad_group4_muladd.get().is_none(),
+                    "forward-only LoRA must not create its backward pipeline");
+                let actual = linear.lora.as_ref().context("missing LoRA")?
+                    .a_output.read_f32(case.output.len())?;
+                for (index, (a, b)) in actual.iter().zip(&case.output).enumerate() {
+                    assert_eq!(
+                        a.to_bits(), b.to_bits(),
+                        "LoRA-A M={} K={} rank={} lane8={request_lane8} [{index}]: {a} != {b}",
+                        case.rows, case.dim, case.rank,
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn avx512_lora_b_adjoint_matches_independent_cpu_geometry_sweep() -> Result<()> {
+        if aten_vector_width() < 16 {
+            return Ok(());
+        }
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        #[derive(Deserialize)]
+        struct Case {
+            rows: usize,
+            reduction: usize,
+            rank: usize,
+            grad_output: Vec<f32>,
+            weight: Vec<f32>,
+            output: Vec<f32>,
+        }
+        #[derive(Deserialize)]
+        struct Fixture {
+            cases: Vec<Case>,
+        }
+        let fixture: Fixture = serde_json::from_str(include_str!(
+            "../validation/kernel_golden/transformer_lora_b_adjoint_avx512.json"
+        ))?;
+        let kernels = TransformerKernels::new(&device)?;
+        for case in fixture.cases {
+            let input_dim = 8;
+            let mut linear = VulkanLinear::new_no_bias(
+                &device,
+                input_dim,
+                case.reduction,
+                &vec![0.0; input_dim * case.reduction],
+            )?;
+            linear.enable_lora(
+                &device, case.rows, case.rank, 1.0, 0.0, 0, true,
+                &vec![0.0; case.rank * input_dim], &case.weight, None, None,
+            )?;
+            let input = GpuBuffer::zeros_f32(&device, case.rows * input_dim)?;
+            let output = GpuBuffer::zeros_f32(&device, case.rows * case.reduction)?;
+            let grad_output = GpuBuffer::from_f32(&device, &case.grad_output)?;
+            let grad_input = GpuBuffer::zeros_f32(&device, case.rows * input_dim)?;
+            let mut commands = vulkan::ComputeBatch::new(&device)?;
+            linear.record_forward_training(
+                &mut commands, &kernels, &input, &output, case.rows, 0, 0,
+            )?;
+            linear.record_backward(
+                &mut commands, &kernels, &input, &grad_output, &grad_input, case.rows,
+            )?;
+            commands.submit()?;
+            let actual = linear.lora.as_ref().context("missing LoRA")?
+                .grad_a_output.read_f32(case.output.len())?;
+            for (index, (a, b)) in actual.iter().zip(&case.output).enumerate() {
+                assert_eq!(
+                    a.to_bits(), b.to_bits(),
+                    "LoRA-B adjoint M={} K={} rank={} [{index}]: {a} != {b}",
+                    case.rows, case.reduction, case.rank,
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
     fn lora_b_bias_forward_backward_matches_peft_linear_semantics() -> Result<()> {
         let Ok(device) = VulkanDevice::new() else {
             return Ok(());
@@ -130241,6 +130503,45 @@ mod tests {
             assert_eq!(aten_vector_width_for(unsupported, true), 16);
             assert_eq!(aten_vector_width_for(unsupported, false), 8);
         }
+    }
+
+    #[test]
+    fn amd_classic_layer_norm_matches_independent_cpu_moments_and_affine() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else { return Ok(()); };
+        if device.vendor_id() != 0x1002 { return Ok(()); }
+        #[derive(Deserialize)]
+        struct Case {
+            dim: usize, rows: usize, x: Vec<f32>, weight: Vec<f32>, bias: Vec<f32>,
+            output: Vec<f32>, mean: Vec<f32>, rstd: Vec<f32>,
+        }
+        #[derive(Deserialize)]
+        struct Fixture { cases: Vec<Case> }
+        let fixture: Fixture = serde_json::from_str(include_str!(
+            "../validation/kernel_golden/transformer_layer_norm_welford.json"))?;
+        let kernel = vulkan::ComputeKernel::new(&device, LAYER_NORM_WELFORD_FORWARD_SPV, 6, 12)?;
+        for case in fixture.cases {
+            let x = GpuBuffer::from_f32(&device, &case.x)?;
+            let weight = GpuBuffer::from_f32(&device, &case.weight)?;
+            let bias = GpuBuffer::from_f32(&device, &case.bias)?;
+            let output = GpuBuffer::zeros_f32(&device, case.x.len())?;
+            let mean = GpuBuffer::zeros_f32(&device, case.rows)?;
+            let rstd = GpuBuffer::zeros_f32(&device, case.rows)?;
+            let mut commands = vulkan::ComputeBatch::new(&device)?;
+            let push = LayerNormForwardPush { rows: case.rows as u32, dim: case.dim as u32, eps: 1.0e-5 };
+            kernel.record_dispatch(&mut commands, &[&x, &weight, &bias, &output, &mean, &rstd],
+                bytemuck::bytes_of(&push), [div_ceil_u32(case.rows, 64), 1, 1])?;
+            commands.submit()?;
+            for (name, actual, expected) in [
+                ("mean", mean.read_f32(case.rows)?, case.mean),
+                ("rstd", rstd.read_f32(case.rows)?, case.rstd),
+                ("affine", output.read_f32(case.x.len())?, case.output),
+            ] {
+                for (index, (a, b)) in actual.iter().zip(&expected).enumerate() {
+                    assert_eq!(a.to_bits(), b.to_bits(), "LayerNorm dim={} {name}[{index}]: {a} != {b}", case.dim);
+                }
+            }
+        }
+        Ok(())
     }
 
     #[test]

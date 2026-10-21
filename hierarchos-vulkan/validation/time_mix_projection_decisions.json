@@ -4,7 +4,95 @@
   "measured_by": "validation/bench_rwkv_packed_cell_time_mix.py",
   "margin": 0.02,
   "notes": "One entry per (adapter, width, batch) the crossover was measured at. `route` is the graph that won there: `staged` is the composed graph (the tuned module followed by the fused key/state kernels) and `fused` is the single fused producer. `candidates` holds the measured median milliseconds of every candidate the sweep ran, and the loader refuses an entry whose route is not the fastest candidate it lists, so a hand-edited entry has to contradict its own measurement to load. An entry may carry `parameter_storage` to scope it to one storage policy (see `validation/FUSED_FORWARD_PRODUCER_AUDIT.md`); the policy-less entry is what every other policy reads. A geometry measured inside the 2% noise band is a tie and carries no entry at all: the driver withdraws any entry it finds there and the structural default decides that geometry until a quiet run measures a sign outside the band. Re-record a new adapter's own entries with `--record-decisions`.",
+  "withheld": [
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 8,
+      "route": "staged",
+      "reason": "The single-cell probe agrees, but the composed projection with the wide key/state kernel changes the eight-timestep packed-forward result on this adapter/driver (batch 8: 3.0547380447387695e-7; batch 32: 5.364418029785156e-7). Controlled replays using the original fused producer or narrow key/state kernel are exact. Keep the structural fused producer; this timing is evidence, not permission to change the exact recurrent program.",
+      "parameter_storage": "fp32"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 32,
+      "route": "staged",
+      "reason": "The single-cell probe agrees, but the composed projection with the wide key/state kernel changes the eight-timestep packed-forward result on this adapter/driver (batch 8: 3.0547380447387695e-7; batch 32: 5.364418029785156e-7). Controlled replays using the original fused producer or narrow key/state kernel are exact. Keep the structural fused producer; this timing is evidence, not permission to change the exact recurrent program.",
+      "parameter_storage": "fp32"
+    }
+  ],
   "decisions": [
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 1,
+      "route": "fused",
+      "candidates": {
+        "fused": 1.1707,
+        "staged": 1.17135
+      },
+      "probe": "linear3-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_packed_cell_time_mix.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 4,
+      "route": "fused",
+      "candidates": {
+        "fused": 2.4542,
+        "staged": 2.4629
+      },
+      "probe": "linear3-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_packed_cell_time_mix.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 8,
+      "route": "staged",
+      "candidates": {
+        "fused": 4.3856,
+        "staged": 4.24865
+      },
+      "probe": "linear3-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_packed_cell_time_mix.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 16,
+      "route": "fused",
+      "candidates": {
+        "fused": 7.37435,
+        "staged": 7.42995
+      },
+      "probe": "linear3-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_packed_cell_time_mix.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 32,
+      "route": "staged",
+      "candidates": {
+        "fused": 13.04905,
+        "staged": 12.76955
+      },
+      "probe": "linear3-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_packed_cell_time_mix.py"
+    },
     {
       "device": "Intel(R) HD Graphics 520",
       "width": 128,

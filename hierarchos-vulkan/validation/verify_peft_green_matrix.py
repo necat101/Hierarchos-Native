@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import argparse
+import os
 import subprocess
 import sys
 import hashlib
@@ -14,6 +15,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ORACLE = ROOT / "validation" / "verify_peft_lora_strict.py"
 FIXTURES = ROOT / ".peft-oracle-fixtures"
+NATIVE_BINARIES = ("transformer_parity", "hierarchos-vulkan-transformer-logits",
+                   "peft_bank_parity", "peft_checkpoint")
+
+
+def build_native_command():
+    command = ["cargo", "build", "-j", "1"]
+    for name in NATIVE_BINARIES:
+        command.extend(["--bin", name])
+    return command
 
 # One explicit row per locally strict-qualified text family/config surface.
 # Closely related fixture variants stay separate when they exercise materially
@@ -42,6 +52,13 @@ if len(FAMILIES) != len(set(FAMILIES)):
     raise RuntimeError("duplicate fixture in native-green documentation")
 
 
+def transformers_checkout(environment=None):
+    environment = os.environ if environment is None else environment
+    return Path(environment.get("HIERARCHOS_TRANSFORMERS_ROOT")
+                or environment.get("HIERARCHOS_TRANSFORMERS_CHECKOUT")
+                or Path.home() / "transformers").expanduser().resolve()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--stage", choices=["lora", "switch", "saved", "all"], default="all")
@@ -59,20 +76,24 @@ def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists() and not args.collect_only:
         output.rename(output.with_name(output.stem + f".prior-{time.time_ns()}.json"))
+    if not args.collect_only:
+        # Hash the executables that WILL run. Children must not replace them
+        # after the entry fingerprint, including on a completely fresh tree.
+        subprocess.run(build_native_command(), cwd=ROOT, check=True)
     inputs = list((ROOT / "shaders").glob("*.spv"))
     inputs += list((ROOT / "shaders").glob("*.comp"))
     inputs += list((ROOT / "shaders").glob("*.glsl"))
     inputs += list((ROOT / "validation").glob("verify_peft_*.py"))
     # The requested local source clone is the mathematical oracle, not an
     # installed wheel. Fingerprint it alongside native executable inputs.
-    transformers_root = Path(r"C:\Users\User\transformers")
+    transformers_root = transformers_checkout()
     oracle_sources = sorted((transformers_root / "src/transformers").rglob("*.py"))
     if not oracle_sources:
         raise RuntimeError(f"local Transformers source is missing: {transformers_root}")
     inputs += list((ROOT / "src").rglob("*.rs"))
     inputs += [ROOT / "Cargo.toml", ROOT / "Cargo.lock", ROOT / "COMPATIBILITY.md"]
     inputs += [ROOT / "target/debug" / (name + (".exe" if sys.platform == "win32" else ""))
-               for name in ["transformer_parity", "hierarchos-vulkan-transformer-logits", "peft_bank_parity"]]
+               for name in NATIVE_BINARIES]
     def fingerprint():
         native = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                   for path in inputs if path.is_file()}
@@ -101,7 +122,8 @@ def main() -> None:
                 log = FIXTURES / f"{family}-{stage}.log"
                 with log.open("w", encoding="utf-8") as stream:
                     completed = subprocess.run([sys.executable, str(script), family],
-                        cwd=ROOT, text=True, stdout=stream, stderr=subprocess.STDOUT)
+                        cwd=ROOT, text=True, stdout=stream, stderr=subprocess.STDOUT,
+                        env={**os.environ, "HIERARCHOS_PEFT_USE_PREBUILT": "1"})
                 if completed.returncode:
                     results[stage] = {"pass": False, "returncode": completed.returncode, "log": str(log)}
                     continue

@@ -1034,7 +1034,7 @@ fn negative_control(args: &Args) -> Result<()> {
         serde_json::to_string(&NegativeControl {
             result: "pass",
             negative_control: "packed-fold-publication",
-            device: staged.device_name().to_owned(),
+            device: staged.decision_device_name().to_owned(),
             width,
             head_size: args.head_size,
             batch: args.batch,
@@ -1294,7 +1294,7 @@ fn profile_folded(args: &Args) -> Result<()> {
     let profile = FoldedProfile {
         result: "pass",
         profile: "folded-publication",
-        device: staged.device_name().to_owned(),
+        device: staged.decision_device_name().to_owned(),
         width,
         head_size: args.head_size,
         batch: args.batch,
@@ -1739,7 +1739,7 @@ fn main() -> Result<()> {
     };
 
     let output = Output {
-        device: legacy.device_name().to_owned(),
+        device: legacy.decision_device_name().to_owned(),
         width,
         head_size: args.head_size,
         batch: args.batch,

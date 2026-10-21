@@ -4,7 +4,148 @@
   "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py",
   "margin": 0.02,
   "notes": "One entry per (adapter, width, batch, parameter-storage policy) the TBPTT reverse-rematerialization crossover was measured at. `route` is `packed` (the reverse pass restores only vector caches and feeds packed matrix history directly into the fused state-backward kernel) or `legacy` (the reverse pass unpacks the full matrix tape before replaying the cell backward). Every candidate's measured median milliseconds are recorded beside the route. The structural default winning keeps an entry that documents the measurement without moving the route; a non-default winner inside the 2% noise band carries no entry, because the run withdraws it and `legacy` decides that geometry until a quiet run measures a sign outside the band. `RwkvTbpttSequenceOp` reads this table per batch under the active parameter-storage policy, unless a benchmark arm pinned the switch, so a recorded `packed` verdict promotes rematerialization only where it was measured. The `fp16-storage` policy has its own receipt (`tbptt_packed_remat_fp16_bench.json`): packed loses there too, and since every measured verdict is the structural default it needs no scoped entry. A policy that cannot adopt a measured move (its trajectory golden is pinned to the structural graph) records a `withheld` entry naming that measured route instead.",
+  "withheld": [],
   "decisions": [
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 1,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 6.3376,
+        "packed": 6.38215
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 1,
+      "route": "packed",
+      "candidates": {
+        "legacy": 6.8901,
+        "packed": 6.6909
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 4,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 7.78805,
+        "packed": 7.974
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 4,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 8.33005,
+        "packed": 8.44565
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 8,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 9.7514,
+        "packed": 10.373
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 8,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 10.26585,
+        "packed": 11.15195
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 16,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 15.4365,
+        "packed": 18.0532
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 16,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 15.56785,
+        "packed": 18.43995
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 32,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 24.5592,
+        "packed": 30.8236
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 32,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 24.84355,
+        "packed": 31.0138
+      },
+      "probe": "tbptt-packed-rematerialization",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
     {
       "device": "Intel(R) HD Graphics 520",
       "width": 128,
@@ -57,6 +198,5 @@
       "source": "measured",
       "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
     }
-  ],
-  "withheld": []
+  ]
 }

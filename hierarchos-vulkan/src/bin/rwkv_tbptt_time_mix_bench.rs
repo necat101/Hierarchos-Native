@@ -45,6 +45,7 @@ impl From<LegReport> for Leg {
 #[derive(Serialize)]
 struct Output {
     device: String,
+    unmeasured_compose: bool,
     width: usize,
     state_size: usize,
     head_size: usize,
@@ -226,6 +227,7 @@ fn main() -> Result<()> {
     let input_dim = input_dim.context("benchmark requires --input-dim")?;
 
     let device = VulkanDevice::new()?;
+    let unmeasured_compose = hierarchos_vulkan::unmeasured_composition_is_qualified(device.vendor_id());
     let plan = vendor_kernel_plan(&device);
     let linear3_variant = plan
         .iter()
@@ -344,7 +346,7 @@ fn main() -> Result<()> {
         require_default_matches_decision(
             PROBE_FAMILY,
             fused_label,
-            composed_dispatches,
+            if unmeasured_compose { composed_dispatches } else { 0 },
             default.time_mix_recorded_projection_decision(batch),
             default_label,
             batch,
@@ -433,7 +435,8 @@ fn main() -> Result<()> {
         let worst_max_abs = require_agreement(&tensors, atol, rtol)?;
 
         let output = Output {
-            device: fused.device_name().to_string(),
+            device: fused.decision_device_name().to_owned(),
+            unmeasured_compose,
             width,
             state_size: fused.state_size(),
             head_size,

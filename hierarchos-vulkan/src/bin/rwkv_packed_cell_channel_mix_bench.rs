@@ -59,6 +59,10 @@ impl From<LegReport> for Leg {
 #[derive(Serialize)]
 struct Output {
     device: String,
+    fused_graph: &'static str,
+    composed_graph: &'static str,
+    default_graph: &'static str,
+    unmeasured_compose: bool,
     width: usize,
     state_size: usize,
     batch: usize,
@@ -191,6 +195,7 @@ fn main() -> Result<()> {
     };
 
     let device = VulkanDevice::new()?;
+    let unmeasured_compose = hierarchos_vulkan::unmeasured_composition_is_qualified(device.vendor_id());
     let plan = vendor_kernel_plan(&device);
     let linear_residual_variant = plan
         .iter()
@@ -286,7 +291,7 @@ fn main() -> Result<()> {
     require_default_matches_decision(
         PROBE_FAMILY,
         fused_label,
-        composed_dispatches,
+        if unmeasured_compose { composed_dispatches } else { 0 },
         default.channel_mix_recorded_forward_decision(case.batch),
         default_label,
         case.batch,
@@ -347,7 +352,11 @@ fn main() -> Result<()> {
     let worst_max_abs = require_agreement(&tensors, atol, rtol)?;
 
     let output = Output {
-        device: fused.device_name().to_string(),
+        device: fused.decision_device_name().to_owned(),
+        fused_graph: fused.channel_mix_state_forward_graph_label(case.batch),
+        composed_graph: composed.channel_mix_state_forward_graph_label(case.batch),
+        default_graph: default.channel_mix_state_forward_graph_label(case.batch),
+        unmeasured_compose,
         width: fused.width(),
         state_size: fused.state_size(),
         batch: case.batch,

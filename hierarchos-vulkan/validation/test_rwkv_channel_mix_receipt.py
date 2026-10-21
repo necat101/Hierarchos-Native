@@ -137,7 +137,11 @@ class ChannelMixReceiptTest(unittest.TestCase):
         width = self.receipt["width"]
         for entry in self.record["decisions"]:
             self.assertEqual(entry["source"], "measured")
-            self.assertEqual(entry["device"].strip().lower(), device)
+            self.assertTrue(entry["device"].strip())
+            self.assertEqual(entry["candidates"][entry["route"]], min(entry["candidates"].values()))
+            # Compare a receipt only with the adapter it actually measured.
+            if entry["device"].strip().lower() != device:
+                continue
             self.assertEqual(entry["width"], width)
             self.assertEqual(
                 entry["route"] == "staged",

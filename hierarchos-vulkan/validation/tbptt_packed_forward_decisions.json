@@ -7,6 +7,76 @@
   "withheld": [],
   "decisions": [
     {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 1,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 6.8049,
+        "packed": 6.95705
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 8,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 12.6845,
+        "packed": 21.7731
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 8,
+      "route": "legacy",
+      "candidates": {
+        "legacy": 11.58395,
+        "packed": 11.90085
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 32,
+      "route": "packed",
+      "candidates": {
+        "legacy": 25.3761,
+        "packed": 24.78735
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 32,
+      "route": "packed",
+      "candidates": {
+        "legacy": 24.77615,
+        "packed": 24.54955
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
       "device": "Intel(R) HD Graphics 520",
       "width": 128,
       "batch": 1,

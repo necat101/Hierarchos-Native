@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "parameter_storage": "fp32-compute",
+  "oracle_commit": "2e7893d4e3db17370304a8d67adacab963b22bbc",
+  "policy": "The unchanged FP32 and FP16-storage batch32 goldens require materialized association. Other geometries retain the original fused module's association. Both are executable programs in the clean oracle. Its timing search can change between these numerically distinct classes, so paired comparisons explicitly pin only the oracle's association; the candidate runs its shipping search constrained to that class. No expected tensor, tolerance, or shader in the oracle is changed.",
+  "materialized": [
+    {
+      "width": 128,
+      "w_rank": 32,
+      "a_rank": 32,
+      "g_rank": 64,
+      "max_batch": 32,
+      "provenance": "Existing AMD trajectories in training_state.json and training_state_fp16.json; independent clean-stable split/fused replay in golden-fan-in-reference/receipt.json"
+    }
+  ]
+}

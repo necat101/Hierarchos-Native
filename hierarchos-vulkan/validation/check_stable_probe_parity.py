@@ -46,6 +46,39 @@ from check_stable_logits import identity
 CRATE = Path(__file__).resolve().parents[1]
 BINARY = "training_step_probe"
 CASES = state.load_golden(state.GOLDEN_DIR / "training_state.json")["cases"]
+PROBE_MASK_ENV = "HIERARCHOS_VALIDATION_PROBE_MASK"
+PROBE_GRADIENT_ENV = "HIERARCHOS_VALIDATION_PROBE_GRADIENTS"
+PROBE_RESUME_ENV = "HIERARCHOS_VALIDATION_PROBE_RESUME"
+EXTENDED_CASES = [
+    {"name": "long_sequence128", "args": ["--batch", "1", "--tokens", "128", "--hidden", "32",
+        "--context-dim", "32", "--warmup", "0", "--steps", "2"]},
+    {"name": "masked_odd_accumulation3", "args": ["--batch", "3", "--tokens", "5", "--sequences", "3",
+        "--hidden", "32", "--context-dim", "32", "--warmup", "0", "--steps", "3"],
+        "env": {PROBE_MASK_ENV: "1"}},
+    {"name": "raw_gradient_accumulation", "args": ["--batch", "3", "--tokens", "5", "--sequences", "3",
+        "--hidden", "32", "--context-dim", "32", "--warmup", "0", "--steps", "3"],
+        "env": {PROBE_MASK_ENV: "1", PROBE_GRADIENT_ENV: "1"}},
+    {"name": "checkpoint_resume", "args": ["--batch", "2", "--tokens", "5",
+        "--hidden", "32", "--context-dim", "32", "--warmup", "0", "--steps", "3"],
+        "env": {PROBE_RESUME_ENV: "1"}},
+    *({"name": f"batch{batch}_tokens16", "args": ["--batch", str(batch), "--tokens", "16",
+        "--hidden", "128", "--context-dim", "128", "--warmup", "0", "--steps", "2"]}
+      for batch in (1, 4, 8, 9, 16, 17, 32, 64)),
+    {"name": "batch64_updates20", "args": ["--batch", "64", "--tokens", "8",
+        "--hidden", "128", "--context-dim", "128", "--warmup", "0", "--steps", "20"]},
+]
+
+
+def extended_catalog() -> list[dict]:
+    """Both storage policies compare the union, including rank-128 FP16 work."""
+    cases = {case["name"]: {"name": case["name"], "args": case["args"]} for case in CASES}
+    for case in state.load_golden(state.GOLDEN_DIR / "training_state_fp16.json")["cases"]:
+        cases.setdefault(case["name"], {"name": case["name"], "args": case["args"]})
+    cases.update((case["name"], case) for case in EXTENDED_CASES)
+    cases["odd_multi_sequence"]["env_by_policy"] = {"fp16-storage-fp32-compute": {
+        "HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY": "one-row-rank128",
+        "HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG": "1"}}
+    return list(cases.values())
 
 
 class Mismatch(Exception):
@@ -70,7 +103,8 @@ def stable_crate(checkout: Path) -> Path:
     return crate
 
 
-def build_probe(crate: Path, profile: str, inference_logits: bool = False) -> Path:
+def build_probe(crate: Path, profile: str, inference_logits: bool = False,
+                observer_source: Path | None = None) -> Path:
     """Build the probe in one tree and return the executable Cargo reported."""
     manifest = crate / "Cargo.toml"
     target_name = "stable-training-logit-observer" if inference_logits else BINARY
@@ -81,7 +115,72 @@ def build_probe(crate: Path, profile: str, inference_logits: bool = False) -> Pa
             "stable" if crate.resolve() != CRATE.resolve() else "candidate"
         )
         observer.mkdir(parents=True, exist_ok=True)
-        source = (crate / "src" / "bin" / "training_step_probe.rs").read_text(encoding="utf-8")
+        source = (observer_source or crate / "src" / "bin" / "training_step_probe.rs").read_text(encoding="utf-8")
+        # Read the clean oracle's observer source for BOTH libraries. Candidate
+        # diagnostics must not accidentally make the two observers different.
+        source = source.replace("    device: String,", "    device: String,\n    decision_device: String,")
+        source = source.replace("        device: device.name().to_string(),", '''        device: device.name().to_string(),
+        decision_device: format!("{} [pci={:04x}:{:04x};driver={:08x}]",
+            device.name(), device.vendor_id(), device.device_id(), device.driver_version()),''')
+        # Identical observation-only instrumentation in both trees. Registered
+        # cases retain None; extended cases explicitly select deterministic masks.
+        mask_seam = "    let mut snapshots = Vec::new();"
+        mask_field = "pytorch_tbptt_token_mask: None,"
+        if source.count(mask_seam) != 1 or source.count(mask_field) != 1:
+            raise Mismatch("training probe mask seam changed; review the instrumentation")
+        source = source.replace(mask_seam, '''    let validation_masks = (0..args.tokens)
+        .map(|step| (0..args.batch).map(|row| if (step + row) % 3 == 0 { 0.0f32 } else { 1.0f32 })
+            .collect::<Vec<_>>()).collect::<Vec<_>>();
+    let validation_masked = std::env::var_os("HIERARCHOS_VALIDATION_PROBE_MASK").is_some();
+    let validation_gradients = std::env::var_os("HIERARCHOS_VALIDATION_PROBE_GRADIENTS").is_some();
+    let validation_resume = std::env::var_os("HIERARCHOS_VALIDATION_PROBE_RESUME").is_some();
+''' + mask_seam)
+        source = source.replace(mask_field,
+            "pytorch_tbptt_token_mask: if validation_masked { Some(&validation_masks[step]) } else { None },")
+        step_call = '''            let result = graph.train_raw_token_tape_microbatch_with_readback_policy(
+                arena,
+                &sequences,
+                AdamWHyperParams::default(),
+                HierarchosSequenceGradientNormalization::MeanByToken,
+                args.readback,
+            )?;'''
+        if source.count(step_call) != 1:
+            raise Mismatch("training probe update seam changed; review the gradient observer")
+        source = source.replace(step_call, '''            let mut observed_gradients = BTreeMap::new();
+            let result = if validation_gradients {
+                let normalization_tokens = args.batch * args.tokens * args.sequences * 2;
+                graph.train_raw_token_tape_microbatch_with_update_mode(
+                    arena, &sequences, AdamWHyperParams::default(),
+                    HierarchosSequenceGradientNormalization::MeanByToken,
+                    hierarchos_vulkan::HierarchosTokenTapeUpdateMode::BeginAccumulation,
+                    Some(normalization_tokens),
+                )?;
+                let result = graph.train_raw_token_tape_microbatch_with_update_mode(
+                    arena, &sequences, AdamWHyperParams::default(),
+                    HierarchosSequenceGradientNormalization::MeanByToken,
+                    hierarchos_vulkan::HierarchosTokenTapeUpdateMode::Accumulate,
+                    Some(normalization_tokens),
+                )?;
+                let gradients = graph.full_model_pending_gradient_snapshots()?;
+                if !gradients.iter().any(|p| p.values.iter().any(|v| *v != 0.0)) {
+                    bail!("gradient observer produced no nonzero raw parameter gradient");
+                }
+                for parameter in gradients {
+                    observed_gradients.insert(format!("raw_gradient/{}", parameter.name),
+                        vector_digest(&parameter.values)?);
+                }
+                observed_gradients.insert("gradient_normalization/token_count".to_owned(),
+                    vector_digest(&[normalization_tokens as f32])?);
+                graph.finish_full_model_accumulation(AdamWHyperParams::default())?;
+                result
+            } else {
+                graph.train_raw_token_tape_microbatch_with_readback_policy(
+                    arena, &sequences, AdamWHyperParams::default(),
+                    HierarchosSequenceGradientNormalization::MeanByToken, args.readback,
+                )?
+            };''')
+        source = source.replace("                let mut tensors = BTreeMap::new();",
+            "                let mut tensors = observed_gradients;")
         marker = "                snapshots.push(StateSnapshot {"
         if source.count(marker) != 1:
             raise Mismatch("training probe observer seam changed; review the instrumentation")
@@ -94,6 +193,30 @@ def build_probe(crate: Path, profile: str, inference_logits: bool = False) -> Pa
                 for (position, token) in [1u32, 5, 9, 3, 7, 2].into_iter().enumerate() {
                     let logits = inference.step(token, &mut inference_state)?;
                     tensors.insert(format!("inference_logits/{position}"), vector_digest(&logits)?);
+                }
+                if validation_resume {
+                    let mut resumed = HierarchosTrainingGraph::from_model_package_with_token_frontend(
+                        device.clone(), &checkpoint, args.batch, 3, 2, args.batch, args.batch,
+                    )?;
+                    resumed.load_training_checkpoint_package_state(&checkpoint)?;
+                    for parameter in resumed.full_model_parameter_snapshots()? {
+                        if tensors.get(&format!("parameter/{}", parameter.name))
+                            != Some(&vector_digest(&parameter.values)?) {
+                            bail!("checkpoint parameter failed immediate reload: {}", parameter.name);
+                        }
+                    }
+                    let restored_optimizer = resumed.full_model_optimizer_state()?;
+                    if restored_optimizer.step != optimizer.step {
+                        bail!("checkpoint optimizer clock failed immediate reload");
+                    }
+                    for slot in restored_optimizer.slots {
+                        if optimizer_slot_steps.get(&slot.name) != Some(&slot.step)
+                            || tensors.get(&format!("exp_avg/{}", slot.name)) != Some(&vector_digest(&slot.exp_avg)?)
+                            || tensors.get(&format!("exp_avg_sq/{}", slot.name)) != Some(&vector_digest(&slot.exp_avg_sq)?) {
+                            bail!("checkpoint optimizer slot failed immediate reload: {}", slot.name);
+                        }
+                    }
+                    *graph = resumed;
                 }
 ''' + marker)
         write_source(observer / "main.rs", source)
@@ -146,12 +269,18 @@ def run_probe(
     case_args: list[str],
     snapshot: Path | None = None,
     precision: str = "fp32",
+    case_environment: dict | None = None,
 ) -> tuple[dict, list[dict] | None]:
     """Run one probe leg and parse its report (and its snapshot, when asked for)."""
     command = [str(binary), "--model-dir", str(model_dir), *case_args]
     if snapshot is not None:
         command += ["--state-output", str(snapshot)]
     environment = dict(os.environ)
+    for variable in (PROBE_MASK_ENV, PROBE_GRADIENT_ENV, PROBE_RESUME_ENV,
+                     "HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY",
+                     "HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_AUTOTUNE_LOG"):
+        environment.pop(variable, None)
+    environment.update(case_environment or {})
     environment["HIERARCHOS_VULKAN_TRAINING_PRECISION"] = precision
     completed = subprocess.run(command, cwd=crate, capture_output=True, text=True, env=environment)
     if completed.returncode:
@@ -163,6 +292,10 @@ def run_probe(
     if start < 0:
         raise Mismatch(f"{binary} printed no report on {case_args}")
     report = json.loads(completed.stdout[start:])
+    arm = (case_environment or {}).get("HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY")
+    if arm:
+        report["forced_arm"] = {"name": arm, "exercised": state.arm_evidence(completed.stderr, arm)[0],
+                                "unavailable": state.arm_evidence(completed.stderr, arm)[1]}
     states = None
     if snapshot is not None:
         states = json.loads(snapshot.read_text(encoding="utf-8"))
@@ -190,6 +323,30 @@ def digests(states: list[dict]) -> int:
     return sum(len(step.get("tensors", {})) for step in states)
 
 
+def reference_fan_in_environment(device: str | None, package: Path, args: list[str]) -> dict:
+    """Reproduce the fixed reference association without changing its compute.
+
+    The clean oracle's autotuner can choose two different FP32 programs. The
+    existing goldens fix materialized association at batch32; all other shapes
+    retain its original fused module. Only that oracle leg is constrained here.
+    The shipping candidate must choose a compatible schedule on its own.
+    """
+    profiles = json.loads((CRATE / "validation" / "rwkv_fan_in_reference_profiles.json").read_text())
+    if device != profiles["device"]:
+        return {}
+    from safetensors import safe_open
+    with safe_open(str(package / "model.safetensors"), framework="np") as weights:
+        shapes = [weights.get_slice(f"h_rnn.{name}").get_shape() for name in ("w1", "a1", "g1")]
+    width = shapes[0][0]
+    ranks = tuple(shape[1] for shape in shapes)
+    batch = int(args[args.index("--batch") + 1]) if "--batch" in args else 2
+    materialized = any(row["width"] == width
+        and (row["w_rank"], row["a_rank"], row["g_rank"]) == ranks
+        and row["max_batch"] == batch for row in profiles["materialized"])
+    return {"HIERARCHOS_RWKV_LOW_RANK_FAN_IN_SCHEDULE": "split" if materialized else "fused-base",
+            "HIERARCHOS_RWKV_BACKWARD_SEGMENT_CACHE_PATH": ""}
+
+
 def compare_case(
     case: dict,
     *,
@@ -206,11 +363,14 @@ def compare_case(
         initialize_package(current_binary, CRATE, package, args)
     stable_snapshot = work / f"stable_{case['name']}.json"
     current_snapshot = work / f"current_{case['name']}.json"
-    stable_report, stable_states = run_probe(
-        stable_binary, stable_crate_dir, package, args, stable_snapshot, precision
-    )
+    environment = {**case.get("env", {}), **case.get("env_by_policy", {}).get(precision, {})}
     current_report, current_states = run_probe(
-        current_binary, CRATE, package, args, current_snapshot, precision
+        current_binary, CRATE, package, args, current_snapshot, precision, environment
+    )
+    reference_environment = {**environment, **reference_fan_in_environment(
+        current_report.get("decision_device"), package, args)}
+    stable_report, stable_states = run_probe(
+        stable_binary, stable_crate_dir, package, args, stable_snapshot, precision, reference_environment
     )
     if stable_report["device"] != current_report["device"]:
         raise Mismatch(
@@ -218,10 +378,26 @@ def compare_case(
             f"({stable_report['device']!r} and {current_report['device']!r})"
         )
     differences = diff_snapshots(stable_states, current_states)
+    if environment.get("HIERARCHOS_RWKV_LOW_RANK_LN_FORWARD_TOPOLOGY"):
+        if not current_report["forced_arm"]["exercised"]:
+            differences.append("required FP16 rank-128 producer did not execute")
+    if environment.get(PROBE_RESUME_ENV):
+        control_environment = {k: v for k, v in environment.items() if k != PROBE_RESUME_ENV}
+        for label, binary, crate, resumed in (("stable", stable_binary, stable_crate_dir, stable_states),
+                                             ("candidate", current_binary, CRATE, current_states)):
+            leg_environment = {**control_environment, **(reference_fan_in_environment(
+                current_report.get("decision_device"), package, args) if label == "stable" else {})}
+            _, uninterrupted = run_probe(binary, crate, package, args,
+                work / f"{label}_{case['name']}_uninterrupted.json", precision, leg_environment)
+            differences.extend(f"{label} resume continuation: {difference}"
+                               for difference in diff_snapshots(uninterrupted, resumed))
     return {
         "case": case["name"],
         "precision": precision,
         "args": args,
+        "environment": environment,
+        "stable_reference_environment": reference_environment,
+        "forced_arm": current_report.get("forced_arm"),
         "device": current_report["device"],
         "steps": len(current_states),
         "digests": min(digests(stable_states), digests(current_states)),
@@ -270,10 +446,15 @@ def main() -> int:
                         default="fp32", help="compare each storage policy with the SAME stable policy")
     parser.add_argument("--with-inference-logits", action="store_true",
                         help="also export/reload after EVERY update and compare six recurrent logit vectors")
+    parser.add_argument("--extended", action="store_true",
+                        help="compare both policies across the union of golden shapes, route batches, long/masked tapes, raw gradients and checkpoint resume")
     args = parser.parse_args()
+    if args.extended and not args.with_inference_logits:
+        parser.error("--extended requires --with-inference-logits for the identical isolated observers")
 
-    known = {case["name"] for case in CASES}
-    selected = CASES if not args.cases else [case for case in CASES if case["name"] in args.cases]
+    catalog = extended_catalog() if args.extended else CASES
+    known = {case["name"] for case in catalog}
+    selected = catalog if not args.cases else [case for case in catalog if case["name"] in args.cases]
     unknown = sorted(set(args.cases or ()) - known)
     if unknown:
         raise Mismatch(f"unknown case(s) {unknown}; the golden records {sorted(known)}")
@@ -285,8 +466,9 @@ def main() -> int:
     if baseline_identity["status"]:
         raise Mismatch("the stable reference must be clean")
     candidate_identity = identity(CRATE.parent)
-    stable_binary = build_probe(stable, args.profile, args.with_inference_logits)
-    current_binary = build_probe(CRATE, args.profile, args.with_inference_logits)
+    observer_source = stable / "src" / "bin" / "training_step_probe.rs"
+    stable_binary = build_probe(stable, args.profile, args.with_inference_logits, observer_source)
+    current_binary = build_probe(CRATE, args.profile, args.with_inference_logits, observer_source)
 
     cleanup = None
     if args.keep_results is not None:
@@ -302,7 +484,7 @@ def main() -> int:
             policy_work = work / precision
             policy_work.mkdir(parents=True, exist_ok=True)
             cases = selected
-            if precision != "fp32" and not args.cases:
+            if precision != "fp32" and not args.cases and not args.extended:
                 cases = state.load_golden(state.GOLDEN_DIR / "training_state_fp16.json")["cases"]
             for case in cases:
                 print(f"Comparing {precision}/{case['name']}", flush=True)

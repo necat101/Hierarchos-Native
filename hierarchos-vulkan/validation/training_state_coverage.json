@@ -1,7 +1,90 @@
 {
   "schema": 1,
-  "note": "Topology arms and golden cases each device exercises, one entry per (suite, device). Written only by `validation/verify_training_state.py --record-coverage`, which merges what this machine measured and leaves every other device's entries as they were; a suite is a training numerical policy and an arm is one forced LN1/low-rank topology. `cases` is what the measured arm compares per golden case. Per arm, `exercised` is where the forced variant ran, `unavailable` is where the producer rejected the request, `not_dispatched` is where the fused producer never saw it at that shape, and `asserted` is the subset of the two absence verdicts a later run carried from this record instead of measuring again; one canary -- the widest absent case, replayed for one update -- re-checks an arm's absence on this device every run. A run fails if any of it shrinks: an arm, a case, a case that compares fewer steps or tensors than it did, or an absence verdict that is neither re-measured nor carried.",
+  "note": "Topology arms and golden cases each device exercises, one entry per (suite, device). Written only by the coverage record tool (`--record-coverage` on `validation/verify_training_state.py`), which merges what this machine measured and leaves every other device's entries as they were; a suite is a training numerical policy and an arm is one forced LN1/low-rank topology. `cases` is what the measured arm compares per golden case. Per arm, `exercised` is where the forced variant ran, `unavailable` is where the producer rejected the request, `not_dispatched` is where the fused producer never saw it at that shape, and `asserted` is the subset of the two absence verdicts a later run carried from this record instead of measuring again; one canary -- the widest absent case, replayed for one update -- re-checks an arm's absence on this device every run. A run fails if any of it shrinks: an arm, a case, a case that compares fewer steps or tensors than it did, or an absence verdict that is neither re-measured nor carried. `--bootstrap-coverage` creates the entries a device is missing and touches nothing else.",
   "coverage": [
+    {
+      "suite": "fp16-storage-fp32-compute",
+      "device": "AMD Radeon Graphics",
+      "cases": {
+        "batch2": {
+          "steps": 6,
+          "tensor_comparisons": 1752
+        },
+        "batch32": {
+          "steps": 4,
+          "tensor_comparisons": 1168
+        },
+        "small_hidden32": {
+          "steps": 4,
+          "tensor_comparisons": 1168
+        }
+      },
+      "arms": {
+        "four-rows": {
+          "exercised": [
+            "small_hidden32"
+          ],
+          "unavailable": [
+            "batch2",
+            "batch32"
+          ],
+          "not_dispatched": [],
+          "asserted": []
+        },
+        "one-row": {
+          "exercised": [
+            "batch2",
+            "batch32",
+            "small_hidden32"
+          ],
+          "unavailable": [],
+          "not_dispatched": [],
+          "asserted": []
+        },
+        "one-row-cached": {
+          "exercised": [
+            "batch2",
+            "batch32",
+            "small_hidden32"
+          ],
+          "unavailable": [],
+          "not_dispatched": [],
+          "asserted": []
+        },
+        "one-row-rank128": {
+          "exercised": [],
+          "unavailable": [
+            "batch2",
+            "batch32",
+            "small_hidden32"
+          ],
+          "not_dispatched": [],
+          "asserted": []
+        },
+        "two-rows": {
+          "exercised": [
+            "small_hidden32"
+          ],
+          "unavailable": [
+            "batch2",
+            "batch32"
+          ],
+          "not_dispatched": [],
+          "asserted": []
+        },
+        "two-rows-wide": {
+          "exercised": [
+            "batch2",
+            "batch32"
+          ],
+          "unavailable": [
+            "small_hidden32"
+          ],
+          "not_dispatched": [],
+          "asserted": []
+        }
+      }
+    },
     {
       "suite": "fp16-storage-fp32-compute",
       "device": "Intel(R) HD Graphics 520",
@@ -20,6 +103,18 @@
         }
       },
       "arms": {
+        "four-rows": {
+          "exercised": [
+            "small_hidden32"
+          ],
+          "unavailable": [
+            "batch2"
+          ],
+          "not_dispatched": [],
+          "asserted": [
+            "batch32"
+          ]
+        },
         "one-row": {
           "exercised": [
             "batch2",
@@ -73,24 +168,12 @@
           ],
           "not_dispatched": [],
           "asserted": []
-        },
-        "four-rows": {
-          "exercised": [
-            "small_hidden32"
-          ],
-          "unavailable": [
-            "batch2"
-          ],
-          "not_dispatched": [],
-          "asserted": [
-            "batch32"
-          ]
         }
       }
     },
     {
       "suite": "fp32",
-      "device": "Intel(R) HD Graphics 520",
+      "device": "AMD Radeon Graphics",
       "cases": {
         "batch2": {
           "steps": 6,
@@ -106,6 +189,17 @@
         }
       },
       "arms": {
+        "column-slices": {
+          "exercised": [
+            "batch2",
+            "batch32"
+          ],
+          "unavailable": [],
+          "not_dispatched": [
+            "odd_multi_sequence"
+          ],
+          "asserted": []
+        },
         "one-row": {
           "exercised": [
             "batch2",
@@ -127,8 +221,50 @@
             "odd_multi_sequence"
           ],
           "asserted": []
+        }
+      }
+    },
+    {
+      "suite": "fp32",
+      "device": "Intel(R) HD Graphics 520",
+      "cases": {
+        "batch2": {
+          "steps": 6,
+          "tensor_comparisons": 1752
         },
+        "batch32": {
+          "steps": 4,
+          "tensor_comparisons": 1168
+        },
+        "odd_multi_sequence": {
+          "steps": 3,
+          "tensor_comparisons": 897
+        }
+      },
+      "arms": {
         "column-slices": {
+          "exercised": [
+            "batch2",
+            "batch32"
+          ],
+          "unavailable": [],
+          "not_dispatched": [
+            "odd_multi_sequence"
+          ],
+          "asserted": []
+        },
+        "one-row": {
+          "exercised": [
+            "batch2",
+            "batch32"
+          ],
+          "unavailable": [],
+          "not_dispatched": [
+            "odd_multi_sequence"
+          ],
+          "asserted": []
+        },
+        "two-rows": {
           "exercised": [
             "batch2",
             "batch32"

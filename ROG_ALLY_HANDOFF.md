@@ -5,9 +5,45 @@ optimizations, and the upstream two-rank distributed trainer with a Windows TCP
 transport. AMD routes must be measured on the physical Ally. Intel measurements
 are keyed by adapter/shape/storage policy and are not AMD tuning results.
 The four RDNA3 vendor matmul modules (eight GLSL/SPIR-V files) are additions
-relative to `b519361`. Their physical execution is pending the Ally run; the
-module inventory in the Intel results records their hashes. The AMD gate must
-exercise those modules and compare the candidate against stable on that device.
+relative to `b519361`. They have now executed on the physical Z1 Extreme Ally,
+with exact module comparisons and all four dispatch counters observed in the
+composed recurrent graph. The complete AMD qualification now passes on the
+physical Ally; see [RDNA3_QUALIFICATION.md](RDNA3_QUALIFICATION.md) for the
+final results, the resolved second-update drift and the remaining scope
+limits. The Intel archive remains unchanged.
+
+## Physical Ally result
+
+The final run is `target/ally-results/qualification-ship-posttune`: all 13
+stages pass in 1,524 s on the tuned route tables, covering 375 Python tests
+(12 existing skips), 811 library and 40 trainer tests, both TCP modes with 290
+identical tensors, 38,930 recurrent digests, 36,096 Transformer logits with zero
+differing bits, vendor composition, the CPU bridge and both 12/12 training
+ladders (6,464 dispatches, 3,076 barriers, loss 5.543217).
+
+Tuning measured all five producer families and the six packed-chain/policy
+pairs. It added 27 AMD rows and preserved the 35 Intel/other-adapter rows. Nine
+low-rank staged rows and two composed time-mix wins are recorded as withheld
+because their A/B changed numerical results; those geometries keep the proven
+fused producer. The packed-chain control test was updated after every sweep
+geometry became measured, then the whole 13-stage suite was re-run on the
+byte-exact tuned tables.
+
+Nine independent oracle stages pass with unchanged inputs: 19 additional
+small-rank recurrent cases (31,914 digests), full Hugging Face training, five
+cached-generation validators, the OLMo beta diagnostic and the complete
+32-family PEFT matrix. The seven-executable bundle passes a ten-command
+application smoke test, including exact mid-epoch resume over all 290 tensors.
+Paired quiet performance is 0.970-1.015 of clean stable across 16 whole-RNN
+cases; wide Transformer inference is 1.009-1.033, with the tiny GPT-2 case at
+1.15x (0.086 ms) as the documented cost of its numerical repair.
+
+The GUI evidence is its crate tests plus a workflow test that drives the real
+`NativeApp` builder and native CLI for Falcon H1 training, full fine-tuning and
+cached generation, reproducing CLI weights bit-for-bit. No interactive desktop
+session was automated. The two-process TCP tests are not a real two-machine or
+RDMA certification, and the firmware power limit remains unverified; see the
+scope section of [RDNA3_QUALIFICATION.md](RDNA3_QUALIFICATION.md).
 
 ## Clone the published handoff
 
