@@ -847,6 +847,8 @@ pub(crate) struct VendorMatmulKernel {
     amd_routes: Option<std::collections::HashMap<[u32; 3], bool>>,
     amd_device: Option<String>,
     qualify_modules: bool,
+    /// Diagnostic settings, like route overrides, are captured at construction.
+    trace_variants: bool,
     /// The scalar schedule the portable modules fall back to, dispatched directly
     /// below [`SCALAR_MATMUL_MAX_ROWS`] so a small dispatch does not carry the
     /// tiled module's workgroup-memory reservation.
@@ -948,6 +950,7 @@ impl VendorMatmulKernel {
             amd_device,
             qualify_modules: std::env::var_os(HIERARCHOS_VULKAN_QUALIFY_VENDOR_MODULES_ENV)
                 .is_some(),
+            trace_variants: std::env::var_os("HIERARCHOS_VULKAN_VARIANT_TRACE").is_some(),
         })
     }
 
@@ -1009,9 +1012,8 @@ impl VendorMatmulKernel {
         if let (Some(device), Some(routes), Some((rows, input_dim, output_dim))) =
             (&self.amd_device, &self.amd_routes, geometry)
         {
-            if !self.qualify_modules
+            if self.trace_variants && !self.qualify_modules
                 && !self.selects_variant_for(rows, input_dim, output_dim)
-                && std::env::var_os("HIERARCHOS_VULKAN_VARIANT_TRACE").is_some()
             {
                 eprintln!(
                     "variant-fallback: {}",

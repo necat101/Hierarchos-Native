@@ -4519,6 +4519,14 @@
         "-DRWKV_TIME_MIX_BACKWARD_WORKGROUP_SIZE=128"
       ],
       "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_layer_norm_welford_small_forward.spv",
+      "source": "transformer_layer_norm_welford_small_forward.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [],
+      "target_env": "vulkan1.0"
     }
   ]
 }

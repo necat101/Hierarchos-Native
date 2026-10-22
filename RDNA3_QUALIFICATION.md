@@ -1,9 +1,10 @@
 # Physical ROG Ally qualification
 
 Status: **qualified on the tested device**, with the limitations listed below.
-Every numerical gate was re-run on the final tuned route tables; the shipping
-bundle, independent mathematical oracles and paired performance measurements are
-recorded under `target/ally-results/` (ignored working evidence, not source).
+Every numerical gate was re-run on the final tuned route tables and again on
+the final GPT-2 module; the shipping bundle, independent mathematical oracles
+and paired performance measurements are recorded under `target/ally-results/`
+(ignored working evidence, not source).
 
 ## Reference and physical baseline
 
@@ -31,15 +32,15 @@ recorded under `target/ally-results/` (ignored working evidence, not source).
 
 ## Final qualification
 
-The final run is `target/ally-results/qualification-ship-posttune`. It repeats
-the complete 13-stage suite on the tuned route tables and passed all 13 stages
-in 1,524 s:
+The final run is `target/ally-results/qualification-small-welford`. It repeats
+the complete 13-stage suite on the tuned route tables after the GPT-2
+short-width module described below and passed all 13 stages in 2,314 s:
 
 | Stage | Result |
 | --- | --- |
 | Python contracts | 375 tests pass, the same 12 opt-in skips |
 | All binaries | `cargo check --all-targets` passes |
-| Library and trainer | 811 library tests pass (9 ignored), 40 trainer tests pass |
+| Library and trainer | 813 library tests pass (9 ignored), 40 trainer tests pass |
 | Two-rank TCP | both modes, all 290 exported model/optimizer tensors identical |
 | Inference / native CLI / GUI crates | all pass |
 | Stable recurrent | 34 cases, 38,930 exact digests, 0 differences |
@@ -48,6 +49,11 @@ in 1,524 s:
 | CPU bridge | pass |
 | Release training ladder | 12/12: 6,464 dispatches, 3,076 barriers, loss 5.543217, 32,162 digests |
 | Debug training ladder | 12/12, same count, barrier bound and digests |
+
+This run repeats the same tuned route tables and 13 stages as
+`qualification-ship-posttune`; only the GPT-2 module, the vendor trace flag and
+the shader manifest changed, so the reference executables were rebuilt and the
+run took longer. The tuned-route result remains in that earlier directory.
 
 The same 13 stages had already passed before tuning. Tuning then measured the
 five producer families and the six packed-chain/policy pairs, and every
@@ -143,21 +149,75 @@ the native CLI and reproduces the CLI weights bit-for-bit. No interactive window
 session was automated; the test covers the application's command path, not a
 human clicking through every screen.
 
+## GPT-2 inference recovery
+
+The previous qualification reported the tiny repaired GPT-2 fixture at 1.15x
+stable (0.667 ms vs 0.581 ms, +0.086 ms) as the accepted cost of the
+Welford/addmm numerical repair. The cost was the general Welford module's
+per-row cascade: at widths up to 128 the reduction is a single 16-vector chunk,
+but the module still carries the cascade stack and recomputes `1/n` by division
+for every vector.
+
+`transformer_layer_norm_welford_small_forward.comp` keeps the same association
+without that overhead. One workgroup of 64 invocations owns eight rows, eight
+lanes per row, and merges the eight per-lane moment streams in the general
+module's order. Integer counts use a table of correctly rounded 1..16 values;
+the scalar tail and the final `1/dim` keep `fp32_div`. Admission is exactly
+`AMD Radeon Graphics [pci=1002:15bf;driver=00800184]` at hidden widths 1-128;
+every other adapter, driver and width keeps the general Welford module, and
+non-GPT-2 architectures keep the legacy LayerNorm module.
+
+- All 512 geometries (widths 1-128 x rows 1/6/17/64) produce bit-identical
+  mean, rstd and affine output to the general module.
+- The unchanged independent CPU fixture passes all 15 widths: the ten widths
+  up to 128 exercise the small module bit for bit, and 129-768 keep the general
+  module.
+- A fresh `glslc` v2023.8 build with the manifest's flags reproduces the
+  committed SPIR-V byte for byte (sha256 `fd9acd8b...`).
+- The admission test pins the boundary: widths 0 and 129+, any other adapter or
+  driver string, are rejected.
+
+The same follow-up moved the diagnostic `HIERARCHOS_VULKAN_VARIANT_TRACE`
+lookup from every dispatch to kernel construction. It changes only the
+diagnostic path, no arithmetic or route.
+
+Complete-model paired medians (five alternating pairs, candidate/stable):
+
+| Case | Before | After |
+| --- | --- | --- |
+| Tiny GPT-2 unmasked (0.58 ms) | 1.150 | 1.004 (0.997-1.007) |
+| Wide GPT-2 unmasked | 1.017 | 0.915 (0.911-0.918) |
+| Wide GPT-2 padded | 1.034 | 0.912 (0.901-0.919) |
+| Wide GPT-2 decode | 1.032 | 0.848 (0.843-0.854) |
+| Wide GPT-2 batch-32 | 1.023 | 0.952 (0.924-0.997) |
+| Wide Llama unmasked | 1.017 | 0.997 (0.994-1.006) |
+| Wide Llama padded | 1.009 | 1.000 (0.998-1.005) |
+
+The accepted 13-stage harness repeats three runs per case and is noisier on the
+0.58 ms fixture: tiny GPT-2 is 1.032 (0.982-1.060), wide 0.914/0.923, decode
+0.856, batch-32 0.952, Llama 1.002/1.009. The old 15% penalty is gone; the tiny
+case is now inside the noise band rather than measurably slower.
+
 ## Performance
 
 Quiet, paired, serial measurements (`training-performance-qualified`,
 `transformer-performance-qualified`, three repeats, three legs including
 untouched automatic stable):
 
-- 16 whole-RNN training cases: controlled median ratios 0.970-1.015 against
-  clean stable; the largest slowdown is the FP16-storage long-128 case at 1.5%,
-  inside the observed run-to-run spread. No case regressed materially, and
-  several masking/odd-sequence cases are 1-3% faster.
-- 7 Transformer inference cases: 1.009-1.033 for the wide Llama/GPT-2 fixtures,
-  decode and batch-32. The tiny GPT-2 unmasked case is 1.15x (0.667 ms vs
-  0.581 ms); the absolute difference is 0.086 ms and is consistent with the
-  scoped Welford/addmm numerical repair that makes its logits match the pinned
-  CPU association. It is reported as a known cost, not hidden.
+- 16 whole-RNN training cases: controlled median ratios 0.964-1.020 in the
+  accepted quiet run; the largest is FP16-storage batch-32 at +2.0%, inside the
+  observed run-to-run spread, and several masking/odd-sequence cases are 1-4%
+  faster. A first run immediately after the long build measured one FP16 masked
+  case at 1.078. That run is retained as
+  `training-performance-interference`: its own unpatched `stable-auto` control
+  ran at 248.5 ms against the candidate's 248.9 ms on that case, one
+  transformer stable leg stalled to a 0.337 ratio, and the immediate rerun on
+  the same binaries produced 1.006-1.014 for the case. The accepted receipt is the
+  rerun; neither run is hidden.
+- 7 Transformer inference cases: wide GPT-2 0.914/0.923, decode 0.856, batch-32
+  0.952, Llama 1.002/1.009, tiny GPT-2 1.032 (0.982-1.060 at 0.58 ms). See the
+  recovery section for the five-pair medians. No case is materially slower; the
+  old 1.15x tiny-GPT-2 cost is gone.
 - Dispatch profiles record 240 nonzero shader artifacts across 24 workload rows
   (`profiles-qualified`); instrumentation timings are excluded from acceptance.
 
@@ -176,6 +236,9 @@ lock. No product source changed for this.
 ## Numerical contract
 
 No tolerance, existing numerical golden or validation skip has been changed.
+The short-width GPT-2 module is not a new tolerance: it reproduces the general
+repaired module's bits on all 512 measured geometries and the independent CPU
+fixture, and is admitted only on the measured adapter/driver and width range.
 Missing device goldens were established from the isolated stable executable with
 its source and executable identity recorded; candidate output never supplied an
 expected value. The existing OLMo Hybrid beta-scale-2 repair and the GPT-2
@@ -207,7 +270,7 @@ legacy comparison remains visible in every receipt.
 . .\target\ally-results\environment.ps1
 .\\.venv-vulkan\Scripts\python.exe hierarchos-vulkan\validation\qualify_handoff.py `
   --stable ..\Hierarchos-windows-oracle --expected-vendor amd `
-  --output target\ally-results\qualification-ship-posttune
+  --output target\ally-results\qualification-small-welford
 ```
 
 `--tune` measures and merges only this adapter's rows before repeating all 13
@@ -219,7 +282,8 @@ Every stage writes its own log, and `qualification.json` is green only when all
 
 | Path | Contents |
 | --- | --- |
-| `qualification-ship-posttune/` | final 13-stage run on tuned routes |
+| `qualification-small-welford/` | final 13-stage run after the GPT-2 module |
+| `qualification-ship-posttune/` | tuned-route 13-stage run before it |
 | `qualification-ship/` | pre-tuning run, tuning receipts, stale-test failure and rollback |
 | `tuned-routes-ship/` | tuned route tables and tuning receipts |
 | `independent-final-qualified/` | nine independent oracle stages and source identity |
@@ -227,7 +291,10 @@ Every stage writes its own log, and `qualification.json` is green only when all
 | `shipping-qualified/` | seven-executable bundle and release library run |
 | `application-qualified/` | ten application commands and exact resume comparison |
 | `gui-qualified/` | GUI crate tests and Falcon workflow parity |
-| `training-performance-qualified/`, `transformer-performance-qualified/` | paired timings |
+| `training-performance-qualified/`, `transformer-performance-qualified/` | accepted paired timings |
+| `training-performance-interference/`, `transformer-performance-interference/` | excluded run, its `NOTE.json` and the reason |
+| `gpt2-speed-recovery/` | prototypes, 512-geometry parity and five-pair model timings |
+| `pre-small-welford/` | prior performance receipts and final review |
 | `profiles-qualified/` | actual shipping dispatch profiles |
 | `complete-optimization-ledger.json` | 156 reviewed sources across 19 groups |
 | `workspace-check-qualified.log`, `workspace-check-before-lock-fix.log` | corrected and reproduced workspace checks |

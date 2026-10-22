@@ -14,9 +14,9 @@ limits. The Intel archive remains unchanged.
 
 ## Physical Ally result
 
-The final run is `target/ally-results/qualification-ship-posttune`: all 13
-stages pass in 1,524 s on the tuned route tables, covering 375 Python tests
-(12 existing skips), 811 library and 40 trainer tests, both TCP modes with 290
+The final run is `target/ally-results/qualification-small-welford`: all 13
+stages pass in 2,314 s on the tuned route tables, covering 375 Python tests
+(12 existing skips), 813 library and 40 trainer tests, both TCP modes with 290
 identical tensors, 38,930 recurrent digests, 36,096 Transformer logits with zero
 differing bits, vendor composition, the CPU bridge and both 12/12 training
 ladders (6,464 dispatches, 3,076 barriers, loss 5.543217).
@@ -27,16 +27,30 @@ low-rank staged rows and two composed time-mix wins are recorded as withheld
 because their A/B changed numerical results; those geometries keep the proven
 fused producer. The packed-chain control test was updated after every sweep
 geometry became measured, then the whole 13-stage suite was re-run on the
-byte-exact tuned tables.
+byte-exact tuned tables; that result remains in
+`qualification-ship-posttune`.
+
+The follow-up adds a width-bounded short Welford module for repaired GPT-2.
+One 64-invocation workgroup owns eight rows with eight lanes each, merges the
+per-lane moments in the general module's order, and uses exact integer
+reciprocals. It is bit-identical to the general module on all 512 short
+geometries, and the CPU fixture's ten widths up to 128 pass through it bit for
+bit. It is admitted only on this adapter/driver at hidden widths 1-128 and
+removes the old 15% tiny-GPT-2 cost.
 
 Nine independent oracle stages pass with unchanged inputs: 19 additional
 small-rank recurrent cases (31,914 digests), full Hugging Face training, five
 cached-generation validators, the OLMo beta diagnostic and the complete
 32-family PEFT matrix. The seven-executable bundle passes a ten-command
 application smoke test, including exact mid-epoch resume over all 290 tensors.
-Paired quiet performance is 0.970-1.015 of clean stable across 16 whole-RNN
-cases; wide Transformer inference is 1.009-1.033, with the tiny GPT-2 case at
-1.15x (0.086 ms) as the documented cost of its numerical repair.
+Paired quiet performance is 0.964-1.020 of clean stable across 16 whole-RNN
+cases. Wide GPT-2 inference is 0.914-0.923, decode 0.856, batch-32 0.952, tiny
+GPT-2 1.032 at 0.58 ms (1.004 over five pairs), and Llama 1.002-1.009; the old
+1.15x tiny-GPT-2 cost is gone. The first performance run is retained as
+`training-performance-interference`: one Transformer stable leg stalled to a
+0.337 ratio, and on the worst training case (FP16 masked, 1.078) the unpatched
+`stable-auto` control ran at 248.5 ms against the candidate's 248.9 ms. The
+immediate rerun on the same binaries is the accepted measurement.
 
 The GUI evidence is its crate tests plus a workflow test that drives the real
 `NativeApp` builder and native CLI for Falcon H1 training, full fine-tuning and

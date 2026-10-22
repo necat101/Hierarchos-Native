@@ -1,0 +1,99 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+
+// Classic LayerNorm for 1 <= dim <= 128: the general Welford module's
+// single chunk, with identical FP32 rounding and lane merge order. The host
+// bounds admission; larger and unmeasured profiles retain the general module.
+// Exact integer-count reciprocals remove division replay without changing bits.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BiasBuffer { float bias[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer MeanBuffer { float mean_values[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer RstdBuffer { float rstd_values[]; };
+layout(push_constant) uniform Push { uint rows; uint dim; float eps; } pc;
+
+// Correctly rounded FP32 1/n for n=1..16; integer counts are exact.
+float small_reciprocal(uint n) {
+    const uint bits[16] = uint[16](0x3f800000u, 0x3f000000u, 0x3eaaaaabu, 0x3e800000u, 0x3e4ccccdu, 0x3e2aaaabu, 0x3e124925u, 0x3e000000u, 0x3de38e39u, 0x3dcccccdu, 0x3dba2e8cu, 0x3daaaaabu, 0x3d9d89d9u, 0x3d924925u, 0x3d888889u, 0x3d800000u);
+    return uintBitsToFloat(bits[n-1u]);
+}
+// Eight lanes own each row; all invocations participate in the two barriers.
+// Moment streams and the final lane merge retain the general module's order.
+shared float lane_means[64];
+shared float lane_variances[64];
+shared float row_means[8];
+shared float row_rstd[8];
+void main() {
+    uint local = gl_LocalInvocationID.x;
+    uint lane = local & 7u;
+    uint local_row = local / 8u;
+    uint row = gl_WorkGroupID.x * 8u + local_row;
+    bool valid = row < pc.rows;
+    uint base = row * pc.dim;
+    uint vectors = pc.dim / 8u;
+    float m = 0.0;
+    float v = 0.0;
+    if (valid) {
+        for (uint j = 0u; j < vectors; ++j) {
+            float a = x[base + j * 8u + lane];
+            precise float reciprocal = small_reciprocal(j + 1u);
+            precise float delta = a - m;
+            m = fma(reciprocal, delta, m);
+            precise float centered = a - m;
+            v = fma(delta, centered, v);
+        }
+    }
+    lane_means[local] = m;
+    lane_variances[local] = v;
+    barrier();
+    if (valid && lane == 0u) {
+        precise float mean = 0.0;
+        precise float variance = 0.0;
+        uint count = 0u;
+        for (uint col = vectors * 8u; col < pc.dim; ++col) {
+            precise float delta = x[base + col] - mean;
+            ++count;
+            precise float increment = fp32_div(delta, float(count));
+            mean += increment;
+            precise float centered = x[base + col] - mean;
+            precise float product = delta * centered;
+            variance += product;
+        }
+        if (vectors != 0u) {
+            for (uint stream = 0u; stream < 8u; ++stream) {
+                float lane_mean = lane_means[local + stream];
+                float lane_variance = lane_variances[local + stream];
+                precise float c = pc.dim % 8u == 0u ? small_reciprocal(stream + 1u)
+                    : fp32_div(float(vectors), float(count + vectors));
+                precise float delta = lane_mean - mean;
+                precise float increment = c * delta;
+                mean += increment;
+                precise float dd = delta * delta;
+                precise float dc = dd * c;
+                precise float correction = dc * float(count);
+                precise float add = lane_variance + correction;
+                variance += add;
+                count += vectors;
+            }
+        }
+        variance = fp32_div(variance, float(pc.dim));
+        precise float with_eps = variance + pc.eps;
+        float rstd = fp32_sqrt_recip(with_eps);
+        row_means[local_row] = mean;
+        row_rstd[local_row] = rstd;
+        mean_values[row] = mean;
+        rstd_values[row] = rstd;
+    }
+    barrier();
+    if (valid) {
+        for (uint col = lane; col < pc.dim; col += 8u) {
+            precise float centered = x[base + col] - row_means[local_row];
+            precise float normalized = centered * row_rstd[local_row];
+            precise float scaled = normalized * weight[col];
+            output_values[base + col] = scaled + bias[col];
+        }
+    }
+}

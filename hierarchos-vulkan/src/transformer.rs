@@ -62,6 +62,13 @@ const BIAS_ADD_SPV: &[u8] = include_bytes!("../shaders/transformer_bias_add.spv"
 const LAYER_NORM_FORWARD_SPV: &[u8] = include_bytes!("../shaders/layer_norm_forward.spv");
 const LAYER_NORM_WELFORD_FORWARD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_layer_norm_welford_forward.spv");
+const LAYER_NORM_WELFORD_SMALL_FORWARD_SPV: &[u8] =
+    include_bytes!("../shaders/transformer_layer_norm_welford_small_forward.spv");
+
+fn small_welford_is_qualified(device: &str, dim: usize) -> bool {
+    device == "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]"
+        && (1..=128).contains(&dim)
+}
 const LAYER_NORM_INPUT_GRAD_SPV: &[u8] = include_bytes!("../shaders/layer_norm_input_grad.spv");
 const LAYER_NORM_PARAM_GRAD_SPV: &[u8] = include_bytes!("../shaders/layer_norm_param_grad.spv");
 const GROUPED_LAYER_NORM_FORWARD_SPV: &[u8] =
@@ -25948,6 +25955,7 @@ struct TransformerKernels {
     bias_grad: vulkan::ComputeKernel,
     bias_add: vulkan::ComputeKernel,
     layer_norm_forward: vulkan::ComputeKernel,
+    layer_norm_rows_per_workgroup: usize,
     layer_norm_input_grad: vulkan::ComputeKernel,
     layer_norm_param_grad: vulkan::ComputeKernel,
     grouped_layer_norm_forward: vulkan::ComputeKernel,
@@ -26193,6 +26201,7 @@ impl TransformerKernels {
             bias_grad: vulkan::ComputeKernel::new(device, BIAS_GRAD_SPV, 2, 8)?,
             bias_add: vulkan::ComputeKernel::new(device, BIAS_ADD_SPV, 2, 8)?,
             layer_norm_forward: vulkan::ComputeKernel::new(device, layer_norm_spv, 6, 12)?,
+            layer_norm_rows_per_workgroup: 64,
             layer_norm_input_grad: vulkan::ComputeKernel::new(
                 device,
                 LAYER_NORM_INPUT_GRAD_SPV,
@@ -28660,7 +28669,7 @@ impl VulkanLayerNorm {
                     rstd,
                 ],
                 bytemuck::bytes_of(&push),
-                [div_ceil_u32(rows, 64), 1, 1],
+                [div_ceil_u32(rows, kernels.layer_norm_rows_per_workgroup), 1, 1],
             )
         } else {
             if !rows.is_multiple_of(self.parameter_groups) {
@@ -66250,11 +66259,21 @@ impl VulkanTransformer {
         let repaired_gpt2 = vendor::is_amd_rdna3(&device)
             && config.architecture == VulkanTransformerArchitecture::Gpt2;
         let layer_norm_spv = if repaired_gpt2 {
-            LAYER_NORM_WELFORD_FORWARD_SPV
+            // One chunk has the identical Welford association without a cascade
+            // stack. Keep unmeasured adapters/drivers and larger widths on the
+            // independently qualified general implementation.
+            if small_welford_is_qualified(device.decision_device_name(), config.hidden_size) {
+                LAYER_NORM_WELFORD_SMALL_FORWARD_SPV
+            } else {
+                LAYER_NORM_WELFORD_FORWARD_SPV
+            }
         } else {
             LAYER_NORM_FORWARD_SPV
         };
         let mut kernels = Box::new(TransformerKernels::new_with_layer_norm(&device, layer_norm_spv)?);
+        if repaired_gpt2 && small_welford_is_qualified(device.decision_device_name(), config.hidden_size) {
+            kernels.layer_norm_rows_per_workgroup = 8;
+        }
         if repaired_gpt2 {
             kernels.linear_bias_forward_kblock128 = Some(vulkan::ComputeKernel::new(
                 &device, LINEAR_BIAS_FORWARD_AMD_KBLOCK128_SPV, 4, 12,
@@ -130518,8 +130537,10 @@ mod tests {
         struct Fixture { cases: Vec<Case> }
         let fixture: Fixture = serde_json::from_str(include_str!(
             "../validation/kernel_golden/transformer_layer_norm_welford.json"))?;
-        let kernel = vulkan::ComputeKernel::new(&device, LAYER_NORM_WELFORD_FORWARD_SPV, 6, 12)?;
+        let general = vulkan::ComputeKernel::new(&device, LAYER_NORM_WELFORD_FORWARD_SPV, 6, 12)?;
+        let small = vulkan::ComputeKernel::new(&device, LAYER_NORM_WELFORD_SMALL_FORWARD_SPV, 6, 12)?;
         for case in fixture.cases {
+            let kernel = if case.dim <= 128 { &small } else { &general };
             let x = GpuBuffer::from_f32(&device, &case.x)?;
             let weight = GpuBuffer::from_f32(&device, &case.weight)?;
             let bias = GpuBuffer::from_f32(&device, &case.bias)?;
@@ -130529,7 +130550,7 @@ mod tests {
             let mut commands = vulkan::ComputeBatch::new(&device)?;
             let push = LayerNormForwardPush { rows: case.rows as u32, dim: case.dim as u32, eps: 1.0e-5 };
             kernel.record_dispatch(&mut commands, &[&x, &weight, &bias, &output, &mean, &rstd],
-                bytemuck::bytes_of(&push), [div_ceil_u32(case.rows, 64), 1, 1])?;
+                bytemuck::bytes_of(&push), [div_ceil_u32(case.rows, if case.dim <= 128 { 8 } else { 64 }), 1, 1])?;
             commands.submit()?;
             for (name, actual, expected) in [
                 ("mean", mean.read_f32(case.rows)?, case.mean),
@@ -130599,3 +130620,7 @@ mod tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "welford_small_tests.rs"]
+mod welford_small_tests;
