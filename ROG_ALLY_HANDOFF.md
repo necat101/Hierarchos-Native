@@ -45,8 +45,9 @@ cached-generation validators, the OLMo beta diagnostic and the complete
 application smoke test, including exact mid-epoch resume over all 290 tensors.
 Paired quiet performance is 0.964-1.020 of clean stable across 16 whole-RNN
 cases. Wide GPT-2 inference is 0.914-0.923, decode 0.856, batch-32 0.952, tiny
-GPT-2 1.032 at 0.58 ms (1.004 over five pairs), and Llama 1.002-1.009; the old
-1.15x tiny-GPT-2 cost is gone. The first performance run is retained as
+GPT-2 1.014 (95% CI 1.0132-1.0140 over 30 pairs at 0.58 ms), and Llama
+1.002-1.009; the old 1.15x cost is gone, leaving a resolved 1.4% repair cost.
+The first performance run is retained as
 `training-performance-interference`: one Transformer stable leg stalled to a
 0.337 ratio, and on the worst training case (FP16 masked, 1.078) the unpatched
 `stable-auto` control ran at 248.5 ms against the candidate's 248.9 ms. The

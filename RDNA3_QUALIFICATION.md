@@ -185,7 +185,7 @@ Complete-model paired medians (five alternating pairs, candidate/stable):
 
 | Case | Before | After |
 | --- | --- | --- |
-| Tiny GPT-2 unmasked (0.58 ms) | 1.150 | 1.004 (0.997-1.007) |
+| Tiny GPT-2 unmasked (0.58 ms) | 1.150 | 1.014 (95% CI 1.0132-1.0140) |
 | Wide GPT-2 unmasked | 1.017 | 0.915 (0.911-0.918) |
 | Wide GPT-2 padded | 1.034 | 0.912 (0.901-0.919) |
 | Wide GPT-2 decode | 1.032 | 0.848 (0.843-0.854) |
@@ -193,10 +193,16 @@ Complete-model paired medians (five alternating pairs, candidate/stable):
 | Wide Llama unmasked | 1.017 | 0.997 (0.994-1.006) |
 | Wide Llama padded | 1.009 | 1.000 (0.998-1.005) |
 
-The accepted 13-stage harness repeats three runs per case and is noisier on the
-0.58 ms fixture: tiny GPT-2 is 1.032 (0.982-1.060), wide 0.914/0.923, decode
-0.856, batch-32 0.952, Llama 1.002/1.009. The old 15% penalty is gone; the tiny
-case is now inside the noise band rather than measurably slower.
+The 13-stage harness uses only 30 forwards per leg, so its three-run median on
+the 0.58 ms fixture is noise-bound: tiny GPT-2 is 1.032 (0.982-1.060), against
+wide 0.914/0.923, decode 0.856, batch-32 0.952 and Llama 1.002/1.009. A
+dedicated run with the same qualified observer binaries gives each leg 4,000
+forwards across 30 alternating pairs, plus two discarded burn-in pairs. All 30
+pairs put the candidate above stable, with a paired median of 1.0136 and a
+bootstrap 95% CI of 1.0132-1.0140 (exact sign test p=1.9e-9). The residual
+1.4% is the repaired module's cost, well inside the 5% materiality margin and
+far from the old 15%. An earlier five-pair, 150-forward estimate of 1.004 was
+too coarse and is superseded by this run.
 
 ## Performance
 
@@ -215,9 +221,9 @@ untouched automatic stable):
   the same binaries produced 1.006-1.014 for the case. The accepted receipt is the
   rerun; neither run is hidden.
 - 7 Transformer inference cases: wide GPT-2 0.914/0.923, decode 0.856, batch-32
-  0.952, Llama 1.002/1.009, tiny GPT-2 1.032 (0.982-1.060 at 0.58 ms). See the
-  recovery section for the five-pair medians. No case is materially slower; the
-  old 1.15x tiny-GPT-2 cost is gone.
+  0.952, Llama 1.002/1.009, tiny GPT-2 1.014 (95% CI 1.0132-1.0140 over 30
+  pairs at 0.58 ms). No case is materially slower; the old 1.15x tiny-GPT-2
+  cost is gone, leaving a resolved 1.4% repair cost.
 - Dispatch profiles record 240 nonzero shader artifacts across 24 workload rows
   (`profiles-qualified`); instrumentation timings are excluded from acceptance.
 
@@ -294,6 +300,7 @@ Every stage writes its own log, and `qualification.json` is green only when all
 | `training-performance-qualified/`, `transformer-performance-qualified/` | accepted paired timings |
 | `training-performance-interference/`, `transformer-performance-interference/` | excluded run, its `NOTE.json` and the reason |
 | `gpt2-speed-recovery/` | prototypes, 512-geometry parity and five-pair model timings |
+| `tiny-gpt2-statistical/` | 30-pair, 4,000-forward CI and sign test for the tiny case |
 | `pre-small-welford/` | prior performance receipts and final review |
 | `profiles-qualified/` | actual shipping dispatch profiles |
 | `complete-optimization-ledger.json` | 156 reviewed sources across 19 groups |
