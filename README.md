@@ -83,6 +83,111 @@ The native Transformer path is not a PyTorch device plugin and does not register
 - Checked-in SPIR-V binaries for ordinary builds; a shader compiler is not required just to build and run the release backend.
 - Explicit numerical/parity tooling against reference PyTorch/Transformers implementations for development qualification.
 
+## Physical ROG Ally qualification and RDNA3 tuning — October 22, 2026
+
+The AMD backend is no longer qualified only by proxy. The complete numerical
+suite, the independent mathematical oracles, the shipping bundle and the paired
+performance measurements were executed on a physical **ASUS ROG Ally RC71L**
+(Ryzen Z1 Extreme, Radeon `1002:15bf`, Windows driver `32.0.31007.6002`,
+Vulkan `26.10.07.06`), not on an emulated or alternate adapter.
+
+### Final qualification
+
+`target/ally-results/qualification-small-welford` repeats all 13 stages on the
+final tuned route tables and the final GPT-2 module, and passes every one in
+**2,314 s**:
+
+- 375 Python contract tests (the same 12 opt-in skips), **813** library tests
+  (9 ignored) and 40 trainer tests.
+- 34 recurrent cases with **38,930 exact tensor digests** and zero differences
+  under both FP32 and FP16-storage/FP32-compute.
+- 75 Transformer comparisons with **36,096 logits and zero differing bits**,
+  plus the unchanged independent Transformers ceiling.
+- Both two-process trainer modes export **290 identical model/optimizer
+  tensors**.
+- Both 12/12 training ladders report **6,464 dispatches, 3,076 barriers, loss
+  5.543217 and 32,162 exact trajectory digests**.
+- RDNA3 vendor composition, the CPU RWKV bridge, all frontend crates, the
+  seven-executable bundle and ten application commands (including exact
+  mid-epoch resume) pass.
+
+Nine independent oracle stages pass with unchanged inputs: 19 additional
+small-rank recurrent cases (31,914 digests), full Hugging Face training, five
+cached-generation validators, the OLMo beta diagnostic and the complete
+32-family PEFT matrix (LoRA, saved modules and adapter switching). The tuned
+tables add 27 AMD rows and leave all 35 Intel/other-adapter rows untouched.
+
+### Measured routes, not copied assumptions
+
+A faster route is recorded only after the driver's own A/B shows zero worst
+absolute difference and the exact training trajectory accepts it. Nine staged
+low-rank rows and two composed time-mix wins are explicitly withheld because
+their A/B changed values or drifted over eight timesteps; those geometries keep
+the proven fused producer.
+
+The earlier second-update drift was two valid FP32 backward associations on
+this driver. The committed AMD goldens pin the required association before
+timing, and the topology choice for width-128, ranks-32/32/64 now requires a
+15% win in all seven rounds (40 debug replays selected one row 160/160 times).
+Forced experimental schedules stay in memory and never enter the shared
+autotune cache.
+
+### Numerical repairs and the GPT-2 recovery
+
+The scoped old-stable parity exceptions remain the GPT-2 Welford/addmm repair
+and the OLMo Hybrid beta-scale-2 repair. Both match the intended reference
+semantics and the unchanged independent `2e-7` ceiling; no tolerance or
+existing golden was changed.
+
+The GPT-2 repair originally cost **1.15x** on the tiny fixture. A one-chunk,
+eight-lane-per-row Welford module with exact integer reciprocals now keeps the
+same association without the cascade stack. It is admitted only on this
+adapter/driver at hidden widths 1–128 and matches the general module bit for
+bit on all 512 short geometries; the CPU fixture's ten widths up to 128 run
+through it. A dedicated 30-pair run (4,000 forwards per leg) resolves the tiny
+case at **1.0136 of stable, 95% CI 1.0132–1.0140**, with all 30 pairs above one
+and sign test `p = 1.9e-9`. The residual 1.4% is the repair cost, not 15%.
+
+Paired quiet performance on the physical device:
+
+| Case | Candidate / stable |
+| --- | ---: |
+| 16 whole-RNN training cases | 0.964–1.020 |
+| Wide GPT-2, unmasked / padded | 0.914 / 0.923 |
+| Wide GPT-2 decode / batch-32 | 0.856 / 0.952 |
+| Tiny GPT-2 (0.58 ms) | 1.0136 (95% CI 1.0132–1.0140) |
+| Wide Llama, unmasked / padded | 1.002 / 1.009 |
+
+The first performance run after the long build is retained as
+`training-performance-interference`: one Transformer stable leg stalled and the
+unpatched `stable-auto` control matched the candidate on the worst training case
+outside the band. The immediate rerun on the same binaries is the accepted
+measurement; both runs remain in the evidence.
+
+### Windows two-rank training
+
+The upstream two-rank distributed trainer now has a functional Windows TCP
+transport. Both `param-server` and `allreduce` modes run with
+`--world-size 2 --rank N --peer-ip ADDRESS --network-transport tcp`; the trainer
+uses ports 18515/18516 and `HIERARCHOS_NETWORK_TIMEOUT_SECONDS` (default 300).
+The primary broadcasts parameters, moments/clocks and controller state;
+allreduce applies the optimizer per rank and fails on a weight-checksum
+mismatch. The port also fixes upstream distributed-state defects (moment decode
+order, unaligned payloads, metadata bounds and initial optimizer synchronization).
+
+The qualification ran two processes on one physical adapter. It does not
+certify two machines, a real network, or RDMA hardware. Linux RDMA remains an
+opt-in `--features rdma` build; Windows NetworkDirect is not implemented.
+
+### Evidence
+
+The full physical qualification, the independently archived oracles and the
+paired measurements are in `target/ally-results/` (ignored working data, not
+committed). The human-readable records are
+[RDNA3_QUALIFICATION.md](RDNA3_QUALIFICATION.md) and
+[ROG_ALLY_HANDOFF.md](ROG_ALLY_HANDOFF.md); the qualification command is
+documented below.
+
 ## Vulkan training optimizations — October 15, 2026
 
 The training backend now reuses matrix tiles and attention scores, shares compiled
@@ -119,6 +224,8 @@ training steps**, and **86 affected shader variants reproduce and validate**.
 The library/trainer suites pass **706 + 40 tests**, with nine library microprofiles
 explicitly ignored. This optimization qualification is specific to the tested AMD
 device; it does not extend the earlier cross-vendor qualification to these changes.
+The current physical-Ally sign-off (813 + 40 tests, 13 gates) is the October 22
+section above.
 
 See the [backend optimization details](hierarchos-vulkan/README.md#training-kernel-optimizations-and-verification),
 [numerical sign-off and reproduction commands](hierarchos-vulkan/validation/SHIP_PARITY.md),
@@ -146,6 +253,9 @@ checkout is bit-exact on each:
 | --- | --- | --- | --- |
 | Intel Gen9 target (i5-6200U, Skylake-U) | HD Graphics 520 | AVX2 only, `avx512f` absent | two interleaved fused-FMA GEMM lanes; 8-lane log-softmax fold |
 | AMD Radeon target (Ryzen Z1 Extreme) | Radeon | AVX-512, `avx512f` present | four interleaved GEMM lanes with materialized products; 16-lane log-softmax fold |
+
+The AMD row is now backed by a complete physical Ally qualification, including
+the tuned RDNA3 routes and the shipping bundle; see the October 22 section above.
 
 Kernel *variants* are selected by GPU vendor, but two reductions whose
 reference is the host's own PyTorch CPU library are selected by **host CPU
@@ -610,6 +720,12 @@ python -m unittest discover -s hierarchos-vulkan/validation -p "test_*.py"
 python hierarchos-vulkan/validation/generate_supported_architectures.py --check
 ```
 
+On a physical AMD adapter,
+`hierarchos-vulkan/validation/qualify_handoff.py --stable <oracle> --expected-vendor amd --output <dir>`
+runs the same 13 stages used for the sign-off. `check-workspace.ps1` seeds its
+generated workspace from `hierarchos-vulkan/Cargo.lock`, so a fresh checkout
+resolves the dependencies the qualified binaries were built with.
+
 The first command is the one-pass workspace gate: it checks all four crates and
 every binary target together, warm in about a minute. Enable the tracked hook
 once with `git config core.hooksPath .githooks` so it runs before every commit,
@@ -646,10 +762,12 @@ Hierarchos Native intentionally fails closed when a requested execution contract
 - [Standalone distribution layout](hierarchos-vulkan/standalone/README.md)
 - [Vendor tuning, per-host measurements, and rejected kernels](hierarchos-vulkan/VENDOR_TUNING.md)
 - [AMD regression audit and the host-ISA change record](AMD_REGRESSION_AUDIT.md)
+- [Physical ROG Ally qualification, tuning and limitations](RDNA3_QUALIFICATION.md)
+- [ROG Ally handoff and reproduction guide](ROG_ALLY_HANDOFF.md)
 
 ## Support the Developer:
 [Patreon](https://www.patreon.com/cw/MakhiBurroughs)
 
 ## Project status
 
-This repository is under active development. The architecture inventory and compatibility surface are generated/validated from source and will continue to evolve. When in doubt, prefer the live `architectures` command and the generated architecture matrix over copied architecture counts in third-party descriptions.
+This repository is under active development. The last full physical qualification is October 22, 2026 on the ROG Ally; its scope and limits are recorded in [RDNA3_QUALIFICATION.md](RDNA3_QUALIFICATION.md). The architecture inventory and compatibility surface are generated/validated from source and will continue to evolve. When in doubt, prefer the live `architectures` command and the generated architecture matrix over copied architecture counts in third-party descriptions.
