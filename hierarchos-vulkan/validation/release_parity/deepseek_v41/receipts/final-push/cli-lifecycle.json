@@ -1,0 +1,44 @@
+{
+  "pass_": true,
+  "cli_sha256": "eb7fa661294f1b501554fb09e57e917205e0eed2fc91ec2083a5db356dcaf90d",
+  "records": [
+    {
+      "method": "lora",
+      "stream_parameters": false,
+      "adapter_sha256": "94b26213d980300b8a01763888a09a4ef10f792c98f9fe0be181081e7e76da98",
+      "generation": "8 15\n"
+    },
+    {
+      "method": "lora",
+      "stream_parameters": true,
+      "adapter_sha256": "94b26213d980300b8a01763888a09a4ef10f792c98f9fe0be181081e7e76da98",
+      "generation": "8 15\n"
+    },
+    {
+      "method": "rslora",
+      "stream_parameters": false,
+      "adapter_sha256": "f986055bcda169be4cdeb44ae293962fefa2cfb6be9ca2285d2445646ba00928",
+      "generation": "8 15\n"
+    },
+    {
+      "method": "rslora",
+      "stream_parameters": true,
+      "adapter_sha256": "f986055bcda169be4cdeb44ae293962fefa2cfb6be9ca2285d2445646ba00928",
+      "generation": "8 15\n"
+    },
+    {
+      "architecture": "llama",
+      "generation": "9 9\n",
+      "streamed_resident_generation_bit_equal": true,
+      "adapter_sha256": "6aec08709dc22247cfe7651ee2f959c6cf461542b2853dc36206dfb08355463c",
+      "resident_streamed_resume_uninterrupted_adapters_equal": true
+    },
+    {
+      "architecture": "mixtral",
+      "generation": "9 9\n",
+      "streamed_resident_generation_bit_equal": true,
+      "adapter_sha256": "82ab52a9039162663d2ae8b37bcce3451778012505d0180f2d7dadab07d544c9",
+      "resident_streamed_resume_uninterrupted_adapters_equal": true
+    }
+  ]
+}

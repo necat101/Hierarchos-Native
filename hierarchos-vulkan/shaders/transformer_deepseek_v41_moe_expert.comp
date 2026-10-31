@@ -1,0 +1,128 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+
+// V4.1 SwiGLU expert. Matches Expert.forward:
+//   gate = w1(x), up = w3(x); if swiglu_limit > 0 clamp up both sides and gate
+//   above; act = silu(gate) * up; if weighted act *= route_weight; out = w2(act)
+// One dispatch covers one expert; a workgroup computes one (token, slot) and
+// exits unless that slot routed here. The expert sweep is a correctness
+// baseline, not a grouped-GEMM serving implementation. The dot-operation
+// choice mirrors the single-threaded oracle's matrix and fewer-than-four-row
+// vector paths, using GPU route counts for each expert's actual visible rows.
+layout(local_size_x = 128) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer W1 { float w1[]; };
+layout(set = 0, binding = 2, std430) readonly buffer W3 { float w3[]; };
+layout(set = 0, binding = 3, std430) readonly buffer W2 { float w2[]; };
+layout(set = 0, binding = 4, std430) readonly buffer Weight { float route_weights[]; };
+layout(set = 0, binding = 5, std430) readonly buffer Indices { uint indices[]; };
+layout(set = 0, binding = 6, std430) buffer Scratch { float scratch[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer Output { float output_values[]; };
+layout(set = 0, binding = 8, std430) readonly buffer Counts { uint counts[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint inter;
+    uint topk;
+    uint expert;
+    uint weighted;
+    float swiglu_limit;
+} pc;
+
+void main() {
+    uint group = gl_WorkGroupID.x;
+    uint row = group / pc.topk;
+    uint slot = group % pc.topk;
+    uint lane = gl_LocalInvocationID.x;
+    if (pc.expert != 0xffffffffu && indices[row * pc.topk + slot] != pc.expert) return;
+    uint visible_rows = pc.weighted != 0u ? counts[pc.expert] : pc.rows;
+    uint expert_row = row;
+    if (pc.weighted != 0u) {
+        // torch.where(indices == expert) packs rows in token order; its SiLU
+        // vector/scalar boundary belongs to that compact per-expert tensor.
+        expert_row = 0u;
+        for (uint r = 0u; r < row; ++r)
+            for (uint s = 0u; s < pc.topk; ++s)
+                if (indices[r * pc.topk + s] == pc.expert) ++expert_row;
+    }
+    bool hidden_matrix = pc.inter > 8u && visible_rows >= 4u;
+    uint xb = row * pc.dim;
+
+    for (uint j = lane; j < pc.inter; j += 128u) {
+        precise float gate;
+        precise float up;
+        {
+            if (hidden_matrix) {
+                precise float gate_sum = 0.0;
+                precise float up_sum = 0.0;
+                for (uint i = 0u; i < pc.dim; ++i) {
+                    gate_sum = fma(x[xb + i], w1[j * pc.dim + i], gate_sum);
+                    up_sum = fma(x[xb + i], w3[j * pc.dim + i], up_sum);
+                }
+                gate = gate_sum;
+                up = up_sum;
+            } else {
+                precise float ga = 0.0, gb = 0.0, gc = 0.0, gd = 0.0;
+                precise float ua = 0.0, ub = 0.0, uc = 0.0, ud = 0.0;
+                uint aligned = pc.dim / 4u * 4u;
+                for (uint i = 0u; i < aligned; i += 4u) {
+                    ga += x[xb + i] * w1[j * pc.dim + i];
+                    gb += x[xb + i + 1u] * w1[j * pc.dim + i + 1u];
+                    gc += x[xb + i + 2u] * w1[j * pc.dim + i + 2u];
+                    gd += x[xb + i + 3u] * w1[j * pc.dim + i + 3u];
+                    ua += x[xb + i] * w3[j * pc.dim + i];
+                    ub += x[xb + i + 1u] * w3[j * pc.dim + i + 1u];
+                    uc += x[xb + i + 2u] * w3[j * pc.dim + i + 2u];
+                    ud += x[xb + i + 3u] * w3[j * pc.dim + i + 3u];
+                }
+                precise float gac = ga + gc;
+                precise float gbd = gb + gd;
+                gate = gac + gbd;
+                precise float uac = ua + uc;
+                precise float ubd = ub + ud;
+                up = uac + ubd;
+                for (uint i = aligned; i < pc.dim; ++i) {
+                    gate += x[xb + i] * w1[j * pc.dim + i];
+                    up += x[xb + i] * w3[j * pc.dim + i];
+                }
+            }
+        }
+        if (pc.swiglu_limit > 0.0) {
+            up = clamp(up, -pc.swiglu_limit, pc.swiglu_limit);
+            gate = min(gate, pc.swiglu_limit);
+        }
+        precise float activated = v41_cpu_silu(gate, expert_row * pc.inter + j, visible_rows * pc.inter) * up;
+        if (pc.weighted != 0u)
+            activated *= route_weights[row * pc.topk + slot];
+        scratch[group * pc.inter + j] = activated;
+    }
+    barrier();
+
+    bool output_matrix = pc.dim > 8u && visible_rows >= 4u;
+    for (uint d = lane; d < pc.dim; d += 128u) {
+        precise float sum = 0.0;
+        if (output_matrix) {
+            for (uint j = 0u; j < pc.inter; ++j)
+                sum = fma(scratch[group * pc.inter + j], w2[d * pc.inter + j], sum);
+        } else {
+            precise float a = 0.0, b = 0.0, c = 0.0, e = 0.0;
+            uint aligned = pc.inter / 4u * 4u;
+            for (uint j = 0u; j < aligned; j += 4u) {
+                a += scratch[group * pc.inter + j] * w2[d * pc.inter + j];
+                b += scratch[group * pc.inter + j + 1u] * w2[d * pc.inter + j + 1u];
+                c += scratch[group * pc.inter + j + 2u] * w2[d * pc.inter + j + 2u];
+                e += scratch[group * pc.inter + j + 3u] * w2[d * pc.inter + j + 3u];
+            }
+            precise float ac = a + c;
+            precise float be = b + e;
+            sum = ac + be;
+            for (uint j = aligned; j < pc.inter; ++j)
+                sum += scratch[group * pc.inter + j] * w2[d * pc.inter + j];
+        }
+        output_values[group * pc.dim + d] = sum;
+    }
+}

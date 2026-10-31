@@ -1,0 +1,48 @@
+#version 450
+
+// Single-row CPU `mm` adjoint: `grad_output (1 x K) @ weight (K x N)`.
+//
+// ATen dispatches a one-row GEMM to its matrix-vector path, which does not walk
+// the reduction serially. Measured against `torch.mm` over the V4.1 decode
+// input-gradient shapes (K in 16..128, N in 16..512) the reduction is eight
+// contiguous elements accumulated into a partial, with each partial rounded
+// and then added to a running total in ascending order. The eight-element
+// partial is not reassociated and the product is a separate rounding, so this
+// kernel is deliberately `precise` on both the product and the accumulation:
+// a fused multiply-add into the partial would land one ulp away.
+//
+// `linear_input_grad.comp` is the serial FMA kernel for wider rows (the order
+// qualified by the prefill fixture at M=4..12), and
+// `linear_input_grad_group4_muladd.comp` covers the two-row shapes. This kernel
+// is only selected for a single row.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+void main() {
+    uint col = gl_WorkGroupID.x * 16u + gl_LocalInvocationID.x;
+    uint row = gl_WorkGroupID.y * 16u + gl_LocalInvocationID.y;
+    if (row >= pc.rows || col >= pc.input_dim) {
+        return;
+    }
+    precise float total = 0.0;
+    for (uint base = 0u; base < pc.output_dim; base += 8u) {
+        uint end = min(base + 8u, pc.output_dim);
+        precise float partial = 0.0;
+        for (uint k = base; k < end; ++k) {
+            precise float product =
+                grad_output[row * pc.output_dim + k] * weight[k * pc.input_dim + col];
+            partial = partial + product;
+        }
+        total = total + partial;
+    }
+    grad_input[row * pc.input_dim + col] = total;
+}

@@ -1,0 +1,208 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+
+// V4.1 SwiGLU expert, adjoint. The forward is
+// `transformer_deepseek_v41_moe_expert.comp` (reference `Expert.forward`):
+//   gate = w1(x); up = w3(x);
+//   if swiglu_limit > 0: up = clamp(up, -L, L), gate = min(gate, L)
+//   act = silu(gate) * up;  if weighted: act = route_weight * act
+//   out = w2(act)
+// For a frozen expert the adjoint only has to produce the input gradient and
+// the routing-weight gradient, so:
+//   d_scratch[j] = sum_d grad_out[d] * w2[d, j]
+//   d_act[j]     = d_scratch[j] * route_weight
+//   d_up[j]      = d_act[j] * silu(gate[j])
+//   d_gate[j]    = (d_act[j] * up[j]) * silu'(gate[j])
+//   d_weight     = sum_j d_scratch[j] * act[j]     (banked CPU sum order)
+//   d_x[i]       = sum_j d_gate[j] * w1[j, i] + sum_j d_up[j] * w3[j, i]
+// The two input contractions stay separate, as autograd adds the two Linear
+// branches, and the gate/up recomputation repeats the forward's dot staging so
+// the clamp masks and silu staging see the same values the forward saw.
+layout(local_size_x = 128) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer W1 { float w1[]; };
+layout(set = 0, binding = 2, std430) readonly buffer W3 { float w3[]; };
+layout(set = 0, binding = 3, std430) readonly buffer W2 { float w2[]; };
+layout(set = 0, binding = 4, std430) readonly buffer GradOutput { float grad_output[]; };
+layout(set = 0, binding = 5, std430) readonly buffer Weight { float route_weights[]; };
+layout(set = 0, binding = 6, std430) readonly buffer Indices { uint indices[]; };
+layout(set = 0, binding = 7, std430) readonly buffer Counts { uint counts[]; };
+layout(set = 0, binding = 8, std430) buffer Scratch { float scratch[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer GradInput { float grad_input[]; };
+layout(set = 0, binding = 10, std430) writeonly buffer GradWeight { float grad_weight[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint inter;
+    uint topk;
+    uint expert;
+    uint weighted;
+    float swiglu_limit;
+} pc;
+
+void main() {
+    uint group = gl_WorkGroupID.x;
+    uint row = group / pc.topk;
+    uint slot = group % pc.topk;
+    uint lane = gl_LocalInvocationID.x;
+    if (pc.expert != 0xffffffffu && indices[row * pc.topk + slot] != pc.expert) return;
+    bool routed = pc.weighted != 0u;
+    uint visible_rows = routed ? counts[pc.expert] : pc.rows;
+    uint expert_row = row;
+    if (routed) {
+        // Same compact per-expert row index the forward uses for the SiLU
+        // vector/scalar boundary.
+        expert_row = 0u;
+        for (uint r = 0u; r < row; ++r)
+            for (uint s = 0u; s < pc.topk; ++s)
+                if (indices[r * pc.topk + s] == pc.expert) ++expert_row;
+    }
+    bool hidden_matrix = pc.inter > 8u && visible_rows >= 4u;
+    bool output_matrix = pc.dim > 8u && visible_rows >= 4u;
+    uint xb = row * pc.dim;
+    precise float route = routed ? route_weights[group] : 1.0;
+    uint base = group * pc.inter * 3u;
+
+    for (uint j = lane; j < pc.inter; j += 128u) {
+        precise float gate;
+        precise float up;
+        if (hidden_matrix) {
+            precise float gate_sum = 0.0;
+            precise float up_sum = 0.0;
+            for (uint i = 0u; i < pc.dim; ++i) {
+                gate_sum = fma(x[xb + i], w1[j * pc.dim + i], gate_sum);
+                up_sum = fma(x[xb + i], w3[j * pc.dim + i], up_sum);
+            }
+            gate = gate_sum;
+            up = up_sum;
+        } else {
+            precise float ga = 0.0, gb = 0.0, gc = 0.0, gd = 0.0;
+            precise float ua = 0.0, ub = 0.0, uc = 0.0, ud = 0.0;
+            uint aligned = pc.dim / 4u * 4u;
+            for (uint i = 0u; i < aligned; i += 4u) {
+                ga += x[xb + i] * w1[j * pc.dim + i];
+                gb += x[xb + i + 1u] * w1[j * pc.dim + i + 1u];
+                gc += x[xb + i + 2u] * w1[j * pc.dim + i + 2u];
+                gd += x[xb + i + 3u] * w1[j * pc.dim + i + 3u];
+                ua += x[xb + i] * w3[j * pc.dim + i];
+                ub += x[xb + i + 1u] * w3[j * pc.dim + i + 1u];
+                uc += x[xb + i + 2u] * w3[j * pc.dim + i + 2u];
+                ud += x[xb + i + 3u] * w3[j * pc.dim + i + 3u];
+            }
+            precise float gac = ga + gc;
+            precise float gbd = gb + gd;
+            gate = gac + gbd;
+            precise float uac = ua + uc;
+            precise float ubd = ub + ud;
+            up = uac + ubd;
+            for (uint i = aligned; i < pc.dim; ++i) {
+                gate += x[xb + i] * w1[j * pc.dim + i];
+                up += x[xb + i] * w3[j * pc.dim + i];
+            }
+        }
+
+        bool up_inside = true;
+        bool gate_inside = true;
+        if (pc.swiglu_limit > 0.0) {
+            up_inside = up > -pc.swiglu_limit && up < pc.swiglu_limit;
+            gate_inside = gate < pc.swiglu_limit;
+            up = clamp(up, -pc.swiglu_limit, pc.swiglu_limit);
+            gate = min(gate, pc.swiglu_limit);
+        }
+
+        precise float silu_value = v41_cpu_silu(gate, expert_row * pc.inter + j, visible_rows * pc.inter);
+        precise float activation = silu_value * up;
+
+        // d / d(act) of the expert output through the frozen w2.
+        precise float d_scratch = 0.0;
+        if (output_matrix) {
+            for (uint d = 0u; d < pc.dim; ++d)
+                d_scratch = fma(grad_output[group * pc.dim + d], w2[d * pc.inter + j], d_scratch);
+        } else {
+            precise float a = 0.0, b = 0.0, c = 0.0, e = 0.0;
+            uint aligned = pc.dim / 4u * 4u;
+            for (uint d = 0u; d < aligned; d += 4u) {
+                a += grad_output[group * pc.dim + d] * w2[d * pc.inter + j];
+                b += grad_output[group * pc.dim + d + 1u] * w2[(d + 1u) * pc.inter + j];
+                c += grad_output[group * pc.dim + d + 2u] * w2[(d + 2u) * pc.inter + j];
+                e += grad_output[group * pc.dim + d + 3u] * w2[(d + 3u) * pc.inter + j];
+            }
+            precise float ac = a + c;
+            precise float be = b + e;
+            d_scratch = ac + be;
+            for (uint d = aligned; d < pc.dim; ++d)
+                d_scratch += grad_output[group * pc.dim + d] * w2[d * pc.inter + j];
+        }
+
+        precise float d_activation = d_scratch * route;
+        precise float d_up = d_activation * silu_value;
+        precise float sigmoid = v41_cpu_sigmoid(gate, expert_row * pc.inter + j, visible_rows * pc.inter);
+        precise float slope = sigmoid * (1.0 + gate * (1.0 - sigmoid));
+        precise float d_gate = (d_activation * up) * slope;
+        if (pc.swiglu_limit > 0.0) {
+            if (!up_inside) d_up = 0.0;
+            if (!gate_inside) d_gate = 0.0;
+        }
+
+        scratch[base + j] = d_gate;
+        scratch[base + pc.inter + j] = d_up;
+        scratch[base + 2u * pc.inter + j] = d_scratch * activation;
+    }
+    barrier();
+
+    for (uint i = lane; i < pc.dim; i += 128u) {
+        precise float gate_sum = 0.0;
+        precise float up_sum = 0.0;
+        if (hidden_matrix) {
+            for (uint j = 0u; j < pc.inter; ++j) {
+                gate_sum = fma(scratch[base + j], w1[j * pc.dim + i], gate_sum);
+                up_sum = fma(scratch[base + pc.inter + j], w3[j * pc.dim + i], up_sum);
+            }
+        } else {
+            precise float ga = 0.0, gb = 0.0, gc = 0.0, gd = 0.0;
+            precise float ua = 0.0, ub = 0.0, uc = 0.0, ud = 0.0;
+            uint aligned = pc.inter / 4u * 4u;
+            for (uint j = 0u; j < aligned; j += 4u) {
+                ga += scratch[base + j] * w1[j * pc.dim + i];
+                gb += scratch[base + j + 1u] * w1[(j + 1u) * pc.dim + i];
+                gc += scratch[base + j + 2u] * w1[(j + 2u) * pc.dim + i];
+                gd += scratch[base + j + 3u] * w1[(j + 3u) * pc.dim + i];
+                ua += scratch[base + pc.inter + j] * w3[j * pc.dim + i];
+                ub += scratch[base + pc.inter + j + 1u] * w3[(j + 1u) * pc.dim + i];
+                uc += scratch[base + pc.inter + j + 2u] * w3[(j + 2u) * pc.dim + i];
+                ud += scratch[base + pc.inter + j + 3u] * w3[(j + 3u) * pc.dim + i];
+            }
+            precise float gac = ga + gc;
+            precise float gbd = gb + gd;
+            gate_sum = gac + gbd;
+            precise float uac = ua + uc;
+            precise float ubd = ub + ud;
+            up_sum = uac + ubd;
+            for (uint j = aligned; j < pc.inter; ++j) {
+                gate_sum += scratch[base + j] * w1[j * pc.dim + i];
+                up_sum += scratch[base + pc.inter + j] * w3[j * pc.dim + i];
+            }
+        }
+        grad_input[group * pc.dim + i] = gate_sum + up_sum;
+    }
+
+    if (lane == 0u && routed) {
+        // PyTorch reduces the last axis with the pinned CPU sum kernel.
+        precise float banks[32];
+        for (uint bank = 0u; bank < 32u; ++bank) banks[bank] = 0.0;
+        for (uint j = 0u; j < pc.inter; ++j)
+            banks[j & 31u] += scratch[base + 2u * pc.inter + j];
+        precise float total = 0.0;
+        for (uint i = 0u; i < 8u; ++i) {
+            precise float partial = banks[i] + banks[8u + i];
+            partial += banks[16u + i];
+            partial += banks[24u + i];
+            total += partial;
+        }
+        grad_weight[group] = total;
+    }
+}

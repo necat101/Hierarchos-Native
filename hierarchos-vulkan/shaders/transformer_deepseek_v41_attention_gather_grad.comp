@@ -1,0 +1,25 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x=64) in;
+#include "transformer_deepseek_v41_grad_dispatch.glsl"
+layout(set=0,binding=0,std430) readonly buffer Query { float query[]; };
+layout(set=0,binding=1,std430) readonly buffer Upstream { float upstream[]; };
+layout(set=0,binding=2,std430) readonly buffer Weights { float weights[]; };
+layout(set=0,binding=3,std430) readonly buffer Scores { float grad_score[]; };
+layout(set=0,binding=4,std430) writeonly buffer GatherGradient { float grad_gather[]; };
+layout(push_constant) uniform Push {
+    uint rows; uint batch; uint seq; uint heads; uint dim; uint window_capacity;
+    uint window_topk; uint compressed_topk; uint compressed_capacity; float scale;
+} pc;
+void main() {
+    uint total=pc.window_topk+pc.compressed_topk, i;
+    if (!v41_grad_index(pc.rows*total*pc.dim,i)) return;
+    uint column=i%pc.dim, slot=(i/pc.dim)%total, row=i/(pc.dim*total);
+    precise float key=0.0, value=0.0;
+    for (uint head=0u;head<pc.heads;++head) {
+        uint s=(row*pc.heads+head)*total+slot, q=(row*pc.heads+head)*pc.dim+column;
+        key=fma(grad_score[s],query[q],key);
+        value=fma(weights[s],upstream[q],value);
+    }
+    grad_gather[i]=key+value;
+}

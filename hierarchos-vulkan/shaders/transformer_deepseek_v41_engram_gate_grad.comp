@@ -1,0 +1,78 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+layout(local_size_x=1) in;
+layout(set=0,binding=0,std430) readonly buffer Upstream { float upstream[]; };
+layout(set=0,binding=1,std430) readonly buffer Stream { float stream[]; };
+layout(set=0,binding=2,std430) readonly buffer Kv { float kv[]; };
+layout(set=0,binding=3,std430) readonly buffer Weight { float weight[]; };
+layout(set=0,binding=4,std430) readonly buffer Mask { uint token_mask[]; };
+layout(set=0,binding=5,std430) writeonly buffer GradStream { float grad_stream[]; };
+layout(set=0,binding=6,std430) writeonly buffer GradKv { float grad_kv[]; };
+layout(set=0,binding=7,std430) writeonly buffer Gates { float gates[]; };
+layout(push_constant) uniform Push {
+    uint rows; uint hc; uint dim; uint proj_width; float eps; float scale; uint has_mask;
+} pc;
+
+#define V41_ENGRAM_CUSTOM_TERM
+float v41_engram_term(uint mode,uint sb,uint kb,uint wb,uint d) {
+    if (mode==0u) { precise float square=stream[sb+d]*stream[sb+d]; return square; }
+    if (mode==1u) { precise float square=kv[kb+d]*kv[kb+d]; return square; }
+    if (mode==3u) { precise float product=upstream[sb+d]*kv[kb+d]; return product; }
+    precise float weighted=stream[sb+d]*weight[wb+d];
+    precise float product=weighted*kv[kb+d];
+    return product;
+}
+#include "fp32_v41_engram_reduce.glsl"
+
+void main() {
+    uint copy_row=gl_GlobalInvocationID.x;
+    if (copy_row>=pc.rows*pc.hc) return;
+    uint row=copy_row/pc.hc, copy=copy_row%pc.hc;
+    uint sb=copy_row*pc.dim, kb=row*pc.proj_width+copy*pc.dim;
+    uint vb=row*pc.proj_width+pc.hc*pc.dim, wb=copy*pc.dim;
+    if (pc.has_mask!=0u && token_mask[row]==0u) {
+        gates[copy_row]=0.0f;
+        for (uint d=0u;d<pc.dim;++d) {
+            grad_stream[sb+d]=upstream[sb+d]; grad_kv[kb+d]=0.0f;
+        }
+        return;
+    }
+    float hr=fp32_sqrt_recip(fp32_div(v41_engram_sum(0u,sb,0u,0u,pc.dim),float(pc.dim))+pc.eps);
+    float kr=fp32_sqrt_recip(fp32_div(v41_engram_sum(1u,0u,kb,0u,pc.dim),float(pc.dim))+pc.eps);
+    precise float rstd=hr*kr;
+    precise float sum=v41_engram_sum(2u,sb,kb,wb,pc.dim);
+    precise float dot=(sum*rstd)*pc.scale;
+    float magnitude=v41_sqrt(max(abs(dot),1e-6f));
+    bool negative=(floatBitsToUint(dot)&0x80000000u)!=0u;
+    float signed_magnitude=negative ? -magnitude : magnitude;
+    float gate=v41_cpu_sigmoid(signed_magnitude,copy_row,pc.rows*pc.hc);
+    gates[copy_row]=gate;
+    precise float dg=v41_engram_sum(3u,sb,vb,0u,pc.dim);
+    precise float dsig=(dg*(1.0f-gate))*gate;
+    precise float dmag=negative ? -dsig : dsig;
+    precise float dabs=fp32_div(dmag,2.0f*magnitude);
+    // Scalar clamp_min has zero input derivative at equality; abs has zero
+    // derivative at both signed zeros. copysign's sign input is constant.
+    precise float ddot=abs(dot)>1e-6f ? (negative ? -dabs : dabs) : 0.0f;
+    precise float dproduct=ddot*pc.scale;
+    precise float dsum=dproduct*rstd;
+    precise float drstd=dproduct*sum;
+    precise float dhr=drstd*kr, dkr=drstd*hr;
+    precise float hcube=(hr*hr)*hr, kcube=(kr*kr)*kr;
+    precise float hnorm=fp32_div((dhr*-0.5f)*hcube,float(pc.dim));
+    precise float knorm=fp32_div((dkr*-0.5f)*kcube,float(pc.dim));
+    for (uint d=0u;d<pc.dim;++d) {
+        precise float weighted=stream[sb+d]*weight[wb+d];
+        precise float hdirect=(dsum*kv[kb+d])*weight[wb+d];
+        precise float kdirect=dsum*weighted;
+        precise float hvariance=hnorm*(2.0f*stream[sb+d]);
+        precise float kvariance=knorm*(2.0f*kv[kb+d]);
+        precise float hpartial=upstream[sb+d]+hdirect;
+        grad_stream[sb+d]=hpartial+hvariance;
+        grad_kv[kb+d]=kdirect+kvariance;
+    }
+}

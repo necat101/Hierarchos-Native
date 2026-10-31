@@ -16,6 +16,7 @@
 .hierarchos-hf-cache/
 .k3-native-export-*/
 .peft-build-artifact-backups/
+.tmp-v41-ref/
 hierarchos-vulkan/.*-fixtures*/
 hierarchos-vulkan/.*-pydeps/
 hierarchos-vulkan/.*-debug/
@@ -53,3 +54,14 @@ hierarchos-vulkan/_tmp_*
 !.env.example
 .falcon_h1r_config.json
 .falcon_h1r_index.json
+
+# Generated multi-GB V4.1 shard packages; rebuild with their CPU oracles.
+hierarchos-vulkan/validation/fixtures/deepseek_v41_production_*/
+hierarchos-vulkan/validation/fixtures/deepseek_v41_schedule_width_*/
+
+# Keep frozen JSON oracles and only the retained scalable release package.
+# Other fixture subdirectories are generated local checkpoint scratch.
+hierarchos-vulkan/validation/fixtures/*/
+!hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/
+!hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/*.safetensors
+!hierarchos-vulkan/validation/release_parity/deepseek_v41/receipts/**/*.log

@@ -1,0 +1,221 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+
+// V4.1 Hyper-Connection coefficients, adjoint of
+// `transformer_deepseek_v41_hc_split.comp` (reference `Block.hc_mixes` +
+// `hc_split_sinkhorn`). The forward is
+//   rstd = rsqrt(mean(stream^2) + norm_eps)
+//   mix  = raw * rstd
+//   pre  = sigmoid(mix * s0 + b0) + eps
+//   post = 2 * sigmoid(mix * s1 + b1)
+//   comb = softmax_rows(mix * s2 + b2) + eps
+//   comb = comb / (col_sum + eps)
+//   (iters - 1) x [comb = comb / (row_sum + eps); comb = comb / (col_sum + eps)]
+// and this kernel returns the gradient with respect to the scaled mix value
+// (`raw * rstd`), which is what the mix-projection adjoint consumes. Applying
+// the `rstd` factor belongs to that stage: dividing `d raw` by `rstd` would not
+// invert the multiply exactly.
+//
+// The normalization chain is inverted in reverse order. Every step is
+// `y = x / (sum(x) + eps)` along one axis, so with `D = sum(x) + eps`
+//   d_x = d_y / D + sum_axis(-(d_y * x) / D^2)
+// matching PyTorch's separate `grad / other` and `-grad * self / (other*other)`
+// contributions. The pre-step matrix a step needs is replayed from the stored
+// softmax output: the chain is short (hc <= 16) and rebuilding it is cheaper
+// than keeping every intermediate alive in private storage.
+//
+// The chain starts at `softmax + eps`, the operand the first normalization
+// actually divides, but the softmax Jacobian is taken at the softmax output
+// itself: `comb = softmax + eps` is an add, so its adjoint passes through
+// unchanged, and `s * (d - sum(d * s))` must use `s`, not `s + eps`. Mixing the
+// two (carrying the `+ eps` into the Jacobian) biases every comb gradient by
+// roughly `eps / sum(d)`, which is 1.7e-6 on the pinned fixture -- a real
+// failure of the strict gate rather than rounding.
+layout(local_size_x = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer Raw { float raw[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Stream { float stream[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Scale { float scale[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Base { float base[]; };
+layout(set = 0, binding = 4, std430) readonly buffer GradPre { float grad_pre[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GradPost { float grad_post[]; };
+layout(set = 0, binding = 6, std430) readonly buffer GradComb { float grad_comb[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer GradMix { float grad_mix[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hc;
+    uint dim;
+    uint mix_hc;
+    uint sinkhorn_iters;
+    float eps;
+    float norm_eps;
+} pc;
+
+#define V41_REDUCE_INPUT stream
+#include "fp32_v41_reduce.glsl"
+
+const uint MAX_HC = 16u;
+const uint MAX_CELLS = MAX_HC * MAX_HC;
+const uint MAX_MIX = (2u + MAX_HC) * MAX_HC;
+
+void normalize_rows(inout float m[MAX_CELLS]) {
+    for (uint j = 0u; j < pc.hc; ++j) {
+        float sum = 0.0;
+        for (uint k = 0u; k < pc.hc; ++k) sum += m[j * pc.hc + k];
+        float denominator = sum + pc.eps;
+        for (uint k = 0u; k < pc.hc; ++k)
+            m[j * pc.hc + k] = fp32_div(m[j * pc.hc + k], denominator);
+    }
+}
+
+void normalize_columns(inout float m[MAX_CELLS]) {
+    for (uint k = 0u; k < pc.hc; ++k) {
+        float sum = 0.0;
+        for (uint j = 0u; j < pc.hc; ++j) sum += m[j * pc.hc + k];
+        float denominator = sum + pc.eps;
+        for (uint j = 0u; j < pc.hc; ++j)
+            m[j * pc.hc + k] = fp32_div(m[j * pc.hc + k], denominator);
+    }
+}
+
+// Step 1 is the standalone column normalization; the alternating loop that
+// follows starts with a row normalization on step 2.
+void forward_step(inout float m[MAX_CELLS], uint step) {
+    if (step % 2u == 1u) normalize_columns(m);
+    else normalize_rows(m);
+}
+
+void backward_step(inout float d[MAX_CELLS], float x[MAX_CELLS], uint step) {
+    if (step % 2u == 1u) {
+        for (uint k = 0u; k < pc.hc; ++k) {
+            float sum = 0.0;
+            for (uint j = 0u; j < pc.hc; ++j) sum += x[j * pc.hc + k];
+            precise float denominator = sum + pc.eps;
+            precise float square = denominator * denominator;
+            precise float tail = 0.0;
+            for (uint j = 0u; j < pc.hc; ++j) {
+                precise float product = d[j * pc.hc + k] * x[j * pc.hc + k];
+                tail += fp32_div(product, square);
+            }
+            for (uint j = 0u; j < pc.hc; ++j) {
+                precise float direct = fp32_div(d[j * pc.hc + k], denominator);
+                d[j * pc.hc + k] = direct - tail;
+            }
+        }
+    } else {
+        for (uint j = 0u; j < pc.hc; ++j) {
+            float sum = 0.0;
+            for (uint k = 0u; k < pc.hc; ++k) sum += x[j * pc.hc + k];
+            precise float denominator = sum + pc.eps;
+            precise float square = denominator * denominator;
+            precise float tail = 0.0;
+            for (uint k = 0u; k < pc.hc; ++k) {
+                precise float product = d[j * pc.hc + k] * x[j * pc.hc + k];
+                tail += fp32_div(product, square);
+            }
+            for (uint k = 0u; k < pc.hc; ++k) {
+                precise float direct = fp32_div(d[j * pc.hc + k], denominator);
+                d[j * pc.hc + k] = direct - tail;
+            }
+        }
+    }
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint width = pc.hc * pc.dim;
+    uint mix_base = row * pc.mix_hc;
+
+    precise float squares = v41_sum_squares(row * width, width);
+    precise float variance = fp32_div(squares, float(width)) + pc.norm_eps;
+    float rstd = fp32_sqrt_recip(variance);
+
+    float mix[MAX_MIX];
+    for (uint m = 0u; m < pc.mix_hc; ++m) mix[m] = raw[mix_base + m] * rstd;
+
+    // Recompute the forward coefficient values the gradient is taken at.
+    float pre_sigmoid[MAX_HC];
+    float post_sigmoid[MAX_HC];
+    uint sigmoid_elements = pc.rows * pc.hc;
+    for (uint j = 0u; j < pc.hc; ++j) {
+        precise float pre_arg = (mix[j] * scale[0]) + base[j];
+        pre_sigmoid[j] = v41_cpu_sigmoid(pre_arg, row * pc.hc + j, sigmoid_elements);
+        precise float post_arg = (mix[pc.hc + j] * scale[1]) + base[pc.hc + j];
+        post_sigmoid[j] = v41_cpu_sigmoid(post_arg, row * pc.hc + j, sigmoid_elements);
+    }
+
+    float softmax[MAX_CELLS];
+    for (uint j = 0u; j < pc.hc; ++j) {
+        for (uint k = 0u; k < pc.hc; ++k) {
+            uint index = pc.hc * 2u + j * pc.hc + k;
+            precise float value = mix[index] * scale[2];
+            softmax[j * pc.hc + k] = value + base[index];
+        }
+    }
+    for (uint j = 0u; j < pc.hc; ++j) {
+        float maximum = softmax[j * pc.hc];
+        for (uint k = 1u; k < pc.hc; ++k)
+            maximum = max(maximum, softmax[j * pc.hc + k]);
+        precise float total = 0.0;
+        for (uint k = 0u; k < pc.hc; ++k) {
+            softmax[j * pc.hc + k] = sleef_expf_u10(softmax[j * pc.hc + k] - maximum);
+            total += softmax[j * pc.hc + k];
+        }
+        precise float reciprocal = fp32_div(1.0, total);
+        for (uint k = 0u; k < pc.hc; ++k)
+            softmax[j * pc.hc + k] = softmax[j * pc.hc + k] * reciprocal;
+    }
+    float matrix[MAX_CELLS];
+    for (uint cell = 0u; cell < pc.hc * pc.hc; ++cell)
+        matrix[cell] = softmax[cell] + pc.eps;
+
+    float gradient[MAX_CELLS];
+    for (uint j = 0u; j < pc.hc; ++j)
+        for (uint k = 0u; k < pc.hc; ++k)
+            gradient[j * pc.hc + k] = grad_comb[(row * pc.hc + j) * pc.hc + k];
+
+    uint steps = 1u + 2u * (pc.sinkhorn_iters - 1u);
+    for (int step = int(steps); step >= 1; --step) {
+        float state[MAX_CELLS];
+        for (uint cell = 0u; cell < pc.hc * pc.hc; ++cell) state[cell] = matrix[cell];
+        for (uint applied = 1u; applied < uint(step); ++applied) forward_step(state, applied);
+        backward_step(gradient, state, uint(step));
+    }
+
+    // Softmax over the last axis: grad = s * (d - sum(d * s)).
+    for (uint j = 0u; j < pc.hc; ++j) {
+        precise float dot = 0.0;
+        for (uint k = 0u; k < pc.hc; ++k)
+            dot += gradient[j * pc.hc + k] * softmax[j * pc.hc + k];
+        for (uint k = 0u; k < pc.hc; ++k) {
+            precise float value = gradient[j * pc.hc + k] - dot;
+            gradient[j * pc.hc + k] = softmax[j * pc.hc + k] * value;
+        }
+    }
+
+    float d_mix[MAX_MIX];
+    for (uint m = 0u; m < pc.mix_hc; ++m) d_mix[m] = 0.0;
+    for (uint j = 0u; j < pc.hc; ++j) {
+        // The sigmoid argument carries the stage scale, so the branch
+        // gradients pick it up after the activation backward.
+        precise float sigmoid = pre_sigmoid[j];
+        precise float pre_argument = (grad_pre[row * pc.hc + j] * sigmoid)
+            * (1.0 - sigmoid);
+        d_mix[j] = pre_argument * scale[0];
+        precise float post_gradient = grad_post[row * pc.hc + j] * 2.0;
+        precise float post_sigmoid_value = post_sigmoid[j];
+        precise float post_argument = (post_gradient * post_sigmoid_value)
+            * (1.0 - post_sigmoid_value);
+        d_mix[pc.hc + j] = post_argument * scale[1];
+        for (uint k = 0u; k < pc.hc; ++k)
+            d_mix[pc.hc * 2u + j * pc.hc + k] =
+                gradient[j * pc.hc + k] * scale[2];
+    }
+
+    for (uint m = 0u; m < pc.mix_hc; ++m)
+        grad_mix[mix_base + m] = d_mix[m];
+}

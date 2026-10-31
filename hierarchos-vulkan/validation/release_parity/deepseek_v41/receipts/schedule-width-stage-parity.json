@@ -1,0 +1,68 @@
+{
+  "steps": 5,
+  "stage_values": 6497008,
+  "bit_exact": false,
+  "mismatches": [
+    {
+      "step": "schedule-odd-prefill",
+      "layer": 0,
+      "stage": "attention_grouped",
+      "mismatches": 2,
+      "max_abs": 3.0517578125e-05
+    },
+    {
+      "step": "schedule-odd-prefill",
+      "layer": 1,
+      "stage": "attention_grouped",
+      "mismatches": 2,
+      "max_abs": 7.62939453125e-06
+    },
+    {
+      "step": "schedule-odd-prefill",
+      "layer": 2,
+      "stage": "attention_grouped",
+      "mismatches": 3,
+      "max_abs": 3.0517578125e-05
+    },
+    {
+      "step": "schedule-odd-prefill",
+      "layer": 3,
+      "stage": "attention_grouped",
+      "mismatches": 3,
+      "max_abs": 0.015625
+    },
+    {
+      "step": "schedule-group-completion",
+      "layer": 2,
+      "stage": "attention_grouped",
+      "mismatches": 1,
+      "max_abs": 0.000244140625
+    },
+    {
+      "step": "schedule-incomplete-group",
+      "layer": 0,
+      "stage": "attention_grouped",
+      "mismatches": 1,
+      "max_abs": 3.0517578125e-05
+    },
+    {
+      "step": "schedule-incomplete-group",
+      "layer": 1,
+      "stage": "attention_grouped",
+      "mismatches": 1,
+      "max_abs": 1.1920928955078125e-07
+    },
+    {
+      "step": "schedule-reset-completion",
+      "layer": 3,
+      "stage": "attention_grouped",
+      "mismatches": 1,
+      "max_abs": 0.0009765625
+    }
+  ],
+  "fixture_sha256": "70d2218429c2d4b8623a8ebbdd6c659eec22f7f64f9eeecd3d95c5d7877fdcf0",
+  "nonmatching_values": 14,
+  "fp8_equivalent_grouped_surfaces": 8,
+  "all_differences_removed_by_following_fp8_quantization": true,
+  "bit_exact_stage_values": 6496994
+}

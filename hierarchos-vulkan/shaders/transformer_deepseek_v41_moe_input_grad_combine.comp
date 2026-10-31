@@ -1,0 +1,40 @@
+#version 450
+
+// V4.1 MoE input gradient: fold the routed slot gradients, the shared expert's
+// gradient and the gate's input gradient into one token stream. The forward
+// MoE accumulates routed experts in ascending expert-id order and then adds
+// the shared expert, so the same traversal is used here and the gate's
+// contribution is added last.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradRouted { float grad_routed[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradShared { float grad_shared[]; };
+layout(set = 0, binding = 2, std430) readonly buffer GradGate { float grad_gate[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Indices { uint indices[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradInput { float grad_x[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint topk;
+} pc;
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (column >= pc.dim || row >= pc.rows) return;
+    precise float sum = 0.0;
+    uint previous = 0u;
+    for (uint pass = 0u; pass < pc.topk; ++pass) {
+        uint best_id = 0xffffffffu, best_slot = 0u;
+        for (uint slot = 0u; slot < pc.topk; ++slot) {
+            uint expert = indices[row * pc.topk + slot];
+            if ((pass == 0u || expert > previous) && expert < best_id) {
+                best_id = expert;
+                best_slot = slot;
+            }
+        }
+        sum += grad_routed[(row * pc.topk + best_slot) * pc.dim + column];
+        previous = best_id;
+    }
+    sum += grad_shared[row * pc.dim + column];
+    grad_x[row * pc.dim + column] = sum + grad_gate[row * pc.dim + column];
+}

@@ -1,0 +1,68 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+
+// V4.1 Engram gated residual injection. Matches Engram.forward:
+//   rstd = rsqrt(mean(stream^2) + eps) * rsqrt(mean(key^2) + eps)
+//   dot  = sum_d(stream * (q_weight*k_weight) * key) * rstd * dim^-0.5
+//   gate = sigmoid(copysign(sqrt(max(|dot|, 1e-6)), dot)), zeroed where the
+//          token mask is false
+//   out  = stream + gate * value
+// The stream RMS is per (token, hc copy), never joint over the copies. One
+// invocation owns one (token, copy); this is a correctness baseline.
+layout(local_size_x = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer Stream { float stream[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Kv { float kv[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Weight { float weight[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Mask { uint token_mask[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer Output { float output_values[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hc;
+    uint dim;
+    uint proj_width;
+    float eps;
+    float scale;
+    uint has_mask;
+} pc;
+
+#include "fp32_v41_engram_reduce.glsl"
+
+float mean_square(const uint base) {
+    precise float sum = v41_engram_sum(0u,base,0u,0u,pc.dim);
+    return fp32_div(sum, float(pc.dim)) + pc.eps;
+}
+
+float key_mean_square(const uint base) {
+    precise float sum = v41_engram_sum(1u,0u,base,0u,pc.dim);
+    return fp32_div(sum, float(pc.dim)) + pc.eps;
+}
+
+float gate_dot(const uint stream_base, const uint key_base, const uint weight_base) {
+    return v41_engram_sum(2u,stream_base,key_base,weight_base,pc.dim);
+}
+
+void main() {
+    uint copy_row = gl_GlobalInvocationID.x;
+    if (copy_row >= pc.rows * pc.hc) return;
+    uint row = copy_row / pc.hc;
+    uint copy = copy_row % pc.hc;
+    uint stream_base = copy_row * pc.dim;
+    uint key_base = row * pc.proj_width + copy * pc.dim;
+    uint weight_base = copy * pc.dim;
+    uint value_base = row * pc.proj_width + pc.hc * pc.dim;
+
+    float stream_rstd = fp32_sqrt_recip(mean_square(stream_base));
+    float key_rstd = fp32_sqrt_recip(key_mean_square(key_base));
+    precise float dot = gate_dot(stream_base, key_base, weight_base);
+    dot = dot * (stream_rstd * key_rstd) * pc.scale;
+    precise float magnitude = v41_sqrt(max(abs(dot), 1e-6));
+    precise float signed_magnitude = (floatBitsToUint(dot) & 0x80000000u) != 0u ? -magnitude : magnitude;
+    float gate = v41_cpu_sigmoid(signed_magnitude, copy_row, pc.rows * pc.hc);
+    if (pc.has_mask != 0u && token_mask[row] == 0u) gate = 0.0;
+    for (uint d = 0u; d < pc.dim; ++d)
+        output_values[stream_base + d] = stream[stream_base + d] + gate * kv[value_base + d];
+}

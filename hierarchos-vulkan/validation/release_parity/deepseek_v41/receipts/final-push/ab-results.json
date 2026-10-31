@@ -1,0 +1,376 @@
+{
+  "binary_hashes": {
+    "baseline": "58a2ed03346f46e669906e2cb4ef5d98aa5d5086056b4faf9a962b1da13860f6",
+    "candidate": "dafa91d53fbc1153aedd621b29779763f67be17b54a11d72a9fe1a1faeba5851"
+  },
+  "timing_unit": "one decode call containing one token",
+  "repeats": 3,
+  "steps": 3,
+  "warmup": 1,
+  "prefill_tokens": 8,
+  "decode_tokens": 8,
+  "results": {
+    "resident": {
+      "runs": {
+        "baseline": [
+          {
+            "load_ms": 5492.538,
+            "load_submissions": 16312,
+            "prefill_ms": 586.489,
+            "prefill_submissions": 170,
+            "decode_ms": 377.52549999999997,
+            "decode_submissions": 170.0,
+            "reported_decode_ms_per_token": 377.526,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 5432.111,
+            "load_submissions": 16312,
+            "prefill_ms": 585.63,
+            "prefill_submissions": 170,
+            "decode_ms": 372.1765,
+            "decode_submissions": 170.0,
+            "reported_decode_ms_per_token": 372.177,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 5407.147,
+            "load_submissions": 16312,
+            "prefill_ms": 579.574,
+            "prefill_submissions": 170,
+            "decode_ms": 361.2495,
+            "decode_submissions": 170.0,
+            "reported_decode_ms_per_token": 361.25,
+            "digest": "90e096ebc5bf0659"
+          }
+        ],
+        "candidate": [
+          {
+            "load_ms": 7424.137,
+            "load_submissions": 16312,
+            "io": {
+              "warmup_complete": {
+                "payload_reads": 93338,
+                "payload_bytes_read": 29447344,
+                "cache_hits": 0,
+                "cache_misses": 93338,
+                "cache_bytes": 0,
+                "cache_peak_bytes": 0,
+                "cache_entries": 0,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 0
+              },
+              "complete": {
+                "payload_reads": 93338,
+                "payload_bytes_read": 29447344,
+                "cache_hits": 0,
+                "cache_misses": 93338,
+                "cache_bytes": 0,
+                "cache_peak_bytes": 0,
+                "cache_entries": 0,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 0
+              }
+            },
+            "measured_payload_reads": 0,
+            "measured_cache_hits": 0,
+            "prefill_ms": 532.46,
+            "prefill_submissions": 170,
+            "decode_ms": 306.815,
+            "decode_submissions": 170.0,
+            "reported_decode_ms_per_token": 306.815,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 5444.35,
+            "load_submissions": 16312,
+            "io": {
+              "warmup_complete": {
+                "payload_reads": 93338,
+                "payload_bytes_read": 29447344,
+                "cache_hits": 0,
+                "cache_misses": 93338,
+                "cache_bytes": 0,
+                "cache_peak_bytes": 0,
+                "cache_entries": 0,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 0
+              },
+              "complete": {
+                "payload_reads": 93338,
+                "payload_bytes_read": 29447344,
+                "cache_hits": 0,
+                "cache_misses": 93338,
+                "cache_bytes": 0,
+                "cache_peak_bytes": 0,
+                "cache_entries": 0,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 0
+              }
+            },
+            "measured_payload_reads": 0,
+            "measured_cache_hits": 0,
+            "prefill_ms": 527.072,
+            "prefill_submissions": 170,
+            "decode_ms": 308.42949999999996,
+            "decode_submissions": 170.0,
+            "reported_decode_ms_per_token": 308.43,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 5423.932,
+            "load_submissions": 16312,
+            "io": {
+              "warmup_complete": {
+                "payload_reads": 93338,
+                "payload_bytes_read": 29447344,
+                "cache_hits": 0,
+                "cache_misses": 93338,
+                "cache_bytes": 0,
+                "cache_peak_bytes": 0,
+                "cache_entries": 0,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 0
+              },
+              "complete": {
+                "payload_reads": 93338,
+                "payload_bytes_read": 29447344,
+                "cache_hits": 0,
+                "cache_misses": 93338,
+                "cache_bytes": 0,
+                "cache_peak_bytes": 0,
+                "cache_entries": 0,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 0
+              }
+            },
+            "measured_payload_reads": 0,
+            "measured_cache_hits": 0,
+            "prefill_ms": 515.61,
+            "prefill_submissions": 170,
+            "decode_ms": 305.565,
+            "decode_submissions": 170.0,
+            "reported_decode_ms_per_token": 305.565,
+            "digest": "90e096ebc5bf0659"
+          }
+        ]
+      },
+      "digest": "90e096ebc5bf0659",
+      "load_ms": {
+        "baseline": 5432.111,
+        "candidate": 5444.35
+      },
+      "load_submissions": {
+        "baseline": 16312,
+        "candidate": 16312
+      },
+      "prefill_ms": {
+        "baseline": 585.63,
+        "candidate": 527.072
+      },
+      "decode_ms": {
+        "baseline": 372.1765,
+        "candidate": 306.815
+      },
+      "prefill_submissions": {
+        "baseline": 170,
+        "candidate": 170
+      },
+      "decode_submissions": {
+        "baseline": 170.0,
+        "candidate": 170.0
+      },
+      "prefill_speedup": 1.111100570700018,
+      "decode_speedup": 1.2130322832977527
+    },
+    "default": {
+      "runs": {
+        "baseline": [
+          {
+            "load_ms": 476.762,
+            "load_submissions": 553,
+            "prefill_ms": 1741.746,
+            "prefill_submissions": 1869,
+            "decode_ms": 630.438,
+            "decode_submissions": 996.0,
+            "reported_decode_ms_per_token": 630.438,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 441.421,
+            "load_submissions": 553,
+            "prefill_ms": 1782.044,
+            "prefill_submissions": 1869,
+            "decode_ms": 629.383,
+            "decode_submissions": 996.0,
+            "reported_decode_ms_per_token": 629.383,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 458.059,
+            "load_submissions": 553,
+            "prefill_ms": 1865.915,
+            "prefill_submissions": 1869,
+            "decode_ms": 632.479,
+            "decode_submissions": 996.0,
+            "reported_decode_ms_per_token": 632.479,
+            "digest": "90e096ebc5bf0659"
+          }
+        ],
+        "candidate": [
+          {
+            "load_ms": 451.544,
+            "load_submissions": 553,
+            "io": {
+              "warmup_complete": {
+                "payload_reads": 10669,
+                "payload_bytes_read": 6208646,
+                "cache_hits": 17570,
+                "cache_misses": 10669,
+                "cache_bytes": 6208646,
+                "cache_peak_bytes": 6208646,
+                "cache_entries": 10669,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 33554432
+              },
+              "complete": {
+                "payload_reads": 10669,
+                "payload_bytes_read": 6208646,
+                "cache_hits": 101060,
+                "cache_misses": 10669,
+                "cache_bytes": 6208646,
+                "cache_peak_bytes": 6208646,
+                "cache_entries": 10669,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 33554432
+              }
+            },
+            "measured_payload_reads": 0,
+            "measured_cache_hits": 83490,
+            "prefill_ms": 1285.738,
+            "prefill_submissions": 1869,
+            "decode_ms": 512.4885,
+            "decode_submissions": 996.0,
+            "reported_decode_ms_per_token": 512.488,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 447.696,
+            "load_submissions": 553,
+            "io": {
+              "warmup_complete": {
+                "payload_reads": 10669,
+                "payload_bytes_read": 6208646,
+                "cache_hits": 17570,
+                "cache_misses": 10669,
+                "cache_bytes": 6208646,
+                "cache_peak_bytes": 6208646,
+                "cache_entries": 10669,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 33554432
+              },
+              "complete": {
+                "payload_reads": 10669,
+                "payload_bytes_read": 6208646,
+                "cache_hits": 101060,
+                "cache_misses": 10669,
+                "cache_bytes": 6208646,
+                "cache_peak_bytes": 6208646,
+                "cache_entries": 10669,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 33554432
+              }
+            },
+            "measured_payload_reads": 0,
+            "measured_cache_hits": 83490,
+            "prefill_ms": 1283.676,
+            "prefill_submissions": 1869,
+            "decode_ms": 512.5925,
+            "decode_submissions": 996.0,
+            "reported_decode_ms_per_token": 512.592,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 445.856,
+            "load_submissions": 553,
+            "io": {
+              "warmup_complete": {
+                "payload_reads": 10669,
+                "payload_bytes_read": 6208646,
+                "cache_hits": 17570,
+                "cache_misses": 10669,
+                "cache_bytes": 6208646,
+                "cache_peak_bytes": 6208646,
+                "cache_entries": 10669,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 33554432
+              },
+              "complete": {
+                "payload_reads": 10669,
+                "payload_bytes_read": 6208646,
+                "cache_hits": 101060,
+                "cache_misses": 10669,
+                "cache_bytes": 6208646,
+                "cache_peak_bytes": 6208646,
+                "cache_entries": 10669,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 33554432
+              }
+            },
+            "measured_payload_reads": 0,
+            "measured_cache_hits": 83490,
+            "prefill_ms": 1287.461,
+            "prefill_submissions": 1869,
+            "decode_ms": 513.414,
+            "decode_submissions": 996.0,
+            "reported_decode_ms_per_token": 513.414,
+            "digest": "90e096ebc5bf0659"
+          }
+        ]
+      },
+      "digest": "90e096ebc5bf0659",
+      "load_ms": {
+        "baseline": 458.059,
+        "candidate": 447.696
+      },
+      "load_submissions": {
+        "baseline": 553,
+        "candidate": 553
+      },
+      "prefill_ms": {
+        "baseline": 1782.044,
+        "candidate": 1285.738
+      },
+      "decode_ms": {
+        "baseline": 630.438,
+        "candidate": 512.5925
+      },
+      "prefill_submissions": {
+        "baseline": 1869,
+        "candidate": 1869
+      },
+      "decode_submissions": {
+        "baseline": 996.0,
+        "candidate": 996.0
+      },
+      "prefill_speedup": 1.386008658062529,
+      "decode_speedup": 1.2299009447075406
+    }
+  },
+  "limits": [
+    "final-row digest guard; full-logit CPU gates required separately",
+    "scaled 40-layer/384-expert fixture, vocab 67; no production throughput claim"
+  ]
+}

@@ -1,0 +1,33 @@
+#version 450
+
+// V4.1 Engram token cache. Matches the cache update in NgramHashState.forward:
+// token ids go through the compressed token map, dead positions (image spans)
+// become DEAD, and the compressed stream persists across prefill/decode.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Tokens { uint token_ids[]; };
+layout(set = 0, binding = 1, std430) readonly buffer TokenMap { uint token_map[]; };
+layout(set = 0, binding = 2, std430) buffer Cache { uint cache[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Mask { uint token_mask[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint seq;
+    uint start_pos;
+    uint batch;
+    uint capacity;
+    uint vocab;
+    uint dead;
+    uint has_mask;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint batch_index = row / pc.seq;
+    uint offset = row % pc.seq;
+    uint position = pc.start_pos + offset;
+    if (batch_index >= pc.batch || position >= pc.capacity) return;
+    uint token = token_ids[row];
+    uint compressed = token < pc.vocab ? token_map[token] : pc.dead;
+    if (pc.has_mask != 0u && token_mask[row] == 0u) compressed = pc.dead;
+    cache[batch_index * pc.capacity + position] = compressed;
+}

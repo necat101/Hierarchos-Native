@@ -1,0 +1,60 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_compressor_exp.glsl"
+
+// V4.1 compression has no learned position bias and no overlapping windows.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Kv { float kv[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Scores { float scores[]; };
+layout(set = 0, binding = 2, std430) buffer KvState { float kv_state[]; };
+layout(set = 0, binding = 3, std430) buffer ScoreState { float score_state[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer Output { float output_values[]; };
+layout(push_constant) uniform Push {
+    uint batch; uint seq; uint dim; uint ratio;
+    uint groups; uint start_pos; uint decode; uint vector_width;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint allocated_groups = max(pc.groups, 1u);
+    if (index >= pc.batch * allocated_groups * pc.dim) return;
+    uint channel = index % pc.dim;
+    uint group = (index / pc.dim) % allocated_groups;
+    uint batch = index / (pc.dim * allocated_groups);
+    uint first = (batch * pc.seq + group * pc.ratio) * pc.dim + channel;
+    uint state_first = batch * pc.ratio * pc.dim + channel;
+    if (pc.decode != 0u) {
+        uint slot = pc.start_pos % pc.ratio;
+        uint source = batch * pc.dim + channel;
+        kv_state[state_first + slot * pc.dim] = kv[source];
+        score_state[state_first + slot * pc.dim] = scores[source];
+    } else if (group == 0u && pc.seq % pc.ratio != 0u) {
+        // Ratio 2 has at most one unfinished token. Each invocation owns one
+        // channel, so state writes cannot race with another channel's reads.
+        uint source = (batch * pc.seq + pc.groups * pc.ratio) * pc.dim + channel;
+        kv_state[state_first] = kv[source];
+        score_state[state_first] = scores[source];
+    }
+    if (group >= pc.groups) return;
+    if (pc.ratio == 1u) {
+        output_values[index] = kv[first];
+        return;
+    }
+    float k0 = pc.decode != 0u ? kv_state[state_first] : kv[first];
+    float k1 = pc.decode != 0u ? kv_state[state_first + pc.dim] : kv[first + pc.dim];
+    float s0 = pc.decode != 0u ? score_state[state_first] : scores[first];
+    float s1 = pc.decode != 0u ? score_state[state_first + pc.dim] : scores[first + pc.dim];
+    float largest = max(s0, s1);
+    precise float e0 = v41_compressor_exp(s0-largest,channel,pc.dim,pc.vector_width);
+    precise float e1 = v41_compressor_exp(s1-largest,channel,pc.dim,pc.vector_width);
+    precise float denominator = e0 + e1;
+    // torch.softmax materializes normalized weights before multiplying KV.
+    precise float p0 = fp32_div(e0, denominator);
+    precise float p1 = fp32_div(e1, denominator);
+    precise float v0 = k0 * p0;
+    precise float v1 = k1 * p1;
+    output_values[index] = v0 + v1;
+}

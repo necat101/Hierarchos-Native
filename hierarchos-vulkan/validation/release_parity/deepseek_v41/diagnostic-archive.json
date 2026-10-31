@@ -1,0 +1,205 @@
+[
+  {
+    "original": "joint-model-native-logits.json",
+    "bytes": 48231012,
+    "sha256": "2f9ac6b0b35287938674f1e85db9594b51d720c6e3c21b47c55a7bff6e53e625",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\2f9ac6b0b35287938674f1e85db9594b51d720c6e3c21b47c55a7bff6e53e625.json.gz",
+    "archive_bytes": 16212492
+  },
+  {
+    "original": "joint-reference-reproduced-trace.json",
+    "bytes": 47953956,
+    "sha256": "3a5305da1456b036379cc8fbc889bc5993927f1859f7f68932a927aa6ef7bdc7",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\3a5305da1456b036379cc8fbc889bc5993927f1859f7f68932a927aa6ef7bdc7.json.gz",
+    "archive_bytes": 16359287
+  },
+  {
+    "original": "joint-reference-trace.json",
+    "bytes": 47953956,
+    "sha256": "3a5305da1456b036379cc8fbc889bc5993927f1859f7f68932a927aa6ef7bdc7",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\3a5305da1456b036379cc8fbc889bc5993927f1859f7f68932a927aa6ef7bdc7.json.gz",
+    "archive_bytes": 16359287
+  },
+  {
+    "original": "long-reference-trace-2048-chunked.json",
+    "bytes": 121802968,
+    "sha256": "5cf68c175a03b9d4e6d775bd59364abb4c7953abc8f95236a2b5478e4d2ea19f",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\5cf68c175a03b9d4e6d775bd59364abb4c7953abc8f95236a2b5478e4d2ea19f.json.gz",
+    "archive_bytes": 27472289
+  },
+  {
+    "original": "long-reference-trace-single-pass.json",
+    "bytes": 121802968,
+    "sha256": "5cf68c175a03b9d4e6d775bd59364abb4c7953abc8f95236a2b5478e4d2ea19f",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\5cf68c175a03b9d4e6d775bd59364abb4c7953abc8f95236a2b5478e4d2ea19f.json.gz",
+    "archive_bytes": 27472289
+  },
+  {
+    "original": "long-reference-trace.json",
+    "bytes": 121802968,
+    "sha256": "5cf68c175a03b9d4e6d775bd59364abb4c7953abc8f95236a2b5478e4d2ea19f",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\5cf68c175a03b9d4e6d775bd59364abb4c7953abc8f95236a2b5478e4d2ea19f.json.gz",
+    "archive_bytes": 27472289
+  },
+  {
+    "original": "schedule-width-reference-trace.json",
+    "bytes": 59642062,
+    "sha256": "baa2e459bf8b72722cef1a233ef661efce25ac549c446bd3e57f3a4dbe5c911e",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\baa2e459bf8b72722cef1a233ef661efce25ac549c446bd3e57f3a4dbe5c911e.json.gz",
+    "archive_bytes": 23601949
+  },
+  {
+    "original": "streamed-all-joint-model-native-logits.json",
+    "bytes": 48231047,
+    "sha256": "c20c6cf6cfde2809b3ea68e4bd92d4fca8ec152a8b76970a852a5812b10b047a",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\c20c6cf6cfde2809b3ea68e4bd92d4fca8ec152a8b76970a852a5812b10b047a.json.gz",
+    "archive_bytes": 16212425
+  },
+  {
+    "original": "streamed-all-long-context-model-native-logits.json",
+    "bytes": 134032874,
+    "sha256": "d453ce2ec157d9435c6e428a917052d1f36737598c83638f3a67a0878a77353d",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\d453ce2ec157d9435c6e428a917052d1f36737598c83638f3a67a0878a77353d.json.gz",
+    "archive_bytes": 33910845
+  },
+  {
+    "original": "streamed-all-structure-model-native-logits.json",
+    "bytes": 65610867,
+    "sha256": "65b7aabe725a3b56fdbd27f7313576aa4bb8f64a25f24306c304ae659f9746ef",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\65b7aabe725a3b56fdbd27f7313576aa4bb8f64a25f24306c304ae659f9746ef.json.gz",
+    "archive_bytes": 22113099
+  },
+  {
+    "original": "streamed-block-joint-model-native-logits.json",
+    "bytes": 48231176,
+    "sha256": "65c011d2de27d4f79fa78f5a388ecaf024caef5706e9ac395e0348d1d6d328e5",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\65c011d2de27d4f79fa78f5a388ecaf024caef5706e9ac395e0348d1d6d328e5.json.gz",
+    "archive_bytes": 16217200
+  },
+  {
+    "original": "streamed-block-long-context-model-native-logits.json",
+    "bytes": 134033003,
+    "sha256": "b0de64215f0b53b62131fca8aad697259d507703ab3ff5f58c048bb782d77579",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\b0de64215f0b53b62131fca8aad697259d507703ab3ff5f58c048bb782d77579.json.gz",
+    "archive_bytes": 33910995
+  },
+  {
+    "original": "streamed-block-structure-model-native-logits.json",
+    "bytes": 65611125,
+    "sha256": "e15939b641c1f512a38ad8e5661d98e1d30d6a7681cb4c78a83f7b7546ec42a6",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\e15939b641c1f512a38ad8e5661d98e1d30d6a7681cb4c78a83f7b7546ec42a6.json.gz",
+    "archive_bytes": 22115026
+  },
+  {
+    "original": "streamed-joint-model-native-logits.json",
+    "bytes": 48231007,
+    "sha256": "5667c2bd8afe8fb929a88bf673c4d097102cc5d9f405ae626515d5a587e7c746",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\5667c2bd8afe8fb929a88bf673c4d097102cc5d9f405ae626515d5a587e7c746.json.gz",
+    "archive_bytes": 16210756
+  },
+  {
+    "original": "streamed-long-context-model-native-logits.json",
+    "bytes": 134032834,
+    "sha256": "53d8f085501e009305905ec96ca1a0dc1f7167f28da40b361f704380fb5dab37",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\53d8f085501e009305905ec96ca1a0dc1f7167f28da40b361f704380fb5dab37.json.gz",
+    "archive_bytes": 33910794
+  },
+  {
+    "original": "streamed-structure-model-native-logits.json",
+    "bytes": 65610844,
+    "sha256": "ed22ad0d7362ad5ce64fcbffb1e6e6e4327d4011280aa19c7f6491fa083424fa",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\ed22ad0d7362ad5ce64fcbffb1e6e6e4327d4011280aa19c7f6491fa083424fa.json.gz",
+    "archive_bytes": 22124557
+  },
+  {
+    "original": "streamed-tables-joint-model-native-logits.json",
+    "bytes": 48231111,
+    "sha256": "cd7bee069cd2d3bcd52753cbcf7bfe734bf8d674a909d12a5a8d5ae6f3809fab",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\cd7bee069cd2d3bcd52753cbcf7bfe734bf8d674a909d12a5a8d5ae6f3809fab.json.gz",
+    "archive_bytes": 16214724
+  },
+  {
+    "original": "streamed-tables-long-context-model-native-logits.json",
+    "bytes": 134032938,
+    "sha256": "6c61ac66f9e1906e0e14a4b195af13fefc60a9be43b01a507fa8551c1f564aed",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\6c61ac66f9e1906e0e14a4b195af13fefc60a9be43b01a507fa8551c1f564aed.json.gz",
+    "archive_bytes": 33909941
+  },
+  {
+    "original": "streamed-tables-structure-model-native-logits.json",
+    "bytes": 65610995,
+    "sha256": "d045d13c07f04aff242db739d0cf01cd5fd332fad823d4892eab81d2295d3bb7",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\d045d13c07f04aff242db739d0cf01cd5fd332fad823d4892eab81d2295d3bb7.json.gz",
+    "archive_bytes": 22118525
+  },
+  {
+    "original": "streamed-vocabulary-joint-model-native-logits.json",
+    "bytes": 48231242,
+    "sha256": "51755ad766d173ff3fea2473fe337753ebdafd256f376d515ce179a42fc62592",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\51755ad766d173ff3fea2473fe337753ebdafd256f376d515ce179a42fc62592.json.gz",
+    "archive_bytes": 16212697
+  },
+  {
+    "original": "streamed-vocabulary-long-context-model-native-logits.json",
+    "bytes": 134033069,
+    "sha256": "42c057c1b130a49046a38e5568b2d102ff4c7ba89edcda4579254338a384e920",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\42c057c1b130a49046a38e5568b2d102ff4c7ba89edcda4579254338a384e920.json.gz",
+    "archive_bytes": 33909947
+  },
+  {
+    "original": "streamed-vocabulary-structure-model-native-logits.json",
+    "bytes": 65611257,
+    "sha256": "fab036a2ed9e0358d4a8372d4341ef2287f3b4ebb225f058c89eae2c6585944a",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\fab036a2ed9e0358d4a8372d4341ef2287f3b4ebb225f058c89eae2c6585944a.json.gz",
+    "archive_bytes": 22116019
+  },
+  {
+    "original": "structure-cpu-replay-trace.json",
+    "bytes": 65167579,
+    "sha256": "509562878a9e72f93cec73ac65965dcf0231d9d43082527b538204c8b1ba17a5",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\509562878a9e72f93cec73ac65965dcf0231d9d43082527b538204c8b1ba17a5.json.gz",
+    "archive_bytes": 22533281
+  },
+  {
+    "original": "structure-reference-reproduced-trace.json",
+    "bytes": 65167579,
+    "sha256": "509562878a9e72f93cec73ac65965dcf0231d9d43082527b538204c8b1ba17a5",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\509562878a9e72f93cec73ac65965dcf0231d9d43082527b538204c8b1ba17a5.json.gz",
+    "archive_bytes": 22533281
+  },
+  {
+    "original": "structure-reference-trace.json",
+    "bytes": 65167579,
+    "sha256": "509562878a9e72f93cec73ac65965dcf0231d9d43082527b538204c8b1ba17a5",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\509562878a9e72f93cec73ac65965dcf0231d9d43082527b538204c8b1ba17a5.json.gz",
+    "archive_bytes": 22533281
+  },
+  {
+    "original": "wide-model-native-trace.json",
+    "bytes": 199258356,
+    "sha256": "bf06bd13a9d91de26de473c8026b237a84c6ad4c17272090d2fe5c3f08952433",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\bf06bd13a9d91de26de473c8026b237a84c6ad4c17272090d2fe5c3f08952433.json.gz",
+    "archive_bytes": 68322987
+  },
+  {
+    "original": "wide-native-a.json",
+    "bytes": 748315813,
+    "sha256": "dd7f4e9eb8c5253b84213b8f9175491cafb19d05e6ba2f3867a88c03013ae7f4",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\dd7f4e9eb8c5253b84213b8f9175491cafb19d05e6ba2f3867a88c03013ae7f4.json.gz",
+    "archive_bytes": 248218963
+  },
+  {
+    "original": "wide-native-b.json",
+    "bytes": 748315813,
+    "sha256": "dd7f4e9eb8c5253b84213b8f9175491cafb19d05e6ba2f3867a88c03013ae7f4",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\dd7f4e9eb8c5253b84213b8f9175491cafb19d05e6ba2f3867a88c03013ae7f4.json.gz",
+    "archive_bytes": 248218963
+  },
+  {
+    "original": "wide-reference-trace.json",
+    "bytes": 731079959,
+    "sha256": "8402163455f3e01a04634f5c231a4f14c9e7d11f139777889f1c401de9d2ffc9",
+    "archive": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\archived-diagnostics\\8402163455f3e01a04634f5c231a4f14c9e7d11f139777889f1c401de9d2ffc9.json.gz",
+    "archive_bytes": 242140074
+  }
+]

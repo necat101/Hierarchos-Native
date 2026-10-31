@@ -110,6 +110,7 @@ struct NativeApp {
     learning_rate: String,
     device_index: String,
     lora_rank: String,
+    stream_parameters: bool,
     assistant_recovery: bool,
     prompt: String,
     max_new_tokens: String,
@@ -145,6 +146,7 @@ impl Default for NativeApp {
             learning_rate: "5e-5".to_owned(),
             device_index: String::new(),
             lora_rank: "8".to_owned(),
+            stream_parameters: false,
             assistant_recovery: false,
             prompt: String::new(),
             max_new_tokens: "256".to_owned(),
@@ -283,6 +285,9 @@ impl NativeApp {
         if self.mode == Workflow::TransformerFinetune && !self.lora_rank.trim().is_empty() {
             push_positive(&mut args, "--lora-rank", &self.lora_rank)?;
         }
+        if self.mode == Workflow::TransformerFinetune && self.stream_parameters {
+            args.push("--stream-parameters".to_owned());
+        }
         if self.mode == Workflow::HierarchosTrain && self.assistant_recovery {
             args.push("--assistant-recovery".to_owned());
         }
@@ -325,6 +330,7 @@ impl NativeApp {
 
         match self.mode {
             Workflow::TransformerGenerate => {
+                if self.stream_parameters {args.push("--stream-parameters".to_owned());}
                 if !self.device_index.trim().is_empty() {
                     self.device_index
                         .trim()
@@ -563,6 +569,11 @@ impl eframe::App for NativeApp {
                     ui.label("(native Hierarchos inference uses a local package)");
                 }
             });
+
+            if matches!(self.mode,Workflow::TransformerFinetune|Workflow::TransformerGenerate) {
+                ui.checkbox(&mut self.stream_parameters,"Stream frozen parameters and MoE experts from disk")
+                    .on_hover_text("Opt-in package-backed inference and LoRA training. Reduces execution residency; generic models may still load resident weights initially.");
+            }
 
             if self.mode.is_training() {
                 path_row(
@@ -1110,6 +1121,25 @@ mod tests {
                 .expect_err("continuous batching must reject non-paged cache modes");
             assert!(error.contains("requires Paged Vulkan KV"));
         }
+    }
+
+    #[test]
+    fn parameter_streaming_is_opt_in_for_generation_and_peft_only() {
+        let mut app=NativeApp::default();
+        app.hf_model=true;app.model="owner/model".into();
+        app.hf_dataset=true;app.dataset="owner/data".into();app.output="output".into();
+        app.mode=Workflow::TransformerFinetune;
+        assert!(!app.build_args().unwrap().contains(&"--stream-parameters".into()));
+        app.stream_parameters=true;
+        assert!(app.build_args().unwrap().contains(&"--stream-parameters".into()));
+        for mode in [Workflow::TransformerTrain,Workflow::TransformerFullFinetune] {
+            app.mode=mode;
+            assert!(!app.build_args().unwrap().contains(&"--stream-parameters".into()));
+        }
+        app.mode=Workflow::TransformerGenerate;app.prompt="hello".into();
+        assert!(app.build_args().unwrap().contains(&"--stream-parameters".into()));
+        app.stream_parameters=false;
+        assert!(!app.build_args().unwrap().contains(&"--stream-parameters".into()));
     }
 
     #[test]

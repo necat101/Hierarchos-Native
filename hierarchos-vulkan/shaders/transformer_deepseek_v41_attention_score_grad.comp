@@ -1,0 +1,24 @@
+#version 450
+layout(local_size_x=1) in;
+layout(set=0,binding=0,std430) readonly buffer Weights { float weights[]; };
+layout(set=0,binding=1,std430) readonly buffer WeightGradient { float grad_weight[]; };
+layout(set=0,binding=2,std430) writeonly buffer ScoreGradient { float grad_score[]; };
+layout(push_constant) uniform Push {
+    uint rows; uint batch; uint seq; uint heads; uint dim; uint window_capacity;
+    uint window_topk; uint compressed_topk; uint compressed_capacity; float scale;
+} pc;
+void main() {
+    uint row=gl_GlobalInvocationID.z, head=gl_GlobalInvocationID.y;
+    if (row>=pc.rows || head>=pc.heads) return;
+    uint total=pc.window_topk+pc.compressed_topk, base=(row*pc.heads+head)*total;
+    precise float lanes[16];
+    for (uint lane=0u;lane<16u;++lane) lanes[lane]=0.0;
+    // The zero-valued sink has dProbability=0, but remains in softmax.
+    for (uint slot=0u;slot<total;++slot) lanes[slot%16u]+=grad_weight[base+slot]*weights[base+slot];
+    precise float sum=lanes[0];
+    for (uint lane=1u;lane<min(total+1u,16u);++lane) sum+=lanes[lane];
+    for (uint slot=0u;slot<total;++slot) {
+        precise float value=(grad_weight[base+slot]-sum)*weights[base+slot];
+        grad_score[base+slot]=value*pc.scale;
+    }
+}

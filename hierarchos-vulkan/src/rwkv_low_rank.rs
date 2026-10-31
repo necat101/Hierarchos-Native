@@ -720,7 +720,8 @@ fn f32_topology_adoption_margin(device: &str, width: usize, ranks: (usize, usize
     // Require a lead beyond that admitted noise envelope in every round.
     // Preserve Intel and unmeasured adapter/driver/shape policies verbatim.
     if device == "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]"
-        && width == 128 && ranks == (32, 32, 64)
+        && width == 128
+        && ranks == (32, 32, 64)
     {
         LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_CONTENTION_SPREAD - 1.0
     } else {
@@ -860,7 +861,10 @@ fn adjudicate_layer_norm_low_rank_forward_rounds<T: Copy + PartialEq>(
     structural_default: T,
 ) -> LayerNormLowRankForwardAutotune<T> {
     adjudicate_layer_norm_low_rank_forward_rounds_with_margin(
-        rounds, candidates, structural_default, LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_MARGIN,
+        rounds,
+        candidates,
+        structural_default,
+        LAYER_NORM_LOW_RANK_FORWARD_AUTOTUNE_MARGIN,
     )
 }
 
@@ -3415,10 +3419,15 @@ impl RwkvLowRankOp {
             }
         };
         let required_margin = f32_topology_adoption_margin(
-            self.device.decision_device_name(), self.width, (self.w_rank, self.a_rank, self.g_rank),
+            self.device.decision_device_name(),
+            self.width,
+            (self.w_rank, self.a_rank, self.g_rank),
         );
         let adjudication = adjudicate_layer_norm_low_rank_forward_rounds_with_margin(
-            &rounds, &candidates, structural_default, required_margin,
+            &rounds,
+            &candidates,
+            structural_default,
+            required_margin,
         );
         let selected = adjudication.selected;
         let decision = LayerNormLowRankForwardF32Decision {
@@ -4997,26 +5006,48 @@ mod tests {
 
     #[test]
     fn ally_f32_topology_admission_rejects_weak_wins_and_preserves_other_profiles() {
-        use LayerNormLowRankForwardF32Topology::{OneRow, ColumnSlices};
+        use LayerNormLowRankForwardF32Topology::{ColumnSlices, OneRow};
         let device = "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]";
         let margin = f32_topology_adoption_margin(device, 128, (32, 32, 64));
         assert!(margin > 0.14 && margin < 0.16);
         for (name, width, ranks) in [
             ("Intel(R) HD Graphics 520", 128, (32, 32, 64)),
-            ("AMD Radeon Graphics [pci=1002:15bf;driver=00800185]", 128, (32, 32, 64)),
+            (
+                "AMD Radeon Graphics [pci=1002:15bf;driver=00800185]",
+                128,
+                (32, 32, 64),
+            ),
             (device, 64, (8, 8, 8)),
         ] {
             assert_eq!(f32_topology_adoption_margin(name, width, ranks), 0.02);
         }
         let weak = vec![vec![(OneRow, 1.0), (ColumnSlices, 0.95)]; 7];
         let candidates = [OneRow, ColumnSlices];
-        assert_eq!(adjudicate_layer_norm_low_rank_forward_rounds_with_margin(
-            &weak, &candidates, OneRow, margin).selected, OneRow);
-        assert_eq!(adjudicate_layer_norm_low_rank_forward_rounds(
-            &weak, &candidates, OneRow).selected, ColumnSlices);
+        assert_eq!(
+            adjudicate_layer_norm_low_rank_forward_rounds_with_margin(
+                &weak,
+                &candidates,
+                OneRow,
+                margin
+            )
+            .selected,
+            OneRow
+        );
+        assert_eq!(
+            adjudicate_layer_norm_low_rank_forward_rounds(&weak, &candidates, OneRow).selected,
+            ColumnSlices
+        );
         let strong = vec![vec![(OneRow, 1.0), (ColumnSlices, 0.8)]; 7];
-        assert_eq!(adjudicate_layer_norm_low_rank_forward_rounds_with_margin(
-            &strong, &candidates, OneRow, margin).selected, ColumnSlices);
+        assert_eq!(
+            adjudicate_layer_norm_low_rank_forward_rounds_with_margin(
+                &strong,
+                &candidates,
+                OneRow,
+                margin
+            )
+            .selected,
+            ColumnSlices
+        );
     }
 
     #[test]

@@ -1,0 +1,30 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x=64) in;
+#include "transformer_deepseek_v41_grad_dispatch.glsl"
+layout(set=0,binding=0,std430) readonly buffer WindowIndices { int window_indices[]; };
+layout(set=0,binding=1,std430) readonly buffer CompressedIndices { int compressed_indices[]; };
+layout(set=0,binding=2,std430) readonly buffer GatherGradient { float grad_gather[]; };
+layout(set=0,binding=3,std430) writeonly buffer WindowGradient { float grad_window[]; };
+layout(set=0,binding=4,std430) writeonly buffer CompressedGradient { float grad_compressed[]; };
+layout(push_constant) uniform Push {
+    uint rows; uint batch; uint seq; uint heads; uint dim; uint window_capacity;
+    uint window_topk; uint compressed_topk; uint compressed_capacity; float scale;
+} pc;
+#include "transformer_deepseek_v41_attention_grad_common.glsl"
+void main() {
+    uint i, capacity=pc.window_capacity+pc.compressed_capacity;
+    if (!v41_grad_index(pc.batch*capacity*pc.dim,i)) return;
+    uint column=i%pc.dim, index=(i/pc.dim)%capacity, batch=i/(pc.dim*capacity);
+    precise float sum=0.0;
+    for (uint token=0u;token<pc.seq;++token) {
+        uint row=batch*pc.seq+token;
+        for (uint slot=0u;slot<slot_count();++slot) {
+            int selected=slot_index(row,slot);
+            if (slot_valid(slot,selected) && uint(selected)==index)
+                sum+=grad_gather[(row*slot_count()+slot)*pc.dim+column];
+        }
+    }
+    if (index<pc.window_capacity) grad_window[(batch*pc.window_capacity+index)*pc.dim+column]=sum;
+    else grad_compressed[(batch*pc.compressed_capacity+index-pc.window_capacity)*pc.dim+column]=sum;
+}

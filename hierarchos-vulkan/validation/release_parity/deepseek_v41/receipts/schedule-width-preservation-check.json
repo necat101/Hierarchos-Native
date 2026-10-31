@@ -1,0 +1,24 @@
+{
+  "recorded_inputs": 594,
+  "unchanged": 590,
+  "changed": {
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_weights.spv": {
+      "before": "335ecc2ef115ebbd2235b90d297a9befbf6250bba0c38f8b6bcf7c407937d351",
+      "after": "458d832ac773dad535367d4b83ca48a823899087b6da116d8f29841c66ec500a"
+    },
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_engram_gate.spv": {
+      "before": "814e91e73c3c87bb30c45c3eb39a877b031d7ec702755284f8fa9136fc73caad",
+      "after": "219ed54c55db06ca850d4c2ecca7e39724cb12d5374c9c42baab6d2daf2c0c27"
+    },
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_grouped_output.spv": {
+      "before": "012f6e68e88010558d6b690c05df1191f2eab0d1199fe9e51f9bd27030fdb8fc",
+      "after": "68d95465352f06a576bae3764c5cba1012f7c0eb0aadfa6816bcfd04d6682531"
+    },
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_gate.spv": {
+      "before": "6dbe4073eb09a5ba7bb388c53a4a331552c44e3c58f794faafa803541ad1c14b",
+      "after": "68a2671bcee58d6d92002fa8fd7761c9c882487c8bff62116cf909d14a00bea3"
+    }
+  },
+  "old_fixture_changes": [],
+  "old_oracle_changes": []
+}

@@ -668,11 +668,11 @@ impl RwkvChannelMixOp {
             self.forward_fusion_forced,
             (crate::vendor::unmeasured_composition_is_qualified(self.device.vendor_id())
                 || measured.is_some())
-            && self.linear_residual_forward.selects_variant_for(
-                batch as u32,
-                self.hidden_width as u32,
-                self.width as u32,
-            ),
+                && self.linear_residual_forward.selects_variant_for(
+                    batch as u32,
+                    self.hidden_width as u32,
+                    self.width as u32,
+                ),
             measured,
         )
     }

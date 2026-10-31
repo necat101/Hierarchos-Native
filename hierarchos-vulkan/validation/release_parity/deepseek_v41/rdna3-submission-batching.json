@@ -1,0 +1,121 @@
+{
+  "status": "qualified_for_recorded_scope",
+  "rdn3_submission_batching": true,
+  "device": "AMD Radeon Graphics (RDNA3)",
+  "gate": {
+    "cpu_logit_atol": 2e-07,
+    "rtol": 0,
+    "comparison": "strict_less_than",
+    "unchanged": true,
+    "probe_equivalence": "exact bit digest of every measured logit, both residencies"
+  },
+  "probe_scope": "release build; 40-layer/384-expert V4.1 fixture, vocab 67, prefill 8 then 8 decodes, 5 measured steps, 1 warmup",
+  "default_loader": {
+    "baseline": {
+      "prefill_ms": 6601.707,
+      "decode_ms": 2218.309,
+      "decode_ms_per_token": 277.289,
+      "digest": "90e096ebc5bf0659"
+    },
+    "candidate": {
+      "prefill_ms": 2642.629,
+      "decode_ms": 937.162,
+      "decode_ms_per_token": 117.145,
+      "digest": "90e096ebc5bf0659"
+    },
+    "prefill_speedup": 2.498,
+    "decode_speedup": 2.367,
+    "digest_identical": true
+  },
+  "resident_loader": {
+    "baseline": {
+      "prefill_ms": 1027.725,
+      "decode_ms": 635.982,
+      "decode_ms_per_token": 79.498,
+      "digest": "90e096ebc5bf0659"
+    },
+    "candidate": {
+      "prefill_ms": 491.337,
+      "decode_ms": 156.834,
+      "decode_ms_per_token": 19.604,
+      "digest": "90e096ebc5bf0659"
+    },
+    "prefill_speedup": 2.092,
+    "decode_speedup": 4.055,
+    "digest_identical": true
+  },
+  "changes": {
+    "checkpoint_shard_handle": "one open handle per shard, re-validated by size+mtime on every read so a deleted/truncated/replaced checkpoint still fails closed",
+    "moe_expert_submission": "pack, projections, SwiGLU and scatter for one expert recorded into one ComputeBatch (resident: one batch per layer); identical dispatches, buffers, push constants and order",
+    "record_only_kernels": "LinearKernel, packed GEMM, activation quantizer and mixed-linear apply expose record-only forms; public wrappers unchanged"
+  },
+  "tests": {
+    "v41_filter": {
+      "passed": 182,
+      "failed": 0,
+      "ignored": 25,
+      "log": "target/v41-tests-final.log"
+    },
+    "parameter_streaming": {
+      "passed": 3,
+      "failed": 0
+    },
+    "weight_offload": {
+      "passed": 17,
+      "failed": 0
+    },
+    "fail_closed_cases": [
+      "mixed_moe_checkpoint_streaming_backward_and_inactive_gradients_match_cpu",
+      "engram_streamed_table_is_unneeded_by_retained_backward"
+    ]
+  },
+  "generic_streaming_bench": {
+    "note": "warm inference medians, release binary, 10 iterations, existing body cache",
+    "llama_h512_e0": {
+      "median_ms": 10.113,
+      "submissions": 130,
+      "package_reads": 7,
+      "cache_peak_bytes": 9437184
+    },
+    "llama_h1024_i3072": {
+      "median_ms": 49.366,
+      "submissions": 160,
+      "package_reads": 130,
+      "cache_peak_bytes": 33554432
+    },
+    "mixtral_h512_e8": {
+      "median_ms": 62.381,
+      "submissions": 350,
+      "package_reads": 143,
+      "cache_peak_bytes": 33554432
+    }
+  },
+  "sources": {
+    "hierarchos-vulkan/src/deepseek_v41/checkpoint.rs": "d6f9551918b8b0257e0fb2d03b4c9415bb0c9f5fc578cf0e77432e64a702983a",
+    "hierarchos-vulkan/src/deepseek_v41/indexer.rs": "aee389f7a86ab63d7f452e3133ff55d52c3304c3791d7098dcb86b2772f82936",
+    "hierarchos-vulkan/src/deepseek_v41/quantization.rs": "ccaa65c216ce8ea0ad457c0076e8d15d7112217cbcc322893b41d88ee7d8aadc",
+    "hierarchos-vulkan/src/deepseek_v41/packed_weights.rs": "bd86cdc1f4ce0996fdadb7e6b8ec1df14649ade9ef619767f610f28b1be57e83",
+    "hierarchos-vulkan/src/deepseek_v41/mixed_linear.rs": "c06948a4761084f91f26b82d9a4fd49e9d8f41f277c0d01f4e113ba41f02cb1c",
+    "hierarchos-vulkan/src/deepseek_v41/backbone.rs": "c7fbf1bb094d3c5f1743b98ad7fa8b0dc1685b707857df682093fe6334c28e02"
+  },
+  "binaries": {
+    "hierarchos-vulkan/target/release/hierarchos-vulkan-deepseek-v41-forward-probe.exe": "7e80f040a8bb7b9f2c9ac9b1ff966b54cde84cbb0689f365a0d4ccabb37ba0e2",
+    "hierarchos-vulkan/target/release/parameter_streaming_bench.exe": "2ff8332e4adba9db238286c630143e54c4f4dfcf11241acb3a6dd5de848c680b"
+  },
+  "limits": [
+    "tiny 40-layer fixture at vocab 67; not a released-checkpoint throughput claim",
+    "streamed V4.1 remains checkpoint-I/O bound: 6 routed experts x 40 layers are re-read per decode token",
+    "resident decode is host/launch bound; only 2.9 ms per step is GPU dispatch time",
+    "generic families keep their resident initial-loading peak and opt-in streaming",
+    "full-parameter training offload, Intel Gen9 performance and million-token contexts remain excluded"
+  ],
+  "rejected_optimizations": [
+    {
+      "change": "host-visible MoE routing counts so the per-layer read skips its staging copy",
+      "result": "not a valid measurement: the edit matched the fp32 DeepseekV41Moe::apply (line 760), which the V4.1 mixed path never executes, so the 63.3 ms/token run measured an unchanged hot path and is treated as an environmental outlier. Idea remains untested; reverted to the qualified sources.",
+      "digest": "90e096ebc5bf0659 in every run, including the outlier",
+      "disposition": "reverted; timings re-measured after the revert at 19.722 / 118.250 ms/token"
+    }
+  ],
+  "source_note": "backbone.rs was re-saved by the patch tooling during a rejected experiment; it still has pure CRLF and 2851 lines, and the release binary rebuilt from these sources reproduces digest 90e096ebc5bf0659 with resident 19.722 ms/token and streamed 118.250 ms/token, but its byte identity to the earlier recorded hash could not be restored, so the hash here is the current one."
+}

@@ -1,0 +1,34 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+
+// FP32 RMS staging: materialize squares, reduce four interleaved vectors, then
+// fold vector lanes. This keeps V4.1's normalization independent of V4's modes.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Weight { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer Output { float output_values[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer Rstd { float rstd_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer Variance { float variance_values[]; };
+layout(push_constant) uniform Push {
+    uint rows; uint dim; uint parameter_groups; float eps;
+    float weight_offset; uint pow_rstd; uint unfused_products; uint extra_rsqrt_refinement;
+} pc;
+
+#define V41_REDUCE_INPUT x
+#include "fp32_v41_reduce.glsl"
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint base = row * pc.dim;
+    precise float sum = v41_sum_squares(base, pc.dim);
+    precise float variance = fp32_div(sum, float(pc.dim)) + pc.eps;
+    float rstd = fp32_sqrt_recip(variance);
+    variance_values[row] = variance;
+    rstd_values[row] = rstd;
+    for (uint col = 0u; col < pc.dim; ++col) {
+        precise float normalized = x[base+col] * rstd;
+        output_values[base+col] = normalized * weight[col];
+    }
+}

@@ -1,0 +1,26 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x=64) in;
+#include "transformer_deepseek_v41_grad_dispatch.glsl"
+layout(set=0,binding=0,std430) readonly buffer Upstream { float upstream[]; };
+layout(set=0,binding=1,std430) readonly buffer Slots { int slots[]; };
+layout(set=0,binding=2,std430) writeonly buffer SourceGradient { float grad_source[]; };
+layout(set=0,binding=3,std430) writeonly buffer PreviousGradient { float grad_previous[]; };
+layout(push_constant) uniform Push { uint batch; uint rows; uint capacity; uint dim; } pc;
+void main() {
+    uint i;
+    if (!v41_grad_index(max(pc.batch*pc.rows*pc.dim,pc.batch*pc.capacity*pc.dim),i)) return;
+    if (i<pc.batch*pc.rows*pc.dim) {
+        uint column=i%pc.dim, row=(i/pc.dim)%pc.rows, batch=i/(pc.dim*pc.rows);
+        int slot=slots[row];
+        bool live=slot>=0;
+        for (uint later=row+1u;later<pc.rows;++later) if (slots[later]==slot) live=false;
+        grad_source[i]=live ? upstream[(batch*pc.capacity+uint(slot))*pc.dim+column] : 0.0;
+    }
+    if (i<pc.batch*pc.capacity*pc.dim) {
+        uint slot=(i/pc.dim)%pc.capacity;
+        bool live=true;
+        for (uint row=0u;row<pc.rows;++row) if (slots[row]==int(slot)) live=false;
+        grad_previous[i]=live ? upstream[i] : 0.0;
+    }
+}

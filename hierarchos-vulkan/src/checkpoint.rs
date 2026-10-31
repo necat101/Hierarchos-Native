@@ -10,6 +10,21 @@ use safetensors::{
 use crate::rwkv_optimizer::{
     AdamWDecayClass, AdamWOptimizerSlotState, AdamWOptimizerState, RwkvParameterSnapshot,
 };
+use crate::weight_offload::{ModelPackage, TensorDtype};
+
+/// A one-tensor SafeTensors image for `name`, holding only that tensor's payload.
+///
+/// The readers below previously called `fs::read` and deserialised the entire
+/// shard for every tensor they wanted, so a loader that asked for a hundred
+/// tensors read and parsed the whole package a hundred times. Reading only the
+/// requested payload through [`ModelPackage`] is the bounded-cost equivalent:
+/// the returned image carries the original dtype and shape, so each reader's
+/// decode body is unchanged and produces the same values from far fewer bytes.
+fn package_tensor_image(path: &Path, name: &str) -> Result<Vec<u8>> {
+    let mut package = ModelPackage::open_file(path)?;
+    let (image, _, _) = package.single_tensor_image(name)?;
+    Ok(image)
+}
 
 /// Tensor payload stored beside the JSON host-replay document. U8 covers the
 /// byte-generator states used by PyTorch CPU/CUDA RNGs; F32 covers recurrent
@@ -1064,7 +1079,7 @@ pub fn write_portable_replay_tensors(
 }
 
 pub fn read_f32_tensor(path: &Path, name: &str) -> Result<(Vec<usize>, Vec<f32>)> {
-    let bytes = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    let bytes = package_tensor_image(path, name)?;
     let tensors = SafeTensors::deserialize(&bytes)?;
     let tensor = tensors
         .tensor(name)
@@ -1114,7 +1129,7 @@ pub fn read_f32_tensor(path: &Path, name: &str) -> Result<(Vec<usize>, Vec<f32>)
 }
 
 fn read_f64_tensor(path: &Path, name: &str) -> Result<(Vec<usize>, Vec<f64>)> {
-    let bytes = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    let bytes = package_tensor_image(path, name)?;
     let tensors = SafeTensors::deserialize(&bytes)?;
     let tensor = tensors
         .tensor(name)
@@ -1179,7 +1194,7 @@ fn read_f64_tensor(path: &Path, name: &str) -> Result<(Vec<usize>, Vec<f64>)> {
 }
 
 fn read_i64_tensor(path: &Path, name: &str) -> Result<(Vec<usize>, Vec<i64>)> {
-    let bytes = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    let bytes = package_tensor_image(path, name)?;
     let tensors = SafeTensors::deserialize(&bytes)?;
     let tensor = tensors
         .tensor(name)
@@ -1238,9 +1253,7 @@ fn read_i64_tensor(path: &Path, name: &str) -> Result<(Vec<usize>, Vec<i64>)> {
 }
 
 fn tensor_exists(path: &Path, name: &str) -> Result<bool> {
-    let bytes = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
-    let tensors = SafeTensors::deserialize(&bytes)?;
-    Ok(tensors.tensor(name).is_ok())
+    ModelPackage::open_file(path)?.contains(name)
 }
 
 fn read_optional_f32_tensor(path: &Path, name: &str) -> Result<Option<(Vec<usize>, Vec<f32>)>> {
@@ -1265,7 +1278,7 @@ fn read_optional_i64_tensor(path: &Path, name: &str) -> Result<Option<(Vec<usize
 }
 
 fn read_u32_tensor(path: &Path, name: &str) -> Result<(Vec<usize>, Vec<u32>)> {
-    let bytes = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    let bytes = package_tensor_image(path, name)?;
     let tensors = SafeTensors::deserialize(&bytes)?;
     let tensor = tensors
         .tensor(name)
@@ -1333,23 +1346,24 @@ pub fn validate_f32_tensor_names(path: &Path, names: &[&str]) -> Result<()> {
     if names.is_empty() {
         bail!("portable FP32 master validation requires at least one tensor name");
     }
-    let bytes = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
-    let tensors = SafeTensors::deserialize(&bytes)?;
+    // Only the declared dtype and shape are needed, so resolve them from the
+    // shard header and read no payload at all.
+    let mut package = ModelPackage::open_file(path)?;
     let mut seen = std::collections::HashSet::new();
     for &name in names {
         if name.trim().is_empty() || !seen.insert(name) {
             bail!("portable FP32 master validation has empty/duplicate tensor {name:?}");
         }
-        let tensor = tensors.tensor(name).with_context(|| {
+        let dtype = package.dtype(name).with_context(|| {
             format!(
                 "portable FP32 master file {} is missing optimizer slot {name:?}",
                 path.display()
             )
         })?;
-        if tensor.dtype() != Dtype::F32 {
+        if dtype != TensorDtype::F32 {
             bail!(
-                "portable FP32 master slot {name:?} is stored as {:?} in {}; lower-precision storage is reserved for derived execution mirrors",
-                tensor.dtype(),
+                "portable FP32 master slot {name:?} is stored as {} in {}; lower-precision storage is reserved for derived execution mirrors",
+                dtype.name(),
                 path.display()
             );
         }
@@ -1922,6 +1936,19 @@ fn f16_bits_to_f32(bits: u16) -> f32 {
 mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    /// The bounded-I/O reader in `weight_offload` carries its own binary16
+    /// widening. It must agree with this module's historical copy on every bit
+    /// pattern, including subnormals, infinities and NaN, or the two paths would
+    /// decode the same file differently.
+    #[test]
+    fn binary16_widening_agrees_with_the_weight_offload_copy() {
+        for bits in 0..=u16::MAX {
+            let local = f16_bits_to_f32(bits);
+            let shared = crate::weight_offload::f16_bits_to_f32(bits);
+            assert_eq!(local.to_bits(), shared.to_bits(), "bit pattern {bits:#06x}");
+        }
+    }
 
     fn temp_optimizer_path(label: &str) -> std::path::PathBuf {
         let nonce = SystemTime::now()

@@ -1,0 +1,31 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x=64) in;
+#include "transformer_deepseek_v41_grad_dispatch.glsl"
+layout(set=0,binding=0,std430) readonly buffer Upstream { float upstream[]; };
+layout(set=0,binding=1,std430) readonly buffer Weight { float weight[]; };
+layout(set=0,binding=2,std430) writeonly buffer InputGradient { float grad_input[]; };
+layout(push_constant) uniform Push { uint rows; uint groups; uint width; uint rank; } pc;
+void main() {
+    uint i;
+    if (!v41_grad_index(pc.rows*pc.groups*pc.width,i)) return;
+    uint column=i%pc.width, group=(i/pc.width)%pc.groups, row=i/(pc.width*pc.groups);
+    precise float sum=0.0;
+    uint base=(row*pc.groups+group)*pc.rank;
+    // The transposed contraction has its own FP32 staging: short batches
+    // fold consecutive four-term FMA partials, tall batches use the serial
+    // matrix body. Reusing the forward's four interleaved lanes fails the
+    // unchanged short-batch CPU input-gradient fixture at 2.38e-7.
+    if (pc.width>8u && pc.rows>=4u) {
+        for (uint r=0u;r<pc.rank;++r)
+            sum=fma(upstream[base+r],weight[(group*pc.rank+r)*pc.width+column],sum);
+    } else {
+        for (uint start=0u;start<pc.rank;start+=4u) {
+            precise float partial=0.0;
+            for (uint r=start;r<min(start+4u,pc.rank);++r)
+                partial=fma(upstream[base+r],weight[(group*pc.rank+r)*pc.width+column],partial);
+            sum+=partial;
+        }
+    }
+    grad_input[i]=sum;
+}

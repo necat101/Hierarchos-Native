@@ -34,10 +34,14 @@ use crate::training_numerics::VulkanOrderedF32SumReducer;
 mod falcon_h1;
 mod peft_registry;
 mod peft_state;
+mod streamed_load;
+use streamed_load::{HostLinearPayload, upload_host_linear};
 use crate::{
     hierarchos_canonical_philox_word, hierarchos_dropout_threshold, read_f32_tensor, vendor,
-    vulkan, AdamWHyperParams, CanonicalDropoutVulkanOp, GpuBuffer,
-    HierarchosCanonicalRngReservation, SharedLmHeadParameter, TiedTokenEmbeddingOp, VulkanDevice,
+    vulkan,
+    weight_offload::{shared_package, ModelPackage, TensorDtype},
+    AdamWHyperParams, CanonicalDropoutVulkanOp, GpuBuffer, HierarchosCanonicalRngReservation,
+    SharedLmHeadParameter, TiedTokenEmbeddingOp, VulkanDevice,
 };
 pub use peft_registry::{PeftCapability, PeftModuleClass};
 
@@ -66,8 +70,7 @@ const LAYER_NORM_WELFORD_SMALL_FORWARD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_layer_norm_welford_small_forward.spv");
 
 fn small_welford_is_qualified(device: &str, dim: usize) -> bool {
-    device == "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]"
-        && (1..=128).contains(&dim)
+    device == "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]" && (1..=128).contains(&dim)
 }
 const LAYER_NORM_INPUT_GRAD_SPV: &[u8] = include_bytes!("../shaders/layer_norm_input_grad.spv");
 const LAYER_NORM_PARAM_GRAD_SPV: &[u8] = include_bytes!("../shaders/layer_norm_param_grad.spv");
@@ -297,6 +300,13 @@ const ROPE_BACKWARD_SPV: &[u8] = include_bytes!("../shaders/transformer_rope_bac
 pub const VULKAN_TRANSFORMER_ADAPTER_CONFIG_FILENAME: &str = "adapter_config.json";
 pub const VULKAN_TRANSFORMER_ADAPTER_WEIGHTS_FILENAME: &str = "adapter_model.safetensors";
 const GPT2_SAFETENSORS_FILENAME: &str = "model.safetensors";
+
+/// Negative control for the shared-offload row gather. Setting this variable
+/// makes `decode_transformer_float_source_rows` return zeros, which is how the
+/// recorded evidence shows the gather really feeds the logits: with it set, the
+/// strict Qwen4-Exp logits move by up to `4.11e-3`; unset, they are byte
+/// identical before and after the conversion.
+const TRANSFORMER_ZERO_GATHER_CONTROL_ENV: &str = "HIERARCHOS_TRANSFORMER_ZERO_GATHER_CONTROL";
 const GPT2_SAFETENSORS_INDEX_FILENAME: &str = "model.safetensors.index.json";
 const PEFT_ALL_LINEAR_TARGET: &str = "all-linear";
 pub const PEFT_DEFAULT_ADAPTER_NAME: &str = "default";
@@ -2230,7 +2240,7 @@ impl VulkanTransformerGenerationConfig {
         }
     }
 
-    fn effective_max_new_tokens(&self, prompt_len: usize, context_len: usize) -> usize {
+    pub(crate) fn effective_max_new_tokens(&self, prompt_len: usize, context_len: usize) -> usize {
         let capacity = context_len.saturating_sub(prompt_len);
         match self.max_new_tokens {
             Some(value) => value.min(capacity),
@@ -2325,7 +2335,7 @@ impl VulkanTransformerGenerationConfig {
         Ok(max_requests.min(batch_len.max(1)))
     }
 
-    fn should_stop_after_token(&self, sequence: &[u32], token: u32) -> bool {
+    pub(crate) fn should_stop_after_token(&self, sequence: &[u32], token: u32) -> bool {
         if self.is_eos(token) {
             return true;
         }
@@ -2614,7 +2624,7 @@ fn generation_apply_sequence_constraints(
     }
 }
 
-fn generation_argmax(logits: &[f32]) -> Result<u32> {
+pub(crate) fn generation_argmax(logits: &[f32]) -> Result<u32> {
     let (index, _) = logits
         .iter()
         .copied()
@@ -3965,7 +3975,11 @@ fn generation_sample_token(
     generation_sample_processed_scores(&scores, config.seed, sample_index)
 }
 
-fn generation_sample_processed_scores(scores: &[f32], seed: u64, sample_index: u64) -> Result<u32> {
+pub(crate) fn generation_sample_processed_scores(
+    scores: &[f32],
+    seed: u64,
+    sample_index: u64,
+) -> Result<u32> {
     let ranked = generation_ranked_finite_logits(scores);
     if ranked.is_empty() {
         bail!("generation logits contain no finite values");
@@ -4147,7 +4161,7 @@ fn generation_ensemble_argmax(
     u32::try_from(best_index).context("assistant ensemble token index exceeds u32")
 }
 
-fn generation_processed_non_beam_scores(
+pub(crate) fn generation_processed_non_beam_scores(
     logits: &[f32],
     history: &[u32],
     config: &VulkanTransformerGenerationConfig,
@@ -9646,6 +9660,10 @@ impl VulkanTransformerConfig {
             "deepseek_v3" => Self::from_deepseek_v3_value(value),
             "deepseek_v32" => Self::from_deepseek_v32_value(value),
             "deepseek_v4" => Self::from_deepseek_v4_value(value),
+            "deepseek_v41" | "deepseek_v41_text" => {
+                crate::deepseek_v41::DeepseekV41Config::from_hf_value(value)?;
+                bail!("DeepSeek-V4.1 uses the dedicated native graph; load the package with DeepseekV41CausalLM::from_hf_package instead of the DeepSeek-V4 transformer")
+            }
             "kimi_linear" => Self::from_kimi_linear_value(value),
             "kimi_k2" => {
                 let mut normalized = value.clone();
@@ -26109,8 +26127,12 @@ impl TransformerKernels {
     fn lora_b_group4_adjoint(&self) -> Result<&vulkan::ComputeKernel> {
         match self.linear_input_grad_group4_muladd.get_or_init(|| {
             vulkan::ComputeKernel::new(
-                &self.peft_kernel_device, LINEAR_INPUT_GRAD_GROUP4_MULADD_SPV, 3, 12,
-            ).map_err(|error| error.to_string())
+                &self.peft_kernel_device,
+                LINEAR_INPUT_GRAD_GROUP4_MULADD_SPV,
+                3,
+                12,
+            )
+            .map_err(|error| error.to_string())
         }) {
             Ok(kernel) => Ok(kernel),
             Err(error) => bail!("create LoRA-B group-four adjoint pipeline: {error}"),
@@ -26927,6 +26949,14 @@ struct TrainableParameter {
     /// Exactly one logical owner is allowed to advance AdamW state for a
     /// physically shared parameter.  Ordinary parameters are their own owner.
     step_owner: bool,
+    /// When set, this parameter holds no payload: `values` is a one-element
+    /// placeholder and both the projection and `read()` come from the package.
+    ///
+    /// The lazy source lives here rather than on the owning module so that every
+    /// existing consumer of `read()` - the per-architecture export paths, the
+    /// round-trip comparisons, the PEFT clone - keeps working unchanged and
+    /// materializes the real table instead of exporting a placeholder.
+    tiered: Option<Arc<TieredLmHead>>,
 }
 
 trait OptionalGpuBufferExt {
@@ -26941,7 +26971,762 @@ impl OptionalGpuBufferExt for Option<GpuBuffer> {
     }
 }
 
+/// Rows of the output head projected per dispatch in the streamed tier.
+///
+/// The released head is `[vocab_size, input_dim]`; resident it costs **four**
+/// device allocations of that size (values, gradient, and both AdamW moments),
+/// which for a 129,280x5,120 FP32 head is 10.6 GB. Streamed, the whole tier is
+/// one host tile plus one device weight tile plus one output tile.
+const TIERED_LM_HEAD_TILE_ROWS: usize = 8_192;
+/// Smallest tile the streamed head issues.
+///
+/// `linear_forward` selects its schedule from `output_dim` (the shared-memory
+/// tile needs at least 16 output columns), so the tail of the vocabulary is
+/// merged into the preceding tile rather than dispatched at a width the resident
+/// dispatch never used.
+const TIERED_LM_HEAD_MIN_TILE_ROWS: usize = 16;
+/// Largest row count any single tile can carry.
+///
+/// The tail merge above is what makes a tile exceed `TIERED_LM_HEAD_TILE_ROWS`:
+/// a remainder of `1..TIERED_LM_HEAD_MIN_TILE_ROWS` rows is folded into the
+/// tile before it, so the tile buffers are sized for that worst case rather
+/// than for the nominal tile.
+const TIERED_LM_HEAD_MAX_TILE_ROWS: usize =
+    TIERED_LM_HEAD_TILE_ROWS + TIERED_LM_HEAD_MIN_TILE_ROWS - 1;
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct TieredInputGradPush {
+    rows: u32,
+    input_dim: u32,
+    output_dim: u32,
+    accumulate: u32,
+}
+
+/// A vocabulary-sized output head served from the package instead of the device.
+///
+/// The head is the one weight in a dense model whose device cost scales with the
+/// vocabulary rather than with the model width, and the only one whose rows are
+/// consumed independently: each output column is its own dot product. That is
+/// what makes a row tile a natural unit - a tile of the head produces a tile of
+/// logit columns and nothing else is needed to finish them.
+///
+/// Memory is a function of the tile, not the table: reads go through the shared
+/// [`ModelPackage`] (one header parse per shard, a byte-capped host tile cache,
+/// bounded package reads), and only the tile is uploaded.
+struct TieredLmHead {
+    device: VulkanDevice,
+    transposed: bool,
+    flat_offset: Option<usize>,
+    /// Checked element-index view (offset, output stride, input stride).
+    /// Covers transposed/interleaved expert slices without resident copies.
+    affine: Option<(usize,usize,usize)>,
+    row_map: Option<Vec<usize>>,
+    input_adjoint: vulkan::ComputeKernel,
+    name: String,
+    input_dim: usize,
+    vocab_size: usize,
+    max_rows: usize,
+    package: Arc<Mutex<ModelPackage>>,
+    /// Nominal row count of transient operation scratch, bounded by row bytes.
+    tile_rows: usize,
+    /// Host bias, when present. Untied heads seed the accumulator with it;
+    /// tied heads add it after the dot product, matching their resident paths.
+    bias: Option<Vec<f32>>,
+}
+
+impl TieredLmHead {
+    /// Find and adopt the package tensor that holds `expected`.
+    ///
+    /// The tensor is identified by content, not by name: every package tensor
+    /// with the head's shape is compared tile by tile against the values the
+    /// loader already produced, and exactly one match is required. A name-based
+    /// guess could silently stream the wrong table, and the per-family head
+    /// spellings (`lm_head.weight`, `output_classes.weight`,
+    /// `cls.predictions.decoder.weight`, ...) make a complete name list a
+    /// maintenance hazard. Equality with the loaded head is the property that
+    /// actually matters and it is checked, not assumed.
+    fn adopt(
+        device: &VulkanDevice,
+        model_dir: &Path,
+        input_dim: usize,
+        vocab_size: usize,
+        max_rows: usize,
+        expected: &[f32],
+        bias: Option<Vec<f32>>,
+    ) -> Result<Self> {
+        Self::adopt_matrix(device,model_dir,input_dim,vocab_size,max_rows,expected,bias,false)
+    }
+    fn adopt_matrix(
+        device:&VulkanDevice,model_dir:&Path,input_dim:usize,vocab_size:usize,max_rows:usize,
+        expected:&[f32],bias:Option<Vec<f32>>,allow_equal_sources:bool,
+    )->Result<Self> {
+        if max_rows == 0 || input_dim==0 || vocab_size==0 {
+            bail!("streamed LM-head row capacity must be positive");
+        }
+        let len = input_dim
+            .checked_mul(vocab_size)
+            .context("streamed LM-head element count overflow")?;
+        if expected.len() != len {
+            bail!(
+                "streamed LM-head source has {} values; expected {len} for [{vocab_size}, {input_dim}]",
+                expected.len()
+            );
+        }
+        if let Some(bias) = bias.as_ref() {
+            if bias.len() != vocab_size {
+                bail!(
+                    "streamed LM-head bias has {} values; expected {vocab_size}",
+                    bias.len()
+                );
+            }
+        }
+
+        let package = shared_package(model_dir)?;
+        let mut candidate_names = Vec::new();
+        {
+            let mut package = package
+                .lock()
+                .map_err(|_| anyhow!("shared weight package lock is poisoned"))?;
+            for name in package.tensor_names()? {
+                let shape=package.shape(&name)?;
+                if shape == vec![vocab_size, input_dim] {
+                    candidate_names.push((name.clone(),false,None));
+                }
+                if shape == vec![input_dim,vocab_size] {
+                    candidate_names.push((name.clone(),true,None));
+                }
+                if allow_equal_sources && shape.len()>2 && shape.last()==Some(&input_dim) {
+                    let elements=shape.iter().try_fold(1usize,|n,&v|n.checked_mul(v)).context("streamed packed shape overflow")?;
+                    if elements.is_multiple_of(len) {
+                        for offset in (0..elements).step_by(len){candidate_names.push((name.clone(),false,Some(offset)));}
+                    }
+                }
+            }
+        }
+        if candidate_names.is_empty() && !allow_equal_sources {
+            bail!(
+                "package {} declares no [{vocab_size}, {input_dim}] tensor to serve the LM head from",
+                model_dir.display()
+            );
+        }
+        let mut adopted = None;
+        for (name,transposed,offset) in candidate_names {
+            let matches = {
+                let mut package = package
+                    .lock()
+                    .map_err(|_| anyhow!("shared weight package lock is poisoned"))?;
+                if let Some(offset)=offset {
+                    let mut same=true;let tile=(crate::weight_offload::DEFAULT_TILE_BYTES as usize/4).max(1);
+                    for first in (0..len).step_by(tile) {
+                        let count=tile.min(len-first);let values=package.read_f32_elements(&name,offset+first,count)?;
+                        if values.iter().zip(&expected[first..first+count]).any(|(a,b)|a.to_bits()!=b.to_bits()){same=false;break;}
+                    }
+                    same
+                } else if transposed {
+                    package_tensor_equals_transposed(&mut package,&name,expected,input_dim,vocab_size)?
+                } else {package_tensor_equals(&mut package, &name, expected, input_dim)?}
+            };
+            if !matches {
+                continue;
+            }
+            if allow_equal_sources {adopted=Some((name,transposed,offset));break;}
+            if adopted.as_ref().is_some_and(|(old,_,_)|old==&name){continue;}
+            if adopted.is_some() {
+                bail!(
+                    "package {} holds more than one tensor equal to the loaded LM head; refusing to guess which one to stream",
+                    model_dir.display()
+                );
+            }
+            adopted = Some((name,transposed,offset));
+        }
+        if adopted.is_none() && allow_equal_sources {
+            if let Some((name,view))=Self::find_affine_source(&package,expected,input_dim,vocab_size)? {
+                let mut source=Self::allocate(device,name,input_dim,vocab_size,max_rows,package,bias)?;
+                source.affine=Some(view);return Ok(source);
+            }
+            if let Some((name,rows))=Self::find_row_mapped_source(&package,expected,input_dim,vocab_size)? {
+                let mut source=Self::allocate(device,name,input_dim,vocab_size,max_rows,package,bias)?;
+                source.row_map=Some(rows);return Ok(source);
+            }
+        }
+        let Some((name,transposed,offset)) = adopted else {
+            bail!(
+                "no package tensor in {} reproduces the loaded LM head; refusing to stream a table that cannot be proven equal",
+                model_dir.display()
+            );
+        };
+
+        let mut source=Self::allocate(device, name, input_dim, vocab_size, max_rows, package, bias)?;
+        source.transposed=transposed;
+        source.flat_offset=offset;
+        Ok(source)
+    }
+
+    fn affine_rows(package:&mut ModelPackage,name:&str,view:(usize,usize,usize),input:usize,start:usize,count:usize)->Result<Vec<f32>> {
+        let (offset,output_stride,input_stride)=view;
+        let base=offset.checked_add(start.checked_mul(output_stride).context("affine source offset overflow")?).context("affine source offset overflow")?;
+        if input_stride==1 && output_stride==input {
+            return package.read_f32_elements(name,base,count.checked_mul(input).context("affine tile overflow")?);
+        }
+        let span=count.saturating_sub(1).checked_mul(output_stride).and_then(|n|n.checked_add(1)).context("affine source span overflow")?;
+        let mut result=vec![0.0;count.checked_mul(input).context("affine tile overflow")?];
+        for col in 0..input {
+            let at=base.checked_add(col.checked_mul(input_stride).context("affine column overflow")?).context("affine column overflow")?;
+            let values=package.read_f32_elements(name,at,span)?;
+            for row in 0..count {result[row*input+col]=values[row*output_stride];}
+        }
+        Ok(result)
+    }
+
+    fn row_hash(row:&[f32])->u64 {
+        row.iter().fold(0xcbf29ce484222325u64,|h,v|(h^v.to_bits() as u64).wrapping_mul(0x100000001b3))
+    }
+
+    /// Prove loader row permutations/splits from exact row contents. Hashes
+    /// only index candidates: each accepted row is compared bit for bit.
+    fn find_row_mapped_source(package:&Arc<Mutex<ModelPackage>>,expected:&[f32],input:usize,output:usize)->Result<Option<(String,Vec<usize>)>> {
+        let mut wanted=BTreeMap::<u64,Vec<usize>>::new();
+        for (row,values) in expected.chunks_exact(input).enumerate(){wanted.entry(Self::row_hash(values)).or_default().push(row);}
+        let mut package=package.lock().map_err(|_|anyhow!("streamed row source lock poisoned"))?;
+        for name in package.tensor_names()? {
+            let shape=package.shape(&name)?;
+            if shape.len()<2 || shape.last()!=Some(&input) {continue;}
+            let rows=shape[..shape.len()-1].iter().try_fold(1usize,|n,&v|n.checked_mul(v)).context("row-mapped source shape overflow")?;
+            if rows<output {continue;}
+            let mut mapping=vec![usize::MAX;output];let mut missing=output;
+            for source_row in 0..rows {
+                let values=package.read_f32_elements(&name,source_row*input,input)?;
+                if let Some(matches)=wanted.get(&Self::row_hash(&values)) {
+                    for &destination in matches {
+                        if mapping[destination]==usize::MAX && values.iter().zip(&expected[destination*input..(destination+1)*input]).all(|(a,b)|a.to_bits()==b.to_bits()) {
+                            mapping[destination]=source_row;missing-=1;
+                        }
+                    }
+                }
+                if missing==0 {return Ok(Some((name,mapping)));}
+            }
+        }
+        Ok(None)
+    }
+
+    fn find_affine_source(package:&Arc<Mutex<ModelPackage>>,expected:&[f32],input:usize,output:usize)->Result<Option<(String,(usize,usize,usize))>> {
+        let mut package=package.lock().map_err(|_|anyhow!("streamed source package lock poisoned"))?;
+        for name in package.tensor_names()? {
+            let shape=package.shape(&name)?;
+            if shape.len()<2 {continue;}
+            let rows=shape[shape.len()-2];let cols=shape[shape.len()-1];
+            let prefixes=shape[..shape.len()-2].iter().try_fold(1usize,|n,&v|n.checked_mul(v)).context("affine source shape overflow")?;
+            let matrix=rows.checked_mul(cols).context("affine source shape overflow")?;
+            let mut views=Vec::new();
+            for prefix in 0..prefixes {
+                let base=prefix.checked_mul(matrix).context("affine prefix overflow")?;
+                if cols==input && rows.is_multiple_of(output) {
+                    for part in 0..rows/output {views.push((base+part*output*input,input,1));}
+                }
+                if rows==input && cols.is_multiple_of(output) {
+                    let pieces=cols/output;
+                    for part in 0..pieces {
+                        views.push((base+part*output,1,cols));
+                        if pieces>1 {views.push((base+part,pieces,cols));}
+                    }
+                }
+            }
+            for view in views {
+                // Prove the first row before reading the rest of a candidate.
+                let first=Self::affine_rows(&mut package,&name,view,input,0,1)?;
+                if first.iter().zip(&expected[..input]).any(|(a,b)|a.to_bits()!=b.to_bits()){continue;}
+                let tile=(crate::weight_offload::DEFAULT_TILE_BYTES as usize/(4*input)).max(1);
+                let mut matches=true;
+                for start in (0..output).step_by(tile) {
+                    let count=tile.min(output-start);
+                    let values=Self::affine_rows(&mut package,&name,view,input,start,count)?;
+                    if values.iter().zip(&expected[start*input..(start+count)*input]).any(|(a,b)|a.to_bits()!=b.to_bits()){matches=false;break;}
+                }
+                if matches {return Ok(Some((name,view)));}
+            }
+        }
+        Ok(None)
+    }
+
+    /// Adopt the exact physical tensor selected by the checkpoint loader. Read
+    /// and validate bounded tiles, never a full resident host or device table.
+    fn from_source(
+        device: &VulkanDevice,
+        source: &HostFloatTensorSource,
+        max_rows: usize,
+        bias: Option<Vec<f32>>,
+    ) -> Result<Self> {
+        let [vocab_size, input_dim] = source.shape.as_slice() else {
+            bail!("streamed LM-head source must be a rank-2 table");
+        };
+        let package = validate_transformer_package_rows(source, *vocab_size, *input_dim)?;
+        Self::allocate(
+            device,
+            source.tensor_name.clone(),
+            *input_dim,
+            *vocab_size,
+            max_rows,
+            package,
+            bias,
+        )
+    }
+
+    fn allocate(
+        device: &VulkanDevice,
+        name: String,
+        input_dim: usize,
+        vocab_size: usize,
+        max_rows: usize,
+        package: Arc<Mutex<ModelPackage>>,
+        bias: Option<Vec<f32>>,
+    ) -> Result<Self> {
+        if input_dim == 0 || vocab_size == 0 || max_rows == 0 {
+            bail!("streamed LM-head geometry and row capacity must be positive");
+        }
+        if bias.as_ref().is_some_and(|values| {
+            values.len() != vocab_size || values.iter().any(|v| !v.is_finite())
+        }) {
+            bail!("streamed LM-head bias geometry or values are invalid");
+        }
+        // Every buffer below is sized by the largest tile the plan can produce,
+        // never by the table: a 129,280-row vocabulary costs 8,207 rows of
+        // device weight and 8,207 logit columns, whatever the vocabulary size.
+        let byte_rows=(crate::weight_offload::DEFAULT_TILE_BYTES as usize/(input_dim.checked_mul(4).context("streamed row byte overflow")?)).max(32);
+        let tile_rows=(byte_rows/32*32).min(TIERED_LM_HEAD_TILE_ROWS);
+        Ok(Self {
+            device:device.clone(),
+            transposed:false,
+            flat_offset:None,
+            affine:None,
+            row_map:None,
+            input_adjoint: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../shaders/linear_input_grad_streamed.spv"),
+                3,
+                std::mem::size_of::<TieredInputGradPush>() as u32,
+            )?,
+            name,
+            input_dim,
+            vocab_size,
+            max_rows,
+            package,
+            tile_rows,
+            bias,
+        })
+    }
+
+    // Scratch belongs to one submitted operation, never to a package tensor.
+    // Keeping a tile per expert would multiply staging memory by expert count.
+    fn single_tile(&self) -> bool {
+        self.vocab_size.saturating_sub(self.tile_rows) < TIERED_LM_HEAD_MIN_TILE_ROWS
+    }
+
+    fn scratch(
+        &self,
+        needs_output: bool,
+    ) -> Result<(GpuBuffer, Option<GpuBuffer>, Option<GpuBuffer>)> {
+        let capacity = (self.tile_rows + TIERED_LM_HEAD_MIN_TILE_ROWS - 1).min(self.vocab_size);
+        Ok((
+            GpuBuffer::zeros_f32(
+                &self.device,
+                capacity
+                    .checked_mul(self.input_dim)
+                    .context("streamed tile overflow")?,
+            )?,
+            needs_output
+                .then(|| {
+                    GpuBuffer::zeros_f32(
+                        &self.device,
+                        capacity
+                            .checked_mul(self.max_rows)
+                            .context("streamed output tile overflow")?,
+                    )
+                })
+                .transpose()?,
+            self.bias
+                .as_ref()
+                .map(|_| GpuBuffer::zeros_f32(&self.device, capacity))
+                .transpose()?,
+        ))
+    }
+
+    fn read_rows(&self, start: usize, count: usize) -> Result<Vec<f32>> {
+        let mut package = self
+            .package
+            .lock()
+            .map_err(|_| anyhow!("streamed matrix package lock poisoned"))?;
+        if let Some(mapping) = &self.row_map {
+            let selected = mapping
+                .get(start..start + count)
+                .context("streamed row-map bounds")?;
+            let mut result = Vec::with_capacity(count * self.input_dim);
+            for &row in selected {
+                result.extend(package.read_f32_elements(
+                    &self.name,
+                    row * self.input_dim,
+                    self.input_dim,
+                )?);
+            }
+            return Ok(result);
+        }
+        if let Some(view) = self.affine {
+            return Self::affine_rows(&mut package, &self.name, view, self.input_dim, start, count);
+        }
+        if let Some(offset) = self.flat_offset {
+            return package.read_f32_elements(
+                &self.name,
+                offset + start * self.input_dim,
+                count * self.input_dim,
+            );
+        }
+        if !self.transposed {
+            return package.read_f32_rows(&self.name, start, count);
+        }
+        let mut tile = vec![0.0; count * self.input_dim];
+        for col in 0..self.input_dim {
+            let source = package.read_f32_rows(&self.name, col, 1)?;
+            for row in 0..count {
+                tile[row * self.input_dim + col] = source[start + row];
+            }
+        }
+        Ok(tile)
+    }
+
+    fn record_expert_projection(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        kernels: &TransformerKernels,
+        input: &GpuBuffer,
+        output: &GpuBuffer,
+        rows: usize,
+        counts: &GpuBuffer,
+        expert: usize,
+        experts: usize,
+    ) -> Result<()> {
+        if rows == 0 || rows > self.max_rows {
+            bail!("streamed expert row capacity mismatch");
+        }
+        let direct = self.single_tile()
+            && !input.overlaps_storage_with(output)
+            && !counts.overlaps_storage_with(output);
+        let (weight, tile_scratch, _) = self.scratch(!direct)?;
+        let tile = tile_scratch.as_ref().unwrap_or(output);
+        for (start, count) in self.tile_plan() {
+            commands.upload_f32(&weight, &self.read_rows(start, count)?)?;
+            let push = MoeExpertForwardPush {
+                rows: rows as u32,
+                input_dim: self.input_dim as u32,
+                output_dim: count as u32,
+                experts: experts as u32,
+                expert: expert as u32,
+            };
+            let grid = [div_ceil_u32(count, 16), div_ceil_u32(rows, 16), 1];
+            kernels.moe_expert_forward.record_dispatch(
+                commands,
+                &[input, &weight, tile, counts],
+                bytemuck::bytes_of(&push),
+                grid,
+            )?;
+            kernels.moe_expert_forward_muladd.record_dispatch(
+                commands,
+                &[input, &weight, tile, counts],
+                bytemuck::bytes_of(&push),
+                grid,
+            )?;
+            if tile_scratch.is_some() {
+                for row in 0..rows {
+                    commands.copy_f32_range(
+                        tile,
+                        row * count,
+                        output,
+                        row * self.vocab_size + start,
+                        count,
+                    )?;
+                }
+            }
+            commands.submit_and_restart()?;
+        }
+        Ok(())
+    }
+
+    /// The tile boundaries for one projection, in order.
+    ///
+    /// The final tile absorbs the remainder whenever it would fall below the
+    /// minimum, so no dispatch is issued at an output width the resident
+    /// projection never used.
+    fn tile_plan(&self) -> Vec<(usize, usize)> {
+        let mut plan = Vec::new();
+        let mut start = 0usize;
+        while start < self.vocab_size {
+            let mut count = self.tile_rows.min(self.vocab_size - start).max(1);
+            if self.vocab_size - (start + count) < TIERED_LM_HEAD_MIN_TILE_ROWS {
+                count = self.vocab_size - start;
+            }
+            plan.push((start, count));
+            start += count;
+        }
+        plan
+    }
+
+    /// Project `rows` hidden rows into `output` (`rows * vocab_size` logits).
+    ///
+    /// Each tile is projected by the same kernel the resident width would use and
+    /// then copied into its own column range of `output`, so the assembled
+    /// logits are the ones the resident dispatch would have written - the tile
+    /// boundary never appears in the arithmetic.
+    fn record_forward(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        kernels: &TransformerKernels,
+        input: &GpuBuffer,
+        output: &GpuBuffer,
+        rows: usize,
+    ) -> Result<()> {
+        self.record_projection(commands, kernels, input, output, rows, false, false)
+    }
+
+    fn record_tied_forward(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        kernels: &TransformerKernels,
+        input: &GpuBuffer,
+        output: &GpuBuffer,
+        rows: usize,
+    ) -> Result<()> {
+        self.record_projection(commands, kernels, input, output, rows, true, false)
+    }
+
+    fn record_projection(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        kernels: &TransformerKernels,
+        input: &GpuBuffer,
+        output: &GpuBuffer,
+        rows: usize,
+        tied: bool,
+        narrow_output: bool,
+    ) -> Result<()> {
+        if rows == 0 || rows > self.max_rows {
+            bail!(
+                "streamed LM-head projection row count {rows} exceeds capacity {} or is zero",
+                self.max_rows
+            );
+        }
+        if rows
+            .checked_mul(self.input_dim)
+            .is_none_or(|len| input.f32_capacity() < len)
+        {
+            bail!("streamed LM-head input buffer is too small");
+        }
+        if rows
+            .checked_mul(self.vocab_size)
+            .is_none_or(|len| output.f32_capacity() < len)
+        {
+            bail!(
+                "streamed LM-head output buffer is too small for {rows} rows of {} logits",
+                self.vocab_size
+            );
+        }
+        let direct = self.single_tile() && !input.overlaps_storage_with(output);
+        let (weight_tile, output_scratch, bias_scratch) = self.scratch(!direct)?;
+        let output_tile = output_scratch.as_ref().unwrap_or(output);
+        for (start, count) in self.tile_plan() {
+            let values = self.read_rows(start, count)?;
+            commands.upload_f32(&weight_tile, &values)?;
+            let bias_tile = match (self.bias.as_ref(), bias_scratch.as_ref()) {
+                (Some(bias), Some(tile)) => {
+                    commands.upload_f32(tile, &bias[start..start + count])?;
+                    Some(tile)
+                }
+                (None, None) => None,
+                _ => bail!("streamed LM-head bias topology is inconsistent"),
+            };
+            if tied {
+                let push = LinearPush {
+                    rows: rows as u32,
+                    input_dim: self.input_dim as u32,
+                    output_dim: count as u32,
+                };
+                kernels.linear_forward.record_dispatch(
+                    commands,
+                    &[input, &weight_tile, output_tile],
+                    bytemuck::bytes_of(&push),
+                    [div_ceil_u32(count, 16), div_ceil_u32(rows, 16), 1],
+                )?;
+                // A tied resident head adds bias after its dot product. Fusing
+                // the bias into the accumulator would change rounding.
+                if let Some(bias_tile) = bias_tile {
+                    let push = BiasPush {
+                        rows: rows as u32,
+                        dim: count as u32,
+                    };
+                    kernels.bias_add.record_dispatch(
+                        commands,
+                        &[output_tile, bias_tile],
+                        bytemuck::bytes_of(&push),
+                        [div_ceil_u32(rows * count, 256), 1, 1],
+                    )?;
+                }
+            } else {
+                record_linear_projection(
+                    commands,
+                    kernels,
+                    input,
+                    &weight_tile,
+                    bias_tile,
+                    output_tile,
+                    rows,
+                    self.input_dim,
+                    count,
+                    narrow_output,
+                )?;
+            }
+            if output_scratch.is_some() {
+                for row in 0..rows {
+                    commands.copy_f32_range(
+                        output_tile,
+                        row * count,
+                        output,
+                        row * self.vocab_size + start,
+                        count,
+                    )?;
+                }
+            }
+            // Retire the upload arena with the tile. Keeping every tile's
+            // staged upload alive until the whole graph submits would retain
+            // a vocabulary-sized host-visible buffer despite bounded weights.
+            commands.submit_and_restart()?;
+        }
+        Ok(())
+    }
+
+    /// Frozen-weight input adjoint. Middle tiles have 8192 rows, a multiple
+    /// of the resident kernel's 32-term inner block. The next dispatch starts
+    /// from the previous FP32 accumulator, preserving every FMA in order.
+    fn record_input_gradient(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        grad_output: &GpuBuffer,
+        grad_input: &GpuBuffer,
+        rows: usize,
+    ) -> Result<()> {
+        if rows == 0
+            || rows > self.max_rows
+            || rows
+                .checked_mul(self.vocab_size)
+                .is_none_or(|n| n > grad_output.f32_capacity())
+            || rows
+                .checked_mul(self.input_dim)
+                .is_none_or(|n| n > grad_input.f32_capacity())
+        {
+            bail!("streamed input adjoint buffer geometry mismatch");
+        }
+        let direct = self.single_tile() && !grad_output.overlaps_storage_with(grad_input);
+        let (weight_tile, output_scratch, _) = self.scratch(!direct)?;
+        let output_tile = output_scratch.as_ref().unwrap_or(grad_output);
+        for (tile_index, (start, count)) in self.tile_plan().into_iter().enumerate() {
+            let values = self.read_rows(start, count)?;
+            commands.upload_f32(&weight_tile, &values)?;
+            if output_scratch.is_some() {
+                for row in 0..rows {
+                    commands.copy_f32_range(
+                        grad_output,
+                        row * self.vocab_size + start,
+                        output_tile,
+                        row * count,
+                        count,
+                    )?;
+                }
+            }
+            let push = TieredInputGradPush {
+                rows: rows as u32,
+                input_dim: self.input_dim as u32,
+                output_dim: count as u32,
+                accumulate: u32::from(tile_index != 0),
+            };
+            self.input_adjoint.record_dispatch(
+                commands,
+                &[output_tile, &weight_tile, grad_input],
+                bytemuck::bytes_of(&push),
+                [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
+            )?;
+            commands.submit_and_restart()?;
+        }
+        Ok(())
+    }
+    /// The complete table, read through the same bounded tiles.
+    ///
+    /// Parameter export and any round-trip comparison need the whole weight even
+    /// when the graph never holds it, so the materialization walks the package
+    /// rather than being refused.
+    fn materialize(&self) -> Result<Vec<f32>> {
+        let mut values=Vec::with_capacity(self.input_dim*self.vocab_size);
+        for (start,count) in self.tile_plan(){values.extend(self.read_rows(start,count)?);}
+        Ok(values)
+    }
+}
+
+fn package_tensor_equals_transposed(package:&mut ModelPackage,name:&str,expected:&[f32],input:usize,output:usize)->Result<bool> {
+    for col in 0..input {
+        let values=package.read_f32_rows(name,col,1)?;
+        for row in 0..output {
+            if values[row].to_bits()!=expected[row*input+col].to_bits(){return Ok(false);}
+        }
+    }
+    Ok(true)
+}
+
+/// Whether the package tensor `name` decodes to exactly `expected`.
+///
+/// Compared tile by tile with an early exit, so a package whose other
+/// same-shaped tensor (the input embedding, typically) differs in its first tile
+/// costs one tile rather than a second copy of the whole table in host memory.
+fn package_tensor_equals(
+    package: &mut ModelPackage,
+    name: &str,
+    expected: &[f32],
+    row_width: usize,
+) -> Result<bool> {
+    if row_width == 0 {
+        bail!("package comparison requires a positive row width");
+    }
+    if !expected.len().is_multiple_of(row_width) {
+        bail!("package comparison expects a whole number of {row_width}-wide rows");
+    }
+    let total_rows = expected.len() / row_width;
+    let mut row = 0usize;
+    while row < total_rows {
+        let count = TIERED_LM_HEAD_TILE_ROWS.min(total_rows - row);
+        let tile = package.read_f32_rows(name, row, count)?;
+        if tile != expected[row * row_width..(row + count) * row_width] {
+            return Ok(false);
+        }
+        row += count;
+    }
+    Ok(true)
+}
+
 impl TrainableParameter {
+    fn from_tiered_source(device: &VulkanDevice, tiered: Arc<TieredLmHead>) -> Result<Self> {
+        let len = tiered
+            .input_dim
+            .checked_mul(tiered.vocab_size)
+            .context("streamed parameter size overflow")?;
+        Ok(Self {
+            device: device.clone(),
+            values: GpuBuffer::zeros_f32(device, 1)?,
+            grad: None,
+            exp_avg: None,
+            exp_avg_sq: None,
+            len,
+            decay: true,
+            grad_accumulate: None,
+            step_owner: true,
+            tiered: Some(tiered),
+        })
+    }
+
     fn new(device: &VulkanDevice, values: &[f32], decay: bool) -> Result<Self> {
         if values.is_empty() || values.iter().any(|v| !v.is_finite()) {
             bail!("Transformer parameter must contain finite values");
@@ -26956,10 +27741,43 @@ impl TrainableParameter {
             decay,
             grad_accumulate: None,
             step_owner: true,
+            tiered: None,
         })
     }
 
+    /// Release the resident payload and serve this parameter from `tiered`.
+    ///
+    /// The device allocations for the values, the gradient and both AdamW
+    /// moments are dropped here, so the saving is immediate and the parameter is
+    /// left with a one-element placeholder that no projection ever binds. Those
+    /// buffers are also exactly what a training step would need, which is why
+    /// this refuses a parameter that is still part of a training graph.
+    fn adopt_tiered_source(&mut self, tiered: Arc<TieredLmHead>) -> Result<()> {
+        if self.tiered.is_some() {
+            bail!("Transformer parameter is already served from the package");
+        }
+        if self.grad_accumulate.is_some() || !self.step_owner {
+            bail!("Transformer parameter is owned by a training graph and cannot be retiered");
+        }
+        self.values = GpuBuffer::from_f32(&self.device, &[0.0])?;
+        self.grad = None;
+        self.exp_avg = None;
+        self.exp_avg_sq = None;
+        self.tiered = Some(tiered);
+        Ok(())
+    }
+
+    fn tiered_source(&self) -> Option<&Arc<TieredLmHead>> {
+        self.tiered.as_ref()
+    }
+
     fn ensure_training_state(&mut self) -> Result<()> {
+        if let Some(tiered) = self.tiered.as_ref() {
+            bail!(
+                "streamed parameter {} cannot gain training state; load it resident to train it",
+                tiered.name
+            );
+        }
         match (
             self.grad.is_some(),
             self.exp_avg.is_some(),
@@ -27090,7 +27908,23 @@ impl TrainableParameter {
     }
 
     fn read(&self) -> Result<Vec<f32>> {
-        self.values.read_f32(self.len)
+        match self.tiered.as_ref() {
+            // A streamed parameter still answers with the complete table, read
+            // through the same bounded tiles the projection uses.
+            Some(tiered) => {
+                let values = tiered.materialize()?;
+                if values.len() != self.len {
+                    bail!(
+                        "streamed parameter {} materialized {} values; expected {}",
+                        tiered.name,
+                        values.len(),
+                        self.len
+                    );
+                }
+                Ok(values)
+            }
+            None => self.values.read_f32(self.len),
+        }
     }
 
     /// Fork a PEFT replacement parameter entirely on-device.
@@ -27099,6 +27933,12 @@ impl TrainableParameter {
     /// model parameters. `modules_to_save`, in contrast, needs an independent
     /// parameter identity per adapter while preserving the base allocation.
     fn fork_for_peft_replacement(&self, trainable: bool) -> Result<Self> {
+        if let Some(tiered) = self.tiered.as_ref() {
+            bail!(
+                "streamed parameter {} cannot be forked for PEFT replication",
+                tiered.name
+            );
+        }
         let mut fork = Self {
             device: self.device.clone(),
             values: self.values.duplicate_f32(self.len)?,
@@ -27109,6 +27949,7 @@ impl TrainableParameter {
             decay: self.decay,
             grad_accumulate: None,
             step_owner: true,
+            tiered: None,
         };
         if trainable {
             fork.ensure_training_state()?;
@@ -27434,7 +28275,115 @@ impl VulkanLora {
     }
 }
 
+/// Record one weight/bias-backed projection dispatch.
+///
+/// Shared by the resident linear and the streamed LM-head tile path so a tile
+/// can never take a different kernel body than the width it replaces. The
+/// choice depends on the output width (the shared-memory schedule needs at least
+/// sixteen columns and the narrow-output module is selected at exactly eight),
+/// on the reduction width for the AMD block kernel, and on whether a bias is
+/// present - all supplied by the caller for its own geometry.
+#[allow(clippy::too_many_arguments)]
+fn record_linear_projection(
+    commands: &mut vulkan::ComputeBatch,
+    kernels: &TransformerKernels,
+    input: &GpuBuffer,
+    weight: &GpuBuffer,
+    bias: Option<&GpuBuffer>,
+    output: &GpuBuffer,
+    rows: usize,
+    input_dim: usize,
+    output_dim: usize,
+    narrow_output: bool,
+) -> Result<()> {
+    if input_dim == 0 || output_dim == 0 || rows == 0 {
+        bail!("linear dispatch requires positive rows and dimensions");
+    }
+    let push = LinearPush {
+        rows: rows as u32,
+        input_dim: input_dim as u32,
+        output_dim: output_dim as u32,
+    };
+    let geometry = [div_ceil_u32(output_dim, 16), div_ceil_u32(rows, 16), 1];
+    match bias {
+        Some(bias) => {
+            // PyTorch CPU's narrow-output (N == 8) GEMM path also covers the
+            // biased K/V projections of the Qwen2 family (and any other
+            // `attention_bias` model whose K/V width is 8), but its accumulator
+            // shape follows the host's ATen vector width: an AVX2-only host
+            // folds two interleaved FMA lanes, and an AVX-512 host runs the
+            // wider serial kernel this slot already holds.  Only the AVX2 shape
+            // has a dedicated module, so the narrow biased slot uses it when the
+            // host asks for that shape and the shared kernel otherwise.
+            if output_dim == 8 && aten_vector_width() < 16 {
+                kernels.linear_bias_forward_lane2.record_dispatch(
+                    commands,
+                    &[input, weight, bias, output],
+                    bytemuck::bytes_of(&push),
+                    geometry,
+                )?;
+            } else if let Some(kernel) = kernels
+                .linear_bias_forward_kblock128
+                .as_ref()
+                .filter(|_| input_dim > 128)
+            {
+                kernel.record_dispatch(
+                    commands,
+                    &[input, weight, bias, output],
+                    bytemuck::bytes_of(&push),
+                    geometry,
+                )?;
+            } else {
+                kernels.linear_bias_forward.record_dispatch(
+                    commands,
+                    &[input, weight, bias, output],
+                    bytemuck::bytes_of(&push),
+                    geometry,
+                )?;
+            }
+        }
+        None => {
+            if narrow_output {
+                kernels.narrow_output_forward().record_dispatch(
+                    commands,
+                    &[input, weight, output],
+                    bytemuck::bytes_of(&push),
+                    geometry,
+                )?;
+            } else {
+                kernels.linear_forward.record_dispatch(
+                    commands,
+                    &[input, weight, output],
+                    bytemuck::bytes_of(&push),
+                    geometry,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
 impl VulkanLinear {
+    fn from_tiered_source(
+        device: &VulkanDevice,
+        tiered: Arc<TieredLmHead>,
+        bias: Option<&[f32]>,
+    ) -> Result<Self> {
+        if bias.is_some() != tiered.bias.is_some() {
+            bail!("streamed linear bias topology mismatch");
+        }
+        Ok(Self {
+            input_dim: tiered.input_dim,
+            output_dim: tiered.vocab_size,
+            weight: TrainableParameter::from_tiered_source(device, tiered)?,
+            bias: TrainableParameter::new(device, bias.unwrap_or(&[0.0]), false)?,
+            has_bias: bias.is_some(),
+            train_base: false,
+            train_bias: false,
+            lora: VulkanLoraBank::default(),
+        })
+    }
+
     fn new(
         device: &VulkanDevice,
         input_dim: usize,
@@ -27690,6 +28639,47 @@ impl VulkanLinear {
         )
     }
 
+    /// Record the projection for an output head whose weight is served from the
+    /// package instead of the device.
+    ///
+    /// Tiles in, logits out: one tile of head rows is read through the shared
+    /// offload, uploaded into the device weight tile, projected by the same
+    /// kernel the resident width would have selected, and copied into that
+    /// tile's own column range of the logits. The copy is a pure FP32 buffer
+    /// move, so the assembled logits are bitwise what a resident dispatch would
+    /// have written - the tile boundary never appears in the arithmetic.
+    #[allow(clippy::too_many_arguments)]
+    fn record_tiered_forward(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        kernels: &TransformerKernels,
+        input: &GpuBuffer,
+        output: &GpuBuffer,
+        rows: usize,
+        training: bool,
+        tiered: &Arc<TieredLmHead>,
+    ) -> Result<()> {
+        if training && (self.train_base || self.train_bias) {
+            bail!(
+                "streamed projection base and bias must stay frozen during adapter training"
+            );
+        }
+        if self.input_dim != tiered.input_dim || self.output_dim != tiered.vocab_size {
+            bail!(
+                "streamed output head geometry mismatch: projection is [{}, {}], package source is [{}, {}]",
+                self.output_dim,
+                self.input_dim,
+                tiered.vocab_size,
+                tiered.input_dim
+            );
+        }
+        if self.has_bias != tiered.bias.is_some() {
+            bail!("streamed output head bias state disagrees with the loaded projection");
+        }
+        let narrow = self.output_dim == 8 || (self.lora.is_some() && aten_vector_width() >= 16 && self.output_dim < 8 && self.input_dim.is_multiple_of(4));
+        tiered.record_projection(commands, kernels, input, output, rows, false, narrow)
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn record_forward_mode(
         &self,
@@ -27703,71 +28693,37 @@ impl VulkanLinear {
         rng_seed: u32,
         lane8_muladd_lora_a: bool,
     ) -> Result<()> {
-        let push = LinearPush {
-            rows: rows as u32,
-            input_dim: self.input_dim as u32,
-            output_dim: self.output_dim as u32,
-        };
+        if self.weight.tiered_source().is_some() && self.lora.as_ref().is_some_and(|l| l.dora.is_some()) {
+            bail!("DoRA requires a resident base projection until its streamed norm path is qualified");
+        }
         let base_output = self
             .lora
             .as_ref()
             .map(|lora| &lora.base_output)
             .unwrap_or(output);
-        if self.has_bias {
-            // PyTorch CPU's narrow-output (N == 8) GEMM path also covers the
-            // biased K/V projections of the Qwen2 family (and any other
-            // `attention_bias` model whose K/V width is 8), but its accumulator
-            // shape follows the host's ATen vector width: an AVX2-only host
-            // folds two interleaved FMA lanes, and an AVX-512 host runs the
-            // wider serial kernel this slot already holds.  Only the AVX2 shape
-            // has a dedicated module, so the narrow biased slot uses it when the
-            // host asks for that shape and the shared kernel otherwise.
-            if self.output_dim == 8 && aten_vector_width() < 16 {
-                kernels.linear_bias_forward_lane2.record_dispatch(
-                    commands,
-                    &[input, &self.weight.values, &self.bias.values, base_output],
-                    bytemuck::bytes_of(&push),
-                    [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
-                )?;
-            } else if let Some(kernel) = kernels.linear_bias_forward_kblock128.as_ref()
-                .filter(|_| self.input_dim > 128)
-            {
-                kernel.record_dispatch(
-                    commands,
-                    &[input, &self.weight.values, &self.bias.values, base_output],
-                    bytemuck::bytes_of(&push),
-                    [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
-                )?;
-            } else {
-                kernels.linear_bias_forward.record_dispatch(
-                    commands,
-                    &[input, &self.weight.values, &self.bias.values, base_output],
-                    bytemuck::bytes_of(&push),
-                    [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
-                )?;
-            }
-        } else if self.output_dim == 8
-            || (self.lora.is_some() && aten_vector_width() >= 16
-                && self.output_dim < 8 && self.input_dim.is_multiple_of(4))
-        {
-            // PyTorch CPU's narrow-output (N == 8) GEMM path keeps the host's
-            // ATen vector shape: two fused lanes on an AVX2-only host, four
-            // materialized-product lanes on an AVX-512 host
-            // (`TransformerKernels::narrow_output_forward`).
-            kernels.narrow_output_forward().record_dispatch(
-                commands,
-                &[input, &self.weight.values, base_output],
-                bytemuck::bytes_of(&push),
-                [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
-            )?;
-        } else {
-            kernels.linear_forward.record_dispatch(
-                commands,
-                &[input, &self.weight.values, base_output],
-                bytemuck::bytes_of(&push),
-                [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
-            )?;
-        }
+        // PyTorch CPU's narrow-output (N == 8) GEMM path keeps the host's ATen
+        // vector shape: two fused lanes on an AVX2-only host, four
+        // materialized-product lanes on an AVX-512 host
+        // (`TransformerKernels::narrow_output_forward`).
+        let narrow_output = self.output_dim == 8
+            || (self.lora.is_some()
+                && aten_vector_width() >= 16
+                && self.output_dim < 8
+                && self.input_dim.is_multiple_of(4));
+        if let Some(tiered) = self.weight.tiered_source() {
+            self.record_tiered_forward(commands, kernels, input, base_output, rows, training, tiered)?;
+        } else { record_linear_projection(
+            commands,
+            kernels,
+            input,
+            &self.weight.values,
+            self.has_bias.then_some(&self.bias.values),
+            base_output,
+            rows,
+            self.input_dim,
+            self.output_dim,
+            narrow_output,
+        )?; }
         if let Some(lora) = self.lora.as_ref() {
             let lora_input = if training && lora.dropout > 0.0 {
                 let ones = lora
@@ -27869,9 +28825,7 @@ impl VulkanLinear {
                 // ATen vector shape.  Reuse the already-scoped K/V selector
                 // rather than changing the shared linear kernel or all other
                 // LoRA-B projections.
-                if self.output_dim == 8
-                    || (aten_vector_width() >= 16 && self.output_dim < 8)
-                {
+                if self.output_dim == 8 || (aten_vector_width() >= 16 && self.output_dim < 8) {
                     kernels.narrow_output_forward().record_dispatch(
                         commands,
                         &[&lora.a_output, &lora.b.values, &lora.b_output],
@@ -27908,18 +28862,27 @@ impl VulkanLinear {
                     [div_ceil_u32(self.output_dim, 64), 1, 1],
                 )?;
                 let (dora_base, dora_base_has_bias) = if training && lora.dropout > 0.0 {
+                    // The base projection is re-run on the dropout-masked input
+                    // for the DoRA branch, at the full (untiled) output width -
+                    // the same dispatch the shared helper records when it is not
+                    // serving a streamed tile.
+                    let dora_base_push = LinearPush {
+                        rows: rows as u32,
+                        input_dim: self.input_dim as u32,
+                        output_dim: self.output_dim as u32,
+                    };
                     if self.output_dim == 8 {
                         kernels.narrow_output_forward().record_dispatch(
                             commands,
                             &[lora_input, &self.weight.values, &dora.branch_base_output],
-                            bytemuck::bytes_of(&push),
+                            bytemuck::bytes_of(&dora_base_push),
                             [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
                         )?;
                     } else {
                         kernels.linear_forward.record_dispatch(
                             commands,
                             &[lora_input, &self.weight.values, &dora.branch_base_output],
-                            bytemuck::bytes_of(&push),
+                            bytemuck::bytes_of(&dora_base_push),
                             [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
                         )?;
                     }
@@ -27992,6 +28955,9 @@ impl VulkanLinear {
         rows: usize,
         unfused_lora_b: bool,
     ) -> Result<()> {
+        if self.weight.tiered_source().is_some() && (self.train_base || self.train_bias || self.lora.as_ref().is_some_and(|l|l.dora.is_some())) {
+            bail!("streamed linear backward requires frozen base/bias and additive LoRA");
+        }
         let push = LinearPush {
             rows: rows as u32,
             input_dim: self.input_dim as u32,
@@ -28037,12 +29003,14 @@ impl VulkanLinear {
             .as_ref()
             .map(|lora| &lora.grad_input_base)
             .unwrap_or(grad_input);
-        kernels.linear_input_grad.record_dispatch(
+        if let Some(tiered) = self.weight.tiered_source() {
+            tiered.record_input_gradient(commands, base_grad_output, base_grad_input, rows)?;
+        } else { kernels.linear_input_grad.record_dispatch(
             commands,
             &[base_grad_output, &self.weight.values, base_grad_input],
             bytemuck::bytes_of(&push),
             [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
-        )?;
+        )?; }
         if let Some(lora) = self.lora.as_ref() {
             if let Some(dora) = lora.dora.as_ref() {
                 let dora_forward_push = DoraForwardPush {
@@ -28164,9 +29132,11 @@ impl VulkanLinear {
             // AVX-512 host's non-transposed mm sums adjacent four-product
             // groups. Keep its multi-row, vector-aligned geometry separate
             // from single-row GEMV and from the forward narrow-GEMM topology.
-            let b_input_kernel = if lora.rank <= 8 && lora.rank.is_multiple_of(2)
+            let b_input_kernel = if lora.rank <= 8
+                && lora.rank.is_multiple_of(2)
                 && aten_vector_width() >= 16
-                && rows >= 2 && self.output_dim.is_multiple_of(4)
+                && rows >= 2
+                && self.output_dim.is_multiple_of(4)
             {
                 kernels.lora_b_group4_adjoint()?
             } else if lora.rank <= 8 && aten_vector_width() < 16 {
@@ -28304,6 +29274,11 @@ impl VulkanLinear {
         step: u32,
         hyper: AdamWHyperParams,
     ) -> Result<()> {
+        if self.weight.tiered_source().is_some() {
+            if self.train_base || self.train_bias {
+                bail!("a streamed output parameter has no mutable optimizer state");
+            }
+        }
         if let Some(lora) = self.lora.as_ref() {
             if lora.trainable {
                 if lora.step_a {
@@ -28669,7 +29644,11 @@ impl VulkanLayerNorm {
                     rstd,
                 ],
                 bytemuck::bytes_of(&push),
-                [div_ceil_u32(rows, kernels.layer_norm_rows_per_workgroup), 1, 1],
+                [
+                    div_ceil_u32(rows, kernels.layer_norm_rows_per_workgroup),
+                    1,
+                    1,
+                ],
             )
         } else {
             if !rows.is_multiple_of(self.parameter_groups) {
@@ -31315,8 +32294,8 @@ impl VulkanDeepseekV4HyperHead {
 }
 
 #[derive(Clone)]
-struct HostLinear {
-    weight: Vec<f32>,
+struct HostLinear<W = Vec<f32>> {
+    weight: W,
     bias: Option<Vec<f32>>,
 }
 
@@ -31397,14 +32376,14 @@ struct HostRelativeAttentionBias {
     max_distance: usize,
 }
 
-struct HostMoeExpert {
+struct HostMoeExpert<W = Vec<f32>> {
     /// Gated-MoE families use a distinct gate projection. Switch
     /// Transformers experts are plain DenseActDense blocks (`wi`/`wo`), so
     /// keeping this optional represents that ABI directly instead of
     /// synthesizing a fake projection.
-    gate: Option<HostLinear>,
-    up: HostLinear,
-    down: HostLinear,
+    gate: Option<HostLinear<W>>,
+    up: HostLinear<W>,
+    down: HostLinear<W>,
 }
 
 struct HostMoeHashRouter {
@@ -31416,8 +32395,8 @@ struct HostMoeHashRouter {
     tid2eid: Vec<u32>,
 }
 
-struct HostMoeLayer {
-    router: HostLinear,
+struct HostMoeLayer<W = Vec<f32>> {
+    router: HostLinear<W>,
     router_correction_bias: Vec<f32>,
     /// Present only for fixed-membership Hash-MoE layers. Ordinary sparse MoE
     /// layers keep using learned top-k membership from `router`.
@@ -31429,26 +32408,26 @@ struct HostMoeLayer {
     /// Ordinary expert 0 is normally borrowed from the owning transformer's
     /// dense-MoE slots. LongCat-Flash instead owns a distinct shortcut MoE in
     /// parallel with its dense MLP, so its first routed expert lives here.
-    owned_expert0: Option<HostMoeExpert>,
+    owned_expert0: Option<HostMoeExpert<W>>,
     /// First expert index whose operation is the identity function. For
     /// conventional MoEs this equals the total expert count. LongCat-Flash
     /// appends identity experts after its trainable routed experts.
     identity_expert_start: usize,
-    experts: Vec<HostMoeExpert>,
-    shared_expert: Option<HostMoeExpert>,
-    shared_expert_gate: Option<HostLinear>,
+    experts: Vec<HostMoeExpert<W>>,
+    shared_expert: Option<HostMoeExpert<W>>,
+    shared_expert_gate: Option<HostLinear<W>>,
     /// Optional Stable LatentMoE shell. The learned router and shared expert
     /// remain in the model hidden width; only the routed-expert branch is
     /// projected into this latent width before expert execution and projected
     /// back after the weighted expert mixture (and optional RMSNorm).
-    latent: Option<HostMoeLatent>,
+    latent: Option<HostMoeLatent<W>>,
 }
 
-struct HostMoeLatent {
+struct HostMoeLatent<W = Vec<f32>> {
     hidden_size: usize,
-    down_proj: HostLinear,
+    down_proj: HostLinear<W>,
     norm: Option<HostLayerNorm>,
-    up_proj: HostLinear,
+    up_proj: HostLinear<W>,
 }
 
 struct HostKimiAttnRes {
@@ -31667,21 +32646,21 @@ impl HostCrossAttention {
 }
 
 #[derive(Clone)]
-struct HostTransformerLayer {
+struct HostTransformerLayer<W = Vec<f32>> {
     post_attention_norm: Option<HostLayerNorm>,
     post_mlp_norm: Option<HostLayerNorm>,
     ln1: HostLayerNorm,
-    c_attn: Option<HostLinear>,
-    q_proj: Option<HostLinear>,
-    k_proj: Option<HostLinear>,
-    v_proj: Option<HostLinear>,
+    c_attn: Option<HostLinear<W>>,
+    q_proj: Option<HostLinear<W>>,
+    k_proj: Option<HostLinear<W>>,
+    v_proj: Option<HostLinear<W>>,
     q_norm: Option<HostLayerNorm>,
     k_norm: Option<HostLayerNorm>,
-    c_proj: HostLinear,
+    c_proj: HostLinear<W>,
     ln2: HostLayerNorm,
-    c_fc: HostLinear,
-    c_gate: Option<HostLinear>,
-    c_mlp_proj: HostLinear,
+    c_fc: HostLinear<W>,
+    c_gate: Option<HostLinear<W>>,
+    c_mlp_proj: HostLinear<W>,
     xielu: Option<HostXielu>,
 }
 
@@ -31762,11 +32741,22 @@ impl HostQwenGatedDeltaNet {
     }
 }
 
-struct HostTransformerWeights {
+/// Deferred vocabulary source selected by an architecture's own checkpoint loader.
+/// Resident vectors are empty only for the parameter represented by this source.
+struct HostPackageLmHead {
+    source: HostFloatTensorSource,
+    tied: bool,
+    /// A distinct input parameter when the checkpoint does not tie its head.
+    /// Its physical row count may include reserved rows outside the text graph.
+    embedding_source: Option<HostFloatTensorSource>,
+}
+
+struct HostTransformerWeights<W = Vec<f32>> {
+    package_lm_head: Option<HostPackageLmHead>,
     token_embedding: Vec<f32>,
     position_embedding: Option<Vec<f32>>,
     embedding_norm: Option<HostLayerNorm>,
-    layers: Vec<HostTransformerLayer>,
+    layers: Vec<HostTransformerLayer<W>>,
     final_norm: HostLayerNorm,
     prediction_head: Option<HostPredictionHead>,
     has_lm_head_alias: bool,
@@ -33899,11 +34889,87 @@ struct HostFloatTensor {
 
 #[derive(Clone)]
 struct HostFloatTensorSource {
+    tensor_name: String,
     path: PathBuf,
     shape: Vec<usize>,
     dtype: Dtype,
     data_start: u64,
     byte_len: usize,
+}
+
+/// Validate only the logical row range a vocabulary consumer owns. The source
+/// retains its physical geometry so wrappers can preserve reserved rows on export.
+fn validate_transformer_package_rows(
+    source: &HostFloatTensorSource,
+    rows: usize,
+    columns: usize,
+) -> Result<Arc<Mutex<ModelPackage>>> {
+    if rows == 0
+        || columns == 0
+        || source.shape.len() != 2
+        || source.shape[0] < rows
+        || source.shape[1] != columns
+    {
+        bail!("streamed vocabulary source geometry does not cover [{rows}, {columns}]");
+    }
+    if !matches!(source.dtype, Dtype::F32 | Dtype::F16 | Dtype::BF16) {
+        bail!("streamed vocabulary source must be F32/F16/BF16");
+    }
+    let package = shared_package(&source.path)?;
+    {
+        let mut reader = package
+            .lock()
+            .map_err(|_| anyhow!("shared weight package lock poisoned"))?;
+        let entry = reader.entry(&source.tensor_name)?;
+        if entry.shape != source.shape
+            || entry.dtype != TensorDtype::from_safetensors(source.dtype)?
+        {
+            bail!("streamed vocabulary source descriptor disagrees with package metadata");
+        }
+        let tile_rows = streamed_load::validation_rows(columns)?;
+        for start in (0..rows).step_by(tile_rows) {
+            let count = tile_rows.min(rows - start);
+            let values = reader.read_f32_rows(&source.tensor_name, start, count)?;
+            if values.iter().any(|value| !value.is_finite()) {
+                bail!("streamed vocabulary source contains non-finite values");
+            }
+        }
+    }
+    Ok(package)
+}
+
+fn require_equal_tied_package_sources(
+    embedding: &HostFloatTensorSource,
+    alias: &HostFloatTensorSource,
+) -> Result<()> {
+    if embedding.shape != alias.shape || embedding.shape.len() != 2 {
+        bail!("tied output head and embedding source shapes differ");
+    }
+    let embedding_package = shared_package(&embedding.path)?;
+    let alias_package = shared_package(&alias.path)?;
+    let rows = embedding.shape[0];
+    let tile_rows = streamed_load::validation_rows(embedding.shape[1])?;
+    for start in (0..rows).step_by(tile_rows) {
+        let count = tile_rows.min(rows - start);
+        let left = embedding_package
+            .lock()
+            .map_err(|_| anyhow!("shared weight package lock poisoned"))?
+            .read_f32_rows(&embedding.tensor_name, start, count)?;
+        let right = alias_package
+            .lock()
+            .map_err(|_| anyhow!("shared weight package lock poisoned"))?
+            .read_f32_rows(&alias.tensor_name, start, count)?;
+        // Match the resident loader's numeric equality (including signed zero).
+        // The embedding remains canonical; the serialized alias is only checked.
+        if left != right {
+            bail!(
+                "tied lm_head source {} differs from embedding source {}",
+                alias.tensor_name,
+                embedding.tensor_name
+            );
+        }
+    }
+    Ok(())
 }
 
 struct Gpt2TensorStore {
@@ -34255,8 +35321,9 @@ fn read_transformer_float_tensor_sources(
             );
         }
         tensors.insert(
-            name,
+            name.clone(),
             HostFloatTensorSource {
+                tensor_name: name,
                 path: path.to_path_buf(),
                 shape,
                 dtype,
@@ -34341,6 +35408,18 @@ fn decode_transformer_float_source_prefix(
 /// Decode selected rows from a rank-2 SafeTensors float tensor while keeping
 /// memory proportional to the requested rows rather than the stored tensor.
 /// Duplicate row ids are preserved in caller order but read from disk once.
+///
+/// This is the consumption end of the heaviest weight in the tree. The released
+/// Qwen4-Exp n-gram embedding table is tens of GiB, so it is never materialised:
+/// the read goes through the process-wide [`ModelPackage`] from
+/// [`crate::weight_offload`], which parses one header per shard, caches host
+/// tiles under an explicit byte budget, and issues bounded package reads at
+/// `weight_offload::DEFAULT_TILE_BYTES` granularity. Only the gathered rows
+/// reach the caller, and only the gathered rows are uploaded to the device.
+///
+/// Values are unchanged from the per-row reader this replaces: the same bytes at
+/// the same offsets widen through the same F32/F16/BF16 paths, and a non-finite
+/// payload is still rejected.
 fn decode_transformer_float_source_rows(
     name: &str,
     source: &HostFloatTensorSource,
@@ -34354,86 +35433,35 @@ fn decode_transformer_float_source_rows(
     }
     let rows = source.shape[0];
     let columns = source.shape[1];
-    if row_ids.iter().any(|row| *row >= rows) {
-        let offending = row_ids.iter().copied().find(|row| *row >= rows).unwrap();
+    if let Some(offending) = row_ids.iter().copied().find(|row| *row >= rows) {
         bail!("tensor {name:?} row gather index {offending} exceeds row count {rows}");
     }
     if row_ids.is_empty() || columns == 0 {
         return Ok(Vec::new());
     }
-    let bytes_per_element = match source.dtype {
-        Dtype::F32 => 4usize,
-        Dtype::F16 | Dtype::BF16 => 2usize,
-        dtype => bail!("GPT-2 tensor {name:?} must be F32/F16/BF16, got {dtype:?}"),
+    let dtype = TensorDtype::from_safetensors(source.dtype).with_context(|| {
+        format!("tensor {name:?} cannot be gathered through the shared weight offload")
+    })?;
+    // Recorded negative control for this conversion: with the variable set the
+    // gather returns zeros, so the logits must move. It is loud rather than
+    // silent so a controlled run cannot be mistaken for a real one, and an
+    // unmodified run never takes this branch.
+    if std::env::var_os(TRANSFORMER_ZERO_GATHER_CONTROL_ENV).is_some() {
+        eprintln!(
+            "negative-control: {TRANSFORMER_ZERO_GATHER_CONTROL_ENV} is set; returning zero rows for {name:?}"
+        );
+        return Ok(vec![0.0f32; row_ids.len() * columns]);
+    }
+    let package = shared_package(&source.path)?;
+    // The registry handle is dropped at the end of the statement so a later
+    // gather from another thread can take the lock.
+    let raw = {
+        let mut package = package.lock().map_err(|_| {
+            anyhow!("shared weight-offload package for tensor {name:?} is poisoned")
+        })?;
+        package.read_row_gather(name, row_ids)?
     };
-    let row_byte_len = columns
-        .checked_mul(bytes_per_element)
-        .context("Transformer tensor row byte length overflow")?;
-    let output_len = row_ids
-        .len()
-        .checked_mul(columns)
-        .context("Transformer tensor row gather output size overflow")?;
-    let mut destinations = BTreeMap::<usize, Vec<usize>>::new();
-    for (output_row, &source_row) in row_ids.iter().enumerate() {
-        destinations.entry(source_row).or_default().push(output_row);
-    }
-
-    let mut output = vec![0.0f32; output_len];
-    let mut file = fs::File::open(&source.path)
-        .with_context(|| format!("opening {} for tensor {name:?}", source.path.display()))?;
-    let mut raw = vec![0u8; row_byte_len];
-    let mut decoded = vec![0.0f32; columns];
-    for (source_row, output_rows) in destinations {
-        let row_offset = source_row
-            .checked_mul(row_byte_len)
-            .context("Transformer tensor row file offset overflow")?;
-        let file_offset = source
-            .data_start
-            .checked_add(
-                u64::try_from(row_offset).context("Transformer tensor row offset exceeds u64")?,
-            )
-            .context("Transformer tensor row file offset overflow")?;
-        file.seek(SeekFrom::Start(file_offset)).with_context(|| {
-            format!(
-                "seeking tensor {name:?} row {source_row} in {}",
-                source.path.display()
-            )
-        })?;
-        file.read_exact(&mut raw).with_context(|| {
-            format!(
-                "reading tensor {name:?} row {source_row} from {}",
-                source.path.display()
-            )
-        })?;
-        match source.dtype {
-            Dtype::F32 => {
-                for (index, chunk) in raw.chunks_exact(4).enumerate() {
-                    decoded[index] = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-                }
-            }
-            Dtype::F16 => {
-                for (index, chunk) in raw.chunks_exact(2).enumerate() {
-                    decoded[index] =
-                        transformer_f16_bits_to_f32(u16::from_le_bytes([chunk[0], chunk[1]]));
-                }
-            }
-            Dtype::BF16 => {
-                for (index, chunk) in raw.chunks_exact(2).enumerate() {
-                    decoded[index] =
-                        f32::from_bits(u32::from(u16::from_le_bytes([chunk[0], chunk[1]])) << 16);
-                }
-            }
-            _ => unreachable!("float dtype validated above"),
-        }
-        if decoded.iter().any(|value| !value.is_finite()) {
-            bail!("GPT-2 tensor {name:?} row {source_row} contains non-finite values");
-        }
-        for output_row in output_rows {
-            let start = output_row * columns;
-            output[start..start + columns].copy_from_slice(&decoded);
-        }
-    }
-    Ok(output)
+    ModelPackage::decode_f32(dtype, &raw)
 }
 
 fn safe_relative_safetensors_path(value: &str) -> Result<PathBuf> {
@@ -34960,6 +35988,7 @@ fn load_openai_gpt_weights(
         bias: vec![0.0; d],
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: None,
@@ -35435,6 +36464,7 @@ fn load_encoder_decoder_bert_component_weights(
         // hidden state. Reuse tied embeddings for that inert projection.
         let inert_lm_head = (!config.tie_word_embeddings).then(|| token_embedding.clone());
         return Ok(HostTransformerWeights {
+            package_lm_head: None,
             token_embedding,
             position_embedding,
             embedding_norm: Some(embedding_norm),
@@ -35489,6 +36519,7 @@ fn load_encoder_decoder_bert_component_weights(
         Some(store.take_expected("cls.predictions.decoder.bias", &[config.vocab_size])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding,
         embedding_norm: Some(embedding_norm),
@@ -35765,6 +36796,7 @@ fn load_bert_weights(
         bias: vec![0.0; d],
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding,
         embedding_norm: Some(embedding_norm),
@@ -35906,6 +36938,7 @@ fn load_albert_weights(
     };
 
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding,
         embedding_norm: Some(embedding_norm),
@@ -36047,6 +37080,7 @@ fn load_megatron_bert_weights(
         bail!("Megatron-BERT package is missing cls.predictions.bias/cls.predictions.decoder.bias")
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: None,
@@ -36192,6 +37226,7 @@ fn load_nomic_bert_weights(
         bail!("Nomic BERT package is missing cls.predictions.bias/cls.predictions.decoder.bias")
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: Some(embedding_norm),
@@ -36316,6 +37351,7 @@ fn load_jina_embeddings_v3_weights(
         bail!("Jina Embeddings v3 package is missing lm_head.bias/lm_head.decoder.bias")
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: Some(embedding_norm),
@@ -36515,6 +37551,7 @@ fn load_roberta_weights(
         }
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm,
@@ -36617,6 +37654,7 @@ fn load_xlm_family_weights(
         bias: vec![0.0; d],
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: Some(embedding_norm),
@@ -37087,6 +38125,7 @@ fn load_bert_generation_weights(
         bias: vec![0.0; d],
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: Some(embedding_norm),
@@ -37364,6 +38403,7 @@ fn load_t5_gemma_component_weights(
     };
 
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -37576,6 +38616,7 @@ fn load_t5_encoder_weights(
         bias: Vec::new(),
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -37713,6 +38754,7 @@ fn load_t5_weights(
         }
     }
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -38092,6 +39134,7 @@ fn load_bart_encoder_weights(
     // throwaway projection while callers consume only the final hidden state.
     let lm_head = (!config.tie_word_embeddings).then(|| token_embedding.clone());
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm,
@@ -38328,6 +39371,7 @@ fn load_bart_weights(
         None
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm,
@@ -38431,6 +39475,7 @@ fn load_marian_weights(
         bias: vec![0.0; d],
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: None,
@@ -38532,6 +39577,7 @@ fn load_fsmt_weights(
         bias: vec![0.0; d],
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: None,
@@ -38632,6 +39678,7 @@ fn load_distilbert_weights(
         bias: vec![0.0; d],
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: Some(embedding_norm),
@@ -38648,20 +39695,57 @@ fn load_gpt2_weights(
     model_dir: &Path,
     config: &VulkanTransformerConfig,
 ) -> Result<HostTransformerWeights> {
+    load_gpt2_weights_with_head_policy(model_dir, config, false)
+}
+
+fn load_gpt2_weights_with_head_policy(
+    model_dir: &Path,
+    config: &VulkanTransformerConfig,
+    stream_lm_head: bool,
+) -> Result<HostTransformerWeights> {
     let mut store = Gpt2TensorStore::load(model_dir)?;
     let d = config.hidden_size;
     let i = config.intermediate_size;
-    let token_embedding = store.take_expected("transformer.wte.weight", &[config.vocab_size, d])?;
+    let mut package_lm_head = None;
+    let mut embedding_source = None;
+    let token_embedding = if stream_lm_head {
+        let source =
+            store.take_expected_source("transformer.wte.weight", &[config.vocab_size, d])?;
+        if config.tie_word_embeddings {
+            package_lm_head = Some(HostPackageLmHead {
+                source,
+                tied: true,
+                embedding_source: None,
+            });
+        } else {
+            embedding_source = Some(source);
+        }
+        Vec::new()
+    } else {
+        store.take_expected("transformer.wte.weight", &[config.vocab_size, d])?
+    };
     let has_lm_head_alias = config.tie_word_embeddings && store.contains("lm_head.weight");
     let lm_head = if config.tie_word_embeddings {
         if has_lm_head_alias {
-            let alias = store.take_expected("lm_head.weight", &[config.vocab_size, d])?;
-            if alias != token_embedding {
-                bail!(
-                    "GPT-2 package declares tied word embeddings but lm_head.weight differs from transformer.wte.weight"
-                );
+            if let Some(head) = package_lm_head.as_ref() {
+                let alias =
+                    store.take_expected_source("lm_head.weight", &[config.vocab_size, d])?;
+                require_equal_tied_package_sources(&head.source, &alias)?;
+            } else {
+                let alias = store.take_expected("lm_head.weight", &[config.vocab_size, d])?;
+                if alias != token_embedding {
+                    bail!("GPT-2 package declares tied word embeddings but lm_head.weight differs from transformer.wte.weight");
+                }
             }
         }
+        None
+    } else if stream_lm_head {
+        let source = store.take_expected_source("lm_head.weight", &[config.vocab_size, d])?;
+        package_lm_head = Some(HostPackageLmHead {
+            source,
+            tied: false,
+            embedding_source,
+        });
         None
     } else {
         Some(store.take_expected("lm_head.weight", &[config.vocab_size, d])?)
@@ -38724,6 +39808,7 @@ fn load_gpt2_weights(
         bias: store.take_expected("transformer.ln_f.bias", &[d])?,
     };
     Ok(HostTransformerWeights {
+        package_lm_head,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: None,
@@ -38909,6 +39994,7 @@ fn load_gpt_bigcode_weights(
         Some(store.take_expected("lm_head.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: None,
@@ -39066,6 +40152,7 @@ fn load_falcon_weights(
         Some(store.take_expected("lm_head.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -39165,6 +40252,7 @@ fn load_bloom_weights(
         Some(store.take_expected("lm_head.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: Some(embedding_norm),
@@ -39241,6 +40329,7 @@ fn load_mpt_weights(
         Some(store.take_expected("lm_head.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -39334,6 +40423,7 @@ fn load_dbrx_weights(
     };
     let lm_head = Some(store.take_expected("lm_head.weight", &[config.vocab_size, d])?);
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -39576,6 +40666,7 @@ fn load_modernbert_weights(
         None
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: Some(embedding_norm),
@@ -39652,6 +40743,7 @@ fn load_codegen_weights(
     };
     let lm_head_bias = Some(store.take_expected("lm_head.bias", &[config.vocab_size])?);
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -39743,6 +40835,7 @@ fn load_gpt_neo_weights(
         bias: store.take_expected("transformer.ln_f.bias", &[d])?,
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: None,
@@ -39837,6 +40930,7 @@ fn load_gpt_neox_weights(
         Some(store.take_expected("embed_out.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -39930,6 +41024,7 @@ fn load_gpt_neox_japanese_weights(
         Some(store.take_expected("embed_out.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -40072,6 +41167,7 @@ fn load_persimmon_weights(
         Some(store.take_expected("lm_head.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -40153,6 +41249,7 @@ fn load_gptj_weights(
     };
     let lm_head_bias = Some(store.take_expected("lm_head.bias", &[config.vocab_size])?);
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -40282,6 +41379,7 @@ fn load_phi_weights(
     };
     let lm_head_bias = Some(store.take_expected("lm_head.bias", &[config.vocab_size])?);
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -40401,6 +41499,7 @@ fn load_starcoder2_weights(
         Some(store.take_expected("lm_head.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -40532,6 +41631,7 @@ fn load_opt_weights(
         Some(store.take_expected("lm_head.weight", &[config.vocab_size, e])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: None,
@@ -40630,6 +41730,7 @@ fn load_biogpt_weights(
         Some(store.take_expected("output_projection.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: None,
@@ -40776,6 +41877,7 @@ fn load_ctrl_weights(
     };
     let lm_head_bias = Some(store.take_expected("lm_head.bias", &[config.vocab_size])?);
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: None,
@@ -40877,6 +41979,7 @@ fn load_xglm_weights(
         Some(store.take_expected("lm_head.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: Some(position_embedding),
         embedding_norm: None,
@@ -42315,6 +43418,14 @@ fn load_llama_weights(
     model_dir: &Path,
     config: &VulkanTransformerConfig,
 ) -> Result<HostTransformerWeights> {
+    load_llama_weights_with_head_policy(model_dir, config, false)
+}
+
+fn load_llama_weights_with_head_policy(
+    model_dir: &Path,
+    config: &VulkanTransformerConfig,
+    stream_lm_head: bool,
+) -> Result<HostTransformerWeights> {
     let mut store = load_llama_layout_tensor_store(model_dir)?;
     if config.architecture == VulkanTransformerArchitecture::FalconH1 {
         store = store.rebase_prefix("model.final_layernorm", "model.norm")?;
@@ -42690,7 +43801,28 @@ fn load_llama_weights(
         }
     };
     let token_embedding_name = backbone_name("embed_tokens.weight");
-    let token_embedding = if mllama_source_layers.is_some() {
+    let mut package_lm_head = None;
+    let mut embedding_source = None;
+    let token_embedding = if stream_lm_head {
+        if config.tie_word_embeddings && mllama_source_layers.is_some() {
+            bail!("load-time tied head streaming cannot truncate Mllama's reserved embedding rows");
+        }
+        let physical_rows = config
+            .vocab_size
+            .checked_add(if mllama_source_layers.is_some() { 8 } else { 0 })
+            .context("Transformer embedding row count overflow")?;
+        let source = store.take_expected_source(&token_embedding_name, &[physical_rows, d])?;
+        if config.tie_word_embeddings {
+            package_lm_head = Some(HostPackageLmHead {
+                source,
+                tied: true,
+                embedding_source: None,
+            });
+        } else {
+            embedding_source = Some(source);
+        }
+        Vec::new()
+    } else if mllama_source_layers.is_some() {
         // MllamaTextModel deliberately allocates eight reserved multimodal
         // token rows beyond config.vocab_size. Text logits still cover only
         // config.vocab_size, so keep those rows outside the native text-only
@@ -43954,16 +45086,33 @@ fn load_llama_weights(
     let has_lm_head_alias = store.contains("lm_head.weight") && config.tie_word_embeddings;
     let lm_head = if config.tie_word_embeddings {
         if store.contains("lm_head.weight") {
-            let alias = store.take_expected("lm_head.weight", &[config.vocab_size, d])?;
-            if alias != token_embedding {
-                bail!("Llama-layout tied lm_head.weight differs from model.embed_tokens.weight");
+            if let Some(head) = package_lm_head.as_ref() {
+                let alias =
+                    store.take_expected_source("lm_head.weight", &[config.vocab_size, d])?;
+                require_equal_tied_package_sources(&head.source, &alias)?;
+            } else {
+                let alias = store.take_expected("lm_head.weight", &[config.vocab_size, d])?;
+                if alias != token_embedding {
+                    bail!(
+                        "Llama-layout tied lm_head.weight differs from model.embed_tokens.weight"
+                    );
+                }
             }
         }
+        None
+    } else if stream_lm_head {
+        let source = store.take_expected_source("lm_head.weight", &[config.vocab_size, d])?;
+        package_lm_head = Some(HostPackageLmHead {
+            source,
+            tied: false,
+            embedding_source,
+        });
         None
     } else {
         Some(store.take_expected("lm_head.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head,
         token_embedding,
         position_embedding: None,
         embedding_norm: if config.architecture == VulkanTransformerArchitecture::OpenLlama
@@ -44121,6 +45270,7 @@ fn load_longcat_flash_weights(
         Some(store.take_expected("lm_head.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -46754,6 +47904,7 @@ fn load_esmc_weights(
     };
     let lm_head_bias = Some(store.take_expected("lm_head.decoder.bias", &[config.vocab_size])?);
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -46893,6 +48044,7 @@ fn load_esm_weights(
         bail!("ESM package is missing lm_head.bias")
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding,
         embedding_norm,
@@ -47072,6 +48224,7 @@ fn load_phi3_weights(
         Some(store.take_expected("lm_head.weight", &[config.vocab_size, d])?)
     };
     Ok(HostTransformerWeights {
+        package_lm_head: None,
         token_embedding,
         position_embedding: None,
         embedding_norm: None,
@@ -48878,7 +50031,7 @@ impl VulkanMoe {
         )
     }
 
-    fn new(
+    fn new<W: HostLinearPayload>(
         device: &VulkanDevice,
         rows: usize,
         hidden: usize,
@@ -48887,7 +50040,7 @@ impl VulkanMoe {
         norm_eps: f32,
         situ_beta: f32,
         situ_linear_beta: Option<f32>,
-        host: HostMoeLayer,
+        host: HostMoeLayer<W>,
     ) -> Result<Self> {
         let HostMoeLayer {
             router: host_router,
@@ -48984,22 +50137,10 @@ impl VulkanMoe {
         if config.shared_expert_intermediate_size != 0 && host_shared_expert.is_none() {
             bail!("routed MoE graph is missing its configured shared-expert parameters");
         }
-        let make = |input_dim: usize, output_dim: usize, linear: HostLinear| match linear.bias {
-            Some(bias) => VulkanLinear::new(device, input_dim, output_dim, &linear.weight, &bias),
-            None => VulkanLinear::new_no_bias(device, input_dim, output_dim, &linear.weight),
+        let make = |input_dim, output_dim, linear: HostLinear<W>| {
+            upload_host_linear(device, rows, input_dim, output_dim, linear)
         };
-        let router = match host_router.bias {
-            Some(bias) => VulkanLinear::new(
-                device,
-                hidden,
-                config.num_experts,
-                &host_router.weight,
-                &bias,
-            )?,
-            None => {
-                VulkanLinear::new_no_bias(device, hidden, config.num_experts, &host_router.weight)?
-            }
-        };
+        let router = make(hidden, config.num_experts, host_router)?;
         let routed_hidden = host_latent
             .as_ref()
             .map(|latent| latent.hidden_size)
@@ -57109,7 +58250,7 @@ impl VulkanTransformerLayer {
         (query, key)
     }
 
-    fn new(
+    fn new<W: HostLinearPayload>(
         device: &VulkanDevice,
         config: &VulkanTransformerConfig,
         rows: usize,
@@ -57122,15 +58263,15 @@ impl VulkanTransformerLayer {
         host_qwen_gated_delta: Option<HostQwenGatedDeltaNet>,
         host_deepseek_v4_attention: Option<HostDeepseekV4Attention>,
         host_deepseek_v4_hyper_connections: Option<(HostDeepseekV4Mhc, HostDeepseekV4Mhc)>,
-        host_moe: Option<HostMoeLayer>,
-        host_shortcut_moe: Option<HostMoeLayer>,
+        host_moe: Option<HostMoeLayer<W>>,
+        host_shortcut_moe: Option<HostMoeLayer<W>>,
         host_mla: Option<HostMlaAttention>,
         host_dsa_indexer: Option<HostDsaIndexer>,
         host_minimax_m3_indexer: Option<HostMiniMaxM3Indexer>,
         host_qwen4_qsa_indexer: Option<HostQwen4QsaIndexer>,
         host_qwen4_hyper_connections: Option<(HostQwen4GatedResidual, HostQwen4GatedResidual)>,
         dsa_share_previous_mask: bool,
-        host: HostTransformerLayer,
+        host: HostTransformerLayer<W>,
     ) -> Result<Self> {
         if host_dsa_indexer.is_some() && dsa_share_previous_mask {
             bail!("Transformer layer {layer_index} cannot own a DSA indexer and share a previous DSA mask simultaneously");
@@ -57145,27 +58286,27 @@ impl VulkanTransformerLayer {
         let i = config.layer_intermediate_size(layer_index);
         let configured_q = config.query_hidden_size();
         let configured_kv = config.key_value_hidden_size();
-        let infer_linear_output = |name: &str, linear: &HostLinear| -> Result<usize> {
-            if d == 0 || !linear.weight.len().is_multiple_of(d) {
+        let infer_linear_output = |name: &str, len: usize| -> Result<usize> {
+            if d == 0 || !len.is_multiple_of(d) {
                 bail!(
                     "Transformer layer {layer_index} {name} has {} weights, which is not divisible by hidden_size={d}",
-                    linear.weight.len()
+                    len
                 );
             }
-            let output_dim = linear.weight.len() / d;
+            let output_dim = len / d;
             if output_dim == 0 {
                 bail!("Transformer layer {layer_index} {name} has zero output width");
             }
             Ok(output_dim)
         };
-        let infer_output_projection_input = |linear: &HostLinear| -> Result<usize> {
-            if d == 0 || !linear.weight.len().is_multiple_of(d) {
+        let infer_output_projection_input = |len: usize| -> Result<usize> {
+            if d == 0 || !len.is_multiple_of(d) {
                 bail!(
                     "Transformer layer {layer_index} attention output projection has {} weights, which is not divisible by hidden_size={d}",
-                    linear.weight.len()
+                    len
                 );
             }
-            let input_dim = linear.weight.len() / d;
+            let input_dim = len / d;
             if input_dim == 0 {
                 bail!("Transformer layer {layer_index} attention output projection has zero input width");
             }
@@ -57201,7 +58342,7 @@ impl VulkanTransformerLayer {
             )
         } else if let Some(gated_delta) = host_qwen_gated_delta.as_ref() {
             let attention_hidden = gated_delta.value_dim();
-            let projection_input = infer_output_projection_input(&host.c_proj)?;
+            let projection_input = infer_output_projection_input(host.c_proj.weight.len())?;
             if projection_input != attention_hidden {
                 bail!(
                     "Transformer layer {layer_index} Qwen Gated DeltaNet out_proj input width {projection_input} does not match linear value width {attention_hidden}"
@@ -57229,7 +58370,7 @@ impl VulkanTransformerLayer {
                 .num_heads
                 .checked_mul(mla.v_head_dim)
                 .context("MLA value width overflow")?;
-            let attention_hidden = infer_output_projection_input(&host.c_proj)?;
+            let attention_hidden = infer_output_projection_input(host.c_proj.weight.len())?;
             if q != configured_q {
                 bail!(
                     "Transformer layer {layer_index} MLA query width {q} does not match configured query width {configured_q}"
@@ -57256,21 +58397,21 @@ impl VulkanTransformerLayer {
                 "q_proj",
                 host.q_proj
                     .as_ref()
-                    .context("split-QKV Transformer layer is missing q_proj")?,
+                    .context("split-QKV Transformer layer is missing q_proj")?.weight.len(),
             )?;
             let key_hidden = infer_linear_output(
                 "k_proj",
                 host.k_proj
                     .as_ref()
-                    .context("split-QKV Transformer layer is missing k_proj")?,
+                    .context("split-QKV Transformer layer is missing k_proj")?.weight.len(),
             )?;
             let value_hidden = infer_linear_output(
                 "v_proj",
                 host.v_proj
                     .as_ref()
-                    .context("split-QKV Transformer layer is missing v_proj")?,
+                    .context("split-QKV Transformer layer is missing v_proj")?.weight.len(),
             )?;
-            let attention_hidden = infer_output_projection_input(&host.c_proj)?;
+            let attention_hidden = infer_output_projection_input(host.c_proj.weight.len())?;
             let (num_heads, head_dim) = if config.architecture
                 == VulkanTransformerArchitecture::Laguna
             {
@@ -57427,15 +58568,11 @@ impl VulkanTransformerLayer {
             } else {
                 vec![1.0]
             };
-        let make_linear = |input_dim: usize,
-                           output_dim: usize,
-                           host: HostLinear|
-         -> Result<VulkanLinear> {
-            match host.bias {
-                Some(bias) => VulkanLinear::new(device, input_dim, output_dim, &host.weight, &bias),
-                None => VulkanLinear::new_no_bias(device, input_dim, output_dim, &host.weight),
-            }
-        };
+        macro_rules! make_linear {
+            ($input:expr, $output:expr, $host:expr) => {
+                upload_host_linear(device, rows, $input, $output, $host)
+            };
+        }
         let make_norm = |host: HostLayerNorm| -> Result<VulkanLayerNorm> {
             if config.uses_rms_norm() {
                 if config.architecture.uses_pow_rms_norm() {
@@ -57509,7 +58646,7 @@ impl VulkanTransformerLayer {
         let shortcut_hidden_buffer = || GpuBuffer::zeros_f32(device, rows * d);
         let attention_gate = host_attention_gate
             .map(|host| {
-                let output_dim = infer_linear_output("attention gate", &host)?;
+                let output_dim = infer_linear_output("attention gate", host.weight.len())?;
                 if config.architecture == VulkanTransformerArchitecture::Laguna {
                     if output_dim != num_heads && output_dim != attention_hidden {
                         bail!(
@@ -57521,7 +58658,7 @@ impl VulkanTransformerLayer {
                         "Transformer layer {layer_index} attention gate output width {output_dim} does not match attention width {attention_hidden}"
                     );
                 }
-                make_linear(d, output_dim, host)
+                make_linear!(d, output_dim, host)
             })
             .transpose()?;
         let (
@@ -57696,19 +58833,19 @@ impl VulkanTransformerLayer {
                 .transpose()?,
             c_attn: host
                 .c_attn
-                .map(|host| make_linear(d, fused_qkv, host))
+                .map(|host| make_linear!(d, fused_qkv, host))
                 .transpose()?,
             q_proj: host
                 .q_proj
-                .map(|host| make_linear(d, q, host))
+                .map(|host| make_linear!(d, q, host))
                 .transpose()?,
             k_proj: host
                 .k_proj
-                .map(|host| make_linear(d, key_hidden, host))
+                .map(|host| make_linear!(d, key_hidden, host))
                 .transpose()?,
             v_proj: host
                 .v_proj
-                .map(|host| make_linear(d, value_hidden, host))
+                .map(|host| make_linear!(d, value_hidden, host))
                 .transpose()?,
             falcon_h1: None,
             qwen_gated_delta: host_qwen_gated_delta
@@ -57992,7 +59129,7 @@ impl VulkanTransformerLayer {
             c_proj: if config.architecture == VulkanTransformerArchitecture::DeepseekV4 {
                 VulkanLinear::new_no_bias(device, 1, 1, &[0.0])?
             } else {
-                make_linear(attention_hidden, d, host.c_proj)?
+                make_linear!(attention_hidden, d, host.c_proj)?
             },
             ln2: make_norm(host.ln2)?,
             post_mlp_norm: host
@@ -58011,12 +59148,12 @@ impl VulkanTransformerLayer {
                     }
                 })
                 .transpose()?,
-            c_fc: make_linear(d, i, host.c_fc)?,
+            c_fc: make_linear!(d, i, host.c_fc)?,
             c_gate: host
                 .c_gate
-                .map(|host| make_linear(d, i, host))
+                .map(|host| make_linear!(d, i, host))
                 .transpose()?,
-            c_mlp_proj: make_linear(i, d, host.c_mlp_proj)?,
+            c_mlp_proj: make_linear!(i, d, host.c_mlp_proj)?,
             moe: host_moe
                 .map(|host| {
                     VulkanMoe::new(
@@ -63911,6 +65048,9 @@ fn record_transformer_moe_expert_projection(
 ) -> Result<()> {
     if let Some((expert_counts, expert)) = routing {
         if !linear.has_bias && linear.lora.is_none() {
+            if let Some(source)=linear.weight.tiered_source() {
+                return source.record_expert_projection(commands,kernels,input,output,rows,expert_counts,expert,num_experts);
+            }
             let push = MoeExpertForwardPush {
                 rows: rows as u32,
                 input_dim: linear.input_dim as u32,
@@ -64065,6 +65205,10 @@ pub struct VulkanTransformer {
     // registry local and the entire VulkanTransformer return value at once.
     kernels: Box<TransformerKernels>,
     shared_embedding: SharedLmHeadParameter,
+    tiered_tied_head: Option<Arc<TieredLmHead>>,
+    streamed_linears: usize,
+    source_first_parameters: bool,
+    streaming_retired_parameter_bytes: usize,
     token_embedding: TiedTokenEmbeddingOp,
     token_type_embedding: Option<TiedTokenEmbeddingOp>,
     auxiliary_embedding: Option<TiedTokenEmbeddingOp>,
@@ -64773,6 +65917,219 @@ impl VulkanTransformer {
         Self::from_hf_package_with_config(device, model_dir, config, batch_size, seq_len)
     }
 
+    /// Construct a graph with a package-backed output head.
+    ///
+    /// GPT-2 and Llama-layout loaders select the exact checkpoint tensor before any
+    /// full head or input-embedding vector or device allocation exists. Tied
+    /// graphs use one parameter identity; untied graphs stage both tables with
+    /// separate identities. Payloads and tied aliases are validated with
+    /// bounded row reads. Other weights still load resident; training and PEFT
+    /// changes to the streamed graph are unsupported. Other loader families use
+    /// the existing post-load conversion and still incur its loading peak.
+    pub fn from_hf_package_with_streamed_lm_head(
+        device: VulkanDevice,
+        model_dir: impl AsRef<Path>,
+        batch_size: usize,
+        seq_len: usize,
+    ) -> Result<Self> {
+        let model_dir = model_dir.as_ref();
+        let config = VulkanTransformerConfig::from_hf_config(model_dir.join("config.json"))?;
+        Self::from_hf_package_with_head_policy(
+            device, model_dir, config, batch_size, seq_len, seq_len, true,
+        )
+    }
+
+    /// Explicit frozen-base execution streaming, with the caller's runtime
+    /// config. Select vocabulary sources before loading where the architecture
+    /// supports it, then convert ordinary projections and routed/shared experts.
+    /// Ordinary Llama/Mistral/Qwen2/Mixtral checkpoints are source-first: their
+    /// body matrices are never materialized as resident host/device parameters.
+    /// Other loaders retain post-load body conversion.
+    pub fn from_hf_package_with_streamed_parameters(
+        device:VulkanDevice, model_dir:impl AsRef<Path>, config:VulkanTransformerConfig,
+        batch_size:usize, seq_len:usize,
+    )->Result<Self> {
+        let directory=model_dir.as_ref();
+        if streamed_load::supports(directory, &config)? {
+            return streamed_load::build(device, directory, config, batch_size, seq_len);
+        }
+        let mut graph=Self::from_hf_package_with_head_policy(device,directory,config,batch_size,seq_len,seq_len,true)?;
+        let before=graph.device.memory_stats()?.live_buffer_bytes;
+        graph.stream_linear_parameters_from_package(directory)?;
+        graph.streaming_retired_parameter_bytes=before.saturating_sub(graph.device.memory_stats()?.live_buffer_bytes);
+        Ok(graph)
+    }
+
+    /// Number of ordinary frozen projections served directly from the package.
+    pub fn streamed_linear_count(&self) -> usize { self.streamed_linears }
+
+    /// True only when body projections were package-backed at construction.
+    /// Post-load conversion does not satisfy this stronger loading guarantee.
+    pub fn parameters_streamed_during_loading(&self) -> bool { self.source_first_parameters }
+
+    /// Buffers actually retired by post-load body conversion, zero for a
+    /// source-first loader which never allocated those buffers.
+    pub fn streaming_retired_parameter_bytes(&self) -> usize { self.streaming_retired_parameter_bytes }
+
+    /// Current I/O counters for the distinct package readers serving ordinary
+    /// streamed linears. Capture immediately after construction to measure loading.
+    pub fn streamed_linear_package_io(&mut self) -> Result<Vec<(PathBuf, crate::weight_offload::OffloadLedger)>> {
+        let mut seen=BTreeSet::new();
+        let mut snapshots=Vec::new();
+        self.for_each_frozen_graph_linear_mut(|_,_,linear| {
+            if let Some(source)=linear.weight.tiered_source() {
+                if seen.insert(Arc::as_ptr(&source.package) as usize) {
+                    let reader=source.package.lock().map_err(|_|anyhow!("weight package lock poisoned"))?;
+                    snapshots.push((reader.root().to_path_buf(),reader.ledger()));
+                }
+            }
+            Ok(())
+        })?;
+        Ok(snapshots)
+    }
+
+    /// Serve this graph's vocabulary-sized output head from its own package
+    /// file instead of from a resident device table.
+    ///
+    /// The output head is the one weight of a dense model whose device footprint
+    /// scales with the vocabulary rather than with the model width, and the only
+    /// one whose rows are consumed independently: each logit column is its own
+    /// dot product against the hidden row. Those two properties are what make a
+    /// row tile a complete unit of work - a tile of head rows produces a tile of
+    /// logit columns and nothing else is needed to finish them - so the head is
+    /// projected tile by tile with the same kernel the resident width would have
+    /// selected and the tile's columns are copied into the logits untouched.
+    ///
+    /// Streaming is explicit and never implied by loading: [`from_hf_package`]
+    /// and every other constructor still keep the head resident. Two properties
+    /// are enforced here rather than assumed:
+    ///
+    /// * The package must hold the tensor this graph loaded as its head. The
+    ///   match is by content - tile-by-tile equality with the resident values -
+    ///   so a same-shaped table such as the input embedding can never be
+    ///   streamed in place of the head, and an ambiguous package is refused.
+    /// * The vocabulary parameter stays frozen, with no gradient accumulation
+    ///   or AdamW moments. Its input adjoint streams the same tiles in resident
+    ///   FMA order, allowing adapters on the body to train. Adapting/replacing
+    ///   the vocabulary itself and full-parameter training require residency.
+    ///
+    /// Reading the parameter still answers with the complete table: parameter
+    /// export and the round-trip comparisons materialize it through the same
+    /// bounded package tiles the projection uses. An output bias is left
+    /// resident - it is one value per column rather than a row of the table, so
+    /// for a 129,280-token vocabulary it costs half a megabyte.
+    ///
+    /// A tied head also moves token lookup to the same immutable package source.
+    /// Lookup gathers only requested rows and projection preserves the resident
+    /// plain-matmul-then-bias order. Both edges keep one parameter identity;
+    /// neither binds the placeholder. Convert before attaching PEFT adapters;
+    /// FP16 execution mirrors are refused before changing the tied graph. Conversion still
+    /// occurs after resident loading; it does not reduce initial loading memory.
+    ///
+    /// [`from_hf_package`]: Self::from_hf_package
+    pub fn stream_lm_head_from_package(&mut self, model_dir: impl AsRef<Path>) -> Result<()> {
+        let model_dir = model_dir.as_ref();
+        if self.lm_head.is_none() {
+            if self.tiered_tied_head.is_some() {
+                bail!("the tied output head is already served from the package");
+            }
+            if !self.lora_configs.is_empty() {
+                bail!("a PEFT adapter is attached; reload resident weights before streaming the tied head");
+            }
+            if self.shared_embedding.fp16_parameter_storage_active() {
+                bail!("a tied head with an FP16 execution mirror cannot be streamed");
+            }
+            let expected = self.shared_embedding.weights()?;
+            let bias = self
+                .lm_head_bias
+                .as_ref()
+                .map(|bias| bias.read())
+                .transpose()?;
+            let tiered = Arc::new(TieredLmHead::adopt(
+                &self.device,
+                model_dir,
+                self.shared_embedding.context_dim(),
+                self.config.vocab_size,
+                self.rows,
+                &expected,
+                bias,
+            )?);
+            let parameter = SharedLmHeadParameter::from_tiered_package(
+                self.device.clone(),
+                tiered.input_dim,
+                tiered.vocab_size,
+                Arc::clone(&tiered.package),
+                tiered.name.clone(),
+            )?;
+            let gradient_placeholder = GpuBuffer::zeros_f32(&self.device, 1)?;
+            self.token_embedding
+                .rebind_shared_parameter(parameter.clone())?;
+            self.shared_embedding = parameter;
+            self.tiered_tied_head = Some(tiered);
+            self.lm_weight_grad = gradient_placeholder;
+            return Ok(());
+        }
+        let head = self.lm_head.as_mut().context("missing output head")?;
+        if head.weight.tiered_source().is_some() {
+            bail!("the output head is already served from the package");
+        }
+        if head.lora.is_some() {
+            bail!(
+                "a LoRA adapter is attached to the output head; a streamed head cannot carry one"
+            );
+        }
+        let expected = head.weight.read()?;
+        let bias = head.has_bias.then(|| head.bias.read()).transpose()?;
+        let tiered = TieredLmHead::adopt(
+            &self.device,
+            model_dir,
+            head.input_dim,
+            head.output_dim,
+            self.rows,
+            &expected,
+            bias,
+        )?;
+        drop(expected);
+        let gradient_placeholder = GpuBuffer::zeros_f32(&self.device, 1)?;
+        head.weight.adopt_tiered_source(Arc::new(tiered))?;
+        head.freeze_base();
+        self.lm_weight_grad = gradient_placeholder;
+        Ok(())
+    }
+
+    /// Convert ordinary graph linears to immutable, row-streamed package
+    /// sources. All source matrices must reproduce the loaded native layouts
+    /// exactly before any parameter changes. This conversion currently follows
+    /// loading; it reduces execution residency, not initial host loading memory.
+    /// Vocabulary tables use their separate package-backed loader. Norms and
+    /// specialized packed parameter operators are outside this traversal.
+    pub fn stream_linear_parameters_from_package(&mut self, model_dir: impl AsRef<Path>) -> Result<usize> {
+        if self.streamed_linears != 0 {bail!("graph linear parameters are already streamed");}
+        if self.lora_configs.values().any(|c|c.use_dora || c.bias!="none" || c.modules_to_save.as_ref().is_some_and(|v|!v.is_empty())) {
+            bail!("streamed graph linears require additive LoRA with frozen base/bias");
+        }
+        let directory=model_dir.as_ref();let device=self.device.clone();let rows=self.rows;
+        let mut plans=BTreeMap::<String,Arc<TieredLmHead>>::new();
+        self.for_each_frozen_graph_linear_mut(|key,_,linear| {
+            if linear.weight.tiered_source().is_some() || plans.contains_key(&key) {return Ok(());}
+            let expected=linear.weight.read()?;
+            let bias=linear.has_bias.then(||linear.bias.read()).transpose()?;
+            let source=TieredLmHead::adopt_matrix(&device,directory,linear.input_dim,linear.output_dim,rows,&expected,bias,true)
+                .with_context(||format!("streaming native linear {key}"))?;
+            plans.insert(key,Arc::new(source));Ok(())
+        })?;
+        if plans.is_empty(){bail!("no ordinary native graph linears were found for streaming");}
+        self.for_each_frozen_graph_linear_mut(|key,_,linear| {
+            if let Some(source)=plans.get(&key) {
+                linear.weight.adopt_tiered_source(Arc::clone(source))?;
+                linear.freeze_base();
+            }
+            Ok(())
+        })?;
+        self.streamed_linears=plans.len();
+        Ok(self.streamed_linears)
+    }
+
     fn from_hf_dense_text_encoder_package(
         device: VulkanDevice,
         model_dir: impl AsRef<Path>,
@@ -64909,7 +66266,26 @@ impl VulkanTransformer {
         seq_len: usize,
         encoder_seq_len: usize,
     ) -> Result<Self> {
-        let model_dir = model_dir.as_ref();
+        Self::from_hf_package_with_head_policy(
+            device,
+            model_dir.as_ref(),
+            config,
+            batch_size,
+            seq_len,
+            encoder_seq_len,
+            false,
+        )
+    }
+
+    fn from_hf_package_with_head_policy(
+        device: VulkanDevice,
+        model_dir: &Path,
+        config: VulkanTransformerConfig,
+        batch_size: usize,
+        seq_len: usize,
+        encoder_seq_len: usize,
+        stream_lm_head: bool,
+    ) -> Result<Self> {
         validate_kimi_linear_package_quantization(model_dir, &config)?;
         let albert_topology = if config.architecture == VulkanTransformerArchitecture::Albert {
             let topology = AlbertTopology::from_package(model_dir)?;
@@ -65107,8 +66483,12 @@ impl VulkanTransformer {
             None
         };
         let host = match config.architecture {
-            VulkanTransformerArchitecture::FalconH1 => load_llama_weights(model_dir, &config)?,
-            VulkanTransformerArchitecture::KimiLinear => load_llama_weights(model_dir, &config)?,
+            VulkanTransformerArchitecture::FalconH1 => {
+                load_llama_weights_with_head_policy(model_dir, &config, stream_lm_head)?
+            }
+            VulkanTransformerArchitecture::KimiLinear => {
+                load_llama_weights_with_head_policy(model_dir, &config, stream_lm_head)?
+            }
             VulkanTransformerArchitecture::OpenAiGpt => {
                 load_openai_gpt_weights(model_dir, &config)?
             }
@@ -65147,7 +66527,7 @@ impl VulkanTransformer {
                 load_xlm_family_weights(model_dir, &config)?
             }
             VulkanTransformerArchitecture::Gpt2 | VulkanTransformerArchitecture::GptSw3 => {
-                load_gpt2_weights(model_dir, &config)?
+                load_gpt2_weights_with_head_policy(model_dir, &config, stream_lm_head)?
             }
             VulkanTransformerArchitecture::GptBigCode => {
                 load_gpt_bigcode_weights(model_dir, &config)?
@@ -65277,13 +66657,19 @@ impl VulkanTransformer {
             | VulkanTransformerArchitecture::Axk1
             | VulkanTransformerArchitecture::Axk2
             | VulkanTransformerArchitecture::Mistral4
-            | VulkanTransformerArchitecture::Youtu => load_llama_weights(model_dir, &config)?,
-            VulkanTransformerArchitecture::DeepseekV4 => load_llama_weights(model_dir, &config)?,
+            | VulkanTransformerArchitecture::Youtu => {
+                load_llama_weights_with_head_policy(model_dir, &config, stream_lm_head)?
+            }
+            VulkanTransformerArchitecture::DeepseekV4 => {
+                load_llama_weights_with_head_policy(model_dir, &config, stream_lm_head)?
+            }
             VulkanTransformerArchitecture::LongCatFlash => {
                 load_longcat_flash_weights(model_dir, &config)?
             }
             VulkanTransformerArchitecture::Phi3 => load_phi3_weights(model_dir, &config)?,
         };
+        // Other architecture loaders retain the existing post-load conversion.
+        let post_load_stream_lm_head = stream_lm_head && host.package_lm_head.is_none();
         let cross_attentions = match config.architecture {
             VulkanTransformerArchitecture::Gpt2 | VulkanTransformerArchitecture::GptSw3 => {
                 load_gpt2_cross_attention_weights(model_dir, &config)?
@@ -65389,6 +66775,9 @@ impl VulkanTransformer {
         if model.config.architecture == VulkanTransformerArchitecture::FalconH1 {
             falcon_h1::attach(&mut model, model_dir)?;
         }
+        if post_load_stream_lm_head {
+            model.stream_lm_head_from_package(model_dir)?;
+        }
         Ok(model)
     }
 
@@ -65405,7 +66794,7 @@ impl VulkanTransformer {
         Ok(graph)
     }
 
-    fn new(
+    fn new<W: HostLinearPayload>(
         device: VulkanDevice,
         config: VulkanTransformerConfig,
         albert_topology: Option<AlbertTopology>,
@@ -65414,7 +66803,7 @@ impl VulkanTransformer {
         encoder_seq_len: usize,
         causal_attention: bool,
         source_model_type: Option<String>,
-        host: HostTransformerWeights,
+        host: HostTransformerWeights<W>,
         rotary_layers: Vec<TransformerRotaryLayerSpec>,
         attention_sinks: Option<Vec<Option<Vec<f32>>>>,
         attention_value_scale: Option<f32>,
@@ -65435,7 +66824,7 @@ impl VulkanTransformer {
         roc_bert_embedding_frontend: Option<HostRoCBertEmbeddingFrontend>,
         embedding_project: Option<HostLinear>,
         output_project: Option<HostLinear>,
-        host_moe_layers: Option<Vec<HostMoeLayer>>,
+        host_moe_layers: Option<Vec<HostMoeLayer<W>>>,
         host_mla_attentions: Option<Vec<HostMlaAttention>>,
         host_dsa_indexers: Option<Vec<Option<HostDsaIndexer>>>,
         host_minimax_m3_indexers: Option<Vec<Option<HostMiniMaxM3Indexer>>>,
@@ -65516,12 +66905,69 @@ impl VulkanTransformer {
         let logits_len = rows
             .checked_mul(config.vocab_size)
             .context("Transformer logits capacity overflow")?;
-        let shared_embedding = SharedLmHeadParameter::new(
-            device.clone(),
-            embedding_size,
-            config.vocab_size,
-            &host.token_embedding,
-        )?;
+        let package_head_tied = host.package_lm_head.as_ref().is_some_and(|head| head.tied);
+        if let Some(head) = host.package_lm_head.as_ref() {
+            if head.tied != config.tie_word_embeddings
+                || head.embedding_source.is_some() == head.tied
+            {
+                bail!("deferred vocabulary sources disagree with checkpoint tying");
+            }
+        }
+        let package_embedding = host
+            .package_lm_head
+            .as_ref()
+            .and_then(|head| head.embedding_source.as_ref())
+            .map(|source| {
+                if !host.token_embedding.is_empty() {
+                    bail!("deferred input embedding also has a resident vector");
+                }
+                let package =
+                    validate_transformer_package_rows(source, config.vocab_size, embedding_size)?;
+                Ok((package, source.tensor_name.clone()))
+            })
+            .transpose()?;
+        let package_head = host
+            .package_lm_head
+            .as_ref()
+            .map(|head| {
+                TieredLmHead::from_source(&device, &head.source, rows, host.lm_head_bias.clone())
+                    .map(Arc::new)
+            })
+            .transpose()?;
+        let shared_embedding = if package_head_tied {
+            let head = package_head
+                .as_ref()
+                .context("missing tied package source")?;
+            if head.input_dim != embedding_size
+                || head.vocab_size != config.vocab_size
+                || !host.token_embedding.is_empty()
+                || host.lm_head.is_some()
+            {
+                bail!("deferred tied head disagrees with embedding geometry or residency");
+            }
+            SharedLmHeadParameter::from_tiered_package(
+                device.clone(),
+                embedding_size,
+                config.vocab_size,
+                Arc::clone(&head.package),
+                head.name.clone(),
+            )?
+        } else if let Some((package, name)) = package_embedding {
+            SharedLmHeadParameter::from_tiered_package_prefix(
+                device.clone(),
+                embedding_size,
+                config.vocab_size,
+                package,
+                name,
+            )?
+        } else {
+            SharedLmHeadParameter::new(
+                device.clone(),
+                embedding_size,
+                config.vocab_size,
+                &host.token_embedding,
+            )?
+        };
         let source_has_lm_head_alias = host.has_lm_head_alias;
         let token_embedding = TiedTokenEmbeddingOp::from_shared_parameter_with_padding_idx(
             shared_embedding.clone(),
@@ -65721,29 +67167,47 @@ impl VulkanTransformer {
         } else {
             prediction_output_dim
         };
-        let (lm_head, lm_head_bias) = match (host.lm_head.as_deref(), host.lm_head_bias.as_deref())
+        let (lm_head, lm_head_bias) = if let Some(head) =
+            package_head.as_ref().filter(|_| !package_head_tied)
         {
-            (Some(values), Some(bias)) => (
-                Some(VulkanLinear::new(
+            if head.input_dim != lm_input_dim
+                || head.vocab_size != config.vocab_size
+                || host.lm_head.is_some()
+            {
+                bail!("deferred output head disagrees with projection geometry or residency");
+            }
+            (
+                Some(VulkanLinear::from_tiered_source(
                     &device,
-                    lm_input_dim,
-                    config.vocab_size,
-                    values,
-                    bias,
+                    Arc::clone(head),
+                    host.lm_head_bias.as_deref(),
                 )?),
                 None,
-            ),
-            (Some(values), None) => (
-                Some(VulkanLinear::new_no_bias(
-                    &device,
-                    lm_input_dim,
-                    config.vocab_size,
-                    values,
-                )?),
-                None,
-            ),
-            (None, Some(bias)) => (None, Some(TrainableParameter::new(&device, bias, false)?)),
-            (None, None) => (None, None),
+            )
+        } else {
+            match (host.lm_head.as_deref(), host.lm_head_bias.as_deref()) {
+                (Some(values), Some(bias)) => (
+                    Some(VulkanLinear::new(
+                        &device,
+                        lm_input_dim,
+                        config.vocab_size,
+                        values,
+                        bias,
+                    )?),
+                    None,
+                ),
+                (Some(values), None) => (
+                    Some(VulkanLinear::new_no_bias(
+                        &device,
+                        lm_input_dim,
+                        config.vocab_size,
+                        values,
+                    )?),
+                    None,
+                ),
+                (None, Some(bias)) => (None, Some(TrainableParameter::new(&device, bias, false)?)),
+                (None, None) => (None, None),
+            }
         };
         let (
             relative_attention_bias,
@@ -66270,13 +67734,21 @@ impl VulkanTransformer {
         } else {
             LAYER_NORM_FORWARD_SPV
         };
-        let mut kernels = Box::new(TransformerKernels::new_with_layer_norm(&device, layer_norm_spv)?);
-        if repaired_gpt2 && small_welford_is_qualified(device.decision_device_name(), config.hidden_size) {
+        let mut kernels = Box::new(TransformerKernels::new_with_layer_norm(
+            &device,
+            layer_norm_spv,
+        )?);
+        if repaired_gpt2
+            && small_welford_is_qualified(device.decision_device_name(), config.hidden_size)
+        {
             kernels.layer_norm_rows_per_workgroup = 8;
         }
         if repaired_gpt2 {
             kernels.linear_bias_forward_kblock128 = Some(vulkan::ComputeKernel::new(
-                &device, LINEAR_BIAS_FORWARD_AMD_KBLOCK128_SPV, 4, 12,
+                &device,
+                LINEAR_BIAS_FORWARD_AMD_KBLOCK128_SPV,
+                4,
+                12,
             )?);
         }
         Ok(Self {
@@ -66356,7 +67828,14 @@ impl VulkanTransformer {
             grad_logits: GpuBuffer::zeros_f32(&device, logits_len)?,
             row_loss: GpuBuffer::zeros_f32(&device, rows)?,
             loss_sum_reducer: VulkanOrderedF32SumReducer::new(&device)?,
-            lm_weight_grad: GpuBuffer::zeros_f32(&device, config.vocab_size * lm_input_dim)?,
+            lm_weight_grad: GpuBuffer::zeros_f32(
+                &device,
+                if package_head.is_some() {
+                    1
+                } else {
+                    config.vocab_size * lm_input_dim
+                },
+            )?,
             grad_final_norm_output: GpuBuffer::zeros_f32(&device, hidden_len)?,
             grad_final_norm_input: GpuBuffer::zeros_f32(&device, hidden_len)?,
             device,
@@ -66392,6 +67871,14 @@ impl VulkanTransformer {
             lora_saved_module_adapters: BTreeMap::new(),
             kernels,
             shared_embedding,
+            tiered_tied_head: if package_head_tied {
+                package_head
+            } else {
+                None
+            },
+            streamed_linears: 0,
+            source_first_parameters: false,
+            streaming_retired_parameter_bytes: 0,
             token_embedding,
             token_type_embedding,
             auxiliary_embedding,
@@ -67392,16 +68879,43 @@ impl VulkanTransformer {
             let prefix = format!("layers.{index}");
             if let Some(mla) = layer.mla_attention.as_ref() {
                 for (name, buffer, width) in [
-                    ("kv_a_output", &mla.tape.compressed_kv, mla.kv_lora_rank + mla.qk_rope_head_dim),
+                    (
+                        "kv_a_output",
+                        &mla.tape.compressed_kv,
+                        mla.kv_lora_rank + mla.qk_rope_head_dim,
+                    ),
                     ("kv_norm_input", &mla.tape.kv_latent, mla.kv_lora_rank),
                     ("kv_norm_output", &mla.tape.kv_latent_norm, mla.kv_lora_rank),
-                    ("grad_kv_norm_input", &mla.tape.grad_kv_latent, mla.kv_lora_rank),
-                    ("grad_kv_norm_output", &mla.tape.grad_kv_latent_norm, mla.kv_lora_rank),
-                    ("grad_kv_a_output", &mla.tape.grad_compressed_kv, mla.kv_lora_rank + mla.qk_rope_head_dim),
-                    ("q_b_output", &mla.tape.q_expanded, mla.num_heads * (mla.qk_nope_head_dim + mla.qk_rope_head_dim)),
-                    ("kv_b_output", &mla.tape.kv_expanded, mla.num_heads * (mla.qk_nope_head_dim + mla.v_head_dim)),
+                    (
+                        "grad_kv_norm_input",
+                        &mla.tape.grad_kv_latent,
+                        mla.kv_lora_rank,
+                    ),
+                    (
+                        "grad_kv_norm_output",
+                        &mla.tape.grad_kv_latent_norm,
+                        mla.kv_lora_rank,
+                    ),
+                    (
+                        "grad_kv_a_output",
+                        &mla.tape.grad_compressed_kv,
+                        mla.kv_lora_rank + mla.qk_rope_head_dim,
+                    ),
+                    (
+                        "q_b_output",
+                        &mla.tape.q_expanded,
+                        mla.num_heads * (mla.qk_nope_head_dim + mla.qk_rope_head_dim),
+                    ),
+                    (
+                        "kv_b_output",
+                        &mla.tape.kv_expanded,
+                        mla.num_heads * (mla.qk_nope_head_dim + mla.v_head_dim),
+                    ),
                 ] {
-                    out.insert(format!("{prefix}.mla.{name}"), buffer.read_f32(self.rows * width)?);
+                    out.insert(
+                        format!("{prefix}.mla.{name}"),
+                        buffer.read_f32(self.rows * width)?,
+                    );
                 }
                 for (name, buffer) in [
                     ("kv_norm_mean", &mla.tape.kv_latent_norm_mean),
@@ -67416,10 +68930,19 @@ impl VulkanTransformer {
                         ("grad_q_a_output", &mla.tape.grad_q_a),
                         ("grad_q_norm_output", &mla.tape.grad_q_a_norm),
                     ] {
-                        out.insert(format!("{prefix}.mla.{name}"), buffer.read_f32(self.rows * rank)?);
+                        out.insert(
+                            format!("{prefix}.mla.{name}"),
+                            buffer.read_f32(self.rows * rank)?,
+                        );
                     }
-                    out.insert(format!("{prefix}.mla.q_norm_mean"), mla.tape.q_a_norm_mean.read_f32(self.rows)?);
-                    out.insert(format!("{prefix}.mla.q_norm_rstd"), mla.tape.q_a_norm_rstd.read_f32(self.rows)?);
+                    out.insert(
+                        format!("{prefix}.mla.q_norm_mean"),
+                        mla.tape.q_a_norm_mean.read_f32(self.rows)?,
+                    );
+                    out.insert(
+                        format!("{prefix}.mla.q_norm_rstd"),
+                        mla.tape.q_a_norm_rstd.read_f32(self.rows)?,
+                    );
                 }
             }
             if matches!(
@@ -68052,6 +69575,24 @@ impl VulkanTransformer {
         adapter_name: &str,
         config: &VulkanTransformerLoraConfig,
     ) -> Result<()> {
+        if self.streamed_linears != 0 || self.tiered_tied_head.is_some()
+            || self
+                .lm_head
+                .as_ref()
+                .is_some_and(|head| head.weight.tiered_source().is_some())
+        {
+            config.validate()?;
+            if config.bias != "none"
+                || config.trainable_token_indices.is_some()
+                || config
+                    .modules_to_save
+                    .as_ref()
+                    .is_some_and(|v| !v.is_empty())
+                || (!config.targets_all_linear() && config.targets("lm_head"))
+            {
+                bail!("offloaded adapter training requires a frozen vocabulary: bias=none, no vocabulary adapter or modules_to_save/trainable tokens");
+            }
+        }
         if adapter_name.is_empty() {
             bail!("PEFT adapter name must not be empty");
         }
@@ -69343,7 +70884,11 @@ impl VulkanTransformer {
         &self,
         config: &VulkanTransformerLoraConfig,
     ) -> Result<Option<String>> {
-        let Some(modules) = config.modules_to_save.as_ref() else {
+        let Some(modules) = config
+            .modules_to_save
+            .as_ref()
+            .filter(|modules| !modules.is_empty())
+        else {
             return Ok(None);
         };
         let embedding_modules = self.peft_input_embedding_modules()?;
@@ -69674,9 +71219,10 @@ impl VulkanTransformer {
         // installed only when attaching PEFT; ordinary inference keeps its
         // independently qualified stable arithmetic.
         let short_cpu_mla_norms = vendor::is_amd_rdna3(&device)
-            && matches!(self.config.architecture,
-                VulkanTransformerArchitecture::DeepseekV3
-                    | VulkanTransformerArchitecture::Mistral4);
+            && matches!(
+                self.config.architecture,
+                VulkanTransformerArchitecture::DeepseekV3 | VulkanTransformerArchitecture::Mistral4
+            );
         for (index, layer) in self.layers.iter_mut().enumerate() {
             // Retain the materialized rsqrt autograd chain when propagating
             // gradients through frozen RMSNorms to adapter parameters.
@@ -72595,6 +74141,9 @@ impl VulkanTransformer {
     /// tied output head frozen. The ordinary Vulkan `lm_head` path gives that
     /// frozen/output clone an independent physical identity in both cases.
     fn promote_tied_lm_head_for_peft_module_clone(&mut self) -> Result<()> {
+        if self.tiered_tied_head.is_some() {
+            bail!("PEFT replacement of a package-backed tied head is unsupported; reload resident weights first");
+        }
         if self.lm_head.is_some() {
             return Ok(());
         }
@@ -74628,12 +76177,20 @@ impl VulkanTransformer {
                 projection_logits,
                 self.rows,
             )?;
+        } else if let Some(head) = self.tiered_tied_head.as_ref() {
+            head.record_tied_forward(
+                &mut commands,
+                &self.kernels,
+                projection_input,
+                projection_logits,
+                self.rows,
+            )?;
         } else {
             self.kernels.linear_forward.record_dispatch(
                 &mut commands,
                 &[
                     projection_input,
-                    self.shared_embedding.weight_buffer(),
+                    self.shared_embedding.weight_buffer()?,
                     projection_logits,
                 ],
                 bytemuck::bytes_of(&lm_push),
@@ -77769,6 +79326,14 @@ impl VulkanTransformer {
                 projection_logits,
                 1,
             )?;
+        } else if let Some(head) = self.tiered_tied_head.as_ref() {
+            head.record_tied_forward(
+                &mut commands,
+                &self.kernels,
+                terminal_hidden,
+                projection_logits,
+                1,
+            )?;
         } else {
             let lm_push = LinearPush {
                 rows: 1,
@@ -77779,7 +79344,7 @@ impl VulkanTransformer {
                 &mut commands,
                 &[
                     terminal_hidden,
-                    self.shared_embedding.weight_buffer(),
+                    self.shared_embedding.weight_buffer()?,
                     projection_logits,
                 ],
                 bytemuck::bytes_of(&lm_push),
@@ -78798,6 +80363,8 @@ impl VulkanTransformer {
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
         if let Some(lm_head) = self.lm_head.as_ref() {
             lm_head.record_forward(&mut commands, &self.kernels, &input, &output, 1)?;
+        } else if let Some(head) = self.tiered_tied_head.as_ref() {
+            head.record_tied_forward(&mut commands, &self.kernels, &input, &output, 1)?;
         } else {
             let push = LinearPush {
                 rows: 1,
@@ -78806,7 +80373,7 @@ impl VulkanTransformer {
             };
             self.kernels.linear_forward.record_dispatch(
                 &mut commands,
-                &[&input, self.shared_embedding.weight_buffer(), &output],
+                &[&input, self.shared_embedding.weight_buffer()?, &output],
                 bytemuck::bytes_of(&push),
                 [div_ceil_u32(self.config.vocab_size, 16), 1, 1],
             )?;
@@ -81068,6 +82635,16 @@ impl VulkanTransformer {
         encoder_attention_mask: Option<&[f32]>,
         hyper: AdamWHyperParams,
     ) -> Result<VulkanTransformerStepResult> {
+        if self.streamed_linears != 0 || self.tiered_tied_head.is_some()
+            || self
+                .lm_head
+                .as_ref()
+                .is_some_and(|head| head.weight.tiered_source().is_some())
+        {
+            if !self.lora_adapters_enabled || self.lora_config.is_none() {
+                bail!("streamed weights support adapter training, not full-parameter training");
+            }
+        }
         hyper.validate()?;
         if input_ids.len() != self.rows
             || targets.len() != self.rows
@@ -82066,12 +83643,22 @@ impl VulkanTransformer {
                 projection_logits,
                 self.rows,
             )?;
+        } else if let Some(head) = self.tiered_tied_head.as_ref() {
+            head.record_projection(
+                &mut commands,
+                &self.kernels,
+                projection_input,
+                projection_logits,
+                self.rows,
+                true,
+                false,
+            )?;
         } else {
             self.kernels.linear_forward.record_dispatch(
                 &mut commands,
                 &[
                     projection_input,
-                    self.shared_embedding.weight_buffer(),
+                    self.shared_embedding.weight_buffer()?,
                     projection_logits,
                 ],
                 bytemuck::bytes_of(&lm_push),
@@ -82249,6 +83836,13 @@ impl VulkanTransformer {
                 grad_projection_input,
                 self.rows,
             )?;
+        } else if let Some(head) = self.tiered_tied_head.as_ref() {
+            head.record_input_gradient(
+                &mut commands,
+                grad_lm_logits,
+                grad_projection_input,
+                self.rows,
+            )?;
         } else {
             if !peft_mode || peft_bias_all {
                 if let Some(lm_head_bias) = self.lm_head_bias.as_ref() {
@@ -82282,7 +83876,7 @@ impl VulkanTransformer {
                 &mut commands,
                 &[
                     grad_lm_logits,
-                    self.shared_embedding.weight_buffer(),
+                    self.shared_embedding.weight_buffer()?,
                     grad_projection_input,
                 ],
                 bytemuck::bytes_of(&lm_push),
@@ -84998,6 +86592,13 @@ impl VulkanTransformer {
     }
 
     fn gpt2_parameter_tensors(&self) -> Result<BTreeMap<String, (Vec<usize>, Vec<f32>)>> {
+        self.gpt2_parameter_tensors_with_vocabulary(true)
+    }
+
+    fn gpt2_parameter_tensors_with_vocabulary(
+        &self,
+        include_vocabulary: bool,
+    ) -> Result<BTreeMap<String, (Vec<usize>, Vec<f32>)>> {
         if !matches!(
             self.config.architecture,
             VulkanTransformerArchitecture::Gpt2 | VulkanTransformerArchitecture::GptSw3
@@ -85007,7 +86608,11 @@ impl VulkanTransformer {
         let d = self.config.hidden_size;
         let i = self.config.intermediate_size;
         let mut values = BTreeMap::new();
-        let token_embedding = self.shared_embedding.weights()?;
+        let token_embedding = if include_vocabulary {
+            self.shared_embedding.weights()?
+        } else {
+            Vec::new()
+        };
         values.insert(
             "transformer.wte.weight".to_owned(),
             (vec![self.config.vocab_size, d], token_embedding.clone()),
@@ -85155,7 +86760,14 @@ impl VulkanTransformer {
         if let Some(lm_head) = self.lm_head.as_ref() {
             values.insert(
                 "lm_head.weight".to_owned(),
-                (vec![self.config.vocab_size, d], lm_head.weight.read()?),
+                (
+                    vec![self.config.vocab_size, d],
+                    if include_vocabulary {
+                        lm_head.weight.read()?
+                    } else {
+                        Vec::new()
+                    },
+                ),
             );
         } else if self.source_has_lm_head_alias {
             values.insert(
@@ -88307,6 +89919,13 @@ impl VulkanTransformer {
     }
 
     fn llama_parameter_tensors(&self) -> Result<BTreeMap<String, (Vec<usize>, Vec<f32>)>> {
+        self.llama_parameter_tensors_with_vocabulary(true)
+    }
+
+    fn llama_parameter_tensors_with_vocabulary(
+        &self,
+        include_vocabulary: bool,
+    ) -> Result<BTreeMap<String, (Vec<usize>, Vec<f32>)>> {
         if !self.config.architecture.uses_llama_layout()
             && self.config.architecture != VulkanTransformerArchitecture::DeepseekV4
             && self.config.architecture != VulkanTransformerArchitecture::KimiLinear
@@ -88327,7 +89946,11 @@ impl VulkanTransformer {
             weight
         };
         let mut values = BTreeMap::new();
-        let token_embedding = self.shared_embedding.weights()?;
+        let token_embedding = if include_vocabulary {
+            self.shared_embedding.weights()?
+        } else {
+            Vec::new()
+        };
         values.insert(
             "model.embed_tokens.weight".to_owned(),
             (vec![self.config.vocab_size, d], token_embedding.clone()),
@@ -89131,7 +90754,14 @@ impl VulkanTransformer {
         if let Some(lm_head) = self.lm_head.as_ref() {
             values.insert(
                 "lm_head.weight".to_owned(),
-                (vec![self.config.vocab_size, d], lm_head.weight.read()?),
+                (
+                    vec![self.config.vocab_size, d],
+                    if include_vocabulary {
+                        lm_head.weight.read()?
+                    } else {
+                        Vec::new()
+                    },
+                ),
             );
         } else if self.source_has_lm_head_alias {
             values.insert(
@@ -91164,6 +92794,7 @@ fn div_ceil_u32(value: usize, divisor: usize) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    include!("transformer/parameter_streaming_tests.rs");
 
     fn tiny_gpt2_config() -> serde_json::Value {
         serde_json::json!({
@@ -91199,7 +92830,14 @@ mod tests {
         device: VulkanDevice,
         encoder_seq_len: Option<usize>,
     ) -> Result<VulkanTransformer> {
-        let mut value = tiny_gpt2_config();
+        tiny_gpt2_vulkan_graph_with_config(device, tiny_gpt2_config(), encoder_seq_len)
+    }
+
+    fn tiny_gpt2_vulkan_graph_with_config(
+        device: VulkanDevice,
+        mut value: serde_json::Value,
+        encoder_seq_len: Option<usize>,
+    ) -> Result<VulkanTransformer> {
         value["add_cross_attention"] = serde_json::json!(encoder_seq_len.is_some());
         let config = VulkanTransformerConfig::from_hf_value(&value)?;
         let d = config.hidden_size;
@@ -91245,6 +92883,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: pseudo_random(config.vocab_size * d, 301),
             position_embedding: Some(pseudo_random(config.max_position_embeddings * d, 302)),
             embedding_norm: None,
@@ -91252,7 +92891,11 @@ mod tests {
             final_norm: norm(303),
             prediction_head: None,
             has_lm_head_alias: true,
-            lm_head: None,
+            lm_head: if config.tie_word_embeddings {
+                None
+            } else {
+                Some(pseudo_random(config.vocab_size * d, 304))
+            },
             lm_head_bias: None,
         };
         let rotary_layers = (0..config.num_layers)
@@ -91379,6 +93022,7 @@ mod tests {
         let embedding_project = (e != d).then(|| linear(e, d, 908));
         let tied_lm_head = config.tie_word_embeddings;
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: pseudo_random(config.vocab_size * e, 901),
             position_embedding: Some(pseudo_random(config.max_position_embeddings * e, 902)),
             embedding_norm: (!megatron_bert).then(|| norm(e, 903)),
@@ -91519,6 +93163,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: pseudo_random(config.vocab_size * d, 501),
             position_embedding: None,
             embedding_norm: None,
@@ -91889,6 +93534,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: pseudo_random(config.vocab_size * d, 901),
             position_embedding: None,
             embedding_norm: None,
@@ -91991,6 +93637,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: pseudo_random(config.vocab_size * d, 1101),
             position_embedding: None,
             embedding_norm: None,
@@ -92114,6 +93761,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: vec![0.01; config.vocab_size * d],
             position_embedding: None,
             embedding_norm: None,
@@ -92237,6 +93885,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: vec![0.01; config.vocab_size * d],
             position_embedding: None,
             embedding_norm: None,
@@ -92344,6 +93993,7 @@ mod tests {
         };
         let host_minimax_m3_indexers = vec![Some(indexer), None];
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: vec![0.01; config.vocab_size * d],
             position_embedding: None,
             embedding_norm: None,
@@ -92474,6 +94124,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: vec![0.01; config.vocab_size * d],
             position_embedding: None,
             embedding_norm: None,
@@ -92630,6 +94281,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: vec![0.01; config.vocab_size * d],
             position_embedding: None,
             embedding_norm: None,
@@ -92824,6 +94476,7 @@ mod tests {
             latent: None,
         };
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: vec![0.01; config.vocab_size * d],
             position_embedding: None,
             embedding_norm: None,
@@ -92964,6 +94617,7 @@ mod tests {
             xielu: None,
         };
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: vec![0.01; config.vocab_size * d],
             position_embedding: None,
             embedding_norm: None,
@@ -93136,6 +94790,7 @@ mod tests {
             // This PEFT fixture never gathers PLE embedding rows; it only needs
             // the source geometry so the PLE Linear modules can be constructed.
             embedding_source: HostFloatTensorSource {
+                tensor_name: "model.layers.0.ple.ple_embedding.ngram_embedding.weight".to_owned(),
                 path: PathBuf::from("qwen4-peft-fixture-unused.safetensors"),
                 shape: vec![layout.total_vocab_size, embedding_head_dim],
                 dtype: Dtype::F32,
@@ -93303,6 +94958,7 @@ mod tests {
             latent: None,
         };
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: vec![0.01; config.vocab_size * d],
             position_embedding: None,
             embedding_norm: None,
@@ -93522,6 +95178,7 @@ mod tests {
             norm_eps: 1.0e-6,
         };
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: vec![0.01; config.vocab_size * d],
             position_embedding: None,
             embedding_norm: None,
@@ -93653,6 +95310,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: pseudo_random(config.vocab_size * d, 1601),
             position_embedding: None,
             embedding_norm: None,
@@ -111530,6 +113188,7 @@ mod tests {
             kv_latent_scale: 1.0,
         };
         let host = HostTransformerWeights {
+            package_lm_head: None,
             token_embedding: values(config.vocab_size * d, 0.08),
             position_embedding: None,
             embedding_norm: None,
@@ -112631,6 +114290,128 @@ mod tests {
             .expect_err("out-of-range row gather should fail");
         assert!(error.to_string().contains("exceeds row count 5"));
         fs::remove_dir_all(&test_dir)?;
+        Ok(())
+    }
+
+    /// A package directory for one test that removes itself on the panic path as
+    /// well as the success path, so a failing run cannot leave a multi-megabyte
+    /// fixture behind for the next run to find.
+    struct PleOffloadFixture {
+        root: PathBuf,
+    }
+
+    impl PleOffloadFixture {
+        fn new(name: &str) -> Result<Self> {
+            let root = std::env::temp_dir().join(format!(
+                "hierarchos-vulkan-{name}-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)?
+                    .as_nanos()
+            ));
+            let _ = fs::remove_dir_all(&root);
+            fs::create_dir_all(&root)?;
+            Ok(Self { root })
+        }
+
+        fn path(&self) -> &Path {
+            &self.root
+        }
+    }
+
+    impl Drop for PleOffloadFixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    /// The heaviest weight in the tree is the Qwen4-Exp PLE n-gram embedding
+    /// table, read by a row gather on every step. Its read now goes through the
+    /// shared tiered weight offload. Prove the conversion changed only where the
+    /// bytes come from: the gathered values are bit-identical to the whole-tensor
+    /// decode, the read is batched by host tile instead of by row, and a repeated
+    /// gather is served from the host tier.
+    #[test]
+    fn qwen4_ple_row_gather_matches_the_whole_tensor_decode_and_batches_by_tile() -> Result<()> {
+        let test_dir = PleOffloadFixture::new("ple-offload")?;
+        let tensor_name = "model.layers.0.ple.ple_embedding.ngram_embedding.weight";
+        // A 4 KiB row puts a default 8 MiB host tile at exactly 2,048 rows, so
+        // this 4,096-row table spans two tiles and the second one can be left
+        // untouched to show what a bounded read actually costs.
+        let rows = 4096usize;
+        let columns = 1024usize;
+        let values: Vec<f32> = (0..rows * columns).map(|index| index as f32).collect();
+        let bytes = f32_le_bytes(&values);
+        let views = vec![(
+            tensor_name,
+            TensorView::new(Dtype::F32, vec![rows, columns], &bytes)?,
+        )];
+        let path = test_dir.path().join(GPT2_SAFETENSORS_FILENAME);
+        serialize_to_file(views, None, &path)?;
+
+        let mut store = Gpt2TensorStore::load(test_dir.path())?;
+        let source = store.take_expected_source(tensor_name, &[rows, columns])?;
+
+        // Compare against the whole-tensor decode, which is a separate reader
+        // that never goes through the shared offload.
+        let whole = decode_transformer_float_source(tensor_name, &source)?;
+        let rows_of = |ids: &[usize]| -> Vec<f32> {
+            ids.iter()
+                .flat_map(|row| {
+                    whole.values[row * columns..(row + 1) * columns]
+                        .iter()
+                        .copied()
+                })
+                .collect()
+        };
+
+        // The gather the PLE layout actually issues: strided, with repeats, all
+        // inside the first tile.
+        let row_ids = [3usize, 9, 12, 60, 3];
+        let gathered = decode_transformer_float_source_rows(tensor_name, &source, &row_ids)?;
+        assert_eq!(
+            gathered,
+            rows_of(&row_ids),
+            "gather must match the whole-tensor decode"
+        );
+
+        // Five requested rows in one tile cost one package read, never five, and
+        // the repeated row is free. `rows_read` is bounded by the tile, not by
+        // the request, which is the trade the tier makes.
+        let package = shared_package(&source.path)?;
+        let ledger = package.lock().unwrap().ledger();
+        let tile_bytes = 8 * 1024 * 1024u64;
+        let table_bytes = (rows * columns * 4) as u64;
+        assert_eq!(ledger.row_gathers, 1);
+        assert_eq!(ledger.payload_reads, 1);
+        assert_eq!(ledger.payload_bytes_read, tile_bytes);
+        assert_eq!(ledger.rows_read, tile_bytes / (columns as u64 * 4));
+        assert!(
+            ledger.payload_bytes_read < table_bytes,
+            "the second tile is untouched"
+        );
+
+        // A gather that needs the second tile reads it once, then reuses both.
+        let repeat_ids = [2100usize, 2101, 3];
+        let repeat = decode_transformer_float_source_rows(tensor_name, &source, &repeat_ids)?;
+        assert_eq!(repeat, rows_of(&repeat_ids));
+        let ledger = package.lock().unwrap().ledger();
+        assert_eq!(ledger.payload_reads, 2, "no second read of a resident tile");
+        assert_eq!(ledger.payload_bytes_read, table_bytes);
+        assert_eq!(ledger.cache_hits, 1);
+        assert!(ledger.payload_bytes_from_cache > 0);
+
+        // The handle is process-wide, not per call.
+        assert!(Arc::ptr_eq(&package, &shared_package(&source.path)?));
+
+        // The fail-closed contracts survive the conversion.
+        let offending = decode_transformer_float_source_rows(tensor_name, &source, &[rows])
+            .expect_err("out-of-range row gather must fail");
+        assert!(
+            offending.to_string().contains("exceeds row count 4096"),
+            "{offending}"
+        );
+        assert!(decode_transformer_float_source_rows(tensor_name, &source, &[])?.is_empty());
         Ok(())
     }
 
@@ -123121,8 +124902,17 @@ mod tests {
                 identity[i * case.rank + i] = 1.0;
             }
             linear.enable_lora(
-                &device, case.rows, case.rank, 1.0, 0.0, 0, true,
-                &case.weight, &identity, None, None,
+                &device,
+                case.rows,
+                case.rank,
+                1.0,
+                0.0,
+                0,
+                true,
+                &case.weight,
+                &identity,
+                None,
+                None,
             )?;
             let input = GpuBuffer::from_f32(&device, &case.x)?;
             let output = GpuBuffer::zeros_f32(&device, case.rows * case.rank)?;
@@ -123131,19 +124921,35 @@ mod tests {
             for request_lane8 in [false, true] {
                 let mut commands = vulkan::ComputeBatch::new(&device)?;
                 linear.record_forward_mode(
-                    &mut commands, &kernels, &input, &output, case.rows,
-                    true, 0, 0, request_lane8,
+                    &mut commands,
+                    &kernels,
+                    &input,
+                    &output,
+                    case.rows,
+                    true,
+                    0,
+                    0,
+                    request_lane8,
                 )?;
                 commands.submit()?;
-                assert!(kernels.linear_input_grad_group4_muladd.get().is_none(),
-                    "forward-only LoRA must not create its backward pipeline");
-                let actual = linear.lora.as_ref().context("missing LoRA")?
-                    .a_output.read_f32(case.output.len())?;
+                assert!(
+                    kernels.linear_input_grad_group4_muladd.get().is_none(),
+                    "forward-only LoRA must not create its backward pipeline"
+                );
+                let actual = linear
+                    .lora
+                    .as_ref()
+                    .context("missing LoRA")?
+                    .a_output
+                    .read_f32(case.output.len())?;
                 for (index, (a, b)) in actual.iter().zip(&case.output).enumerate() {
                     assert_eq!(
-                        a.to_bits(), b.to_bits(),
+                        a.to_bits(),
+                        b.to_bits(),
                         "LoRA-A M={} K={} rank={} lane8={request_lane8} [{index}]: {a} != {b}",
-                        case.rows, case.dim, case.rank,
+                        case.rows,
+                        case.dim,
+                        case.rank,
                     );
                 }
             }
@@ -123185,8 +124991,17 @@ mod tests {
                 &vec![0.0; input_dim * case.reduction],
             )?;
             linear.enable_lora(
-                &device, case.rows, case.rank, 1.0, 0.0, 0, true,
-                &vec![0.0; case.rank * input_dim], &case.weight, None, None,
+                &device,
+                case.rows,
+                case.rank,
+                1.0,
+                0.0,
+                0,
+                true,
+                &vec![0.0; case.rank * input_dim],
+                &case.weight,
+                None,
+                None,
             )?;
             let input = GpuBuffer::zeros_f32(&device, case.rows * input_dim)?;
             let output = GpuBuffer::zeros_f32(&device, case.rows * case.reduction)?;
@@ -123194,19 +125009,37 @@ mod tests {
             let grad_input = GpuBuffer::zeros_f32(&device, case.rows * input_dim)?;
             let mut commands = vulkan::ComputeBatch::new(&device)?;
             linear.record_forward_training(
-                &mut commands, &kernels, &input, &output, case.rows, 0, 0,
+                &mut commands,
+                &kernels,
+                &input,
+                &output,
+                case.rows,
+                0,
+                0,
             )?;
             linear.record_backward(
-                &mut commands, &kernels, &input, &grad_output, &grad_input, case.rows,
+                &mut commands,
+                &kernels,
+                &input,
+                &grad_output,
+                &grad_input,
+                case.rows,
             )?;
             commands.submit()?;
-            let actual = linear.lora.as_ref().context("missing LoRA")?
-                .grad_a_output.read_f32(case.output.len())?;
+            let actual = linear
+                .lora
+                .as_ref()
+                .context("missing LoRA")?
+                .grad_a_output
+                .read_f32(case.output.len())?;
             for (index, (a, b)) in actual.iter().zip(&case.output).enumerate() {
                 assert_eq!(
-                    a.to_bits(), b.to_bits(),
+                    a.to_bits(),
+                    b.to_bits(),
                     "LoRA-B adjoint M={} K={} rank={} [{index}]: {a} != {b}",
-                    case.rows, case.reduction, case.rank,
+                    case.rows,
+                    case.reduction,
+                    case.rank,
                 );
             }
         }
@@ -125013,6 +126846,1131 @@ mod tests {
         );
 
         fs::remove_dir_all(&test_dir)?;
+        Ok(())
+    }
+
+    /// A streamed output head must produce the logits the resident head
+    /// produced, bit for bit, including across a tile boundary.
+    ///
+    /// The vocabulary is deliberately larger than one tile and its remainder is
+    /// smaller than the minimum tile width, so the projection runs two tiles and
+    /// the second one absorbs a three-row tail - the case that makes the tile
+    /// buffers wider than the nominal tile. Everything else is the ordinary
+    /// untied-head Mistral layout: this test is about the tier, not about a
+    /// family-specific head.
+    #[test]
+    fn streamed_vocabulary_lora_training_resume_matches_resident() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        let root = PleOffloadFixture::new("streamed-lora-training")?;
+        let ids = [0, 8191, 8192, 16386, 7, 8192, 0, 19];
+        let targets = [8191, 8192, 16386, 7, 8192, 0, 19, 3];
+        let mask = [1.0; 8];
+        let hyper = AdamWHyperParams {
+            lr: 0.001,
+            eps: 0.001,
+            weight_decay: 0.01,
+            ..Default::default()
+        };
+        for model_type in ["gpt2", "llama", "mistral", "qwen2"] {
+            for tied in [false, true] {
+                let mut config = match model_type {
+                    "gpt2" => tiny_gpt2_config(),
+                    "qwen2" => tiny_qwen2_config(),
+                    _ => tiny_mistral_config(),
+                };
+                config["model_type"] = serde_json::json!(model_type);
+                config["attention_bias"] = serde_json::json!(false);
+                config["vocab_size"] = serde_json::json!(16387);
+                config["tie_word_embeddings"] = serde_json::json!(tied);
+                let case = root.path().join(format!("{model_type}-{tied}"));
+                let source = case.join("source");
+                let package = case.join("base");
+                fs::create_dir_all(&source)?;
+                fs::write(
+                    source.join("config.json"),
+                    serde_json::to_vec_pretty(&config)?,
+                )?;
+                let seed = if model_type == "gpt2" {
+                    tiny_gpt2_vulkan_graph_with_config(device.clone(), config, None)?
+                } else {
+                    tiny_llama_layout_vulkan_graph(device.clone(), config)?
+                };
+                seed.export_hf_package(&source, &package)?;
+                drop(seed);
+                let mut resident =
+                    VulkanTransformer::from_hf_package(device.clone(), &package, 1, 8)?;
+                let mut streamed = VulkanTransformer::from_hf_package_with_streamed_lm_head(
+                    device.clone(),
+                    &package,
+                    1,
+                    8,
+                )?;
+                let mut adapter = if model_type == "gpt2" {
+                    VulkanTransformerLoraConfig::gpt2(2, 4, vec!["c_attn".into(), "c_proj".into()])?
+                } else {
+                    VulkanTransformerLoraConfig::causal_lm(
+                        2,
+                        4,
+                        vec!["q_proj".into(), "v_proj".into(), "down_proj".into()],
+                        false,
+                    )?
+                };
+                adapter.use_rslora = tied;
+                adapter.lora_dropout = 0.25;
+                adapter.init_lora_weights = VulkanTransformerLoraInit::Bool(false);
+                resident.enable_lora(adapter.clone(), 27)?;
+                streamed.enable_lora(adapter, 27)?;
+                resident.set_dropout_seed(991);
+                streamed.set_dropout_seed(991);
+                assert_eq!(
+                    resident.forward_logits(&ids, &mask)?,
+                    streamed.forward_logits(&ids, &mask)?
+                );
+                for step in 0..2 {
+                    let left = resident.train_step(&ids, &targets, &mask, &mask, hyper)?;
+                    let right = streamed.train_step(&ids, &targets, &mask, &mask, hyper)?;
+                    assert_eq!(
+                        left.loss.to_bits(),
+                        right.loss.to_bits(),
+                        "{model_type} tied={tied} step={step}"
+                    );
+                    let left_grad = resident
+                        .grad_final_norm_output
+                        .read_f32(resident.rows * resident.config.hidden_size)?;
+                    let right_grad = streamed
+                        .grad_final_norm_output
+                        .read_f32(streamed.rows * streamed.config.hidden_size)?;
+                    for (index, (left, right)) in left_grad.iter().zip(&right_grad).enumerate() {
+                        assert_eq!(left.to_bits(), right.to_bits(), "head adjoint {model_type} tied={tied} step={step} index={index} left={left} right={right}");
+                    }
+                    for (name, left) in resident.lora_gradient_values()? {
+                        let right = &streamed.lora_gradient_values()?[&name];
+                        for (index, (left, right)) in left.iter().zip(right).enumerate() {
+                            assert_eq!(
+                                left.to_bits(),
+                                right.to_bits(),
+                                "gradient {name} index={index} left={left} right={right}"
+                            );
+                        }
+                    }
+                    assert_eq!(
+                        resident.forward_logits(&ids, &mask)?,
+                        streamed.forward_logits(&ids, &mask)?
+                    );
+                }
+                let checkpoint = case.join("checkpoint");
+                assert_eq!(
+                    resident.lora_base_fingerprint()?,
+                    streamed.lora_base_fingerprint()?
+                );
+                streamed.save_lora_training_checkpoint(&checkpoint, hyper)?;
+                let mut resumed = VulkanTransformer::from_hf_package_with_streamed_lm_head(
+                    device.clone(),
+                    &package,
+                    1,
+                    8,
+                )?;
+                resumed.load_lora_adapter_for_training(&checkpoint)?;
+                let restored_hyper = resumed.load_lora_optimizer_state(&checkpoint)?;
+                assert_eq!(resumed.step(), streamed.step());
+                assert_eq!(resumed.dropout_seed(), streamed.dropout_seed());
+                resident.train_step(&ids, &targets, &mask, &mask, hyper)?;
+                resumed.train_step(&ids, &targets, &mask, &mask, restored_hyper)?;
+                assert_eq!(
+                    resident.forward_logits(&ids, &mask)?,
+                    resumed.forward_logits(&ids, &mask)?
+                );
+                let reference = case.join("resident-adapter");
+                let restored = case.join("resumed-adapter");
+                resident.export_lora_adapter(&reference)?;
+                resumed.export_lora_adapter(&restored)?;
+                for filename in [VULKAN_TRANSFORMER_ADAPTER_WEIGHTS_FILENAME] {
+                    let left = fs::read(reference.join(filename))?;
+                    let right = fs::read(restored.join(filename))?;
+                    let left = SafeTensors::deserialize(&left)?;
+                    let right = SafeTensors::deserialize(&right)?;
+                    assert_eq!(left.len(), right.len());
+                    for name in left.names() {
+                        assert_eq!(
+                            left.tensor(name)?.data(),
+                            right.tensor(name)?.data(),
+                            "{model_type} {name}"
+                        );
+                    }
+                }
+                let mut inference = VulkanTransformer::from_hf_package_with_streamed_lm_head(
+                    device.clone(),
+                    &package,
+                    1,
+                    8,
+                )?;
+                inference.load_lora_adapter(&restored)?;
+                assert_eq!(
+                    inference.forward_logits(&ids, &mask)?,
+                    resident.forward_logits(&ids, &mask)?
+                );
+                assert!(inference.shared_embedding.is_package_backed());
+                assert_eq!(inference.shared_embedding.training_state_bytes()?, 0);
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn streamed_output_head_matches_resident_logits() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let mut config = tiny_mistral_config();
+        let vocab_size = 2 * TIERED_LM_HEAD_TILE_ROWS + 3;
+        config["vocab_size"] = serde_json::json!(vocab_size);
+        let graph = tiny_llama_layout_vulkan_graph(device.clone(), config.clone())?;
+        let lm_head = graph
+            .lm_head
+            .as_ref()
+            .context("untied tiny Mistral graph has no lm_head")?;
+        assert_eq!(lm_head.output_dim, vocab_size);
+        let resident_weight = lm_head.weight.read()?;
+
+        let root = std::env::temp_dir().join(format!(
+            "hierarchos-vulkan-streamed-head-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_nanos()
+        ));
+        let source_dir = root.join("source");
+        let package_dir = root.join("package");
+        fs::create_dir_all(&source_dir)?;
+        fs::write(
+            source_dir.join("config.json"),
+            serde_json::to_vec_pretty(&config)?,
+        )?;
+        graph.export_hf_package(&source_dir, &package_dir)?;
+
+        let input_ids = [3_u32, 11, 7, 13, 5, 19, 2, 17];
+        let attention_mask = [1.0_f32; 8];
+        let resident = VulkanTransformer::from_hf_package(device.clone(), &package_dir, 1, 8)?;
+        let expected_logits = resident.forward_logits(&input_ids, &attention_mask)?;
+        assert_eq!(expected_logits.len(), 8 * vocab_size);
+
+        let mut streamed = VulkanTransformer::from_hf_package(device.clone(), &package_dir, 1, 8)?;
+        // Nothing is streamed until asked for: loading the same package twice
+        // must not change the default residency behavior.
+        assert!(streamed
+            .lm_head
+            .as_ref()
+            .context("reloaded graph is missing lm_head")?
+            .weight
+            .tiered_source()
+            .is_none());
+        streamed.stream_lm_head_from_package(&package_dir)?;
+        let head = streamed
+            .lm_head
+            .as_ref()
+            .context("streamed graph is missing lm_head")?;
+        assert!(head.weight.tiered_source().is_some());
+
+        let plan = head.weight.tiered_source().unwrap().tile_plan();
+        assert_eq!(plan.len(), 2, "expected a tile boundary plus a merged tail");
+        assert_eq!(
+            plan[1],
+            (
+                TIERED_LM_HEAD_TILE_ROWS,
+                vocab_size - TIERED_LM_HEAD_TILE_ROWS
+            )
+        );
+        assert!(
+            plan[1].1 > TIERED_LM_HEAD_TILE_ROWS,
+            "the tail tile is expected to be wider than the nominal tile"
+        );
+
+        let streamed_logits = streamed.forward_logits(&input_ids, &attention_mask)?;
+        assert_eq!(
+            streamed_logits, expected_logits,
+            "a tiled output head changed the logits"
+        );
+
+        // Each tile's staged upload retires with the tile's own submission, so
+        // the batch that survives the projection carries the tile dispatches
+        // but none of their staging: these two tiles upload 2,097,536 bytes, and
+        // a table-sized hold has to wait for neither of them.
+        let head = streamed
+            .lm_head
+            .as_ref()
+            .context("streamed graph is missing lm_head")?;
+        let mut tiled = vulkan::ComputeBatch::new(&device)?;
+        head.record_forward(
+            &mut tiled,
+            &streamed.kernels,
+            &streamed.input_hidden,
+            &streamed.logits,
+            1,
+        )?;
+        assert!(
+            tiled.dispatch_count() >= plan.len(),
+            "every tile is dispatched through the batch that carries it"
+        );
+        assert_eq!(
+            tiled.uploaded_bytes(),
+            0,
+            "a tile's staging must retire with the tile's own submission"
+        );
+
+        // Reading the parameter still answers with the whole table: export and
+        // the round-trip comparisons run through the package, not the tile.
+        let head = streamed
+            .lm_head
+            .as_ref()
+            .context("streamed graph is missing lm_head")?;
+        assert_eq!(head.weight.read()?, resident_weight);
+        // A streamed base has no mutable parameter identity to fork. Its frozen
+        // forward can participate in training and uses identical arithmetic.
+        assert!(head.weight.fork_for_peft_replacement(true).is_err());
+        // The training entry point must project the same input the graph does -
+        // the terminal norm output, not the pre-norm hidden stream - through
+        // the same tiled kernel. Writing into a fresh buffer proves the call
+        // produced these logits rather than leaving the earlier ones standing.
+        let mut commands = vulkan::ComputeBatch::new(&device)?;
+        let training_logits = GpuBuffer::zeros_f32(&device, streamed.rows * vocab_size)?;
+        head.record_forward_training(
+            &mut commands,
+            &streamed.kernels,
+            &streamed.final_norm_output,
+            &training_logits,
+            streamed.rows,
+            0,
+            0,
+        )?;
+        commands.submit()?;
+        assert_eq!(
+            training_logits.read_f32(streamed.rows * vocab_size)?,
+            expected_logits,
+            "a streamed frozen head must project training and inference inputs identically"
+        );
+
+        // An output bias has to tile with the weight: the kernel seeds the
+        // accumulator with the column's bias before the first FMA, so the
+        // per-column slice must reach the tile as a binding rather than being
+        // added afterwards.
+        let bias = (0..vocab_size)
+            .map(|index| 0.25 - index as f32 * 0.0001)
+            .collect::<Vec<_>>();
+        let mut biased = VulkanTransformer::from_hf_package(device.clone(), &package_dir, 1, 8)?;
+        {
+            let head = biased
+                .lm_head
+                .as_mut()
+                .context("biased graph is missing lm_head")?;
+            head.has_bias = true;
+            head.bias = TrainableParameter::new(&device, &bias, false)?;
+        }
+        let expected_biased = biased.forward_logits(&input_ids, &attention_mask)?;
+        let mut streamed_biased =
+            VulkanTransformer::from_hf_package(device.clone(), &package_dir, 1, 8)?;
+        {
+            let head = streamed_biased
+                .lm_head
+                .as_mut()
+                .context("biased streamed graph is missing lm_head")?;
+            head.has_bias = true;
+            head.bias = TrainableParameter::new(&device, &bias, false)?;
+        }
+        streamed_biased.stream_lm_head_from_package(&package_dir)?;
+        let streamed_biased_logits = streamed_biased.forward_logits(&input_ids, &attention_mask)?;
+        assert_eq!(
+            streamed_biased_logits, expected_biased,
+            "a tiled output head changed biased logits"
+        );
+
+        fs::remove_dir_all(&root)?;
+        Ok(())
+    }
+
+    /// Direct construction must avoid the resident table and its training state,
+    /// not just release them after allocating. Exercise mixed storage, physical
+    /// wrapper names and indexed shards through the actual architecture loader.
+    #[test]
+    fn load_time_output_head_streaming_bounds_allocations_and_preserves_logits() -> Result<()> {
+        let Ok(seed_device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let root = PleOffloadFixture::new("load-time-head")?;
+        let vocab_size = 8 * TIERED_LM_HEAD_TILE_ROWS + 3;
+        let dim = 32;
+        let table_bytes = vocab_size * dim * 4;
+        let ids = [0, 8191, 8192, (vocab_size - 1) as u32, 7, 8192, 0, 19];
+        let mask = [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0];
+        for tied in [false, true] {
+            let mut config = tiny_mistral_config();
+            config["vocab_size"] = serde_json::json!(vocab_size);
+            config["hidden_size"] = serde_json::json!(dim);
+            config["intermediate_size"] = serde_json::json!(2 * dim);
+            config["tie_word_embeddings"] = serde_json::json!(tied);
+            config["pad_token_id"] = serde_json::json!(0);
+            let source = root.path().join(format!("source-{tied}"));
+            let original = root.path().join(format!("original-{tied}"));
+            fs::create_dir_all(&source)?;
+            fs::write(
+                source.join("config.json"),
+                serde_json::to_vec_pretty(&config)?,
+            )?;
+            let seed = tiny_llama_layout_vulkan_graph(seed_device.clone(), config.clone())?;
+            seed.export_hf_package(&source, &original)?;
+            drop(seed);
+            let mut tensors = Gpt2TensorStore::load(&original)?.into_parameter_tensors()?;
+            if tied {
+                // Both legitimate aliases may be serialized. The loader knows
+                // their roles and verifies equality instead of guessing by value.
+                tensors.insert(
+                    "lm_head.weight".into(),
+                    tensors["model.embed_tokens.weight"].clone(),
+                );
+            }
+            for dtype in [Dtype::F32, Dtype::BF16, Dtype::F16] {
+                let package = root.path().join(format!("package-{tied}-{dtype:?}"));
+                fs::create_dir_all(&package)?;
+                let wrapped = dtype == Dtype::BF16;
+                let package_config = if wrapped {
+                    serde_json::json!({"model_type": "llava", "text_config": config.clone(), "vision_config": {"model_type": "clip_vision_model"}})
+                } else {
+                    config.clone()
+                };
+                fs::write(
+                    package.join("config.json"),
+                    serde_json::to_vec_pretty(&package_config)?,
+                )?;
+                let owned = tensors
+                    .iter()
+                    .map(|(key, (shape, values))| {
+                        let vocabulary =
+                            key == "model.embed_tokens.weight" || key == "lm_head.weight";
+                        let storage = if vocabulary { dtype } else { Dtype::F32 };
+                        let bytes = match storage {
+                            Dtype::F32 => f32_le_bytes(values),
+                            Dtype::F16 => values
+                                .iter()
+                                .flat_map(|&v| transformer_f32_to_f16_bits(v).to_le_bytes())
+                                .collect(),
+                            Dtype::BF16 => values
+                                .iter()
+                                .flat_map(|&v| transformer_f32_to_bf16_bits(v).to_le_bytes())
+                                .collect(),
+                            _ => unreachable!(),
+                        };
+                        let name = if wrapped {
+                            key.replacen("model.", "model.language_model.", 1)
+                        } else {
+                            key.clone()
+                        };
+                        (name, shape.clone(), storage, bytes, vocabulary)
+                    })
+                    .collect::<Vec<_>>();
+                if wrapped {
+                    let mut weight_map = serde_json::Map::new();
+                    for (kind, shard) in [
+                        (0, "model-00001-of-00003.safetensors"),
+                        (1, "model-00002-of-00003.safetensors"),
+                        (2, "model-00003-of-00003.safetensors"),
+                    ] {
+                        let views = owned
+                            .iter()
+                            .filter(|item| {
+                                let table_kind = if item.0.ends_with("embed_tokens.weight") {
+                                    0
+                                } else if item.0 == "lm_head.weight" {
+                                    1
+                                } else {
+                                    2
+                                };
+                                table_kind == kind
+                            })
+                            .map(|(name, shape, storage, bytes, _)| {
+                                weight_map.insert(name.clone(), serde_json::json!(shard));
+                                Ok((
+                                    name.as_str(),
+                                    TensorView::new(*storage, shape.clone(), bytes)?,
+                                ))
+                            })
+                            .collect::<Result<Vec<_>>>()?;
+                        serialize_to_file(views, None, &package.join(shard))?;
+                    }
+                    fs::write(
+                        package.join(GPT2_SAFETENSORS_INDEX_FILENAME),
+                        serde_json::to_vec(&serde_json::json!({"weight_map": weight_map}))?,
+                    )?;
+                } else {
+                    let views = owned
+                        .iter()
+                        .map(|(name, shape, storage, bytes, _)| {
+                            Ok((
+                                name.as_str(),
+                                TensorView::new(*storage, shape.clone(), bytes)?,
+                            ))
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                    serialize_to_file(views, None, &package.join(GPT2_SAFETENSORS_FILENAME))?;
+                }
+                // Verify the loader itself retained a descriptor, not a decoded
+                // vector. No graph or device buffer has been made at this point.
+                let host_config =
+                    VulkanTransformerConfig::from_hf_config(package.join("config.json"))?;
+                let host = load_llama_weights_with_head_policy(&package, &host_config, true)?;
+                assert!(host.lm_head.is_none());
+                assert!(host.token_embedding.is_empty());
+                let input_source = if tied {
+                    host.package_lm_head.as_ref().unwrap().source.clone()
+                } else {
+                    host.package_lm_head
+                        .as_ref()
+                        .unwrap()
+                        .embedding_source
+                        .as_ref()
+                        .unwrap()
+                        .clone()
+                };
+                assert_eq!(
+                    host.package_lm_head
+                        .as_ref()
+                        .unwrap()
+                        .embedding_source
+                        .is_none(),
+                    tied
+                );
+                assert_eq!(host.package_lm_head.as_ref().unwrap().tied, tied);
+                if wrapped {
+                    assert!(
+                        host.package_lm_head
+                            .as_ref()
+                            .unwrap()
+                            .source
+                            .tensor_name
+                            .contains("language_model")
+                            || !tied
+                    );
+                }
+                drop(host);
+
+                // Isolated devices make lifetime high-water marks comparable.
+                let resident_device = VulkanDevice::new()?;
+                let resident =
+                    VulkanTransformer::from_hf_package(resident_device.clone(), &package, 1, 8)?;
+                let resident_peak = resident_device.memory_stats()?.peak_live_buffer_bytes;
+                let expected = resident.forward_logits(&ids, &mask)?;
+                let direct_device = VulkanDevice::new()?;
+                let mut direct = VulkanTransformer::from_hf_package_with_streamed_lm_head(
+                    direct_device.clone(),
+                    &package,
+                    1,
+                    8,
+                )?;
+                let stats = direct_device.memory_stats()?;
+                assert!(resident_peak > stats.peak_live_buffer_bytes + 3 * table_bytes,
+                    "loading did not avoid the resident peak: tied={tied} dtype={dtype:?} resident={resident_peak} streamed={}", stats.peak_live_buffer_bytes);
+                assert!(
+                    stats.largest_buffer_bytes < table_bytes,
+                    "a full vocabulary table was allocated during loading"
+                );
+                assert!(direct.shared_embedding.is_package_backed());
+                assert_eq!(direct.shared_embedding.training_state_bytes()?, 0);
+                assert!(direct.shared_embedding.weight_buffer().is_err());
+                assert!(direct
+                    .shared_embedding
+                    .shares_identity_with(&direct.token_embedding.shared_parameter()));
+                if !tied {
+                    let head = direct.lm_head.as_ref().context("missing untied head")?;
+                    assert!(head.weight.tiered_source().is_some());
+                    assert_eq!(head.weight.values.f32_capacity(), 1);
+                    assert_eq!(head.weight.training_state_bytes(), 0);
+                    assert_ne!(
+                        head.weight.tiered_source().unwrap().name,
+                        input_source.tensor_name
+                    );
+                    assert!(
+                        direct.tiered_tied_head.is_none(),
+                        "an untied model must retain a separate output parameter"
+                    );
+                }
+                let input_package = shared_package(&input_source.path)?;
+                let gather_before = input_package.lock().unwrap().ledger().row_gathers;
+                let actual = direct.forward_logits(&ids, &mask)?;
+                assert!(actual
+                    .iter()
+                    .map(|v| v.to_bits())
+                    .eq(expected.iter().map(|v| v.to_bits())));
+                assert_eq!(
+                    input_package.lock().unwrap().ledger().row_gathers,
+                    gather_before + 1
+                );
+                let input_weights = resident.shared_embedding.weights()?;
+                assert_eq!(direct.shared_embedding.weights()?, input_weights);
+                let wanted_rows = [vocab_size as u32 - 1, 0, 8192, 8192];
+                let gathered = direct.shared_embedding.gather_package_rows(&wanted_rows)?;
+                let wanted = wanted_rows
+                    .into_iter()
+                    .flat_map(|id| {
+                        input_weights[id as usize * dim..(id as usize + 1) * dim]
+                            .iter()
+                            .copied()
+                    })
+                    .collect::<Vec<_>>();
+                assert!(gathered
+                    .iter()
+                    .map(|v| v.to_bits())
+                    .eq(wanted.iter().map(|v| v.to_bits())));
+                assert!(direct
+                    .shared_embedding
+                    .gather_package_rows(&[vocab_size as u32])
+                    .is_err());
+                assert!(direct
+                    .shared_embedding
+                    .replace_rows(&[0], &vec![0.5; dim])
+                    .is_err());
+                assert!(direct
+                    .shared_embedding
+                    .fork_for_peft_replacement(false)
+                    .is_err());
+                let head = direct
+                    .tiered_tied_head
+                    .as_ref()
+                    .or_else(|| {
+                        direct
+                            .lm_head
+                            .as_ref()
+                            .and_then(|h| h.weight.tiered_source())
+                    })
+                    .unwrap();
+                let ledger = head.package.lock().unwrap().ledger();
+                let input_ledger = input_package.lock().unwrap().ledger();
+                assert_eq!(input_ledger.whole_tensor_reads, 0);
+                assert!(
+                    input_ledger.cache_peak_bytes <= crate::weight_offload::DEFAULT_CACHE_BYTES
+                );
+                if !tied {
+                    assert_ne!(head.materialize()?, input_weights);
+                    if dtype == Dtype::F32 {
+                        let mut incorrectly_tied = VulkanTransformer::from_hf_package(
+                            resident_device.clone(),
+                            &package,
+                            1,
+                            8,
+                        )?;
+                        incorrectly_tied.lm_head = None;
+                        let wrong = incorrectly_tied.forward_logits(&ids, &mask)?;
+                        assert!(
+                            wrong
+                                .iter()
+                                .zip(&expected)
+                                .any(|(a, b)| (a - b).abs() > 1e-3),
+                            "independent heads need an observable negative control"
+                        );
+                    }
+                }
+                assert_eq!(ledger.whole_tensor_reads, 0);
+                assert!(ledger.cache_peak_bytes <= crate::weight_offload::DEFAULT_CACHE_BYTES);
+                assert_eq!(
+                    head.materialize()?,
+                    if tied {
+                        resident.shared_embedding.weights()?
+                    } else {
+                        resident.lm_head.as_ref().unwrap().weight.read()?
+                    }
+                );
+                let prompt = [7, 8192, (vocab_size - 1) as u32];
+                let (reference, resident_cache) = resident.generation_prefill_kv_cache(&prompt)?;
+                let (actual, direct_cache) = direct.generation_prefill_kv_cache(&prompt)?;
+                assert_eq!(actual, reference);
+                assert_eq!(
+                    direct.generation_cached_step_logits(8192, &direct_cache, 3)?,
+                    resident.generation_cached_step_logits(8192, &resident_cache, 3)?
+                );
+                assert!(direct
+                    .train_step(&ids, &ids, &mask, &mask, AdamWHyperParams::default())
+                    .is_err());
+                let mut adapter =
+                    VulkanTransformerLoraConfig::causal_lm(2, 4, vec!["q_proj".into()], false)?;
+                adapter.modules_to_save = Some(vec!["lm_head".into()]);
+                assert!(direct.enable_lora(adapter, 7).is_err());
+                assert!(direct.lora_configs.is_empty());
+                let output = root.path().join(format!("export-{tied}-{dtype:?}"));
+                direct.export_hf_package(&package, &output)?;
+                let reloaded =
+                    VulkanTransformer::from_hf_package(direct_device.clone(), &output, 1, 8)?;
+                assert_eq!(reloaded.forward_logits(&ids, &mask)?, expected);
+                eprintln!("load-time-head tied={tied} dtype={dtype:?} wrapped_sharded={wrapped} logits={} table_bytes={table_bytes} resident_peak={resident_peak} direct_peak={} largest_buffer={}", expected.len(), stats.peak_live_buffer_bytes, stats.largest_buffer_bytes);
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn load_time_output_head_gpt2_aliases_and_invalid_payloads_fail_before_allocation() -> Result<()>
+    {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        fn write_package(
+            path: &Path,
+            config: &serde_json::Value,
+            tensors: &BTreeMap<String, (Vec<usize>, Vec<f32>)>,
+        ) -> Result<()> {
+            fs::create_dir_all(path)?;
+            fs::write(path.join("config.json"), serde_json::to_vec_pretty(config)?)?;
+            let owned = tensors
+                .iter()
+                .map(|(name, (shape, values))| (name.clone(), shape.clone(), f32_le_bytes(values)))
+                .collect::<Vec<_>>();
+            let views = owned
+                .iter()
+                .map(|(name, shape, bytes)| {
+                    Ok((
+                        name.as_str(),
+                        TensorView::new(Dtype::F32, shape.clone(), bytes)?,
+                    ))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            serialize_to_file(views, None, &path.join(GPT2_SAFETENSORS_FILENAME))?;
+            Ok(())
+        }
+        let root = PleOffloadFixture::new("load-time-head-gpt2")?;
+        let original = root.path().join("original");
+        let source = root.path().join("source");
+        fs::create_dir_all(&source)?;
+        fs::write(
+            source.join("config.json"),
+            serde_json::to_vec_pretty(&tiny_gpt2_config())?,
+        )?;
+        let seed = tiny_gpt2_vulkan_graph(device.clone())?;
+        seed.export_hf_package(&source, &original)?;
+        let initial = Gpt2TensorStore::load(&original)?.into_parameter_tensors()?;
+        let ids = [1, 7, 3, 11, 0, 7, 30, 19];
+        let mask = [1.0; 8];
+        for tied in [true, false] {
+            let mut config = tiny_gpt2_config();
+            config["tie_word_embeddings"] = serde_json::json!(tied);
+            let mut tensors = initial.clone();
+            let mut output = tensors["transformer.wte.weight"].clone();
+            if !tied {
+                for value in &mut output.1 {
+                    *value += 0.03125;
+                }
+            } else {
+                // Preserve the resident alias contract: +0 and -0 compare equal,
+                // while lookup and projection both keep the canonical +0 row.
+                tensors.get_mut("transformer.wte.weight").unwrap().1[0] = 0.0;
+                output.1[0] = -0.0;
+            }
+            tensors.insert("lm_head.weight".into(), output);
+            let package = root.path().join(format!("package-{tied}"));
+            write_package(&package, &config, &tensors)?;
+            let parsed = VulkanTransformerConfig::from_hf_value(&config)?;
+            let host = load_gpt2_weights_with_head_policy(&package, &parsed, true)?;
+            assert!(host.token_embedding.is_empty());
+            assert_eq!(
+                host.package_lm_head
+                    .as_ref()
+                    .unwrap()
+                    .embedding_source
+                    .is_none(),
+                tied
+            );
+            assert!(host.lm_head.is_none());
+            assert!(host.has_lm_head_alias == tied);
+            assert_eq!(
+                host.package_lm_head.as_ref().unwrap().source.tensor_name,
+                if tied {
+                    "transformer.wte.weight"
+                } else {
+                    "lm_head.weight"
+                }
+            );
+            let resident = VulkanTransformer::from_hf_package(device.clone(), &package, 1, 8)?;
+            let direct = VulkanTransformer::from_hf_package_with_streamed_lm_head(
+                device.clone(),
+                &package,
+                1,
+                8,
+            )?;
+            let expected = resident.forward_logits(&ids, &mask)?;
+            assert_eq!(direct.forward_logits(&ids, &mask)?, expected);
+            let exported = root.path().join(format!("export-{tied}"));
+            direct.export_hf_package(&package, &exported)?;
+            let restored = Gpt2TensorStore::load(&exported)?.into_parameter_tensors()?;
+            assert_eq!(restored, tensors);
+            let reloaded = VulkanTransformer::from_hf_package(device.clone(), &exported, 1, 8)?;
+            assert_eq!(reloaded.forward_logits(&ids, &mask)?, expected);
+
+            let mut invalid = tensors.clone();
+            let output = &mut invalid.get_mut("lm_head.weight").unwrap().1;
+            let last = output.len() - 1;
+            // The invalid row is not in ids; validation must cover the entire head.
+            output[last] = if tied { output[last] + 0.5 } else { f32::NAN };
+            let bad = root.path().join(format!("invalid-{tied}"));
+            write_package(&bad, &config, &invalid)?;
+            let invalid_device = VulkanDevice::new()?;
+            let error = match VulkanTransformer::from_hf_package_with_streamed_lm_head(
+                invalid_device.clone(),
+                &bad,
+                1,
+                8,
+            ) {
+                Err(error) => error,
+                Ok(_) => bail!("invalid package was accepted"),
+            };
+            let message = format!("{error:#}");
+            assert!(
+                if tied {
+                    message.contains("differs from embedding")
+                } else {
+                    message.contains("non-finite")
+                },
+                "{message}"
+            );
+            assert_eq!(
+                invalid_device.memory_stats()?.largest_buffer_bytes,
+                0,
+                "invalid payload allocated device buffers before rejection"
+            );
+            if !tied {
+                let mut invalid_input = tensors.clone();
+                *invalid_input
+                    .get_mut("transformer.wte.weight")
+                    .unwrap()
+                    .1
+                    .last_mut()
+                    .unwrap() = f32::NAN;
+                let bad = root.path().join("invalid-unused-input-row");
+                write_package(&bad, &config, &invalid_input)?;
+                let invalid_device = VulkanDevice::new()?;
+                assert!(VulkanTransformer::from_hf_package_with_streamed_lm_head(
+                    invalid_device.clone(),
+                    &bad,
+                    1,
+                    8
+                )
+                .is_err());
+                assert_eq!(invalid_device.memory_stats()?.largest_buffer_bytes, 0);
+
+                let mut equal_tables = tensors.clone();
+                equal_tables.insert(
+                    "lm_head.weight".into(),
+                    equal_tables["transformer.wte.weight"].clone(),
+                );
+                let equal_package = root.path().join("equal-but-untied");
+                write_package(&equal_package, &config, &equal_tables)?;
+                let equal = VulkanTransformer::from_hf_package_with_streamed_lm_head(
+                    device.clone(),
+                    &equal_package,
+                    1,
+                    8,
+                )?;
+                assert!(!equal.config.tie_word_embeddings);
+                assert!(equal.tiered_tied_head.is_none());
+                assert!(equal.lm_head.is_some());
+                assert!(equal.shared_embedding.is_package_backed());
+                assert_eq!(
+                    equal.lm_head.as_ref().unwrap().weight.read()?,
+                    equal.shared_embedding.weights()?
+                );
+                let exported = root.path().join("equal-but-untied-export");
+                equal.export_hf_package(&equal_package, &exported)?;
+                let config_after: serde_json::Value =
+                    serde_json::from_slice(&fs::read(exported.join("config.json"))?)?;
+                assert_eq!(config_after["tie_word_embeddings"], false);
+                assert_eq!(
+                    Gpt2TensorStore::load(&exported)?.into_parameter_tensors()?,
+                    equal_tables
+                );
+
+                let mut wrong_shape = tensors.clone();
+                let (shape, values) = wrong_shape.get_mut("lm_head.weight").unwrap();
+                shape[0] += 1;
+                values.extend(vec![0.0; shape[1]]);
+                let bad = root.path().join("wrong-shape");
+                write_package(&bad, &config, &wrong_shape)?;
+                let invalid_device = VulkanDevice::new()?;
+                assert!(VulkanTransformer::from_hf_package_with_streamed_lm_head(
+                    invalid_device.clone(),
+                    &bad,
+                    1,
+                    8
+                )
+                .is_err());
+                assert_eq!(invalid_device.memory_stats()?.largest_buffer_bytes, 0);
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn streamed_input_embedding_preserves_mllama_reserved_rows() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let root = PleOffloadFixture::new("streamed-input-prefix")?;
+        let source = root.path().join("source");
+        let original = root.path().join("original");
+        let package = root.path().join("package");
+        let exported = root.path().join("exported");
+        let config = tiny_mistral_config();
+        fs::create_dir_all(&source)?;
+        fs::write(
+            source.join("config.json"),
+            serde_json::to_vec_pretty(&config)?,
+        )?;
+        let seed = tiny_llama_layout_vulkan_graph(device.clone(), config.clone())?;
+        seed.export_hf_package(&source, &original)?;
+        let mut tensors = Gpt2TensorStore::load(&original)?.into_parameter_tensors()?;
+        let (embedding_shape, embedding_values) =
+            tensors.get_mut("model.embed_tokens.weight").unwrap();
+        let vocab = embedding_shape[0];
+        let dim = embedding_shape[1];
+        let logical_values = embedding_values.clone();
+        let reserved = (0..8 * dim)
+            .map(|i| 3.0 + i as f32 * 0.0078125)
+            .collect::<Vec<_>>();
+        embedding_shape[0] += 8;
+        embedding_values.extend_from_slice(&reserved);
+        let mut text_config = config;
+        text_config["model_type"] = serde_json::json!("mllama_text_model");
+        text_config["cross_attention_layers"] = serde_json::json!([]);
+        fs::create_dir_all(&package)?;
+        fs::write(
+            package.join("config.json"),
+            serde_json::to_vec_pretty(&text_config)?,
+        )?;
+        let owned = tensors
+            .iter()
+            .map(|(name, (shape, values))| (name, shape, f32_le_bytes(values)))
+            .collect::<Vec<_>>();
+        let views = owned
+            .iter()
+            .map(|(name, shape, bytes)| {
+                Ok((
+                    name.as_str(),
+                    TensorView::new(Dtype::F32, (*shape).clone(), bytes)?,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        serialize_to_file(views, None, &package.join(GPT2_SAFETENSORS_FILENAME))?;
+        let resident = VulkanTransformer::from_hf_package(device.clone(), &package, 1, 8)?;
+        let streamed = VulkanTransformer::from_hf_package_with_streamed_lm_head(
+            device.clone(),
+            &package,
+            1,
+            8,
+        )?;
+        assert!(!streamed.config.tie_word_embeddings);
+        assert!(streamed.shared_embedding.is_package_backed());
+        assert!(streamed.lm_head.is_some());
+        assert_eq!(streamed.shared_embedding.vocab_size(), vocab);
+        assert_eq!(streamed.shared_embedding.weights()?, logical_values);
+        assert!(streamed
+            .shared_embedding
+            .gather_package_rows(&[vocab as u32])
+            .is_err());
+        let rows = streamed.shared_embedding.gather_package_rows(&[
+            (vocab - 1) as u32,
+            0,
+            (vocab - 1) as u32,
+        ])?;
+        let expected_rows = [(vocab - 1), 0, (vocab - 1)]
+            .into_iter()
+            .flat_map(|row| logical_values[row * dim..(row + 1) * dim].iter().copied())
+            .collect::<Vec<_>>();
+        assert_eq!(rows, expected_rows);
+        let ids = [0, 7, (vocab - 1) as u32, 7, 0, 3, 2, 1];
+        let mask = [1.0; 8];
+        let expected = resident.forward_logits(&ids, &mask)?;
+        assert_eq!(streamed.forward_logits(&ids, &mask)?, expected);
+        streamed.export_hf_package(&package, &exported)?;
+        let restored = Gpt2TensorStore::load(&exported)?.into_parameter_tensors()?;
+        assert_eq!(restored, tensors);
+        let reloaded =
+            VulkanTransformer::from_hf_package_with_streamed_lm_head(device, &exported, 1, 8)?;
+        assert_eq!(reloaded.shared_embedding.weights()?, logical_values);
+        assert_eq!(reloaded.forward_logits(&ids, &mask)?, expected);
+        Ok(())
+    }
+
+    /// Both consumers of a tied table must leave device residency together,
+    /// without changing gather, projection, bias, cache or export semantics.
+    #[test]
+    fn streamed_output_head_preserves_tied_lookup_projection_and_export() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        struct FixtureDir(PathBuf);
+        impl Drop for FixtureDir {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+        let root = FixtureDir(std::env::temp_dir().join(format!(
+            "hierarchos-vulkan-tied-streamed-head-{}-{}", std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_nanos()
+        )));
+        let source_dir = root.0.join("source");
+        let package_dir = root.0.join("package");
+        let export_dir = root.0.join("roundtrip");
+        let vocab_size = 2 * TIERED_LM_HEAD_TILE_ROWS + 3;
+        let mut config = tiny_mistral_config();
+        config["tie_word_embeddings"] = serde_json::json!(true);
+        config["vocab_size"] = serde_json::json!(vocab_size);
+        config["pad_token_id"] = serde_json::json!(0);
+        fs::create_dir_all(&source_dir)?;
+        fs::write(
+            source_dir.join("config.json"),
+            serde_json::to_vec_pretty(&config)?,
+        )?;
+        let graph = tiny_llama_layout_vulkan_graph(device.clone(), config.clone())?;
+        assert!(graph.lm_head.is_none());
+        let expected_weight = graph.shared_embedding.weights()?;
+        graph.export_hf_package(&source_dir, &package_dir)?;
+        drop(graph);
+
+        // More output rows than hidden dimensions catches an output tile
+        // accidentally sized by the weight's input width instead of row capacity.
+        let resident = VulkanTransformer::from_hf_package(device.clone(), &package_dir, 5, 8)?;
+        let mut streamed = VulkanTransformer::from_hf_package(device.clone(), &package_dir, 5, 8)?;
+        assert!(streamed.rows > streamed.config.hidden_size);
+        let ids = (0..40)
+            .map(|i| [0, 8191, 8192, 16386, 3, 8192, 0, 7][i % 8])
+            .collect::<Vec<u32>>();
+        let mask = ids
+            .iter()
+            .map(|&id| if id == 0 { 0.0 } else { 1.0 })
+            .collect::<Vec<f32>>();
+        let expected = resident.forward_logits(&ids, &mask)?;
+        streamed.stream_lm_head_from_package(&package_dir)?;
+        assert!(
+            streamed.lm_head.is_none(),
+            "streaming must retain the tied topology"
+        );
+        assert!(streamed
+            .shared_embedding
+            .shares_identity_with(&streamed.token_embedding.shared_parameter()));
+        assert!(streamed.shared_embedding.is_package_backed());
+        assert_eq!(streamed.shared_embedding.training_state_bytes()?, 0);
+        assert!(streamed.shared_embedding.weight_buffer().is_err());
+        let head = streamed
+            .tiered_tied_head
+            .as_ref()
+            .context("missing tied tier")?;
+        assert_eq!(head.tile_plan(), vec![(0, 8192), (8192, 8195)]);
+        let (weight_tile,output_tile,_)=head.scratch(true)?;
+        let output_tile=output_tile.context("requested tiled output scratch")?;
+        assert_eq!(
+            weight_tile.f32_capacity(),
+            TIERED_LM_HEAD_MAX_TILE_ROWS * head.input_dim
+        );
+        assert_eq!(
+            output_tile.f32_capacity(),
+            TIERED_LM_HEAD_MAX_TILE_ROWS * streamed.rows
+        );
+        drop((weight_tile,output_tile));
+        let before = head.package.lock().unwrap().ledger();
+        assert_eq!(streamed.forward_logits(&ids, &mask)?, expected);
+        let after = head.package.lock().unwrap().ledger();
+        assert_eq!(after.row_gathers, before.row_gathers + 1);
+        assert_eq!(after.whole_tensor_reads, before.whole_tensor_reads);
+        assert!(after.cache_peak_bytes <= crate::weight_offload::DEFAULT_CACHE_BYTES);
+        // Padding rows are gathered as stored; padding_idx only affects backward.
+        let gathered = streamed
+            .shared_embedding
+            .gather_package_rows(&[0, 8192, 8192, 16386])?;
+        let dim = streamed.config.hidden_size;
+        let gathered_expected = [0, 8192, 8192, 16386]
+            .into_iter()
+            .flat_map(|id| expected_weight[id * dim..(id + 1) * dim].iter().copied())
+            .collect::<Vec<_>>();
+        assert_eq!(gathered, gathered_expected);
+        assert_eq!(streamed.shared_embedding.weights()?, expected_weight);
+        assert!(streamed.stream_lm_head_from_package(&package_dir).is_err());
+        assert!(streamed
+            .shared_embedding
+            .fork_for_peft_replacement(true)
+            .is_err());
+        assert!(streamed
+            .shared_embedding
+            .replace_rows(&[0], &vec![0.5; dim])
+            .is_err());
+        assert!(streamed
+            .shared_embedding
+            .replace_weights(&expected_weight)
+            .is_err());
+        let mut lora =
+            VulkanTransformerLoraConfig::causal_lm(2, 4, vec!["q_proj".to_owned()], false)?;
+        lora.modules_to_save = Some(vec!["lm_head".into()]);
+        assert!(streamed.enable_lora(lora, 7).is_err());
+        assert!(streamed.lora_configs.is_empty());
+        assert!(streamed
+            .train_step(&ids, &ids, &mask, &mask, AdamWHyperParams::default())
+            .is_err());
+        assert_eq!(streamed.forward_logits(&ids, &mask)?, expected);
+
+        streamed.export_hf_package(&package_dir, &export_dir)?;
+        let reloaded = VulkanTransformer::from_hf_package(device.clone(), &export_dir, 5, 8)?;
+        assert!(reloaded.lm_head.is_none());
+        assert!(!reloaded.shared_embedding.is_package_backed());
+        assert_eq!(reloaded.shared_embedding.weights()?, expected_weight);
+        assert_eq!(reloaded.forward_logits(&ids, &mask)?, expected);
+
+        // Cached prefill and incremental decode use their own projection sites.
+        let mut resident = VulkanTransformer::from_hf_package(device.clone(), &package_dir, 1, 8)?;
+        let mut streamed = VulkanTransformer::from_hf_package(device.clone(), &package_dir, 1, 8)?;
+        // Tied heads add bias after the dot product; preserve that rounding order.
+        let bias = (0..vocab_size)
+            .map(|i| 0.125 - i as f32 * 0.00001)
+            .collect::<Vec<_>>();
+        resident.lm_head_bias = Some(TrainableParameter::new(&device, &bias, false)?);
+        streamed.lm_head_bias = Some(TrainableParameter::new(&device, &bias, false)?);
+        streamed.stream_lm_head_from_package(&package_dir)?;
+        assert_eq!(
+            streamed.forward_logits(&ids[..8], &mask[..8])?,
+            resident.forward_logits(&ids[..8], &mask[..8])?
+        );
+        let prompt = [3, 8192, 16386];
+        let (expected_prefill, resident_cache) = resident.generation_prefill_kv_cache(&prompt)?;
+        let (actual_prefill, streamed_cache) = streamed.generation_prefill_kv_cache(&prompt)?;
+        assert_eq!(actual_prefill, expected_prefill);
+        for (step, token) in [8192, 7, 16386].into_iter().enumerate() {
+            assert_eq!(
+                streamed.generation_cached_step_logits(
+                    token,
+                    &streamed_cache,
+                    prompt.len() + step
+                )?,
+                resident.generation_cached_step_logits(
+                    token,
+                    &resident_cache,
+                    prompt.len() + step
+                )?
+            );
+        }
+        let hidden = (0..dim)
+            .map(|i| (i as f32 - 8.0) * 0.03125)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            streamed.generation_project_dola_hidden(&hidden)?,
+            resident.generation_project_dola_hidden(&hidden)?
+        );
+
+        // Refusal must leave both resident consumers intact.
+        let mut mismatched =
+            VulkanTransformer::from_hf_package(device.clone(), &package_dir, 1, 8)?;
+        mismatched
+            .shared_embedding
+            .replace_rows(&[0], &vec![0.5; dim])?;
+        let error = mismatched
+            .stream_lm_head_from_package(&package_dir)
+            .expect_err("mismatched table must be refused");
+        assert!(format!("{error:#}").contains("cannot be proven equal"));
+        assert!(!mismatched.shared_embedding.is_package_backed());
+        assert!(mismatched.tiered_tied_head.is_none());
+        assert!(mismatched
+            .shared_embedding
+            .shares_identity_with(&mismatched.token_embedding.shared_parameter()));
         Ok(())
     }
 
@@ -130526,19 +133484,33 @@ mod tests {
 
     #[test]
     fn amd_classic_layer_norm_matches_independent_cpu_moments_and_affine() -> Result<()> {
-        let Ok(device) = VulkanDevice::new() else { return Ok(()); };
-        if device.vendor_id() != 0x1002 { return Ok(()); }
-        #[derive(Deserialize)]
-        struct Case {
-            dim: usize, rows: usize, x: Vec<f32>, weight: Vec<f32>, bias: Vec<f32>,
-            output: Vec<f32>, mean: Vec<f32>, rstd: Vec<f32>,
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        if device.vendor_id() != 0x1002 {
+            return Ok(());
         }
         #[derive(Deserialize)]
-        struct Fixture { cases: Vec<Case> }
+        struct Case {
+            dim: usize,
+            rows: usize,
+            x: Vec<f32>,
+            weight: Vec<f32>,
+            bias: Vec<f32>,
+            output: Vec<f32>,
+            mean: Vec<f32>,
+            rstd: Vec<f32>,
+        }
+        #[derive(Deserialize)]
+        struct Fixture {
+            cases: Vec<Case>,
+        }
         let fixture: Fixture = serde_json::from_str(include_str!(
-            "../validation/kernel_golden/transformer_layer_norm_welford.json"))?;
+            "../validation/kernel_golden/transformer_layer_norm_welford.json"
+        ))?;
         let general = vulkan::ComputeKernel::new(&device, LAYER_NORM_WELFORD_FORWARD_SPV, 6, 12)?;
-        let small = vulkan::ComputeKernel::new(&device, LAYER_NORM_WELFORD_SMALL_FORWARD_SPV, 6, 12)?;
+        let small =
+            vulkan::ComputeKernel::new(&device, LAYER_NORM_WELFORD_SMALL_FORWARD_SPV, 6, 12)?;
         for case in fixture.cases {
             let kernel = if case.dim <= 128 { &small } else { &general };
             let x = GpuBuffer::from_f32(&device, &case.x)?;
@@ -130548,9 +133520,21 @@ mod tests {
             let mean = GpuBuffer::zeros_f32(&device, case.rows)?;
             let rstd = GpuBuffer::zeros_f32(&device, case.rows)?;
             let mut commands = vulkan::ComputeBatch::new(&device)?;
-            let push = LayerNormForwardPush { rows: case.rows as u32, dim: case.dim as u32, eps: 1.0e-5 };
-            kernel.record_dispatch(&mut commands, &[&x, &weight, &bias, &output, &mean, &rstd],
-                bytemuck::bytes_of(&push), [div_ceil_u32(case.rows, if case.dim <= 128 { 8 } else { 64 }), 1, 1])?;
+            let push = LayerNormForwardPush {
+                rows: case.rows as u32,
+                dim: case.dim as u32,
+                eps: 1.0e-5,
+            };
+            kernel.record_dispatch(
+                &mut commands,
+                &[&x, &weight, &bias, &output, &mean, &rstd],
+                bytemuck::bytes_of(&push),
+                [
+                    div_ceil_u32(case.rows, if case.dim <= 128 { 8 } else { 64 }),
+                    1,
+                    1,
+                ],
+            )?;
             commands.submit()?;
             for (name, actual, expected) in [
                 ("mean", mean.read_f32(case.rows)?, case.mean),
@@ -130558,7 +133542,12 @@ mod tests {
                 ("affine", output.read_f32(case.x.len())?, case.output),
             ] {
                 for (index, (a, b)) in actual.iter().zip(&expected).enumerate() {
-                    assert_eq!(a.to_bits(), b.to_bits(), "LayerNorm dim={} {name}[{index}]: {a} != {b}", case.dim);
+                    assert_eq!(
+                        a.to_bits(),
+                        b.to_bits(),
+                        "LayerNorm dim={} {name}[{index}]: {a} != {b}",
+                        case.dim
+                    );
                 }
             }
         }

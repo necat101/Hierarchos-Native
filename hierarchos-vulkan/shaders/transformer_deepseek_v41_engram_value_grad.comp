@@ -1,0 +1,21 @@
+#version 450
+// The projected value is shared by the HC copies. Each (token,channel)
+// invocation folds those copies in the CPU strided-axis sum order.
+layout(local_size_x=64) in;
+layout(set=0,binding=0,std430) readonly buffer Upstream { float upstream[]; };
+layout(set=0,binding=1,std430) readonly buffer Gates { float gates[]; };
+layout(set=0,binding=2,std430) buffer GradKv { float grad_kv[]; };
+layout(push_constant) uniform Push {
+    uint rows; uint hc; uint dim; uint proj_width; float eps; float scale; uint has_mask;
+} pc;
+void main() {
+    uint row=gl_GlobalInvocationID.y, col=gl_GlobalInvocationID.x;
+    if (row>=pc.rows || col>=pc.dim) return;
+    precise float sum=0.0f;
+    for (uint copy=0u;copy<pc.hc;++copy) {
+        uint i=row*pc.hc+copy;
+        precise float product=upstream[i*pc.dim+col]*gates[i];
+        sum+=product;
+    }
+    grad_kv[row*pc.proj_width+pc.hc*pc.dim+col]=sum;
+}

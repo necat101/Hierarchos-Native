@@ -1,0 +1,112 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+
+// V4.1 Hyper-Connections coefficients. Matches Block.hc_mixes:
+//   rstd = rsqrt(mean(stream^2) + norm_eps) over the flattened hc*dim stream
+//   pre  = sigmoid(mix[rstd*j] * scale0 + base[j]) + eps
+//   post = 2 * sigmoid(mix[rstd*(hc+j)] * scale1 + base[hc+j])
+//   comb = mix[rstd*(2hc + j*hc + k)] * scale2 + base[...]
+//   comb = softmax_rows(comb) + eps; comb /= column_sum + eps
+//   repeat (sinkhorn_iters - 1): comb /= row_sum + eps; comb /= column_sum + eps
+// The released implementation runs this in a TileLang kernel, so the scalar
+// order below is the contract rather than a PyTorch reduction.
+layout(local_size_x = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer Stream { float stream[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Mixes { float mixes[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Scale { float scale[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Base { float base[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer Pre { float pre[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer Post { float post[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer Comb { float comb[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hc;
+    uint dim;
+    uint mix_hc;
+    uint sinkhorn_iters;
+    float eps;
+    float norm_eps;
+} pc;
+
+#define V41_REDUCE_INPUT stream
+#include "fp32_v41_reduce.glsl"
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint width = pc.hc * pc.dim;
+    uint base_index = row * width;
+
+    precise float sum = v41_sum_squares(base_index, width);
+    precise float variance = fp32_div(sum, float(width)) + pc.norm_eps;
+    float rstd = fp32_sqrt_recip(variance);
+
+    uint mix_base = row * pc.mix_hc;
+    for (uint j = 0u; j < pc.hc; ++j) {
+        precise float pre_mix = mixes[mix_base + j] * rstd;
+        precise float pre_arg = pre_mix * scale[0] + base[j];
+        pre[row * pc.hc + j] = v41_cpu_sigmoid(pre_arg, row * pc.hc + j, pc.rows * pc.hc) + pc.eps;
+        precise float post_mix = mixes[mix_base + pc.hc + j] * rstd;
+        precise float post_arg = post_mix * scale[1] + base[pc.hc + j];
+        post[row * pc.hc + j] = 2.0 * v41_cpu_sigmoid(post_arg, row * pc.hc + j, pc.rows * pc.hc);
+    }
+
+    float c[16];
+    uint mix_offset = pc.hc * 2u;
+    for (uint j = 0u; j < pc.hc; ++j) {
+        for (uint k = 0u; k < pc.hc; ++k) {
+            uint index = mix_offset + j * pc.hc + k;
+            precise float value = mixes[mix_base + index] * rstd;
+            c[j * pc.hc + k] = value * scale[2] + base[index];
+        }
+    }
+
+    // softmax over the last axis, then + eps
+    for (uint j = 0u; j < pc.hc; ++j) {
+        float row_max = c[j * pc.hc];
+        for (uint k = 1u; k < pc.hc; ++k)
+            row_max = max(row_max, c[j * pc.hc + k]);
+        precise float row_sum = 0.0;
+        for (uint k = 0u; k < pc.hc; ++k) {
+            c[j * pc.hc + k] = sleef_expf_u10(c[j * pc.hc + k] - row_max);
+            row_sum += c[j * pc.hc + k];
+        }
+        // CPU softmax rounds the reciprocal once, then multiplies each
+        // exponential. Per-element division has different FP32 rounding.
+        precise float reciprocal = fp32_div(1.0, row_sum);
+        for (uint k = 0u; k < pc.hc; ++k)
+            c[j * pc.hc + k] = c[j * pc.hc + k] * reciprocal + pc.eps;
+    }
+
+    float column_sum[16];
+    for (uint j = 0u; j < pc.hc; ++j) column_sum[j] = 0.0;
+    for (uint j = 0u; j < pc.hc; ++j)
+        for (uint k = 0u; k < pc.hc; ++k) column_sum[k] += c[j * pc.hc + k];
+    for (uint j = 0u; j < pc.hc; ++j)
+        for (uint k = 0u; k < pc.hc; ++k)
+            c[j * pc.hc + k] = fp32_div(c[j * pc.hc + k], column_sum[k] + pc.eps);
+
+    for (uint iteration = 1u; iteration < pc.sinkhorn_iters; ++iteration) {
+        float row_sum[16];
+        for (uint j = 0u; j < pc.hc; ++j) row_sum[j] = 0.0;
+        for (uint j = 0u; j < pc.hc; ++j)
+            for (uint k = 0u; k < pc.hc; ++k) row_sum[j] += c[j * pc.hc + k];
+        for (uint j = 0u; j < pc.hc; ++j)
+            for (uint k = 0u; k < pc.hc; ++k)
+                c[j * pc.hc + k] = fp32_div(c[j * pc.hc + k], row_sum[j] + pc.eps);
+        for (uint j = 0u; j < pc.hc; ++j) column_sum[j] = 0.0;
+        for (uint j = 0u; j < pc.hc; ++j)
+            for (uint k = 0u; k < pc.hc; ++k) column_sum[k] += c[j * pc.hc + k];
+        for (uint j = 0u; j < pc.hc; ++j)
+            for (uint k = 0u; k < pc.hc; ++k)
+                c[j * pc.hc + k] = fp32_div(c[j * pc.hc + k], column_sum[k] + pc.eps);
+    }
+
+    for (uint j = 0u; j < pc.hc; ++j)
+        for (uint k = 0u; k < pc.hc; ++k)
+            comb[(row * pc.hc + j) * pc.hc + k] = c[j * pc.hc + k];
+}

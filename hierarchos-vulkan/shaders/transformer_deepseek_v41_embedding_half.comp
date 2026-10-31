@@ -1,0 +1,30 @@
+#version 450
+
+// Embedding lookup over BF16-exact rows stored as 16-bit pairs. The released
+// table is BF16; the qualified FP32 stream used promoted FP32 storage. Reading
+// the pair back is exact, so the expanded stream is numerically identical.
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(set = 0, binding = 0, std430) readonly buffer Tokens { uint token_ids[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Embedding { uint embedding_pairs[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer Stream { float stream[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint hc;
+    uint vocab;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || col >= pc.hc * pc.dim) return;
+    uint token = token_ids[row];
+    float value = 0.0;
+    if (token < pc.vocab) {
+        uint index = token * pc.dim + col % pc.dim;
+        uint pair = embedding_pairs[index >> 1];
+        uint half_bits = (index & 1u) == 0u ? (pair & 0xffffu) : (pair >> 16);
+        value = uintBitsToFloat(half_bits << 16);
+    }
+    stream[row * pc.hc * pc.dim + col] = value;
+}

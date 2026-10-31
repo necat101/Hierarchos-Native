@@ -41,6 +41,9 @@ def find_kimi_k3_remote_source() -> Path | None:
     candidates: list[Path] = []
     if configured:
         candidates.append(Path(configured).expanduser())
+    # The qualification handoff retains only remote source here, independently
+    # of the large Hub checkpoint cache that may have been reclaimed.
+    candidates.append(Path(__file__).resolve().parents[2]/'target/kimi-k3-remote')
     snapshots = (
         Path.home()
         / ".cache"

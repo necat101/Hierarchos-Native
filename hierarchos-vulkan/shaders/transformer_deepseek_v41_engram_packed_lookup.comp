@@ -1,0 +1,35 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_packed.glsl"
+
+// Released ParallelEngramEmbedding.forward: gather row-scaled FP8 bytes,
+// multiply by the selected UE8M0 scale and round the lookup result to BF16.
+// The entire table stays packed; out-of-range / negative (u32-wrapped) ids zero.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Hashes { uint hashes[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Table { uint data[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Scales { uint scales[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer Output { uint output_bits[]; };
+layout(push_constant) uniform Push {
+    uint vectors;
+    uint cols;
+    uint head_dim;
+    uint table_rows;
+} pc;
+
+void main() {
+    uint vector = gl_WorkGroupID.x;
+    if (vector >= pc.vectors) return;
+    uint row = hashes[vector];
+    for (uint d = gl_LocalInvocationID.x; d < pc.head_dim; d += 64u) {
+        uint value = 0u;
+        if (row < pc.table_rows) {
+            uint i = row * pc.head_dim + d;
+            uint byte = (data[i / 4u] >> ((i % 4u) * 8u)) & 255u;
+            uint si = row * (pc.head_dim / 32u) + d / 32u;
+            uint scale = (scales[si / 4u] >> ((si % 4u) * 8u)) & 255u;
+            value = v41_bf16_bits(v41_scale_bits(v41_e4m3_bits(byte), scale));
+        }
+        output_bits[vector * pc.head_dim + d] = value;
+    }
+}

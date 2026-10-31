@@ -28520,7 +28520,7 @@ impl HierarchosTrainingGraph {
         // final AdamW consumes that persistent tied-gradient buffer without an
         // LM-sized staging copy.
         let output_lm_gradient = self.shared_lm_head.gradient_buffer()?;
-        for trainable in self.output.optimizer_trainables(&output_lm_gradient) {
+        for trainable in self.output.optimizer_trainables(&output_lm_gradient)? {
             if direct_lm_optimizer_gradient && trainable.name == LM_HEAD_WEIGHT_TENSOR_NAME {
                 continue;
             }
@@ -29150,7 +29150,7 @@ fn full_model_named_trainables(
     let lm_gradient = output.lm_head.gradient_buffer()?;
     registry.extend(
         output
-            .optimizer_trainables(&lm_gradient)
+            .optimizer_trainables(&lm_gradient)?
             .into_iter()
             .map(|trainable| NamedTrainable {
                 name: trainable.name.to_string(),

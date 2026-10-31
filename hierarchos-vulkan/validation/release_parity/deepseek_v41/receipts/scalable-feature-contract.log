@@ -1,0 +1,106 @@
+warning: variable does not need to be mutable
+   --> src\deepseek_v41\attention_tests.rs:504:9
+    |
+504 |     let mut indexer = indexer(device.clone(), ratio)?;
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+     --> src\full_training_graph.rs:20140:21
+      |
+20140 |                 let mut readback = GpuBuffer::uninitialized_host_f32(&source.device, len)?;
+      |                     ----^^^^^^^^
+      |                     |
+      |                     help: remove this `mut`
+
+warning: variable does not need to be mutable
+     --> src\transformer.rs:11686:13
+      |
+11686 |         let mut config = Self {
+      |             ----^^^^^^
+      |             |
+      |             help: remove this `mut`
+
+warning: method `record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled` is never used
+    --> src\lib.rs:3232:19
+     |
+1095 | impl HierarchosOutNormHeadTrainer {
+     | --------------------------------- method in this implementation
+...
+3232 |     pub(crate) fn record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled(
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: methods `record_prepared_full_model_optimizer_step` and `finish_prepared_full_model_accumulation_wavefront` are never used
+     --> src\full_training_graph.rs:22904:8
+      |
+ 8187 | impl HierarchosTrainingGraph {
+      | ---------------------------- methods in this implementation
+...
+22904 |     fn record_prepared_full_model_optimizer_step(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+23391 |     fn finish_prepared_full_model_accumulation_wavefront(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `release_training_state` and `training_state_bytes` are never used
+   --> src\shared_lm_head.rs:310:19
+    |
+ 90 | impl SharedLmHeadParameter {
+    | -------------------------- methods in this implementation
+...
+310 |     pub(crate) fn release_training_state(&self) -> Result<()> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+319 |     pub(crate) fn training_state_bytes(&self) -> Result<usize> {
+    |                   ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `decode_transformer_float_tensor` is never used
+     --> src\transformer.rs:34463:4
+      |
+34463 | fn decode_transformer_float_tensor(name: &str, tensor: TensorView<'_>) -> Result<HostFloatTensor> {
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `grad_attention_gate_values` is never read
+     --> src\transformer.rs:47161:5
+      |
+47091 | struct TransformerLayerTape {
+      |        -------------------- field in this struct
+...
+47161 |     grad_attention_gate_values: GpuBuffer,
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `key_hidden_size` is never used
+     --> src\transformer.rs:53535:8
+      |
+53380 | impl VulkanMlaAttention {
+      | ----------------------- method in this implementation
+...
+53535 |     fn key_hidden_size(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^
+
+warning: fields `physical_device` and `physical_device_index` are never read
+  --> src\vulkan.rs:30:5
+   |
+27 | struct DeviceInner {
+   |        ----------- fields in this struct
+...
+30 |     physical_device: vk::PhysicalDevice,
+   |     ^^^^^^^^^^^^^^^
+...
+59 |     physical_device_index: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: `hierarchos-vulkan` (lib test) generated 10 warnings (run `cargo fix --lib -p hierarchos-vulkan --tests` to apply 3 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.61s
+     Running unittests src\lib.rs (hierarchos-vulkan\target\debug\deps\hierarchos_vulkan-4bbb26545632dc46.exe)
+
+running 1 test
+test deepseek_v41::model::scalable_release_tests::deepseek_v41_scalable_release_preserves_production_feature_contract ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 964 filtered out; finished in 0.04s
+

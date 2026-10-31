@@ -1,0 +1,85 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+
+// V4.1 training cross entropy.
+//
+// The arithmetic here is deliberately not a paraphrase. PyTorch's CPU
+// `log_softmax` stages `(x - max) - log(sum(exp(x - max)))`, NLL negates it, and
+// its map-reduce kernel accumulates one host-shaped vector before folding
+// lanes in order on MSVC. At loss magnitudes of order ten association alone
+// moves the value by a full FP32 ulp (9.5e-7 at 10.24), which is larger than
+// the release gate, so each stage is pinned to the reference's own operation.
+//
+// Unlike the general tensor sum in fp32_v41_reduce.glsl, log_softmax uses
+// map_reduce_all with one 8- or 16-lane vector, selected from the host ISA.
+// `exp` is the SLEEF polynomial PyTorch's
+// `Vectorized<float>::exp` evaluates, the max pass is order independent, and
+// the logarithm is the pinned CPU scalar contract.
+//
+// The logit gradient follows the autograd chain the reference takes: NLL
+// produces `-1/rows` at the target and `log_softmax` backward adds
+// `exp(log_softmax) * (1/rows)`. Backward consumes the rounded forward
+// log-probability; recomputing `exp(shifted) / sum` takes a different rounding
+// path and its tiny error is visible after AdamW's epsilon division.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer LogitBuffer { float logits[]; };
+layout(set = 0, binding = 1, std430) readonly buffer TargetBuffer { uint targets[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradBuffer { float grad_logits[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer LossBuffer { float row_loss[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint vocab_size;
+} pc;
+
+#ifndef HIERARCHOS_V41_CE_LANES
+#define HIERARCHOS_V41_CE_LANES 8
+#endif
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint base = row * pc.vocab_size;
+
+    float maximum = logits[base];
+    for (uint column = 1u; column < pc.vocab_size; ++column)
+        maximum = max(maximum, logits[base + column]);
+
+    precise float banks[HIERARCHOS_V41_CE_LANES];
+    for (uint bank = 0u; bank < HIERARCHOS_V41_CE_LANES; ++bank) banks[bank] = 0.0;
+    for (uint column = 0u; column < pc.vocab_size; ++column)
+        banks[column % HIERARCHOS_V41_CE_LANES] += sleef_expf_u10(logits[base + column] - maximum);
+    precise float exp_sum = 0.0;
+    for (uint lane = 0u; lane < min(pc.vocab_size,uint(HIERARCHOS_V41_CE_LANES)); ++lane)
+        exp_sum += banks[lane];
+    precise float log_sum = v41_cpu_scalar_log_positive(exp_sum);
+
+    uint target = targets[row];
+    // PyTorch's CPU `log_softmax` kernel stages `(x - max) - log(sum)` and NLL
+    // negates that. `torch.logsumexp` folds the shift the other way round
+    // (`(max + log(sum)) - x`); both are algebraically correct and measurably
+    // one ulp apart at these magnitudes, but `F.cross_entropy` uses the kernel,
+    // so this association is the contract.
+    precise float shifted = logits[base + target] - maximum;
+    // `-(shifted - log_sum)` is one correctly rounded subtraction away from
+    // `log_sum - shifted`, but a compiler is free to reassociate the negation
+    // into `(maximum + log_sum) - logit`, which rounds the normalizer first and
+    // lands one ulp away -- exactly the association `torch.logsumexp` takes and
+    // `F.cross_entropy` does not. `fp32_fma_exact(-1, shifted, log_sum)` states
+    // the single-rounded difference as one operation, so the contraction cannot
+    // reintroduce the wrong staging.
+    row_loss[row] = fp32_fma_exact(-1.0, shifted, log_sum);
+
+    // Both mean objectives carry the reciprocal row count as a separate factor.
+    precise float inv_rows = fp32_div(1.0, float(pc.rows));
+    for (uint column = 0u; column < pc.vocab_size; ++column) {
+        precise float centered = logits[base + column] - maximum;
+        precise float log_probability = centered - log_sum;
+        precise float probability = sleef_expf_u10(log_probability);
+        precise float weighted = probability * inv_rows;
+        grad_logits[base + column] = column == target ? weighted - inv_rows : weighted;
+    }
+}

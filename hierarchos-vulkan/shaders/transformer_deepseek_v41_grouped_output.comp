@@ -1,0 +1,80 @@
+#version 450
+
+// V4.1 grouped output projection: wo_a is block diagonal over o_groups.
+// output[row, group, r] = sum_k o[row, group, k] * wo_a[group, r, k]
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Weight { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer Output { float y[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint groups;
+    uint group_width;
+    uint output_rank;
+    uint bf16;
+} pc;
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint group = gl_GlobalInvocationID.y;
+    uint row = gl_GlobalInvocationID.z;
+    if (column >= pc.output_rank || group >= pc.groups || row >= pc.rows) return;
+    uint input_base = row * pc.groups * pc.group_width + group * pc.group_width;
+    uint weight_base = (group * pc.output_rank + column) * pc.group_width;
+    precise float sum = 0.0;
+    if (pc.bf16 != 0u && pc.rows == 1u && pc.output_rank > 8u) {
+        // Pinned BF16 grouped GEMV contract: materialize ascending 512-wide
+        // FP32 partials, fold them in order, then let the caller round to BF16.
+        // The FP32 four-lane tree is a different dtype contract. At K=4096
+        // it flips three BF16 outputs in the unchanged production CPU fixture.
+        for (uint start = 0u; start < pc.group_width; start += 512u) {
+            precise float partial = 0.0;
+            for (uint k = start; k < min(start + 512u, pc.group_width); ++k)
+                partial = fma(x[input_base+k], weight[weight_base+k], partial);
+            sum += partial;
+        }
+    } else if (pc.output_rank > 8u && pc.bf16 != 0u) {
+        // Pinned BF16 multi-row GEMM contract: K is split into contiguous
+        // 1024-wide blocks, and the block partials are added in ascending
+        // order. Within a block the CPU kernel accumulates two-element dots
+        // (VDPBF16PS) in ascending pair order with the *odd* element folded
+        // first, so the even element is the last rounding of each pair.
+        // Absorption probes locate the 1024 blocks (a 2^-60 term after the
+        // cancelling term survives only past the next block boundary), and a
+        // near-midpoint production tie distinguishes the pair order: folding
+        // even-first lands one BF16 ulp high on that value.
+        for (uint start = 0u; start < pc.group_width; start += 1024u) {
+            precise float partial = 0.0;
+            uint stop = min(start + 1024u, pc.group_width);
+            for (uint k = start; k < stop; k += 2u) {
+                if (k + 1u < stop)
+                    partial = fma(x[input_base+k+1u], weight[weight_base+k+1u], partial);
+                partial = fma(x[input_base+k], weight[weight_base+k], partial);
+            }
+            sum += partial;
+        }
+    } else if (pc.output_rank > 8u && pc.rows >= 4u) {
+        // The pinned FP32 einsum GEMM takes this serial FMA body for wide,
+        // tall matrices. Panel staging and the vector-dot tree were both
+        // measured against the same trace and land one ulp further away; do
+        // not unify this with the projection kernel without new CPU evidence.
+        for (uint k = 0u; k < pc.group_width; ++k)
+            sum = fma(x[input_base + k], weight[weight_base + k], sum);
+    } else {
+        // Preserve the legacy FP32 narrow/short-matrix vector-dot body.
+        precise float a = 0.0, b = 0.0, c = 0.0, d = 0.0;
+        uint aligned = pc.group_width / 4u * 4u;
+        for (uint k = 0u; k < aligned; k += 4u) {
+            a += x[input_base + k] * weight[weight_base + k];
+            b += x[input_base + k + 1u] * weight[weight_base + k + 1u];
+            c += x[input_base + k + 2u] * weight[weight_base + k + 2u];
+            d += x[input_base + k + 3u] * weight[weight_base + k + 3u];
+        }
+        precise float ac = a + c;
+        precise float bd = b + d;
+        sum = ac + bd;
+        for (uint k = aligned; k < pc.group_width; ++k)
+            sum += x[input_base + k] * weight[weight_base + k];
+    }
+    y[row * pc.groups * pc.output_rank + group * pc.output_rank + column] = sum;
+}

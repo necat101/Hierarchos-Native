@@ -232,6 +232,12 @@ path = "src/bin/transformer_train.rs"
 name = "hierarchos-vulkan-transformer-logits"
 path = "src/bin/transformer_logits.rs"
 
+# DeepSeek V4.1 forward timing/profile harness. Profiling first is what the
+# Intel Gen9 handoff brief asks for before any kernel is optimized.
+[[bin]]
+name = "hierarchos-vulkan-deepseek-v41-forward-probe"
+path = "src/bin/deepseek_v41_forward_probe.rs"
+
 # Standalone shader parity/benchmark harness; compares candidate modules under
 # shaders/ against a directory of baseline modules supplied on the command line.
 [[bin]]

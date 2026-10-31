@@ -1,0 +1,27 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+#include "fp32_v41_packed.glsl"
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Gate { float gate[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Up { float up[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Weight { float route[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Counts { uint counts[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer Output { uint output_bits[]; };
+layout(push_constant) uniform Push { uint rows; uint inter; uint expert; uint bf16; float limit; } pc;
+void main() {
+    uint row = gl_GlobalInvocationID.y, col = gl_GlobalInvocationID.x;
+    if (row >= pc.rows || col >= pc.inter) return;
+    uint visible = pc.expert == 0xffffffffu ? pc.rows : counts[pc.expert];
+    uint i = row * pc.inter + col;
+    if (row >= visible) { output_bits[i] = 0u; return; }
+    float g = gate[i], u = up[i];
+    if (pc.limit > 0.0f) { g = min(g,pc.limit); u = clamp(u,-pc.limit,pc.limit); }
+    precise float value = v41_cpu_silu(g,i,visible * pc.inter) * u;
+    if (pc.expert != 0xffffffffu) value *= route[row];
+    uint b = floatBitsToUint(value);
+    output_bits[i] = pc.bf16 != 0u ? v41_bf16_bits(b) : b;
+}

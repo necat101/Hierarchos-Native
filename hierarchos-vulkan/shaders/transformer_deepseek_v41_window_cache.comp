@@ -1,0 +1,42 @@
+#version 450
+
+// V4.1 sliding-window KV cache. Matches Attention._window_kv:
+//   * prefill seqlen <= window writes slots [0, seqlen);
+//   * prefill seqlen > window keeps the newest `window` tokens with
+//     cutoff = seqlen % window: slots [cutoff, window) then [0, cutoff);
+//   * decode writes one token at start_pos % window.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Source { float source[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer Destination { float destination[]; };
+layout(push_constant) uniform Push {
+    uint batch;
+    uint seq;
+    uint dim;
+    uint window;
+    uint start_pos;
+    uint decode;
+} pc;
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint slot_row = gl_GlobalInvocationID.y;
+    if (column >= pc.dim || slot_row >= pc.batch * pc.window) return;
+    uint batch_index = slot_row / pc.window;
+    uint slot = slot_row % pc.window;
+    uint source_row;
+    if (pc.decode != 0u) {
+        if (slot != pc.start_pos % pc.window) return;
+        source_row = batch_index;
+    } else if (pc.seq <= pc.window) {
+        if (slot >= pc.seq) return;
+        source_row = batch_index * pc.seq + slot;
+    } else {
+        uint cutoff = pc.seq % pc.window;
+        if (slot >= cutoff) {
+            source_row = batch_index * pc.seq + (pc.seq - pc.window + (slot - cutoff));
+        } else {
+            source_row = batch_index * pc.seq + (pc.seq - cutoff + slot);
+        }
+    }
+    destination[slot_row * pc.dim + column] = source[source_row * pc.dim + column];
+}

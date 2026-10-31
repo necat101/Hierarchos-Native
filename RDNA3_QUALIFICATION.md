@@ -1,5 +1,10 @@
 # Physical ROG Ally qualification
 
+**Historical report:** the results below apply to the earlier revisions named
+here. Current-revision RDNA3 validation covers DeepSeek V4.1 Flash and the
+recorded parameter/MoE streaming checks only. Gen9 validation of that work is
+pending. See [VALIDATION_STATUS.md](VALIDATION_STATUS.md).
+
 Status: **qualified on the tested device**, with the limitations listed below.
 Every numerical gate was re-run on the final tuned route tables and again on
 the final GPT-2 module; the shipping bundle, independent mathematical oracles

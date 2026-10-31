@@ -1,0 +1,51 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_v41_packed.glsl"
+
+// Correctness baseline for the released block-scaled GEMM expression. The
+// FP32 dot resets at each K group, then activation and weight scales apply in
+// that order, then blocks accumulate. This has no CUDA tensor-core parity claim.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Activation { float a[]; };
+layout(set = 0, binding = 1, std430) readonly buffer ActivationScale { float a_scale[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Data { uint data[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Scales { uint scales[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer Output { uint output_bits[]; };
+layout(push_constant) uniform PackedLinearPush {
+    uint rows;
+    uint cols;
+    uint inner;
+    uint format;
+    uint act_block;
+    uint bf16;
+} pc;
+
+uint data_byte(uint i) { return (data[i / 4u] >> ((i % 4u) * 8u)) & 255u; }
+uint scale_byte(uint i) { return (scales[i / 4u] >> ((i % 4u) * 8u)) & 255u; }
+void main() {
+    uint col = gl_GlobalInvocationID.x, row = gl_GlobalInvocationID.y;
+    if (col >= pc.cols || row >= pc.rows) return;
+    uint block = pc.format == 1u ? 128u : 32u;
+    uint blocks = pc.inner / block;
+    uint weight_scale_row = pc.format == 2u ? col : col / block;
+    precise float total = 0.0f;
+    for (uint group = 0u; group < blocks; ++group) {
+        uint start = group * block;
+        float sa = a_scale[row * (pc.inner / pc.act_block) + start / pc.act_block];
+        precise float dot = 0.0f;
+        for (uint k = start; k < start + block; ++k) {
+            uint index = col * pc.inner + k;
+            uint b = pc.format == 2u ? v41_e2m1_bits((data_byte(index / 2u) >> ((index % 2u) * 4u)) & 15u)
+                : v41_e4m3_bits(data_byte(index));
+            float aq = fp32_div(a[row * pc.inner + k], sa);
+            dot = fma(aq, uintBitsToFloat(b), dot);
+        }
+        float sb = uintBitsToFloat(v41_scale_bits(0x3f800000u, scale_byte(weight_scale_row * blocks + group)));
+        precise float scaled = dot * sa;
+        scaled *= sb;
+        total += scaled;
+    }
+    uint b = floatBitsToUint(total);
+    output_bits[row * pc.cols + col] = pc.bf16 != 0u ? v41_bf16_bits(b) : b;
+}

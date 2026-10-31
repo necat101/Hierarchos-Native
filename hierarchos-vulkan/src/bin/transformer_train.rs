@@ -44,6 +44,7 @@ struct Args {
     lora_alpha: Option<usize>,
     lora_targets: Vec<String>,
     lora_adapter: Option<PathBuf>,
+    stream_lm_head: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -124,6 +125,7 @@ Training options:\n\
   --seed N                      LoRA initialization + Transformer dropout seed (default: 42)\n\n\
 PEFT options:\n\
   --lora-rank N                 Enable native Vulkan LoRA training\n\
+  --stream-lm-head              Stream frozen vocabulary during adapter training\n\
   --lora-alpha N                LoRA alpha (default: 2 * rank)\n\
   --lora-target NAME            Repeatable target module suffix; architecture default if omitted\n\
   --lora-adapter DIR            Resume weights from an existing PEFT/peft-rs adapter directory\n\n\
@@ -169,10 +171,12 @@ fn parse_args() -> Result<Args> {
         lora_alpha: None,
         lora_targets: Vec::new(),
         lora_adapter: None,
+        stream_lm_head: false,
     };
     let mut args = std::env::args_os().skip(1);
     while let Some(raw) = args.next() {
         match raw.to_string_lossy().as_ref() {
+            "--stream-lm-head" => parsed.stream_lm_head = true,
             "--model" => parsed.model = Some(PathBuf::from(required_arg(&mut args, "--model")?)),
             "--hf-model" => {
                 parsed.hf_model = Some(
@@ -972,6 +976,12 @@ fn main() -> Result<()> {
         Some(index) => VulkanDevice::new_with_index(index)?,
         None => VulkanDevice::new()?,
     };
+    if args.stream_lm_head && encoder_seq_len.is_some() {
+        bail!("--stream-lm-head currently requires a decoder-only model");
+    }
+    if args.stream_lm_head && args.lora_rank.is_none() && args.lora_adapter.is_none() {
+        bail!("--stream-lm-head requires adapter training with a frozen vocabulary");
+    }
     let mut graph = if let Some(encoder_seq_len) = encoder_seq_len {
         VulkanTransformer::from_hf_package_with_encoder_seq_len(
             device,
@@ -979,6 +989,13 @@ fn main() -> Result<()> {
             args.batch_size,
             args.seq_len,
             encoder_seq_len,
+        )?
+    } else if args.stream_lm_head {
+        VulkanTransformer::from_hf_package_with_streamed_lm_head(
+            device,
+            &model_dir,
+            args.batch_size,
+            args.seq_len,
         )?
     } else {
         VulkanTransformer::from_hf_package(device, &model_dir, args.batch_size, args.seq_len)?
@@ -1018,7 +1035,7 @@ fn main() -> Result<()> {
     }
 
     if let Some(adapter) = args.lora_adapter.as_deref() {
-        graph.load_lora_adapter(adapter)?;
+        graph.load_lora_adapter_for_training(adapter)?;
     } else if let Some(rank) = args.lora_rank {
         let alpha = args.lora_alpha.unwrap_or(rank.saturating_mul(2));
         let targets = if args.lora_targets.is_empty() {

@@ -1,0 +1,29 @@
+#version 450
+
+// V4.1 MoE combine, adjoint. The forward is
+// `transformer_deepseek_v41_moe_combine.comp`:
+//   out[row, d] = sum over routed slots in ascending expert id
+//               + shared[row, d]
+// Every routed slot appears exactly once in that sum (top-k selects distinct
+// experts), so each slot's gradient is the upstream gradient at the token, and
+// the shared expert's gradient is the same value. The slot layout is preserved
+// so the expert adjoint can consume it per routed slot.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradOutput { float grad_output[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer GradRouted { float grad_routed[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradShared { float grad_shared[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint topk;
+} pc;
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (column >= pc.dim || row >= pc.rows) return;
+    precise float value = grad_output[row * pc.dim + column];
+    for (uint slot = 0u; slot < pc.topk; ++slot)
+        grad_routed[(row * pc.topk + slot) * pc.dim + column] = value;
+    grad_shared[row * pc.dim + column] = value;
+}

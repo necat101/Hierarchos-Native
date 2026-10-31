@@ -1,0 +1,16 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x=64) in;
+#include "transformer_deepseek_v41_grad_dispatch.glsl"
+layout(set=0,binding=0,std430) readonly buffer Left { float left_values[]; };
+layout(set=0,binding=1,std430) readonly buffer Right { float right_values[]; };
+layout(set=0,binding=2,std430) writeonly buffer Output { float output_values[]; };
+layout(push_constant) uniform Push { uint len; float scale; uint add; } pc;
+void main() {
+    uint i;
+    if (!v41_grad_index(pc.len,i)) return;
+    // Keep the scaling multiply and gradient-branch add in separate tensor
+    // operations, matching PEFT autograd. No fused scaled-add is permitted.
+    if (pc.add!=0u) output_values[i]=left_values[i]+right_values[i];
+    else output_values[i]=left_values[i]*pc.scale;
+}

@@ -1,0 +1,222 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+
+// V4.1 MoE gate, adjoint. The forward is
+// `transformer_deepseek_v41_moe_gate.comp` (reference `Gate.forward`):
+//   z = linear(x, gate_weight) / gate_temp
+//   scores = softmax(z) | sigmoid(z) | sqrt(softplus(z))
+//   indices = topk(scores + bias); weights = gather(scores, indices)
+//   if norm_topk_prob and topk > 1: weights /= weights.sum(-1) + 1e-20
+//   weights *= route_scale
+// The bias only steers selection, so it has no gradient. The adjoint
+// recomputes the routing passthrough exactly as the forward staged it (the same
+// dot pattern, gate temperature division, activation and top-k summation), so
+// the normalization factor and the selected scores cannot disagree with the
+// forward that produced the indices.
+//
+//   d_normalized = grad_weights * route_scale
+//   d_raw        = d_normalized / D - sum_i(d_normalized_i * chosen_i) / D^2
+//   d_scores     = scatter(d_raw) at the selected indices
+//   d_z          = activation backward (see below)
+//   d_x[k]       = sum_e (d_z[e] / gate_temp) * gate_weight[e, k]
+layout(local_size_x = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Weight { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Indices { uint indices[]; };
+layout(set = 0, binding = 3, std430) readonly buffer GradWeights { float grad_weights[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradInput { float grad_x[]; };
+layout(set = 0, binding = 5, std430) readonly buffer SqrtSeeds { uint sqrt_seeds[]; };
+#define V41_SQRT_SEEDS sqrt_seeds
+#include "fp32_v41_cpu_sqrt.glsl"
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint experts;
+    uint topk;
+    uint score_func;
+    float gate_temp;
+    uint norm_topk;
+    float route_scale;
+} pc;
+
+// Private per-invocation scratch (`local_size_x` is one, one row per
+// invocation), matching the forward's staging arrays.
+uint order[512];
+float raw[512];
+float scores[512];
+
+float gate_dot(uint row, uint expert, bool matrix_body) {
+    uint xb = row * pc.dim;
+    uint wb = expert * pc.dim;
+    if (matrix_body) {
+        precise float sum = 0.0;
+        uint panel_width = pc.dim > 192u && pc.dim < 384u ? pc.dim / 2u : 192u;
+        for (uint start = 0u; start < pc.dim; start += panel_width) {
+            precise float panel = 0.0;
+            for (uint k = start; k < min(start + panel_width, pc.dim); ++k)
+                panel = fma(x[xb + k], weight[wb + k], panel);
+            sum += panel;
+        }
+        return sum;
+    }
+    precise float a = 0.0, b = 0.0, c = 0.0, d = 0.0;
+    uint aligned = pc.dim / 4u * 4u;
+    for (uint k = 0u; k < aligned; k += 4u) {
+        precise float p0 = x[xb + k] * weight[wb + k];
+        precise float p1 = x[xb + k + 1u] * weight[wb + k + 1u];
+        precise float p2 = x[xb + k + 2u] * weight[wb + k + 2u];
+        precise float p3 = x[xb + k + 3u] * weight[wb + k + 3u];
+        a += p0; b += p1; c += p2; d += p3;
+    }
+    precise float ac = a + c;
+    precise float bd = b + d;
+    precise float sum = ac + bd;
+    for (uint k = aligned; k < pc.dim; ++k) {
+        precise float product = x[xb + k] * weight[wb + k];
+        sum += product;
+    }
+    return sum;
+}
+
+// The forward's top-k normalization summation, repeated for the same slot
+// order. `topk < 8` uses four accumulators; a supported top-k of eight or more
+// uses eight-lane banks. Both are the pinned CPU sum kernel's short-row paths.
+float normalization_total(float chosen[16]) {
+    precise float total = 0.0;
+    if (pc.topk < 8u) {
+        precise float partial[4];
+        for (uint i = 0u; i < 4u; ++i) partial[i] = 0.0;
+        uint aligned = pc.topk / 4u * 4u;
+        for (uint i = 0u; i < aligned; ++i) partial[i % 4u] += chosen[i];
+        for (uint i = aligned; i < pc.topk; ++i) partial[0] += chosen[i];
+        total = partial[0];
+        for (uint i = 1u; i < 4u; ++i) total += partial[i];
+    } else {
+        uint aligned = pc.topk / 8u * 8u;
+        for (uint i = aligned; i < pc.topk; ++i) total += chosen[i];
+        for (uint lane = 0u; lane < 8u; ++lane) {
+            precise float partial = 0.0;
+            for (uint i = lane; i < aligned; i += 8u) partial += chosen[i];
+            total += partial;
+        }
+    }
+    return total;
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    bool matrix_body = pc.experts > 8u && pc.rows >= 4u;
+
+    uint total_elements = pc.rows * pc.experts;
+    for (uint expert = 0u; expert < pc.experts; ++expert)
+        raw[expert] = fp32_div(gate_dot(row, expert, matrix_body), pc.gate_temp);
+
+    if (pc.score_func == 0u) {
+        float maximum = raw[0];
+        for (uint expert = 1u; expert < pc.experts; ++expert)
+            maximum = max(maximum, raw[expert]);
+        precise float total = 0.0;
+        for (uint expert = 0u; expert < pc.experts; ++expert) {
+            scores[expert] = sleef_expf_u10(raw[expert] - maximum);
+            total += scores[expert];
+        }
+        precise float reciprocal = fp32_div(1.0f, total);
+        for (uint expert = 0u; expert < pc.experts; ++expert)
+            scores[expert] *= reciprocal;
+    } else if (pc.score_func == 1u) {
+        for (uint expert = 0u; expert < pc.experts; ++expert)
+            scores[expert] = v41_cpu_sigmoid(raw[expert], row * pc.experts + expert, total_elements);
+    } else {
+        for (uint expert = 0u; expert < pc.experts; ++expert)
+            scores[expert] = v41_cpu_sqrt(
+                v41_cpu_softplus(raw[expert], row * pc.experts + expert, total_elements));
+    }
+
+    float chosen[16];
+    for (uint slot = 0u; slot < pc.topk; ++slot)
+        chosen[slot] = scores[indices[row * pc.topk + slot]];
+
+    float d_normalized[16];
+    for (uint slot = 0u; slot < pc.topk; ++slot)
+        d_normalized[slot] = grad_weights[row * pc.topk + slot] * pc.route_scale;
+
+    float d_raw[16];
+    if (pc.norm_topk != 0u && pc.topk > 1u) {
+        precise float denominator = normalization_total(chosen) + 1e-20;
+        precise float square = denominator * denominator;
+        precise float tail = 0.0;
+        for (uint slot = 0u; slot < pc.topk; ++slot) {
+            precise float product = d_normalized[slot] * chosen[slot];
+            tail += fp32_div(-product, square);
+        }
+        for (uint slot = 0u; slot < pc.topk; ++slot)
+            d_raw[slot] = fp32_div(d_normalized[slot], denominator) + tail;
+    } else {
+        for (uint slot = 0u; slot < pc.topk; ++slot) d_raw[slot] = d_normalized[slot];
+    }
+
+    // Selection picks experts; the correction bias has no gradient. Distinct
+    // top-k indices mean each selected expert is written once.
+    precise float d_scores[512];
+    for (uint expert = 0u; expert < pc.experts; ++expert) d_scores[expert] = 0.0;
+    for (uint slot = 0u; slot < pc.topk; ++slot)
+        d_scores[indices[row * pc.topk + slot]] = d_raw[slot];
+
+    precise float d_z[512];
+    if (pc.score_func == 0u) {
+        precise float dot = 0.0;
+        for (uint expert = 0u; expert < pc.experts; ++expert)
+            dot += d_scores[expert] * scores[expert];
+        for (uint expert = 0u; expert < pc.experts; ++expert)
+            d_z[expert] = scores[expert] * (d_scores[expert] - dot);
+    } else if (pc.score_func == 1u) {
+        for (uint expert = 0u; expert < pc.experts; ++expert) {
+            precise float sigmoid = scores[expert];
+            d_z[expert] = d_scores[expert] * sigmoid * (1.0 - sigmoid);
+        }
+    } else {
+        for (uint expert = 0u; expert < pc.experts; ++expert) {
+            float score = scores[expert];
+            precise float through_sqrt = fp32_div(d_scores[expert] * 0.5, score);
+            precise float slope = 1.0;
+            if (raw[expert] <= 20.0f)
+                slope = v41_cpu_sigmoid(raw[expert], row * pc.experts + expert, total_elements);
+            d_z[expert] = through_sqrt * slope;
+        }
+    }
+
+    // grad_linear = d_z / gate_temp, then the frozen gate weight's input
+    // gradient. The dot staging mirrors the forward's `gate_dot` with the
+    // expert axis as the contracted dimension.
+    for (uint column = 0u; column < pc.dim; ++column) {
+        precise float sum = 0.0;
+        if (matrix_body) {
+            for (uint expert = 0u; expert < pc.experts; ++expert)
+                sum = fma(fp32_div(d_z[expert], pc.gate_temp),
+                          weight[expert * pc.dim + column], sum);
+        } else {
+            precise float a = 0.0, b = 0.0, c = 0.0, d = 0.0;
+            uint aligned = pc.experts / 4u * 4u;
+            for (uint expert = 0u; expert < aligned; expert += 4u) {
+                a += fp32_div(d_z[expert], pc.gate_temp) * weight[expert * pc.dim + column];
+                b += fp32_div(d_z[expert + 1u], pc.gate_temp) * weight[(expert + 1u) * pc.dim + column];
+                c += fp32_div(d_z[expert + 2u], pc.gate_temp) * weight[(expert + 2u) * pc.dim + column];
+                d += fp32_div(d_z[expert + 3u], pc.gate_temp) * weight[(expert + 3u) * pc.dim + column];
+            }
+            precise float ac = a + c;
+            precise float bd = b + d;
+            sum = ac + bd;
+            for (uint expert = aligned; expert < pc.experts; ++expert) {
+                precise float product = fp32_div(d_z[expert], pc.gate_temp)
+                    * weight[expert * pc.dim + column];
+                sum += product;
+            }
+        }
+        grad_x[row * pc.dim + column] = sum;
+    }
+}

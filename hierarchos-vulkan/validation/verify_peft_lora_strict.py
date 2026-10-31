@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import shutil
@@ -34,7 +35,7 @@ SHARED_REFERENCE_FAMILIES = {
 }
 if FAMILY not in {"gpt2", "llama", "mixtral", "qwen3_next", "qwen3_5_linear", "falcon_h1_gated_after", "falcon_h1_gated_before", "falcon_h1_silu"} | SHARED_REFERENCE_FAMILIES:
     raise ValueError(f"unsupported PEFT oracle family: {FAMILY}")
-FIXTURE_ROOT = ROOT / ".peft-oracle-fixtures" / f"{FAMILY}-strict"
+FIXTURE_ROOT = Path(os.environ.get("HIERARCHOS_PEFT_FIXTURE_ROOT") or ROOT / ".peft-oracle-fixtures" / f"{FAMILY}-strict").resolve()
 BASE_DIR = FIXTURE_ROOT / "base"
 ADAPTER_DIR = FIXTURE_ROOT / "adapter"
 FIXTURE_JSON = FIXTURE_ROOT / "fixture.json"
@@ -64,12 +65,20 @@ def local_transformers_provenance():
 
 
 def _run(args: list[str], *, cwd: Path = ROOT) -> None:
+    if os.environ.get("HIERARCHOS_PEFT_STREAM_PARAMETERS") == "1" and Path(args[0]).stem in {
+        "transformer_parity", "hierarchos-vulkan-transformer-logits"
+    }:
+        args = [*args, "--stream-parameters"]
+    elif os.environ.get("HIERARCHOS_PEFT_STREAM_LM_HEAD") == "1" and Path(args[0]).stem in {
+        "transformer_parity", "hierarchos-vulkan-transformer-logits"
+    }:
+        args = [*args, "--stream-lm-head"]
     subprocess.run(args, cwd=cwd, check=True)
 
 
 def _native_binary() -> Path:
     name = "hierarchos-vulkan-transformer-logits.exe" if os.name == "nt" else "hierarchos-vulkan-transformer-logits"
-    binary = ROOT / "target" / "debug" / name
+    binary = Path(os.environ.get("HIERARCHOS_PEFT_BIN_DIR") or ROOT / "target" / "debug") / name
     if os.environ.get("HIERARCHOS_PEFT_USE_PREBUILT") != "1":
         _run(["cargo", "build", "--bin", "hierarchos-vulkan-transformer-logits", "-j", "1"])
     if not binary.is_file():
@@ -79,7 +88,7 @@ def _native_binary() -> Path:
 
 def _training_binary() -> Path:
     name = "transformer_parity.exe" if os.name == "nt" else "transformer_parity"
-    binary = ROOT / "target" / "debug" / name
+    binary = Path(os.environ.get("HIERARCHOS_PEFT_BIN_DIR") or ROOT / "target" / "debug") / name
     if os.environ.get("HIERARCHOS_PEFT_USE_PREBUILT") != "1":
         _run(["cargo", "build", "--bin", "transformer_parity", "-j", "1"])
     if not binary.is_file():
@@ -360,6 +369,11 @@ def main() -> None:
     sys.path.insert(0, str(TRANSFORMERS_ROOT / "src"))
 
     oracle_provenance = local_transformers_provenance()
+    if FAMILY.startswith('kimi_k3_'):
+        from kimi_k3_reference import find_kimi_k3_remote_source
+        remote=find_kimi_k3_remote_source()
+        if remote is None:raise RuntimeError('missing pinned Kimi K3 reference source; set HIERARCHOS_KIMI_K3_REMOTE_DIR')
+        oracle_provenance['custom_reference_source']={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(remote.glob('*.py'))}
     from peft import LoraConfig, get_peft_model
     from safetensors.torch import load_file
 
@@ -368,10 +382,15 @@ def main() -> None:
     if FIXTURE_ROOT.exists():
         # A new oracle run must not inherit stale reports, but previous traces,
         # saved-module evidence and checkpoints are useful continuation state.
-        # Rename within the validated fixture parent instead of deleting them.
+        # Rename within the validated fixture parent instead of deleting them,
+        # keeping only the newest prior so repeated runs stay bounded rather
+        # than accumulating one full snapshot per run forever.
         previous_run = FIXTURE_ROOT.with_name(FIXTURE_ROOT.name + ".prior-" + str(time.time_ns()))
         FIXTURE_ROOT.rename(previous_run)
         print(f"[peft-oracle] preserved previous fixture at {previous_run}", flush=True)
+        for stale in sorted(FIXTURE_ROOT.parent.glob(f"{FIXTURE_ROOT.name}.prior-*")):
+            if stale != previous_run:
+                shutil.rmtree(stale, ignore_errors=True)
     BASE_DIR.mkdir(parents=True)
     ADAPTER_DIR.mkdir(parents=True)
 
@@ -639,6 +658,9 @@ def main() -> None:
         **oracle_provenance,
         "family": FAMILY,
         "peft_tolerance": TOLERANCE,
+        "parameter_streaming": os.environ.get("HIERARCHOS_PEFT_STREAM_PARAMETERS") == "1",
+        "comparison": "strict_less_than",
+        "rtol": 0,
         "base_max_abs": base_drift,
         "peft_max_abs": peft_drift,
         "lora_delta_max_abs": delta_drift,
@@ -656,17 +678,17 @@ def main() -> None:
         "resume_hf_max_abs": resume_hf_drift,
         "lifecycle": lifecycle,
         "pass": (
-            base_drift <= TOLERANCE
-            and peft_drift <= TOLERANCE
-            and delta_drift <= TOLERANCE
-            and step1_drift <= TOLERANCE
-            and step2_drift <= TOLERANCE
-            and gradient_drift <= TOLERANCE
+            base_drift < TOLERANCE
+            and peft_drift < TOLERANCE
+            and delta_drift < TOLERANCE
+            and step1_drift < TOLERANCE
+            and step2_drift < TOLERANCE
+            and gradient_drift < TOLERANCE
             and frozen_base_drift == 0.0
             and trainable_key_set_match
-            and resume_drift <= TOLERANCE
-            and resume_hf_drift <= TOLERANCE
-            and all(value <= TOLERANCE for value in lifecycle.values())
+            and resume_drift < TOLERANCE
+            and resume_hf_drift < TOLERANCE
+            and all(value < TOLERANCE for value in lifecycle.values())
         ),
     }
     (FIXTURE_ROOT / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

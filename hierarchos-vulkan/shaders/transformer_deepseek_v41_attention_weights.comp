@@ -1,0 +1,133 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+
+// V4.1 sparse attention, weight pass. One invocation owns one
+// (batch, head, query) row. It gathers the sliding-window positions and the
+// compressed positions selected by the fine indexer, computes
+// q.k * softmax_scale, and normalizes with the attention sink as a virtual
+// zero-value slot. The caller concatenates nothing: window indices index the
+// window buffer, compressed indices are shifted by `window_len`.
+//
+// CPU qualification mirrors the pinned PyTorch FP32 sparse-attention oracle:
+// SLEEF exp, 16-lane softmax reduction and a rounded reciprocal multiply.
+layout(local_size_x = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer Queries { float q[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WindowKv { float window_kv[]; };
+layout(set = 0, binding = 2, std430) readonly buffer CompressedKv { float compressed_kv[]; };
+layout(set = 0, binding = 3, std430) readonly buffer WindowIndices { int window_indices[]; };
+layout(set = 0, binding = 4, std430) readonly buffer CompressedIndices { int compressed_indices[]; };
+layout(set = 0, binding = 5, std430) readonly buffer Sink { float sink[]; };
+layout(set = 0, binding = 6, std430) buffer Weights { float weights[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint batch;
+    uint seq;
+    uint heads;
+    uint dim;
+    uint window_capacity;
+    uint window_topk;
+    uint compressed_topk;
+    uint compressed_capacity;
+    float scale;
+} pc;
+
+void main() {
+    uint head = gl_GlobalInvocationID.y;
+    uint row = gl_GlobalInvocationID.z;
+    if (row >= pc.rows || head >= pc.heads) return;
+    uint total = pc.window_topk + pc.compressed_topk;
+    uint weight_base = (row * pc.heads + head) * total;
+    uint batch_index = row / pc.seq;
+
+    float maximum = sink[head];
+    bool any = false;
+    for (uint slot = 0u; slot < total; ++slot) {
+        int index;
+        uint kv_base;
+        if (slot < pc.window_topk) {
+            index = window_indices[row * pc.window_topk + slot];
+            if (index < 0 || uint(index) >= pc.window_capacity) {
+                weights[weight_base + slot] = -3.402823466e+38;
+                continue;
+            }
+            kv_base = (batch_index * pc.window_capacity + uint(index)) * pc.dim;
+        } else {
+            uint offset = slot - pc.window_topk;
+            index = compressed_indices[row * pc.compressed_topk + offset];
+            if (index < 0 || uint(index) < pc.window_capacity
+                || uint(index) - pc.window_capacity >= pc.compressed_capacity) {
+                weights[weight_base + slot] = -3.402823466e+38;
+                continue;
+            }
+            kv_base = (batch_index * pc.compressed_capacity
+                       + (uint(index) - pc.window_capacity)) * pc.dim;
+        }
+        uint query_base = (row * pc.heads + head) * pc.dim;
+        precise float dot = 0.0;
+        // Pin the CPU sparse contraction by its *allocated* matrix shape.
+        // ATen uses its naive bmm below 400 products; a narrow (1..8 column)
+        // BLAS contraction above that threshold uses the four-lane GEMV tree.
+        // Decode's masked 128-slot ring still has 128 columns, not two.
+        if (total <= 8u && total * pc.heads * pc.dim >= 400u) {
+            precise float a=0.0, b=0.0, c=0.0, d=0.0;
+            uint aligned=pc.dim/4u*4u;
+            for (uint k=0u; k<aligned; k+=4u) {
+                float v0=slot<pc.window_topk ? window_kv[kv_base+k] : compressed_kv[kv_base+k];
+                float v1=slot<pc.window_topk ? window_kv[kv_base+k+1u] : compressed_kv[kv_base+k+1u];
+                float v2=slot<pc.window_topk ? window_kv[kv_base+k+2u] : compressed_kv[kv_base+k+2u];
+                float v3=slot<pc.window_topk ? window_kv[kv_base+k+3u] : compressed_kv[kv_base+k+3u];
+                a+=q[query_base+k]*v0; b+=q[query_base+k+1u]*v1;
+                c+=q[query_base+k+2u]*v2; d+=q[query_base+k+3u]*v3;
+            }
+            precise float ac=a+c, bd=b+d;
+            dot=ac+bd;
+            for (uint k=aligned; k<pc.dim; ++k) {
+                float kv=slot<pc.window_topk ? window_kv[kv_base+k] : compressed_kv[kv_base+k];
+                precise float product=q[query_base+k]*kv;
+                dot+=product;
+            }
+        } else {
+            uint panel_width = pc.dim > 192u && pc.dim < 384u ? pc.dim/2u : 192u;
+            for (uint start = 0u; start < pc.dim; start += panel_width) {
+                precise float panel = 0.0;
+                for (uint d = start; d < min(start + panel_width, pc.dim); ++d) {
+                    float kv = slot < pc.window_topk ? window_kv[kv_base+d] : compressed_kv[kv_base+d];
+                    panel = fma(q[query_base+d], kv, panel);
+                }
+                dot += panel;
+            }
+        }
+        float logit = dot * pc.scale;
+        weights[weight_base + slot] = logit;
+        maximum = max(maximum, logit);
+        any = true;
+    }
+
+    if (!any) {
+        for (uint slot = 0u; slot < total; ++slot) weights[weight_base + slot] = 0.0;
+        return;
+    }
+    precise float lanes[16];
+    for (uint i = 0u; i < 16u; ++i) lanes[i] = 0.0;
+    for (uint slot = 0u; slot < total; ++slot) {
+        float value = weights[weight_base + slot];
+        if (value <= -3.0e38) {
+            weights[weight_base + slot] = 0.0;
+        } else {
+            float weight = sleef_expf_u10(value - maximum);
+            weights[weight_base + slot] = weight;
+            lanes[slot % 16u] += weight;
+        }
+    }
+    lanes[total % 16u] += sleef_expf_u10(sink[head] - maximum);
+    precise float denominator = lanes[0];
+    // Windows PyTorch's vec_reduce_all uses the ascending scalar lane fold.
+    for (uint i = 1u; i < min(total + 1u, 16u); ++i) denominator += lanes[i];
+    float reciprocal = fp32_div(1.0, denominator);
+    for (uint slot = 0u; slot < total; ++slot) {
+        weights[weight_base + slot] *= reciprocal;
+    }
+}

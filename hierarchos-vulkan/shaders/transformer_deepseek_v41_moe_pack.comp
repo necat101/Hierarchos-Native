@@ -1,0 +1,27 @@
+#version 450
+// Compact selected rows in torch.where token order. Route metadata never leaves
+// the GPU. Only the live compact prefix and selected row map are overwritten;
+// downstream row-local projections and count masking permit scratch reuse.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Indices { uint ids[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Weights { float route[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer Output { float compact[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer CompactWeights { float compact_weight[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer RowMap { uint row_map[]; };
+layout(push_constant) uniform Push { uint rows; uint dim; uint topk; uint expert; } pc;
+void main() {
+    uint row = gl_GlobalInvocationID.y, col = gl_GlobalInvocationID.x;
+    if (row >= pc.rows || col >= pc.dim) return;
+    uint slot = 0xffffffffu;
+    for (uint s = 0u; s < pc.topk; ++s) if (ids[row * pc.topk + s] == pc.expert) slot = s;
+    if (slot == 0xffffffffu) return;
+    uint packed_row = 0u;
+    for (uint r = 0u; r < row; ++r)
+        for (uint s = 0u; s < pc.topk; ++s) if (ids[r * pc.topk + s] == pc.expert) ++packed_row;
+    compact[packed_row * pc.dim + col] = x[row * pc.dim + col];
+    if (col == 0u) {
+        compact_weight[packed_row] = route[row * pc.topk + slot];
+        row_map[row] = packed_row;
+    }
+}

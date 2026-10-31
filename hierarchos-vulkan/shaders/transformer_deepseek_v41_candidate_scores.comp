@@ -1,0 +1,31 @@
+#version 450
+
+// V4.1 level-one indexer: block maxima, with the newest reachable block pinned.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Logits { float logits[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Visible { uint visible[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer Scores { float scores[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint width;
+    uint blocks;
+    uint block_size;
+    uint topk_blocks;
+} pc;
+
+void main() {
+    uint block = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (block >= pc.blocks || row >= pc.rows) return;
+    float score = uintBitsToFloat(0xff800000u);
+    uint begin = block * pc.block_size;
+    uint count = min(pc.block_size, pc.width - begin);
+    for (uint i = 0u; i < count; ++i) {
+        uint pos = begin + i;
+        if (pos < visible[row]) score = max(score, logits[row * pc.width + pos]);
+    }
+    if (visible[row] > 0u && block == (visible[row] - 1u) / pc.block_size) {
+        score = uintBitsToFloat(0x7f800000u);
+    }
+    scores[row * pc.blocks + block] = score;
+}

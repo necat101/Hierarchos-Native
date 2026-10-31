@@ -1,5 +1,10 @@
 # Verified Intel handoff evidence
 
+**Historical evidence:** this archive covers the earlier Intel revision named
+below. The current V4.1 Flash / streaming handoff has RDNA3 validation for those
+scopes only and still requires its own Gen9 run. See
+[current validation status](../../../VALIDATION_STATUS.md).
+
 All 13 qualification stages passed on Intel HD Graphics 520 (driver 31.0.101.2115).
 This evidence was recorded before committing the already verified working tree.
 The candidate source fingerprint is `88f0e4883f1aa825a3bb2c9e7d64ceddb769ae095d066294549d9e581bf4abb2`.

@@ -1,0 +1,163 @@
+{
+  "schema": 1,
+  "status": "qualified_for_recorded_scope",
+  "recorded_utc": "2026-10-30T17:54:29.234151+00:00",
+  "comparison": "strict_less_than",
+  "absolute_logit_limit": 2e-07,
+  "rtol": 0,
+  "cuda_required": false,
+  "production_weights_executed": false,
+  "device": "AMD Radeon Graphics",
+  "v41_uninterrupted_training": {
+    "path": "hierarchos-vulkan\\validation\\release_parity\\deepseek_v41\\uninterrupted-training.json",
+    "sha256": "5a3145f327918441c48b70f0a2a5b9e0afdc467918db3ec586b7fa4675dfdf52",
+    "values": 1536,
+    "max_abs": 0.0,
+    "pinned_step_inputs": false,
+    "geometry": {
+      "num_hidden_layers": 6,
+      "hidden_size": 32,
+      "n_routed_experts": 384,
+      "num_experts_per_tok": 6,
+      "hc_mult": 4
+    }
+  },
+  "v41_released_schedule_inference": {
+    "path": "target\\deepseek-v41-reference\\scalable-release-native-logits.json",
+    "sha256": "80a67f627ce690d07e7a12e80c810e0ed19a020bbd8fff13ae2c65a5b0772fb6",
+    "layers": 40,
+    "experts": 384,
+    "topk": 6,
+    "logits": 3216,
+    "max_abs": 0.0
+  },
+  "other_architecture_streaming": {
+    "path": "hierarchos-vulkan\\validation\\release_parity\\parameter_streaming\\qualification.json",
+    "sha256": "29ba34c6cf44155e9df921b682e422436732fd070828b16e448d7721b3a644b8",
+    "profiles": 32,
+    "max_abs": 9.000000000813912e-08
+  },
+  "application_policy": {
+    "default": "resident",
+    "cli_flag": "--stream-parameters",
+    "gui_default": false,
+    "gui_label": "Stream frozen parameters and MoE experts from disk",
+    "supported_workflows": [
+      "Transformer inference",
+      "frozen-base LoRA/rsLoRA training where qualified"
+    ],
+    "library_compatibility": "historical V4.1 package constructors retain their tiered policy; application routes pass residency explicitly"
+  },
+  "cli_lifecycle": {
+    "path": "target\\rdna3-streaming\\cli-lifecycle-v2\\qualification.json",
+    "sha256": "5569311af585cf3e3622b7927e1bee22aded0f0c6fd0400866ff861b4f7be97d",
+    "resumed_uninterrupted_and_resident_streamed_adapters_byte_identical": true,
+    "v41_methods": [
+      "LoRA",
+      "rsLoRA"
+    ],
+    "generic_training_inference": [
+      "llama",
+      "mixtral"
+    ]
+  },
+  "checks": {
+    "v41-core-regression": {
+      "path": "target\\rdna3-streaming\\v41-core-regression.log",
+      "sha256": "ab7d56ecf9a2391695f1bc56ce3e5eeb759c6f523c4dedb6dbed23ff2afb0125",
+      "passed": 176,
+      "failed": 0,
+      "ignored": 23
+    },
+    "v41-training-regression": {
+      "path": "target\\rdna3-streaming\\v41-training-regression.log",
+      "sha256": "0e310f46e346698712ad60b19a0a6c7e4cb337cd2f9f7427ebf4d83d71c93912",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0
+    },
+    "v41-uninterrupted-trajectory": {
+      "path": "target\\rdna3-streaming\\v41-uninterrupted-trajectory.log",
+      "sha256": "72f59d906f2d3de02934bcdcb61440323bb558183235f93c83319e2a1e0485c9",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "v41-40-layer-inference": {
+      "path": "target\\rdna3-streaming\\v41-40-layer-inference.log",
+      "sha256": "421176c6f3e173cd8a05f2d04f61aa087ec79d258196b23a09e208840af17d70",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "generic-native-matrix-final": {
+      "path": "target\\rdna3-streaming\\generic-native-matrix-final.log",
+      "sha256": "162f485b97f6dd16d436ce93998476dcca4bc6c85fc36ce12ab29e0f4e79cfc3",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "v41-application-residency": {
+      "path": "target\\rdna3-streaming\\v41-application-residency.log",
+      "sha256": "7ce8c15b409997b247a43903fda2bb5c5290c1b4b96626ca6442a34376738b93",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "vulkan-regression": {
+      "path": "target\\rdna3-streaming\\vulkan-regression.log",
+      "sha256": "43e2510ce2f460c2de5d0df54b9158b79b896228f0ef8a3285edf12ef92f60eb",
+      "passed": 36,
+      "failed": 0,
+      "ignored": 0
+    },
+    "cli-regression": {
+      "path": "target\\rdna3-streaming\\cli-regression.log",
+      "sha256": "bde14245db8c1e29e82fbb5b20b95bd242665b173c1dbfe64d411d97185f96e4",
+      "passed": 41,
+      "failed": 0,
+      "ignored": 0
+    },
+    "gui-regression": {
+      "path": "target\\rdna3-streaming\\gui-regression.log",
+      "sha256": "772eeafa6247b424697cbbbb6a541b26571485afabe12c556a41c956c23b26cc",
+      "passed": 8,
+      "failed": 0,
+      "ignored": 1
+    }
+  },
+  "shader_provenance": {
+    "path": "target\\rdna3-streaming\\shader-provenance.log",
+    "sha256": "29b5b3a678b46f75715f647064034083a6b5c2084aa6af09ab17bd36b5cd4804",
+    "identical_artifacts": 548
+  },
+  "push_layout": {
+    "path": "target\\rdna3-streaming\\push-layout.log",
+    "sha256": "569beae195b2b5ecf9b9c06fb7dd1001eae529df5cd7ed4b291dfff8cc3d4738"
+  },
+  "depth_metadata_correction": {
+    "path": "target\\rdna3-streaming\\training-depth-metadata-correction.json",
+    "sha256": "4be0080ab901e6b63d0e224713f2ac0697df80552c01a6abfb48ef8512c4f63c"
+  },
+  "limits": [
+    "generic conversion follows resident initial loading",
+    "specialized parameter operators outside VulkanLinear stay resident",
+    "full base-weight training offload and encoder-decoder streaming excluded",
+    "146-family coverage and Intel Gen9 performance not claimed",
+    "scaled fixtures qualify the recorded shapes/features; full production weights were not run",
+    "V4.1 unsupported adapter classes remain fail-closed under the existing capability contract"
+  ],
+  "source_bindings": {
+    "hierarchos-vulkan/src/transformer.rs": "8f5556d7c641fc89b024031b8d1b59df792baab264fb87e97f336ed9d7490da7",
+    "hierarchos-vulkan/src/transformer/peft_state.rs": "c0ee8ba3659d2e519209f13d4a910b27cadca7e0c45451a9ec2fc7858328335d",
+    "hierarchos-vulkan/src/deepseek_v41/model.rs": "71b6e0785655d58c924d1b344cdf2a370410d33bba5007c9f52a562c65ccdee4",
+    "hierarchos-vulkan/src/deepseek_v41/model_training_tests.rs": "3ad660274d3c3c576ecbcdfd1f71db45fcba8439525073b1dc612b4866378c19",
+    "hierarchos-native-cli/src/lib.rs": "c5a967c038d330e854b543c4be4f4dc5bf177bf9312e1afe929709de696893ac",
+    "hierarchos-native-cli/src/deepseek_v41_training.rs": "1ad1f5b9b281186db3cb6e87a8925bd3fd6d2ae4f2b0c0ed078517577298fb7a",
+    "hierarchos-gui/src/main.rs": "a2fdce067fb587f5fe55450c1a3a97dc1af504adbc045a7d3aa31372ff653514"
+  },
+  "scratch_cleanup": {
+    "path": "target\\rdna3-streaming\\scratch-cleanup.json",
+    "sha256": "e302690b32abb36e30dd69f855a06cc262ce3b79d7425593dddc72807e56227e"
+  }
+}

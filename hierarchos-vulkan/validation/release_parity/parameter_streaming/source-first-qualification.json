@@ -1,0 +1,90 @@
+{
+  "status": "qualified_for_recorded_scope",
+  "recorded_utc": "2026-10-30T19:10:23.685971+00:00",
+  "device": "AMD Radeon Graphics (RDNA3)",
+  "cpu_logit_atol": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "cpu_peft_max_abs": 9.000000000813912e-08,
+  "source_first_families": [
+    "llama",
+    "mistral",
+    "qwen2",
+    "mixtral"
+  ],
+  "application_default": "resident",
+  "cli_flag": "--stream-parameters",
+  "gui_default": false,
+  "cpu_peft": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\release_parity\\parameter_streaming\\source-first-cpu-peft-qualification.json",
+    "sha256": "61b381bc4a1802671236dd6e240e12ec1c3ae88ea6b9fb3661b2759221d2f941"
+  },
+  "loading_memory_and_formats": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\initial-streaming\\20261030T190547671754Z\\qualification.json",
+    "sha256": "c8400c7c97ca3899c8d96f1120f82029449a98baa6c6a7849eb3829d1476e713"
+  },
+  "cli_lifecycle": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\initial-streaming\\cli-lifecycle\\qualification.json",
+    "sha256": "779aaef63a74ad984a6520d910f4115cc3d3d05c63b8ec328c5ab512491e4d3c"
+  },
+  "regression_logs": [
+    {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\initial-streaming\\offload-regression.log",
+      "sha256": "5477af37c9021744b532ce9ca3f396bfb99747197830c61f7dcd01a0e58ff0a7",
+      "passed": 13
+    },
+    {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\initial-streaming\\native-streaming-final.log",
+      "sha256": "518735ecb929812fd27fe7a7ec3d7dd1771ada7c99916455bc9965c966092cee",
+      "passed": 2
+    },
+    {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\initial-streaming\\vocabulary-loading-regression.log",
+      "sha256": "fbaaa303d0784a744b2e13a4274419a900f47f323fbe3226a45fd1a5ba675996",
+      "passed": 2
+    },
+    {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\initial-streaming\\vocabulary-peft-resume.log",
+      "sha256": "52cbb6aa61a53f585affe1b490993208d141bbe37a87b832e3b9b0c965405d7c",
+      "passed": 1
+    },
+    {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\initial-streaming\\v41-uninterrupted-final.log",
+      "sha256": "ba74f21169fe184ee83150c503308bff90078523f2f8cff2d8eb37361bd83fb6",
+      "passed": 1
+    },
+    {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\initial-streaming\\cli-regression.log",
+      "sha256": "e194542046d2c2a2ff5cf295418d1e40bad9db046b558781c890977d634ed0e7",
+      "passed": 41
+    }
+  ],
+  "cli_binary": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\initial-streaming\\cli-lifecycle\\hierarchos-native-cli.exe",
+    "sha256": "aa8e3f4dc11e937af8097f3bfb7e3c61e95901bbc6f25302a38ac3b8c5ff0e17"
+  },
+  "summarizer": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\summarize_source_first_streaming_qualification.py",
+    "sha256": "6ad55ca37b3d29a8abc4c982fcb994f8566da2f2d21f2dc0fc1eceee783dde44"
+  },
+  "fresh_v41_uninterrupted_logits": 1536,
+  "fresh_v41_uninterrupted_max_abs": 0.0,
+  "resident_vs_source_first_logits": 7168,
+  "loader_max_abs": 0.0,
+  "mixtral_e8_construction_buffer_peak": {
+    "resident": 217701244,
+    "source_first": 2284548,
+    "growth_from_e2": 1176
+  },
+  "prior_v41_qualification": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\release_parity\\deepseek_v41\\rdna3-streaming-qualification.json",
+    "sha256": "2aee3010f69d3479ecc89397be6f47a8baa02de11def3c0eaf2176a2d7c74e5b"
+  },
+  "limits": [
+    "other generic families retain their resident initial-loading peak",
+    "norms, biases, activations, adapter state and specialized operators remain resident",
+    "construction buffer counters exclude driver/pipeline allocations and process RSS",
+    "format/memory checks compare resident and streamed execution; independent CPU/PEFT gate is separate",
+    "no full-base training offload, production weight run, all-146 coverage, or Intel Gen9 performance claim"
+  ]
+}

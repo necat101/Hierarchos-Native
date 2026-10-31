@@ -157,6 +157,7 @@ fn hyper() -> AdamWHyperParams {
 }
 
 fn fixture() -> Result<PathBuf> {
+    sweep_stale_fixtures();
     let path = std::env::temp_dir().join(format!(
         "hierarchos-causal-lm-{}-{}",
         std::process::id(),
@@ -1022,7 +1023,48 @@ fn continuation_matches_cpu_across_manager_and_rosa_boundaries() -> Result<()> {
 /// channel-mix and projection dispatches. The architecture-contract fixture is
 /// deliberately tiny (width 32, one row), so every dispatch there stays on the
 /// portable module.
+/// Remove causal-LM fixtures left by earlier runs.
+///
+/// Each call mints a uniquely named directory and only some call sites remove
+/// it, so repeated suite runs accumulated fixtures forever. Reclaiming the
+/// leftovers before allocating keeps the temp root bounded. A directory another
+/// process currently holds stays: its removal fails and it is skipped, so this
+/// never disturbs a live run.
+///
+/// The prefix covers both mint sites - `hierarchos-causal-lm-<pid>-<nanos>` and
+/// `hierarchos-causal-lm-vendor-<pid>-<nanos>`. Sweeping only the vendor form
+/// left the larger fixture family unreclaimed.
+///
+/// Only directories quiet for at least [`STALE_FIXTURE_AGE`] are removed. Tests
+/// run in parallel threads of one process, so a fixture the current run just
+/// created is live even though nothing holds a file handle open between its
+/// steps; deleting it by prefix alone would fail an unrelated test. Age, not
+/// liveness, is what distinguishes a leftover from a working directory.
+fn sweep_stale_fixtures() {
+    const STALE_FIXTURE_AGE: std::time::Duration = std::time::Duration::from_secs(3600);
+    let Ok(entries) = fs::read_dir(std::env::temp_dir()) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if !name.starts_with("hierarchos-causal-lm-") {
+            continue;
+        }
+        let quiet_for = entry
+            .metadata()
+            .and_then(|metadata| metadata.modified())
+            .ok()
+            .and_then(|modified| SystemTime::now().duration_since(modified).ok());
+        if quiet_for.is_some_and(|age| age < STALE_FIXTURE_AGE) {
+            continue;
+        }
+        let _ = fs::remove_dir_all(entry.path());
+    }
+}
+
 fn vendor_fixture() -> Result<PathBuf> {
+    sweep_stale_fixtures();
     let path = std::env::temp_dir().join(format!(
         "hierarchos-causal-lm-vendor-{}-{}",
         std::process::id(),
@@ -1122,13 +1164,16 @@ fn vendor_kernels_match_portable() -> Result<()> {
     // Module arithmetic qualification includes measured performance losers.
     // Shipping geometry decisions are exercised by the ordinary trajectory gates.
     let _modules = EnvVarGuard::set(
-        crate::vendor::HIERARCHOS_VULKAN_QUALIFY_VENDOR_MODULES_ENV, "1",
+        crate::vendor::HIERARCHOS_VULKAN_QUALIFY_VENDOR_MODULES_ENV,
+        "1",
     );
     let _time_mix = EnvVarGuard::set(
-        crate::rwkv_time_mix_core::HIERARCHOS_VULKAN_DISABLE_TIME_MIX_FORWARD_FUSION_ENV, "1",
+        crate::rwkv_time_mix_core::HIERARCHOS_VULKAN_DISABLE_TIME_MIX_FORWARD_FUSION_ENV,
+        "1",
     );
     let _channel_mix = EnvVarGuard::set(
-        crate::rwkv_channel_mix::HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION_ENV, "1",
+        crate::rwkv_channel_mix::HIERARCHOS_VULKAN_DISABLE_CHANNEL_MIX_FORWARD_FUSION_ENV,
+        "1",
     );
     let batch = 8usize;
     let context_dim = 128usize;

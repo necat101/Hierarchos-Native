@@ -24,6 +24,14 @@ implements it. Inference mode exposes prompt, token limit, temperature, top-k,
 top-p, sampling policy, and (for Transformer generation) Vulkan device selection.
 The output pane is read-only so model output and logs cannot be edited accidentally.
 
+Transformer generation and LoRA fine-tuning expose **Stream frozen parameters
+and MoE experts from disk**. It is unchecked by default and adds
+`--stream-parameters` to the displayed CLI command. It selects package-backed
+projection/expert/vocabulary execution, including the dedicated DeepSeek V4.1
+path. Full-parameter training keeps mutable weights resident. Ordinary Llama,
+Mistral, Qwen2 and Mixtral packages also avoid resident body-weight allocation
+during loading. Other generic loaders retain their initial-loading peak.
+
 Local model/tokenizer/dataset paths and Hugging Face `OWNER/REPO` model/dataset
 IDs are supported. Common training controls (epochs, batch size, maximum sequence
 length, learning rate, Vulkan device index and assistant-recovery SFT preset) are
