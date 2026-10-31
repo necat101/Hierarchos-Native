@@ -1,0 +1,81 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+// One invocation per compact row. The rounded mixed forward is retained;
+// casts/activation quantization have the documented FP32 STE adjoint.
+layout(local_size_x = 64) in;
+layout(set=0,binding=0,std430) readonly buffer Gate { float gate[]; };
+layout(set=0,binding=1,std430) readonly buffer Up { float up[]; };
+layout(set=0,binding=2,std430) readonly buffer Route { float route[]; };
+layout(set=0,binding=3,std430) readonly buffer Counts { uint counts[]; };
+layout(set=0,binding=4,std430) readonly buffer Upstream { float upstream[]; };
+layout(set=0,binding=5,std430) writeonly buffer GradGate { float grad_gate[]; };
+layout(set=0,binding=6,std430) writeonly buffer GradUp { float grad_up[]; };
+layout(set=0,binding=7,std430) writeonly buffer GradRoute { float grad_route[]; };
+layout(push_constant) uniform Push { uint rows; uint inter; uint expert; uint bf16; float limit; } pc;
+
+float element(uint row, uint col, uint visible) {
+    uint i = row * pc.inter + col;
+    if (row >= visible) {
+        grad_gate[i] = 0.0f; grad_up[i] = 0.0f;
+        return 0.0f;
+    }
+    float original_g = gate[i], original_u = up[i];
+    float g = original_g, u = original_u;
+    if (pc.limit > 0.0f) { g = min(g,pc.limit); u = clamp(u,-pc.limit,pc.limit); }
+    float silu_value = v41_cpu_silu(g,i,visible * pc.inter);
+    precise float activation = silu_value * u;
+    precise float d = upstream[i];
+    precise float d_activation = pc.expert == 0xffffffffu ? d : d * route[row];
+    precise float du = d_activation * silu_value;
+    float sigmoid = v41_cpu_sigmoid(g,i,visible * pc.inter);
+    precise float slope = sigmoid * (1.0f + g * (1.0f - sigmoid));
+    precise float dg = (d_activation * u) * slope;
+    // Pinned CPU scalar-bound clamp_backward uses strict inequalities.
+    if (pc.limit > 0.0f) {
+        if (original_g >= pc.limit) dg = 0.0f;
+        if (original_u <= -pc.limit || original_u >= pc.limit) du = 0.0f;
+    }
+    grad_gate[i] = dg; grad_up[i] = du;
+    return d * activation;
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint visible = pc.expert == 0xffffffffu ? pc.rows : counts[pc.expert];
+    // CPU SumKernel: four interleaved eight-lane banks with a four-level
+    // cascade. Products are rounded separately before this reduction.
+    precise float acc[128];
+    for (uint i=0u;i<128u;++i) acc[i]=0.0f;
+    uint vectors=pc.inter/8u, groups=vectors/4u;
+    uint bits=groups>1u ? uint(findMSB(groups-1u))+1u : 0u;
+    uint power=max(4u,bits/4u), step=1u<<power, mask=step-1u;
+    for (uint group=0u;group<groups;++group) {
+        for (uint i=0u;i<32u;++i) acc[i]+=element(row,group*32u+i,visible);
+        uint count=group+1u;
+        if (count%step==0u) {
+            for (uint level=1u;level<4u;++level) {
+                for (uint i=0u;i<32u;++i) {
+                    acc[level*32u+i]+=acc[(level-1u)*32u+i];
+                    acc[(level-1u)*32u+i]=0.0f;
+                }
+                if ((count & (mask<<(level*power)))!=0u) break;
+            }
+        }
+    }
+    for (uint level=1u;level<4u;++level)
+        for (uint i=0u;i<32u;++i) acc[i]+=acc[level*32u+i];
+    for (uint v=groups*4u;v<vectors;++v)
+        for (uint lane=0u;lane<8u;++lane) acc[lane]+=element(row,v*8u+lane,visible);
+    precise float total=0.0f;
+    for (uint j=vectors*8u;j<pc.inter;++j) total+=element(row,j,visible);
+    for (uint lane=0u;lane<8u;++lane) {
+        precise float partial=acc[lane]+acc[8u+lane];
+        partial+=acc[16u+lane]; partial+=acc[24u+lane]; total+=partial;
+    }
+    grad_route[row] = pc.expert == 0xffffffffu ? 0.0f : total;
+}

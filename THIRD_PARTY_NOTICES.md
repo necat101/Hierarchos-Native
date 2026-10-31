@@ -1,9 +1,53 @@
 # Third-party notices
 
+## DeepSeek V4.1 reference configuration
+
+`hierarchos-vulkan/validation/fixtures/deepseek_v41_flash_1017_config.json`
+comes from `deepseek-ai/DeepSeek-V4.1-Flash-1017`, revision
+`1bae0e1088993b9b82de08f59de5be5a34e42170`. The candidate-selection fixtures
+are outputs of its released reference implementation.
+
+### MIT License
+
+Copyright (c) 2023 DeepSeek
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## Microsoft STL selection staging
+
+`hierarchos-vulkan/shaders/transformer_deepseek_v41_index_topk.comp` adapts
+Microsoft STL's median partition and heap staging to preserve the selected sets
+of tied scores in the pinned Windows CPU PyTorch oracle. The code runs on Vulkan;
+it does not load the STL or PyTorch at runtime.
+
+Copyright (c) Microsoft Corporation.
+
+Source: [Microsoft STL](https://github.com/microsoft/STL/tree/b6f01e438b68ee497f9c08313e49d12bb2f0d8e0/stl/inc),
+revision `b6f01e438b68ee497f9c08313e49d12bb2f0d8e0` (`algorithm` and
+`__msvc_heap_algorithms.hpp`). Licensed under Apache-2.0 WITH LLVM-exception;
+the complete license is in [licenses/Microsoft-STL.txt](licenses/Microsoft-STL.txt).
+
 ## SLEEF FP32 mathematical helpers
 
 The shader adaptations in `hierarchos-vulkan/shaders/fp32_sleef_exp.glsl`,
-`fp32_sleef_pow.glsl`, `fp32_sleef_tanh.glsl`, and `fp32_sleef_trig.glsl`
+`fp32_sleef_pow.glsl`, `fp32_sleef_tanh.glsl`, `fp32_sleef_trig.glsl`, and the
+vector `log1p` path in `fp32_v41_unary.glsl`
 use SLEEF's FP32 coefficients and operation staging to reproduce the local
 PyTorch CPU validation oracle. Source revisions are recorded in those files.
 

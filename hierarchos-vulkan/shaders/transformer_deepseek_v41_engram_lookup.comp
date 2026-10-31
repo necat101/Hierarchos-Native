@@ -1,0 +1,34 @@
+#version 450
+
+// V4.1 Engram table lookup. Each hash id selects one `head_dim` row. The
+// released table stores FP8 E4M3 rows with UE8M0 block scales and rounds the
+// dequantized row to BF16 on lookup; the native contract takes the
+// already-dequantized, BF16-exact FP32 rows produced by the checkpoint
+// converter. Out-of-range ids become zero rows, matching the sharded
+// embedding's mask.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Hashes { uint hashes[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Table { float table[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer Output { float output_values[]; };
+layout(push_constant) uniform Push {
+    uint vectors;
+    uint cols;
+    uint head_dim;
+    uint table_rows;
+} pc;
+
+void main() {
+    uint vector = gl_WorkGroupID.x;
+    if (vector >= pc.vectors) return;
+    uint index = hashes[vector];
+    uint lane = gl_LocalInvocationID.x;
+    uint output_base = vector * pc.head_dim;
+    if (index >= pc.table_rows) {
+        for (uint d = lane; d < pc.head_dim; d += 64u)
+            output_values[output_base + d] = 0.0;
+        return;
+    }
+    uint table_base = index * pc.head_dim;
+    for (uint d = lane; d < pc.head_dim; d += 64u)
+        output_values[output_base + d] = table[table_base + d];
+}

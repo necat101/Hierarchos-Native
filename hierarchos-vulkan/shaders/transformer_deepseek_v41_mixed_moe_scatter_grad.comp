@@ -1,0 +1,23 @@
+#version 450
+// Inverse of compact-row gather plus the two projection-input branches.
+// Dispatch experts sequentially; each token/channel has exactly one writer.
+layout(local_size_x=64) in;
+layout(set=0,binding=0,std430) readonly buffer GradGate { float grad_gate[]; };
+layout(set=0,binding=1,std430) readonly buffer GradUp { float grad_up[]; };
+layout(set=0,binding=2,std430) readonly buffer Indices { uint ids[]; };
+layout(set=0,binding=3,std430) readonly buffer RowMap { uint row_map[]; };
+layout(set=0,binding=4,std430) readonly buffer CompactRouteGrad { float compact_route_grad[]; };
+layout(set=0,binding=5,std430) buffer GradToken { float grad_token[]; };
+layout(set=0,binding=6,std430) writeonly buffer GradRoute { float grad_route[]; };
+layout(push_constant) uniform Push { uint rows; uint dim; uint topk; uint expert; } pc;
+void main() {
+    uint row=gl_GlobalInvocationID.y, col=gl_GlobalInvocationID.x;
+    if (row>=pc.rows || col>=pc.dim) return;
+    for (uint slot=0u;slot<pc.topk;++slot) {
+        if (ids[row*pc.topk+slot]!=pc.expert) continue;
+        uint compact_row=row_map[row];
+        precise float combined=grad_gate[compact_row*pc.dim+col]+grad_up[compact_row*pc.dim+col];
+        grad_token[row*pc.dim+col]+=combined;
+        if (col==0u) grad_route[row*pc.topk+slot]=compact_route_grad[compact_row];
+    }
+}

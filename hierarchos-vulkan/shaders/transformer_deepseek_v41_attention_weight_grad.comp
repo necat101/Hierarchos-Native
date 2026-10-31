@@ -1,0 +1,46 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x=64) in;
+#include "transformer_deepseek_v41_grad_dispatch.glsl"
+layout(set=0,binding=0,std430) readonly buffer Window { float window_kv[]; };
+layout(set=0,binding=1,std430) readonly buffer Compressed { float compressed_kv[]; };
+layout(set=0,binding=2,std430) readonly buffer WindowIndices { int window_indices[]; };
+layout(set=0,binding=3,std430) readonly buffer CompressedIndices { int compressed_indices[]; };
+layout(set=0,binding=4,std430) readonly buffer Upstream { float upstream[]; };
+layout(set=0,binding=5,std430) writeonly buffer Gradient { float gradient[]; };
+layout(push_constant) uniform Push {
+    uint rows; uint batch; uint seq; uint heads; uint dim; uint window_capacity;
+    uint window_topk; uint compressed_topk; uint compressed_capacity; float scale;
+} pc;
+#define V41_GRAD_KV_VALUES
+#include "transformer_deepseek_v41_attention_grad_common.glsl"
+void main() {
+    uint i, total=slot_count();
+    if (!v41_grad_index(pc.rows*pc.heads*total,i)) return;
+    uint slot=i%total, head=(i/total)%pc.heads, row=i/(total*pc.heads);
+    if (!slot_valid(slot,slot_index(row,slot))) { gradient[i]=0.0; return; }
+    uint base=(row*pc.heads+head)*pc.dim;
+    precise float dot=0.0;
+    // Same contraction geometry as the forward Q.K einsum, with dO as Q.
+    if (total<=8u && total*pc.heads*pc.dim>=400u) {
+        precise float a=0.0,b=0.0,c=0.0,d=0.0;
+        uint aligned=pc.dim/4u*4u;
+        for (uint k=0u;k<aligned;k+=4u) {
+            a+=upstream[base+k]*slot_value(row,slot,k);
+            b+=upstream[base+k+1u]*slot_value(row,slot,k+1u);
+            c+=upstream[base+k+2u]*slot_value(row,slot,k+2u);
+            d+=upstream[base+k+3u]*slot_value(row,slot,k+3u);
+        }
+        precise float ac=a+c, bd=b+d; dot=ac+bd;
+        for (uint k=aligned;k<pc.dim;++k) dot+=upstream[base+k]*slot_value(row,slot,k);
+    } else {
+        uint panel_width=pc.dim>192u && pc.dim<384u ? pc.dim/2u : 192u;
+        for (uint start=0u;start<pc.dim;start+=panel_width) {
+            precise float panel=0.0;
+            for (uint k=start;k<min(start+panel_width,pc.dim);++k)
+                panel=fma(upstream[base+k],slot_value(row,slot,k),panel);
+            dot+=panel;
+        }
+    }
+    gradient[i]=dot;
+}

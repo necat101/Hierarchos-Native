@@ -1,0 +1,87 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_compressor_exp.glsl"
+
+// V4.1 compressor prefill pooling adjoint, including the trailing partial group.
+//
+// The forward is `transformer_deepseek_v41_compress.comp`:
+//   p_i     = softmax(scores over the group)   per channel, never joint
+//   pooled  = sum_i p_i * kv_i
+//   tail    = kv/score rows of an incomplete group, stored in the state slots
+//
+// Given `d loss / d pooled`, the adjoint walks the same chain PyTorch's
+// autograd walks for `(kv * p).sum(group)`:
+//   d_kv[i]    = p_i * d_pooled
+//   d_p[i]     = kv[i] * d_pooled
+//   d_score[i] = p_i * (d_p[i] - sum_j p_j * d_p[j])
+// The softmax probabilities are recomputed from the supplied primal scores
+// with the forward's own exp/division staging, so the kernel cannot disagree
+// with the forward about the gate it differentiates. A trailing partial row
+// has no path to this evaluation's output; its gradient is the incoming state
+// gradient for the slot it was written to (zero when the caller has none).
+//
+// One invocation owns one (work row, channel) and writes only its own two
+// source rows, so duplicate free accumulation needs no atomics. Ratio 1 needs
+// no pooling pass at all and never reaches this kernel.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradPooled { float grad_pooled[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Kv { float kv[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Scores { float scores[]; };
+layout(set = 0, binding = 3, std430) readonly buffer SlotKvIn { float slot_kv_in[]; };
+layout(set = 0, binding = 4, std430) readonly buffer SlotScoreIn { float slot_score_in[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradKv { float grad_kv[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer GradScore { float grad_score[]; };
+layout(push_constant) uniform Push {
+    uint batch;
+    uint seq;
+    uint dim;
+    uint ratio;
+    uint groups;
+    uint tail;
+    uint written_slot;
+    uint has_slot_grad;
+    uint vector_width;
+} pc;
+
+void main() {
+    uint work_rows = pc.groups + pc.tail;
+    if (work_rows == 0u) return;
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.batch * work_rows * pc.dim) return;
+    uint channel = index % pc.dim;
+    uint batch = index / (pc.dim * work_rows);
+    uint work = (index / pc.dim) - batch * work_rows;
+    uint row = batch * pc.seq + work * pc.ratio;
+    uint first = row * pc.dim + channel;
+    if (work < pc.groups) {
+        // Both slots of the group are always occupied in a complete group.
+        uint second = first + pc.dim;
+        float s0 = scores[first];
+        float s1 = scores[second];
+        float largest = max(s0, s1);
+        precise float e0 = v41_compressor_exp(s0-largest,channel,pc.dim,pc.vector_width);
+        precise float e1 = v41_compressor_exp(s1-largest,channel,pc.dim,pc.vector_width);
+        precise float denominator = e0 + e1;
+        precise float p0 = fp32_div(e0, denominator);
+        precise float p1 = fp32_div(e1, denominator);
+
+        precise float upstream = grad_pooled[(batch * pc.groups + work) * pc.dim + channel];
+        grad_kv[first] = p0 * upstream;
+        grad_kv[second] = p1 * upstream;
+
+        precise float d0 = kv[first] * upstream;
+        precise float d1 = kv[second] * upstream;
+        precise float dot = p0 * d0 + p1 * d1;
+        grad_score[first] = p0 * (d0 - dot);
+        grad_score[second] = p1 * (d1 - dot);
+    } else {
+        // Trailing partial group: the row is stored verbatim in its slot, and
+        // only a later evaluation can consume it.
+        uint slot = (batch * pc.ratio + pc.written_slot) * pc.dim + channel;
+        grad_kv[first] = pc.has_slot_grad != 0u ? slot_kv_in[slot] : 0.0;
+        grad_score[first] = pc.has_slot_grad != 0u ? slot_score_in[slot] : 0.0;
+    }
+}

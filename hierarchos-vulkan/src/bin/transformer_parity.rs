@@ -3,7 +3,7 @@ use std::{fs, path::PathBuf};
 use anyhow::{bail, Context, Result};
 use hierarchos_vulkan::{
     AdamWHyperParams, VulkanDevice, VulkanTransformer, VulkanTransformerArchitecture,
-    VulkanTransformerLoraConfig,
+    VulkanTransformerLoraConfig, VulkanTransformerConfig,
 };
 use serde::{Deserialize, Serialize};
 
@@ -68,11 +68,15 @@ fn run() -> Result<()> {
     let mut lora_adapter = None;
     let mut resume_lora = None;
     let mut training_checkpoint = None;
+    let mut stream_lm_head = false;
+    let mut stream_parameters = false;
     let mut seed = 42u64;
     let mut steps = 1usize;
     let mut args = std::env::args_os().skip(1);
     while let Some(arg) = args.next() {
         match arg.to_string_lossy().as_ref() {
+            "--stream-lm-head" => stream_lm_head = true,
+            "--stream-parameters" => {stream_parameters=true;stream_lm_head=true;},
             "--model" => model = Some(PathBuf::from(args.next().context("missing --model value")?)),
             "--fixture" => {
                 fixture = Some(PathBuf::from(
@@ -179,8 +183,24 @@ fn run() -> Result<()> {
         Some(index) => VulkanDevice::new_with_index(index)?,
         None => VulkanDevice::new()?,
     };
-    let mut graph =
-        VulkanTransformer::from_hf_package(device, &model, fixture.batch_size, fixture.seq_len)?;
+    let mut graph = if stream_parameters {
+        let config=VulkanTransformerConfig::from_hf_config(model.join("config.json"))?;
+        VulkanTransformer::from_hf_package_with_streamed_parameters(
+            device, &model, config, fixture.batch_size, fixture.seq_len)?
+    } else if stream_lm_head {
+        VulkanTransformer::from_hf_package_with_streamed_lm_head(
+            device,
+            &model,
+            fixture.batch_size,
+            fixture.seq_len,
+        )?
+    } else {
+        VulkanTransformer::from_hf_package(device, &model, fixture.batch_size, fixture.seq_len)?
+    };
+    if stream_parameters {
+        let count=graph.streamed_linear_count();
+        eprintln!("transformer_parity: {count} native linears served from package tiles");
+    }
     graph.set_dropout_seed(fixture.dropout_seed);
     if resume_lora.is_some() && (lora_adapter.is_some() || lora_rank.is_some()) {
         bail!("--resume-lora cannot be combined with --lora-adapter or --lora-rank");

@@ -161,6 +161,11 @@ impl TiedTokenEmbeddingOp {
         let radix_scratch_len = radix_block_capacity
             .checked_mul(EMBEDDING_RADIX_BUCKETS)
             .context("tied embedding radix scratch capacity overflow")?;
+        let grad_readback_len = if parameter.is_package_backed() {
+            1
+        } else {
+            weight_len
+        };
 
         Ok(Self {
             embedding_forward: vulkan::ComputeKernel::new(
@@ -226,7 +231,7 @@ impl TiedTokenEmbeddingOp {
             grad_output: GpuBuffer::zeros_f32(&device, output_len)?,
             output: GpuBuffer::zeros_f32(&device, output_len)?,
             output_readback: GpuBuffer::zeros_host_f32(&device, output_len)?,
-            grad_weight_readback: GpuBuffer::zeros_host_f32(&device, weight_len)?,
+            grad_weight_readback: GpuBuffer::zeros_host_f32(&device, grad_readback_len)?,
             device,
             dim,
             vocab_size,
@@ -303,10 +308,18 @@ impl TiedTokenEmbeddingOp {
         output: &GpuBuffer,
     ) -> Result<()> {
         self.validate_token_count(token_count)?;
+        if self.parameter.is_package_backed() {
+            // Token ids may have been uploaded or generated earlier in this batch.
+            // Finish those writes before gathering only the requested package rows.
+            commands.submit_and_restart()?;
+            let ids = token_ids.read_u32(token_count)?;
+            let values = self.parameter.gather_package_rows(&ids)?;
+            return commands.upload_f32(output, &values);
+        }
         let push = self.push(token_count);
         self.embedding_forward.record_dispatch(
             commands,
-            &[token_ids, self.parameter.weight_buffer(), output],
+            &[token_ids, self.parameter.weight_buffer()?, output],
             bytemuck::bytes_of(&push),
             [div_ceil_u32(self.dim, 16), div_ceil_u32(token_count, 16), 1],
         )
@@ -441,6 +454,16 @@ impl TiedTokenEmbeddingOp {
                 self.vocab_size,
                 self.dim
             );
+        }
+        if parameter.is_package_backed() != self.parameter.is_package_backed() {
+            self.grad_weight_readback = GpuBuffer::zeros_host_f32(
+                &self.device,
+                if parameter.is_package_backed() {
+                    1
+                } else {
+                    self.vocab_size * self.dim
+                },
+            )?;
         }
         self.parameter = parameter;
         Ok(())

@@ -1,0 +1,54 @@
+#version 450
+
+// V4.1 Hyper-Connections collapse, adjoint. The forward is
+// `transformer_deepseek_v41_hc_pre.comp` (reference `Block.hc_pre`):
+//   out[row, d] = sum_j pre[row, j] * stream[row, j, d]
+// so
+//   grad_stream[row, j, d] = pre[row, j] * grad_out[row, d]
+//   grad_pre[row, j]      = sum_d grad_out[row, d] * stream[row, j, d]
+// The coefficient gradient reduces the last (contiguous) axis, which PyTorch
+// does with the pinned CPU sum kernel: four interleaved eight-lane banks, then
+// an ascending lane fold. One invocation per (row, dim-tile) also owns
+// grad_pre, and only its first column writes it, so a row's coefficient
+// gradient is produced exactly once.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradOutput { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Stream { float stream[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Pre { float pre[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradStream { float grad_stream[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradPre { float grad_pre[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hc;
+    uint dim;
+} pc;
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (column >= pc.dim || row >= pc.rows) return;
+
+    precise float direct = grad_output[row * pc.dim + column];
+    for (uint j = 0u; j < pc.hc; ++j)
+        grad_stream[(row * pc.hc + j) * pc.dim + column] = pre[row * pc.hc + j] * direct;
+
+    if (column == 0u) {
+        for (uint j = 0u; j < pc.hc; ++j) {
+            precise float banks[32];
+            for (uint bank = 0u; bank < 32u; ++bank) banks[bank] = 0.0;
+            for (uint d = 0u; d < pc.dim; ++d) {
+                precise float product = grad_output[row * pc.dim + d]
+                    * stream[(row * pc.hc + j) * pc.dim + d];
+                banks[d & 31u] += product;
+            }
+            precise float total = 0.0;
+            for (uint lane = 0u; lane < 8u; ++lane) {
+                precise float partial = banks[lane] + banks[8u + lane];
+                partial += banks[16u + lane];
+                partial += banks[24u + lane];
+                total += partial;
+            }
+            grad_pre[row * pc.hc + j] = total;
+        }
+    }
+}

@@ -1,0 +1,40 @@
+#version 450
+// CPU mm for dW = grad_output.T @ input: output shape, rather than the
+// activation batch count, selects the short/narrow GEMM reduction.
+layout(local_size_x=16,local_size_y=16) in;
+layout(set=0,binding=0,std430) readonly buffer Input {float x[];};
+layout(set=0,binding=1,std430) readonly buffer Grad {float grad[];};
+layout(set=0,binding=2,std430) writeonly buffer Output {float result[];};
+layout(push_constant) uniform Push {uint rows;uint input_dim;uint output_dim;} pc;
+void main(){
+    uint col=gl_GlobalInvocationID.x,row=gl_GlobalInvocationID.y;
+    if(col>=pc.input_dim || row>=pc.output_dim)return;
+    precise float sum=0.0;
+    if(pc.output_dim==1u){
+        for(uint base=0u;base<pc.rows;base+=8u){
+            precise float partial=0.0;
+            for(uint k=base;k<min(base+8u,pc.rows);++k){
+                precise float p=grad[k*pc.output_dim+row]*x[k*pc.input_dim+col];
+                partial+=p;
+            }
+            sum+=partial;
+        }
+    } else {
+        uint k=0u;
+        for(;k+3u<pc.rows;k+=4u){
+            precise float p0=grad[k*pc.output_dim+row]*x[k*pc.input_dim+col];
+            precise float p1=grad[(k+1u)*pc.output_dim+row]*x[(k+1u)*pc.input_dim+col];
+            precise float p2=grad[(k+2u)*pc.output_dim+row]*x[(k+2u)*pc.input_dim+col];
+            precise float p3=grad[(k+3u)*pc.output_dim+row]*x[(k+3u)*pc.input_dim+col];
+            // Transposed-left dW retains adjacent pairs in its two-column
+            // tail too; the contiguous-left input VJP has a different tail.
+            precise float a=p0+p1;
+            precise float b=p2+p3;
+            precise float group=a+b;sum+=group;
+        }
+        for(;k<pc.rows;++k){
+            precise float p=grad[k*pc.output_dim+row]*x[k*pc.input_dim+col];sum+=p;
+        }
+    }
+    result[row*pc.input_dim+col]=sum;
+}

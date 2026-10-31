@@ -1,0 +1,36 @@
+#version 450
+
+// V4.1 compressor state routing for a prefill evaluation.
+//
+// A prefill evaluation either leaves the pool state alone (a whole number of
+// groups) or overwrites the slots of its trailing incomplete group. The state
+// is a plain value holder, so the adjoint is the same routing the window cache
+// uses: a slot this evaluation wrote carries no gradient into the previous
+// state (its source row owns that gradient), and every untouched slot passes
+// the incoming gradient straight through. When the caller supplies no incoming
+// gradient the result is zero, which keeps the buffer defined for callers that
+// only need the row gradients.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer SlotKvIn { float slot_kv_in[]; };
+layout(set = 0, binding = 1, std430) readonly buffer SlotScoreIn { float slot_score_in[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradKvState { float grad_kv_state[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradScoreState { float grad_score_state[]; };
+layout(push_constant) uniform Push {
+    uint batch;
+    uint ratio;
+    uint dim;
+    uint written_slot;
+    uint has_write;
+    uint has_in;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    uint elements = pc.batch * pc.ratio * pc.dim;
+    if (index >= elements) return;
+    uint slot = (index / pc.dim) % pc.ratio;
+    bool written = pc.has_write != 0u && slot == pc.written_slot;
+    bool passthrough = !written && pc.has_in != 0u;
+    grad_kv_state[index] = passthrough ? slot_kv_in[index] : 0.0;
+    grad_score_state[index] = passthrough ? slot_score_in[index] : 0.0;
+}

@@ -1,0 +1,26 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x=64) in;
+#include "transformer_deepseek_v41_grad_dispatch.glsl"
+layout(set=0,binding=0,std430) readonly buffer Window { float window_kv[]; };
+layout(set=0,binding=1,std430) readonly buffer Compressed { float compressed_kv[]; };
+layout(set=0,binding=2,std430) readonly buffer WindowIndices { int window_indices[]; };
+layout(set=0,binding=3,std430) readonly buffer CompressedIndices { int compressed_indices[]; };
+layout(set=0,binding=4,std430) readonly buffer Scores { float grad_score[]; };
+layout(set=0,binding=5,std430) writeonly buffer QueryGradient { float grad_query[]; };
+layout(push_constant) uniform Push {
+    uint rows; uint batch; uint seq; uint heads; uint dim; uint window_capacity;
+    uint window_topk; uint compressed_topk; uint compressed_capacity; float scale;
+} pc;
+#define V41_GRAD_KV_VALUES
+#include "transformer_deepseek_v41_attention_grad_common.glsl"
+void main() {
+    uint i;
+    if (!v41_grad_index(pc.rows*pc.heads*pc.dim,i)) return;
+    uint column=i%pc.dim, head=(i/pc.dim)%pc.heads, row=i/(pc.dim*pc.heads);
+    uint base=(row*pc.heads+head)*slot_count();
+    precise float sum=0.0;
+    for (uint slot=0u;slot<slot_count();++slot)
+        sum=fma(grad_score[base+slot],slot_value(row,slot,column),sum);
+    grad_query[i]=sum;
+}

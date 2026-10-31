@@ -1,0 +1,56 @@
+#version 450
+
+// V4.1 sparse attention, value pass. Multiplies the normalized gathered
+// weights (window slots followed by compressed slots) against the matching KV
+// rows. One invocation owns one output channel.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer WindowKv { float window_kv[]; };
+layout(set = 0, binding = 1, std430) readonly buffer CompressedKv { float compressed_kv[]; };
+layout(set = 0, binding = 2, std430) readonly buffer WindowIndices { int window_indices[]; };
+layout(set = 0, binding = 3, std430) readonly buffer CompressedIndices { int compressed_indices[]; };
+layout(set = 0, binding = 4, std430) readonly buffer Weights { float weights[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer Output { float output_values[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint seq;
+    uint heads;
+    uint dim;
+    uint window_capacity;
+    uint window_topk;
+    uint compressed_topk;
+    uint compressed_capacity;
+} pc;
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint head = gl_GlobalInvocationID.y;
+    uint row = gl_GlobalInvocationID.z;
+    if (column >= pc.dim || row >= pc.rows || head >= pc.heads) return;
+    uint total = pc.window_topk + pc.compressed_topk;
+    uint weight_base = (row * pc.heads + head) * total;
+    uint batch_index = row / pc.seq;
+    precise float accumulated = 0.0;
+    for (uint slot = 0u; slot < total; ++slot) {
+        float weight = weights[weight_base + slot];
+        if (weight == 0.0) continue;
+        int index;
+        uint kv_base;
+        if (slot < pc.window_topk) {
+            index = window_indices[row * pc.window_topk + slot];
+            if (index < 0 || uint(index) >= pc.window_capacity) continue;
+            kv_base = (batch_index * pc.window_capacity + uint(index)) * pc.dim;
+            accumulated = fma(weight, window_kv[kv_base + column], accumulated);
+        } else {
+            uint offset = slot - pc.window_topk;
+            index = compressed_indices[row * pc.compressed_topk + offset];
+            if (index < 0 || uint(index) < pc.window_capacity
+                || uint(index) - pc.window_capacity >= pc.compressed_capacity) {
+                continue;
+            }
+            kv_base = (batch_index * pc.compressed_capacity
+                       + (uint(index) - pc.window_capacity)) * pc.dim;
+            accumulated = fma(weight, compressed_kv[kv_base + column], accumulated);
+        }
+    }
+    output_values[(row * pc.heads + head) * pc.dim + column] = accumulated;
+}

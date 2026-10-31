@@ -1,0 +1,26 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+
+// Independent qualification surface for the math used by HC and Engram.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer Output { float y[]; };
+layout(set = 0, binding = 2, std430) readonly buffer SqrtSeeds { uint sqrt_seeds[]; };
+#define V41_SQRT_SEEDS sqrt_seeds
+#include "fp32_v41_cpu_sqrt.glsl"
+layout(push_constant) uniform Push { uint elements; uint op; } pc;
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= pc.elements) return;
+    y[i] = pc.op == 7u ? v41_cpu_scalar_log_positive(x[i]) :
+        (pc.op == 8u ? v41_cpu_scalar_log1p_positive(x[i]) :
+        (pc.op == 5u ? v41_cpu_sqrt(x[i]) :
+        (pc.op == 0u ? v41_scalar_exp(x[i]) :
+        (pc.op == 1u ? v41_cpu_sigmoid(x[i], i, pc.elements) :
+        (pc.op == 2u ? v41_cpu_silu(x[i], i, pc.elements) :
+        (pc.op == 3u ? v41_cpu_softplus(x[i], i, pc.elements) : v41_scalar_log1p_positive(x[i])))))));
+}

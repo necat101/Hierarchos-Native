@@ -20,9 +20,7 @@ fn main() {
     println!("recv smoke: device={device} listen={addr} size={size} count={count}");
 
     let link = hierarchos_vulkan::distributed::RdmaLink::connect(
-        &device,
-        addr,
-        true, // is_listener
+        &device, addr, true, // is_listener
     )
     .expect("rdma connect");
     println!("  QP ready (RTS)");

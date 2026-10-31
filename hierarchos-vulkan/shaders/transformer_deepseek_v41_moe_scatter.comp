@@ -1,0 +1,15 @@
+#version 450
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float compact[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Indices { uint ids[]; };
+layout(set = 0, binding = 2, std430) readonly buffer RowMap { uint row_map[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer Output { float routed[]; };
+layout(push_constant) uniform Push { uint rows; uint dim; uint topk; uint expert; } pc;
+void main() {
+    uint row = gl_GlobalInvocationID.y, col = gl_GlobalInvocationID.x;
+    if (row >= pc.rows || col >= pc.dim) return;
+    for (uint s = 0u; s < pc.topk; ++s) {
+        if (ids[row * pc.topk + s] == pc.expert)
+            routed[(row * pc.topk + s) * pc.dim + col] = compact[row_map[row] * pc.dim + col];
+    }
+}

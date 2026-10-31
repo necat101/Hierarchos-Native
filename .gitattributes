@@ -1,0 +1,17 @@
+# Qualification receipts bind raw bytes. Windows Git must not translate the
+# frozen JSON, shader artifacts or qualified implementation when pulling them.
+* whitespace=cr-at-eol,-blank-at-eof
+*.md -text
+.gitattributes -text
+.gitignore -text
+HANDOFF-MANIFEST.json -text
+# These qualified/generated files retain their original terminal newlines.
+hierarchos-vulkan/shaders/fp32_v41_unary.glsl whitespace=cr-at-eol,-blank-at-eof
+hierarchos-vulkan/validation/release_parity/deepseek_v41/receipts/** whitespace=cr-at-eol,-blank-at-eof
+hierarchos-vulkan/** -text
+hierarchos-native-cli/** -text
+hierarchos-inference/** -text
+hierarchos-gui/** -text
+licenses/** -text
+PROGRESS_DEEPSEEK_V41_AUDIT.md -text
+VALIDATION_STATUS.md -text

@@ -1,0 +1,56 @@
+#version 450
+
+// DeepSeek V4.1 interleaved rotary application. Matches
+// apply_rotary_emb() in the released inference/model.py: adjacent element pairs
+// are complex numbers, only the trailing `rope_dim` channels rotate, and the
+// inverse conjugates the rotation for the attention output.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Cos { float cosine[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Sin { float sine[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer Output { float y[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint width;
+    uint rope_dim;
+    uint position_base;
+    uint position_stride;
+    uint position_period;
+    uint row_repeat;
+    uint inverse;
+} pc;
+
+void main() {
+    uint pair = gl_GlobalInvocationID.x;
+    // Rows tile across z once they exceed one dispatch axis (65,535 workgroups),
+    // so per-head query rows are not capped at the released index-head count.
+    uint row = gl_GlobalInvocationID.y + gl_WorkGroupID.z * gl_NumWorkGroups.y;
+    uint pairs = pc.rope_dim / 2u;
+    if (row >= pc.rows || pair >= pairs) return;
+    // Channels outside the rotary tail pass through unchanged. One invocation
+    // per row owns the copy so the rotated pairs never race with it.
+    if (pair == 0u) {
+        uint prefix = pc.width - pc.rope_dim;
+        for (uint i = 0u; i < prefix; ++i) {
+            y[row * pc.width + i] = x[row * pc.width + i];
+        }
+    }
+    // `row_repeat` rows share one logical position (per-head query rows), and
+    // consecutive logical rows restart the table every period (batch-local
+    // compressed groups).
+    uint logical_row = row / pc.row_repeat;
+    uint position = pc.position_base + (logical_row % pc.position_period) * pc.position_stride;
+    uint table_index = position * pairs + pair;
+    uint column = row * pc.width + (pc.width - pc.rope_dim) + pair * 2u;
+    precise float real = x[column];
+    precise float imag = x[column + 1u];
+    precise float c = cosine[table_index];
+    precise float s = sine[table_index];
+    if (pc.inverse != 0u) s = -s;
+    // Complex multiplication in FP32, matching the reference's real/imaginary
+    // pair even though Vulkan and PyTorch may differ in FMA contraction.
+    precise float out_real = real * c - imag * s;
+    precise float out_imag = real * s + imag * c;
+    y[column] = out_real;
+    y[column + 1u] = out_imag;
+}

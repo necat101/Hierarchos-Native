@@ -23,6 +23,17 @@ cargo build --release --manifest-path hierarchos-native-cli/Cargo.toml
 
 Typical commands:
 
+`infer` / `transformer-generate` and `transformer-finetune` accept the explicit
+`--stream-parameters` switch for package-backed frozen projections, MoE experts
+and vocabulary. CLI execution is resident unless this flag is supplied,
+including DeepSeek V4.1. Use the same setting when resuming a V4.1 training
+checkpoint. Streaming supports frozen-base LoRA training, not updates to the
+frozen base; full-parameter training and encoder-decoder streaming fail closed.
+Ordinary Llama, Mistral, Qwen2 and Mixtral checkpoints load frozen body matrices
+directly from package descriptors, avoiding their resident construction peak.
+Other generic architecture loaders still convert after loading and retain that
+initial peak. Norms, biases, activations and adapter state remain resident.
+
 Falcon H1 / H1R packages (`falcon_h1`) use `transformer-train` for full training
 and `transformer-finetune --full-finetune` for full-parameter fine-tuning.
 Both accept `--model-path DIR` or `--hf-model tiiuae/Falcon-H1R-7B`,
@@ -133,6 +144,8 @@ families such as EuroBERT):
   --hf-model hf-internal-testing/tiny-random-gpt2 `
   --prompt "Hello" --max-new-tokens 32 --no-do-sample
 ```
+
+For `model_type=deepseek_v41`, the dedicated native graph loads additive unmerged LoRA adapters with `transformer-generate --lora-adapter-path` and trains them with `transformer-finetune --peft` (LoRA/rsLoRA, AdamW, `--peft-resume` continuation state and standard adapter export). The released packed FP8/FP4 base is never rewritten, so `merge-lora` still rejects V4.1 packages. `architectures --peft --json` reports `deepseek_v41` with `modules_to_save_validated=false`.
 
 `transformer-finetune` defaults to PEFT/LoRA unless `--full-finetune` is supplied. Every PEFT training run saves exact continuation state to `OUT/training-state` unless `--save-lora-training DIR` overrides that location. `transformer-generate --peft-adapter DIR` loads the HF-compatible adapter without merging it first; `--adapter-name NAME` selects its in-memory name. Run `architectures --peft --json` for the independently qualified PEFT families and the separate `modules_to_save_validated` bit. Training and generation both fail closed when a replacement-module adapter targets a family whose saved-module gate is still red.
 

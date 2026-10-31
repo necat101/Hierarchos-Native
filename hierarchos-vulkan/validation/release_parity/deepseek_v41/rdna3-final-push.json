@@ -1,0 +1,531 @@
+{
+  "status": "qualified_for_recorded_scope",
+  "recorded_utc": "2026-10-31T00:32:51.507820+00:00",
+  "device": "AMD Radeon Graphics (RDNA3)",
+  "absolute_logit_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "numeric": {
+    "v41-default-gate": {
+      "comparisons": 166,
+      "values": 201714,
+      "max_abs": 1.4901161193847656e-07
+    },
+    "package-default": {
+      "comparisons": 6,
+      "values": 3216,
+      "max_abs": 0.0
+    },
+    "joint-resident": {
+      "comparisons": 6,
+      "values": 3216,
+      "max_abs": 0.0
+    },
+    "joint-all-streamed": {
+      "comparisons": 6,
+      "values": 3216,
+      "max_abs": 0.0
+    },
+    "v41-uninterrupted": {
+      "comparisons": 24,
+      "values": 1536,
+      "max_abs": 0.0
+    },
+    "archived_training_drift_comparison": {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\rdna3-streaming\\v41-training-regression.log",
+      "sha256": "0e310f46e346698712ad60b19a0a6c7e4cb337cd2f9f7427ebf4d83d71c93912",
+      "compared_labels": 72,
+      "comparisons": 72,
+      "identical_reported_drift": true
+    }
+  },
+  "tests": {
+    "vulkan-regression": {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\vulkan-regression.log",
+      "sha256": "9ed67158a8f4e7660b1106d6966bd4f63f7d75a5afb9a3b1ac5cd24e2280ad60",
+      "passed": 38
+    },
+    "generic-streaming": {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\generic-streaming.log",
+      "sha256": "91718d5dd38cfc8e4c2f601aa25f5566492b35bfaf71f36cdc3a625a1c58dac6",
+      "passed": 3
+    },
+    "offload-regression": {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\offload-regression.log",
+      "sha256": "c48d427e81ed03c15015371335411a9fbad028b8a2c7e0789ff15ab95aaef57c",
+      "passed": 16
+    },
+    "v41-default-gate": {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\v41-default-gate.log",
+      "sha256": "49a078fb24e54340db9dad57f2db169cacd61b95ea07d0cce3784524aaa0d23c",
+      "passed": 186
+    },
+    "package-default": {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\package-default.log",
+      "sha256": "8a38eb1f9347a0c3549f7e5f6be3c27fead4d10a21c327f2d13e8927819bfb0d",
+      "passed": 1
+    },
+    "joint-resident": {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\joint-resident.log",
+      "sha256": "c989860241c2cdf5d0148f883f671d09693b3db0ba92e230cc09c886f69d6174",
+      "passed": 1
+    },
+    "joint-all-streamed": {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\joint-all-streamed.log",
+      "sha256": "66907330ab94c5e359dbaad6cad143e3aa00feb3dc30c5ad6b726d6952c9014c",
+      "passed": 1
+    },
+    "v41-uninterrupted": {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\v41-uninterrupted.log",
+      "sha256": "0ee889df5a2e10392fe3f3f2c6bc1e1e1fb7a52f615845af66b9b3013f664746",
+      "passed": 1
+    },
+    "cli-tests": {
+      "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\cli-tests.log",
+      "sha256": "53618b173376a4acb9385b887e58deb811f4424404d83fbb7da266c4e0564a89",
+      "passed": 41
+    }
+  },
+  "passed_tests": 288,
+  "unchanged_default_drift_labels": 106,
+  "shader_provenance": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\shader-provenance.json",
+    "sha256": "1febbef402e8e4825f8420a342f6d11d903df9491cf322a04e851e91c70b4357"
+  },
+  "push_layouts": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\push-layouts.json",
+    "sha256": "16f99f1af71566b44c290aa39d953d4027154b62b8e2b0ccb7bf2b500fd9cc4d"
+  },
+  "profile": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\profile-aggregate.json",
+    "sha256": "28f2d1ff09bde53f0135764465f2149dead6aa8ccbadd00b859f61c864d48b47"
+  },
+  "performance": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\ab-release\\results.json",
+    "sha256": "d4c841e4e2102bc64905627027af6bd7ce051ba264202a9067f1ae247b7820f7"
+  },
+  "performance_results": {
+    "resident": {
+      "runs": {
+        "baseline": [
+          {
+            "load_ms": 5492.538,
+            "load_submissions": 16312,
+            "prefill_ms": 586.489,
+            "prefill_submissions": 170,
+            "decode_ms": 377.52549999999997,
+            "decode_submissions": 170.0,
+            "reported_decode_ms_per_token": 377.526,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 5432.111,
+            "load_submissions": 16312,
+            "prefill_ms": 585.63,
+            "prefill_submissions": 170,
+            "decode_ms": 372.1765,
+            "decode_submissions": 170.0,
+            "reported_decode_ms_per_token": 372.177,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 5407.147,
+            "load_submissions": 16312,
+            "prefill_ms": 579.574,
+            "prefill_submissions": 170,
+            "decode_ms": 361.2495,
+            "decode_submissions": 170.0,
+            "reported_decode_ms_per_token": 361.25,
+            "digest": "90e096ebc5bf0659"
+          }
+        ],
+        "candidate": [
+          {
+            "load_ms": 7424.137,
+            "load_submissions": 16312,
+            "io": {
+              "warmup_complete": {
+                "payload_reads": 93338,
+                "payload_bytes_read": 29447344,
+                "cache_hits": 0,
+                "cache_misses": 93338,
+                "cache_bytes": 0,
+                "cache_peak_bytes": 0,
+                "cache_entries": 0,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 0
+              },
+              "complete": {
+                "payload_reads": 93338,
+                "payload_bytes_read": 29447344,
+                "cache_hits": 0,
+                "cache_misses": 93338,
+                "cache_bytes": 0,
+                "cache_peak_bytes": 0,
+                "cache_entries": 0,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 0
+              }
+            },
+            "measured_payload_reads": 0,
+            "measured_cache_hits": 0,
+            "prefill_ms": 532.46,
+            "prefill_submissions": 170,
+            "decode_ms": 306.815,
+            "decode_submissions": 170.0,
+            "reported_decode_ms_per_token": 306.815,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 5444.35,
+            "load_submissions": 16312,
+            "io": {
+              "warmup_complete": {
+                "payload_reads": 93338,
+                "payload_bytes_read": 29447344,
+                "cache_hits": 0,
+                "cache_misses": 93338,
+                "cache_bytes": 0,
+                "cache_peak_bytes": 0,
+                "cache_entries": 0,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 0
+              },
+              "complete": {
+                "payload_reads": 93338,
+                "payload_bytes_read": 29447344,
+                "cache_hits": 0,
+                "cache_misses": 93338,
+                "cache_bytes": 0,
+                "cache_peak_bytes": 0,
+                "cache_entries": 0,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 0
+              }
+            },
+            "measured_payload_reads": 0,
+            "measured_cache_hits": 0,
+            "prefill_ms": 527.072,
+            "prefill_submissions": 170,
+            "decode_ms": 308.42949999999996,
+            "decode_submissions": 170.0,
+            "reported_decode_ms_per_token": 308.43,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 5423.932,
+            "load_submissions": 16312,
+            "io": {
+              "warmup_complete": {
+                "payload_reads": 93338,
+                "payload_bytes_read": 29447344,
+                "cache_hits": 0,
+                "cache_misses": 93338,
+                "cache_bytes": 0,
+                "cache_peak_bytes": 0,
+                "cache_entries": 0,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 0
+              },
+              "complete": {
+                "payload_reads": 93338,
+                "payload_bytes_read": 29447344,
+                "cache_hits": 0,
+                "cache_misses": 93338,
+                "cache_bytes": 0,
+                "cache_peak_bytes": 0,
+                "cache_entries": 0,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 0
+              }
+            },
+            "measured_payload_reads": 0,
+            "measured_cache_hits": 0,
+            "prefill_ms": 515.61,
+            "prefill_submissions": 170,
+            "decode_ms": 305.565,
+            "decode_submissions": 170.0,
+            "reported_decode_ms_per_token": 305.565,
+            "digest": "90e096ebc5bf0659"
+          }
+        ]
+      },
+      "digest": "90e096ebc5bf0659",
+      "load_ms": {
+        "baseline": 5432.111,
+        "candidate": 5444.35
+      },
+      "load_submissions": {
+        "baseline": 16312,
+        "candidate": 16312
+      },
+      "prefill_ms": {
+        "baseline": 585.63,
+        "candidate": 527.072
+      },
+      "decode_ms": {
+        "baseline": 372.1765,
+        "candidate": 306.815
+      },
+      "prefill_submissions": {
+        "baseline": 170,
+        "candidate": 170
+      },
+      "decode_submissions": {
+        "baseline": 170.0,
+        "candidate": 170.0
+      },
+      "prefill_speedup": 1.111100570700018,
+      "decode_speedup": 1.2130322832977527
+    },
+    "default": {
+      "runs": {
+        "baseline": [
+          {
+            "load_ms": 476.762,
+            "load_submissions": 553,
+            "prefill_ms": 1741.746,
+            "prefill_submissions": 1869,
+            "decode_ms": 630.438,
+            "decode_submissions": 996.0,
+            "reported_decode_ms_per_token": 630.438,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 441.421,
+            "load_submissions": 553,
+            "prefill_ms": 1782.044,
+            "prefill_submissions": 1869,
+            "decode_ms": 629.383,
+            "decode_submissions": 996.0,
+            "reported_decode_ms_per_token": 629.383,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 458.059,
+            "load_submissions": 553,
+            "prefill_ms": 1865.915,
+            "prefill_submissions": 1869,
+            "decode_ms": 632.479,
+            "decode_submissions": 996.0,
+            "reported_decode_ms_per_token": 632.479,
+            "digest": "90e096ebc5bf0659"
+          }
+        ],
+        "candidate": [
+          {
+            "load_ms": 451.544,
+            "load_submissions": 553,
+            "io": {
+              "warmup_complete": {
+                "payload_reads": 10669,
+                "payload_bytes_read": 6208646,
+                "cache_hits": 17570,
+                "cache_misses": 10669,
+                "cache_bytes": 6208646,
+                "cache_peak_bytes": 6208646,
+                "cache_entries": 10669,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 33554432
+              },
+              "complete": {
+                "payload_reads": 10669,
+                "payload_bytes_read": 6208646,
+                "cache_hits": 101060,
+                "cache_misses": 10669,
+                "cache_bytes": 6208646,
+                "cache_peak_bytes": 6208646,
+                "cache_entries": 10669,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 33554432
+              }
+            },
+            "measured_payload_reads": 0,
+            "measured_cache_hits": 83490,
+            "prefill_ms": 1285.738,
+            "prefill_submissions": 1869,
+            "decode_ms": 512.4885,
+            "decode_submissions": 996.0,
+            "reported_decode_ms_per_token": 512.488,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 447.696,
+            "load_submissions": 553,
+            "io": {
+              "warmup_complete": {
+                "payload_reads": 10669,
+                "payload_bytes_read": 6208646,
+                "cache_hits": 17570,
+                "cache_misses": 10669,
+                "cache_bytes": 6208646,
+                "cache_peak_bytes": 6208646,
+                "cache_entries": 10669,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 33554432
+              },
+              "complete": {
+                "payload_reads": 10669,
+                "payload_bytes_read": 6208646,
+                "cache_hits": 101060,
+                "cache_misses": 10669,
+                "cache_bytes": 6208646,
+                "cache_peak_bytes": 6208646,
+                "cache_entries": 10669,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 33554432
+              }
+            },
+            "measured_payload_reads": 0,
+            "measured_cache_hits": 83490,
+            "prefill_ms": 1283.676,
+            "prefill_submissions": 1869,
+            "decode_ms": 512.5925,
+            "decode_submissions": 996.0,
+            "reported_decode_ms_per_token": 512.592,
+            "digest": "90e096ebc5bf0659"
+          },
+          {
+            "load_ms": 445.856,
+            "load_submissions": 553,
+            "io": {
+              "warmup_complete": {
+                "payload_reads": 10669,
+                "payload_bytes_read": 6208646,
+                "cache_hits": 17570,
+                "cache_misses": 10669,
+                "cache_bytes": 6208646,
+                "cache_peak_bytes": 6208646,
+                "cache_entries": 10669,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 33554432
+              },
+              "complete": {
+                "payload_reads": 10669,
+                "payload_bytes_read": 6208646,
+                "cache_hits": 101060,
+                "cache_misses": 10669,
+                "cache_bytes": 6208646,
+                "cache_peak_bytes": 6208646,
+                "cache_entries": 10669,
+                "evictions": 0,
+                "invalidations": 0,
+                "capacity_bytes": 33554432
+              }
+            },
+            "measured_payload_reads": 0,
+            "measured_cache_hits": 83490,
+            "prefill_ms": 1287.461,
+            "prefill_submissions": 1869,
+            "decode_ms": 513.414,
+            "decode_submissions": 996.0,
+            "reported_decode_ms_per_token": 513.414,
+            "digest": "90e096ebc5bf0659"
+          }
+        ]
+      },
+      "digest": "90e096ebc5bf0659",
+      "load_ms": {
+        "baseline": 458.059,
+        "candidate": 447.696
+      },
+      "load_submissions": {
+        "baseline": 553,
+        "candidate": 553
+      },
+      "prefill_ms": {
+        "baseline": 1782.044,
+        "candidate": 1285.738
+      },
+      "decode_ms": {
+        "baseline": 630.438,
+        "candidate": 512.5925
+      },
+      "prefill_submissions": {
+        "baseline": 1869,
+        "candidate": 1869
+      },
+      "decode_submissions": {
+        "baseline": 996.0,
+        "candidate": 996.0
+      },
+      "prefill_speedup": 1.386008658062529,
+      "decode_speedup": 1.2299009447075406
+    }
+  },
+  "cli_lifecycle": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\cli-lifecycle\\qualification.json",
+    "sha256": "b54d70d05e398167420e3a1ddfb7c60b04d2bd9d531dd241aca036ac65739af1"
+  },
+  "baseline": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\before\\bindings.json",
+    "sha256": "88b53cc807cb0920745bd7dea47be06790898e2d8ed7ea0cb20cb3b6d42abfe4"
+  },
+  "baseline_probe": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\before\\probe.exe",
+    "sha256": "58a2ed03346f46e669906e2cb4ef5d98aa5d5086056b4faf9a962b1da13860f6"
+  },
+  "candidate_probe": {
+    "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\v41-final-push\\candidate-probe.exe",
+    "sha256": "dafa91d53fbc1153aedd621b29779763f67be17b54a11d72a9fe1a1faeba5851"
+  },
+  "sources": {
+    "src/vulkan.rs": "876dfa38fc26cb281f21778061f8a1af6f35d66132bb7f59825848665a8df61c",
+    "src/deepseek_v41.rs": "50c96afaf48d20fd4255577de25736da7338c3a3f8f61d2333681b9500cb3fd2",
+    "src/deepseek_v41/model.rs": "f8a086e183bf2a0cbe52af5f8e3738b7e74d97abe170a1415b294cec41acef1e",
+    "src/deepseek_v41/backbone.rs": "2808b27f92dfdf4728abb977a105aeb259ae662049971774f43de121c6e8e8b6",
+    "src/deepseek_v41/checkpoint.rs": "06c91244ff306e03945c42e00640086749d6c667b57d1cf98b253b5b39e8e220",
+    "src/deepseek_v41/checkpoint_cache.rs": "3ab6adcddc5c0764da00ef005d35a56c71abcb6b2fef9f4bbe3ef1f5d96a712f",
+    "src/deepseek_v41/mixed_linear.rs": "1d400a86599cdc3f583ea264b0ba4f334e5a73fd291090c4b5b448735b6af7b6",
+    "src/deepseek_v41/packed_weights.rs": "84873aceefc1229ea98ae95b48d7ec1a854595e6e5dd5c7deb70380504748f34",
+    "src/bin/deepseek_v41_forward_probe.rs": "e940f20da68f0f3eb6271d6fc17d33c4a9e77cabd2480e6a8128f4b0086d75a1",
+    "validation/bench_deepseek_v41_final_push.py": "b0e167ec1396a89777f846c005ac16a853d87a7389d88c9a4d79608a77cc2949",
+    "validation/summarize_deepseek_v41_final_push.py": "558567a6cd6d25fc6011e1ae3e2a8cf97ea2a140788e021a40cf01f28bfdd93f",
+    "validation/profile_deepseek_v41_final_push.py": "8bd897c855ffcc49566db7703d6400b8db5805cbee1d1f7e87ec50625fe78e88",
+    "shaders/transformer_deepseek_v41_moe_gate.comp": "b6a74b3c4884ef055bdbac115cd947566f96ad2d5c69b965185038156f9179ff",
+    "shaders/transformer_deepseek_v41_moe_gate.spv": "c7e706b0f757931aa84c8b337060114c624666b26ec707e42b768c6035bc21ab"
+  },
+  "frozen_cpu_fixtures": {
+    "deepseek_v41_model.json": "679ebe1cdbe421ded12b911fb24dfd64995598caeb1ebe619434229444ffc7af",
+    "deepseek_v41_model_additional.json": "f37fea66068071a7451a4d20487df40cbffec70837d02f2d64b32edde3c95f5a",
+    "deepseek_v41_mixed_model.json": "7984afe94ded0210c0dfa2ff964024200c412b7568f234131b8a8a335b6c5646",
+    "deepseek_v41_attention_model.json": "3cfbad274144417849b83b25c9f686e9439f4f2c7c38d645ee86819066a350df",
+    "deepseek_v41_bf16_model.json": "178c7585504768474db206e62a388ea1af00b567939603c6561645947ffd37cd",
+    "deepseek_v41_wide_model.json": "8f468d860c162fb08cddd554cbf85d5b108092a37d326460fdcd75dec018274f",
+    "deepseek_v41_production_model.json": "ea1b00dd3ffe4bf5786c4daf632c2054904b5f8f929428bbbb92636cb3e6a524",
+    "deepseek_v41_schedule_width_model.json": "70d2218429c2d4b8623a8ebbdd6c659eec22f7f64f9eeecd3d95c5d7877fdcf0",
+    "deepseek_v41_structure_model.json": "4817e35531eb0d8c076f8a76a8a55a5bab36eafe8653d017eb006aa7c01e80cc",
+    "deepseek_v41_joint_model.json": "00cef75fe55c2243a6c2134c65e4c0adf224ce76791022c97f75738d4a1608b8",
+    "deepseek_v41_long_context_model.json": "82dcb51beea92833fa8dc382daf30846cd195f5974a17e9eaf0f9c7dd314bbbc",
+    "deepseek_v41_full_training.json": "fdd3e86540c6bff987197acfe38d3aecf98031e84230a636318f5a132f5bfcdf",
+    "deepseek_v41_full_mixed_training.json": "013f1aed883f8dc4af7e38d2934b2b60e21cc7ef2ef46c8d014c5609270ac8f7",
+    "deepseek_v41_full_bf16_training_v3.json": "ea129551716898b29ad345be8319f70fe44c4afb21c8aa70d6f39e762d412feb",
+    "deepseek_v41_production_ratio_training_v2.json": "3dd99546f378a6dd7b87cc2f37eec64fa2a2f99a4e0d4c61211a07b0ea453a20"
+  },
+  "changes": [
+    "64-lane workgroup computes independent expert dots/unaries in parallel",
+    "shared 4 KiB gate scratch; lane zero preserves exact CPU top-k/ties and reduction order",
+    "expert w1/w3 share their input cast and, when activation blocks match, FP8/UE8 quantization",
+    "each output keeps its own rounding and raw-input LoRA branch; different blocks and dense weights retain fallback paths",
+    "no persistent activation cache, changed precision, tolerances or expected values"
+  ],
+  "timing_correction": "Old decode_ms_per_token divided a per-token median by --decode a second time. Raw phase timings are used for both legs; previous speedup ratios are unaffected, but old absolute ms/token labels were understated.",
+  "limits": [
+    "scaled 40-layer/384-expert/vocab67 performance fixture; no production throughput claim",
+    "performance digest guards the final decoded row; separate CPU gates compare complete logits",
+    "performance is the median of three alternating pairs; no Gen9 speed claim",
+    "routing readbacks remain; no indirect GPU worklist or new kernel arithmetic",
+    "application streaming remains opt-in; no full-base offload or Intel Gen9 performance qualification"
+  ]
+}

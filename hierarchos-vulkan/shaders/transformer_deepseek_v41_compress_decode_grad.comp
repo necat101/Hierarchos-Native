@@ -1,0 +1,106 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_compressor_exp.glsl"
+
+// V4.1 compressor decode-step adjoint, including the cross-step state chain.
+//
+// The forward is `transformer_deepseek_v41_compress.comp` with `decode != 0`:
+// the step writes its projected row into slot `start_pos % ratio` of the pool
+// state and, only when the group just completed, pools both slots:
+//   p_i    = softmax(state scores over the two slots)   per channel
+//   pooled = sum_i p_i * state_kv[i]
+// so the state the step leaves behind is both the write's destination and the
+// pool's source. Backward therefore has one chain through the graph:
+//   d_state_after[written] = incoming[written] + p_written * d_pooled
+//   d_kv_row               = d_state_after[written]
+//   d_state_before[written] = 0                      (the write overwrote it)
+//   d_state_before[other]   = incoming[other] + p_other * d_pooled
+// with the same softmax VJP the prefill kernel walks:
+//   d_kv[i]    = p_i * d_pooled
+//   d_score[i] = p_i * (kv[i] * d_pooled - sum_j p_j * kv[j] * d_pooled)
+// A non-completing step has no pool term, so its row gradient is exactly the
+// incoming gradient at the slot it wrote; the untouched slot still passes the
+// incoming gradient through, which is what carries the chain across steps.
+//
+// The probabilities are recomputed from the supplied primal state scores with
+// the forward's own exp/division staging, in ascending slot order, so this
+// kernel cannot disagree with the forward about the gate it differentiates.
+// One invocation owns one (batch, channel): it writes that channel's row and
+// both state slots, so duplicate free accumulation needs no atomics. Ratio 1
+// never reaches this kernel (its state is write-only and unread).
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradPooled { float grad_pooled[]; };
+layout(set = 0, binding = 1, std430) readonly buffer StateKv { float state_kv[]; };
+layout(set = 0, binding = 2, std430) readonly buffer StateScore { float state_score[]; };
+layout(set = 0, binding = 3, std430) readonly buffer InStateKv { float in_state_kv[]; };
+layout(set = 0, binding = 4, std430) readonly buffer InStateScore { float in_state_score[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradKv { float grad_kv[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer GradScore { float grad_score[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer GradStateKv { float grad_state_kv[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer GradStateScore { float grad_state_score[]; };
+layout(push_constant) uniform Push {
+    uint batch;
+    uint dim;
+    uint ratio;
+    uint written_slot;
+    uint groups;
+    uint has_state_grad;
+    uint vector_width;
+} pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.batch * pc.dim) return;
+    uint channel = index % pc.dim;
+    uint batch = index / pc.dim;
+    uint row = batch * pc.dim + channel;
+    uint base = (batch * pc.ratio) * pc.dim + channel;
+
+    // Both slots are read in ascending slot order, matching the forward's
+    // softmax and its `(kv * p).sum(dim)` accumulation.
+    float s0 = state_score[base];
+    float s1 = state_score[base + pc.dim];
+    float in_kv0 = pc.has_state_grad != 0u ? in_state_kv[base] : 0.0;
+    float in_kv1 = pc.has_state_grad != 0u ? in_state_kv[base + pc.dim] : 0.0;
+    float in_score0 = pc.has_state_grad != 0u ? in_state_score[base] : 0.0;
+    float in_score1 = pc.has_state_grad != 0u ? in_state_score[base + pc.dim] : 0.0;
+
+    float d_kv0 = 0.0;
+    float d_kv1 = 0.0;
+    float d_score0 = 0.0;
+    float d_score1 = 0.0;
+    if (pc.groups != 0u) {
+        float k0 = state_kv[base];
+        float k1 = state_kv[base + pc.dim];
+        float largest = max(s0, s1);
+        precise float e0 = v41_compressor_exp(s0-largest,channel,pc.dim,pc.vector_width);
+        precise float e1 = v41_compressor_exp(s1-largest,channel,pc.dim,pc.vector_width);
+        precise float denominator = e0 + e1;
+        precise float p0 = fp32_div(e0, denominator);
+        precise float p1 = fp32_div(e1, denominator);
+
+        precise float upstream = grad_pooled[row];
+        d_kv0 = p0 * upstream;
+        d_kv1 = p1 * upstream;
+        precise float term0 = k0 * upstream;
+        precise float term1 = k1 * upstream;
+        precise float dot = p0 * term0 + p1 * term1;
+        d_score0 = p0 * (term0 - dot);
+        d_score1 = p1 * (term1 - dot);
+    }
+
+    // The written slot of the state after this step holds the current row
+    // verbatim, so its incoming gradient belongs to that row. The untouched
+    // slot keeps its own history and passes through plus the pool term.
+    bool written_first = pc.written_slot == 0u;
+    grad_kv[row] = (written_first ? in_kv0 : in_kv1) + (written_first ? d_kv0 : d_kv1);
+    grad_score[row] =
+        (written_first ? in_score0 : in_score1) + (written_first ? d_score0 : d_score1);
+    grad_state_kv[base] = written_first ? 0.0 : in_kv0 + d_kv0;
+    grad_state_score[base] = written_first ? 0.0 : in_score0 + d_score0;
+    grad_state_kv[base + pc.dim] = written_first ? in_kv1 + d_kv1 : 0.0;
+    grad_state_score[base + pc.dim] = written_first ? in_score1 + d_score1 : 0.0;
+}

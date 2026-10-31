@@ -191,7 +191,8 @@ fn main() -> Result<()> {
     };
 
     let device = VulkanDevice::new()?;
-    let unmeasured_compose = hierarchos_vulkan::unmeasured_composition_is_qualified(device.vendor_id());
+    let unmeasured_compose =
+        hierarchos_vulkan::unmeasured_composition_is_qualified(device.vendor_id());
     let plan = vendor_kernel_plan(&device);
     let linear3_variant = plan
         .iter()
@@ -289,7 +290,11 @@ fn main() -> Result<()> {
     require_default_matches_decision(
         PROBE_FAMILY,
         fused_label,
-        if unmeasured_compose { composed_dispatches } else { 0 },
+        if unmeasured_compose {
+            composed_dispatches
+        } else {
+            0
+        },
         default.time_mix_recorded_projection_decision(case.batch),
         default_label,
         case.batch,

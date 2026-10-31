@@ -1,0 +1,40 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_packed.glsl"
+
+// PEFT boundary merge: one FP32 low-rank delta is folded into the base
+// projection result and rounded to the stream dtype exactly once. `base` already
+// carries whatever rounding its GEMM contract produced (BF16 for packed and
+// dense-BF16 storage, FP32 otherwise), so the add must not introduce a second
+// intermediate cast.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Base { uint base_bits[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Delta { uint delta_bits[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer Output { uint output_bits[]; };
+layout(push_constant) uniform Push {
+    uint elements;
+    float scale;
+    uint bf16;
+} pc;
+
+void main() {
+    uint group = gl_WorkGroupID.y * 65535u + gl_WorkGroupID.x;
+    if (group >= (pc.elements - 1u) / 64u + 1u) return;
+    uint i = group * 64u + gl_LocalInvocationID.x;
+    if (i >= pc.elements) return;
+    float base = uintBitsToFloat(base_bits[i]);
+    float delta = uintBitsToFloat(delta_bits[i]);
+    // PEFT rounds the scaling multiply before the add; do not contract this
+    // into an FMA, or one-ulp differences reach the next BF16 boundary.
+    precise float scaled = pc.scale * delta;
+    precise float merged = base + scaled;
+    if (pc.bf16 == 0u) {
+        output_bits[i] = floatBitsToUint(merged);
+        return;
+    }
+    uint bits = floatBitsToUint(merged);
+    // Keep infinities and quiet NaNs recognizable to the strict logit gate.
+    if ((bits & 0x7f800000u) == 0x7f800000u) {
+        output_bits[i] = (bits & 0x7fffffu) != 0u ? ((bits & 0xffff0000u) | 0x00400000u) : bits;
+    } else output_bits[i] = v41_bf16_bits(bits);
+}

@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::{bail, Context, Result};
-use hierarchos_vulkan::{VulkanDevice, VulkanSeq2SeqTransformer, VulkanTransformer};
+use hierarchos_vulkan::{VulkanDevice, VulkanSeq2SeqTransformer, VulkanTransformer, VulkanTransformerConfig};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -29,6 +29,12 @@ struct Report {
     loaded_adapters: Vec<String>,
     active_adapter: Option<String>,
     adapters_enabled: bool,
+    streamed_linears: usize,
+    retired_parameter_bytes: usize,
+    source_first_parameters: bool,
+    loading_peak_buffer_bytes: usize,
+    largest_loading_buffer_bytes: usize,
+    loading_linear_package_io: Vec<(PathBuf, hierarchos_vulkan::weight_offload::OffloadLedger)>,
 }
 
 fn main() -> Result<()> {
@@ -55,6 +61,8 @@ fn run() -> Result<()> {
     let mut named_lora_adapters = Vec::new();
     let mut selected_adapter = None;
     let mut bypass_adapters = false;
+    let mut stream_lm_head = false;
+    let mut stream_parameters = false;
     let mut device_index = None;
     let mut args = std::env::args_os().skip(1);
     while let Some(arg) = args.next() {
@@ -77,7 +85,8 @@ fn run() -> Result<()> {
             }
             "--debug-first-layer-output" => {
                 debug_first_layer_output = Some(PathBuf::from(
-                    args.next().context("missing --debug-first-layer-output value")?,
+                    args.next()
+                        .context("missing --debug-first-layer-output value")?,
                 ))
             }
             "--lora-adapter" => {
@@ -106,6 +115,8 @@ fn run() -> Result<()> {
                 )
             }
             "--disable-adapter" => bypass_adapters = true,
+            "--stream-lm-head" => stream_lm_head = true,
+            "--stream-parameters" => {stream_parameters=true;stream_lm_head=true;},
             "--device-index" => {
                 device_index = Some(
                     args.next()
@@ -117,7 +128,7 @@ fn run() -> Result<()> {
             }
             "-h" | "--help" => {
                 eprintln!(
-                    "usage: transformer_logits --model DIR --fixture fixture.json [--output report.json] [--lora-adapter DIR] [--export-model DIR] [--device-index N]"
+                    "usage: transformer_logits --model DIR --fixture fixture.json [--output report.json] [--lora-adapter DIR] [--export-model DIR] [--stream-lm-head] [--stream-parameters] [--device-index N]"
                 );
                 return Ok(());
             }
@@ -189,8 +200,11 @@ fn run() -> Result<()> {
         bail!("encoder_attention_mask requires encoder_input_ids");
     }
     let report = if let Some(encoder_ids) = fixture.encoder_input_ids.as_deref() {
+        if stream_lm_head {
+            bail!("--stream-lm-head applies to the decoder logits path, not to a seq2seq fixture");
+        }
         let graph = VulkanSeq2SeqTransformer::from_hf_package_with_batch_size(
-            device,
+            device.clone(),
             &model,
             fixture.batch_size,
             encoder_ids.len() / fixture.batch_size,
@@ -217,15 +231,37 @@ fn run() -> Result<()> {
             loaded_adapters: Vec::new(),
             active_adapter: None,
             adapters_enabled: false,
+            streamed_linears: 0,
+            retired_parameter_bytes: 0,
+            source_first_parameters: false,
+            loading_peak_buffer_bytes: device.memory_stats()?.peak_live_buffer_bytes,
+            largest_loading_buffer_bytes: device.memory_stats()?.largest_buffer_bytes,
+            loading_linear_package_io: Vec::new(),
         }
     } else {
         eprintln!("transformer_logits: constructing graph");
-        let mut graph = VulkanTransformer::from_hf_package(
-            device,
-            &model,
-            fixture.batch_size,
-            fixture.seq_len,
-        )?;
+        // Freeze/package-back the vocabulary before attaching body adapters.
+        // GPT-2 and Llama-layout loaders also avoid resident table allocation.
+        let mut graph = if stream_parameters {
+            let config=VulkanTransformerConfig::from_hf_config(model.join("config.json"))?;
+            VulkanTransformer::from_hf_package_with_streamed_parameters(
+                device.clone(), &model, config, fixture.batch_size, fixture.seq_len)?
+        } else if stream_lm_head {
+            VulkanTransformer::from_hf_package_with_streamed_lm_head(
+                device.clone(),
+                &model,
+                fixture.batch_size,
+                fixture.seq_len,
+            )?
+        } else {
+            VulkanTransformer::from_hf_package(device.clone(), &model, fixture.batch_size, fixture.seq_len)?
+        };
+        let streamed_linears=graph.streamed_linear_count();
+        // No resident graph is constructed just to estimate a saving.
+        let retired_parameter_bytes=graph.streaming_retired_parameter_bytes();
+        let source_first_parameters=graph.parameters_streamed_during_loading();
+        let loading_stats=device.memory_stats()?;
+        let loading_linear_package_io=graph.streamed_linear_package_io()?;
         if let Some(adapter_dir) = lora_adapter.as_deref() {
             graph.load_lora_adapter(adapter_dir)?;
         }
@@ -237,6 +273,9 @@ fn run() -> Result<()> {
         }
         if bypass_adapters {
             graph.disable_adapter()?;
+        }
+        if stream_lm_head {
+            eprintln!("transformer_logits: output head served from package tiles");
         }
         eprintln!("transformer_logits: graph constructed; running forward");
         let logits = match fixture.token_type_ids.as_deref() {
@@ -251,7 +290,10 @@ fn run() -> Result<()> {
             graph.export_hf_package(&model, export_dir)?;
         }
         if let Some(trace_path) = debug_first_layer_output.as_deref() {
-            fs::write(trace_path, serde_json::to_vec(&graph.debug_first_layer_norm_states()?)?)?;
+            fs::write(
+                trace_path,
+                serde_json::to_vec(&graph.debug_first_layer_norm_states()?)?,
+            )?;
         }
         if let Some(trace_path) = std::env::var_os("HIERARCHOS_FALCON_H1_TRACE") {
             fs::write(
@@ -277,6 +319,12 @@ fn run() -> Result<()> {
             loaded_adapters,
             active_adapter,
             adapters_enabled,
+            streamed_linears,
+            retired_parameter_bytes,
+            source_first_parameters,
+            loading_peak_buffer_bytes: loading_stats.peak_live_buffer_bytes,
+            largest_loading_buffer_bytes: loading_stats.largest_buffer_bytes,
+            loading_linear_package_io,
         }
     };
     // Proof of coverage rather than of intent: the geometry gate can reject a

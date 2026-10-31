@@ -1,0 +1,12 @@
+{
+  "old_fixture_sha256": "4aa571637805e69dcc290fca2b232ef3b5d5c8f247c6bb5c369754ebb404bbfe",
+  "new_fixture_sha256": "70d2218429c2d4b8623a8ebbdd6c659eec22f7f64f9eeecd3d95c5d7877fdcf0",
+  "correction": "YaRN metadata factor 16 -> 40 to match unchanged CPU ModelArgs",
+  "changed_fields": [
+    "config.text_config.rope_scaling.factor",
+    "checkpoint.files.config.json"
+  ],
+  "frozen_steps_unchanged": true,
+  "full_logits": 904960,
+  "all_eight_weight_shards_unchanged": true
+}

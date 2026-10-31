@@ -1,0 +1,137 @@
+#version 450
+
+// CPU PyTorch TopKImpl.h selects partial_sort at k*64 <= n, otherwise
+// nth_element. Mirror Windows STL score-only comparisons and partition moves,
+// including equal scores and masked -inf. An index tie break changes sets.
+// Copyright (c) Microsoft Corporation.
+// Median partition and heap staging adapted from Microsoft STL (Apache-2.0
+// WITH LLVM-exception); see THIRD_PARTY_NOTICES.md and licenses/.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Scores { float scores[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer Indices { int indices[]; };
+layout(set = 0, binding = 2, std430) buffer Scratch { uint order[]; };
+layout(push_constant) uniform Push {
+    uint rows; uint seq; uint width; uint topk;
+    uint offset; uint start_pos; uint ratio; uint raw;
+} pc;
+
+uint base;
+shared uint chosen[512];
+bool before(uint a, uint b) {
+    float x = scores[base+a], y = scores[base+b];
+    return (isnan(x) && !isnan(y)) || x > y;
+}
+uint at(int i) { return order[base+uint(i)]; }
+void put(int i, uint value) { order[base+uint(i)] = value; }
+void exchange(int a, int b) { uint value=at(a); put(a,at(b)); put(b,value); }
+bool less_at(int a, int b) { return before(at(a),at(b)); }
+
+void median3(int a, int b, int c) {
+    if (less_at(b,a)) exchange(b,a);
+    if (less_at(c,b)) {
+        exchange(c,b);
+        if (less_at(b,a)) exchange(b,a);
+    }
+}
+
+ivec2 partition_scores(int first, int last) {
+    int mid = first+(last-first)/2;
+    if (last-first-1 > 40) {
+        int step=(last-first)/8;
+        median3(first,first+step,first+2*step);
+        median3(mid-step,mid,mid+step);
+        median3(last-1-2*step,last-1-step,last-1);
+        median3(first+step,mid,last-1-step);
+    } else median3(first,mid,last-1);
+    int pfirst=mid, plast=mid+1;
+    while (first<pfirst && !less_at(pfirst-1,pfirst) && !less_at(pfirst,pfirst-1)) --pfirst;
+    while (plast<last && !less_at(plast,pfirst) && !less_at(pfirst,plast)) ++plast;
+    int high=plast, low=pfirst;
+    for (;;) {
+        while (high<last) {
+            if (less_at(pfirst,high)) { ++high; continue; }
+            if (less_at(high,pfirst)) break;
+            if (plast!=high) exchange(plast,high);
+            ++plast; ++high;
+        }
+        while (first<low) {
+            if (less_at(low-1,pfirst)) { --low; continue; }
+            if (less_at(pfirst,low-1)) break;
+            --pfirst;
+            if (pfirst!=low-1) exchange(pfirst,low-1);
+            --low;
+        }
+        if (low==first && high==last) return ivec2(pfirst,plast);
+        if (low==first) {
+            if (plast!=high) exchange(pfirst,plast);
+            ++plast; exchange(pfirst,high); ++pfirst; ++high;
+        } else if (high==last) {
+            --low; --pfirst;
+            if (low!=pfirst) exchange(low,pfirst);
+            --plast; exchange(pfirst,plast);
+        } else { --low; exchange(high,low); ++high; }
+    }
+}
+
+void insertion(int first, int last) {
+    for (int i=first+1; i<last; ++i) {
+        uint value=at(i);
+        int hole=i;
+        while (hole>first && before(value,at(hole-1))) { put(hole,at(hole-1)); --hole; }
+        put(hole,value);
+    }
+}
+
+void heap_hole(int hole, int bottom, uint value) {
+    int top=hole, idx=hole, nonleaf=(bottom-1)/2;
+    while (idx<nonleaf) {
+        idx=2*idx+2;
+        if (less_at(idx,idx-1)) --idx;
+        put(hole,at(idx)); hole=idx;
+    }
+    if (idx==nonleaf && bottom%2==0) { put(hole,at(bottom-1)); hole=bottom-1; }
+    while (top<hole && before(at((hole-1)/2),value)) {
+        int parent=(hole-1)/2; put(hole,at(parent)); hole=parent;
+    }
+    put(hole,value);
+}
+
+void main() {
+    if (gl_LocalInvocationID.x!=0u) return;
+    uint row=gl_WorkGroupID.x;
+    if (row>=pc.rows || pc.topk==0u || pc.topk>512u) return;
+    uint k=min(pc.topk,pc.width);
+    base=row*pc.width;
+    for (uint i=0u; i<pc.width; ++i) put(int(i),i);
+    if (k*64u<=pc.width) {
+        for (int hole=int(k)/2-1; hole>=0; --hole) heap_hole(hole,int(k),at(hole));
+        for (int i=int(k); i<int(pc.width); ++i) {
+            if (less_at(i,0)) { uint value=at(i); put(i,at(0)); heap_hole(0,int(k),value); }
+        }
+    } else {
+        int first=0, last=int(pc.width), nth=int(k)-1;
+        while (last-first>32) {
+            ivec2 pivot=partition_scores(first,last);
+            if (pivot.y<=nth) first=pivot.y;
+            else if (pivot.x<=nth) { first=last; break; }
+            else last=pivot.x;
+        }
+        insertion(first,last);
+    }
+    for (uint i=0u; i<k; ++i) chosen[i]=at(int(i));
+    // Released forward sorts selected positions, then maps future positions to
+    // -1; candidate-masked but visible ties are retained in that same order.
+    for (uint i=1u; i<k; ++i) {
+        uint value=chosen[i], j=i;
+        while (j>0u && chosen[j-1u]>value) { chosen[j]=chosen[j-1u]; --j; }
+        chosen[j]=value;
+    }
+    // Candidate block selection ranks raw rows of block maxima; it wants the
+    // selected ids themselves, not compressed positions shifted to -1.
+    if (pc.raw!=0u) {
+        for (uint i=0u; i<k; ++i) indices[row*k+i]=int(chosen[i]);
+        return;
+    }
+    uint visible=pc.start_pos==0u ? (row%pc.seq+1u)/pc.ratio : (pc.start_pos+pc.seq)/pc.ratio;
+    for (uint i=0u; i<k; ++i) indices[row*k+i]=chosen[i]<visible ? int(chosen[i]+pc.offset) : -1;
+}

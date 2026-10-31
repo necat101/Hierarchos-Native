@@ -1,0 +1,108 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+
+// V4.1 Hyper-Connection mix projection, input adjoint. The forward is
+// `Block.hc_mixes` / `transformer_deepseek_v41_hc_split.comp`:
+//   rstd = rsqrt(mean(stream^2) + norm_eps)
+//   raw  = linear(stream, hc_fn)          (frozen weight)
+//   mix  = raw * rstd
+// Given `d loss / d mix`, the adjoint walks both branches of the broadcast
+// multiply and then the mean-square normalization:
+//   d_raw[m]   = d_mix[m] * rstd
+//   d_rstd     = sum_m d_mix[m] * raw[m]
+//   d_var      = -0.5 * d_rstd * rstd^3          (rsqrt backward)
+//   d_mean     = d_var / width                   (mean backward)
+//   d_stream[k]= sum_m d_raw[m] * hc_fn[m, k]     (frozen projection)
+//              + d_mean * (2 * stream[k])         (square backward)
+// The projection's reduction over `mix_hc` uses the same ascending FMA chain
+// the forward linear kernel uses for a short K, and the mean-square statistic
+// is recomputed with the pinned CPU reducer so it cannot disagree with the
+// forward's `rstd`.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradMix { float grad_mix[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Raw { float raw[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Stream { float stream[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Weight { float weight[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradStream { float grad_stream[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hc;
+    uint dim;
+    uint mix_hc;
+    float norm_eps;
+} pc;
+
+#define V41_REDUCE_INPUT stream
+#include "fp32_v41_reduce.glsl"
+
+// rstd and `d_var / width`, computed once per row and shared by its lanes.
+shared float row_terms[2];
+
+void main() {
+    // One workgroup per row: the projection reduction is shared through
+    // `row_terms`, so the dispatch is `[rows, 1, 1]` groups of 64 lanes.
+    uint row = gl_WorkGroupID.x;
+    uint lane = gl_LocalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint width = pc.hc * pc.dim;
+    uint mix_base = row * pc.mix_hc;
+
+    if (lane == 0u) {
+        precise float squares = v41_sum_squares(row * width, width);
+        precise float variance = fp32_div(squares, float(width)) + pc.norm_eps;
+        float rstd = fp32_sqrt_recip(variance);
+        precise float banks[32];
+        for(uint i=0u;i<32u;++i) banks[i]=0.0;
+        for (uint m = 0u; m < pc.mix_hc; ++m) {
+            precise float product=grad_mix[mix_base + m] * raw[mix_base + m];
+            banks[m & 31u]+=product;
+        }
+        precise float d_rstd = 0.0;
+        for(uint i=0u;i<8u;++i) {
+            precise float partial=banks[i]+banks[i+8u];
+            partial+=banks[i+16u];partial+=banks[i+24u];d_rstd+=partial;
+        }
+        precise float cube = (rstd * rstd) * rstd;
+        precise float d_variance = (-0.5 * d_rstd) * cube;
+        row_terms[0] = rstd;
+        row_terms[1] = fp32_div(d_variance, float(width));
+    }
+    barrier();
+
+    float rstd = row_terms[0];
+    float mean_gradient = row_terms[1];
+    for (uint column = lane; column < width; column += 64u) {
+        precise float projected = 0.0;
+        if(pc.rows==1u) {
+            for(uint base=0u;base<pc.mix_hc;base+=8u) {
+                precise float partial=0.0;
+                for(uint m=base;m<min(base+8u,pc.mix_hc);++m) {
+                    precise float d=grad_mix[mix_base+m]*rstd;
+                    precise float product=d*weight[m*width+column];
+                    partial+=product;
+                }
+                projected+=partial;
+            }
+        } else if(pc.rows<4u && width%4u==0u && pc.mix_hc%4u==0u) {
+            for(uint m=0u;m<pc.mix_hc;m+=4u) {
+                precise float d0=grad_mix[mix_base+m]*rstd;
+                precise float d1=grad_mix[mix_base+m+1u]*rstd;
+                precise float d2=grad_mix[mix_base+m+2u]*rstd;
+                precise float d3=grad_mix[mix_base+m+3u]*rstd;
+                precise float p0=d0*weight[m*width+column];
+                precise float p1=d1*weight[(m+1u)*width+column];
+                precise float p2=d2*weight[(m+2u)*width+column];
+                precise float p3=d3*weight[(m+3u)*width+column];
+                precise float a=p0+p1;precise float b=p2+p3;
+                precise float group=a+b;projected+=group;
+            }
+        } else {
+            for (uint m = 0u; m < pc.mix_hc; ++m)
+                projected = fma(grad_mix[mix_base + m] * rstd, weight[m * width + column], projected);
+        }
+        precise float through_square = mean_gradient * (2.0 * stream[row * width + column]);
+        grad_stream[row * width + column] = projected + through_square;
+    }
+}

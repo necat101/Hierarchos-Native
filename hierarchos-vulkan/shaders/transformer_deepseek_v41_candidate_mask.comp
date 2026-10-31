@@ -1,0 +1,30 @@
+#version 450
+
+// Expands the level-one block selection into a per-position mask. The selected
+// block ids come from the CPU top-k staging in `index_topk` (heap for
+// k*64 <= blocks, otherwise median partition), so tied block maxima follow the
+// pinned reference instead of a lower-block-id tie break. A selected block that
+// scored -inf was unreachable; the reference drops it in the same scatter.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Selected { uint selected[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Scores { float scores[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer Mask { uint mask[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint width;
+    uint blocks;
+    uint block_size;
+    uint topk_blocks;
+} pc;
+
+void main() {
+    uint slot = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (slot >= pc.topk_blocks || row >= pc.rows) return;
+    uint block = selected[row * pc.topk_blocks + slot];
+    if (block >= pc.blocks) return;
+    if (!(scores[row * pc.blocks + block] > uintBitsToFloat(0xff800000u))) return;
+    uint begin = block * pc.block_size;
+    uint count = min(pc.block_size, pc.width - begin);
+    for (uint i = 0u; i < count; ++i) mask[row * pc.width + begin + i] = 1u;
+}

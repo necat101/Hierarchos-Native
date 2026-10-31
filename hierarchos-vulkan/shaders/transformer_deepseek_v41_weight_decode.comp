@@ -1,0 +1,32 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_packed.glsl"
+
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Data { uint data[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Scales { uint scales[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer Output { uint output_bits[]; };
+layout(push_constant) uniform WeightDecodePush {
+    uint rows;
+    uint cols;
+    uint format; // 0=FP8 block32, 1=FP8 block128, 2=FP4 row32, 3=Engram FP8 row32
+    uint bf16;
+} pc;
+
+uint data_byte(uint i) { return (data[i / 4u] >> ((i % 4u) * 8u)) & 255u; }
+uint scale_byte(uint i) { return (scales[i / 4u] >> ((i % 4u) * 8u)) & 255u; }
+void main() {
+    uint group = gl_WorkGroupID.y * 65535u + gl_WorkGroupID.x;
+    if (group >= (pc.rows * pc.cols - 1u) / 64u + 1u) return;
+    uint i = group * 64u + gl_LocalInvocationID.x;
+    if (i >= pc.rows * pc.cols) return;
+    uint row = i / pc.cols, col = i % pc.cols;
+    uint block = pc.format == 1u ? 128u : 32u;
+    uint scale_row = pc.format < 2u ? row / block : row;
+    uint scale_index = scale_row * (pc.cols / block) + col / block;
+    uint b;
+    if (pc.format == 2u) b = v41_e2m1_bits((data_byte(i / 2u) >> ((i % 2u) * 4u)) & 15u);
+    else b = v41_e4m3_bits(data_byte(i));
+    b = v41_scale_bits(b, scale_byte(scale_index));
+    output_bits[i] = pc.bf16 != 0u ? v41_bf16_bits(b) : b;
+}

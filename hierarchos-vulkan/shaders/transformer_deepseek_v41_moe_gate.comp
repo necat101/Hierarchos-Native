@@ -1,0 +1,255 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+
+// V4.1 MoE gate. Matches Gate.forward for text-only batches:
+//   scores = linear(x, gate_weight) / gate_temp, then softmax | sigmoid |
+//            sqrt(softplus);
+//   selection uses scores + correction_bias, weights come from the raw scores;
+//   optional top-k normalization (sum + 1e-20) and route scaling.
+// Selection mirrors the pinned CPU `topk` staging (TopKImpl.h: partial_sort at
+// k*64 <= n, nth_element otherwise, with Microsoft STL comparisons and moves),
+// exactly as the index top-k does. Equal biased scores are therefore resolved
+// the way the reference resolves them rather than by a local id rule.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Weight { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Bias { float bias[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer Weights { float weights[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer Indices { uint indices[]; };
+layout(set = 0, binding = 5, std430) buffer Counts { uint counts[]; };
+layout(set = 0, binding = 6, std430) readonly buffer SqrtSeeds { uint sqrt_seeds[]; };
+#define V41_SQRT_SEEDS sqrt_seeds
+#include "fp32_v41_cpu_sqrt.glsl"
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint experts;
+    uint topk;
+    uint score_func;
+    float gate_temp;
+    uint norm_topk;
+    float route_scale;
+} pc;
+
+// One workgroup owns a row. Expert dots/unaries are independent; lane zero
+// retains the exact ordered CPU selection and normalization after publication.
+shared uint order[512];
+shared float scores[512];
+
+bool before(uint a, uint b) {
+    float x = scores[a] + bias[a];
+    float y = scores[b] + bias[b];
+    return (isnan(x) && !isnan(y)) || x > y;
+}
+uint at(int i) { return order[uint(i)]; }
+void put(int i, uint value) { order[uint(i)] = value; }
+void exchange(int a, int b) { uint value=at(a); put(a,at(b)); put(b,value); }
+bool less_at(int a, int b) { return before(at(a),at(b)); }
+
+void median3(int a, int b, int c) {
+    if (less_at(b,a)) exchange(b,a);
+    if (less_at(c,b)) {
+        exchange(c,b);
+        if (less_at(b,a)) exchange(b,a);
+    }
+}
+
+ivec2 partition_scores(int first, int last) {
+    int mid = first+(last-first)/2;
+    if (last-first-1 > 40) {
+        int step=(last-first)/8;
+        median3(first,first+step,first+2*step);
+        median3(mid-step,mid,mid+step);
+        median3(last-1-2*step,last-1-step,last-1);
+        median3(first+step,mid,last-1-step);
+    } else median3(first,mid,last-1);
+    int pfirst=mid, plast=mid+1;
+    while (first<pfirst && !less_at(pfirst-1,pfirst) && !less_at(pfirst,pfirst-1)) --pfirst;
+    while (plast<last && !less_at(plast,pfirst) && !less_at(pfirst,plast)) ++plast;
+    int high=plast, low=pfirst;
+    for (;;) {
+        while (high<last) {
+            if (less_at(pfirst,high)) { ++high; continue; }
+            if (less_at(high,pfirst)) break;
+            if (plast!=high) exchange(plast,high);
+            ++plast; ++high;
+        }
+        while (first<low) {
+            if (less_at(low-1,pfirst)) { --low; continue; }
+            if (less_at(pfirst,low-1)) break;
+            --pfirst;
+            if (pfirst!=low-1) exchange(pfirst,low-1);
+            --low;
+        }
+        if (low==first && high==last) return ivec2(pfirst,plast);
+        if (low==first) {
+            if (plast!=high) exchange(pfirst,plast);
+            ++plast; exchange(pfirst,high); ++pfirst; ++high;
+        } else if (high==last) {
+            --low; --pfirst;
+            if (low!=pfirst) exchange(low,pfirst);
+            --plast; exchange(pfirst,plast);
+        } else { --low; exchange(high,low); ++high; }
+    }
+}
+
+void insertion(int first, int last) {
+    for (int i=first+1; i<last; ++i) {
+        uint value=at(i);
+        int hole=i;
+        while (hole>first && before(value,at(hole-1))) { put(hole,at(hole-1)); --hole; }
+        put(hole,value);
+    }
+}
+
+void heap_hole(int hole, int bottom, uint value) {
+    int top=hole, idx=hole, nonleaf=(bottom-1)/2;
+    while (idx<nonleaf) {
+        idx=2*idx+2;
+        if (less_at(idx,idx-1)) --idx;
+        put(hole,at(idx)); hole=idx;
+    }
+    if (idx==nonleaf && bottom%2==0) { put(hole,at(bottom-1)); hole=bottom-1; }
+    while (top<hole && before(at((hole-1)/2),value)) {
+        int parent=(hole-1)/2; put(hole,at(parent)); hole=parent;
+    }
+    put(hole,value);
+}
+
+float gate_dot(uint row, uint expert, bool matrix_body) {
+    uint xb = row * pc.dim;
+    uint wb = expert * pc.dim;
+    if (matrix_body) {
+        precise float sum = 0.0;
+        // Gate.forward promotes even BF16 inputs/weights to FP32. Match the
+        // pinned CPU SGEMM's K panels, as the dense FP32 linear shader does;
+        // a single long FMA chain drifts at the released hidden width 5120.
+        uint panel_width = pc.dim > 192u && pc.dim < 384u ? pc.dim / 2u : 192u;
+        for (uint start = 0u; start < pc.dim; start += panel_width) {
+            precise float panel = 0.0;
+            for (uint k = start; k < min(start + panel_width, pc.dim); ++k)
+                panel = fma(x[xb + k], weight[wb + k], panel);
+            sum += panel;
+        }
+        return sum;
+    }
+    precise float a = 0.0, b = 0.0, c = 0.0, d = 0.0;
+    uint aligned = pc.dim / 4u * 4u;
+    for (uint k = 0u; k < aligned; k += 4u) {
+        precise float p0 = x[xb + k] * weight[wb + k];
+        precise float p1 = x[xb + k + 1u] * weight[wb + k + 1u];
+        precise float p2 = x[xb + k + 2u] * weight[wb + k + 2u];
+        precise float p3 = x[xb + k + 3u] * weight[wb + k + 3u];
+        a += p0; b += p1; c += p2; d += p3;
+    }
+    precise float ac = a + c;
+    precise float bd = b + d;
+    precise float sum = ac + bd;
+    for (uint k = aligned; k < pc.dim; ++k) {
+        precise float product = x[xb + k] * weight[wb + k];
+        sum += product;
+    }
+    return sum;
+}
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    if (row >= pc.rows) return;
+    bool matrix_body = pc.experts > 8u && pc.rows >= 4u;
+
+    for (uint expert = gl_LocalInvocationID.x; expert < pc.experts; expert += 64u) {
+        scores[expert] = fp32_div(gate_dot(row, expert, matrix_body), pc.gate_temp);
+        if (pc.score_func == 1u)
+            scores[expert] = v41_cpu_sigmoid(scores[expert], row * pc.experts + expert, pc.rows * pc.experts);
+        else if (pc.score_func != 0u)
+            scores[expert] = v41_cpu_sqrt(v41_cpu_softplus(scores[expert], row * pc.experts + expert, pc.rows * pc.experts));
+    }
+    barrier();
+    if (gl_LocalInvocationID.x != 0u) return;
+
+    if (pc.score_func == 0u) {
+        float maximum = scores[0];
+        for (uint expert = 1u; expert < pc.experts; ++expert)
+            maximum = max(maximum, scores[expert]);
+        precise float total = 0.0;
+        for (uint expert = 0u; expert < pc.experts; ++expert) {
+            scores[expert] = sleef_expf_u10(scores[expert] - maximum);
+            total += scores[expert];
+        }
+        precise float reciprocal = fp32_div(1.0f, total);
+        for (uint expert = 0u; expert < pc.experts; ++expert)
+            scores[expert] *= reciprocal;
+    }
+
+    // Pinned CPU top-k staging over `scores + bias`.
+    for (uint expert = 0u; expert < pc.experts; ++expert) order[expert] = expert;
+    uint k = min(pc.topk, pc.experts);
+    if (k * 64u <= pc.experts) {
+        for (int hole = int(k)/2-1; hole >= 0; --hole) heap_hole(hole, int(k), at(hole));
+        for (uint i = k; i < pc.experts; ++i) {
+            if (less_at(int(i), 0)) {
+                uint value = at(int(i));
+                put(int(i), at(0));
+                heap_hole(0, int(k), value);
+            }
+        }
+        // `partial_sort` finishes with `sort_heap`, so the selected slots come
+        // out in descending biased-score order; normalization sums that order.
+        for (int end = int(k); end > 1; --end) {
+            uint top = at(0);
+            uint last = at(end-1);
+            put(end-1, top);
+            heap_hole(0, end-1, last);
+        }
+    } else {
+        int first=0, last=int(pc.experts), nth=int(k)-1;
+        while (last-first>32) {
+            ivec2 pivot=partition_scores(first,last);
+            if (pivot.y<=nth) first=pivot.y;
+            else if (pivot.x<=nth) { first=last; break; }
+            else last=pivot.x;
+        }
+        insertion(first,last);
+    }
+    float chosen[16];
+    for (uint slot = 0u; slot < pc.topk; ++slot) {
+        uint best_expert = at(int(slot));
+        indices[row * pc.topk + slot] = best_expert;
+        atomicAdd(counts[best_expert], 1u);
+        chosen[slot] = scores[best_expert];
+    }
+
+    if (pc.norm_topk != 0u && pc.topk > 1u) {
+        precise float total = 0.0;
+        // CPU SumKernel's short scalar row uses four accumulators, puts
+        // the remainder in the first, then folds the other three in order.
+        // Six routed experts exercise a different order than top-2/top-3.
+        if (pc.topk < 8u) {
+            precise float partial[4];
+            for (uint i=0u; i<4u; ++i) partial[i]=0.0;
+            uint aligned=pc.topk/4u*4u;
+            for (uint i=0u; i<aligned; ++i) partial[i%4u]+=chosen[i];
+            for (uint i=aligned; i<pc.topk; ++i) partial[0]+=chosen[i];
+            total=partial[0];
+            for (uint i=1u; i<4u; ++i) total+=partial[i];
+        } else {
+            // Supported top-k is at most 16: eight-lane vector body followed
+            // by a scalar tail before the ascending lane fold.
+            uint aligned=pc.topk/8u*8u;
+            for (uint i=aligned; i<pc.topk; ++i) total+=chosen[i];
+            for (uint lane=0u; lane<8u; ++lane) {
+                precise float partial=0.0;
+                for (uint i=lane; i<aligned; i+=8u) partial+=chosen[i];
+                total+=partial;
+            }
+        }
+        for (uint slot = 0u; slot < pc.topk; ++slot)
+            chosen[slot] = fp32_div(chosen[slot], total + 1e-20);
+    }
+    for (uint slot = 0u; slot < pc.topk; ++slot)
+        weights[row * pc.topk + slot] = chosen[slot] * pc.route_scale;
+}

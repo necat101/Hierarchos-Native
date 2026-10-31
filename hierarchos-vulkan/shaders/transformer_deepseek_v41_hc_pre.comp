@@ -1,0 +1,24 @@
+#version 450
+
+// V4.1 Hyper-Connections collapse. Matches Block.hc_pre:
+//   out[row, d] = sum_j pre_mix[row, j] * stream[row, j, d]
+// in ascending copy order.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Stream { float stream[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Pre { float pre[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer Output { float output_values[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hc;
+    uint dim;
+} pc;
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (column >= pc.dim || row >= pc.rows) return;
+    precise float sum = 0.0;
+    for (uint j = 0u; j < pc.hc; ++j)
+        sum += pre[row * pc.hc + j] * stream[(row * pc.hc + j) * pc.dim + column];
+    output_values[row * pc.dim + column] = sum;
+}

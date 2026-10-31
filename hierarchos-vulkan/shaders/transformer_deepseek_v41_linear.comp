@@ -1,0 +1,53 @@
+#version 450
+
+// FP32 qualification projection for the single-threaded CPU oracle. Narrow or
+// fewer-than-four-row GEMM uses a vector dot; the matrix path uses serial FMA.
+// Preserve that operation choice: RMSNorm amplifies one-ulp projection drift.
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Weight { float weight[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer Output { float output_values[]; };
+layout(push_constant) uniform Push { uint rows; uint input_dim; uint output_dim; uint bf16; } pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x, row = gl_GlobalInvocationID.y;
+    if (col >= pc.output_dim || row >= pc.rows) return;
+    uint xb = row * pc.input_dim, wb = col * pc.input_dim;
+    bool matrix_body = pc.bf16 != 0u || (pc.output_dim > 8u && pc.rows >= 4u);
+    if (matrix_body) {
+        precise float sum = 0.0;
+        // The pinned single-threaded MKL SGEMM stages K in panels of at most
+        // 192, splitting the 193..383 range in half, then adds panels to C.
+        // A single long FMA chain changes
+        // HC coefficients enough to cross downstream BF16 rounding boundaries.
+        // The dense BF16 CPU GEMM uses one full K accumulation before its
+        // BF16 result cast; FP32 SGEMM's panels must not leak into that path.
+        uint panel_width = pc.bf16 != 0u ? pc.input_dim :
+            (pc.input_dim > 192u && pc.input_dim < 384u ? pc.input_dim / 2u : 192u);
+        for (uint start = 0u; start < pc.input_dim; start += panel_width) {
+            precise float panel = 0.0;
+            for (uint k = start; k < min(start + panel_width, pc.input_dim); ++k)
+                panel = fma(x[xb+k], weight[wb+k], panel);
+            sum += panel;
+        }
+        output_values[row * pc.output_dim + col] = sum;
+    } else {
+        precise float a = 0.0, b = 0.0, c = 0.0, d = 0.0;
+        uint aligned = pc.input_dim / 4u * 4u;
+        for (uint k = 0u; k < aligned; k += 4u) {
+            precise float p0 = x[xb+k] * weight[wb+k];
+            precise float p1 = x[xb+k+1u] * weight[wb+k+1u];
+            precise float p2 = x[xb+k+2u] * weight[wb+k+2u];
+            precise float p3 = x[xb+k+3u] * weight[wb+k+3u];
+            a += p0; b += p1; c += p2; d += p3;
+        }
+        precise float ac = a + c;
+        precise float bd = b + d;
+        precise float sum = ac + bd;
+        for (uint k = aligned; k < pc.input_dim; ++k) {
+            precise float product = x[xb+k] * weight[wb+k];
+            sum += product;
+        }
+        output_values[row * pc.output_dim + col] = sum;
+    }
+}

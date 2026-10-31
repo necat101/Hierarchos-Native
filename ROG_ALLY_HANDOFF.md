@@ -1,5 +1,11 @@
 # Intel validation and ROG Ally qualification
 
+**Historical handoff:** the broad qualification below belongs to the earlier
+revisions identified here. The current handoff is RDNA3-validated only for
+DeepSeek V4.1 Flash and the recorded parameter/MoE streaming checks. Gen9
+validation of this work is pending. Use [VALIDATION_STATUS.md](VALIDATION_STATUS.md)
+for the current branch, scope and pull commands.
+
 This candidate contains the Intel Gen9 producer routes, portable recurrent/TBPTT
 optimizations, and the upstream two-rank distributed trainer with a Windows TCP
 transport. AMD routes must be measured on the physical Ally. Intel measurements

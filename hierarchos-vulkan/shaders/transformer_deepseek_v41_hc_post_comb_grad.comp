@@ -1,0 +1,63 @@
+#version 450
+
+// V4.1 Hyper-Connections expand, adjoint for the `post` and `comb`
+// coefficients. The forward is `transformer_deepseek_v41_hc_post.comp`; its
+// two coefficient paths are reductions over the channel axis:
+//   grad_post[row, j]    = sum_d grad_out[row, j, d] * x[row, d]
+//   grad_comb[row, k, j] = sum_d grad_out[row, j, d] * residual[row, k, d]
+// PyTorch reduces the last (contiguous) axis with the pinned CPU sum kernel:
+// four interleaved eight-lane banks, then an ascending lane fold. Column
+// `d` feeds bank `d & 31`, exactly as `fp32_v41_reduce.glsl` does.
+//
+// One invocation owns one (row, k, j) triple. The k == 0 invocations also
+// write grad_post, so a row's post gradient is produced exactly once.
+layout(local_size_x = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradOutput { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Residual { float residual[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradPost { float grad_post[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradComb { float grad_comb[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hc;
+    uint dim;
+} pc;
+
+float fold_banks(float banks[32]) {
+    precise float total = 0.0;
+    for (uint lane = 0u; lane < 8u; ++lane) {
+        precise float partial = banks[lane] + banks[8u + lane];
+        partial += banks[16u + lane];
+        partial += banks[24u + lane];
+        total += partial;
+    }
+    return total;
+}
+
+void main() {
+    uint triple = gl_GlobalInvocationID.x;
+    uint matrix = pc.hc * pc.hc;
+    uint row = triple / matrix;
+    if (row >= pc.rows) return;
+    uint k = (triple % matrix) / pc.hc;
+    uint j = triple % pc.hc;
+
+    precise float banks[32];
+    for (uint bank = 0u; bank < 32u; ++bank) banks[bank] = 0.0;
+    for (uint column = 0u; column < pc.dim; ++column) {
+        precise float product = grad_output[(row * pc.hc + j) * pc.dim + column]
+            * residual[(row * pc.hc + k) * pc.dim + column];
+        banks[column & 31u] += product;
+    }
+    grad_comb[(row * pc.hc + k) * pc.hc + j] = fold_banks(banks);
+
+    if (k == 0u) {
+        for (uint bank = 0u; bank < 32u; ++bank) banks[bank] = 0.0;
+        for (uint column = 0u; column < pc.dim; ++column) {
+            precise float product = grad_output[(row * pc.hc + j) * pc.dim + column]
+                * x[row * pc.dim + column];
+            banks[column & 31u] += product;
+        }
+        grad_post[row * pc.hc + j] = fold_banks(banks);
+    }
+}

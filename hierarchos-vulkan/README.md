@@ -1,5 +1,10 @@
 # Hierarchos + Transformers Vulkan training backend
 
+**Current RDNA3 validation covers DeepSeek V4.1 Flash and the recorded streaming
+checks only.** Architecture support and historical Intel/Ally evidence do not
+certify every architecture on this revision. Gen9 validation of V4.1/streaming
+is pending; see [VALIDATION_STATUS.md](../VALIDATION_STATUS.md).
+
 This crate is the native Vulkan training backend shared by coherent-v9
 Hierarchos and Hugging Face Transformer models. The original Hierarchos/RWKV
 graph remains intact, while `VulkanTransformer` adds causal and bidirectional

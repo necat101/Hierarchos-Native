@@ -1,0 +1,590 @@
+{
+  "status": "complete",
+  "method": "individual generated files; no recursive directory deletion",
+  "deleted": [
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-00.safetensors",
+      "Bytes": 1323827296
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-01.safetensors",
+      "Bytes": 288285752
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-02.safetensors",
+      "Bytes": 284348840
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-03.safetensors",
+      "Bytes": 284348872
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-04.safetensors",
+      "Bytes": 284348896
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-05.safetensors",
+      "Bytes": 284348896
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-06.safetensors",
+      "Bytes": 331590920
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-07.safetensors",
+      "Bytes": 332360072
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-08.safetensors",
+      "Bytes": 332360072
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-09.safetensors",
+      "Bytes": 332360072
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-10.safetensors",
+      "Bytes": 332360072
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-11.safetensors",
+      "Bytes": 332360064
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-12.safetensors",
+      "Bytes": 332360120
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-13.safetensors",
+      "Bytes": 332360120
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-14.safetensors",
+      "Bytes": 332360120
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-15.safetensors",
+      "Bytes": 332360120
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-16.safetensors",
+      "Bytes": 332360120
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-17.safetensors",
+      "Bytes": 332360120
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-18.safetensors",
+      "Bytes": 281191512
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090\\model-19.safetensors",
+      "Bytes": 1323827296
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_schedule_width_4141211\\model-00.safetensors",
+      "Bytes": 1323827296
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_schedule_width_4141211\\model-01.safetensors",
+      "Bytes": 318710976
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_schedule_width_4141211\\model-02.safetensors",
+      "Bytes": 240073144
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_schedule_width_4141211\\model-03.safetensors",
+      "Bytes": 333146752
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_schedule_width_4141211\\model-04.safetensors",
+      "Bytes": 319953704
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_schedule_width_4141211\\model-05.safetensors",
+      "Bytes": 240073144
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_schedule_width_4141211\\model-06.safetensors",
+      "Bytes": 159603096
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_schedule_width_4141211\\model-07.safetensors",
+      "Bytes": 1323827296
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141017\\model-00001-of-00002.safetensors",
+      "Bytes": 152764
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141017\\model-00002-of-00002.safetensors",
+      "Bytes": 136012
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141018\\model-00001-of-00002.safetensors",
+      "Bytes": 152764
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141018\\model-00002-of-00002.safetensors",
+      "Bytes": 136012
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141019\\model-00001-of-00002.safetensors",
+      "Bytes": 152764
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141019\\model-00002-of-00002.safetensors",
+      "Bytes": 136012
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141041\\model-00001-of-00002.safetensors",
+      "Bytes": 147132
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141041\\model-00002-of-00002.safetensors",
+      "Bytes": 86030
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141042\\model-00001-of-00002.safetensors",
+      "Bytes": 147132
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141042\\model-00002-of-00002.safetensors",
+      "Bytes": 86030
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141051\\model-00001-of-00002.safetensors",
+      "Bytes": 70750
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141051\\model-00002-of-00002.safetensors",
+      "Bytes": 136488
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141052\\model-00001-of-00002.safetensors",
+      "Bytes": 70750
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141052\\model-00002-of-00002.safetensors",
+      "Bytes": 136488
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141061\\model-00001-of-00002.safetensors",
+      "Bytes": 57446
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141061\\model-00002-of-00002.safetensors",
+      "Bytes": 159284
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141062\\model-00001-of-00002.safetensors",
+      "Bytes": 119806
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141062\\model-00002-of-00002.safetensors",
+      "Bytes": 237852
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141071\\model-00001-of-00002.safetensors",
+      "Bytes": 1376516
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141071\\model-00002-of-00002.safetensors",
+      "Bytes": 1759320
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141072\\model-00001-of-00002.safetensors",
+      "Bytes": 7834662
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141072\\model-00002-of-00002.safetensors",
+      "Bytes": 9581758
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141073\\model-00001-of-00002.safetensors",
+      "Bytes": 1485302
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141073\\model-00002-of-00002.safetensors",
+      "Bytes": 1650518
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141090\\model-00001-of-00002.safetensors",
+      "Bytes": 2768405112
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141090\\model-00002-of-00002.safetensors",
+      "Bytes": 116527132
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141101\\model-00001-of-00002.safetensors",
+      "Bytes": 3926030
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141101\\model-00002-of-00002.safetensors",
+      "Bytes": 3750626
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141102\\model-00001-of-00002.safetensors",
+      "Bytes": 1440734
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141102\\model-00002-of-00002.safetensors",
+      "Bytes": 1463544
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141111\\model-00001-of-00002.safetensors",
+      "Bytes": 19693753
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141111\\model-00002-of-00002.safetensors",
+      "Bytes": 19391855
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141112\\model-00001-of-00002.safetensors",
+      "Bytes": 20279001
+    },
+    {
+      "Path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\target\\deepseek-v41-reference\\pytorch-fixtures\\4141112\\model-00002-of-00002.safetensors",
+      "Bytes": 19743007
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00001.bin",
+      "Bytes": 4384
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00002.bin",
+      "Bytes": 274
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00003.bin",
+      "Bytes": 8768
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00004.bin",
+      "Bytes": 10
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00005.bin",
+      "Bytes": 6553600
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00006.bin",
+      "Bytes": 6400
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00007.bin",
+      "Bytes": 41943040
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00008.bin",
+      "Bytes": 40960
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00009.bin",
+      "Bytes": 2621440
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00010.bin",
+      "Bytes": 2560
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00011.bin",
+      "Bytes": 41943040
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00012.bin",
+      "Bytes": 40960
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00013.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00014.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00015.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00016.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00017.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00018.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00019.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00020.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00021.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00022.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00023.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00024.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00025.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00026.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00027.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00028.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00029.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00030.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00031.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00032.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00033.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00034.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00035.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00036.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00037.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00038.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00039.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00040.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00041.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00042.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00043.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00044.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00045.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00046.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00047.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00048.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00049.bin",
+      "Bytes": 11796480
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00050.bin",
+      "Bytes": 11520
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00051.bin",
+      "Bytes": 11796480
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00052.bin",
+      "Bytes": 11520
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00053.bin",
+      "Bytes": 11796480
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00054.bin",
+      "Bytes": 11520
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00055.bin",
+      "Bytes": 5242880
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00056.bin",
+      "Bytes": 5120
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00057.bin",
+      "Bytes": 157286400
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00058.bin",
+      "Bytes": 153600
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00059.bin",
+      "Bytes": 1048576
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00060.bin",
+      "Bytes": 32768
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00061.bin",
+      "Bytes": 6553600
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00062.bin",
+      "Bytes": 6400
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00063.bin",
+      "Bytes": 41943040
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00064.bin",
+      "Bytes": 40960
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00065.bin",
+      "Bytes": 2621440
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00066.bin",
+      "Bytes": 2560
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00067.bin",
+      "Bytes": 41943040
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00068.bin",
+      "Bytes": 40960
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00069.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00070.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00071.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00072.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00073.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00074.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00075.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00076.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00077.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00078.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00079.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00080.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00081.bin",
+      "Bytes": 5898240
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-packed-fy8ooep_\\tensor-00082.bin",
+      "Bytes": 368640
+    },
+    {
+      "Path": "C:\\Users\\User\\AppData\\Local\\Temp\\deepseek-v41-vocabulary-bxs8867s\\tensor.bin",
+      "Bytes": 1323827200
+    }
+  ],
+  "deleted_bytes": 17467935126,
+  "free_after": 55778500608,
+  "retained_scalable_checkpoint": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_joint_4141111",
+  "preserved_frozen_expectations": true
+}

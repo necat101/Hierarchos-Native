@@ -1,0 +1,18 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_packed.glsl"
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { uint input_bits[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer Output { uint output_bits[]; };
+layout(push_constant) uniform Push { uint elements; } pc;
+void main() {
+    uint group = gl_WorkGroupID.y * 65535u + gl_WorkGroupID.x;
+    if (group >= (pc.elements - 1u) / 64u + 1u) return;
+    uint i = group * 64u + gl_LocalInvocationID.x;
+    if (i >= pc.elements) return;
+    uint b = input_bits[i];
+    // Keep infinities and quiet NaNs recognizable to the strict logit gate.
+    if ((b & 0x7f800000u) == 0x7f800000u) {
+        output_bits[i] = (b & 0x7fffffu) != 0u ? ((b & 0xffff0000u) | 0x00400000u) : b;
+    } else output_bits[i] = v41_bf16_bits(b);
+}

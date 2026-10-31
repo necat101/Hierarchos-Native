@@ -1,0 +1,27 @@
+#version 450
+
+// Append contiguous per-batch rows into a persistent shared cache:
+//   destination[batch, first_group + row_in_batch, :] = source[row, :]
+// Used for V4.1 index keys, where only source layers own a cache and every
+// consumer reads that source's buffer.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Source { float source[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer Destination { float destination[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    uint groups_per_batch;
+    uint first_group;
+    uint capacity;
+} pc;
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (column >= pc.dim || row >= pc.rows) return;
+    uint batch_index = row / pc.groups_per_batch;
+    uint group = pc.first_group + row % pc.groups_per_batch;
+    if (group >= pc.capacity) return;
+    destination[(batch_index * pc.capacity + group) * pc.dim + column] =
+        source[row * pc.dim + column];
+}

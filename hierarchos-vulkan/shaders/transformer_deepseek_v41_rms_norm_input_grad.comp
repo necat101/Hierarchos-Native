@@ -1,0 +1,73 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+
+// V4.1 RMSNorm input gradient for a frozen weight.
+//
+// The forward is `rms_norm.comp`: variance = sum(x^2)/dim + eps through the
+// pinned CPU reducer, rstd is the pinned CPU rsqrt of that variance, and
+// `out = (x * rstd) * weight`. This kernel recomputes rstd from `x` with the
+// same reducer and rsqrt contract, so it needs no side buffer and cannot
+// disagree with the forward about the normalization factor.
+//
+// The adjoint walks the chain PyTorch's autograd walks for that forward, not a
+// rearranged `rstd * (g - x * correction)` form:
+//
+//   weighted    = grad_out * weight
+//   dot         = sum(weighted * x)
+//   grad_var    = -0.5 * dot * rstd^3
+//   grad_sum    = grad_var / dim
+//   grad_x      = weighted * rstd + grad_sum * (2 * x)
+//
+// `dot` accumulates into the same four interleaved eight-lane banks the CPU
+// sum kernel uses. The weight is frozen, so no parameter gradient is produced;
+// adaptation lives on the projections.
+layout(local_size_x = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradOutput { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Weight { float weight[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradInput { float grad_input[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint dim;
+    float eps;
+} pc;
+
+#define V41_REDUCE_INPUT x
+#include "fp32_v41_reduce.glsl"
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint base = row * pc.dim;
+
+    precise float squares = v41_sum_squares(base, pc.dim);
+    precise float variance = fp32_div(squares, float(pc.dim)) + pc.eps;
+    float rstd = fp32_sqrt_recip(variance);
+
+    precise float banks[32];
+    for (uint bank = 0u; bank < 32u; ++bank) banks[bank] = 0.0;
+    for (uint column = 0u; column < pc.dim; ++column) {
+        precise float weighted = grad_output[base + column] * weight[column];
+        banks[column & 31u] += weighted * x[base + column];
+    }
+    precise float dot = 0.0;
+    for (uint lane = 0u; lane < 8u; ++lane) {
+        precise float partial = banks[lane] + banks[8u + lane];
+        partial += banks[16u + lane];
+        partial += banks[24u + lane];
+        dot += partial;
+    }
+
+    precise float cube = (rstd * rstd) * rstd;
+    precise float grad_variance = (-0.5 * dot) * cube;
+    precise float grad_sum = fp32_div(grad_variance, float(pc.dim));
+
+    for (uint column = 0u; column < pc.dim; ++column) {
+        precise float weighted = grad_output[base + column] * weight[column];
+        precise float direct = weighted * rstd;
+        precise float through_square = grad_sum * (2.0 * x[base + column]);
+        grad_input[base + column] = direct + through_square;
+    }
+}

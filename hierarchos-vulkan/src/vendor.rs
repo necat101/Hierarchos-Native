@@ -608,9 +608,7 @@ pub fn is_amd_rdna3(device: &VulkanDevice) -> bool {
 /// unreachable from either switch, so a candidate/stable comparison could not
 /// tell its arithmetic apart from the portable path.
 pub fn rdna3_module_enabled(device: &VulkanDevice) -> bool {
-    !vendor_kernels_disabled()
-        && effective_vendor(device) == GpuVendor::Amd
-        && is_amd_rdna3(device)
+    !vendor_kernels_disabled() && effective_vendor(device) == GpuVendor::Amd && is_amd_rdna3(device)
 }
 
 /// Geometry gate for the RDNA3 matmul modules.
@@ -1012,7 +1010,8 @@ impl VendorMatmulKernel {
         if let (Some(device), Some(routes), Some((rows, input_dim, output_dim))) =
             (&self.amd_device, &self.amd_routes, geometry)
         {
-            if self.trace_variants && !self.qualify_modules
+            if self.trace_variants
+                && !self.qualify_modules
                 && !self.selects_variant_for(rows, input_dim, output_dim)
             {
                 eprintln!(

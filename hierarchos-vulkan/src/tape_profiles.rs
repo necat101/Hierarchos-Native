@@ -1504,7 +1504,7 @@ mod tests {
         record("TEST GPU", microbatch, stride, throughput).replacen(
             "\"subgroup_size\":64,",
             &format!(
-                "\"subgroup_size\":64,\"device_uuid\":\"{device_uuid}\",\"driver_uuid\":\"{driver_uuid}\"," 
+                "\"subgroup_size\":64,\"device_uuid\":\"{device_uuid}\",\"driver_uuid\":\"{driver_uuid}\","
             ),
             1,
         )

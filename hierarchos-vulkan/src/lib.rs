@@ -13,6 +13,9 @@ mod checkpoint;
 mod control;
 pub mod coverage_record;
 pub mod decision_records;
+/// DeepSeek V4.1 configuration, planning and native Vulkan text graph, including
+/// default package loading through `DeepseekV41CausalLM::from_hf_package`.
+pub mod deepseek_v41;
 pub mod distributed;
 mod full_training_graph;
 #[cfg(test)]
@@ -42,6 +45,10 @@ mod training_numerics;
 mod transformer;
 mod vendor;
 mod vulkan;
+/// Architecture-agnostic tiered weight residency: bounded package reads, a
+/// byte-capped host tile cache and the device-budget residency decision shared
+/// by every native loader (not just the dedicated DeepSeek V4.1 graph).
+pub mod weight_offload;
 
 use std::path::Path;
 
@@ -50,6 +57,10 @@ use bytemuck::{Pod, Zeroable};
 use hierarchos_inference::ModelConfig;
 
 pub use adapter::{AdapterStepResult, SharedTokenAdapterTrainer};
+pub use deepseek_v41::{DeepseekV41AttentionRuntimeConfig, DeepseekV41CausalLM, DeepseekV41Config};
+pub use weight_offload::{
+    plan_weight_residency, OffloadLedger, ResidencyReport, TensorDtype, WeightResidency,
+};
 // The kernel-golden coverage record is pure (no device, no Vulkan) and is audited by the
 // parity harnesses, which include `kernel_golden.rs` by path; it lives here so the audit
 // and its merge are testable with `cargo test --lib`.
@@ -193,9 +204,8 @@ pub use transformer::{
 };
 pub use vendor::{
     effective_vendor, native_fp16_lm_compute_reliable, select_kernel,
-    unmeasured_composition_is_qualified, variant_dispatch_counts,
-    vendor_kernel_plan, GpuVendor, VendorKernelFamily, VendorKernelSelection,
-    HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS_ENV,
+    unmeasured_composition_is_qualified, variant_dispatch_counts, vendor_kernel_plan, GpuVendor,
+    VendorKernelFamily, VendorKernelSelection, HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS_ENV,
     HIERARCHOS_VULKAN_FORCE_NATIVE_FP16_LM_COMPUTE_ENV, HIERARCHOS_VULKAN_FORCE_VENDOR_ENV,
 };
 pub use vulkan::{
@@ -843,7 +853,7 @@ impl HierarchosHeadTrainer {
         };
         self.linear_forward.record_dispatch(
             &mut batch,
-            &[&self.hidden, self.lm_head.weight_buffer(), &self.logits],
+            &[&self.hidden, self.lm_head.weight_buffer()?, &self.logits],
             bytemuck::bytes_of(&linear_push),
             [div_ceil_u32(self.vocab_size, 16), div_ceil_u32(rows, 16), 1],
         )?;
@@ -2720,7 +2730,7 @@ impl HierarchosOutNormHeadTrainer {
                             &self.norm_bias,
                             &self.norm_mean,
                             &self.norm_rstd,
-                            self.lm_head.weight_buffer(),
+                            self.lm_head.weight_buffer()?,
                             &self.targets,
                             &self.ce_row_stats,
                         ],
@@ -3002,7 +3012,7 @@ impl HierarchosOutNormHeadTrainer {
                         &self.norm_bias,
                         &self.norm_mean,
                         &self.norm_rstd,
-                        self.lm_head.weight_buffer(),
+                        self.lm_head.weight_buffer()?,
                         &self.ce_row_stats,
                         dense_lm_grad,
                     ],
@@ -3026,7 +3036,7 @@ impl HierarchosOutNormHeadTrainer {
                         &self.norm_bias,
                         &self.norm_mean,
                         &self.norm_rstd,
-                        self.lm_head.weight_buffer(),
+                        self.lm_head.weight_buffer()?,
                         &self.ce_row_stats,
                         &self.grad_norm_hidden,
                     ],
@@ -3538,10 +3548,10 @@ impl HierarchosOutNormHeadTrainer {
     pub(crate) fn optimizer_trainables<'a>(
         &'a self,
         lm_gradient: &'a GpuBuffer,
-    ) -> Vec<rwkv_optimizer::RwkvTrainableRef<'a>> {
+    ) -> Result<Vec<rwkv_optimizer::RwkvTrainableRef<'a>>> {
         use rwkv_optimizer::{RwkvDecayClass, RwkvTrainableRef};
 
-        vec![
+        Ok(vec![
             RwkvTrainableRef {
                 name: "out_norm.weight",
                 parameter: &self.norm_weight,
@@ -3558,12 +3568,12 @@ impl HierarchosOutNormHeadTrainer {
             },
             RwkvTrainableRef {
                 name: "lm_head.weight",
-                parameter: self.lm_head.weight_buffer(),
+                parameter: self.lm_head.weight_buffer()?,
                 gradient: lm_gradient,
                 len: self.context_dim * self.vocab_size,
                 decay_class: RwkvDecayClass::Decay,
             },
-        ]
+        ])
     }
 
     /// Finish output bookkeeping after an external full-model optimizer has
@@ -6080,7 +6090,7 @@ mod tests {
             VulkanParameterStorageFormat::Fp16,
         )?;
         let mut refresh = vulkan::ComputeBatch::new(&device)?;
-        refresher.record_refresh(&mut refresh, shared.weight_buffer(), &mirror)?;
+        refresher.record_refresh(&mut refresh, shared.weight_buffer()?, &mirror)?;
         refresh.submit()?;
         shared.install_fp16_parameter_storage_mirror(mirror)?;
         let fp16_weight = shared
@@ -6361,7 +6371,7 @@ mod tests {
             VulkanParameterStorageFormat::Fp16,
         )?;
         let mut refresh = vulkan::ComputeBatch::new(&device)?;
-        refresher.record_refresh(&mut refresh, shared.weight_buffer(), &mirror)?;
+        refresher.record_refresh(&mut refresh, shared.weight_buffer()?, &mirror)?;
         refresh.submit()?;
         shared.install_fp16_parameter_storage_mirror(mirror)?;
         let fp16_weight = shared

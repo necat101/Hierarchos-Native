@@ -1,0 +1,955 @@
+{
+  "method": "individual generated files under an allowed root; directories only once empty",
+  "freed_before_probe": 57333985280,
+  "roots": [],
+  "deleted_bytes": 0,
+  "deleted_files": 0,
+  "free_before": 57333985280,
+  "free_after": 57333985280,
+  "reclaimed_reported_bytes": 0,
+  "retained_scalable_checkpoint": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_joint_4141111",
+  "retained_frozen_expectations": [
+    "deepseek_v41_attention.json",
+    "deepseek_v41_attention_model.json",
+    "deepseek_v41_backbone.json",
+    "deepseek_v41_bf16_model.json",
+    "deepseek_v41_bf16_quantization.json",
+    "deepseek_v41_candidates.json",
+    "deepseek_v41_compressor.json",
+    "deepseek_v41_cpu_log.json",
+    "deepseek_v41_cpu_math.json",
+    "deepseek_v41_engram.json",
+    "deepseek_v41_engram_width.json",
+    "deepseek_v41_flash_1017_config.json",
+    "deepseek_v41_gate_tie.json",
+    "deepseek_v41_grouped_reduction.json",
+    "deepseek_v41_hash_seeding.json",
+    "deepseek_v41_index_keys.json",
+    "deepseek_v41_index_selection.json",
+    "deepseek_v41_joint_model.json",
+    "deepseek_v41_long_context_model.json",
+    "deepseek_v41_lora_model.json",
+    "deepseek_v41_mixed.json",
+    "deepseek_v41_mixed_attention.json",
+    "deepseek_v41_mixed_engram.json",
+    "deepseek_v41_mixed_model.json",
+    "deepseek_v41_model.json",
+    "deepseek_v41_model_additional.json",
+    "deepseek_v41_packed_weights.json",
+    "deepseek_v41_production_attention.json",
+    "deepseek_v41_production_model.json",
+    "deepseek_v41_quantization.json",
+    "deepseek_v41_rotary.json",
+    "deepseek_v41_router_width.json",
+    "deepseek_v41_routing_reduction.json",
+    "deepseek_v41_schedule_attention.json",
+    "deepseek_v41_schedule_width_model.json",
+    "deepseek_v41_structure_model.json",
+    "deepseek_v41_unary.json",
+    "deepseek_v41_wide_kernels.json",
+    "deepseek_v41_wide_model.json"
+  ],
+  "runs": [
+    {
+      "started_free_bytes": 41334362112,
+      "finished_free_bytes": 58423398400,
+      "deleted_bytes": 16950908454,
+      "deleted_files": 44293,
+      "roots": [
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_4141090",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "files_removed": 22,
+          "bytes_removed": 8342133789,
+          "class": "regenerable_generated_package"
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_lora_4141095",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "files_removed": 5,
+          "bytes_removed": 252520823,
+          "class": "regenerable_generated_package"
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_wide_4141071",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "files_removed": 2,
+          "bytes_removed": 3138259,
+          "class": "regenerable_generated_package"
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_wide_4141072",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "files_removed": 4,
+          "bytes_removed": 17435602,
+          "class": "regenerable_generated_package"
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_wide_4141073",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "files_removed": 4,
+          "bytes_removed": 3155047,
+          "class": "regenerable_generated_package"
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_structure_4141101",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "files_removed": 4,
+          "bytes_removed": 7856379,
+          "class": "regenerable_generated_package"
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_structure_4141102",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "files_removed": 4,
+          "bytes_removed": 3047688,
+          "class": "regenerable_generated_package"
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_schedule_width_4141211",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "files_removed": 3,
+          "bytes_removed": 763677,
+          "class": "regenerable_generated_package"
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\.peft-bank-work",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan",
+          "files_removed": 19181,
+          "bytes_removed": 187464068,
+          "class": "stale_peft_work_scratch"
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\.peft-validation-work",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan",
+          "files_removed": 24438,
+          "bytes_removed": 173656802,
+          "class": "stale_peft_work_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-00",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-01",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-02",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-03",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-04",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-05",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-06",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-07",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-08",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-09",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-10",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-11",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-12",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-13",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-14",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-15",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-16",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-17",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-18",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-19",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-20",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-21",
+          "allowed_root": "<temp>",
+          "files_removed": 26,
+          "bytes_removed": 166177280,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-packed-58ejc3_n",
+          "allowed_root": "<temp>",
+          "files_removed": 52,
+          "bytes_removed": 332354560,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-vocabulary-00",
+          "allowed_root": "<temp>",
+          "files_removed": 1,
+          "bytes_removed": 2647654400,
+          "class": "os_temp_scratch"
+        },
+        {
+          "path": "<temp>/deepseek-v41-vocabulary-01",
+          "allowed_root": "<temp>",
+          "files_removed": 1,
+          "bytes_removed": 1323827200,
+          "class": "os_temp_scratch"
+        }
+      ]
+    },
+    {
+      "started_free_bytes": 58423398400,
+      "finished_free_bytes": 58484158464,
+      "deleted_bytes": 46177687,
+      "deleted_files": 5304,
+      "roots": [],
+      "aggregate_only": "superseded oracle priors"
+    },
+    {
+      "started_free_bytes": 57135050752,
+      "finished_free_bytes": 57169735680,
+      "deleted_bytes": 34632975,
+      "deleted_files": 18,
+      "roots": [
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_wide_4141071",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "measured_bytes": 3138259,
+          "files_removed": 2,
+          "bytes_removed": 3138259,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_wide_4141072",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "measured_bytes": 17435602,
+          "files_removed": 4,
+          "bytes_removed": 17435602,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_wide_4141073",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "measured_bytes": 3155047,
+          "files_removed": 4,
+          "bytes_removed": 3155047,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_structure_4141101",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "measured_bytes": 7856379,
+          "files_removed": 4,
+          "bytes_removed": 7856379,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_structure_4141102",
+          "allowed_root": "C:\\Users\\User\\Downloads\\exphier\\Hierarchos-Native\\hierarchos-vulkan\\validation\\fixtures",
+          "measured_bytes": 3047688,
+          "files_removed": 4,
+          "bytes_removed": 3047688,
+          "removed": true
+        }
+      ]
+    },
+    {
+      "started_free_bytes": 57133670400,
+      "finished_free_bytes": 57261400064,
+      "deleted_bytes": 127182658,
+      "deleted_files": 141,
+      "roots": [
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-10536-1791358087613465400",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-10740-1792610700451540500",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-11448-1792981370333482200",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-11544-1792065809134624000",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-12000-1792986865780515400",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-12176-1792519713084847200",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-12184-1792049819907035200",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-12712-1792061479055360300",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-12908-1792060516518062600",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-13452-1792979407250157400",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-13636-1792592186191258400",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-13748-1792660892047811800",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-13788-1792519628844804800",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-13856-1792574722692414700",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-14092-1792533838094074200",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-14248-1792052579048829900",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-14296-1792603050423623600",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-14372-1792062460066353000",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-14416-1792903520724260200",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-14448-1791365189583870700",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-14524-1791373327012211800",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-14584-1792600382502278500",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-15392-1792654980574982500",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-15536-1792762284782682000",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-15580-1792052467720466800",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-15728-1792066874368862300",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-16156-1792769611784552200",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-16256-1792839969662991800",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-16464-1792068610845793700",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-16636-1793023267765052900",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-16832-1792606719005139600",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-17116-1793013754944191900",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-17488-1792067599159260400",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-17616-1792048934954412500",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-17936-1792595458475951300",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-17944-1793023176264242100",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-18024-1791372602232479900",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-18140-1792766148325489900",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-18632-1793024607091241900",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-18828-1792057848243777600",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-18996-1792890709142061700",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-1904-1791362684934611200",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-19180-1792519895581250900",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-19648-1792769004391018500",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-19868-1792979963134059000",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-19940-1792895374419178000",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-2280-1791357513225921500",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-2836-1792568919250506400",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-3112-1792617216156246300",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-3276-1792761932776868100",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-3380-1793023762851618400",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-3412-1792904107052473700",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-3904-1792891964219824000",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-4024-1792621250397610900",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-4060-1791363231298847700",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-4464-1791364853250310400",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-4512-1792902752181597900",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-4736-1792063579827135100",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-5344-1792892552043809900",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-6832-1792979595047324700",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-7000-1792055591424034100",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-7344-1793013422891195600",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-7488-1792614735411173200",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-7696-1793013915435208000",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-7996-1792049707587517000",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 0,
+          "files_removed": 0,
+          "bytes_removed": 0,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-9040-1793013842745875600",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-9232-1792979263816751100",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-9588-1792589107583967700",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-9624-1792765828835572700",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        },
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-9900-1792891088402628900",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        }
+      ]
+    },
+    {
+      "started_free_bytes": 57331273728,
+      "finished_free_bytes": 57333989376,
+      "deleted_bytes": 2706014,
+      "deleted_files": 3,
+      "roots": [
+        {
+          "path": "C:\\Users\\User\\AppData\\Local\\Temp\\hierarchos-causal-lm-vendor-16500-1793025325548163600",
+          "allowed_root": "C:\\Users\\User\\AppData\\Local\\Temp",
+          "measured_bytes": 2706014,
+          "files_removed": 3,
+          "bytes_removed": 2706014,
+          "removed": true
+        }
+      ]
+    },
+    {
+      "started_free_bytes": 57333985280,
+      "finished_free_bytes": 57333985280,
+      "deleted_bytes": 0,
+      "deleted_files": 0,
+      "roots": []
+    }
+  ],
+  "reconciled_first_run": true
+}

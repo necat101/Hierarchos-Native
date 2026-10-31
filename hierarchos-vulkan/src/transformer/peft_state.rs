@@ -459,7 +459,7 @@ impl VulkanTransformer {
         Ok(result)
     }
 
-    fn lora_base_fingerprint(&mut self) -> Result<String> {
+    pub(super) fn lora_base_fingerprint(&mut self) -> Result<String> {
         let selected = self.lora_active_adapter_name.clone();
         let restore = self.lora_adapters_enabled && !self.lora_saved_module_base.is_empty();
         if restore {
@@ -471,7 +471,30 @@ impl VulkanTransformer {
             // PLE tables are file-backed and can be tens of GiB. Hash their
             // source ranges in bounded chunks rather than materializing them
             // through parameter_values (which deliberately rejects PLE).
-            let resident = if self.config.architecture == VulkanTransformerArchitecture::Qwen4Exp {
+            let streamed_vocabulary = self.tiered_tied_head.is_some()
+                || self
+                    .lm_head
+                    .as_ref()
+                    .is_some_and(|head| head.weight.tiered_source().is_some());
+            let bounded_tensors = if streamed_vocabulary {
+                match self.config.architecture {
+                    VulkanTransformerArchitecture::Gpt2 | VulkanTransformerArchitecture::GptSw3 => {
+                        Some(self.gpt2_parameter_tensors_with_vocabulary(false)?)
+                    }
+                    _ if self.config.architecture.uses_llama_layout() => {
+                        Some(self.llama_parameter_tensors_with_vocabulary(false)?)
+                    }
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            let resident = if let Some(tensors) = bounded_tensors {
+                tensors
+                    .into_iter()
+                    .map(|(name, (_, values))| (name, values))
+                    .collect()
+            } else if self.config.architecture == VulkanTransformerArchitecture::Qwen4Exp {
                 self.qwen4_parameter_tensors()?
                     .into_iter()
                     .map(|(name, (_, values))| (name, values))
@@ -482,8 +505,39 @@ impl VulkanTransformer {
             for (name, values) in resident {
                 digest.update((name.len() as u64).to_le_bytes());
                 digest.update(name.as_bytes());
-                digest.update((values.len() as u64).to_le_bytes());
-                digest.update(f32_le_bytes(&values));
+                if streamed_vocabulary
+                    && values.is_empty()
+                    && matches!(
+                        name.as_str(),
+                        "transformer.wte.weight" | "model.embed_tokens.weight" | "lm_head.weight"
+                    )
+                {
+                    let len = self.config.vocab_size * self.config.hidden_size;
+                    digest.update((len as u64).to_le_bytes());
+                    for first in (0..self.config.vocab_size).step_by(TIERED_LM_HEAD_TILE_ROWS) {
+                        let rows = TIERED_LM_HEAD_TILE_ROWS.min(self.config.vocab_size - first);
+                        let tile = if name != "lm_head.weight" || self.lm_head.is_none() {
+                            self.shared_embedding.weight_rows(first, rows)?
+                        } else {
+                            let head = self.lm_head.as_ref().unwrap();
+                            if let Some(tiered) = head.weight.tiered_source() {
+                                tiered
+                                    .package
+                                    .lock()
+                                    .map_err(|_| anyhow!("shared package lock poisoned"))?
+                                    .read_f32_rows(&tiered.name, first, rows)?
+                            } else {
+                                bail!(
+                                    "offloaded fingerprint expected a package-backed output head"
+                                );
+                            }
+                        };
+                        digest.update(f32_le_bytes(&tile));
+                    }
+                } else {
+                    digest.update((values.len() as u64).to_le_bytes());
+                    digest.update(f32_le_bytes(&values));
+                }
             }
             for layer in &self.layers {
                 if let Some(ple) = &layer.qwen4_ple {
@@ -1065,7 +1119,17 @@ impl VulkanTransformer {
     /// identity keys only: no raw pointer is dereferenced, and no graph node is
     /// moved while the mutable visitor runs. Separate packed projection pieces
     /// retain separate storage keys while sharing the HF module name.
-    fn for_each_graph_peft_linear_mut<F>(&mut self, mut visit: F) -> Result<()>
+    pub(super) fn for_each_graph_peft_linear_mut<F>(&mut self, visit: F) -> Result<()>
+    where F:FnMut(String,String,&mut VulkanLinear)->Result<()> {
+        self.for_each_graph_linear_mut(false,visit)
+    }
+
+    pub(super) fn for_each_frozen_graph_linear_mut<F>(&mut self, visit:F)->Result<()>
+    where F:FnMut(String,String,&mut VulkanLinear)->Result<()> {
+        self.for_each_graph_linear_mut(true,visit)
+    }
+
+    fn for_each_graph_linear_mut<F>(&mut self, include_frozen_moe:bool, mut visit: F) -> Result<()>
     where
         F: FnMut(String, String, &mut VulkanLinear) -> Result<()>,
     {
@@ -1073,6 +1137,38 @@ impl VulkanTransformer {
         for index in 0..self.layers.len() {
             for (name, linear) in self.peft_layer_linears(index)? {
                 names.insert(std::ptr::from_ref(linear) as usize, (name.clone(), name));
+            }
+            // Streaming covers frozen routed experts even on architectures
+            // whose PEFT schema exposes only attention/shared expert targets.
+            // Keep the PEFT target discovery unchanged.
+            if include_frozen_moe {
+                let layer=&self.layers[index];
+                let mut add=|key:String,linear:&VulkanLinear| {
+                    names.entry(std::ptr::from_ref(linear) as usize).or_insert_with(||(key.clone(),key));
+                };
+                for (kind,moe) in [("moe",&layer.moe),("shortcut_moe",&layer.shortcut_moe)] {
+                    let Some(moe)=moe else {continue};
+                    let p=format!("native.layers.{index}.{kind}");
+                    add(format!("{p}.router"),&moe.router);
+                    for (name,linear) in [("shared_gate",&moe.shared_expert_gate),("latent_down",&moe.latent_down_proj),("latent_up",&moe.latent_up_proj)] {
+                        if let Some(linear)=linear {add(format!("{p}.{name}"),linear);}
+                    }
+                    for (id,expert) in moe.experts.iter().enumerate() {
+                        if let Some(g)=&expert.gate {add(format!("{p}.experts.{}.gate",id+1),g);}
+                        add(format!("{p}.experts.{}.up",id+1),&expert.up);
+                        add(format!("{p}.experts.{}.down",id+1),&expert.down);
+                    }
+                    for (name,expert) in [("expert0",&moe.owned_expert0),("shared",&moe.shared_expert)] {
+                        if let Some(expert)=expert {
+                            if let Some(g)=&expert.gate {add(format!("{p}.{name}.gate"),g);}
+                            add(format!("{p}.{name}.up"),&expert.up);add(format!("{p}.{name}.down"),&expert.down);
+                        }
+                    }
+                    if kind=="moe" && moe.owned_expert0.is_none() {
+                        if let Some(g)=&layer.c_gate {add(format!("{p}.expert0.gate"),g);}
+                        add(format!("{p}.expert0.up"),&layer.c_fc);add(format!("{p}.expert0.down"),&layer.c_mlp_proj);
+                    }
+                }
             }
             if matches!(
                 self.config.architecture,
@@ -1134,9 +1230,37 @@ impl VulkanTransformer {
                 node(&mut mla.kv_b_proj)?;
             }
             if let Some(delta) = &mut layer.qwen_gated_delta {
+                // Every projection the canonical traversal registers has to be
+                // reachable here as well, or replacement storage silently
+                // misses nodes the PEFT preflight later rejects.
                 match &mut delta.projection {
+                    VulkanQwenGatedDeltaProjection::Qwen3Next { qkvz, ba, .. } => {
+                        for linear in [qkvz, ba] {
+                            node(linear)?;
+                        }
+                    }
                     VulkanQwenGatedDeltaProjection::Qwen35 { qkv, z, b, a } => {
                         for linear in [qkv, z, b, a] {
+                            node(linear)?;
+                        }
+                    }
+                    VulkanQwenGatedDeltaProjection::OlmoHybrid { q, k, v, z, b, a, .. } => {
+                        for linear in [q, k, v, z, b, a] {
+                            node(linear)?;
+                        }
+                    }
+                    VulkanQwenGatedDeltaProjection::Glm5 {
+                        q,
+                        k,
+                        v,
+                        forget_a,
+                        forget_b,
+                        beta,
+                        gate_a,
+                        gate_b,
+                        ..
+                    } => {
+                        for linear in [q, k, v, forget_a, forget_b, beta, gate_a, gate_b] {
                             node(linear)?;
                         }
                     }

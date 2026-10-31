@@ -15,9 +15,10 @@ use hierarchos_inference::{
     SamplingConfig,
 };
 use hierarchos_vulkan::{
-    merge_peft_lora_safetensors, unmerge_peft_lora_safetensors, AdamWHyperParams, VulkanDevice,
-    VulkanSeq2SeqTransformer, VulkanTransformer, VulkanTransformerArchitecture,
-    VulkanTransformerConfig, VulkanTransformerGenerationConfig, VulkanTransformerLoraConfig,
+    merge_peft_lora_safetensors, unmerge_peft_lora_safetensors, AdamWHyperParams,
+    DeepseekV41CausalLM, DeepseekV41Config, VulkanDevice, VulkanSeq2SeqTransformer,
+    VulkanTransformer, VulkanTransformerArchitecture, VulkanTransformerConfig,
+    VulkanTransformerGenerationConfig, VulkanTransformerLoraConfig,
 };
 use parquet::{
     file::reader::{FileReader, SerializedFileReader},
@@ -26,6 +27,8 @@ use parquet::{
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tokenizers::Tokenizer;
+
+mod deepseek_v41_training;
 
 const TOKENIZER_ASSETS: &[&str] = &[
     "tokenizer.json",
@@ -1804,11 +1807,11 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     let mut seq_len: Option<usize> = Some(128);
     let mut epochs = 1usize;
     let mut device_index: Option<usize> = None;
-    let mut lr = 5.0e-5f32;
-    let mut beta1 = 0.9f32;
-    let mut beta2 = 0.999f32;
-    let mut eps = 1.0e-8f32;
-    let mut weight_decay = 0.01f32;
+    let mut lr = 5.0e-5f64;
+    let mut beta1 = 0.9f64;
+    let mut beta2 = 0.999f64;
+    let mut eps = 1.0e-8f64;
+    let mut weight_decay = 0.01f64;
     let mut peft_switch = false;
     let mut peft_config_path: Option<PathBuf> = None;
     let mut peft_parameter_percent: Option<f64> = None;
@@ -1835,6 +1838,7 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     let mut save_lora_training: Option<PathBuf> = None;
     let mut seed = 42u64;
     let mut disable_transformer_dropout = false;
+    let mut stream_parameters = false;
     let mut full_finetune = false;
     let mut peft_option_seen = false;
     let mut text_options = TextDatasetOptions::default();
@@ -1862,9 +1866,11 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
             | "--lora-use-dora" | "--lora_use_dora" | "--use-dora" | "--use_dora"
             | "--lora-use-rslora" | "--lora_use_rslora" | "--use-rslora" | "--use_rslora");
         if matches!(key.as_str(), "-h" | "--help") {
+            println!("--stream-parameters opts into frozen parameter/MoE/vocabulary streaming for inference and LoRA training. Application default: resident. Generic loading may still have a resident loading peak. Full-parameter training is excluded.");
             println!("PEFT configuration: --peft-config FILE reads HF adapter_config.json for a NEW adapter. Alternatively use --lora-rank N (aliases --lora-r, --lora_r), --lora-alpha N, --lora-dropout F, --lora-target-modules q_proj,v_proj, --lora-target-regex REGEX, --lora-exclude-modules NAME,..., --lora-layers-to-transform 0,2, --lora-layers-pattern layers, --lora-rank-pattern JSON, --lora-alpha-pattern JSON, and --lora-modules-to-save NAME. Config files and individual config flags are mutually exclusive.\n\n--peft-parameter-percent P chooses the largest uniform rank within P percent of serialized floating base elements (duplicate tied head counted once); supports ordinary LoRA without saved modules or rank patterns. Reports actual native trainable count and achieved percentage. Rank 1 must fit.\n\n--lora-merge (alias --lora-model-merge) automatically exports OUT/merged-model after saving adapter weights and training state. Requires an unsharded base checkpoint and a new merge destination.\n");
         }
         match key.as_str() {
+            "--stream-parameters" => stream_parameters = true,
             "-h" | "--help" => {
                 println!(
                     "hierarchos-native-cli {mode} (--model-path DIR | --hf-model OWNER/REPO) (--train DATA.jsonl | --hf-dataset OWNER/REPO) --out-dir OUT [--batch-size N] [--seq-len N] [--epochs N] [--lr F] [--device-index N] [--seed N] [--peft] [--architecture MODEL_TYPE] [--adapter-name NAME] [--peft-resume DIR] [--save-lora-training DIR] [--full-finetune | --lora-rank N] [--lora-alpha N] [--lora-dropout F] [--lora-bias none|lora_only|all] [--lora-target-module NAME ...] [--lora-modules-to-save NAME ...] [--lora-use-dora] [--lora-use-rslora] [--lora-adapter-path DIR] [--disable-transformer-dropout]\n\ntransformer-train updates all parameters. transformer-finetune defaults to LoRA; --full-finetune instead updates every parameter and exports a complete checkpoint (including Falcon H1/H1R). Full fine-tuning cannot be combined with adapter options. PEFT runs save adapter weights plus AdamW/RNG training state to OUT/training-state by default; use --peft-resume DIR for exact continuation or --save-lora-training DIR to choose another checkpoint directory.\n\nThe model math, stochastic dropout, loss, backpropagation and AdamW step execute in Vulkan. Hugging Face model/dataset/tokenizer I/O, Parquet-to-JSONL conversion, and tokenization execute in Rust; Python and PyTorch are not launched. Supported checkpoint dropout probabilities are honored natively using reproducible counter-based RNG derived from --seed. --disable-transformer-dropout remains an explicit ablation/debug override that zeroes recognized dropout fields for this run and records those zero values on full-model export. Pretokenized cross-attention decoder rows may provide encoder_hidden_states (flat or nested [encoder_sequence, hidden]) and optional encoder_attention_mask; encoder geometry must remain fixed across the dataset."
@@ -2080,7 +2086,7 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     {
         return Err("training checkpoint destination already exists; choose a new --out-dir or --save-lora-training directory".into());
     }
-    if peft_switch && (lora_bias != "none" || lora_use_dora || lora_use_rslora) {
+    if peft_switch && (lora_bias != "none" || lora_use_dora) {
         return Err("--peft currently qualifies standard LoRA with bias=none; requested variant has not passed this CLI lifecycle gate".into());
     }
     let uses_hf = hf_model.is_some() || hf_tokenizer.is_some() || hf_dataset.is_some();
@@ -2103,6 +2109,35 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     } else {
         model_path.expect("validated model path")
     };
+    let package_value: Value = serde_json::from_slice(&fs::read(model_dir.join("config.json")).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
+    if matches!(package_value.get("model_type").and_then(Value::as_str),Some("deepseek_v41"|"deepseek_v41_text")) {
+        if !uses_peft || full_finetune { return Err("DeepSeek V4.1 training uses a frozen base with native LoRA; use transformer-finetune or --peft".into()); }
+        if lora_merge || lora_use_dora || lora_bias != "none" || lora_dropout != 0.0 || !lora_modules_to_save.is_empty() || peft_config_path.is_some() || peft_parameter_percent.is_some() || lora_target_regex.is_some() || lora_layers.is_some() || !lora_layers_pattern.is_empty() || !lora_exclude_modules.is_empty() || lora_rank_pattern.is_some() || lora_alpha_pattern.is_some() {
+            return Err("DeepSeek V4.1 native training supports additive zero-dropout LoRA/rsLoRA with suffix targets, or a validated existing adapter; the requested configuration needs a separate qualification gate".into());
+        }
+        if requested_architecture.as_deref().is_some_and(|a|a!="deepseek_v41" && a!="deepseek_v41_text") {return Err("--architecture does not match DeepSeek V4.1 package".into());}
+        let tokenizer_override = if let Some(repo) = hf_tokenizer.as_deref() {
+            Some(fetch_hf_tokenizer_assets(repo,&hf_tokenizer_revision,hf_cache.as_deref().expect("HF cache"))?)
+        } else { tokenizer_path };
+        let dataset = if let Some(repo) = hf_dataset.as_deref() {
+            let files = if let Some(file)=hf_dataset_file.as_deref() {vec![file.to_owned()]} else {discover_hf_dataset_files(repo,&hf_dataset_revision,hf_dataset_config.as_deref(),&hf_dataset_split)?};
+            fetch_hf_dataset_files(repo,&hf_dataset_revision,&files,hf_cache.as_deref().expect("HF cache"),hf_dataset_config.as_deref(),&hf_dataset_split)?
+        } else {dataset_path.expect("validated dataset path")};
+        fs::create_dir_all(&output_dir).map_err(|e|e.to_string())?;
+        text_options.max_length=seq_len.unwrap_or(128).saturating_add(1);
+        let prepared=prepare_training_dataset(&dataset,&model_dir,tokenizer_override.as_deref(),&output_dir,&text_options)?;
+        return deepseek_v41_training::run(deepseek_v41_training::Options {
+            model_dir, dataset:prepared,output:output_dir,checkpoint:save_lora_training,resume:resume_lora_training,
+            adapter:lora_adapter_path,batch_size,seq_len:seq_len.unwrap_or(128),epochs,device_index,
+            rank:lora_rank.unwrap_or(8),alpha:lora_alpha,targets:lora_targets,rslora:lora_use_rslora,seed,
+            stream_parameters,
+            hyper:hierarchos_vulkan::deepseek_v41::DeepseekV41AdamWConfig {learning_rate:lr,beta1,beta2,eps,weight_decay},
+        });
+    }
+    if stream_parameters && !uses_peft {
+        return Err("--stream-parameters requires inference or frozen-base PEFT; full-parameter training needs resident mutable weights".into());
+    }
+    if peft_switch && lora_use_rslora {return Err("rsLoRA has not passed the generic CLI lifecycle gate".into());}
     let package_config = VulkanTransformerConfig::from_hf_config(model_dir.join("config.json"))
         .map_err(|error| format!("invalid input architecture: {error:#}"))?;
     let mut file_peft_config = peft_config_path.as_ref().map(|path|
@@ -2253,7 +2288,12 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         None => VulkanDevice::new(),
     }
     .map_err(|error| format!("Vulkan device initialization failed: {error:#}"))?;
-    let mut graph = match encoder_seq_len {
+    if stream_parameters && encoder_seq_len.is_some() {
+        return Err("--stream-parameters has not been qualified for cross-attention training".into());
+    }
+    let mut graph = if stream_parameters {
+        VulkanTransformer::from_hf_package_with_streamed_parameters(device,&model_dir,runtime_config,batch_size,seq_len)
+    } else {match encoder_seq_len {
         Some(encoder_seq_len) => {
             VulkanTransformer::from_hf_package_with_config_and_encoder_seq_len(
                 device,
@@ -2271,7 +2311,7 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
             batch_size,
             seq_len,
         ),
-    }
+    }}
     .map_err(|error| format!("could not build Vulkan Transformer graph: {error:#}"))?;
     match (graph.encoder_seq_len(), encoder_seq_len) {
         (Some(_), None) => {
@@ -2382,11 +2422,11 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     }
 
     let mut hyper = AdamWHyperParams {
-        lr,
-        beta1,
-        beta2,
-        eps,
-        weight_decay,
+        lr:lr as f32,
+        beta1:beta1 as f32,
+        beta2:beta2 as f32,
+        eps:eps as f32,
+        weight_decay:weight_decay as f32,
     };
     if let Some(checkpoint) = resume_lora_training.as_deref() {
         hyper = graph
@@ -4155,6 +4195,7 @@ struct TransformerGenerateOptions {
     device_index: Option<usize>,
     add_special_tokens: bool,
     skip_special_tokens: bool,
+    stream_parameters: bool,
 }
 
 fn generation_override_integer(
@@ -4233,17 +4274,19 @@ fn parse_transformer_generate_options(
     let mut device_index = None;
     let mut add_special_tokens = true;
     let mut skip_special_tokens = true;
+    let mut stream_parameters = false;
 
     while let Some(arg) = argv.pop_front() {
         let key = arg.to_string_lossy().into_owned();
         match key.as_str() {
             "-h" | "--help" => {
+                println!("--stream-parameters opts into frozen parameter/MoE/vocabulary streaming (default: off). Generic loading may still have a resident loading peak.");
                 println!(
                     "hierarchos-native-cli transformer-generate (--model-path MODEL | --hf-model OWNER/REPO) (--prompt TEXT [--prompt TEXT ...] | --prompt-file FILE) [--lora-adapter-path ADAPTER] [--adapter-name NAME] [options]\n\n\
 Generation config precedence: model config.json < package generation_config.json < --generation-config FILE < CLI overrides.\n\
 Common overrides: --max-new-tokens N --max-length N --min-new-tokens N --min-length N --do-sample/--no-do-sample --temperature F --top-k N --top-p F --top-h F --min-p F --typical-p F --epsilon-cutoff F --eta-cutoff F --repetition-penalty F --sequence-bias JSON --exponential-decay-length-penalty JSON --num-beams N --num-return-sequences N --length-penalty F --early-stopping/--no-early-stopping --no-repeat-ngram-size N --bad-words-ids JSON --suppress-tokens IDS --begin-suppress-tokens IDS --forced-bos-token-id N --forced-eos-token-id IDS --eos-token-id IDS --seed N.\n\
 Generation execution: --use-cache/--no-use-cache --cache-implementation NAME (for example dynamic, static, or paged) --continuous-batching [--continuous-batch-max-requests N] --renormalize-logits/--no-renormalize-logits --remove-invalid-values/--no-remove-invalid-values --early-stopping-never. Repeating --prompt creates a request batch; continuous batching is opt-in and implies the native paged KV cache.\n\
-Runtime options: --context-length N --device-index N --no-add-special-tokens --keep-special-tokens --hf-model-revision REV --hf-cache-dir DIR.\n\
+Runtime options: --context-length N --device-index N --no-add-special-tokens --keep-special-tokens --hf-model-revision REV --hf-cache-dir DIR. DeepSeek-V4.1 packages (model_type=deepseek_v41) use their dedicated native graph; additive unmerged PEFT-LoRA is supported there, while continuous batching and non-dynamic cache policies are rejected for that architecture.\n\
 PEFT inference: --lora-adapter-path/--peft-adapter loads an unmerged HF-compatible adapter natively; --adapter-name controls its in-memory name. Only architectures reported by `architectures --peft` are accepted."
                 );
                 return Err("__help__".to_owned());
@@ -4265,6 +4308,7 @@ PEFT inference: --lora-adapter-path/--peft-adapter loads an unmerged HF-compatib
             }
             "--context-length" => context_length = Some(parse_required(&mut argv, &key)?),
             "--device-index" => device_index = Some(parse_required(&mut argv, &key)?),
+            "--stream-parameters" => stream_parameters = true,
             "--add-special-tokens" => add_special_tokens = true,
             "--no-add-special-tokens" => add_special_tokens = false,
             "--keep-special-tokens" => skip_special_tokens = false,
@@ -4460,6 +4504,7 @@ PEFT inference: --lora-adapter-path/--peft-adapter loads an unmerged HF-compatib
         device_index,
         add_special_tokens,
         skip_special_tokens,
+        stream_parameters,
     })
 }
 
@@ -4572,6 +4617,179 @@ fn load_transformer_generation_config(
     Ok(config)
 }
 
+/// The dedicated V4.1 executor caps context positions at 65,535. The released
+/// package advertises 1,048,576 positions, so CLI requests must be bounded to
+/// what the native graph can address.
+const DEEPSEEK_V41_RUNTIME_MAX_POSITIONS: usize = 65_535;
+
+fn deepseek_v41_generation_context(
+    config: &DeepseekV41Config,
+    longest_prompt: usize,
+    requested_new_tokens: usize,
+    explicit_context_length: Option<usize>,
+) -> Result<usize, String> {
+    let capacity = config
+        .text
+        .max_position_embeddings
+        .min(DEEPSEEK_V41_RUNTIME_MAX_POSITIONS);
+    if longest_prompt > capacity {
+        return Err(format!(
+            "prompt has {longest_prompt} tokens but the dedicated DeepSeek-V4.1 native graph supports {capacity} positions"
+        ));
+    }
+    let desired = longest_prompt
+        .saturating_add(requested_new_tokens)
+        .min(capacity)
+        .max(longest_prompt);
+    let context_length = explicit_context_length.unwrap_or(desired);
+    if context_length < longest_prompt {
+        return Err(format!(
+            "--context-length {context_length} is smaller than the longest encoded prompt length {longest_prompt}"
+        ));
+    }
+    if context_length > capacity {
+        return Err(format!(
+            "--context-length {context_length} exceeds the dedicated DeepSeek-V4.1 native graph limit of {capacity} positions (published max_position_embeddings is {})",
+            config.text.max_position_embeddings
+        ));
+    }
+    Ok(context_length)
+}
+
+/// Normal generation entry point for `model_type=deepseek_v41`: it uses the
+/// architecture's dedicated loader rather than the generic DeepSeek-V4 graph,
+/// while keeping the same tokenizer, generation-config and output contract as
+/// every other `transformer-generate` architecture.
+fn run_deepseek_v41_generate(
+    options: TransformerGenerateOptions,
+    model_dir: &Path,
+    package_config_value: &Value,
+) -> Result<u8, String> {
+    let config = DeepseekV41Config::from_hf_value(package_config_value)
+        .map_err(|error| format!("invalid DeepSeek-V4.1 package config: {error:#}"))?;
+    let tokenizer_path = model_dir.join("tokenizer.json");
+    let tokenizer = Tokenizer::from_file(&tokenizer_path)
+        .map_err(|error| format!("could not load {}: {error}", tokenizer_path.display()))?;
+    if tokenizer.get_vocab_size(true) > config.text.vocab_size {
+        return Err(format!(
+            "DeepSeek-V4.1 tokenizer vocabulary exceeds model embedding rows: tokenizer={} model={}",
+            tokenizer.get_vocab_size(true),
+            config.text.vocab_size
+        ));
+    }
+    let generation_config = load_transformer_generation_config(
+        model_dir,
+        options.generation_config.as_deref(),
+        &options.generation_overrides,
+        &tokenizer,
+    )?;
+    if generation_config.continuous_batching_config.is_some() {
+        return Err(
+            "the dedicated DeepSeek-V4.1 graph runs requests serially; --continuous-batching is not supported"
+                .to_owned(),
+        );
+    }
+    if generation_config
+        .cache_implementation
+        .as_deref()
+        .is_some_and(|cache| cache != "dynamic")
+    {
+        return Err(format!(
+            "the dedicated DeepSeek-V4.1 graph owns its KV-cache policy; cache_implementation={:?} is not supported",
+            generation_config.cache_implementation
+        ));
+    }
+    let prompt_texts = if !options.prompts.is_empty() {
+        options.prompts.clone()
+    } else {
+        let path = options
+            .prompt_file
+            .as_deref()
+            .expect("validated prompt file");
+        vec![fs::read_to_string(path)
+            .map_err(|error| format!("could not read prompt file {}: {error}", path.display()))?]
+    };
+    let prompt_ids = prompt_texts
+        .iter()
+        .enumerate()
+        .map(|(index, prompt)| {
+            let encoding = tokenizer
+                .encode(prompt.as_str(), options.add_special_tokens)
+                .map_err(|error| {
+                    format!("DeepSeek-V4.1 tokenizer encode failed for request {index}: {error}")
+                })?;
+            if encoding.get_ids().is_empty() {
+                return Err(format!(
+                    "DeepSeek-V4.1 tokenizer produced an empty prompt for request {index}"
+                ));
+            }
+            Ok(encoding.get_ids().to_vec())
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let longest_prompt = prompt_ids.iter().map(Vec::len).max().unwrap_or(1);
+    let requested_new_tokens = generation_config.max_new_tokens.unwrap_or_else(|| {
+        generation_config
+            .max_length
+            .unwrap_or(config.text.max_position_embeddings)
+            .saturating_sub(longest_prompt)
+    });
+    let context_length = deepseek_v41_generation_context(
+        &config,
+        longest_prompt,
+        requested_new_tokens,
+        options.context_length,
+    )?;
+    let generation_capacity = context_length.saturating_sub(longest_prompt);
+    if requested_new_tokens > generation_capacity {
+        eprintln!(
+            "DeepSeek-V4.1 generation length clipped by context: requested {requested_new_tokens} new token(s), capacity={generation_capacity} token(s)"
+        );
+    }
+    let device = match options.device_index {
+        Some(index) => VulkanDevice::new_with_index(index),
+        None => VulkanDevice::new(),
+    }
+    .map_err(|error| format!("Vulkan device initialization failed: {error:#}"))?;
+    let mut graph = DeepseekV41CausalLM::from_hf_package_with_lora_and_streaming(
+        device,
+        model_dir,
+        1,
+        context_length,
+        options.lora_adapter_path.as_deref(),
+        options.stream_parameters,
+    )
+    .map_err(|error| format!("could not build Vulkan DeepSeek-V4.1 graph: {error:#}"))?;
+    if let Some(adapter) = options.lora_adapter_path.as_deref() {
+        eprintln!(
+            "DeepSeek-V4.1 PEFT-LoRA adapter loaded unmerged from {}",
+            adapter.display()
+        );
+    }
+    for (request_index, prompt) in prompt_ids.iter().enumerate() {
+        let generated = graph
+            .generate_sequences_ids(prompt, &generation_config)
+            .map_err(|error| {
+                format!(
+                    "Vulkan DeepSeek-V4.1 generation failed for request {}: {error:#}",
+                    request_index + 1
+                )
+            })?;
+        if prompt_ids.len() > 1 {
+            println!("=== request {} ===", request_index + 1);
+        }
+        for (sequence_index, sequence) in generated.iter().enumerate() {
+            let text = tokenizer
+                .decode(sequence, options.skip_special_tokens)
+                .map_err(|error| format!("DeepSeek-V4.1 tokenizer decode failed: {error}"))?;
+            if generation_config.num_return_sequences > 1 {
+                println!("--- sequence {} ---", sequence_index + 1);
+            }
+            println!("{text}");
+        }
+    }
+    Ok(0)
+}
+
 fn run_transformer_generate(argv: VecDeque<OsString>) -> Result<u8, String> {
     let options = match parse_transformer_generate_options(argv) {
         Ok(options) => options,
@@ -4597,6 +4815,12 @@ fn run_transformer_generate(argv: VecDeque<OsString>) -> Result<u8, String> {
         .get("model_type")
         .and_then(Value::as_str)
         == Some("encoder-decoder");
+    if matches!(
+        package_config_value.get("model_type").and_then(Value::as_str),
+        Some("deepseek_v41" | "deepseek_v41_text")
+    ) {
+        return run_deepseek_v41_generate(options, &model_dir, &package_config_value);
+    }
     let (model_config, encoder_config) = if is_encoder_decoder {
         let encoder_value = package_config_value
             .get("encoder")
@@ -4784,6 +5008,9 @@ fn run_transformer_generate(argv: VecDeque<OsString>) -> Result<u8, String> {
     }
     .map_err(|error| format!("Vulkan device initialization failed: {error:#}"))?;
     let generated_batches = if is_encoder_decoder {
+        if options.stream_parameters {
+            return Err("--stream-parameters has not been qualified for encoder-decoder generation".into());
+        }
         let prompt_ids = &prompt_ids[0];
         let graph = VulkanSeq2SeqTransformer::from_hf_package(
             device,
@@ -4796,7 +5023,9 @@ fn run_transformer_generate(argv: VecDeque<OsString>) -> Result<u8, String> {
             .generate_sequences_ids(prompt_ids, None, &generation_config)
             .map_err(|error| format!("Vulkan EncoderDecoder generation failed: {error:#}"))?]
     } else {
-        let mut graph = VulkanTransformer::from_hf_package(device, &model_dir, 1, context_length)
+        let mut graph = if options.stream_parameters {
+            VulkanTransformer::from_hf_package_with_streamed_parameters(device,&model_dir,model_config.clone(),1,context_length)
+        } else {VulkanTransformer::from_hf_package(device, &model_dir, 1, context_length)}
             .map_err(|error| format!("could not build Vulkan Transformer graph: {error:#}"))?;
         if let Some(adapter_dir) = options.lora_adapter_path.as_deref() {
             let count = graph
@@ -5404,7 +5633,7 @@ whether modules_to_save has independently passed its <=2e-7 qualification."
     }
 
     if peft_only {
-        let rows = VulkanTransformerArchitecture::ALL
+        let mut rows = VulkanTransformerArchitecture::ALL
             .iter()
             .filter(|a| a.peft_capability().supports_peft)
             .map(|a| {
@@ -5416,6 +5645,16 @@ whether modules_to_save has independently passed its <=2e-7 qualification."
                 })
             })
             .collect::<Vec<_>>();
+        // V4.1 is a dedicated graph outside the generic architecture enum; its
+        // PEFT row comes from the same fail-closed capability contract.
+        let c = hierarchos_vulkan::deepseek_v41::lora_capability();
+        if c.supports_peft {
+            rows.push(json!({
+                "architecture": "deepseek_v41", "validated_methods": c.validated_methods,
+                "modules_to_save_validated": c.modules_to_save_validated,
+                "exclusions": c.exclusions, "evidence": c.evidence,
+            }));
+        }
         if json_output {
             println!(
                 "{}",
@@ -5603,6 +5842,18 @@ the project's optional saved LTM module are supported."
     let source_dir = native_model_package_dir(&model_path)?;
     let hf_transformer = source_dir.join("config.json").is_file()
         && !source_dir.join("hierarchos_rust_config.json").is_file();
+    if hf_transformer {
+        let model_type = fs::read(source_dir.join("config.json"))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+            .and_then(|value| value.get("model_type").and_then(Value::as_str).map(str::to_owned));
+        if matches!(model_type.as_deref(), Some("deepseek_v41" | "deepseek_v41_text")) {
+            return Err(
+                "DeepSeek-V4.1 runs adapters unmerged through its dedicated native graph: the released package stores packed FP8/FP4 blocks, and rewriting them to fold a LoRA delta would change the qualified base bytes. Use transformer-generate --lora-adapter-path instead."
+                    .into(),
+            );
+        }
+    }
     if hf_transformer && !source_dir.join("model.safetensors").is_file() {
         return Err("LoRA checkpoint merge requires a single model.safetensors file; sharded checkpoints are not yet supported".into());
     }
@@ -6302,6 +6553,162 @@ mod tests {
                 "unexpected error: {error}"
             );
         }
+    }
+
+    #[test]
+    fn deepseek_v41_generation_context_is_bounded_by_native_runtime() {
+        let value: Value = serde_json::from_str(include_str!(
+            "../../hierarchos-vulkan/validation/fixtures/deepseek_v41_flash_1017_config.json"
+        ))
+        .expect("released V4.1 config");
+        let config = DeepseekV41Config::from_hf_value(&value).expect("parse V4.1 config");
+        assert_eq!(config.text.max_position_embeddings, 1_048_576);
+        assert_eq!(
+            deepseek_v41_generation_context(&config, 100, 20, None).expect("default context"),
+            120
+        );
+        assert_eq!(
+            deepseek_v41_generation_context(&config, 100, 20, Some(128)).expect("explicit context"),
+            128
+        );
+        assert_eq!(
+            deepseek_v41_generation_context(&config, 100, usize::MAX / 2, None)
+                .expect("clamped context"),
+            DEEPSEEK_V41_RUNTIME_MAX_POSITIONS
+        );
+        let error = deepseek_v41_generation_context(&config, 100, 20, Some(65_536))
+            .expect_err("published maximum exceeds the native runtime");
+        assert!(error.contains("65535"), "{error}");
+        assert!(deepseek_v41_generation_context(&config, 100, 20, Some(99)).is_err());
+        assert!(deepseek_v41_generation_context(&config, 70_000, 20, None).is_err());
+    }
+
+    #[test]
+    fn transformer_generate_routes_deepseek_v41_through_the_dedicated_loader() {
+        use safetensors::tensor::{Dtype, TensorView};
+
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock after Unix epoch")
+            .as_nanos();
+        let root =
+            env::temp_dir().join(format!("hierarchos-v41-cli-{}-{nonce}", std::process::id()));
+        fs::create_dir_all(&root).expect("create V4.1 CLI package");
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../hierarchos-vulkan/validation/fixtures/deepseek_v41_model.json"
+        ))
+        .expect("decode V4.1 model fixture");
+        fs::write(
+            root.join("config.json"),
+            serde_json::to_vec(&fixture["config"]).expect("encode config"),
+        )
+        .expect("write config");
+        fs::write(
+            root.join("engram_tokens.json"),
+            serde_json::to_vec(&fixture["tokens"]).expect("encode Engram tokens"),
+        )
+        .expect("write Engram tokens");
+
+        let mut names = Vec::new();
+        let mut shapes = Vec::new();
+        let mut payloads = Vec::new();
+        for (name, tensor) in fixture["tensors"].as_object().expect("tensor map") {
+            let shape = tensor["shape"]
+                .as_array()
+                .expect("tensor shape")
+                .iter()
+                .map(|value| value.as_u64().expect("shape entry") as usize)
+                .collect::<Vec<_>>();
+            let mut bytes = Vec::new();
+            for value in tensor["values"].as_array().expect("tensor values") {
+                bytes.extend_from_slice(
+                    &(value.as_f64().expect("tensor value") as f32).to_le_bytes(),
+                );
+            }
+            names.push(name.clone());
+            shapes.push(shape);
+            payloads.push(bytes);
+        }
+        let views = names
+            .iter()
+            .zip(&shapes)
+            .zip(&payloads)
+            .map(|((name, shape), bytes)| {
+                (
+                    name.as_str(),
+                    TensorView::new(Dtype::F32, shape.clone(), bytes).expect("tensor view"),
+                )
+            })
+            .collect::<Vec<_>>();
+        safetensors::serialize_to_file(views, None, &root.join("model.safetensors"))
+            .expect("write safetensors");
+
+        let mut vocabulary = serde_json::Map::new();
+        for id in 0u32..16 {
+            vocabulary.insert(
+                if id == 0 {
+                    "[UNK]".to_owned()
+                } else {
+                    format!("t{id}")
+                },
+                json!(id),
+            );
+        }
+        fs::write(
+            root.join("tokenizer.json"),
+            serde_json::to_vec(&json!({
+                "version": "1.0",
+                "truncation": null,
+                "padding": null,
+                "added_tokens": [],
+                "normalizer": null,
+                "pre_tokenizer": {"type": "Whitespace"},
+                "post_processor": null,
+                "decoder": null,
+                "model": {
+                    "type": "WordLevel",
+                    "vocab": vocabulary,
+                    "unk_token": "[UNK]",
+                },
+            }))
+            .expect("encode tokenizer"),
+        )
+        .expect("write tokenizer");
+
+        let args = VecDeque::from(
+            [
+                "--model-path",
+                root.to_str().expect("UTF-8 fixture path"),
+                "--prompt",
+                "t1",
+                "--max-new-tokens",
+                "2",
+                "--context-length",
+                "4",
+                "--eos-token-id",
+                "15",
+            ]
+            .into_iter()
+            .map(OsString::from)
+            .collect::<Vec<_>>(),
+        );
+        assert_eq!(
+            run_transformer_generate(args)
+                .expect("the dedicated V4.1 loader must serve model_type=deepseek_v41"),
+            0
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn parameter_streaming_generation_cli_requires_explicit_flag() {
+        let parse=|stream:bool| {
+            let mut args=vec!["--model-path","model","--prompt","hello"];
+            if stream {args.push("--stream-parameters");}
+            parse_transformer_generate_options(args.into_iter().map(OsString::from).collect()).unwrap()
+        };
+        assert!(!parse(false).stream_parameters);
+        assert!(parse(true).stream_parameters);
     }
 
     #[test]

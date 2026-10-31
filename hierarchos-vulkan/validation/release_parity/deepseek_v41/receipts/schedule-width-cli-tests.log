@@ -1,0 +1,294 @@
+warning: variable does not need to be mutable
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\full_training_graph.rs:20140:21
+      |
+20140 |                 let mut readback = GpuBuffer::uninitialized_host_f32(&source.device, len)?;
+      |                     ----^^^^^^^^
+      |                     |
+      |                     help: remove this `mut`
+      |
+      = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:11686:13
+      |
+11686 |         let mut config = Self {
+      |             ----^^^^^^
+      |             |
+      |             help: remove this `mut`
+
+warning: method `record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled` is never used
+    --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\lib.rs:3232:19
+     |
+1095 | impl HierarchosOutNormHeadTrainer {
+     | --------------------------------- method in this implementation
+...
+3232 |     pub(crate) fn record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled(
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: methods `record_prepared_full_model_optimizer_step` and `finish_prepared_full_model_accumulation_wavefront` are never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\full_training_graph.rs:22904:8
+      |
+ 8187 | impl HierarchosTrainingGraph {
+      | ---------------------------- methods in this implementation
+...
+22904 |     fn record_prepared_full_model_optimizer_step(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+23391 |     fn finish_prepared_full_model_accumulation_wavefront(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `release_training_state` and `training_state_bytes` are never used
+   --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\shared_lm_head.rs:310:19
+    |
+ 90 | impl SharedLmHeadParameter {
+    | -------------------------- methods in this implementation
+...
+310 |     pub(crate) fn release_training_state(&self) -> Result<()> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+319 |     pub(crate) fn training_state_bytes(&self) -> Result<usize> {
+    |                   ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `generation_sample_token` is never used
+    --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:3958:4
+     |
+3958 | fn generation_sample_token(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `uses_alibi_attention` and `uses_mask_relative_alibi_positions` are never used
+    --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:7387:8
+     |
+6001 | impl VulkanTransformerArchitecture {
+     | ---------------------------------- methods in this implementation
+...
+7387 |     fn uses_alibi_attention(self) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^
+...
+7391 |     fn uses_mask_relative_alibi_positions(self) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `gated_delta_recurrent` is never read
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:26041:5
+      |
+25936 | struct TransformerKernels {
+      |        ------------------ field in this struct
+...
+26041 |     gated_delta_recurrent: vulkan::ComputeKernel,
+      |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:26148:8
+      |
+26112 | impl TransformerKernels {
+      | ----------------------- associated function in this implementation
+...
+26148 |     fn new(device: &VulkanDevice) -> Result<Self> {
+      |        ^^^
+
+warning: trait `OptionalGpuBufferExt` is never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:26936:7
+      |
+26936 | trait OptionalGpuBufferExt {
+      |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: method `training_state_bytes` is never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:27006:8
+      |
+26948 | impl TrainableParameter {
+      | ----------------------- method in this implementation
+...
+27006 |     fn training_state_bytes(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: method `as_mut` is never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:27312:8
+      |
+27303 | impl VulkanLoraBank {
+      | ------------------- method in this implementation
+...
+27312 |     fn as_mut(&mut self) -> Option<&mut VulkanLora> {
+      |        ^^^^^^
+
+warning: method `enable_lora` is never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:27549:8
+      |
+27441 | impl VulkanLinear {
+      | ----------------- method in this implementation
+...
+27549 |     fn enable_lora(
+      |        ^^^^^^^^^^^
+
+warning: field `num_hidden_layers` is never read
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:31783:5
+      |
+31782 | struct AlbertTopology {
+      |        -------------- field in this struct
+31783 |     num_hidden_layers: usize,
+      |     ^^^^^^^^^^^^^^^^^
+      |
+      = note: `AlbertTopology` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: function `decode_transformer_float_tensor` is never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:34463:4
+      |
+34463 | fn decode_transformer_float_tensor(name: &str, tensor: TensorView<'_>) -> Result<HostFloatTensor> {
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `load_deepseek_v4_hca_compressors` is never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:44794:4
+      |
+44794 | fn load_deepseek_v4_hca_compressors(
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `grad_attention_gate_values` is never read
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:47161:5
+      |
+47091 | struct TransformerLayerTape {
+      |        -------------------- field in this struct
+...
+47161 |     grad_attention_gate_values: GpuBuffer,
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `input_dim` and `output_dim` are never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:52131:8
+      |
+52070 | impl VulkanDeepseekV4GroupedLinear {
+      | ---------------------------------- methods in this implementation
+...
+52131 |     fn input_dim(&self) -> usize {
+      |        ^^^^^^^^^
+...
+52135 |     fn output_dim(&self) -> usize {
+      |        ^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:52398:8
+      |
+52296 | impl VulkanDeepseekV4CsaOverlapCompressor {
+      | ----------------------------------------- method in this implementation
+...
+52398 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:53034:8
+      |
+52989 | impl VulkanDeepseekV4CsaCompressor {
+      | ---------------------------------- method in this implementation
+...
+53034 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:53219:8
+      |
+53118 | impl VulkanDeepseekV4HcaCompressor {
+      | ---------------------------------- method in this implementation
+...
+53219 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `key_hidden_size` is never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:53535:8
+      |
+53380 | impl VulkanMlaAttention {
+      | ----------------------- method in this implementation
+...
+53535 |     fn key_hidden_size(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^
+
+warning: methods `record_forward` and `record_backward` are never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:58667:8
+      |
+57077 | impl VulkanTransformerLayer {
+      | --------------------------- methods in this implementation
+...
+58667 |     fn record_forward(
+      |        ^^^^^^^^^^^^^^
+...
+60301 |     fn record_backward(
+      |        ^^^^^^^^^^^^^^^
+
+warning: methods `generation_last_logits_with_layer_count`, `generation_prefill_kv_cache`, `generate_beam_ids_with_context`, `generate_beam_ids_with_kv_cache`, and `generate_beam_ids_full_prefix_with_context` are never used
+     --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\transformer.rs:76513:8
+      |
+64676 | impl VulkanTransformer {
+      | ---------------------- methods in this implementation
+...
+76513 |     fn generation_last_logits_with_layer_count(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+76946 |     fn generation_prefill_kv_cache(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+79297 |     fn generate_beam_ids_with_context(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+79937 |     fn generate_beam_ids_with_kv_cache(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+80071 |     fn generate_beam_ids_full_prefix_with_context(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `physical_device` and `physical_device_index` are never read
+  --> C:\Users\User\Downloads\exphier\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:30:5
+   |
+27 | struct DeviceInner {
+   |        ----------- fields in this struct
+...
+30 |     physical_device: vk::PhysicalDevice,
+   |     ^^^^^^^^^^^^^^^
+...
+59 |     physical_device_index: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: `hierarchos-vulkan` (lib) generated 25 warnings (run `cargo fix --lib -p hierarchos-vulkan` to apply 2 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.71s
+     Running unittests src\lib.rs (hierarchos-native-cli\target\debug\deps\hierarchos_native_cli-3897fe06f4f62bde.exe)
+
+running 40 tests
+test tests::contract_staging_updates_nested_and_flat_configs_without_mutating_source ... ok
+test tests::deepseek_v41_generation_context_is_bounded_by_native_runtime ... ok
+test tests::failed_ckpt_to_inference_does_not_publish_partial_output ... ok
+test tests::full_finetune_rejects_adapter_options_before_io ... ok
+test tests::hugging_face_dataset_split_matching_covers_single_sharded_jsonl_and_parquet ... ok
+test tests::hugging_face_repo_and_file_validation_is_fail_closed ... ok
+test tests::hugging_face_url_components_are_encoded_without_flattening_file_paths ... ok
+test tests::local_tokenizer_assets_are_installed_into_output_and_checkpoints ... ok
+test tests::modules_to_save_requires_its_separate_registry_gate ... ok
+test tests::native_causal_tokenization_and_chat_share_eos_resolution ... ok
+test tests::native_causal_tokenization_appends_eos_once_and_preserves_bos ... ok
+test tests::native_causal_tokenization_keeps_prompt_open_before_answer ... ok
+test tests::native_causal_tokenization_preserves_literal_prompt_eos ... ok
+test tests::native_causal_tokenization_response_eos_is_not_answer_content ... ok
+test tests::native_cli_training_defaults_match_root_cli_contract ... ok
+test tests::native_eos_probability_stop_uses_raw_softmax_and_generated_token_gate ... ok
+test tests::native_uncertainty_stop_is_fail_closed_for_active_nonfinite_logits ... ok
+test tests::native_uncertainty_stop_matches_root_cli_guard_geometry ... ok
+test tests::package_vocab_size_accepts_native_config_contract ... ok
+test tests::parquet_dataset_is_materialized_as_jsonl_without_python ... ok
+test tests::peft_cli_rejects_ambiguous_configs_and_invalid_budgets_before_io ... ok
+test tests::plain_text_row_produces_supervised_ids ... ok
+test tests::platform_executable_matches_host ... ok
+test tests::response_boundary_weight_never_boosts_eos ... ok
+test tests::response_preserving_truncation_keeps_prompt_suffix_and_minimum_answer ... ok
+test tests::root_text_schema_detection_covers_content_and_question_answer ... ok
+test tests::transformer_chunking_attaches_cross_attention_encoder_context ... ok
+test tests::transformer_chunking_builds_shifted_causal_targets_and_padding ... ok
+test tests::transformer_dropout_override_is_explicit_and_covers_nested_mpt_field ... ok
+test tests::transformer_encoder_context_rejects_hidden_width_mismatch ... ok
+test tests::transformer_generate_cli_accepts_named_peft_adapter ... ok
+test tests::transformer_generate_cli_continuous_batching_fails_closed_on_cache_conflicts ... ok
+test tests::transformer_generate_cli_continuous_batching_is_opt_in_and_implies_paged_cache ... ok
+test tests::transformer_generate_cli_exposes_hf_generation_overrides ... ok
+test tests::transformer_generate_cli_rejects_adapter_name_without_adapter ... ok
+test tests::transformer_generate_routes_deepseek_v41_through_the_dedicated_loader ... ok
+test tests::transformer_generation_config_overlay_is_last_write_wins ... ok
+test tests::transformer_package_metadata_cannot_implicitly_enable_paged_serving ... ok
+test tests::transformer_peft_mode_includes_implicit_finetune_and_resume ... ok
+test tests::transformer_safetensors_index_collects_unique_safe_shards ... ok
+
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.96s
+

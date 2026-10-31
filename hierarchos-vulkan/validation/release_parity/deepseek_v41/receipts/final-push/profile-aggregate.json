@@ -1,0 +1,904 @@
+{
+  "profiles": {
+    "before": {
+      "resident": {
+        "log": "target\\v41-final-push\\profile-resident.log",
+        "sha256": "e0b9c0551ccaf35faf540eda9f906141a067c70c1f9cbc86bd9a52564d5975b4",
+        "model_calls": 18,
+        "passes": 2,
+        "prefill_tokens": 8,
+        "decodes_per_pass": 8,
+        "dispatches": 122220,
+        "gpu_ms": 5641.35589,
+        "shaders": {
+          "transformer_deepseek_v41_moe_gate": {
+            "category": "v41.moe-packed",
+            "dispatches": 720,
+            "gpu_ms": 1923.5721199999991,
+            "samples": 720,
+            "share": 0.3409769136192539
+          },
+          "transformer_deepseek_v41_quantize": {
+            "category": "v41.moe-packed",
+            "dispatches": 25098,
+            "gpu_ms": 1435.1552000000024,
+            "samples": 25098,
+            "share": 0.2543989827948973
+          },
+          "transformer_deepseek_v41_hc_split": {
+            "category": "v41.hyper-connection",
+            "dispatches": 1440,
+            "gpu_ms": 1034.3112400000002,
+            "samples": 1440,
+            "share": 0.18334444062170313
+          },
+          "transformer_deepseek_v41_packed_linear": {
+            "category": "v41.moe-packed",
+            "dispatches": 23418,
+            "gpu_ms": 911.5761600000012,
+            "samples": 23418,
+            "share": 0.16158813196236788
+          },
+          "transformer_deepseek_v41_attention_weights": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 71.70148000000009,
+            "samples": 720,
+            "share": 0.012709972814709283
+          },
+          "transformer_deepseek_v41_rms_norm": {
+            "category": "v41.normalization",
+            "dispatches": 2994,
+            "gpu_ms": 56.19528000000011,
+            "samples": 2994,
+            "share": 0.009961307369317576
+          },
+          "transformer_deepseek_v41_mixed_swiglu": {
+            "category": "v41.moe-packed",
+            "dispatches": 6786,
+            "gpu_ms": 44.96767999999991,
+            "samples": 6786,
+            "share": 0.007971076612931064
+          },
+          "transformer_deepseek_v41_bf16_cast": {
+            "category": "v41.other",
+            "dispatches": 38304,
+            "gpu_ms": 43.89861000000003,
+            "samples": 38304,
+            "share": 0.007781570752842547
+          },
+          "transformer_deepseek_v41_moe_pack": {
+            "category": "v41.moe-packed",
+            "dispatches": 6066,
+            "gpu_ms": 21.21196000000002,
+            "samples": 6066,
+            "share": 0.0037600818692543115
+          },
+          "transformer_deepseek_v41_linear": {
+            "category": "v41.projection",
+            "dispatches": 1758,
+            "gpu_ms": 19.12287999999997,
+            "samples": 1758,
+            "share": 0.003389766639948676
+          },
+          "transformer_deepseek_v41_grouped_output": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 17.297319999999967,
+            "samples": 720,
+            "share": 0.003066163585010051
+          },
+          "transformer_deepseek_v41_moe_scatter": {
+            "category": "v41.moe-packed",
+            "dispatches": 6066,
+            "gpu_ms": 13.89787999999999,
+            "samples": 6066,
+            "share": 0.002463570863280528
+          },
+          "transformer_deepseek_v41_index_scores": {
+            "category": "v41.attention",
+            "dispatches": 144,
+            "gpu_ms": 11.574639999999997,
+            "samples": 144,
+            "share": 0.002051747882192201
+          },
+          "transformer_deepseek_v41_attention_values": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 7.5340000000000025,
+            "samples": 720,
+            "share": 0.001335494541898154
+          },
+          "transformer_deepseek_v41_moe_combine": {
+            "category": "v41.moe-packed",
+            "dispatches": 720,
+            "gpu_ms": 5.6496000000000075,
+            "samples": 720,
+            "share": 0.001001461370308975
+          },
+          "transformer_deepseek_v41_rotary": {
+            "category": "v41.attention",
+            "dispatches": 2400,
+            "gpu_ms": 5.609960000000005,
+            "samples": 2400,
+            "share": 0.000994434690770769
+          },
+          "transformer_deepseek_v41_hc_post": {
+            "category": "v41.hyper-connection",
+            "dispatches": 1440,
+            "gpu_ms": 4.681639999999988,
+            "samples": 1440,
+            "share": 0.0008298785063886456
+          },
+          "transformer_deepseek_v41_hc_pre": {
+            "category": "v41.hyper-connection",
+            "dispatches": 1458,
+            "gpu_ms": 4.491799999999993,
+            "samples": 1458,
+            "share": 0.0007962270219402863
+          },
+          "transformer_deepseek_v41_index_topk": {
+            "category": "v41.attention",
+            "dispatches": 162,
+            "gpu_ms": 3.2307599999999996,
+            "samples": 162,
+            "share": 0.0005726921085987361
+          },
+          "transformer_deepseek_v41_engram_gate": {
+            "category": "v41.engram",
+            "dispatches": 36,
+            "gpu_ms": 1.6911200000000004,
+            "samples": 36,
+            "share": 0.0002997719046581903
+          },
+          "transformer_deepseek_v41_engram_hash": {
+            "category": "v41.engram",
+            "dispatches": 36,
+            "gpu_ms": 1.5229599999999999,
+            "samples": 36,
+            "share": 0.0002699634679491919
+          },
+          "transformer_deepseek_v41_window_cache": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 1.2195600000000033,
+            "samples": 720,
+            "share": 0.00021618207108007917
+          },
+          "transformer_deepseek_v41_compress": {
+            "category": "v41.compressor",
+            "dispatches": 72,
+            "gpu_ms": 0.6019199999999999,
+            "samples": 72,
+            "share": 0.00010669775347217102
+          },
+          "transformer_deepseek_v41_linear_half": {
+            "category": "v41.projection",
+            "dispatches": 18,
+            "gpu_ms": 0.14204,
+            "samples": 18,
+            "share": 2.5178344137405593e-05
+          },
+          "transformer_deepseek_v41_cache_write": {
+            "category": "v41.attention",
+            "dispatches": 96,
+            "gpu_ms": 0.12328000000000004,
+            "samples": 96,
+            "share": 2.1852902458880334e-05
+          },
+          "transformer_deepseek_v41_engram_packed_lookup": {
+            "category": "v41.engram",
+            "dispatches": 36,
+            "gpu_ms": 0.11963999999999997,
+            "samples": 36,
+            "share": 2.120766750633064e-05
+          },
+          "transformer_deepseek_v41_engram_cache": {
+            "category": "v41.engram",
+            "dispatches": 18,
+            "gpu_ms": 0.07819999999999998,
+            "samples": 18,
+            "share": 1.3861915738841993e-05
+          },
+          "transformer_deepseek_v41_embedding_half": {
+            "category": "v41.vocabulary",
+            "dispatches": 18,
+            "gpu_ms": 0.07384000000000002,
+            "samples": 18,
+            "share": 1.3089051894579198e-05
+          },
+          "transformer_deepseek_v41_candidate_scores": {
+            "category": "v41.attention",
+            "dispatches": 18,
+            "gpu_ms": 0.06252,
+            "samples": 18,
+            "share": 1.1082442097089536e-05
+          },
+          "transformer_deepseek_v41_candidate_mask": {
+            "category": "v41.attention",
+            "dispatches": 18,
+            "gpu_ms": 0.040600000000000004,
+            "samples": 18,
+            "share": 7.1968513938233396e-06
+          }
+        }
+      },
+      "streamed": {
+        "log": "target\\v41-final-push\\profile-streamed.log",
+        "sha256": "6fb97e40713233d1c878700d22f71172f0059b3c71cfa7251bfeedfcef742f5e",
+        "model_calls": 18,
+        "passes": 2,
+        "prefill_tokens": 8,
+        "decodes_per_pass": 8,
+        "dispatches": 122220,
+        "gpu_ms": 5752.3183,
+        "shaders": {
+          "transformer_deepseek_v41_moe_gate": {
+            "category": "v41.moe-packed",
+            "dispatches": 720,
+            "gpu_ms": 1908.7698799999996,
+            "samples": 720,
+            "share": 0.3318261925804766
+          },
+          "transformer_deepseek_v41_quantize": {
+            "category": "v41.moe-packed",
+            "dispatches": 25098,
+            "gpu_ms": 1489.0252400000134,
+            "samples": 25098,
+            "share": 0.2588565448473207
+          },
+          "transformer_deepseek_v41_hc_split": {
+            "category": "v41.hyper-connection",
+            "dispatches": 1440,
+            "gpu_ms": 1035.4973200000006,
+            "samples": 1440,
+            "share": 0.18001391195615873
+          },
+          "transformer_deepseek_v41_packed_linear": {
+            "category": "v41.moe-packed",
+            "dispatches": 23418,
+            "gpu_ms": 946.3235999999907,
+            "samples": 23418,
+            "share": 0.16451168913931463
+          },
+          "transformer_deepseek_v41_attention_weights": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 70.81936000000003,
+            "samples": 720,
+            "share": 0.012311446673595936
+          },
+          "transformer_deepseek_v41_bf16_cast": {
+            "category": "v41.other",
+            "dispatches": 38304,
+            "gpu_ms": 55.718930000001926,
+            "samples": 38304,
+            "share": 0.009686343330479805
+          },
+          "transformer_deepseek_v41_rms_norm": {
+            "category": "v41.normalization",
+            "dispatches": 2994,
+            "gpu_ms": 55.11804000000006,
+            "samples": 2994,
+            "share": 0.009581882838437514
+          },
+          "transformer_deepseek_v41_mixed_swiglu": {
+            "category": "v41.moe-packed",
+            "dispatches": 6786,
+            "gpu_ms": 55.111079999999745,
+            "samples": 6786,
+            "share": 0.009580672891484421
+          },
+          "transformer_deepseek_v41_moe_pack": {
+            "category": "v41.moe-packed",
+            "dispatches": 6066,
+            "gpu_ms": 35.17744000000017,
+            "samples": 6066,
+            "share": 0.006115350049387943
+          },
+          "transformer_deepseek_v41_linear": {
+            "category": "v41.projection",
+            "dispatches": 1758,
+            "gpu_ms": 19.345079999999996,
+            "samples": 1758,
+            "share": 0.003363005833665358
+          },
+          "transformer_deepseek_v41_grouped_output": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 16.821599999999997,
+            "samples": 720,
+            "share": 0.002924316618570985
+          },
+          "transformer_deepseek_v41_moe_scatter": {
+            "category": "v41.moe-packed",
+            "dispatches": 6066,
+            "gpu_ms": 15.377529999999984,
+            "samples": 6066,
+            "share": 0.00267327522539912
+          },
+          "transformer_deepseek_v41_index_scores": {
+            "category": "v41.attention",
+            "dispatches": 144,
+            "gpu_ms": 11.377600000000001,
+            "samples": 144,
+            "share": 0.001977915582314004
+          },
+          "transformer_deepseek_v41_attention_values": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 7.547680000000008,
+            "samples": 720,
+            "share": 0.001312110979672319
+          },
+          "transformer_deepseek_v41_moe_combine": {
+            "category": "v41.moe-packed",
+            "dispatches": 720,
+            "gpu_ms": 7.061519999999989,
+            "samples": 720,
+            "share": 0.0012275954896306745
+          },
+          "transformer_deepseek_v41_rotary": {
+            "category": "v41.attention",
+            "dispatches": 2400,
+            "gpu_ms": 5.329519999999994,
+            "samples": 2400,
+            "share": 0.0009264994949949126
+          },
+          "transformer_deepseek_v41_hc_post": {
+            "category": "v41.hyper-connection",
+            "dispatches": 1440,
+            "gpu_ms": 4.678959999999966,
+            "samples": 1440,
+            "share": 0.0008134042234762924
+          },
+          "transformer_deepseek_v41_hc_pre": {
+            "category": "v41.hyper-connection",
+            "dispatches": 1458,
+            "gpu_ms": 4.39112000000001,
+            "samples": 1458,
+            "share": 0.0007633652678781718
+          },
+          "transformer_deepseek_v41_index_topk": {
+            "category": "v41.attention",
+            "dispatches": 162,
+            "gpu_ms": 3.24244,
+            "samples": 162,
+            "share": 0.000563675344599759
+          },
+          "transformer_deepseek_v41_engram_gate": {
+            "category": "v41.engram",
+            "dispatches": 36,
+            "gpu_ms": 1.6356800000000002,
+            "samples": 36,
+            "share": 0.00028435144140059155
+          },
+          "transformer_deepseek_v41_engram_hash": {
+            "category": "v41.engram",
+            "dispatches": 36,
+            "gpu_ms": 1.5244399999999996,
+            "samples": 36,
+            "share": 0.0002650131513063176
+          },
+          "transformer_deepseek_v41_window_cache": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 1.1694400000000058,
+            "samples": 720,
+            "share": 0.00020329890298316868
+          },
+          "transformer_deepseek_v41_compress": {
+            "category": "v41.compressor",
+            "dispatches": 72,
+            "gpu_ms": 0.5729600000000001,
+            "samples": 72,
+            "share": 9.960505836403388e-05
+          },
+          "transformer_deepseek_v41_engram_packed_lookup": {
+            "category": "v41.engram",
+            "dispatches": 36,
+            "gpu_ms": 0.16867999999999997,
+            "samples": 36,
+            "share": 2.9323829315912503e-05
+          },
+          "transformer_deepseek_v41_linear_half": {
+            "category": "v41.projection",
+            "dispatches": 18,
+            "gpu_ms": 0.13507999999999998,
+            "samples": 18,
+            "share": 2.3482706094341125e-05
+          },
+          "transformer_deepseek_v41_cache_write": {
+            "category": "v41.attention",
+            "dispatches": 96,
+            "gpu_ms": 0.12332000000000005,
+            "samples": 96,
+            "share": 2.1438312966791155e-05
+          },
+          "transformer_deepseek_v41_engram_cache": {
+            "category": "v41.engram",
+            "dispatches": 18,
+            "gpu_ms": 0.07647999999999999,
+            "samples": 18,
+            "share": 1.3295509047195805e-05
+          },
+          "transformer_deepseek_v41_embedding_half": {
+            "category": "v41.vocabulary",
+            "dispatches": 18,
+            "gpu_ms": 0.07176000000000002,
+            "samples": 18,
+            "share": 1.2474970308927449e-05
+          },
+          "transformer_deepseek_v41_candidate_scores": {
+            "category": "v41.attention",
+            "dispatches": 18,
+            "gpu_ms": 0.06352,
+            "samples": 18,
+            "share": 1.1042504376018273e-05
+          },
+          "transformer_deepseek_v41_candidate_mask": {
+            "category": "v41.attention",
+            "dispatches": 18,
+            "gpu_ms": 0.043000000000000003,
+            "samples": 18,
+            "share": 7.4752469799871825e-06
+          }
+        }
+      }
+    },
+    "candidate": {
+      "resident": {
+        "log": "target\\v41-final-push\\profile-candidate-resident.log",
+        "sha256": "fbce24fea93e5cf4b7b91b4f301969bcf17338aa9a284bb339ad2174062198f8",
+        "model_calls": 18,
+        "passes": 2,
+        "prefill_tokens": 8,
+        "decodes_per_pass": 8,
+        "dispatches": 108648,
+        "gpu_ms": 3477.26853,
+        "shaders": {
+          "transformer_deepseek_v41_quantize": {
+            "category": "v41.moe-packed",
+            "dispatches": 18312,
+            "gpu_ms": 1053.7259100000017,
+            "samples": 18312,
+            "share": 0.30303265362137616
+          },
+          "transformer_deepseek_v41_hc_split": {
+            "category": "v41.hyper-connection",
+            "dispatches": 1440,
+            "gpu_ms": 1033.726800000001,
+            "samples": 1440,
+            "share": 0.2972812686399003
+          },
+          "transformer_deepseek_v41_packed_linear": {
+            "category": "v41.moe-packed",
+            "dispatches": 23418,
+            "gpu_ms": 905.6659200000014,
+            "samples": 23418,
+            "share": 0.26045325869612995
+          },
+          "transformer_deepseek_v41_moe_gate": {
+            "category": "v41.moe-packed",
+            "dispatches": 720,
+            "gpu_ms": 160.25876000000002,
+            "samples": 720,
+            "share": 0.046087542166322146
+          },
+          "transformer_deepseek_v41_attention_weights": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 71.06604000000003,
+            "samples": 720,
+            "share": 0.020437317218063696
+          },
+          "transformer_deepseek_v41_rms_norm": {
+            "category": "v41.normalization",
+            "dispatches": 2994,
+            "gpu_ms": 55.44072000000002,
+            "samples": 2994,
+            "share": 0.01594375571563926
+          },
+          "transformer_deepseek_v41_mixed_swiglu": {
+            "category": "v41.moe-packed",
+            "dispatches": 6786,
+            "gpu_ms": 42.61627999999994,
+            "samples": 6786,
+            "share": 0.012255677015545285
+          },
+          "transformer_deepseek_v41_bf16_cast": {
+            "category": "v41.other",
+            "dispatches": 31518,
+            "gpu_ms": 36.34405999999998,
+            "samples": 31518,
+            "share": 0.0104518991520048
+          },
+          "transformer_deepseek_v41_moe_pack": {
+            "category": "v41.moe-packed",
+            "dispatches": 6066,
+            "gpu_ms": 20.989880000000003,
+            "samples": 6066,
+            "share": 0.006036312645661566
+          },
+          "transformer_deepseek_v41_linear": {
+            "category": "v41.projection",
+            "dispatches": 1758,
+            "gpu_ms": 19.10416000000002,
+            "samples": 1758,
+            "share": 0.005494013428983013
+          },
+          "transformer_deepseek_v41_grouped_output": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 17.40031999999999,
+            "samples": 720,
+            "share": 0.0050040196349172925
+          },
+          "transformer_deepseek_v41_moe_scatter": {
+            "category": "v41.moe-packed",
+            "dispatches": 6066,
+            "gpu_ms": 12.89675999999999,
+            "samples": 6066,
+            "share": 0.0037088766336950086
+          },
+          "transformer_deepseek_v41_index_scores": {
+            "category": "v41.attention",
+            "dispatches": 144,
+            "gpu_ms": 11.533999999999997,
+            "samples": 144,
+            "share": 0.0033169713240409414
+          },
+          "transformer_deepseek_v41_attention_values": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 7.546600000000002,
+            "samples": 720,
+            "share": 0.0021702666719271182
+          },
+          "transformer_deepseek_v41_moe_combine": {
+            "category": "v41.moe-packed",
+            "dispatches": 720,
+            "gpu_ms": 5.676240000000003,
+            "samples": 720,
+            "share": 0.0016323847154824142
+          },
+          "transformer_deepseek_v41_rotary": {
+            "category": "v41.attention",
+            "dispatches": 2400,
+            "gpu_ms": 5.35432,
+            "samples": 2400,
+            "share": 0.0015398063030812293
+          },
+          "transformer_deepseek_v41_hc_post": {
+            "category": "v41.hyper-connection",
+            "dispatches": 1440,
+            "gpu_ms": 4.708279999999984,
+            "samples": 1440,
+            "share": 0.0013540167977766113
+          },
+          "transformer_deepseek_v41_hc_pre": {
+            "category": "v41.hyper-connection",
+            "dispatches": 1458,
+            "gpu_ms": 4.428759999999995,
+            "samples": 1458,
+            "share": 0.0012736318641459639
+          },
+          "transformer_deepseek_v41_index_topk": {
+            "category": "v41.attention",
+            "dispatches": 162,
+            "gpu_ms": 3.2352000000000003,
+            "samples": 162,
+            "share": 0.000930385436755441
+          },
+          "transformer_deepseek_v41_engram_gate": {
+            "category": "v41.engram",
+            "dispatches": 36,
+            "gpu_ms": 1.63408,
+            "samples": 36,
+            "share": 0.00046993207050362605
+          },
+          "transformer_deepseek_v41_engram_hash": {
+            "category": "v41.engram",
+            "dispatches": 36,
+            "gpu_ms": 1.5209999999999997,
+            "samples": 36,
+            "share": 0.0004374122926882497
+          },
+          "transformer_deepseek_v41_window_cache": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 1.1776400000000042,
+            "samples": 720,
+            "share": 0.0003386681212106458
+          },
+          "transformer_deepseek_v41_compress": {
+            "category": "v41.compressor",
+            "dispatches": 72,
+            "gpu_ms": 0.5824399999999998,
+            "samples": 72,
+            "share": 0.00016749928714881272
+          },
+          "transformer_deepseek_v41_linear_half": {
+            "category": "v41.projection",
+            "dispatches": 18,
+            "gpu_ms": 0.14108,
+            "samples": 18,
+            "share": 4.0572075116672116e-05
+          },
+          "transformer_deepseek_v41_cache_write": {
+            "category": "v41.attention",
+            "dispatches": 96,
+            "gpu_ms": 0.12292000000000003,
+            "samples": 96,
+            "share": 3.5349585152688805e-05
+          },
+          "transformer_deepseek_v41_engram_packed_lookup": {
+            "category": "v41.engram",
+            "dispatches": 36,
+            "gpu_ms": 0.11948000000000002,
+            "samples": 36,
+            "share": 3.436030291281531e-05
+          },
+          "transformer_deepseek_v41_engram_cache": {
+            "category": "v41.engram",
+            "dispatches": 18,
+            "gpu_ms": 0.07868,
+            "samples": 18,
+            "share": 2.262695541664135e-05
+          },
+          "transformer_deepseek_v41_embedding_half": {
+            "category": "v41.vocabulary",
+            "dispatches": 18,
+            "gpu_ms": 0.0684,
+            "samples": 18,
+            "share": 1.9670611978879874e-05
+          },
+          "transformer_deepseek_v41_candidate_scores": {
+            "category": "v41.attention",
+            "dispatches": 18,
+            "gpu_ms": 0.06264,
+            "samples": 18,
+            "share": 1.8014139391184725e-05
+          },
+          "transformer_deepseek_v41_candidate_mask": {
+            "category": "v41.attention",
+            "dispatches": 18,
+            "gpu_ms": 0.041159999999999995,
+            "samples": 18,
+            "share": 1.1836877032904905e-05
+          }
+        }
+      },
+      "streamed": {
+        "log": "target\\v41-final-push\\profile-candidate-streamed.log",
+        "sha256": "3ee3b49d92e7e1ed0d21bd0c65f7eb12d3b3c540e6581e9fd97065aa167d3952",
+        "model_calls": 18,
+        "passes": 2,
+        "prefill_tokens": 8,
+        "decodes_per_pass": 8,
+        "dispatches": 108648,
+        "gpu_ms": 3592.18828,
+        "shaders": {
+          "transformer_deepseek_v41_quantize": {
+            "category": "v41.moe-packed",
+            "dispatches": 18312,
+            "gpu_ms": 1095.5713199999987,
+            "samples": 18312,
+            "share": 0.30498716509369567
+          },
+          "transformer_deepseek_v41_hc_split": {
+            "category": "v41.hyper-connection",
+            "dispatches": 1440,
+            "gpu_ms": 1034.4654400000002,
+            "samples": 1440,
+            "share": 0.2879763974955122
+          },
+          "transformer_deepseek_v41_packed_linear": {
+            "category": "v41.moe-packed",
+            "dispatches": 23418,
+            "gpu_ms": 939.7030799999916,
+            "samples": 23418,
+            "share": 0.2615962769078439
+          },
+          "transformer_deepseek_v41_moe_gate": {
+            "category": "v41.moe-packed",
+            "dispatches": 720,
+            "gpu_ms": 159.34072000000015,
+            "samples": 720,
+            "share": 0.04435756357403409
+          },
+          "transformer_deepseek_v41_attention_weights": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 70.74303999999997,
+            "samples": 720,
+            "share": 0.019693577976931647
+          },
+          "transformer_deepseek_v41_mixed_swiglu": {
+            "category": "v41.moe-packed",
+            "dispatches": 6786,
+            "gpu_ms": 57.36184000000029,
+            "samples": 6786,
+            "share": 0.015968494836245135
+          },
+          "transformer_deepseek_v41_rms_norm": {
+            "category": "v41.normalization",
+            "dispatches": 2994,
+            "gpu_ms": 55.18064000000005,
+            "samples": 2994,
+            "share": 0.01536128835652235
+          },
+          "transformer_deepseek_v41_bf16_cast": {
+            "category": "v41.other",
+            "dispatches": 31518,
+            "gpu_ms": 44.23540000000036,
+            "samples": 31518,
+            "share": 0.012314332254321693
+          },
+          "transformer_deepseek_v41_moe_pack": {
+            "category": "v41.moe-packed",
+            "dispatches": 6066,
+            "gpu_ms": 35.14504000000031,
+            "samples": 6066,
+            "share": 0.009783741068271708
+          },
+          "transformer_deepseek_v41_linear": {
+            "category": "v41.projection",
+            "dispatches": 1758,
+            "gpu_ms": 19.30211999999997,
+            "samples": 1758,
+            "share": 0.00537335977277894
+          },
+          "transformer_deepseek_v41_grouped_output": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 16.776439999999994,
+            "samples": 720,
+            "share": 0.004670256315184012
+          },
+          "transformer_deepseek_v41_moe_scatter": {
+            "category": "v41.moe-packed",
+            "dispatches": 6066,
+            "gpu_ms": 15.059079999999758,
+            "samples": 6066,
+            "share": 0.004192174470320291
+          },
+          "transformer_deepseek_v41_index_scores": {
+            "category": "v41.attention",
+            "dispatches": 144,
+            "gpu_ms": 11.449520000000005,
+            "samples": 144,
+            "share": 0.003187338498860646
+          },
+          "transformer_deepseek_v41_attention_values": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 7.541480000000014,
+            "samples": 720,
+            "share": 0.002099411114386247
+          },
+          "transformer_deepseek_v41_moe_combine": {
+            "category": "v41.moe-packed",
+            "dispatches": 720,
+            "gpu_ms": 7.049359999999989,
+            "samples": 720,
+            "share": 0.0019624138409582445
+          },
+          "transformer_deepseek_v41_rotary": {
+            "category": "v41.attention",
+            "dispatches": 2400,
+            "gpu_ms": 5.340199999999997,
+            "samples": 2400,
+            "share": 0.0014866147272213684
+          },
+          "transformer_deepseek_v41_hc_post": {
+            "category": "v41.hyper-connection",
+            "dispatches": 1440,
+            "gpu_ms": 4.670479999999977,
+            "samples": 1440,
+            "share": 0.001300176838169512
+          },
+          "transformer_deepseek_v41_hc_pre": {
+            "category": "v41.hyper-connection",
+            "dispatches": 1458,
+            "gpu_ms": 4.357599999999997,
+            "samples": 1458,
+            "share": 0.0012130767265907335
+          },
+          "transformer_deepseek_v41_index_topk": {
+            "category": "v41.attention",
+            "dispatches": 162,
+            "gpu_ms": 3.2960400000000014,
+            "samples": 162,
+            "share": 0.0009175576955003042
+          },
+          "transformer_deepseek_v41_engram_gate": {
+            "category": "v41.engram",
+            "dispatches": 36,
+            "gpu_ms": 1.6724399999999997,
+            "samples": 36,
+            "share": 0.000465576932398432
+          },
+          "transformer_deepseek_v41_engram_hash": {
+            "category": "v41.engram",
+            "dispatches": 36,
+            "gpu_ms": 1.5224399999999998,
+            "samples": 36,
+            "share": 0.0004238196556890943
+          },
+          "transformer_deepseek_v41_window_cache": {
+            "category": "v41.attention",
+            "dispatches": 720,
+            "gpu_ms": 1.1657200000000059,
+            "samples": 720,
+            "share": 0.00032451528403739624
+          },
+          "transformer_deepseek_v41_compress": {
+            "category": "v41.compressor",
+            "dispatches": 72,
+            "gpu_ms": 0.5721999999999999,
+            "samples": 72,
+            "share": 0.00015929009155388703
+          },
+          "transformer_deepseek_v41_engram_packed_lookup": {
+            "category": "v41.engram",
+            "dispatches": 36,
+            "gpu_ms": 0.16836000000000004,
+            "samples": 36,
+            "share": 4.686836737856069e-05
+          },
+          "transformer_deepseek_v41_linear_half": {
+            "category": "v41.projection",
+            "dispatches": 18,
+            "gpu_ms": 0.13448,
+            "samples": 18,
+            "share": 3.743679047914493e-05
+          },
+          "transformer_deepseek_v41_cache_write": {
+            "category": "v41.attention",
+            "dispatches": 96,
+            "gpu_ms": 0.12264000000000005,
+            "samples": 96,
+            "share": 3.414074943755455e-05
+          },
+          "transformer_deepseek_v41_engram_cache": {
+            "category": "v41.engram",
+            "dispatches": 18,
+            "gpu_ms": 0.07668,
+            "samples": 18,
+            "share": 2.1346319853813454e-05
+          },
+          "transformer_deepseek_v41_candidate_scores": {
+            "category": "v41.attention",
+            "dispatches": 18,
+            "gpu_ms": 0.06332000000000002,
+            "samples": 18,
+            "share": 1.762713840823511e-05
+          },
+          "transformer_deepseek_v41_embedding_half": {
+            "category": "v41.vocabulary",
+            "dispatches": 18,
+            "gpu_ms": 0.05796000000000001,
+            "samples": 18,
+            "share": 1.6135011720488106e-05
+          },
+          "transformer_deepseek_v41_candidate_mask": {
+            "category": "v41.attention",
+            "dispatches": 18,
+            "gpu_ms": 0.043199999999999995,
+            "samples": 18,
+            "share": 1.2026095692289269e-05
+          }
+        }
+      }
+    }
+  },
+  "scope": "same scaled 40-layer/E384 fixture and tokens",
+  "sample_stride": 1,
+  "timing": "GPU dispatch brackets summed over 18 complete model calls",
+  "limits": [
+    "profiling perturbs timings; unprofiled alternating A/B is the latency evidence",
+    "zero-dispatch startup submissions are not model calls",
+    "final-row digest guard is separate from complete-logit CPU gates"
+  ]
+}

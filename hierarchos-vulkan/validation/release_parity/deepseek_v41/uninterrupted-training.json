@@ -1,0 +1,186 @@
+{
+  "atol": 2e-07,
+  "comparison": "strict_less_than",
+  "failures": [],
+  "pass": true,
+  "pinned_step_inputs": false,
+  "records": [
+    {
+      "bit_exact": 160,
+      "label": "uninterrupted-4141384-lora step 0 logits 0",
+      "max_abs": 0.0,
+      "values": 160
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-lora step 0 logits 1",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-lora step 0 logits 2",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-lora step 0 logits 3",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 160,
+      "label": "uninterrupted-4141384-lora step 1 logits 0",
+      "max_abs": 0.0,
+      "values": 160
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-lora step 1 logits 1",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-lora step 1 logits 2",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-lora step 1 logits 3",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 160,
+      "label": "uninterrupted-4141384-lora step 2 logits 0",
+      "max_abs": 0.0,
+      "values": 160
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-lora step 2 logits 1",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-lora step 2 logits 2",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-lora step 2 logits 3",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 160,
+      "label": "uninterrupted-4141384-rslora step 0 logits 0",
+      "max_abs": 0.0,
+      "values": 160
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-rslora step 0 logits 1",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-rslora step 0 logits 2",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-rslora step 0 logits 3",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 160,
+      "label": "uninterrupted-4141384-rslora step 1 logits 0",
+      "max_abs": 0.0,
+      "values": 160
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-rslora step 1 logits 1",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-rslora step 1 logits 2",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-rslora step 1 logits 3",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 160,
+      "label": "uninterrupted-4141384-rslora step 2 logits 0",
+      "max_abs": 0.0,
+      "values": 160
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-rslora step 2 logits 1",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-rslora step 2 logits 2",
+      "max_abs": 0.0,
+      "values": 32
+    },
+    {
+      "bit_exact": 32,
+      "label": "uninterrupted-4141384-rslora step 2 logits 3",
+      "max_abs": 0.0,
+      "values": 32
+    }
+  ],
+  "rtol": 0,
+  "geometry": {
+    "num_hidden_layers": 6,
+    "hidden_size": 32,
+    "n_routed_experts": 384,
+    "num_experts_per_tok": 6,
+    "hc_mult": 4
+  },
+  "methods": [
+    "LoRA",
+    "rsLoRA"
+  ],
+  "optimizer_steps_per_method": 3,
+  "values": 1536,
+  "max_abs": 0.0,
+  "base_fixture": {
+    "path": "hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_ratio_model.json",
+    "sha256": "90b209b57a92386421a93de60289964b1881fbbd24b98444fcbdffc84cf31c40"
+  },
+  "cpu_training_fixture": {
+    "path": "hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_production_ratio_training_v2.json",
+    "sha256": "3dd99546f378a6dd7b87cc2f37eec64fa2a2f99a4e0d4c61211a07b0ea453a20"
+  },
+  "cpu_reference": {
+    "torch_version": "2.14.1+cpu",
+    "torch_git_version": "5c4886908584029761b579af026dcfb627c84070",
+    "source_sha256": "e5decd76fe70fd56ef2f10124d245c6f64fb6a0003cc9068a1d3182a168b8d2d",
+    "contract": "Released 384 routed experts / top6 / HC4, small width, full BF16 FP4 FP8 cache-chain training with explicit FP32 STE boundaries and the released indexer bf16 score boundaries"
+  },
+  "log": {
+    "path": "target\\rdna3-streaming\\v41-uninterrupted-trajectory.log",
+    "sha256": "72f59d906f2d3de02934bcdcb61440323bb558183235f93c83319e2a1e0485c9"
+  }
+}

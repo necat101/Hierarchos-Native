@@ -1,0 +1,72 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_packed.glsl"
+
+// DeepSeek V4.1 fine indexer scores. Mirrors Indexer.forward:
+//   score[q,t] = sum_h relu(dot(q[q,h], index_k[t])) * weights[q,h] * scale
+// with the causal compressed visibility rule `(position + 1) / ratio` and an
+// optional candidate-block mask from the level-one selector. A masked position
+// is stored as -inf and is later rejected by the top-k mapping.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Queries { float q[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Keys { float k[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Weights { float weights[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Candidates { uint candidates[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer Scores { float scores[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint batch;
+    uint seq;
+    uint heads;
+    uint head_dim;
+    uint width;
+    uint key_capacity;
+    uint start_pos;
+    uint ratio;
+    uint use_candidates;
+    float weight_scale;
+    uint dot_bf16;
+    uint weight_bf16;
+} pc;
+
+void main() {
+    uint position_index = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (position_index >= pc.width || row >= pc.rows) return;
+    uint batch_index = row / pc.seq;
+    uint local_position = row - batch_index * pc.seq;
+    // A start-zero prefill masks each query by its own causal group count;
+    // decode/chunked calls use one scalar end length, matching the reference.
+    uint visible = (pc.start_pos == 0u)
+        ? (local_position + 1u) / pc.ratio
+        : (pc.start_pos + pc.seq) / pc.ratio;
+
+    float score = uintBitsToFloat(0xFF800000u);  // -inf marks unreachable/masked
+    bool reachable = position_index < visible;
+    if (reachable && pc.use_candidates != 0u
+        && candidates[row * pc.width + position_index] == 0u) {
+        reachable = false;
+    }
+    if (reachable) {
+        precise float accumulated = 0.0;
+        for (uint head = 0u; head < pc.heads; ++head) {
+            precise float dot = 0.0;
+            uint query_base = (row * pc.heads + head) * pc.head_dim;
+            uint key_base = (batch_index * pc.key_capacity + position_index) * pc.head_dim;
+            for (uint d = 0u; d < pc.head_dim; ++d) {
+                dot = fma(q[query_base + d], k[key_base + d], dot);
+            }
+            if (pc.dot_bf16 != 0u) dot = uintBitsToFloat(v41_bf16_bits(floatBitsToUint(dot)));
+            precise float gate = weights[row * pc.heads + head] * pc.weight_scale;
+            if (pc.weight_bf16 != 0u) gate = uintBitsToFloat(v41_bf16_bits(floatBitsToUint(gate)));
+            precise float product = max(dot, 0.0) * gate;
+            if (pc.dot_bf16 != 0u && pc.weight_bf16 != 0u)
+                product = uintBitsToFloat(v41_bf16_bits(floatBitsToUint(product)));
+            accumulated += product;
+        }
+        if (pc.dot_bf16 != 0u && pc.weight_bf16 != 0u)
+            accumulated = uintBitsToFloat(v41_bf16_bits(floatBitsToUint(accumulated)));
+        score = accumulated;
+    }
+    scores[row * pc.width + position_index] = score;
+}

@@ -1,0 +1,491 @@
+{
+  "model_count": 18,
+  "step_count": 108,
+  "logit_count": 1472649,
+  "max_abs_drift": 1.7881393432617188e-07,
+  "models": [
+    {
+      "fixture": "deepseek_v41_model.json",
+      "seed": 4141017,
+      "fixture_sha256": "679ebe1cdbe421ded12b911fb24dfd64995598caeb1ebe619434229444ffc7af",
+      "steps": 6,
+      "logits": 320,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_model_additional.json",
+      "seed": 4141018,
+      "fixture_sha256": "f37fea66068071a7451a4d20487df40cbffec70837d02f2d64b32edde3c95f5a",
+      "steps": 6,
+      "logits": 320,
+      "max_abs_drift": 1.7881393432617188e-07
+    },
+    {
+      "fixture": "deepseek_v41_model_additional.json",
+      "seed": 4141019,
+      "fixture_sha256": "f37fea66068071a7451a4d20487df40cbffec70837d02f2d64b32edde3c95f5a",
+      "steps": 6,
+      "logits": 320,
+      "max_abs_drift": 5.960464477539063e-08
+    },
+    {
+      "fixture": "deepseek_v41_mixed_model.json",
+      "seed": 4141041,
+      "fixture_sha256": "7984afe94ded0210c0dfa2ff964024200c412b7568f234131b8a8a335b6c5646",
+      "steps": 6,
+      "logits": 320,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_mixed_model.json",
+      "seed": 4141042,
+      "fixture_sha256": "7984afe94ded0210c0dfa2ff964024200c412b7568f234131b8a8a335b6c5646",
+      "steps": 6,
+      "logits": 320,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_attention_model.json",
+      "seed": 4141051,
+      "fixture_sha256": "3cfbad274144417849b83b25c9f686e9439f4f2c7c38d645ee86819066a350df",
+      "steps": 6,
+      "logits": 320,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_attention_model.json",
+      "seed": 4141052,
+      "fixture_sha256": "3cfbad274144417849b83b25c9f686e9439f4f2c7c38d645ee86819066a350df",
+      "steps": 6,
+      "logits": 320,
+      "max_abs_drift": 1.1920928955078125e-07
+    },
+    {
+      "fixture": "deepseek_v41_bf16_model.json",
+      "seed": 4141061,
+      "fixture_sha256": "178c7585504768474db206e62a388ea1af00b567939603c6561645947ffd37cd",
+      "steps": 6,
+      "logits": 320,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_bf16_model.json",
+      "seed": 4141062,
+      "fixture_sha256": "178c7585504768474db206e62a388ea1af00b567939603c6561645947ffd37cd",
+      "steps": 6,
+      "logits": 320,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_wide_model.json",
+      "seed": 4141071,
+      "fixture_sha256": "8f468d860c162fb08cddd554cbf85d5b108092a37d326460fdcd75dec018274f",
+      "steps": 7,
+      "logits": 14162,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_wide_model.json",
+      "seed": 4141072,
+      "fixture_sha256": "8f468d860c162fb08cddd554cbf85d5b108092a37d326460fdcd75dec018274f",
+      "steps": 7,
+      "logits": 18834,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_wide_model.json",
+      "seed": 4141073,
+      "fixture_sha256": "8f468d860c162fb08cddd554cbf85d5b108092a37d326460fdcd75dec018274f",
+      "steps": 8,
+      "logits": 125518,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_production_model.json",
+      "seed": 4141090,
+      "fixture_sha256": "ea1b00dd3ffe4bf5786c4daf632c2054904b5f8f929428bbbb92636cb3e6a524",
+      "steps": 2,
+      "logits": 258560,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_schedule_width_model.json",
+      "seed": 4141211,
+      "fixture_sha256": "70d2218429c2d4b8623a8ebbdd6c659eec22f7f64f9eeecd3d95c5d7877fdcf0",
+      "steps": 5,
+      "logits": 904960,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_structure_model.json",
+      "seed": 4141101,
+      "fixture_sha256": "4817e35531eb0d8c076f8a76a8a55a5bab36eafe8653d017eb006aa7c01e80cc",
+      "steps": 6,
+      "logits": 3216,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_structure_model.json",
+      "seed": 4141102,
+      "fixture_sha256": "4817e35531eb0d8c076f8a76a8a55a5bab36eafe8653d017eb006aa7c01e80cc",
+      "steps": 6,
+      "logits": 3216,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_joint_model.json",
+      "seed": 4141111,
+      "fixture_sha256": "00cef75fe55c2243a6c2134c65e4c0adf224ce76791022c97f75738d4a1608b8",
+      "steps": 6,
+      "logits": 3216,
+      "max_abs_drift": 0.0
+    },
+    {
+      "fixture": "deepseek_v41_long_context_model.json",
+      "seed": 4141112,
+      "fixture_sha256": "82dcb51beea92833fa8dc382daf30846cd195f5974a17e9eaf0f9c7dd314bbbc",
+      "steps": 7,
+      "logits": 138087,
+      "max_abs_drift": 0.0
+    }
+  ],
+  "schema": 1,
+  "architecture": "deepseek_v41",
+  "status": "qualified",
+  "scope": "native causal text inference on this machine under the accepted scalable-checkpoint criterion, plus native PEFT-LoRA/rsLoRA adapter training with save/resume and export",
+  "qualification_method": "released production feature schedule plus production-width arithmetic probes",
+  "absolute_logit_limit_strict": 2e-07,
+  "rtol": 0,
+  "cuda_required": false,
+  "recorded_utc": "2026-10-26T11:12:36.427085+00:00",
+  "machine": {
+    "cpu": [
+      {
+        "Name": "AMD Ryzen Z1 Extreme                           ",
+        "Manufacturer": "AuthenticAMD"
+      }
+    ],
+    "gpu": [
+      {
+        "Name": "AMD Radeon Graphics",
+        "DriverVersion": "32.0.31007.6002",
+        "PNPDeviceID": "PCI\\VEN_1002&DEV_15BF&SUBSYS_17F31043&REV_04\\4&98C338A&0&0041"
+      }
+    ],
+    "os": "Microsoft Windows NT 10.0.26300.0"
+  },
+  "coverage": {
+    "production_features": {
+      "num_hidden_layers": 40,
+      "n_routed_experts": 384,
+      "num_experts_per_tok": 6,
+      "n_shared_experts": 1,
+      "hc_mult": 4,
+      "kv_source_layer_ids": [
+        2,
+        8,
+        14,
+        20
+      ],
+      "index_source_layer_ids": [
+        2,
+        8,
+        14,
+        20,
+        24,
+        28,
+        32,
+        36
+      ],
+      "candidate_source_layer_id": 20,
+      "candidate_block_size": 8,
+      "engram_layer_ids": [
+        1,
+        14
+      ],
+      "engram_n_heads": 8,
+      "engram_max_ngram_size": 4,
+      "scoring_func": "sqrtsoftplus",
+      "norm_topk_prob": true,
+      "routed_scaling_factor": 1.5,
+      "compress_ratios": [
+        0,
+        0,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "production_widths": {
+      "hidden_size": 5120,
+      "moe_intermediate_size": 2304,
+      "num_attention_heads": 64,
+      "head_dim": 512,
+      "qk_rope_head_dim": 64,
+      "q_lora_rank": 1280,
+      "o_lora_rank": 1024,
+      "o_groups": 8,
+      "hc_mult": 4,
+      "vocab_size": 129280,
+      "index_n_heads": 32,
+      "index_head_dim": 128,
+      "engram_n_heads": 8,
+      "engram_head_dim": 256
+    },
+    "scalable_checkpoint": "hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111",
+    "permitted_reductions": [
+      "arithmetic widths in the 40-layer joint graph",
+      "vocabulary and table rows",
+      "context and top-k capacities",
+      "depth and expert payload count in width probes"
+    ],
+    "production_weights_execution_required": false
+  },
+  "runtime_inputs": {
+    "hierarchos-native-cli/Cargo.toml": "5c16ddf8ae7b3669eb1810b39113caabda96d5ede543963aaa8655acf44f3fa3",
+    "hierarchos-native-cli/src/lib.rs": "4f2e993d63d83e5f7e5e15d9d12a94a2cb7aa4fedae7393e14a5a583299c7c3a",
+    "hierarchos-vulkan/Cargo.toml": "ae13f127c1b0e3f03126c410a460f2383ee5ce4f1f2e60085e28a7001063e3a0",
+    "hierarchos-vulkan/shaders/deepseek_v41_rsqrt_seed_amd_zen4.bin": "bfe0c1a13d19d64e9d49e98acffd3a7ba93f89e6a578f81a9f003c6e174955e7",
+    "hierarchos-vulkan/shaders/fp32_fma_exact.glsl": "263e0342ffe6f763fb9aab5b4b724225c6545c33b7d1cea8b1c0b417b1370fcf",
+    "hierarchos-vulkan/shaders/fp32_sleef_exp.glsl": "646ea440e801e7aab2a87db4e1a900f866b1c603fddc800cfc4e9cdfdfa57311",
+    "hierarchos-vulkan/shaders/fp32_sleef_pow.glsl": "cd44384b12eb2f6efdd365ddf2f466cad8a1cac054ed896b61cf6d0bf69b83a6",
+    "hierarchos-vulkan/shaders/fp32_sleef_tanh.glsl": "f05d09ee3954a6a6f7bec1a7c00964798a45e7e762c3daed5652ae0d7b132d4d",
+    "hierarchos-vulkan/shaders/fp32_sleef_trig.glsl": "2d850bc2ad8d485c9bf9ad681e8ccbac68335e9f7237062780d75ecb6533edfe",
+    "hierarchos-vulkan/shaders/fp32_sqrt_recip.glsl": "d738e5d8f537b9d5d320038108b60cc587140c6e31bde70a9408d43d6e73120a",
+    "hierarchos-vulkan/shaders/fp32_tanh.glsl": "c8cf42133f902fbe1137054709cdc37272f813cd649e8135bc89415e89c1bfc6",
+    "hierarchos-vulkan/shaders/fp32_v41_cpu_log_table.glsl": "1420f8568d93486239c72263b8060020ab59ecc76f61b1a5d4613cfee91446ec",
+    "hierarchos-vulkan/shaders/fp32_v41_cpu_sqrt.glsl": "35be39b3c1e6e8115b79c038586c830e136cf903778d780942f647ebcae531dc",
+    "hierarchos-vulkan/shaders/fp32_v41_engram_reduce.glsl": "167413f79a7512b7235299e7867f562a41a6be06439329eec278f5ee878a8e51",
+    "hierarchos-vulkan/shaders/fp32_v41_packed.glsl": "078f35a9e2ec355bd5533450f5c8c330544c57226a58417e6336955972989dd5",
+    "hierarchos-vulkan/shaders/fp32_v41_reduce.glsl": "7f9e790108d452c87a42e37b56367ac67abf07356848eec1d1bfb51454245aa6",
+    "hierarchos-vulkan/shaders/fp32_v41_unary.glsl": "d708ed67e599c768847bf0853bcdb1ea1527d7c63497aea9c9ba46aa54f7ba13",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_values.comp": "5b64a75f3b7780f26456fc7345a249959f3054c90a53109d30d39e3deec4aae5",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_values.spv": "772b031a97d4aa9035c252ab54240c98cbd1b474e5bf149e643304eae83cb583",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_weights.comp": "274236a33ac8552ce3ebbbb4b71be8fd577fd146c6a2ce24ae0d70f011e13fb3",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_weights.spv": "458d832ac773dad535367d4b83ca48a823899087b6da116d8f29841c66ec500a",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_bf16_cast.comp": "9237288234c8c1d54985eb91e1a72794f837bb0cb3a6c255c1b33e94be117b69",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_bf16_cast.spv": "375a4d39780085002fb004474dea084ddaf4320f317ca6e911accea5470da519",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_cache_write.comp": "cf2e1623942e60df66508af7a9459a65813d70540ec0f584351637097e96449e",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_cache_write.spv": "cd41cef1ccbbe395bb401705ca034bdf16237c09cdf402e136b2e165aad796eb",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_candidate_mask.comp": "099ac5757b6aa178c95b65a309542a5e17a180a30ea50bf3b5f010b8905d5ecc",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_candidate_mask.spv": "ef0f8e53ae94513182262c3a3aa61c43e50678dfcb99f9db7baed0f8e499543b",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_candidate_scores.comp": "3c6b48d2ace4547de59ae3a4a01a2b31ba8e5e25bb29616003093138a20446a2",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_candidate_scores.spv": "57fede0f302ff34bd412954ca917f63f777e7ced1d15dffcc6d36d1114b9bab6",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_compress.comp": "594458d9f4694789f62b20619f34339da3b872a51f76d5ba51e265fdc427b7f0",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_compress.spv": "982a930af149d7a3cce6add0f47ae43c492d7c8840551d088b95fc4873805452",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_embedding.comp": "e876dcff6e1ec8aeefe9617df925bfec4bac49339b9ddbccd840ba5cd4a2af0b",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_embedding.spv": "592f81977372af7328eadabdee8d700eaeb96182e7b5f58edd19c1fa9f08a0cd",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_embedding_half.comp": "55a9fb333fff1dd36934fd22fd2ba4e48657aa49588a86db9bc41a57f99312d5",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_embedding_half.spv": "80a7d0d9393fcb7d48edee4f47be3382a5ca8748110cb302f74023a70da0eb1a",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_engram_cache.comp": "f4d9cf55a8aaf42f235861b9b80a1fb654bf1b14d525a40fb2d61be2c7c18557",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_engram_cache.spv": "603e4e21378bde50d4b24c08341938d7c22150df42f82170398de4bce4bebb3c",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_engram_gate.comp": "3bd55fc8641c9d16a3301f876c3312d5908217896beb0d0141a09c041cdda9ac",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_engram_gate.spv": "219ed54c55db06ca850d4c2ecca7e39724cb12d5374c9c42baab6d2daf2c0c27",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_engram_hash.comp": "a773f609327bffcab1097bfa179565400ed6b26a9d44f49f312c5161aba04730",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_engram_hash.spv": "b9642540fb721f20e20d700fd1ad555b099af9c316f3e1a601ac563ba2fdbaff",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_engram_lookup.comp": "3ae879638876c69395bb4e6d5c69199896c3fd75421dd5e2fdef83117f6ed7c5",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_engram_lookup.spv": "796f49f60c4909fc43cec6307894ae89399ec3250c5578d61c2deecbc83dfc89",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_engram_packed_lookup.comp": "5d5bcd1e9ec823772f454f5ce795f64e76a22b9e898b4f72c91ba05ef8925231",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_engram_packed_lookup.spv": "e7f87f767ddefdb7ad7701f3b479d796dc635965e05baff3ede56a00b521856d",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_grouped_output.comp": "764839ef4eda1e5f0f18ae57438f7295ab1a9507d403f91e21b7ae5bb57fdfa8",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_grouped_output.spv": "3c75d29fabcde1bbbfb8764bb620e32b1b25e5c2c63ca9799514216ef446347d",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_post.comp": "f5ed43ad7310b9159c7774da3935b6c7d0edac06c3f606068cb112854057a614",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_post.spv": "770cae40640f502392854231193d4118414585ef899738466806b12e41bb150f",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_pre.comp": "7522a97ef1367acef0917306bd93a2a503f7efba47f468602b9d777f99995013",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_pre.spv": "580da37ab44e85e18322ce779909b6928173018411454be7d61a5a4a85e6b984",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_split.comp": "c2586bdc29b2f2c876806311785fec21bdc0ed2a58348ea2b46b01f904fd3cce",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_split.spv": "bdb8cfae6f3b8d075b2a8a25855dc2ea1555fb83e6912ae4e95e35b982aa3c83",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_index_scores.comp": "5dd73719aa5174a8be1ce10c2771c1ef7c6fb66731f506536cd93be155dbed02",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_index_scores.spv": "62bbc8f3e54903b7b2b197c230ced9180a3738b0966bb2041b1738618aff921a",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_index_topk.comp": "e6e6af44fa9b9a6bd24ed86b9a76859c09c8c3c407b7e9f8933562cd24fac940",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_index_topk.spv": "a59e5b1ee0e248af7d88d5a87a1b76e970d458e6ad95cb28d8741f43321d80be",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_linear.comp": "dd915e0492dd8d3a90c585a8da692a11c4c6d5b0118281a32c9a1e182d21ca39",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_linear.spv": "3c612f247bee8c67f8432893c12562d0d85439933a20ac1d43b409b1bd949258",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_linear_half.comp": "670416b09e324e99183930f0cd58da549fa0b9a9f614bb97150ab2c7b8edd5b7",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_linear_half.spv": "65ba1acf50970931529f3c6216837981f08e6657a7178824490a0e6b692b21e3",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_lora_add.comp": "f39ccf49fa5706a1edd0feaf136c14917461cb195376f48a16039db5c4a159ca",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_lora_add.spv": "d5c1b893cca071c7654679c1d5980ddab3e4a5de92ac5f3b7bfe6def345956af",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_mixed_swiglu.comp": "4c114508d73baa44301d50089b6319adaa8c51132fa4834fed89b9a5bde4c9a7",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_mixed_swiglu.spv": "2e6909d97c25747a2f3210b622562833ae2f110d6df59505a82c59455ceb3ad9",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_combine.comp": "f9a8117adf167d39acd80b8e874dad9139a57e362ae17687790b95ee58dce815",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_combine.spv": "b641b0af99a5e23edacbd76328249284d013408f65667e20d188a445a192bc1a",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_expert.comp": "5dc5044f778a0eb922c5c32dbbc922e0b2bb2811d2a14ea6a479261afc6876c8",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_expert.spv": "7be2be08c786e8b4200f3bd4367551896ced91508cc08b31b51bdba51e3d4d39",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_gate.comp": "0fe3e0d36ebb28eebf5cc23b2bcf236a346c81c7791acf6edbbbb24ee6d59623",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_gate.spv": "68a2671bcee58d6d92002fa8fd7761c9c882487c8bff62116cf909d14a00bea3",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_pack.comp": "4adceaff39d6a3a09ca3ab94b262d6d05515391eadec5acf6bef987bc006ac0e",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_pack.spv": "875fce1c3f6da93396007e531a1ad9630c57b74015c965188090165f6c6f532e",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_scatter.comp": "2d100afa20727820c899f25cafb49bf1e154e1e7bf4f1987f23de513b685a249",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_scatter.spv": "c46bc01d26e02cc990ec1b81823e8682cc76ada30cd1d3cf3d3bee8f666a5c4e",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_packed_linear.comp": "e5361791b1b72cc5fb60155b0d07d5dcf1737c57423aa338f3970f2d6d9d4258",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_packed_linear.spv": "b50dfefaf129c81ccbf4903f1110ed0b4d3905bf832ff3917820a760bca15af2",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_quantize.comp": "0226e5da8155faa2a5f0904234ecbd899fac89f3a463c897490d249920edb0e7",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_quantize.spv": "a3bed38ece586074391c9710edb6826babd15dc528550df82cdbc9604ec4689e",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_rms_norm.comp": "89838b3720dd2130e79df88301be8fe148050ea8f9636c612bae3911e32bc3e3",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_rms_norm.spv": "d410fe28272cf86562ac8f14a6e304fafc369757538518b8625929c733987077",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_rotary.comp": "9ff82bb868602c2c0abbdd66e8f683249cd7e355c5c4a9392d0f5c3c59971287",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_rotary.spv": "a9e5da771fcb4d7ae011d2563bb0abb2093fccf7f312e97603282d8abced0640",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_unary_test.comp": "33f2609b955f15b227c29f6edce31c6410a7425217828878269442deed4ab974",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_unary_test.spv": "701532dbf1dd7c12954dfbf50bb15f94c8de39ff3bb7913f4f2a7d00e09c4c85",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_weight_decode.comp": "5f406728d91b35bf24cf7b06a4850fce11dee7dcbb6f76a67db8594ac1d5cf84",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_weight_decode.spv": "05824dbf60f6b1e2a2a3c0bfe044a81ea4146de36fe36471e4fc1b47397a3910",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_window_cache.comp": "066d059775b55c62c0fd0d23b844da4f340e004757cf0af302b83f47768e637d",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_window_cache.spv": "e4bddde2c01e23acf354ac3613b255fc0598564ac73218af5a65662b057a5fe6",
+    "hierarchos-vulkan/src/deepseek_v41/attention.rs": "5a781102f53197f2cbddc86fb4f7f189c3e53860e09f0f9741e798c05020c319",
+    "hierarchos-vulkan/src/deepseek_v41/backbone.rs": "b1444c6bd86c3dd0a2661cd11d650721f357e5c35774148918e97a23797e2c05",
+    "hierarchos-vulkan/src/deepseek_v41/candidates.rs": "4fb4e89efbcdf2539febdc52b07a65d2998896b3abbf95dd5b94f810fd97fbb3",
+    "hierarchos-vulkan/src/deepseek_v41/checkpoint.rs": "66b6f5af2d949dc4aa20e6c21c16bde0fef0c414e14b28d9800c73404e9274d5",
+    "hierarchos-vulkan/src/deepseek_v41/compressed_kv.rs": "c357096d680e90b53c703e3a0c5a1cc2fecf2285344ca210d2c989c8ef7ade35",
+    "hierarchos-vulkan/src/deepseek_v41/compressor.rs": "3a725264de937e48f2560ef1a66d481dd58c76dba3ca96371df2f3dd0da61e9e",
+    "hierarchos-vulkan/src/deepseek_v41/engram.rs": "9b014c4e31d2d0e236adb7a1ecc152449afa8dbdf82740ac2f1e6374a75c6009",
+    "hierarchos-vulkan/src/deepseek_v41/indexer.rs": "b19519699a64271c5426c7f95f9835790550ac7fd5c2782a4a9c53553a606b71",
+    "hierarchos-vulkan/src/deepseek_v41/mixed_linear.rs": "e11f52aeb5a20ef2525ec57d4075a1d05c94601c19cfba53cc0c64ef11fc172c",
+    "hierarchos-vulkan/src/deepseek_v41/model.rs": "9f78072cc44e2efcf68b355853cfafc707d69c887d5dcec627dda8e6d39e9aeb",
+    "hierarchos-vulkan/src/deepseek_v41/orchestrator.rs": "9c467796f6fa7e1f2c31122b57b2cd18b3c2bdab9129ff6a6708549d68873a4f",
+    "hierarchos-vulkan/src/deepseek_v41/packed_weights.rs": "2dfacabc9ef896a0e03b967f89a781de18e88e5a826a20c5d2ed0d097064e9ce",
+    "hierarchos-vulkan/src/deepseek_v41/peft.rs": "b42c547580ec035bc123a54348cd405581daf894155d6fbd30e9bcdb497f14ac",
+    "hierarchos-vulkan/src/deepseek_v41/quantization.rs": "8b92327fd87bb56f3577302365f808a2def6c35487d8b221707d75c41352398f",
+    "hierarchos-vulkan/src/deepseek_v41/rotary.rs": "70da25f2ea9a933f78f7e41332264e921693f3a888358e623159f6b57a72a3cf",
+    "hierarchos-vulkan/src/deepseek_v41/tokenizer.rs": "6042e027b1421c2b70cba5ad125e1fa69397c0984d9af58d7da743d69a15f984",
+    "hierarchos-vulkan/src/deepseek_v41.rs": "e86acf1bbc9a9ac7806c2a5d0b0b6ef3780eb594f02ff5723940cba80d50e1de",
+    "hierarchos-vulkan/src/lib.rs": "48a088953acce5f562c0f2fd7c0c9995776b3c68c243688aa5519dd8db5ed625",
+    "hierarchos-vulkan/src/vulkan.rs": "add0343760e8677d00289aba1235bd0d71a051b551ad411f2259c5a327299ca6"
+  },
+  "native_outputs_sha256": "2ded9e1290113b95bbbb9526501130ae3429b7b50899547182f086b62d43ff40",
+  "fresh_default_loader_execution": {
+    "export_sha256": "80a67f627ce690d07e7a12e80c810e0ed19a020bbd8fff13ae2c65a5b0772fb6",
+    "log_sha256": "98c6c4ae7e6109ea26102c271a336672e9b343a99fba0772ed0f40f09a388b9d",
+    "logits": 3216,
+    "steps": 6,
+    "released_layers": 40,
+    "routed_experts": 384,
+    "topk": 6
+  },
+  "supplementary_note": "14 grouped intermediate differences are FP8-equivalent in the measured width case; final logits have zero drift",
+  "intel_gen9_status": "next optimization target; target-device kernel qualification pending",
+  "training_qualification": {
+    "status": "qualified",
+    "recorded_utc": "2026-10-28T02:21:44+00:00",
+    "receipt": "hierarchos-vulkan/validation/release_parity/deepseek_v41/training-qualification.json",
+    "receipt_sha256": "ca17467255bde83ff025a825175ae11bb199d6525cedf8b82987bb5e08647995",
+    "working_copy": "target/v41-completion/training-qualification.json",
+    "comparison": "strict_less_than",
+    "absolute_logit_limit_strict": 2e-07,
+    "rtol": 0,
+    "oracles": [
+      "deepseek_v41_full_bf16_training_v3.json",
+      "deepseek_v41_full_mixed_training.json",
+      "deepseek_v41_full_training.json",
+      "deepseek_v41_production_ratio_training_v2.json"
+    ],
+    "rejected_oracles": [
+      "deepseek_v41_full_bf16_training.json",
+      "deepseek_v41_production_ratio_training.json",
+      "deepseek_v41_full_bf16_training_v2.json"
+    ],
+    "methods": [
+      "LoRA",
+      "rsLoRA"
+    ],
+    "optimizer_steps_per_case": 3,
+    "pinned_step_inputs": "every adapter factor and optimizer moment replayed from the frozen reference state, so each step is qualified on its own arithmetic",
+    "metrics": {
+      "logit_values": 6144,
+      "logit_points": 96,
+      "gradient_points": 16896,
+      "factor_points": 87384,
+      "moment_points": 34092,
+      "max_logit": 1.4901161193847656e-07,
+      "max_gradient": 1.1175870895385742e-08,
+      "max_moment": 1.3969838619232178e-09,
+      "max_factor": 6.712725735269487e-07,
+      "max_policy_bound_ratio": 0.9999717137132409,
+      "factor_updates_bit_exact": 5585376,
+      "factor_updates_compared": 5585376
+    },
+    "lifecycle": "AdamW with factor-local counters and sparse moments; save/resume is bit-exact and the resumed CLI adapter is byte-identical to the uninterrupted run; standard PEFT export reloads",
+    "reach": "transformer-finetune --peft on released packages; frozen base is never rewritten and no merged package is produced",
+    "scope": "Six-layer reduced-width training with 384 routed experts, top-6 and HC4 in BF16+FP4+FP8; separate inference gate covers the released 40-layer schedule.",
+    "training_geometry": {
+      "num_hidden_layers": 6,
+      "hidden_size": 32,
+      "n_routed_experts": 384,
+      "num_experts_per_tok": 6,
+      "hc_mult": 4
+    },
+    "uninterrupted_trajectory": {
+      "path": "hierarchos-vulkan\\validation\\release_parity\\deepseek_v41\\uninterrupted-training.json",
+      "sha256": "5a3145f327918441c48b70f0a2a5b9e0afdc467918db3ec586b7fa4675dfdf52"
+    }
+  },
+  "release_suite": {
+    "processes": {
+      "release-suite-core.log": {
+        "log": "target/v41-completion/release-suite-core.log",
+        "sha256": "fea448424e42fa1b7107778ed8ea1c513b1f31ebc055d8eb2bea322262d99c6d",
+        "result": "ok",
+        "passed": 175,
+        "failed": 0,
+        "ignored": 23
+      },
+      "release-suite-training.log": {
+        "log": "target/v41-completion/release-suite-training.log",
+        "sha256": "48781085c3d4041793ca4af4486833a734465697f2ce41eb408992ecf210e2b7",
+        "result": "ok",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 1
+      },
+      "production-gate-final.log": {
+        "log": "target/v41-completion/production-gate-final.log",
+        "sha256": "97aa1822b9f9581d67ded7484a761d472967ad964a3c44be5b0ba01df33fce81",
+        "result": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    "passed": 182,
+    "failed": 0,
+    "ignored": 24
+  },
+  "rdna3_streaming_followthrough": {
+    "path": "hierarchos-vulkan\\validation\\release_parity\\deepseek_v41\\rdna3-streaming-qualification.json",
+    "sha256": "2aee3010f69d3479ecc89397be6f47a8baa02de11def3c0eaf2176a2d7c74e5b"
+  }
+}

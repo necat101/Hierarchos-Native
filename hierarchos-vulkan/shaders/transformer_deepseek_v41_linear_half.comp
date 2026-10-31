@@ -1,0 +1,54 @@
+#version 450
+
+// Production-vocabulary dense projection over BF16-exact weights stored as
+// 16-bit pairs (`lo | hi << 16`). The released LM head keeps its weight in FP32
+// even though every value is BF16-rounded, so this kernel must use the FP32
+// projection's MKL SGEMM K staging, not the dense-BF16 single accumulation.
+// Decoding a pair back to float is exact: `u16 << 16` is the BF16 bit pattern.
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Weight { uint weight_pairs[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer Output { float output_values[]; };
+layout(push_constant) uniform Push { uint rows; uint input_dim; uint output_dim; } pc;
+
+float weight_at(uint index) {
+    uint pair = weight_pairs[index >> 1];
+    uint half_bits = (index & 1u) == 0u ? (pair & 0xffffu) : (pair >> 16);
+    return uintBitsToFloat(half_bits << 16);
+}
+
+void main() {
+    uint col = gl_GlobalInvocationID.x, row = gl_GlobalInvocationID.y;
+    if (col >= pc.output_dim || row >= pc.rows) return;
+    uint xb = row * pc.input_dim, wb = col * pc.input_dim;
+    bool matrix_body = pc.output_dim > 8u && pc.rows >= 4u;
+    if (matrix_body) {
+        uint panel_width = pc.input_dim > 192u && pc.input_dim < 384u
+            ? pc.input_dim / 2u : 192u;
+        precise float sum = 0.0;
+        for (uint start = 0u; start < pc.input_dim; start += panel_width) {
+            precise float panel = 0.0;
+            for (uint k = start; k < min(start + panel_width, pc.input_dim); ++k)
+                panel = fma(x[xb + k], weight_at(wb + k), panel);
+            sum += panel;
+        }
+        output_values[row * pc.output_dim + col] = sum;
+    } else {
+        // Same vector-dot body as the FP32 kernel for narrow/short matrices.
+        precise float a = 0.0, b = 0.0, c = 0.0, d = 0.0;
+        uint aligned = pc.input_dim / 4u * 4u;
+        for (uint k = 0u; k < aligned; k += 4u) {
+            precise float p0 = x[xb + k] * weight_at(wb + k);
+            precise float p1 = x[xb + k + 1u] * weight_at(wb + k + 1u);
+            precise float p2 = x[xb + k + 2u] * weight_at(wb + k + 2u);
+            precise float p3 = x[xb + k + 3u] * weight_at(wb + k + 3u);
+            a += p0; b += p1; c += p2; d += p3;
+        }
+        precise float ac = a + c;
+        precise float bd = b + d;
+        precise float sum = ac + bd;
+        for (uint k = aligned; k < pc.input_dim; ++k)
+            sum += x[xb + k] * weight_at(wb + k);
+        output_values[row * pc.output_dim + col] = sum;
+    }
+}

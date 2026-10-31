@@ -1,0 +1,95 @@
+#version 450
+
+// V4.1 Engram hash state. Matches NgramHashState.forward for one engram layer:
+// look back `max_ngram_size` cached compressed tokens, stop the n-gram at the
+// sequence start or any DEAD token, fill blocked slots with the compressed pad
+// id, multiply each slot by that layer's odd hash multiplier, XOR the products
+// one lookback at a time, then reduce modulo the per-(ngram, head) prime and add
+// the bucket offset. The released multipliers are int64; without shaderInt64
+// this kernel carries 64-bit products and remainders as uvec2 plus a long
+// division. Supplied multipliers must keep every product below 2^63 and every
+// prime below 2^31, which the host validates.
+layout(local_size_x = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer Cache { uint cache[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Multipliers { uint multipliers[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Primes { uint primes[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Offsets { uint offsets[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer Hashes { uint hashes[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint seq;
+    uint start_pos;
+    uint batch;
+    uint capacity;
+    uint cols;
+    uint max_ngram;
+    uint n_heads;
+    uint ngram_sizes;
+    uint layer_mult;
+    uint layer_prime;
+    uint pad_id;
+    uint dead;
+} pc;
+
+uvec2 multiply64x32(uint high, uint low, uint value) {
+    uint product_hi, product_lo, second_hi, second_lo;
+    umulExtended(low, value, product_hi, product_lo);
+    umulExtended(high, value, second_hi, second_lo);
+    return uvec2(product_lo, product_hi + second_lo);
+}
+
+uint mod64(uvec2 value, uint modulus) {
+    uint remainder = 0u;
+    for (int bit = 63; bit >= 0; --bit) {
+        uint source;
+        if (bit >= 32) source = value.y >> uint(bit - 32);
+        else source = value.x >> uint(bit);
+        remainder = (remainder << 1u) | (source & 1u);
+        if (remainder >= modulus) remainder -= modulus;
+    }
+    return remainder;
+}
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint batch_index = row / pc.seq;
+    uint offset = row % pc.seq;
+    uint position = pc.start_pos + offset;
+    uint row_base = batch_index * pc.capacity;
+
+    uint product_hi[8];
+    uint product_lo[8];
+    uint history[8];
+    for (uint shift = 0u; shift < pc.max_ngram; ++shift) {
+        uint source = shift > position ? 0u : cache[row_base + position - shift];
+        history[shift] = source;
+    }
+    // A blocked lookback stays blocked for every longer n-gram, matching the
+    // accumulating `blocked` mask in the released loop.
+    bool blocked = false;
+    uint rolling_hi = 0u;
+    uint rolling_lo = 0u;
+    for (uint shift = 0u; shift < pc.max_ngram; ++shift) {
+        blocked = blocked || (position < shift) || (history[shift] == pc.dead);
+        uint token = blocked ? pc.pad_id : history[shift];
+        uint multiplier = pc.layer_mult + shift;
+        uint high = multipliers[multiplier * 2u + 1u];
+        uint low = multipliers[multiplier * 2u];
+        uvec2 product = multiply64x32(high, low, token);
+        product_hi[shift] = product.y;
+        product_lo[shift] = product.x;
+    }
+    rolling_hi = product_hi[0];
+    rolling_lo = product_lo[0];
+    for (uint shift = 1u; shift < pc.max_ngram; ++shift) {
+        rolling_hi ^= product_hi[shift];
+        rolling_lo ^= product_lo[shift];
+        uint ngram = shift - 1u;
+        for (uint head = 0u; head < pc.n_heads; ++head) {
+            uint index = pc.layer_prime + ngram * pc.n_heads + head;
+            uint remainder = mod64(uvec2(rolling_lo, rolling_hi), primes[index]);
+            hashes[row * pc.cols + ngram * pc.n_heads + head] = remainder + offsets[index];
+        }
+    }
+}

@@ -10,6 +10,7 @@ use anyhow::{bail, Context, Result};
 use bytemuck::{Pod, Zeroable};
 
 use crate::mixed_precision::{VulkanParameterStorageMirror, VulkanParameterStorageMirrorRefresher};
+use crate::weight_offload::ModelPackage;
 use crate::{
     read_f32_tensor, vendor, vulkan, AdamWHyperParams, GpuBuffer, VulkanDevice,
     VulkanParameterStorageFormat,
@@ -54,6 +55,7 @@ struct SharedLmHeadInner {
     context_dim: usize,
     vocab_size: usize,
     weight: GpuBuffer,
+    package_source: Option<SharedLmHeadPackageSource>,
     training_state: Mutex<Option<SharedLmHeadTrainingState>>,
     readback: GpuBuffer,
     execution_mirror: Mutex<Option<SharedLmHeadExecutionMirror>>,
@@ -61,6 +63,11 @@ struct SharedLmHeadInner {
     gradient_accumulate: vulkan::ComputeKernel,
     adamw: vulkan::ComputeKernel,
     adamw_range: vulkan::ComputeKernel,
+}
+
+struct SharedLmHeadPackageSource {
+    package: Arc<Mutex<ModelPackage>>,
+    name: String,
 }
 
 #[derive(Clone)]
@@ -82,6 +89,8 @@ struct SharedLmHeadExecutionMirror {
 /// AdamW first/second moments, and step counter. This lets H-DeepEmbed,
 /// L-DeepEmbed, and the LM-head loss bind the exact same parameter without
 /// duplicating Vulkan handles or silently training divergent copies.
+/// In the inference-only package tier, clones instead share one immutable
+/// package table; resident buffer access and all parameter mutations fail.
 #[derive(Clone)]
 pub struct SharedLmHeadParameter {
     inner: Arc<SharedLmHeadInner>,
@@ -111,7 +120,7 @@ impl SharedLmHeadParameter {
         }
 
         let weight = GpuBuffer::from_f32(&device, weight)?;
-        Self::from_weight_buffer(device, context_dim, vocab_size, weight, true)
+        Self::from_weight_buffer(device, context_dim, vocab_size, weight, true, None)
     }
 
     fn from_weight_buffer(
@@ -120,11 +129,12 @@ impl SharedLmHeadParameter {
         vocab_size: usize,
         weight: GpuBuffer,
         trainable: bool,
+        package_source: Option<SharedLmHeadPackageSource>,
     ) -> Result<Self> {
         let len = context_dim
             .checked_mul(vocab_size)
             .context("shared lm_head element count overflow")?;
-        if weight.f32_capacity() < len {
+        if package_source.is_none() && weight.f32_capacity() < len {
             bail!(
                 "shared lm_head Vulkan weight capacity {} is smaller than required {len}",
                 weight.f32_capacity()
@@ -155,8 +165,12 @@ impl SharedLmHeadParameter {
                     std::mem::size_of::<AdamWRangePush>() as u32,
                 )?,
                 weight,
+                readback: GpuBuffer::zeros_host_f32(
+                    &device,
+                    if package_source.is_some() { 1 } else { len },
+                )?,
+                package_source,
                 training_state: Mutex::new(training_state),
-                readback: GpuBuffer::zeros_host_f32(&device, len)?,
                 execution_mirror: Mutex::new(None),
                 step: AtomicU32::new(0),
                 device,
@@ -171,6 +185,7 @@ impl SharedLmHeadParameter {
     /// independent Vulkan weight allocation and, when trainable, independent
     /// gradient and AdamW moment buffers.
     pub(crate) fn fork_for_peft_replacement(&self, trainable: bool) -> Result<Self> {
+        self.require_resident("PEFT replacement")?;
         let weight = self.inner.weight.duplicate_f32(self.len())?;
         Self::from_weight_buffer(
             self.inner.device.clone(),
@@ -178,7 +193,97 @@ impl SharedLmHeadParameter {
             self.inner.vocab_size,
             weight,
             trainable,
+            None,
         )
+    }
+
+    /// One immutable package identity shared by token lookup and tied projection.
+    /// The caller proves equality with the loaded table before rebinding either edge.
+    pub(crate) fn from_tiered_package(
+        device: VulkanDevice,
+        context_dim: usize,
+        vocab_size: usize,
+        package: Arc<Mutex<ModelPackage>>,
+        name: String,
+    ) -> Result<Self> {
+        Self::from_package_rows(device, context_dim, vocab_size, package, name, false)
+    }
+
+    /// A logical input vocabulary may exclude reserved rows in the physical
+    /// checkpoint table. They remain in the source for wrapper export, but are
+    /// neither addressable by lookup nor returned as this parameter's weights.
+    pub(crate) fn from_tiered_package_prefix(
+        device: VulkanDevice,
+        context_dim: usize,
+        vocab_size: usize,
+        package: Arc<Mutex<ModelPackage>>,
+        name: String,
+    ) -> Result<Self> {
+        Self::from_package_rows(device, context_dim, vocab_size, package, name, true)
+    }
+
+    fn from_package_rows(
+        device: VulkanDevice,
+        context_dim: usize,
+        vocab_size: usize,
+        package: Arc<Mutex<ModelPackage>>,
+        name: String,
+        allow_row_prefix: bool,
+    ) -> Result<Self> {
+        let shape = package
+            .lock()
+            .map_err(|_| anyhow::anyhow!("shared weight package lock poisoned"))?
+            .shape(&name)?;
+        let geometry_matches = matches!(shape.as_slice(), [rows, cols]
+            if *cols == context_dim && (*rows == vocab_size || (allow_row_prefix && *rows >= vocab_size)));
+        if context_dim == 0 || vocab_size == 0 || !geometry_matches {
+            bail!("package-backed shared lm_head geometry mismatch");
+        }
+        let placeholder = GpuBuffer::zeros_f32(&device, 1)?;
+        Self::from_weight_buffer(
+            device,
+            context_dim,
+            vocab_size,
+            placeholder,
+            false,
+            Some(SharedLmHeadPackageSource { package, name }),
+        )
+    }
+
+    pub(crate) fn is_package_backed(&self) -> bool {
+        self.inner.package_source.is_some()
+    }
+
+    fn require_resident(&self, operation: &str) -> Result<()> {
+        if let Some(source) = self.inner.package_source.as_ref() {
+            bail!("package-backed vocabulary parameter {} does not support {operation}; reload resident weights first", source.name);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn gather_package_rows(&self, row_ids: &[u32]) -> Result<Vec<f32>> {
+        if let Some(id) = row_ids
+            .iter()
+            .find(|&&id| id as usize >= self.inner.vocab_size)
+        {
+            bail!(
+                "input row {id} is outside logical vocabulary size {}",
+                self.inner.vocab_size
+            );
+        }
+        let source = self
+            .inner
+            .package_source
+            .as_ref()
+            .context("shared lm_head has no package source")?;
+        let mut package = source
+            .package
+            .lock()
+            .map_err(|_| anyhow::anyhow!("shared weight package lock poisoned"))?;
+        let dtype = package.entry(&source.name)?.dtype;
+        let rows = row_ids.iter().map(|&id| id as usize).collect::<Vec<_>>();
+        let raw = package.read_row_gather(&source.name, &rows)?;
+        ModelPackage::decode_f32(dtype, &raw)
     }
 
     pub fn from_model_package(device: VulkanDevice, model_dir: impl AsRef<Path>) -> Result<Self> {
@@ -214,17 +319,57 @@ impl SharedLmHeadParameter {
     }
 
     pub fn weights(&self) -> Result<Vec<f32>> {
+        if let Some(source) = self.inner.package_source.as_ref() {
+            return source
+                .package
+                .lock()
+                .map_err(|_| anyhow::anyhow!("shared weight package lock poisoned"))?
+                .read_f32_row_prefix(&source.name, self.inner.vocab_size);
+        }
         self.inner.weight.read_f32(self.len())
     }
 
-    pub(crate) fn weight_buffer(&self) -> &GpuBuffer {
-        &self.inner.weight
+    /// Bounded canonical FP32 reads for checkpoint identity. Logical bounds
+    /// deliberately exclude any reserved rows in a wrapper's physical table.
+    pub(crate) fn weight_rows(&self, first: usize, rows: usize) -> Result<Vec<f32>> {
+        if rows == 0
+            || first
+                .checked_add(rows)
+                .is_none_or(|end| end > self.vocab_size())
+        {
+            anyhow::bail!("shared vocabulary row range is outside its logical shape");
+        }
+        if let Some(source) = self.inner.package_source.as_ref() {
+            return source
+                .package
+                .lock()
+                .map_err(|_| anyhow::anyhow!("shared weight package lock poisoned"))?
+                .read_f32_rows(&source.name, first, rows);
+        }
+        let len = rows * self.context_dim();
+        let output = GpuBuffer::uninitialized_host_f32(&self.inner.device, len)?;
+        let mut commands = crate::vulkan::ComputeBatch::new(&self.inner.device)?;
+        commands.readback_f32_range(
+            &self.inner.weight,
+            first * self.context_dim(),
+            &output,
+            0,
+            len,
+        )?;
+        commands.submit()?;
+        output.read_f32(len)
+    }
+
+    pub(crate) fn weight_buffer(&self) -> Result<&GpuBuffer> {
+        self.require_resident("resident buffer access")?;
+        Ok(&self.inner.weight)
     }
 
     pub(crate) fn install_fp16_parameter_storage_mirror(
         &self,
         mirror: VulkanParameterStorageMirror,
     ) -> Result<()> {
+        self.require_resident("FP16 execution mirrors")?;
         if mirror.format() != VulkanParameterStorageFormat::Fp16 {
             bail!(
                 "shared lm_head execution mirror must be fp16; got {}",
@@ -298,6 +443,7 @@ impl SharedLmHeadParameter {
     }
 
     fn training_state(&self) -> Result<SharedLmHeadTrainingState> {
+        self.require_resident("training")?;
         self.inner
             .training_state
             .lock()
@@ -486,6 +632,7 @@ impl SharedLmHeadParameter {
     /// Replaces selected vocabulary rows in-place, preserving the physical
     /// identity shared by the token embedding and tied LM head.
     pub(crate) fn replace_rows(&self, rows: &[usize], values: &[f32]) -> Result<()> {
+        self.require_resident("row replacement")?;
         if rows.is_empty() {
             bail!("shared lm_head row replacement requires at least one row");
         }
@@ -544,6 +691,7 @@ impl SharedLmHeadParameter {
     /// contents, and refresh an optional compact execution mirror exactly as
     /// the row-selective path does.
     pub(crate) fn replace_weights(&self, values: &[f32]) -> Result<()> {
+        self.require_resident("weight replacement")?;
         if values.len() != self.len() {
             bail!(
                 "shared lm_head replacement has {} values; expected {}",
@@ -575,10 +723,16 @@ impl SharedLmHeadParameter {
     }
 
     pub(crate) fn record_readback(&self, commands: &mut vulkan::ComputeBatch) -> Result<()> {
+        if self.is_package_backed() {
+            return Ok(());
+        }
         commands.readback_f32(&self.inner.weight, &self.inner.readback, self.len())
     }
 
     pub(crate) fn read_recorded_weights(&self) -> Result<Vec<f32>> {
+        if self.is_package_backed() {
+            return self.weights();
+        }
         self.inner.readback.read_f32(self.len())
     }
 

@@ -1,0 +1,48 @@
+#version 450
+
+// V4.1 Hyper-Connections expand, adjoint for the sublayer output and the
+// residual stream. The forward is `transformer_deepseek_v41_hc_post.comp`:
+//   out[row, j, d] = post[row, j] * x[row, d]
+//                  + sum_k comb[row, k, j] * residual[row, k, d]
+// so, walking PyTorch's broadcast back:
+//   grad_x[row, d] = sum_j post[row, j] * grad_out[row, j, d]
+//   grad_residual[row, k, d] = sum_j comb[row, k, j] * grad_out[row, j, d]
+// PyTorch computes the broadcast product and then sums the expanded axis, so
+// each term is a separately rounded multiply followed by an add in ascending
+// copy order. `fma` here would round the product once instead.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradOutput { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Post { float post[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Comb { float comb[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer GradInput { float grad_x[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer GradResidual { float grad_residual[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hc;
+    uint dim;
+} pc;
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (column >= pc.dim || row >= pc.rows) return;
+
+    precise float direct = 0.0;
+    for (uint j = 0u; j < pc.hc; ++j) {
+        precise float product = post[row * pc.hc + j]
+            * grad_output[(row * pc.hc + j) * pc.dim + column];
+        direct += product;
+    }
+    grad_x[row * pc.dim + column] = direct;
+
+    for (uint k = 0u; k < pc.hc; ++k) {
+        precise float mixed = 0.0;
+        for (uint j = 0u; j < pc.hc; ++j) {
+            precise float product = comb[(row * pc.hc + k) * pc.hc + j]
+                * grad_output[(row * pc.hc + j) * pc.dim + column];
+            mixed += product;
+        }
+        grad_residual[(row * pc.hc + k) * pc.dim + column] = mixed;
+    }
+}

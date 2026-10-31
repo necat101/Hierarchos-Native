@@ -1,0 +1,35 @@
+#version 450
+
+// V4.1 Hyper-Connections expand. Matches Block.hc_post exactly, including the
+// released broadcast: comb.unsqueeze(-1) * residual.unsqueeze(-2) followed by
+// sum(dim=2) contracts comb's first copy axis with the residual, so the
+// residual is mixed by comb[k, j] (the transpose of the documented [j, k]
+// layout). Sinkhorn makes both orientations doubly stochastic, but the
+// released arithmetic is the contract here.
+//   out[row, j, d] = post[row, j] * x[row, d]
+//                  + sum_k comb[row, k, j] * residual[row, k, d]
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Residual { float residual[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Post { float post[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Comb { float comb[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer Output { float output_values[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint hc;
+    uint dim;
+} pc;
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint copy_row = gl_GlobalInvocationID.y;
+    if (column >= pc.dim || copy_row >= pc.rows * pc.hc) return;
+    uint row = copy_row / pc.hc;
+    uint j = copy_row % pc.hc;
+    precise float mixed = 0.0;
+    for (uint k = 0u; k < pc.hc; ++k)
+        mixed += comb[(row * pc.hc + k) * pc.hc + j]
+               * residual[(row * pc.hc + k) * pc.dim + column];
+    output_values[(row * pc.hc + j) * pc.dim + column] =
+        post[row * pc.hc + j] * x[row * pc.dim + column] + mixed;
+}

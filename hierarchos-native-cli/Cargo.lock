@@ -1374,9 +1374,11 @@ dependencies = [
 name = "hierarchos-native-cli"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "hierarchos-inference",
  "hierarchos-vulkan",
  "parquet",
+ "safetensors 0.6.2",
  "serde_json",
  "sha2 0.10.9",
  "tokenizers 0.21.4",
