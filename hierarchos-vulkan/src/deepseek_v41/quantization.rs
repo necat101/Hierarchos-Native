@@ -200,7 +200,8 @@ impl DeepseekV41ActivationQuantizer {
             commands,
             &[input, &values, &scales],
             bytemuck::bytes_of(&push),
-            row_grid(blocks as u32, rows),
+            // One invocation owns one block, with 64 invocations per group.
+            row_grid(blocks.div_ceil(64) as u32, rows),
         )?;
         Ok(DeepseekV41QuantizedActivation {
             rows,

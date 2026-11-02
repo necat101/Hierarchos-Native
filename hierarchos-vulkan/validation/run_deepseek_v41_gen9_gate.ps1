@@ -2,6 +2,9 @@ param([string]$OutputDirectory = "target/gen9-v41-gate")
 $ErrorActionPreference = "Stop"
 $taskRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 Set-Location -LiteralPath $taskRoot
+foreach ($taskEvidence in @("target/v41-completion", "target/rdna3-streaming", "target/deepseek-v41-reference")) {
+    New-Item -ItemType Directory -Force -Path $taskEvidence | Out-Null
+}
 $taskChanges = @()
 if (Test-Path -LiteralPath "HANDOFF-MANIFEST.json") {
     $taskManifest = Get-Content -LiteralPath "HANDOFF-MANIFEST.json" -Raw | ConvertFrom-Json

@@ -5,6 +5,7 @@ wq_a -> RMSNorm -> wq_b, followed by a frozen classification head. It qualifies
 loss-to-factor plumbing without claiming a complete V4.1 attention/model graph.
 Expectations are frozen before native execution and never silently replaced.
 """
+import fixture_toolchain
 import json
 import math
 from pathlib import Path
@@ -13,6 +14,8 @@ import torch.nn.functional as F
 from validate_deepseek_v41_block_grad import bits, deterministic
 
 FIXTURE=Path(__file__).parent/"fixtures/deepseek_v41_projection_grad.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 def projection(x,w,a,b,scale):
     result=F.linear(x,w)
@@ -103,16 +106,20 @@ def main():
         ]],training=[training_case(False,1000),training_case(True,2000)])
     if FIXTURE.exists() and json.loads(FIXTURE.read_text())!=payload:
         raise SystemExit("projection-gradient fixture changed; refusing to overwrite pinned evidence")
-    FIXTURE.write_text(json.dumps(payload,indent=2)+"\n")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload,indent=2)+"\n")
     # Preserve the older terminal fixture's explicit row_loss.mean() objective
     # while freezing a separate default-reduction CE expectation on the same
     # immutable logits. Their one-ULP differences are part of the operator API.
     old_path=FIXTURE.with_name("deepseek_v41_terminal_grad.json")
     old=json.loads(old_path.read_text())
+    original_projection=Path(__file__).parent/"fixtures/deepseek_v41_projection_grad.json"
+    # Loss-only CPU variants always replay the same original logit words.
+    # Regenerating the training trajectory must not change those inputs.
+    loss_training=json.loads(original_projection.read_text())["training"] if original_projection.exists() else payload["training"]
     loss_cases=[]
     for name,rows,vocab,targets,logit_bits in [
         ("original-terminal",old["rows"],old["vocab"],old["targets"],old["logits_bits"]),
-        ("query-step",payload["training"][0]["rows"],payload["training"][0]["vocab"],payload["training"][0]["targets"],payload["training"][0]["steps"][1]["logits_bits"]),
+        ("query-step",loss_training[0]["rows"],loss_training[0]["vocab"],loss_training[0]["targets"],loss_training[0]["steps"][1]["logits_bits"]),
     ]:
         logits=torch.tensor(logit_bits,dtype=torch.uint32).view(torch.float32).reshape(rows,vocab)
         labels=torch.tensor(targets)
@@ -121,10 +128,10 @@ def main():
             row_loss_bits=bits(per_row),row_mean_bits=bits(per_row.mean().reshape(1)),
             reduced_mean_bits=bits(F.cross_entropy(logits,labels).reshape(1))))
     loss_payload=dict(tolerance=2e-7,rtol=0,comparison="strict_less_than",cases=loss_cases)
-    loss_path=FIXTURE.with_name("deepseek_v41_loss_reductions.json")
+    loss_path=fixture_toolchain.variant_path(FIXTURE.with_name("deepseek_v41_loss_reductions.json"))
     if loss_path.exists() and json.loads(loss_path.read_text())!=loss_payload:
         raise SystemExit("loss-reduction fixture changed; refusing to overwrite pinned evidence")
-    loss_path.write_text(json.dumps(loss_payload,indent=2)+"\n")
+    fixture_toolchain.write_fixture(loss_path, json.dumps(loss_payload,indent=2)+"\n")
     print("PASS CPU projection fixture: 7 projection VJPs; LoRA and rsLoRA, 3 computed-gradient AdamW steps each")
 
 if __name__=="__main__":main()

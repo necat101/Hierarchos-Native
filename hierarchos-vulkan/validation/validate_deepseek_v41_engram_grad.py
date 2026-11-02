@@ -6,6 +6,7 @@ hashes and norm weights are frozen; selected embedding values are independent
 leaves solely to check the projection-input VJP, not trainable table entries.
 """
 from __future__ import annotations
+import fixture_toolchain
 import argparse
 import json
 from pathlib import Path
@@ -17,6 +18,8 @@ import validate_deepseek_v41_engram as source
 from validate_deepseek_v41_packed_grad import bits, packed_forward, make_weight, ste_round
 
 FIXTURE=Path(__file__).parent/"fixtures/deepseek_v41_engram_grad.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SEED=4141215
 
 def tensor(rng,shape,scale,grad=False):
@@ -177,12 +180,13 @@ def make_fixture(path):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path",type=Path,default=Path(__file__).resolve().parents[2]/".tmp-v41-ref/model.py")
     args=p.parse_args()
     result=make_fixture(args.reference_path)
     if FIXTURE.exists() and json.loads(FIXTURE.read_text())!=result:
         raise SystemExit("Engram-gradient fixture changed; refusing to overwrite pinned evidence")
-    FIXTURE.write_text(json.dumps(result,separators=(",",":"),allow_nan=False)+"\n",encoding="utf-8")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(result,separators=(",",":"),allow_nan=False)+"\n",encoding="utf-8")
     gradients=sum(len(c["grad_stream_bits"])+len(c["grad_kv_bits"]) for c in result["gates"])
     gradients+=sum(sum(len(c[k]) for k in ["grad_stream_bits","grad_kv_bits","grad_embedded_bits","grad_a_bits","grad_b_bits"]) for c in result["chains"])
     print(f"PASS: {len(result['gates'])} Engram gate and {len(result['chains'])} lookup/projection chains; {gradients} frozen gradients")

@@ -20,6 +20,7 @@ Regenerate only together with a deliberate kernel change.
 
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import json
 from pathlib import Path
@@ -32,6 +33,8 @@ from validate_deepseek_v41_candidates import MODEL, REVISION, SOURCE_SHA256
 from validate_deepseek_v41_compressor import load_reference
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "deepseek_v41_compressor_grad.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SEED = 4141203
 NORM_EPS = 1e-20
 
@@ -198,12 +201,13 @@ def make_fixture(reference):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path)
     args = parser.parse_args()
     payload = make_fixture(load_reference(args.reference_path))
     if FIXTURE.exists() and json.loads(FIXTURE.read_text(encoding="utf-8")) != payload:
         raise SystemExit("compressor-gradient fixture changed; refusing to overwrite pinned evidence")
-    FIXTURE.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     values = sum(
         len(case["expected"]["grad_input_bits"])
         + len(case["expected"]["grad_state_kv_bits"])

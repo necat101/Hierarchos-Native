@@ -1,5 +1,11 @@
 #version 450
 
+#ifdef HIERARCHOS_GEN9_EXACT_FMA
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_gen9_fma.glsl"
+#define fma v41_gen9_fma
+#endif
+
 // Two-lane interleaved adjoint for narrow LoRA-B gradients.
 //
 // PyTorch's CPU `mm` for these PEFT shapes -- grad_B_out (rows x output_dim)

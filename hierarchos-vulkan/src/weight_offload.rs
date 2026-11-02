@@ -314,6 +314,10 @@ pub struct OffloadLedger {
     pub max_payload_read_bytes: u64,
     /// Individual tensor payload reads issued.
     pub payload_reads: u64,
+    /// Payload file handles opened by this package (headers are separate).
+    pub payload_file_opens: u64,
+    /// Tensor locations reused after their first validated resolution.
+    pub entry_cache_hits: u64,
     /// Read requests that were satisfied entirely from the host cache.
     pub cache_hits: u64,
     /// Read requests that needed at least one package read.
@@ -446,6 +450,11 @@ pub struct ModelPackage {
     single_file: Option<PathBuf>,
     weight_map: Option<Arc<BTreeMap<String, String>>>,
     shards: BTreeMap<PathBuf, Arc<ShardHeader>>,
+    // One immutable package snapshot: validate locations once and keep the
+    // same shard handle for subsequent bounded reads. Reopening a package
+    // still rechecks the global header identity after regenerated weights.
+    entries: HashMap<String, TensorEntry>,
+    files: BTreeMap<PathBuf, (Arc<ShardHeader>, File)>,
     cache: HostTileCache,
     tile_bytes: u64,
     ledger: OffloadLedger,
@@ -473,6 +482,8 @@ impl ModelPackage {
             single_file: Some(file),
             weight_map: None,
             shards: BTreeMap::new(),
+            entries: HashMap::new(),
+            files: BTreeMap::new(),
             cache: HostTileCache::new(DEFAULT_CACHE_BYTES),
             tile_bytes: DEFAULT_TILE_BYTES,
             ledger: OffloadLedger::default(),
@@ -509,6 +520,8 @@ impl ModelPackage {
             single_file: None,
             weight_map,
             shards: BTreeMap::new(),
+            entries: HashMap::new(),
+            files: BTreeMap::new(),
             cache: HostTileCache::new(DEFAULT_CACHE_BYTES),
             tile_bytes: DEFAULT_TILE_BYTES,
             ledger: OffloadLedger::default(),
@@ -609,6 +622,10 @@ impl ModelPackage {
     /// payload offsets disagree, or that places the payload past the shard's
     /// data section. Both are integrity failures, not layout choices.
     pub fn entry(&mut self, name: &str) -> Result<TensorEntry> {
+        if let Some(entry) = self.entries.get(name) {
+            self.ledger.entry_cache_hits += 1;
+            return Ok(entry.clone());
+        }
         let header = self.shard_for(name)?;
         let (dtype, shape, data_offsets) = header
             .tensors
@@ -632,6 +649,7 @@ impl ModelPackage {
         if data_offsets[1] > header.file_size.saturating_sub(header.data_start) {
             bail!("package tensor {name} is placed past the end of its shard data section");
         }
+        self.entries.insert(name.to_owned(), entry.clone());
         Ok(entry)
     }
 
@@ -922,7 +940,17 @@ impl ModelPackage {
             };
             let from = (at - tile_first) * item;
             self.ledger.decoded_bytes = self.ledger.decoded_bytes.saturating_add((n * item) as u64);
-            values.extend(Self::decode_f32(entry.dtype, &raw[from..from + n * item])?);
+            // Decode straight into the destination instead of allocating a
+            // second Vec for every cached physical tile.
+            let bytes = &raw[from..from + n * item];
+            if entry.dtype == TensorDtype::F32 {
+                extend_f32_values_from_le_bytes(&mut values, bytes);
+                if values[done..].iter().any(|value| !value.is_finite()) {
+                    bail!("package tensor {name} contains non-finite FP32 values");
+                }
+            } else {
+                values.extend(Self::decode_f32(entry.dtype, bytes)?);
+            }
             done += n;
         }
         self.ledger.row_range_reads += 1;
@@ -998,6 +1026,8 @@ impl ModelPackage {
         offset: u64,
         length: usize,
     ) -> Result<Vec<u8>> {
+        // Keep the original per-miss file identity check. A deleted or
+        // regenerated shard must not be hidden by the retained handle.
         let header = shard_header(&entry.shard)?;
         let [begin, _] = entry.data_offsets;
         let absolute = header
@@ -1014,8 +1044,13 @@ impl ModelPackage {
                 header.path.display()
             );
         }
-        let mut file = File::open(&header.path)
-            .with_context(|| format!("opening {}", header.path.display()))?;
+        if self.files.get(&header.path).is_none_or(|(old, _)| !Arc::ptr_eq(old, &header)) {
+            let file = File::open(&header.path)
+                .with_context(|| format!("opening {}", header.path.display()))?;
+            self.files.insert(header.path.clone(), (Arc::clone(&header), file));
+            self.ledger.payload_file_opens += 1;
+        }
+        let file = &mut self.files.get_mut(&header.path).expect("shard handle inserted").1;
         file.seek(SeekFrom::Start(absolute))?;
         let mut buffer = vec![0u8; length];
         file.read_exact(&mut buffer)?;
@@ -1233,13 +1268,19 @@ impl ModelPackage {
 /// Callers retain their own whole-item and finiteness validation. The fallback
 /// handles unaligned byte slices and big-endian hosts without unsafe casts.
 pub(crate) fn f32_values_from_le_bytes(raw: &[u8]) -> Vec<f32> {
+    let mut values = Vec::with_capacity(raw.len() / 4);
+    extend_f32_values_from_le_bytes(&mut values, raw);
+    values
+}
+
+fn extend_f32_values_from_le_bytes(out: &mut Vec<f32>, raw: &[u8]) {
     #[cfg(target_endian = "little")]
     if let Ok(values) = bytemuck::try_cast_slice::<u8, f32>(raw) {
-        return values.to_vec();
+        out.extend_from_slice(values);
+        return;
     }
-    raw.chunks_exact(4)
-        .map(|word| f32::from_le_bytes([word[0], word[1], word[2], word[3]]))
-        .collect()
+    out.extend(raw.chunks_exact(4)
+        .map(|word| f32::from_le_bytes([word[0], word[1], word[2], word[3]])));
 }
 
 /// IEEE-754 binary16 to binary32 widening, including subnormals and infinities.
@@ -1420,6 +1461,28 @@ pub fn shared_package(path: impl AsRef<Path>) -> Result<Arc<Mutex<ModelPackage>>
 mod tests {
     use super::*;
     use std::fs;
+
+    #[test]
+    fn retained_payload_handles_reopen_on_change_and_reject_missing_sources() -> Result<()> {
+        let dir = scratch("retained-payload-handle");
+        let path = dir.join("model.safetensors");
+        write_package(&path, &[("w", TensorDtype::F32, vec![2, 2], f32_bytes(&[1.0, 2.0, 3.0, 4.0]))]);
+        let mut reader = ModelPackage::open_file(&path)?.with_cache_bytes(0);
+        assert_eq!(reader.read_f32_elements("w", 0, 2)?, [1.0, 2.0]);
+        assert_eq!(reader.read_f32_elements("w", 2, 2)?, [3.0, 4.0]);
+        assert_eq!(reader.ledger().payload_file_opens, 1);
+        assert!(reader.ledger().entry_cache_hits > 0);
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        write_package(&path, &[("w", TensorDtype::F32, vec![2, 2], f32_bytes(&[5.0, 6.0, 7.0, 8.0]))]);
+        assert_eq!(reader.read_f32_elements("w", 0, 2)?, [5.0, 6.0]);
+        assert_eq!(reader.ledger().payload_file_opens, 2);
+        fs::write(&path, [0u8; 3])?;
+        assert!(reader.read_f32_elements("w", 0, 1).is_err());
+        fs::remove_file(&path)?;
+        assert!(reader.read_f32_elements("w", 0, 1).is_err());
+        fs::remove_dir_all(dir)?;
+        Ok(())
+    }
 
     #[test]
     fn flat_views_reuse_physical_tiles_without_row_geometry_collisions() -> Result<()> {

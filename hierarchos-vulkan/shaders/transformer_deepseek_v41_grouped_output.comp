@@ -1,5 +1,11 @@
 #version 450
 
+#ifdef HIERARCHOS_GEN9_EXACT_FMA
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_gen9_fma.glsl"
+#define fma v41_gen9_fma
+#endif
+
 // V4.1 grouped output projection: wo_a is block diagonal over o_groups.
 // output[row, group, r] = sum_k o[row, group, k] * wo_a[group, r, k]
 layout(local_size_x = 64) in;

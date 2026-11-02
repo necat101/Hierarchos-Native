@@ -5,6 +5,7 @@ detached inference buffers. No step VJPs or native gradients build the oracle.
 The forward expression is the existing pinned V4.1 sparse-attention mirror.
 Inputs are post-RoPE/post-quantizer FP32 payloads; no quantizer VJP is implied.
 """
+import fixture_toolchain
 import hashlib
 import json
 from pathlib import Path
@@ -16,6 +17,8 @@ from validate_deepseek_v41_quantization import quantize_case
 
 HERE = Path(__file__).resolve().parent
 FIXTURE = HERE / "fixtures/deepseek_v41_attention_tape.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 
 def case(name, salt, batch, heads, dim, window, prefill, decode, sources, ratio):
@@ -163,7 +166,7 @@ def main():
         ]])
     if FIXTURE.exists() and json.loads(FIXTURE.read_text()) != payload:
         raise SystemExit("attention-tape fixture changed; refusing to overwrite frozen CPU evidence")
-    FIXTURE.write_text(json.dumps(payload, indent=2) + "\n")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload, indent=2) + "\n")
     print("PASS CPU attention tape fixture:", len(payload["cases"]), "graphs,",
           sum(len(c["reads"]) for c in payload["cases"]), "reads,",
           sum(len(c["writes"]) for c in payload["cases"]), "writes;",

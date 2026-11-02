@@ -4,6 +4,7 @@ Only the router is materialized. The full-logit schedule case separately runs
 six selected experts at production width; this checks selection over all 384
 candidates without allocating their payloads. Existing fixtures are immutable.
 """
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -16,6 +17,8 @@ import torch.nn.functional as F
 import validate_deepseek_v41_mixed as mixed
 
 FIXTURE = mixed.FIXTURE.parent / "deepseek_v41_router_width.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 WEIGHT = FIXTURE.with_suffix(".bf16.bin")
 SEED = 4141212
 
@@ -56,6 +59,7 @@ def generate(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path, required=True)
     parser.add_argument("--write-fixture", action="store_true")
     args = parser.parse_args()
@@ -65,7 +69,7 @@ def main():
     result, blob = generate(args.reference_path)
     if args.write_fixture:
         WEIGHT.write_bytes(blob)
-        FIXTURE.write_text(json.dumps(result, separators=(",", ":"), allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(result, separators=(",", ":"), allow_nan=False))
     else:
         assert WEIGHT.read_bytes() == blob
         assert json.loads(FIXTURE.read_text()) == result

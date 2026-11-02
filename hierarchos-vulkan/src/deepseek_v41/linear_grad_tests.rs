@@ -583,14 +583,17 @@ fn train_step(
         c.vocab,
         c.out,
     )?;
-    if (loss.loss as f64 - expected.loss as f64).abs() >= 2e-7 {
+    let expected_loss = crate::deepseek_v41::cpu_loss_tests::expected_loss(
+        &expected.logits_bits, &c.targets, c.vocab, expected.loss,
+    );
+    if (loss.loss as f64 - expected_loss as f64).abs() >= 2e-7 {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../target/v41-projection-backward");
         fs::create_dir_all(&root)?;
         fs::write(
             root.join(format!("{}-loss-step{}.json", c.name, trainer.step_count())),
             serde_json::to_vec_pretty(&serde_json::json!({
                 "logits":tape.logits.read_f32(c.rows*c.vocab)?,"rows":c.rows,"vocab":c.vocab,"targets":c.targets,
-                "row_loss":loss.row_loss,"native_loss":loss.loss,"cpu_loss":expected.loss,
+                "row_loss":loss.row_loss,"native_loss":loss.loss,"cpu_loss":expected_loss,
                 "cpu_logits_bits":expected.logits_bits,
             }))?,
         )?;
@@ -598,7 +601,7 @@ fn train_step(
     gate(
         &format!("{} loss", c.name),
         &[loss.loss],
-        &[expected.loss.to_bits()],
+        &[expected_loss.to_bits()],
         failures,
     );
     let w2 = base(device, c.out, c.latent, &c.w2_bits, None)?;

@@ -15,6 +15,7 @@ update rule, the moment layout and the resume contract on their own.
 """
 from __future__ import annotations
 
+import fixture_toolchain
 import json
 import shutil
 from pathlib import Path
@@ -30,6 +31,8 @@ EPS = 1e-8
 WEIGHT_DECAY = 0.01
 TOLERANCE = 2e-7
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "deepseek_v41_adapter_training.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 ADAPTER = (
     Path(__file__).resolve().parent / "fixtures" / "deepseek_v41_adapter_training" / "adapter"
 )
@@ -177,7 +180,7 @@ def main() -> None:
         raise SystemExit(
             "adapter-training fixture would change; refusing to overwrite pinned evidence"
         )
-    FIXTURE.write_text(json.dumps(payload, indent=2) + "\n")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload, indent=2) + "\n")
     print(
         f"PASS V4.1 adapter-training fixture: {len(TARGETS)} modules, {STEPS} AdamW steps, "
         f"{len(payload['steps'][-1]['parameters'])} factor pairs"

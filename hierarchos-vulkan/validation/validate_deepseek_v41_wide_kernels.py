@@ -1,4 +1,5 @@
 """Independent CPU regressions for wide SGEMM panels and tied index selection."""
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -7,6 +8,8 @@ from pathlib import Path
 import torch
 
 FIXTURE = Path(__file__).parent / "fixtures/deepseek_v41_wide_kernels.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 
 def values(seed, count):
@@ -60,11 +63,12 @@ def make_fixture():
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--write-fixture", action="store_true")
     args = p.parse_args()
     f = make_fixture()
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(f,separators=(",",":"),allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(f,separators=(",",":"),allow_nan=False))
     elif json.loads(FIXTURE.read_text()) != f:
         raise AssertionError("wide kernel fixture differs from pinned CPU PyTorch")
     print(f"PASS {len(f['linears'])} SGEMM panel cases, {len(f['topks'])} tied top-k cases")

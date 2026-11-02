@@ -6,6 +6,7 @@ context and Engram tables remain reduced for the local device. The fixed seed,
 initialization, six-step prefill/decode/reset schedule and CPU arithmetic are
 declared before native measurement. Every logit must satisfy <2e-7, rtol=0.
 """
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -18,11 +19,14 @@ import validate_deepseek_v41_structure_model as structure
 import validate_deepseek_v41_wide_model as wide
 
 FIXTURE = model.FIXTURE.parent / "deepseek_v41_joint_model.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SPEC = dict(seed=4141111, layers=40, experts=384, engram=True, hidden=32, inter=32)
 
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path", type=Path, required=True)
     p.add_argument("--kernel-reference-path", type=Path, required=True)
     p.add_argument("--write-fixture", action="store_true")
@@ -57,7 +61,7 @@ def main():
         args.trace_output.write_text(json.dumps(dict(cases=[dict(seed=SPEC["seed"], steps=observer.steps)]),
                                                separators=(",", ":"), allow_nan=False))
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(result, separators=(",", ":"), allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(result, separators=(",", ":"), allow_nan=False))
     elif result != frozen:
         raise AssertionError("joint fixture differs from the pinned CPU reference")
     if args.native_output:

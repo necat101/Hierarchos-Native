@@ -23,7 +23,7 @@
 // `dot` accumulates into the same four interleaved eight-lane banks the CPU
 // sum kernel uses. The weight is frozen, so no parameter gradient is produced;
 // adaptation lives on the projections.
-layout(local_size_x = 1) in;
+layout(local_size_x = 32) in;
 layout(set = 0, binding = 0, std430) readonly buffer GradOutput { float grad_output[]; };
 layout(set = 0, binding = 1, std430) readonly buffer Input { float x[]; };
 layout(set = 0, binding = 2, std430) readonly buffer Weight { float weight[]; };
@@ -35,23 +35,32 @@ layout(push_constant) uniform Push {
 } pc;
 
 #define V41_REDUCE_INPUT x
-#include "fp32_v41_reduce.glsl"
+#include "fp32_v41_reduce_parallel.glsl"
+
+shared float norm_rstd;
+shared float norm_grad_sum;
+shared float banks[32];
 
 void main() {
-    uint row = gl_GlobalInvocationID.x;
+    uint row = gl_WorkGroupID.x, lane = gl_LocalInvocationID.x;
     if (row >= pc.rows) return;
     uint base = row * pc.dim;
 
     precise float squares = v41_sum_squares(base, pc.dim);
-    precise float variance = fp32_div(squares, float(pc.dim)) + pc.eps;
-    float rstd = fp32_sqrt_recip(variance);
-
-    precise float banks[32];
-    for (uint bank = 0u; bank < 32u; ++bank) banks[bank] = 0.0;
-    for (uint column = 0u; column < pc.dim; ++column) {
-        precise float weighted = grad_output[base + column] * weight[column];
-        banks[column & 31u] += weighted * x[base + column];
+    if (lane == 0u) {
+        precise float variance = fp32_div(squares, float(pc.dim)) + pc.eps;
+        norm_rstd = fp32_sqrt_recip(variance);
     }
+
+    precise float bank = 0.0;
+    for (uint column = lane; column < pc.dim; column += 32u) {
+        precise float weighted = grad_output[base + column] * weight[column];
+        bank += weighted * x[base + column];
+    }
+    banks[lane] = bank;
+    barrier();
+    float rstd = norm_rstd;
+    if (lane == 0u) {
     precise float dot = 0.0;
     for (uint lane = 0u; lane < 8u; ++lane) {
         precise float partial = banks[lane] + banks[8u + lane];
@@ -63,8 +72,12 @@ void main() {
     precise float cube = (rstd * rstd) * rstd;
     precise float grad_variance = (-0.5 * dot) * cube;
     precise float grad_sum = fp32_div(grad_variance, float(pc.dim));
+    norm_grad_sum = grad_sum;
+    }
+    barrier();
+    float grad_sum = norm_grad_sum;
 
-    for (uint column = 0u; column < pc.dim; ++column) {
+    for (uint column = lane; column < pc.dim; column += 32u) {
         precise float weighted = grad_output[base + column] * weight[column];
         precise float direct = weighted * rstd;
         precise float through_square = grad_sum * (2.0 * x[base + column]);

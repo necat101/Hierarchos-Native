@@ -18,6 +18,7 @@ selects the same dot-operation path as the native kernel.
 
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import ast
 import hashlib
@@ -34,6 +35,8 @@ MODEL = "deepseek-ai/DeepSeek-V4.1-Flash-1017"
 REVISION = "1bae0e1088993b9b82de08f59de5be5a34e42170"
 SOURCE_SHA256 = "e5decd76fe70fd56ef2f10124d245c6f64fb6a0003cc9068a1d3182a168b8d2d"
 FIXTURE = Path(__file__).parent / "fixtures" / "deepseek_v41_backbone.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 ATOL = 2e-6
 
@@ -386,6 +389,7 @@ def precision_moe_cases(namespace, LinearStub):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path)
     parser.add_argument("--write-fixture", action="store_true")
     args = parser.parse_args()
@@ -400,7 +404,7 @@ def main():
                 for case in fixture[key]
             )
             blocks.append(f'  "{key}": [\n{cases}\n  ]')
-        FIXTURE.write_text(
+        fixture_toolchain.write_fixture(FIXTURE,
             json.dumps(metadata, indent=2)[:-2] + ",\n" + ",\n".join(blocks) + "\n}\n",
             encoding="utf-8",
         )

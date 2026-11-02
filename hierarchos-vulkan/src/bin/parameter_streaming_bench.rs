@@ -21,20 +21,37 @@ fn main() -> Result<()> {
 
 fn run() -> Result<()> {
     let args = std::env::args_os().skip(1).collect::<Vec<_>>();
-    if args.len() != 5 { bail!("expected MODEL FIXTURE WARMUP ITERATIONS inference|peft|train"); }
+    if !matches!(args.len(), 5 | 6) {
+        bail!("expected MODEL FIXTURE WARMUP ITERATIONS inference|peft|train [resident|streaming]");
+    }
     let model = PathBuf::from(&args[0]);
     let fixture: Fixture = serde_json::from_slice(&fs::read(PathBuf::from(&args[1]))?)?;
     let warmup: usize = args[2].to_string_lossy().parse()?;
     let iterations: usize = args[3].to_string_lossy().parse()?;
     let mode = args[4].to_string_lossy();
+    let residency = args.get(5).map(|value| value.to_string_lossy())
+        .unwrap_or_else(|| "streaming".into());
+    if !matches!(&*residency, "resident" | "streaming") {
+        bail!("residency must be resident or streaming");
+    }
     if warmup == 0 || iterations < 2 || !matches!(&*mode, "inference" | "peft" | "train") {
         bail!("positive warmup, >=2 iterations and inference|peft|train required");
     }
     let device = VulkanDevice::new()?;
     let config = VulkanTransformerConfig::from_hf_config(model.join("config.json"))?;
     let started = Instant::now();
-    let mut graph = VulkanTransformer::from_hf_package_with_streamed_parameters(
-        device.clone(), &model, config, fixture.batch_size, fixture.seq_len)?;
+    let mut graph = if residency == "resident" {
+        VulkanTransformer::from_hf_package_with_config(
+            device.clone(), &model, config, fixture.batch_size, fixture.seq_len)?
+    } else {
+        VulkanTransformer::from_hf_package_with_streamed_parameters(
+            device.clone(), &model, config, fixture.batch_size, fixture.seq_len)?
+    };
+    let streamed_linears = graph.streamed_linear_count();
+    if (residency == "resident" && streamed_linears != 0)
+        || (residency == "streaming" && streamed_linears == 0) {
+        bail!("requested residency did not match the constructed graph");
+    }
     if mode != "inference" {
         let config = VulkanTransformerLoraConfig::causal_lm(2, 4, vec!["all-linear".into()], false)?;
         graph.enable_lora(config, 187)?;
@@ -80,9 +97,14 @@ fn run() -> Result<()> {
     let mut sorted = samples.clone();
     sorted.sort_by(f64::total_cmp);
     println!("{}", serde_json::json!({
-        "device": device.name(), "mode": mode, "construction_ms": construction_ms,
+        "device": device.name(), "mode": mode, "residency": residency,
+        "vendor_id": device.vendor_id(), "device_id": device.device_id(),
+        "streamed_linears": streamed_linears,
+        "source_first_parameters": graph.parameters_streamed_during_loading(),
+        "construction_ms": construction_ms,
         "warmup": warmup, "iterations": iterations, "samples_ms": samples,
         "median_ms": sorted[sorted.len()/2], "sequence_sha256": format!("{:x}", digest.finalize()),
+        "logits_bits": final_logits.iter().map(|value| value.to_bits()).collect::<Vec<_>>(),
         "logits": final_logits, "submissions": submissions,
         "memory_before": {"bytes": before_memory.live_buffer_bytes, "buffers": before_memory.live_buffer_count,
             "peak": before_memory.peak_live_buffer_bytes, "largest": before_memory.largest_buffer_bytes},

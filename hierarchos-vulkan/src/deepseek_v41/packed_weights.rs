@@ -21,7 +21,7 @@ pub enum DeepseekV41WeightFormat {
     EngramFp8Row32,
 }
 impl DeepseekV41WeightFormat {
-    fn code(self) -> u32 {
+    pub(super) fn code(self) -> u32 {
         match self {
             Self::Fp8Block32 => 0,
             Self::Fp8Block128 => 1,
@@ -189,6 +189,40 @@ impl DeepseekV41PackedWeights {
             data: GpuBuffer::from_u32_recorded(device, commands, &words(&self.data))?,
             scales: GpuBuffer::from_u32_recorded(device, commands, &words(&self.scales))?,
             max_abs_bits: self.max_abs_bits,
+            data_offset: 0,
+            scale_offset: 0,
+        })
+    }
+
+    /// Bind immutable slices of one packed expert arena without duplicating
+    /// weight storage. Offsets are bytes and must fit the shader's addressing.
+    pub(super) fn in_arena(
+        &self,
+        arena: &GpuBuffer,
+        data_offset: u32,
+        scale_offset: u32,
+    ) -> Result<DeepseekV41ResidentPackedWeights> {
+        for (offset, len) in [
+            (data_offset, self.data.len()),
+            (scale_offset, self.scales.len()),
+        ] {
+            if offset as usize % 4 != 0
+                || (offset as usize)
+                    .checked_add(len)
+                    .is_none_or(|end| end > arena.f32_capacity() * 4)
+            {
+                bail!("V4.1 packed arena range is invalid");
+            }
+        }
+        Ok(DeepseekV41ResidentPackedWeights {
+            rows: self.rows,
+            cols: self.cols,
+            format: self.format,
+            data: arena.clone(),
+            scales: arena.clone(),
+            max_abs_bits: self.max_abs_bits,
+            data_offset,
+            scale_offset,
         })
     }
 }
@@ -203,6 +237,8 @@ pub struct DeepseekV41ResidentPackedWeights {
     data: GpuBuffer,
     scales: GpuBuffer,
     max_abs_bits: u32,
+    data_offset: u32,
+    scale_offset: u32,
 }
 impl DeepseekV41ResidentPackedWeights {
     pub(super) fn buffers(&self) -> (&GpuBuffer, &GpuBuffer) {
@@ -217,6 +253,8 @@ struct WeightDecodePush {
     cols: u32,
     format: u32,
     bf16: u32,
+    data_offset: u32,
+    scale_offset: u32,
 }
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -227,6 +265,8 @@ struct PackedLinearPush {
     format: u32,
     act_block: u32,
     bf16: u32,
+    data_offset: u32,
+    scale_offset: u32,
 }
 
 pub struct DeepseekV41PackedWeightKernel {
@@ -280,6 +320,8 @@ impl DeepseekV41PackedWeightKernel {
             cols: weight.cols as u32,
             format: weight.format.code(),
             bf16: output.code(),
+            data_offset: weight.data_offset,
+            scale_offset: weight.scale_offset,
         };
         let mut commands = self.device.compute_batch()?;
         let groups = (weight.rows * weight.cols).div_ceil(64);
@@ -405,6 +447,8 @@ impl DeepseekV41PackedWeightKernel {
             format: weight.format.code(),
             act_block: act_block as u32,
             bf16: output.code(),
+            data_offset: weight.data_offset,
+            scale_offset: weight.scale_offset,
         };
         self.linear.record_dispatch(
             commands,

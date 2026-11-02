@@ -4,6 +4,7 @@ This preserves released Expert/MoE bodies and quantized GEMM BF16 boundaries.
 It qualifies the CPU-reference hybrid; production BF16 execution remains separate.
 Original FP32 acceptance fixtures and their strict comparator stay unchanged.
 """
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -15,6 +16,8 @@ import validate_deepseek_v41_mixed as mixed
 import validate_deepseek_v41_quantization as quant
 
 FIXTURE = model.FIXTURE.parent / "deepseek_v41_mixed_model.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SEEDS = [4141041,4141042]
 
 
@@ -64,13 +67,14 @@ def make_case(path,kernel_path,seed):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path",type=Path,required=True)
     p.add_argument("--kernel-reference-path",type=Path,required=True)
     p.add_argument("--write-fixture",action="store_true")
     p.add_argument("--native-output",type=Path)
     args = p.parse_args()
     f = dict(cases=[make_case(args.reference_path,args.kernel_reference_path,seed) for seed in SEEDS])
-    if args.write_fixture: FIXTURE.write_text(json.dumps(f,separators=(",",":"),allow_nan=False))
+    if args.write_fixture: fixture_toolchain.write_fixture(FIXTURE, json.dumps(f,separators=(",",":"),allow_nan=False))
     elif json.loads(FIXTURE.read_text()) != f: raise AssertionError("mixed-model fixture differs from independent source")
     print(f"PASS hybrid model oracle: seeds {SEEDS}, {sum(len(c['steps']) for c in f['cases'])} full-logit steps")
     if args.native_output:

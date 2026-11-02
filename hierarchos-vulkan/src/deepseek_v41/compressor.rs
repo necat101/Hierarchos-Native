@@ -10,6 +10,10 @@ const LINEAR: &[u8] = include_bytes!("../../shaders/transformer_deepseek_v41_lin
 const POOL: &[u8] = include_bytes!("../../shaders/transformer_deepseek_v41_compress.spv");
 const NORM: &[u8] = include_bytes!("../../shaders/transformer_deepseek_v41_rms_norm.spv");
 
+// The frozen forward contract uses sixteen-channel softmax bodies and scalar
+// tails. This is an operator schedule, independent of the serving CPU's ISA.
+pub(super) const COMPRESSOR_VECTOR_WIDTH: u32 = 16;
+
 #[path = "compressor_tape.rs"]
 mod tape;
 pub use tape::DeepseekV41CompressorTape;
@@ -216,7 +220,7 @@ impl DeepseekV41Compressor {
             gate_state: GpuBuffer::zeros_f32(&device, state)?,
             linear: vulkan::ComputeKernel::new(
                 &device,
-                LINEAR,
+                crate::deepseek_v41::gen9::shader(&device, LINEAR),
                 3,
                 std::mem::size_of::<LinearPush>() as u32,
             )?,
@@ -283,7 +287,7 @@ impl DeepseekV41Compressor {
             gate_state: GpuBuffer::zeros_f32(&device, state)?,
             linear: vulkan::ComputeKernel::new(
                 &device,
-                LINEAR,
+                crate::deepseek_v41::gen9::shader(&device, LINEAR),
                 3,
                 std::mem::size_of::<LinearPush>() as u32,
             )?,
@@ -515,7 +519,7 @@ impl DeepseekV41Compressor {
             groups: groups as u32,
             start_pos: start_pos as u32,
             decode: decode as u32,
-            vector_width: crate::transformer::aten_vector_width() as u32,
+            vector_width: COMPRESSOR_VECTOR_WIDTH,
         };
         self.pool.record_dispatch(
             &mut commands,

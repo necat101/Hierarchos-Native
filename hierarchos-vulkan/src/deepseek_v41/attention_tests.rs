@@ -2,6 +2,43 @@ use super::*;
 
 use crate::GpuBuffer;
 
+#[test]
+fn deepseek_v41_sparse_attention_keeps_index_validity_at_finite_mask_extremes() -> Result<()> {
+    let device = crate::VulkanDevice::new()?;
+    let kernel = crate::vulkan::ComputeKernel::new(
+        &device,
+        include_bytes!("../../shaders/transformer_deepseek_v41_attention_weights.spv"),
+        7,
+        40,
+    )?;
+    let query = GpuBuffer::from_f32(&device, &[-3.1e38])?;
+    let kv = GpuBuffer::from_f32(&device, &[1.0])?;
+    let empty = GpuBuffer::from_u32(&device, &[u32::MAX])?;
+    let sink = GpuBuffer::from_f32(&device, &[-3.3e38])?;
+    let push = [1u32, 1, 1, 1, 1, 1, 1, 0, 1, 1.0f32.to_bits()];
+    for (index, valid) in [(0u32, true), (u32::MAX, false)] {
+        let indices = GpuBuffer::from_u32(&device, &[index])?;
+        let output = GpuBuffer::zeros_f32(&device, 1)?;
+        let mut commands = device.compute_batch()?;
+        kernel.record_dispatch(
+            &mut commands,
+            &[&query, &kv, &kv, &indices, &empty, &sink, &output],
+            bytemuck::cast_slice(&push),
+            [1, 1, 1],
+        )?;
+        commands.submit()?;
+        let weight = output.read_f32(1)?[0];
+        if valid {
+            // The scalar path has a valid index, masks the extreme score,
+            // underflows the sink exponential, then evaluates 0 * (1 / 0).
+            assert!(weight.is_nan());
+        } else {
+            assert_eq!(weight.to_bits(), 0);
+        }
+    }
+    Ok(())
+}
+
 struct Lcg(u64);
 
 impl Lcg {

@@ -20,6 +20,7 @@ memory-mapped scratch files, and the package is written in two passes that
 release the blocks first. The values, RNG order and forward arithmetic are
 untouched by that staging.
 """
+import fixture_toolchain
 import argparse
 import atexit
 import gc
@@ -40,6 +41,8 @@ import validate_deepseek_v41_mixed as mixed
 import validate_deepseek_v41_model as model
 
 FIXTURE = model.FIXTURE.parent / "deepseek_v41_production_model.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SEED = 4141090
 TOKEN_IDS = [129279, 1]
 STEPS = [
@@ -530,6 +533,7 @@ def write_checkpoint(net, packed, root, shard_bytes=320 * 1024 * 1024):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path, required=True)
     parser.add_argument("--kernel-reference-path", type=Path, required=True)
     parser.add_argument("--write-fixture", action="store_true")
@@ -563,7 +567,7 @@ def main():
         args.trace_output.with_name("production-reference-sparse.json").write_text(
             json.dumps(sparse_sink[0] if sparse_sink else None, allow_nan=False))
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(fixture, separators=(",", ":"), allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(fixture, separators=(",", ":"), allow_nan=False))
     elif json.loads(FIXTURE.read_text()) != fixture:
         raise AssertionError("production fixture differs from the pinned CPU PyTorch reference")
     print("PASS production-width CPU oracle:", sum(len(s["logits"]) for s in steps), "logits")

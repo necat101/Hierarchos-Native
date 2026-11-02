@@ -14,6 +14,7 @@ pub(crate) type CacheHandle = Arc<Mutex<PayloadCache>>;
 
 #[derive(Clone, Copy, Debug, Default, serde::Serialize)]
 pub struct DeepseekV41CheckpointIoStats {
+    pub identity_checks: u64,
     pub payload_reads: u64,
     pub payload_bytes_read: u64,
     pub cache_hits: u64,
@@ -53,6 +54,7 @@ impl Default for PayloadCache {
     }
 }
 impl PayloadCache {
+    pub fn record_identity_check(&mut self) { self.stats.identity_checks += 1; }
     pub fn enable(&mut self) {
         self.stats.capacity_bytes = DEFAULT_BYTES;
     }

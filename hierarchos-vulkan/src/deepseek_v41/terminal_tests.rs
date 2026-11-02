@@ -57,9 +57,12 @@ fn reduced_cross_entropy_and_row_mean_keep_their_distinct_cpu_folds() -> Result<
         rtol: f32,
         cases: Vec<Case>,
     }
-    let f: Contracts = serde_json::from_str(include_str!(
-        "../../validation/fixtures/deepseek_v41_loss_reductions.json"
-    ))?;
+    let source = if crate::transformer::aten_vector_width() == 8 {
+        include_str!("../../validation/fixtures/deepseek_v41_loss_reductions.avx2.json")
+    } else {
+        include_str!("../../validation/fixtures/deepseek_v41_loss_reductions.json")
+    };
+    let f: Contracts = serde_json::from_str(source)?;
     assert_eq!(f.tolerance, 2e-7);
     assert_eq!(f.rtol, 0.0);
     assert_eq!(f.comparison, "strict_less_than");
@@ -120,9 +123,12 @@ fn terminal_adjoints_match_the_pinned_cpu_fixture() -> Result<()> {
     let Ok(device) = VulkanDevice::new() else {
         return Ok(());
     };
-    let fixture: Fixture = serde_json::from_str(include_str!(
-        "../../validation/fixtures/deepseek_v41_terminal_grad.json"
-    ))?;
+    let oracle = if crate::transformer::aten_vector_width() == 8 {
+        include_str!("../../validation/fixtures/deepseek_v41_terminal_grad.avx2.json")
+    } else {
+        include_str!("../../validation/fixtures/deepseek_v41_terminal_grad.json")
+    };
+    let fixture: Fixture = serde_json::from_str(oracle)?;
     assert_eq!(fixture.seed, 4141097);
     assert_eq!(fixture.rows, 4);
     assert_eq!(fixture.hidden, 32);

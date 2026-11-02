@@ -1,0 +1,654 @@
+{
+  "status": "gen9_port_regression_verified_with_preexisting_cpu_qualification_failures",
+  "date": "2026-10-31",
+  "timezone": "America/Los_Angeles",
+  "base_revision": "2695c93e21b47ed9657c6793228aeb5d1b67e562",
+  "branch": "codex/gen9-v41-completion",
+  "device": {
+    "cpu": "Intel Core i5-6200U",
+    "gpu": "Intel HD Graphics 520",
+    "vendor_id": "8086",
+    "device_id": "1916",
+    "driver": "31.0.101.2115"
+  },
+  "full_cpu_qualification_passed": false,
+  "port_regression_passed": true,
+  "v41": {
+    "baseline": {
+      "passed": 153,
+      "failed": 33,
+      "ignored": 25
+    },
+    "candidate": {
+      "passed": 157,
+      "failed": 32,
+      "ignored": 25
+    },
+    "added_failures": [],
+    "removed_failures": [
+      "deepseek_v41::attention::schedule_tests::deepseek_v41_schedule_width_attention_contractions_match_cpu_bits"
+    ],
+    "existing_failures": [
+      "deepseek_v41::attention::projection_grad::tests::attention_projection_cache_chain_and_all_factor_vjps_match_cpu",
+      "deepseek_v41::attention_grad::tests::deepseek_v41_grouped_output_adjoints_cpu_pytorch_strict",
+      "deepseek_v41::backbone::block_grad_tests::deepseek_v41_moe_adjoints_match_the_pinned_cpu_fixture",
+      "deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_retained_chain_and_adapter_vjps_match_cpu_and_release_experts",
+      "deepseek_v41::compression_tests::deepseek_v41_compressor_prefill_and_decode_match_pinned_fp32_reference",
+      "deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_runs_on_native_state",
+      "deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_runs_on_native_operands",
+      "deepseek_v41::mixed_linear::gradients::tests::query_projection_computed_gradients_adamw_resume_export_match_cpu",
+      "deepseek_v41::model::tests::deepseek_v41_application_streaming_is_explicit_and_bit_exact",
+      "deepseek_v41::model::tests::deepseek_v41_model_additional_seeds_and_top3_strict_all_logits",
+      "deepseek_v41::model::tests::deepseek_v41_model_packed_experts_strict_all_logits",
+      "deepseek_v41::model::tests::deepseek_v41_model_strict_all_logits",
+      "deepseek_v41::model::tests::deepseek_v41_streamed_all_hybrid_and_bf16_strict_all_logits",
+      "deepseek_v41::model::tests::deepseek_v41_streamed_all_tables_hybrid_and_bf16_strict_all_logits",
+      "deepseek_v41::model::tests::deepseek_v41_streamed_block_hybrid_and_bf16_strict_all_logits",
+      "deepseek_v41::model::tests::deepseek_v41_streamed_hybrid_and_bf16_strict_all_logits",
+      "deepseek_v41::model::tests::deepseek_v41_streamed_vocabulary_hybrid_and_bf16_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_released_depth_schedule_and_384_expert_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_depth_schedule_and_384_expert_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_depth_schedule_and_384_expert_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_projections_structure_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_depth_schedule_and_384_expert_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_vocabulary_structure_strict_all_logits",
+      "deepseek_v41::model::tests::training::deepseek_v41_full_model_bf16_cpu_autograd_adamw_resume_and_export_gate",
+      "deepseek_v41::model::tests::training::deepseek_v41_full_model_cpu_autograd_adamw_resume_and_export_gate",
+      "deepseek_v41::model::tests::training::deepseek_v41_full_model_packed_cpu_autograd_adamw_resume_and_export_gate",
+      "deepseek_v41::model::tests::training::deepseek_v41_full_model_retained_training_smoke_and_forward_identity",
+      "deepseek_v41::model::tests::training::deepseek_v41_full_model_streamed_training_matches_resident_dense_and_packed",
+      "deepseek_v41::model::tests::wide::deepseek_v41_model_wider_yarn_bf16_strict_all_logits",
+      "deepseek_v41::model::tests::wide::deepseek_v41_wide_projection_panels_and_tied_topk_match_cpu",
+      "deepseek_v41::terminal::tests::reduced_cross_entropy_and_row_mean_keep_their_distinct_cpu_folds",
+      "deepseek_v41::train::tests::adapter_adamw_matches_the_pinned_cpu_trajectory_and_resumes"
+    ]
+  },
+  "cross_architecture": {
+    "initial": {
+      "passed": 815,
+      "failed": 30,
+      "ignored": 9
+    },
+    "baseline_failure_set_equal": true,
+    "isolated_retries_passed": 30,
+    "distinct_tests_passed": 845
+  },
+  "training": {
+    "updates": 6,
+    "logit_vectors": 24,
+    "logit_values": 1536,
+    "all_bit_exact": true
+  },
+  "original_frozen_files_checked": 68,
+  "fixture_provenance": {
+    "pinned": 8,
+    "legacy": 55,
+    "total": 63,
+    "problems": []
+  },
+  "validation_environment": {
+    "python": "3.12.15 (main, Oct  3 2026, 01:05:37) [MSC v.1944 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "torch": "2.14.1+cpu",
+    "torch_git_revision": "5c4886908584029761b579af026dcfb627c84070",
+    "numpy": "2.5.3",
+    "cpu_capability": "AVX2",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "reference_sources": {
+      "model.py": "e5decd76fe70fd56ef2f10124d245c6f64fb6a0003cc9068a1d3182a168b8d2d",
+      "kernel.py": "1236c3507019ed176f5dba5e04bcea58867cf654818c6cf138ed4845398c2455"
+    }
+  },
+  "strict_package_drift": "2.56420373916625977e-2",
+  "timings": {
+    "resident": {
+      "baseline": {
+        "prefill_ms": 873.9195,
+        "decode_ms": 401.8605
+      },
+      "candidate": {
+        "prefill_ms": 185.09699999999998,
+        "decode_ms": 166.753
+      },
+      "latency_reduction_percent": {
+        "prefill_ms": 78.81990274847969,
+        "decode_ms": 58.504754759425225
+      }
+    },
+    "default": {
+      "baseline": {
+        "prefill_ms": 3196.6705,
+        "decode_ms": 1293.4009999999998
+      },
+      "candidate": {
+        "prefill_ms": 3062.05,
+        "decode_ms": 1143.2935
+      },
+      "latency_reduction_percent": {
+        "prefill_ms": 4.211272322249037,
+        "decode_ms": 11.60564279755465
+      }
+    }
+  },
+  "fusion_path_vs_staged_loop": {
+    "staged": {
+      "prefill": 592.846,
+      "decode": 271.0505
+    },
+    "fused": {
+      "prefill": 184.5735,
+      "decode": 166.46
+    },
+    "latency_reduction_percent": {
+      "prefill": 68.86653532283258,
+      "decode": 38.5870898596387
+    }
+  },
+  "binaries": {
+    "baseline": {
+      "path": "C:\\Users\\User\\Hierarchos-Native\\.tools\\gen9-baseline-probe.exe",
+      "sha256": "e3cc6b14ceea04b68583f02cda845d7291ba7c94720112b8a3a5be79e0280881"
+    },
+    "candidate": {
+      "path": "C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-deepseek-v41-forward-probe.exe",
+      "sha256": "400aabd1124417d4b7f9e8372a5b35733f2f7d44d4a75afe0f7425b504676ad8"
+    }
+  },
+  "profiles": {
+    "baseline": {
+      "model_calls": 9,
+      "profiled_submissions": 17843,
+      "compute_submissions": 792,
+      "dispatches": 54324,
+      "gpu_dispatch_ms": 2807.640529,
+      "categories": {
+        "v41.vocabulary": [
+          9,
+          0.088333
+        ],
+        "v41.other": [
+          15759,
+          117.17156500000026
+        ],
+        "v41.engram": [
+          63,
+          5.940059000000002
+        ],
+        "v41.hyper-connection": [
+          2169,
+          768.8054569999998
+        ],
+        "v41.moe-packed": [
+          31044,
+          1729.055469000001
+        ],
+        "v41.attention": [
+          2859,
+          113.00133199999993
+        ],
+        "v41.normalization": [
+          1497,
+          56.076252999999994
+        ],
+        "v41.projection": [
+          888,
+          16.818117000000036
+        ],
+        "v41.compressor": [
+          36,
+          0.684083
+        ]
+      },
+      "shaders": {
+        "transformer_deepseek_v41_embedding_half": [
+          "v41.vocabulary",
+          9,
+          0.088333,
+          9
+        ],
+        "transformer_deepseek_v41_bf16_cast": [
+          "v41.other",
+          15759,
+          117.17156500000026,
+          15759
+        ],
+        "transformer_deepseek_v41_engram_cache": [
+          "v41.engram",
+          9,
+          0.08725,
+          9
+        ],
+        "transformer_deepseek_v41_hc_split": [
+          "v41.hyper-connection",
+          720,
+          755.5212999999995,
+          720
+        ],
+        "transformer_deepseek_v41_moe_gate": [
+          "v41.moe-packed",
+          360,
+          171.75362900000013,
+          360
+        ],
+        "transformer_deepseek_v41_quantize": [
+          "v41.moe-packed",
+          9156,
+          649.2282249999994,
+          9156
+        ],
+        "transformer_deepseek_v41_packed_linear": [
+          "v41.moe-packed",
+          11709,
+          786.8050840000004,
+          11709
+        ],
+        "transformer_deepseek_v41_rms_norm": [
+          "v41.normalization",
+          1497,
+          56.076252999999994,
+          1497
+        ],
+        "transformer_deepseek_v41_linear": [
+          "v41.projection",
+          879,
+          16.67828400000003,
+          879
+        ],
+        "transformer_deepseek_v41_attention_weights": [
+          "v41.attention",
+          360,
+          70.102085,
+          360
+        ],
+        "transformer_deepseek_v41_grouped_output": [
+          "v41.attention",
+          360,
+          12.343421000000006,
+          360
+        ],
+        "transformer_deepseek_v41_rotary": [
+          "v41.attention",
+          1200,
+          10.516653,
+          1200
+        ],
+        "transformer_deepseek_v41_hc_pre": [
+          "v41.hyper-connection",
+          729,
+          6.201752000000004,
+          729
+        ],
+        "transformer_deepseek_v41_attention_values": [
+          "v41.attention",
+          360,
+          7.410582999999994,
+          360
+        ],
+        "transformer_deepseek_v41_hc_post": [
+          "v41.hyper-connection",
+          720,
+          7.0824270000000045,
+          720
+        ],
+        "transformer_deepseek_v41_window_cache": [
+          "v41.attention",
+          360,
+          2.325513000000003,
+          360
+        ],
+        "transformer_deepseek_v41_mixed_swiglu": [
+          "v41.moe-packed",
+          3393,
+          59.668470000000156,
+          3393
+        ],
+        "transformer_deepseek_v41_moe_pack": [
+          "v41.moe-packed",
+          3033,
+          30.468000999999905,
+          3033
+        ],
+        "transformer_deepseek_v41_moe_scatter": [
+          "v41.moe-packed",
+          3033,
+          24.25994599999991,
+          3033
+        ],
+        "transformer_deepseek_v41_moe_combine": [
+          "v41.moe-packed",
+          360,
+          6.872006000000001,
+          360
+        ],
+        "transformer_deepseek_v41_engram_gate": [
+          "v41.engram",
+          18,
+          3.4239039999999994,
+          18
+        ],
+        "transformer_deepseek_v41_engram_hash": [
+          "v41.engram",
+          18,
+          2.246326,
+          18
+        ],
+        "transformer_deepseek_v41_engram_packed_lookup": [
+          "v41.engram",
+          18,
+          0.18258500000000003,
+          18
+        ],
+        "transformer_deepseek_v41_index_scores": [
+          "v41.attention",
+          72,
+          7.403810999999999,
+          72
+        ],
+        "transformer_deepseek_v41_compress": [
+          "v41.compressor",
+          36,
+          0.684083,
+          36
+        ],
+        "transformer_deepseek_v41_index_topk": [
+          "v41.attention",
+          81,
+          2.436077,
+          81
+        ],
+        "transformer_deepseek_v41_cache_write": [
+          "v41.attention",
+          48,
+          0.3030010000000001,
+          48
+        ],
+        "transformer_deepseek_v41_candidate_scores": [
+          "v41.attention",
+          9,
+          0.09025,
+          9
+        ],
+        "transformer_deepseek_v41_candidate_mask": [
+          "v41.attention",
+          9,
+          0.070082,
+          9
+        ],
+        "transformer_deepseek_v41_linear_half": [
+          "v41.projection",
+          9,
+          0.13983299999999999,
+          9
+        ]
+      }
+    },
+    "candidate": {
+      "model_calls": 9,
+      "profiled_submissions": 1483,
+      "compute_submissions": 432,
+      "dispatches": 24714,
+      "gpu_dispatch_ms": 959.4574,
+      "categories": {
+        "v41.vocabulary": [
+          9,
+          0.08716499999999999
+        ],
+        "v41.other": [
+          10053,
+          131.10671299999998
+        ],
+        "v41.engram": [
+          63,
+          5.9428930000000015
+        ],
+        "v41.moe-packed": [
+          7140,
+          399.2998920000003
+        ],
+        "v41.hyper-connection": [
+          2169,
+          273.02634699999993
+        ],
+        "v41.attention": [
+          2859,
+          77.67636900000004
+        ],
+        "v41.normalization": [
+          1497,
+          55.164911999999994
+        ],
+        "v41.projection": [
+          888,
+          16.49288000000002
+        ],
+        "v41.compressor": [
+          36,
+          0.660249
+        ]
+      },
+      "shaders": {
+        "transformer_deepseek_v41_embedding_half": [
+          "v41.vocabulary",
+          9,
+          0.08716499999999999,
+          9
+        ],
+        "transformer_deepseek_v41_bf16_cast": [
+          "v41.other",
+          9693,
+          69.95047500000003,
+          9693
+        ],
+        "transformer_deepseek_v41_engram_cache": [
+          "v41.engram",
+          9,
+          0.08508399999999999,
+          9
+        ],
+        "transformer_deepseek_v41_hc_split": [
+          "v41.hyper-connection",
+          720,
+          260.3205100000003,
+          720
+        ],
+        "transformer_deepseek_v41_moe_gate": [
+          "v41.moe-packed",
+          360,
+          170.11913600000014,
+          360
+        ],
+        "transformer_deepseek_v41_expert_fused": [
+          "v41.other",
+          360,
+          61.15623200000005,
+          360
+        ],
+        "transformer_deepseek_v41_quantize": [
+          "v41.moe-packed",
+          3450,
+          133.88831199999987,
+          3450
+        ],
+        "transformer_deepseek_v41_packed_linear": [
+          "v41.moe-packed",
+          2610,
+          81.288702,
+          2610
+        ],
+        "transformer_deepseek_v41_rms_norm": [
+          "v41.normalization",
+          1497,
+          55.164911999999994,
+          1497
+        ],
+        "transformer_deepseek_v41_linear": [
+          "v41.projection",
+          879,
+          16.354797000000023,
+          879
+        ],
+        "transformer_deepseek_v41_attention_weights": [
+          "v41.attention",
+          360,
+          34.98729800000001,
+          360
+        ],
+        "transformer_deepseek_v41_grouped_output": [
+          "v41.attention",
+          360,
+          12.217836000000009,
+          360
+        ],
+        "transformer_deepseek_v41_rotary": [
+          "v41.attention",
+          1200,
+          10.505411999999982,
+          1200
+        ],
+        "transformer_deepseek_v41_mixed_swiglu": [
+          "v41.moe-packed",
+          360,
+          7.133997999999996,
+          360
+        ],
+        "transformer_deepseek_v41_moe_combine": [
+          "v41.moe-packed",
+          360,
+          6.869823999999998,
+          360
+        ],
+        "transformer_deepseek_v41_hc_post": [
+          "v41.hyper-connection",
+          720,
+          6.63425100000001,
+          720
+        ],
+        "transformer_deepseek_v41_hc_pre": [
+          "v41.hyper-connection",
+          729,
+          6.071584000000003,
+          729
+        ],
+        "transformer_deepseek_v41_attention_values": [
+          "v41.attention",
+          360,
+          7.413747999999982,
+          360
+        ],
+        "transformer_deepseek_v41_window_cache": [
+          "v41.attention",
+          360,
+          2.3205920000000044,
+          360
+        ],
+        "transformer_deepseek_v41_engram_gate": [
+          "v41.engram",
+          18,
+          3.4269860000000008,
+          18
+        ],
+        "transformer_deepseek_v41_engram_hash": [
+          "v41.engram",
+          18,
+          2.240576,
+          18
+        ],
+        "transformer_deepseek_v41_engram_packed_lookup": [
+          "v41.engram",
+          18,
+          0.190249,
+          18
+        ],
+        "transformer_deepseek_v41_index_scores": [
+          "v41.attention",
+          72,
+          7.409144000000003,
+          72
+        ],
+        "transformer_deepseek_v41_compress": [
+          "v41.compressor",
+          36,
+          0.660249,
+          36
+        ],
+        "transformer_deepseek_v41_index_topk": [
+          "v41.attention",
+          81,
+          2.3719070000000007,
+          81
+        ],
+        "transformer_deepseek_v41_cache_write": [
+          "v41.attention",
+          48,
+          0.2901680000000001,
+          48
+        ],
+        "transformer_deepseek_v41_candidate_scores": [
+          "v41.attention",
+          9,
+          0.090749,
+          9
+        ],
+        "transformer_deepseek_v41_candidate_mask": [
+          "v41.attention",
+          9,
+          0.069667,
+          9
+        ],
+        "transformer_deepseek_v41_linear_half": [
+          "v41.projection",
+          9,
+          0.138083,
+          9
+        ]
+      }
+    }
+  },
+  "runtime_change_hashes": {
+    "hierarchos-vulkan/shaders/fp32_v41_pow2_scale.glsl": "08a05a8171d8e1320c533d07dca5ceebced2c10395cc03e7c4b96e52e9ecc350",
+    "hierarchos-vulkan/shaders/fp32_v41_quant_formats.glsl": "0ce4b06b47bfd2089af88af0d175219ab17d0c89972068938579052198bde2b8",
+    "hierarchos-vulkan/shaders/fp32_v41_reduce_parallel.glsl": "940ae6a008e9d4068a3c28cec7ca087974fa7ffb3a5fc521f391443f85304ffc",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_weights.comp": "c1b5a1805dd7f78c445d0d4c02c7591b4d3747cee648ecb37a341fbaf5110a15",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_weights.spv": "7cc59897444818e742012d893b2f8fbfdab27cbf64db259283d5490010d8f8df",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_expert_fused.comp": "4310fd6cdbac93db9024b321ed8bd4fd0ef8c10fd29b88516dfa9f037e1156da",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_expert_fused.spv": "ccf32cd5f910d13dba49ee378a5dcab4947a2fb50f7692529a972d228de7a5ff",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_split.comp": "ce279cb9fda5b7a2ce53dc6fa78fe9dcf380e2a2d6983961a601b59cbfd52cbb",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_split.spv": "02e3f9be92685d1d1d01abaeb1445185b2bc6c278f8fdaaea84c75507c6d287d",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_split_grad.comp": "360a93833fbb0102f9f2ce8eb21fa86fe52cc57870be26ea1a720b98cff8b50e",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_split_grad.spv": "f39090542582be1de29b06cd36ea6821616402ee09b9b3a5c9325cfc13d64e18",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_pack.comp": "ceda5f09f39b69d3aaaddc825689ece9cdcaf20e277496d1ffc528ff5525c442",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_pack.spv": "f29edf6203ce93a60c18e2e836cae4de0bf7f2a2c8fb6393c6ef0d731b43e974",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_packed_linear.comp": "aa6477bea190b6dd3386c0a56237036f568e89c3f366cf4b15b029475b2aab68",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_packed_linear.spv": "3159f25b0c09ff2c3d044559d409ccb0dfa27e1f043b8d985c16bc79a83c5c26",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_quantize.comp": "be2fa60773e46fc6c4378e47b1e8f78fb863c38eb267e0e09578dbfb71f1c04f",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_quantize.spv": "1f94ea90bf612510942bcb4378a83a1d6b4915a34e3c09702b5841777218f09f",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_rms_norm_input_grad.comp": "b9313e5fddce66967367bcb1a06362712b0b09fe899c80f07ed22d94e601b12c",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_rms_norm_input_grad.spv": "7ca52278b43d5cabca2028ce94aef37121f031edb37940922eb275a2574bc6a6",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_weight_decode.comp": "0ecad7ceda9611557e49e700872770865562ef9df373152c37086a656be13bc6",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_weight_decode.spv": "8b2ef723f4342dbcd261293fea46f2375a0ed295a0c9e0bf1411f1bc963155cf",
+    "hierarchos-vulkan/src/deepseek_v41/attention_tests.rs": "8ff129c5fa0f016032d5fc775b1687b1c3917f92127cccc4a4a46ecccdb2cb88",
+    "hierarchos-vulkan/src/deepseek_v41/backbone.rs": "efaa510c74b428e5884fdb4bd224814c24ee3d6638b70576afd3461874ab48c9",
+    "hierarchos-vulkan/src/deepseek_v41/expert_batch.rs": "8f9d309ba79e22c8782f008d8e687aba7fa7838811da5ebce21e76b2ba66ec16",
+    "hierarchos-vulkan/src/deepseek_v41/mixed_linear.rs": "003d79b4aac1cd49b4b68a88122d58e996a09a52afbde4a9aae46b2d0378e219",
+    "hierarchos-vulkan/src/deepseek_v41/mixed_moe_grad.rs": "fdebf8e268aa5665423d9722eb50c12fa2adebdbcc3407869d1f9c1f15181255",
+    "hierarchos-vulkan/src/deepseek_v41/mixed_tests.rs": "f08b75d7b7eda5acee5da7e2eb7eb96933f24ef59dc7d544c794ed037e4ec49a",
+    "hierarchos-vulkan/src/deepseek_v41/model_training_tests.rs": "0ac8004342954d142c70f62d6976f7210b121b9083ec361f55e65e649bc1dd59",
+    "hierarchos-vulkan/src/deepseek_v41/packed_weights.rs": "36e372430f33cea9c3a88005f7819b9364dfc08200aef902e01c718fc9c010a1",
+    "hierarchos-vulkan/src/deepseek_v41/quantization.rs": "4bb848b06d57e558bda37e3ef972faf0c4ceefbf6e5cf4eff40e62f9bdc21eb5",
+    "hierarchos-vulkan/src/deepseek_v41/terminal_tests.rs": "43a7a2158db3c1c7aa8d0c8cac153ef4b770599192f07833c05cd7ce308716c2"
+  },
+  "evidence": {
+    "path": "evidence.zip",
+    "sha256": "376bb11af1a2576d3ab9ce70b730841f3105e7278726e686fdd2fcbfac0b97d9",
+    "bytes": 616597,
+    "archived_files": 88,
+    "readback_verified": true
+  },
+  "limits": [
+    "Retained scaled checkpoints, no full production weights",
+    "32 existing strict V4.1 test failures and three strict whole-model inference gate failures remain",
+    "55 historical CPU fixtures have no verified toolchain pin",
+    "Long monolithic non-V4.1 tests exhausted device allocations; all 30 failures passed in isolated processes",
+    "No fresh physical RDNA3 qualification"
+  ]
+}

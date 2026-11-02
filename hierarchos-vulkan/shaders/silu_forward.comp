@@ -20,10 +20,18 @@
 //   sleef exp + `/`        27/128 elements off   (0.0 bit-exact)
 //   sleef exp + fp32_div    0/128 elements off   (BIT-EXACT)
 
+#ifdef HIERARCHOS_GEN9_SILU_MUL
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+#else
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+#endif
 
 layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
 layout(set = 0, binding = 1, std430) writeonly buffer OutputBuffer { float output_values[]; };
+#ifdef HIERARCHOS_GEN9_SILU_MUL
+layout(set = 0, binding = 2, std430) readonly buffer UpBuffer { float up_values[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer ProductBuffer { float products[]; };
+#endif
 
 layout(push_constant) uniform Push {
     uint len;
@@ -35,5 +43,12 @@ void main() {
         return;
     }
     float value = x[index];
+#ifdef HIERARCHOS_GEN9_SILU_MUL
+    float activated = fp32_div(value, 1.0 + sleef_expf_u10(-value));
+    output_values[index] = activated;
+    precise float product = activated * up_values[index];
+    products[index] = product;
+#else
     output_values[index] = fp32_div(value, 1.0 + sleef_expf_u10(-value));
+#endif
 }

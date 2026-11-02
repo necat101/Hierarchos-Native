@@ -117,12 +117,14 @@ fn weight(w: Weight) -> Result<DeepseekV41LinearWeights> {
             values: w.values,
             lora: None,
         },
-        "fp8_block32" | "fp4_row32" => DeepseekV41LinearWeights::Packed {
+        "fp8_block32" | "fp8_block128" | "fp4_row32" => DeepseekV41LinearWeights::Packed {
             weight: DeepseekV41PackedWeights::new(
                 w.rows,
                 w.cols,
                 if w.dtype == "fp4_row32" {
                     DeepseekV41WeightFormat::Fp4Row32
+                } else if w.dtype == "fp8_block128" {
+                    DeepseekV41WeightFormat::Fp8Block128
                 } else {
                     DeepseekV41WeightFormat::Fp8Block32
                 },
@@ -391,6 +393,98 @@ fn moe_weights(c: &Moe) -> Result<DeepseekV41MixedMoeWeights> {
             .collect::<Result<_>>()?,
         shared: expert(c.shared.clone())?,
     })
+}
+
+#[derive(Deserialize)]
+struct Block128Fixture {
+    revision: String,
+    seed: u64,
+    linears: Vec<Linear>,
+    moes: Vec<Moe>,
+}
+
+fn block128_fixture() -> Block128Fixture {
+    let f: Block128Fixture = serde_json::from_str(include_str!(
+        "../../validation/fixtures/deepseek_v41_mixed_block128.json"
+    ))
+    .unwrap();
+    assert_eq!(f.revision, REFERENCE_REVISION);
+    assert_eq!(f.seed, 4141051);
+    assert_eq!(f.linears.len(), 2);
+    assert_eq!(f.moes.len(), 1);
+    f
+}
+
+#[test]
+fn deepseek_v41_mixed_linear_block128_matches_pinned_cpu_reference() -> Result<()> {
+    let device = crate::VulkanDevice::new()?;
+    let kernel = DeepseekV41MixedLinearKernel::new(device.clone())?;
+    let mut values = 0;
+    for c in block128_fixture().linears {
+        let input = crate::GpuBuffer::from_f32(&device, &c.input)?;
+        let w = weight(c.weight)?.upload(&device)?;
+        let actual = kernel
+            .apply(&input, c.rows, &w, precision(&c.precision))?
+            .read_u32(c.expected_bits.len())?;
+        exact_bits(&c.name, &actual, &c.expected_bits);
+        values += actual.len();
+    }
+    assert_eq!(values, 642);
+    Ok(())
+}
+
+#[test]
+fn deepseek_v41_fused_expert_chain_matches_staged_grids_and_cpu_references() -> Result<()> {
+    let device = crate::VulkanDevice::new()?;
+    for c in fixture().moes.into_iter().chain(block128_fixture().moes) {
+        let mut module = DeepseekV41MixedMoe::new(
+            device.clone(),
+            c.config.native(),
+            moe_weights(&c)?,
+            precision(&c.precision),
+        )?;
+        assert!(
+            module.force_fused_expert_grids(),
+            "fixture must exercise fused experts"
+        );
+        let input = crate::GpuBuffer::from_f32(&device, &c.input)?;
+        let fused = module
+            .apply(&input, c.rows)?
+            .read_u32(c.expected_bits.len())?;
+        assert!(fused.iter().any(|&b| b & 0x7fff_ffff != 0));
+        exact_bits(
+            &format!("{} fused CPU reference", c.name),
+            &fused,
+            &c.expected_bits,
+        );
+        {
+            let trace = module.route_trace.borrow();
+            let (weights, ids, counts) = trace.as_ref().unwrap();
+            assert_eq!(ids.read_u32(c.expected_indices.len())?, c.expected_indices);
+            assert_eq!(counts.read_u32(c.counts.len())?, c.counts);
+            // The gate's existing CPU contract is strict absolute 2e-7;
+            // BF16 expert outputs and fused/staged equivalence are bit-exact.
+            for (actual, expected) in weights
+                .read_f32(c.expected_weights.len())?
+                .iter()
+                .zip(&c.expected_weights)
+            {
+                assert!((*actual as f64 - *expected as f64).abs() < 2e-7);
+            }
+        }
+        module.force_staged_expert_grids();
+        assert!(!module.fused_experts_active());
+        let staged = module
+            .apply(&input, c.rows)?
+            .read_u32(c.expected_bits.len())?;
+        exact_bits(&format!("{} fused/staged", c.name), &fused, &staged);
+        eprintln!(
+            "V4.1 fused/staged/CPU {}: {} exact values",
+            c.name,
+            fused.len()
+        );
+    }
+    Ok(())
 }
 
 #[test]

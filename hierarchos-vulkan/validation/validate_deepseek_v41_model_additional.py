@@ -1,4 +1,5 @@
 """Additional fixed weight seeds and top-3 expert accumulation at the same hard logit gate."""
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -6,18 +7,21 @@ from pathlib import Path
 import validate_deepseek_v41_model as oracle
 
 FIXTURE=oracle.FIXTURE.parent/"deepseek_v41_model_additional.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SPECS=[(4141018,2),(4141019,3)]
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path",type=Path,required=True)
     parser.add_argument("--kernel-reference-path",type=Path,required=True)
     parser.add_argument("--write-fixture",action="store_true")
     parser.add_argument("--native-output",type=Path)
     args=parser.parse_args()
     f={"cases":[oracle.make_fixture(args.reference_path,args.kernel_reference_path,seed=seed,topk=topk) for seed,topk in SPECS]}
-    if args.write_fixture: FIXTURE.write_text(json.dumps(f,separators=(",",":"),allow_nan=False))
+    if args.write_fixture: fixture_toolchain.write_fixture(FIXTURE, json.dumps(f,separators=(",",":"),allow_nan=False))
     elif json.loads(FIXTURE.read_text())!=f: raise AssertionError("additional fixtures differ from the pinned reference")
     print(f"PASS independent additional model oracle: seeds/topk {SPECS}")
     if args.native_output:

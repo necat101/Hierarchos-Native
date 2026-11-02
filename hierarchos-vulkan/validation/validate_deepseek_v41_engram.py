@@ -14,6 +14,7 @@ released lookup dequantizes FP8 rows with UE8M0 scales.
 
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import ast
 import hashlib
@@ -33,6 +34,8 @@ REVISION = "1bae0e1088993b9b82de08f59de5be5a34e42170"
 SOURCE_SHA256 = "e5decd76fe70fd56ef2f10124d245c6f64fb6a0003cc9068a1d3182a168b8d2d"
 ENGRAM_SHA256 = "11f35ecbead8150c35aa002b3d180ef290b05a25afe883a11884f94d476d3897"
 FIXTURE = Path(__file__).parent / "fixtures" / "deepseek_v41_engram.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 ATOL = 2e-6
 
@@ -400,6 +403,7 @@ def make_fixture(path: Path | None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path)
     parser.add_argument("--write-fixture", action="store_true")
     args = parser.parse_args()
@@ -414,7 +418,7 @@ def main():
                 for case in fixture[key]
             )
             blocks.append(f'  "{key}": [\n{cases}\n  ]')
-        FIXTURE.write_text(
+        fixture_toolchain.write_fixture(FIXTURE,
             json.dumps(metadata, indent=2)[:-2] + ",\n" + ",\n".join(blocks) + "\n}\n",
             encoding="utf-8",
         )

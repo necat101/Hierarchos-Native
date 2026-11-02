@@ -21,11 +21,14 @@ struct Fixture {
 #[derive(Debug, Serialize)]
 struct Report {
     device: String,
+    vendor_id: u32,
+    device_id: u32,
     architecture: String,
     batch_size: usize,
     seq_len: usize,
     vocab_size: usize,
     logits: Vec<f32>,
+    logits_bits: Vec<u32>,
     loaded_adapters: Vec<String>,
     active_adapter: Option<String>,
     adapters_enabled: bool,
@@ -200,16 +203,23 @@ fn run() -> Result<()> {
         bail!("encoder_attention_mask requires encoder_input_ids");
     }
     let report = if let Some(encoder_ids) = fixture.encoder_input_ids.as_deref() {
-        if stream_lm_head {
+        if stream_lm_head && !stream_parameters {
             bail!("--stream-lm-head applies to the decoder logits path, not to a seq2seq fixture");
         }
-        let graph = VulkanSeq2SeqTransformer::from_hf_package_with_batch_size(
+        let mut graph = if stream_parameters {
+            VulkanSeq2SeqTransformer::from_hf_package_with_streamed_parameters(
+                device.clone(), &model, fixture.batch_size,
+                encoder_ids.len() / fixture.batch_size, fixture.seq_len,
+            )?
+        } else { VulkanSeq2SeqTransformer::from_hf_package_with_batch_size(
             device.clone(),
             &model,
             fixture.batch_size,
             encoder_ids.len() / fixture.batch_size,
             fixture.seq_len,
-        )?;
+        )? };
+        let loading_linear_package_io = graph.streamed_linear_package_io()?;
+        let loading_stats = device.memory_stats()?;
         let logits = graph.forward_logits(
             encoder_ids,
             fixture.encoder_attention_mask.as_deref(),
@@ -218,6 +228,8 @@ fn run() -> Result<()> {
         )?;
         Report {
             device: graph.decoder().device_name().to_owned(),
+            vendor_id: device.vendor_id(),
+            device_id: device.device_id(),
             architecture: graph
                 .decoder()
                 .config()
@@ -227,16 +239,17 @@ fn run() -> Result<()> {
             batch_size: fixture.batch_size,
             seq_len: fixture.seq_len,
             vocab_size: graph.decoder().config().vocab_size,
+            logits_bits: logits.iter().map(|value| value.to_bits()).collect(),
             logits,
             loaded_adapters: Vec::new(),
             active_adapter: None,
             adapters_enabled: false,
-            streamed_linears: 0,
-            retired_parameter_bytes: 0,
+            streamed_linears: graph.streamed_linear_count(),
+            retired_parameter_bytes: graph.streaming_retired_parameter_bytes(),
             source_first_parameters: false,
-            loading_peak_buffer_bytes: device.memory_stats()?.peak_live_buffer_bytes,
-            largest_loading_buffer_bytes: device.memory_stats()?.largest_buffer_bytes,
-            loading_linear_package_io: Vec::new(),
+            loading_peak_buffer_bytes: loading_stats.peak_live_buffer_bytes,
+            largest_loading_buffer_bytes: loading_stats.largest_buffer_bytes,
+            loading_linear_package_io,
         }
     } else {
         eprintln!("transformer_logits: constructing graph");
@@ -311,10 +324,13 @@ fn run() -> Result<()> {
         let adapters_enabled = graph.adapters_enabled();
         Report {
             device: graph.device_name().to_owned(),
+            vendor_id: device.vendor_id(),
+            device_id: device.device_id(),
             architecture: graph.config().architecture.model_type().to_owned(),
             batch_size: fixture.batch_size,
             seq_len: fixture.seq_len,
             vocab_size: graph.config().vocab_size,
+            logits_bits: logits.iter().map(|value| value.to_bits()).collect(),
             logits,
             loaded_adapters,
             active_adapter,

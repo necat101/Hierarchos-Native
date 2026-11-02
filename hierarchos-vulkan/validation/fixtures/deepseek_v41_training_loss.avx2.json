@@ -1,0 +1,106 @@
+{
+  "contract": "CPU cross entropy on immutable training logits and targets",
+  "records": {
+    "02a5b087eb00f2f7654936dcc66969e36963cd0c692bb28eb017abf28fc0927e": {
+      "loss_bits": 1077882725
+    },
+    "0494193a195ed6fb03529df050a98ac543d459b7d09e2f199cf16cf00701fcbd": {
+      "loss_bits": 1077268661
+    },
+    "0ae62f33f6bc528a4ec5ebfc4c5517f1ca85f60761217bd525d5be1691810b8d": {
+      "loss_bits": 1077740237
+    },
+    "0c646dda98b01dffc87a6349a6a428f2082839934a2e78eb3c064dadb47af02e": {
+      "loss_bits": 1077895429
+    },
+    "0e543c1725b0b8fe52780e27ed1d968df2bbe52854bbd48666ed831b0073bb49": {
+      "loss_bits": 1077109851
+    },
+    "0f7d672f6994f4e41a5e4e61835ec70f8148d6c47532e5c00e1b41970604cfd8": {
+      "loss_bits": 1077832283
+    },
+    "13174ec71dea6618aa6a01bf458876474c099b7747348cac8bd820a0d0778a22": {
+      "loss_bits": 1077927741
+    },
+    "2d4de660517ba54568f859f0ef33c5996bbfc5d937d893cda208db451af998a9": {
+      "loss_bits": 1077882725
+    },
+    "3094852bc075a0bd7e6fd8be09f6e7f1da94a00dd344b94d2c86416a63e2ec76": {
+      "loss_bits": 1078580700
+    },
+    "3843dc0191b83d7cb12f56668839cb743ca20b7f531947f57527929bc53d935d": {
+      "loss_bits": 1077325236
+    },
+    "3b76101755170db9c9096f215072cccfa87bb8732a88ec874c6ed6a72fb0c19c": {
+      "loss_bits": 1077761784
+    },
+    "492a890f53f230cb2430e0ce447b72feb237485e7094b8c31a43b4dd16bd6ac6": {
+      "loss_bits": 1078579859
+    },
+    "531a8d87ffbef088b2f45b72bbc5d1b1e27abcdd4d8cfa46aa059da424dc28f5": {
+      "loss_bits": 1077783764
+    },
+    "64752b7d58aa6151c86d5110b1d75800dcb862d5cad1a127a07b0943863c9c12": {
+      "loss_bits": 1077853439
+    },
+    "80fd5c56ae185d5ea643b2ca5b1d415d95af7b174b5e3b70ad5058e648989614": {
+      "loss_bits": 1077350711
+    },
+    "8b50600ad640725736d3bb81f4f9b011c39791b4f054b675a656bc2818846284": {
+      "loss_bits": 1077853439
+    },
+    "9432694c404378c8b606c84f518389596316f69a03b09191e32c481aaae7b53e": {
+      "loss_bits": 1077046145
+    },
+    "9af7c81fe4d070470def8cbfad087eaa8273c8df07c9523cf13ce25537daeaac": {
+      "loss_bits": 1077927741
+    },
+    "a4f1fde5510a8d5fb4c5c73cf1beb3a653ba0881eca92e209fa6d28ffe4d4b3a": {
+      "loss_bits": 1078544622
+    },
+    "ad515b92dc2624ad26328eec95f5c1f3bbc01455f3ed50ec8678d346330ef1f8": {
+      "loss_bits": 1078547854
+    },
+    "b354ff61209a7e14aa0ef28346d9a3a694105d1692dce699aab6285749125348": {
+      "loss_bits": 1077781315
+    },
+    "b49187b867e818569401a604d0e87fbf00c8fed9edd955053b566dedc505deca": {
+      "loss_bits": 1077309423
+    },
+    "bd510cc97b793860217c496c58f2c1f0469da4bb24e7e2e2612a46e4c773dd8d": {
+      "loss_bits": 1077891091
+    },
+    "d5acf8871e5972a080da2063f4ca140e402bace6ad3610f64edb74f233e0012e": {
+      "loss_bits": 1077007968
+    },
+    "d75617df3b699f76996affa30dd75f2bcb92cc0da43eabd5fb8dea397c2ab7ac": {
+      "loss_bits": 1077891091
+    },
+    "d8ef19966c20d9a5af1ac22190dcd2aded45b6367ef3de9aab78d7826fb2844d": {
+      "loss_bits": 1077056057
+    },
+    "ddc9af22caae7f172f1bfbe32b1420468092380db385f871e02fa10362e22fc7": {
+      "loss_bits": 1077001183
+    },
+    "e13242367e5efa263084d0c99b0db9eb154d76376b4643b84a1f7116bafa7e56": {
+      "loss_bits": 1078550845
+    },
+    "e2fe9ca3c8dcd44b16266db9e77beb1c0b77b9ff4a9b8a1243d87ea166b83c05": {
+      "loss_bits": 1078581530
+    },
+    "fa507137352cd7785be4cbde7e4f04f75078aed31cbb6a7a1cce1a2ecec79713": {
+      "loss_bits": 1077895429
+    },
+    "ffcbc02cde55a6099d0a57322893efb8919b8f952cbcc144a761cc8970ba5b28": {
+      "loss_bits": 1077297377
+    }
+  },
+  "sources": {
+    "deepseek_v41_full_bf16_training_v3.avx2.json": "1cd3568aa82c60e74f0ba803eefb62ec85b667c5d85fd628f5a9622eb7f381bc",
+    "deepseek_v41_full_bf16_training_v3.json": "ea129551716898b29ad345be8319f70fe44c4afb21c8aa70d6f39e762d412feb",
+    "deepseek_v41_full_mixed_training.json": "013f1aed883f8dc4af7e38d2934b2b60e21cc7ef2ef46c8d014c5609270ac8f7",
+    "deepseek_v41_full_training.json": "fdd3e86540c6bff987197acfe38d3aecf98031e84230a636318f5a132f5bfcdf",
+    "deepseek_v41_production_ratio_training_v2.json": "3dd99546f378a6dd7b87cc2f37eec64fa2a2f99a4e0d4c61211a07b0ea453a20",
+    "deepseek_v41_projection_grad.json": "a251f888d350b54ce3ba58e301331f2ee9c583376469e313ff7dfd63aa7021e2"
+  }
+}

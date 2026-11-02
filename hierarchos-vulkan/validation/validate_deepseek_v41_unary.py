@@ -4,6 +4,7 @@ Scalar exp is rounded from Python's float64 libm result; sigmoid is the actual
 pinned PyTorch operation, including its vector body and scalar tail. These are
 component tests, not the complete-logit acceptance policy.
 """
+import fixture_toolchain
 import argparse
 import json
 import math
@@ -12,6 +13,8 @@ import numpy as np
 import torch
 
 FIXTURE=Path(__file__).parent/"fixtures"/"deepseek_v41_unary.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 TORCH_REVISION="5c4886908584029761b579af026dcfb627c84070"
 
 
@@ -51,10 +54,11 @@ def make_fixture():
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--write-fixture",action="store_true")
     args=parser.parse_args()
     f=make_fixture()
-    if args.write_fixture: FIXTURE.write_text(json.dumps(f,separators=(",",":"),allow_nan=False))
+    if args.write_fixture: fixture_toolchain.write_fixture(FIXTURE, json.dumps(f,separators=(",",":"),allow_nan=False))
     elif json.loads(FIXTURE.read_text())!=f: raise AssertionError("unary fixture differs from independent reference")
     print(f"PASS unary oracle: {len(f['cases'])} cases, {sum(len(c['inputs']) for c in f['cases'])} values")
 

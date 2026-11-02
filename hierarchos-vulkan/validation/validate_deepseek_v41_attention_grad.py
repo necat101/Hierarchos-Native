@@ -4,6 +4,7 @@ The gather/softmax/value expression is the existing V4.1 kernel mirror. Only
 FP32 operands and fixed discrete indices are differentiated here; this does not
 assign a surrogate derivative to a packed activation quantizer.
 """
+import fixture_toolchain
 import hashlib
 import json
 from pathlib import Path
@@ -12,6 +13,8 @@ from validate_deepseek_v41_block_grad import bits, deterministic
 from validate_deepseek_v41_model import sparse_attn as source_sparse_attn
 
 FIXTURE = Path(__file__).parent / "fixtures/deepseek_v41_attention_grad.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 def sparse_case(name, salt, batch, seq, heads, dim, window, topk, compressed, capacity):
     q = deterministic((batch,seq,heads,dim),salt,0.5).requires_grad_()
@@ -101,7 +104,7 @@ def main():
         cache=[cache_case(*spec) for spec in [([0,1,2],2,5,8,1200),([0,1,2,0,1,2,0],2,3,8,1300),([2],2,4,8,1400),([-1,1,1],1,4,8,1500)]])
     if FIXTURE.exists() and json.loads(FIXTURE.read_text()) != payload:
         raise SystemExit("attention-gradient fixture changed; refusing to overwrite pinned evidence")
-    FIXTURE.write_text(json.dumps(payload,indent=2)+"\n")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload,indent=2)+"\n")
     print("PASS CPU PyTorch attention-gradient fixture: 6 sparse, 3 grouped, 2 RoPE, 4 cache cases")
 
 if __name__ == "__main__": main()

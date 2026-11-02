@@ -5,6 +5,7 @@ any model input. Every one of the 2**24 instruction results must equal its
 2048-value bucket. The native runtime scales these seeds by exponent and uses
 separately rounded FP32 refinement; it never executes CPU activation math.
 """
+import fixture_toolchain
 import argparse
 import ctypes
 import hashlib
@@ -17,6 +18,8 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 TABLE = ROOT / "shaders/deepseek_v41_rsqrt_seed_amd_zen4.bin"
 FIXTURE = ROOT / "validation/fixtures/deepseek_v41_cpu_math.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 
 def generate(library):
@@ -44,6 +47,7 @@ def generate(library):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--seed-library",type=Path,required=True)
     p.add_argument("--write-fixture",action="store_true")
     args=p.parse_args()
@@ -52,7 +56,7 @@ def main():
     payload,fixture=generate(args.seed_library)
     if args.write_fixture:
         TABLE.write_bytes(payload)
-        FIXTURE.write_text(json.dumps(fixture,separators=(",",":"),allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(fixture,separators=(",",":"),allow_nan=False))
     elif TABLE.read_bytes()!=payload or json.loads(FIXTURE.read_text())!=fixture:
         raise AssertionError("CPU sqrt policy differs from the pinned instruction/runtime")
     print("PASS CPU math oracle: 16777216 instruction outputs, 8192 seeds,",len(fixture["expected_bits"]),"sqrt values")

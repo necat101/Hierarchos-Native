@@ -4,6 +4,7 @@ This validator never regenerates or writes any expectations. These are new
 execution modes of existing models; they do not increase distinct-model counts.
 Memory figures are live Vulkan tensor bytes, not driver arena reservations.
 """
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -33,6 +34,7 @@ def cases(payload):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--native-root", type=Path, default=ROOT / "target/deepseek-v41-reference")
     p.add_argument("--include-joint", action="store_true")
     p.add_argument("--include-production", action="store_true")

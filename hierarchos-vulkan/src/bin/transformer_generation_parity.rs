@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::{bail, Context, Result};
-use hierarchos_vulkan::{VulkanDevice, VulkanTransformer, VulkanTransformerGenerationConfig};
+use hierarchos_vulkan::{VulkanDevice, VulkanTransformer, VulkanTransformerConfig, VulkanTransformerGenerationConfig};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -13,12 +13,17 @@ struct Fixture {
 #[derive(Debug, Serialize)]
 struct Report {
     device: String,
+    vendor_id: u32,
+    device_id: u32,
     architecture: String,
+    streamed_linears: usize,
+    source_first_parameters: bool,
     use_cache: bool,
     prompt_length: usize,
     sequence: Vec<u32>,
     generated_ids: Vec<u32>,
     logits: Vec<Vec<f32>>,
+    logits_bits: Vec<Vec<u32>>,
 }
 
 fn main() -> Result<()> {
@@ -36,6 +41,7 @@ fn run() -> Result<()> {
     let mut output = None;
     let mut device_index = None;
     let mut use_cache = true;
+    let mut stream_parameters = false;
     let mut args = std::env::args_os().skip(1);
     while let Some(arg) = args.next() {
         match arg.to_string_lossy().as_ref() {
@@ -67,8 +73,9 @@ fn run() -> Result<()> {
                     .parse::<bool>()
                     .context("invalid --use-cache")?
             }
+            "--stream-parameters" => stream_parameters = true,
             "-h" | "--help" => {
-                eprintln!("usage: transformer_generation_parity --model DIR --fixture fixture.json --output report.json [--use-cache true|false] [--device-index N]");
+                eprintln!("usage: transformer_generation_parity --model DIR --fixture fixture.json --output report.json [--use-cache true|false] [--stream-parameters] [--device-index N]");
                 return Ok(());
             }
             other => bail!("unknown argument {other:?}"),
@@ -91,7 +98,12 @@ fn run() -> Result<()> {
         Some(index) => VulkanDevice::new_with_index(index)?,
         None => VulkanDevice::new()?,
     };
-    let graph = VulkanTransformer::from_hf_package(device, &model, 1, sequence_capacity)?;
+    let graph = if stream_parameters {
+        let config = VulkanTransformerConfig::from_hf_config(model.join("config.json"))?;
+        VulkanTransformer::from_hf_package_with_streamed_parameters(
+            device.clone(), &model, config, 1, sequence_capacity,
+        )?
+    } else { VulkanTransformer::from_hf_package(device.clone(), &model, 1, sequence_capacity)? };
     let config = VulkanTransformerGenerationConfig {
         max_new_tokens: Some(fixture.max_new_tokens),
         max_length: None,
@@ -124,11 +136,16 @@ fn run() -> Result<()> {
     }
     let report = Report {
         device: graph.device_name().to_owned(),
+        vendor_id: device.vendor_id(),
+        device_id: device.device_id(),
         architecture: graph.config().architecture.model_type().to_owned(),
+        streamed_linears: graph.streamed_linear_count(),
+        source_first_parameters: graph.parameters_streamed_during_loading(),
         use_cache,
         prompt_length: sequence.prompt_length,
         sequence: sequence.sequence,
         generated_ids,
+        logits_bits: logits.iter().map(|step| step.iter().map(|value| value.to_bits()).collect()).collect(),
         logits,
     };
     fs::write(&output_path, serde_json::to_vec(&report)?)?;

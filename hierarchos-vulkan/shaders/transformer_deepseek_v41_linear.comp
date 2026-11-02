@@ -1,5 +1,11 @@
 #version 450
 
+#ifdef HIERARCHOS_GEN9_EXACT_FMA
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_gen9_fma.glsl"
+#define fma v41_gen9_fma
+#endif
+
 // FP32 qualification projection for the single-threaded CPU oracle. Narrow or
 // fewer-than-four-row GEMM uses a vector dot; the matrix path uses serial FMA.
 // Preserve that operation choice: RMSNorm amplifies one-ulp projection drift.

@@ -3,6 +3,7 @@
 Uses the previous fixed wider input cases without modifying that fixture.
 Only the newly specified projection storage and BF16 boundaries differ.
 """
+import fixture_toolchain
 import argparse
 import ast
 import hashlib
@@ -16,6 +17,8 @@ import validate_deepseek_v41_mixed as mixed
 from validate_deepseek_v41_mixed_model import quantize_weight
 
 FIXTURE = packed.FIXTURE.parent / "deepseek_v41_mixed_engram.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 
 def make_fixture(path,kernel_path):
@@ -52,12 +55,13 @@ def make_fixture(path,kernel_path):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path",type=Path,required=True)
     p.add_argument("--kernel-reference-path",type=Path,required=True)
     p.add_argument("--write-fixture",action="store_true")
     args = p.parse_args()
     f = make_fixture(args.reference_path,args.kernel_reference_path)
-    if args.write_fixture: FIXTURE.write_text(json.dumps(f,separators=(",",":"),allow_nan=False))
+    if args.write_fixture: fixture_toolchain.write_fixture(FIXTURE, json.dumps(f,separators=(",",":"),allow_nan=False))
     elif json.loads(FIXTURE.read_text()) != f: raise AssertionError("mixed Engram fixture differs from released forward")
     print(f"PASS mixed Engram oracle: {len(f['cases'])} cases from fixed packed-table inputs")
 

@@ -5,6 +5,7 @@ rank. Other output rows are zero. Expected values come from CPU torch.einsum;
 no native reduction or result is used. Complete-model acceptance still checks
 the original dense checkpoint and all 258,560 unchanged logits.
 """
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -18,6 +19,8 @@ import validate_deepseek_v41_production_model as production
 import trace_deepseek_v41_production_attention as observation
 
 FIXTURE = production.FIXTURE.parent / "deepseek_v41_grouped_reduction.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 POLICY = "bf16_short_grouped_fp32_k512_v1"
 REGRESSION_ROWS = [(3,[708,709,710]),(5,[323,324,325]),(7,[1005,1006,1007])]
 
@@ -53,6 +56,7 @@ def make_fixture(observed):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path",type=Path)
     p.add_argument("--kernel-reference-path",type=Path)
     p.add_argument("--observation",type=Path)
@@ -62,7 +66,7 @@ def main():
         args.reference_path,args.kernel_reference_path)
     f=make_fixture(observed)
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(f,separators=(",",":"),allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(f,separators=(",",":"),allow_nan=False))
     elif json.loads(FIXTURE.read_text()) != f:
         raise AssertionError("grouped regression differs from the unchanged CPU einsum")
     print("PASS independent BF16 grouped CPU oracle:",sum(len(s["expected_bits"]) for s in f["steps"]),"outputs")

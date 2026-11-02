@@ -103,11 +103,48 @@ fn assert_gate(label: &str, actual: &[f32], expected: &[u32], tolerance: f32) {
     );
 }
 
-fn fixture_directory(fixture: &Fixture) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("validation")
-        .join("fixtures")
-        .join(&fixture.adapter)
+fn write_fixture_adapter(fixture: &Fixture, directory: &std::path::Path) -> Result<()> {
+    use safetensors::tensor::{serialize_to_file, Dtype, TensorView};
+    std::fs::create_dir_all(directory)?;
+    let config = serde_json::json!({
+        "peft_type": "LORA", "task_type": "CAUSAL_LM",
+        "r": fixture.modules[0].rank, "lora_alpha": 8.0,
+        "lora_dropout": 0.0, "bias": "none", "inference_mode": false,
+        "base_model_name_or_path": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        "target_modules": fixture.modules.iter().map(|m| &m.target).collect::<Vec<_>>(),
+        "rank_pattern": fixture.modules.iter().map(|m| (&m.target, m.rank)).collect::<BTreeMap<_, _>>(),
+        "alpha_pattern": fixture.modules.iter().map(|m| (&m.target, m.alpha)).collect::<BTreeMap<_, _>>()
+    });
+    std::fs::write(
+        directory.join("adapter_config.json"),
+        serde_json::to_vec(&config)?,
+    )?;
+    let mut tensors = Vec::new();
+    for module in &fixture.modules {
+        for (label, shape, bits) in [
+            ("A", vec![module.rank, module.width], &module.a_bits),
+            ("B", vec![module.out, module.rank], &module.b_bits),
+        ] {
+            tensors.push((
+                format!("base_model.model.{}.lora_{label}.weight", module.target),
+                shape,
+                bits.iter()
+                    .flat_map(|v| v.to_le_bytes())
+                    .collect::<Vec<_>>(),
+            ));
+        }
+    }
+    let views = tensors
+        .iter()
+        .map(|(name, shape, bytes)| {
+            Ok((
+                name.as_str(),
+                TensorView::new(Dtype::F32, shape.clone(), bytes)?,
+            ))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    serialize_to_file(views, None, &directory.join("adapter_model.safetensors"))?;
+    Ok(())
 }
 
 fn gradients(step: &Step) -> Vec<DeepseekV41AdapterGradient> {
@@ -170,7 +207,24 @@ fn adapter_adamw_matches_the_pinned_cpu_trajectory_and_resumes() -> Result<()> {
     assert_eq!(fixture.rtol, 0.0);
     assert_eq!(fixture.steps.len(), 3);
 
-    let directory = fixture_directory(&fixture);
+    let root = std::env::temp_dir().join(format!(
+        "v41-adapter-resume-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_nanos()
+    ));
+    struct Cleanup(PathBuf);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let _cleanup = Cleanup(root.clone());
+    // The immutable JSON contains all initial factors. Reconstruct the package
+    // here so a fresh checkout needs no untracked Python-generated adapter.
+    let directory = root.join(&fixture.adapter);
+    write_fixture_adapter(&fixture, &directory)?;
     let adapter = DeepseekV41LoraAdapter::load(&directory)?;
     let config = DeepseekV41AdamWConfig {
         learning_rate: fixture.config.learning_rate,
@@ -187,15 +241,12 @@ fn adapter_adamw_matches_the_pinned_cpu_trajectory_and_resumes() -> Result<()> {
             .unwrap_or_else(|| panic!("adapter is missing {}", module.target));
         assert_gate(
             &format!("{} initial a", module.target),
-            &module
-                .a_bits
-                .iter()
-                .copied()
-                .map(f32::from_bits)
-                .collect::<Vec<_>>(),
+            &loaded.a,
             &module.a_bits,
             fixture.tolerance,
         );
+        assert_eq!(loaded.a.as_ref(), values(&module.a_bits));
+        assert_eq!(loaded.b.as_ref(), values(&module.b_bits));
         assert_eq!(loaded.a.len(), module.a_bits.len());
         assert_eq!(loaded.b.len(), module.b_bits.len());
     }
@@ -215,20 +266,6 @@ fn adapter_adamw_matches_the_pinned_cpu_trajectory_and_resumes() -> Result<()> {
     for step in &fixture.steps[..2] {
         partial.step(&gradients(step))?;
     }
-    let root = std::env::temp_dir().join(format!(
-        "v41-adapter-resume-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_nanos()
-    ));
-    struct Cleanup(PathBuf);
-    impl Drop for Cleanup {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
-        }
-    }
-    let _cleanup = Cleanup(root.clone());
     let adapter_directory = root.join("adapter");
     partial.adapter()?.export(&adapter_directory)?;
     partial.save(&adapter_directory)?;

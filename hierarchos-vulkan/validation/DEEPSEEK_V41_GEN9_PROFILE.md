@@ -1,5 +1,10 @@
 # DeepSeek V4.1 forward profile and first submission-cost fix
 
+The 2026-10-31 Intel HD 520 follow-up, measured schedules, frozen digest checks
+and remaining CPU qualification failures are recorded in
+[`DEEPSEEK_V41_GEN9_RECEIPT.md`](DEEPSEEK_V41_GEN9_RECEIPT.md).
+The AMD measurements below are the original handoff's history.
+
 This is the profile-first step of the Intel Gen9 handoff
 ([`intel-handoff/DEEPSEEK_V41.md`](intel-handoff/DEEPSEEK_V41.md)): the brief says
 to profile before choosing the optimization order, so the order below is measured

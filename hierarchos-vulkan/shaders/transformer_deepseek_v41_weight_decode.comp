@@ -11,10 +11,12 @@ layout(push_constant) uniform WeightDecodePush {
     uint cols;
     uint format; // 0=FP8 block32, 1=FP8 block128, 2=FP4 row32, 3=Engram FP8 row32
     uint bf16;
+    uint data_offset;
+    uint scale_offset;
 } pc;
 
-uint data_byte(uint i) { return (data[i / 4u] >> ((i % 4u) * 8u)) & 255u; }
-uint scale_byte(uint i) { return (scales[i / 4u] >> ((i % 4u) * 8u)) & 255u; }
+uint data_byte(uint i) { i += pc.data_offset; return (data[i / 4u] >> ((i % 4u) * 8u)) & 255u; }
+uint scale_byte(uint i) { i += pc.scale_offset; return (scales[i / 4u] >> ((i % 4u) * 8u)) & 255u; }
 void main() {
     uint group = gl_WorkGroupID.y * 65535u + gl_WorkGroupID.x;
     if (group >= (pc.rows * pc.cols - 1u) / 64u + 1u) return;

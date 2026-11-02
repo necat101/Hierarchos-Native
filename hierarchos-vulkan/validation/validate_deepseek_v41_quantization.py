@@ -12,6 +12,7 @@ This is an independent oracle, not an import of the model kernels.
 
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -25,6 +26,8 @@ MODEL = "deepseek-ai/DeepSeek-V4.1-Flash-1017"
 REVISION = "1bae0e1088993b9b82de08f59de5be5a34e42170"
 KERNEL_SHA256 = "1236c3507019ed176f5dba5e04bcea58867cf654818c6cf138ed4845398c2455"
 FIXTURE = Path(__file__).parent / "fixtures" / "deepseek_v41_quantization.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 F32 = np.float32
 FP4_LEVELS = (0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0)
 
@@ -182,6 +185,7 @@ def make_fixture():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path)
     parser.add_argument("--write-fixture", action="store_true")
     args = parser.parse_args()
@@ -194,7 +198,7 @@ def main():
             "    " + json.dumps(case, allow_nan=False, separators=(",", ":"))
             for case in fixture["cases"]
         )
-        FIXTURE.write_text(prefix + ',\n  "cases": [\n' + cases + "\n  ]\n}\n", encoding="utf-8")
+        fixture_toolchain.write_fixture(FIXTURE, prefix + ',\n  "cases": [\n' + cases + "\n  ]\n}\n", encoding="utf-8")
     elif json.loads(FIXTURE.read_text(encoding="utf-8")) != fixture:
         raise RuntimeError("quantization fixtures differ from the pinned reference")
     values = sum(len(case["expected_values"]) for case in fixture["cases"])

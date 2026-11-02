@@ -1,5 +1,11 @@
 #version 450
 
+#ifdef HIERARCHOS_GEN9_EXACT_FMA
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_gen9_fma.glsl"
+#define fma v41_gen9_fma
+#endif
+
 // V4.1 sparse attention, value pass. Multiplies the normalized gathered
 // weights (window slots followed by compressed slots) against the matching KV
 // rows. One invocation owns one output channel.

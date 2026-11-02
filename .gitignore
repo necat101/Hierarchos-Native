@@ -64,4 +64,14 @@ hierarchos-vulkan/validation/fixtures/deepseek_v41_schedule_width_*/
 hierarchos-vulkan/validation/fixtures/*/
 !hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/
 !hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/*.safetensors
+!hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141101/
+!hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141101/*.safetensors
+!hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141102/
+!hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141102/*.safetensors
+!hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141071/
+!hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141071/*.safetensors
+!hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141072/
+!hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141072/*.safetensors
+!hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/
+!hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/*.safetensors
 !hierarchos-vulkan/validation/release_parity/deepseek_v41/receipts/**/*.log

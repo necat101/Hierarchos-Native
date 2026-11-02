@@ -4,12 +4,15 @@ The expression is the released Compressor pool: reshape rows into two-slot
 groups, softmax the slot axis, multiply KV, then sum the slots. Independent
 FP32 PyTorch autograd pins both input VJPs without projection/norm roundoff.
 """
+import fixture_toolchain
 import json
 from pathlib import Path
 import torch
 from validate_deepseek_v41_compressor_decode_grad import deterministic,bits
 
 FIXTURE=Path(__file__).parent/"fixtures/deepseek_v41_compressor_pool_math.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 def make_fixture():
     torch.set_num_threads(1)
@@ -30,6 +33,6 @@ if __name__=="__main__":
     result=make_fixture()
     if FIXTURE.exists() and json.loads(FIXTURE.read_text())!=result:
         raise SystemExit("compressor pool math fixture changed; refusing to overwrite pinned evidence")
-    FIXTURE.write_text(json.dumps(result,separators=(",",":"),allow_nan=False)+"\n",encoding="utf-8")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(result,separators=(",",":"),allow_nan=False)+"\n",encoding="utf-8")
     values=sum(len(c[k]) for c in result['cases'] for k in ['pooled_bits','grad_kv_bits','grad_score_bits'])
     print(f"PASS: {len(result['cases'])} SIMD/tail widths, {values} frozen pool/VJP values")

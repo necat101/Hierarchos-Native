@@ -75,7 +75,7 @@ fn kernel(
 ) -> Result<vulkan::ComputeKernel> {
     let mut access = vec![vulkan::BindingAccess::ReadOnly; inputs];
     access.extend(vec![vulkan::BindingAccess::WriteOnly; outputs]);
-    vulkan::ComputeKernel::new_with_access(device, bytes, &access, push as u32)
+    vulkan::ComputeKernel::new_with_access(device, crate::deepseek_v41::gen9::shader(device, bytes), &access, push as u32)
 }
 fn product(shape: &[usize]) -> Result<usize> {
     let len = shape
@@ -104,7 +104,7 @@ impl DeepseekV41AttentionAdjoints {
             // The forward weight pass reads its own score scratch.
             weights: vulkan::ComputeKernel::new(
                 &device,
-                include_bytes!("../../shaders/transformer_deepseek_v41_attention_weights.spv"),
+                crate::deepseek_v41::gen9::shader(&device, include_bytes!("../../shaders/transformer_deepseek_v41_attention_weights.spv")),
                 7,
                 push as u32,
             )?,

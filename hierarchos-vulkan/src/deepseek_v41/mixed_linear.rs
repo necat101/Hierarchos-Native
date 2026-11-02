@@ -192,6 +192,22 @@ pub struct DeepseekV41ResidentLinear {
     lora: Option<DeepseekV41ResidentLora>,
 }
 impl DeepseekV41ResidentLinear {
+    pub(super) fn packed_arena(
+        weight: &DeepseekV41PackedWeights,
+        arena: &GpuBuffer,
+        data_offset: u32,
+        scale_offset: u32,
+    ) -> Result<Self> {
+        Ok(Self {
+            rows: weight.rows(),
+            cols: weight.cols(),
+            storage: LinearStorage::Packed(
+                weight.in_arena(arena, data_offset, scale_offset)?,
+                weight.format().block_size(),
+            ),
+            lora: None,
+        })
+    }
     /// Borrow an existing FP32 matrix for a component tape without copying
     /// its payload or changing the original projection's arithmetic.
     pub(super) fn fp32_view(buffer: &GpuBuffer, rows: usize, cols: usize) -> Result<Self> {

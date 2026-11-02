@@ -14,7 +14,7 @@
 //   repeat (sinkhorn_iters - 1): comb /= row_sum + eps; comb /= column_sum + eps
 // The released implementation runs this in a TileLang kernel, so the scalar
 // order below is the contract rather than a PyTorch reduction.
-layout(local_size_x = 1) in;
+layout(local_size_x = 32) in;
 layout(set = 0, binding = 0, std430) readonly buffer Stream { float stream[]; };
 layout(set = 0, binding = 1, std430) readonly buffer Mixes { float mixes[]; };
 layout(set = 0, binding = 2, std430) readonly buffer Scale { float scale[]; };
@@ -33,20 +33,29 @@ layout(push_constant) uniform Push {
 } pc;
 
 #define V41_REDUCE_INPUT stream
-#include "fp32_v41_reduce.glsl"
+#include "fp32_v41_reduce_parallel.glsl"
+
+shared float c[256];
+shared float row_stat[16];
+shared float column_stat[16];
+shared float norm_rstd;
 
 void main() {
-    uint row = gl_GlobalInvocationID.x;
+    uint row = gl_WorkGroupID.x, lane = gl_LocalInvocationID.x;
     if (row >= pc.rows) return;
     uint width = pc.hc * pc.dim;
     uint base_index = row * width;
 
     precise float sum = v41_sum_squares(base_index, width);
-    precise float variance = fp32_div(sum, float(width)) + pc.norm_eps;
-    float rstd = fp32_sqrt_recip(variance);
+    if (lane == 0u) {
+        precise float variance = fp32_div(sum, float(width)) + pc.norm_eps;
+        norm_rstd = fp32_sqrt_recip(variance);
+    }
+    barrier();
+    float rstd = norm_rstd;
 
     uint mix_base = row * pc.mix_hc;
-    for (uint j = 0u; j < pc.hc; ++j) {
+    for (uint j = lane; j < pc.hc; j += 32u) {
         precise float pre_mix = mixes[mix_base + j] * rstd;
         precise float pre_arg = pre_mix * scale[0] + base[j];
         pre[row * pc.hc + j] = v41_cpu_sigmoid(pre_arg, row * pc.hc + j, pc.rows * pc.hc) + pc.eps;
@@ -55,58 +64,111 @@ void main() {
         post[row * pc.hc + j] = 2.0 * v41_cpu_sigmoid(post_arg, row * pc.hc + j, pc.rows * pc.hc);
     }
 
-    float c[16];
     uint mix_offset = pc.hc * 2u;
-    for (uint j = 0u; j < pc.hc; ++j) {
-        for (uint k = 0u; k < pc.hc; ++k) {
-            uint index = mix_offset + j * pc.hc + k;
-            precise float value = mixes[mix_base + index] * rstd;
-            c[j * pc.hc + k] = value * scale[2] + base[index];
-        }
+    for (uint cell = lane; cell < pc.hc * pc.hc; cell += 32u) {
+        uint index = mix_offset + cell;
+        precise float value = mixes[mix_base + index] * rstd;
+        c[cell] = value * scale[2] + base[index];
     }
+    barrier();
 
     // softmax over the last axis, then + eps
-    for (uint j = 0u; j < pc.hc; ++j) {
+#ifdef HIERARCHOS_GEN9_PARALLEL_HC
+    for (uint j = lane; j < pc.hc; j += 32u) {
         float row_max = c[j * pc.hc];
-        for (uint k = 1u; k < pc.hc; ++k)
-            row_max = max(row_max, c[j * pc.hc + k]);
-        precise float row_sum = 0.0;
-        for (uint k = 0u; k < pc.hc; ++k) {
-            c[j * pc.hc + k] = sleef_expf_u10(c[j * pc.hc + k] - row_max);
-            row_sum += c[j * pc.hc + k];
-        }
-        // CPU softmax rounds the reciprocal once, then multiplies each
-        // exponential. Per-element division has different FP32 rounding.
-        precise float reciprocal = fp32_div(1.0, row_sum);
-        for (uint k = 0u; k < pc.hc; ++k)
-            c[j * pc.hc + k] = c[j * pc.hc + k] * reciprocal + pc.eps;
+        for (uint k = 1u; k < pc.hc; ++k) row_max = max(row_max, c[j * pc.hc + k]);
+        row_stat[j] = row_max;
     }
-
-    float column_sum[16];
-    for (uint j = 0u; j < pc.hc; ++j) column_sum[j] = 0.0;
-    for (uint j = 0u; j < pc.hc; ++j)
-        for (uint k = 0u; k < pc.hc; ++k) column_sum[k] += c[j * pc.hc + k];
-    for (uint j = 0u; j < pc.hc; ++j)
-        for (uint k = 0u; k < pc.hc; ++k)
-            c[j * pc.hc + k] = fp32_div(c[j * pc.hc + k], column_sum[k] + pc.eps);
+#else
+    if (lane == 0u) {
+        for (uint j = 0u; j < pc.hc; ++j) {
+            float row_max = c[j * pc.hc];
+            for (uint k = 1u; k < pc.hc; ++k)
+                row_max = max(row_max, c[j * pc.hc + k]);
+            row_stat[j] = row_max;
+        }
+    }
+#endif
+    barrier();
+    for (uint cell = lane; cell < pc.hc * pc.hc; cell += 32u)
+        c[cell] = sleef_expf_u10(c[cell] - row_stat[cell / pc.hc]);
+    barrier();
+#ifdef HIERARCHOS_GEN9_PARALLEL_HC
+    for (uint j = lane; j < pc.hc; j += 32u) {
+        precise float row_sum = 0.0;
+        for (uint k = 0u; k < pc.hc; ++k) row_sum += c[j * pc.hc + k];
+        row_stat[j] = fp32_div(1.0, row_sum);
+    }
+#else
+    if (lane == 0u) {
+        for (uint j = 0u; j < pc.hc; ++j) {
+            precise float row_sum = 0.0;
+            for (uint k = 0u; k < pc.hc; ++k) row_sum += c[j * pc.hc + k];
+            row_stat[j] = fp32_div(1.0, row_sum);
+        }
+    }
+#endif
+    barrier();
+    for (uint cell = lane; cell < pc.hc * pc.hc; cell += 32u) {
+        precise float value = c[cell] * row_stat[cell / pc.hc] + pc.eps;
+        c[cell] = value;
+    }
+    barrier();
+#ifdef HIERARCHOS_GEN9_PARALLEL_HC
+    for (uint k = lane; k < pc.hc; k += 32u) {
+        precise float column_sum = 0.0;
+        for (uint j = 0u; j < pc.hc; ++j) column_sum += c[j * pc.hc + k];
+        column_stat[k] = column_sum;
+    }
+#else
+    if (lane == 0u) {
+        for (uint k = 0u; k < pc.hc; ++k) column_stat[k] = 0.0;
+        for (uint j = 0u; j < pc.hc; ++j)
+            for (uint k = 0u; k < pc.hc; ++k) column_stat[k] += c[j * pc.hc + k];
+    }
+#endif
+    barrier();
+    for (uint cell = lane; cell < pc.hc * pc.hc; cell += 32u)
+        c[cell] = fp32_div(c[cell], column_stat[cell % pc.hc] + pc.eps);
+    barrier();
 
     for (uint iteration = 1u; iteration < pc.sinkhorn_iters; ++iteration) {
-        float row_sum[16];
-        for (uint j = 0u; j < pc.hc; ++j) row_sum[j] = 0.0;
-        for (uint j = 0u; j < pc.hc; ++j)
-            for (uint k = 0u; k < pc.hc; ++k) row_sum[j] += c[j * pc.hc + k];
-        for (uint j = 0u; j < pc.hc; ++j)
-            for (uint k = 0u; k < pc.hc; ++k)
-                c[j * pc.hc + k] = fp32_div(c[j * pc.hc + k], row_sum[j] + pc.eps);
-        for (uint j = 0u; j < pc.hc; ++j) column_sum[j] = 0.0;
-        for (uint j = 0u; j < pc.hc; ++j)
-            for (uint k = 0u; k < pc.hc; ++k) column_sum[k] += c[j * pc.hc + k];
-        for (uint j = 0u; j < pc.hc; ++j)
-            for (uint k = 0u; k < pc.hc; ++k)
-                c[j * pc.hc + k] = fp32_div(c[j * pc.hc + k], column_sum[k] + pc.eps);
+#ifdef HIERARCHOS_GEN9_PARALLEL_HC
+        for (uint j = lane; j < pc.hc; j += 32u) {
+            precise float row_sum = 0.0;
+            for (uint k = 0u; k < pc.hc; ++k) row_sum += c[j * pc.hc + k];
+            row_stat[j] = row_sum;
+        }
+#else
+        if (lane == 0u) {
+            for (uint j = 0u; j < pc.hc; ++j) row_stat[j] = 0.0;
+            for (uint j = 0u; j < pc.hc; ++j)
+                for (uint k = 0u; k < pc.hc; ++k) row_stat[j] += c[j * pc.hc + k];
+        }
+#endif
+        barrier();
+        for (uint cell = lane; cell < pc.hc * pc.hc; cell += 32u)
+            c[cell] = fp32_div(c[cell], row_stat[cell / pc.hc] + pc.eps);
+        barrier();
+#ifdef HIERARCHOS_GEN9_PARALLEL_HC
+        for (uint k = lane; k < pc.hc; k += 32u) {
+            precise float column_sum = 0.0;
+            for (uint j = 0u; j < pc.hc; ++j) column_sum += c[j * pc.hc + k];
+            column_stat[k] = column_sum;
+        }
+#else
+        if (lane == 0u) {
+            for (uint k = 0u; k < pc.hc; ++k) column_stat[k] = 0.0;
+            for (uint j = 0u; j < pc.hc; ++j)
+                for (uint k = 0u; k < pc.hc; ++k) column_stat[k] += c[j * pc.hc + k];
+        }
+#endif
+        barrier();
+        for (uint cell = lane; cell < pc.hc * pc.hc; cell += 32u)
+            c[cell] = fp32_div(c[cell], column_stat[cell % pc.hc] + pc.eps);
+        barrier();
     }
 
-    for (uint j = 0u; j < pc.hc; ++j)
-        for (uint k = 0u; k < pc.hc; ++k)
-            comb[(row * pc.hc + j) * pc.hc + k] = c[j * pc.hc + k];
+    for (uint cell = lane; cell < pc.hc * pc.hc; cell += 32u)
+        comb[row * pc.hc * pc.hc + cell] = c[cell];
 }

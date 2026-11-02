@@ -160,6 +160,8 @@ const MINIMAX_M3_INDEX_SCORES_SPV: &[u8] =
 const MINIMAX_M3_BLOCK_MASK_SPV: &[u8] =
     include_bytes!("../shaders/transformer_minimax_m3_block_mask.spv");
 const QWEN4_QSA_MASK_SPV: &[u8] = include_bytes!("../shaders/transformer_qwen4_qsa_mask.spv");
+const QWEN4_QSA_MASK_GEN9_SPV: &[u8] = include_bytes!("../shaders/transformer_qwen4_qsa_mask_gen9.spv");
+const SILU_MUL_GEN9_SPV: &[u8] = include_bytes!("../shaders/silu_forward_gen9.spv");
 const QWEN4_STREAM_MEAN_SPV: &[u8] = include_bytes!("../shaders/transformer_qwen4_stream_mean.spv");
 const QWEN4_STREAM_MEAN_BACKWARD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_qwen4_stream_mean_backward.spv");
@@ -26004,6 +26006,7 @@ struct TransformerKernels {
     gelu_erf_forward: vulkan::ComputeKernel,
     gelu_erf_backward: vulkan::ComputeKernel,
     silu_forward: vulkan::ComputeKernel,
+    silu_mul_forward: Option<vulkan::ComputeKernel>,
     silu_backward: vulkan::ComputeKernel,
     situ_forward: vulkan::ComputeKernel,
     situ_backward: vulkan::ComputeKernel,
@@ -26124,6 +26127,17 @@ struct TransformerKernels {
 }
 
 impl TransformerKernels {
+    #[allow(clippy::too_many_arguments)]
+    fn try_silu_product(&self, commands: &mut vulkan::ComputeBatch, activation: &str,
+        gate: &GpuBuffer, up: &GpuBuffer, activated: &GpuBuffer, product: &GpuBuffer,
+        len: usize, training: bool) -> Result<bool> {
+        if training || activation != "silu" { return Ok(false); }
+        let Some(kernel) = self.silu_mul_forward.as_ref() else { return Ok(false); };
+        kernel.record_dispatch(commands, &[gate, activated, up, product],
+            bytemuck::bytes_of(&LenPush { len: len as u32 }), [div_ceil_u32(len, 64), 1, 1])?;
+        Ok(true)
+    }
+
     fn lora_b_group4_adjoint(&self) -> Result<&vulkan::ComputeKernel> {
         match self.linear_input_grad_group4_muladd.get_or_init(|| {
             vulkan::ComputeKernel::new(
@@ -26351,6 +26365,10 @@ impl TransformerKernels {
             gelu_erf_forward: vulkan::ComputeKernel::new(device, GELU_ERF_FORWARD_SPV, 2, 4)?,
             gelu_erf_backward: vulkan::ComputeKernel::new(device, GELU_ERF_BACKWARD_SPV, 3, 4)?,
             silu_forward: vendor::silu_forward_kernel(device)?,
+            silu_mul_forward: if vulkan::is_intel_gen9_pci_id(device.vendor_id(), device.device_id())
+                && std::env::var_os("HIERARCHOS_VULKAN_GEN9_FUSED_SILU").is_none_or(|v| v != "0") {
+                Some(vulkan::ComputeKernel::new(device, SILU_MUL_GEN9_SPV, 4, 4)?)
+            } else { None },
             silu_backward: vendor::silu_backward_kernel(device)?,
             situ_forward: vulkan::ComputeKernel::new(
                 device,
@@ -26493,7 +26511,10 @@ impl TransformerKernels {
             )?,
             qwen4_qsa_mask: vulkan::ComputeKernel::new(
                 device,
-                QWEN4_QSA_MASK_SPV,
+                if vulkan::is_intel_gen9_pci_id(device.vendor_id(), device.device_id())
+                    && std::env::var_os("HIERARCHOS_VULKAN_GEN9_PARALLEL_QSA").is_none_or(|v| v != "0") {
+                    QWEN4_QSA_MASK_GEN9_SPV
+                } else { QWEN4_QSA_MASK_SPV },
                 7,
                 std::mem::size_of::<Qwen4QsaMaskPush>() as u32,
             )?,
@@ -26978,6 +26999,9 @@ impl OptionalGpuBufferExt for Option<GpuBuffer> {
 /// which for a 129,280x5,120 FP32 head is 10.6 GB. Streamed, the whole tier is
 /// one host tile plus one device weight tile plus one output tile.
 const TIERED_LM_HEAD_TILE_ROWS: usize = 8_192;
+/// Small Gen9 projections may share a submission, but retained weight uploads
+/// must stay bounded independently of model depth or total parameter count.
+const GEN9_STREAM_BATCH_BYTES: usize = 1024 * 1024;
 /// Smallest tile the streamed head issues.
 ///
 /// `linear_forward` selects its schedule from `output_dim` (the shared-memory
@@ -27164,10 +27188,26 @@ impl TieredLmHead {
     }
 
     fn affine_rows(package:&mut ModelPackage,name:&str,view:(usize,usize,usize),input:usize,start:usize,count:usize)->Result<Vec<f32>> {
+        if count == 0 { return Ok(Vec::new()); }
         let (offset,output_stride,input_stride)=view;
         let base=offset.checked_add(start.checked_mul(output_stride).context("affine source offset overflow")?).context("affine source offset overflow")?;
         if input_stride==1 && output_stride==input {
             return package.read_f32_elements(name,base,count.checked_mul(input).context("affine tile overflow")?);
+        }
+        // A bounded physical slab avoids one decode/request per input column
+        // for dense transposed expert blocks. Partial/interleaved slices keep
+        // exact-range reads, including their non-finite-value validation scope.
+        if output_stride == 1 && input_stride == count && input > 0 {
+            let slab = (input - 1).checked_mul(input_stride).and_then(|n| n.checked_add(count))
+                .context("affine slab overflow")?;
+            if slab <= crate::weight_offload::DEFAULT_TILE_BYTES as usize / 4 {
+                let values = package.read_f32_elements(name, base, slab)?;
+                let mut result = vec![0.0; count.checked_mul(input).context("affine tile overflow")?];
+                for col in 0..input {
+                    for row in 0..count { result[row * input + col] = values[col * input_stride + row]; }
+                }
+                return Ok(result);
+            }
         }
         let span=count.saturating_sub(1).checked_mul(output_stride).and_then(|n|n.checked_add(1)).context("affine source span overflow")?;
         let mut result=vec![0.0;count.checked_mul(input).context("affine tile overflow")?];
@@ -27223,6 +27263,11 @@ impl TieredLmHead {
                 let base=prefix.checked_mul(matrix).context("affine prefix overflow")?;
                 if cols==input && rows.is_multiple_of(output) {
                     for part in 0..rows/output {views.push((base+part*output*input,input,1));}
+                }
+                // DBRX stacks transposed down projections as [experts*input,
+                // output]. Each expert is a separate input-by-output block.
+                if cols==output && rows.is_multiple_of(input) {
+                    for part in 0..rows/input {views.push((base+part*input*output,1,output));}
                 }
                 if rows==input && cols.is_multiple_of(output) {
                     let pieces=cols/output;
@@ -27322,6 +27367,12 @@ impl TieredLmHead {
         self.vocab_size.saturating_sub(self.tile_rows) < TIERED_LM_HEAD_MIN_TILE_ROWS
     }
 
+    fn batches_small_uploads(&self, direct: bool) -> bool {
+        direct
+            && vulkan::is_intel_gen9_pci_id(self.device.vendor_id(), self.device.device_id())
+            && std::env::var_os("HIERARCHOS_VULKAN_GEN9_STREAM_BATCH").is_none_or(|v| v != "0")
+    }
+
     fn scratch(
         &self,
         needs_output: bool,
@@ -27361,12 +27412,18 @@ impl TieredLmHead {
                 .get(start..start + count)
                 .context("streamed row-map bounds")?;
             let mut result = Vec::with_capacity(count * self.input_dim);
-            for &row in selected {
+            let max_rows = (crate::weight_offload::DEFAULT_TILE_BYTES as usize / 4 / self.input_dim).max(1);
+            let mut first = 0;
+            while first < selected.len() {
+                let mut end = first + 1;
+                while end < selected.len() && end - first < max_rows
+                    && selected[end - 1].checked_add(1) == Some(selected[end]) { end += 1; }
                 result.extend(package.read_f32_elements(
                     &self.name,
-                    row * self.input_dim,
-                    self.input_dim,
+                    selected[first] * self.input_dim,
+                    (end - first) * self.input_dim,
                 )?);
+                first = end;
             }
             return Ok(result);
         }
@@ -27383,14 +27440,7 @@ impl TieredLmHead {
         if !self.transposed {
             return package.read_f32_rows(&self.name, start, count);
         }
-        let mut tile = vec![0.0; count * self.input_dim];
-        for col in 0..self.input_dim {
-            let source = package.read_f32_rows(&self.name, col, 1)?;
-            for row in 0..count {
-                tile[row * self.input_dim + col] = source[start + row];
-            }
-        }
-        Ok(tile)
+        Self::affine_rows(&mut package, &self.name, (0, 1, self.vocab_size), self.input_dim, start, count)
     }
 
     fn record_expert_projection(
@@ -27529,10 +27579,19 @@ impl TieredLmHead {
             );
         }
         let direct = self.single_tile() && !input.overlaps_storage_with(output);
+        let batch_small_uploads = self.batches_small_uploads(direct);
         let (weight_tile, output_scratch, bias_scratch) = self.scratch(!direct)?;
         let output_tile = output_scratch.as_ref().unwrap_or(output);
         for (start, count) in self.tile_plan() {
             let values = self.read_rows(start, count)?;
+            let upload_bytes = values.len().checked_add(if self.bias.is_some() { count } else { 0 })
+                .and_then(|len| len.checked_mul(std::mem::size_of::<f32>()))
+                .context("streamed projection upload size overflow")?;
+            let defer_retirement = batch_small_uploads && upload_bytes <= GEN9_STREAM_BATCH_BYTES;
+            if defer_retirement
+                && commands.uploaded_bytes().saturating_add(upload_bytes) > GEN9_STREAM_BATCH_BYTES {
+                commands.submit_and_restart()?;
+            }
             commands.upload_f32(&weight_tile, &values)?;
             let bias_tile = match (self.bias.as_ref(), bias_scratch.as_ref()) {
                 (Some(bias), Some(tile)) => {
@@ -27593,10 +27652,11 @@ impl TieredLmHead {
                     )?;
                 }
             }
-            // Retire the upload arena with the tile. Keeping every tile's
-            // staged upload alive until the whole graph submits would retain
-            // a vocabulary-sized host-visible buffer despite bounded weights.
-            commands.submit_and_restart()?;
+            // Large, multi-tile and aliased projections retire as before. Small
+            // independent Gen9 tiles can share one bounded upload window; the
+            // batch retains their buffers and orders transfers against reads.
+            // The next tile retires this window before exceeding the byte cap.
+            if !defer_retirement { commands.submit_and_restart()?; }
         }
         Ok(())
     }
@@ -50675,19 +50735,25 @@ impl VulkanMoe {
         } else {
             &self.up_pre
         };
-        activation.record_dispatch(
-            commands,
-            &[activation_input, &self.activation],
-            bytemuck::bytes_of(&activation_push),
-            [div_ceil_u32(rows * intermediate, 256), 1, 1],
-        )?;
-        let projection_input = if gate.is_some() {
-            kernels.elementwise_mul_forward.record_dispatch(
+        let fused = gate.is_some() && kernels.try_silu_product(commands, activation_function,
+            &self.gate_pre, &self.up_pre, &self.activation, &self.product, rows * intermediate, training)?;
+        if !fused {
+            activation.record_dispatch(
                 commands,
-                &[&self.activation, &self.up_pre, &self.product],
+                &[activation_input, &self.activation],
                 bytemuck::bytes_of(&activation_push),
                 [div_ceil_u32(rows * intermediate, 256), 1, 1],
             )?;
+        }
+        let projection_input = if gate.is_some() {
+            if !fused {
+                kernels.elementwise_mul_forward.record_dispatch(
+                    commands,
+                    &[&self.activation, &self.up_pre, &self.product],
+                    bytemuck::bytes_of(&activation_push),
+                    [div_ceil_u32(rows * intermediate, 256), 1, 1],
+                )?;
+            }
             &self.product
         } else if training && activation_dropout > 0.0 {
             // SwitchTransformersDenseActDense applies dropout after the
@@ -55845,7 +55911,7 @@ impl VulkanQwen4QsaIndexer {
             ],
             bytemuck::bytes_of(&push),
             [
-                div_ceil_u32(key_value_seq_len, 8),
+                1,
                 div_ceil_u32(seq_len, 8),
                 batch_size as u32,
             ],
@@ -56846,7 +56912,7 @@ impl VulkanQwenGatedDeltaNet {
             .checked_mul(seq_len)
             .context("Qwen Gated DeltaNet row count overflow")?;
         let input = if let Some(attention_mask) = attention_mask {
-            // Qwen3.5 applies its 2D padding mask to the post-norm hidden
+            // Qwen recurrent layers apply their 2D padding mask to post-norm hidden
             // states before every DeltaNet projection/conv. Keeping the mask
             // here (rather than only masking recurrent outputs) is required
             // because padded projected values otherwise contaminate later
@@ -60110,10 +60176,11 @@ impl VulkanTransformerLayer {
                         &self.tape.attention,
                         if matches!(
                             config.architecture,
-                            VulkanTransformerArchitecture::Qwen35
+                            VulkanTransformerArchitecture::Qwen3Next
+                                | VulkanTransformerArchitecture::Qwen35
                                 | VulkanTransformerArchitecture::Qwen35Moe
                                 | VulkanTransformerArchitecture::Qwen4Exp
-                        ) {
+                        ) && seq_len > 1 {
                             Some(attention_mask)
                         } else {
                             None
@@ -61182,29 +61249,33 @@ impl VulkanTransformerLayer {
                         [div_ceil_u32(rows * i, 256), 1, 1],
                     )?;
                 } else {
-                    let gated_activation_forward = match config.effective_activation_function() {
-                        "silu" => &kernels.silu_forward,
-                        "relu" => &kernels.relu_forward,
-                        "relu2" => &kernels.relu2_forward,
-                        "gelu" => &kernels.gelu_erf_forward,
-                        _ => &kernels.gelu_tanh_forward,
-                    };
-                    gated_activation_forward.record_dispatch(
-                        commands,
-                        &[&self.tape.mlp_gate_pre, &self.tape.mlp_activation],
-                        bytemuck::bytes_of(&activation_push),
-                        [div_ceil_u32(rows * i, 256), 1, 1],
-                    )?;
-                    kernels.elementwise_mul_forward.record_dispatch(
-                        commands,
-                        &[
-                            &self.tape.mlp_activation,
-                            &self.tape.mlp_pre,
-                            &self.tape.mlp_product,
-                        ],
-                        bytemuck::bytes_of(&activation_push),
-                        [div_ceil_u32(rows * i, 256), 1, 1],
-                    )?;
+                    if !kernels.try_silu_product(commands, config.effective_activation_function(),
+                        &self.tape.mlp_gate_pre, &self.tape.mlp_pre, &self.tape.mlp_activation,
+                        &self.tape.mlp_product, rows * i, training)? {
+                        let gated_activation_forward = match config.effective_activation_function() {
+                            "silu" => &kernels.silu_forward,
+                            "relu" => &kernels.relu_forward,
+                            "relu2" => &kernels.relu2_forward,
+                            "gelu" => &kernels.gelu_erf_forward,
+                            _ => &kernels.gelu_tanh_forward,
+                        };
+                        gated_activation_forward.record_dispatch(
+                            commands,
+                            &[&self.tape.mlp_gate_pre, &self.tape.mlp_activation],
+                            bytemuck::bytes_of(&activation_push),
+                            [div_ceil_u32(rows * i, 256), 1, 1],
+                        )?;
+                        kernels.elementwise_mul_forward.record_dispatch(
+                            commands,
+                            &[
+                                &self.tape.mlp_activation,
+                                &self.tape.mlp_pre,
+                                &self.tape.mlp_product,
+                            ],
+                            bytemuck::bytes_of(&activation_push),
+                            [div_ceil_u32(rows * i, 256), 1, 1],
+                        )?;
+                    }
                 }
                 &self.tape.mlp_product
             } else {
@@ -62658,10 +62729,11 @@ impl VulkanTransformerLayer {
                     &self.tape.grad_ln1,
                     if matches!(
                         config.architecture,
-                        VulkanTransformerArchitecture::Qwen35
+                        VulkanTransformerArchitecture::Qwen3Next
+                            | VulkanTransformerArchitecture::Qwen35
                             | VulkanTransformerArchitecture::Qwen35Moe
                             | VulkanTransformerArchitecture::Qwen4Exp
-                    ) {
+                    ) && seq_len > 1 {
                         Some(attention_mask)
                     } else {
                         None
@@ -65470,6 +65542,58 @@ impl VulkanSeq2SeqTransformer {
             decoder,
             encoder_to_decoder_projection: None,
         })
+    }
+
+    /// Explicitly stream frozen ordinary projections in both graphs and the
+    /// decoder vocabulary. Conversion follows resident loading; specialized
+    /// operators and encoder embeddings retain their existing storage policy.
+    pub fn from_hf_package_with_streamed_parameters(
+        device: VulkanDevice,
+        model_dir: impl AsRef<Path>,
+        batch_size: usize,
+        encoder_seq_len: usize,
+        decoder_seq_len: usize,
+    ) -> Result<Self> {
+        let directory = model_dir.as_ref();
+        let mut graph = Self::from_hf_package_with_batch_size(
+            device, directory, batch_size, encoder_seq_len, decoder_seq_len,
+        )?;
+        graph.decoder.stream_lm_head_from_package(directory)?;
+        for component in [&mut graph.encoder, &mut graph.decoder] {
+            let before = component.device.memory_stats()?.live_buffer_bytes;
+            component.stream_linear_parameters_from_package(directory)?;
+            component.streaming_retired_parameter_bytes = before.saturating_sub(
+                component.device.memory_stats()?.live_buffer_bytes,
+            );
+        }
+        Ok(graph)
+    }
+
+    /// Ordinary streamed projections across encoder, decoder and cross-attention.
+    pub fn streamed_linear_count(&self) -> usize {
+        self.encoder.streamed_linear_count() + self.decoder.streamed_linear_count()
+    }
+
+    pub fn streaming_retired_parameter_bytes(&self) -> usize {
+        self.encoder.streaming_retired_parameter_bytes() + self.decoder.streaming_retired_parameter_bytes()
+    }
+
+    /// Deduplicate readers shared by the two graphs before reporting I/O.
+    pub fn streamed_linear_package_io(&mut self) -> Result<Vec<(PathBuf, crate::weight_offload::OffloadLedger)>> {
+        let mut seen = BTreeSet::new();
+        let mut snapshots = Vec::new();
+        for component in [&mut self.encoder, &mut self.decoder] {
+            component.for_each_frozen_graph_linear_mut(|_, _, linear| {
+                if let Some(source) = linear.weight.tiered_source() {
+                    if seen.insert(Arc::as_ptr(&source.package) as usize) {
+                        let reader = source.package.lock().map_err(|_|anyhow!("weight package lock poisoned"))?;
+                        snapshots.push((reader.root().to_path_buf(), reader.ledger()));
+                    }
+                }
+                Ok(())
+            })?;
+        }
+        Ok(snapshots)
     }
 
     fn from_hf_encoder_decoder_package(
@@ -75225,6 +75349,7 @@ impl VulkanTransformer {
             attention_mask,
             encoder_hidden_states,
             encoder_attention_mask,
+            false,
         )
         .map(|(logits, _)| logits)
     }
@@ -75251,6 +75376,7 @@ impl VulkanTransformer {
             attention_mask,
             encoder_hidden_states,
             encoder_attention_mask,
+            true,
         )
     }
 
@@ -75276,6 +75402,7 @@ impl VulkanTransformer {
             attention_mask,
             None,
             None,
+            false,
         )
         .map(|(logits, _)| logits)
     }
@@ -75305,6 +75432,7 @@ impl VulkanTransformer {
             attention_mask,
             None,
             None,
+            false,
         )
         .map(|(logits, _)| logits)
     }
@@ -75335,6 +75463,7 @@ impl VulkanTransformer {
             attention_mask,
             encoder_hidden_states,
             encoder_attention_mask,
+            false,
         )
         .map(|(logits, _)| logits)
     }
@@ -75349,6 +75478,7 @@ impl VulkanTransformer {
         attention_mask: &[f32],
         encoder_hidden_states: Option<&[f32]>,
         encoder_attention_mask: Option<&[f32]>,
+        read_last_hidden_state: bool,
     ) -> Result<(Vec<f32>, Vec<f32>)> {
         self.forward_logits_with_context_and_roc_bert_ids_and_layer_count(
             input_ids,
@@ -75360,6 +75490,7 @@ impl VulkanTransformer {
             encoder_hidden_states,
             encoder_attention_mask,
             self.layers.len(),
+            read_last_hidden_state,
         )
     }
 
@@ -75379,6 +75510,7 @@ impl VulkanTransformer {
         encoder_hidden_states: Option<&[f32]>,
         encoder_attention_mask: Option<&[f32]>,
         active_layer_count: usize,
+        read_last_hidden_state: bool,
     ) -> Result<(Vec<f32>, Vec<f32>)> {
         if active_layer_count == 0 || active_layer_count > self.layers.len() {
             bail!(
@@ -76269,7 +76401,9 @@ impl VulkanTransformer {
         } else {
             eval_config.hidden_size
         };
-        let last_hidden_state = decoder_output.read_f32(self.rows * last_hidden_dim)?;
+        let last_hidden_state = if read_last_hidden_state {
+            decoder_output.read_f32(self.rows * last_hidden_dim)?
+        } else { Vec::new() };
         Ok((logits, last_hidden_state))
     }
 
@@ -78103,6 +78237,7 @@ impl VulkanTransformer {
             encoder_hidden_states,
             encoder_attention_mask,
             active_layer_count,
+            false,
         )?;
         let row_start = (prefix.len() - 1) * self.config.vocab_size;
         Ok(logits[row_start..row_start + self.config.vocab_size].to_vec())
@@ -98579,7 +98714,7 @@ mod tests {
         assert!(relative.per_layer_values.is_none());
 
         if let Ok(device) = VulkanDevice::new() {
-            let model = VulkanSeq2SeqTransformer::from_hf_package(device, &test_dir, 3, 4)?;
+            let model = VulkanSeq2SeqTransformer::from_hf_package(device.clone(), &test_dir, 3, 4)?;
             assert_eq!(model.encoder().config().num_layers, 2);
             assert!(!model.encoder().uses_causal_attention());
             assert!(model.decoder().uses_causal_attention());
@@ -98594,6 +98729,21 @@ mod tests {
                 model.forward_logits(&source, Some(&source_mask), &decoder_ids, &decoder_mask)?;
             assert_eq!(logits.len(), decoder_ids.len() * decoder_config.vocab_size);
             assert!(logits.iter().all(|value| value.is_finite()));
+            // This loader-contract fixture intentionally repeats constant tables.
+            // Preserve rejection of an ambiguous vocabulary source, then check
+            // body/cross-attention conversion without changing the fixture.
+            let error = VulkanSeq2SeqTransformer::from_hf_package_with_streamed_parameters(
+                device.clone(), &test_dir, 1, 3, 4,
+            ).err().context("ambiguous T5 head unexpectedly accepted")?;
+            assert!(error.to_string().contains("more than one tensor equal"));
+            let mut streamed = VulkanSeq2SeqTransformer::from_hf_package(device, &test_dir, 3, 4)?;
+            streamed.encoder.stream_linear_parameters_from_package(&test_dir)?;
+            streamed.decoder.stream_linear_parameters_from_package(&test_dir)?;
+            assert_eq!(streamed.streamed_linear_count(), 22);
+            assert!(!streamed.encoder().parameters_streamed_during_loading());
+            assert!(streamed.decoder.layers[0].cross_attention.as_ref().unwrap().q_proj.weight.tiered_source().is_some());
+            assert_eq!(streamed.streamed_linear_package_io()?.len(), 1);
+            assert_eq!(streamed.forward_logits(&source, Some(&source_mask), &decoder_ids, &decoder_mask)?, logits);
         }
 
         fs::remove_dir_all(test_dir)?;

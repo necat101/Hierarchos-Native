@@ -8,6 +8,7 @@ These component comparisons do not establish complete model logit parity.
 """
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import ast
 import hashlib
@@ -22,6 +23,8 @@ import validate_deepseek_v41_quantization as quant
 import validate_deepseek_v41_engram as engram
 
 FIXTURE = Path(__file__).parent / "fixtures" / "deepseek_v41_packed_weights.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 MODEL_SHA256 = "e5decd76fe70fd56ef2f10124d245c6f64fb6a0003cc9068a1d3182a168b8d2d"
 CONVERT_SHA256 = "035028340479145594a81d6084a8424e57363adf83c0d5983914783d95614d76"
 
@@ -153,6 +156,7 @@ def make_fixture(model_path, kernel_path, convert_path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path, required=True)
     parser.add_argument("--kernel-reference-path", type=Path, required=True)
     parser.add_argument("--convert-reference-path", type=Path, required=True)
@@ -160,7 +164,7 @@ def main():
     args = parser.parse_args()
     fixture = make_fixture(args.reference_path, args.kernel_reference_path, args.convert_reference_path)
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(fixture, separators=(",", ":"), allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(fixture, separators=(",", ":"), allow_nan=False))
     elif json.loads(FIXTURE.read_text()) != fixture:
         raise AssertionError("packed fixture differs from the independent CPU reference")
     print(f"PASS packed CPU oracle: {len(fixture['decodes'])} decode cases, {len(fixture['linears'])} linear cases, {len(fixture['engrams'])} released Engram cases")

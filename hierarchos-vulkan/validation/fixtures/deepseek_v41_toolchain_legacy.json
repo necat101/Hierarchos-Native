@@ -1,0 +1,218 @@
+{
+  "deepseek_v41_attention.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "5b1f5f44d2346ecdf8d8ccc5e17b8747e106e4f6ec4fc51299e0921d22abf58a"
+  },
+  "deepseek_v41_attention_grad.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "ad8aff765bb3fad5cb79a8c9b5fa662b54f7fc8a00d93ff5b04456f353b642ef"
+  },
+  "deepseek_v41_attention_model.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "3cfbad274144417849b83b25c9f686e9439f4f2c7c38d645ee86819066a350df"
+  },
+  "deepseek_v41_attention_projection_grad.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "a8768ff06aa20e674188af480250f8d1e0aa7cf2b024d05603d60cd46164752f"
+  },
+  "deepseek_v41_attention_tape.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "025a847d418b2ae1d044b49e7c12a4eb3fbe765db16b7ae95dfae3db72d914a7"
+  },
+  "deepseek_v41_backbone.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "82fb7530ac55880e43bbc947c29a12b08f538876ae6acf17b3761ae2fa40073f"
+  },
+  "deepseek_v41_bf16_model.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "178c7585504768474db206e62a388ea1af00b567939603c6561645947ffd37cd"
+  },
+  "deepseek_v41_block_grad.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "b50115c6b0a82c43eae5f354238f15b962a3d78056d5988c51410a2331ea7072"
+  },
+  "deepseek_v41_compressor.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "c5ce47c29d7a41402f87741e6edb8855fe2f43576dc30ce7a2018912a643d4a2"
+  },
+  "deepseek_v41_compressor_decode_grad.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "17f46f208faf573ec127e446258d4fcd07ba4507921e55e9ec33009aeb291edf"
+  },
+  "deepseek_v41_compressor_grad.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "184a4e621d7061f9bbf3b7446795a58458dc5682324049f2ffab2bb64faf4d4e"
+  },
+  "deepseek_v41_compressor_pool_math.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "6fc4c7040f45d391190de16b0d7c19ec762ebce85ccd5e5e0430a708e79c741a"
+  },
+  "deepseek_v41_conditional_adamw.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "2bc7b333db60c0c2bf789920c2bd5050d2e76e958300a17ee84c2efd465f1bae"
+  },
+  "deepseek_v41_cpu_log.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "0f77d869fa198266ab450a412e1b37b996d68b60ac9ce1c02240316ad93fc6f2"
+  },
+  "deepseek_v41_cpu_math.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "0511b838c60c424875588870efa0536b76b9427edfc7322fafcd270ec86276ad"
+  },
+  "deepseek_v41_engram.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "6c25e555af5419f354b55ad7dbcf5e02543b1f1da613bbb0cc4925fb36e38e62"
+  },
+  "deepseek_v41_engram_grad.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "6b0c0c567eee2292084476799c816a7c09cfca3a595c68b6b0becfb7991bf0fc"
+  },
+  "deepseek_v41_engram_width.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "c381e90883fcfdf24d7ef5d225e955d191b83a3827a92bf2f91c0c61138f68d1"
+  },
+  "deepseek_v41_full_bf16_training_v2.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "77a432fcb453f4c6dd491df2c003bf46c81e8ebc8a34ef5093142f8966dc4336"
+  },
+  "deepseek_v41_full_bf16_training_v3.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "ea129551716898b29ad345be8319f70fe44c4afb21c8aa70d6f39e762d412feb"
+  },
+  "deepseek_v41_full_mixed_training.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "013f1aed883f8dc4af7e38d2934b2b60e21cc7ef2ef46c8d014c5609270ac8f7"
+  },
+  "deepseek_v41_full_training.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "fdd3e86540c6bff987197acfe38d3aecf98031e84230a636318f5a132f5bfcdf"
+  },
+  "deepseek_v41_gate_tie.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "29d5a3d7bab55bef6106fd2cc005435b61938620f203fe7df9461e07c1dc624e"
+  },
+  "deepseek_v41_grouped_reduction.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "62914c02427f3340c4aad61a6fc90bde975050b5202fc312117ad90bc9a5fa7b"
+  },
+  "deepseek_v41_hash_seeding.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "db12f66fffeffaaa50db485e25ed1ff07ffa84dd2176901567e83a2911f72983"
+  },
+  "deepseek_v41_joint_model.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "00cef75fe55c2243a6c2134c65e4c0adf224ce76791022c97f75738d4a1608b8"
+  },
+  "deepseek_v41_long_context_model.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "82dcb51beea92833fa8dc382daf30846cd195f5974a17e9eaf0f9c7dd314bbbc"
+  },
+  "deepseek_v41_lora_model.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "692210d1c7808e129d125cf575ee875489ff423eb02a4db33cc551474c355853"
+  },
+  "deepseek_v41_loss_reductions.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "fca5a50f8be6264e3bd9ed453b97e422528490f13fb12257205bd6e3eaffaab4"
+  },
+  "deepseek_v41_mixed.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "9c9ec1773c6d0aaa307007d7e0991593e1a23a206275e02aaa1319c8d2dae7d4"
+  },
+  "deepseek_v41_mixed_attention.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "3b8982545d10b45cbb32d7558244d934b0ca17eef8867a36047f240677e5b47b"
+  },
+  "deepseek_v41_mixed_engram.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "5fb82a8b794de0adeba91c9ac35ff951853bbad9cb0f2c1fdecda662e41b552d"
+  },
+  "deepseek_v41_mixed_model.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "7984afe94ded0210c0dfa2ff964024200c412b7568f234131b8a8a335b6c5646"
+  },
+  "deepseek_v41_mixed_moe_grad.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "f45527b3d6d223e7bd353950121946160ab16db2fc96f3d49b550dd85c092975"
+  },
+  "deepseek_v41_model.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "679ebe1cdbe421ded12b911fb24dfd64995598caeb1ebe619434229444ffc7af"
+  },
+  "deepseek_v41_model_additional.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "f37fea66068071a7451a4d20487df40cbffec70837d02f2d64b32edde3c95f5a"
+  },
+  "deepseek_v41_packed_grad.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "e97c0cbdae4368b115abdf896c11102b5b3eb6ad8f57ec50626d19cd77c7c3dc"
+  },
+  "deepseek_v41_packed_weights.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "165ce7b960d1d7ad19eab933912b01b47d051c6b7ea6c54e5f332b7f52e19550"
+  },
+  "deepseek_v41_production_attention.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "c7396252fef12b52412fadf008d3920b05bcb9bd5a5c1aa26a11893689068e82"
+  },
+  "deepseek_v41_production_model.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "ea1b00dd3ffe4bf5786c4daf632c2054904b5f8f929428bbbb92636cb3e6a524"
+  },
+  "deepseek_v41_production_ratio_model.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "90b209b57a92386421a93de60289964b1881fbbd24b98444fcbdffc84cf31c40"
+  },
+  "deepseek_v41_production_ratio_training.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "af2832cdfe891bf017808d1c1151d2e403a22c7ea69b0d5dcf806d62a8573985"
+  },
+  "deepseek_v41_production_ratio_training_v2.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "3dd99546f378a6dd7b87cc2f37eec64fa2a2f99a4e0d4c61211a07b0ea453a20"
+  },
+  "deepseek_v41_projection_grad.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "a251f888d350b54ce3ba58e301331f2ee9c583376469e313ff7dfd63aa7021e2"
+  },
+  "deepseek_v41_router_width.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "06ada7581a6e115542427e245ca6ce58c20b7ec30697a0ed2163ccd3f9526041"
+  },
+  "deepseek_v41_routing_reduction.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "8698f6c202094567b25fcdeda4570b726795f6b6b604481bc722fd47a1086c61"
+  },
+  "deepseek_v41_schedule_attention.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "c04ac2bfa81aebe9c98219222c48548acbf5504ab7bb14a66a7082a32358a725"
+  },
+  "deepseek_v41_schedule_width_model.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "70d2218429c2d4b8623a8ebbdd6c659eec22f7f64f9eeecd3d95c5d7877fdcf0"
+  },
+  "deepseek_v41_structure_model.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "4817e35531eb0d8c076f8a76a8a55a5bab36eafe8653d017eb006aa7c01e80cc"
+  },
+  "deepseek_v41_terminal_grad.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "a8d9f5260396a84fb436324d90f9fcbe7df29fa713a274cb3c11e6077a0bf8e2"
+  },
+  "deepseek_v41_unary.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "5659adfbbc35a2129b633a1ba01e5a6cc19810cc75807a19367a90cf076e6bec"
+  },
+  "deepseek_v41_weight_grad_order.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "6a995e57029f58fc5b07f706247902e2ed0c85fd2507a7237a1829d51634e29c"
+  },
+  "deepseek_v41_wide_kernels.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "67809924b41bc05e1f4eca9dbe017151f906b8471f87b5dde52a2c207a682a51"
+  },
+  "deepseek_v41_wide_model.json": {
+    "reason": "Historical frozen oracle; not yet reproduced under a verified torch/numpy/CPU toolchain. Do not infer a pin from the host description.",
+    "sha256": "8f468d860c162fb08cddd554cbf85d5b108092a37d326460fdcd75dec018274f"
+  }
+}

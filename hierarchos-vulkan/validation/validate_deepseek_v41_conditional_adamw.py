@@ -5,6 +5,7 @@ Expert/Gate/MoE bodies and the already qualified packed FP32 STE mirror.
 No native outputs are used to create expectations; existing fixtures stay fixed.
 """
 from __future__ import annotations
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -15,6 +16,8 @@ import validate_deepseek_v41_mixed_moe_grad as moe_grad
 from validate_deepseek_v41_packed_grad import ste_round
 
 FIXTURE=Path(__file__).parent/"fixtures/deepseek_v41_conditional_adamw.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SEED=4141231
 MODULES=[
     ("layers.0.attn.wq_a",2,16,8,3.0),
@@ -128,13 +131,14 @@ def mixed_moe_case(path):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path",type=Path,default=Path(__file__).resolve().parents[2]/".tmp-v41-ref/model.py")
     args=p.parse_args();torch.set_num_threads(1)
     result=dict(seed=SEED,torch_version=torch.__version__,torch_revision=torch.version.git_version,
         tolerance=2e-7,rtol=0.0,comparison="strict_less_than",units=[unit_case(False),unit_case(True)],mixed_moe=mixed_moe_case(args.reference_path))
     if FIXTURE.exists() and json.loads(FIXTURE.read_text())!=result:
         raise SystemExit("conditional AdamW fixture changed; refusing to overwrite pinned evidence")
-    FIXTURE.write_text(json.dumps(result,separators=(",",":"),allow_nan=False)+"\n",encoding="utf-8")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(result,separators=(",",":"),allow_nan=False)+"\n",encoding="utf-8")
     print("PASS: LoRA/rsLoRA, nine conditional AdamW calls each; three computed-gradient mixed-MoE updates")
 
 if __name__=="__main__":main()

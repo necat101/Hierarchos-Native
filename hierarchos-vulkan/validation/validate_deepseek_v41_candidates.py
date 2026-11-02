@@ -7,6 +7,7 @@ PyTorch is a development oracle only; the native runtime uses Rust/Vulkan.
 
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import ast
 import hashlib
@@ -22,6 +23,8 @@ MODEL = "deepseek-ai/DeepSeek-V4.1-Flash-1017"
 REVISION = "1bae0e1088993b9b82de08f59de5be5a34e42170"
 SOURCE_SHA256 = "e5decd76fe70fd56ef2f10124d245c6f64fb6a0003cc9068a1d3182a168b8d2d"
 FIXTURE = Path(__file__).parent / "fixtures" / "deepseek_v41_candidates.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 
 def load_source(path: Path | None):
@@ -125,6 +128,7 @@ def make_fixture(reference):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path, help="optional local copy of the pinned inference/model.py")
     parser.add_argument("--write-fixture", action="store_true", help="regenerate the checked-in oracle fixture")
     args = parser.parse_args()
@@ -136,7 +140,7 @@ def main():
         metadata = {key: value for key, value in fixture.items() if key != "cases"}
         prefix = json.dumps(metadata, indent=2)[:-2]
         cases = ",\n".join("    " + json.dumps(case, allow_nan=False, separators=(",", ":")) for case in fixture["cases"])
-        FIXTURE.write_text(prefix + ',\n  "cases": [\n' + cases + "\n  ]\n}\n", encoding="utf-8")
+        fixture_toolchain.write_fixture(FIXTURE, prefix + ',\n  "cases": [\n' + cases + "\n  ]\n}\n", encoding="utf-8")
     else:
         if json.loads(FIXTURE.read_text(encoding="utf-8")) != fixture:
             raise RuntimeError("checked-in candidate fixtures differ from the pinned reference")

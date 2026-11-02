@@ -104,7 +104,7 @@ impl LinearKernel {
         Ok(Self {
             kernel: vulkan::ComputeKernel::new(
                 device,
-                LINEAR,
+                crate::deepseek_v41::gen9::shader(device, LINEAR),
                 3,
                 std::mem::size_of::<LinearPush>() as u32,
             )?,
@@ -215,7 +215,7 @@ impl HalfLinearKernel {
         Ok(Self {
             kernel: vulkan::ComputeKernel::new(
                 device,
-                LINEAR_HALF,
+                crate::deepseek_v41::gen9::shader(device, LINEAR_HALF),
                 3,
                 std::mem::size_of::<HalfLinearPush>() as u32,
             )?,
@@ -588,7 +588,7 @@ impl DeepseekV41IndexScorer {
         Ok(Self {
             kernel: vulkan::ComputeKernel::new(
                 &device,
-                SCORES,
+                crate::deepseek_v41::gen9::shader(&device, SCORES),
                 5,
                 std::mem::size_of::<ScorePush>() as u32,
             )?,

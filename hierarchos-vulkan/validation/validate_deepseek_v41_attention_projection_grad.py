@@ -5,6 +5,7 @@ follow the existing packed projection contract; the functional cache graph
 keeps cross-step gradients live. RMSNorm, complex-table RoPE, the sparse sink
 expression and grouped output follow the pinned released attention forward.
 """
+import fixture_toolchain
 import hashlib
 import json
 from pathlib import Path
@@ -21,6 +22,8 @@ from validate_deepseek_v41_rotary import load_reference, SOURCE_SHA256, REVISION
 
 HERE = Path(__file__).resolve().parent
 FIXTURE = HERE / "fixtures/deepseek_v41_attention_projection_grad.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SOURCE = HERE.parents[1] / ".tmp-v41-ref/model.py"
 
 
@@ -209,7 +212,7 @@ def main():
         cases=[case(s,i) for i,s in enumerate(specs)])
     if FIXTURE.exists() and json.loads(FIXTURE.read_text()) != payload:
         raise SystemExit("attention-projection fixture changed; refusing to overwrite frozen CPU evidence")
-    FIXTURE.write_text(json.dumps(payload,indent=2)+"\n")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload,indent=2)+"\n")
     print("PASS CPU attention projection fixture:",len(payload["cases"]),"graphs,",
           sum(len(c["steps"]) for c in payload["cases"]),"steps;",hashlib.sha256(FIXTURE.read_bytes()).hexdigest())
 

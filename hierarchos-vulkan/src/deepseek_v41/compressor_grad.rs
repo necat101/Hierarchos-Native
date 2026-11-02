@@ -195,7 +195,7 @@ fn kernel(
 ) -> Result<vulkan::ComputeKernel> {
     let mut access = vec![vulkan::BindingAccess::ReadOnly; reads];
     access.extend(vec![vulkan::BindingAccess::WriteOnly; writes]);
-    vulkan::ComputeKernel::new_with_access(device, bytes, &access, push as u32)
+    vulkan::ComputeKernel::new_with_access(device, crate::deepseek_v41::gen9::shader(device, bytes), &access, push as u32)
 }
 fn count(a: usize, b: usize) -> Result<usize> {
     a.checked_mul(b)
@@ -397,7 +397,7 @@ impl DeepseekV41CompressorAdjoints {
                     tail: tail as u32,
                     written_slot: 0,
                     has_slot_grad: u32::from(state_gradient.is_some()),
-                    vector_width: crate::transformer::aten_vector_width() as u32,
+                    vector_width: super::compressor::COMPRESSOR_VECTOR_WIDTH,
                 };
                 self.pool_grad.record_dispatch(
                     &mut commands,
@@ -630,7 +630,7 @@ impl DeepseekV41CompressorAdjoints {
                 written_slot: (p.start_pos % p.ratio) as u32,
                 groups: groups as u32,
                 has_state_grad: u32::from(state_gradient.is_some()),
-                vector_width: crate::transformer::aten_vector_width() as u32,
+                vector_width: super::compressor::COMPRESSOR_VECTOR_WIDTH,
             };
             self.decode_grad.record_dispatch(
                 &mut commands,

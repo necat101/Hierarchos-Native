@@ -4,6 +4,7 @@ Forward is checked against the independently frozen released BF16 model before
 any training evidence is accepted. Packed GEMMs use the existing adjoint
 contract; the released Block, Expert, Engram, Gate and Transformer bodies run.
 """
+import fixture_toolchain
 import copy
 import hashlib
 import json
@@ -17,6 +18,8 @@ from validate_deepseek_v41_packed_grad import packed_forward
 HERE=Path(__file__).resolve().parent
 BASE=HERE/'fixtures/deepseek_v41_bf16_model.json'
 FIXTURE=HERE/'fixtures/deepseek_v41_full_bf16_training_v3.json'
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 original_build=full.build
 
 class Round(torch.autograd.Function):
@@ -202,7 +205,7 @@ def main():
         source_sha256=hashlib.sha256(full.SOURCE.read_bytes()).hexdigest(),torch_version=torch.__version__,torch_git_version=torch.version.git_version,
         contract='Full BF16/FP4/FP8 model with established FP32 STE cast and quantizer boundaries, including the indexer bf16 einsum/product/head-sum boundaries; unchanged released block bodies',cases=cases)
     if FIXTURE.exists() and json.loads(FIXTURE.read_text())!=payload:raise SystemExit('BF16 CPU training fixture changed; refusing overwrite')
-    FIXTURE.write_text(json.dumps(payload,indent=2)+'\n')
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload,indent=2)+'\n')
     print('PASS full BF16 CPU training fixture',hashlib.sha256(FIXTURE.read_bytes()).hexdigest())
 
 if __name__=='__main__':main()
