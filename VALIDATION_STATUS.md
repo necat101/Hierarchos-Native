@@ -1,13 +1,14 @@
 # Current validation scope
 
-The [November 2 physical RDNA3 audit](hierarchos-vulkan/validation/RDNA3_POST_GEN9_RECEIPT.md)
-passes V4.1 Flash and native PEFT, all 32 previously green streaming profiles,
-and 72 generation requests. Its expanded forward matrix is 164/166: the padded
-GPT-2-wide case remains outside qualification, with the same failing logit
-words reproduced by the pre-Gen9 binary. No introduced regression was found
-in the recorded V4.1/streaming scopes. The strict `<2e-7`, `rtol=0` gate and all
-frozen expectations remain unchanged. This is a scoped physical audit, not a
-complete architecture-registry or all-profile training certificate.
+The [November 2 RDNA3 closure](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md)
+passes **166/166 forward runs** across 43 profiles / 26 architecture identifiers
+and **72/72 generation requests**. The padded GPT-2-wide gap is closed at the
+unchanged strict `<2e-7`, `rtol=0` gate with the original CPU words. V4.1 native
+PEFT, resident/streamed GPT-2 CPU PEFT, offload and streaming regressions pass.
+The new math is selected only for RDNA3 GPT-2; all 585 existing shader binaries
+are unchanged and Gen9 routing is guard-tested. This host has no physical Gen9
+adapter, so no new physical Intel run is claimed. This remains a scaled-checkpoint
+certificate, not complete architecture-registry or all-profile CPU training coverage.
 
 The [final Gen9 receipt](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md)
 closes the Llama-wide streaming regression: 11.016 to 4.597 ms against the
@@ -16,7 +17,7 @@ batching preserves every measured logit word. All 269 selected Rust tests,
 166 forward runs and 72 generation runs pass at `max_abs < 2e-7`, `rtol=0`.
 The broader eight-control run shows lower resident and streaming medians.
 This is the final Gen9 optimization pass. The frozen-reference RDNA3 runner is
-available; the physical audit above records its passing and incomplete scopes. The
+available; the physical closure above records the complete measured matrix. The
 [earlier optimization receipt](hierarchos-vulkan/validation/GEN9_OPTIMIZATION_RECEIPT.md)
 retains the original measurements and the exception this final pass closes.
 
@@ -24,7 +25,7 @@ The Gen9 changes are published for device testing on
 `codex/gen9-final-rdna3-qualification`. Follow the
 [RDNA3 regression runbook](RDNA3_REGRESSION.md) for a fresh AMD run; the scoped
 physical result is linked above. Qualification archives are immutable
-snapshots from before publication; they do not claim a new physical RDNA3 pass.
+snapshots; only the new closure receipt claims the new physical RDNA3 pass.
 
 The next Gen9 architecture-port phase is recorded in the
 [architecture receipt](hierarchos-vulkan/validation/GEN9_ARCHITECTURES_RECEIPT.md):
@@ -50,10 +51,12 @@ see the [fixture audit](hierarchos-vulkan/validation/V41_FIXTURE_PROVENANCE.md).
 **The published RDNA3 validation below binds the original handoff, before the
 Gen9 shader changes.** It covers V4.1 Flash and recorded parameter/MoE streaming
 checks, not the complete architecture registry or all precision policies.
-This pass does not add fresh physical RDNA3 qualification.
+Those historical receipts do not add current-revision physical qualification;
+the November 2 closure above supplies the fresh RDNA3 result.
 
 | Device / revision | Validated scope |
 | --- | --- |
+| AMD Radeon Graphics / Ryzen Z1 Extreme, 2026-11-02 GPT-2 closure | 166/166 forward runs, 72/72 generation requests; V4.1 native PEFT and resident/streamed GPT-2 CPU PEFT; 269 selected native tests, 50 GPT-2 tests and unchanged Gen9 shader artifacts |
 | AMD Radeon Graphics / Ryzen Z1 Extreme, published `2695c93` handoff | V4.1 Flash native resident/streamed inference, LoRA/rsLoRA training, save/resume/export, and the recorded parameter/MoE streaming matrix |
 | Intel HD Graphics 520, 2026-11-01 Gen9 follow-up | Retained scaled-checkpoint inference, resident/streamed execution, wide YaRN and native PEFT gates; 250 passing tests, plus all-target workspace and shader checks |
 | Intel HD Graphics 520, 2026-11-01 architecture continuation | 166 forward runs, 72 generation runs, 26 native architectures; resident/streamed word identity; 53 fresh V4.1 model/training tests and six native regression tests |

@@ -1,0 +1,28 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// RDNA3 has IEEE FP32 FMA; this module is never selected on Intel Gen9.
+#define fp32_fma_exact fma
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_tanh.glsl"
+#include "fp32_tanh_ha.glsl"
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(push_constant) uniform Push { uint len; } pc;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= pc.len) return;
+    float x = input_values[i];
+    const float C = 0.7978845608028654f;
+    // PyTorch's tanh GELU computes kappa * pow(x, 3).  Materialize x^3
+    // before applying kappa: `kappa * x * x * x` associates kappa into the
+    // multiply chain and differs by one FP32 ulp for some inputs.
+    precise float x2 = x * x;
+    precise float x3 = x2 * x;
+    precise float cubic = 0.044715f * x3;
+    precise float inner = x + cubic;
+    precise float u = C * inner;
+    output_values[i] = 0.5 * x * (1.0 + cpu_tanh_ha(u));
+}

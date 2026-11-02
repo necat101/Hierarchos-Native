@@ -1,21 +1,23 @@
 # Physical RDNA3 regression
 
-The [November 2 physical audit](hierarchos-vulkan/validation/RDNA3_POST_GEN9_RECEIPT.md)
-passes the V4.1/PEFT and previous 32-profile streaming scopes. The expanded
-forward matrix remains 164/166 because padded GPT-2 wide reproduces the same
-failure on the old binary. Use `--keep-going` to collect the later gates too;
-the final result still fails when any scope fails.
+The [November 2 closure](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md)
+passes all 166 forward runs, 72 generation requests and the selected
+V4.1/PEFT/streaming regressions on physical RDNA3. It closes the earlier padded
+GPT-2-wide gap without changing the frozen CPU words or Gen9 shader binaries.
+Use `--keep-going` to collect later gates after a numerical failure; the final
+result still fails when any scope fails.
 
-Use `codex/rdna3-post-gen9-regressions` to test the final Gen9 port on the
-RDNA3 device. Gen9 qualification is complete; the linked physical RDNA3 audit
-records the measured scopes and the remaining expanded-matrix gap. The earlier
+Use `main` to test the final Gen9 port and RDNA3 parity closure on the
+RDNA3 device. Gen9 qualification is complete; the linked physical RDNA3 closure
+records the measured scopes. The earlier
 verified RDNA3 receipts bind the original handoff.
 
 From the repository on the RDNA3 machine:
 
 ```powershell
 git fetch origin
-git switch --track origin/codex/rdna3-post-gen9-regressions
+git switch main
+git merge --ff-only origin/main
 python -m zipfile -e hierarchos-vulkan/validation/release_parity/gen9_final/20261101/evidence.zip target/rdna-final-reference
 ```
 

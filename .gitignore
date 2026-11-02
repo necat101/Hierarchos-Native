@@ -64,6 +64,8 @@ hierarchos-vulkan/validation/fixtures/deepseek_v41_schedule_width_*/
 hierarchos-vulkan/validation/fixtures/*/
 !hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/
 !hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/*.safetensors
+!hierarchos-vulkan/validation/fixtures/gpt2_rdna3_parity/
+!hierarchos-vulkan/validation/fixtures/gpt2_rdna3_parity/*.safetensors
 !hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141101/
 !hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141101/*.safetensors
 !hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141102/

@@ -1,5 +1,9 @@
 # Physical RDNA3 audit of the final Gen9 port: 2026-11-02
 
+**Historical audit:** the subsequent [RDNA3 GPT-2 closure](RDNA3_GPT2_CLOSURE.md)
+closes the gap below and passes the complete measured matrix. This document
+and its original evidence retain the earlier result unchanged.
+
 The `2d18ac7` handoff passes the recorded DeepSeek V4.1 Flash and previously
 qualified parameter/MoE streaming scopes on the Ryzen Z1 Extreme / AMD Radeon
 Graphics (`1002:15bf`, driver `32.0.31007.6002`). No introduced regression was

@@ -5597,6 +5597,58 @@
    "compiler_version": "2023.8",
    "flags": [],
    "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "transformer_gelu_tanh_ha_forward.spv",
+   "source": "transformer_gelu_tanh_ha_forward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "--target-env",
+    "vulkan1.1"
+   ],
+   "target_env": "vulkan1.1"
+  },
+  {
+   "artifact": "transformer_gelu_tanh_ha_backward.spv",
+   "source": "transformer_gelu_tanh_ha_backward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "--target-env",
+    "vulkan1.1"
+   ],
+   "target_env": "vulkan1.1"
+  },
+  {
+   "artifact": "transformer_attention_forward_cpu_reciprocal.spv",
+   "source": "transformer_attention_forward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "--target-env",
+    "vulkan1.1",
+    "-DHIERARCHOS_CPU_ATTENTION_RECIPROCAL=1",
+    "-DHIERARCHOS_CPU_ATTENTION_SHORT_SDPA=1"
+   ],
+   "target_env": "vulkan1.1"
+  },
+  {
+   "artifact": "transformer_attention_backward_cpu_reciprocal.spv",
+   "source": "transformer_attention_backward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "--target-env",
+    "vulkan1.1",
+    "-DHIERARCHOS_CPU_ATTENTION_RECIPROCAL=1",
+    "-DHIERARCHOS_CPU_ATTENTION_SHORT_SDPA=1"
+   ],
+   "target_env": "vulkan1.1"
   }
  ]
 }

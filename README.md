@@ -1,12 +1,12 @@
 # Hierarchos Native
 
 **Current validation scope — November 2, 2026:** the final Intel Gen9 port
-is qualified on the i5-6200U / HD Graphics 520. A fresh physical RDNA3 audit
-passes DeepSeek V4.1 Flash, its native PEFT gates, all 32 previously green
-parameter/MoE streaming profiles and the recorded generation matrix at
-`max_abs < 2e-7`, `rtol=0`. The expanded RDNA3 forward matrix is **164/166**:
-a pre-existing padded GPT-2-wide gap remains unqualified and reproduces on the
-old executable. See the [physical audit](hierarchos-vulkan/validation/RDNA3_POST_GEN9_RECEIPT.md),
+is qualified on the i5-6200U / HD Graphics 520. The physical RDNA3 follow-up
+closes the padded GPT-2-wide gap: **166/166 resident/streamed forward runs**
+and **72/72 generation requests** pass at `max_abs < 2e-7`, `rtol=0`.
+DeepSeek V4.1 Flash, native PEFT and parameter/MoE streaming regressions pass.
+The fix selects new math only for RDNA3 GPT-2; all existing Gen9 shader bytes
+remain unchanged. See the [closure receipt](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md),
 [validation status](VALIDATION_STATUS.md) and [regression runbook](RDNA3_REGRESSION.md).
 
 Native Rust + Vulkan training and inference tooling for **Hierarchos coherent-v9** and a broad set of modern Hugging Face Transformer text architectures.
@@ -897,7 +897,8 @@ is recorded on November 1, 2026 in the
 [Gen9 receipt](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md). The earlier
 full physical ROG Ally qualification is dated October 22, 2026 and retains its
 documented scope in [RDNA3_QUALIFICATION.md](RDNA3_QUALIFICATION.md). Fresh
-physical RDNA3 regression of the Gen9 branch is pending before release.
+physical RDNA3 regression and the expanded GPT-2 parity closure are recorded
+on November 2 in the [closure receipt](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md).
 The architecture inventory and compatibility surface are generated/validated
 from source. Prefer the live `architectures` command and generated architecture
 matrix when checking a particular package.

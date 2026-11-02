@@ -3,6 +3,9 @@
 #include "fp32_fma_exact.glsl"
 #include "fp32_sqrt_recip.glsl"
 #include "fp32_sleef_exp.glsl"
+#ifdef HIERARCHOS_CPU_ATTENTION_SHORT_SDPA
+#include "fp32_v41_unary.glsl"
+#endif
 
 // Correctness-first scaled dot-product attention for the native Transformer
 // training graph. The same kernel supports causal decoder attention and full
@@ -88,15 +91,31 @@ bool deterministic_attention_exp() {
     return pc.unfused_qk == 1u || diagnostic_attention_mode_bit(2u);
 }
 
+#ifdef HIERARCHOS_CPU_ATTENTION_SHORT_SDPA
+bool short_cpu_sdpa() {
+    // CPU flash attention uses scalar exp tails below either x86 vector width
+    // and normalizes the E@V result, rather than each individual probability.
+    return pc.key_value_seq_len < 8u && pc.dropout_p == 0.0
+        && pc.has_sink == 0u && pc.value_scale == 1.0;
+}
+#endif
+
 bool deterministic_attention_divider() {
+#ifdef HIERARCHOS_CPU_ATTENTION_RECIPROCAL
+    return true;
+#else
     // Mode 9 is the llama saved-module oracle mode.  Its softmax must use the
     // same correctly rounded FP32 reciprocal as the CPU torch softmax: the
     // raw OpFDiv can land one ulp high and that probability seed drifts the
     // whole saved-module backward chain.
     return pc.unfused_qk == 1u || pc.unfused_qk == 9u || diagnostic_attention_mode_bit(3u);
+#endif
 }
 
 float attention_exp(float value) {
+#ifdef HIERARCHOS_CPU_ATTENTION_SHORT_SDPA
+    if (short_cpu_sdpa()) return v41_scalar_exp(value);
+#endif
     // Gemma4's strict CPU oracle reaches PyTorch's AVX2 Vectorized<float> exp
     // path.  The local SLEEF u10 replay is bit-identical for the recorded
     // tiny-fixture rows; the Vulkan builtin exp differs by one FP32 ulp in a
@@ -395,7 +414,12 @@ void main() {
     if (use_cache) {
         for (uint key = first_key; key <= last_key; ++key) {
             if (!cached_key_visible(key - first_key)) continue;
+#ifdef HIERARCHOS_CPU_ATTENTION_SHORT_SDPA
+            float p = short_cpu_sdpa() ? row_cache[key - first_key]
+                : row_cache[key - first_key] * inv_sum;
+#else
             float p = row_cache[key - first_key] * inv_sum;
+#endif
             p *= dropout_scale(batch, head, query, key);
             row_cache[key - first_key] = p;
         }
@@ -412,7 +436,12 @@ void main() {
                 float probability;
                 if (use_cache) probability = row_cache[key - first_key];
                 else {
+#ifdef HIERARCHOS_CPU_ATTENTION_SHORT_SDPA
+                    probability = attention_exp(score(batch, head, query, key) - max_score)
+                        * (short_cpu_sdpa() ? 1.0 : inv_sum);
+#else
                     probability = attention_exp(score(batch, head, query, key) - max_score) * inv_sum;
+#endif
                     probability *= dropout_scale(batch, head, query, key);
                 }
                 uint v_index = key_row * pc.value_hidden_size + kv_head * value_head_dim + d;
@@ -430,13 +459,22 @@ void main() {
                 float probability;
                 if (use_cache) probability = row_cache[key - first_key];
                 else {
+#ifdef HIERARCHOS_CPU_ATTENTION_SHORT_SDPA
+                    probability = attention_exp(score(batch, head, query, key) - max_score)
+                        * (short_cpu_sdpa() ? 1.0 : inv_sum);
+#else
                     probability = attention_exp(score(batch, head, query, key) - max_score) * inv_sum;
+#endif
                     probability *= dropout_scale(batch, head, query, key);
                 }
                 uint v_index = key_row * pc.value_hidden_size + kv_head * value_head_dim + d;
                 value = fma(probability, v_values[v_index] * pc.value_scale, value);
             }
         }
+#ifdef HIERARCHOS_CPU_ATTENTION_SHORT_SDPA
+        output_values[out_base + d] = short_cpu_sdpa() ? value * inv_sum : value;
+#else
         output_values[out_base + d] = value;
+#endif
     }
 }

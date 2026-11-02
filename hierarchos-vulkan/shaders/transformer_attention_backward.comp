@@ -3,6 +3,9 @@
 #include "fp32_fma_exact.glsl"
 #include "fp32_sqrt_recip.glsl"
 #include "fp32_sleef_exp.glsl"
+#ifdef HIERARCHOS_CPU_ATTENTION_SHORT_SDPA
+#include "fp32_v41_unary.glsl"
+#endif
 
 // Deterministic scaled-dot-product-attention backward. The same kernel handles
 // causal decoder attention and full bidirectional encoder attention. A single
@@ -267,6 +270,10 @@ float score_derivative(uint batch, uint head, uint query, uint key) {
 }
 
 float attention_exp(float value) {
+#ifdef HIERARCHOS_CPU_ATTENTION_SHORT_SDPA
+    if (pc.key_value_seq_len < 8u && pc.dropout_p == 0.0
+        && pc.has_sink == 0u && pc.value_scale == 1.0) return v41_scalar_exp(value);
+#endif
     // Gemma4 (unfused_qk=1) uses the ordinary GLSL exp/division path in the
     // forward kernel.  Reconstruct the exact same softmax arithmetic during
     // backward; otherwise the Q/K/V RMSNorm adjoints amplify the tiny
@@ -283,6 +290,9 @@ float attention_exp(float value) {
 }
 
 float attention_reciprocal(float value) {
+#ifdef HIERARCHOS_CPU_ATTENTION_RECIPROCAL
+    return fp32_div(1.0, value);
+#else
     // Gemma4 mode 1 and llama mode 9 use the deterministic divider in forward.
     // Backward must reconstruct the identical probability vector from the saved
     // Q/K/V operands; a raw OpFDiv here can differ by one FP32 ulp and that
@@ -291,6 +301,7 @@ float attention_reciprocal(float value) {
             || pc.unfused_qk == 9u)
         ? fp32_div(1.0, value)
         : (1.0 / value);
+#endif
 }
 
 float probability(uint batch, uint head, uint query, uint key, float max_score, float inv_sum) {

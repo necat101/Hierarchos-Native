@@ -69,6 +69,11 @@ const LAYER_NORM_WELFORD_FORWARD_SPV: &[u8] =
 const LAYER_NORM_WELFORD_SMALL_FORWARD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_layer_norm_welford_small_forward.spv");
 
+fn rdna3_gpt2_cpu_math(architecture: VulkanTransformerArchitecture, vendor: u32, device: u32) -> bool {
+    architecture == VulkanTransformerArchitecture::Gpt2
+        && vendor::is_amd_rdna3_pci_id(vendor, device)
+}
+
 fn small_welford_is_qualified(device: &str, dim: usize) -> bool {
     device == "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]" && (1..=128).contains(&dim)
 }
@@ -67844,8 +67849,9 @@ impl VulkanTransformer {
         if config.uses_parameter_free_layer_norm() {
             final_norm.freeze();
         }
-        let repaired_gpt2 = vendor::is_amd_rdna3(&device)
-            && config.architecture == VulkanTransformerArchitecture::Gpt2;
+        let repaired_gpt2 = rdna3_gpt2_cpu_math(
+            config.architecture, device.vendor_id(), device.device_id(),
+        );
         let layer_norm_spv = if repaired_gpt2 {
             // One chunk has the identical Welford association without a cascade
             // stack. Keep unmeasured adapters/drivers and larger widths on the
@@ -67868,6 +67874,33 @@ impl VulkanTransformer {
             kernels.layer_norm_rows_per_workgroup = 8;
         }
         if repaired_gpt2 {
+            // PyTorch's FP32 tanh dispatches through MKL VML in the CPU oracle.
+            // Use a high-accuracy FP32 reconstruction on this qualified adapter;
+            // the existing Gen9 and other architecture pipelines stay selected.
+            kernels.attention_forward = vulkan::ComputeKernel::new(
+                &device,
+                include_bytes!("../shaders/transformer_attention_forward_cpu_reciprocal.spv"),
+                11,
+                std::mem::size_of::<AttentionPush>() as u32,
+            )?;
+            kernels.attention_backward = vulkan::ComputeKernel::new(
+                &device,
+                include_bytes!("../shaders/transformer_attention_backward_cpu_reciprocal.spv"),
+                15,
+                std::mem::size_of::<AttentionBackwardPush>() as u32,
+            )?;
+            kernels.gelu_tanh_forward = vulkan::ComputeKernel::new(
+                &device,
+                include_bytes!("../shaders/transformer_gelu_tanh_ha_forward.spv"),
+                2,
+                4,
+            )?;
+            kernels.gelu_tanh_backward = vulkan::ComputeKernel::new(
+                &device,
+                include_bytes!("../shaders/transformer_gelu_tanh_ha_backward.spv"),
+                3,
+                4,
+            )?;
             kernels.linear_bias_forward_kblock128 = Some(vulkan::ComputeKernel::new(
                 &device,
                 LINEAR_BIAS_FORWARD_AMD_KBLOCK128_SPV,
@@ -133763,3 +133796,7 @@ mod tests {
 #[cfg(test)]
 #[path = "welford_small_tests.rs"]
 mod welford_small_tests;
+
+#[cfg(test)]
+#[path = "gpt2_cpu_math_tests.rs"]
+mod gpt2_cpu_math_tests;

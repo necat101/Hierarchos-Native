@@ -1,5 +1,9 @@
 # Final Intel Gen9 optimization pass: 2026-11-01
 
+**Follow-up:** the [November 2 RDNA3 closure](RDNA3_GPT2_CLOSURE.md) completes
+the physical AMD regression requested by this historical receipt. Its Gen9
+evidence below remains unchanged.
+
 The reported Llama-wide streaming regression is closed on the i5-6200U /
 Intel HD Graphics 520 (`8086:1916`, driver `31.0.101.2115`). The focused
 five-round comparison reduces its median from **11.016 to 4.597 ms (58.3%)**
