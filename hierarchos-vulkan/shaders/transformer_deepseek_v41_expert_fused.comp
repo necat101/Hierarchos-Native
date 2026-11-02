@@ -1,0 +1,137 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_fma_exact.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+#include "fp32_v41_packed.glsl"
+#include "fp32_v41_pow2_scale.glsl"
+#include "fp32_v41_quant_formats.glsl"
+
+// One workgroup owns one selected (token, expert) slot. All K chains remain
+// serial and ordered. Only intermediate storage and dispatch boundaries move.
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0, std430) readonly buffer Input { float a[]; };
+layout(set = 0, binding = 1, std430) readonly buffer InputScales { float a_scale[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Arena { uint arena[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Metadata { uint metadata[]; };
+layout(set = 0, binding = 4, std430) readonly buffer Indices { uint ids[]; };
+layout(set = 0, binding = 5, std430) readonly buffer Routes { float route[]; };
+layout(set = 0, binding = 6, std430) readonly buffer Counts { uint counts[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer Output { uint output_bits[]; };
+layout(push_constant) uniform FusedExpertPush {
+    uint rows;
+    uint hidden;
+    uint inter;
+    uint topk;
+    uint act_block;
+    uint bf16;
+    float limit;
+} pc;
+
+shared float activation[128];
+shared float intermediate[2304];
+shared float intermediate_scale[72];
+shared uint compact_row;
+
+uint arena_byte(uint offset) {
+    return (arena[offset / 4u] >> ((offset % 4u) * 8u)) & 255u;
+}
+float weight_value(uint meta, uint index) {
+    uint format = metadata[meta + 2u];
+    uint byte_value = arena_byte(metadata[meta] + (format == 2u ? index / 2u : index));
+    return uintBitsToFloat(format == 2u
+        ? v41_e2m1_bits((byte_value >> ((index % 2u) * 4u)) & 15u)
+        : v41_e4m3_bits(byte_value));
+}
+float weight_scale(uint meta, uint col, uint group, uint blocks) {
+    uint format = metadata[meta + 2u];
+    uint block = format == 1u ? 128u : 32u;
+    uint scale_row = format == 2u ? col : col / block;
+    return uintBitsToFloat(v41_scale_bits(0x3f800000u,
+        arena_byte(metadata[meta + 1u] + scale_row * blocks + group)));
+}
+
+void main() {
+    uint slot = gl_WorkGroupID.x, lane = gl_LocalInvocationID.x;
+    uint row = slot / pc.topk;
+    if (row >= pc.rows) return;
+    uint expert = ids[slot];
+    uint gate_meta = expert * 9u, up_meta = gate_meta + 3u, down_meta = gate_meta + 6u;
+    if (lane == 0u) {
+        compact_row = 0u;
+        for (uint r = 0u; r < row; ++r)
+            for (uint s = 0u; s < pc.topk; ++s)
+                if (ids[r * pc.topk + s] == expert) ++compact_row;
+    }
+    barrier();
+
+    uint blocks = pc.hidden / pc.act_block;
+    for (uint tile = 0u; tile < pc.inter; tile += 64u) {
+        uint col = tile + lane;
+        precise float gate_total = 0.0, up_total = 0.0;
+        for (uint group = 0u; group < blocks; ++group) {
+            uint start = group * pc.act_block;
+            float sa = a_scale[row * blocks + group];
+            for (uint i = lane; i < pc.act_block; i += 64u)
+                activation[i] = v41_div_scale(a[row * pc.hidden + start + i], sa);
+            barrier();
+            if (col < pc.inter) {
+                precise float gate_dot = 0.0, up_dot = 0.0;
+                for (uint k = 0u; k < pc.act_block; ++k) {
+                    uint index = col * pc.hidden + start + k;
+                    gate_dot = fma(activation[k], weight_value(gate_meta, index), gate_dot);
+                    up_dot = fma(activation[k], weight_value(up_meta, index), up_dot);
+                }
+                precise float g = gate_dot * sa;
+                g *= weight_scale(gate_meta, col, group, blocks);
+                gate_total += g;
+                precise float u = up_dot * sa;
+                u *= weight_scale(up_meta, col, group, blocks);
+                up_total += u;
+            }
+            barrier();
+        }
+        if (col < pc.inter) {
+            float g = uintBitsToFloat(v41_bf16_bits(floatBitsToUint(gate_total)));
+            float u = uintBitsToFloat(v41_bf16_bits(floatBitsToUint(up_total)));
+            if (pc.limit > 0.0) { g = min(g, pc.limit); u = clamp(u, -pc.limit, pc.limit); }
+            precise float value = v41_cpu_silu(g, compact_row * pc.inter + col,
+                counts[expert] * pc.inter) * u;
+            value *= route[slot];
+            intermediate[col] = pc.bf16 != 0u
+                ? uintBitsToFloat(v41_bf16_bits(floatBitsToUint(value))) : value;
+        }
+    }
+    barrier();
+
+    uint down_block = metadata[down_meta + 2u] == 1u ? 128u : 32u;
+    uint down_blocks = pc.inter / down_block;
+    for (uint group = lane; group < down_blocks; group += 64u) {
+        uint start = group * down_block;
+        precise float amax = 0.0;
+        for (uint k = 0u; k < down_block; ++k) amax = max(amax, abs(intermediate[start + k]));
+        amax = max(amax, 1e-4);
+        precise float scale = round_scale_pow2(amax * (1.0 / 448.0));
+        intermediate_scale[group] = scale;
+        for (uint k = 0u; k < down_block; ++k) {
+            precise float q = clamp(v41_div_scale(intermediate[start + k], scale), -448.0, 448.0);
+            precise float dequantized = decode_e4m3(encode_e4m3(q)) * scale;
+            intermediate[start + k] = v41_div_scale(dequantized, scale);
+        }
+    }
+    barrier();
+    for (uint col = lane; col < pc.hidden; col += 64u) {
+        precise float total = 0.0;
+        for (uint group = 0u; group < down_blocks; ++group) {
+            uint start = group * down_block;
+            precise float dot = 0.0;
+            for (uint k = 0u; k < down_block; ++k)
+                dot = fma(intermediate[start + k], weight_value(down_meta, col * pc.inter + start + k), dot);
+            precise float scaled = dot * intermediate_scale[group];
+            scaled *= weight_scale(down_meta, col, group, down_blocks);
+            total += scaled;
+        }
+        output_bits[slot * pc.hidden + col] = v41_bf16_bits(floatBitsToUint(total));
+    }
+}

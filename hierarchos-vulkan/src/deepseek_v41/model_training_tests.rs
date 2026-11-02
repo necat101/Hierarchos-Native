@@ -426,9 +426,7 @@ fn optimizer_residual_gate(
 
 #[test]
 fn deepseek_v41_full_model_cpu_autograd_adamw_resume_and_export_gate() -> Result<()> {
-    full_training_fixture_gate(include_str!(
-        "../../validation/fixtures/deepseek_v41_full_training.json"
-    ))
+    full_training_fixture_gate(include_str!("../../validation/fixtures/deepseek_v41_full_training.json"))
 }
 #[test]
 fn deepseek_v41_full_model_packed_cpu_autograd_adamw_resume_and_export_gate() -> Result<()> {
@@ -436,7 +434,14 @@ fn deepseek_v41_full_model_packed_cpu_autograd_adamw_resume_and_export_gate() ->
 }
 #[test]
 fn deepseek_v41_full_model_bf16_cpu_autograd_adamw_resume_and_export_gate() -> Result<()> {
-    full_training_fixture_gate(include_str!("../../validation/fixtures/deepseek_v41_full_bf16_training_v3.json"))
+    full_training_fixture_gate(host_fixture(
+        include_str!("../../validation/fixtures/deepseek_v41_full_bf16_training_v3.json"),
+        include_str!("../../validation/fixtures/deepseek_v41_full_bf16_training_v3.avx2.json"),
+    ))
+}
+
+fn host_fixture<'a>(original: &'a str, avx2: &'a str) -> &'a str {
+    if crate::transformer::aten_vector_width() == 8 { avx2 } else { original }
 }
 #[test]
 #[ignore = "six-layer/384-expert production-ratio training gate; run in a fresh process to bound this machine's commit peak"]
@@ -449,11 +454,20 @@ fn deepseek_v41_full_model_production_ratio_cpu_training_gate() -> Result<()> {
 #[test]
 #[ignore = "six-layer/384-expert uninterrupted CPU logit trajectory; run in its own process on this machine"]
 fn deepseek_v41_production_uninterrupted_training_logit_trajectory() -> Result<()> {
-    let root=Path::new(env!("CARGO_MANIFEST_DIR")).join("validation/fixtures");
-    let oracle:TrainingFixture=serde_json::from_slice(&fs::read(root.join("deepseek_v41_production_ratio_training_v2.json"))?)?;
-    assert_eq!((oracle.tolerance,oracle.rtol,oracle.comparison.as_str()),(2e-7,0.0,"strict_less_than"));
-    let bases:Value=serde_json::from_slice(&fs::read(root.join("deepseek_v41_production_ratio_model.json"))?)?;
-    let mut failures=Vec::new();let mut receipt=Vec::new();
+    fs::create_dir_all(Path::new(env!("CARGO_MANIFEST_DIR")).join("../target/rdna3-streaming"))?;
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("validation/fixtures");
+    let oracle: TrainingFixture = serde_json::from_slice(&fs::read(
+        root.join("deepseek_v41_production_ratio_training_v2.json"),
+    )?)?;
+    assert_eq!(
+        (oracle.tolerance, oracle.rtol, oracle.comparison.as_str()),
+        (2e-7, 0.0, "strict_less_than")
+    );
+    let bases: Value = serde_json::from_slice(&fs::read(
+        root.join("deepseek_v41_production_ratio_model.json"),
+    )?)?;
+    let mut failures = Vec::new();
+    let mut receipt = Vec::new();
     for case in oracle.cases {
         let value=bases["cases"].as_array().unwrap().iter().find(|v|v["seed"].as_u64()==case.base_seed).unwrap();
         let f:Fixture=serde_json::from_value(value.clone())?;
@@ -480,6 +494,7 @@ fn deepseek_v41_production_uninterrupted_training_logit_trajectory() -> Result<(
     Ok(())
 }
 fn full_training_fixture_gate(source: &str) -> Result<()> {
+    fs::create_dir_all(Path::new(env!("CARGO_MANIFEST_DIR")).join("../target/v41-completion"))?;
     let oracle: TrainingFixture = serde_json::from_str(source)?;
     assert_eq!(
         (oracle.tolerance, oracle.rtol, oracle.comparison.as_str()),
@@ -664,12 +679,14 @@ fn full_training_fixture_gate(source: &str) -> Result<()> {
             let native_values=actual.logits.iter().map(|l|l.read_all()).collect::<Result<Vec<_>>>()?.into_iter().flatten().collect::<Vec<_>>();
             let max_logit=native_values.iter().zip(&expected_values).map(|(&a,&b)|(a as f64-b as f64).abs()).fold(0.0f64,f64::max);
             let labels=batches.iter().flat_map(|b|b.targets.iter().copied()).collect::<Vec<_>>();
+            let expected_bits=expected.logits_bits.iter().flatten().copied().collect::<Vec<_>>();
+            let expected_loss=crate::deepseek_v41::cpu_loss_tests::expected_loss(&expected_bits,&labels,16,expected.loss);
             let terminal=crate::deepseek_v41::DeepseekV41TerminalAdjoints::new(device.clone())?;
             let frozen=GpuBuffer::from_f32(&device,&expected_values)?;
             let (same_input_loss,_)=terminal.masked_cross_entropy(&frozen,&labels,16)?;
-            assert_eq!(same_input_loss.to_bits(),expected.loss.to_bits(),"{label} CE on identical CPU logits");
-            let loss_drift=(actual.loss as f64-expected.loss as f64).abs();
-            let loss_ulp=(f32::from_bits(expected.loss.to_bits()+1)-expected.loss).abs() as f64;
+            assert_eq!(same_input_loss.to_bits(),expected_loss.to_bits(),"{label} CE on identical CPU logits");
+            let loss_drift=(actual.loss as f64-expected_loss as f64).abs();
+            let loss_ulp=(f32::from_bits(expected_loss.to_bits()+1)-expected_loss).abs() as f64;
             assert!(loss_drift<=2.0*max_logit+loss_ulp,"{label} loss exceeds its input/rounding error bound");
             eprintln!("V4.1 full training {label} coupled loss drift {loss_drift:.17e}; identical-input CE bit-exact");
             let mut logit_tally = Tally::default();

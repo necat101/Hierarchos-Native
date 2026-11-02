@@ -4,6 +4,7 @@ The fixed projection comes from the independent CPU trace. The unchanged
 published Engram.forward is replayed with the original checkpoint q/k weights.
 This isolates the reduction bug without running the full four-layer graph.
 """
+import fixture_toolchain
 import argparse
 import ast
 import hashlib
@@ -17,6 +18,8 @@ from torch import nn
 import validate_deepseek_v41_mixed as mixed
 
 FIXTURE = mixed.FIXTURE.parent / "deepseek_v41_engram_width.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 PARENT = FIXTURE.with_name("deepseek_v41_schedule_width_model.json")
 
 
@@ -62,6 +65,7 @@ def generate(source_path, trace_path):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path", type=Path, required=True)
     p.add_argument("--trace", type=Path, required=True)
     p.add_argument("--write-fixture", action="store_true")
@@ -71,7 +75,7 @@ def main():
     torch.set_num_threads(1)
     result = generate(args.reference_path, args.trace)
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(result, separators=(",", ":"), allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(result, separators=(",", ":"), allow_nan=False))
     else:
         assert json.loads(FIXTURE.read_text()) == result
     print("PASS original Engram.forward at width 5120: 61,440 BF16 residual values")

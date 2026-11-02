@@ -16,6 +16,10 @@ use anyhow::{bail, Context, Result};
 use bytemuck::{Pod, Zeroable};
 use std::sync::Mutex;
 
+#[path = "expert_batch.rs"]
+mod expert_batch;
+use expert_batch::PackedExpertBatch;
+
 use crate::{vulkan, GpuBuffer, VulkanDevice};
 
 use super::indexer::{LinearKernel, NormKernel};
@@ -323,7 +327,7 @@ impl DeepseekV41HyperConnections {
             linear: LinearKernel::new(&device)?,
             split: vulkan::ComputeKernel::new(
                 &device,
-                HC_SPLIT,
+                crate::deepseek_v41::gen9::shader(&device, HC_SPLIT),
                 7,
                 std::mem::size_of::<HcSplitPush>() as u32,
             )?,
@@ -702,13 +706,13 @@ impl DeepseekV41Moe {
             },
             gate: vulkan::ComputeKernel::new(
                 &device,
-                MOE_GATE,
+                crate::deepseek_v41::gen9::shader(&device, MOE_GATE),
                 7,
                 std::mem::size_of::<MoeGatePush>() as u32,
             )?,
             expert: vulkan::ComputeKernel::new(
                 &device,
-                MOE_EXPERT,
+                crate::deepseek_v41::gen9::shader(&device, MOE_EXPERT),
                 9,
                 std::mem::size_of::<MoeExpertPush>() as u32,
             )?,
@@ -1003,7 +1007,7 @@ impl DeepseekV41BlockAdjoints {
             )?,
             hc_mixes_input: vulkan::ComputeKernel::new(
                 &device,
-                HC_MIXES_INPUT_GRAD,
+                crate::deepseek_v41::gen9::shader(&device, HC_MIXES_INPUT_GRAD),
                 5,
                 std::mem::size_of::<HcMixesGradPush>() as u32,
             )?,
@@ -1027,13 +1031,13 @@ impl DeepseekV41BlockAdjoints {
             )?,
             expert: vulkan::ComputeKernel::new(
                 &device,
-                MOE_EXPERT_GRAD,
+                crate::deepseek_v41::gen9::shader(&device, MOE_EXPERT_GRAD),
                 11,
                 std::mem::size_of::<MoeExpertPush>() as u32,
             )?,
             gate: vulkan::ComputeKernel::new(
                 &device,
-                MOE_GATE_GRAD,
+                crate::deepseek_v41::gen9::shader(&device, MOE_GATE_GRAD),
                 6,
                 std::mem::size_of::<MoeGatePush>() as u32,
             )?,
@@ -1719,6 +1723,7 @@ pub struct DeepseekV41MixedMoe {
     gate_bias: GpuBuffer,
     cpu_sqrt_seeds: GpuBuffer,
     experts: ExpertSource,
+    packed: Option<PackedExpertBatch>,
     // None only when the shared expert is staged from `experts`' checkpoint.
     shared: Option<MixedExpert>,
     linear: DeepseekV41MixedLinearKernel,
@@ -1827,17 +1832,30 @@ impl DeepseekV41MixedMoe {
                 }
             }
         }
-        let experts = match (experts, streamed) {
-            (Some(weights), None) => ExpertSource::Resident(
-                weights
-                    .into_iter()
-                    .map(|w| MixedExpert::upload(&device, w))
-                    .collect::<Result<_>>()?,
+        let (experts, packed) = match (experts, streamed) {
+            (Some(weights), None) => {
+                if let Some((resident, packed)) = PackedExpertBatch::upload(&device, &c, &weights)?
+                {
+                    (ExpertSource::Resident(resident), Some(packed))
+                } else {
+                    (
+                        ExpertSource::Resident(
+                            weights
+                                .into_iter()
+                                .map(|w| MixedExpert::upload(&device, w))
+                                .collect::<Result<_>>()?,
+                        ),
+                        None,
+                    )
+                }
+            }
+            (None, Some((checkpoint, layer))) => (
+                ExpertSource::Streamed {
+                    checkpoint: Mutex::new(checkpoint),
+                    layer,
+                },
+                None,
             ),
-            (None, Some((checkpoint, layer))) => ExpertSource::Streamed {
-                checkpoint: Mutex::new(checkpoint),
-                layer,
-            },
             _ => unreachable!("exactly one expert source validated"),
         };
         let shared = shared
@@ -1848,13 +1866,14 @@ impl DeepseekV41MixedMoe {
             gate_bias: GpuBuffer::from_f32(&device, &gate_bias)?,
             cpu_sqrt_seeds: super::cpu_sqrt_seeds(&device)?,
             experts,
+            packed,
             shared,
             precision,
             config: c,
             linear: DeepseekV41MixedLinearKernel::new(device.clone())?,
             gate: vulkan::ComputeKernel::new(
                 &device,
-                MOE_GATE,
+                crate::deepseek_v41::gen9::shader(&device, MOE_GATE),
                 7,
                 std::mem::size_of::<MoeGatePush>() as u32,
             )?,
@@ -1899,6 +1918,26 @@ impl DeepseekV41MixedMoe {
     /// Persistent shared experts only; temporary checkpoint staging is excluded.
     pub fn resident_shared_expert_count(&self) -> usize {
         usize::from(self.shared.is_some())
+    }
+
+    #[cfg(test)]
+    pub(super) fn fused_experts_active(&self) -> bool {
+        self.packed.as_ref().is_some_and(|batch| batch.enabled)
+    }
+
+    #[cfg(test)]
+    pub(super) fn force_staged_expert_grids(&mut self) {
+        if let Some(batch) = self.packed.as_mut() {
+            batch.enabled = false;
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn force_fused_expert_grids(&mut self) -> bool {
+        if let Some(batch) = self.packed.as_mut() {
+            batch.enabled = true;
+        }
+        self.fused_experts_active()
     }
     fn record_expert(
         &self,
@@ -1998,8 +2037,13 @@ impl DeepseekV41MixedMoe {
         let compact = GpuBuffer::zeros_f32(&self.device, rows * c.hidden_size)?;
         let weights = GpuBuffer::zeros_f32(&self.device, rows)?;
         let mapping = GpuBuffer::zeros_u32(&self.device, rows)?;
-        let visited = counts.read_u32(c.experts)?;
         let moe_trace = std::env::var_os("HIERARCHOS_VULKAN_MOE_TRACE").is_some();
+        let fused = self.packed.as_ref().filter(|batch| batch.enabled);
+        let visited = if fused.is_none() || moe_trace {
+            counts.read_u32(c.experts)?
+        } else {
+            Vec::new()
+        };
         if moe_trace {
             eprintln!(
                 "v41_moe_trace input={:016x} route={:016x} indices={:016x} counts={:016x} active={}",
@@ -2020,8 +2064,23 @@ impl DeepseekV41MixedMoe {
         } else {
             None
         };
+        if let Some(batch) = fused {
+            batch.record(
+                layer_commands
+                    .as_mut()
+                    .expect("resident packed expert batch"),
+                &x,
+                rows,
+                c,
+                self.precision,
+                &indices,
+                &route,
+                &counts,
+                &routed,
+            )?;
+        }
         for id in 0..c.experts {
-            if visited[id] == 0 {
+            if fused.is_some() || visited[id] == 0 {
                 continue;
             }
             let push = MoePackPush {
@@ -2045,7 +2104,7 @@ impl DeepseekV41MixedMoe {
                 commands,
                 &[&x, &indices, &route, &compact, &weights, &mapping],
                 bytemuck::bytes_of(&push),
-                dispatch,
+                [1, rows as u32, 1],
             )?;
             // Finish this expert before dropping its staging buffers or loading
             // the next. No payload vector or GPU expert is cached by the source.

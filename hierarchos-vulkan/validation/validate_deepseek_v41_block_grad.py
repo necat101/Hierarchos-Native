@@ -16,6 +16,7 @@ round trip is exact. Regenerate only together with a deliberate kernel change.
 
 from __future__ import annotations
 
+import fixture_toolchain
 import json
 from pathlib import Path
 
@@ -25,6 +26,8 @@ import torch.nn.functional as F
 SEED = 4141107
 TOLERANCE = 2e-7
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "deepseek_v41_block_grad.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 
 def bits(value: torch.Tensor) -> list[int]:
@@ -373,7 +376,7 @@ def main() -> None:
         raise SystemExit(
             "block-gradient fixture would change; refusing to overwrite pinned evidence"
         )
-    FIXTURE.write_text(json.dumps(payload, indent=2) + "\n")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload, indent=2) + "\n")
     counts = {case["name"]: len(case["total_grad_x_bits"]) for case in payload["moe_cases"]}
     print(f"PASS V4.1 block-gradient fixture: hc_post {payload['hc_post']['rows']}x"
           f"{payload['hc_post']['hc']}x{payload['hc_post']['dim']}; moe {counts}")

@@ -99,7 +99,7 @@ impl DeepseekV41LinearAdjoints {
             vulkan::BindingAccess::WriteOnly,
         ];
         let kernel = |bytes: &[u8], push| {
-            vulkan::ComputeKernel::new_with_access(&device, bytes, &access, push)
+            vulkan::ComputeKernel::new_with_access(&device, crate::deepseek_v41::gen9::shader(&device, bytes), &access, push)
         };
         Ok(Self {
             forward: DeepseekV41MixedLinearKernel::new(device.clone())?,
@@ -171,10 +171,10 @@ impl DeepseekV41LinearAdjoints {
         // CPU non-transposed mm uses adjacent four-product groups for M=2/3
         // even at wide N. Narrow LoRA results use the same path at larger M.
         // The group kernel requires complete four-term reduction groups.
-        if width >= 16
-            && rows >= 2
+        if rows >= 2
             && output.is_multiple_of(4)
-            && ((rows < 4 && input.is_multiple_of(4)) || (input <= 8 && input.is_multiple_of(2)))
+            && ((rows < 4 && input.is_multiple_of(4))
+                || (width >= 16 && input <= 8 && input.is_multiple_of(2)))
         {
             &self.input_grad_group4
         } else {

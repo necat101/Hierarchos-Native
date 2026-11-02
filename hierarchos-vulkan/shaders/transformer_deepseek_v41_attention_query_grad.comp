@@ -1,4 +1,10 @@
 #version 450
+
+#ifdef HIERARCHOS_GEN9_EXACT_FMA
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_gen9_fma.glsl"
+#define fma v41_gen9_fma
+#endif
 #extension GL_GOOGLE_include_directive : require
 layout(local_size_x=64) in;
 #include "transformer_deepseek_v41_grad_dispatch.glsl"

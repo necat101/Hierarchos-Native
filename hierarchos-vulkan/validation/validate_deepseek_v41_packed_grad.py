@@ -21,6 +21,7 @@ Regenerate only together with a deliberate contract change.
 
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import json
 from pathlib import Path
@@ -33,6 +34,8 @@ import validate_deepseek_v41_packed_weights as packed
 import validate_deepseek_v41_quantization as quant
 
 FIXTURE = Path(__file__).parent / "fixtures" / "deepseek_v41_packed_grad.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 FP4_TABLE = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 0.0, -0.5, -1.0, -1.5, -2.0, -3.0, -4.0, -6.0]
 SEED = 4141205
 
@@ -243,11 +246,12 @@ def make_fixture():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.parse_args()
     payload = make_fixture()
     if FIXTURE.exists() and json.loads(FIXTURE.read_text(encoding="utf-8")) != payload:
         raise SystemExit("packed-gradient fixture changed; refusing to overwrite pinned evidence")
-    FIXTURE.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     values = sum(
         len(case["grad_x_bits"]) + len(case["grad_a_bits"]) + len(case["grad_b_bits"])
         for case in payload["cases"]

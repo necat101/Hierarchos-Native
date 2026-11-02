@@ -319,7 +319,7 @@ impl DeepseekV41MixedMoeAdjoints {
                 &mut commands,
                 &[&x, &indices, &route, &compact, &weights, &mapping],
                 bytemuck::bytes_of(&push),
-                grid,
+                [1, rows as u32, 1],
             )?;
             commands.submit()?;
             let tape = self.with_expert(moe, id as u32, |w| {
@@ -502,7 +502,7 @@ impl DeepseekV41MixedMoeAdjoints {
                     &mapping,
                 ],
                 bytemuck::bytes_of(&push),
-                grid,
+                [1, rows as u32, 1],
             )?;
             commands.submit()?;
             let expert = tape.experts[id].as_ref().unwrap();

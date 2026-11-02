@@ -14,6 +14,7 @@ reduction-order parity is a separate, currently unresolved issue.
 
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -26,6 +27,8 @@ MODEL = "deepseek-ai/DeepSeek-V4.1-Flash-1017"
 REVISION = "1bae0e1088993b9b82de08f59de5be5a34e42170"
 SOURCE_SHA256 = "e5decd76fe70fd56ef2f10124d245c6f64fb6a0003cc9068a1d3182a168b8d2d"
 FIXTURE = Path(__file__).parent / "fixtures" / "deepseek_v41_index_selection.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 
 def load_source(path: Path | None) -> bytes:
@@ -101,6 +104,7 @@ def make_fixture():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path)
     parser.add_argument("--write-fixture", action="store_true")
     args = parser.parse_args()
@@ -113,7 +117,7 @@ def main():
             "    " + json.dumps(case, allow_nan=False, separators=(",", ":"))
             for case in fixture["cases"]
         )
-        FIXTURE.write_text(prefix + ',\n  "cases": [\n' + cases + "\n  ]\n}\n", encoding="utf-8")
+        fixture_toolchain.write_fixture(FIXTURE, prefix + ',\n  "cases": [\n' + cases + "\n  ]\n}\n", encoding="utf-8")
     elif json.loads(FIXTURE.read_text(encoding="utf-8")) != fixture:
         raise RuntimeError("index selection fixtures differ from the pinned reference")
     values = sum(len(case["expected_indices"]) for case in fixture["cases"])

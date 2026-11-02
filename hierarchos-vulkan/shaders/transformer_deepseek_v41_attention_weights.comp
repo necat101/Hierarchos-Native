@@ -1,4 +1,10 @@
 #version 450
+
+#ifdef HIERARCHOS_GEN9_EXACT_FMA
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_gen9_fma.glsl"
+#define fma v41_gen9_fma
+#endif
 #extension GL_GOOGLE_include_directive : require
 #include "fp32_sqrt_recip.glsl"
 #include "fp32_fma_exact.glsl"
@@ -13,7 +19,7 @@
 //
 // CPU qualification mirrors the pinned PyTorch FP32 sparse-attention oracle:
 // SLEEF exp, 16-lane softmax reduction and a rounded reciprocal multiply.
-layout(local_size_x = 1) in;
+layout(local_size_x = 64) in;
 layout(set = 0, binding = 0, std430) readonly buffer Queries { float q[]; };
 layout(set = 0, binding = 1, std430) readonly buffer WindowKv { float window_kv[]; };
 layout(set = 0, binding = 2, std430) readonly buffer CompressedKv { float compressed_kv[]; };
@@ -42,9 +48,7 @@ void main() {
     uint weight_base = (row * pc.heads + head) * total;
     uint batch_index = row / pc.seq;
 
-    float maximum = sink[head];
-    bool any = false;
-    for (uint slot = 0u; slot < total; ++slot) {
+    for (uint slot = gl_LocalInvocationID.x; slot < total; slot += 64u) {
         int index;
         uint kv_base;
         if (slot < pc.window_topk) {
@@ -102,7 +106,29 @@ void main() {
         }
         float logit = dot * pc.scale;
         weights[weight_base + slot] = logit;
-        maximum = max(maximum, logit);
+    }
+
+    // Slot dots are independent. The ordered CPU maximum, exponential banks
+    // and denominator fold still belong to lane zero.
+    memoryBarrierBuffer();
+    barrier();
+    if (gl_LocalInvocationID.x != 0u) return;
+    float maximum = sink[head];
+    bool any = false;
+    for (uint slot = 0u; slot < total; ++slot) {
+        // Validity comes from indices, including when a valid finite score is
+        // below the later softmax mask threshold. Preserve the scalar path's
+        // maximum/any behavior at those extreme values as well.
+        int index = slot < pc.window_topk
+            ? window_indices[row * pc.window_topk + slot]
+            : compressed_indices[row * pc.compressed_topk + slot - pc.window_topk];
+        bool valid = slot < pc.window_topk
+            ? index >= 0 && uint(index) < pc.window_capacity
+            : index >= 0 && uint(index) >= pc.window_capacity
+                && uint(index) - pc.window_capacity < pc.compressed_capacity;
+        if (!valid) continue;
+        float value = weights[weight_base + slot];
+        maximum = max(maximum, value);
         any = true;
     }
 

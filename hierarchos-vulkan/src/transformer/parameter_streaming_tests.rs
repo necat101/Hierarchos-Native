@@ -112,6 +112,70 @@ mod parameter_streaming {
     }
 
     #[test]
+    fn stacked_transposed_experts_stream_exact_tiles_and_reject_partial_matches() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        let root = Scratch(std::env::temp_dir().join(format!("hierarchos-linear-stream-dbrx-{}", std::process::id())));
+        fs::create_dir_all(&root.0)?;
+        let input = 5usize;
+        let output = 3usize;
+        let packed = (0..2*input*output).map(|n| (n as f32 - 7.0) * 0.03125).collect::<Vec<_>>();
+        let view = TensorView::new(Dtype::F32, vec![2*input, output], bytemuck::cast_slice(&packed))?;
+        serialize_to_file([("experts.w2", view)], None, &root.0.join("model.safetensors"))?;
+        for expert in 0..2 {
+            let expected = (0..output).flat_map(|row| {
+                let packed = &packed;
+                (0..input).map(move |col| packed[expert*input*output + col*output + row])
+            }).collect::<Vec<_>>();
+            let source = TieredLmHead::adopt_matrix(&device, &root.0, input, output, 2, &expected, None, true)?;
+            assert_eq!(source.read_rows(0, output)?, expected);
+            assert_eq!(source.read_rows(1, 2)?, expected[input..]);
+            // A correct first row cannot authorize a different remaining matrix.
+            let mut corrupted = expected;
+            *corrupted.last_mut().unwrap() += 0.125;
+            assert!(TieredLmHead::adopt_matrix(&device, &root.0, input, output, 2, &corrupted, None, true).is_err());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn affine_partial_tiles_ignore_unselected_nan_and_mapped_runs_preserve_order() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        let root = Scratch(std::env::temp_dir().join(format!("hierarchos-linear-stream-runs-{}", std::process::id())));
+        fs::create_dir_all(&root.0)?;
+        let matrix = (0..24).map(|n| (n as f32 - 7.0) * 0.03125).collect::<Vec<_>>();
+        let nan_matrix = [1.0f32, f32::NAN, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
+        let views = [("permuted", TensorView::new(Dtype::F32, vec![6,4], bytemuck::cast_slice(&matrix))?),
+                     ("partial", TensorView::new(Dtype::F32, vec![3,3], bytemuck::cast_slice(&nan_matrix))?)];
+        serialize_to_file(views, None, &root.0.join("model.safetensors"))?;
+        let mut package = ModelPackage::open_directory(&root.0)?;
+        assert_eq!(TieredLmHead::affine_rows(&mut package, "partial", (0,1,3), 3, 0, 1)?, [1.0,4.0,7.0]);
+        assert!(TieredLmHead::affine_rows(&mut package, "partial", (0,1,3), 3, 0, 3).is_err());
+        let mapping = [2usize,3,5,1,2];
+        let expected = mapping.iter().flat_map(|&row| matrix[row*4..(row+1)*4].iter().copied()).collect::<Vec<_>>();
+        let source = TieredLmHead::adopt_matrix(&device, &root.0, 4, 5, 2, &expected, None, true)?;
+        assert_eq!(source.row_map.as_deref(), Some(mapping.as_slice()));
+        let before = source.package.lock().unwrap().ledger().row_range_reads;
+        assert_eq!(source.read_rows(0,5)?, expected);
+        assert_eq!(source.package.lock().unwrap().ledger().row_range_reads - before, 3);
+        Ok(())
+    }
+
+    #[test]
+    fn logits_only_and_hidden_state_surfaces_preserve_the_same_logits() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        let graph = tiny_mistral_vulkan_graph(device)?;
+        let ids = [3u32,11,7,13,5,19,2,17];
+        let mask = [1.0f32;8];
+        let logits = graph.forward_logits(&ids, &mask)?;
+        let (with_hidden, hidden) = graph.forward_logits_and_last_hidden_state_with_context(
+            &ids, None, &mask, None, None)?;
+        assert_eq!(logits, with_hidden);
+        assert_eq!(hidden.len(), 8 * graph.config.hidden_size);
+        assert_eq!(hidden, graph.final_norm_output.read_f32(hidden.len())?);
+        Ok(())
+    }
+
+    #[test]
     fn single_tile_projection_and_input_adjoint_preserve_aliased_buffers() -> Result<()> {
         let device=VulkanDevice::new()?;
         let kernels=TransformerKernels::new(&device)?;
@@ -153,6 +217,53 @@ mod parameter_streaming {
         streamed.record_input_gradient(&mut commands,&alias,&alias,rows)?;
         commands.submit()?;
         assert_eq!(alias.read_f32(rows*d)?,expected_grad.read_f32(rows*d)?,"in-place adjoint must pack its input");
+        Ok(())
+    }
+
+    #[test]
+    fn gen9_streamed_upload_windows_bound_retention_and_preserve_ordered_weights() -> Result<()> {
+        let device=VulkanDevice::new()?;
+        let kernels=TransformerKernels::new(&device)?;
+        let root=Scratch(std::env::temp_dir().join(format!("hierarchos-linear-stream-window-{}",std::process::id())));
+        fs::create_dir_all(&root.0)?;
+        let (input_dim,output_dim)=(512usize,128usize);
+        let a=(0..input_dim*output_dim).map(|i|(i as i32%13-6) as f32/64.0).collect::<Vec<_>>();
+        let b=a.iter().map(|v|v*-0.5).collect::<Vec<_>>();
+        serialize_to_file([
+            ("a",TensorView::new(Dtype::F32,vec![output_dim,input_dim],bytemuck::cast_slice(&a))?),
+            ("b",TensorView::new(Dtype::F32,vec![output_dim,input_dim],bytemuck::cast_slice(&b))?),
+        ],None,&root.0.join("model.safetensors"))?;
+        let package=Arc::new(Mutex::new(ModelPackage::open_directory(&root.0)?));
+        let sources=[TieredLmHead::allocate(&device,"a".into(),input_dim,output_dim,1,Arc::clone(&package),None)?,
+                     TieredLmHead::allocate(&device,"b".into(),input_dim,output_dim,1,package,None)?];
+        let input=GpuBuffer::from_f32(&device,&(0..input_dim).map(|i|(i as i32%7-3) as f32/16.0).collect::<Vec<_>>())?;
+        let mut expected=Vec::new();
+        for weights in [&a,&b] {
+            let weight=GpuBuffer::from_f32(&device,weights)?;
+            let output=GpuBuffer::zeros_f32(&device,output_dim)?;
+            let mut commands=vulkan::ComputeBatch::new(&device)?;
+            record_linear_projection(&mut commands,&kernels,&input,&weight,None,&output,1,input_dim,output_dim,false)?;
+            commands.submit()?;
+            expected.push(output.read_f32(output_dim)?.iter().map(|v|v.to_bits()).collect::<Vec<_>>());
+        }
+        let mut commands=vulkan::ComputeBatch::new(&device)?;
+        let before=device.submission_count();
+        let mut outputs=Vec::new();
+        for i in 0..5 {
+            let output=GpuBuffer::zeros_f32(&device,output_dim)?;
+            sources[i%2].record_projection(&mut commands,&kernels,&input,&output,1,false,false)?;
+            assert!(commands.uploaded_bytes()<=GEN9_STREAM_BATCH_BYTES);
+            if sources[0].batches_small_uploads(true) && i==3 {
+                assert_eq!(commands.uploaded_bytes(),GEN9_STREAM_BATCH_BYTES);
+                assert_eq!(device.submission_count(),before);
+            }
+            outputs.push(output);
+        }
+        assert!(device.submission_count()>before,"crossing the upload cap must retire the batch");
+        commands.submit()?;
+        for (i,output) in outputs.iter().enumerate() {
+            assert_eq!(output.read_f32(output_dim)?.iter().map(|v|v.to_bits()).collect::<Vec<_>>(),expected[i%2]);
+        }
         Ok(())
     }
 

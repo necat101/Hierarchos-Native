@@ -5,6 +5,7 @@ CPU block mirrors, with BF16 output and the released cast,
 clamp, route-weight and expert accumulation order. No full-production claim.
 """
 from __future__ import annotations
+import fixture_toolchain
 import argparse
 import ast
 import hashlib
@@ -18,6 +19,8 @@ import validate_deepseek_v41_packed_weights as packed
 import validate_deepseek_v41_quantization as quant
 
 FIXTURE = Path(__file__).parent / "fixtures" / "deepseek_v41_mixed.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 
 def linear_reference(x, weight):
@@ -28,15 +31,16 @@ def linear_reference(x, weight):
     n, k = weight["rows"], weight["cols"]
     shape = x.shape
     x = x.float().reshape(-1, k)
-    a, sa = quant.quantize_case(x.numpy(), 32, "fp8", "ue8m0")
+    block = 128 if weight["dtype"] == "fp8_block128" else 32
+    a, sa = quant.quantize_case(x.numpy(), block, "fp8", "ue8m0")
     sa = torch.from_numpy(sa)
-    aq = torch.from_numpy(a) / sa.repeat_interleave(32, dim=1)
+    aq = torch.from_numpy(a) / sa.repeat_interleave(block, dim=1)
     w = packed.unpack(weight["data"], n, k, weight["dtype"], [0., .5, 1., 1.5, 2., 3., 4., 6., 0., -.5, -1., -1.5, -2., -3., -4., -6.])
     sw = packed.scale_matrix(weight["scales"], n, k, weight["dtype"])
     y = torch.zeros(x.shape[0], n)
-    for start in range(0, k, 32):
-        dot = F.linear(aq[:, start:start+32], w[:, start:start+32])
-        y += (dot * sa[:, start//32:start//32+1]) * sw[:, start].unsqueeze(0)
+    for start in range(0, k, block):
+        dot = F.linear(aq[:, start:start+block], w[:, start:start+block])
+        y += (dot * sa[:, start//block:start//block+1]) * sw[:, start].unsqueeze(0)
     return y.bfloat16().reshape(*shape[:-1], n)
 
 
@@ -67,8 +71,9 @@ def weight(rng, rows, cols, dtype):
     else:
         if dtype == "fp4_row32": data = rng.integers(0, 256, rows*cols//2, dtype=np.uint8).tolist()
         else: data = torch.from_numpy(rng.normal(0, 1, (rows,cols)).astype(np.float32)).to(torch.float8_e4m3fn).view(torch.uint8).flatten().tolist()
-        sr = rows if dtype == "fp4_row32" else (rows+31)//32
-        w.update(data=data, scales=rng.integers(120,125,sr*(cols//32),dtype=np.uint8).tolist())
+        block = 128 if dtype == "fp8_block128" else 32
+        sr = rows if dtype == "fp4_row32" else (rows+block-1)//block
+        w.update(data=data, scales=rng.integers(120,125,sr*(cols//block),dtype=np.uint8).tolist())
     return w
 
 
@@ -141,15 +146,53 @@ def make_fixture(path, kernel_path):
                 torch_revision=torch.version.git_version,seed=4141040,linears=linears,moes=cases,cast=cast)
 
 
+def make_block128_fixture(path, kernel_path):
+    ns = source_namespace(path)
+    quant.load_kernel_source(kernel_path)
+    torch.set_num_threads(1)
+    rng = np.random.default_rng(4141051)
+    rows, hidden, inter, experts, topk = 9, 128, 256, 4, 2
+    config = dict(hidden_size=hidden, intermediate_size=inter, experts=experts,
+                  activated=topk, score_func="sqrtsoftplus", gate_temp=.75,
+                  norm_topk_prob=True, route_scale=1.5, swiglu_limit=1.5)
+    def make_expert():
+        return dict(w1=weight(rng, inter, hidden, "fp8_block128"),
+                    w2=weight(rng, hidden, inter, "fp8_block128"),
+                    w3=weight(rng, inter, hidden, "fp8_block128"))
+    gate = torch.from_numpy(rng.normal(0, .15, (experts, hidden)).astype(np.float32)).bfloat16().float()
+    c = dict(name="packed-moe-block128", rows=rows, precision="bf16", config=config,
+             gate_weight=gate.flatten().tolist(), gate_bias=rng.normal(0,.07,experts).astype(np.float32).tolist(),
+             experts=[make_expert() for _ in range(experts)], shared=make_expert())
+    x = torch.from_numpy(rng.normal(0,.7,(rows,hidden)).astype(np.float32))
+    module = moe(ns, c)
+    weights, indices = module.gate(x.bfloat16())
+    c.update(input=x.flatten().tolist(), expected_bits=packed.bits(module(x.bfloat16()).float()),
+             expected_indices=indices.flatten().tolist(), expected_weights=weights.flatten().tolist(),
+             counts=torch.bincount(indices.flatten(),minlength=experts).tolist())
+    linears = []
+    for m, k, n in [(3,256,128), (2,128,129)]:
+        w = weight(rng,n,k,"fp8_block128")
+        x = torch.from_numpy(rng.normal(0,.7,(m,k)).astype(np.float32))
+        linears.append(dict(name=f"fp8_block128-m{m}-k{k}-n{n}",rows=m,precision="bf16",weight=w,
+                            input=x.flatten().tolist(),expected_bits=packed.bits(linear_reference(x.bfloat16(),w).float())))
+    return dict(revision=quant.REVISION, model_sha256=packed.MODEL_SHA256, kernel_sha256=quant.KERNEL_SHA256,
+                torch_revision=torch.version.git_version,seed=4141051,linears=linears,moes=[c])
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path",type=Path,required=True)
     p.add_argument("--kernel-reference-path",type=Path,required=True)
     p.add_argument("--write-fixture",action="store_true")
+    p.add_argument("--block128",action="store_true")
     args = p.parse_args()
-    f = make_fixture(args.reference_path,args.kernel_reference_path)
-    if args.write_fixture: FIXTURE.write_text(json.dumps(f,separators=(",",":"),allow_nan=False))
-    elif json.loads(FIXTURE.read_text()) != f: raise AssertionError("mixed fixture differs from independent reference")
+    target = FIXTURE.with_name("deepseek_v41_mixed_block128.json") if args.block128 else FIXTURE
+    target = fixture_toolchain.variant_path(target)
+    fixture_toolchain.check_file(target)
+    f = (make_block128_fixture if args.block128 else make_fixture)(args.reference_path,args.kernel_reference_path)
+    if args.write_fixture: fixture_toolchain.write_fixture(target, json.dumps(f,separators=(",",":"),allow_nan=False))
+    elif json.loads(target.read_text()) != f: raise AssertionError("mixed fixture differs from independent reference")
     print(f"PASS mixed oracle: {len(f['linears'])} typed linear, {len(f['moes'])} packed MoE cases; counts={[c['counts'] for c in f['moes']]}")
 
 

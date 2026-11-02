@@ -20,6 +20,7 @@ test proves the delta was applied, not just that the graph ran.
 """
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -37,6 +38,8 @@ import validate_deepseek_v41_model as model
 import validate_deepseek_v41_production_model as production
 
 FIXTURE = model.FIXTURE.parent / "deepseek_v41_lora_model.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SEED = 4141095
 ADAPTER_SEED = 4141096
 RANK = 16
@@ -276,6 +279,7 @@ def make_case(reference_path, kernel_path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path, required=True)
     parser.add_argument("--kernel-reference-path", type=Path, required=True)
     parser.add_argument("--write-fixture", action="store_true")
@@ -284,7 +288,7 @@ def main():
     torch.set_num_threads(1)
     fixture = make_case(args.reference_path, args.kernel_reference_path)
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(fixture, separators=(",", ":"), allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(fixture, separators=(",", ":"), allow_nan=False))
     elif json.loads(FIXTURE.read_text()) != fixture:
         raise AssertionError("PEFT-LoRA fixture differs from the pinned CPU PyTorch reference")
     print("PASS production-width PEFT-LoRA CPU oracle:",

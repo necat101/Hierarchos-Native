@@ -169,7 +169,7 @@ impl DeepseekV41TerminalAdjoints {
             )?,
             head_input_grad: vulkan::ComputeKernel::new_with_access(
                 &device,
-                LINEAR_INPUT_GRAD,
+                crate::deepseek_v41::gen9::shader(&device, LINEAR_INPUT_GRAD),
                 &[
                     vulkan::BindingAccess::ReadOnly,
                     vulkan::BindingAccess::ReadOnly,

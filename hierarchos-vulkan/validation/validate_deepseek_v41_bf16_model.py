@@ -6,6 +6,7 @@ mirror returns BF16. All declared stream casts, dense BF16 weights, FP32 HC and
 ratio-2 pooling, and FP32 logit output follow the released graph. CUDA parity
 is not required. The existing strict complete-logit comparator is unchanged.
 """
+import fixture_toolchain
 import argparse
 import ast
 import hashlib
@@ -22,6 +23,8 @@ from trace_deepseek_v41_model import Observer
 from deepseek_v41_parity import require_logit_parity
 
 FIXTURE = model.FIXTURE.parent / "deepseek_v41_bf16_model.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SPECS = [(4141061, 2, 2), (4141062, 3, 4)]
 
 
@@ -177,6 +180,7 @@ def make_case(path, kernel_path, seed, topk, hc, *, observer=None, args_override
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path", type=Path, required=True)
     p.add_argument("--kernel-reference-path", type=Path, required=True)
     p.add_argument("--write-fixture", action="store_true")
@@ -187,7 +191,7 @@ def main():
     f = dict(cases=[make_case(args.reference_path, args.kernel_reference_path, *spec, observer=observer)
                     for spec, observer in zip(SPECS, observers)])
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(f, separators=(",", ":"), allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(f, separators=(",", ":"), allow_nan=False))
     elif json.loads(FIXTURE.read_text()) != f:
         raise AssertionError("BF16-model fixture differs from the pinned CPU PyTorch reference")
     if args.trace_output:

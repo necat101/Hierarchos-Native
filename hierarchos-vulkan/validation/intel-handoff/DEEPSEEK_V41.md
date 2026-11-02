@@ -1,7 +1,15 @@
 # DeepSeek V4.1 Flash: Intel Gen9 kernel port baseline
 
+**2026-11-01 follow-up:** see the
+[Gen9 optimization receipt](../DEEPSEEK_V41_GEN9_RECEIPT.md) for the completed
+schedule port, exact block128 references, training trajectory and measurements.
+The selected Gen9 gate now passes 250 tests: the default V4.1 suite is 189/0,
+and the four explicit release/training gates compare 11,184 logits bit-exactly.
+The historical handoff scope
+below does not substitute for those current target results.
+
 **Current RDNA3 validation is limited to DeepSeek V4.1 Flash and the recorded
-parameter/MoE streaming checks.** Gen9 validation of this handoff is pending;
+parameter/MoE streaming checks.** Gen9 results are recorded separately above;
 earlier Intel/Ally reports are historical and do not certify the current tree.
 See [validation scope and Git pull commands](../../../VALIDATION_STATUS.md).
 

@@ -7,6 +7,7 @@ BF16 linears explicitly round their input; the residual/compressor/Engram
 backbone remains FP32. The wo_b wrapper promotes its BF16 GEMM result to FP32
 at that hybrid boundary. Seeds and geometry are fixed before native comparison.
 """
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -22,6 +23,8 @@ import validate_deepseek_v41_mixed_model as packed_model
 from trace_deepseek_v41_model import Observer
 
 FIXTURE = model.FIXTURE.parent / "deepseek_v41_attention_model.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SEEDS = [4141051, 4141052]
 
 
@@ -97,6 +100,7 @@ def make_case(path, kernel_path, seed, topk, *, observer=None):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path", type=Path, required=True)
     p.add_argument("--kernel-reference-path", type=Path, required=True)
     p.add_argument("--write-fixture", action="store_true")
@@ -107,7 +111,7 @@ def main():
     f = dict(cases=[make_case(args.reference_path, args.kernel_reference_path, seed, topk, observer=observer)
                     for seed, topk, observer in zip(SEEDS, [2, 3], observers)])
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(f, separators=(",", ":"), allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(f, separators=(",", ":"), allow_nan=False))
     elif json.loads(FIXTURE.read_text()) != f:
         raise AssertionError("packed-attention fixture differs from the independent CPU reference")
     if args.trace_output:

@@ -3,6 +3,7 @@
 The existing full hybrid-model checkpoint is the base; no operand magnitudes,
 optimizer defaults, logits, or reference tolerances are adjusted for a pass.
 """
+import fixture_toolchain
 import copy
 import hashlib
 import json
@@ -15,6 +16,8 @@ from validate_deepseek_v41_packed_grad import packed_forward
 HERE=Path(__file__).resolve().parent
 BASE=HERE/'fixtures/deepseek_v41_mixed_model.json'
 FIXTURE=HERE/'fixtures/deepseek_v41_full_mixed_training.json'
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 original_build=full.build
 
 class PackedLinear(nn.Module):
@@ -52,7 +55,7 @@ def main():
         source_sha256=hashlib.sha256(full.SOURCE.read_bytes()).hexdigest(),torch_version=torch.__version__,torch_git_version=torch.version.git_version,
         contract='Full released model bodies with FP4 routed / FP8 shared projections and established FP32 STE boundaries',cases=cases)
     if FIXTURE.exists() and json.loads(FIXTURE.read_text())!=payload:raise SystemExit('mixed training CPU fixture changed; refusing overwrite')
-    FIXTURE.write_text(json.dumps(payload,indent=2)+'\n')
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload,indent=2)+'\n')
     print('PASS full mixed CPU training fixture',hashlib.sha256(FIXTURE.read_bytes()).hexdigest())
 
 if __name__=='__main__':main()

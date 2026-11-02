@@ -1,4 +1,10 @@
 #version 450
+
+#ifdef HIERARCHOS_GEN9_EXACT_FMA
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_gen9_fma.glsl"
+#define fma v41_gen9_fma
+#endif
 #extension GL_GOOGLE_include_directive : require
 #include "fp32_sqrt_recip.glsl"
 #include "fp32_fma_exact.glsl"

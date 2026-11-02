@@ -5,6 +5,7 @@ inference-buffer updates are lifted to functional copies so cached gradients
 stay live, and quantizer rounding uses the established FP32 STE. No native
 output or gradient supplies expected values.
 """
+import fixture_toolchain
 import hashlib
 import json
 import math
@@ -22,6 +23,8 @@ from validate_deepseek_v41_quantization import quantize_case
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 FIXTURE = HERE / "fixtures/deepseek_v41_full_training.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SOURCE = ROOT / ".tmp-v41-ref/model.py"
 KERNEL = ROOT / "target/deepseek-v41-reference/inference_kernel.py"
 BASE = HERE / "fixtures/deepseek_v41_model.json"
@@ -243,7 +246,7 @@ def main():
         cases=[case(base,False),case(base,True)])
     if FIXTURE.exists() and json.loads(FIXTURE.read_text()) != payload:
         raise SystemExit("full training fixture changed; refusing to overwrite frozen CPU evidence")
-    FIXTURE.write_text(json.dumps(payload,indent=2)+"\n")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload,indent=2)+"\n")
     print("PASS CPU full model training fixture",hashlib.sha256(FIXTURE.read_bytes()).hexdigest())
 
 

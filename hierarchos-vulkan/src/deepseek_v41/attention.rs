@@ -720,19 +720,19 @@ impl DeepseekV41Attention {
             )?,
             weights_kernel: vulkan::ComputeKernel::new(
                 &device,
-                ATTENTION_WEIGHTS,
+                crate::deepseek_v41::gen9::shader(&device, ATTENTION_WEIGHTS),
                 7,
                 std::mem::size_of::<WeightPush>() as u32,
             )?,
             values_kernel: vulkan::ComputeKernel::new(
                 &device,
-                ATTENTION_VALUES,
+                crate::deepseek_v41::gen9::shader(&device, ATTENTION_VALUES),
                 6,
                 std::mem::size_of::<ValuePush>() as u32,
             )?,
             grouped_kernel: vulkan::ComputeKernel::new(
                 &device,
-                GROUPED_OUTPUT,
+                crate::deepseek_v41::gen9::shader(&device, GROUPED_OUTPUT),
                 3,
                 std::mem::size_of::<GroupedPush>() as u32,
             )?,

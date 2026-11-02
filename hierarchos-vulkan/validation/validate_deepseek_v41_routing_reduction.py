@@ -4,6 +4,7 @@ Input stages come from the unchanged CPU model trace. Raw linear scores,
 sqrt(softplus), top-6 selection and normalization are evaluated by CPU PyTorch.
 No native result is used to generate expectations or overwrite model fixtures.
 """
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -16,6 +17,8 @@ import torch.nn.functional as F
 import validate_deepseek_v41_structure_model as structure
 
 FIXTURE = structure.FIXTURE.parent / "deepseek_v41_routing_reduction.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 PROBES = [(0,i,0) for i in range(6)] + [(0,1,34),(1,0,0),(1,1,0)]
 
 
@@ -59,6 +62,7 @@ def generate(trace_path):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--trace",type=Path,required=True)
     parser.add_argument("--write-fixture",action="store_true")
     args=parser.parse_args()
@@ -66,7 +70,7 @@ def main():
         raise FileExistsError("routing fixture is frozen; repair native execution")
     result=generate(args.trace)
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(result,separators=(",",":"),allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(result,separators=(",",":"),allow_nan=False))
     elif json.loads(FIXTURE.read_text()) != result:
         raise AssertionError("routing fixture differs from the original CPU gate operations")
     print("PASS independent CPU routing oracle:",len(result["cases"]),"cases")

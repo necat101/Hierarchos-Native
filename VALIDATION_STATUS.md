@@ -1,14 +1,53 @@
 # Current validation scope
 
-This is the DeepSeek V4.1 Flash / streaming handoff for Intel Gen9 optimization.
-**Current-revision RDNA3 validation covers DeepSeek V4.1 Flash and the recorded
-parameter/MoE streaming checks only.** It does not certify the complete
-architecture registry or all training and precision policies on RDNA3.
+The [final Gen9 receipt](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md)
+closes the Llama-wide streaming regression: 11.016 to 4.597 ms against the
+preceding pass, with 19 submissions reduced to four. Bounded Gen9 upload
+batching preserves every measured logit word. All 269 selected Rust tests,
+166 forward runs and 72 generation runs pass at `max_abs < 2e-7`, `rtol=0`.
+The broader eight-control run shows lower resident and streaming medians.
+This is the final Gen9 optimization pass. The frozen-reference RDNA3 runner is
+ready; fresh physical RDNA3 regression remains required before release. The
+[earlier optimization receipt](hierarchos-vulkan/validation/GEN9_OPTIMIZATION_RECEIPT.md)
+retains the original measurements and the exception this final pass closes.
+
+The Gen9 changes are published for device testing on
+`codex/gen9-final-rdna3-qualification`. Follow the
+[RDNA3 regression runbook](RDNA3_REGRESSION.md) on the AMD device before merging
+that branch into the release line. Qualification archives are immutable
+snapshots from before publication; they do not claim a new physical RDNA3 pass.
+
+The next Gen9 architecture-port phase is recorded in the
+[architecture receipt](hierarchos-vulkan/validation/GEN9_ARCHITECTURES_RECEIPT.md):
+166/166 resident/streamed forward runs across 43 profiles / 26 native architectures
+pass at `max_abs < 2e-7`, `rtol=0`, worst `1.7881393432617188e-7`.
+All 32 earlier RDNA profiles are covered for inference. Another 72 cached/full-prefix
+generation requests pass, worst `8.940696716308594e-8` (SmolLM3 retains its
+full-prefix fallback when caching is requested). Storage modes match every logit
+word. The fresh V4.1 model gate passes 53 tests; six native regressions and 14
+qualification negative controls pass. This does not qualify the remaining 120
+architecture identifiers or extend every profile's CPU PEFT training certificate.
+
+The Intel Gen9 optimization follow-up is recorded in the
+[Gen9 receipt](hierarchos-vulkan/validation/DEEPSEEK_V41_GEN9_RECEIPT.md).
+The 2026-11-01 Gen9 continuation passes all 189 default V4.1 tests with zero
+failures (25 ignored by default), at the unchanged strict CPU logit limit.
+The four explicit release/training gates compare 11,184 logits bit-exactly.
+Vulkan, parameter streaming and offload bring the selected Gen9 gate to 250
+passing tests. All five performance digests and 68 original frozen files remain
+unchanged. Historical toolchain provenance still has 54 unverified entries;
+see the [fixture audit](hierarchos-vulkan/validation/V41_FIXTURE_PROVENANCE.md).
+
+**The published RDNA3 validation below binds the original handoff, before the
+Gen9 shader changes.** It covers V4.1 Flash and recorded parameter/MoE streaming
+checks, not the complete architecture registry or all precision policies.
+This pass does not add fresh physical RDNA3 qualification.
 
 | Device / revision | Validated scope |
 | --- | --- |
-| AMD Radeon Graphics / Ryzen Z1 Extreme, current handoff | V4.1 Flash native resident/streamed inference, LoRA/rsLoRA training, save/resume/export, and the recorded parameter/MoE streaming matrix |
-| Intel Gen9, current handoff | Pending a fresh device qualification before optimization |
+| AMD Radeon Graphics / Ryzen Z1 Extreme, published `2695c93` handoff | V4.1 Flash native resident/streamed inference, LoRA/rsLoRA training, save/resume/export, and the recorded parameter/MoE streaming matrix |
+| Intel HD Graphics 520, 2026-11-01 Gen9 follow-up | Retained scaled-checkpoint inference, resident/streamed execution, wide YaRN and native PEFT gates; 250 passing tests, plus all-target workspace and shader checks |
+| Intel HD Graphics 520, 2026-11-01 architecture continuation | 166 forward runs, 72 generation runs, 26 native architectures; resident/streamed word identity; 53 fresh V4.1 model/training tests and six native regression tests |
 | Earlier Intel and ROG Ally revisions | Historical evidence in their existing reports; not current-revision certification |
 
 The final RDNA3 pass has 288 passing tests. Parsed default-gate logits cover

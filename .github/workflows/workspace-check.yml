@@ -47,9 +47,20 @@ jobs:
       - name: A/B workflow matches the route guard's spec table
         run: python hierarchos-vulkan/validation/render_ab_workflow.py --check
 
+      # Audits use the recorded library pair without importing torch. The
+      # hash-bound legacy set may only shrink after a successful reproduction;
+      # --strict additionally rejects that historical, unverified set.
+      - name: V4.1 fixture provenance
+        run: |
+          python hierarchos-vulkan/validation/fixture_toolchain.py check-all --expect-from hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_block128.json
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_fixture_toolchain.py"
+
       - name: Recorded measurement routes
         run: |
           python hierarchos-vulkan/validation/check_measured_producer_routes.py
+
+      - name: Gen9 strict qualification negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_gen9_architectures.py"
 
       # The committed ladder receipt is the only durable record of a green
       # `verify_training_stack.py` run. This check is CPU-side: it holds the

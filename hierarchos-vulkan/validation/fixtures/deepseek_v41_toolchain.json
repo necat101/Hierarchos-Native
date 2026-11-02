@@ -1,0 +1,155 @@
+{
+  "deepseek_v41_adapter_training.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "961d769e8e1e0516a0be9a5cec86fb597d1ca7774d105144ca5fb5bd52deb484",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_bf16_quantization.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "2f2dd2dcc16043be7a3101e922ebaca0b8b10b4b5c60b86949d5863142eec87a",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_candidates.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "370bbc8f70e5a39e6e2e2827ee75bb8d5339c08e7e18aa7f8824cd84ae80ca3b",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_compressor_decode_grad.avx2.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "70371169ff1eb52e2166e2a4697893014325eca2e2d036935292c43994a16187",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_full_bf16_training_v3.avx2.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "1cd3568aa82c60e74f0ba803eefb62ec85b667c5d85fd628f5a9622eb7f381bc",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_full_mixed_training.avx2.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "a70c7f6bf9255c686d1ff0727990827c1f8f050b1c2ffd2eb6c822a053dc0067",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_full_training.avx2.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "ef4eae438e67bbd4909e7bffb1142b1249d52ce2f7b69e7d52da95d330938397",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_index_keys.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "2c6d6837df5b30e82dfc5901622ca1e7e95968f9c3e78686aa05defdea62dd1f",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_index_selection.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "34b8ad7e843f3a98b085c498c71ef4b5c5d9f98ebcef1b8a521cf3900dc89885",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_loss_reductions.avx2.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "5cd59fb7ce5987eab6441357e31839e7a4f96e7d834db424437067f7bb9944f9",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_mixed_block128.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "622e61de1d80bb2d9ed27d2c9f4b912ab39a1c33331064024a453e4808d25e12",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_mixed_moe_grad.avx2.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "8df9ea04d934a5c1f82055036a05ad8365d2f87ea49300346ee8bef2089e7e34",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_projection_grad.avx2.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "9c4cfbe0056a1e06741dd01c2d01457c894e16e4315ffe48c4ff7420353ccffe",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_quantization.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "51e327616290376a78004b2e79a17485603f1125b5c3873bc1b2d9c8b7e542b6",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_rotary.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "8b0345a2efe433877b7a3f9660d0973ee05b472519bfad77a81d635c0d931cae",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_terminal_grad.avx2.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "5ae21cfdc9f13f703d61f9b707155b5e2132f4b07f8bea67bc412b0d4c8dbec5",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  },
+  "deepseek_v41_training_loss.avx2.json": {
+    "evidence": "generator reproduced the complete fixture payload",
+    "sha256": "e2766a7dbb88da14547f2f4e20bef4fca4d121f80f2fec71efa446f0a0aa3c73",
+    "toolchain": {
+      "cpu": "AVX2",
+      "numpy": "2.5.3",
+      "torch": "2.14.1+cpu"
+    }
+  }
+}

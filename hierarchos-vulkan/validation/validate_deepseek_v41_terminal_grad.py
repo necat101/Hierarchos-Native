@@ -17,6 +17,7 @@ change:
 """
 from __future__ import annotations
 
+import fixture_toolchain
 import json
 from pathlib import Path
 
@@ -31,6 +32,8 @@ TARGETS = [3, 17, 41, 0]
 NORM_EPS = 1e-6
 TOLERANCE = 2e-7
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "deepseek_v41_terminal_grad.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 
 def bits(value: torch.Tensor) -> list[int]:
@@ -93,7 +96,7 @@ def main() -> None:
         raise SystemExit(
             "terminal-gradient fixture would change; refusing to overwrite pinned evidence"
         )
-    FIXTURE.write_text(json.dumps(payload, indent=2) + "\n")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload, indent=2) + "\n")
     print(
         f"PASS V4.1 terminal-gradient fixture: rows={ROWS} hidden={HIDDEN} vocab={VOCAB} "
         f"loss={payload['loss_bits']} "

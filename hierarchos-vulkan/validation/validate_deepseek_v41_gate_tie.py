@@ -8,6 +8,7 @@ Normal replay reads the same hash-verified checkpoint and frozen input row;
 --capture-model-row additionally re-observes the independent model prefix.
 No full-model fixture, arithmetic or parity tolerance is rewritten.
 """
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -22,6 +23,8 @@ import validate_deepseek_v41_long_context_model as long_context
 import validate_deepseek_v41_model as model
 
 FIXTURE = model.FIXTURE.parent / "deepseek_v41_gate_tie.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 PARENT_SHA256 = "82dcb51beea92833fa8dc382daf30846cd195f5974a17e9eaf0f9c7dd314bbbc"
 LAYER, ROW, REPLAY_ROWS = 27, 1019, 4
 TIED_EXPERTS = [284, 351]
@@ -143,6 +146,7 @@ def generate(args):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path", type=Path, required=True)
     p.add_argument("--kernel-reference-path", type=Path, required=True)
     p.add_argument("--capture-model-row", action="store_true")
@@ -154,7 +158,7 @@ def main():
         raise ValueError("initial freeze requires the independent model row")
     result = generate(args)
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(result, separators=(",", ":"), allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(result, separators=(",", ":"), allow_nan=False))
     elif result != json.loads(FIXTURE.read_text()):
         raise AssertionError("gate-tie fixture differs from the independent CPU gate")
     print("PASS real boundary tie: expert 351 selected, 284 excluded; all routing bits exact", flush=True)

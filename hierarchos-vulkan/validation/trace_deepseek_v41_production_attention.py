@@ -4,6 +4,7 @@ Loads only attention parameters and the used vocabulary rows. Forward methods,
 CPU sparse mirror and frozen complete-model logits are unchanged. Captures each
 step separately, avoiding stale or differently shaped diagnostic comparisons.
 """
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -107,6 +108,7 @@ def trace(reference_path, kernel_path):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path",type=Path,required=True)
     p.add_argument("--kernel-reference-path",type=Path,required=True)
     p.add_argument("--output",type=Path,required=True)
@@ -114,9 +116,11 @@ def main():
     args=p.parse_args()
     result=trace(args.reference_path,args.kernel_reference_path)
     frozen = production.FIXTURE.parent / "deepseek_v41_production_attention.json"
+    frozen = fixture_toolchain.variant_path(frozen)
+    fixture_toolchain.check_file(frozen)
     sparse_fixture = {k:result[k] for k in ("fixture_sha256","torch_revision","steps")}
     if args.write_fixture:
-        frozen.write_text(json.dumps(sparse_fixture,separators=(",",":"),allow_nan=False))
+        fixture_toolchain.write_fixture(frozen, json.dumps(sparse_fixture,separators=(",",":"),allow_nan=False))
     elif json.loads(frozen.read_text()) != sparse_fixture:
         raise AssertionError("pinned sparse CPU fixture differs from the unchanged checkpoint replay")
     args.output.write_text(json.dumps(result,separators=(",",":"),allow_nan=False))

@@ -5,6 +5,7 @@ measured. The unchanged pinned model runs with the existing CPU kernel mirrors.
 Every output position and vocabulary logit must pass <2e-7, rtol=0. These cases
 increase context and width; they do not qualify the complete production model.
 """
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -17,6 +18,8 @@ import validate_deepseek_v41_bf16_model as bf16
 import validate_deepseek_v41_model as model
 
 FIXTURE = model.FIXTURE.parent / "deepseek_v41_wide_model.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 # Fixed before the first native run. Keep failing cases: repair the native path.
 SPECS = [
     dict(seed=4141071, topk=3, hidden=128, head_dim=128, qrank=128, orank=64,
@@ -104,8 +107,11 @@ def checkpoint_bytes(fixture, sharded):
     return files
 
 
-def compact(fixture, spec, write):
+def compact(fixture, spec, write, expected_files=None):
     files = checkpoint_bytes(fixture, spec["sharded"])
+    digests = {name:hashlib.sha256(data).hexdigest() for name,data in files.items()}
+    if expected_files is not None and digests != expected_files:
+        raise AssertionError("CPU checkpoint bytes differ from the frozen package hashes")
     folder = f"deepseek_v41_wide_{spec['seed']}"
     root = FIXTURE.parent / folder
     if write:
@@ -116,7 +122,7 @@ def compact(fixture, spec, write):
         elif (root / name).read_bytes() != data:
             raise AssertionError(f"frozen checkpoint differs from pinned CPU weights: {root/name}")
     fixture["checkpoint"] = dict(directory=folder,
-        files={name:hashlib.sha256(data).hexdigest() for name,data in files.items()},
+        files=digests,
         tensor_count=len(fixture["tensors"]), packed_count=len(fixture["packed_tensors"]))
     # Retain only the small independent norm/head replay inputs in JSON.
     fixture["tensors"] = {k:v for k,v in fixture["tensors"].items() if k in {"head.weight", "norm.weight"}}
@@ -168,24 +174,31 @@ def compare_diagnostics(fixture, native, reference):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path, required=True)
     parser.add_argument("--kernel-reference-path", type=Path, required=True)
     parser.add_argument("--write-fixture", action="store_true")
+    parser.add_argument("--write-checkpoints", action="store_true",
+                        help="restore checkpoint files only after matching every frozen file hash")
     parser.add_argument("--native-output", type=Path)
     parser.add_argument("--trace-output", type=Path)
     args = parser.parse_args()
+    frozen = json.loads(FIXTURE.read_text()) if FIXTURE.exists() else None
+    if args.write_checkpoints and frozen is None:
+        raise FileNotFoundError("checkpoint reconstruction requires a frozen CPU fixture")
     cases, traces = [], []
-    for spec in SPECS:
+    for case_index, spec in enumerate(SPECS):
         print(f"Generating pinned CPU case {spec}", flush=True)
         observer = bf16.Bf16Observer() if args.trace_output else None
         f = make_case(args.reference_path, args.kernel_reference_path, spec, observer)
-        cases.append(compact(f, spec, args.write_fixture))
+        expected_files = frozen["cases"][case_index]["checkpoint"]["files"] if frozen else None
+        cases.append(compact(f, spec, args.write_fixture or args.write_checkpoints, expected_files))
         if observer:
             traces.append(dict(seed=spec["seed"], steps=observer.steps))
         print(f"CPU seed {spec['seed']}: {sum(len(s['logits']) for s in f['steps'])} complete logits", flush=True)
     fixture = dict(torch_version=torch.__version__, torch_revision=torch.version.git_version, cases=cases)
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(fixture, separators=(",", ":"), allow_nan=False), encoding="utf-8")
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(fixture, separators=(",", ":"), allow_nan=False), encoding="utf-8")
     elif json.loads(FIXTURE.read_text()) != fixture:
         raise AssertionError("wider fixture differs from pinned CPU PyTorch")
     if args.trace_output:

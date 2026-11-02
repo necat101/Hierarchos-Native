@@ -4,6 +4,7 @@ Attention forward and cache methods come from the pinned released source.
 The grouped projection, BF16 GEMM/normalization/rotary/output boundaries and
 score multiply/sum are compared by their bits, independently of full logits.
 """
+import fixture_toolchain
 import argparse
 import json
 from pathlib import Path
@@ -17,6 +18,8 @@ import validate_deepseek_v41_packed_weights as packed
 import validate_deepseek_v41_quantization as quant
 
 FIXTURE = model.FIXTURE.parent / "deepseek_v41_mixed_attention.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SEED = 4141050
 
 
@@ -91,13 +94,14 @@ def make_fixture(path, kernel_path):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--reference-path", type=Path, required=True)
     p.add_argument("--kernel-reference-path", type=Path, required=True)
     p.add_argument("--write-fixture", action="store_true")
     args = p.parse_args()
     f = make_fixture(args.reference_path, args.kernel_reference_path)
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(f, separators=(",", ":"), allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(f, separators=(",", ":"), allow_nan=False))
     elif json.loads(FIXTURE.read_text()) != f:
         raise AssertionError("mixed-attention fixture differs from the pinned CPU PyTorch reference")
     print(f"PASS mixed attention CPU oracle: {len(f['attentions'])} stateful attention cases, {len(f['scores'])} BF16 score cases")

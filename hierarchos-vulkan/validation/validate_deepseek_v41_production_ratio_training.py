@@ -4,6 +4,7 @@ No production checkpoint is downloaded. The seed and geometry are fixed before
 native comparison; all released forward modules, cache sharing and the existing
 BF16/FP4/FP8 STE adjoint contract are inherited from the independent CPU oracle.
 """
+import fixture_toolchain
 import hashlib
 import json
 from pathlib import Path
@@ -15,12 +16,14 @@ HERE=Path(__file__).resolve().parent
 ROOT=HERE.parent.parent
 BASE=HERE/'fixtures/deepseek_v41_production_ratio_model.json'
 FIXTURE=HERE/'fixtures/deepseek_v41_production_ratio_training_v2.json'
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SEED=4141384
 
 def frozen_write(path,payload):
     if path.exists() and json.loads(path.read_text())!=payload:
         raise SystemExit(f'{path.name}: frozen CPU evidence changed; refusing overwrite')
-    path.write_text(json.dumps(payload,separators=(',',':'))+'\n')
+    fixture_toolchain.write_fixture(path, json.dumps(payload,separators=(',',':'))+'\n')
 
 def main():
     torch.set_num_threads(1)

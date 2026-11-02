@@ -31,6 +31,7 @@ Regenerate only together with a deliberate kernel change.
 
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import json
 from pathlib import Path
@@ -45,6 +46,8 @@ from validate_deepseek_v41_compressor import load_reference
 FIXTURE = (
     Path(__file__).resolve().parent / "fixtures" / "deepseek_v41_compressor_decode_grad.json"
 )
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SEED = 4141227
 NORM_EPS = 1e-20
 
@@ -330,12 +333,13 @@ def make_fixture(reference):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path)
     parser.add_argument("--write-fixture", action="store_true")
     args = parser.parse_args()
     payload = make_fixture(load_reference(args.reference_path))
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(payload, indent=1) + "\n", encoding="utf-8")
     elif not FIXTURE.exists() or json.loads(FIXTURE.read_text(encoding="utf-8")) != payload:
         raise SystemExit("decode-gradient fixture changed; refusing to overwrite pinned evidence")
     gradients = sum(

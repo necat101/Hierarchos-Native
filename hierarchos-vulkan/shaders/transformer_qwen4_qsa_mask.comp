@@ -44,6 +44,18 @@ layout(push_constant) uniform Push {
     float norm_eps;
 } pc;
 
+#ifdef HIERARCHOS_GEN9_PARALLEL_QSA
+// Eight independent query rows share a workgroup. Keep all temporary state
+// below Gen9's 32 KiB workgroup budget, including long-context fallbacks.
+const uint QSA_CACHED_KEYS = 256u;
+const uint QSA_CACHED_BLOCKS = 256u;
+shared uint qsa_keys[8 * 256];
+shared uint qsa_counts[8];
+shared uint qsa_unpadded[8];
+shared float qsa_scores[8 * 256];
+shared float qsa_qrstd[8 * 16];
+#endif
+
 bool visible(uint batch, uint query, uint key) {
     if (key >= pc.key_value_seq_len) return false;
     if (key_mask[batch * pc.key_value_seq_len + key] <= 0.0) return false;
@@ -67,6 +79,13 @@ uint visible_ordinal(uint batch, uint query, uint key) {
 }
 
 uint visible_key_at(uint batch, uint query, uint ordinal) {
+#ifdef HIERARCHOS_GEN9_PARALLEL_QSA
+    uint local_row = gl_LocalInvocationID.y;
+    if (ordinal >= qsa_counts[local_row]) return pc.key_value_seq_len;
+    if (qsa_unpadded[local_row] != 0u) return ordinal;
+    if (qsa_counts[local_row] <= QSA_CACHED_KEYS)
+        return qsa_keys[local_row * QSA_CACHED_KEYS + ordinal];
+#endif
     uint current = 0u;
     for (uint key = 0u; key < pc.key_value_seq_len; ++key) {
         if (!visible(batch, query, key)) continue;
@@ -222,7 +241,13 @@ float block_score(uint batch, uint query, uint block) {
     float krstd = k_rstd(batch, query, block);
     float score = 0.0;
     for (uint head = 0u; head < pc.num_heads; ++head) {
+#ifdef HIERARCHOS_GEN9_PARALLEL_QSA
+        float qrstd = pc.num_heads <= 16u
+            ? qsa_qrstd[gl_LocalInvocationID.y * 16u + head]
+            : q_rstd(batch, query, head);
+#else
         float qrstd = q_rstd(batch, query, head);
+#endif
         float dot = 0.0;
         for (uint dim = 0u; dim < pc.head_dim; ++dim) {
             dot = fma(
@@ -236,6 +261,7 @@ float block_score(uint batch, uint query, uint block) {
     return score / sqrt(float(pc.head_dim));
 }
 
+#ifndef HIERARCHOS_GEN9_PARALLEL_QSA
 void main() {
     uint query = gl_GlobalInvocationID.y;
     uint batch = gl_GlobalInvocationID.z;
@@ -274,3 +300,95 @@ void main() {
         }
     }
 }
+#else
+void main() {
+    // The caller records one X workgroup. The guard also accepts the legacy
+    // over-dispatched grid for standalone baseline/candidate comparisons.
+    if (gl_WorkGroupID.x != 0u) return;
+    uint lane = gl_LocalInvocationID.x;
+    uint local_row = gl_LocalInvocationID.y;
+    uint query = gl_WorkGroupID.y * 8u + local_row;
+    uint batch = gl_WorkGroupID.z;
+    bool valid_query = batch < pc.batch_size && query < pc.query_seq_len;
+    uint row_offset = (batch * pc.query_seq_len + query) * pc.key_value_seq_len;
+    if (valid_query) {
+        for (uint key = lane; key < pc.key_value_seq_len; key += 8u)
+            sparse_mask[row_offset + key] = 0.0;
+    }
+    if (lane == 0u) {
+        uint count = 0u;
+        uint limit = pc.causal != 0u
+            ? min(pc.query_position_offset + query + 1u, pc.key_value_seq_len)
+            : pc.key_value_seq_len;
+        if (valid_query) {
+            for (uint key = 0u; key < limit; ++key) {
+                if (key_mask[batch * pc.key_value_seq_len + key] <= 0.0) continue;
+                if (count < QSA_CACHED_KEYS)
+                    qsa_keys[local_row * QSA_CACHED_KEYS + count] = key;
+                ++count;
+            }
+        }
+        qsa_counts[local_row] = count;
+        qsa_unpadded[local_row] = uint(count == limit);
+    }
+    memoryBarrierBuffer();
+    barrier();
+    uint count = qsa_counts[local_row];
+    uint complete_blocks = count / pc.compress_ratio;
+    uint selected_blocks = min(pc.topk_blocks, complete_blocks);
+    bool rank_blocks = valid_query && selected_blocks != 0u && selected_blocks < complete_blocks;
+    if (rank_blocks && pc.num_heads <= 16u) {
+        for (uint head = lane; head < pc.num_heads; head += 8u)
+            qsa_qrstd[local_row * 16u + head] = q_rstd(batch, query, head);
+    }
+    barrier();
+    if (rank_blocks && complete_blocks <= QSA_CACHED_BLOCKS) {
+        for (uint block = lane; block < complete_blocks; block += 8u)
+            qsa_scores[local_row * QSA_CACHED_BLOCKS + block] = block_score(batch, query, block);
+    }
+    barrier();
+    if (!valid_query) return;
+    if (selected_blocks == complete_blocks) {
+        // Every complete block and the incomplete tail are selected. Ranking
+        // cannot change the mask, so no normalization/RoPE/dots are needed.
+        for (uint key = lane; key < pc.key_value_seq_len; key += 8u)
+            sparse_mask[row_offset + key] = visible(batch, query, key) ? 1.0 : 0.0;
+        return;
+    }
+    if (lane == 0u) {
+        for (uint ordinal = complete_blocks * pc.compress_ratio; ordinal < count; ++ordinal)
+            sparse_mask[row_offset + visible_key_at(batch, query, ordinal)] = 1.0;
+    }
+    if (selected_blocks == 0u) return;
+    if (complete_blocks > QSA_CACHED_BLOCKS) {
+        // Preserve the original scalar selection beyond the bounded score
+        // cache. No output, rank or tie rule is approximated.
+        if (lane != 0u) return;
+        for (uint block = 0u; block < complete_blocks; ++block) {
+            float score = block_score(batch, query, block);
+            uint rank = 0u;
+            for (uint other = 0u; other < complete_blocks; ++other) {
+                if (other == block) continue;
+                float other_score = block_score(batch, query, other);
+                if (other_score > score || (other_score == score && other < block)) ++rank;
+            }
+            if (rank >= selected_blocks) continue;
+            for (uint offset = 0u; offset < pc.compress_ratio; ++offset)
+                sparse_mask[row_offset + visible_key_at(batch, query, block * pc.compress_ratio + offset)] = 1.0;
+        }
+        return;
+    }
+    for (uint block = lane; block < complete_blocks; block += 8u) {
+        float score = qsa_scores[local_row * QSA_CACHED_BLOCKS + block];
+        uint rank = 0u;
+        for (uint other = 0u; other < complete_blocks; ++other) {
+            if (other == block) continue;
+            float other_score = qsa_scores[local_row * QSA_CACHED_BLOCKS + other];
+            if (other_score > score || (other_score == score && other < block)) ++rank;
+        }
+        if (rank >= selected_blocks) continue;
+        for (uint offset = 0u; offset < pc.compress_ratio; ++offset)
+            sparse_mask[row_offset + visible_key_at(batch, query, block * pc.compress_ratio + offset)] = 1.0;
+    }
+}
+#endif

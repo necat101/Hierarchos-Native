@@ -5,6 +5,7 @@ truncate toward zero; reciprocals round to FP32. No DLL bytes, model inputs or
 native results are used to construct the numeric table. Expected function
 values come from the CPU's scalar CRT on separate deterministic inputs.
 """
+import fixture_toolchain
 import argparse
 import ctypes
 import hashlib
@@ -17,6 +18,8 @@ import numpy as np
 ROOT=Path(__file__).resolve().parents[1]
 TABLE=ROOT/"shaders/fp32_v41_cpu_log_table.glsl"
 FIXTURE=ROOT/"validation/fixtures/deepseek_v41_cpu_log.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 
 def analytic_table():
@@ -53,6 +56,7 @@ def fixture(table):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     p.add_argument("--write-fixture",action="store_true")
     args=p.parse_args()
     if args.write_fixture and (TABLE.exists() or FIXTURE.exists()):
@@ -61,7 +65,7 @@ def main():
     result=fixture(table)
     if args.write_fixture:
         TABLE.write_text(table,newline="\n")
-        FIXTURE.write_text(json.dumps(result,separators=(",",":"),allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(result,separators=(",",":"),allow_nan=False))
     elif TABLE.read_text()!=table or json.loads(FIXTURE.read_text())!=result:
         raise AssertionError("analytic table or scalar CPU reference changed")
     print("PASS analytic CPU log table and",2*len(result["input_bits"]),"scalar reference values")

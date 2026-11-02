@@ -7,6 +7,7 @@ that the released TileLang kernels implement backward or full-model training.
 """
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import json
 from pathlib import Path
@@ -20,6 +21,8 @@ import validate_deepseek_v41_mixed as mixed
 from validate_deepseek_v41_packed_grad import bits, make_weight, packed_forward, ste_round
 
 FIXTURE = Path(__file__).parent / "fixtures/deepseek_v41_mixed_moe_grad.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SEED = 4141210
 
 
@@ -172,12 +175,13 @@ def make_fixture(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path",type=Path,default=Path(__file__).resolve().parents[2]/".tmp-v41-ref/model.py")
     args = parser.parse_args()
     fixture = make_fixture(args.reference_path)
     if FIXTURE.exists() and json.loads(FIXTURE.read_text()) != fixture:
         raise SystemExit("mixed-MoE gradient fixture changed; refusing to overwrite pinned evidence")
-    FIXTURE.write_text(json.dumps(fixture,separators=(",",":"),allow_nan=False)+"\n",encoding="utf-8")
+    fixture_toolchain.write_fixture(FIXTURE, json.dumps(fixture,separators=(",",":"),allow_nan=False)+"\n",encoding="utf-8")
     values = sum(len(c["grad_x_bits"])+len(c["grad_route_bits"])+sum(len(g["a_bits"])+len(g["b_bits"]) for g in c["gradients"].values() if g is not None) for c in fixture["cases"])
     print(f"PASS: {len(fixture['cases'])} mixed MoE autograd cases, {values} chain gradients; {len(fixture['swiglu'])} isolated SwiGLU cases")
 

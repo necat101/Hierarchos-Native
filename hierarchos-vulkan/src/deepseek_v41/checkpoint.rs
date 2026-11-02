@@ -76,6 +76,33 @@ struct ShardFile {
 mod payload_identity_tests {
     use super::*;
     #[test]
+    fn expert_batches_check_both_boundaries_and_preserve_cache_invalidation() -> Result<()> {
+        let root = std::env::temp_dir().join(format!("hierarchos-v41-batch-payload-{}", std::process::id()));
+        fs::create_dir_all(&root)?;
+        let path = root.join("shard.bin");
+        fs::write(&path, [7u8; 16])?;
+        let cache = Arc::new(Mutex::new(payload_cache::PayloadCache::default()));
+        cache.lock().unwrap().enable();
+        let shard = Shard { path: path.clone(), data_start: 0, file_size: 16,
+            tensors: BTreeMap::new(), handle: Mutex::new(None), cache: Arc::clone(&cache) };
+        let ranges = [(0, 4), (4, 4), (8, 8)];
+        assert_eq!(shard.read_many(&ranges)?, [vec![7u8; 4], vec![7u8; 4], vec![7u8; 8]]);
+        assert_eq!(cache.lock().unwrap().stats().identity_checks, 2);
+        assert_eq!(shard.read_many(&ranges)?, [vec![7u8; 4], vec![7u8; 4], vec![7u8; 8]]);
+        assert_eq!(cache.lock().unwrap().stats().cache_hits, 3);
+        assert_eq!(cache.lock().unwrap().stats().identity_checks, 4);
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        fs::write(&path, [9u8; 16])?;
+        assert_eq!(shard.read_many(&ranges)?, [vec![9u8; 4], vec![9u8; 4], vec![9u8; 8]]);
+        assert_eq!(cache.lock().unwrap().stats().invalidations, 1);
+        fs::write(&path, [0u8; 3])?;
+        assert!(shard.read_many(&ranges).is_err());
+        fs::remove_file(&path)?;
+        assert!(shard.read_many(&ranges).is_err());
+        fs::remove_dir(&root)?;
+        Ok(())
+    }
+    #[test]
     fn cached_payload_still_rejects_modified_truncated_and_deleted_shards() -> Result<()> {
         let root = std::env::temp_dir().join(format!(
             "hierarchos-v41-payload-{}-{}",
@@ -114,6 +141,33 @@ mod payload_identity_tests {
 }
 
 impl Shard {
+    fn identity(&self) -> Result<(u64, i64)> {
+        let metadata = std::fs::metadata(&self.path)
+            .with_context(|| format!("reading {} metadata", self.path.display()))?;
+        let modified = metadata.modified().ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|elapsed| elapsed.as_nanos() as i64).unwrap_or(0);
+        self.cache.lock().map_err(|_|anyhow!("V4.1 payload cache lock poisoned"))?
+            .record_identity_check();
+        Ok((metadata.len(), modified))
+    }
+
+    /// One expert is published only after all its payloads have been read.
+    /// Check the file at both ends of this bounded batch; never return weights
+    /// spanning a modified, deleted or truncated shard. Cache keys remain the
+    /// original exact ranges, so individual and batched readers share bytes.
+    fn read_many(&self, ranges: &[(u64, usize)]) -> Result<Vec<Vec<u8>>> {
+        let identity = self.identity()?;
+        let mut values = Vec::with_capacity(ranges.len());
+        for &(offset, length) in ranges {
+            values.push(self.read_at_version(offset, length, identity)?);
+        }
+        if self.identity()? != identity {
+            bail!("V4.1 checkpoint shard changed during expert read: {}", self.path.display());
+        }
+        Ok(values)
+    }
+
     /// Read `length` bytes at `offset`, reusing one handle while the shard file
     /// on disk is still the file that handle was opened from.
     ///
@@ -123,15 +177,10 @@ impl Shard {
     /// avoided, which a streamed decode would otherwise pay thousands of times
     /// per token.
     fn read_at(&self, offset: u64, length: usize) -> Result<Vec<u8>> {
-        let metadata = std::fs::metadata(&self.path)
-            .with_context(|| format!("reading {} metadata", self.path.display()))?;
-        let len = metadata.len();
-        let modified = metadata
-            .modified()
-            .ok()
-            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|elapsed| elapsed.as_nanos() as i64)
-            .unwrap_or(0);
+        self.read_at_version(offset, length, self.identity()?)
+    }
+
+    fn read_at_version(&self, offset: u64, length: usize, (len, modified): (u64, i64)) -> Result<Vec<u8>> {
         let mut handle = self
             .handle
             .lock()
@@ -982,6 +1031,12 @@ impl DeepseekV41Checkpoint {
     }
 
     fn read_mixed_expert(&mut self, name: &str) -> Result<DeepseekV41MixedExpertWeights> {
+        static BATCH_READS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        let batch_reads = *BATCH_READS.get_or_init(||
+            std::env::var_os("HIERARCHOS_VULKAN_V41_BATCH_EXPERT_READS").is_none_or(|v| v != "0"));
+        if batch_reads {
+            if let Some(expert) = self.read_packed_expert_batch(name)? { return Ok(expert); }
+        }
         let (hidden, inter) = (
             self.config.text.hidden_size,
             self.config.text.moe_intermediate_size,
@@ -1006,6 +1061,70 @@ impl DeepseekV41Checkpoint {
                 DeepseekV41WeightFormat::Fp8Block32,
             )?,
         })
+    }
+
+    /// Batch only packed weights sharing one shard. Other layouts retain the
+    /// ordinary loader, including its dtype/shape checks and adapter behavior.
+    fn read_packed_expert_batch(&mut self, name: &str) -> Result<Option<DeepseekV41MixedExpertWeights>> {
+        // Split weight/scale shards cannot use this batch. Reject that common
+        // layout from the already loaded index before allocating plans or
+        // repeating the ordinary loader's metadata validation.
+        if let Some(index) = self.weight_map.as_ref() {
+            if let (Some(weight), Some(scale)) = (
+                index.get(&format!("{name}.w1.weight")),
+                index.get(&format!("{name}.w1.scale")),
+            ) {
+                if weight != scale { return Ok(None); }
+            }
+        }
+        let hidden = self.config.text.hidden_size;
+        let inter = self.config.text.moe_intermediate_size;
+        let mut plans = Vec::with_capacity(3);
+        let mut ranges = Vec::with_capacity(6);
+        let mut path = None;
+        let mut first_name = String::new();
+        for (suffix, rows, cols) in [("w1", inter, hidden), ("w2", hidden, inter), ("w3", inter, hidden)] {
+            let weight_name = format!("{name}.{suffix}.weight");
+            let scale_name = format!("{name}.{suffix}.scale");
+            let dtype = self.tensor_dtype(&weight_name)?;
+            let format = match dtype.as_str() {
+                "F8_E4M3" => DeepseekV41WeightFormat::Fp8Block32,
+                "F4" | "I8" => DeepseekV41WeightFormat::Fp4Row32,
+                _ => return Ok(None),
+            };
+            self.validate_packed_weight(&weight_name, &scale_name, rows, cols, format)?;
+            let elements = rows * cols;
+            let scale_shape = format.scale_shape(rows, cols);
+            for (tensor, bytes) in [(&weight_name, if format == DeepseekV41WeightFormat::Fp4Row32 { elements / 2 } else { elements }),
+                (&scale_name, scale_shape[0] * scale_shape[1])] {
+                let shard = self.shard(tensor)?;
+                if path.as_ref().is_some_and(|old| old != &shard.path) { return Ok(None); }
+                if path.is_none() { path = Some(shard.path.clone()); first_name = tensor.clone(); }
+                ranges.push((shard.data_start + shard.tensors[tensor].data_offsets[0], bytes));
+            }
+            plans.push((weight_name, rows, cols, format));
+        }
+        let payloads = self.shard(&first_name)?.read_many(&ranges)?;
+        let mut payloads = payloads.into_iter();
+        let mut weights = Vec::with_capacity(3);
+        for (weight_name, rows, cols, format) in plans {
+            let mut linear = DeepseekV41LinearWeights::Packed {
+                weight: DeepseekV41PackedWeights::new(rows, cols, format,
+                    payloads.next().context("missing expert weight payload")?,
+                    payloads.next().context("missing expert scale payload")?)?,
+                lora: None,
+            };
+            if let Some(module) = self.lora.as_ref().and_then(|adapter| adapter.module_for_tensor(&weight_name)) {
+                linear.attach_lora(module)?;
+            }
+            weights.push(linear);
+        }
+        let mut weights = weights.into_iter();
+        Ok(Some(DeepseekV41MixedExpertWeights {
+            w1: weights.next().expect("three expert matrices"),
+            w2: weights.next().expect("three expert matrices"),
+            w3: weights.next().expect("three expert matrices"),
+        }))
     }
 
     pub(super) fn load_mixed_expert(

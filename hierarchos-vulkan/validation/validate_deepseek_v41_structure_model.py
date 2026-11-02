@@ -6,6 +6,7 @@ Widths, vocabulary, table sizes and context are reduced. These two probes do
 not qualify the combined full-size model. The pinned forward bodies and CPU
 kernel mirrors are unchanged; acceptance compares every logit at <2e-7, rtol=0.
 """
+import fixture_toolchain
 import argparse
 import hashlib
 import json
@@ -18,6 +19,8 @@ import validate_deepseek_v41_model as model
 import validate_deepseek_v41_wide_model as wide
 
 FIXTURE = model.FIXTURE.parent / "deepseek_v41_structure_model.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SPECS = [
     dict(seed=4141101, layers=40, experts=8, engram=True),
     dict(seed=4141102, layers=1, experts=384, engram=False),
@@ -124,6 +127,7 @@ def compact(fixture, write, expected_files=None, *, prefix="deepseek_v41_structu
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path, required=True)
     parser.add_argument("--kernel-reference-path", type=Path, required=True)
     parser.add_argument("--write-fixture", action="store_true")
@@ -158,7 +162,7 @@ def main():
     if args.trace_output:
         args.trace_output.write_text(json.dumps(dict(cases=traces), separators=(",",":"), allow_nan=False))
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(result, separators=(",",":"), allow_nan=False))
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(result, separators=(",",":"), allow_nan=False))
     elif json.loads(FIXTURE.read_text()) != result:
         raise AssertionError("structure fixture differs from the pinned CPU reference")
     if args.native_output:

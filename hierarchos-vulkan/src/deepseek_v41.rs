@@ -50,6 +50,7 @@ mod compressed_kv;
 mod compressor;
 mod compressor_grad;
 mod engram;
+mod gen9;
 mod indexer;
 mod mixed_linear;
 mod model;
@@ -61,6 +62,8 @@ mod rotary;
 mod terminal;
 mod tokenizer;
 mod train;
+#[cfg(test)]
+mod cpu_loss_tests;
 #[cfg(test)]
 pub(crate) mod training_trace {
     use crate::GpuBuffer;

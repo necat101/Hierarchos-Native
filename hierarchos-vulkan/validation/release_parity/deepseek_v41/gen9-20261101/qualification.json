@@ -1,0 +1,1181 @@
+{
+  "status": "recorded_gen9_gates_passed",
+  "date": "2026-11-01",
+  "timezone": "America/Los_Angeles",
+  "utc": "2026-11-01T19:26:08.822901+00:00",
+  "base_revision": "2695c93e21b47ed9657c6793228aeb5d1b67e562",
+  "branch": "codex/gen9-v41-completion",
+  "device": {
+    "cpu": "Intel Core i5-6200U",
+    "gpu": "Intel HD Graphics 520",
+    "vendor_id": "8086",
+    "device_id": "1916",
+    "driver": "31.0.101.2115"
+  },
+  "gate": {
+    "logit_absolute_limit": 2e-07,
+    "comparison": "strict_less_than",
+    "rtol": 0,
+    "passed_tests": 250,
+    "failed_tests": 0,
+    "default_ignored": 25,
+    "ignored_executed_explicitly": 4
+  },
+  "tests": [
+    {
+      "name": "v41-strict",
+      "exit": 0,
+      "command": [
+        "C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-25096d1b6b51d860.exe",
+        "deepseek_v41::",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "counts": {
+        "status": "ok",
+        "passed": 189,
+        "failed": 0,
+        "ignored": 25
+      }
+    },
+    {
+      "name": "package-default",
+      "exit": 0,
+      "command": [
+        "C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-25096d1b6b51d860.exe",
+        "deepseek_v41_default_package_scalable_release_strict_all_logits",
+        "--nocapture",
+        "--test-threads=1",
+        "--ignored"
+      ],
+      "counts": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "joint-resident",
+      "exit": 0,
+      "command": [
+        "C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-25096d1b6b51d860.exe",
+        "deepseek_v41_joint_depth_and_384_expert_strict_all_logits",
+        "--nocapture",
+        "--test-threads=1",
+        "--ignored"
+      ],
+      "counts": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "joint-streamed-vocabulary",
+      "exit": 0,
+      "command": [
+        "C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-25096d1b6b51d860.exe",
+        "deepseek_v41_streamed_vocabulary_joint_strict_all_logits",
+        "--nocapture",
+        "--test-threads=1",
+        "--ignored"
+      ],
+      "counts": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "peft-trajectory",
+      "exit": 0,
+      "command": [
+        "C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-25096d1b6b51d860.exe",
+        "deepseek_v41_production_uninterrupted_training_logit_trajectory",
+        "--nocapture",
+        "--test-threads=1",
+        "--ignored"
+      ],
+      "counts": {
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "vulkan",
+      "exit": 0,
+      "command": [
+        "C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-25096d1b6b51d860.exe",
+        "vulkan::tests",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "counts": {
+        "status": "ok",
+        "passed": 38,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "generic-streaming",
+      "exit": 0,
+      "counts": {
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "weight-offload",
+      "exit": 0,
+      "counts": {
+        "status": "ok",
+        "passed": 16,
+        "failed": 0,
+        "ignored": 0
+      }
+    }
+  ],
+  "focused_checks": [
+    {
+      "name": "focus-moe",
+      "exit": 0,
+      "command": [
+        "C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-25096d1b6b51d860.exe",
+        "mixed_moe_retained_chain_and_adapter_vjps_match_cpu_and_release_experts",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "counts": {
+        "status": "ok",
+        "passed": "1",
+        "failed": "0",
+        "ignored": "0"
+      }
+    },
+    {
+      "name": "focus-compressor",
+      "exit": 0,
+      "command": [
+        "C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-25096d1b6b51d860.exe",
+        "deepseek_v41_compressor_decode_adjoint_runs_on_native_state",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "counts": {
+        "status": "ok",
+        "passed": "1",
+        "failed": "0",
+        "ignored": "0"
+      }
+    },
+    {
+      "name": "focus-projection",
+      "exit": 0,
+      "command": [
+        "C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-25096d1b6b51d860.exe",
+        "query_projection_computed_gradients_adamw_resume_export_match_cpu",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "counts": {
+        "status": "ok",
+        "passed": "1",
+        "failed": "0",
+        "ignored": "0"
+      }
+    }
+  ],
+  "shipping_logits": [
+    {
+      "name": "package-default",
+      "values": 3216,
+      "max_abs": 0.0,
+      "bit_exact": true
+    },
+    {
+      "name": "joint-resident",
+      "values": 3216,
+      "max_abs": 0.0,
+      "bit_exact": true
+    },
+    {
+      "name": "joint-streamed-vocabulary",
+      "values": 3216,
+      "max_abs": 0.0,
+      "bit_exact": true
+    },
+    {
+      "name": "peft-trajectory",
+      "values": 1536,
+      "max_abs": 0.0,
+      "bit_exact": true,
+      "updates": 6,
+      "vectors": 24
+    }
+  ],
+  "wide_gate": {
+    "seeds": [
+      "4141071",
+      "4141072",
+      "4141073"
+    ],
+    "steps": 22,
+    "values": 158514,
+    "max_abs": 0.0,
+    "bit_exact": true
+  },
+  "fma": {
+    "cases": 24,
+    "values": 2304,
+    "native_word_differences": 1398,
+    "corrected_word_differences": 0
+  },
+  "gen9_fma_variants": 17,
+  "unchanged_native_shader_artifacts": 17,
+  "cross_entropy": {
+    "cases": 31,
+    "row_word_differences": 0,
+    "scalar_differences": []
+  },
+  "fixture_provenance": {
+    "pinned": 17,
+    "legacy": 54,
+    "total": 71,
+    "problems": [],
+    "strict_passed": false,
+    "reason": "54 historical fixtures are hash-bound to the original handoff but have no verified toolchain reproduction; the pasted 78-pin claim is not present in this checkout."
+  },
+  "original_frozen_files": [
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_adapter_training.json",
+      "sha256": "961d769e8e1e0516a0be9a5cec86fb597d1ca7774d105144ca5fb5bd52deb484"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_attention.json",
+      "sha256": "5b1f5f44d2346ecdf8d8ccc5e17b8747e106e4f6ec4fc51299e0921d22abf58a"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_attention_grad.json",
+      "sha256": "ad8aff765bb3fad5cb79a8c9b5fa662b54f7fc8a00d93ff5b04456f353b642ef"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_attention_model.json",
+      "sha256": "3cfbad274144417849b83b25c9f686e9439f4f2c7c38d645ee86819066a350df"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_attention_projection_grad.json",
+      "sha256": "a8768ff06aa20e674188af480250f8d1e0aa7cf2b024d05603d60cd46164752f"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_attention_tape.json",
+      "sha256": "025a847d418b2ae1d044b49e7c12a4eb3fbe765db16b7ae95dfae3db72d914a7"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_backbone.json",
+      "sha256": "82fb7530ac55880e43bbc947c29a12b08f538876ae6acf17b3761ae2fa40073f"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_bf16_model.json",
+      "sha256": "178c7585504768474db206e62a388ea1af00b567939603c6561645947ffd37cd"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_bf16_quantization.json",
+      "sha256": "2f2dd2dcc16043be7a3101e922ebaca0b8b10b4b5c60b86949d5863142eec87a"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_block_grad.json",
+      "sha256": "b50115c6b0a82c43eae5f354238f15b962a3d78056d5988c51410a2331ea7072"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_candidates.json",
+      "sha256": "370bbc8f70e5a39e6e2e2827ee75bb8d5339c08e7e18aa7f8824cd84ae80ca3b"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_compressor.json",
+      "sha256": "c5ce47c29d7a41402f87741e6edb8855fe2f43576dc30ce7a2018912a643d4a2"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_compressor_decode_grad.json",
+      "sha256": "17f46f208faf573ec127e446258d4fcd07ba4507921e55e9ec33009aeb291edf"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_compressor_grad.json",
+      "sha256": "184a4e621d7061f9bbf3b7446795a58458dc5682324049f2ffab2bb64faf4d4e"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_compressor_pool_math.json",
+      "sha256": "6fc4c7040f45d391190de16b0d7c19ec762ebce85ccd5e5e0430a708e79c741a"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_conditional_adamw.json",
+      "sha256": "2bc7b333db60c0c2bf789920c2bd5050d2e76e958300a17ee84c2efd465f1bae"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_cpu_log.json",
+      "sha256": "0f77d869fa198266ab450a412e1b37b996d68b60ac9ce1c02240316ad93fc6f2"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_cpu_math.json",
+      "sha256": "0511b838c60c424875588870efa0536b76b9427edfc7322fafcd270ec86276ad"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_engram.json",
+      "sha256": "6c25e555af5419f354b55ad7dbcf5e02543b1f1da613bbb0cc4925fb36e38e62"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_engram_grad.json",
+      "sha256": "6b0c0c567eee2292084476799c816a7c09cfca3a595c68b6b0becfb7991bf0fc"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_engram_width.json",
+      "sha256": "c381e90883fcfdf24d7ef5d225e955d191b83a3827a92bf2f91c0c61138f68d1"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_flash_1017_config.json",
+      "sha256": "8be45ce0476004a3f529fd896115a4a2e800a129ad2d3ec05b16050f52e21879"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_full_bf16_training_v2.json",
+      "sha256": "77a432fcb453f4c6dd491df2c003bf46c81e8ebc8a34ef5093142f8966dc4336"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_full_bf16_training_v3.json",
+      "sha256": "ea129551716898b29ad345be8319f70fe44c4afb21c8aa70d6f39e762d412feb"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_full_mixed_training.json",
+      "sha256": "013f1aed883f8dc4af7e38d2934b2b60e21cc7ef2ef46c8d014c5609270ac8f7"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_full_training.json",
+      "sha256": "fdd3e86540c6bff987197acfe38d3aecf98031e84230a636318f5a132f5bfcdf"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_gate_tie.json",
+      "sha256": "29d5a3d7bab55bef6106fd2cc005435b61938620f203fe7df9461e07c1dc624e"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_grouped_reduction.json",
+      "sha256": "62914c02427f3340c4aad61a6fc90bde975050b5202fc312117ad90bc9a5fa7b"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_hash_seeding.json",
+      "sha256": "db12f66fffeffaaa50db485e25ed1ff07ffa84dd2176901567e83a2911f72983"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_index_keys.json",
+      "sha256": "2c6d6837df5b30e82dfc5901622ca1e7e95968f9c3e78686aa05defdea62dd1f"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_index_selection.json",
+      "sha256": "34b8ad7e843f3a98b085c498c71ef4b5c5d9f98ebcef1b8a521cf3900dc89885"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/config.json",
+      "sha256": "66810633470d0aca75b9f849ca0dfa3ada02a460ac02df09b412b00532af47c0"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/engram_tokens.json",
+      "sha256": "d5de0c884b7423eaf0c87daae3f5e64010ba101e50df3d9f0189e74266957861"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/model.safetensors.index.json",
+      "sha256": "d820b7f0e9696c00ed2b469b548319524c1da766a70bd1d25c21d4cfdde46ac2"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/weights-0.safetensors",
+      "sha256": "20598e40d113eeb428498ae3bbd78a4cc77b507bd57e2c0cafedfe99cc879c7f"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/weights-1.safetensors",
+      "sha256": "b100bd2e5d28d8dd392a284f9eff06e0ea57af8bc354259e6a39914e289fa972"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_model.json",
+      "sha256": "00cef75fe55c2243a6c2134c65e4c0adf224ce76791022c97f75738d4a1608b8"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_long_context_model.json",
+      "sha256": "82dcb51beea92833fa8dc382daf30846cd195f5974a17e9eaf0f9c7dd314bbbc"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_lora_model.json",
+      "sha256": "692210d1c7808e129d125cf575ee875489ff423eb02a4db33cc551474c355853"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_loss_reductions.json",
+      "sha256": "fca5a50f8be6264e3bd9ed453b97e422528490f13fb12257205bd6e3eaffaab4"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed.json",
+      "sha256": "9c9ec1773c6d0aaa307007d7e0991593e1a23a206275e02aaa1319c8d2dae7d4"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_attention.json",
+      "sha256": "3b8982545d10b45cbb32d7558244d934b0ca17eef8867a36047f240677e5b47b"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_engram.json",
+      "sha256": "5fb82a8b794de0adeba91c9ac35ff951853bbad9cb0f2c1fdecda662e41b552d"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_model.json",
+      "sha256": "7984afe94ded0210c0dfa2ff964024200c412b7568f234131b8a8a335b6c5646"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_moe_grad.json",
+      "sha256": "f45527b3d6d223e7bd353950121946160ab16db2fc96f3d49b550dd85c092975"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_model.json",
+      "sha256": "679ebe1cdbe421ded12b911fb24dfd64995598caeb1ebe619434229444ffc7af"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_model_additional.json",
+      "sha256": "f37fea66068071a7451a4d20487df40cbffec70837d02f2d64b32edde3c95f5a"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_packed_grad.json",
+      "sha256": "e97c0cbdae4368b115abdf896c11102b5b3eb6ad8f57ec50626d19cd77c7c3dc"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_packed_weights.json",
+      "sha256": "165ce7b960d1d7ad19eab933912b01b47d051c6b7ea6c54e5f332b7f52e19550"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_production_attention.json",
+      "sha256": "c7396252fef12b52412fadf008d3920b05bcb9bd5a5c1aa26a11893689068e82"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_production_model.json",
+      "sha256": "ea1b00dd3ffe4bf5786c4daf632c2054904b5f8f929428bbbb92636cb3e6a524"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_production_ratio_model.json",
+      "sha256": "90b209b57a92386421a93de60289964b1881fbbd24b98444fcbdffc84cf31c40"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_production_ratio_training.json",
+      "sha256": "af2832cdfe891bf017808d1c1151d2e403a22c7ea69b0d5dcf806d62a8573985"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_production_ratio_training_v2.json",
+      "sha256": "3dd99546f378a6dd7b87cc2f37eec64fa2a2f99a4e0d4c61211a07b0ea453a20"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_projection_grad.json",
+      "sha256": "a251f888d350b54ce3ba58e301331f2ee9c583376469e313ff7dfd63aa7021e2"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_quantization.json",
+      "sha256": "51e327616290376a78004b2e79a17485603f1125b5c3873bc1b2d9c8b7e542b6"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_rotary.json",
+      "sha256": "8b0345a2efe433877b7a3f9660d0973ee05b472519bfad77a81d635c0d931cae"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_router_width.bf16.bin",
+      "sha256": "2152723dbf4164c7cb164e37a58cfeef76b23e0ac7ed8a8324ce3b58d921026f"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_router_width.json",
+      "sha256": "06ada7581a6e115542427e245ca6ce58c20b7ec30697a0ed2163ccd3f9526041"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_routing_reduction.json",
+      "sha256": "8698f6c202094567b25fcdeda4570b726795f6b6b604481bc722fd47a1086c61"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_schedule_attention.json",
+      "sha256": "c04ac2bfa81aebe9c98219222c48548acbf5504ab7bb14a66a7082a32358a725"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_schedule_width_model.json",
+      "sha256": "70d2218429c2d4b8623a8ebbdd6c659eec22f7f64f9eeecd3d95c5d7877fdcf0"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_model.json",
+      "sha256": "4817e35531eb0d8c076f8a76a8a55a5bab36eafe8653d017eb006aa7c01e80cc"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_terminal_grad.json",
+      "sha256": "a8d9f5260396a84fb436324d90f9fcbe7df29fa713a274cb3c11e6077a0bf8e2"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_unary.json",
+      "sha256": "5659adfbbc35a2129b633a1ba01e5a6cc19810cc75807a19367a90cf076e6bec"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_weight_grad_order.json",
+      "sha256": "6a995e57029f58fc5b07f706247902e2ed0c85fd2507a7237a1829d51634e29c"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_kernels.json",
+      "sha256": "67809924b41bc05e1f4eca9dbe017151f906b8471f87b5dde52a2c207a682a51"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_model.json",
+      "sha256": "8f468d860c162fb08cddd554cbf85d5b108092a37d326460fdcd75dec018274f"
+    }
+  ],
+  "restored_checkpoint_files": [
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141101/config.json",
+      "bytes": 2203,
+      "sha256": "91a261042b44262881b9c2286d605a3405b3df7536862b262ee58d79b13a8c6d"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141101/weights-0.safetensors",
+      "bytes": 4374302,
+      "sha256": "92ce80c4a97b736970795d4c229bb35b883ef359eac08de856fe7273fbbe75d6"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141101/weights-1.safetensors",
+      "bytes": 3302290,
+      "sha256": "30cf759d0bd4ce669e330e517c26b3340d1bfdc5f3733877086e8c359fb494cd"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141101/model.safetensors.index.json",
+      "bytes": 177584,
+      "sha256": "4106678cd78950c1cd4e632ca04d3d80b362abc55afe4e5dde3b395e72ef6ad4"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141102/config.json",
+      "bytes": 2083,
+      "sha256": "7f22f9de881ca266c429025686da591c09a9aa2a40843a4ef8f2bc3e551235d4"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141102/weights-0.safetensors",
+      "bytes": 2575002,
+      "sha256": "c1ba54524e1f58b662481e52c9a5500ae591a8f14af29128770522ef8bf21565"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141102/weights-1.safetensors",
+      "bytes": 330252,
+      "sha256": "348fcf4b62f7b62d08938655ec032ae5cc9f700b41c65e1e1e59a33bcecfe28b"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141102/model.safetensors.index.json",
+      "bytes": 140351,
+      "sha256": "a08fbabaf76b9e4cd16a082841e898d3d5776ea72e6d97959780f335179af51f"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141071/config.json",
+      "bytes": 2111,
+      "sha256": "f89ea93a8ea4343cd8eec2d27ed5d36f73428b1b3341005fdeb0b79a4084fa4e"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141071/model.safetensors",
+      "bytes": 3136148,
+      "sha256": "d4f1193734c5e214a33998b0e1229e05c5a9da8b3e5e6023848598da68bd79bf"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141072/config.json",
+      "bytes": 2114,
+      "sha256": "2890f759cb50b3fd9231557d2430464cfc835acd2136ba5f1b5c60c9d26f7361"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141072/weights-0.safetensors",
+      "bytes": 8796340,
+      "sha256": "e42fa04bfa039f9366a8caccc416b2a216745ed7fcfdd31d0ad90abe37259d2f"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141072/weights-1.safetensors",
+      "bytes": 8620024,
+      "sha256": "38ce0e23c19ef9e4486368731fa6bc7dccf7524e0e592e37ca6bbf92ff45ee27"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141072/model.safetensors.index.json",
+      "bytes": 17124,
+      "sha256": "e537248c13e57841a908b3c08cd1e284158eee0a846d1aefc5f718a6d8041beb"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/config.json",
+      "bytes": 2111,
+      "sha256": "54885a4da3c7e73506c676c5e91bf6e4a37ab61b8efa8c242f53b77364efb041"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/weights-0.safetensors",
+      "bytes": 1589068,
+      "sha256": "da8bb918814dc4927daddcb679c69661097ae3502e9e2c11ba9b232b94e5f8df"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/weights-1.safetensors",
+      "bytes": 1546744,
+      "sha256": "4daea3f8cb993dd7d9e442de0fea9f39c614718002fc2ebc39eb2b55d388ab55"
+    },
+    {
+      "path": "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/model.safetensors.index.json",
+      "bytes": 17124,
+      "sha256": "e537248c13e57841a908b3c08cd1e284158eee0a846d1aefc5f718a6d8041beb"
+    }
+  ],
+  "shader_provenance": {
+    "artifacts": 566,
+    "passed": true
+  },
+  "push_abi": {
+    "checked": 429,
+    "typed_sites": 109,
+    "problems": []
+  },
+  "python_tests": {
+    "passed": 64,
+    "failed": 0
+  },
+  "workspace": {
+    "crates": 4,
+    "binaries": 65,
+    "all_targets": true,
+    "passed": true
+  },
+  "benchmark": {
+    "baseline": "phase 1 optimized Gen9 port, matched by its recorded binary SHA-256",
+    "binaries": {
+      "baseline": {
+        "path": "C:\\Users\\User\\Hierarchos-Native\\.tools\\gen9-phase1-probe.exe",
+        "sha256": "400aabd1124417d4b7f9e8372a5b35733f2f7d44d4a75afe0f7425b504676ad8"
+      },
+      "candidate": {
+        "path": "C:\\Users\\User\\Hierarchos-Native\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-deepseek-v41-forward-probe.exe",
+        "sha256": "66920ebb5d80531fbadeb34fddbcb768c1b73bd3fc612e7c23654147c8c9ce62"
+      }
+    },
+    "timings": {
+      "resident": {
+        "baseline": {
+          "prefill_ms": 190.644,
+          "decode_ms": 173.5285
+        },
+        "candidate": {
+          "prefill_ms": 197.78,
+          "decode_ms": 175.98450000000003
+        },
+        "latency_reduction_percent": {
+          "prefill_ms": -3.743102326850045,
+          "decode_ms": -1.4153294703751929
+        }
+      },
+      "default": {
+        "baseline": {
+          "prefill_ms": 2344.482,
+          "decode_ms": 963.4715
+        },
+        "candidate": {
+          "prefill_ms": 2319.9570000000003,
+          "decode_ms": 900.9755
+        },
+        "latency_reduction_percent": {
+          "prefill_ms": 1.0460732903899261,
+          "decode_ms": 6.486543711983172
+        }
+      }
+    },
+    "frozen_digest_guards": 5,
+    "profiling_excluded_from_latency_medians": true,
+    "profile": {
+      "baseline": {
+        "dispatches": 24714,
+        "gpu_ms": 953.915438
+      },
+      "candidate": {
+        "dispatches": 24714,
+        "gpu_ms": 972.181361
+      }
+    }
+  },
+  "implementation_sha256": {
+    "hierarchos-vulkan/shaders/fp32_v41_gen9_fma.glsl": "82a38c961312e3e25a344cdd536a3da7efd7c3870935f216fe687fe7046a7fbc",
+    "hierarchos-vulkan/shaders/fp32_v41_pow2_scale.glsl": "08a05a8171d8e1320c533d07dca5ceebced2c10395cc03e7c4b96e52e9ecc350",
+    "hierarchos-vulkan/shaders/fp32_v41_quant_formats.glsl": "0ce4b06b47bfd2089af88af0d175219ab17d0c89972068938579052198bde2b8",
+    "hierarchos-vulkan/shaders/fp32_v41_reduce_parallel.glsl": "940ae6a008e9d4068a3c28cec7ca087974fa7ffb3a5fc521f391443f85304ffc",
+    "hierarchos-vulkan/shaders/linear_input_grad_gen9.spv": "ac5550850e8f00900a611eff35f03553725b58239c15ca6b0c6f6964f4d89177",
+    "hierarchos-vulkan/shaders/linear_input_grad_lane2_gen9.spv": "f8ca7763d521c447ae25c8a4f228a43a95a6fe211f97710ad02c4d4e3c641584",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_gather_grad_gen9.spv": "234d12920472050569ae412afe357ededde60ba40c361661ed6c283b4b9ba135",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_query_grad_gen9.spv": "d114a818feafe75714d0ed7e0e8c36efba8d593c0cb51256f12b2b7508181356",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_values_gen9.spv": "a4df52d9280e4fd46eaa06906fd97994f6a5b846bfa717c189a50cc04662766f",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_weight_grad_gen9.spv": "2bb3d55c51a0bfcaae54bdcf1994eba1c47d4ee746bf0940307f4ab83a9d4fb7",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_weights_gen9.spv": "6ebebbb5cf08bde0528d45c16ea788c305cb8eefbd41241f34154477b00b2469",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_expert_fused.comp": "4310fd6cdbac93db9024b321ed8bd4fd0ef8c10fd29b88516dfa9f037e1156da",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_expert_fused.spv": "ccf32cd5f910d13dba49ee378a5dcab4947a2fb50f7692529a972d228de7a5ff",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_grouped_output_gen9.spv": "6b06d3f67627e8884a22647a354ced3d861390a74909b329deb3ebb4ada63614",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_grouped_output_input_grad_gen9.spv": "188acd8810554893eff70a444bf10a589991edc4226331faed99ee29e1f61974",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_mixes_input_grad_gen9.spv": "d1aa75c1370f4655eaa5022ff0152b7353994dc3b8af32a52ee549e7423a8ce7",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_index_scores_gen9.spv": "2119f45ba1a687c359376c2ae779ceafbf6126ef54486b8744f01dd7cbf99b7a",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_linear_gen9.spv": "876c63a4428680c4eba462e6bb2ac812a4f8ee8159e6f7b3e5b3726fedb57e08",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_linear_half_gen9.spv": "c9e295159c5b8d5afa0f2f76400073c737248c5d08b8cd5cf8a0009cd1fa9337",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_expert_gen9.spv": "bb5c641849c2e8a6a8489ec5acdd5e60d792cc5a59ff431bc5781fa6ca14fe25",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_expert_grad_gen9.spv": "35be4251a5166f01cbe173e5419bf998409efaf2e9cf7980c43f43e8ebfd2593",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_gate_gen9.spv": "9e8f1e2ffe08d8718ab4059fc5e1b2f6434dd4ac40f80010d3f4fa157244dd8d",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_gate_grad_gen9.spv": "8f0a3b7e671ed6d77be4e88114352b4047a8671077426cc9836a8389d45dce1c",
+    "hierarchos-vulkan/src/deepseek_v41/cpu_loss_tests.rs": "cc9669204cef645f786b2b630bd4c211b708c8a7e5fbfd23e78c1091377767a0",
+    "hierarchos-vulkan/src/deepseek_v41/expert_batch.rs": "8f9d309ba79e22c8782f008d8e687aba7fa7838811da5ebce21e76b2ba66ec16",
+    "hierarchos-vulkan/src/deepseek_v41/gen9.rs": "272bc0b19be68dea88a483a5e92203c824cd64a4f2ae4a778ed339ea508b62ef",
+    "hierarchos-vulkan/validation/benchmark_deepseek_v41_gen9.py": "36d495d96ead56bc50d1a8d33bc9199a7539effb9c370de19eb53bf22368ae72",
+    "hierarchos-vulkan/validation/fixture_toolchain.py": "7d46de1353c17edf33d560488d67bde62144bf9e60959563877b1f090c1bb2e9",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_compressor_decode_grad.avx2.json": "70371169ff1eb52e2166e2a4697893014325eca2e2d036935292c43994a16187",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_full_bf16_training_v3.avx2.json": "1cd3568aa82c60e74f0ba803eefb62ec85b667c5d85fd628f5a9622eb7f381bc",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_full_mixed_training.avx2.json": "a70c7f6bf9255c686d1ff0727990827c1f8f050b1c2ffd2eb6c822a053dc0067",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_full_training.avx2.json": "ef4eae438e67bbd4909e7bffb1142b1249d52ce2f7b69e7d52da95d330938397",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_loss_reductions.avx2.json": "5cd59fb7ce5987eab6441357e31839e7a4f96e7d834db424437067f7bb9944f9",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_block128.json": "622e61de1d80bb2d9ed27d2c9f4b912ab39a1c33331064024a453e4808d25e12",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_moe_grad.avx2.json": "8df9ea04d934a5c1f82055036a05ad8365d2f87ea49300346ee8bef2089e7e34",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_projection_grad.avx2.json": "9c4cfbe0056a1e06741dd01c2d01457c894e16e4315ffe48c4ff7420353ccffe",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141101/config.json": "91a261042b44262881b9c2286d605a3405b3df7536862b262ee58d79b13a8c6d",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141101/model.safetensors.index.json": "4106678cd78950c1cd4e632ca04d3d80b362abc55afe4e5dde3b395e72ef6ad4",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141101/weights-0.safetensors": "92ce80c4a97b736970795d4c229bb35b883ef359eac08de856fe7273fbbe75d6",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141101/weights-1.safetensors": "30cf759d0bd4ce669e330e517c26b3340d1bfdc5f3733877086e8c359fb494cd",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141102/config.json": "7f22f9de881ca266c429025686da591c09a9aa2a40843a4ef8f2bc3e551235d4",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141102/model.safetensors.index.json": "a08fbabaf76b9e4cd16a082841e898d3d5776ea72e6d97959780f335179af51f",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141102/weights-0.safetensors": "c1ba54524e1f58b662481e52c9a5500ae591a8f14af29128770522ef8bf21565",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_structure_4141102/weights-1.safetensors": "348fcf4b62f7b62d08938655ec032ae5cc9f700b41c65e1e1e59a33bcecfe28b",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_terminal_grad.avx2.json": "5ae21cfdc9f13f703d61f9b707155b5e2132f4b07f8bea67bc412b0d4c8dbec5",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_toolchain.json": "3d2488ca18dbb83e43b1e8d3b4dc95912ac886b3dc92c54ec6bd8e9d2b9bccc2",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_toolchain_legacy.json": "ab531012d422c043e636cb5dbae636443a541670bedabdc892f7a3c18904597a",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_training_loss.avx2.json": "e2766a7dbb88da14547f2f4e20bef4fca4d121f80f2fec71efa446f0a0aa3c73",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141071/config.json": "f89ea93a8ea4343cd8eec2d27ed5d36f73428b1b3341005fdeb0b79a4084fa4e",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141071/model.safetensors": "d4f1193734c5e214a33998b0e1229e05c5a9da8b3e5e6023848598da68bd79bf",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141072/config.json": "2890f759cb50b3fd9231557d2430464cfc835acd2136ba5f1b5c60c9d26f7361",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141072/model.safetensors.index.json": "e537248c13e57841a908b3c08cd1e284158eee0a846d1aefc5f718a6d8041beb",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141072/weights-0.safetensors": "e42fa04bfa039f9366a8caccc416b2a216745ed7fcfdd31d0ad90abe37259d2f",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141072/weights-1.safetensors": "38ce0e23c19ef9e4486368731fa6bc7dccf7524e0e592e37ca6bbf92ff45ee27",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/config.json": "54885a4da3c7e73506c676c5e91bf6e4a37ab61b8efa8c242f53b77364efb041",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/model.safetensors.index.json": "e537248c13e57841a908b3c08cd1e284158eee0a846d1aefc5f718a6d8041beb",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/weights-0.safetensors": "da8bb918814dc4927daddcb679c69661097ae3502e9e2c11ba9b232b94e5f8df",
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/weights-1.safetensors": "4daea3f8cb993dd7d9e442de0fea9f39c614718002fc2ebc39eb2b55d388ab55",
+    "hierarchos-vulkan/validation/restore_deepseek_v41_checkpoints.py": "9d331e6f6e293e8f90d72157d7d9613dbc05fb7b82d2592b29e31956e4829377",
+    "hierarchos-vulkan/validation/test_fixture_toolchain.py": "af7a86e31e26545910df2e638b1c6c6eccd40a36f4a226db9d13f0f5a00c63fa",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_loss_reductions.py": "6b23b840688bc5fa7782a4463b7e93ef8ee8a8d2ff8940ee747961a3f0bac434",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_training_loss.py": "6eec4e2ba3fbd040bdbf7032e988f3a0c61c757bbaa8884d49293339f9ad6fa0",
+    "hierarchos-vulkan/shaders/fp32_fma_exact.glsl": "c8dbbea86fc7d913659e0c61b3e65607158ad5b3a4a7c4d8ae4a8aa663d1b0ec",
+    "hierarchos-vulkan/shaders/linear_input_grad.comp": "c2ef96477554c819342d754c10bd6b27ba7ede0bda153c2c59f65f0dc8e7fc0b",
+    "hierarchos-vulkan/shaders/linear_input_grad_lane2.comp": "1f89b96376e24ee7e0b89f370602d5b5dda5e908518f833acb30f34b3bb64a18",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_gather_grad.comp": "faddb02862b44e65eeb9234812037ebddb17cddfbf2e00712460c0b440c70a26",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_query_grad.comp": "cdfc0f88e6a62bc9eabb6337128c4cf117b3add180e2ba20fa7d66a3fc032512",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_values.comp": "35e5f7f82f22d77732ccd24cc82b0defdfe2e745d22d5338c47275eb8ff6cc88",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_weight_grad.comp": "1f1f3434399f40e6b4e07aba2b207494d73c624b312323f6058bf9f294bf558b",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_weights.comp": "0505642c34237d2b583cbfe4e49e6067a7e849063deac8f257c83a880826a6a2",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_attention_weights.spv": "7cc59897444818e742012d893b2f8fbfdab27cbf64db259283d5490010d8f8df",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_grouped_output.comp": "f0c2dedf146a10ce4bb7f536c7bf8966c338f00c2c8e9ce04a2247dc87bd629d",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_grouped_output_input_grad.comp": "bef71bf0ee1f24c7cda625bf7bd88801570b1d8c0199128c25ba59ed1725330e",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_mixes_input_grad.comp": "5ce39f1d23977b1a0d43dfdb0cd374fa807592eb760abe7cb77d4b8b29001e3a",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_split.comp": "ce279cb9fda5b7a2ce53dc6fa78fe9dcf380e2a2d6983961a601b59cbfd52cbb",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_split.spv": "02e3f9be92685d1d1d01abaeb1445185b2bc6c278f8fdaaea84c75507c6d287d",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_split_grad.comp": "360a93833fbb0102f9f2ce8eb21fa86fe52cc57870be26ea1a720b98cff8b50e",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_hc_split_grad.spv": "f39090542582be1de29b06cd36ea6821616402ee09b9b3a5c9325cfc13d64e18",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_index_scores.comp": "08db454cf5997668a9f6447e97f5cc23acdc97a7cf4f667d681d772ce82aa67a",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_linear.comp": "190fabcb0cadbcaa376a650daa5ef82ed00a56f370ffd539e58e2c92e0479b07",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_linear_half.comp": "3d6616a3f5aca5107bbb76e2af856ab4569a79d6520ec1688d3eb9b4305c9717",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_expert.comp": "5103a40eb01fc13f35ff26531d8d2cdcc8cbaed8b1db21fee2e3ec4887b6fc53",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_expert_grad.comp": "c436bf3ad8871bf772d968620ce20aba96c7d88c4300a29536f7ceca9c390b71",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_gate.comp": "4cc406a09b59b10b0a0048c9d721190146499bac97c8096b5fc92c54846088db",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_gate_grad.comp": "85fb612f37aab40da23c364e6842d42bc314c2dfa657bd18224582821351d3c4",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_pack.comp": "ceda5f09f39b69d3aaaddc825689ece9cdcaf20e277496d1ffc528ff5525c442",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_moe_pack.spv": "f29edf6203ce93a60c18e2e836cae4de0bf7f2a2c8fb6393c6ef0d731b43e974",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_packed_linear.comp": "aa6477bea190b6dd3386c0a56237036f568e89c3f366cf4b15b029475b2aab68",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_packed_linear.spv": "3159f25b0c09ff2c3d044559d409ccb0dfa27e1f043b8d985c16bc79a83c5c26",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_quantize.comp": "be2fa60773e46fc6c4378e47b1e8f78fb863c38eb267e0e09578dbfb71f1c04f",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_quantize.spv": "1f94ea90bf612510942bcb4378a83a1d6b4915a34e3c09702b5841777218f09f",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_rms_norm_input_grad.comp": "b9313e5fddce66967367bcb1a06362712b0b09fe899c80f07ed22d94e601b12c",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_rms_norm_input_grad.spv": "7ca52278b43d5cabca2028ce94aef37121f031edb37940922eb275a2574bc6a6",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_weight_decode.comp": "0ecad7ceda9611557e49e700872770865562ef9df373152c37086a656be13bc6",
+    "hierarchos-vulkan/shaders/transformer_deepseek_v41_weight_decode.spv": "8b2ef723f4342dbcd261293fea46f2375a0ed295a0c9e0bf1411f1bc963155cf",
+    "hierarchos-vulkan/src/deepseek_v41.rs": "49dd93edef0dea2f87351f00fd09c0381136b09a2ddd70f894a9c457fca05981",
+    "hierarchos-vulkan/src/deepseek_v41/attention.rs": "95812f3803a6225f5879beb2fa473afa29aeab67f9c4a854275f08031ceec8f8",
+    "hierarchos-vulkan/src/deepseek_v41/attention_grad.rs": "99579796f7a31cb6b649308139b964de3a95fad06433faa84ebb64906ef7aa32",
+    "hierarchos-vulkan/src/deepseek_v41/attention_tests.rs": "8ff129c5fa0f016032d5fc775b1687b1c3917f92127cccc4a4a46ecccdb2cb88",
+    "hierarchos-vulkan/src/deepseek_v41/backbone.rs": "3f39f815c54bb1432ee253a15be71993644d54a490d72c7b8fa209ef3f752ccb",
+    "hierarchos-vulkan/src/deepseek_v41/compressor.rs": "15379eed3b70be397c0acc63019badd709c539c9697d7e407c0accee004c6a5e",
+    "hierarchos-vulkan/src/deepseek_v41/compressor_grad.rs": "d5be47ad105caf29e59e2cb0248ffe9240457b5ccbefd1a4efb060afe0296f9a",
+    "hierarchos-vulkan/src/deepseek_v41/indexer.rs": "08109c86c05b18f9a2428e037aba9d7b87a2c16388ea4149356defe492597cf0",
+    "hierarchos-vulkan/src/deepseek_v41/linear_grad.rs": "e90049e7e9eb24ba82bc49f9ed40ea151ec1e4c61fb50132f759d9c2f9acec69",
+    "hierarchos-vulkan/src/deepseek_v41/linear_grad_tests.rs": "b338cbc536a44ab082f3bf52d99026d92c077337e64f75e9cbfba7e4a4bfda82",
+    "hierarchos-vulkan/src/deepseek_v41/mixed_linear.rs": "003d79b4aac1cd49b4b68a88122d58e996a09a52afbde4a9aae46b2d0378e219",
+    "hierarchos-vulkan/src/deepseek_v41/mixed_moe_grad.rs": "fdebf8e268aa5665423d9722eb50c12fa2adebdbcc3407869d1f9c1f15181255",
+    "hierarchos-vulkan/src/deepseek_v41/mixed_tests.rs": "f08b75d7b7eda5acee5da7e2eb7eb96933f24ef59dc7d544c794ed037e4ec49a",
+    "hierarchos-vulkan/src/deepseek_v41/model_training_tests.rs": "b5c2e43d6cd2bdf55790aa75e4ee20ea439dfca73bd7c6bbe193aa3129a115df",
+    "hierarchos-vulkan/src/deepseek_v41/packed_weights.rs": "36e372430f33cea9c3a88005f7819b9364dfc08200aef902e01c718fc9c010a1",
+    "hierarchos-vulkan/src/deepseek_v41/quantization.rs": "4bb848b06d57e558bda37e3ef972faf0c4ceefbf6e5cf4eff40e62f9bdc21eb5",
+    "hierarchos-vulkan/src/deepseek_v41/terminal.rs": "f3443122f25be07321d2b74979fe795006a844fe15d0ee0349953b19c9b7b1f5",
+    "hierarchos-vulkan/src/deepseek_v41/terminal_tests.rs": "a7f4f4db23d4a8bab70ed89743e381ddf23ce546c24a380efe16bceb44f484d7",
+    "hierarchos-vulkan/src/deepseek_v41/train_tests.rs": "7ca856fac73fa937ea859d82225b3f0e55497e03cb74d89d8308f73604684f72",
+    "hierarchos-vulkan/validation/trace_deepseek_v41_production_attention.py": "e94d6736a3ba71f73c8811c0b26ef99b52ee2604a864ca1bffc92c76652d0440",
+    "hierarchos-vulkan/validation/training_shader_manifest.json": "9e287bacf5d9251f41c3efd11c63e7124e885a618297a00f8b7f072bc718e222",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_adapter_training.py": "c031742784392ba45e8e38ae87e30a11586a5602b18e53cfc4118804c8afd897",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_attention.py": "0a7d65603b65728eab0ae762ea890df415cba8b9202221fecd48f05eee39b41d",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_attention_grad.py": "0d98d0d01be7ab686d0c63228501533e54983f266159801d294ef5789a361a7e",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_attention_model.py": "c84dd96bdfb2cc89a0440e6bb8ea7b34f5d2841a67625d1ac914be7167059265",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_attention_projection_grad.py": "7f9b81c49613599bbe2d0326b46cbe2248b311d473dc1a28a3ab61f9dfbe30f0",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_attention_tape.py": "edba6edca5ed0840c3f9919b4e89f34c146e5fd7c44fc4cef1629acbc7aa417a",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_backbone.py": "a53095c0a2c6f99d6a30572d93cfafe1219c3e3c9d07c7b8e4d62c566c1877be",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_bf16_model.py": "40160460668ce86566523161d98fbee43a9dd91a2288a5ead5ea30f6031affec",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_bf16_quantization.py": "868094a067fbb9074c18e929abf69d2f21037761994b3e7d6c55bc95a78948fc",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_block_grad.py": "4944d0c580e20bad47674398913bd1739723321ac8fb25813fb848266df0b6ce",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_candidates.py": "7a8e03f70a89b06734d0e89a22613d94070848dfd9902fb6efc7f8d38d8a48e7",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_compressor.py": "33091af40bf294de57771c0b2b6bbd29bad4f727a29383873d4e77a6c6bece41",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_compressor_decode_grad.py": "09df74cc93865c925e890c14ba60a204e86197a8f122eaaa03f91a3c97b382f1",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_compressor_grad.py": "fdb26604d3cbdcae41a773ebfb4421983beaf3875ee0d475cd41a3486c632899",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_compressor_pool_math.py": "7b46e5146b227d719fed639499468f099567faf83cec81db1867caf74e917979",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_conditional_adamw.py": "da05af41f1fe1b71229bcffd82e57f45fe16137319160b40930f2e41ebfb5a6c",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_cpu_log.py": "6087fae7745746ebf8c5a559f2d510d883d0a00492458a033886f502574e6487",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_cpu_math.py": "a48cdf3ff45bd302d472ec8902bfe0bc6f689d365ecb9f2f347f33e26c45b118",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_engram.py": "2e4e39fd87461192901b5216e348923df15f3c55776045290712c881e566b402",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_engram_grad.py": "f516969431b07490f0ee2a508c372a53397c85894bec6c338f11929dc7ff1976",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_engram_width.py": "7d458b052a2da8d678ef582a545110b69ddcc999bfe72dc04d166fd2463ed4e6",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_full_bf16_training.py": "baf50e615dd143868ebb69fda7acf8414abb639d16dd6b7573313068442f2e6d",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_full_mixed_training.py": "2273f88ccdad5f5330071dfa0416dfd0a34871ba4f1e9b935efb2b9a22e7d983",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_full_training.py": "aeee0a36e011161c5943ec9f26408f16661babde2cf9a00ada85ad1ae124976d",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_gate_tie.py": "2c92ce87fa04b1b67877e38e48dd73223bf3d639eb59f44c8334dc44041f0363",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_grouped_reduction.py": "8fb98ff2ba232ebc18623328994245028d284199c39e086648551e4da2f718a6",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_index_keys.py": "8dfcb11275d3537dc093433de817b12f270d96e094e1324e8dfcba658b510049",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_index_selection.py": "ab718ac90107dd64295dbe14bb00415b73c4b8762261c2be578981f3edecec9d",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_joint_model.py": "81f3826aff56c3fff45a49d153c98b7cc7592426c8b4fd2dc97648187b0079d2",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_long_context_model.py": "5be38a94d9ab8d7616db82be4a27140c3127935505c081a7bac0b3b97c650bba",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_lora_model.py": "6327cb929da0e694f7ce6ba407d7a90b63c1aa9bbadc93ae9099d6d193f37487",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_mixed.py": "1a1de7519b17484f3b75ce2cce9e82c5d2677da37ada3c04765c82e5118ba179",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_mixed_attention.py": "daf923f97a5843c1be805aa42de2c642c1945cf995cefac8413408f8d8bfab94",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_mixed_engram.py": "b2f05259b18692f0abcad6a6d15fce108cbc995ce80b192068c366913a45082f",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_mixed_model.py": "85623a7dd58e3cdb8b986ec15738e1a6c2ff9d13d5eef6edc33da6be54673d8c",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_mixed_moe_grad.py": "76a16e5118576b44fbcc575c3fdb753461305d54346701ed8f35d6c921020375",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_model.py": "902dca5a97e97c4ace7a2dafa5fa1bc42f8121897e7fb876fe2fe5c68eb31c54",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_model_additional.py": "6f38af18583c9cc8e02e0a375a383abf42dd8142e29d0c6a51a61515d8a67379",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_packed_grad.py": "715c130ce3c0cf737f25cf2f0aff224e620c9f9c5fb82b2ecc92b0458aee3465",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_packed_weights.py": "fa184f566500bcffde9392e2f8d3da26f6cac79e848ea517168b6dc2466db480",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_production_model.py": "202907d1dd6857719bb997aea8d1a87d5850b850a9cc58f97e3feec163315ea9",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_production_ratio_training.py": "9f53439b1e0c73dcc8eaaece85bdbaf94d39563d2ee1a10d745e5bf258fcebb9",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_projection_grad.py": "a9478848d0713742aeb909542dfde76aa023adb3518b015320b0b475e200a4f8",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_quantization.py": "4a48abb571bf0d3a573795d4a56cc5740d403b5f139e6fc55f1e761109a968c6",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_rotary.py": "b80f9c437954240b1dd9ccacbed30b5058f2e1e3a998922bb33b927f0e8d5bca",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_router_width.py": "d146412bab9b2bcfed892e0b5806d05a240957404349d51f75f2e2c71e1c2549",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_routing_reduction.py": "c7d77d1b900581703a9c062b711359dab3678bf6e36598aa4449fd00f5679574",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_schedule_attention.py": "1d2f4fd9345d6834827ecb9da823177e482d2b9578b3a0621f0e9fe5bcdeadee",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_schedule_width_model.py": "f91e57400f38a81dd701cad6f4e792cd241bb80ef1623f5d5500631d4a70e677",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_streamed_models.py": "7c50193a5411377fa7f1745586f8a0dad9af6c00f5514a9ca6a8050957c11a2c",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_structure_model.py": "599091b345cc76202bd7f89f6220557443c61dc90aa1c19ce2158e978aec0bde",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_terminal_grad.py": "1be529c4a73eb35d66d02cefa1ccb212e88baf4ec6a3835aa6e8f131ee8dd7aa",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_unary.py": "c0b0248e0fe5a960c1fee592994256c1a222a19e7b9023b04fc45c5df4302619",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_weight_grad_order.py": "b85aedd32b4e8e997dff60aca30590d44e8a3ff969444b564e09d8849fd526a1",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_wide_kernels.py": "8211153c9edaeb6c54f6d53980431e3ac94ac9823bc3ac1be5475ceb1d8e8b2b",
+    "hierarchos-vulkan/validation/validate_deepseek_v41_wide_model.py": "18cc666edbfde55819ab9d14d54d0b206d3688caf72a6b74dbf9d29db09c9d92"
+  },
+  "evidence": {
+    "archive": "evidence.zip",
+    "sha256": "892cec46eb70c6059dd441014e24f6176608bf8bd7a46af81da8bbb698297d34",
+    "bytes": 481875,
+    "entries": [
+      {
+        "path": "benchmark/baseline-default-8-4-pair0.log",
+        "sha256": "c1b935b0a8dae7105458117d51b891fa286354250ecf1a262cec0cfaeb09e8f8",
+        "bytes": 2348
+      },
+      {
+        "path": "benchmark/baseline-default-8-4-pair1.log",
+        "sha256": "d37d9a3c3b4d045bd403ff139671c6280df5046cfd68bc5bbf2dc235343696ae",
+        "bytes": 2349
+      },
+      {
+        "path": "benchmark/baseline-resident-1-1-guard.log",
+        "sha256": "b9ce12b23b2004f55c9c396ade0c5d7157e71191c05dd088f5320e609bfbadfc",
+        "bytes": 1002
+      },
+      {
+        "path": "benchmark/baseline-resident-2-1-guard.log",
+        "sha256": "e68968ca071b26d9fda260c2713134e9a0fc93ac72863489bdbdaa095758193c",
+        "bytes": 1002
+      },
+      {
+        "path": "benchmark/baseline-resident-3-1-guard.log",
+        "sha256": "dff3f67ce093c916caae57af80386cb9c006a07f4a7b5d5d1ca802404ef4a442",
+        "bytes": 1002
+      },
+      {
+        "path": "benchmark/baseline-resident-8-8-pair0.log",
+        "sha256": "fdc6c1891ec14c6e8a6b4410a021725744df194ed1a07e1abc688a8f8274c3e9",
+        "bytes": 3357
+      },
+      {
+        "path": "benchmark/baseline-resident-8-8-pair1.log",
+        "sha256": "d4754e1afef13c839b217e11b6ccda8d7c6afc9423c97eadb515e6ab60d3b4f8",
+        "bytes": 3357
+      },
+      {
+        "path": "benchmark/baseline-resident-8-8-profile.log",
+        "sha256": "058beab3544ab05494ffc32a52556192085abd464d5e0c62f53f05ffe1b25a8e",
+        "bytes": 1959786
+      },
+      {
+        "path": "benchmark/candidate-default-8-4-pair0.log",
+        "sha256": "515bcd661c858aef407b2a65069c0ec312136a80c935ce4ae199c764cd40246b",
+        "bytes": 2348
+      },
+      {
+        "path": "benchmark/candidate-default-8-4-pair1.log",
+        "sha256": "833d702f6e251bb9b963d878e370cc76a925cd03ac71a1410dbf1fc8edb8ee94",
+        "bytes": 2348
+      },
+      {
+        "path": "benchmark/candidate-resident-1-1-guard.log",
+        "sha256": "40ae834c973675da82a5d4faae1a934336f25f34ebae795cdd6fabd573608611",
+        "bytes": 1002
+      },
+      {
+        "path": "benchmark/candidate-resident-2-1-guard.log",
+        "sha256": "9ebde0a3172f757174befc3b089d21756a28b600d7e14b7cc598307948216a69",
+        "bytes": 1002
+      },
+      {
+        "path": "benchmark/candidate-resident-3-1-guard.log",
+        "sha256": "d452e7759796c3eb3adaff92d3bbc2e0fc266f69c014484638776fd93bb33b28",
+        "bytes": 1002
+      },
+      {
+        "path": "benchmark/candidate-resident-8-8-pair0.log",
+        "sha256": "7f3ce64c1c3ccd74fe0d83d5fd68b18609cd9b0e0b1ac5d7a4b9439e5efdf957",
+        "bytes": 3357
+      },
+      {
+        "path": "benchmark/candidate-resident-8-8-pair1.log",
+        "sha256": "f45d4b3a7dc99801e240b7ae6b1608e906e896215a700d7a234971736af19a3d",
+        "bytes": 3357
+      },
+      {
+        "path": "benchmark/candidate-resident-8-8-profile.log",
+        "sha256": "d584110896d9b03807c64de331dd72258c399849cee11bcbe79de9e8d6db7b93",
+        "bytes": 1929154
+      },
+      {
+        "path": "benchmark/candidate-resident-8-8-staged-guard.log",
+        "sha256": "beb2435964fa7001bb1348f58326f107af6486fe4322a82cb27a156590199f55",
+        "bytes": 1633
+      },
+      {
+        "path": "benchmark/comparison.json",
+        "sha256": "636fbc0c8c6f97bbaac7a1ca665bb87a8aa9e109301b5141fd94cb098233d242",
+        "bytes": 33977
+      },
+      {
+        "path": "checks/adapter-reproduce.log",
+        "sha256": "1bb3c550f988a0e1207b88686d33c539d50ec8238b998a7d720e0c4e2b9424b3",
+        "bytes": 650
+      },
+      {
+        "path": "checks/benchmark-runner.log",
+        "sha256": "6c4a16b459dc1e082ef00a2ba39246cbce848da7935a02fbc212995b2c324cfe",
+        "bytes": 1614
+      },
+      {
+        "path": "checks/build-release-final.log",
+        "sha256": "f7ccd22ccd32e121859def25483771abbbdf85d8788ad806e7adbae3f6ee2fde",
+        "bytes": 15664
+      },
+      {
+        "path": "checks/build-tests-handoff.log",
+        "sha256": "1d3db6a02680e689f28c214cf38a8827254f6a9c7cc9e6d24479515a09c71b69",
+        "bytes": 10441
+      },
+      {
+        "path": "checks/extra-results.json",
+        "sha256": "cb5d4872b8ef762ed8392b9ffabc150bf972f8bd29494f067694dd515ca07b3d",
+        "bytes": 231
+      },
+      {
+        "path": "checks/fixture-provenance-final.json",
+        "sha256": "210922be16e5a4d87940fea93d473c1702933eac6dc9f01c71603e9115a11a87",
+        "bytes": 74
+      },
+      {
+        "path": "checks/fma-provenance.json",
+        "sha256": "2c202c94fd141b7a517f15e90dbe6048cf175e0b3a0a0ba3fd344ee9c1d224b8",
+        "bytes": 26375
+      },
+      {
+        "path": "checks/fma-provenance.log",
+        "sha256": "057a60bb676b22ab48108a6cc5e591aed5ec4c6d530d6e102f3ad93e74962ea6",
+        "bytes": 35
+      },
+      {
+        "path": "checks/linear-results.json",
+        "sha256": "12a31944b1125d9e4adad2ec3efa5980fc6b6db7ff85f21d9b522df831cca281",
+        "bytes": 88151
+      },
+      {
+        "path": "checks/linear-results.log",
+        "sha256": "011693e5a76ae0898b79a7e8d710b5fca94c8c12a8650b6323ea9e08d7aea3db",
+        "bytes": 2729
+      },
+      {
+        "path": "checks/linear_exact.comp",
+        "sha256": "be861da9c672e0a8065defc28f1ea587f45879ba7b7b882656fe87dbc83fb488",
+        "bytes": 2836
+      },
+      {
+        "path": "checks/math_probe.rs",
+        "sha256": "c4fa9902e312d7a1a5a34ac5e7131a2e13f654d49d40a5338a4c59d0708d988f",
+        "bytes": 1755
+      },
+      {
+        "path": "checks/native-shader-hashes.json",
+        "sha256": "81acf5039441b3584a53929b5c56cd53d1e8a13fd7deaa23fccd0bfa4a2f87ed",
+        "bytes": 1921
+      },
+      {
+        "path": "checks/pool-results.json",
+        "sha256": "8c23ad88512be46dda66b635b3d9dc382664b806092e67d134588655e6418c1d",
+        "bytes": 21455
+      },
+      {
+        "path": "checks/pool-results.log",
+        "sha256": "d00e47a3d1138f4e23df685a4438c9034dc2e09b2245e99bd11e1fee61753060",
+        "bytes": 1937
+      },
+      {
+        "path": "checks/projection_grad-avx2.log",
+        "sha256": "fab20b1dbb7435d3acb5754d12192bd4ca1023d3d70b2b77dc85d3aac19bb771",
+        "bytes": 103
+      },
+      {
+        "path": "checks/push-layouts.json",
+        "sha256": "751e493d22988abda414eae87243751d79dc4f08c991cc8c905eef26aa33a48f",
+        "bytes": 137
+      },
+      {
+        "path": "checks/python-checks.log",
+        "sha256": "054a5e7825afef221f2e08a153851b8af8ace4f40ff16d10fa3ce2ec930a576a",
+        "bytes": 168
+      },
+      {
+        "path": "checks/qualification-results.json",
+        "sha256": "0d589b4afc2720b7ca950d0aad04808e9d3b398cf6b87d1c552d8c342f406b81",
+        "bytes": 3977
+      },
+      {
+        "path": "checks/qualification-runner.log",
+        "sha256": "7fccda3e4fea7e8e8d8c20ebf4a1334e231a2d84b792a2608dde2f90af9232eb",
+        "bytes": 778
+      },
+      {
+        "path": "checks/restore-packages.log",
+        "sha256": "6adfb4cedb36f22cb44d6fa98867c295e5d6ad29571e46ac0bbbe4502c239731",
+        "bytes": 3004
+      },
+      {
+        "path": "checks/shader-provenance.json",
+        "sha256": "1c289154250b4ae1109f1cbfd044fa2520126d2c7d0569405ac5a2720ad8d299",
+        "bytes": 405946
+      },
+      {
+        "path": "checks/shader-provenance.log",
+        "sha256": "876f4fda50ff837bb4a50ffcb616067efbafb1ac983b584f1249d7b2c8cfa1f6",
+        "bytes": 36
+      },
+      {
+        "path": "checks/training-ce-results.json",
+        "sha256": "dad8f3390d4afca286557f4965755f5964bde9975576a951310eb9e4038e94d1",
+        "bytes": 10546
+      },
+      {
+        "path": "checks/training-ce-results.log",
+        "sha256": "075ab3487a833f420e0db83a06a6fb62c955c6dd34655c1ba9e71d1c6a5f3e17",
+        "bytes": 3032
+      },
+      {
+        "path": "checks/training-ce-summary.json",
+        "sha256": "87387e6d0213344b61c411ce32a5a8e55f518e7bc2d65830754a53e0f5798d7d",
+        "bytes": 78
+      },
+      {
+        "path": "checks/training-loss-reproduce.log",
+        "sha256": "7b3ffada809bb756cc0e79cd5b0bede1f4a6138a77d755cd1253477dc74b089a",
+        "bytes": 1501
+      },
+      {
+        "path": "checks/workspace-check.log",
+        "sha256": "098465c7233610dfe0e03f4b40b7d2961cb00281df1771bf61e878ee6df32bdf",
+        "bytes": 35727
+      },
+      {
+        "path": "tests/focus-compressor.log",
+        "sha256": "0c42851aa3bb09afe4f238b55a31bc0b4b2ac85595416547c5a11cbd888487dd",
+        "bytes": 30311
+      },
+      {
+        "path": "tests/focus-moe.log",
+        "sha256": "39e43f9804be122f0ee47f13b793a56781ae119a05d429d9b3ffb54a684699f1",
+        "bytes": 18955
+      },
+      {
+        "path": "tests/focus-projection.log",
+        "sha256": "40750ca79cc2c868ee6bd2c6865d0720e607eeabe787a526c5344f63d160ebe3",
+        "bytes": 14750
+      },
+      {
+        "path": "tests/generic-streaming.log",
+        "sha256": "51213f9dafbad414caf4b4c9f127249e65f26d817fc6f1d2f321a083bded2d7b",
+        "bytes": 2123
+      },
+      {
+        "path": "tests/joint-resident.log",
+        "sha256": "58d03a7622b79de691213464ed5826fd7247f5d1d0582e1a7fcbb6ff61cad653",
+        "bytes": 777
+      },
+      {
+        "path": "tests/joint-streamed-vocabulary.log",
+        "sha256": "76bcd47e222265ff4b3342e750415bced6f4a2cd9f5f246b0cc77aaf84c60034",
+        "bytes": 776
+      },
+      {
+        "path": "tests/package-default.log",
+        "sha256": "48f3440184cb596500d1d01b6aa7f6627a2fee79f1eeefa410610319db38dbc4",
+        "bytes": 766
+      },
+      {
+        "path": "tests/peft-trajectory.log",
+        "sha256": "b67993892d26f62fc1181833bb4fd499ce8f04956596936339a83843285241af",
+        "bytes": 2829
+      },
+      {
+        "path": "tests/v41-strict.log",
+        "sha256": "b215a4730c23f761f8875585635d9f7ef3fe08d624102a58b3c1cfba08cf854e",
+        "bytes": 2450016
+      },
+      {
+        "path": "tests/vulkan.log",
+        "sha256": "54fe87f1ed891074eb4279252ab887250c05bdda44c06da6492b6a90d4c636c3",
+        "bytes": 3480
+      },
+      {
+        "path": "tests/weight-offload.log",
+        "sha256": "753ca12ce95f55ccd55d80d396474f023a027b2d9906f46f71b8a1879506900d",
+        "bytes": 1608
+      },
+      {
+        "path": "training/uninterrupted-trajectory.json",
+        "sha256": "10a861f8ec7b637b407240aecc538ef175b684aa410cfd1d2e81564b64049ffe",
+        "bytes": 3499
+      }
+    ]
+  },
+  "limits": [
+    "Retained scaled checkpoints; full production weights were not executed.",
+    "25 tests are ignored by default; four were executed separately, leaving 21 outside this run.",
+    "No fresh physical RDNA3 run. Native shader artifacts are unchanged and non-Gen9 devices retain their existing shader selection.",
+    "Toolchain check-all compatibility audit passes; --strict still rejects 54 historical, unverified pins.",
+    "Paired performance sample: two alternating pairs with one warmup and two measured steps per process."
+  ],
+  "validation_environment": {
+    "cpu": "AVX2",
+    "numpy": "2.5.3",
+    "torch": "2.14.1+cpu",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "new_shader_compiler": "glslang 16.6.0, Vulkan 1.1"
+  }
+}

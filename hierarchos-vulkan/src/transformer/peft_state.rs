@@ -1135,7 +1135,26 @@ impl VulkanTransformer {
     {
         let mut names = BTreeMap::new();
         for index in 0..self.layers.len() {
-            for (name, linear) in self.peft_layer_linears(index)? {
+            // T5 PEFT names describe decoder blocks and require cross-attention.
+            // Frozen encoder streaming has the same ordinary projections, but
+            // no cross-attention or decoder adapter schema.
+            let modules = if include_frozen_moe
+                && self.config.architecture.is_t5_family() && !self.causal_attention
+            {
+                let layer = &self.layers[index];
+                let prefix = format!("native.encoder.layers.{index}");
+                let mut modules = vec![
+                    (format!("{prefix}.out"), &layer.c_proj),
+                    (format!("{prefix}.up"), &layer.c_fc),
+                    (format!("{prefix}.down"), &layer.c_mlp_proj),
+                ];
+                for (suffix, linear) in [("q", &layer.q_proj), ("k", &layer.k_proj),
+                    ("v", &layer.v_proj), ("gate", &layer.c_gate)] {
+                    if let Some(linear) = linear { modules.push((format!("{prefix}.{suffix}"), linear)); }
+                }
+                modules
+            } else { self.peft_layer_linears(index)? };
+            for (name, linear) in modules {
                 names.insert(std::ptr::from_ref(linear) as usize, (name.clone(), name));
             }
             // Streaming covers frozen routed experts even on architectures
@@ -1218,6 +1237,11 @@ impl VulkanTransformer {
             }
             for linear in [&mut layer.c_proj, &mut layer.c_fc, &mut layer.c_mlp_proj] {
                 node(linear)?;
+            }
+            if let Some(cross) = &mut layer.cross_attention {
+                for linear in [&mut cross.q_proj, &mut cross.k_proj, &mut cross.v_proj, &mut cross.out_proj] {
+                    node(linear)?;
+                }
             }
             if let Some(mla) = &mut layer.mla_attention {
                 for linear in [&mut mla.q_proj, &mut mla.q_a_proj, &mut mla.q_b_proj]

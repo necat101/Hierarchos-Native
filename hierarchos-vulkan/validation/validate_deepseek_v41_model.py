@@ -9,6 +9,7 @@ Native output is accepted only by the unchanged <2e-7, rtol=0 comparator.
 """
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import ast
 from contextlib import contextmanager
@@ -30,6 +31,8 @@ import validate_deepseek_v41_quantization as quantization
 from deepseek_v41_parity import require_logit_parity
 
 FIXTURE = Path(__file__).parent / "fixtures" / "deepseek_v41_model.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 SEED = 4141017
 
 
@@ -273,6 +276,7 @@ def compare_native(fixture, path, *, fixture_sha256=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path",type=Path)
     parser.add_argument("--kernel-reference-path",type=Path)
     parser.add_argument("--write-fixture",action="store_true")
@@ -280,7 +284,7 @@ def main():
     args = parser.parse_args()
     fixture = make_fixture(args.reference_path,args.kernel_reference_path)
     if args.write_fixture:
-        FIXTURE.write_text(json.dumps(fixture,allow_nan=False,separators=(",",":")),encoding="utf-8")
+        fixture_toolchain.write_fixture(FIXTURE, json.dumps(fixture,allow_nan=False,separators=(",",":")),encoding="utf-8")
     elif json.loads(FIXTURE.read_text()) != fixture:
         raise AssertionError("full-model fixture differs from the pinned independent reference")
     print(f"PASS independent FP32 oracle: {len(fixture['tensors'])} tensors, {len(fixture['steps'])} complete logit steps")

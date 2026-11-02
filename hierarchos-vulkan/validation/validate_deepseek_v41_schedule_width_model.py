@@ -5,6 +5,7 @@ compression, candidate publication/consumption, two Engram injections, masked
 history, and six selected routed experts at the released arithmetic widths.
 Depth, router cardinality, table row count and context remain reduced explicitly.
 """
+import fixture_toolchain
 import argparse
 import ast
 import gc
@@ -25,6 +26,8 @@ import validate_deepseek_v41_mixed as mixed
 
 SEED = 4141211
 FIXTURE = model.FIXTURE.parent / "deepseek_v41_schedule_width_model.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 ARGS = production.ARGS | dict(
     n_layers=4, n_routed_experts=6, n_activated_experts=6,
     rope_factor=40,
@@ -240,6 +243,7 @@ def make_case(path, kernel_path, tokens):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path, required=True)
     parser.add_argument("--kernel-reference-path", type=Path, required=True)
     parser.add_argument("--tokenizer", type=Path, required=True)
@@ -268,7 +272,7 @@ def main():
                       steps=steps)
         if args.write_fixture:
             if FIXTURE.exists(): raise RuntimeError("Refusing to overwrite the frozen schedule-width oracle")
-            FIXTURE.write_text(json.dumps(result, separators=(",", ":"), allow_nan=False))
+            fixture_toolchain.write_fixture(FIXTURE, json.dumps(result, separators=(",", ":"), allow_nan=False))
         elif json.loads(FIXTURE.read_text()) != result:
             raise AssertionError("Schedule-width fixture differs from the frozen CPU oracle")
         print("PASS schedule-width CPU oracle", sum(len(s["logits"]) for s in steps), "full logits", flush=True)

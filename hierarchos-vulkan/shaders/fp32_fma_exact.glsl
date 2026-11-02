@@ -1,3 +1,5 @@
+#ifndef HIERARCHOS_FP32_FMA_EXACT_GLSL
+#define HIERARCHOS_FP32_FMA_EXACT_GLSL
 // --- Exact FP32 fused multiply-add (no shaderFloat64) -----------------------
 //
 // Gen9-class hardware has no IEEE fused multiply-add: its MAD instruction
@@ -33,3 +35,5 @@ float fp32_fma_exact(float a, float b, float c) {
 
     return sum + (sum_error + product_error);
 }
+
+#endif

@@ -8,6 +8,7 @@ math and does not claim BF16/FP8 production execution parity.
 
 from __future__ import annotations
 
+import fixture_toolchain
 import argparse
 import ast
 import json
@@ -21,6 +22,8 @@ from validate_deepseek_v41_candidates import MODEL, REVISION, SOURCE_SHA256, loa
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "deepseek_v41_compressor.json"
+FIXTURE = fixture_toolchain.variant_path(FIXTURE)
+fixture_toolchain.check_file(FIXTURE)
 
 
 class DenseLinear(nn.Linear):
@@ -86,6 +89,7 @@ def make_fixture(reference):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-toolchain-mismatch", action="store_true", help="compare with a different torch/numpy/CPU pin")
     parser.add_argument("--reference-path", type=Path)
     parser.add_argument("--write-fixture", action="store_true")
     args = parser.parse_args()
@@ -94,7 +98,7 @@ def main():
         metadata = {key: value for key, value in fixture.items() if key != "cases"}
         prefix = json.dumps(metadata, indent=2)[:-2]
         cases = ",\n".join("    " + json.dumps(case, allow_nan=False, separators=(",", ":")) for case in fixture["cases"])
-        FIXTURE.write_text(prefix + ',\n  "cases": [\n' + cases + "\n  ]\n}\n", encoding="utf-8")
+        fixture_toolchain.write_fixture(FIXTURE, prefix + ',\n  "cases": [\n' + cases + "\n  ]\n}\n", encoding="utf-8")
     elif json.loads(FIXTURE.read_text(encoding="utf-8")) != fixture:
         raise RuntimeError("compressor fixtures differ from the pinned reference")
     elements = sum(len(case["full_expected"]) + sum(len(step["expected"]) for step in case["steps"]) for case in fixture["cases"])
