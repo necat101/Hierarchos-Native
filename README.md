@@ -1,450 +1,239 @@
-# Hierarchos Native
+<div align="center">
 
-**Current validation scope — November 2, 2026:** the final Intel Gen9 port
-is qualified on the i5-6200U / HD Graphics 520. The physical RDNA3 follow-up
-closes the padded GPT-2-wide gap: **166/166 resident/streamed forward runs**
-and **72/72 generation requests** pass at `max_abs < 2e-7`, `rtol=0`.
-DeepSeek V4.1 Flash, native PEFT and parameter/MoE streaming regressions pass.
-The fix selects new math only for RDNA3 GPT-2; all existing Gen9 shader bytes
-remain unchanged. See the [closure receipt](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md),
-[validation status](VALIDATION_STATUS.md) and [regression runbook](RDNA3_REGRESSION.md).
+<h1>Hierarchos Native</h1>
 
-Native Rust + Vulkan training and inference tooling for **Hierarchos coherent-v9** and a broad set of modern Hugging Face Transformer text architectures.
+**Train, fine-tune, and run language models with Rust + Vulkan.**
 
-Hierarchos Native is built around a framework-free execution path: Rust handles model/package I/O, Hugging Face downloads, tokenization, datasets, checkpointing, and orchestration, while supported Transformer and Hierarchos training math runs through Vulkan compute shaders. Hierarchos inference has a separate pure-Rust runtime.
+[![Workspace check](https://github.com/necat101/Hierarchos-Native/actions/workflows/workspace-check.yml/badge.svg?branch=main)](https://github.com/necat101/Hierarchos-Native/actions/workflows/workspace-check.yml)
+[![Native Rust and Vulkan](https://img.shields.io/badge/native-Rust%20%2B%20Vulkan-d97706?style=flat-square)](#how-it-works)
+[![Strict CPU logit parity](https://img.shields.io/badge/CPU%20logit%20drift-%3C%202e--7-2563eb?style=flat-square)](#validation)
 
-## Intel Gen9 port and streaming optimizations — November 1, 2026
+[Quick start](#quick-start) · [Architectures](#supported-architectures) · [Documentation](#documentation) · [Validation](#validation)
 
-The final Skylake-U pass brings the recent DeepSeek V4.1 and architecture
-streaming work to Intel HD Graphics 520. Ordinary graph parameters remain
-resident by default; application streaming is explicit through
-`--stream-parameters` or the GUI toggle. V4.1 retains its separately documented
-expert, block, Engram and vocabulary residency policies.
+**[☕ Support the developer on Buy Me a Coffee](https://buymeacoffee.com/netcat420)**
 
-Recent improvements include:
+</div>
 
-- **DeepSeek V4.1 execution:** selected-expert fusion, GPU row counts, packed
-  weight paths and precision-preserving Gen9 FMA variants, with native
-  LoRA/rsLoRA, save/resume and export regression gates.
-- **Architecture streaming:** corrected Qwen3-Next padding, DBRX transposed
-  expert sources, and T5/BART/Switch encoder, decoder and cross-attention
-  projections. Both resident and streamed execution consume the same frozen
-  CPU reference packages.
-- **Gen9 kernels:** parallel QSA block-score caching, parallel HC statistics,
-  and fused inference SiLU/up multiplication preserve the existing arithmetic
-  and checked output words.
-- **Package I/O and submission overhead:** retained file handles with identity
-  checks, direct FP32 tile decoding, coalesced transposed/mapped reads, and
-  removal of an unused hidden-state download. Small independent Gen9 streamed
-  projections share a bounded **1 MiB payload window**, with existing
-  retirement paths for large, multi-tile and aliased projections.
+Hierarchos Native runs supported Hugging Face text models and **Hierarchos coherent-v9**
+through a native stack. Rust handles packages, tokenization, datasets and checkpoints;
+Vulkan handles supported Transformer training and generation. Use the CLI directly
+or launch the same workflows from the desktop GUI.
 
-| Final Gen9 check | Recorded result |
-| --- | --- |
-| Selected Rust regression gate | **269 passed**, including 190 active V4.1 tests and four explicit release/training gates |
-| Forward inference | **166/166 runs**, 83 cases across 43 profiles / 26 native architecture identifiers; worst observable CPU logit error `1.7881393432617188e-7` |
-| Generation | **72/72 cache-on/off requests**, 18 profiles and four steps; worst CPU logit error `8.940696716308594e-8`; generated tokens match |
-| Output identity | All **77,772 forward words and 9,216 generation words** match the preceding Gen9 build; resident and streaming outputs also match |
-| Frozen evidence | All **68 original V4.1 file hashes** preserved; the final scheduling pass changes no shader artifacts |
+**No Python, PyTorch, CUDA, ROCm or oneAPI installation is required by the native runtime.**
+PyTorch and Transformers serve as development oracles for numerical qualification.
 
-The **Llama-wide streaming regression is closed**: five alternating rounds
-reduce its median from **11.016 to 4.597 ms (58.3%)** against the preceding
-pass, with **19 submissions reduced to four** per forward. A control disabling
-batching in the same final executable measures 10.582 ms. Peak buffer allocation
-increases by 0.469 MiB on this fixture and stabilizes after warmup.
+| **146** | **166/166** | **72/72** | **< `2e-7`** |
+|:---:|:---:|:---:|:---:|
+| registered text architectures | RDNA3 forward runs passed | RDNA3 generation requests passed | strict CPU logit drift gate |
 
-Across eight retained architecture controls, the combined optimization passes
-reduce streaming medians **42.4–78.4%** and resident medians **3.5–32.1%** against
-the pre-optimization architecture baseline. These are idle, scaled-checkpoint
-measurements; full production-model throughput is outside this certificate.
+<sub>Registry breadth and measured qualification are separate: the November 2, 2026 RDNA3 matrix covers 43 scaled profiles / 26 architecture identifiers, in resident and streamed modes. The CPU gate uses `rtol=0`. [Evidence and limits](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md).</sub>
 
-Forward CPU comparisons cover observable query rows; storage and prior-build
-word identity also include padded rows. SmolLM3 cache requests use the existing
-full-prefix fallback. The remaining 120 registry identifiers and all-profile
-CPU PEFT training are outside this new Gen9 numerical matrix. Earlier training
-and other-device results below retain the scope of their linked receipts.
-
-The [final Gen9 receipt](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md)
-contains the full measurements, memory bounds, V4.1 timing tradeoffs and
-reproduction evidence. The published `codex/gen9-final-rdna3-qualification`
-branch includes frozen CPU references and a standard-library Python runner for
-the [physical RDNA3 regression](RDNA3_REGRESSION.md) before merge/release;
-consuming those references requires no Torch or Transformers installation.
-
-## Fourteen architectures verified below `2e-7` training divergence
-
-The headline compatibility target is strict numerical parity, not just architecture-name recognition. The current Vulkan backend has **fourteen modern Transformer text architectures/families** that each pass **two full AdamW steps** against the reference implementation with **less than `2e-7` maximum absolute parameter divergence** after export. **Falcon H1/H1R** leads the list: its parallel Attention+Mamba2 graph passes full-parameter training, full fine-tuning, and qualified LoRA/`modules_to_save` PEFT through the same CLI:
-
-| Architecture | Verified native scope | Max abs parameter error after 2 AdamW steps |
-| --- | --- | ---: |
-| **Falcon H1 / H1R** | causal LM with parallel GQA/RoPE attention + Mamba2; full training, fine-tuning, LoRA, saved modules | `1.192092896e-7` |
-| **DeepSeek V4** | causal LM | `1.192092896e-7` |
-| **Phi-4 Multimodal** | text backbone / causal LM | `1.192092896e-7` |
-| **Phi-3** | causal LM | `1.192092896e-7` |
-| **Kimi K2.5** | text backbone / causal LM | `1.192092896e-7` |
-| **Kimi K3 / KimiLinear** | text backbone / causal LM | **`5.963374861e-8`** |
-| **`gpt_oss`** | causal LM | `1.192092896e-7` |
-| **SmolLM3** | causal LM; mixed RoPE/NoPE and YaRN | `1.192092896e-7` |
-| **Qwen3.5** | dense, Gated DeltaNet, hybrid, and MoE text causal LM | `2.980232239e-8` |
-| **Qwen4 Experimental** | DeltaNet, sparse QSA, GR/PLE, hybrid, and MoE text causal LM | `2.980232239e-8` |
-| **Mistral 4** | causal LM | `2.607703209e-8` |
-| **MiniMax M3** | text backbone / causal LM | `3.539025784e-8` |
-| **Gemma 4** | causal LM | `1.220032573e-7` |
-| **MiniMax M2** | causal LM | `1.192092896e-7` |
-
-The acceptance ceiling is enforced by the validation harness rather than rounded into the documentation after the fact. These are deterministic FP32 tiny-model correctness checks covering cross-entropy loss and every named trainable parameter across two optimizer steps; they are not a claim that every arbitrary production checkpoint, precision mode, or hyperparameter combination has been certified. See [the compatibility and validation record](hierarchos-vulkan/COMPATIBILITY.md) for the exact harness and broader parity results.
-
-### DeepSeek V4.1 Flash qualification records
-
-**DeepSeek V4.1 Flash native Rust/Vulkan text inference has recorded RDNA3
-handoff and completed Gen9 qualifications under the scalable-checkpoint
-criterion.** The retained 44.8 MB checkpoint runs the released 40-layer
-compression/sharing/Engram schedule and 384-expert/top-6 routing through the
-default loader. The original RDNA3 six-step run passes all 3,216 logits with
-zero CPU drift and exact routing, alongside its recorded production-width
-probes. The [original machine receipt and compressed evidence](hierarchos-vulkan/validation/release_parity/deepseek_v41/qualification.json)
-remain independently verifiable after large generated packages are removed.
-The [final Gen9 receipt](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md)
-records the completed port and its fresh native, inference and generation gates.
-The detailed V4.1 results below retain their original receipt scope.
-
-`DeepseekV41CausalLM::from_hf_package` is the normal package path with no enable flags: it infers F32/BF16 and packed I8/FP4/FP8 storage, streams routed/shared experts, Engram table rows, block projections and the vocabulary, and derives Engram's non-persistent metadata from `tokenizer.json` or a precomputed `engram_tokens.json`. `hierarchos-native-cli transformer-generate` recognizes `model_type=deepseek_v41` and routes it through that loader by default, keeping the standard prompt, tokenizer, generation-config and decoded-output contract; requests run serially, continuous batching is rejected explicitly, and context is bounded at 65,535 positions by the current native executor. Standard HF PEFT-LoRA adapters load unmerged with `--lora-adapter-path`: the released packed FP8/FP4 bytes stay untouched, and `architectures --peft --json` reports the supported targets and fail-closed classes. `transformer-finetune --peft` trains the same additive LoRA/rsLoRA adapters natively with AdamW, bit-exact save/resume and standard PEFT export; merged V4.1 packages remain unsupported.
-
-**Eighteen fixed models pass absolute logit drift `<2e-7`, `rtol=0`:** 1,472,649 logits across 108 prefill/decode/reset steps, worst drift `1.7881393432617188e-7` on the original FP32 cases. Eleven BF16 fixture models cover 1,470,409 logits with **zero drift**. The three wider cases include 512-wide attention heads, 32 index heads of width 128, and a 512-token YaRN prefill followed by a 129-token reset.
-
-Two production-width gates use the shipping default loader. The preserved **twenty-four-layer** accumulation case fixes hidden width 5120, 64x512 attention, Q/O ranks 1280/1024, eight output groups, expert intermediate width 2304 and the full 129,280-token vocabulary; all 258,560 logits pass with zero CPU drift. A separate **four-layer schedule case** adds ratios `[2,2,1,1]`, shared KV/index state, candidate filtering, Engram at 8x256/four-gram width, six routed experts, masked history and a shorter reset: **904,960 logits pass with zero drift** across five steps. All 384 router candidates are also qualified at width 5120, top-6 and 1/3/4 rows in an independent component probe. Depth, expert payload count, table budgets and context remain reduced in the width cases. Single-file and sharded SafeTensors fixtures bind every weight by hash; the audit records intermediate-rounding limits separately from the full-logit gate.
-
-The complete **40-layer compression/KV/index/Engram schedule and 384 routed experts with top-6 routing now pass together in one graph**, alongside the two earlier structural probes. The joint graph uses hidden/intermediate widths 32 and reduced vocabulary/tables; all 3,216 logits, 11,520 routing slots and 3,156,480 intermediate values match CPU PyTorch by bits. A fourth probe extends that graph to a **single 2,048-token start-zero prefill at the released 32-head/128-wide indexer** — one pass over the whole prompt, not a chunked continuation — followed by three decodes across compression groups, an eight-token reset and two reset decodes: all 138,087 logits, 494,640 routing slots (compared by expert id where PyTorch's top-k tie order is unspecified) and the deep-context stage/cache/index trace are bit-exact. Per-head index kernels tile rows on the dispatch z axis to reach 65,536 queried rows, and the MoE gate mirrors the reference's CPU top-k staging, which settles the boundary tie that otherwise selects a different expert. MoE execution reuses resident compaction scratch across experts while preserving GPU count masking and accumulation order. The native gate reproduces the measured Windows CPU normalization, scalar-log and square-root staging. Its immutable instruction seed map covers the complete mantissa domain independently of model values.
-
-Explicit library policies stage routed/shared experts, Engram tables and each layer's attention/indexer/compressor projections from checkpoint files. **`DeepseekV41VocabularyResidency::Streamed`** now stages the embedding only for lookup, releases it before the backbone, then stages the head only for the final projection. Existing constructors retain resident vocabulary by default; the additive `from_checkpoint_with_vocabulary_residency` constructor selects all four policies independently.
-
-The combined policy passes **407,575 logits across nine model executions and 51 steps with zero CPU drift**, including the joint 40-layer/384-expert graph, its single 2,048-token prefill/reset probe and the released-width/full-vocabulary one-layer probe. All 517,968 recorded routing slots and the bounded deep-decode stage/cache/index evidence remain bit-exact. Between calls it retains zero routed/shared experts, Engram tables, attention/indexer/compressor projection layers or vocabulary tensors. On the released-width probe, initial live GPU tensor bytes fall from **2,952,388,584 (resident)** to **2,651,986,152 (block staging)** and **4,331,752 (including vocabulary staging)**. Each vocabulary operation still temporarily stages one complete matrix; these constructor figures exclude allocator reservations and peak inference memory. Hyper-connections, norms, gates, caches and Engram projections remain resident.
-
-Explicit BF16 checkpoint execution preserves the existing FP32/hybrid APIs. CPU PyTorch is the accepted reference; CUDA parity is not required. **186 default V4.1 tests and 41 CLI tests pass (288 checks in the final qualified suite)**, including package loading/generation, tokenizer-derived Engram metadata, streaming/lifetime/error checks, frozen-fixture guards, the layer-27 boundary tie and production-width component regressions. The production-width PEFT-LoRA gate, the four-token prefill/decode gate and the six-layer/384-expert production-ratio training gate run opt-in and are bit-exact. Resource-heavy qualification tests run in separate processes; the twenty-four-layer package is 7.8 GB and the additive schedule package is 4.26 GB. Native package execution uses the normal loader without enable flags. The numerical policy is qualified against the pinned Windows/AMD CPU runtime. The released package publishes no tokenizer files, so the default loader requires the matching `tokenizer.json` or a precomputed `engram_tokens.json` beside the checkpoint; the sibling DeepSeek-V4.1-Flash tokenizer reproduces the released 99,092 compressed ids exactly. The full 510 GB checkpoint has not been executed locally; its Engram tables alone are 98.3 GB each and are read by row rather than uploaded whole. **Native PEFT-LoRA/rsLoRA adapter training is qualified end to end.** Four CPU PyTorch oracles (FP32, FP32 with FP4/FP8 experts, BF16, and the production ratio: six layers, width 32, 384 experts, top-6, HC4) each run LoRA and rsLoRA for three AdamW steps with every factor and optimizer moment replayed from the frozen reference state: **6,144 logits** over 96 logit points stay strictly `<2e-7` with the production-ratio and BF16 fixtures bit-exact, gradients reach `1.12e-8`, moments `1.4e-9`, every compared factor update (**5,585,376**) is bit-exact to the documented pinned AdamW policy, and save/resume plus standard PEFT export reproduce byte-identically (the CLI's resumed adapter hashes equal the uninterrupted run's). The [training receipt](hierarchos-vulkan/validation/release_parity/deepseek_v41/training-qualification.json) is bound into the machine receipt. Joint full geometry, complete intermediate bit parity, million-token contexts, DSpark and vision remain unqualified. Hyper-connections, norms, gates, caches and Engram projections stay resident. See [the V4.1 implementation audit](PROGRESS_DEEPSEEK_V41_AUDIT.md) for commands, storage support, numerical limits and remaining work.
-
-Explicit application streaming (`--stream-parameters` or the unchecked GUI
-toggle) also avoids resident body-weight construction for ordinary Llama,
-Mistral, Qwen2 and Mixtral packages. The earlier RDNA3
-[source-first loading receipt](hierarchos-vulkan/validation/release_parity/parameter_streaming/source-first-qualification.json)
-records all 32 CPU/PEFT profiles passing `<2e-7`, `rtol=0` (worst metric `9e-8`),
-with memory, storage-format and adapter lifecycle evidence. The Gen9 inference
-matrix above covers all 32 recorded profiles within its larger 43-profile gate.
-Other generic families retain their initial-loading peak.
-
-### Strict qualification records: GPT‑OSS, SmolLM3, Qwen2.5 text, Qwen3.5, and Qwen4-Experimental
-
-The recorded qualifications for these families use an absolute-only `2e-7`
-gate (`rtol=0`) against the local Hugging Face Transformers source checkout for
-forward logits, generation requests, two native AdamW steps, and native-trained
-SafeTensors save/reload. Their training results retain their original
-device/revision scope; the latest Gen9 inference matrix is summarized above.
-
-- **`gpt_oss`:** forward logits reached `5.960464478e-8` maximum absolute drift, cached generation reached `4.470348358e-8`, two-step AdamW parameter drift reached `1.192092896e-7`, and native-reload versus Transformers-reload logits reached `4.470348358e-8`.
-
-- **SmolLM3:** the config-driven mixed RoPE/NoPE GQA path, sliding NoPE layers, tied embeddings, padding masks, and YaRN all run through the native graph. Default and YaRN fixtures reached at most `5.960464478e-8` forward-logit drift and `5.960464478e-8` cache-requested generation drift. Both variants reached `1.192092896e-7` two-step AdamW parameter drift; native-trained reload logits reached at most `5.960464478e-8`. The export/reload check also preserves `no_rope_layers`, `layer_types`, RoPE parameters, sliding-window settings, and weight tying.
-
-- **Qwen2.5 text:** canonical Qwen2.5 text checkpoints that serialize as `model_type: qwen2` reuse the native Qwen2 graph rather than a redundant alias. Deterministic GQA fixtures cover Qwen2.5-style `rope_theta=1_000_000`, mixed full/sliding attention, padding, and tied/untied LM heads. Forward logits reached at most `5.960464478e-8`, four-step cached generation reached `4.470348358e-8` versus local Transformers and `0.0` versus native full-prefix decoding, two-step AdamW parameter drift reached `1.192092896e-7`, and native-reload versus Transformers-reload logits reached at most `5.960464478e-8`. Qwen2.5-VL/Omni vision/audio stacks are not implied by this text-only qualification.
-
-- **Qwen3.5:** dense full attention, pure Gated DeltaNet, the default hybrid schedule, and MoE fixtures reached at most `4.470348358e-8` forward-logit drift, `4.470348358e-8` cached-generation drift, `2.980232239e-8` two-step AdamW parameter drift, and `5.215406418e-8` native-reload versus Transformers-reload logit drift.
-
-- **Qwen4 Experimental:** DeltaNet, genuinely sparse QSA, GR/hyper-connections, PLE n-gram/dilated-convolution state, mixed DeltaNet/QSA scheduling, and MoE/shared-expert fixtures reached at most `2.980232239e-8` forward-logit drift, `3.725290298e-8` cached-generation drift, `2.980232239e-8` two-step AdamW parameter drift, and `2.235174179e-8` native-reload versus Transformers-reload logit drift.
-
-For SmolLM3 (including YaRN), Qwen2.5 text, Qwen3.5, and Qwen4 Experimental,
-cache-on/off generation requests matched native full-prefix logits exactly
-(`0.0` maximum drift) at every recorded step. SmolLM3 uses the existing
-full-prefix fallback when caching is requested; native KV-cache coverage is
-described by each family's receipt.
-
-## Kimi K3 / KimiLinear: fully implemented native text backbone
-
-Kimi K3 now has a **fully implemented native `KimiLinear` text-backbone path** instead of being aliased to Kimi K2/K2.5, DeepSeek, Qwen, GLM, or another graph. A top-level `kimi_k3` package resolves its nested `text_config` to the canonical native `kimi_linear` architecture and executes through the Rust/Vulkan backend.
-
-The completed path includes the hybrid **KDA + MLA** layer schedule, independent Q/K/V short convolutions and recurrent KDA state, full-rank KDA output gating, MLA output gating, **SiTU**, **Stable LatentMoE**, **AttnRes**, native forward/backward and AdamW training, cached token-by-token generation, and SafeTensors load/export round-tripping. The production runtime does not depend on Python, PyTorch, FLA, Triton, CUDA, or Moonshot remote code.
-
-Current K3 validation against Moonshot's released Kimi K3 modeling semantics is well inside the `2e-7` target: isolated KDA reaches `5.587935448e-8` maximum absolute logit error, isolated MLA `6.146728992e-8`, the production-style mixed KDA/MLA graph `5.215406418e-8`, and the strict two-step AdamW check `5.963374861e-8` maximum absolute parameter error across 18,450 compared values.
-
-The K3 claim is specifically for the **language/text backbone**. MoonViT/vision/projector execution is intentionally outside this contract. The official `compressed-tensors` `mxfp4-pack-quantized` checkpoint representation is also rejected explicitly until that packed format has its own native implementation and qualification; use an unquantized FP32/BF16 KimiLinear package for native execution.
-
-The current source-derived Transformer registry contains **146 canonical native architectures**, plus **83 Hugging Face package/config aliases** for **229 advertised `model_type` spellings**. The full generated inventory is in [hierarchos-vulkan/README_ARCHITECTURES.md](hierarchos-vulkan/README_ARCHITECTURES.md).
-
-> [!IMPORTANT]
-> Architecture support means the declared native **text graph** is implemented by this backend. A supported text backbone inside a multimodal/audio/vision package does not imply that the package's image, audio, video, processor, or other non-text towers execute natively. Unsupported graphs fail closed instead of being silently approximated.
-
-## What is in this repository?
-
-| Component | Purpose |
-| --- | --- |
-| [`hierarchos-vulkan`](hierarchos-vulkan/) | Native Vulkan training backend for Hierarchos and supported Transformer graphs. Includes forward/backward, AdamW, dropout, LoRA/PEFT paths, generation, checkpoint interchange, shaders, validation tools, and low-level utilities. |
-| [`hierarchos-native-cli`](hierarchos-native-cli/) | Unified native CLI for Transformer training/fine-tuning/generation and Hierarchos training/fine-tuning/chat. Also handles Rust-native Hugging Face model/tokenizer/dataset acquisition. |
-| [`hierarchos-inference`](hierarchos-inference/) | Pure-Rust Hierarchos coherent-v9 inference runtime using SafeTensors model packages. |
-| [`hierarchos-gui`](hierarchos-gui/) | Native desktop frontend over the same CLI/runtime contracts. It does not contain a second model implementation. |
-
-The native Transformer path is not a PyTorch device plugin and does not register itself as a Python `transformers` backend. Its public integration surface is Rust plus the native CLI.
-
-## Highlights
-
-- Raw Vulkan compute through Rust [`ash`](https://crates.io/crates/ash) for supported training and generation paths.
-- No CUDA toolkit, PyTorch, Python runtime, or vendor-specific compute API is required by the native backend itself.
-- Native Hugging Face Hub model, tokenizer, and dataset acquisition from Rust.
-- SafeTensors-compatible model interchange with canonical PyTorch-style tensor names/layouts.
-- Full-model Transformer training and native LoRA fine-tuning.
-- Causal, bidirectional, and implemented encoder-decoder Transformer graph families.
-- Dense and routed-MoE model families, including modern Llama, Qwen, Gemma, Mistral/Mixtral, DeepSeek, GLM, OLMo, Granite, Cohere, Phi, T5/BART-family, BERT-family, and many others.
-- Greedy, sampling, and beam-style Transformer generation policies, including native KV-cached paths for qualified causal families.
-- Native Hierarchos coherent-v9 training, checkpoint/resume state, mixed-precision policies, multi-device scheduling, and pure-Rust inference.
-- Checked-in SPIR-V binaries for ordinary builds; a shader compiler is not required just to build and run the release backend.
-- Explicit numerical/parity tooling against reference PyTorch/Transformers implementations for development qualification.
-
-## Physical ROG Ally qualification and RDNA3 tuning — October 22, 2026
-
-The AMD backend is no longer qualified only by proxy. The complete numerical
-suite, the independent mathematical oracles, the shipping bundle and the paired
-performance measurements were executed on a physical **ASUS ROG Ally RC71L**
-(Ryzen Z1 Extreme, Radeon `1002:15bf`, Windows driver `32.0.31007.6002`,
-Vulkan `26.10.07.06`), not on an emulated or alternate adapter.
-
-### Final qualification
-
-`target/ally-results/qualification-small-welford` repeats all 13 stages on the
-final tuned route tables and the final GPT-2 module, and passes every one in
-**2,314 s**:
-
-- 375 Python contract tests (the same 12 opt-in skips), **813** library tests
-  (9 ignored) and 40 trainer tests.
-- 34 recurrent cases with **38,930 exact tensor digests** and zero differences
-  under both FP32 and FP16-storage/FP32-compute.
-- 75 Transformer comparisons with **36,096 logits and zero differing bits**,
-  plus the unchanged independent Transformers ceiling.
-- Both two-process trainer modes export **290 identical model/optimizer
-  tensors**.
-- Both 12/12 training ladders report **6,464 dispatches, 3,076 barriers, loss
-  5.543217 and 32,162 exact trajectory digests**.
-- RDNA3 vendor composition, the CPU RWKV bridge, all frontend crates, the
-  seven-executable bundle and ten application commands (including exact
-  mid-epoch resume) pass.
-
-Nine independent oracle stages pass with unchanged inputs: 19 additional
-small-rank recurrent cases (31,914 digests), full Hugging Face training, five
-cached-generation validators, the OLMo beta diagnostic and the complete
-32-family PEFT matrix (LoRA, saved modules and adapter switching). The tuned
-tables add 27 AMD rows and leave all 35 Intel/other-adapter rows untouched.
-
-### Measured routes, not copied assumptions
-
-A faster route is recorded only after the driver's own A/B shows zero worst
-absolute difference and the exact training trajectory accepts it. Nine staged
-low-rank rows and two composed time-mix wins are explicitly withheld because
-their A/B changed values or drifted over eight timesteps; those geometries keep
-the proven fused producer.
-
-The earlier second-update drift was two valid FP32 backward associations on
-this driver. The committed AMD goldens pin the required association before
-timing, and the topology choice for width-128, ranks-32/32/64 now requires a
-15% win in all seven rounds (40 debug replays selected one row 160/160 times).
-Forced experimental schedules stay in memory and never enter the shared
-autotune cache.
-
-### Numerical repairs and the GPT-2 recovery
-
-The scoped old-stable parity exceptions remain the GPT-2 Welford/addmm repair
-and the OLMo Hybrid beta-scale-2 repair. Both match the intended reference
-semantics and the unchanged independent `2e-7` ceiling; no tolerance or
-existing golden was changed.
-
-The GPT-2 repair originally cost **1.15x** on the tiny fixture. A one-chunk,
-eight-lane-per-row Welford module with exact integer reciprocals now keeps the
-same association without the cascade stack. It is admitted only on this
-adapter/driver at hidden widths 1–128 and matches the general module bit for
-bit on all 512 short geometries; the CPU fixture's ten widths up to 128 run
-through it. A dedicated 30-pair run (4,000 forwards per leg) resolves the tiny
-case at **1.0136 of stable, 95% CI 1.0132–1.0140**, with all 30 pairs above one
-and sign test `p = 1.9e-9`. The residual 1.4% is the repair cost, not 15%.
-
-Paired quiet performance on the physical device:
-
-| Case | Candidate / stable |
-| --- | ---: |
-| 16 whole-RNN training cases | 0.964–1.020 |
-| Wide GPT-2, unmasked / padded | 0.914 / 0.923 |
-| Wide GPT-2 decode / batch-32 | 0.856 / 0.952 |
-| Tiny GPT-2 (0.58 ms) | 1.0136 (95% CI 1.0132–1.0140) |
-| Wide Llama, unmasked / padded | 1.002 / 1.009 |
-
-The first performance run after the long build is retained as
-`training-performance-interference`: one Transformer stable leg stalled and the
-unpatched `stable-auto` control matched the candidate on the worst training case
-outside the band. The immediate rerun on the same binaries is the accepted
-measurement; both runs remain in the evidence.
-
-### Windows two-rank training
-
-The upstream two-rank distributed trainer now has a functional Windows TCP
-transport. Both `param-server` and `allreduce` modes run with
-`--world-size 2 --rank N --peer-ip ADDRESS --network-transport tcp`; the trainer
-uses ports 18515/18516 and `HIERARCHOS_NETWORK_TIMEOUT_SECONDS` (default 300).
-The primary broadcasts parameters, moments/clocks and controller state;
-allreduce applies the optimizer per rank and fails on a weight-checksum
-mismatch. The port also fixes upstream distributed-state defects (moment decode
-order, unaligned payloads, metadata bounds and initial optimizer synchronization).
-
-The qualification ran two processes on one physical adapter. It does not
-certify two machines, a real network, or RDMA hardware. Linux RDMA remains an
-opt-in `--features rdma` build; Windows NetworkDirect is not implemented.
-
-### Evidence
-
-The full physical qualification, the independently archived oracles and the
-paired measurements are in `target/ally-results/` (ignored working data, not
-committed). The human-readable records are
-[RDNA3_QUALIFICATION.md](RDNA3_QUALIFICATION.md) and
-[ROG_ALLY_HANDOFF.md](ROG_ALLY_HANDOFF.md); the qualification command is
-documented below.
-
-## Vulkan training optimizations — October 15, 2026
-
-The training backend now reuses matrix tiles and attention scores, shares compiled
-pipelines, and batches more gradient accumulations into each dispatch. The changes
-preserve the original kernels' arithmetic order and include scalar/streaming and
-device-capability fallbacks.
-
-- **Dense projections:** shared-memory tiling for FP32 and packed-FP16 linear
-  forward, bias/residual projections, and parameter-matmul forward/input gradients.
-- **Attention and normalization:** cached attention row scores/probabilities,
-  shared Qwen gated-RMS statistics, removal of a redundant RMSNorm backward scan,
-  and tiled reads for the fused low-rank LayerNorm producer.
-- **Runtime and optimizer:** per-device pipeline sharing, conservative SPIR-V
-  access reflection for barrier elision, audited storage-buffer qualifiers,
-  workgroup-shared AdamW bias corrections, and eight-way gradient accumulation
-  with four-way/scalar fallbacks.
-- **Measurement and release checks:** sampled GPU profiling, shape-matched
-  placement reports, a controlled placement probe, kernel output goldens, and
-  full training-state comparison after every optimizer update.
-
-On the local AMD device, the fixed small training fixture records **6,464
-dispatches instead of 6,912** and **3,076 shader barriers instead of 3,412**.
-Earlier kernel A/B measurements found a **2.67× median dense-projection speedup**
-for the measured training shapes, **4.6–6.2× attention-forward speedups**, and
-**10.3–11.8× Qwen gated-RMS weight-gradient speedups**. These are individual-kernel
-measurements, not whole-training speedup claims. A subsequent attention-backward
-fix removes unnecessary workgroup cache storage: at batch 128, backward falls
-from **263.8 ms to about 71 ms**, faster than the **78.6 ms** original kernel,
-with bit-identical gradients. See the [backward regression closure](hierarchos-vulkan/validation/ATTENTION_BACKWARD_PERFORMANCE.md).
-
-The final debug and release gates both pass: **406 kernel invocations are
-bit-identical to the original artifacts**, **3,817 tensor digests match over 13
-training steps**, and **86 affected shader variants reproduce and validate**.
-The library/trainer suites pass **706 + 40 tests**, with nine library microprofiles
-explicitly ignored. This optimization qualification is specific to the tested AMD
-device; it does not extend the earlier cross-vendor qualification to these changes.
-The current physical-Ally sign-off (813 + 40 tests, 13 gates) is the October 22
-section above.
-
-See the [backend optimization details](hierarchos-vulkan/README.md#training-kernel-optimizations-and-verification),
-[numerical sign-off and reproduction commands](hierarchos-vulkan/validation/SHIP_PARITY.md),
-and [development measurements](PROGRESS_HIERARCHOS_VULKAN_TRAINING_OPTIMIZATIONS.md).
-
-## Requirements
-
-For normal native use you need:
-
-- Rust and Cargo compatible with the checked-in lockfiles.
-- A Vulkan 1.x loader/driver.
-- A compute-capable Vulkan device for GPU training and native Transformer generation.
-
-Python and PyTorch are used only by optional development/reference validation scripts. They are not runtime dependencies of the native training backend.
-
-## Cross-platform support: multiple GPU vendors and host CPU instruction sets
-
-The native backend drives Vulkan compute directly through Rust `ash`, so there
-is no vendor-specific compute stack to install: no CUDA, ROCm, oneAPI, or
-PyTorch device plugin participates in the native path. Qualification is
-recorded against two host classes that differ in both dimensions. The latest
-Gen9 gate and the earlier AMD records have separate device/revision scopes:
-
-| Qualification host | GPU | Host CPU dispatch | Selected reduction shapes |
-| --- | --- | --- | --- |
-| Intel Gen9 target (i5-6200U, Skylake-U) | HD Graphics 520 | AVX2 only, `avx512f` absent | two interleaved fused-FMA GEMM lanes; 8-lane log-softmax fold |
-| AMD Radeon target (Ryzen Z1 Extreme) | Radeon | AVX-512, `avx512f` present | four interleaved GEMM lanes with materialized products; 16-lane log-softmax fold |
-
-The AMD row is now backed by a complete physical Ally qualification, including
-the tuned RDNA3 routes and the shipping bundle; see the October 22 section above.
-
-Kernel *variants* are selected by GPU vendor, but two reductions whose
-reference is the host's own PyTorch CPU library are selected by **host CPU
-capability** instead: ATen dispatches its vectorized CPU kernels by instruction
-set at run time, and that dispatch changes the reduction shape. Both shapes are
-correct, only one matches a given machine, and the wrong one is not merely
-imprecise - applying the AVX2 shape on an AVX-512 host moved the `saved`-stage
-`model.embed_tokens` adjoint from `7.45e-9` to `3.22e-6` on Gemma 4 and pushed
-six previously green fixtures past the fixed `2e-7` gate. The backend therefore
-probes the host once per process (`transformer::aten_vector_width`, cached) and
-dispatches the matching module pair instead of baking one host's shape into the
-portable path. `HIERARCHOS_ATEN_VECTOR_WIDTH=8|16` pins the shape for
-qualification when a reference wheel's kernels differ from the CPU's own
-capability.
-
-The recorded host-ISA qualification passed the full three-stage PEFT matrix on
-both host classes at the unchanged `2e-7`
-gate: 32/32 ordinary LoRA, 32/32 named-adapter switching, and 32/32 saved-module
-fixtures, each qualification run reporting provenance `inputs_unchanged=true`
-against its documented oracle pin. On the AVX2-only Gen9 host the post-change
-matrix is bit-identical, field for field, to the pre-change report across all
-32 families, and the committed 8-lane modules rebuild byte-for-byte from the
-checked-in GLSL. The AVX-512 dispatch is qualified on the AMD machine, the only
-host that executes it natively. The shape table and the per-host measurements
-are in [COMPATIBILITY.md](hierarchos-vulkan/COMPATIBILITY.md) and
-[VENDOR_TUNING.md](hierarchos-vulkan/VENDOR_TUNING.md).
-
-Nothing here is Windows-specific: the backend is plain Rust plus a Vulkan 1.x
-loader, and SPIR-V is checked in, so an ordinary build needs no shader compiler.
-The recipe snippets use PowerShell; Quick start notes the non-Windows
-adjustments.
+---
 
 ## Quick start
 
-Clone the repository:
+Install Rust/Cargo and a Vulkan compute driver, then build from source:
 
 ```powershell
 git clone https://github.com/necat101/Hierarchos-Native.git
 cd Hierarchos-Native
-```
 
-Build the unified CLI and the Vulkan companion binaries:
-
-```powershell
 cargo build --release --manifest-path hierarchos-native-cli/Cargo.toml
-
 cargo build --release --manifest-path hierarchos-vulkan/Cargo.toml `
   --bin hierarchos-vulkan-train `
   --bin hierarchos-vulkan-devices `
   --bin hierarchos-vulkan-transformer-train `
   --bin hierarchos-vulkan-transformer-logits
+
+$cli = ".\hierarchos-native-cli\target\release\hierarchos-native-cli.exe"
+& $cli doctor
+& $cli devices
+& $cli architectures
 ```
 
-Then inspect the machine and the live architecture registry:
+**Try a small model** through the native Hub downloader:
 
 ```powershell
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe doctor
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe devices
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe architectures
+& $cli infer --hf-model hf-internal-testing/tiny-random-gpt2 `
+  --prompt "Hello" --max-new-tokens 32 --no-do-sample
 ```
 
-On non-Windows systems, omit the `.exe` suffix and use your shell's normal line-continuation syntax.
+This randomly initialized fixture exercises the execution path.
+Use `--model-path .\model` for a supported local package.
+The examples below reuse `$cli`. On non-Windows systems, use the corresponding
+executable path without `.exe` and your shell's line-continuation syntax.
 
-### Portable standalone bundle
+Checked-in SPIR-V binaries are included; ordinary builds do not need a shader compiler.
+[Build requirements](#getting-started) · [CLI reference](hierarchos-native-cli/README.md) · [Portable bundle](#portable-standalone-bundle)
 
-On Windows, the repository can stage the four native crates into one standalone Cargo workspace and build the user-facing binaries into one `bin/` directory:
+---
+
+## Table of contents
+
+- [Why Hierarchos Native](#why-hierarchos-native)
+- [How it works](#how-it-works)
+- [Supported architectures](#supported-architectures)
+- [Training and inference](#training-and-inference)
+- [Streaming and offloading](#streaming-and-offloading)
+- [Desktop GUI](#desktop-gui)
+- [Validation](#validation)
+- [Performance](#performance)
+- [Getting started](#getting-started)
+- [Project status](#project-status)
+- [Documentation](#documentation)
+- [License and notices](#license-and-notices)
+- [Community and support](#community-and-support)
+
+---
+
+## Why Hierarchos Native
+
+- **One native execution path.** The CLI and GUI use the same Rust/Vulkan model contracts.
+- **Train as well as infer.** Supported graphs provide forward/backward, AdamW,
+  full-parameter training and independently qualified LoRA/PEFT paths.
+- **Keep standard model packages.** Load and export canonical Hugging Face tensor
+  names and shapes using single-file or indexed, sharded SafeTensors.
+- **Choose how frozen weights are stored.** Keep parameters resident, or explicitly
+  stream supported projections, MoE experts and vocabulary from disk.
+- **Use consumer Vulkan hardware.** Physical qualification includes Intel HD Graphics
+  520 and AMD RDNA3, with separate device and revision receipts.
+- **Check the numbers.** Frozen CPU references, shader provenance and training-state
+  comparisons back the published qualification claims.
+
+<div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
+
+---
+
+## How it works
+
+The Rust frontend resolves the model configuration, loads tokenizer and weight assets,
+prepares data, and dispatches the implemented native graph. Transformer math runs in
+Vulkan compute shaders; coherent-v9 also has a separate pure-Rust inference engine.
+
+| Component | Responsibility |
+| --- | --- |
+| [Native CLI](hierarchos-native-cli/) | Model/tokenizer/dataset acquisition, training commands, generation and checkpoint orchestration |
+| [Vulkan backend](hierarchos-vulkan/) | Native model graphs, forward/backward, AdamW, adapters, caches and streaming |
+| [Pure-Rust inference](hierarchos-inference/) | Hierarchos coherent-v9 inference from native SafeTensors packages |
+| [Desktop GUI](hierarchos-gui/) | Mode-aware forms, command previews and live output over the same CLI |
+
+Model exports stay separate from optimizer/RNG continuation sidecars. A saved model
+or adapter is an interchange artifact; exact native continuation additionally needs
+its training state. The native path does not register a Python `transformers` backend
+or execute remote model/dataset code.
+
+<div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
+
+---
+
+## Supported architectures
+
+The source-derived registry contains **146 canonical text architectures**, **83 package
+aliases**, and **229 advertised `model_type` spellings**. It includes dense and MoE
+decoders, encoder families, encoder-decoder families and implemented hybrid graphs.
+
+| Native path | Highlights |
+| --- | --- |
+| **DeepSeek V4.1 Flash** | Dedicated `deepseek_v41` graph; hyper-connections, compression, shared KV/index state, Engram, routed experts and native LoRA/rsLoRA |
+| **Kimi K3 / KimiLinear** | Native mixed KDA + MLA text backbone, SiTU, Stable LatentMoE, AttnRes, cached generation and AdamW |
+| **Falcon H1 / H1R** | Parallel GQA/RoPE attention + Mamba2, full training, fine-tuning and qualified PEFT |
+| **Llama, Qwen, Gemma, Mistral and others** | Family-specific text graphs and package configuration handling; see the generated inventory for individual contracts |
+| **Hierarchos coherent-v9** | Native training/fine-tuning, replay state and pure-Rust inference/chat |
+
+Inspect the live inventory and its separate PEFT capabilities:
 
 ```powershell
-.\hierarchos-vulkan\package-standalone.ps1 `
-  -OutDir C:\path\to\hierarchos-native-backend
+& $cli architectures --json
+& $cli architectures --peft --json
 ```
 
-Use `-SkipBuild` for a source-only bundle. The resulting package does not depend on a local Python Transformers checkout at build time or runtime.
+**Start with the [generated architecture matrix](hierarchos-vulkan/README_ARCHITECTURES.md)
+and [compatibility record](hierarchos-vulkan/COMPATIBILITY.md) for a particular model.**
+Architecture selection comes from the package configuration; no architecture-specific
+enable flag is needed. Registry presence does not imply every mode has passed its
+independent numerical gate.
 
-## Transformer workflows
+> [!IMPORTANT]
+> A supported text backbone in a multimodal package does not imply native image,
+> audio, video or processor execution. Unsupported graphs, formats and execution
+> contracts fail closed. Scaled-checkpoint qualification does not certify arbitrary
+> production checkpoints or every precision policy.
+
+DeepSeek V4.1 qualification uses the accepted production-ratio, reduced-width
+checkpoints; full production weights and CUDA are not required or claimed.
+Kimi K3 coverage is for the text backbone; its official packed MXFP4 representation
+remains outside the qualified path. See the [V4.1 audit](PROGRESS_DEEPSEEK_V41_AUDIT.md)
+and [K3 audit](PROGRESS_K3_AUDIT.md) for the detailed contracts.
+
+<div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
+
+---
+
+## Training and inference
+
+Use a supported local package containing `config.json`, tokenizer assets and
+SafeTensors weights, or use `--hf-model OWNER/REPO` for native Hub acquisition.
+Private/gated packages can use `HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN`.
+
+### Full-parameter training
+
+```powershell
+& $cli transformer-train `
+  --model-path .\model --train .\dataset.jsonl --out-dir .\trained `
+  --epochs 1 --batch-size 1 --seq-len 128 --lr 5e-5 --device-index 0
+```
+
+For continued full-parameter fine-tuning, use `transformer-finetune --full-finetune`.
+Starting from exported model weights starts a new optimizer; it is distinct from
+restoring exact training state.
+
+### LoRA training, save/resume and inference
+
+```powershell
+& $cli transformer-finetune `
+  --model-path .\model --train .\dataset.jsonl --out-dir .\adapter `
+  --lora-rank 8 --lora-alpha 16 `
+  --epochs 1 --batch-size 1 --seq-len 128 --lr 1e-4 --device-index 0
+
+& $cli transformer-finetune `
+  --model-path .\model --train .\dataset.jsonl --out-dir .\adapter-resumed `
+  --peft-resume .\adapter\training-state `
+  --epochs 1 --batch-size 1 --seq-len 128 --lr 1e-4 --device-index 0
+
+& $cli infer --model-path .\model --peft-adapter .\adapter-resumed `
+  --prompt "Explain Vulkan compute." --max-new-tokens 128 --device-index 0
+```
+
+PEFT is the default `transformer-finetune` mode. It exports `adapter_config.json`,
+`adapter_model.safetensors` and native `training-state/` sidecars, preserving the
+frozen base. Resume restores adapter tensors, AdamW moments/steps and dropout RNG;
+it does not restore a high-level dataset cursor. Keep the same base and compatible
+data, batch, sequence and optimizer settings.
+
+Targets, saved modules and merge support are architecture-specific. DeepSeek V4.1
+supports additive unmerged LoRA/rsLoRA and continuation/export; packed-base merging
+and `modules_to_save` remain unqualified. Check `architectures --peft --json` and
+the [PEFT guide](hierarchos-native-cli/README.md#peft-fine-tuning-guide) before
+choosing replacement modules or merging an adapter.
+
+### Dataset input
+
+JSONL supports text rows such as `{"text":"your training example"}` and pretokenized
+`input_ids`. Prompt/completion and Alpaca-style data have explicit CLI options.
+The Rust frontend also handles supported JSONL/NDJSON and Parquet Hub shards.
+[Dataset and training examples](hierarchos-native-cli/README.md).
+
+### Hierarchos coherent-v9
+
+Use `train` and `finetune` for native coherent-v9 training, and `chat` for pure-Rust
+inference. Packages retain canonical FP32 master tensors plus separate native
+continuation state. [CLI workflows](hierarchos-native-cli/README.md) ·
+[Inference contract](hierarchos-inference/README.md).
 
 ### Falcon H1 / Falcon H1R-7B: native training and full fine-tuning
+
+<details>
+<summary><strong>Complete Falcon CLI/GUI examples and qualification scope</strong></summary>
 
 `tiiuae/Falcon-H1R-7B` uses the canonical `falcon_h1` architecture. Each native
 layer executes **parallel GQA/RoPE attention and Mamba2**, followed by the gated
@@ -522,383 +311,239 @@ Full fine-tuning cannot be combined with adapter flags.
 See [PROGRESS_FALCON_H1_AUDIT.md](PROGRESS_FALCON_H1_AUDIT.md) for exact measurements,
 commands, regression results and qualification limits.
 
-### Using the newly strict-qualified families
+</details>
 
-There is no architecture-specific opt-in flag. Point the normal Transformer commands at a supported local Hugging Face package with `--model-path`, or at a Hub package with `--hf-model`; the native loader resolves the package model type and supported text-wrapper aliases automatically.
+<div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
 
-The newly qualified model types include `gpt_oss`, `smollm3`, Qwen3.5 text/MoE packages (`qwen3_5_text` and `qwen3_5_moe_text` plus supported wrapper aliases), and `qwen4_exp_text`. SmolLM3's RoPE/NoPE and sliding-attention schedule comes directly from its config; hybrid DeltaNet/attention scheduling and the Qwen4 QSA/GR/PLE path are likewise config-driven rather than manually selected.
+---
 
-Python/PyTorch remains validation-only; it is not required for production training or generation through these native paths. The qualification applies to the implemented text causal-LM path, not unrelated vision/audio towers in a wrapper package.
+## Streaming and offloading
 
-### Train a local Hugging Face model package
-
-```powershell
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe transformer-train `
-  --model-path .\hf_model `
-  --train .\dataset.jsonl `
-  --out-dir .\transformer_trained `
-  --epochs 1 `
-  --batch-size 1 `
-  --seq-len 128 `
-  --lr 5e-5 `
-  --device-index 0
-```
-
-### Train directly from Hugging Face Hub assets
-
-The native CLI can download supported models and datasets without invoking Python, `huggingface_hub`, Git LFS, or a framework loader:
+**Parameters stay resident by default.** Add `--stream-parameters` to supported
+inference or frozen-base LoRA commands to select package-backed frozen projections,
+MoE experts and vocabulary:
 
 ```powershell
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe transformer-train `
-  --hf-model hf-internal-testing/tiny-random-gpt2 `
-  --hf-dataset polinaeterna/jsonl_test `
-  --hf-dataset-file data/train.jsonl `
-  --out-dir .\transformer_hf `
-  --epochs 1 `
-  --batch-size 1 `
-  --seq-len 128 `
-  --seed 42 `
-  --device-index 0
+& $cli infer --model-path .\model --stream-parameters `
+  --prompt "Explain mixture-of-experts routing." --max-new-tokens 128
 ```
 
-Private or gated Hub repositories can use `HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN`. Model, tokenizer, and dataset revisions can be pinned independently.
+The GUI exposes the same choice as **Stream frozen parameters and MoE experts from
+disk**, unchecked by default. Mutable full-parameter training keeps weights resident;
+streaming supports the frozen base used by PEFT. Norms, biases, activations and adapter
+state remain resident.
 
-### Native PEFT / LoRA fine-tuning
+Ordinary Llama, Mistral, Qwen2 and Mixtral packages avoid resident body-matrix
+construction during loading. Other generic loaders retain their initial-loading
+peak. Device residency, offload and cache controls have separate contracts; consult
+the [CLI guide](hierarchos-native-cli/README.md) and [compatibility record](hierarchos-vulkan/COMPATIBILITY.md)
+for the selected architecture and operation.
 
-```powershell
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe transformer-finetune `
-  --model-path .\hf_model `
-  --train .\dataset.jsonl `
-  --out-dir .\transformer_lora `
-  --lora-rank 8 `
-  --lora-alpha 16 `
-  --lora-target-modules q_proj,v_proj `
-  --epochs 1 --batch-size 1 --seq-len 128 --lr 1e-4 `
-  --device-index 0
-```
+Resident and streamed outputs match word-for-word in the current **166-run forward**
+and **72-request generation** matrices.
+[RDNA3 closure](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md) ·
+[Gen9 qualification](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md).
 
-This example targets split-Q/V models such as Gemma3 or Llama. Targets must
-exist in the model's canonical HF graph; GPT-2 uses `c_attn`/`c_proj`, while
-Phi-3 uses `qkv_proj`/`o_proj`. See the
-[PEFT CLI guide](hierarchos-native-cli/README.md#peft-fine-tuning-guide) for
-family-specific target selection, saved modules, config files, and exclusions.
+<div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
 
-`transformer-finetune` uses PEFT/LoRA by default unless `--full-finetune` is supplied. PEFT runs export the normal Hugging Face-compatible adapter into the output directory and also save exact native AdamW/RNG continuation state to `OUT/training-state` by default. Resume that state with `--peft-resume OUT/training-state`; use `--save-lora-training DIR` to choose another checkpoint location.
-
-Run `hierarchos-native-cli architectures --peft --json` to see the architectures that have passed the separate PEFT gate and whether `modules_to_save` has independently passed the fixed `<=2e-7` qualification. All 32 documented native-green text surfaces now pass both ordinary LoRA and registered `modules_to_save`, including Gemma3 and Gemma4. New architectures still require their own independent gates; unqualified families remain fail-closed.
-
-PEFT promotion is deliberately a second architecture gate. A new architecture must first pass its independent base-model parity work at `max_abs <= 2e-7`; only then should it be registered for PEFT, expose canonical targetable module names/classes, declare any real exclusions, and run the common PEFT logits/gradient/two-step-AdamW/lifecycle fixtures. Base parity never auto-promotes PEFT support, and registry presence alone is not qualification.
-
-LoRA forward, backward, and AdamW math remain in the Vulkan graph. `peft-rs` is used for PEFT schema/key interoperability rather than as a framework execution backend.
-
-#### Dataset and output files
-
-Use a local HF package with `config.json`, tokenizer assets, and single-file
-or indexed/sharded SafeTensors. JSONL supports `{"text":"training example"}`
-or pretokenized `{"input_ids":[1,7,3,11,2]}` rows. For supervised
-prompt/completion rows, use `--prompt-column prompt --completion-column completion`;
-for instruction/input/output rows, use `--alpaca`. The base checkpoint stays
-frozen: the output is an **adapter**, not a copy of the complete model.
-
-The output contains `adapter_config.json`, `adapter_model.safetensors`, and
-`training-state/` with native optimizer/RNG continuation sidecars. Keep the
-original base model: adapter loading must use that same checkpoint, tokenizer,
-and architecture. HF PEFT can load the adapter files; the native continuation
-sidecars are not HF Trainer checkpoints.
-
-#### Resume, generate, or merge
-
-```powershell
-# Resume adapter weights AND AdamW moments/step/RNG with the same base/data settings.
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe transformer-finetune `
-  --model-path .\hf_model --train .\dataset.jsonl --out-dir .\adapter_resumed `
-  --peft-resume .\transformer_lora\training-state `
-  --epochs 1 --batch-size 1 --seq-len 128 --lr 1e-4 --device-index 0
-
-# Generate without modifying or merging the frozen base.
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe transformer-generate `
-  --model-path .\hf_model --peft-adapter .\adapter_resumed --adapter-name domain `
-  --prompt "Explain Vulkan compute." --max-new-tokens 128 --device-index 0
-
-# Export a standalone model (the merge path currently requires an unsharded base).
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe merge-lora `
-  --model-path .\hf_model --lora-adapter-path .\adapter_resumed `
-  --out-dir .\merged_model
-```
-
-Use `--peft-adapter DIR` (alias `--lora-adapter-path`) for a **weights-only**
-warm start with a new optimizer, rather than `--peft-resume`. Exact native
-continuation restores adapter/optimizer/RNG state; it does not restore a
-high-level dataset cursor, so supply the intended continuation data and keep
-batch, sequence, and optimizer settings consistent.
-
-#### Saved modules and parameter budgets
-
-With explicit rank, `--lora-modules-to-save NAME` trains an adapter-local full
-replacement alongside low-rank adapters. Repeat it for each supported canonical
-Linear, LayerNorm/RMSNorm, head, or embedding target. For example on Gemma3:
-
-```powershell
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe transformer-finetune `
-  --model-path .\gemma3_text --train .\dataset.jsonl --out-dir .\gemma3_adapter `
-  --peft --lora-rank 8 --lora-alpha 16 --lora-target-modules q_proj,v_proj `
-  --lora-modules-to-save model.layers.0.input_layernorm `
-  --epochs 1 --batch-size 1 --seq-len 128 --lr 1e-4 --device-index 0
-```
-
-A saved embedding/head is a full-sized trainable copy and can cost substantially
-more memory than LoRA. Tied base weights are preserved; saved head/embedding
-replacement semantics follow the adapter config rather than silently updating
-both frozen tables. Only registered replacement targets are supported.
-
-Alternatively, omit `--lora-rank` and use `--peft-parameter-percent 1` to select
-the largest uniform rank fitting one percent of serialized floating base
-parameters (a duplicate tied head is counted once). This budget mode supports
-ordinary LoRA only: no saved modules, bias training, DoRA, or rank patterns.
-Use `--peft-config FILE` instead of direct config flags to create an adapter
-from an HF LoRA config. `--lora-merge` (alias `--lora-model-merge`) additionally
-exports `OUT/merged-model` after saving the adapter and continuation state;
-the destination must not already exist.
-
-These strict parity results are deterministic FP32 tiny-model correctness
-checks against `C:\Users\User\transformers`, not a guarantee for arbitrary
-checkpoint sizes, dtypes, devices, dropout trajectories, or vision/audio towers.
-Only LoRA is matrix-qualified across the inventory; parsing other PEFT config
-fields does not imply architecture-wide qualification of those methods.
-
-### Generate from a trained/local model
-
-```powershell
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe infer `
-  --model-path .\transformer_trained `
-  --prompt "Explain Vulkan compute in one paragraph." `
-  --max-new-tokens 160 `
-  --do-sample `
-  --temperature 0.7 `
-  --top-p 0.9 `
-  --device-index 0
-```
-
-You can also point `infer` at a supported Hub package with `--hf-model OWNER/REPO`.
-
-## Hierarchos workflows
-
-### Train or resume coherent-v9
-
-```powershell
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe train `
-  --model-path .\hierarchos_model `
-  --train .\dataset.jsonl `
-  --out-dir .\trained `
-  --epochs 3 `
-  --batch_size 4 `
-  --accumulation-steps 4 `
-  --starting-lr 1e-4 `
-  --training-chunk-size 256 `
-  --precision fp32
-```
-
-Fresh coherent-v9 initialization can use a normal Hub tokenizer:
-
-```powershell
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe train `
-  --hf-tokenizer openai-community/gpt2 `
-  --train .\dataset.jsonl `
-  --out-dir .\fresh_native `
-  --context_dim 448 `
-  --h_hidden 448 `
-  --l_hidden 448 `
-  --rwkv-head-size 64
-```
-
-### Fine-tune Hierarchos
-
-```powershell
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe finetune `
-  --model-path .\trained `
-  --train .\domain_dataset.jsonl `
-  --out-dir .\finetuned `
-  --epochs 1 `
-  --batch_size 4 `
-  --accumulation-steps 4 `
-  --starting-lr 1e-5 `
-  --training-chunk-size 256 `
-  --precision fp32
-```
-
-### Chat through the pure-Rust inference runtime
-
-```powershell
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe chat `
-  --model-path .\finetuned `
-  --carry-chat-state `
-  --chat-state-file .\chat-state.json
-```
-
-## Dataset input
-
-The native preprocessing path accepts common JSONL shapes including:
-
-- `text` / `content`
-- `instruction` + `output`
-- `prompt` + `completion`
-- `question` + `answer`
-
-The CLI can also discover JSONL/NDJSON and Parquet shards from Hugging Face dataset repositories and materialize them through the Rust frontend. It intentionally does not execute remote dataset builder scripts or arbitrary remote code.
-
-For low-level pre-tokenized Hierarchos training, `hierarchos-vulkan-train` accepts JSONL rows containing `input_ids` and optional same-length `labels`, `attention_mask`, and `loss_weights`.
-
-## Supported Transformer architectures
-
-Do not rely on a hand-maintained list copied into this front page. The authoritative inventory is generated from `VulkanTransformerArchitecture::ALL` and its explicit aliases:
-
-```powershell
-python hierarchos-vulkan/validation/generate_supported_architectures.py --check
-.\hierarchos-native-cli\target\release\hierarchos-native-cli.exe architectures --json
-```
-
-At the current revision the registry reports:
-
-- **146 canonical native Transformer text architectures**
-- **83 package/config aliases**
-- **229 advertised `model_type` spellings total**
-
-See [the generated architecture matrix](hierarchos-vulkan/README_ARCHITECTURES.md) for the complete list.
-
-The registry includes dense decoders, encoder families, encoder-decoder families, and routed-MoE families. It also resolves supported text backbones from a number of multimodal and speech packages while preserving unconsumed tensors on export where supported.
-
-## Checkpoint and interoperability contract
-
-The backend uses standard SafeTensors packages rather than a Vulkan-only weight format. Training operates with canonical FP32 masters and can use qualified lower-precision execution/storage policies internally. Exported model tensors retain normal row-major PyTorch/Hugging Face shapes and names expected by the implemented contracts.
-
-Hierarchos training additionally uses backend-neutral sidecars for exact optimizer/replay state. These files remain separate from ordinary model tensors so the model package can still be consumed by the pure-Rust inference runtime and external PyTorch CPU/CUDA tooling.
-
-Supported Hugging Face Transformer packages may use either a single `model.safetensors` or standard sharded SafeTensors with `model.safetensors.index.json`.
+---
 
 ## Desktop GUI
 
-Build the native desktop launcher with:
-
 ```powershell
 cargo build --release --manifest-path hierarchos-gui/Cargo.toml
+$env:HIERARCHOS_NATIVE_CLI = (Resolve-Path $cli).Path
+.\hierarchos-gui\target\release\hierarchos-native.exe
 ```
 
-The GUI exposes Transformer training, full-parameter and LoRA fine-tuning, Transformer inference/generation, Hierarchos training/fine-tuning, and Hierarchos chat. It is a thin launcher over the same native contracts and shows the generated command before execution.
+Choose Transformer training, full-parameter fine-tuning, LoRA, generation, or the
+Hierarchos training/chat modes. The form shows the exact CLI command before launch
+and streams the child process's output.
 
-Paged KV caching is an opt-in Vulkan generation optimization; the existing
-contiguous native KV cache remains the default. From the CLI, add
-`--cache-implementation paged` to `transformer-generate` (with caching enabled).
-In the GUI's Transformer generation workflow, choose `Paged Vulkan KV` from the
-`KV cache` selector. Choosing `Model/package default (non-paged)` preserves the
-package's ordinary cache policy but deliberately ignores package-level
-`cache_implementation="paged"` and `continuous_batching_config` metadata so a
-downloaded model cannot silently opt the user into the new serving path.
-`Contiguous native KV` explicitly selects the established native cache and
-`Disabled (full-prefix)` disables KV caching. An explicit `--generation-config`
-may still request paged/continuous behavior because supplying that file is an
-end-user opt-in. An explicit paged request fails closed for generation graphs
-that have no pageable K/V attention layers.
+Contiguous native KV is the established cache path. **Paged Vulkan KV** and continuous
+batching are explicit opt-ins for compatible graphs. The continuous scheduler supports
+decoder-only greedy/sampling requests with 16-token pages; unsupported serving
+settings fail closed. [GUI controls and packaging](hierarchos-gui/README.md).
 
-Continuous request scheduling is also opt-in. Repeat `--prompt` and add
-`--continuous-batching` to `transformer-generate`, or enable `Continuous
-batching` in the GUI and provide one additional request per line. This mode
-requires paged KV, shares one physical paged-KV arena per pageable Transformer
-layer across the active requests, returns finished requests' pages to the shared
-free list, admits waiting requests up to the configured active-request limit,
-and groups each active decode round into one Vulkan command submission. The
-current scheduler supports decoder-only greedy or multinomial sampling with one
-returned sequence per request; beam/encoder-decoder continuous batching fails
-closed. Native paged KV uses 16-token pages; a supplied
-`continuous_batching_config.block_size` must therefore be `16` in this build.
-The native continuous scheduler currently accepts only `block_size` and
-`max_requests_per_batch` from the Hugging Face continuous-batching config; other
-allocator, offload, CUDA-graph, or scheduler knobs fail closed rather than being
-silently ignored.
+<div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
 
-For a portable Windows bundle, keep `hierarchos-native.exe` and `hierarchos-native-cli.exe` together. Hierarchos training also needs `hierarchos-vulkan-train.exe`, or set `HIERARCHOS_VULKAN_BIN_DIR` to the directory containing the companion Vulkan binaries.
+---
 
 ## Validation
 
-The repository keeps registry coverage, Rust tests, and numerical reference checks separate so an architecture name is not confused with a parity claim.
+**The CPU logit requirement is strict: `max_abs < 2e-7`, `rtol=0`.** The frozen inputs
+and expectations stay unchanged when a kernel is repaired or optimized. Base-model
+parity and PEFT qualification are separate gates.
 
-Useful source-level checks include:
+| Physical qualification | Recorded result | Evidence |
+| --- | --- | --- |
+| **AMD RDNA3 · November 2, 2026** | 166/166 forward runs and 72/72 generation requests; worst forward drift `1.7881393432617188e-7` | [Closure receipt](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md) |
+| **AMD native regression gate** | 269 selected native tests, 50 GPT-2 tests and 41 CLI tests; resident/streamed CPU PEFT checks pass | [Logs, hashes and archive](hierarchos-vulkan/validation/release_parity/rdna3_gpt2_closure/20261102/qualification.json) |
+| **DeepSeek V4.1 on AMD** | 201,714 default-gate logits, worst `1.4901161193847656e-7`; 11,184 explicit package/training logits bit-exact | [V4.1 results](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md#measured-gates) |
+| **Intel HD Graphics 520 · November 1, 2026** | 166/166 forward runs, 72/72 generation requests and 269 selected native tests | [Gen9 receipt](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md) |
+| **Gen9 preservation in the AMD fix** | All 585 existing shader binaries unchanged; Intel pipeline-selection guard passes | [Preservation scope](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md) |
+
+These are retained scalable-checkpoint results. The AMD follow-up did not rerun on
+physical Intel hardware. Test filters overlap, so the counts are not additive unique
+test totals. The measured architecture matrix covers 26 identifiers, not the entire
+146-entry registry; all-profile CPU PEFT training and production throughput are
+outside that matrix. [Current validation scope](VALIDATION_STATUS.md).
+
+<details>
+<summary><strong>Earlier two-step CPU training qualifications: fourteen architecture families</strong></summary>
+
+These earlier training records retain their linked device/revision scope; they are
+separate from the current RDNA3 inference matrix above.
+
+The headline compatibility target is strict numerical parity, not just architecture-name recognition. The current Vulkan backend has **fourteen modern Transformer text architectures/families** that each pass **two full AdamW steps** against the reference implementation with **less than `2e-7` maximum absolute parameter divergence** after export. **Falcon H1/H1R** leads the list: its parallel Attention+Mamba2 graph passes full-parameter training, full fine-tuning, and qualified LoRA/`modules_to_save` PEFT through the same CLI:
+
+| Architecture | Verified native scope | Max abs parameter error after 2 AdamW steps |
+| --- | --- | ---: |
+| **Falcon H1 / H1R** | causal LM with parallel GQA/RoPE attention + Mamba2; full training, fine-tuning, LoRA, saved modules | `1.192092896e-7` |
+| **DeepSeek V4** | causal LM | `1.192092896e-7` |
+| **Phi-4 Multimodal** | text backbone / causal LM | `1.192092896e-7` |
+| **Phi-3** | causal LM | `1.192092896e-7` |
+| **Kimi K2.5** | text backbone / causal LM | `1.192092896e-7` |
+| **Kimi K3 / KimiLinear** | text backbone / causal LM | **`5.963374861e-8`** |
+| **`gpt_oss`** | causal LM | `1.192092896e-7` |
+| **SmolLM3** | causal LM; mixed RoPE/NoPE and YaRN | `1.192092896e-7` |
+| **Qwen3.5** | dense, Gated DeltaNet, hybrid, and MoE text causal LM | `2.980232239e-8` |
+| **Qwen4 Experimental** | DeltaNet, sparse QSA, GR/PLE, hybrid, and MoE text causal LM | `2.980232239e-8` |
+| **Mistral 4** | causal LM | `2.607703209e-8` |
+| **MiniMax M3** | text backbone / causal LM | `3.539025784e-8` |
+| **Gemma 4** | causal LM | `1.220032573e-7` |
+| **MiniMax M2** | causal LM | `1.192092896e-7` |
+
+The acceptance ceiling is enforced by the validation harness rather than rounded into the documentation after the fact. These are deterministic FP32 tiny-model correctness checks covering cross-entropy loss and every named trainable parameter across two optimizer steps; they are not a claim that every arbitrary production checkpoint, precision mode, or hyperparameter combination has been certified. See [the compatibility and validation record](hierarchos-vulkan/COMPATIBILITY.md) for the exact harness and broader parity results.
+
+</details>
+
+Run the source-level workspace gate, or use the device runbook to consume the frozen
+CPU references without installing Torch:
 
 ```powershell
-.\check-workspace.ps1
-cargo check --manifest-path hierarchos-vulkan/Cargo.toml --all-targets
-cargo test --manifest-path hierarchos-vulkan/Cargo.toml --lib
-cargo test --manifest-path hierarchos-native-cli/Cargo.toml
-cargo test --manifest-path hierarchos-gui/Cargo.toml
-python -m unittest discover -s hierarchos-vulkan/validation -p "test_*.py"
-python hierarchos-vulkan/validation/generate_supported_architectures.py --check
+.\check-workspace.ps1 -AllTargets
 ```
 
-On a physical AMD adapter,
-`hierarchos-vulkan/validation/qualify_handoff.py --stable <oracle> --expected-vendor amd --output <dir>`
-runs the same 13 stages used for the sign-off. `check-workspace.ps1` seeds its
-generated workspace from `hierarchos-vulkan/Cargo.lock`, so a fresh checkout
-resolves the dependencies the qualified binaries were built with.
+[RDNA3 reproduction](RDNA3_REGRESSION.md) · [Gen9 evidence](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md) ·
+[Fixture provenance](hierarchos-vulkan/validation/V41_FIXTURE_PROVENANCE.md).
 
-For the post-Gen9 physical AMD run, follow [RDNA3_REGRESSION.md](RDNA3_REGRESSION.md).
-Its runner verifies the actual AMD adapter and executes resident/streamed
-inference, generation and native V4.1/PEFT regressions against the frozen CPU
-references. The latest [Gen9 qualification](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md)
-records the completed Intel run separately.
+<div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
 
-The first command is the one-pass workspace gate: it checks all four crates and
-every binary target together, warm in about a minute. Enable the tracked hook
-once with `git config core.hooksPath .githooks` so it runs before every commit,
-and `.github/workflows/workspace-check.yml` repeats it on every push and pull
-request. `SKIP_WORKSPACE_CHECK=1` or `git commit --no-verify` bypasses the local
-commit gate.
+---
 
-The registry integration test needs a local Hugging Face Transformers source
-checkout. Set `TRANSFORMERS_CHECKOUT` to that checkout before running the Python
-suite, or pass `--transformers-root <path>` directly to
-`hierarchos-vulkan/validation/audit_transformers_coverage.py`.
+## Performance
 
-Development-only Hugging Face/PyTorch parity probes live under `hierarchos-vulkan/validation/`. See [hierarchos-vulkan/COMPATIBILITY.md](hierarchos-vulkan/COMPATIBILITY.md) for the tested scope, tolerances, and remaining gaps.
+Optimization is measured per device and shape, with numerical gates checked alongside
+timings. Kernel speedups and small-checkpoint timings are not production-model
+throughput claims.
 
-## Current compatibility boundaries
+| Recorded measurement | Result | Scope |
+| --- | --- | --- |
+| **Gen9 Llama-wide streaming** | **11.016 → 4.597 ms**, 58.3% lower median; 19 → 4 submissions | Five alternating rounds against the preceding pass |
+| **Eight Gen9 architecture controls** | Streaming medians **42.4–78.4% lower**; resident medians **3.5–32.1% lower** | Combined optimization passes against the documented baseline |
+| **AMD attention backward** | Batch-128 fixture **263.8 → ~71 ms** with bit-identical gradients | Individual-kernel regression repair |
 
-Hierarchos Native intentionally fails closed when a requested execution contract is not implemented. Important current boundaries include:
+[Gen9 measurements, memory bounds and tradeoffs](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md) ·
+[Attention-backward evidence](hierarchos-vulkan/validation/ATTENTION_BACKWARD_PERFORMANCE.md) ·
+[Vendor tuning and rejected routes](hierarchos-vulkan/VENDOR_TUNING.md).
 
-- This is not universal compatibility with every model and every task in Python `transformers`.
-- A supported multimodal package alias currently represents its supported text backbone, not automatic native execution of every vision/audio/video tower.
-- AutoModel task heads outside the implemented language-model paths need their own native contracts and validation.
-- Some other families' hybrid SSM/convolution, sparse/global-attention, MLA/indexer, non-text, quantized-cache, and advanced continuous-batching paths remain outside the current native graph. Kimi K3's KDA/MLA text path is fully implemented as documented above. Paged KV generation is available only for compatible native Vulkan attention layers and remains explicitly opt-in; the native continuous scheduler is currently limited to decoder-only greedy/sampling requests with paged KV.
-- The seq2seq facade has native encoding/logits and implemented generation paths, but the compatibility document should be checked before assuming a particular training/generation mode is covered.
-- Reference parity results are tiny-model correctness/qualification evidence, not a blanket performance or large-checkpoint certification.
+<div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
 
-## Documentation map
+---
 
-- [Current validation scope and receipts](VALIDATION_STATUS.md)
-- [Final Intel Gen9 qualification and measured performance](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md)
-- [Physical RDNA3 regression instructions](RDNA3_REGRESSION.md)
-- [Vulkan backend internals, milestones, performance work, and parity tooling](hierarchos-vulkan/README.md)
-- [Generated Transformer architecture inventory](hierarchos-vulkan/README_ARCHITECTURES.md)
-- [Compatibility, numerical checks, and known gaps](hierarchos-vulkan/COMPATIBILITY.md)
-- [Unified native CLI](hierarchos-native-cli/README.md)
-- [Pure-Rust Hierarchos inference](hierarchos-inference/README.md)
-- [Native desktop GUI](hierarchos-gui/README.md)
-- [Standalone distribution layout](hierarchos-vulkan/standalone/README.md)
-- [Vendor tuning, per-host measurements, and rejected kernels](hierarchos-vulkan/VENDOR_TUNING.md)
-- [AMD regression audit and the host-ISA change record](AMD_REGRESSION_AUDIT.md)
-- [Physical ROG Ally qualification, tuning and limitations](RDNA3_QUALIFICATION.md)
-- [ROG Ally handoff and reproduction guide](ROG_ALLY_HANDOFF.md)
+## Getting started
 
-## Support the Developer:
-[Patreon](https://www.patreon.com/cw/MakhiBurroughs)
+| Requirement | Notes |
+| --- | --- |
+| **Rust and Cargo** | Use the checked-in manifests and lockfiles |
+| **Vulkan loader and compute driver** | Required for GPU training and native Transformer generation |
+| **Model assets** | A supported config, tokenizer and single-file or sharded SafeTensors package; alternatively a supported Hub model ID |
+| **Python / PyTorch** | Development/reference validation only; not native runtime dependencies |
+| **Shader compiler** | Needed when changing shaders, not for ordinary builds using checked-in SPIR-V |
+
+The documented device qualification is Windows-based. The backend uses Rust and
+Vulkan; non-Windows builds use their platform's driver and executable conventions.
+Availability on a Vulkan device is separate from recorded numerical qualification.
+
+### Portable standalone bundle
+
+Stage all four native crates and the user-facing binaries into one Windows bundle:
+
+```powershell
+.\hierarchos-vulkan\package-standalone.ps1 `
+  -OutDir C:\path\to\hierarchos-native-backend
+```
+
+Use `-SkipBuild` for a source-only bundle. Keep the GUI and CLI together, and include
+the Vulkan training companions for Hierarchos training, or set
+`HIERARCHOS_VULKAN_BIN_DIR`. [Distribution layout](hierarchos-vulkan/standalone/README.md).
+
+<div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
+
+---
 
 ## Project status
 
-This repository is under active development. The final scoped Intel Gen9 pass
-is recorded on November 1, 2026 in the
-[Gen9 receipt](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md). The earlier
-full physical ROG Ally qualification is dated October 22, 2026 and retains its
-documented scope in [RDNA3_QUALIFICATION.md](RDNA3_QUALIFICATION.md). Fresh
-physical RDNA3 regression and the expanded GPT-2 parity closure are recorded
-on November 2 in the [closure receipt](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md).
-The architecture inventory and compatibility surface are generated/validated
-from source. Prefer the live `architectures` command and generated architecture
-matrix when checking a particular package.
+| Area | Current scope |
+| --- | --- |
+| **Development** | Active source development; build and qualification evidence are revision-specific |
+| **DeepSeek V4.1 Flash** | Dedicated native text implementation, scaled inference/PEFT gates, save/resume/export and opt-in parameter/MoE streaming |
+| **Latest AMD closure** | The padded GPT-2-wide gap is closed at the unchanged CPU threshold; original frozen references preserved |
+| **Intel Gen9** | Completed physical port and optimization receipt; the AMD parity repair preserves existing Gen9 shader bytes and selection |
+| **Compatibility boundaries** | Text-backbone support is not universal multimodal/task-head compatibility; formats, training modes and precision policies need their own gates |
+
+Use the live `architectures` command for package recognition and the linked receipts
+for numerical coverage. [Status and limitations](VALIDATION_STATUS.md) ·
+[Compatibility](hierarchos-vulkan/COMPATIBILITY.md).
+
+<div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
+
+---
+
+## Documentation
+
+| Start here | Reference |
+| --- | --- |
+| Commands, datasets, PEFT and continuation | [Native CLI guide](hierarchos-native-cli/README.md) |
+| Native graphs, shaders and backend tooling | [Vulkan backend](hierarchos-vulkan/README.md) |
+| Model recognition and execution limits | [Architecture inventory](hierarchos-vulkan/README_ARCHITECTURES.md) · [Compatibility](hierarchos-vulkan/COMPATIBILITY.md) |
+| Desktop workflows | [GUI guide](hierarchos-gui/README.md) |
+| Hierarchos coherent-v9 inference | [Pure-Rust runtime](hierarchos-inference/README.md) |
+| Current qualification and reproduction | [Validation status](VALIDATION_STATUS.md) · [RDNA3 runbook](RDNA3_REGRESSION.md) |
+| Device performance and numerical routing | [Vendor tuning](hierarchos-vulkan/VENDOR_TUNING.md) · [AMD audit](AMD_REGRESSION_AUDIT.md) |
+| Original physical ROG Ally qualification | [Qualification](RDNA3_QUALIFICATION.md) · [Handoff](ROG_ALLY_HANDOFF.md) |
+| Implementation history | [DeepSeek V4.1 audit](PROGRESS_DEEPSEEK_V41_AUDIT.md) · [Kimi K3 audit](PROGRESS_K3_AUDIT.md) |
+
+<div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
+
+---
+
+## License and notices
+
+The native crate manifests declare **MIT** licensing; the standalone distribution
+includes the [MIT license text](hierarchos-vulkan/standalone/LICENSE).
+Third-party code and reference artifacts retain their own notices:
+[third-party notices](THIRD_PARTY_NOTICES.md) · [license files](licenses/).
+
+---
+
+## Community and support
+
+Found a bug or want to contribute a device result? [Open an issue](https://github.com/necat101/Hierarchos-Native/issues)
+with the model/config, device and driver, exact command, and relevant logs. Numerical
+changes should preserve the frozen references and pass the applicable parity gates.
+A GitHub star helps others find the project.
+
+<div align="center">
+
+### Support native GPU development
+
+If Hierarchos Native is useful to you, you can support continued kernel optimization,
+architecture implementation and hardware qualification.
+
+**[☕ Buy me a coffee — netcat420](https://buymeacoffee.com/netcat420)**
+
+[Support on Patreon](https://www.patreon.com/cw/MakhiBurroughs) · [GitHub issues](https://github.com/necat101/Hierarchos-Native/issues)
+
+</div>
