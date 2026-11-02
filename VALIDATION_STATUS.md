@@ -1,5 +1,14 @@
 # Current validation scope
 
+The [November 2 physical RDNA3 audit](hierarchos-vulkan/validation/RDNA3_POST_GEN9_RECEIPT.md)
+passes V4.1 Flash and native PEFT, all 32 previously green streaming profiles,
+and 72 generation requests. Its expanded forward matrix is 164/166: the padded
+GPT-2-wide case remains outside qualification, with the same failing logit
+words reproduced by the pre-Gen9 binary. No introduced regression was found
+in the recorded V4.1/streaming scopes. The strict `<2e-7`, `rtol=0` gate and all
+frozen expectations remain unchanged. This is a scoped physical audit, not a
+complete architecture-registry or all-profile training certificate.
+
 The [final Gen9 receipt](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md)
 closes the Llama-wide streaming regression: 11.016 to 4.597 ms against the
 preceding pass, with 19 submissions reduced to four. Bounded Gen9 upload
@@ -7,14 +16,14 @@ batching preserves every measured logit word. All 269 selected Rust tests,
 166 forward runs and 72 generation runs pass at `max_abs < 2e-7`, `rtol=0`.
 The broader eight-control run shows lower resident and streaming medians.
 This is the final Gen9 optimization pass. The frozen-reference RDNA3 runner is
-ready; fresh physical RDNA3 regression remains required before release. The
+available; the physical audit above records its passing and incomplete scopes. The
 [earlier optimization receipt](hierarchos-vulkan/validation/GEN9_OPTIMIZATION_RECEIPT.md)
 retains the original measurements and the exception this final pass closes.
 
 The Gen9 changes are published for device testing on
 `codex/gen9-final-rdna3-qualification`. Follow the
-[RDNA3 regression runbook](RDNA3_REGRESSION.md) on the AMD device before merging
-that branch into the release line. Qualification archives are immutable
+[RDNA3 regression runbook](RDNA3_REGRESSION.md) for a fresh AMD run; the scoped
+physical result is linked above. Qualification archives are immutable
 snapshots from before publication; they do not claim a new physical RDNA3 pass.
 
 The next Gen9 architecture-port phase is recorded in the

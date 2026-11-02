@@ -1,12 +1,13 @@
 # Hierarchos Native
 
-**Current validation scope — November 1, 2026:** the final **Intel Gen9 port is
-qualified on the i5-6200U / HD Graphics 520**, including DeepSeek V4.1 Flash and
-the measured resident/streamed architecture matrix, at **CPU logit error
-`max_abs < 2e-7`, `rtol=0`**. The earlier physical RDNA3 results retain their
-recorded revision scope; fresh RDNA3 regression of the Gen9 changes is pending
-before release. See [validation status](VALIDATION_STATUS.md) and the
-[RDNA3 regression runbook](RDNA3_REGRESSION.md).
+**Current validation scope — November 2, 2026:** the final Intel Gen9 port
+is qualified on the i5-6200U / HD Graphics 520. A fresh physical RDNA3 audit
+passes DeepSeek V4.1 Flash, its native PEFT gates, all 32 previously green
+parameter/MoE streaming profiles and the recorded generation matrix at
+`max_abs < 2e-7`, `rtol=0`. The expanded RDNA3 forward matrix is **164/166**:
+a pre-existing padded GPT-2-wide gap remains unqualified and reproduces on the
+old executable. See the [physical audit](hierarchos-vulkan/validation/RDNA3_POST_GEN9_RECEIPT.md),
+[validation status](VALIDATION_STATUS.md) and [regression runbook](RDNA3_REGRESSION.md).
 
 Native Rust + Vulkan training and inference tooling for **Hierarchos coherent-v9** and a broad set of modern Hugging Face Transformer text architectures.
 

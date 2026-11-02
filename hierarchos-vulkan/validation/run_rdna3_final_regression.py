@@ -27,6 +27,8 @@ def main():
     parser.add_argument("--generation-packages", type=Path, required=True)
     parser.add_argument("--expected-device-id", type=lambda value: int(value, 0), required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--keep-going", action="store_true",
+                        help="collect remaining numerical/test failures; the final exit still fails")
     args = parser.parse_args()
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -38,7 +40,7 @@ def main():
                    "SmolLM3 cache requests exercise the existing full-prefix fallback",
                    "120 registry identifiers remain outside this measured matrix"]}
 
-    def run(label, command, tests=False):
+    def run(label, command, tests=False, collect_failure=False):
         print("RUN", label, flush=True)
         command = [str(item) for item in command]
         completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
@@ -47,15 +49,19 @@ def main():
         record = {"name": label, "command": command, "exit": completed.returncode,
                   "log": log.name, "sha256": digest(log)}
         receipt["runs"].append(record)
-        write_json(out / "qualification.json", receipt)
-        if completed.returncode:
-            raise RuntimeError(f"{label} failed; see {log}")
-        if tests:
+        valid = completed.returncode == 0
+        if tests and valid:
             match = re.search(r"test result: ok\. (\d+) passed; 0 failed;", completed.stdout)
             if not match or int(match[1]) == 0:
-                raise RuntimeError(f"{label} executed no passing tests")
-            record["passed_tests"] = int(match[1])
-        print("PASS", label, flush=True)
+                record["error"] = "executed no passing tests"
+                valid = False
+            else:
+                record["passed_tests"] = int(match[1])
+        record["pass"] = valid
+        write_json(out / "qualification.json", receipt)
+        if not valid and not (args.keep_going and collect_failure):
+            raise RuntimeError(f"{label} failed; see {log}")
+        print("PASS" if valid else "FAIL", label, flush=True)
         return completed.stdout
 
     frozen = json.loads((ROOT / "HANDOFF-MANIFEST.json").read_text())
@@ -101,10 +107,16 @@ def main():
     # These gates establish the actual adapter before the longer unit suite.
     run("forward", [sys.executable, VALIDATION / "qualify_gen9_architectures.py", "run",
         "--fixtures", args.forward_fixtures.resolve(), "--binary", binaries[BINARIES[0]],
-        "--output", out / "forward", *hardware])
+        "--output", out / "forward", *hardware], collect_failure=True)
+    forward = json.loads((out / "forward/qualification.json").read_text())
+    # A numerical failure may be collected, but never proceed to native tests
+    # when the requested physical adapter has not actually been established.
+    if not any((row.get("vendor_id"), row.get("device_id")) == (0x1002, args.expected_device_id)
+               for row in forward["records"]):
+        raise RuntimeError("forward gate did not establish the requested physical AMD adapter")
     run("generation", [sys.executable, VALIDATION / "qualify_gen9_generation.py", "run",
         "--fixtures", args.generation_fixtures.resolve(), "--packages", args.generation_packages.resolve(),
-        "--binary", binaries[BINARIES[1]], "--output", out / "generation", *hardware])
+        "--binary", binaries[BINARIES[1]], "--output", out / "generation", *hardware], collect_failure=True)
     build = run("unit-build", ["cargo", "test", *common, "--lib", "--no-run", "--message-format=json"])
     units = [Path(entry["executable"]) for entry in artifacts(build) if entry["profile"].get("test")]
     if len(units) != 1:
@@ -113,20 +125,29 @@ def main():
                         ("streaming", "parameter_streaming"), ("offload", "weight_offload::tests"),
                         ("kv-cache", "generation_kv_cache_matches_full_prefix"),
                         ("qwen-next-backward", "qwen3_next_gated_delta_end_to_end_backward_matches_finite_difference")]:
-        run(label, [units[0], name, "--nocapture", "--test-threads=1"], tests=True)
+        run(label, [units[0], name, "--nocapture", "--test-threads=1"], tests=True, collect_failure=True)
     for label, name in [
         ("package-default", "deepseek_v41_default_package_scalable_release_strict_all_logits"),
         ("joint-resident", "deepseek_v41_joint_depth_and_384_expert_strict_all_logits"),
         ("joint-streamed", "deepseek_v41_streamed_vocabulary_joint_strict_all_logits"),
         ("peft-trajectory", "deepseek_v41_production_uninterrupted_training_logit_trajectory")]:
-        run(label, [units[0], name, "--ignored", "--nocapture", "--test-threads=1"], tests=True)
+        run(label, [units[0], name, "--ignored", "--nocapture", "--test-threads=1"], tests=True, collect_failure=True)
     for name in BINARIES:
         if digest(binaries[name]) != receipt["binaries"][name]["sha256"]:
             raise ValueError(f"executable changed during qualification: {name}")
-    receipt["pass"] = True
+    generation = json.loads((out / "generation/qualification.json").read_text())
+    native = [row for row in receipt["runs"] if row["command"][0] == str(units[0])]
+    receipt["scopes"] = {
+        "expanded_forward_matrix": forward["pass"],
+        "previous_rdna_profile_matrix": forward["rdna_profile_matrix_qualified"],
+        "generation": generation["pass"],
+        "native_gates": bool(native) and all(row["pass"] for row in native),
+    }
+    receipt["pass"] = (all(row["pass"] for row in receipt["runs"])
+                       and all(receipt["scopes"].values()))
     write_json(out / "qualification.json", receipt)
-    print(f"PASS RDNA3 final regression: {out}")
-    return 0
+    print(f"{'PASS' if receipt['pass'] else 'FAIL'} RDNA3 final regression: {out}")
+    return 0 if receipt["pass"] else 1
 
 
 if __name__ == "__main__":
