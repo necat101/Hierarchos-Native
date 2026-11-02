@@ -1,15 +1,74 @@
 # Hierarchos Native
 
-**Current validation scope:** this handoff is validated on **RDNA3 for DeepSeek
-V4.1 Flash and the recorded parameter/MoE streaming checks only**. Broader Intel
-and ROG Ally reports below are historical evidence, not current-revision RDNA3
-certification of every architecture. V4.1 Flash and streaming still need a fresh
-Gen9 device run before optimization. See [VALIDATION_STATUS.md](VALIDATION_STATUS.md)
-for the exact scope, receipts and Git pull commands.
+**Current validation scope — November 1, 2026:** the final **Intel Gen9 port is
+qualified on the i5-6200U / HD Graphics 520**, including DeepSeek V4.1 Flash and
+the measured resident/streamed architecture matrix, at **CPU logit error
+`max_abs < 2e-7`, `rtol=0`**. The earlier physical RDNA3 results retain their
+recorded revision scope; fresh RDNA3 regression of the Gen9 changes is pending
+before release. See [validation status](VALIDATION_STATUS.md) and the
+[RDNA3 regression runbook](RDNA3_REGRESSION.md).
 
 Native Rust + Vulkan training and inference tooling for **Hierarchos coherent-v9** and a broad set of modern Hugging Face Transformer text architectures.
 
 Hierarchos Native is built around a framework-free execution path: Rust handles model/package I/O, Hugging Face downloads, tokenization, datasets, checkpointing, and orchestration, while supported Transformer and Hierarchos training math runs through Vulkan compute shaders. Hierarchos inference has a separate pure-Rust runtime.
+
+## Intel Gen9 port and streaming optimizations — November 1, 2026
+
+The final Skylake-U pass brings the recent DeepSeek V4.1 and architecture
+streaming work to Intel HD Graphics 520. Ordinary graph parameters remain
+resident by default; application streaming is explicit through
+`--stream-parameters` or the GUI toggle. V4.1 retains its separately documented
+expert, block, Engram and vocabulary residency policies.
+
+Recent improvements include:
+
+- **DeepSeek V4.1 execution:** selected-expert fusion, GPU row counts, packed
+  weight paths and precision-preserving Gen9 FMA variants, with native
+  LoRA/rsLoRA, save/resume and export regression gates.
+- **Architecture streaming:** corrected Qwen3-Next padding, DBRX transposed
+  expert sources, and T5/BART/Switch encoder, decoder and cross-attention
+  projections. Both resident and streamed execution consume the same frozen
+  CPU reference packages.
+- **Gen9 kernels:** parallel QSA block-score caching, parallel HC statistics,
+  and fused inference SiLU/up multiplication preserve the existing arithmetic
+  and checked output words.
+- **Package I/O and submission overhead:** retained file handles with identity
+  checks, direct FP32 tile decoding, coalesced transposed/mapped reads, and
+  removal of an unused hidden-state download. Small independent Gen9 streamed
+  projections share a bounded **1 MiB payload window**, with existing
+  retirement paths for large, multi-tile and aliased projections.
+
+| Final Gen9 check | Recorded result |
+| --- | --- |
+| Selected Rust regression gate | **269 passed**, including 190 active V4.1 tests and four explicit release/training gates |
+| Forward inference | **166/166 runs**, 83 cases across 43 profiles / 26 native architecture identifiers; worst observable CPU logit error `1.7881393432617188e-7` |
+| Generation | **72/72 cache-on/off requests**, 18 profiles and four steps; worst CPU logit error `8.940696716308594e-8`; generated tokens match |
+| Output identity | All **77,772 forward words and 9,216 generation words** match the preceding Gen9 build; resident and streaming outputs also match |
+| Frozen evidence | All **68 original V4.1 file hashes** preserved; the final scheduling pass changes no shader artifacts |
+
+The **Llama-wide streaming regression is closed**: five alternating rounds
+reduce its median from **11.016 to 4.597 ms (58.3%)** against the preceding
+pass, with **19 submissions reduced to four** per forward. A control disabling
+batching in the same final executable measures 10.582 ms. Peak buffer allocation
+increases by 0.469 MiB on this fixture and stabilizes after warmup.
+
+Across eight retained architecture controls, the combined optimization passes
+reduce streaming medians **42.4–78.4%** and resident medians **3.5–32.1%** against
+the pre-optimization architecture baseline. These are idle, scaled-checkpoint
+measurements; full production-model throughput is outside this certificate.
+
+Forward CPU comparisons cover observable query rows; storage and prior-build
+word identity also include padded rows. SmolLM3 cache requests use the existing
+full-prefix fallback. The remaining 120 registry identifiers and all-profile
+CPU PEFT training are outside this new Gen9 numerical matrix. Earlier training
+and other-device results below retain the scope of their linked receipts.
+
+The [final Gen9 receipt](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md)
+contains the full measurements, memory bounds, V4.1 timing tradeoffs and
+reproduction evidence. The published `codex/gen9-final-rdna3-qualification`
+branch includes frozen CPU references and a standard-library Python runner for
+the [physical RDNA3 regression](RDNA3_REGRESSION.md) before merge/release;
+consuming those references requires no Torch or Transformers installation.
 
 ## Fourteen architectures verified below `2e-7` training divergence
 
@@ -34,7 +93,19 @@ The headline compatibility target is strict numerical parity, not just architect
 
 The acceptance ceiling is enforced by the validation harness rather than rounded into the documentation after the fact. These are deterministic FP32 tiny-model correctness checks covering cross-entropy loss and every named trainable parameter across two optimizer steps; they are not a claim that every arbitrary production checkpoint, precision mode, or hyperparameter combination has been certified. See [the compatibility and validation record](hierarchos-vulkan/COMPATIBILITY.md) for the exact harness and broader parity results.
 
-**DeepSeek V4.1 Flash native Rust/Vulkan text inference is qualified on this machine under the scalable-checkpoint criterion.** The retained 44.8 MB checkpoint runs the released 40-layer compression/sharing/Engram schedule and 384-expert/top-6 routing through the default loader; a fresh six-step run passes all 3,216 logits with zero CPU drift and exact routing. Recorded production-width probes complete the architecture qualification without requiring full production weights. The [machine receipt and compressed evidence](hierarchos-vulkan/validation/release_parity/deepseek_v41/qualification.json) remain independently verifiable after large generated packages are removed. [Intel Gen9 kernel optimization is the next stage](hierarchos-vulkan/validation/intel-handoff/DEEPSEEK_V41.md).
+### DeepSeek V4.1 Flash qualification records
+
+**DeepSeek V4.1 Flash native Rust/Vulkan text inference has recorded RDNA3
+handoff and completed Gen9 qualifications under the scalable-checkpoint
+criterion.** The retained 44.8 MB checkpoint runs the released 40-layer
+compression/sharing/Engram schedule and 384-expert/top-6 routing through the
+default loader. The original RDNA3 six-step run passes all 3,216 logits with
+zero CPU drift and exact routing, alongside its recorded production-width
+probes. The [original machine receipt and compressed evidence](hierarchos-vulkan/validation/release_parity/deepseek_v41/qualification.json)
+remain independently verifiable after large generated packages are removed.
+The [final Gen9 receipt](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md)
+records the completed port and its fresh native, inference and generation gates.
+The detailed V4.1 results below retain their original receipt scope.
 
 `DeepseekV41CausalLM::from_hf_package` is the normal package path with no enable flags: it infers F32/BF16 and packed I8/FP4/FP8 storage, streams routed/shared experts, Engram table rows, block projections and the vocabulary, and derives Engram's non-persistent metadata from `tokenizer.json` or a precomputed `engram_tokens.json`. `hierarchos-native-cli transformer-generate` recognizes `model_type=deepseek_v41` and routes it through that loader by default, keeping the standard prompt, tokenizer, generation-config and decoded-output contract; requests run serially, continuous batching is rejected explicitly, and context is bounded at 65,535 positions by the current native executor. Standard HF PEFT-LoRA adapters load unmerged with `--lora-adapter-path`: the released packed FP8/FP4 bytes stay untouched, and `architectures --peft --json` reports the supported targets and fail-closed classes. `transformer-finetune --peft` trains the same additive LoRA/rsLoRA adapters natively with AdamW, bit-exact save/resume and standard PEFT export; merged V4.1 packages remain unsupported.
 
@@ -50,15 +121,26 @@ The combined policy passes **407,575 logits across nine model executions and 51 
 
 Explicit BF16 checkpoint execution preserves the existing FP32/hybrid APIs. CPU PyTorch is the accepted reference; CUDA parity is not required. **186 default V4.1 tests and 41 CLI tests pass (288 checks in the final qualified suite)**, including package loading/generation, tokenizer-derived Engram metadata, streaming/lifetime/error checks, frozen-fixture guards, the layer-27 boundary tie and production-width component regressions. The production-width PEFT-LoRA gate, the four-token prefill/decode gate and the six-layer/384-expert production-ratio training gate run opt-in and are bit-exact. Resource-heavy qualification tests run in separate processes; the twenty-four-layer package is 7.8 GB and the additive schedule package is 4.26 GB. Native package execution uses the normal loader without enable flags. The numerical policy is qualified against the pinned Windows/AMD CPU runtime. The released package publishes no tokenizer files, so the default loader requires the matching `tokenizer.json` or a precomputed `engram_tokens.json` beside the checkpoint; the sibling DeepSeek-V4.1-Flash tokenizer reproduces the released 99,092 compressed ids exactly. The full 510 GB checkpoint has not been executed locally; its Engram tables alone are 98.3 GB each and are read by row rather than uploaded whole. **Native PEFT-LoRA/rsLoRA adapter training is qualified end to end.** Four CPU PyTorch oracles (FP32, FP32 with FP4/FP8 experts, BF16, and the production ratio: six layers, width 32, 384 experts, top-6, HC4) each run LoRA and rsLoRA for three AdamW steps with every factor and optimizer moment replayed from the frozen reference state: **6,144 logits** over 96 logit points stay strictly `<2e-7` with the production-ratio and BF16 fixtures bit-exact, gradients reach `1.12e-8`, moments `1.4e-9`, every compared factor update (**5,585,376**) is bit-exact to the documented pinned AdamW policy, and save/resume plus standard PEFT export reproduce byte-identically (the CLI's resumed adapter hashes equal the uninterrupted run's). The [training receipt](hierarchos-vulkan/validation/release_parity/deepseek_v41/training-qualification.json) is bound into the machine receipt. Joint full geometry, complete intermediate bit parity, million-token contexts, DSpark and vision remain unqualified. Hyper-connections, norms, gates, caches and Engram projections stay resident. See [the V4.1 implementation audit](PROGRESS_DEEPSEEK_V41_AUDIT.md) for commands, storage support, numerical limits and remaining work.
 
-Explicit application streaming (`--stream-parameters` or the unchecked GUI toggle) now also avoids resident body-weight construction for ordinary Llama, Mistral, Qwen2 and Mixtral packages. All 32 CPU/PEFT streaming profiles still pass `<2e-7`, `rtol=0` (worst metric `9e-8`). The [source-first loading receipt](hierarchos-vulkan/validation/release_parity/parameter_streaming/source-first-qualification.json) records memory, storage-format, adapter lifecycle and regression evidence. Other generic families retain their initial-loading peak.
+Explicit application streaming (`--stream-parameters` or the unchecked GUI
+toggle) also avoids resident body-weight construction for ordinary Llama,
+Mistral, Qwen2 and Mixtral packages. The earlier RDNA3
+[source-first loading receipt](hierarchos-vulkan/validation/release_parity/parameter_streaming/source-first-qualification.json)
+records all 32 CPU/PEFT profiles passing `<2e-7`, `rtol=0` (worst metric `9e-8`),
+with memory, storage-format and adapter lifecycle evidence. The Gen9 inference
+matrix above covers all 32 recorded profiles within its larger 43-profile gate.
+Other generic families retain their initial-loading peak.
 
-### Newly strict-qualified: GPT‑OSS, SmolLM3, Qwen2.5 text, Qwen3.5, and Qwen4-Experimental
+### Strict qualification records: GPT‑OSS, SmolLM3, Qwen2.5 text, Qwen3.5, and Qwen4-Experimental
 
-These strict-qualified families are held to an absolute-only `2e-7` gate (`rtol=0`) against the local Hugging Face Transformers source checkout for forward logits, cached generation, two native AdamW steps, and native-trained SafeTensors save/reload.
+The recorded qualifications for these families use an absolute-only `2e-7`
+gate (`rtol=0`) against the local Hugging Face Transformers source checkout for
+forward logits, generation requests, two native AdamW steps, and native-trained
+SafeTensors save/reload. Their training results retain their original
+device/revision scope; the latest Gen9 inference matrix is summarized above.
 
 - **`gpt_oss`:** forward logits reached `5.960464478e-8` maximum absolute drift, cached generation reached `4.470348358e-8`, two-step AdamW parameter drift reached `1.192092896e-7`, and native-reload versus Transformers-reload logits reached `4.470348358e-8`.
 
-- **SmolLM3:** the config-driven mixed RoPE/NoPE GQA path, sliding NoPE layers, tied embeddings, padding masks, and YaRN all run through the native graph. Default and YaRN fixtures reached at most `5.960464478e-8` forward-logit drift and `5.960464478e-8` cached-generation drift. Both variants reached `1.192092896e-7` two-step AdamW parameter drift; native-trained reload logits reached at most `5.960464478e-8`. The export/reload check also preserves `no_rope_layers`, `layer_types`, RoPE parameters, sliding-window settings, and weight tying.
+- **SmolLM3:** the config-driven mixed RoPE/NoPE GQA path, sliding NoPE layers, tied embeddings, padding masks, and YaRN all run through the native graph. Default and YaRN fixtures reached at most `5.960464478e-8` forward-logit drift and `5.960464478e-8` cache-requested generation drift. Both variants reached `1.192092896e-7` two-step AdamW parameter drift; native-trained reload logits reached at most `5.960464478e-8`. The export/reload check also preserves `no_rope_layers`, `layer_types`, RoPE parameters, sliding-window settings, and weight tying.
 
 - **Qwen2.5 text:** canonical Qwen2.5 text checkpoints that serialize as `model_type: qwen2` reuse the native Qwen2 graph rather than a redundant alias. Deterministic GQA fixtures cover Qwen2.5-style `rope_theta=1_000_000`, mixed full/sliding attention, padding, and tied/untied LM heads. Forward logits reached at most `5.960464478e-8`, four-step cached generation reached `4.470348358e-8` versus local Transformers and `0.0` versus native full-prefix decoding, two-step AdamW parameter drift reached `1.192092896e-7`, and native-reload versus Transformers-reload logits reached at most `5.960464478e-8`. Qwen2.5-VL/Omni vision/audio stacks are not implied by this text-only qualification.
 
@@ -66,7 +148,11 @@ These strict-qualified families are held to an absolute-only `2e-7` gate (`rtol=
 
 - **Qwen4 Experimental:** DeltaNet, genuinely sparse QSA, GR/hyper-connections, PLE n-gram/dilated-convolution state, mixed DeltaNet/QSA scheduling, and MoE/shared-expert fixtures reached at most `2.980232239e-8` forward-logit drift, `3.725290298e-8` cached-generation drift, `2.980232239e-8` two-step AdamW parameter drift, and `2.235174179e-8` native-reload versus Transformers-reload logit drift.
 
-For SmolLM3 (including YaRN), Qwen2.5 text, Qwen3.5, and Qwen4 Experimental, native cached decoding matched native full-prefix decoding exactly (`0.0` maximum drift) at every checked step.
+For SmolLM3 (including YaRN), Qwen2.5 text, Qwen3.5, and Qwen4 Experimental,
+cache-on/off generation requests matched native full-prefix logits exactly
+(`0.0` maximum drift) at every recorded step. SmolLM3 uses the existing
+full-prefix fallback when caching is requested; native KV-cache coverage is
+described by each family's receipt.
 
 ## Kimi K3 / KimiLinear: fully implemented native text backbone
 
@@ -271,8 +357,8 @@ Python and PyTorch are used only by optional development/reference validation sc
 The native backend drives Vulkan compute directly through Rust `ash`, so there
 is no vendor-specific compute stack to install: no CUDA, ROCm, oneAPI, or
 PyTorch device plugin participates in the native path. Qualification is
-recorded against two host classes that differ in both dimensions, and the same
-checkout is bit-exact on each:
+recorded against two host classes that differ in both dimensions. The latest
+Gen9 gate and the earlier AMD records have separate device/revision scopes:
 
 | Qualification host | GPU | Host CPU dispatch | Selected reduction shapes |
 | --- | --- | --- | --- |
@@ -296,7 +382,8 @@ portable path. `HIERARCHOS_ATEN_VECTOR_WIDTH=8|16` pins the shape for
 qualification when a reference wheel's kernels differ from the CPU's own
 capability.
 
-Both host classes pass the full three-stage PEFT matrix at the unchanged `2e-7`
+The recorded host-ISA qualification passed the full three-stage PEFT matrix on
+both host classes at the unchanged `2e-7`
 gate: 32/32 ordinary LoRA, 32/32 named-adapter switching, and 32/32 saved-module
 fixtures, each qualification run reporting provenance `inputs_unchanged=true`
 against its documented oracle pin. On the AVX2-only Gen9 host the post-change
@@ -751,6 +838,12 @@ runs the same 13 stages used for the sign-off. `check-workspace.ps1` seeds its
 generated workspace from `hierarchos-vulkan/Cargo.lock`, so a fresh checkout
 resolves the dependencies the qualified binaries were built with.
 
+For the post-Gen9 physical AMD run, follow [RDNA3_REGRESSION.md](RDNA3_REGRESSION.md).
+Its runner verifies the actual AMD adapter and executes resident/streamed
+inference, generation and native V4.1/PEFT regressions against the frozen CPU
+references. The latest [Gen9 qualification](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md)
+records the completed Intel run separately.
+
 The first command is the one-pass workspace gate: it checks all four crates and
 every binary target together, warm in about a minute. Enable the tracked hook
 once with `git config core.hooksPath .githooks` so it runs before every commit,
@@ -778,6 +871,9 @@ Hierarchos Native intentionally fails closed when a requested execution contract
 
 ## Documentation map
 
+- [Current validation scope and receipts](VALIDATION_STATUS.md)
+- [Final Intel Gen9 qualification and measured performance](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md)
+- [Physical RDNA3 regression instructions](RDNA3_REGRESSION.md)
 - [Vulkan backend internals, milestones, performance work, and parity tooling](hierarchos-vulkan/README.md)
 - [Generated Transformer architecture inventory](hierarchos-vulkan/README_ARCHITECTURES.md)
 - [Compatibility, numerical checks, and known gaps](hierarchos-vulkan/COMPATIBILITY.md)
@@ -795,4 +891,12 @@ Hierarchos Native intentionally fails closed when a requested execution contract
 
 ## Project status
 
-This repository is under active development. The last full physical qualification is October 22, 2026 on the ROG Ally; its scope and limits are recorded in [RDNA3_QUALIFICATION.md](RDNA3_QUALIFICATION.md). The architecture inventory and compatibility surface are generated/validated from source and will continue to evolve. When in doubt, prefer the live `architectures` command and the generated architecture matrix over copied architecture counts in third-party descriptions.
+This repository is under active development. The final scoped Intel Gen9 pass
+is recorded on November 1, 2026 in the
+[Gen9 receipt](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md). The earlier
+full physical ROG Ally qualification is dated October 22, 2026 and retains its
+documented scope in [RDNA3_QUALIFICATION.md](RDNA3_QUALIFICATION.md). Fresh
+physical RDNA3 regression of the Gen9 branch is pending before release.
+The architecture inventory and compatibility surface are generated/validated
+from source. Prefer the live `architectures` command and generated architecture
+matrix when checking a particular package.
