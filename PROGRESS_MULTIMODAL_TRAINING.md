@@ -50,11 +50,98 @@ identified and repaired without changing any frozen inputs or expectations:
   three steps: **all 1,044 parameter/moment words are bit-exact**.
 
 The same optimizer policy improves the original frozen feature matrix from
-**44/77 to 63/77 passing cases**, with **31/40 profiles** passing every attempted
-case. Four wide GPT-2/Llama cases still fail logits; ten other cases fail only
-the stricter raw feature-adjoint checks. The 14 cases remain red in their
-receipt. BART/T5/Switch and the dedicated V4.1 graph still need bridge integration;
-other actual modality stacks remain pending.
+**44/77 to 63/77 passing cases**, with **30/40 profiles** passing every attempted
+case. Four wide GPT-2/Llama cases still fail logits; ten further cases fail only
+the stricter raw feature-adjoint rows. The 14 cases remain red in their receipt.
+BART/T5/Switch and the dedicated V4.1 graph still need bridge integration; other
+actual modality stacks remain pending.
+
+### Full-matrix continuation and the Gemma4 pow repair
+
+A second complete 77-case replay with the two-accumulator projector and the
+pinned AVX2 reference width finished on Gen9. It still reports **63/77 cases**
+and **30/40 fully passing profiles**, but the failure surface shrank from 33 to
+**30 failing metric rows**:
+
+| Metric kind | Before | After |
+| --- | ---: | ---: |
+| `modality_embedding_grad` | 18 | 18 |
+| logits (all three points) | 15 | 12 |
+
+**Gemma4's pow-RMS derivative was modelling the wrong reference.** Measured on
+the pinned oracle over 2000 sampled FP32 means, `torch.pow(mean_squared, -1.5)`
+agrees with the correctly rounded real value only **1969/2000** times, while
+`torch.pow(mean_squared, -0.5)` equals `1/sqrt(mean_squared)` **2000/2000** times.
+The scalar CPU pow therefore follows the vectorized u10 approximation, and the
+correctly rounded `-3/2` value the selector previously fed into Gemma4's RMS
+input gradient was the wrong model of the reference. Both backward entry points
+now select the SLEEF paraphrase; the correctly rounded path remains in the
+shader for fixtures that provably reach a scalar pow.
+
+Effect, recorded as a trade rather than a pass: Gemma4's post-update and final
+logits move from `2.51e-7`-`3.13e-7` to passing, and its first-step feature
+adjoint improves from `3.87e-7` to `2.38e-7`. Its second-step adjoint moves from
+`4.77e-7` to `8.64e-7`, so the case stays red. The primary logit and parameter
+gates improved; the raw adjoint diagnostic did not improve uniformly.
+
+| Profile | Remaining red metric rows |
+| --- | --- |
+| `gpt2_wide`, `llama_wide` (4 cases) | 12 logit rows, plus 4 adjoint rows on the padded/wide variants |
+| `gemma4` (2 cases) | 4 adjoint rows |
+| `gemma3_softcap_tied` (2 cases) | 3 adjoint rows |
+| `minimax_m2/padded` | 2 adjoint rows |
+| `qwen2_5_sliding_tied`, `mistral`, `kimi_k25_text`, `qwen3_5_linear`, `qwen3_5_mixed` (padded) | 1 adjoint row each, all at `2.384185791015625e-7` |
+
+### Where the remaining drift lives
+
+`diagnose_multimodal_arithmetic.py` replays the frozen oracle through the
+unmodified Transformers model with the fixture's own embedding hook, then swaps
+in native normalization arithmetic. The unpatched replay reproduces `cpu.json`
+**bit-exactly** (`0.0`), so any remaining difference is native drift rather than
+a harness artifact:
+
+| `gpt2_wide/unmasked` | vs frozen CPU oracle | vs native report |
+| --- | ---: | ---: |
+| Unpatched | `0.0` | `2.086e-7` |
+| Native LayerNorm arithmetic substituted | `2.384e-7` | `1.788e-7` |
+
+The existing text gate already reports `1.490e-7`-`1.788e-7` for these same
+64-wide packages in both resident and streaming modes. Substituting three
+embedding rows with projected features moves a handful of logits from that noise
+floor to `2.086e-7`. The wide failures are therefore the text path's own
+forward reordering margin, not a bridge defect: closing them needs a
+bit-exact wide reduction/GEMM order, not another bridge change.
+
+The adjoint rows are a different shape of problem. Nearly every element of a
+failing adjoint differs again (37-46 of 48 values), typically by 2-5 ULP of its
+own magnitude, with a few small-magnitude elements at higher ULP counts. That is
+whole-backward accumulation order, not a single primitive: parameter updates
+pass their own `2e-7` gate at ~1 ULP, and the next step's adjoints amplify that
+seed at these magnitudes. Five of the ten adjoint-only cases miss by a single
+row of exactly 4 ULP at `|v| ~= 0.5-0.7`.
+
+Receipts, the run log and a per-row before/after comparison live in
+[`release_parity/multimodal_training/20261102-gen9-matrix-continuation/`](hierarchos-vulkan/validation/release_parity/multimodal_training/20261102-gen9-matrix-continuation/).
+The receipt's `binary_sha256` is the probe as it ran, before the final
+comment-only cleanup; rebuilding the committed source reproduces the recorded
+`gemma4/unmasked` report byte for byte, and only the debug line tables differ.
+
+A measured lead for the wide pairs already exists from the GPT-2 tracing pass.
+Forcing the diagnostic overrides over the same package moves the first-forward
+logits monotonically:
+
+| GPT-2 kernel selection | First-forward logits | Worst `ln1` output |
+| --- | ---: | ---: |
+| Shipped default | `2.384e-7` | `4.768e-7` |
+| Welford small LayerNorm | `2.086e-7` | `2.384e-7` |
+| Welford + CPU-reciprocal attention | `2.086e-7` | `2.384e-7` |
+| Welford + CPU-reciprocal + CPU tanh GELU | **`1.788e-7`** | `2.384e-7` |
+
+Those kernels are already implemented and are exercised by the opt-in
+`multimodal_cpu_math_trace` diagnostic (`HIERARCHOS_MM_DIAGNOSTIC_MODE=welford
+reciprocal tanh`). Promoting them into the default GPT-2 selection is the next
+concrete step for `gpt2_wide`; it is a behaviour change for every GPT-2 package,
+so it needs the full 166-run text regression before it lands.
 
 ### RDNA3 update integrated
 
@@ -229,9 +316,11 @@ one thread, with the imported source files retained in each CPU archive.
 
 ## Remaining work across the inventory
 
-1. Close the 33 recorded numerical failures without changing the frozen inputs,
-   expectations or strict ceiling. Trace wider first-forward GEMMs separately
-   from accumulated backbone updates and embedding adjoints. Add dedicated
+1. Close the 30 recorded failing metric rows without changing the frozen inputs,
+   expectations or strict ceiling. The wide logit rows need a wide
+   reduction/GEMM order that matches the reference; the adjoint rows need a
+   bit-exact backward accumulation order, since their parameter updates already
+   differ by ~1 ULP and the next step amplifies that seed. Add dedicated
    encoder-decoder entry points for BART/T5/Switch and the separate V4.1 graph.
 2. Implement and independently qualify each actual modality stack. Start with
    Gemma3's image encoder/projector and Phi-4 image/audio branches, then Qwen
@@ -282,4 +371,15 @@ Targeted checks:
 ```powershell
 cargo test --locked --manifest-path hierarchos-vulkan/Cargo.toml --lib multimodal::tests -j1 -- --test-threads=1
 python -m unittest discover -s hierarchos-vulkan/validation -p test_multimodal_training.py -v
+python -m unittest discover -s hierarchos-vulkan/validation -p test_llava_pipeline.py -v
+```
+
+To attribute a red case instead of guessing, replay the oracle under the pinned
+Torch/Transformers environment. The unpatched replay must print `0`, otherwise
+the harness itself is wrong and the patch comparison is meaningless:
+
+```powershell
+.venv-vulkan/Scripts/python.exe hierarchos-vulkan/validation/diagnose_multimodal_arithmetic.py `
+  --fixtures target/multimodal-gen9/matrix-cpu --case gpt2_wide/unmasked `
+  --native target/multimodal-gen9/phase4/full-matrix-sleef
 ```

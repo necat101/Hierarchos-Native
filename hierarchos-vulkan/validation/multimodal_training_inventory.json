@@ -1156,8 +1156,10 @@
     "cases": 77,
     "passed": 63,
     "failed": 14,
-    "fully_passing_profiles": 31,
+    "fully_passing_profiles": 30,
     "full_multimodal_inventory_qualified": false,
-    "separate_native_llava_pipeline_cases": 4
+    "separate_native_llava_pipeline_cases": 4,
+    "failing_metric_rows": 30,
+    "latest_matrix_receipt": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261102-gen9-matrix-continuation/qualification.json"
   }
 }

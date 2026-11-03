@@ -29817,14 +29817,16 @@ impl VulkanLayerNorm {
                     u32::from(self.unfused_products)
                 },
                 // torch.pow(mean_squared, -1.5) is the derivative factor of
-                // the pow-RMS forward. The CPU oracle evaluates it on the
-                // scalar path, so the reference value is the correctly rounded
-                // double-precision result. SLEEF's u10 log/exp paraphrase
-                // leaves a few percent of rows one ulp away and the RMS
-                // backward amplifies that seed through every lower norm, so
-                // the vector-CPU-rsqrt pow norms round the exact rational
-                // value with integer arithmetic instead.
-                exact_pow_backward: u32::from(self.pow_rstd && self.extra_rsqrt_refinement == 3),
+                // the pow-RMS forward. The CPU oracle's float32 pow follows
+                // the vectorized SLEEF u10 path: over 2000 sampled FP32 means
+                // it agrees with the correctly rounded real value only 98.5%
+                // of the time, while torch.pow(mean_squared, -0.5) equals
+                // 1/sqrt exactly in all 2000. Emulating the SLEEF paraphrase
+                // is what brings Gemma4's post-update logits under the gate;
+                // the correctly rounded path leaves them at 2.5-3.1e-7. Keep
+                // that selector available for fixtures whose reference
+                // provably reaches a scalar pow.
+                exact_pow_backward: 0,
             };
             kernels.rms_norm_input_grad.record_dispatch(
                 commands,
@@ -29986,9 +29988,10 @@ impl VulkanLayerNorm {
             } else {
                 u32::from(self.unfused_products)
             },
-            // Keep the correctly rounded pow-RMS derivative aligned with the
-            // ordinary backward path (see record_backward).
-            exact_pow_backward: u32::from(self.pow_rstd && self.extra_rsqrt_refinement == 3),
+            // Keep the pow-RMS derivative aligned with the ordinary backward
+            // path (see record_backward): the CPU oracle follows SLEEF u10,
+            // not correctly rounded real arithmetic.
+            exact_pow_backward: 0,
         };
         kernels.rms_norm_input_grad_residual.record_dispatch(
             commands,
