@@ -501,6 +501,13 @@ for numerical coverage. [Status and limitations](VALIDATION_STATUS.md) ·
 
 ---
 
+### Multimodal training development
+
+Native CLIP/LLaVA image processing, projector training and the shared modality
+embedding bridge are under development. See the
+[multimodal training audit](PROGRESS_MULTIMODAL_TRAINING.md) for measured scope,
+strict parity results and the remaining architecture work.
+
 ## Documentation
 
 | Start here | Reference |

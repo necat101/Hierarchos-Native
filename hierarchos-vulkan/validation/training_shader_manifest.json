@@ -5649,6 +5649,67 @@
     "-DHIERARCHOS_CPU_ATTENTION_SHORT_SDPA=1"
    ],
    "target_env": "vulkan1.1"
+  },
+  {
+   "artifact": "adamw_cpu_single_tensor.spv",
+   "source": "adamw_cpu_single_tensor.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_clip_tokens.spv",
+   "source": "vision_clip_tokens.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_patchify.spv",
+   "source": "vision_patchify.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_quick_gelu.spv",
+   "source": "vision_quick_gelu.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_quick_gelu_backward.spv",
+   "source": "vision_quick_gelu.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp",
+    "-DVISION_BACKWARD=1"
+   ],
+   "target_env": "vulkan1.0"
   }
  ]
 }

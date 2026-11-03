@@ -1,0 +1,47 @@
+{
+  "scope": "update_drift_attribution_only",
+  "case": "gemma3/padded",
+  "after_step": 2,
+  "cpu_sha256": "4fd015651e9857e4d551750164dde86cf43dc9807c399d01dc81992d389f9088",
+  "native_sha256": "c668b9e125ddce7b3299e74258d968835aceda0173f5f5312abce9d5341ec81f",
+  "binary_sha256": "82dcc12a24f83f0ab1cda6c87078c9bdb79bbaf0d1f899e36dbbe48e21866c07",
+  "runner_sha256": "2eda8ead6c7f1e48e46e7fd5af5a2593093d12a78f7f06debcda559c281604a2",
+  "records": [
+    {
+      "backbone": "cpu",
+      "projector": "cpu",
+      "logits": {
+        "values": 288,
+        "max_abs": 5.960464477539063e-08,
+        "pass": true
+      }
+    },
+    {
+      "backbone": "cpu",
+      "projector": "native",
+      "logits": {
+        "values": 288,
+        "max_abs": 5.960464477539063e-08,
+        "pass": true
+      }
+    },
+    {
+      "backbone": "native",
+      "projector": "cpu",
+      "logits": {
+        "values": 288,
+        "max_abs": 2.980232238769531e-07,
+        "pass": false
+      }
+    },
+    {
+      "backbone": "native",
+      "projector": "native",
+      "logits": {
+        "values": 288,
+        "max_abs": 3.2782554626464844e-07,
+        "pass": false
+      }
+    }
+  ]
+}

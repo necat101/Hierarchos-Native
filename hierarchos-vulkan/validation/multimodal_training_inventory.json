@@ -1,0 +1,1163 @@
+{
+  "schema": 1,
+  "absolute_logit_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "source_receipt": "hierarchos-vulkan/validation/release_parity/gen9_architectures/20261101/qualification.json",
+  "source_receipt_sha256": "606e8247883114267aa164c14aa4e690037ab032f86ff68fba3f896c4744c037",
+  "scope": "43 Gen9 profiles plus separately qualified DeepSeek V4.1; registry aliases are not additional qualified architectures",
+  "profiles": [
+    {
+      "profile": "bart",
+      "package_model_type": "bart",
+      "native_architecture": "bart",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "pending",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "seq2seq_embedding_bridge"
+    },
+    {
+      "profile": "bert",
+      "package_model_type": "bert",
+      "native_architecture": "bert",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "dbrx",
+      "package_model_type": "dbrx",
+      "native_architecture": "dbrx",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "numerical_followup_required",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "close_recorded_numerical_failures",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-1/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 2.384185791015625e-07,
+              "pass": false
+            }
+          ]
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "deepseek_v4",
+      "package_model_type": "deepseek_v4",
+      "native_architecture": "deepseek_v4",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "falcon_h1_gated_after",
+      "package_model_type": "falcon_h1",
+      "native_architecture": "falcon_h1",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "falcon_h1_gated_before",
+      "package_model_type": "falcon_h1",
+      "native_architecture": "falcon_h1",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "falcon_h1_silu",
+      "package_model_type": "falcon_h1",
+      "native_architecture": "falcon_h1",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "gemma3",
+      "package_model_type": "gemma3_text",
+      "native_architecture": "gemma3_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "gemma3_softcap_tied",
+      "package_model_type": "gemma3_text",
+      "native_architecture": "gemma3_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "numerical_followup_required",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "close_recorded_numerical_failures",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-1/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 2.8312206268310547e-07,
+              "pass": false
+            }
+          ]
+        },
+        {
+          "case": "padded",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-1/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 2.384185791015625e-07,
+              "pass": false
+            },
+            {
+              "metric": "step-2/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 2.384185791015625e-07,
+              "pass": false
+            }
+          ]
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "gemma4",
+      "package_model_type": "gemma4_text",
+      "native_architecture": "gemma4_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "numerical_followup_required",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "close_recorded_numerical_failures",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-1/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 5.587935447692871e-07,
+              "pass": false
+            },
+            {
+              "metric": "step-2/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 7.152557373046875e-07,
+              "pass": false
+            }
+          ]
+        },
+        {
+          "case": "padded",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-1/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 7.152557373046875e-07,
+              "pass": false
+            },
+            {
+              "metric": "step-2/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 3.2782554626464844e-07,
+              "pass": false
+            }
+          ]
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "gpt2",
+      "package_model_type": "gpt2",
+      "native_architecture": "gpt2",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "gpt2_wide",
+      "package_model_type": "gpt2",
+      "native_architecture": "gpt2",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "numerical_followup_required",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "close_recorded_numerical_failures",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-1/logits",
+              "values": 3840,
+              "max_abs": 2.384185791015625e-07,
+              "pass": false
+            },
+            {
+              "metric": "step-2/logits",
+              "values": 3840,
+              "max_abs": 2.980232238769531e-07,
+              "pass": false
+            },
+            {
+              "metric": "final_logits",
+              "values": 3840,
+              "max_abs": 2.682209014892578e-07,
+              "pass": false
+            }
+          ]
+        },
+        {
+          "case": "padded",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-1/logits",
+              "values": 2880,
+              "max_abs": 2.086162567138672e-07,
+              "pass": false
+            },
+            {
+              "metric": "step-1/modality_embedding_grad",
+              "values": 192,
+              "max_abs": 2.384185791015625e-07,
+              "pass": false
+            },
+            {
+              "metric": "step-2/logits",
+              "values": 2880,
+              "max_abs": 2.980232238769531e-07,
+              "pass": false
+            },
+            {
+              "metric": "step-2/modality_embedding_grad",
+              "values": 192,
+              "max_abs": 2.2351741790771484e-07,
+              "pass": false
+            },
+            {
+              "metric": "final_logits",
+              "values": 2880,
+              "max_abs": 2.682209014892578e-07,
+              "pass": false
+            }
+          ]
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "gpt_oss",
+      "package_model_type": "gpt_oss",
+      "native_architecture": "gpt_oss",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "kimi_k25_text",
+      "package_model_type": "kimi_k25",
+      "native_architecture": "deepseek_v3",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "numerical_followup_required",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "close_recorded_numerical_failures",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-2/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 3.5762786865234375e-07,
+              "pass": false
+            }
+          ]
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "kimi_k3_kda",
+      "package_model_type": "kimi_linear",
+      "native_architecture": "kimi_linear",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "kimi_k3_mla",
+      "package_model_type": "kimi_linear",
+      "native_architecture": "kimi_linear",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "kimi_k3_text",
+      "package_model_type": "kimi_linear",
+      "native_architecture": "kimi_linear",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "llama",
+      "package_model_type": "llama",
+      "native_architecture": "llama",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json",
+      "native_image_pipeline": {
+        "wrapper": "llava",
+        "tower": "clip_vision_model",
+        "passed_cases": 4,
+        "text_hidden_size": 16,
+        "scope": "two complete AdamW updates, raw RGB8 at configured size, image/logit controls, exact native export/reload",
+        "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/pipeline-qualification.json"
+      }
+    },
+    {
+      "profile": "llama_wide",
+      "package_model_type": "llama",
+      "native_architecture": "llama",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "numerical_followup_required",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "close_recorded_numerical_failures",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-1/modality_embedding_grad",
+              "values": 192,
+              "max_abs": 2.980232238769531e-07,
+              "pass": false
+            },
+            {
+              "metric": "step-2/logits",
+              "values": 3840,
+              "max_abs": 2.2351741790771484e-07,
+              "pass": false
+            },
+            {
+              "metric": "final_logits",
+              "values": 3840,
+              "max_abs": 2.980232238769531e-07,
+              "pass": false
+            }
+          ]
+        },
+        {
+          "case": "padded",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-1/logits",
+              "values": 2880,
+              "max_abs": 2.086162567138672e-07,
+              "pass": false
+            },
+            {
+              "metric": "step-1/modality_embedding_grad",
+              "values": 192,
+              "max_abs": 4.172325134277344e-07,
+              "pass": false
+            },
+            {
+              "metric": "step-2/logits",
+              "values": 2880,
+              "max_abs": 2.682209014892578e-07,
+              "pass": false
+            },
+            {
+              "metric": "step-2/modality_embedding_grad",
+              "values": 192,
+              "max_abs": 3.5762786865234375e-07,
+              "pass": false
+            },
+            {
+              "metric": "final_logits",
+              "values": 2880,
+              "max_abs": 2.980232238769531e-07,
+              "pass": false
+            }
+          ]
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "minimax_m2",
+      "package_model_type": "minimax_m2",
+      "native_architecture": "minimax_m2",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "numerical_followup_required",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "close_recorded_numerical_failures",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-1/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 2.682209014892578e-07,
+              "pass": false
+            }
+          ]
+        },
+        {
+          "case": "padded",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-1/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 5.364418029785156e-07,
+              "pass": false
+            },
+            {
+              "metric": "step-2/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 1.4603137969970703e-06,
+              "pass": false
+            }
+          ]
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "minimax_m3",
+      "package_model_type": "minimax_m3_vl_text",
+      "native_architecture": "minimax_m3_vl_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "minimax_m3_dense",
+      "package_model_type": "minimax_m3_vl_text",
+      "native_architecture": "minimax_m3_vl_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "mistral",
+      "package_model_type": "mistral",
+      "native_architecture": "mistral",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "mistral4",
+      "package_model_type": "mistral4",
+      "native_architecture": "mistral4",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "mixtral",
+      "package_model_type": "mixtral",
+      "native_architecture": "mixtral",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "phi3",
+      "package_model_type": "phi3",
+      "native_architecture": "phi3",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "phi4_multimodal_text",
+      "package_model_type": "phi4_multimodal",
+      "native_architecture": "phi3",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "qwen2",
+      "package_model_type": "qwen2",
+      "native_architecture": "qwen2",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "qwen2_5_gqa",
+      "package_model_type": "qwen2",
+      "native_architecture": "qwen2",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "qwen2_5_sliding_tied",
+      "package_model_type": "qwen2",
+      "native_architecture": "qwen2",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "qwen3_5_full",
+      "package_model_type": "qwen3_5_text",
+      "native_architecture": "qwen3_5_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "qwen3_5_linear",
+      "package_model_type": "qwen3_5_text",
+      "native_architecture": "qwen3_5_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "numerical_followup_required",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "close_recorded_numerical_failures",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-2/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 2.384185791015625e-07,
+              "pass": false
+            }
+          ]
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "qwen3_5_mixed",
+      "package_model_type": "qwen3_5_text",
+      "native_architecture": "qwen3_5_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "numerical_followup_required",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "close_recorded_numerical_failures",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": false,
+          "failures": [
+            {
+              "metric": "step-2/modality_embedding_grad",
+              "values": 48,
+              "max_abs": 2.086162567138672e-07,
+              "pass": false
+            }
+          ]
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "qwen3_5_moe",
+      "package_model_type": "qwen3_5_moe_text",
+      "native_architecture": "qwen3_5_moe_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "qwen3_next",
+      "package_model_type": "qwen3_next",
+      "native_architecture": "qwen3_next",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "qwen4_exp_linear",
+      "package_model_type": "qwen4_exp_text",
+      "native_architecture": "qwen4_exp_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "qwen4_exp_mixed_ple",
+      "package_model_type": "qwen4_exp_text",
+      "native_architecture": "qwen4_exp_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "qwen4_exp_ple",
+      "package_model_type": "qwen4_exp_text",
+      "native_architecture": "qwen4_exp_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "qwen4_exp_qsa",
+      "package_model_type": "qwen4_exp_text",
+      "native_architecture": "qwen4_exp_text",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "smollm3",
+      "package_model_type": "smollm3",
+      "native_architecture": "smollm3",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "smollm3_yarn",
+      "package_model_type": "smollm3",
+      "native_architecture": "smollm3",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "projected_feature_gate_passed",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "native_modality_stack_and_resume",
+      "qualification_scope": "FP32 projected features; two AdamW steps; no modality tower",
+      "tested_cases": [
+        {
+          "case": "unmasked",
+          "pass": true,
+          "failures": []
+        },
+        {
+          "case": "padded",
+          "pass": true,
+          "failures": []
+        }
+      ],
+      "receipt": "release_parity/multimodal_training/20261102-gen9-image-pipeline/bridge-qualification.json"
+    },
+    {
+      "profile": "switch_transformers",
+      "package_model_type": "switch_transformers",
+      "native_architecture": "switch_transformers",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "pending",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "seq2seq_embedding_bridge"
+    },
+    {
+      "profile": "t5",
+      "package_model_type": "t5",
+      "native_architecture": "t5",
+      "text_logit_parity": "confirmed_below_2e-7",
+      "multimodal_bridge": "pending",
+      "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+      "next_gate": "seq2seq_embedding_bridge"
+    },
+    {
+      "profile": "deepseek_v41_scalable",
+      "package_model_type": "deepseek_v41",
+      "native_architecture": "deepseek_v41",
+      "text_logit_parity": "confirmed_below_2e-7_separate_receipt",
+      "multimodal_bridge": "pending",
+      "native_modality_tower": "pending",
+      "next_gate": "dedicated_v41_graph_integration"
+    }
+  ],
+  "matrix_summary": {
+    "profiles_attempted": 40,
+    "cases": 77,
+    "passed": 63,
+    "failed": 14,
+    "fully_passing_profiles": 31,
+    "full_multimodal_inventory_qualified": false,
+    "separate_native_llava_pipeline_cases": 4
+  }
+}

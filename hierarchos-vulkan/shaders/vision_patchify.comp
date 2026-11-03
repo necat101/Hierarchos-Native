@@ -1,0 +1,19 @@
+#version 450
+// Layout conversion only. Patch projection itself uses the native GEMM.
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer X { float x[]; };
+layout(set=0,binding=1,std430) writeonly buffer Y { float y[]; };
+layout(push_constant) uniform Push { uint images; uint side; uint patch_size; uint channels; uint inverse; } pc;
+void main() {
+    uint i=gl_GlobalInvocationID.x;
+    uint total=pc.images*pc.side*pc.side*pc.channels;
+    if(i>=total) return;
+    uint area=pc.patch_size*pc.patch_size, width=pc.channels*area, grid=pc.side/pc.patch_size;
+    uint row=i/width, offset=i%width;
+    uint image=row/(grid*grid), tile=row%(grid*grid);
+    uint channel=offset/area, within=offset%area;
+    uint py=(tile/grid)*pc.patch_size+within/pc.patch_size;
+    uint px=(tile%grid)*pc.patch_size+within%pc.patch_size;
+    uint nchw=((image*pc.channels+channel)*pc.side+py)*pc.side+px;
+    if(pc.inverse==0) y[i]=x[nchw]; else y[nchw]=x[i];
+}

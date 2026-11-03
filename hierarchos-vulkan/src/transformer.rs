@@ -31,10 +31,12 @@ use serde::{Deserialize, Serialize};
 use tokenizers::Tokenizer;
 
 use crate::training_numerics::VulkanOrderedF32SumReducer;
+use crate::multimodal::{ModalityEmbeddingRows, MultimodalTransformerStepResult, PreparedModalityRows};
 mod falcon_h1;
 mod peft_registry;
 mod peft_state;
 mod streamed_load;
+pub mod vision;
 use streamed_load::{HostLinearPayload, upload_host_linear};
 use crate::{
     hierarchos_canonical_philox_word, hierarchos_dropout_threshold, read_f32_tensor, vendor,
@@ -25992,6 +25994,8 @@ struct TransformerKernels {
     rms_norm_param_grad: vulkan::ComputeKernel,
     vector_add: vulkan::ComputeKernel,
     adamw: vulkan::ComputeKernel,
+    cpu_adamw: crate::cpu_adamw::CpuAdamW,
+    cpu_adamw_policy: Mutex<Option<crate::cpu_adamw::CpuAdamWHyperParams>>,
     attention_forward: vulkan::ComputeKernel,
     attention_backward: vulkan::ComputeKernel,
     alibi_positions: vulkan::ComputeKernel,
@@ -26299,6 +26303,8 @@ impl TransformerKernels {
             )?,
             vector_add: vulkan::ComputeKernel::new(device, VECTOR_ADD_SPV, 3, 4)?,
             adamw: vendor::adamw_kernel(device)?,
+            cpu_adamw: crate::cpu_adamw::CpuAdamW::new(device)?,
+            cpu_adamw_policy: Mutex::new(None),
             attention_forward: vulkan::ComputeKernel::new(
                 device,
                 ATTENTION_FORWARD_SPV,
@@ -27955,6 +27961,11 @@ impl TrainableParameter {
             .exp_avg_sq
             .as_ref()
             .context("Transformer parameter AdamW second-moment state is not allocated")?;
+        if let Some(policy) = *kernels.cpu_adamw_policy.lock()
+            .map_err(|_| anyhow!("CPU AdamW policy lock poisoned"))? {
+            return kernels.cpu_adamw.record_step(commands, &self.values, grad,
+                exp_avg, exp_avg_sq, self.len, step, policy, self.decay);
+        }
         let push = AdamWPush {
             len: self.len as u32,
             step,
@@ -75310,6 +75321,21 @@ impl VulkanTransformer {
         self.forward_logits_with_context(input_ids, None, attention_mask, None, None)
     }
 
+    /// Evaluation with already projected modality features replacing raw token
+    /// lookup rows. This low-level bridge does not implement a vision/audio
+    /// tower or change the architecture's text positions/attention contract.
+    pub fn forward_logits_with_modality_embeddings(
+        &self,
+        input_ids: &[u32],
+        attention_mask: &[f32],
+        modality_rows: ModalityEmbeddingRows<'_>,
+    ) -> Result<Vec<f32>> {
+        self.forward_logits_with_context_and_roc_bert_ids_and_layer_count(
+            input_ids, None, None, None, None, attention_mask, None, None,
+            self.layers.len(), false, Some(modality_rows),
+        ).map(|(logits, _)| logits)
+    }
+
     /// Hugging Face-compatible evaluation with an optional token-type stream.
     /// BERT defaults omitted `token_type_ids` to all zeros; architectures that
     /// do not own token-type embeddings reject an explicitly supplied stream.
@@ -75524,6 +75550,7 @@ impl VulkanTransformer {
             encoder_attention_mask,
             self.layers.len(),
             read_last_hidden_state,
+            None,
         )
     }
 
@@ -75544,7 +75571,11 @@ impl VulkanTransformer {
         encoder_attention_mask: Option<&[f32]>,
         active_layer_count: usize,
         read_last_hidden_state: bool,
+        modality_rows: Option<ModalityEmbeddingRows<'_>>,
     ) -> Result<(Vec<f32>, Vec<f32>)> {
+        let modality_rows = modality_rows.map(|input| PreparedModalityRows::new(
+            &self.device, input, self.rows, self.config.effective_embedding_size(), false,
+        )).transpose()?;
         if active_layer_count == 0 || active_layer_count > self.layers.len() {
             bail!(
                 "Transformer active layer count {active_layer_count} must be in 1..={} ",
@@ -75731,6 +75762,9 @@ impl VulkanTransformer {
             &self.token_ids,
             &self.token_embedding_output,
         )?;
+        if let Some(modality_rows) = modality_rows.as_ref() {
+            modality_rows.record_forward(&mut commands, &self.token_embedding_output)?;
+        }
         let token_embedding_source =
             if let Some(scales) = self.esm_token_dropout_scales(input_ids, attention_mask)? {
                 let scale_buffer = self
@@ -78271,6 +78305,7 @@ impl VulkanTransformer {
             encoder_attention_mask,
             active_layer_count,
             false,
+            None,
         )?;
         let row_start = (prefix.len() - 1) * self.config.vocab_size;
         Ok(logits[row_start..row_start + self.config.vocab_size].to_vec())
@@ -82803,6 +82838,62 @@ impl VulkanTransformer {
         encoder_attention_mask: Option<&[f32]>,
         hyper: AdamWHyperParams,
     ) -> Result<VulkanTransformerStepResult> {
+        self.train_step_with_context_and_modality_embeddings(
+            input_ids, input_shape_ids, input_pronunciation_ids, auxiliary_ids,
+            token_type_ids, targets, attention_mask, loss_weights,
+            encoder_hidden_states, encoder_attention_mask, hyper, None,
+        ).map(|result| result.text)
+    }
+
+    /// Full-parameter training through preprojected modality embeddings. The
+    /// returned feature adjoints can drive a native projector/tower backward.
+    /// Replaced lookup rows receive no embedding-table gradient; a tied output
+    /// head still contributes its ordinary gradient. PEFT is a later gate.
+    pub fn train_step_with_modality_embeddings(
+        &mut self,
+        input_ids: &[u32],
+        targets: &[u32],
+        attention_mask: &[f32],
+        loss_weights: &[f32],
+        hyper: AdamWHyperParams,
+        modality_rows: ModalityEmbeddingRows<'_>,
+    ) -> Result<MultimodalTransformerStepResult> {
+        self.train_step_with_context_and_modality_embeddings(
+            input_ids, None, None, None, None, targets, attention_mask, loss_weights,
+            None, None, hyper, Some(modality_rows),
+        )
+    }
+
+    /// Explicit single-tensor CPU AdamW arithmetic on Vulkan. Hyperparameters
+    /// retain f64 scalar semantics; parameter/moment updates remain FP32 GPU
+    /// operations. None preserves the existing optimizer implementation.
+    pub fn set_cpu_adamw_policy(&mut self, policy: Option<crate::CpuAdamWHyperParams>) -> Result<()> {
+        if let Some(policy) = policy { policy.validate()?; }
+        *self.kernels.cpu_adamw_policy.lock().map_err(|_| anyhow!("CPU AdamW policy lock poisoned"))? = policy;
+        Ok(())
+    }
+
+    fn train_step_with_context_and_modality_embeddings(
+        &mut self,
+        input_ids: &[u32],
+        input_shape_ids: Option<&[u32]>,
+        input_pronunciation_ids: Option<&[u32]>,
+        auxiliary_ids: Option<&[u32]>,
+        token_type_ids: Option<&[u32]>,
+        targets: &[u32],
+        attention_mask: &[f32],
+        loss_weights: &[f32],
+        encoder_hidden_states: Option<&[f32]>,
+        encoder_attention_mask: Option<&[f32]>,
+        hyper: AdamWHyperParams,
+        modality_rows: Option<ModalityEmbeddingRows<'_>>,
+    ) -> Result<MultimodalTransformerStepResult> {
+        if modality_rows.is_some() && self.lora_config.is_some() {
+            bail!("modality embedding training currently requires full-parameter mode");
+        }
+        let modality_rows = modality_rows.map(|input| PreparedModalityRows::new(
+            &self.device, input, self.rows, self.config.effective_embedding_size(), true,
+        )).transpose()?;
         if self.streamed_linears != 0 || self.tiered_tied_head.is_some()
             || self
                 .lm_head
@@ -83101,6 +83192,9 @@ impl VulkanTransformer {
             &self.token_ids,
             &self.token_embedding_output,
         )?;
+        if let Some(modality_rows) = modality_rows.as_ref() {
+            modality_rows.record_forward(&mut commands, &self.token_embedding_output)?;
+        }
         let token_embedding_source =
             if let Some(scales) = self.esm_token_dropout_scales(input_ids, attention_mask)? {
                 let scale_buffer = self
@@ -83902,9 +83996,12 @@ impl VulkanTransformer {
             rows: self.rows as u32,
             vocab_size: self.config.vocab_size as u32,
         };
-        // PEFT compares actual gradients, including replacement biases. Use the
-        // existing materialized log-softmax derivative to preserve FP32 staging.
+        // PEFT and modality bridges expose actual input gradients. Preserve
+        // PyTorch's materialized log-softmax adjoint for both: collapsing it to
+        // (softmax - one_hot) changes rounding before the embedding/tower VJP
+        // and compounds across composed full-parameter optimizer steps.
         let ce_kernel = if self.lora_config.is_some()
+            || modality_rows.is_some()
             || self.config.architecture == VulkanTransformerArchitecture::FalconH1
         {
             self.kernels.falcon_cross_entropy()
@@ -84755,6 +84852,11 @@ impl VulkanTransformer {
             } else {
                 word_embedding_grad
             };
+            let word_embedding_grad = if let Some(modality_rows) = modality_rows.as_ref() {
+                modality_rows.record_backward(&mut commands, word_embedding_grad)?
+            } else {
+                word_embedding_grad
+            };
             self.token_embedding.record_backward_accumulate(
                 &mut commands,
                 self.rows,
@@ -84995,9 +85097,13 @@ impl VulkanTransformer {
             }
             let mut tied_hyper = hyper;
             tied_hyper.weight_decay = hyper.weight_decay;
-            let tied_step = self
-                .shared_embedding
-                .record_step(&mut commands, tied_hyper)?;
+            let cpu_policy = *self.kernels.cpu_adamw_policy.lock()
+                .map_err(|_| anyhow!("CPU AdamW policy lock poisoned"))?;
+            let tied_step = if let Some(policy) = cpu_policy {
+                self.shared_embedding.record_step_with_cpu_policy(&mut commands, policy, &self.kernels.cpu_adamw)?
+            } else {
+                self.shared_embedding.record_step(&mut commands, tied_hyper)?
+            };
             if tied_step != next_step {
                 bail!(
                     "tied embedding optimizer step {tied_step} diverged from Transformer step {next_step}"
@@ -85032,10 +85138,10 @@ impl VulkanTransformer {
         }
         self.step = next_step;
         let loss = self.loss_sum_reducer.read_sum()?;
-        Ok(VulkanTransformerStepResult {
-            loss,
-            step: self.step,
-            supervised_tokens,
+        Ok(MultimodalTransformerStepResult {
+            text: VulkanTransformerStepResult { loss, step: self.step, supervised_tokens },
+            modality_embedding_grad: modality_rows.as_ref()
+                .map(PreparedModalityRows::gradient).transpose()?.unwrap_or_default(),
         })
     }
 
@@ -133800,3 +133906,7 @@ mod welford_small_tests;
 #[cfg(test)]
 #[path = "gpt2_cpu_math_tests.rs"]
 mod gpt2_cpu_math_tests;
+
+#[cfg(test)]
+#[path = "multimodal_cpu_math_tests.rs"]
+mod multimodal_cpu_math_tests;
