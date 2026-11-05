@@ -1,0 +1,52 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+// PyTorch single-tensor CPU AdamW staging. Scalar step coefficients are
+// calculated from the declared f64 hyperparameters, never from model values.
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) buffer P { float parameter[]; };
+layout(set=0,binding=1,std430) readonly buffer G { float gradient[]; };
+layout(set=0,binding=2,std430) buffer M { float moment[]; };
+layout(set=0,binding=3,std430) buffer V { float square[]; };
+layout(push_constant) uniform Push {
+    uint len; uint vector_end;
+    float weight; float beta2; float complement2; float step_size;
+    float bias2_sqrt; float eps; float decay;
+} pc;
+float rounded_sqrt(float x) {
+    uint xb=floatBitsToUint(x);
+    if(x<=0.0 || isinf(x) || isnan(x) || xb<0x00800000u) return sqrt(x);
+    uint sb=floatBitsToUint(sqrt(x));
+    while(fp32_square_compare(sb,xb,false)>0) --sb;
+    while(fp32_square_compare(sb+1u,xb,false)<=0) ++sb;
+    int cmp=fp32_square_compare(sb,xb,true);
+    if(cmp<0 || (cmp==0 && (sb&1u)!=0u)) ++sb;
+    return uintBitsToFloat(sb);
+}
+void main() {
+    uint i=gl_GlobalInvocationID.x;
+    if(i>=pc.len) return;
+    float g=gradient[i];
+    precise float diff=g-moment[i];
+    precise float m;
+    if(i<pc.vector_end) {
+        if(abs(pc.weight)<0.5) m=fp32_fma_exact(pc.weight,diff,moment[i]);
+        else m=fp32_fma_exact(pc.weight-1.0,diff,g);
+    } else {
+        if(abs(pc.weight)<0.5) {precise float delta=pc.weight*diff;m=moment[i]+delta;}
+        else {precise float delta=diff*(1.0-pc.weight);m=g-delta;}
+    }
+    precise float old_square=square[i]*pc.beta2;
+    precise float scaled=pc.complement2*g;
+    precise float product=scaled*g;
+    precise float v=old_square+product;
+    precise float root=rounded_sqrt(v);
+    precise float corrected=fp32_div(root,pc.bias2_sqrt);
+    precise float denom=corrected+pc.eps;
+    precise float numerator=(-pc.step_size)*m;
+    precise float update=fp32_div(numerator,denom);
+    precise float decayed=parameter[i]*pc.decay;
+    parameter[i]=decayed+update;
+    moment[i]=m;square[i]=v;
+}

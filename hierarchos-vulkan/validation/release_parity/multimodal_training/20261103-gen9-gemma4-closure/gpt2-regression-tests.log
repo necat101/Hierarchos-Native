@@ -1,0 +1,9 @@
+
+running 2 tests
+test transformer::gpt2_cpu_math_tests::gpt2_cpu_math_preserves_gen9_and_other_architecture_routes ... ok
+test transformer::gpt2_cpu_math_tests::gpt2_wide_frozen_cpu_logits_resident_and_streamed ... GPT-2 frozen CPU unmasked: 3840 visible logits per mode, worst 1.4901161193847656e-7
+GPT-2 frozen CPU padded: 2880 visible logits per mode, worst 1.7881393432617188e-7
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1096 filtered out; finished in 0.77s
+

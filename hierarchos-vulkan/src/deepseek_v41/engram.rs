@@ -881,7 +881,7 @@ impl DeepseekV41Engram {
             )?,
             gate: vulkan::ComputeKernel::new(
                 &device,
-                GATE,
+                crate::deepseek_v41::cpu_math::selected(&device, GATE),
                 5,
                 std::mem::size_of::<GatePush>() as u32,
             )?,

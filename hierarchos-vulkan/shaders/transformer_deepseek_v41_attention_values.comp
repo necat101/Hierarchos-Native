@@ -45,6 +45,11 @@ void main() {
             index = window_indices[row * pc.window_topk + slot];
             if (index < 0 || uint(index) >= pc.window_capacity) continue;
             kv_base = (batch_index * pc.window_capacity + uint(index)) * pc.dim;
+#ifdef HIERARCHOS_V41_CPU_AVX2
+            if(total*pc.heads*pc.dim<400u) {
+                precise float product=weight*window_kv[kv_base+column];accumulated+=product;
+            } else
+#endif
             accumulated = fma(weight, window_kv[kv_base + column], accumulated);
         } else {
             uint offset = slot - pc.window_topk;
@@ -55,6 +60,11 @@ void main() {
             }
             kv_base = (batch_index * pc.compressed_capacity
                        + (uint(index) - pc.window_capacity)) * pc.dim;
+#ifdef HIERARCHOS_V41_CPU_AVX2
+            if(total*pc.heads*pc.dim<400u) {
+                precise float product=weight*compressed_kv[kv_base+column];accumulated+=product;
+            } else
+#endif
             accumulated = fma(weight, compressed_kv[kv_base + column], accumulated);
         }
     }

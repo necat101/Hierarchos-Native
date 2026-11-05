@@ -1,0 +1,243 @@
+{
+  "scope": "identical_gradients_cpu_adamw",
+  "bit_exact": true,
+  "pass": true,
+  "results": [
+    {
+      "case": "len-19",
+      "pass": true,
+      "metrics": [
+        {
+          "step": 1,
+          "tensor": "parameter",
+          "values": 19,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 1,
+          "tensor": "moment",
+          "values": 19,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 1,
+          "tensor": "square",
+          "values": 19,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 2,
+          "tensor": "parameter",
+          "values": 19,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 2,
+          "tensor": "moment",
+          "values": 19,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 2,
+          "tensor": "square",
+          "values": 19,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 3,
+          "tensor": "parameter",
+          "values": 19,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 3,
+          "tensor": "moment",
+          "values": 19,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 3,
+          "tensor": "square",
+          "values": 19,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "len-32",
+      "pass": true,
+      "metrics": [
+        {
+          "step": 1,
+          "tensor": "parameter",
+          "values": 32,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 1,
+          "tensor": "moment",
+          "values": 32,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 1,
+          "tensor": "square",
+          "values": 32,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 2,
+          "tensor": "parameter",
+          "values": 32,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 2,
+          "tensor": "moment",
+          "values": 32,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 2,
+          "tensor": "square",
+          "values": 32,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 3,
+          "tensor": "parameter",
+          "values": 32,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 3,
+          "tensor": "moment",
+          "values": 32,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 3,
+          "tensor": "square",
+          "values": 32,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "len-65",
+      "pass": true,
+      "metrics": [
+        {
+          "step": 1,
+          "tensor": "parameter",
+          "values": 65,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 1,
+          "tensor": "moment",
+          "values": 65,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 1,
+          "tensor": "square",
+          "values": 65,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 2,
+          "tensor": "parameter",
+          "values": 65,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 2,
+          "tensor": "moment",
+          "values": 65,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 2,
+          "tensor": "square",
+          "values": 65,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 3,
+          "tensor": "parameter",
+          "values": 65,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 3,
+          "tensor": "moment",
+          "values": 65,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "step": 3,
+          "tensor": "square",
+          "values": 65,
+          "word_differences": 0,
+          "max_abs": 0.0,
+          "pass": true
+        }
+      ]
+    }
+  ],
+  "binary_sha256": "7ddb37e2817e52540ce3fc40ee959c925550ae9eef4977c27f1e1e59bd7eb932",
+  "runner_sha256": "0098ca189bb4fcb8a4bff5142ed9a51c29ee2158b7df99a87d6bd51ce182d9ac"
+}

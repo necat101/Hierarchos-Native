@@ -168,6 +168,30 @@ impl DeepseekV41AttentionOrchestrator {
             reverse.backward_read(&tape.read, output_grad.grad_input.as_ref())?;
             let q = reverse.take_query(&tape.read)?;
             let kv = reverse.take_source(&tape.window_write)?;
+            #[cfg(test)]
+            {
+                if let Some(g) = &output_grad.grad_input {
+                    crate::deepseek_v41::training_trace::record(
+                        &format!("attn/{}/sparse", tape.layer),
+                        g,
+                        g.f32_capacity(),
+                    );
+                }
+                if let Some(g) = &q {
+                    crate::deepseek_v41::training_trace::record(
+                        &format!("attn/{}/query", tape.layer),
+                        g,
+                        g.f32_capacity(),
+                    );
+                }
+                if let Some(g) = &kv {
+                    crate::deepseek_v41::training_trace::record(
+                        &format!("attn/{}/window", tape.layer),
+                        g,
+                        g.f32_capacity(),
+                    );
+                }
+            }
             let input_grad = projection.backward_inputs(
                 &layer.attention,
                 &tape.input,
@@ -178,7 +202,14 @@ impl DeepseekV41AttentionOrchestrator {
             adapters.extend(input_grad.adapter_gradients(&format!("layers.{}.attn", tape.layer))?);
             let mut input = input_grad
                 .grad_input
+                .clone()
                 .context("V4.1 retained attention has no input gradient")?;
+            #[cfg(test)]
+            crate::deepseek_v41::training_trace::record(
+                &format!("attn/{}/main_input", tape.layer),
+                &input,
+                tape.input_len,
+            );
             if let Some(tape_c) = &tape.compressor {
                 let finalized = tape
                     .compressed_write
@@ -201,6 +232,23 @@ impl DeepseekV41AttentionOrchestrator {
                             )
                     })
                     .transpose()?;
+                #[cfg(test)]
+                {
+                    if let Some(g) = &finalized {
+                        crate::deepseek_v41::training_trace::record(
+                            &format!("attn/{}/compressed", tape.layer),
+                            g,
+                            g.f32_capacity(),
+                        );
+                    }
+                    if let Some(g) = &latent {
+                        crate::deepseek_v41::training_trace::record(
+                            &format!("attn/{}/latent", tape.layer),
+                            g,
+                            g.f32_capacity(),
+                        );
+                    }
+                }
                 if latent.is_some() || state.is_some() {
                     let grad = tape_c.backward(
                         layer.compressor.as_ref().unwrap(),
@@ -208,7 +256,23 @@ impl DeepseekV41AttentionOrchestrator {
                         latent.as_ref(),
                         state.as_ref().map(|(k, s)| (k, s)),
                     )?;
-                    input = projection.add(&input, &grad.grad_input, tape.input_len)?;
+                    #[cfg(test)]
+                    crate::deepseek_v41::training_trace::record(
+                        &format!("attn/{}/compressor_input", tape.layer),
+                        &grad.grad_input,
+                        tape.input_len,
+                    );
+                    input = if crate::deepseek_v41::cpu_math::active() {
+                        projection
+                            .native_input_gradient(
+                                &input_grad,
+                                Some(&grad.grad_input),
+                                tape.input_len,
+                            )?
+                            .context("V4.1 native attention has no input edge")?
+                    } else {
+                        projection.add(&input, &grad.grad_input, tape.input_len)?
+                    };
                     *state = match (grad.grad_state_kv, grad.grad_state_score) {
                         (Some(k), Some(s)) => Some((k, s)),
                         _ => None,

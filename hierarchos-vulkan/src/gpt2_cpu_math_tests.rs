@@ -9,6 +9,13 @@ fn gpt2_cpu_math_preserves_gen9_and_other_architecture_routes() {
     assert!(!rdna3_gpt2_cpu_math(Gpt2, 0x8086, 0x5916));
     assert!(!rdna3_gpt2_cpu_math(Gpt2, 0x1002, 0x163f));
     assert!(!rdna3_gpt2_cpu_math(Llama, 0x1002, 0x15bf));
+    // The Welford norm and correctly rounded reciprocal follow the GPT-2
+    // architecture on every adapter; the tanh GELU and k-block GEMM stay on
+    // their measured RDNA3 gate.
+    assert!(gpt2_welford_norm(Gpt2));
+    assert!(!gpt2_welford_norm(Llama));
+    assert!(gpt2_attention_reciprocal(Gpt2));
+    assert!(!gpt2_attention_reciprocal(Llama));
 }
 
 #[derive(Deserialize)]

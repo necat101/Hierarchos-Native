@@ -1,0 +1,19 @@
+{
+  "pass": true,
+  "returncode": 0,
+  "binary_sha256": "95d3d17e7568318d68c11d5ab82ca281c29cfed10116253ed3b2ddf14563a68f",
+  "metrics": 200,
+  "expected_metrics": 200,
+  "maximum": 1.8626451e-09,
+  "scope": "standalone native ViT/aligner training plus independent random SDPA, aligner Linear and strided RMS controls, not full VL pipeline",
+  "source_archive_sha256": "c9be2766138f05dcb11f306176d3bf16e83e17fd7d78403fc10d9717b90cf1e7",
+  "source_archive": "target\\multimodal-gen9\\v41-native-vision-green6-20261104-source.zip",
+  "profile_qualified": false,
+  "frozen_files": {
+    "hierarchos-vulkan/validation/fixtures/deepseek_v41_native_vision_avx2.json": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+    "hierarchos-vulkan/validation/fixtures/vision_avx2_row_tail/deepseek_v41_aligner_linear.json": "f4cbcf68a9940213982bcf42a92e64ce109cfbe815fd94fb5add97e81afe8d2c",
+    "hierarchos-vulkan/validation/fixtures/vision_avx2_row_tail/deepseek_v41_hc_adjoint.json": "afe782a47ac9d781be69ea13349c2011af6e733f349fb97e111e1469a00298ac",
+    "hierarchos-vulkan/validation/fixtures/vision_avx2_row_tail/deepseek_v41_rms.json": "a994f828919639f776fb5069cbc68c636d04e93b76ca79eda56966c68400ff89",
+    "hierarchos-vulkan/validation/fixtures/vision_avx2_row_tail/deepseek_v41_sdpa.json": "2c3eb0bb951cfd1a9a3f8023248d019aa39b56e06f9edb5681ae5da93a8211ae"
+  }
+}

@@ -78,6 +78,8 @@ pub struct LinearProjectionTrainer {
     linear_input_grad: vulkan::ComputeKernel,
     bias_grad: vulkan::ComputeKernel,
     adamw: vulkan::ComputeKernel,
+    cpu_adamw: crate::cpu_adamw::CpuAdamW,
+    cpu_small_row_gemm: Option<(vulkan::ComputeKernel, vulkan::ComputeKernel)>,
 }
 
 impl LinearProjectionTrainer {
@@ -186,6 +188,8 @@ impl LinearProjectionTrainer {
                 std::mem::size_of::<BiasPush>() as u32,
             )?,
             adamw: vendor::adamw_kernel(&device)?,
+            cpu_adamw: crate::cpu_adamw::CpuAdamW::new(&device)?,
+            cpu_small_row_gemm: None,
             weight: GpuBuffer::from_f32(&device, weight)?,
             bias: bias_buffer,
             input: GpuBuffer::zeros_f32(&device, input_len)?,
@@ -247,11 +251,101 @@ impl LinearProjectionTrainer {
         )
     }
 
+    /// Match the CPU reference's measured small-row GEMM arithmetic.
+    ///
+    /// On the AVX2 oracle, three rows with eight input features select two
+    /// interleaved FMA accumulators, including when the output is wide. Other
+    /// shapes retain their regular native kernel. This is an explicit policy
+    /// so existing projection users retain their established arithmetic.
+    pub fn set_cpu_reference_math(&mut self, enabled: bool) -> Result<()> {
+        self.cpu_small_row_gemm = if enabled {
+            Some((
+                vulkan::ComputeKernel::new(
+                    &self.device, include_bytes!("../shaders/linear_forward_lane2.spv"), 3, 12,
+                )?,
+                vulkan::ComputeKernel::new(
+                    &self.device, include_bytes!("../shaders/linear_bias_forward_lane2.spv"), 4, 12,
+                )?,
+            ))
+        } else { None };
+        Ok(())
+    }
+
+    fn record_forward(&self, batch: &mut vulkan::ComputeBatch, rows: usize) -> Result<()> {
+        let push = LinearPush {
+            rows: rows as u32, input_dim: self.input_dim as u32, output_dim: self.output_dim as u32,
+        };
+        let grid = [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1];
+        let cpu = self.cpu_small_row_gemm.as_ref().filter(|_| {
+            crate::transformer::aten_vector_width() == 8 && rows == 3 && self.input_dim == 8
+                && matches!(self.output_dim, 8 | 16 | 32 | 64)
+        });
+        if let Some(bias) = &self.bias {
+            let bindings = [&self.input, &self.weight, bias, &self.output];
+            if let Some((_, kernel)) = cpu {
+                kernel.record_dispatch(batch, &bindings, bytemuck::bytes_of(&push), grid)
+            } else {
+                self.linear_bias_forward.record_dispatch(batch, &bindings, bytemuck::bytes_of(&push), grid)
+            }
+        } else {
+            let bindings = [&self.input, &self.weight, &self.output];
+            if let Some((kernel, _)) = cpu {
+                kernel.record_dispatch(batch, &bindings, bytemuck::bytes_of(&push), grid)
+            } else {
+                self.linear_forward.record_dispatch(batch, &bindings, bytemuck::bytes_of(&push), grid)
+            }
+        }
+    }
+
+    /// Read-only projection for a composed training graph. A downstream loss
+    /// can return its adjoint to `train_step`; this call advances no optimizer.
+    pub fn forward(&self, input: &[f32]) -> Result<Vec<f32>> {
+        if !input.len().is_multiple_of(self.input_dim) {
+            bail!("projection input length is not divisible by input_dim");
+        }
+        let rows = input.len() / self.input_dim;
+        if rows == 0 || rows > self.max_rows || input.iter().any(|value| !value.is_finite()) {
+            bail!(
+                "projection input must contain 1..={} finite rows",
+                self.max_rows
+            );
+        }
+        let mut batch = vulkan::ComputeBatch::new(&self.device)?;
+        batch.upload_f32(&self.input, input)?;
+        self.record_forward(&mut batch, rows)?;
+        batch.readback_f32(&self.output, &self.output_readback, rows * self.output_dim)?;
+        batch.submit()?;
+        self.output_readback.read_f32(rows * self.output_dim)
+    }
+
     pub fn train_step(
         &mut self,
         input: &[f32],
         grad_output: &[f32],
         hyper: AdamWHyperParams,
+    ) -> Result<ProjectionStepResult> {
+        self.train_step_impl(input, grad_output, hyper, None)
+    }
+
+    pub fn train_step_with_optimizer(
+        &mut self,
+        input: &[f32],
+        grad_output: &[f32],
+        hyper: crate::CpuAdamWHyperParams,
+    ) -> Result<ProjectionStepResult> {
+        hyper.validate()?;
+        if hyper.weight_decay as f32 != self.matrix_weight_decay {
+            bail!("projection CPU optimizer weight decay differs from construction");
+        }
+        self.train_step_impl(input, grad_output, hyper.as_f32(), Some(hyper))
+    }
+
+    fn train_step_impl(
+        &mut self,
+        input: &[f32],
+        grad_output: &[f32],
+        hyper: AdamWHyperParams,
+        cpu_policy: Option<crate::CpuAdamWHyperParams>,
     ) -> Result<ProjectionStepResult> {
         hyper.validate()?;
         if !input.len().is_multiple_of(self.input_dim) {
@@ -296,17 +390,12 @@ impl LinearProjectionTrainer {
             input_dim: self.input_dim as u32,
             output_dim: self.output_dim as u32,
         };
-        if let Some(bias) = &self.bias {
+        self.record_forward(&mut batch, rows)?;
+        if self.bias.is_some() {
             let bias_push = BiasPush {
                 rows: rows as u32,
                 dim: self.output_dim as u32,
             };
-            self.linear_bias_forward.record_dispatch(
-                &mut batch,
-                &[&self.input, &self.weight, bias, &self.output],
-                bytemuck::bytes_of(&linear_push),
-                [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
-            )?;
             self.bias_grad.record_dispatch(
                 &mut batch,
                 &[
@@ -315,13 +404,6 @@ impl LinearProjectionTrainer {
                 ],
                 bytemuck::bytes_of(&bias_push),
                 [div_ceil_u32(self.output_dim, 256), 1, 1],
-            )?;
-        } else {
-            self.linear_forward.record_dispatch(
-                &mut batch,
-                &[&self.input, &self.weight, &self.output],
-                bytemuck::bytes_of(&linear_push),
-                [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1],
             )?;
         }
 
@@ -352,17 +434,31 @@ impl LinearProjectionTrainer {
             eps: hyper.eps,
             weight_decay: self.matrix_weight_decay,
         };
-        self.adamw.record_dispatch(
-            &mut batch,
-            &[
+        if let Some(policy) = cpu_policy {
+            self.cpu_adamw.record_step(
+                &mut batch,
                 &self.weight,
                 &self.grad_weight,
                 &self.weight_exp_avg,
                 &self.weight_exp_avg_sq,
-            ],
-            bytemuck::bytes_of(&weight_adam),
-            [div_ceil_u32(self.output_dim * self.input_dim, 256), 1, 1],
-        )?;
+                self.output_dim * self.input_dim,
+                next_step,
+                policy,
+                true,
+            )?;
+        } else {
+            self.adamw.record_dispatch(
+                &mut batch,
+                &[
+                    &self.weight,
+                    &self.grad_weight,
+                    &self.weight_exp_avg,
+                    &self.weight_exp_avg_sq,
+                ],
+                bytemuck::bytes_of(&weight_adam),
+                [div_ceil_u32(self.output_dim * self.input_dim, 256), 1, 1],
+            )?;
+        }
         if let (Some(bias), Some(grad_bias), Some(exp_avg), Some(exp_avg_sq)) = (
             &self.bias,
             &self.grad_bias,
@@ -378,12 +474,26 @@ impl LinearProjectionTrainer {
                 eps: hyper.eps,
                 weight_decay: 0.0,
             };
-            self.adamw.record_dispatch(
-                &mut batch,
-                &[bias, grad_bias, exp_avg, exp_avg_sq],
-                bytemuck::bytes_of(&bias_adam),
-                [div_ceil_u32(self.output_dim, 256), 1, 1],
-            )?;
+            if let Some(policy) = cpu_policy {
+                self.cpu_adamw.record_step(
+                    &mut batch,
+                    bias,
+                    grad_bias,
+                    exp_avg,
+                    exp_avg_sq,
+                    self.output_dim,
+                    next_step,
+                    policy,
+                    false,
+                )?;
+            } else {
+                self.adamw.record_dispatch(
+                    &mut batch,
+                    &[bias, grad_bias, exp_avg, exp_avg_sq],
+                    bytemuck::bytes_of(&bias_adam),
+                    [div_ceil_u32(self.output_dim, 256), 1, 1],
+                )?;
+            }
         }
         batch.readback_f32(&self.output, &self.output_readback, rows * self.output_dim)?;
         batch.readback_f32(

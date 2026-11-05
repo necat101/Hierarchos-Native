@@ -1,0 +1,16 @@
+START shared-gpt2
+END shared-gpt2 2.9802322387695312e-08 True
+START shared-llama-wide
+END shared-llama-wide 0.0 True
+START seq2seq-t5
+END seq2seq-t5 2.9802322387695312e-08 True
+START native-llava
+END native-llava 1.4901161193847656e-08 True
+START native-gemma3
+END native-gemma3 2.9802322387695312e-08 True
+START native-gemma4
+END native-gemma4 5.960464477539063e-08 True
+START native_vit_4x4
+END native_vit_4x4 0.0 True
+START native_vit_6x4
+END native_vit_6x4 1.1641532182693481e-10 True

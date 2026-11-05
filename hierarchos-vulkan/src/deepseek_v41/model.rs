@@ -73,7 +73,8 @@ const VOCABULARY_RESERVE_BYTES: u64 = 512 * 1024 * 1024;
 mod training;
 pub use training::{
     DeepseekV41ModelGradients, DeepseekV41ModelTrainResult, DeepseekV41ModelTrainer,
-    DeepseekV41ModelTrainingConfig, DeepseekV41TrainingBatch,
+    DeepseekV41ModelTrainingConfig, DeepseekV41MultimodalGradients, DeepseekV41MultimodalTrainer,
+    DeepseekV41TrainingBatch,
 };
 
 /// Whether both vocabulary tables fit beside everything already resident, so the
@@ -549,6 +550,7 @@ impl DeepseekV41CausalLM {
             projections,
         )?;
         let t = &config.text;
+        let mut upload = super::upload::ParameterUploadBatch::new(&device);
         let vocabulary = if vocabulary_residency == DeepseekV41VocabularyResidency::Streamed
             || !vocabulary_tables_fit(
                 &device,
@@ -567,20 +569,18 @@ impl DeepseekV41CausalLM {
             }
         } else {
             VocabularySource::Resident {
-                embedding: GpuBuffer::from_f32(
-                    &device,
+                embedding: upload.f32(
                     &checkpoint.read_tensor("embed.weight", &[t.vocab_size, t.hidden_size])?,
                 )?,
-                head: GpuBuffer::from_f32(
-                    &device,
+                head: upload.f32(
                     &checkpoint.read_tensor("head.weight", &[t.vocab_size, t.hidden_size])?,
                 )?,
             }
         };
-        let norm = GpuBuffer::from_f32(
-            &device,
+        let norm = upload.f32(
             &checkpoint.read_tensor("norm.weight", &[t.hidden_size])?,
         )?;
+        upload.finish()?;
         let lora_modules = checkpoint.lora_adapter().map_or(0, |adapter| adapter.len());
         let mut model = Self::assemble(
             device,
@@ -777,7 +777,7 @@ impl DeepseekV41CausalLM {
     }
 
     /// Start or replace a sequence. The optional 0/1 mask affects Engram lookup
-    /// and gates only; image encoding and VL attention/router biases are absent.
+    /// and selects the released image routing bias when the package contains it.
     pub fn prefill(
         &mut self,
         token_ids: &[u32],
@@ -786,6 +786,21 @@ impl DeepseekV41CausalLM {
     ) -> Result<DeepseekV41Logits> {
         self.validate_input(token_ids, seq, 0, engram_mask)?;
         self.run(token_ids, seq, 0, engram_mask, true, false)
+    }
+    /// Native FP32 image preparation and span merge directly on this model's
+    /// device embeddings. The same caches support subsequent ordinary decode.
+    pub fn prefill_with_modality_builder(
+        &mut self,
+        token_ids: &[u32],
+        seq: usize,
+        text_mask: Option<&[u32]>,
+        builder: &mut dyn FnMut(&GpuBuffer) -> Result<GpuBuffer>,
+    ) -> Result<DeepseekV41Logits> {
+        if self.precision != DeepseekV41WeightOutput::Fp32 {
+            bail!("V4.1 native vision prefill currently requires the FP32 contract");
+        }
+        self.validate_input(token_ids, seq, 0, text_mask)?;
+        self.run_with_modality(token_ids, seq, 0, text_mask, true, false, Some(builder))
     }
 
     pub fn decode(
@@ -827,7 +842,8 @@ impl DeepseekV41CausalLM {
             bail!("V4.1 model token count, token id, or sequence position is invalid");
         }
         if let Some(mask) = mask {
-            if self.config.text.engram_layer_ids.is_empty()
+            if (self.config.text.engram_layer_ids.is_empty()
+                && !self.backbone.has_vision_routing_bias())
                 || mask.len() != rows
                 || mask.iter().any(|&v| v > 1)
             {
@@ -1025,13 +1041,42 @@ impl DeepseekV41CausalLM {
         prefill: bool,
         last_only: bool,
     ) -> Result<DeepseekV41Logits> {
+        self.run_with_modality(ids, seq, pos, mask, prefill, last_only, None)
+    }
+    fn run_with_modality(
+        &mut self,
+        ids: &[u32],
+        seq: usize,
+        pos: usize,
+        mask: Option<&[u32]>,
+        prefill: bool,
+        last_only: bool,
+        mut builder: Option<&mut dyn FnMut(&GpuBuffer) -> Result<GpuBuffer>>,
+    ) -> Result<DeepseekV41Logits> {
         let result: Result<DeepseekV41Logits> = (|| {
             let rows = self.runtime.batch_size * seq;
             let ids = GpuBuffer::from_u32(&self.device, ids)?;
             let mask = mask
                 .map(|m| GpuBuffer::from_u32(&self.device, m))
                 .transpose()?;
-            let stream = self.embed(&ids, rows)?;
+            let base = self.embed(&ids, rows)?;
+            let stream = if let Some(build) = builder.as_mut() {
+                let stream = build(&base)?;
+                let count = rows
+                    .checked_mul(self.config.text.hc_mult)
+                    .and_then(|n| n.checked_mul(self.config.text.hidden_size))
+                    .context("native image inference stream overflow")?;
+                if !prefill
+                    || pos != 0
+                    || stream.f32_capacity() < count
+                    || !stream.belongs_to_device(&self.device)
+                {
+                    bail!("invalid native image inference stream");
+                }
+                stream
+            } else {
+                base
+            };
             let engram_ids = (!self.config.text.engram_layer_ids.is_empty()).then_some(&ids);
             let hidden = if prefill {
                 self.backbone

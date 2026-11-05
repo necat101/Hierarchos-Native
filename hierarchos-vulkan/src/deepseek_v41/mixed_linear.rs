@@ -80,7 +80,7 @@ impl DeepseekV41LinearWeights {
         Ok(())
     }
 
-    fn lora(&self) -> Option<&DeepseekV41LoraHost> {
+    pub(super) fn lora(&self) -> Option<&DeepseekV41LoraHost> {
         match self {
             Self::Fp32 { lora, .. } | Self::Bf16 { lora, .. } | Self::Packed { lora, .. } => {
                 lora.as_ref()
@@ -138,18 +138,39 @@ impl DeepseekV41LinearWeights {
         device: &VulkanDevice,
         commands: &mut vulkan::ComputeBatch,
     ) -> Result<DeepseekV41ResidentLinear> {
+        self.record_upload_staged(device, commands, false)
+    }
+
+    pub(super) fn record_upload_grouped(
+        self,
+        device: &VulkanDevice,
+        commands: &mut vulkan::ComputeBatch,
+    ) -> Result<DeepseekV41ResidentLinear> {
+        self.record_upload_staged(device, commands, true)
+    }
+
+    fn record_upload_staged(
+        self,
+        device: &VulkanDevice,
+        commands: &mut vulkan::ComputeBatch,
+        arena: bool,
+    ) -> Result<DeepseekV41ResidentLinear> {
         self.validate()?;
         let [rows, cols] = self.shape();
         let lora = self.lora().cloned();
+        let upload: fn(&VulkanDevice, &mut vulkan::ComputeBatch, &[f32]) -> Result<GpuBuffer> =
+            if arena {
+                GpuBuffer::from_f32_in_upload_arena
+            } else {
+                GpuBuffer::from_f32_recorded
+            };
         let storage = match self {
-            Self::Fp32 { values, .. } => LinearStorage::Dense(
-                GpuBuffer::from_f32_recorded(device, commands, &values)?,
-                false,
-            ),
-            Self::Bf16 { values, .. } => LinearStorage::Dense(
-                GpuBuffer::from_f32_recorded(device, commands, &values)?,
-                true,
-            ),
+            Self::Fp32 { values, .. } => {
+                LinearStorage::Dense(upload(device, commands, &values)?, false)
+            }
+            Self::Bf16 { values, .. } => {
+                LinearStorage::Dense(upload(device, commands, &values)?, true)
+            }
             Self::Packed { weight, .. } => LinearStorage::Packed(
                 weight.record_upload(device, commands)?,
                 weight.format().block_size(),
@@ -157,8 +178,8 @@ impl DeepseekV41LinearWeights {
         };
         let lora = match lora {
             Some(lora) => Some(DeepseekV41ResidentLora {
-                a: GpuBuffer::from_f32_recorded(device, commands, &lora.a)?,
-                b: GpuBuffer::from_f32_recorded(device, commands, &lora.b)?,
+                a: upload(device, commands, &lora.a)?,
+                b: upload(device, commands, &lora.b)?,
                 rank: lora.rank,
                 scale: lora.scale,
             }),

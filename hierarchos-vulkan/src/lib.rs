@@ -11,6 +11,8 @@ mod adapter;
 pub mod bench_ab;
 mod checkpoint;
 mod control;
+pub mod cpu_adamw;
+pub use cpu_adamw::CpuAdamWHyperParams;
 pub mod coverage_record;
 pub mod decision_records;
 /// DeepSeek V4.1 configuration, planning and native Vulkan text graph, including
@@ -24,6 +26,7 @@ mod kernel_golden_coverage;
 mod lm_execution;
 mod lora;
 mod mixed_precision;
+pub mod multimodal;
 mod projection;
 mod projection_graph;
 mod rwkv_adapter_channel_mix;
@@ -43,6 +46,15 @@ mod tied_embedding;
 mod token_frontend;
 mod training_numerics;
 mod transformer;
+pub use transformer::gemma3_vision::{
+    Gemma3Forward, Gemma3TrainResult, VulkanGemma3Vision,
+};
+pub use transformer::gemma4_vision::{
+    Gemma4Forward, Gemma4TrainResult, VulkanGemma4Vision,
+};
+pub use transformer::deepseek_v41_vision::{DeepseekV41VisionConfig,DeepseekV41VisionTensor,VulkanDeepseekV41Vision,VulkanDeepseekV41Image};
+pub use transformer::vision::{VulkanLlava, LlavaForward, LlavaTrainResult};
+pub use transformer::image_text::VulkanImageText;
 mod vendor;
 mod vulkan;
 /// Architecture-agnostic tiered weight residency: bounded package reads, a

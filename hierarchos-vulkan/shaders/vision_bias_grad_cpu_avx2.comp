@@ -1,0 +1,13 @@
+#version 450
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer G {float dy[];};
+layout(set=0,binding=1,std430) writeonly buffer B {float db[];};
+layout(push_constant) uniform P {uint rows;uint dim;} pc;
+void main(){uint col=gl_GlobalInvocationID.x;if(col>=pc.dim)return;
+ precise float sum=0.0;
+ if(col<(pc.dim/32u)*32u){for(uint row=0u;row<pc.rows;++row)sum+=dy[row*pc.dim+col];}
+ else{precise float p[4];for(uint i=0u;i<4u;++i)p[i]=0.0;uint end=(pc.rows/4u)*4u;
+ for(uint row=0u;row<end;++row)p[row&3u]+=dy[row*pc.dim+col];
+ for(uint row=end;row<pc.rows;++row)p[0]+=dy[row*pc.dim+col];
+ sum=p[0]+p[1];sum+=p[2];sum+=p[3];}
+ db[col]=sum;}

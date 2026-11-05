@@ -45,6 +45,11 @@ const HC_PRE_INPUT_GRAD: &[u8] =
     include_bytes!("../../shaders/transformer_deepseek_v41_hc_pre_input_grad.spv");
 const HC_SPLIT_GRAD: &[u8] =
     include_bytes!("../../shaders/transformer_deepseek_v41_hc_split_grad.spv");
+/// Bounded native variant that retains every forward Sinkhorn state instead of
+/// replaying each prefix for every reverse step (quadratic work). It pins
+/// `hc <= 4` and at most 20 iterations, so callers must check the geometry.
+const HC_SPLIT_GRAD_CACHED: &[u8] =
+    include_bytes!("../../shaders/transformer_deepseek_v41_hc_split_grad_cached_avx2.spv");
 const HC_MIXES_INPUT_GRAD: &[u8] =
     include_bytes!("../../shaders/transformer_deepseek_v41_hc_mixes_input_grad.spv");
 const HC_POST_INPUT_GRAD: &[u8] =
@@ -317,13 +322,14 @@ impl DeepseekV41HyperConnections {
             }
             validate_finite(label, values)?;
         }
-        Ok(Self {
-            attn_fn: GpuBuffer::from_f32(&device, &weights.attn_fn)?,
-            attn_base: GpuBuffer::from_f32(&device, &weights.attn_base)?,
-            attn_scale: GpuBuffer::from_f32(&device, &weights.attn_scale)?,
-            ffn_fn: GpuBuffer::from_f32(&device, &weights.ffn_fn)?,
-            ffn_base: GpuBuffer::from_f32(&device, &weights.ffn_base)?,
-            ffn_scale: GpuBuffer::from_f32(&device, &weights.ffn_scale)?,
+        let mut upload = super::upload::ParameterUploadBatch::new(&device);
+        let hyper = Self {
+            attn_fn: upload.f32(&weights.attn_fn)?,
+            attn_base: upload.f32(&weights.attn_base)?,
+            attn_scale: upload.f32(&weights.attn_scale)?,
+            ffn_fn: upload.f32(&weights.ffn_fn)?,
+            ffn_base: upload.f32(&weights.ffn_base)?,
+            ffn_scale: upload.f32(&weights.ffn_scale)?,
             linear: LinearKernel::new(&device)?,
             split: vulkan::ComputeKernel::new(
                 &device,
@@ -350,7 +356,9 @@ impl DeepseekV41HyperConnections {
             iterations,
             eps,
             norm_eps,
-        })
+        };
+        upload.finish()?;
+        Ok(hyper)
     }
 
     pub fn hc_mult(&self) -> usize {
@@ -978,6 +986,9 @@ pub struct DeepseekV41BlockAdjoints {
     device: VulkanDevice,
     hc_pre_input: vulkan::ComputeKernel,
     hc_split: vulkan::ComputeKernel,
+    /// Native-only memoizing variant of [`Self::hc_split`]; `None` when this
+    /// device does not select the pinned AVX2 arithmetic.
+    hc_split_cached: Option<vulkan::ComputeKernel>,
     hc_mixes_input: vulkan::ComputeKernel,
     hc_post_input: vulkan::ComputeKernel,
     hc_post_comb: vulkan::ComputeKernel,
@@ -1001,10 +1012,23 @@ impl DeepseekV41BlockAdjoints {
             )?,
             hc_split: vulkan::ComputeKernel::new(
                 &device,
-                HC_SPLIT_GRAD,
+                crate::deepseek_v41::cpu_math::selected(&device, HC_SPLIT_GRAD),
                 8,
                 std::mem::size_of::<HcSplitPush>() as u32,
             )?,
+            hc_split_cached: (!std::ptr::eq(
+                crate::deepseek_v41::cpu_math::selected(&device, HC_SPLIT_GRAD),
+                HC_SPLIT_GRAD,
+            ))
+            .then(|| {
+                vulkan::ComputeKernel::new(
+                    &device,
+                    HC_SPLIT_GRAD_CACHED,
+                    8,
+                    std::mem::size_of::<HcSplitPush>() as u32,
+                )
+            })
+            .transpose()?,
             hc_mixes_input: vulkan::ComputeKernel::new(
                 &device,
                 crate::deepseek_v41::gen9::shader(&device, HC_MIXES_INPUT_GRAD),
@@ -1151,8 +1175,19 @@ impl DeepseekV41BlockAdjoints {
             eps: hyper.eps,
             norm_eps: hyper.norm_eps,
         };
+        // The memoizing variant is word-identical but keeps `hc <= 4` and at
+        // most 20 iterations of state; the replay kernel covers the rest.
+        // Under `cfg(test)` the throughput benchmark can pin the replay kernel
+        // in the same binary, so both variants are measured on one build.
+        let cached_allowed =
+            !cfg!(test) || std::env::var_os("HIERARCHOS_V41_HC_REPLAY").is_none();
+        let kernel = if cached_allowed && hc <= 4 && hyper.iterations <= 20 {
+            self.hc_split_cached.as_ref().unwrap_or(&self.hc_split)
+        } else {
+            &self.hc_split
+        };
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
-        self.hc_split.record_dispatch(
+        kernel.record_dispatch(
             &mut commands,
             &[
                 raw, stream, scale, base, grad_pre, grad_post, grad_comb, &grad_mix,
@@ -1629,6 +1664,19 @@ struct MixedExpert {
     w3: DeepseekV41ResidentLinear,
 }
 impl MixedExpert {
+    fn upload_grouped(
+        device: &VulkanDevice,
+        upload: &mut super::upload::ParameterUploadBatch,
+        weights: DeepseekV41MixedExpertWeights,
+    ) -> Result<Self> {
+        if !upload.enabled() { return Self::upload(device, weights); }
+        Ok(Self {
+            w1: upload.linear(weights.w1)?,
+            w2: upload.linear(weights.w2)?,
+            w3: upload.linear(weights.w3)?,
+        })
+    }
+
     fn upload(device: &VulkanDevice, weights: DeepseekV41MixedExpertWeights) -> Result<Self> {
         let mut commands = device.compute_batch()?;
         let expert = Self::record_upload(device, &mut commands, weights)?;
@@ -1721,6 +1769,7 @@ pub struct DeepseekV41MixedMoe {
     precision: DeepseekV41WeightOutput,
     gate_weight: GpuBuffer,
     gate_bias: GpuBuffer,
+    vision_gate: Option<(GpuBuffer, vulkan::ComputeKernel)>,
     cpu_sqrt_seeds: GpuBuffer,
     experts: ExpertSource,
     packed: Option<PackedExpertBatch>,
@@ -1832,6 +1881,7 @@ impl DeepseekV41MixedMoe {
                 }
             }
         }
+        let mut upload = super::upload::ParameterUploadBatch::new(&device);
         let (experts, packed) = match (experts, streamed) {
             (Some(weights), None) => {
                 if let Some((resident, packed)) = PackedExpertBatch::upload(&device, &c, &weights)?
@@ -1842,7 +1892,7 @@ impl DeepseekV41MixedMoe {
                         ExpertSource::Resident(
                             weights
                                 .into_iter()
-                                .map(|w| MixedExpert::upload(&device, w))
+                                .map(|w| MixedExpert::upload_grouped(&device, &mut upload, w))
                                 .collect::<Result<_>>()?,
                         ),
                         None,
@@ -1859,11 +1909,12 @@ impl DeepseekV41MixedMoe {
             _ => unreachable!("exactly one expert source validated"),
         };
         let shared = shared
-            .map(|w| MixedExpert::upload(&device, w))
+            .map(|w| MixedExpert::upload_grouped(&device, &mut upload, w))
             .transpose()?;
-        Ok(Self {
-            gate_weight: GpuBuffer::from_f32(&device, &gate_weight)?,
-            gate_bias: GpuBuffer::from_f32(&device, &gate_bias)?,
+        let moe = Self {
+            gate_weight: upload.f32(&gate_weight)?,
+            gate_bias: upload.f32(&gate_bias)?,
+            vision_gate: None,
             cpu_sqrt_seeds: super::cpu_sqrt_seeds(&device)?,
             experts,
             packed,
@@ -1885,7 +1936,7 @@ impl DeepseekV41MixedMoe {
             )?,
             swiglu: vulkan::ComputeKernel::new(
                 &device,
-                MIXED_SWIGLU,
+                crate::deepseek_v41::cpu_math::selected(&device, MIXED_SWIGLU),
                 5,
                 std::mem::size_of::<MixedSwigluPush>() as u32,
             )?,
@@ -1904,7 +1955,9 @@ impl DeepseekV41MixedMoe {
             device,
             #[cfg(test)]
             route_trace: std::cell::RefCell::new(None),
-        })
+        };
+        upload.finish()?;
+        Ok(moe)
     }
 
     /// Persistent routed experts only; streamed staging and shared experts are excluded.
@@ -1980,6 +2033,75 @@ impl DeepseekV41MixedMoe {
             .record_apply(commands, &activation, rows, &w.w2, self.precision)
     }
     pub fn apply(&self, input: &GpuBuffer, rows: usize) -> Result<GpuBuffer> {
+        self.apply_with_text_mask(input, rows, None)
+    }
+    pub(super) fn enable_vision_bias(&mut self, values: &[f32]) -> Result<()> {
+        if values.len() != self.config.experts {
+            bail!("V4.1 image routing bias geometry mismatch");
+        }
+        validate_finite("V4.1 image routing bias", values)?;
+        let code = include_bytes!("../../shaders/transformer_deepseek_v41_moe_gate_vl.spv");
+        let kernel = vulkan::ComputeKernel::new(
+            &self.device,
+            crate::deepseek_v41::gen9::shader(&self.device, code),
+            9,
+            std::mem::size_of::<MoeGatePush>() as u32,
+        )?;
+        self.vision_gate = Some((GpuBuffer::from_f32(&self.device, values)?, kernel));
+        Ok(())
+    }
+    fn record_gate(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        input: &GpuBuffer,
+        route: &GpuBuffer,
+        indices: &GpuBuffer,
+        counts: &GpuBuffer,
+        rows: usize,
+        text_mask: Option<&GpuBuffer>,
+    ) -> Result<()> {
+        let c = self.config;
+        let push = MoeGatePush {
+            rows: rows as u32,
+            dim: c.hidden_size as u32,
+            experts: c.experts as u32,
+            topk: c.activated as u32,
+            score_func: c.score_func.code(),
+            gate_temp: c.gate_temp,
+            norm_topk: c.norm_topk_prob as u32,
+            route_scale: c.route_scale,
+        };
+        let mut buffers = vec![
+            input,
+            &self.gate_weight,
+            &self.gate_bias,
+            route,
+            indices,
+            counts,
+            &self.cpu_sqrt_seeds,
+        ];
+        let kernel = if let (Some((bias, kernel)), Some(mask)) = (&self.vision_gate, text_mask) {
+            if mask.capacity_bytes() < rows * 4 || !mask.belongs_to_device(&self.device) {
+                bail!("V4.1 image routing mask geometry/device mismatch");
+            }
+            buffers.extend([bias, mask]);
+            kernel
+        } else {
+            &self.gate
+        };
+        kernel.record_dispatch(
+            commands,
+            &buffers,
+            bytemuck::bytes_of(&push),
+            [rows as u32, 1, 1],
+        )
+    }
+    pub(super) fn apply_with_text_mask(
+        &self,
+        input: &GpuBuffer,
+        rows: usize,
+        text_mask: Option<&GpuBuffer>,
+    ) -> Result<GpuBuffer> {
         let c = &self.config;
         let slots = checked_size("mixed MoE slots", &[rows, c.activated])?;
         if rows == 0
@@ -2008,19 +2130,14 @@ impl DeepseekV41MixedMoe {
             route_scale: c.route_scale,
         };
         let mut commands = self.device.compute_batch()?;
-        self.gate.record_dispatch(
+        self.record_gate(
             &mut commands,
-            &[
-                &x,
-                &self.gate_weight,
-                &self.gate_bias,
-                &route,
-                &indices,
-                &counts,
-                &self.cpu_sqrt_seeds,
-            ],
-            bytemuck::bytes_of(&push),
-            [rows as u32, 1, 1],
+            &x,
+            &route,
+            &indices,
+            &counts,
+            rows,
+            text_mask,
         )?;
         commands.submit()?;
         #[cfg(test)]
@@ -2264,6 +2381,17 @@ impl MoeExecution {
             Self::Mixed(m) => m.apply(input, rows),
         }
     }
+    fn apply_with_text_mask(
+        &self,
+        input: &GpuBuffer,
+        rows: usize,
+        mask: Option<&GpuBuffer>,
+    ) -> Result<GpuBuffer> {
+        match self {
+            Self::Fp32(m) => m.apply(input, rows),
+            Self::Mixed(m) => m.apply_with_text_mask(input, rows, mask),
+        }
+    }
 }
 
 /// Runs the released block order around one attention layer at a time:
@@ -2287,6 +2415,7 @@ pub struct DeepseekV41Backbone {
     cast: DeepseekV41MixedLinearKernel,
     precision: DeepseekV41WeightOutput,
     engram: Option<DeepseekV41EngramRuntime>,
+    vision_text_mask: Option<GpuBuffer>,
     #[cfg(test)]
     pub(super) trace: Option<Vec<(usize, &'static str, GpuBuffer, usize)>>,
 }
@@ -2381,6 +2510,18 @@ impl DeepseekV41Backbone {
         let config = checkpoint.config.clone();
         let layers = config.text.num_hidden_layers;
         let streamed = projections == DeepseekV41ProjectionResidency::Streamed;
+        let mut vision_bias = Vec::with_capacity(layers);
+        for layer in 0..layers {
+            let name = format!("layers.{layer}.ffn.gate.bias_vl");
+            vision_bias.push(if checkpoint.contains_tensor(&name)? {
+                Some(checkpoint.read_tensor(&name, &[config.text.n_routed_experts])?)
+            } else {
+                None
+            });
+        }
+        if vision_bias.iter().any(Option::is_some) && vision_bias.iter().any(Option::is_none) {
+            bail!("V4.1 native vision requires image routing biases for every layer");
+        }
         let mut weights = Vec::with_capacity(layers);
         for layer in 0..layers {
             weights.push(if streamed {
@@ -2390,7 +2531,7 @@ impl DeepseekV41Backbone {
             });
         }
         let source = streamed.then(|| checkpoint.clone());
-        Self::build(
+        let mut result = Self::build(
             device,
             &config,
             runtime,
@@ -2398,7 +2539,18 @@ impl DeepseekV41Backbone {
             engram,
             precision,
             source,
-        )
+        )?;
+        for (layer, bias) in vision_bias.into_iter().enumerate() {
+            if let Some(bias) = bias {
+                match &mut result.moe[layer] {
+                    MoeExecution::Mixed(m) => m.enable_vision_bias(&bias)?,
+                    MoeExecution::Fp32(_) => {
+                        bail!("V4.1 image routing requires typed MoE execution")
+                    }
+                }
+            }
+        }
+        Ok(result)
     }
 
     fn build(
@@ -2524,6 +2676,7 @@ impl DeepseekV41Backbone {
             cast,
             precision,
             engram,
+            vision_text_mask: None,
             #[cfg(test)]
             trace: None,
         })
@@ -2531,6 +2684,9 @@ impl DeepseekV41Backbone {
 
     pub fn layer_plan(&self) -> &[DeepseekV41LayerPlan] {
         &self.plan
+    }
+    pub(super) fn has_vision_routing_bias(&self)->bool {
+        self.moe.iter().any(|m|matches!(m,MoeExecution::Mixed(m) if m.vision_gate.is_some()))
     }
     #[cfg(test)]
     pub(super) fn index_selection(
@@ -2814,7 +2970,11 @@ impl DeepseekV41Backbone {
             .cast_buffer(&collapsed, rows * self.hidden, self.precision)?;
         stage_digest!(self, layer_id, "ffn_norm", collapsed, rows * self.hidden);
         trace_stage!(self, layer_id, "ffn_norm", collapsed, rows * self.hidden);
-        let mixed = self.moe[layer_id].apply(&collapsed, rows)?;
+        let mixed = self.moe[layer_id].apply_with_text_mask(
+            &collapsed,
+            rows,
+            self.vision_text_mask.as_ref(),
+        )?;
         stage_digest!(self, layer_id, "moe", mixed, rows * self.hidden);
         trace_stage!(self, layer_id, "moe", mixed, rows * self.hidden);
         let stream = self.hyper[layer_id].post(&mixed, &stream, &ffn.post, &ffn.comb, rows)?;
@@ -2859,6 +3019,15 @@ impl DeepseekV41Backbone {
         start_pos: usize,
         seq: usize,
     ) -> Result<()> {
+        self.vision_text_mask = if self
+            .moe
+            .iter()
+            .any(|m| matches!(m,MoeExecution::Mixed(m) if m.vision_gate.is_some()))
+        {
+            token_mask.cloned()
+        } else {
+            None
+        };
         match &mut self.engram {
             Some(engram) => {
                 let ids =

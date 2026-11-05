@@ -28,6 +28,11 @@ PyTorch and Transformers serve as development oracles for numerical qualificatio
 
 <sub>Registry breadth and measured qualification are separate: the November 2, 2026 RDNA3 matrix covers 43 scaled profiles / 26 architecture identifiers, in resident and streamed modes. The CPU gate uses `rtol=0`. [Evidence and limits](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md).</sub>
 
+**Joint image training:** all 44 previously green text profiles pass the frozen
+Gen9 FP32 image-training gate below `2e-7`, including 95 image cases and 166 text
+regressions. [Coverage, frozen oracles and Ally replay instructions](RDNA3_MULTIMODAL_HANDOFF.md).
+Physical RDNA3 multimodal qualification remains pending.
+
 ---
 
 ## Quick start
@@ -356,9 +361,18 @@ $env:HIERARCHOS_NATIVE_CLI = (Resolve-Path $cli).Path
 .\hierarchos-gui\target\release\hierarchos-native.exe
 ```
 
-Choose Transformer training, full-parameter fine-tuning, LoRA, generation, or the
-Hierarchos training/chat modes. The form shows the exact CLI command before launch
-and streams the child process's output.
+Choose Transformer training, full-parameter fine-tuning, LoRA, generation, the
+Hierarchos training/chat modes, native vision training, image-to-text, or
+text-to-image. The form shows the exact CLI command before launch and streams the
+child process's output.
+
+Vision training and image-to-text run on the native Vulkan image backends and
+accept the model package directly. Text-to-image is a separate workflow: it drives
+a pinned [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp)
+Vulkan engine against a Stable Diffusion single-file checkpoint. Install that
+engine once with `hierarchos-native-cli/install-image-engine.ps1`, which checks the
+archive SHA-256 before extracting. Image-generation numerics are that engine's,
+not the text parity contract.
 
 Contiguous native KV is the established cache path. **Paged Vulkan KV** and continuous
 batching are explicit opt-ins for compatible graphs. The continuous scheduler supports
@@ -500,6 +514,15 @@ for numerical coverage. [Status and limitations](VALIDATION_STATUS.md) ·
 <div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
 
 ---
+
+### Multimodal training development
+
+Native CLIP/LLaVA image processing, projector training and the shared modality
+embedding bridge are under development. The same backends are reachable without
+the GUI as `vision-train`, `vision-generate`, `vision-info`, `image-generate` and
+`image-engine-info`. See the
+[multimodal training audit](PROGRESS_MULTIMODAL_TRAINING.md) for measured scope,
+strict parity results and the remaining architecture work.
 
 ## Documentation
 

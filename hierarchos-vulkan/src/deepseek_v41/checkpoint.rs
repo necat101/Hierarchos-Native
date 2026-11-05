@@ -272,6 +272,10 @@ impl DeepseekV41Checkpoint {
             .cloned()
             .collect())
     }
+    pub(super) fn contains_tensor(&mut self,name:&str)->Result<bool> {
+        if let Some(index)=&self.weight_map {return Ok(index.contains_key(name));}
+        Ok(self.shard("embed.weight")?.tensors.contains_key(name))
+    }
     /// Every identity-bearing package file, with no tensor payload retained.
     pub fn source_files(&self) -> Result<Vec<PathBuf>> {
         let mut names = std::collections::BTreeSet::new();
@@ -1489,7 +1493,8 @@ impl DeepseekV41Checkpoint {
                 layer_id,
                 residency == super::DeepseekV41ExpertResidency::StreamedAllExperts,
             )?)
-        } else if matches!(storage.as_str(), "BF16" | "F8_E4M3" | "F4" | "I8")
+        } else if self.contains_tensor(&format!("{prefix}.ffn.gate.bias_vl"))?
+            || matches!(storage.as_str(), "BF16" | "F8_E4M3" | "F4" | "I8")
             || self.lora.as_ref().is_some_and(|adapter| {
                 adapter
                     .targets()

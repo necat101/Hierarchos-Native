@@ -1,0 +1,26 @@
+#version 450
+// Gemma4 patch embedding: learned x/y position tables, summed per patch.
+// Padding patches carry (-1,-1) positions and produce an exact zero row.
+layout(local_size_x = 256) in;
+layout(set = 0, binding = 0, std430) readonly buffer X { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Table { float table[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Positions { uint positions[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer Y { float y[]; };
+layout(push_constant) uniform Push { uint rows; uint dim; uint position_size; } pc;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= pc.rows * pc.dim) return;
+    uint col = i % pc.dim;
+    uint row = i / pc.dim;
+    uint px = positions[row * 2u];
+    uint py = positions[row * 2u + 1u];
+    if (px == 0xffffffffu || py == 0xffffffffu) {
+        y[i] = 0.0;
+        return;
+    }
+    float x_embedding = table[(0u * pc.position_size + px) * pc.dim + col];
+    float y_embedding = table[(1u * pc.position_size + py) * pc.dim + col];
+    float position = x_embedding + y_embedding;
+    y[i] = x[i] + position;
+}

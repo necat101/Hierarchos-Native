@@ -28,6 +28,14 @@ void main() {
     uint base=(row*pc.heads+head)*pc.dim;
     precise float dot=0.0;
     // Same contraction geometry as the forward Q.K einsum, with dO as Q.
+#ifdef HIERARCHOS_V41_CPU_AVX2
+    if (total*pc.heads*pc.dim<400u) {
+        for (uint k=0u;k<pc.dim;++k) {
+            precise float product=upstream[base+k]*slot_value(row,slot,k);
+            dot+=product;
+        }
+    } else
+#endif
     if (total<=8u && total*pc.heads*pc.dim>=400u) {
         precise float a=0.0,b=0.0,c=0.0,d=0.0;
         uint aligned=pc.dim/4u*4u;

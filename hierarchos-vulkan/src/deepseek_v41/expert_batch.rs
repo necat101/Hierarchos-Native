@@ -117,7 +117,7 @@ impl PackedExpertBatch {
                 quantizer: DeepseekV41ActivationQuantizer::new(device.clone())?,
                 kernel: vulkan::ComputeKernel::new(
                     device,
-                    FUSED,
+                    crate::deepseek_v41::cpu_math::selected(device, FUSED),
                     8,
                     std::mem::size_of::<FusedExpertPush>() as u32,
                 )?,

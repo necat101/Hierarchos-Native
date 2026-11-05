@@ -1,0 +1,46 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+// Wide shared-image dX = dY @ W. ATen's 16-row input gradient follows the
+// ascending serial-FMA reduction. The 320-wide LM head uses two 160-term
+// panels followed by a rounded addition, independently checked on both models.
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(set = 0, binding = 0, std430) readonly buffer DY { float dy[]; };
+layout(set = 0, binding = 1, std430) readonly buffer W { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer B { float bias[]; };
+layout(set = 0, binding = 3, std430) buffer DX { float dx[]; };
+layout(push_constant) uniform P { uint rows; uint output_dim; uint input_dim; uint unused; } pc;
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (col >= pc.input_dim || row >= pc.rows) return;
+    // The same kernel handle also serves the eight-row image projector. Keep
+    // its measured six-row panel and two-row unfused tail; the 16-row text
+    // specialization must not replace that independently qualified topology.
+    uint tail = pc.rows % 6u;
+    if (pc.rows != 16u && tail > 0u && tail <= 3u && row >= pc.rows - tail) {
+        precise float a = 0.0;
+        precise float b = 0.0;
+        for (uint k = 0u; k < pc.output_dim; ++k) {
+            if (tail <= 2u) {
+                precise float product = dy[row * pc.output_dim + k] * weight[k * pc.input_dim + col];
+                if ((k & 1u) == 0u) a += product; else b += product;
+            } else {
+                if ((k & 1u) == 0u) a = fp32_fma_exact(dy[row * pc.output_dim + k], weight[k * pc.input_dim + col], a);
+                else b = fp32_fma_exact(dy[row * pc.output_dim + k], weight[k * pc.input_dim + col], b);
+            }
+        }
+        dx[row * pc.input_dim + col] = a + b;
+        return;
+    }
+    precise float sum = 0.0;
+    uint panel = pc.output_dim == 320u ? 160u : pc.output_dim;
+    for (uint start = 0u; start < pc.output_dim; start += panel) {
+        float partial = 0.0;
+        for (uint k = start; k < min(start + panel, pc.output_dim); ++k) {
+            partial = fp32_fma_exact(dy[row * pc.output_dim + k], weight[k * pc.input_dim + col], partial);
+        }
+        sum += partial;
+    }
+    dx[row * pc.input_dim + col] = sum;
+}

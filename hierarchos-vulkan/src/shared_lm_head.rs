@@ -513,6 +513,21 @@ impl SharedLmHeadParameter {
         commands: &mut vulkan::ComputeBatch,
         hyper: AdamWHyperParams,
     ) -> Result<u32> {
+        self.record_step_policy(commands, hyper, None)
+    }
+
+    pub(crate) fn record_step_with_cpu_policy(
+        &self, commands: &mut vulkan::ComputeBatch, hyper: crate::CpuAdamWHyperParams,
+        kernel: &crate::cpu_adamw::CpuAdamW,
+    ) -> Result<u32> {
+        hyper.validate()?;
+        self.record_step_policy(commands, hyper.as_f32(), Some((hyper, kernel)))
+    }
+
+    fn record_step_policy(
+        &self, commands: &mut vulkan::ComputeBatch, hyper: AdamWHyperParams,
+        policy: Option<(crate::CpuAdamWHyperParams, &crate::cpu_adamw::CpuAdamW)>,
+    ) -> Result<u32> {
         hyper.validate()?;
         let state = self.training_state()?;
         let previous = self
@@ -532,7 +547,10 @@ impl SharedLmHeadParameter {
             eps: hyper.eps,
             weight_decay: hyper.weight_decay,
         };
-        self.inner.adamw.record_dispatch(
+        if let Some((config, kernel)) = policy {
+            kernel.record_step(commands, &self.inner.weight, &state.accumulated_grad,
+                &state.exp_avg, &state.exp_avg_sq, self.len(), next_step, config, true)?;
+        } else { self.inner.adamw.record_dispatch(
             commands,
             &[
                 &self.inner.weight,
@@ -542,7 +560,7 @@ impl SharedLmHeadParameter {
             ],
             bytemuck::bytes_of(&push),
             [div_ceil_u32(self.len(), 256), 1, 1],
-        )?;
+        )?; }
         let execution_mirror = self
             .inner
             .execution_mirror

@@ -1,0 +1,106 @@
+{
+  "pass": true,
+  "variants": [
+    {
+      "artifact": "adamw_cpu_single_tensor.spv",
+      "source": "adamw_cpu_single_tensor.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.6.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0",
+      "source_sha256": "a946fa2c0fe8024e02e08f1bd1a665e9202c580e19f400936ec742b14c9cdfb3",
+      "sha256": "66c82fa657aafdfb96ce47e3b88849a282d54068ceb33cb70577c69fca93b6ba",
+      "compile_exit": 0,
+      "matches": true,
+      "valid": true,
+      "policy_matches": true,
+      "toolchain_version": "16.6.0",
+      "rebuilt_sha256": "66c82fa657aafdfb96ce47e3b88849a282d54068ceb33cb70577c69fca93b6ba"
+    },
+    {
+      "artifact": "vision_patchify.spv",
+      "source": "vision_patchify.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.6.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0",
+      "source_sha256": "367809cd963d84e29d9d71b9c6ef7555718f4245be18388e5368c77304b0dba9",
+      "sha256": "3523cf291a51091c91a50e2a63e005b1a0765f94c8e0d8e8f5b5adb882ac26cb",
+      "compile_exit": 0,
+      "matches": true,
+      "valid": true,
+      "policy_matches": true,
+      "toolchain_version": "16.6.0",
+      "rebuilt_sha256": "3523cf291a51091c91a50e2a63e005b1a0765f94c8e0d8e8f5b5adb882ac26cb"
+    },
+    {
+      "artifact": "vision_clip_tokens.spv",
+      "source": "vision_clip_tokens.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.6.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0",
+      "source_sha256": "df2dc5d7ae32d13f678da3206d366b8d1ff43adb75de6faaf2e4cae3f2c174b3",
+      "sha256": "0d8d8ae6022ca8ccf2bfb746b1523df3386a1c8c60fe4d26e7dadc5cbaa7623a",
+      "compile_exit": 0,
+      "matches": true,
+      "valid": true,
+      "policy_matches": true,
+      "toolchain_version": "16.6.0",
+      "rebuilt_sha256": "0d8d8ae6022ca8ccf2bfb746b1523df3386a1c8c60fe4d26e7dadc5cbaa7623a"
+    },
+    {
+      "artifact": "vision_quick_gelu.spv",
+      "source": "vision_quick_gelu.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.6.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0",
+      "source_sha256": "7331ce4510957550d6d955f288111609e413e4065d17c4e2fb7d5e684c69616e",
+      "sha256": "366e65dbf9b7dd3a47c4a0a3153aace35797282df6c6d73cb3f66260b066689a",
+      "compile_exit": 0,
+      "matches": true,
+      "valid": true,
+      "policy_matches": true,
+      "toolchain_version": "16.6.0",
+      "rebuilt_sha256": "366e65dbf9b7dd3a47c4a0a3153aace35797282df6c6d73cb3f66260b066689a"
+    },
+    {
+      "artifact": "vision_quick_gelu_backward.spv",
+      "source": "vision_quick_gelu.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "16.6.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DVISION_BACKWARD=1"
+      ],
+      "target_env": "vulkan1.0",
+      "source_sha256": "7331ce4510957550d6d955f288111609e413e4065d17c4e2fb7d5e684c69616e",
+      "sha256": "5d82f456a9c3d20025c4f8d4d1700303bf6e4c9d31dc7759f00fefd0aaceb0bb",
+      "compile_exit": 0,
+      "matches": true,
+      "valid": true,
+      "policy_matches": true,
+      "toolchain_version": "16.6.0",
+      "rebuilt_sha256": "5d82f456a9c3d20025c4f8d4d1700303bf6e4c9d31dc7759f00fefd0aaceb0bb"
+    }
+  ]
+}

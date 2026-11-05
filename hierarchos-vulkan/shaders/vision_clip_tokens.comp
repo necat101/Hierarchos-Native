@@ -1,0 +1,26 @@
+#version 450
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer X { float x[]; };
+layout(set=0,binding=1,std430) readonly buffer C { float cls[]; };
+layout(set=0,binding=2,std430) readonly buffer P { float pos[]; };
+layout(set=0,binding=3,std430) writeonly buffer Y { float y[]; };
+layout(push_constant) uniform Push { uint images; uint seq; uint dim; uint mode; } pc;
+void main() {
+    uint i=gl_GlobalInvocationID.x;
+    if(pc.mode==0) {
+        if(i>=pc.images*pc.seq*pc.dim) return;
+        uint row=i/pc.dim, col=i%pc.dim, image=row/pc.seq, token=row%pc.seq;
+        float v=token==0 ? cls[col] : x[(image*(pc.seq-1)+token-1)*pc.dim+col];
+        y[i]=v+pos[token*pc.dim+col];
+    } else if(pc.mode==1) {
+        if(i>=pc.images*(pc.seq-1)*pc.dim) return;
+        uint row=i/pc.dim, col=i%pc.dim, image=row/(pc.seq-1), token=row%(pc.seq-1);
+        y[i]=x[(image*pc.seq+token+1)*pc.dim+col];
+    } else {
+        uint len=pc.mode==2 ? pc.dim : pc.seq*pc.dim;
+        if(i>=len) return;
+        float sum=0.0;
+        for(uint b=0;b<pc.images;++b) sum+=x[b*pc.seq*pc.dim+i];
+        y[i]=sum;
+    }
+}

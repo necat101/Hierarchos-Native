@@ -1,0 +1,49 @@
+#version 450
+// Layout operations for the released DeepSeek V4.1 ViT/aligner. Every output
+// owns its destination; unfold padding and its adjoint require no atomics.
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer X {float x[];};
+layout(set=0,binding=1,std430) readonly buffer Aux {float aux[];};
+layout(set=0,binding=2,std430) readonly buffer Extra {float extra[];};
+layout(set=0,binding=3,std430) writeonly buffer Y {float y[];};
+layout(push_constant) uniform Push {
+    uint rows; uint dim; uint heads; uint mode;
+    uint height; uint width; uint ratio; float scale;
+} pc;
+void main() {
+    uint i=gl_GlobalInvocationID.x;
+    if(i>=pc.rows*pc.dim)return;
+    uint row=i/pc.dim,d=i%pc.dim;
+    if(pc.mode==0u){y[i]=x[i]*pc.scale;return;}
+    if(pc.mode==1u || pc.mode==2u){
+        uint hd=pc.dim/pc.heads,half_dim=hd/2u,c=d%hd;
+        uint j=c%half_dim,base=(row*pc.heads+d/hd)*hd;
+        precise float a=x[base+j],b=x[base+j+half_dim];
+        float cosine=aux[row*half_dim+j],sine=extra[row*half_dim+j];
+        precise float direct=x[i]*cosine;
+        precise float rotated=(c<half_dim?b:a)*sine;
+        // The backward of cat(x1*c-x2*s,x2*c+x1*s) accumulates
+        // the sine branch before the cosine branch in Torch autograd.
+        if(pc.mode==1u)y[i]=c<half_dim?direct-rotated:direct+rotated;
+        else y[i]=c<half_dim?rotated+direct:direct-rotated;
+        return;
+    }
+    if(pc.mode==3u){
+        uint r=pc.ratio,channels=pc.dim/(r*r),outw=(pc.width+r-1u)/r;
+        uint channel=d/(r*r),dy=(d/r)%r,dx=d%r;
+        uint iy=(row/outw)*r+dy,ix=(row%outw)*r+dx;
+        y[i]=(iy<pc.height && ix<pc.width)?x[(iy*pc.width+ix)*channels+channel]:0.0;
+        return;
+    }
+    if(pc.mode==4u){
+        uint r=pc.ratio,outw=(pc.width+r-1u)/r;
+        uint iy=row/pc.width,ix=row%pc.width;
+        uint cell=(iy/r)*outw+ix/r;
+        y[i]=x[cell*(pc.dim*r*r)+d*r*r+(iy%r)*r+ix%r];return;
+    }
+    if(pc.mode==5u){y[i]=x[(row*pc.heads+pc.height)*pc.dim+d];return;}
+    if(pc.mode==6u){
+        uint half_dim=pc.dim/2u;
+        y[i]=d<half_dim?x[row*half_dim+d]:aux[row*half_dim+d-half_dim];return;
+    }
+}

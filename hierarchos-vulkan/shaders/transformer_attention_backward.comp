@@ -308,7 +308,14 @@ float probability(uint batch, uint head, uint query, uint key, float max_score, 
     return attention_exp(score(batch, head, query, key) - max_score) * inv_sum;
 }
 
+#ifdef HIERARCHOS_GEMMA4_TEXT_CPU_AVX2
+#include "transformer_gemma4_text_cpu_backward.glsl"
+#endif
+
 void main() {
+#ifdef HIERARCHOS_GEMMA4_TEXT_CPU_AVX2
+    if(gemma4_cpu_text_profile()){gemma4_cpu_text_backward();return;}
+#endif
     uint kv_head = gl_GlobalInvocationID.x;
     uint invocation_batch = gl_GlobalInvocationID.y;
     if (kv_head >= pc.num_key_value_heads) {

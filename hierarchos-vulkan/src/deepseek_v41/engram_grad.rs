@@ -96,13 +96,13 @@ impl DeepseekV41EngramAdjoints {
             mixed: DeepseekV41MixedLinearKernel::new(device.clone())?,
             forward_gate: vulkan::ComputeKernel::new_with_access(
                 &device,
-                GATE,
+                crate::deepseek_v41::cpu_math::selected(&device, GATE),
                 &[R, R, R, R, W],
                 std::mem::size_of::<GatePush>() as u32,
             )?,
             gate: vulkan::ComputeKernel::new_with_access(
                 &device,
-                include_bytes!("../../shaders/transformer_deepseek_v41_engram_gate_grad.spv"),
+                crate::deepseek_v41::cpu_math::selected(&device, include_bytes!("../../shaders/transformer_deepseek_v41_engram_gate_grad.spv")),
                 &[R, R, R, R, R, W, W, W],
                 std::mem::size_of::<GatePush>() as u32,
             )?,

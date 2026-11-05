@@ -1,0 +1,481 @@
+{
+  "schema": 1,
+  "recorded_utc": "2026-11-03T01:42:13.211713+00:00",
+  "client_date": "2026-11-02",
+  "base_revision": "d41ebeee295d598840438ae03757419d624985ac",
+  "branch": "codex/gen9-multimodal-training",
+  "synced_gpt2_fix": "88f60d6b5a729d01f2a876a9c6b0fed2cd3ff571",
+  "status": "native_clip_llava_logit_and_parameter_gate_passed",
+  "scope": "fixed-resolution RGB8 CLIP/LLaVA with full image/projector/Llama backward, two AdamW updates and HF export/reload",
+  "all_architectures_multimodal_qualified": false,
+  "physical_rdna3_execution": false,
+  "device": {
+    "name": "Intel(R) HD Graphics 520",
+    "vendor_id": 32902,
+    "device_id": 6422,
+    "driver": "31.0.101.2115"
+  },
+  "gate": {
+    "logits_max_abs_strict_less_than": 2e-07,
+    "parameters_max_abs_strict_less_than": 2e-07,
+    "rtol": 0,
+    "loss_absolute_limit": 2e-05,
+    "intermediates": "finite and shape-checked; strict 2e-7 differences retained as diagnostics, not a bit-parity certificate"
+  },
+  "image_pipeline": {
+    "pass": true,
+    "cases": 4,
+    "visible_logit_values": 22784,
+    "max_abs_logits": 7.450580596923828e-08,
+    "parameter_values": 130688,
+    "max_abs_parameters": 2.9802322387695312e-08,
+    "export_reload_logit_words": 5952,
+    "export_reload_word_differences": 0,
+    "geometry": {
+      "image_size": 8,
+      "clip_layers": 2,
+      "clip_hidden": [
+        16,
+        32
+      ],
+      "patch_sizes": [
+        2,
+        4
+      ],
+      "llama_hidden": 16,
+      "llama_layers": 2
+    },
+    "image_controls": [
+      {
+        "case": "clip_default_layer",
+        "checks": [
+          {
+            "metric": "vision tower parameters updated",
+            "max_abs_change": 0.0019555632025003433,
+            "pass": true
+          },
+          {
+            "metric": "projector parameters updated",
+            "max_abs_change": 0.001970972865819931,
+            "pass": true
+          },
+          {
+            "metric": "language backbone parameters updated",
+            "max_abs_change": 0.0019955667667090893,
+            "pass": true
+          },
+          {
+            "metric": "loss reaches image pixels",
+            "max_abs_gradient": 0.002655110089108348,
+            "pass": true
+          },
+          {
+            "metric": "image affects visible text logits",
+            "max_abs_change": 0.1480683535337448,
+            "pass": true
+          }
+        ]
+      },
+      {
+        "case": "clip_last_layer_padded",
+        "checks": [
+          {
+            "metric": "vision tower parameters updated",
+            "max_abs_change": 0.001948641613125801,
+            "pass": true
+          },
+          {
+            "metric": "projector parameters updated",
+            "max_abs_change": 0.001991860568523407,
+            "pass": true
+          },
+          {
+            "metric": "language backbone parameters updated",
+            "max_abs_change": 0.001997855491936207,
+            "pass": true
+          },
+          {
+            "metric": "loss reaches image pixels",
+            "max_abs_gradient": 0.004078925121575594,
+            "pass": true
+          },
+          {
+            "metric": "image affects visible text logits",
+            "max_abs_change": 0.061976633965969086,
+            "pass": true
+          }
+        ]
+      },
+      {
+        "case": "clip_full_tokens",
+        "checks": [
+          {
+            "metric": "vision tower parameters updated",
+            "max_abs_change": 0.0019806846976280212,
+            "pass": true
+          },
+          {
+            "metric": "projector parameters updated",
+            "max_abs_change": 0.0019920647609978914,
+            "pass": true
+          },
+          {
+            "metric": "language backbone parameters updated",
+            "max_abs_change": 0.001998327672481537,
+            "pass": true
+          },
+          {
+            "metric": "loss reaches image pixels",
+            "max_abs_gradient": 0.005403958726674318,
+            "pass": true
+          },
+          {
+            "metric": "image affects visible text logits",
+            "max_abs_change": 0.04650592803955078,
+            "pass": true
+          }
+        ]
+      },
+      {
+        "case": "clip_wider_grid",
+        "checks": [
+          {
+            "metric": "vision tower parameters updated",
+            "max_abs_change": 0.0019091330468654633,
+            "pass": true
+          },
+          {
+            "metric": "projector parameters updated",
+            "max_abs_change": 0.001987207098864019,
+            "pass": true
+          },
+          {
+            "metric": "language backbone parameters updated",
+            "max_abs_change": 0.001996409147977829,
+            "pass": true
+          },
+          {
+            "metric": "loss reaches image pixels",
+            "max_abs_gradient": 0.006923113949596882,
+            "pass": true
+          },
+          {
+            "metric": "image affects visible text logits",
+            "max_abs_change": 0.0737219974398613,
+            "pass": true
+          }
+        ]
+      }
+    ]
+  },
+  "optimizer": {
+    "policy": "CPU single-tensor coefficients in f64; moment/parameter arithmetic in Vulkan FP32",
+    "pass": true,
+    "exact_state_words": 1044,
+    "cases": 3,
+    "steps_per_case": 3,
+    "aten_vector_width": 8
+  },
+  "broader_feature_bridge": {
+    "cases": 77,
+    "passed": 63,
+    "failed": 14,
+    "fully_passing_profiles": 31,
+    "profiles": 40,
+    "remaining_logit_failure_cases": [
+      "gpt2_wide/unmasked",
+      "gpt2_wide/padded",
+      "llama_wide/unmasked",
+      "llama_wide/padded"
+    ]
+  },
+  "text_regression": {
+    "runs": 166,
+    "pass": true,
+    "max_abs": 1.7881393432617188e-07,
+    "words_matching_opening_build": 77772
+  },
+  "verification": {
+    "cargo_all_targets": "passed",
+    "gpt2_imported_rust_tests_passed": 2,
+    "bridge_gpu_tests_passed": 2,
+    "legacy_lora_resume_tests_passed": 1,
+    "multimodal_negative_controls_passed": 7,
+    "rdna3_collection_negative_controls_passed": 7,
+    "image_tests_passed": 6,
+    "native_image_guard_subcases": 6,
+    "new_shaders_rebuilt_identically_and_validated": 5,
+    "independent_cpu_repeated_case_files": 32
+  },
+  "original_gen9_shader_files": {
+    "checked": 582,
+    "changed": []
+  },
+  "oracle": {
+    "torch": "2.14.1+cpu",
+    "torch_revision": "5c4886908584029761b579af026dcfb627c84070",
+    "numpy": "2.5.3",
+    "pillow": "12.0.0",
+    "threads": 1,
+    "cpu": "AVX2",
+    "transformers_revision": "469230357aab0f2b303b0d638c1f8d06edb14184",
+    "transformers_status": [],
+    "source_sha256": {
+      "oracle-source/qualify_llava_pipeline.py": "d2a3671cea9e77fc55d89c1bd6be4a095cd3a3dd0af94ffc89e39f1303dadbd5",
+      "oracle-source/qualify_multimodal_training.py": "dbcd84b055e91a8aced615c5f057a2e5e06850f75079ec4f5cd0da08caea61c8",
+      "oracle-source/transformers/activations.py": "5b20c0a3625edc0001a98f09ce3c6b5baa1100e1d7ad8dee649e4d45c8468665",
+      "oracle-source/transformers/audio_utils.py": "bb78c892f4d30d45d1ce3330da8ddf17f51eac1be4c5b28c75d55ec3f42127d9",
+      "oracle-source/transformers/cache_utils.py": "2d2ab17aa02c9d2a993587ec58d1745b03595b6028c401cc6c976bb720ad6638",
+      "oracle-source/transformers/configuration_utils.py": "2f85c43a79770f43dfb98acb1f47e6fb35657c5dbe86325e21672640413d5f84",
+      "oracle-source/transformers/conversion_mapping.py": "59e4657cf685e436cbce5340bda1dfa26d33bcd0c0086098565cdc4dc603e603",
+      "oracle-source/transformers/convert_slow_tokenizer.py": "56640f5aa0a2ede7eb5ca3bdf5e94af8b3cff9acff922dfb5499f93dce74bb01",
+      "oracle-source/transformers/core_model_loading.py": "c5b6bcdb6401a3cfdf825bc979d41ac3e7e075e09459021363dce5e68c54de22",
+      "oracle-source/transformers/dependency_versions_check.py": "523dcce519f7f0c0e32e0e6af43033d931a739dbe4743a70ad2af11a356e9103",
+      "oracle-source/transformers/dependency_versions_table.py": "20dc301702d534778ac840620eda15ce86cf3186c74dbd19a53edb81c1274c72",
+      "oracle-source/transformers/dynamic_module_utils.py": "befd9149d1ead0801b4ea1152280b0c60ab3fd52cf222b15b37dac84e61d67af",
+      "oracle-source/transformers/feature_extraction_utils.py": "fe1c820fd074041f73dfdbdf88b3a46c04a40eeebf9bb6351d10af183ac0cfe7",
+      "oracle-source/transformers/image_processing_backends.py": "539d3001944fa7d51e43336a86e800f2e3c5dd6512709f26e2d39884a052f18a",
+      "oracle-source/transformers/image_processing_base.py": "cef213845f00f02d98ecf8d273111e2e20404a2883a11a6afbac0414feeb9b20",
+      "oracle-source/transformers/image_processing_utils.py": "259d04a85176b87f61348a7717db2190046db23ed43d341aef772ea6034d466f",
+      "oracle-source/transformers/image_transforms.py": "f61a1985247f094e960e7ccae54ec763f5fd5ea23e877d19fd32040600f6bf84",
+      "oracle-source/transformers/image_utils.py": "61dfb55f493761bc2770884ecc59d11dc49e0af626b545deacbb94adb49f779b",
+      "oracle-source/transformers/initialization.py": "a2392653161633d4f8aefb473e776113ec5df8844acdba892569407ca56c2d6a",
+      "oracle-source/transformers/masking_utils.py": "af3d84dfe82a0b57c40625c89fb32b2cd6bf7351432ee5e76a9e8eac4289575b",
+      "oracle-source/transformers/modeling_flash_attention_utils.py": "de0e87f0fcff1b8d178584ed6cd48590fd52384b3fd08b945ccaf8a7ade00dc1",
+      "oracle-source/transformers/modeling_gguf_pytorch_utils.py": "edf06c7f3f183170fe47b7f8a2ed9759b14170bcfc464f66575010faf141c04f",
+      "oracle-source/transformers/modeling_layers.py": "ee84c7229582bc2f47bac19327ac2d96530bf94a182b5366d72d10330da99df4",
+      "oracle-source/transformers/modeling_outputs.py": "fef3993ec5b06b4aa488c50472fa0fe4013fb84e34a10595533a251afd6914c0",
+      "oracle-source/transformers/modeling_rope_utils.py": "ca1038b2f550a72a90ade70585b2e1f033a1440ba1ef7f2d627665ea3c064a7f",
+      "oracle-source/transformers/modeling_utils.py": "3a32f432917a1265fc3f26b2a36032b047b9c4d367ea75a5c8d389b1d268cda0",
+      "oracle-source/transformers/monkey_patching.py": "289ed25f6bf0045a0d67c08429030256409ad6952a09367d31eeeeffc6450c37",
+      "oracle-source/transformers/processing_utils.py": "85f16a673749a52532efe424eea8f9f1580097ca274ee2f55bdfaceff401f76c",
+      "oracle-source/transformers/pytorch_utils.py": "a86710d0766909996a3a3ebc1631492c25ea3a2ccc985b55782561cf09bbe8f3",
+      "oracle-source/transformers/safetensors_conversion.py": "bd8e76bd3803c98cb3b228951cad7a99d2f69d2b4e30b1fd5c43e7c219e3d395",
+      "oracle-source/transformers/tokenization_python.py": "d56b6f7fef8a5b5f9bc95068d11ed8197c8ab5bf6343d009b27d7a17c5279db2",
+      "oracle-source/transformers/tokenization_utils_base.py": "d683db2cf815e9a524edf691c10c7f2a05f408cd8d52a7036724403181bb6ee0",
+      "oracle-source/transformers/tokenization_utils_tokenizers.py": "32e4ff002092023720bdbe9101e01005a4a149a0729c82e05d7dbf497cbaa388",
+      "oracle-source/transformers/video_processing_utils.py": "ff542ebfd8916213300b505065a96c778dccbb3a1b5455fbbb205c6c1458afca",
+      "oracle-source/transformers/video_utils.py": "b45526df20f3cf6cc9080a67136b52984a69b9d3280e2d14f1a0013137662fa4",
+      "oracle-source/transformers/_typing.py": "7935e954eb268cb55d5c4943c4664ebc19b9d42a19a56dc53415b16298d1dfd5",
+      "oracle-source/transformers/__init__.py": "177433fc0648157babeb9f2116870964139bf27f7f5bd9aebcdf6af355080e60",
+      "oracle-source/transformers/distributed/configuration_utils.py": "c25e297b1373f1060de7668d1ee3b2bd1e136298373b4e9315041d1b588aa5c4",
+      "oracle-source/transformers/distributed/fsdp.py": "38539d5d2e87ff7b3bdbe81d5de590f3a0d3f93b2b73efb1439d9d9fef604146",
+      "oracle-source/transformers/distributed/mixin.py": "06bfa915876e9d39febab6d7df1e9f740b468a2e3df7c35e46d4323bed75f3b6",
+      "oracle-source/transformers/distributed/pipeline_parallel.py": "b02dbf05a01067747ccb011a55e604e4a687f7cc1262f22e97e1a2fde7bfe395",
+      "oracle-source/transformers/distributed/sharding_utils.py": "e11e817cdb65fb5fd281353172fa4dba5f920ec70d49a44b025d3ced91d8cee5",
+      "oracle-source/transformers/distributed/tensor_parallel.py": "486f169684a975a22ba422aeb1e6975ddcfc57901b2611a85b0036705c961c31",
+      "oracle-source/transformers/distributed/utils.py": "9f1fa8ea2fd400a3f18517b60c53a72ea9437b7780a92e86a5be1a5d001f2bae",
+      "oracle-source/transformers/distributed/__init__.py": "240549701c69a7e899458a2c9760624e6fc5d2821d80c9c83490dc1fb13e67cd",
+      "oracle-source/transformers/generation/candidate_generator.py": "2fdec1457fa38140a53bc05996c1945bf0233257c6972b10520009a682dd4c97",
+      "oracle-source/transformers/generation/configuration_utils.py": "90fe297384c13a66eaaaba398705fd372774d5bac77da8b69b90ac017256589f",
+      "oracle-source/transformers/generation/logits_process.py": "bad772e8fb618b442e0ba2eea6f77f37efd3b74a0bde6899555e51653cc51a9d",
+      "oracle-source/transformers/generation/stopping_criteria.py": "8fb0cbc67043fe1190091f7db2287fd7e8262cc62e215c98ed51841e43e73bad",
+      "oracle-source/transformers/generation/utils.py": "cc36066d0147e50de067f7ced9f5c5361197bda0227b46f63d5ceb9e35e7c2ec",
+      "oracle-source/transformers/generation/__init__.py": "06a9b6b388ad584faef09359b42118e5f1fb40c7b41ad8e9d9fac79f8e20553c",
+      "oracle-source/transformers/integrations/accelerate.py": "863ddc3c52c533b2666d11cb66a3a00e90e26c2c0b2f8f065561aa62a9dd2623",
+      "oracle-source/transformers/integrations/aqlm.py": "10310a62842fc3a745ebce6b53af0bb42aafe94bb373274feeb9370e4ee76486",
+      "oracle-source/transformers/integrations/compressed_tensors.py": "973f2a9b7496bcaf768bd7a9e4585620f05944dabfc8a88c9fc522c3ffb84212",
+      "oracle-source/transformers/integrations/deepgemm.py": "c2e95104950452ea428d1713bc1b05ed9317f540df4e4aceffea30f433026c3f",
+      "oracle-source/transformers/integrations/deepspeed.py": "b1a40761ceaba180df509197e8b01039e3ffbe6a8add58eec1fcf6fb9cd466bd",
+      "oracle-source/transformers/integrations/eager_paged.py": "a3669ea7eb535640280babdf1897b794d77b09a81b3a128972acefb2e1420802",
+      "oracle-source/transformers/integrations/finegrained_fp8.py": "e86cb993a148ba7e1baffb2f8c892fa5afb31504e81992a27da75a505c914624",
+      "oracle-source/transformers/integrations/flash_attention.py": "6d99bc03665073f8545083e871cebe21cf8a4304a139bf9d7f4b013f12f542d0",
+      "oracle-source/transformers/integrations/flex_attention.py": "46655f4b8b528a75cdaa418e2fc6690fa4c2dd5e0180fe78900f4db0a7c83650",
+      "oracle-source/transformers/integrations/fsdp.py": "4bcb8b7a2f05af12762699e0f07494fb5e21ace445ef215d82089625b8beb022",
+      "oracle-source/transformers/integrations/ggml.py": "aaeca11c32c3b686110262979597a21e96dcf174f0a27f63cc967a0141d5d427",
+      "oracle-source/transformers/integrations/hqq.py": "19e4e88064aa3f2ae04ef4c7cf1c2de53661a5cd6f463fe56f60dd5b2e412a42",
+      "oracle-source/transformers/integrations/hub_kernels.py": "a58d58697a463494e66f0384efee75bf1095a17fceda3d0374f8f6039befdb85",
+      "oracle-source/transformers/integrations/moe.py": "a4cdb41cd6c4e40a3e602644b5781a5dc53ac4ef227249db2ed40c7347990556",
+      "oracle-source/transformers/integrations/npu_flash_attention.py": "28dc6163f3a4a2308ff1c40abcf5283a5ea957621e32fed573f0b7fb1c29ce5e",
+      "oracle-source/transformers/integrations/peft.py": "867e2d7c02ada69074bdd01e27ff29aec143002fe39d773d50df461538b8ac9b",
+      "oracle-source/transformers/integrations/sdpa_attention.py": "0523b9e7b375941b91c226aa850ffc18af709d8f697701fd16f2babaec32f23f",
+      "oracle-source/transformers/integrations/sonicmoe.py": "42767b70d3f24d801096898ab5b6160e6ec12bc2c1da75e0868b6d013deb4bed",
+      "oracle-source/transformers/integrations/spqr.py": "83c1cd74b3d524b77e1860358317188a7e03d1798e2d82f7f9ac0e9bf1b55820",
+      "oracle-source/transformers/integrations/__init__.py": "84fcc8cf8cca484fe6ffb9c9e85c24d9a6121e6dee35588daac5fe9755652c96",
+      "oracle-source/transformers/loss/loss_deformable_detr.py": "4bfc1499b608c7cc83153c1709d58758d98fb83bd3f8628ec58716ef19781df0",
+      "oracle-source/transformers/loss/loss_deimv2.py": "03cdcbabee6def20d215b3022d5ef03821f29850341a26d6d97b99bae6052d87",
+      "oracle-source/transformers/loss/loss_d_fine.py": "141cf57f8eef98d104d39455462ca1c3ab5a3ef45df4f5cd2e9811282c8e9341",
+      "oracle-source/transformers/loss/loss_for_object_detection.py": "226bd9e804e466ddb2c4249f8581dab51cb874e8ac84b8e03cef15345b471160",
+      "oracle-source/transformers/loss/loss_grounding_dino.py": "63e0470725cae728ed8fecb944f5737a01e34b61348ab3f44be6ff4a027c42a6",
+      "oracle-source/transformers/loss/loss_lw_detr.py": "501c0ed591391e8dbe47a65c3cc6172732d3c829449768002d8e361ebdc4cba9",
+      "oracle-source/transformers/loss/loss_rf_detr.py": "826d3440296a2f27963b15ca15fa2ea87ae06d91895eed2bfca2ab52ce4b9e73",
+      "oracle-source/transformers/loss/loss_rnnt.py": "6bab2e36b37c22a7f9e4073c78836970d5904a1665979253c1dff03a83f27013",
+      "oracle-source/transformers/loss/loss_rt_detr.py": "ffc1bccd31e4c0868cbefb13428cf03f0cbcc38a40f67cda179e59ffe29e7b8f",
+      "oracle-source/transformers/loss/loss_tdt.py": "a800f7704b1103de66ad55ff18a11064eb6fc104e039f52a430258fadbec1b83",
+      "oracle-source/transformers/loss/loss_utils.py": "83db16b24ce5c3a0642097624aa9a0ae7eb72445c41d8b4d5059a129862fdbbe",
+      "oracle-source/transformers/loss/__init__.py": "a844eca82c1acaee989a3fc9e3f03f7a2c2268c4474349e858a337e6769a9f37",
+      "oracle-source/transformers/models/__init__.py": "edbf31bdafe551d6e33f6c26492c4f8cf4eb21bb9a27f8f3e5c107aa939f2e4a",
+      "oracle-source/transformers/quantizers/auto.py": "03506c1ed2867a86ee3acbaaf7e3297aee2d5be63e265066229302562d4dd1b8",
+      "oracle-source/transformers/quantizers/base.py": "765b671a495174fefe8b27bf7075cfb3e52b5b6f68b1931c7592bdb785a867f3",
+      "oracle-source/transformers/quantizers/quantizers_utils.py": "93aaee39e2851b476550460fd1eee346356f3ef6c8bfe801fee1f7d129057f22",
+      "oracle-source/transformers/quantizers/quantizer_aqlm.py": "b5158f5ee9230e68d07b0f5282ed9080f4c18f3150ea38bd890e20122f308f53",
+      "oracle-source/transformers/quantizers/quantizer_auto_round.py": "55b56422b2a3bba5b23f952b8601153016a9e3a3165113ff33659e1eaa9fa55e",
+      "oracle-source/transformers/quantizers/quantizer_awq.py": "f3d15ed06a07d2f01bd0459232100588abaa403882439c8a0c2df8c50c12c85c",
+      "oracle-source/transformers/quantizers/quantizer_bitnet.py": "43fbdb6ff679ab7b56f54d6809e85733333b4e5bd768d692765bb32f4bba960c",
+      "oracle-source/transformers/quantizers/quantizer_bnb_4bit.py": "284dee75276e56147743c46b15af4c6855bc416f249b532c9fbe25abe13a0cbc",
+      "oracle-source/transformers/quantizers/quantizer_bnb_8bit.py": "04f405490135655892239a9cc73ce2f2dabaaaa74c4740b091399b70c5887df7",
+      "oracle-source/transformers/quantizers/quantizer_compressed_tensors.py": "bf91daa3923b4b0328ecc643bb754960de5f9f56e4425e9d46d4bc3fc9de6b46",
+      "oracle-source/transformers/quantizers/quantizer_eetq.py": "510a4e416085018a0486207c56c8be6f8d08cd33cab126812daf9ff659294ff0",
+      "oracle-source/transformers/quantizers/quantizer_fbgemm_fp8.py": "9e6296fcdcedbf5df9a1da37d18181860ea3a455dc5db970df317a0516dc04e0",
+      "oracle-source/transformers/quantizers/quantizer_finegrained_fp8.py": "bdc826c0287d05823e5f3fee2b3a54203ecd598d47b90ffb4b4f6de34b0bda1c",
+      "oracle-source/transformers/quantizers/quantizer_fouroversix.py": "78bfeeea2d86bd66f90907a23445877ff09c79b079c7c153eb303439dba540a4",
+      "oracle-source/transformers/quantizers/quantizer_fp_quant.py": "380eb9721bc703c67b9fc4ac71dc14a2577a4f11ce5f78fef0994909909140dd",
+      "oracle-source/transformers/quantizers/quantizer_gemma.py": "9284963540a16cb2373125ef93556d030820fa0fd914d185322d198393cdebef",
+      "oracle-source/transformers/quantizers/quantizer_gguf.py": "e927420af3ee6b493c730f860c23ff04f83d06feda3fb1b808ca0e57981718aa",
+      "oracle-source/transformers/quantizers/quantizer_gptq.py": "83fd335832ab62ccf9ad5c33d282c47dbe7a8234466d2468469ee8fb6d5b53d4",
+      "oracle-source/transformers/quantizers/quantizer_higgs.py": "ed160bc31844631a4a030b1391259cc293341b722dc26bc76d208cc16334281f",
+      "oracle-source/transformers/quantizers/quantizer_hqq.py": "07f0e6a7f111e8f17d412fee13507cdf7eda36aa0cb5b646f8f3a0ab998da6ee",
+      "oracle-source/transformers/quantizers/quantizer_metal.py": "2be8328ab9d75bcbd97551c06df8a984731980bbc70c93cfe075d86b1c1cecce",
+      "oracle-source/transformers/quantizers/quantizer_mxfp4.py": "79f90a8b9060b26a65e473f0832733100f74cb639d17d7a0c7e65d832267efa0",
+      "oracle-source/transformers/quantizers/quantizer_nvfp4.py": "fdda3f8ef9cce72c109f2d8666b68c0ae98c1d74a46b7611cac03212583370fc",
+      "oracle-source/transformers/quantizers/quantizer_quanto.py": "aa47bacbc68a8be739a96e1f2a4cbb18b09af131939ccf98dbc97f64074c31f0",
+      "oracle-source/transformers/quantizers/quantizer_quark.py": "4f3890a59e03aa5809ea8cbe5d7ede904c1f135793d669008a1d12a60aa85820",
+      "oracle-source/transformers/quantizers/quantizer_sinq.py": "d9390d82f9133147a77c80c7be3708d6fe8d771519068ebac2da71d2e0f51c3b",
+      "oracle-source/transformers/quantizers/quantizer_spqr.py": "b64f7c80866e1232e3a5e0bfe1494016d987358d3b7e76019a295744d1e5837d",
+      "oracle-source/transformers/quantizers/quantizer_torchao.py": "ab94ab63e5e4a21bd186eec540de4e6cea857031746055503190d4397bd8a927",
+      "oracle-source/transformers/quantizers/quantizer_vptq.py": "51eb24fabb018335ca5adda25a2525fe67f80ed133b40d7d8769494e8f45624d",
+      "oracle-source/transformers/quantizers/__init__.py": "4bfc534936e40cebe32e04778e047810090ffec737344f1edfc4fe96594068da",
+      "oracle-source/transformers/utils/auto_docstring.py": "38ebb9f082082372176991b160ffc3e0e674e1cb0f0fd49a0eafbceff050e6fb",
+      "oracle-source/transformers/utils/chat_template_utils.py": "976ecbdd024eea4457524d76ced50b368b5592af3970526e4bd9063672da6dd4",
+      "oracle-source/transformers/utils/constants.py": "b19b14c0e9c0dc26ed375b2fb3d62868d2d34ec01cf5155a213b20a5ff0ae222",
+      "oracle-source/transformers/utils/deprecation.py": "f5e39bd6ffe1248ca93b74877b2393081027272b7186bbc687c9979fa37ab4bf",
+      "oracle-source/transformers/utils/doc.py": "d1591b0f8fd406345879c85b3a3b4248a5283bca9e9aed693506ab3862fbfd12",
+      "oracle-source/transformers/utils/dummy_mistral_common_objects.py": "fcd11e1b94ad4322c7299ff83b24e0bf2c64c4c05ac0c13c927297d72f01aabf",
+      "oracle-source/transformers/utils/dummy_sentencepiece_and_tokenizers_objects.py": "0603cbafc5b3f00fb5ecaf3ac74e0ddb508a5ed58d40b2445b1d9ce1a651a9a0",
+      "oracle-source/transformers/utils/dummy_torchvision_objects.py": "98b4a2465f645b656ce9712ffcd09b0750a81081a6d247859df2413a7e3a70f4",
+      "oracle-source/transformers/utils/generic.py": "222da9314771386b9666d15b242074ffc22dd440f74ce864137b793e1c2cfcda",
+      "oracle-source/transformers/utils/hub.py": "30e2df23859fab4d0da05e68a2e14790dc8a076e93d67005ec3148ad4377ac3e",
+      "oracle-source/transformers/utils/import_utils.py": "6049342a95f78ef97f8e712e965d5e55435f00443010e169b9a88a762e3c2f0f",
+      "oracle-source/transformers/utils/kernel_config.py": "ba6bff9914441dc314ec32dccf15245eb07036bc54726bbf5bef786506c4561b",
+      "oracle-source/transformers/utils/loading_report.py": "2ade91b3101cd8370ca17083e0c33039cde4236d4d4a94295604224269d333e8",
+      "oracle-source/transformers/utils/logging.py": "bc15c04e7fc4444a6b13953e1de4792ef626d67d149c02d8cd3631cf098acb2c",
+      "oracle-source/transformers/utils/output_capturing.py": "a188aeb10cca3a3238d7df1d4e3c08b44dac283ba5b8b7a7cafd2d2bbc532e7c",
+      "oracle-source/transformers/utils/peft_utils.py": "dad73eb945adc39f800568066f28762eea14a15ace08fc99d5991088c173a736",
+      "oracle-source/transformers/utils/quantization_config.py": "a19348f7460e49772aed8d43c634bd58175d82444480507ced39ec5c533ca56b",
+      "oracle-source/transformers/utils/type_validators.py": "2c760602547a5085ac681979ffaa893109515becbf11987ede893551fd5cbce6",
+      "oracle-source/transformers/utils/versions.py": "ef9e6254e79422f28d8086da0a43bc3f43fdc4e0191487f70bd128b8f831c45d",
+      "oracle-source/transformers/utils/__init__.py": "c9f342743d059b09d2d4d15b15895f21ea9fa9dab8da2e6bc46b3364768bd2fd",
+      "oracle-source/transformers/generation/continuous_batching/cache.py": "f20322610e4cb45e66415b11ba58e7ff391259cdaaae2fd3472e7f531b864742",
+      "oracle-source/transformers/generation/continuous_batching/cb_logits_processors.py": "b2ac7befd693635db2ea38a68aa18c639c0885d0bdda1e3d7e3467e3fd9a800f",
+      "oracle-source/transformers/generation/continuous_batching/continuous_api.py": "2144ad41d80bf0e45b13d9d627b639301ed2dc4002c43e8529f332900d010fb7",
+      "oracle-source/transformers/generation/continuous_batching/distributed.py": "c705533fd485e1d2ac54b75043f633dc9e8a79358fdef45fcafe30e8f6049ca4",
+      "oracle-source/transformers/generation/continuous_batching/initialization.py": "b3f1bc7ef6c2287c502d5e288fdae0d31b3d4638517781027f4a58d9258789db",
+      "oracle-source/transformers/generation/continuous_batching/input_outputs.py": "25e03fb41efb625f69706f00b9dcf65aabc507504bc95ff5e270e53fbad263dd",
+      "oracle-source/transformers/generation/continuous_batching/model_runner.py": "db2d0a9c3eec81b6ab142f760bbc74f4351fa7930b186fb87d4d797e492e5ca5",
+      "oracle-source/transformers/generation/continuous_batching/offloading_manager.py": "86550c608ad635cb8e0142d30845655003b6671e5b76e158493f7bd1fe7aa86d",
+      "oracle-source/transformers/generation/continuous_batching/requests.py": "a9e929ff7d91b67e72b07eb4757f16373b44f7ff383011045e3dfb8167e2c09c",
+      "oracle-source/transformers/generation/continuous_batching/scheduler.py": "50c243e775020d22fd23e62d463133ca48a38c36fa23a509709905aefacf190a",
+      "oracle-source/transformers/generation/continuous_batching/utils.py": "0549feb79e8fa3287d26e9f1a1903c6eb8e1a981249fc60cbb242ffc9b3321de",
+      "oracle-source/transformers/generation/continuous_batching/__init__.py": "5f76e8f2fc0b6771e050bd33e4a027a3210541bd5584bc1fd27280c95afe456b",
+      "oracle-source/transformers/generation/continuous_batching/cache_allocators/cache_allocator.py": "e139202540223a107dd3810e5ed94fdd389d3e11cf14836d7c4525908e27f502",
+      "oracle-source/transformers/generation/continuous_batching/cache_allocators/cache_pool.py": "fb6f01aeed485e0befbb43f816a82babbf5367ecfb76105888a243933a88c2f2",
+      "oracle-source/transformers/generation/continuous_batching/cache_allocators/full_attention.py": "23c77007bfbbf516aa62fba9218660c99b0be8af890c9861b7fd58744ace8ff3",
+      "oracle-source/transformers/generation/continuous_batching/cache_allocators/sliding_attention.py": "ae7e4a8f15e9a699cbaf68f2f8aa0f50f8b1ccf6bc58b8f16f91a7ead82e4c62",
+      "oracle-source/transformers/generation/continuous_batching/cache_allocators/__init__.py": "434d2898e44c5a86ab1c24dc5c14581bccf693f5ea09371f29780ac06b22be89",
+      "oracle-source/transformers/integrations/gguf/dequant.py": "c4495bc30e89b06d748aaabe63a2e521b13a40227e0530ba44fb1d6460f1b786",
+      "oracle-source/transformers/integrations/gguf/gguf_conversion_mapping.py": "46f2b16fc7a4b22190117374e63713c6bd3fc920621e079beec8c1a3d0f0a172",
+      "oracle-source/transformers/integrations/gguf/gguf_tokenizer_mapping.py": "c70a0841d68c2370fddd235259c3c24336b1381a67788afe32c591ed4d75d6a9",
+      "oracle-source/transformers/integrations/gguf/kernels.py": "726a97f37b2742b66be5489b10e0f7df10468f29c534dc0a9fd7580472e2607a",
+      "oracle-source/transformers/integrations/gguf/reader.py": "0e0657b2332da771e4f14e36a89141f356a51263e54a530f4ef382068f45019a",
+      "oracle-source/transformers/integrations/gguf/utils.py": "326455b13e5f92541ab99bb10c4897aebbaf5105f7eef504d8a8f06e80fa5772",
+      "oracle-source/transformers/integrations/gguf/__init__.py": "97e1957420037aba34d3a1dfcc400ec428a6de568d677d1192001f3a71bf9c6a",
+      "oracle-source/transformers/integrations/heterogeneity/configuration_utils.py": "219b6bdda0fa44b28ad3ef4c77d271367996bc84b03365e467974a82fce4c5dd",
+      "oracle-source/transformers/integrations/heterogeneity/__init__.py": "1d951a1605db7976dd8e2bc383b1aeacc2e7d92bdde24de965e5a465c6cf6974",
+      "oracle-source/transformers/integrations/mistral/constants.py": "8ab241d154ab2b62905ecd6f5419fd36e6b18bea067a383eb915b4ffd6e0bdc8",
+      "oracle-source/transformers/integrations/mistral/__init__.py": "b515cdc3ea94f1320d286b5580286596904aa25f67b24a2a78dc1e6b791a0a9b",
+      "oracle-source/transformers/models/auto/auto_factory.py": "e3dfc3e7bc858498cf61ef58b3240f57e3490e785a160281f5a8b3ab20966f76",
+      "oracle-source/transformers/models/auto/auto_mappings.py": "1f8f527dbb2d04e6440e7f68e00e00984b0badf6952f80d7c4d324d72e1ffd6a",
+      "oracle-source/transformers/models/auto/configuration_auto.py": "bb70710967ea05d4f0ea37140cc23cac84b140876bcdca2de602c0faf5bb9fa1",
+      "oracle-source/transformers/models/auto/feature_extraction_auto.py": "67c73ec66c28b9327e12406dcf0a58f1cfe682978a59874e6d72c84e5f656fae",
+      "oracle-source/transformers/models/auto/image_processing_auto.py": "b4b9bad358d59cecd2f5d4915e2c9bcd7845661ed3b5d6fa7eb2943e891bdd80",
+      "oracle-source/transformers/models/auto/modeling_auto.py": "34a2022f97b149b4a941a7a86f1465aee197cc442e06c0f888728397bcaf63cc",
+      "oracle-source/transformers/models/auto/processing_auto.py": "3f29c881f41abe7b271112eed82300c3577a01b72ba8a464467830ea66d64321",
+      "oracle-source/transformers/models/auto/tokenization_auto.py": "d8ddbba55ef683bd4980313104b192a0468aecb5a8a35491f1c48ae8c8bff3fe",
+      "oracle-source/transformers/models/auto/video_processing_auto.py": "38a332b0b7b8450255c08a72766d1fb5cd7e2899c49c1095ab6b100310b57343",
+      "oracle-source/transformers/models/auto/__init__.py": "9fb0ba563f0234295ddbcd3478b4cd84c936fd9bb6abee6b8d6a48c304addba4",
+      "oracle-source/transformers/models/clip/configuration_clip.py": "8363de8e0fbaec63cf918e7a5fcb3725337e1837ab42a28ed4d50f95a6a24a39",
+      "oracle-source/transformers/models/clip/image_processing_pil_clip.py": "252e10876195f0d800a2d0edb9b054739556c03e4a71e6a3fa4a85327af92f24",
+      "oracle-source/transformers/models/clip/modeling_clip.py": "73edc85e6d41ecc15095e949f118e44cca68b565ab6f3c3a488768bb27ae1af9",
+      "oracle-source/transformers/models/clip/__init__.py": "541443d511fae770182d96f3b69f4322b2a3acc1cf35926e1e9ec7657f4bdf60",
+      "oracle-source/transformers/models/encoder_decoder/configuration_encoder_decoder.py": "fc07b474b350da9bb5fb8495f2c80d27c9ef5d1915290dd898ac20bba0dc877f",
+      "oracle-source/transformers/models/encoder_decoder/__init__.py": "2399f3f4bbcbb41d74df401f937033c523e5b4cd9f7082a328f04aeb258b13c2",
+      "oracle-source/transformers/models/gemma/tokenization_gemma.py": "ff2481e06983015188575dc62bd2fa0e6f33ed2d01165d940efe77b80ee8d419",
+      "oracle-source/transformers/models/gemma/__init__.py": "d096075b69e4555169f7fc4b4b8781357aa5e5a9e6b9a451b5d7d31042021479",
+      "oracle-source/transformers/models/gpt2/tokenization_gpt2.py": "a9dbc47fb0304b98cc9a0c4642b9292473f96652c89c1f1d78f420613535f1e5",
+      "oracle-source/transformers/models/gpt2/__init__.py": "c3c85499ba722e81675a03f907474305f1c9c27f9e92563715979b9d60407090",
+      "oracle-source/transformers/models/llama/configuration_llama.py": "5e2e803d15956cdc402ab1c4a5151a899bd39ddfbecbb81181733657817aaeda",
+      "oracle-source/transformers/models/llama/modeling_llama.py": "133f0601f2da6a3e2587e1220947393b08767427f1e0eb343e6bcb3ce9d2d6a4",
+      "oracle-source/transformers/models/llama/tokenization_llama.py": "ccf940a4fec19a6cc20079cacf65fe9161a66b58ee8d469a436de53a285fcac8",
+      "oracle-source/transformers/models/llama/__init__.py": "74ba5ae65ea156b99b1eaf81c753f472fc4d383132ab8ba17d3cf28bab805a8a",
+      "oracle-source/transformers/models/llava/configuration_llava.py": "6c54ca2479eb6b8177f6abed2580b90f9248412612f6cc8370f6367bc8a182b9",
+      "oracle-source/transformers/models/llava/modeling_llava.py": "e5cb54d23a718bf713e45d440650947ae4e7541dcd425140c56f2a54ad304626",
+      "oracle-source/transformers/models/llava/__init__.py": "ea91da78aaeea0280d868a7e36cc65bbf6f96af96764fcf9b785a7eecddef1c6",
+      "oracle-source/transformers/models/qwen2/tokenization_qwen2.py": "fac4e6576bfe2369731be147a4e530f262bdf32f2ac50436f96f0d8bdd2fc628",
+      "oracle-source/transformers/models/qwen2/__init__.py": "54401231a8159f333aaee17b4505e6ff7d581bd35b64a5985717aabdc8a95522",
+      "oracle-source/transformers/models/qwen3_5/tokenization_qwen3_5.py": "3d2f98abc1c6eec61e4548171286b88f5e8173ac6d63954b8fd225b7e24cf25a",
+      "oracle-source/transformers/models/qwen3_5/__init__.py": "177e529b113a13c350daf85823c601a3e82406430a776fb66c2ce3a490cb08bc",
+      "oracle-source/transformers/models/t5/tokenization_t5.py": "6fa6696aa2bf6bf40bcd7c7aea81b5b581e365ada45c6d7768d53609174496d5",
+      "oracle-source/transformers/models/t5/__init__.py": "adc137033fb28892c14436debc98fbf5469d6d14e4c4ff86dfd04784251bb560",
+      "oracle-source/transformers/utils/chat_parsing/content_parsers.py": "ade3cebcbe990dbecd82374697abea5a57df18c207eb9dd8b8fa9c720c4e734e",
+      "oracle-source/transformers/utils/chat_parsing/response_parser.py": "8c96160a109978a7f51b60d89f748380be01e7949efa8edd98dd0f5f1a22689e",
+      "oracle-source/transformers/utils/chat_parsing/response_templates.py": "cdb58884f9c6743aa99e021fc42356c90b9b1d44872f6d72345a83743c2b95c0",
+      "oracle-source/transformers/utils/chat_parsing/__init__.py": "3a51e1b44faa2aef8afc3f7d78b38edf66499b6511980ee3ad730aa50f089435"
+    }
+  },
+  "binaries_sha256": {
+    "llava_pipeline_probe.exe": "a6db21a6ea696a4dc4f3e2dae9d4f45a10dace97138eb774fef598b75804d9ac",
+    "cpu_adamw_probe.exe": "7ddb37e2817e52540ce3fc40ee959c925550ae9eef4977c27f1e1e59bd7eb932",
+    "multimodal_training_probe.exe": "4001e860c2cbe6d9fc364a2059efa8912004593763cb27df02e901cb630970ee",
+    "hierarchos-vulkan-transformer-logits.exe": "f99601a173d9ba3959d1d55fa4a42760b33b2db0feefe88c334aec9a13d68e0e"
+  },
+  "source_sha256": {
+    ".github/workflows/workspace-check.yml": "bb0eecb1a5f11f1f18cd6977029c0190acc64c8363f16f821eb050f023be1651",
+    "PROGRESS_MULTIMODAL_TRAINING.md": "b8582d5992dd8569a609434502f7744ef4a14ead5bb581fdcc2312f3d14e9982",
+    "README.md": "ad1fffc1b5f3bbdab38b2ba759acfe1271517ffb40782bfa8f9a1c3ca50df72e",
+    "hierarchos-vulkan/shaders/adamw_cpu_single_tensor.comp": "a946fa2c0fe8024e02e08f1bd1a665e9202c580e19f400936ec742b14c9cdfb3",
+    "hierarchos-vulkan/shaders/adamw_cpu_single_tensor.spv": "66c82fa657aafdfb96ce47e3b88849a282d54068ceb33cb70577c69fca93b6ba",
+    "hierarchos-vulkan/shaders/vision_clip_tokens.comp": "df2dc5d7ae32d13f678da3206d366b8d1ff43adb75de6faaf2e4cae3f2c174b3",
+    "hierarchos-vulkan/shaders/vision_clip_tokens.spv": "0d8d8ae6022ca8ccf2bfb746b1523df3386a1c8c60fe4d26e7dadc5cbaa7623a",
+    "hierarchos-vulkan/shaders/vision_patchify.comp": "367809cd963d84e29d9d71b9c6ef7555718f4245be18388e5368c77304b0dba9",
+    "hierarchos-vulkan/shaders/vision_patchify.spv": "3523cf291a51091c91a50e2a63e005b1a0765f94c8e0d8e8f5b5adb882ac26cb",
+    "hierarchos-vulkan/shaders/vision_quick_gelu.comp": "7331ce4510957550d6d955f288111609e413e4065d17c4e2fb7d5e684c69616e",
+    "hierarchos-vulkan/shaders/vision_quick_gelu.spv": "366e65dbf9b7dd3a47c4a0a3153aace35797282df6c6d73cb3f66260b066689a",
+    "hierarchos-vulkan/shaders/vision_quick_gelu_backward.spv": "5d82f456a9c3d20025c4f8d4d1700303bf6e4c9d31dc7759f00fefd0aaceb0bb",
+    "hierarchos-vulkan/src/bin/cpu_adamw_probe.rs": "9fd23f5edae448902c9149dab61ae29adf094f9c1e6408fe87dc7a00800c88ee",
+    "hierarchos-vulkan/src/bin/llava_pipeline_probe.rs": "6afe6371d0006affcee527dfb4e81658e4a72a0adea4ed7426de1b2c7dd25cf9",
+    "hierarchos-vulkan/src/bin/multimodal_training_probe.rs": "36dba2760ca406a0cf710cbc3d201db1de5fcc9b55007365c8477bfa4c236bdd",
+    "hierarchos-vulkan/src/cpu_adamw.rs": "b85f7377df093de6c0bfb5f2c8eba89ebdad37701c9ddebb769693789040b62b",
+    "hierarchos-vulkan/src/lib.rs": "327a47db9cc0cc66ff6e6ea30b6690fe91d0309074aed2fbd21ae15cae95c7bc",
+    "hierarchos-vulkan/src/multimodal.rs": "d7aca38127379df058761b51826cfee3d9bb1342218ef877f66496806aa151bf",
+    "hierarchos-vulkan/src/projection.rs": "1dd109337e4f1cdbf1550918e48b1bd85f0be6d53224a80e210822241a8953b6",
+    "hierarchos-vulkan/src/shared_lm_head.rs": "0d54dfa58b7e66328ac4f3e111fabd12bc32a42754d3e21ce0b0c9acc8a150f4",
+    "hierarchos-vulkan/src/transformer.rs": "dc2afb8b146a52366a83f0dcb1a024d1a530eac670ce85c1f4f11f5b61428783",
+    "hierarchos-vulkan/src/transformer/vision.rs": "0929e2e79e6ca171c3de345b5efd4d2c7005c9dc9ff25b36a529f182e9f741d8",
+    "hierarchos-vulkan/validation/diagnose_multimodal_updates.py": "2eda8ead6c7f1e48e46e7fd5af5a2593093d12a78f7f06debcda559c281604a2",
+    "hierarchos-vulkan/validation/multimodal_training_inventory.json": "993de299fbf69fc9168b1608a02ca346ba6df03321dce282bea85fb4aa267f54",
+    "hierarchos-vulkan/validation/qualify_cpu_adamw.py": "0098ca189bb4fcb8a4bff5142ed9a51c29ee2158b7df99a87d6bd51ce182d9ac",
+    "hierarchos-vulkan/validation/qualify_llava_pipeline.py": "d89a4a0b322f832f3d54a81a7a3a5fefb0f92e89c0ebfcbfa2b431eb23fd7047",
+    "hierarchos-vulkan/validation/qualify_multimodal_training.py": "dbcd84b055e91a8aced615c5f057a2e5e06850f75079ec4f5cd0da08caea61c8",
+    "hierarchos-vulkan/validation/test_llava_pipeline.py": "71a6b6a1436b563b1c9d04cb03ad302c928eb805c7e24d7bc59032f811cfc639",
+    "hierarchos-vulkan/validation/test_multimodal_training.py": "2d8c8c2d0e2efe4f09294920ab19b836a715a6311bcccc633a3d608fe0be137b",
+    "hierarchos-vulkan/validation/training_shader_manifest.json": "9d4c0dfadf226033ef8546595997343b77b46afe3770ad7a29fbf547d6180652"
+  },
+  "artifacts_sha256": {
+    "bridge-qualification.json": "66c9f050ac555935def917aff05879ff98b32e1f1cb67b1eaa2aac0b3df3e182",
+    "cpu-fixtures.zip": "dd1c06115822b15fb8f547a8284b4c8070155a285aa29d2c0cf0fde0033ec6e2",
+    "evidence.zip": "2e16f635ed98b4ffbf767998519be1db0883d83396c947003926e5bd217447eb",
+    "optimizer-cpu-fixtures.zip": "ecda3bae43eb4f69eec17cd58d759836c4e90d4189bd4b4749ddfef2ab4b4499",
+    "optimizer-qualification.json": "7efa316f29ac8fc0f2c2e0060f43ec24661567e47af0220af8a8599630ec115a",
+    "pipeline-qualification.json": "6f2419ee74a177a780123e8447c563d24375f6204845608d9f379565bdcc9375",
+    "README.md": "0780f53a452edeb8db711d0eb9a18fde40c95b0561c431a4d67601863dffb67d",
+    "shader-verification.json": "16946f09a1389d795c358125d8ff2fc034b1dee1382319a6c1ac71244626c85d",
+    "text-regression.json": "b4cc565da87da5bc2ed3d781de9f27f4ff787b0aded5e5d2987335394790a413"
+  },
+  "limits": [
+    "Scalable FP32 fixtures, not production capacity/throughput.",
+    "Resize/crop disabled; fixed-size RGB8 input.",
+    "Other actual towers/backbones, video/audio, PEFT and composed optimizer resume remain pending.",
+    "Fourteen broader feature cases remain red; every frozen expectation and strict logit ceiling is unchanged.",
+    "Physical RDNA3 replay is pending; the user-requested upstream RDNA3 fix/readme was integrated."
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "scope": "update_drift_attribution_only",
+  "case": "phi4_multimodal_text/padded",
+  "after_step": 1,
+  "cpu_sha256": "03e8a58c9c8e9be136cffdde845d0bc559b37218f6f738edcb657dac3df6fb9b",
+  "native_sha256": "7be49d11c2a7e6a80101fda3e9187ad51fcb72b1ac57f1459ce132dbb9d64e5d",
+  "binary_sha256": "82dcc12a24f83f0ab1cda6c87078c9bdb79bbaf0d1f899e36dbbe48e21866c07",
+  "runner_sha256": "2eda8ead6c7f1e48e46e7fd5af5a2593093d12a78f7f06debcda559c281604a2",
+  "records": [
+    {
+      "backbone": "cpu",
+      "projector": "cpu",
+      "logits": {
+        "values": 288,
+        "max_abs": 4.470348358154297e-08,
+        "pass": true
+      },
+      "modality_embedding_grad": {
+        "values": 48,
+        "max_abs": 1.7881393432617188e-07,
+        "pass": true
+      },
+      "feature_grad": {
+        "values": 24,
+        "max_abs": 2.9802322387695312e-08,
+        "pass": true
+      }
+    },
+    {
+      "backbone": "cpu",
+      "projector": "native",
+      "logits": {
+        "values": 288,
+        "max_abs": 4.470348358154297e-08,
+        "pass": true
+      },
+      "modality_embedding_grad": {
+        "values": 48,
+        "max_abs": 1.1920928955078125e-07,
+        "pass": true
+      },
+      "feature_grad": {
+        "values": 24,
+        "max_abs": 2.0489096641540527e-08,
+        "pass": true
+      }
+    },
+    {
+      "backbone": "native",
+      "projector": "cpu",
+      "logits": {
+        "values": 288,
+        "max_abs": 5.960464477539063e-08,
+        "pass": true
+      },
+      "modality_embedding_grad": {
+        "values": 48,
+        "max_abs": 2.086162567138672e-07,
+        "pass": false
+      },
+      "feature_grad": {
+        "values": 24,
+        "max_abs": 1.5832483768463135e-08,
+        "pass": true
+      }
+    },
+    {
+      "backbone": "native",
+      "projector": "native",
+      "logits": {
+        "values": 288,
+        "max_abs": 5.960464477539063e-08,
+        "pass": true
+      },
+      "modality_embedding_grad": {
+        "values": 48,
+        "max_abs": 2.384185791015625e-07,
+        "pass": false
+      },
+      "feature_grad": {
+        "values": 24,
+        "max_abs": 2.0489096641540527e-08,
+        "pass": true
+      }
+    }
+  ]
+}

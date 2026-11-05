@@ -1,0 +1,22 @@
+[
+  {
+    "round": 1,
+    "mode": "individual",
+    "word_exact": true
+  },
+  {
+    "round": 1,
+    "mode": "grouped",
+    "word_exact": true
+  },
+  {
+    "round": 2,
+    "mode": "grouped",
+    "word_exact": true
+  },
+  {
+    "round": 2,
+    "mode": "individual",
+    "word_exact": true
+  }
+]

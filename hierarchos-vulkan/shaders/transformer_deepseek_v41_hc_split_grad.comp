@@ -57,7 +57,14 @@ layout(push_constant) uniform Push {
 #define V41_REDUCE_INPUT stream
 #include "fp32_v41_reduce_parallel.glsl"
 
+#ifdef HIERARCHOS_V41_HC_CACHE
+// Bounded native variant: HC <= 4 and at most 20 Sinkhorn iterations.
+// Retain the exact forward states in 2,496 bytes of workgroup storage instead
+// of replaying every prefix for every reverse step (quadratic work).
+const uint MAX_HC = 4u;
+#else
 const uint MAX_HC = 16u;
+#endif
 const uint MAX_CELLS = MAX_HC * MAX_HC;
 const uint MAX_MIX = (2u + MAX_HC) * MAX_HC;
 
@@ -71,6 +78,9 @@ shared float gradient[MAX_CELLS];
 shared float axis_denominator[MAX_HC];
 shared float axis_tail[MAX_HC];
 shared float norm_rstd;
+#ifdef HIERARCHOS_V41_HC_CACHE
+shared float history[39u * MAX_CELLS];
+#endif
 
 void normalize_rows() {
     if (gl_LocalInvocationID.x == 0u)
@@ -115,8 +125,15 @@ void backward_step(uint step) {
             precise float square = denominator * denominator;
             precise float tail = 0.0;
             for (uint j = 0u; j < pc.hc; ++j) {
+#ifdef HIERARCHOS_V41_CPU_AVX2
+                precise float quotient=fp32_div(state[j*pc.hc+k],denominator);
+                quotient=fp32_div(quotient,denominator);
+                precise float product=-gradient[j*pc.hc+k]*quotient;
+                tail+=product;
+#else
                 precise float product = gradient[j * pc.hc + k] * state[j * pc.hc + k];
                 tail += fp32_div(product, square);
+#endif
             }
             axis_denominator[k] = denominator;
             axis_tail[k] = tail;
@@ -129,8 +146,15 @@ void backward_step(uint step) {
             precise float square = denominator * denominator;
             precise float tail = 0.0;
             for (uint k = 0u; k < pc.hc; ++k) {
+#ifdef HIERARCHOS_V41_CPU_AVX2
+                precise float quotient=fp32_div(state[j*pc.hc+k],denominator);
+                quotient=fp32_div(quotient,denominator);
+                precise float product=-gradient[j*pc.hc+k]*quotient;
+                tail+=product;
+#else
                 precise float product = gradient[j * pc.hc + k] * state[j * pc.hc + k];
                 tail += fp32_div(product, square);
+#endif
             }
             axis_denominator[j] = denominator;
             axis_tail[j] = tail;
@@ -141,7 +165,11 @@ void backward_step(uint step) {
     for (uint cell = gl_LocalInvocationID.x; cell < pc.hc * pc.hc; cell += 32u) {
         uint axis = step % 2u == 1u ? cell % pc.hc : cell / pc.hc;
         precise float direct = fp32_div(gradient[cell], axis_denominator[axis]);
+#ifdef HIERARCHOS_V41_CPU_AVX2
+        gradient[cell] = direct + axis_tail[axis];
+#else
         gradient[cell] = direct - axis_tail[axis];
+#endif
     }
     barrier();
 }
@@ -204,12 +232,29 @@ void main() {
     barrier();
 
     uint steps = 1u + 2u * (pc.sinkhorn_iters - 1u);
+#ifdef HIERARCHOS_V41_HC_CACHE
+    for (uint cell = lane; cell < pc.hc * pc.hc; cell += 32u) state[cell] = matrix[cell];
+    barrier();
+    for (uint step = 1u; step <= steps; ++step) {
+        for (uint cell = lane; cell < pc.hc * pc.hc; cell += 32u)
+            history[(step - 1u) * MAX_CELLS + cell] = state[cell];
+        barrier();
+        if (step < steps) forward_step(step);
+    }
+    for (int step = int(steps); step >= 1; --step) {
+        for (uint cell = lane; cell < pc.hc * pc.hc; cell += 32u)
+            state[cell] = history[(uint(step) - 1u) * MAX_CELLS + cell];
+        barrier();
+        backward_step(uint(step));
+    }
+#else
     for (int step = int(steps); step >= 1; --step) {
         for (uint cell = lane; cell < pc.hc * pc.hc; cell += 32u) state[cell] = matrix[cell];
         barrier();
         for (uint applied = 1u; applied < uint(step); ++applied) forward_step(applied);
         backward_step(uint(step));
     }
+#endif
 
     // Softmax over the last axis: grad = s * (d - sum(d * s)).
     if (lane == 0u)
@@ -232,15 +277,23 @@ void main() {
         // gradients pick it up after the activation backward.
         if (m < pc.hc) {
         precise float sigmoid = pre_sigmoid[m];
+#ifdef HIERARCHOS_V41_CPU_AVX2
+        precise float pre_argument = (grad_pre[row * pc.hc + m] * (1.0-sigmoid)) * sigmoid;
+#else
         precise float pre_argument = (grad_pre[row * pc.hc + m] * sigmoid)
             * (1.0 - sigmoid);
+#endif
         value = pre_argument * scale[0];
         } else if (m < pc.hc * 2u) {
         uint j = m - pc.hc;
         precise float post_gradient = grad_post[row * pc.hc + j] * 2.0;
         precise float post_sigmoid_value = post_sigmoid[j];
+#ifdef HIERARCHOS_V41_CPU_AVX2
+        precise float post_argument = (post_gradient * (1.0-post_sigmoid_value)) * post_sigmoid_value;
+#else
         precise float post_argument = (post_gradient * post_sigmoid_value)
             * (1.0 - post_sigmoid_value);
+#endif
         value = post_argument * scale[1];
         } else if (m < pc.hc * 2u + pc.hc * pc.hc) {
             value = gradient[m - pc.hc * 2u] * scale[2];

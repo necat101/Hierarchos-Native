@@ -1,0 +1,13 @@
+
+running 4 tests
+test deepseek_v41::model::tests::training::deepseek_v41_modality_absent_gradients_match_text_path_bits ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_matches_train_sequence_bits ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_state_matches_train_sequence ... ok
+test deepseek_v41::model::tests::training::hc_adjoint_tests::deepseek_v41_modality_hc_repeat_adjoint_matches_frozen_words ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 1129 filtered out; finished in 18.20s
+
+V4.1 modality-absent path: 95 adapter modules bit-exact across both entry points
+V4.1 split-step optimizer: 106 adapter modules bit-exact against train_sequence
+V4.1 optimizer state: 106 modules / 18416 moment values bit-exact across the split step
+V4.1 released HC-repeat adjoint: 1664 frozen CPU words exact

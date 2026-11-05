@@ -54,6 +54,11 @@ pub struct DeepseekV41LinearTape {
 }
 pub struct DeepseekV41LinearGradients {
     pub grad_input: GpuBuffer,
+    // Keep the two existing allocations available to callers whose input is
+    // shared by multiple projections. Autograd accumulates those edges into
+    // the shared tensor separately, rather than adding per-Linear subtotals.
+    pub(crate) grad_base_input: Option<GpuBuffer>,
+    pub(crate) grad_adapter_input: Option<GpuBuffer>,
     pub grad_a: Option<GpuBuffer>,
     pub grad_b: Option<GpuBuffer>,
     a_len: usize,
@@ -78,16 +83,58 @@ impl DeepseekV41LinearGradients {
             grad_b: b.read_f32(self.b_len)?,
         })
     }
+    /// Read the adapter gradients of several modules with one submission.
+    ///
+    /// One `read_adapter_gradient` per module would cost two device-to-host
+    /// submissions per module, each with its own staging allocation and fence
+    /// wait. Every ordered call site already knows the whole set, so the spans
+    /// are gathered here and downloaded as a single transfer. Values are
+    /// bit-identical to the per-module reads: the copies only change how many
+    /// queue submissions carry them.
+    pub fn read_adapter_gradients_gathered(
+        entries: &[(String, &DeepseekV41LinearGradients)],
+    ) -> Result<Vec<crate::deepseek_v41::DeepseekV41AdapterGradient>> {
+        for (target, gradient) in entries {
+            if target.is_empty() {
+                bail!("V4.1 projection gradient requires a target name");
+            }
+            if gradient.grad_a.is_none() || gradient.grad_b.is_none() {
+                bail!("V4.1 frozen projection has no adapter gradients");
+            }
+        }
+        let mut spans = Vec::with_capacity(entries.len().saturating_mul(2));
+        for (_, gradient) in entries {
+            let (Some(a), Some(b)) = (&gradient.grad_a, &gradient.grad_b) else {
+                unreachable!("validated adapter gradients above");
+            };
+            spans.push((a, gradient.a_len));
+            spans.push((b, gradient.b_len));
+        }
+        let mut values = GpuBuffer::read_many_f32(&spans)?.into_iter();
+        let mut out = Vec::with_capacity(entries.len());
+        for (target, _) in entries {
+            let grad_a = values.next().context("batched adapter gradient A missing")?;
+            let grad_b = values.next().context("batched adapter gradient B missing")?;
+            out.push(crate::deepseek_v41::DeepseekV41AdapterGradient {
+                target: target.clone(),
+                grad_a,
+                grad_b,
+            });
+        }
+        Ok(out)
+    }
 }
 
 pub struct DeepseekV41LinearAdjoints {
     device: VulkanDevice,
     forward: DeepseekV41MixedLinearKernel,
+    input_grad_avx2: Option<vulkan::ComputeKernel>,
     input_grad: vulkan::ComputeKernel,
     input_grad_block8: vulkan::ComputeKernel,
     input_grad_group4: vulkan::ComputeKernel,
     input_grad_lane2: vulkan::ComputeKernel,
     weight_grad: vulkan::ComputeKernel,
+    weight_grad_avx2: Option<vulkan::ComputeKernel>,
     weight_grad_cpu_short: vulkan::ComputeKernel,
     vector: vulkan::ComputeKernel,
 }
@@ -99,10 +146,31 @@ impl DeepseekV41LinearAdjoints {
             vulkan::BindingAccess::WriteOnly,
         ];
         let kernel = |bytes: &[u8], push| {
-            vulkan::ComputeKernel::new_with_access(&device, crate::deepseek_v41::gen9::shader(&device, bytes), &access, push)
+            vulkan::ComputeKernel::new_with_access(
+                &device,
+                crate::deepseek_v41::gen9::shader(&device, bytes),
+                &access,
+                push,
+            )
         };
         Ok(Self {
             forward: DeepseekV41MixedLinearKernel::new(device.clone())?,
+            weight_grad_avx2: if crate::deepseek_v41::cpu_math::active() {
+                Some(kernel(
+                    include_bytes!("../../shaders/transformer_deepseek_v41_weight_grad_avx2.spv"),
+                    12,
+                )?)
+            } else {
+                None
+            },
+            input_grad_avx2: if crate::deepseek_v41::cpu_math::active() {
+                Some(kernel(
+                    include_bytes!("../../shaders/transformer_deepseek_v41_input_grad_avx2.spv"),
+                    12,
+                )?)
+            } else {
+                None
+            },
             input_grad: kernel(include_bytes!("../../shaders/linear_input_grad.spv"), 12)?,
             input_grad_block8: kernel(
                 include_bytes!("../../shaders/linear_input_grad_block8.spv"),
@@ -154,17 +222,25 @@ impl DeepseekV41LinearAdjoints {
             )),
         }
     }
-    fn snapshot(&self, input: &GpuBuffer, len: usize) -> Result<GpuBuffer> {
+    fn record_snapshot(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        input: &GpuBuffer,
+        len: usize,
+    ) -> Result<GpuBuffer> {
         self.check(input, len)?;
         let copy = GpuBuffer::zeros_f32(&self.device, len)?;
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
         commands.copy_f32_range(input, 0, &copy, 0, len)?;
-        commands.submit()?;
         Ok(copy)
     }
 
     fn input_kernel(&self, rows: usize, input: usize, output: usize) -> &vulkan::ComputeKernel {
-        let width = crate::transformer::aten_vector_width();
+        if input >= 2 && output <= 192 {
+            if let Some(kernel) = &self.input_grad_avx2 {
+                return kernel;
+            }
+        }
+        let width = crate::deepseek_v41::cpu_math::vector_width();
         if width >= 16 && rows == 1 {
             return &self.input_grad_block8;
         }
@@ -182,8 +258,13 @@ impl DeepseekV41LinearAdjoints {
         }
     }
 
-    fn weight_kernel(&self, input: usize, output: usize) -> &vulkan::ComputeKernel {
-        if crate::transformer::aten_vector_width() >= 16
+    fn weight_kernel(&self, rows: usize, input: usize, output: usize) -> &vulkan::ComputeKernel {
+        if rows <= 192 && input >= 2 && output >= 2 {
+            if let Some(kernel) = &self.weight_grad_avx2 {
+                return kernel;
+            }
+        }
+        if crate::deepseek_v41::cpu_math::vector_width() >= 16
             && (output == 1
                 || (output >= 2
                     && ((input <= 8 && input.is_multiple_of(2))
@@ -223,6 +304,23 @@ impl DeepseekV41LinearAdjoints {
         weight: &DeepseekV41ResidentLinear,
         stream: crate::deepseek_v41::DeepseekV41WeightOutput,
     ) -> Result<DeepseekV41LinearTape> {
+        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        commands.enable_watchdog_submission_slicing();
+        let tape = self.record_forward_mixed(&mut commands, input, rows, weight, stream)?;
+        commands.submit()?;
+        Ok(tape)
+    }
+
+    /// Snapshot operands and evaluate into the caller's batch. Copies precede
+    /// the same projection dispatches, so tapes still own immutable operands.
+    pub(crate) fn record_forward_mixed(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        input: &GpuBuffer,
+        rows: usize,
+        weight: &DeepseekV41ResidentLinear,
+        stream: crate::deepseek_v41::DeepseekV41WeightOutput,
+    ) -> Result<DeepseekV41LinearTape> {
         geometry(rows, weight.cols, weight.rows)?;
         let storage = match &weight.storage {
             LinearStorage::Dense(base, bf16) => {
@@ -234,7 +332,7 @@ impl DeepseekV41LinearAdjoints {
             // the frozen input adjoint during backward.
             LinearStorage::Packed(packed, block) => LinearStorage::Packed(packed.clone(), *block),
         };
-        let input = self.snapshot(input, count(rows, weight.cols)?)?;
+        let input = self.record_snapshot(commands, input, count(rows, weight.cols)?)?;
         let lora = match &weight.lora {
             None => None,
             Some(lora) => {
@@ -244,8 +342,8 @@ impl DeepseekV41LinearAdjoints {
                     bail!("V4.1 projection adapter scale is invalid");
                 }
                 Some(DeepseekV41ResidentLora {
-                    a: self.snapshot(&lora.a, count(lora.rank, weight.cols)?)?,
-                    b: self.snapshot(&lora.b, count(weight.rows, lora.rank)?)?,
+                    a: self.record_snapshot(commands, &lora.a, count(lora.rank, weight.cols)?)?,
+                    b: self.record_snapshot(commands, &lora.b, count(weight.rows, lora.rank)?)?,
                     rank: lora.rank,
                     scale: lora.scale,
                 })
@@ -263,7 +361,9 @@ impl DeepseekV41LinearAdjoints {
                 scale: l.scale,
             }),
         };
-        let output = self.forward.apply(&input, rows, &view, stream)?;
+        let output = self
+            .forward
+            .record_apply(commands, &input, rows, &view, stream)?;
         Ok(DeepseekV41LinearTape {
             output,
             input,
@@ -299,6 +399,7 @@ impl DeepseekV41LinearAdjoints {
             output_dim: tape.output_dim as u32,
         };
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        commands.enable_watchdog_submission_slicing();
         self.input_kernel(rows, tape.input_dim, tape.output_dim)
             .record_dispatch(
                 &mut commands,
@@ -309,6 +410,8 @@ impl DeepseekV41LinearAdjoints {
         let Some(lora) = &tape.lora else {
             commands.submit()?;
             return Ok(DeepseekV41LinearGradients {
+                grad_base_input: crate::deepseek_v41::cpu_math::active().then(|| base_grad.clone()),
+                grad_adapter_input: None,
                 grad_input: base_grad,
                 grad_a: None,
                 grad_b: None,
@@ -316,16 +419,17 @@ impl DeepseekV41LinearAdjoints {
                 b_len: 0,
             });
         };
-        // Retire before the recomputation's synchronous submission. Keeping
-        // the frozen base alive is limited to this backward call.
-        commands.submit()?;
-        let hidden = self.forward.dense.apply(
+        // Recompute A's hidden values in this batch, retaining the exact GEMM
+        // dispatch and its FP32 boundary without two intermediate fence waits.
+        let hidden = self.forward.dense.record_apply_with_precision(
+            &mut commands,
             &self.device,
             &tape.input,
             &lora.a,
             rows,
             tape.input_dim,
             lora.rank,
+            false,
         )?;
         let scaled = GpuBuffer::zeros_f32(&self.device, count(rows, tape.output_dim)?)?;
         let grad_hidden = GpuBuffer::zeros_f32(&self.device, count(rows, lora.rank)?)?;
@@ -355,23 +459,25 @@ impl DeepseekV41LinearAdjoints {
             scale: 1.0,
             add: 1,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
         self.vector.record_dispatch(
             &mut commands,
             &[upstream, upstream, &scaled],
             bytemuck::bytes_of(&scale),
             vector_grid(scale.len as usize),
         )?;
-        self.weight_kernel(lora.rank, tape.output_dim)
+        self.weight_kernel(rows, lora.rank, tape.output_dim)
             .record_dispatch(
                 &mut commands,
                 &[&hidden, &scaled, &grad_b],
                 bytemuck::bytes_of(&b_push),
                 weight_grid(lora.rank, tape.output_dim),
             )?;
-        // Preserve the existing AVX2 LoRA-B policy. The new wide, short-row
-        // policy above is qualified only on the pinned AVX512 CPU oracle.
-        let b_kernel = if crate::transformer::aten_vector_width() < 16 && lora.rank <= 8 {
+        // Preserve the historical text oracle's AVX2 LoRA-B policy outside
+        // native image training. Native AVX2 uses its measured matrix panels.
+        let b_kernel = if self.input_grad_avx2.is_none()
+            && crate::deepseek_v41::cpu_math::vector_width() < 16
+            && lora.rank <= 8
+        {
             &self.input_grad_lane2
         } else {
             self.input_kernel(rows, lora.rank, tape.output_dim)
@@ -382,7 +488,7 @@ impl DeepseekV41LinearAdjoints {
             bytemuck::bytes_of(&b_push),
             input_grid(rows, lora.rank),
         )?;
-        self.weight_kernel(tape.input_dim, lora.rank)
+        self.weight_kernel(rows, tape.input_dim, lora.rank)
             .record_dispatch(
                 &mut commands,
                 &[&tape.input, &grad_hidden, &grad_a],
@@ -405,6 +511,8 @@ impl DeepseekV41LinearAdjoints {
         commands.submit()?;
         Ok(DeepseekV41LinearGradients {
             grad_input,
+            grad_base_input: crate::deepseek_v41::cpu_math::active().then_some(base_grad),
+            grad_adapter_input: crate::deepseek_v41::cpu_math::active().then_some(grad_lora_input),
             grad_a: Some(grad_a),
             grad_b: Some(grad_b),
             a_len,

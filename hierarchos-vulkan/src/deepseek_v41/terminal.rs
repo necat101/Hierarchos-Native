@@ -154,7 +154,9 @@ impl DeepseekV41TerminalAdjoints {
         Ok(Self {
             cross_entropy: vulkan::ComputeKernel::new_with_access(
                 &device,
-                if crate::transformer::aten_vector_width() >= 16 {
+                if crate::deepseek_v41::cpu_math::active() {
+                    include_bytes!("../../shaders/transformer_deepseek_v41_cross_entropy_avx2.spv")
+                } else if crate::transformer::aten_vector_width() >= 16 {
                     CROSS_ENTROPY_LANES16
                 } else {
                     CROSS_ENTROPY

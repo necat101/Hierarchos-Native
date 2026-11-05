@@ -1,6 +1,11 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #include "fp32_sleef_trig.glsl"
+#ifdef HIERARCHOS_CPU_VML_COS
+#extension GL_ARB_gpu_shader_fp64 : require
+#include "fp32_vml_cos.glsl"
+#define fp32_cos vml_cos_bounded
+#endif
 
 // Adjoint of transformer_rope_forward.comp. The rotation itself is orthogonal;
 // any YaRN or query-position scale is multiplied into the inverse rotation.

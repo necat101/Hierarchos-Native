@@ -1,0 +1,47 @@
+{
+ "case": "siglip_wider",
+ "stages": [
+  {
+   "stage": "tokens",
+   "values": 128,
+   "max_abs": 3.5762786865234375e-07,
+   "pass": false
+  },
+  {
+   "stage": "layer_0",
+   "values": 128,
+   "max_abs": 1.0728836059570312e-06,
+   "pass": false
+  },
+  {
+   "stage": "layer_1",
+   "values": 128,
+   "max_abs": 1.2814998626708984e-06,
+   "pass": false
+  },
+  {
+   "stage": "post_norm",
+   "values": 128,
+   "max_abs": 9.238719940185547e-07,
+   "pass": false
+  },
+  {
+   "stage": "pooled",
+   "values": 128,
+   "max_abs": 3.328435182571411,
+   "pass": false
+  },
+  {
+   "stage": "pooled_norm",
+   "values": 128,
+   "max_abs": 9.238719940185547e-07,
+   "pass": false
+  },
+  {
+   "stage": "projected",
+   "values": 64,
+   "max_abs": 8.940696716308594e-08,
+   "pass": true
+  }
+ ]
+}

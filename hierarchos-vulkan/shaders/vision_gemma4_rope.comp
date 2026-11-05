@@ -1,0 +1,37 @@
+#version 450
+// Axial Gemma4 RoPE. cos/sin are already recomposed as H-H-W-W over the head
+// dimension. Each half uses rotate_half within that half, matching HF's
+// apply_multidimensional_rope. `inverse` replays the autograd adjoint
+// g*cos - rotate_half(g)*sin, not a recomposed forward rotation.
+layout(local_size_x = 256) in;
+layout(set = 0, binding = 0, std430) readonly buffer X { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Cos { float cosines[]; };
+layout(set = 0, binding = 2, std430) readonly buffer Sin { float sines[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer Y { float y[]; };
+layout(push_constant) uniform Push { uint rows; uint heads; uint head_dim; uint inverse; } pc;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    uint total = pc.rows * pc.heads * pc.head_dim;
+    if (i >= total) return;
+    uint d = i % pc.head_dim;
+    uint head = (i / pc.head_dim) % pc.heads;
+    uint row = i / (pc.head_dim * pc.heads);
+    uint half_dim = pc.head_dim / 2u;
+    uint part = d / half_dim;
+    uint local = d % half_dim;
+    uint half2 = half_dim / 2u;
+    uint base = (row * pc.heads + head) * pc.head_dim + part * half_dim;
+    precise float rotated;
+    if (local < half2) {
+        rotated = -x[base + local + half2];
+    } else {
+        rotated = x[base + local - half2];
+    }
+    precise float value = x[i];
+    precise float cosine = cosines[row * pc.head_dim + d];
+    precise float sine = sines[row * pc.head_dim + d];
+    precise float direct = value * cosine + rotated * sine;
+    precise float adjoint = value * cosine - rotated * sine;
+    y[i] = pc.inverse != 0u ? adjoint : direct;
+}

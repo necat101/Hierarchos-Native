@@ -65,6 +65,18 @@ jobs:
       - name: RDNA3 regression collection negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_rdna3_final_regression.py"
 
+      - name: Multimodal training qualification negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_multimodal_training.py"
+
+      - name: Image pipeline qualification negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_llava_pipeline.py"
+
+      - name: Gemma3 image qualification controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_gemma3_pipeline.py"
+
+      - name: Gemma4 image qualification controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_gemma4_pipeline.py"
+
       # The committed ladder receipt is the only durable record of a green
       # `verify_training_stack.py` run. This check is CPU-side: it holds the
       # receipt to the ladder's twelve steps in order, every one PASS, and the

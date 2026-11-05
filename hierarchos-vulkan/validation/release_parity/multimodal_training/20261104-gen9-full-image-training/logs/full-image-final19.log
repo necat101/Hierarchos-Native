@@ -1,0 +1,14 @@
+START shared77
+END shared77 0 77
+START gemma4-legacy
+END gemma4-legacy 0 1
+START gemma4-rgb
+END gemma4-rgb 0 1
+START gemma3
+END gemma3 0 4
+START llava
+END llava 0 4
+START text
+END text 0 166
+START seq2seq
+END seq2seq PASS 6

@@ -1,0 +1,27 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+// CPU Linear backward forms dW = dY^T @ X. Its six-row panel runs over
+// output channels (not batch rows); the one/two-channel tail materializes
+// products in two lanes. Independent autograd fixtures cover nine shapes.
+layout(local_size_x=16,local_size_y=16) in;
+layout(set=0,binding=0,std430) readonly buffer X {float x[];};
+layout(set=0,binding=1,std430) readonly buffer DY {float dy[];};
+layout(set=0,binding=2,std430) writeonly buffer DW {float dw[];};
+layout(push_constant) uniform P {uint rows;uint input_dim;uint output_dim;} pc;
+void main(){
+    uint col=gl_GlobalInvocationID.x,row=gl_GlobalInvocationID.y;
+    if(col>=pc.input_dim || row>=pc.output_dim)return;
+    uint tail=pc.output_dim%6u;
+    bool short_row=tail>0u && tail<=3u && row>=pc.output_dim-tail;
+    precise float a=0.0,b=0.0;
+    for(uint j=0u;j<pc.rows;++j){
+        float u=dy[j*pc.output_dim+row],v=x[j*pc.input_dim+col];
+        if(short_row && tail<=2u){
+            precise float product=u*v;
+            if((j&1u)==0u)a+=product;else b+=product;
+        }else if(short_row && (j&1u)!=0u)b=fp32_fma_exact(u,v,b);
+        else a=fp32_fma_exact(u,v,a);
+    }
+    dw[row*pc.input_dim+col]=a+b;
+}

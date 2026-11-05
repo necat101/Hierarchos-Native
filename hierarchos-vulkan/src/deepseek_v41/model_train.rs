@@ -1,14 +1,16 @@
 //! Native end-to-end LoRA training. Base payloads stay immutable in the package;
 //! the complete model reverse graph produces factors for the existing AdamW.
 use super::*;
+#[path = "vision_train.rs"]
+mod vision;
 use crate::deepseek_v41::backbone::ModelAdjoints;
+#[cfg(test)]
+use crate::deepseek_v41::DeepseekV41AdapterFactorState;
 use crate::deepseek_v41::{
     DeepseekV41AdamWConfig, DeepseekV41AdapterGradient, DeepseekV41AdapterTrainer,
     DeepseekV41EngramResidency, DeepseekV41ExpertResidency, DeepseekV41ProjectionResidency,
     DeepseekV41TerminalAdjoints,
 };
-#[cfg(test)]
-use crate::deepseek_v41::DeepseekV41AdapterFactorState;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -17,6 +19,7 @@ use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
 };
+pub use vision::{DeepseekV41MultimodalGradients, DeepseekV41MultimodalTrainer};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeepseekV41ModelTrainingConfig {
@@ -85,6 +88,7 @@ pub struct DeepseekV41ModelTrainer {
     kernels: ModelAdjoints,
     terminal: DeepseekV41TerminalAdjoints,
     head_gradient: vulkan::ComputeKernel,
+    head_gradient_avx2: Option<vulkan::ComputeKernel>,
     head_gradient_short: vulkan::ComputeKernel,
 }
 
@@ -131,6 +135,18 @@ impl DeepseekV41ModelTrainer {
                 &[R, R, RW],
                 16,
             )?,
+            head_gradient_avx2: if crate::deepseek_v41::cpu_math::active() {
+                Some(vulkan::ComputeKernel::new_with_access(
+                    &device,
+                    include_bytes!(
+                        "../../shaders/transformer_deepseek_v41_head_input_grad_avx2.spv"
+                    ),
+                    &[R, R, RW],
+                    16,
+                )?)
+            } else {
+                None
+            },
             head_gradient_short: vulkan::ComputeKernel::new_with_access(
                 &device,
                 include_bytes!("../../shaders/linear_input_grad_cpu_short_streamed.spv"),
@@ -168,7 +184,9 @@ impl DeepseekV41ModelTrainer {
         self.optimizer
             .load_state_bits(target, a_bits, b_bits, state_a, state_b)
     }
-    pub fn training_config(&self) -> &DeepseekV41ModelTrainingConfig { &self.options }
+    pub fn training_config(&self) -> &DeepseekV41ModelTrainingConfig {
+        &self.options
+    }
     pub fn adapter(&self) -> Result<DeepseekV41LoraAdapter> {
         self.optimizer.adapter()
     }
@@ -257,8 +275,62 @@ impl DeepseekV41ModelTrainer {
         &mut self,
         batches: &[DeepseekV41TrainingBatch],
     ) -> Result<DeepseekV41ModelGradients> {
+        Ok(self.gradients_with_modality(batches, None)?.0)
+    }
+    /// Same graph as [`Self::gradients`], with an optional device-resident
+    /// replacement for the token-embedding stream. The stream must carry
+    /// `rows * hc_mult * hidden_size` values on this trainer's device and is
+    /// consumed exactly where `embed` feeds the backbone, so the whole reverse
+    /// graph still runs the model's own arithmetic and yields the input VJP:
+    /// no surrogate text graph and no host round trip. With no stream this is
+    /// byte-for-byte the ordinary LoRA training path.
+    pub fn gradients_with_modality(
+        &mut self,
+        batches: &[DeepseekV41TrainingBatch],
+        modality: Option<&GpuBuffer>,
+    ) -> Result<(DeepseekV41ModelGradients, Option<GpuBuffer>)> {
+        self.gradients_impl(batches, modality, None)
+    }
+    /// Build the native modality stream from this step's device embeddings.
+    /// The callback avoids loading the vocabulary a second time or transferring
+    /// language activations through the host. One prefill is retained for VJP.
+    pub fn gradients_with_modality_builder(
+        &mut self,
+        batches: &[DeepseekV41TrainingBatch],
+        builder: &mut dyn FnMut(&GpuBuffer) -> Result<GpuBuffer>,
+    ) -> Result<(DeepseekV41ModelGradients, Option<GpuBuffer>)> {
+        self.gradients_impl(batches, None, Some(builder))
+    }
+    fn gradients_impl(
+        &mut self,
+        batches: &[DeepseekV41TrainingBatch],
+        modality: Option<&GpuBuffer>,
+        mut builder: Option<&mut dyn FnMut(&GpuBuffer) -> Result<GpuBuffer>>,
+    ) -> Result<(DeepseekV41ModelGradients, Option<GpuBuffer>)> {
+        let capture_input = modality.is_some() || builder.is_some();
+        if builder.is_some()
+            && (batches.len() != 1 || self.precision != DeepseekV41WeightOutput::Fp32)
+        {
+            bail!("V4.1 native vision builder requires one FP32 prefill batch");
+        }
         self.unchanged()?;
         let (positions, total_rows, estimate) = self.estimate(batches)?;
+        if let Some(stream) = modality {
+            if batches.len() != 1 {
+                bail!("V4.1 modality injection trains exactly one prefill batch");
+            }
+            let (hc_mult, hidden_size) = {
+                let t = &self.package.config.text;
+                (t.hc_mult, t.hidden_size)
+            };
+            let width = total_rows
+                .checked_mul(hc_mult)
+                .and_then(|value| value.checked_mul(hidden_size))
+                .context("V4.1 modality stream geometry overflow")?;
+            if stream.f32_capacity() < width || !stream.belongs_to_device(&self.device) {
+                bail!("V4.1 modality stream geometry/device mismatch");
+            }
+        }
         let mut package = self.package.clone();
         package.set_lora_adapter(Arc::new(self.optimizer.adapter()?))?;
         let runtime = DeepseekV41AttentionRuntimeConfig {
@@ -313,7 +385,26 @@ impl DeepseekV41ModelTrainer {
                 .as_ref()
                 .map(|m| GpuBuffer::from_u32(&self.device, m))
                 .transpose()?;
-            let stream = model.embed(&ids, rows)?;
+            let stream = match modality {
+                Some(stream) => stream.clone(),
+                None => {
+                    let base = model.embed(&ids, rows)?;
+                    if let Some(build) = builder.as_mut() {
+                        let stream = build(&base)?;
+                        let width = rows
+                            .checked_mul(t.hc_mult)
+                            .and_then(|v| v.checked_mul(t.hidden_size))
+                            .context("V4.1 built modality stream geometry overflow")?;
+                        if stream.f32_capacity() < width || !stream.belongs_to_device(&self.device)
+                        {
+                            bail!("V4.1 built modality stream geometry/device mismatch");
+                        }
+                        stream
+                    } else {
+                        base
+                    }
+                }
+            };
             let (collapsed, backbone) = model.backbone.forward_retained(
                 &stream,
                 batch.seq_len,
@@ -357,10 +448,17 @@ impl DeepseekV41ModelTrainer {
         let (loss, grad_logits) =
             self.terminal
                 .masked_cross_entropy(&joined, &targets, t.vocab_size)?;
+        #[cfg(test)]
+        crate::deepseek_v41::training_trace::record(
+            "terminal/logits-gradient",
+            &grad_logits,
+            total_rows * t.vocab_size,
+        );
         let mut reverse = recording.cache.into_reverse()?;
         let mut states = (0..t.num_hidden_layers).map(|_| None).collect::<Vec<_>>();
         let mut adapters: BTreeMap<String, DeepseekV41AdapterGradient> = BTreeMap::new();
         let mut end = total_rows;
+        let mut modality_gradient = None;
         for (collapsed, backbone, rows) in steps.into_iter().rev() {
             end -= rows;
             let grad = GpuBuffer::zeros_f32(&self.device, rows * t.vocab_size)?;
@@ -375,6 +473,12 @@ impl DeepseekV41ModelTrainer {
             commands.submit()?;
             let hidden =
                 self.head_input_grad(&mut package, &grad, rows, t.vocab_size, t.hidden_size)?;
+            #[cfg(test)]
+            crate::deepseek_v41::training_trace::record(
+                "terminal/normalized-gradient",
+                &hidden,
+                rows * t.hidden_size,
+            );
             let collapsed_grad = self.terminal.norm_input_grad(
                 &hidden,
                 &collapsed,
@@ -383,23 +487,35 @@ impl DeepseekV41ModelTrainer {
                 t.hidden_size,
                 t.rms_norm_eps as f32,
             )?;
-            let (_, gradients) = model.backbone.backward_retained(
+            #[cfg(test)]
+            crate::deepseek_v41::training_trace::record(
+                "terminal/collapsed-gradient",
+                &collapsed_grad,
+                rows * t.hidden_size,
+            );
+            let (input_gradient, gradients) = model.backbone.backward_retained(
                 backbone,
                 &collapsed_grad,
                 &mut reverse,
                 &mut states,
                 &self.kernels,
             )?;
+            if capture_input {
+                modality_gradient = Some(input_gradient);
+            }
             accumulate(&mut adapters, gradients)?;
         }
         reverse.finish()?;
         self.unchanged()?;
-        Ok(DeepseekV41ModelGradients {
-            loss,
-            logits,
-            adapters: adapters.into_values().collect(),
-            estimated_activation_bytes: estimate,
-        })
+        Ok((
+            DeepseekV41ModelGradients {
+                loss,
+                logits,
+                adapters: adapters.into_values().collect(),
+                estimated_activation_bytes: estimate,
+            },
+            modality_gradient,
+        ))
     }
     pub fn train_sequence(
         &mut self,
@@ -420,6 +536,14 @@ impl DeepseekV41ModelTrainer {
         batch: &DeepseekV41TrainingBatch,
     ) -> Result<DeepseekV41ModelTrainResult> {
         self.train_sequence(std::slice::from_ref(batch))
+    }
+    /// Apply adapter gradients obtained from [`Self::gradients_with_modality`]
+    /// without replaying the forward graph, so an attached trainable image
+    /// tower can be updated in the same optimizer step as the adapters.
+    pub fn apply_adapter_gradients(&mut self, gradients: &DeepseekV41ModelGradients) -> Result<()> {
+        self.unchanged()?;
+        self.optimizer.step(&gradients.adapters)?;
+        self.unchanged()
     }
     pub fn export_adapter(&self, directory: impl AsRef<Path>) -> Result<()> {
         self.optimizer.adapter()?.export(directory)
@@ -480,7 +604,7 @@ impl DeepseekV41ModelTrainer {
                     .take(count*hidden).collect(),
                 other=>bail!("V4.1 training head input gradient requires dense F32/BF16 storage, got {other}"),
             };
-            let weight = GpuBuffer::from_f32(&self.device,&values)?;
+            let weight = GpuBuffer::from_f32(&self.device, &values)?;
             let tile = GpuBuffer::zeros_f32(&self.device, rows * count)?;
             let mut commands = vulkan::ComputeBatch::new(&self.device)?;
             for row in 0..rows {
@@ -492,10 +616,17 @@ impl DeepseekV41ModelTrainer {
                 count as u32,
                 u32::from(start != 0),
             ];
-            let kernel = if crate::transformer::aten_vector_width() >= 16 &&
-                (rows == 1 || (rows < 4 && hidden.is_multiple_of(4) && vocab.is_multiple_of(4))) {
-                &self.head_gradient_short
-            } else { &self.head_gradient };
+            let kernel =
+                if rows >= 2 && hidden >= 4 && vocab <= 192 && self.head_gradient_avx2.is_some() {
+                    self.head_gradient_avx2.as_ref().unwrap()
+                } else if crate::deepseek_v41::cpu_math::vector_width() >= 16
+                    && (rows == 1
+                        || (rows < 4 && hidden.is_multiple_of(4) && vocab.is_multiple_of(4)))
+                {
+                    &self.head_gradient_short
+                } else {
+                    &self.head_gradient
+                };
             kernel.record_dispatch(
                 &mut commands,
                 &[&tile, &weight, &output],

@@ -1,0 +1,128 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+// Pinned PyTorch CPU flash SDPA, FP32 AVX2, B=2, S=8, D=8/16.
+// Reconstructs the saved output and LSE with qualified GPU arithmetic;
+// no host activations or gradients enter the model math.
+layout(local_size_x=1) in;
+layout(set=0,binding=0,std430) readonly buffer Q {float q[];};
+layout(set=0,binding=1,std430) readonly buffer K {float k[];};
+layout(set=0,binding=2,std430) readonly buffer V {float v[];};
+layout(set=0,binding=3,std430) readonly buffer QM {float qm[];};
+layout(set=0,binding=4,std430) readonly buffer KM {float km[];};
+layout(set=0,binding=5,std430) readonly buffer A {float unused_a[];};
+layout(set=0,binding=6,std430) readonly buffer DY {float dy[];};
+layout(set=0,binding=7,std430) buffer DQ {float dq[];};
+layout(set=0,binding=8,std430) buffer DK {float dk[];};
+layout(set=0,binding=9,std430) buffer DV {float dv[];};
+layout(set=0,binding=10,std430) readonly buffer Sink {float unused_sink[];};
+layout(set=0,binding=11,std430) buffer DSink {float unused_dsink[];};
+layout(set=0,binding=12,std430) readonly buffer Relative {float unused_relative[];};
+layout(set=0,binding=13,std430) buffer DRelative {float unused_drelative[];};
+layout(set=0,binding=14,std430) readonly buffer Sparse {float unused_sparse[];};
+layout(push_constant) uniform P {
+uint batch_size;uint query_seq_len;uint key_value_seq_len;uint query_hidden_size;uint value_hidden_size;
+uint num_heads;uint num_key_value_heads;uint window_size;float scale;float value_scale;float softcap;
+uint alibi_mode;float alibi_bias_max;float dropout_p;uint rng_step;uint rng_site;uint rng_seed;
+uint has_sink;uint causal;uint relative_bias_mode;uint relative_bias_num_buckets;uint relative_bias_max_distance;
+uint query_position_offset;uint has_sparse_mask;uint compressed_key_count;uint compressed_key_rate;
+uint paged_kv;uint kv_page_size;uint kv_page_table_stride;uint unfused_qk;uint key_block_index;uint key_block_count;
+} pc;
+float exp20(float value){
+ if(value<uintBitsToFloat(0xc2aeac50u))return 0.0;
+ float n=floor(fp32_fma_exact(value,uintBitsToFloat(0x3fb8aa3bu),0.5));
+ float r=fp32_fma_exact(-n,uintBitsToFloat(0x3f317218u),value);
+ float p=uintBitsToFloat(0x3c07cfceu);
+ p=fp32_fma_exact(p,r,uintBitsToFloat(0x3d2b9d0du));
+ p=fp32_fma_exact(p,r,uintBitsToFloat(0x3e2aad40u));
+ p=fp32_fma_exact(p,r,uintBitsToFloat(0x3efffee3u));
+ p=fp32_fma_exact(p,r,uintBitsToFloat(0x3f7ffffbu));
+ p=fp32_fma_exact(p,r,1.0);
+ precise float product=p*uintBitsToFloat(uint(int(n)+126)<<23u);
+ precise float result=product*2.0;return result;
+}
+float madd(float a,float b,float c,bool unfused){
+ if(unfused){precise float p=a*b;precise float r=c+p;return r;}
+ return fp32_fma_exact(a,b,c);
+}
+bool visible(uint b,uint r,uint s){
+ if(qm[b*8u+r]<=0.0||km[b*8u+s]<=0.0)return false;
+ if(pc.causal!=0u&&s>r)return false;
+ if(pc.window_size!=0u&&s+pc.window_size<=r)return false;
+ return true;
+}
+precise float pp[64];precise float ds[64];precise float ef[64];
+void main(){
+ uint kh=gl_GlobalInvocationID.x,b=gl_GlobalInvocationID.y;
+ if(kh>=pc.num_key_value_heads||b>=pc.batch_size)return;
+ uint D=pc.query_hidden_size/pc.num_heads,KH=pc.num_key_value_heads,QH=pc.num_heads;
+ uint G=QH/KH;uint W=D*KH;
+ for(uint r=0u;r<8u;++r)for(uint d=0u;d<D;++d){uint z=(b*8u+r)*W+kh*D+d;dk[z]=0.0;dv[z]=0.0;}
+ for(uint h=kh*G;h<(kh+1u)*G;++h){
+  for(uint r=0u;r<8u;++r){
+   precise float maximum=-3.402823466e+38;
+   for(uint s=0u;s<8u;++s){
+    precise float a=0.0,c=0.0;
+    for(uint d=0u;d<D;++d){
+     uint qi=(b*8u+r)*D*QH+h*D+d,ki=(b*8u+s)*W+kh*D+d;
+     if((d&1u)==0u)a=madd(q[qi],k[ki],a,r>=6u);else c=madd(q[qi],k[ki],c,r>=6u);
+    }
+    precise float dot=a+c;precise float score=dot*pc.scale;
+    pp[r*8u+s]=visible(b,r,s)?score:-3.402823466e+38;
+    maximum=max(maximum,pp[r*8u+s]);
+   }
+   precise float sum=0.0;
+   for(uint s=0u;s<8u;++s){ef[r*8u+s]=visible(b,r,s)?exp20(pp[r*8u+s]-maximum):0.0;sum+=ef[r*8u+s];}
+   precise float inverse=fp32_div(1.0,sum==0.0?1.0:sum);
+   precise float lse=sum==0.0?0.0:maximum+v41_cpu_scalar_log_positive(sum);
+
+   precise float products[16];
+   for(uint d=0u;d<D;++d){
+    precise float a=0.0,c=0.0;
+    for(uint s=0u;s<8u;++s){
+     uint vi=(b*8u+s)*W+kh*D+d;
+     if(r>=6u||D==8u){if((s&1u)==0u)a=madd(ef[r*8u+s],v[vi],a,r>=6u);else c=madd(ef[r*8u+s],v[vi],c,r>=6u);}
+     else a=madd(ef[r*8u+s],v[vi],a,false);
+    }
+    precise float total=a+c;precise float out_value=total*inverse;
+    products[d]=dy[(b*8u+r)*D*QH+h*D+d]*out_value;
+   }
+   precise float delta=0.0;
+   for(uint lane=0u;lane<8u;++lane){precise float term=products[lane];if(D==16u)term+=products[lane+8u];delta+=term;}
+   for(uint s=0u;s<8u;++s){
+    precise float a=0.0,c=0.0;
+    for(uint d=0u;d<D;++d){uint qi=(b*8u+r)*D*QH+h*D+d,vi=(b*8u+s)*W+kh*D+d;
+     if((d&1u)==0u)a=madd(dy[qi],v[vi],a,r>=6u);else c=madd(dy[qi],v[vi],c,r>=6u);
+    }
+    pp[r*8u+s]=visible(b,r,s)?sleef_expf_u10_fused(pp[r*8u+s]-lse):0.0;
+    precise float dot=a+c;precise float difference=dot-delta;
+    ds[r*8u+s]=pp[r*8u+s]*difference;
+   }
+  }
+  for(uint r=0u;r<8u;++r)for(uint d=0u;d<D;++d){
+   precise float a=0.0,c=0.0;
+   for(uint s=0u;s<8u;++s){uint z=(b*8u+s)*W+kh*D+d;
+    if(r>=6u||D==8u){if((s&1u)==0u)a=madd(ds[r*8u+s],k[z],a,r>=6u);else c=madd(ds[r*8u+s],k[z],c,r>=6u);}
+    else a=madd(ds[r*8u+s],k[z],a,false);
+   }
+   precise float total=a+c;dq[(b*8u+r)*D*QH+h*D+d]=total*pc.scale;
+  }
+  for(uint s=0u;s<8u;++s)for(uint d=0u;d<D;++d){
+   precise float ka=0.0,kb=0.0,va=0.0,vb=0.0;
+   for(uint r=0u;r<8u;++r){uint z=(b*8u+r)*D*QH+h*D+d;
+    // MKL's width-16 output has a two-row unfused tail. Width 8 uses
+    // two interleaved FMA lanes throughout. Random dense adjoints exercise
+    // the tail even when a language loss masks the final token.
+    bool ku=D==16u&&s>=6u,vu=ku;
+    bool kt=D==8u||s>=6u,vt=kt;
+    if(kt){if((r&1u)==0u)ka=madd(ds[r*8u+s],q[z],ka,ku);else kb=madd(ds[r*8u+s],q[z],kb,ku);}else ka=madd(ds[r*8u+s],q[z],ka,false);
+    if(vt){if((r&1u)==0u)va=madd(pp[r*8u+s],dy[z],va,vu);else vb=madd(pp[r*8u+s],dy[z],vb,vu);}else va=madd(pp[r*8u+s],dy[z],va,false);
+   }
+   uint z=(b*8u+s)*W+kh*D+d;precise float total_k=ka+kb;precise float total_v=va+vb;
+   dk[z]+=total_k*pc.scale;dv[z]+=total_v;
+  }
+ }
+}

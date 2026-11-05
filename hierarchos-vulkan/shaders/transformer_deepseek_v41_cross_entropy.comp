@@ -55,7 +55,11 @@ void main() {
     precise float exp_sum = 0.0;
     for (uint lane = 0u; lane < min(pc.vocab_size,uint(HIERARCHOS_V41_CE_LANES)); ++lane)
         exp_sum += banks[lane];
+#ifdef HIERARCHOS_V41_CPU_AVX2
+    precise float log_sum = v41_sleef_log_positive(exp_sum);
+#else
     precise float log_sum = v41_cpu_scalar_log_positive(exp_sum);
+#endif
 
     uint target = targets[row];
     // PyTorch's CPU `log_softmax` kernel stages `(x - max) - log(sum)` and NLL

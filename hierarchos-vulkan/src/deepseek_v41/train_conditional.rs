@@ -150,7 +150,7 @@ impl DeepseekV41AdapterTrainer {
                         step_size,
                         bias2_sqrt,
                         self.math_policy,
-                        i<param.len()/(2*crate::transformer::aten_vector_width() as usize)*(2*crate::transformer::aten_vector_width() as usize),
+                        i<param.len()/(2*crate::deepseek_v41::cpu_math::vector_width() as usize)*(2*crate::deepseek_v41::cpu_math::vector_width() as usize),
                     );
                     if !p.is_finite() || !m.is_finite() || !v.is_finite() || v < 0.0 {
                         bail!(

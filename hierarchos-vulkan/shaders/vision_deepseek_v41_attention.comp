@@ -1,0 +1,34 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+// Released 3D SDPA reaches CPU flash attention on the pinned Torch build.
+// Independently replayed four/six-patch, width-eight heads: two interleaved
+// FMA lanes for both GEMMs, scalar exp tails, normalization after E@V.
+layout(local_size_x=1) in;
+layout(set=0,binding=0,std430) readonly buffer Q {float q[];};
+layout(set=0,binding=1,std430) readonly buffer K {float k[];};
+layout(set=0,binding=2,std430) readonly buffer V {float v[];};
+layout(set=0,binding=3,std430) writeonly buffer O {float o[];};
+layout(push_constant) uniform Push {uint rows;uint dim;uint heads;float scale;} pc;
+void main(){
+    uint row=gl_GlobalInvocationID.x,head=gl_GlobalInvocationID.y;
+    if(row>=pc.rows || head>=pc.heads)return;
+    uint hd=pc.dim/pc.heads,base=row*pc.dim+head*hd;
+    precise float scores[32];precise float maximum=-3.402823466e+38;
+    for(uint s=0u;s<pc.rows;++s){
+        uint kb=s*pc.dim+head*hd;precise float a=0.0,b=0.0;
+        for(uint d=0u;d<hd;++d){if((d&1u)==0u)a=fp32_fma_exact(q[base+d],k[kb+d],a);else b=fp32_fma_exact(q[base+d],k[kb+d],b);}
+        precise float dot=a+b;scores[s]=dot*pc.scale;maximum=max(maximum,scores[s]);
+    }
+    precise float sum=0.;
+    for(uint s=0u;s<pc.rows;++s){scores[s]=v41_scalar_exp(scores[s]-maximum);sum+=scores[s];}
+    float inverse=fp32_div(1.,sum);
+    for(uint d=0u;d<hd;++d){
+        precise float a=0.,b=0.;
+        for(uint s=0u;s<pc.rows;++s){uint vb=s*pc.dim+head*hd+d;if((s&1u)==0u)a=fp32_fma_exact(scores[s],v[vb],a);else b=fp32_fma_exact(scores[s],v[vb],b);}
+        precise float total=a+b;o[base+d]=total*inverse;
+    }
+}

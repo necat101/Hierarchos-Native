@@ -1,0 +1,81 @@
+diff --git a/hierarchos-vulkan/src/gpt2_cpu_math_tests.rs b/hierarchos-vulkan/src/gpt2_cpu_math_tests.rs
+index 4dc7fbf..0839a0b 100644
+--- a/hierarchos-vulkan/src/gpt2_cpu_math_tests.rs
++++ b/hierarchos-vulkan/src/gpt2_cpu_math_tests.rs
+@@ -9,6 +9,13 @@ fn gpt2_cpu_math_preserves_gen9_and_other_architecture_routes() {
+     assert!(!rdna3_gpt2_cpu_math(Gpt2, 0x8086, 0x5916));
+     assert!(!rdna3_gpt2_cpu_math(Gpt2, 0x1002, 0x163f));
+     assert!(!rdna3_gpt2_cpu_math(Llama, 0x1002, 0x15bf));
++    // The Welford norm and correctly rounded reciprocal follow the GPT-2
++    // architecture on every adapter; the tanh GELU and k-block GEMM stay on
++    // their measured RDNA3 gate.
++    assert!(gpt2_welford_norm(Gpt2));
++    assert!(!gpt2_welford_norm(Llama));
++    assert!(gpt2_attention_reciprocal(Gpt2));
++    assert!(!gpt2_attention_reciprocal(Llama));
+ }
+ 
+ #[derive(Deserialize)]
+diff --git a/hierarchos-vulkan/src/transformer.rs b/hierarchos-vulkan/src/transformer.rs
+index 33a4f86..f817eca 100644
+--- a/hierarchos-vulkan/src/transformer.rs
++++ b/hierarchos-vulkan/src/transformer.rs
+@@ -76,6 +76,18 @@ fn rdna3_gpt2_cpu_math(architecture: VulkanTransformerArchitecture, vendor: u32,
+         && vendor::is_amd_rdna3_pci_id(vendor, device)
+ }
+ 
++/// GPT-2's CPU oracle reduces the LayerNorm mean and variance with one fused
++/// Welford association, so the norm follows the architecture on every adapter.
++fn gpt2_welford_norm(architecture: VulkanTransformerArchitecture) -> bool {
++    architecture == VulkanTransformerArchitecture::Gpt2
++}
++
++/// The attention denominator uses a correctly rounded reciprocal rather than the
++/// hardware rcp approximation, which is also an architecture-level choice.
++fn gpt2_attention_reciprocal(architecture: VulkanTransformerArchitecture) -> bool {
++    architecture == VulkanTransformerArchitecture::Gpt2
++}
++
+ fn small_welford_is_qualified(device: &str, dim: usize) -> bool {
+     device == "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]" && (1..=128).contains(&dim)
+ }
+@@ -67866,7 +67878,8 @@ impl VulkanTransformer {
+         let repaired_gpt2 = rdna3_gpt2_cpu_math(
+             config.architecture, device.vendor_id(), device.device_id(),
+         );
+-        let layer_norm_spv = if repaired_gpt2 {
++        let cpu_welford = gpt2_welford_norm(config.architecture);
++        let layer_norm_spv = if cpu_welford {
+             // One chunk has the identical Welford association without a cascade
+             // stack. Keep unmeasured adapters/drivers and larger widths on the
+             // independently qualified general implementation.
+@@ -67882,15 +67895,11 @@ impl VulkanTransformer {
+             &device,
+             layer_norm_spv,
+         )?);
+-        if repaired_gpt2
+-            && small_welford_is_qualified(device.decision_device_name(), config.hidden_size)
++        if cpu_welford && small_welford_is_qualified(device.decision_device_name(), config.hidden_size)
+         {
+             kernels.layer_norm_rows_per_workgroup = 8;
+         }
+-        if repaired_gpt2 {
+-            // PyTorch's FP32 tanh dispatches through MKL VML in the CPU oracle.
+-            // Use a high-accuracy FP32 reconstruction on this qualified adapter;
+-            // the existing Gen9 and other architecture pipelines stay selected.
++        if gpt2_attention_reciprocal(config.architecture) {
+             kernels.attention_forward = vulkan::ComputeKernel::new(
+                 &device,
+                 include_bytes!("../shaders/transformer_attention_forward_cpu_reciprocal.spv"),
+@@ -67903,6 +67912,11 @@ impl VulkanTransformer {
+                 15,
+                 std::mem::size_of::<AttentionBackwardPush>() as u32,
+             )?;
++        }
++        if repaired_gpt2 {
++            // PyTorch's FP32 tanh dispatches through MKL VML in the CPU oracle.
++            // Use a high-accuracy FP32 reconstruction on this qualified adapter;
++            // the existing Gen9 and other architecture pipelines stay selected.
+             kernels.gelu_tanh_forward = vulkan::ComputeKernel::new(
+                 &device,
+                 include_bytes!("../shaders/transformer_gelu_tanh_ha_forward.spv"),

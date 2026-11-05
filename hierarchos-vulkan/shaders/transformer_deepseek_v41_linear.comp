@@ -15,10 +15,21 @@ layout(set = 0, binding = 1, std430) readonly buffer Weight { float weight[]; };
 layout(set = 0, binding = 2, std430) writeonly buffer Output { float output_values[]; };
 layout(push_constant) uniform Push { uint rows; uint input_dim; uint output_dim; uint bf16; } pc;
 
+#ifdef HIERARCHOS_V41_CPU_AVX2
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_avx2_dot.glsl"
+#endif
+
 void main() {
     uint col = gl_GlobalInvocationID.x, row = gl_GlobalInvocationID.y;
     if (col >= pc.output_dim || row >= pc.rows) return;
     uint xb = row * pc.input_dim, wb = col * pc.input_dim;
+#ifdef HIERARCHOS_V41_CPU_AVX2
+    if (pc.bf16==0u && pc.output_dim>=2u && pc.input_dim>=8u && pc.input_dim<=192u && (pc.rows>=2u || pc.output_dim<=3u)) {
+        output_values[row*pc.output_dim+col]=v41_avx2_projection_dot(xb,wb,pc.rows,pc.output_dim,pc.input_dim,row);
+        return;
+    }
+#endif
     bool matrix_body = pc.bf16 != 0u || (pc.output_dim > 8u && pc.rows >= 4u);
     if (matrix_body) {
         precise float sum = 0.0;

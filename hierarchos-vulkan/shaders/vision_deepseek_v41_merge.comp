@@ -1,0 +1,21 @@
+#version 450
+// Equivalent to merge_image_embeddings followed by the released HC repeat.
+// Text embeddings have already been expanded by the native vocabulary path.
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer Base {float base[];};
+layout(set=0,binding=1,std430) readonly buffer Image {float projected[];};
+layout(set=0,binding=2,std430) readonly buffer Start {float image_start[];};
+layout(set=0,binding=3,std430) readonly buffer End {float image_end[];};
+layout(set=0,binding=4,std430) readonly buffer Newline {float image_newline[];};
+layout(set=0,binding=5,std430) readonly buffer Map {uint row_map[];};
+layout(set=0,binding=6,std430) writeonly buffer Output {float output_values[];};
+layout(push_constant) uniform Push {uint rows;uint hc;uint dim;} pc;
+void main(){
+    uint i=gl_GlobalInvocationID.x;if(i>=pc.rows*pc.hc*pc.dim)return;
+    uint row=i/(pc.hc*pc.dim),d=i%pc.dim,kind=row_map[row];
+    if(kind==0xffffffffu)output_values[i]=base[i];
+    else if(kind==0u)output_values[i]=image_start[d];
+    else if(kind==1u)output_values[i]=image_end[d];
+    else if(kind==2u)output_values[i]=image_newline[d];
+    else output_values[i]=projected[(kind-3u)*pc.dim+d];
+}

@@ -20,6 +20,11 @@ layout(push_constant) uniform Push {
     uint bf16;
 } pc;
 
+#ifdef HIERARCHOS_V41_CPU_AVX2
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_v41_avx2_dot.glsl"
+#endif
+
 void main() {
     uint column = gl_GlobalInvocationID.x;
     uint group = gl_GlobalInvocationID.y;
@@ -28,6 +33,11 @@ void main() {
     uint input_base = row * pc.groups * pc.group_width + group * pc.group_width;
     uint weight_base = (group * pc.output_rank + column) * pc.group_width;
     precise float sum = 0.0;
+#ifdef HIERARCHOS_V41_CPU_AVX2
+    if (pc.bf16==0u && pc.rows>=2u && pc.output_rank>=4u && pc.group_width<=192u) {
+        sum=v41_avx2_projection_dot(input_base,weight_base,pc.rows,pc.output_rank,pc.group_width,row);
+    } else
+#endif
     if (pc.bf16 != 0u && pc.rows == 1u && pc.output_rank > 8u) {
         // Pinned BF16 grouped GEMV contract: materialize ascending 512-wide
         // FP32 partials, fold them in order, then let the caller round to BF16.

@@ -1,0 +1,18 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+// AVX2 single-row Linear uses a GEMV dot, distinct from SGEMM panel tails.
+// Eight interleaved FMA lanes and a balanced fold preserve its FP32 order.
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer X {float x[];};
+layout(set=0,binding=1,std430) readonly buffer W {float weight[];};
+layout(set=0,binding=2,std430) readonly buffer B {float bias[];};
+layout(set=0,binding=3,std430) writeonly buffer Y {float y[];};
+layout(push_constant) uniform Push {uint input_dim;uint output_dim;uint transpose_weight;uint has_bias;} pc;
+void main(){
+    uint col=gl_GlobalInvocationID.x;if(col>=pc.output_dim)return;
+    precise float lanes[8];for(uint j=0u;j<8u;++j)lanes[j]=0.;
+    for(uint k=0u;k<pc.input_dim;++k){uint index=pc.transpose_weight!=0u?k*pc.output_dim+col:col*pc.input_dim+k;uint lane=k&7u;lanes[lane]=fp32_fma_exact(x[k],weight[index],lanes[lane]);}
+    for(uint stride=4u;stride>0u;stride>>=1u)for(uint j=0u;j<stride;++j)lanes[j]+=lanes[j+stride];
+    y[col]=pc.has_bias!=0u?lanes[0]+bias[col]:lanes[0];
+}
