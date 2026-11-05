@@ -1,0 +1,22 @@
+
+running 10 tests
+test transformer::vision::cpu_gemm_tests::vision_cpu_attention_frozen_context_is_word_exact ... vision AVX2 attention: 512 frozen CPU context words exact on Intel(R) HD Graphics 520
+ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_builtin_gelu_is_word_exact ... unary CPU replay: 0/1024 word differences, max 0e0
+ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_composed_text_attention_matches_frozen_eager_contexts ... composed Gemma3 attention: 704 frozen CPU context words exact
+ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_gemm_frozen_panels_and_tails_are_word_exact ... vision AVX2 GEMM: 4208 frozen CPU words exact on Intel(R) HD Graphics 520
+ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_gemm_limits_admission_to_measured_shapes ... ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_input_gradient_frozen_panels_and_tails_are_word_exact ... vision AVX2 input gradient: 5632 frozen CPU words exact on Intel(R) HD Graphics 520
+ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_layer_norm_backward_is_word_exact ... vision AVX2 LayerNorm backward: 1600 frozen CPU words exact on Intel(R) HD Graphics 520
+ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_patch_convolution_dispatch_is_word_exact ... ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_projector_norm_matches_strided_forward_and_contiguous_adjoint ... projector RMSNorm: 256 frozen CPU forward/adjoint words exact
+ok
+test transformer::vision::cpu_gemm_tests::vision_unary_shader_diagnostic ... ignored, opt-in standalone SPIR-V unary diagnostic; never a pipeline acceptance gate
+
+test result: ok. 9 passed; 0 failed; 1 ignored; 0 measured; 1088 filtered out; finished in 1.74s
+

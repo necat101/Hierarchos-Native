@@ -1,0 +1,4 @@
+PASS siglip_default: 0 logit/update failures; 2 strict intermediate differences
+PASS siglip_batch_padded: 0 logit/update failures; 2 strict intermediate differences
+PASS siglip_full_grid: 0 logit/update failures; 2 strict intermediate differences
+PASS siglip_wider: 0 logit/update failures; 2 strict intermediate differences

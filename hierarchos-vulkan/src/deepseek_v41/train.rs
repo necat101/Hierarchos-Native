@@ -612,7 +612,7 @@ pub(crate) fn reference_adamw_parameter_bits(
     let decay = (1.0 - config.learning_rate * config.weight_decay) as f32;
     let step_size = (config.learning_rate / (1.0 - config.beta1.powi(step as i32))) as f32;
     let bias2_sqrt = (1.0 - config.beta2.powi(step as i32)).sqrt() as f32;
-    let block = 2 * crate::transformer::aten_vector_width() as usize;
+    let block = 2 * crate::deepseek_v41::cpu_math::vector_width() as usize;
     param_bits
         .iter()
         .enumerate()
@@ -647,7 +647,7 @@ fn update(
     bias_correction2_sqrt: f32,
     policy:AdamWMathPolicy,
 ) {
-    let block=2*crate::transformer::aten_vector_width() as usize;
+    let block=2*crate::deepseek_v41::cpu_math::vector_width() as usize;
     for index in 0..param.len() {
         (param[index], exp_avg[index], exp_avg_sq[index]) = update_element(
             param[index],

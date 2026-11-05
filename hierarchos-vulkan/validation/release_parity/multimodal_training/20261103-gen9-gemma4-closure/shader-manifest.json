@@ -1,0 +1,378 @@
+{
+ "shaders": [
+  {
+   "artifact": "transformer_attention_backward.spv",
+   "source": "transformer_attention_backward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.5.0",
+   "flags": [
+    "-V",
+    "--target-env",
+    "vulkan1.0",
+    "-Ishaders"
+   ],
+   "target_env": "vulkan1.0",
+   "storage_policy": {
+    "local_size": [
+     1,
+     1,
+     1
+    ],
+    "max_workgroup_variables": 0
+   }
+  },
+  {
+   "artifact": "transformer_attention_forward.spv",
+   "source": "transformer_attention_forward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.5.0",
+   "flags": [
+    "-V",
+    "--target-env",
+    "vulkan1.0",
+    "-Ishaders"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "transformer_cross_entropy.spv",
+   "source": "transformer_cross_entropy.comp",
+   "compiler": "glslc",
+   "compiler_version": "2023.8",
+   "flags": [
+    "-fshader-stage=compute",
+    "--target-env=vulkan1.0"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "transformer_gelu_tanh_ha_forward.spv",
+   "source": "transformer_gelu_tanh_ha_forward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.5.0",
+   "flags": [
+    "-V",
+    "--target-env",
+    "vulkan1.2"
+   ],
+   "target_env": "vulkan1.2"
+  },
+  {
+   "artifact": "transformer_gelu_tanh_ha_backward.spv",
+   "source": "transformer_gelu_tanh_ha_backward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.5.0",
+   "flags": [
+    "-V",
+    "--target-env",
+    "vulkan1.2"
+   ],
+   "target_env": "vulkan1.2"
+  },
+  {
+   "artifact": "transformer_attention_forward_cpu_reciprocal.spv",
+   "source": "transformer_attention_forward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.5.0",
+   "flags": [
+    "-V",
+    "--target-env",
+    "vulkan1.2",
+    "-DHIERARCHOS_CPU_ATTENTION_RECIPROCAL=1"
+   ],
+   "target_env": "vulkan1.2"
+  },
+  {
+   "artifact": "transformer_attention_backward_cpu_reciprocal.spv",
+   "source": "transformer_attention_backward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "--target-env",
+    "vulkan1.1",
+    "-DHIERARCHOS_CPU_ATTENTION_RECIPROCAL=1",
+    "-DHIERARCHOS_CPU_ATTENTION_SHORT_SDPA=1"
+   ],
+   "target_env": "vulkan1.1"
+  },
+  {
+   "artifact": "vision_patchify.spv",
+   "source": "vision_patchify.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_avg_pool.spv",
+   "source": "vision_avg_pool.comp",
+   "compiler": "glslc",
+   "compiler_version": "2023.8",
+   "flags": [
+    "-fshader-stage=compute",
+    "--target-env=vulkan1.0"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_layer_norm_welford_forward.spv",
+   "source": "vision_layer_norm_welford_forward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_siglip_tokens.spv",
+   "source": "vision_siglip_tokens.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "--target-env",
+    "vulkan1.2"
+   ],
+   "target_env": "vulkan1.2"
+  },
+  {
+   "artifact": "vision_linear_cpu_avx2.spv",
+   "source": "vision_linear_cpu_avx2.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_attention_cpu_avx2.spv",
+   "source": "vision_attention_cpu_avx2.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_linear_input_grad_cpu_avx2.spv",
+   "source": "vision_linear_cpu_avx2.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp",
+    "-DVISION_TRANSPOSE_WEIGHT=1"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_layer_norm_input_grad_cpu_avx2.spv",
+   "source": "vision_layer_norm_cpu_avx2_backward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_layer_norm_param_grad_cpu_avx2.spv",
+   "source": "vision_layer_norm_cpu_avx2_backward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp",
+    "-DVISION_NORM_PARAM_GRAD=1"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "transformer_attention_forward_gemma3_cpu_avx2.spv",
+   "source": "transformer_attention_forward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp",
+    "-DHIERARCHOS_CPU_ATTENTION_RECIPROCAL=1",
+    "-DHIERARCHOS_GEMMA3_CPU_AVX2_EAGER=1"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_patch_projection.spv",
+   "source": "vision_patch_projection.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "falcon_h1_cross_entropy.spv",
+   "source": "transformer_cross_entropy.comp",
+   "compiler": "glslc",
+   "compiler_version": "2023.8",
+   "flags": [
+    "-fshader-stage=compute",
+    "--target-env=vulkan1.0",
+    "-DHIERARCHOS_LOG_SOFTMAX_GRAD=1"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_linear_weight_grad.spv",
+   "source": "vision_linear_weight_grad.comp",
+   "compiler": "glslc",
+   "compiler_version": "2023.8",
+   "flags": [
+    "-fshader-stage=compute",
+    "--target-env=vulkan1.0"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_linear_weight_grad_cpu_avx2.spv",
+   "source": "vision_linear_weight_grad_cpu_avx2.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "transformer_attention_backward_gemma4_cpu_avx2.spv",
+   "source": "transformer_attention_backward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp",
+    "-DHIERARCHOS_GEMMA4_TEXT_CPU_AVX2=1"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_gemma4_attention_cpu_avx2.spv",
+   "source": "vision_gemma4_attention_cpu_avx2.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_gemma4_attention_cpu_avx2_backward.spv",
+   "source": "vision_gemma4_attention_cpu_avx2_backward.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_gemma4_pool.spv",
+   "source": "vision_gemma4_pool.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_gemma4_position_grad.spv",
+   "source": "vision_gemma4_position_grad.comp",
+   "compiler": "glslc",
+   "compiler_version": "2023.8",
+   "flags": [
+    "-fshader-stage=compute",
+    "--target-env=vulkan1.0",
+    "-O"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_gemma4_positions.spv",
+   "source": "vision_gemma4_positions.comp",
+   "compiler": "glslc",
+   "compiler_version": "2023.8",
+   "flags": [
+    "-fshader-stage=compute",
+    "--target-env=vulkan1.0",
+    "-O"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_gemma4_rope.spv",
+   "source": "vision_gemma4_rope.comp",
+   "compiler": "glslc",
+   "compiler_version": "2023.8",
+   "flags": [
+    "-fshader-stage=compute",
+    "--target-env=vulkan1.0",
+    "-O"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_gemma4_rope_tables.spv",
+   "source": "vision_gemma4_rope_tables.comp",
+   "compiler": "glslangValidator",
+   "compiler_version": "16.6.0",
+   "flags": [
+    "-V",
+    "-S",
+    "comp"
+   ],
+   "target_env": "vulkan1.0"
+  },
+  {
+   "artifact": "vision_gemma4_scale.spv",
+   "source": "vision_gemma4_scale.comp",
+   "compiler": "glslc",
+   "compiler_version": "2023.8",
+   "flags": [
+    "-fshader-stage=compute",
+    "--target-env=vulkan1.0"
+   ],
+   "target_env": "vulkan1.0"
+  }
+ ]
+}

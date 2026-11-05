@@ -1,0 +1,7 @@
+
+running 1 test
+test deepseek_v41::model::tests::training::native_vision::native_state::deepseek_v41_native_joint_checkpoint_resume_export_and_freshness ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1134 filtered out; finished in 16.36s
+
+Native V4.1 joint resume/export: two cases, exact weights/moments/continued updates/reloaded logits; stale and foreign gradients rejected

@@ -1,0 +1,111 @@
+{
+ "schema": 1,
+ "date": "2026-11-03",
+ "scope": "gemma4_fixed_image_pipeline_full_parameter_training",
+ "pass": true,
+ "expected_cases": 2,
+ "completed_cases": 2,
+ "absolute_logit_limit": 2e-07,
+ "absolute_parameter_limit": 2e-07,
+ "rtol": 0,
+ "comparison": "strict_less_than",
+ "target": "gen9",
+ "aten_vector_width": 8,
+ "head_at_capture": "4c67507cab6fe86b334e2709c1260ee81320d061",
+ "source_worktree_dirty": true,
+ "rdna3_sync_base": "d41ebeee295d598840438ae03757419d624985ac",
+ "full_multimodal_inventory_qualified": false,
+ "rdna3_multimodal_qualified": false,
+ "cases": {
+  "legacy": {
+   "passed": 1,
+   "attempted": 1,
+   "qualification_sha256": "f3f0247433445578f913d22ec2f1e6a4389ce619ef8cc3a77267855779d0bf7d",
+   "binary_sha256": "a29864e00ff3c273439295f10cb8cab523afd85eac8810e3e00e59efc5543183",
+   "required_checks": 130,
+   "visible_logit_values": 2048,
+   "worst_logit": 1.341104507446289e-07,
+   "worst_parameter": 5.681067705154419e-08,
+   "strict_diagnostic_failures": 2,
+   "frozen_files_verified": 201
+  },
+  "rgb": {
+   "passed": 1,
+   "attempted": 1,
+   "qualification_sha256": "1b499cb9fcc1f927144425ed3255a20c574d2797c455bdcab2e1d9ec459c9752",
+   "binary_sha256": "a29864e00ff3c273439295f10cb8cab523afd85eac8810e3e00e59efc5543183",
+   "required_checks": 130,
+   "visible_logit_values": 2048,
+   "worst_logit": 1.341104507446289e-07,
+   "worst_parameter": 5.960464477539063e-08,
+   "strict_diagnostic_failures": 2,
+   "frozen_files_verified": 202
+  }
+ },
+ "regressions": {
+  "gemma3": {
+   "passed": 4,
+   "attempted": 4,
+   "qualification_sha256": "ba0cd867915091d56f9d887c7a85a61faba4e62522163c73328ebb1c9a0a3d02",
+   "binary_sha256": "a7868d08fa1c33813a4a6284a2352c0f983cd047f944e064462ee1ca5d0b5a5c",
+   "required_checks": 684,
+   "visible_logit_values": 13312,
+   "worst_logit": 1.9650906324386597e-07,
+   "worst_parameter": 1.1920928955078125e-07,
+   "strict_diagnostic_failures": 8
+  },
+  "llava": {
+   "passed": 4,
+   "attempted": 4,
+   "qualification_sha256": "4e170e881f3ec232cbbad9a0cab76529a9b683bdd2e70b28c0ec5b51d72918e0",
+   "binary_sha256": "3813f33597883181d68d681e968e21de1688d15662816fc12d33c9d3f4f6cdb1",
+   "required_checks": 564,
+   "visible_logit_values": 22784,
+   "worst_logit": 7.450580596923828e-08,
+   "worst_parameter": 2.9802322387695312e-08,
+   "strict_diagnostic_failures": 20
+  },
+  "bridge": {
+   "passed": 63,
+   "attempted": 77,
+   "qualification_sha256": "66da0a7ca6485c41f8d9955fd95c47f9e4815f03fc8a4384aff056ee0860ca71",
+   "binary_sha256": "27d42f3dd50599989fe7ea6df548de684fdb0988d570b5ad291be808becef528",
+   "failing_metric_rows": 30,
+   "new_failures": [],
+   "resolved_failures": []
+  },
+  "text": {
+   "passed": 166,
+   "attempted": 166,
+   "qualification_sha256": "4c524ec5b9e0b46e50a2a4cd79ed90cb0c3fa6796999d8ca0122353d48f8d092",
+   "binary_sha256": "aec8498100d505e6460159880ce6c7bf1f83ddb5ef2e239f40f2f3996602e421",
+   "worst_logit": 1.7881393432617188e-07,
+   "baseline_logit_words": 77772,
+   "baseline_word_differences": 0
+  }
+ },
+ "primitive_tests": {
+  "gemma4_passed": 7,
+  "gemma4_cpu_words_exact": 8128,
+  "vision_passed": 9,
+  "gpt2_passed": 2,
+  "bridge_layout_passed": 2
+ },
+ "python_controls_passed": 53,
+ "shader_variants_rebuilt_identically_and_validated": 30,
+ "limits": [
+  "one 12x12 image, width16, two vision/text layers, sequence8",
+  "canonical processor padding explicitly compacted before both engines",
+  "original fixture retained as raw model-value stress domain",
+  "two strict intermediate diagnostics per Gemma4 case remain above 2e-7",
+  "no resize, standardized/clipped vision, multi-image, audio/video, resume or throughput qualification"
+ ],
+ "cpu_archives": {
+  "legacy": {
+   "sha256": "7261546b2c0956e286632484bcfd081b66ebef43a32f5bd5feab3b63d4260192"
+  },
+  "rgb": {
+   "sha256": "7762035e15c34fb001163906cb97f5c2aa4dd88edafc9c329e775c3e3bee36ba"
+  }
+ }
+}

@@ -7,6 +7,9 @@ use crate::deepseek_v41::{
 use std::io::Write;
 use std::path::Path;
 
+#[path = "vision_hc_tests.rs"]
+mod hc_adjoint_tests;
+
 #[derive(Deserialize)]
 struct TrainingFixture {
     tolerance: f64,
@@ -1141,3 +1144,225 @@ fn deepseek_v41_full_model_training_rejects_budget_and_changed_frozen_base() -> 
     assert!(format!("{:#}", trainer.gradients(&batches(&f)).err().unwrap()).contains("changed"));
     Ok(())
 }
+
+/// [`DeepseekV41ModelTrainer::gradients`] is defined as
+/// [`DeepseekV41ModelTrainer::gradients_with_modality`] with no stream. That
+/// refactor must not perturb the already-qualified text-only LoRA path, so pin
+/// the two entry points to identical bits on the frozen CPU fixture.
+#[test]
+fn deepseek_v41_modality_absent_gradients_match_text_path_bits() -> Result<()> {
+    let f = fixture()?;
+    let p = Package::new(&f, false)?;
+    fs::write(
+        p.root.join("engram_tokens.json"),
+        serde_json::to_vec(&f.tokens)?,
+    )?;
+    let device = VulkanDevice::new()?;
+    let mut source = p.reader()?;
+    let adapter = DeepseekV41LoraAdapter::initialize(&mut source, &[], 2, 2.0, false, 1793)?;
+    let options = DeepseekV41ModelTrainingConfig {
+        batch_size: f.batch_size,
+        ..Default::default()
+    };
+    let mut trainer = DeepseekV41ModelTrainer::new(
+        device,
+        &p.root,
+        &adapter,
+        DeepseekV41AdamWConfig::default(),
+        options,
+    )?;
+    let sequence = batches(&f);
+
+    let text_only = trainer.gradients(&sequence)?;
+    let (explicit_none, modality) = trainer.gradients_with_modality(&sequence, None)?;
+
+    assert!(modality.is_none(), "an absent modality must not synthesise a stream");
+    assert_eq!(text_only.loss.to_bits(), explicit_none.loss.to_bits());
+    assert_eq!(
+        text_only.estimated_activation_bytes,
+        explicit_none.estimated_activation_bytes
+    );
+    assert_eq!(text_only.logits.len(), explicit_none.logits.len());
+    for (step, (a, b)) in text_only.logits.iter().zip(&explicit_none.logits).enumerate() {
+        let a = a.read_all()?;
+        let b = b.read_all()?;
+        assert_eq!(a.len(), b.len());
+        assert_eq!(
+            bits(&a),
+            bits(&b),
+            "step {step} logits diverged between gradients and gradients_with_modality(None)"
+        );
+    }
+    assert!(!text_only.adapters.is_empty());
+    assert_eq!(text_only.adapters.len(), explicit_none.adapters.len());
+    for (a, b) in text_only.adapters.iter().zip(&explicit_none.adapters) {
+        assert_eq!(a.target, b.target);
+        assert_eq!(bits(&a.grad_a), bits(&b.grad_a), "{} grad_a", a.target);
+        assert_eq!(bits(&a.grad_b), bits(&b.grad_b), "{} grad_b", a.target);
+    }
+    eprintln!(
+        "V4.1 modality-absent path: {} adapter modules bit-exact across both entry points",
+        text_only.adapters.len()
+    );
+    Ok(())
+}
+
+/// A split step (`gradients_with_modality` then `apply_adapter_gradients`) is
+/// what an attached image tower uses to share one optimizer step with the
+/// adapters. It must land on exactly the factors `train_sequence` produces.
+#[test]
+fn deepseek_v41_modality_absent_optimizer_matches_train_sequence_bits() -> Result<()> {
+    let f = fixture()?;
+    let p = Package::new(&f, false)?;
+    fs::write(
+        p.root.join("engram_tokens.json"),
+        serde_json::to_vec(&f.tokens)?,
+    )?;
+    let device = VulkanDevice::new()?;
+    let mut source = p.reader()?;
+    let adapter = DeepseekV41LoraAdapter::initialize(&mut source, &[], 2, 2.0, false, 1793)?;
+    let options = || DeepseekV41ModelTrainingConfig {
+        batch_size: f.batch_size,
+        ..Default::default()
+    };
+    let mut fused = DeepseekV41ModelTrainer::new(
+        device.clone(),
+        &p.root,
+        &adapter,
+        DeepseekV41AdamWConfig::default(),
+        options(),
+    )?;
+    let mut split = DeepseekV41ModelTrainer::new(
+        device,
+        &p.root,
+        &adapter,
+        DeepseekV41AdamWConfig::default(),
+        options(),
+    )?;
+    let sequence = batches(&f);
+
+    let fused_result = fused.train_sequence(&sequence)?;
+    let (grads, modality) = split.gradients_with_modality(&sequence, None)?;
+    assert!(modality.is_none());
+    split.apply_adapter_gradients(&grads)?;
+
+    assert_eq!(fused_result.loss.to_bits(), grads.loss.to_bits());
+    assert_eq!(fused_result.active_modules, grads.adapters.len());
+    assert_eq!(
+        fused_result.estimated_activation_bytes,
+        grads.estimated_activation_bytes
+    );
+    for (step, (a, b)) in fused_result.logits.iter().zip(&grads.logits).enumerate() {
+        assert_eq!(
+            bits(&a.read_all()?),
+            bits(&b.read_all()?),
+            "step {step} logits diverged between train_sequence and the split step"
+        );
+    }
+    let a = fused.adapter()?;
+    let b = split.adapter()?;
+    let mut compared = 0usize;
+    for (target, _, _) in a.targets() {
+        let a = a
+            .module_for_tensor(&format!("{target}.weight"))
+            .expect("fused adapter target");
+        let b = b
+            .module_for_tensor(&format!("{target}.weight"))
+            .expect("split adapter target");
+        assert_eq!(bits(&a.a), bits(&b.a), "{target} factor A");
+        assert_eq!(bits(&a.b), bits(&b.b), "{target} factor B");
+        compared += 1;
+    }
+    assert!(compared > 0);
+    eprintln!(
+        "V4.1 split-step optimizer: {compared} adapter modules bit-exact against train_sequence"
+    );
+    Ok(())
+}
+
+/// The split step must agree with `train_sequence` on AdamW's *state*, not just
+/// on the factors: a second step's direction is decided by `exp_avg` /
+/// `exp_avg_sq`, so a divergence there would only surface one update later.
+#[test]
+fn deepseek_v41_modality_absent_optimizer_state_matches_train_sequence() -> Result<()> {
+    let f = fixture()?;
+    let p = Package::new(&f, false)?;
+    fs::write(
+        p.root.join("engram_tokens.json"),
+        serde_json::to_vec(&f.tokens)?,
+    )?;
+    let device = VulkanDevice::new()?;
+    let mut source = p.reader()?;
+    let adapter = DeepseekV41LoraAdapter::initialize(&mut source, &[], 2, 2.0, false, 1793)?;
+    let options = || DeepseekV41ModelTrainingConfig {
+        batch_size: f.batch_size,
+        ..Default::default()
+    };
+    let mut fused = DeepseekV41ModelTrainer::new(
+        device.clone(),
+        &p.root,
+        &adapter,
+        DeepseekV41AdamWConfig::default(),
+        options(),
+    )?;
+    let mut split = DeepseekV41ModelTrainer::new(
+        device,
+        &p.root,
+        &adapter,
+        DeepseekV41AdamWConfig::default(),
+        options(),
+    )?;
+    let sequence = batches(&f);
+
+    fused.train_sequence(&sequence)?;
+    let (grads, modality) = split.gradients_with_modality(&sequence, None)?;
+    assert!(modality.is_none());
+    split.apply_adapter_gradients(&grads)?;
+
+    assert_eq!(
+        fused.optimizer().step_count(),
+        split.optimizer().step_count(),
+        "split step advanced the AdamW step counter differently"
+    );
+    assert_eq!(
+        fused.optimizer().allocated_moment_elements(),
+        split.optimizer().allocated_moment_elements(),
+        "split step allocated a different moment footprint"
+    );
+
+    let fused_adapter = fused.adapter()?;
+    let targets = fused_adapter
+        .targets()
+        .map(|(target, _, _)| target.to_string())
+        .collect::<Vec<_>>();
+    let mut modules = 0usize;
+    let mut elements = 0usize;
+    for target in targets {
+        let a = fused.optimizer().moments(&target).expect("fused moments");
+        let b = split.optimizer().moments(&target).expect("split moments");
+        let pairs = [
+            ("exp_avg_a", (a.0, b.0)),
+            ("exp_avg_sq_a", (a.1, b.1)),
+            ("exp_avg_b", (a.2, b.2)),
+            ("exp_avg_sq_b", (a.3, b.3)),
+        ];
+        for (label, (x, y)) in pairs {
+            assert_eq!(x.len(), y.len(), "{target} {label} length");
+            assert_eq!(bits(x), bits(y), "{target} {label}");
+            elements += x.len();
+        }
+        modules += 1;
+    }
+    assert!(modules > 0, "no adapter targets were compared");
+    assert!(
+        elements > 0,
+        "AdamW never allocated moments, so this gate would be vacuous"
+    );
+    eprintln!(
+        "V4.1 optimizer state: {modules} modules / {elements} moment values bit-exact across the split step"
+    );
+    Ok(())
+}
+
+#[path="native_vision_training_tests.rs"]
+mod native_vision;

@@ -2,11 +2,15 @@
 use crate::{vulkan, VulkanDevice};
 
 pub(super) fn shader<'a>(device: &VulkanDevice, native: &'a [u8]) -> &'a [u8] {
+    if let Some(shader) = super::cpu_math::shader(device, native) {
+        return shader;
+    }
     if !vulkan::is_intel_gen9_pci_id(device.vendor_id(), device.device_id()) {
         return native;
     }
     if native == include_bytes!("../../shaders/transformer_deepseek_v41_hc_split.spv")
-        && std::env::var_os("HIERARCHOS_VULKAN_GEN9_PARALLEL_HC").is_some_and(|v| v == "0") {
+        && std::env::var_os("HIERARCHOS_VULKAN_GEN9_PARALLEL_HC").is_some_and(|v| v == "0")
+    {
         return native;
     }
     const PAIRS: &[(&[u8], &[u8])] = &[
@@ -63,6 +67,10 @@ pub(super) fn shader<'a>(device: &VulkanDevice, native: &'a [u8]) -> &'a [u8] {
         (
             include_bytes!("../../shaders/transformer_deepseek_v41_moe_gate.spv"),
             include_bytes!("../../shaders/transformer_deepseek_v41_moe_gate_gen9.spv"),
+        ),
+        (
+            include_bytes!("../../shaders/transformer_deepseek_v41_moe_gate_vl.spv"),
+            include_bytes!("../../shaders/transformer_deepseek_v41_moe_gate_vl_gen9.spv"),
         ),
         (
             include_bytes!("../../shaders/transformer_deepseek_v41_moe_gate_grad.spv"),

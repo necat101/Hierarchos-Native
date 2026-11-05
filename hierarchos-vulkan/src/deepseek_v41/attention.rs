@@ -552,17 +552,20 @@ impl AttentionProjections {
                 bail!("V4.1 grouped wo_a requires converted dense F32/BF16 storage")
             }
         };
-        Ok(Self {
-            wq_a: weights.wq_a.upload(device)?,
-            q_norm: GpuBuffer::from_f32(device, &weights.q_norm)?,
-            wq_b: weights.wq_b.upload(device)?,
-            wkv: weights.wkv.upload(device)?,
-            kv_norm: GpuBuffer::from_f32(device, &weights.kv_norm)?,
-            wo_a: GpuBuffer::from_f32(device, &wo_a)?,
+        let mut upload = super::upload::ParameterUploadBatch::new(device);
+        let projections = Self {
+            wq_a: upload.linear(weights.wq_a)?,
+            q_norm: upload.f32(&weights.q_norm)?,
+            wq_b: upload.linear(weights.wq_b)?,
+            wkv: upload.linear(weights.wkv)?,
+            kv_norm: upload.f32(&weights.kv_norm)?,
+            wo_a: upload.f32(&wo_a)?,
             wo_a_precision,
-            wo_b: weights.wo_b.upload(device)?,
-            attn_sink: GpuBuffer::from_f32(device, &weights.attn_sink)?,
-        })
+            wo_b: upload.linear(weights.wo_b)?,
+            attn_sink: upload.f32(&weights.attn_sink)?,
+        };
+        upload.finish()?;
+        Ok(projections)
     }
 }
 

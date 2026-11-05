@@ -1,0 +1,20 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+// ATen native convolution adds bias after its channel-first dot; oneDNN's
+// direct convolution seeds its tap/channel dot with bias. Patchify and the
+// checkpoint loader supply the matching reduction order.
+layout(local_size_x=16,local_size_y=16) in;
+layout(set=0,binding=0,std430) readonly buffer X {float x[];};
+layout(set=0,binding=1,std430) readonly buffer W {float w[];};
+layout(set=0,binding=2,std430) readonly buffer B {float bias[];};
+layout(set=0,binding=3,std430) writeonly buffer Y {float y[];};
+layout(push_constant) uniform P {uint rows;uint input_dim;uint output_dim;uint bias_initial;} pc;
+void main(){
+    uint col=gl_GlobalInvocationID.x,row=gl_GlobalInvocationID.y;
+    if(row>=pc.rows || col>=pc.output_dim)return;
+    float sum=pc.bias_initial!=0u ? bias[col] : 0.0;
+    for(uint k=0u;k<pc.input_dim;++k)
+        sum=fp32_fma_exact(x[row*pc.input_dim+k],w[col*pc.input_dim+k],sum);
+    y[row*pc.output_dim+col]=pc.bias_initial!=0u ? sum : sum+bias[col];
+}

@@ -1,0 +1,795 @@
+{
+  "schema": 1,
+  "pass": true,
+  "target": "gen9",
+  "qualified_profiles": 44,
+  "expected_profiles": 44,
+  "profiles": {
+    "gpt2": [
+      {
+        "case": "gpt2/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "gpt2/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "llama": [
+      {
+        "case": "llama/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "llama/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "smollm3": [
+      {
+        "case": "smollm3/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "smollm3/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "smollm3_yarn": [
+      {
+        "case": "smollm3_yarn/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "smollm3_yarn/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "gpt_oss": [
+      {
+        "case": "gpt_oss/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "gpt_oss/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "qwen2": [
+      {
+        "case": "qwen2/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "qwen2/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "qwen2_5_gqa": [
+      {
+        "case": "qwen2_5_gqa/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "qwen2_5_gqa/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "qwen2_5_sliding_tied": [
+      {
+        "case": "qwen2_5_sliding_tied/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "qwen2_5_sliding_tied/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "mistral": [
+      {
+        "case": "mistral/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "mistral/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "phi3": [
+      {
+        "case": "phi3/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "phi3/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "phi4_multimodal_text": [
+      {
+        "case": "phi4_multimodal_text/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "phi4_multimodal_text/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "gemma3": [
+      {
+        "case": "gemma3/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "gemma3/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "gemma3_softcap_tied": [
+      {
+        "case": "gemma3_softcap_tied/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "gemma3_softcap_tied/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "gemma4": [
+      {
+        "case": "gemma4/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "gemma4/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "kimi_k25_text": [
+      {
+        "case": "kimi_k25_text/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "kimi_k25_text/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "mistral4": [
+      {
+        "case": "mistral4/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "mistral4/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "deepseek_v4": [
+      {
+        "case": "deepseek_v4/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "deepseek_v4/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "mixtral": [
+      {
+        "case": "mixtral/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "mixtral/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "qwen3_5_full": [
+      {
+        "case": "qwen3_5_full/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "qwen3_5_full/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "qwen3_5_linear": [
+      {
+        "case": "qwen3_5_linear/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "qwen3_5_linear/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "qwen3_5_mixed": [
+      {
+        "case": "qwen3_5_mixed/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "qwen3_5_mixed/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "qwen3_5_moe": [
+      {
+        "case": "qwen3_5_moe/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "qwen3_5_moe/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "qwen4_exp_linear": [
+      {
+        "case": "qwen4_exp_linear/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "qwen4_exp_linear/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "qwen4_exp_qsa": [
+      {
+        "case": "qwen4_exp_qsa/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "qwen4_exp_qsa/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "qwen4_exp_ple": [
+      {
+        "case": "qwen4_exp_ple/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "qwen4_exp_ple/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "qwen4_exp_mixed_ple": [
+      {
+        "case": "qwen4_exp_mixed_ple/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "qwen4_exp_mixed_ple/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "minimax_m2": [
+      {
+        "case": "minimax_m2/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "minimax_m2/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "minimax_m3_dense": [
+      {
+        "case": "minimax_m3_dense/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "minimax_m3_dense/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "minimax_m3": [
+      {
+        "case": "minimax_m3/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "minimax_m3/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "dbrx": [
+      {
+        "case": "dbrx/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "dbrx/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "bert": [
+      {
+        "case": "bert/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "bert/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "kimi_k3_kda": [
+      {
+        "case": "kimi_k3_kda/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "kimi_k3_mla": [
+      {
+        "case": "kimi_k3_mla/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "kimi_k3_text": [
+      {
+        "case": "kimi_k3_text/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "gpt2_wide": [
+      {
+        "case": "gpt2_wide/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "gpt2_wide/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "llama_wide": [
+      {
+        "case": "llama_wide/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "llama_wide/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "falcon_h1_gated_after": [
+      {
+        "case": "falcon_h1_gated_after/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "falcon_h1_gated_after/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "falcon_h1_gated_before": [
+      {
+        "case": "falcon_h1_gated_before/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "falcon_h1_gated_before/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "falcon_h1_silu": [
+      {
+        "case": "falcon_h1_silu/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "falcon_h1_silu/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "qwen3_next": [
+      {
+        "case": "qwen3_next/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      },
+      {
+        "case": "qwen3_next/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/shared77-qualification.json"
+      }
+    ],
+    "t5": [
+      {
+        "case": "t5/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/seq2seq-qualification.json"
+      },
+      {
+        "case": "t5/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/seq2seq-qualification.json"
+      }
+    ],
+    "bart": [
+      {
+        "case": "bart/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/seq2seq-qualification.json"
+      },
+      {
+        "case": "bart/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/seq2seq-qualification.json"
+      }
+    ],
+    "switch_transformers": [
+      {
+        "case": "switch_transformers/unmasked",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/seq2seq-qualification.json"
+      },
+      {
+        "case": "switch_transformers/padded",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/seq2seq-qualification.json"
+      }
+    ],
+    "deepseek_v41_scalable": [
+      {
+        "case": "native_vit_4x4",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/native-qualification.json"
+      },
+      {
+        "case": "native_vit_6x4",
+        "pass": true,
+        "receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/native-qualification.json"
+      }
+    ]
+  },
+  "full_multimodal_inventory_qualified": true,
+  "qualification_geometry": "frozen FP32 CPU fixture geometry",
+  "absolute_logit_limit": 2e-07,
+  "absolute_parameter_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "image_cases": 95,
+  "text_cases": 166,
+  "native_test_executions": 30,
+  "deepseek_suite": {
+    "pass": true,
+    "expected_tests": 241,
+    "expected_passed": 215,
+    "expected_ignored": 26,
+    "ignored": [
+      "deepseek_v41::model::lora_tests::deepseek_v41_lora_production_width_strict_all_logits",
+      "deepseek_v41::model::prefill_tests::deepseek_v41_four_token_prefill_strict_all_logits",
+      "deepseek_v41::model::production_tests::deepseek_v41_default_package_production_width_strict_all_logits",
+      "deepseek_v41::model::production_tests::deepseek_v41_production_width_vocabulary_strict_all_logits",
+      "deepseek_v41::model::production_tests::deepseek_v41_streamed_all_production_width_strict_all_logits",
+      "deepseek_v41::model::production_tests::deepseek_v41_streamed_block_production_width_strict_all_logits",
+      "deepseek_v41::model::production_tests::deepseek_v41_streamed_production_width_strict_all_logits",
+      "deepseek_v41::model::production_tests::deepseek_v41_streamed_vocabulary_production_width_strict_all_logits",
+      "deepseek_v41::model::scalable_release_tests::deepseek_v41_default_package_scalable_release_strict_all_logits",
+      "deepseek_v41::model::schedule_width_tests::deepseek_v41_default_package_schedule_width_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_joint_depth_and_384_expert_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_long_context_2048_token_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_joint_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_long_context_2048_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_joint_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_long_context_2048_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_block_joint_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_block_long_context_2048_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_joint_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_long_context_2048_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_vocabulary_joint_strict_all_logits",
+      "deepseek_v41::model::tests::structure::deepseek_v41_streamed_vocabulary_long_context_2048_strict_all_logits",
+      "deepseek_v41::model::tests::training::deepseek_v41_full_model_production_ratio_cpu_training_gate",
+      "deepseek_v41::model::tests::training::deepseek_v41_production_uninterrupted_training_logit_trajectory",
+      "deepseek_v41::model::tests::training::native_vision::native_state::multimodal_training_throughput_benchmark",
+      "deepseek_v41::tokenizer::tests::published_v4_1_tokenizer_reproduces_released_engram_metadata"
+    ],
+    "binary_sha256": "0567b0266abd25265408087bce41da0455c51bd8d819737cde5dcc3650e7f23b",
+    "returncode": null,
+    "summary": "214 passed initially; missing trace directory created; sole failed test passed in targeted rerun; 26 intentionally ignored",
+    "initial_returncode": 101,
+    "recovery": {
+      "test": "deepseek_v41_schedule_width_attention_contractions_match_cpu_bits",
+      "returncode": 0,
+      "passed_tests": 1,
+      "created_directory": "C:\\Users\\User\\.codex\\tmp\\gemma4-closure-20261103-388cdbc8\\target\\deepseek-v41-reference",
+      "reason": "isolated build trace output parent did not exist"
+    },
+    "verified_passed": 215
+  },
+  "shader_variants": 672,
+  "preserved_files": 208,
+  "performance_scope": "native V4.1 parameter admission; shared-image cases are controls",
+  "benchmark": {
+    "schema": 1,
+    "pass": true,
+    "word_exact": true,
+    "binary_sha256": "0567b0266abd25265408087bce41da0455c51bd8d819737cde5dcc3650e7f23b",
+    "runner_sha256": "95b7a60d7f79168b38676d50047c4c0acc46c5f1ae5e4ad1426083029bacf71d",
+    "rounds": 2,
+    "measured_steps": 7,
+    "warmup_steps": 2,
+    "updates_before_digest": 9,
+    "results": [
+      {
+        "case": "gpt2",
+        "individual": {
+          "median_ms": 18.85785,
+          "round_medians_ms": [
+            19.4222,
+            18.2935
+          ],
+          "submissions": [
+            11
+          ]
+        },
+        "grouped": {
+          "median_ms": 18.9829,
+          "round_medians_ms": [
+            18.9509,
+            19.0149
+          ],
+          "submissions": [
+            11
+          ]
+        },
+        "speedup": 0.9934124922956976
+      },
+      {
+        "case": "llama",
+        "individual": {
+          "median_ms": 20.329700000000003,
+          "round_medians_ms": [
+            20.732400000000002,
+            19.927
+          ],
+          "submissions": [
+            11
+          ]
+        },
+        "grouped": {
+          "median_ms": 19.792099999999998,
+          "round_medians_ms": [
+            19.8435,
+            19.7407
+          ],
+          "submissions": [
+            11
+          ]
+        },
+        "speedup": 1.027162352655858
+      },
+      {
+        "case": "native_vit_4x4",
+        "individual": {
+          "median_ms": 601.84275,
+          "round_medians_ms": [
+            596.6722,
+            607.0133
+          ],
+          "submissions": [
+            1102
+          ]
+        },
+        "grouped": {
+          "median_ms": 572.10475,
+          "round_medians_ms": [
+            573.3184,
+            570.8911
+          ],
+          "submissions": [
+            982
+          ]
+        },
+        "speedup": 1.0519799914263954
+      },
+      {
+        "case": "native_vit_6x4",
+        "individual": {
+          "median_ms": 618.41285,
+          "round_medians_ms": [
+            620.5272,
+            616.2985000000001
+          ],
+          "submissions": [
+            1102
+          ]
+        },
+        "grouped": {
+          "median_ms": 579.5023,
+          "round_medians_ms": [
+            581.2828000000001,
+            577.7217999999999
+          ],
+          "submissions": [
+            982
+          ]
+        },
+        "speedup": 1.0671447723330867
+      },
+      {
+        "case": "t5",
+        "individual": {
+          "median_ms": 43.359750000000005,
+          "round_medians_ms": [
+            41.4059,
+            45.3136
+          ],
+          "submissions": [
+            19
+          ]
+        },
+        "grouped": {
+          "median_ms": 41.3481,
+          "round_medians_ms": [
+            41.1062,
+            41.59
+          ],
+          "submissions": [
+            19
+          ]
+        },
+        "speedup": 1.0486515704470096
+      }
+    ],
+    "scope": "same-binary comparison on frozen tiny training geometry; host/GPU otherwise idle"
+  },
+  "results": {
+    "shared77": {
+      "cases": 77,
+      "worst_logit": 1.7136335372924805e-07,
+      "worst_parameter": 1.1920928955078125e-07,
+      "binary_sha256": "18ea278484dc75a207d1b1bb278ff01dc8bffbd1e47d3a6df7a319adde89967b"
+    },
+    "seq2seq": {
+      "cases": 6,
+      "worst_logit": 5.960464477539063e-08,
+      "worst_parameter": 1.1920928955078125e-07,
+      "binary_sha256": "18ea278484dc75a207d1b1bb278ff01dc8bffbd1e47d3a6df7a319adde89967b"
+    },
+    "gemma4-legacy": {
+      "cases": 1,
+      "worst_logit": 1.341104507446289e-07,
+      "worst_parameter": 5.681067705154419e-08,
+      "binary_sha256": "a6aa2f59dcab5b399e8b3aaeb6efcc3843d2314ac426d3995fb14d6683734195"
+    },
+    "gemma4-rgb": {
+      "cases": 1,
+      "worst_logit": 1.341104507446289e-07,
+      "worst_parameter": 5.960464477539063e-08,
+      "binary_sha256": "a6aa2f59dcab5b399e8b3aaeb6efcc3843d2314ac426d3995fb14d6683734195"
+    },
+    "gemma3": {
+      "cases": 4,
+      "worst_logit": 1.9650906324386597e-07,
+      "worst_parameter": 1.1920928955078125e-07,
+      "binary_sha256": "012419a123a2bf9eeb3a850551b841d1e26b64df075fd98c05b1d5015943a061"
+    },
+    "llava": {
+      "cases": 4,
+      "worst_logit": 7.450580596923828e-08,
+      "worst_parameter": 2.9802322387695312e-08,
+      "binary_sha256": "8f0a901c3d4bbef6beb312e148210ee3fab2981b4e390ee6bf55f8c54b79cbb9"
+    },
+    "text": {
+      "cases": 166,
+      "worst_logit": 1.7881393432617188e-07,
+      "worst_parameter": null,
+      "binary_sha256": "e9be80fa1ceca9b9b8dbe60f293abbb5f2a30b803d4d42615810fd39f4c92602"
+    },
+    "deepseek_v41": {
+      "cases": 2,
+      "worst_logit": 0,
+      "binary_sha256": "0567b0266abd25265408087bce41da0455c51bd8d819737cde5dcc3650e7f23b"
+    }
+  },
+  "rdna3_multimodal_qualified": false,
+  "inventory_sha256": "ca87c1dbcbe214d3448368d6ea48c5c4aeb3692e0b76b43b8bd77a051ecaeb04",
+  "receipts_sha256": {
+    "deepseek-suite-qualification.json": "4a2066cb14972ab67de5452e987b9c8be854061b0e9280ce41edb599a1c26b51",
+    "gemma3-qualification.json": "6fa68133bea4d8ce31d9187b9842f7ec18d360c74e13a3004bed337dcb72c269",
+    "gemma4-legacy-qualification.json": "9224f9682b305d3576825d362e81b44597949e08a5bcbfda61a8a517bcffedcf",
+    "gemma4-rgb-qualification.json": "6db1cf4b0f4ebb5da4fde7a77db9bec4120c562ea62879cc15ccd128e6fbd10a",
+    "inventory-before-optimization.json": "00e1ded279371d2abbd9750e99d452ea0254cc787bd6755f52fc241eef79267c",
+    "inventory.json": "ca87c1dbcbe214d3448368d6ea48c5c4aeb3692e0b76b43b8bd77a051ecaeb04",
+    "llava-qualification.json": "1cd447d4ee733f67d911529faea2c0e5be0a849b7c06f161245acf6af208726a",
+    "native-joint-wide-host.json": "b323ac77191b789f68dee870579fb3312d313a4632db99ba7470ec6a13dca4d7",
+    "native-joint.json": "b323ac77191b789f68dee870579fb3312d313a4632db99ba7470ec6a13dca4d7",
+    "native-qualification.json": "893e9e48acc3b1797ee65e8446e9f6c5e7c20e3e6b5f2c533aa521b4c1f1eb7b",
+    "native-run-status.json": "ad3dbc4ae39c45bd9d7c7250c507012e0aa611cdedc166ee80c68db4385ac816",
+    "native-source-sha256.json": "83c635c2091792333e58cce55e94107803de7b49217a5975c1c0f1b92eaa8682",
+    "preserved-v41-contract.json": "eecf4bd6835b215016ca286fe317bd464237d95678c4f9e8a021b90425234478",
+    "seq2seq-qualification.json": "7b3d2cc680d8920655806de03b7741f67841458c9f9ae199e4d4514ac6748d81",
+    "shader-verification.json": "360b9ae7913a939cf86338854fb1ce615809c7431f7c62c39ead6bc78db0fb46",
+    "shared77-qualification.json": "2a939e8bf572c065ad0312a3aaeb90d93b78a905a86cc918d60d4577461e8dea",
+    "text-qualification.json": "d22aeaea86aa6c7c6d9f61e3af769bcab2382d95734c86ca217a4ffea9804cf1",
+    "benchmark/benchmark.json": "6b9fc909717ed864c80d67dc9e992c597993ef2acab81ac8027602c903bbb7d3",
+    "benchmark/round-1-grouped.json": "6db965798f90596d33d50eca3da3843ad9cb01a405dbb76374b8155802d47a04",
+    "benchmark/round-1-individual.json": "520555421a109814d7fe12a3152cc8895bee77f4959586715679c42b9b6ba5de",
+    "benchmark/round-2-grouped.json": "1fd4734a7948edfaee2f0add711c63ffc40f5305a3aa2da75ec83d771a1e880a",
+    "benchmark/round-2-individual.json": "1d1342f88a4581036e886ec3724553023fe125393b99350e134b6a98d49394e3",
+    "benchmark/run-status.json": "2b52bfb5e6afb73c9782e2a0213b4f7ac117e920fe164546450f13ae22e4d76b"
+  },
+  "limits": [
+    "frozen tiny FP32 geometry and unoptimized libtest build timings",
+    "production-size parity, throughput and BF16 training unqualified",
+    "physical RDNA3 replay pending"
+  ]
+}

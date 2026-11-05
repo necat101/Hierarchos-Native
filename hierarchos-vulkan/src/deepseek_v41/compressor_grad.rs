@@ -181,6 +181,7 @@ pub struct DeepseekV41CompressorAdjoints {
     state_grad: vulkan::ComputeKernel,
     decode_grad: vulkan::ComputeKernel,
     input_grad: vulkan::ComputeKernel,
+    input_grad_avx2: Option<vulkan::ComputeKernel>,
     input_grad_block8: vulkan::ComputeKernel,
     input_grad_group4: vulkan::ComputeKernel,
     vector: vulkan::ComputeKernel,
@@ -195,7 +196,12 @@ fn kernel(
 ) -> Result<vulkan::ComputeKernel> {
     let mut access = vec![vulkan::BindingAccess::ReadOnly; reads];
     access.extend(vec![vulkan::BindingAccess::WriteOnly; writes]);
-    vulkan::ComputeKernel::new_with_access(device, crate::deepseek_v41::gen9::shader(device, bytes), &access, push as u32)
+    vulkan::ComputeKernel::new_with_access(
+        device,
+        crate::deepseek_v41::gen9::shader(device, bytes),
+        &access,
+        push as u32,
+    )
 }
 fn count(a: usize, b: usize) -> Result<usize> {
     a.checked_mul(b)
@@ -240,6 +246,17 @@ impl DeepseekV41CompressorAdjoints {
                 1,
                 std::mem::size_of::<LinearPush>(),
             )?,
+            input_grad_avx2: if crate::deepseek_v41::cpu_math::active() {
+                Some(kernel(
+                    &device,
+                    include_bytes!("../../shaders/transformer_deepseek_v41_input_grad_avx2.spv"),
+                    2,
+                    1,
+                    std::mem::size_of::<LinearPush>(),
+                )?)
+            } else {
+                None
+            },
             input_grad_block8: kernel(
                 &device,
                 LINEAR_INPUT_GRAD_BLOCK8,
@@ -449,7 +466,15 @@ impl DeepseekV41CompressorAdjoints {
             output_dim: p.dim as u32,
         };
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
-        self.input_grad.record_dispatch(
+        // The native AVX2 oracle panels prefill rows as six plus a short tail,
+        // just like the other frozen Linear input adjoints. Keep the historical
+        // text contract on its original kernel when this scope is not selected.
+        let input_grad = if p.hidden >= 2 && p.dim <= 192 {
+            self.input_grad_avx2.as_ref().unwrap_or(&self.input_grad)
+        } else {
+            &self.input_grad
+        };
+        input_grad.record_dispatch(
             &mut commands,
             &[&grad_kv, operands.kv_weight, &grad_kv_input],
             bytemuck::bytes_of(&push),
@@ -458,7 +483,7 @@ impl DeepseekV41CompressorAdjoints {
         let grad_input = match (grad_score, operands.gate_weight) {
             (Some(grad_gate), Some(gate_weight)) => {
                 let grad_gate_input = GpuBuffer::zeros_f32(&self.device, count(rows, p.hidden)?)?;
-                self.input_grad.record_dispatch(
+                input_grad.record_dispatch(
                     &mut commands,
                     &[&grad_gate, gate_weight, &grad_gate_input],
                     bytemuck::bytes_of(&push),

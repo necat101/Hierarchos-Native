@@ -8,6 +8,9 @@ HANDOFF-MANIFEST.json -text
 # These qualified/generated files retain their original terminal newlines.
 hierarchos-vulkan/shaders/fp32_v41_unary.glsl whitespace=cr-at-eol,-blank-at-eof
 hierarchos-vulkan/validation/release_parity/deepseek_v41/receipts/** whitespace=cr-at-eol,-blank-at-eof
+# Retained terminal logs and historical diffs keep their exact evidence bytes.
+hierarchos-vulkan/validation/release_parity/multimodal_training/**/*.log whitespace=cr-at-eol,-blank-at-eof,-blank-at-eol
+hierarchos-vulkan/validation/release_parity/multimodal_training/**/*.patch whitespace=cr-at-eol,-blank-at-eof,-blank-at-eol
 hierarchos-vulkan/** -text
 hierarchos-native-cli/** -text
 hierarchos-inference/** -text

@@ -1815,9 +1815,13 @@ impl VulkanDevice {
             .shader_float16(shader_float16_enabled);
         let mut timeline_semaphore_enable = vk::PhysicalDeviceTimelineSemaphoreFeatures::default()
             .timeline_semaphore(timeline_semaphore_enabled);
+        let available_features = unsafe { instance.get_physical_device_features(physical_device) };
+        let mut enabled_core_features = vk::PhysicalDeviceFeatures::default();
+        enabled_core_features.shader_float64 = available_features.shader_float64;
         let mut device_info = vk::DeviceCreateInfo::default()
             .queue_create_infos(&queue_infos)
-            .enabled_extension_names(&enabled_extension_names);
+            .enabled_extension_names(&enabled_extension_names)
+            .enabled_features(&enabled_core_features);
         if timeline_semaphore_enabled {
             device_info = device_info.push_next(&mut timeline_semaphore_enable);
         }
@@ -3512,6 +3516,10 @@ pub struct GpuBuffer {
 }
 
 impl GpuBuffer {
+    pub(crate) fn capacity_bytes(&self) -> usize {
+        self.allocation.size_bytes
+    }
+
     pub(crate) fn belongs_to_device(&self, device: &VulkanDevice) -> bool {
         Arc::ptr_eq(&self.allocation.inner, &device.inner)
     }
@@ -3859,7 +3867,7 @@ impl GpuBuffer {
         }
         let device = self.allocation.device.clone();
         let duplicate = Self::zeros_f32(&device, len)?;
-        copy_buffer(&device, self, &duplicate, size_bytes)?;
+        copy_buffer(&device, self, &duplicate, size_bytes, "duplicate_f32")?;
         Ok(duplicate)
     }
 
@@ -4241,6 +4249,20 @@ impl GpuBuffer {
         Ok(buffer)
     }
 
+    /// Immutable parameters admitted as a bounded group can share the batch's
+    /// reusable host staging arena. Streamed tensors keep from_f32_recorded's
+    /// exact-size staging and its existing release boundary.
+    pub(crate) fn from_f32_in_upload_arena(
+        device: &VulkanDevice,
+        commands: &mut ComputeBatch,
+        values: &[f32],
+    ) -> Result<Self> {
+        let size_bytes = values.len().checked_mul(4).context("buffer size overflow")?;
+        let buffer = Self::new(device, size_bytes)?;
+        commands.upload_f32(&buffer, values)?;
+        Ok(buffer)
+    }
+
     /// Upload immutable stage metadata into the enclosing compute session.
     /// Staging preserves byte order without retiring earlier GPU work for a
     /// host write. Outside a session the owned batch still submits immediately.
@@ -4454,7 +4476,7 @@ impl GpuBuffer {
             device.cancel_zero_clear(self);
             let staging = Self::new_host_visible(&device, bytes.len())?;
             staging.write_mapped(bytes)?;
-            copy_buffer(&device, &staging, self, bytes.len())?;
+            copy_buffer(&device, &staging, self, bytes.len(), "upload_bytes")?;
         }
         Ok(())
     }
@@ -4544,8 +4566,60 @@ impl GpuBuffer {
         }
         let device = self.allocation.device.clone();
         let staging = Self::new_host_visible(&device, bytes)?;
-        copy_buffer(&device, self, &staging, bytes)?;
+        copy_buffer(&device, self, &staging, bytes, "read_f32")?;
         staging.read_mapped_f32(len)
+    }
+
+    /// Download several device-resident FP32 spans with one submission.
+    ///
+    /// [`Self::read_f32`] on a device-local buffer costs its own staging
+    /// allocation, ``ComputeBatch``, queue submission and fence wait. The
+    /// optimizer boundary reads hundreds of small adapter spans per step, so
+    /// callers that already know every span group them here: all copies are
+    /// recorded into one batch, submitted once, and the single host-visible
+    /// slab is mapped once. The values are the same bytes a sequence of
+    /// individual reads would return; only the number of submissions changes.
+    pub fn read_many_f32(items: &[(&GpuBuffer, usize)]) -> Result<Vec<Vec<f32>>> {
+        if items.is_empty() {
+            return Ok(Vec::new());
+        }
+        let device = items[0].0.allocation.device.clone();
+        let mut total = 0usize;
+        for (buffer, len) in items {
+            if !buffer.belongs_to_device(&device) {
+                bail!("batched read mixes buffers from different Vulkan devices");
+            }
+            let bytes = len.checked_mul(4).context("batched read size overflow")?;
+            if bytes > buffer.allocation.size_bytes {
+                bail!(
+                    "batched read of {bytes} bytes exceeds buffer size {}",
+                    buffer.allocation.size_bytes
+                );
+            }
+            total = total
+                .checked_add(*len)
+                .context("batched read length overflow")?;
+        }
+        // A session's stages are recorded, not submitted; the host read must
+        // see them before any copy is recorded.
+        retire_active_compute_session(&device)?;
+        let slab_bytes = total.checked_mul(4).context("batched read size overflow")?;
+        let slab = Self::new_host_visible(&device, slab_bytes)?;
+        let mut commands = ComputeBatch::new(&device)?;
+        let mut offset = 0usize;
+        for (buffer, len) in items {
+            commands.readback_f32_range(buffer, 0, &slab, offset, *len)?;
+            offset += *len;
+        }
+        commands.submit()?;
+        let all = slab.read_mapped_f32(total)?;
+        let mut out = Vec::with_capacity(items.len());
+        let mut cursor = 0usize;
+        for (_, len) in items {
+            out.push(all[cursor..cursor + *len].to_vec());
+            cursor += *len;
+        }
+        Ok(out)
     }
 
     pub fn read_u32(&self, len: usize) -> Result<Vec<u32>> {
@@ -4566,7 +4640,7 @@ impl GpuBuffer {
         }
         let device = self.allocation.device.clone();
         let staging = Self::new_host_visible(&device, bytes)?;
-        copy_buffer(&device, self, &staging, bytes)?;
+        copy_buffer(&device, self, &staging, bytes, "read_u32")?;
         staging.read_mapped_u32(len)
     }
 
@@ -5007,7 +5081,12 @@ fn copy_buffer(
     src: &GpuBuffer,
     dst: &GpuBuffer,
     size_bytes: usize,
+    label: &'static str,
 ) -> Result<()> {
+    #[cfg(test)]
+    let _label = submission_report::label(label);
+    #[cfg(not(test))]
+    let _ = label;
     let mut commands = ComputeBatch::new(device)?;
     // A source that was zeroed but never dispatched on must be filled before
     // the copy reads it, or the readback would return uninitialized memory.
@@ -6300,6 +6379,70 @@ struct DescriptorSetCacheKey {
     buffers: Vec<BufferRegionKey>,
 }
 
+/// Test-only accounting of logical queue submissions by call site. Nothing is
+/// recorded unless `HIERARCHOS_VULKAN_SUBMISSION_REPORT` is set, and the whole
+/// module is compiled out of non-test builds.
+#[cfg(test)]
+pub(crate) mod submission_report {
+    use std::collections::BTreeMap;
+    use std::sync::{Mutex, OnceLock};
+
+    type Key = (&'static str, u32);
+
+    fn counts() -> &'static Mutex<BTreeMap<Key, u64>> {
+        static COUNTS: OnceLock<Mutex<BTreeMap<Key, u64>>> = OnceLock::new();
+        COUNTS.get_or_init(|| Mutex::new(BTreeMap::new()))
+    }
+
+    pub(crate) fn enabled() -> bool {
+        std::env::var_os("HIERARCHOS_VULKAN_SUBMISSION_REPORT").is_some()
+    }
+
+    thread_local! {
+        static LABEL: std::cell::Cell<Option<&'static str>> = const { std::cell::Cell::new(None) };
+    }
+
+    /// Attribute submissions made while this guard is alive to a stable label
+    /// instead of a source line, so a funnel with several callers can be split.
+    pub(crate) struct LabelGuard(Option<&'static str>);
+
+    pub(crate) fn label(name: &'static str) -> LabelGuard {
+        LabelGuard(LABEL.with(|label| label.replace(Some(name))))
+    }
+
+    impl Drop for LabelGuard {
+        fn drop(&mut self) {
+            let previous = self.0;
+            LABEL.with(|label| label.set(previous));
+        }
+    }
+
+    pub(crate) fn record(location: &'static std::panic::Location<'static>) {
+        if !enabled() {
+            return;
+        }
+        if let Some(label) = LABEL.with(|label| label.get()) {
+            if let Ok(mut counts) = counts().lock() {
+                *counts.entry((label, 0)).or_insert(0) += 1;
+            }
+            return;
+        }
+        if let Ok(mut counts) = counts().lock() {
+            *counts.entry((location.file(), location.line())).or_insert(0) += 1;
+        }
+    }
+
+    pub(crate) fn take() -> Vec<(&'static str, u32, u64)> {
+        let mut counts = match counts().lock() {
+            Ok(counts) => counts,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let report = counts.iter().map(|(&(file, line), &count)| (file, line, count)).collect();
+        counts.clear();
+        report
+    }
+}
+
 impl ComputeBatch {
     pub(crate) fn new(device: &VulkanDevice) -> Result<Self> {
         Self::new_with_upload_storage(device, UploadArenaStorage::Local(Vec::new()))
@@ -7439,7 +7582,10 @@ impl ComputeBatch {
         Ok(descriptor_set)
     }
 
+    #[cfg_attr(test, track_caller)]
     pub(crate) fn submit(self) -> Result<()> {
+        #[cfg(test)]
+        submission_report::record(std::panic::Location::caller());
         self.submit_async()?.wait()
     }
 
@@ -7448,7 +7594,10 @@ impl ComputeBatch {
     /// This supports both graph phase boundaries that require host-visible
     /// completion and watchdog-safe job slicing on drivers with short GPU job
     /// timeouts.
+    #[cfg_attr(test, track_caller)]
     pub(crate) fn submit_and_restart(&mut self) -> Result<()> {
+        #[cfg(test)]
+        submission_report::record(std::panic::Location::caller());
         let device = self.device.clone();
         let session_owned = self.session_owned;
         let watchdog_submission_slicing = self.watchdog_submission_slicing;

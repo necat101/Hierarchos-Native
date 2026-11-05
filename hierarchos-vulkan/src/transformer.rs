@@ -31,12 +31,18 @@ use serde::{Deserialize, Serialize};
 use tokenizers::Tokenizer;
 
 use crate::training_numerics::VulkanOrderedF32SumReducer;
-use crate::multimodal::{ModalityEmbeddingRows, MultimodalTransformerStepResult, PreparedModalityRows};
+use crate::multimodal::{DeviceMultimodalStepResult, ModalityEmbeddingInput, ModalityEmbeddingRows, MultimodalTransformerStepResult, PreparedModalityRows};
 mod falcon_h1;
 mod peft_registry;
 mod peft_state;
 mod streamed_load;
+pub mod gemma3_vision;
+pub mod gemma4_vision;
+pub mod deepseek_v41_vision;
 pub mod vision;
+pub mod image_text;
+mod seq2seq_training;
+use seq2seq_training::ComposedTrainingOptions;
 use streamed_load::{HostLinearPayload, upload_host_linear};
 use crate::{
     hierarchos_canonical_philox_word, hierarchos_dropout_threshold, read_f32_tensor, vendor,
@@ -74,6 +80,18 @@ const LAYER_NORM_WELFORD_SMALL_FORWARD_SPV: &[u8] =
 fn rdna3_gpt2_cpu_math(architecture: VulkanTransformerArchitecture, vendor: u32, device: u32) -> bool {
     architecture == VulkanTransformerArchitecture::Gpt2
         && vendor::is_amd_rdna3_pci_id(vendor, device)
+}
+
+/// GPT-2's CPU oracle reduces the LayerNorm mean and variance with one fused
+/// Welford association, so the norm follows the architecture on every adapter.
+fn gpt2_welford_norm(architecture: VulkanTransformerArchitecture) -> bool {
+    architecture == VulkanTransformerArchitecture::Gpt2
+}
+
+/// The attention denominator uses a correctly rounded reciprocal rather than the
+/// hardware rcp approximation, which is also an architecture-level choice.
+fn gpt2_attention_reciprocal(architecture: VulkanTransformerArchitecture) -> bool {
+    architecture == VulkanTransformerArchitecture::Gpt2
 }
 
 fn small_welford_is_qualified(device: &str, dim: usize) -> bool {
@@ -25098,18 +25116,44 @@ fn transformer_rotary_layers_for_package(
             )
             .with_context(|| format!("decoding {}", config_path.display()))?;
             let gemma4 = config.architecture == VulkanTransformerArchitecture::Gemma4;
-            let local_theta = if gemma4 {
-                VulkanTransformerConfig::gemma4_rope_theta(&value, "sliding_attention", 10_000.0)?
+            // Multimodal Gemma4 checkpoints keep the effective text settings under
+            // `text_config`; text-only checkpoints keep them at the top level.
+            let effective_value = if gemma4 {
+                value
+                    .get("text_config")
+                    .filter(|nested| nested.is_object())
+                    .unwrap_or(&value)
             } else {
-                VulkanTransformerConfig::gemma3_rope_theta(&value, "sliding_attention", 10_000.0)?
+                &value
+            };
+            let local_theta = if gemma4 {
+                VulkanTransformerConfig::gemma4_rope_theta(
+                    effective_value,
+                    "sliding_attention",
+                    10_000.0,
+                )?
+            } else {
+                VulkanTransformerConfig::gemma3_rope_theta(
+                    effective_value,
+                    "sliding_attention",
+                    10_000.0,
+                )?
             };
             let global_theta = if gemma4 {
-                VulkanTransformerConfig::gemma4_rope_theta(&value, "full_attention", 1_000_000.0)?
+                VulkanTransformerConfig::gemma4_rope_theta(
+                    effective_value,
+                    "full_attention",
+                    1_000_000.0,
+                )?
             } else {
-                VulkanTransformerConfig::gemma3_rope_theta(&value, "full_attention", 1_000_000.0)?
+                VulkanTransformerConfig::gemma3_rope_theta(
+                    effective_value,
+                    "full_attention",
+                    1_000_000.0,
+                )?
             };
             let family = if gemma4 { "Gemma4" } else { "Gemma3" };
-            let nested_rope_parameters = value
+            let nested_rope_parameters = effective_value
                 .get("rope_parameters")
                 .filter(|parameters| !parameters.is_null())
                 .and_then(serde_json::Value::as_object);
@@ -25898,6 +25942,9 @@ pub const HIERARCHOS_ATEN_VECTOR_WIDTH_ENV: &str = "HIERARCHOS_ATEN_VECTOR_WIDTH
 /// shipped binary runs on both kinds of machine.  The result is cached after
 /// the first call so per-dispatch callers pay nothing.
 pub fn aten_vector_width() -> u32 {
+    if crate::deepseek_v41::native_avx2_math_active() {
+        return 8;
+    }
     static WIDTH: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
     *WIDTH.get_or_init(|| {
         let requested = std::env::var_os(HIERARCHOS_ATEN_VECTOR_WIDTH_ENV)
@@ -25972,6 +26019,12 @@ struct TransformerKernels {
     lora_a_forward_lane8_muladd: vulkan::ComputeKernel,
     linear_bias_forward: vendor::VendorMatmulKernel,
     linear_bias_forward_kblock128: Option<vulkan::ComputeKernel>,
+    /// Explicit composed-image CPU arithmetic; ordinary text graphs leave
+    /// this unset, retaining their independently qualified kernel selection.
+    cpu_row_gemm: Option<(vulkan::ComputeKernel, vulkan::ComputeKernel)>,
+    /// Shared-image wide NN GEMMs, separately measured at M=16. This does not
+    /// broaden the vision or input-adjoint admission policy.
+    cpu_wide_row_gemm: bool,
     linear_weight_grad: vulkan::ComputeKernel,
     linear_input_grad: vulkan::ComputeKernel,
     linear_input_grad_muladd: vulkan::ComputeKernel,
@@ -25982,6 +26035,13 @@ struct TransformerKernels {
     bias_grad: vulkan::ComputeKernel,
     bias_add: vulkan::ComputeKernel,
     layer_norm_forward: vulkan::ComputeKernel,
+    /// ATen-compatible eight-lane Welford reduction, used by module instances
+    /// that opted in through `VulkanLayerNorm::use_cpu_welford`.
+    layer_norm_welford_forward: vulkan::ComputeKernel,
+    layer_norm_cpu_input_grad: vulkan::ComputeKernel,
+    layer_norm_cpu_param_grad: vulkan::ComputeKernel,
+    /// Shared CLIP adapter arithmetic; native towers retain their own policy.
+    cpu_layer_norm_adjoint: bool,
     layer_norm_rows_per_workgroup: usize,
     layer_norm_input_grad: vulkan::ComputeKernel,
     layer_norm_param_grad: vulkan::ComputeKernel,
@@ -26227,6 +26287,8 @@ impl TransformerKernels {
                 vendor::VendorKernelFamily::LinearBiasForward,
             )?,
             linear_bias_forward_kblock128: None,
+            cpu_row_gemm: None,
+            cpu_wide_row_gemm: false,
             linear_weight_grad: vulkan::ComputeKernel::new(device, LINEAR_WEIGHT_GRAD_SPV, 3, 12)?,
             linear_input_grad: vulkan::ComputeKernel::new(device, LINEAR_INPUT_GRAD_SPV, 3, 12)?,
             linear_input_grad_muladd: vulkan::ComputeKernel::new(
@@ -26246,6 +26308,19 @@ impl TransformerKernels {
             bias_grad: vulkan::ComputeKernel::new(device, BIAS_GRAD_SPV, 2, 8)?,
             bias_add: vulkan::ComputeKernel::new(device, BIAS_ADD_SPV, 2, 8)?,
             layer_norm_forward: vulkan::ComputeKernel::new(device, layer_norm_spv, 6, 12)?,
+            layer_norm_welford_forward: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../shaders/vision_layer_norm_welford_forward.spv"),
+                6,
+                12,
+            )?,
+            layer_norm_cpu_input_grad: vulkan::ComputeKernel::new(
+                device, include_bytes!("../shaders/vision_layer_norm_input_grad_cpu_avx2.spv"), 6, 8,
+            )?,
+            layer_norm_cpu_param_grad: vulkan::ComputeKernel::new(
+                device, include_bytes!("../shaders/vision_layer_norm_param_grad_cpu_avx2.spv"), 6, 8,
+            )?,
+            cpu_layer_norm_adjoint: false,
             layer_norm_rows_per_workgroup: 64,
             layer_norm_input_grad: vulkan::ComputeKernel::new(
                 device,
@@ -28381,6 +28456,18 @@ fn record_linear_projection(
         output_dim: output_dim as u32,
     };
     let geometry = [div_ceil_u32(output_dim, 16), div_ceil_u32(rows, 16), 1];
+    if let Some((forward, _)) = kernels.cpu_row_gemm.as_ref().filter(|_| {
+        vision::cpu_avx2_vision_gemm(rows, input_dim, output_dim, aten_vector_width())
+            || (kernels.cpu_wide_row_gemm && aten_vector_width() == 8 && rows == 16
+                && ((input_dim == 64
+                    && matches!(output_dim, 16 | 32 | 64 | 128 | 192 | 256 | 320))
+                    || (input_dim == 256 && output_dim == 64)))
+    }) {
+        let cpu_push = [rows as u32, input_dim as u32, output_dim as u32, u32::from(bias.is_some())];
+        return forward.record_dispatch(commands,
+            &[input, weight, bias.unwrap_or(weight), output],
+            bytemuck::cast_slice(&cpu_push), geometry);
+    }
     match bias {
         Some(bias) => {
             // PyTorch CPU's narrow-output (N == 8) GEMM path also covers the
@@ -29081,6 +29168,20 @@ impl VulkanLinear {
             .unwrap_or(grad_input);
         if let Some(tiered) = self.weight.tiered_source() {
             tiered.record_input_gradient(commands, base_grad_output, base_grad_input, rows)?;
+        } else if let Some((_, gradient)) = kernels.cpu_row_gemm.as_ref().filter(|_| {
+            (vision::cpu_avx2_input_gradient_gemm(
+                rows,
+                self.output_dim,
+                self.input_dim,
+                aten_vector_width(),
+            ) && matches!(rows % 6, 1..=3))
+                || (kernels.cpu_wide_row_gemm && rows == 16)
+        }) {
+            let cpu_push = [rows as u32, self.output_dim as u32, self.input_dim as u32, 0];
+            gradient.record_dispatch(commands,
+                &[base_grad_output, &self.weight.values, &self.bias.values, base_grad_input],
+                bytemuck::cast_slice(&cpu_push),
+                [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1])?;
         } else { kernels.linear_input_grad.record_dispatch(
             commands,
             &[base_grad_output, &self.weight.values, base_grad_input],
@@ -29393,6 +29494,9 @@ struct VulkanLayerNorm {
     // sqrt+reciprocal, 2 = mathematically correctly-rounded reciprocal square root.
     extra_rsqrt_refinement: u32,
     materialized_backward: bool,
+    /// Select the eight-lane Welford forward reduction that matches ATen's
+    /// `RowwiseMoments` (chunked cascade plus a plain-arithmetic lane fold).
+    cpu_welford: bool,
     trainable: bool,
     train_bias: bool,
 }
@@ -29421,6 +29525,7 @@ impl VulkanLayerNorm {
             unfused_products: false,
             extra_rsqrt_refinement: 0,
             materialized_backward: false,
+            cpu_welford: false,
             trainable: true,
             train_bias: true,
         })
@@ -29446,6 +29551,7 @@ impl VulkanLayerNorm {
             unfused_products: false,
             extra_rsqrt_refinement: 0,
             materialized_backward: false,
+            cpu_welford: false,
             trainable: true,
             train_bias: false,
         })
@@ -29474,6 +29580,7 @@ impl VulkanLayerNorm {
             unfused_products: false,
             extra_rsqrt_refinement: 0,
             materialized_backward: false,
+            cpu_welford: false,
             trainable: true,
             train_bias: false,
         })
@@ -29531,6 +29638,7 @@ impl VulkanLayerNorm {
             unfused_products: false,
             extra_rsqrt_refinement: 0,
             materialized_backward: false,
+            cpu_welford: false,
             trainable: true,
             train_bias: false,
         })
@@ -29560,6 +29668,7 @@ impl VulkanLayerNorm {
             unfused_products: false,
             extra_rsqrt_refinement: 0,
             materialized_backward: false,
+            cpu_welford: false,
             trainable: true,
             train_bias: false,
         })
@@ -29579,6 +29688,7 @@ impl VulkanLayerNorm {
             unfused_products: self.unfused_products,
             extra_rsqrt_refinement: self.extra_rsqrt_refinement,
             materialized_backward: self.materialized_backward,
+            cpu_welford: self.cpu_welford,
             trainable: self.trainable,
             train_bias: self.train_bias,
         }
@@ -29604,6 +29714,17 @@ impl VulkanLayerNorm {
         self.unfused_products = enabled;
         self
     }
+
+    /// ATen's CPU LayerNorm reduces each row with eight interleaved Welford
+    /// lanes, a 16-vector chunk cascade and a plain-arithmetic lane fold. The
+    /// SigLIP tower's width-32 norms sit one ulp from the oracle with the
+    /// two-pass scalar reduction, which the projector then amplifies past the
+    /// gate, so those instances select the Welford kernel.
+    fn use_cpu_welford(mut self, enabled: bool) -> Self {
+        self.cpu_welford = enabled;
+        self
+    }
+
 
     fn use_extra_rsqrt_refinement(mut self, enabled: bool) -> Self {
         self.extra_rsqrt_refinement = u32::from(enabled);
@@ -29709,7 +29830,12 @@ impl VulkanLayerNorm {
                 dim: self.dim as u32,
                 eps: self.eps,
             };
-            kernels.layer_norm_forward.record_dispatch(
+            let kernel = if self.cpu_welford {
+                &kernels.layer_norm_welford_forward
+            } else {
+                &kernels.layer_norm_forward
+            };
+            kernel.record_dispatch(
                 commands,
                 &[
                     input,
@@ -29846,8 +29972,12 @@ impl VulkanLayerNorm {
                 rows: rows as u32,
                 dim: self.dim as u32,
             };
+            let cpu_profile = self.cpu_welford && kernels.cpu_layer_norm_adjoint
+                && aten_vector_width() == 8;
+            let param_kernel = if cpu_profile { &kernels.layer_norm_cpu_param_grad } else { &kernels.layer_norm_param_grad };
+            let input_kernel = if cpu_profile { &kernels.layer_norm_cpu_input_grad } else { &kernels.layer_norm_input_grad };
             if self.trainable || self.train_bias {
-                kernels.layer_norm_param_grad.record_dispatch(
+                param_kernel.record_dispatch(
                     commands,
                     &[
                         grad_output,
@@ -29858,7 +29988,7 @@ impl VulkanLayerNorm {
                         self.bias.grad_target()?,
                     ],
                     bytemuck::bytes_of(&push),
-                    [div_ceil_u32(self.dim, 256), 1, 1],
+                    [div_ceil_u32(self.dim, if cpu_profile { 64 } else { 256 }), 1, 1],
                 )?;
                 if self.trainable {
                     self.weight.record_grad_accumulate(commands, kernels)?;
@@ -29867,7 +29997,7 @@ impl VulkanLayerNorm {
                     self.bias.record_grad_accumulate(commands, kernels)?;
                 }
             }
-            kernels.layer_norm_input_grad.record_dispatch(
+            input_kernel.record_dispatch(
                 commands,
                 &[
                     grad_output,
@@ -42299,6 +42429,7 @@ fn transformer_text_wrapper_prefix(model_type: &str) -> Option<&'static str> {
         | "glm_ocr"
         | "hunyuan_vl"
         | "gemma3"
+        | "gemma4"
         | "exaone4_5"
         | "cohere_compass"
         | "cohere2_vision"
@@ -62406,7 +62537,7 @@ impl VulkanTransformerLayer {
             } else {
                 grad_mlp_linear_input
             };
-            let peft_residual_rms_association = self.base_frozen_for_peft
+            let residual_rms_association = ((self.base_frozen_for_peft
                 && matches!(
                     config.architecture,
                     VulkanTransformerArchitecture::MiniMaxM2
@@ -62414,12 +62545,13 @@ impl VulkanTransformerLayer {
                         | VulkanTransformerArchitecture::Qwen2
                         | VulkanTransformerArchitecture::Gemma3
                         | VulkanTransformerArchitecture::Gemma4
-                )
+                )) || (kernels.cpu_wide_row_gemm
+                    && config.architecture == VulkanTransformerArchitecture::Llama))
                 && !config.parallel_residual
                 && !self.shared_pre_norm
                 && !cross_attention_active
                 && !config.residual_connection_post_layernorm;
-            if peft_residual_rms_association {
+            if residual_rms_association {
                 self.ln2.record_backward_with_residual(
                     commands,
                     kernels,
@@ -62444,7 +62576,7 @@ impl VulkanTransformerLayer {
                     rows,
                 )?;
             }
-            if !config.residual_connection_post_layernorm && !peft_residual_rms_association {
+            if !config.residual_connection_post_layernorm && !residual_rms_association {
                 record_add(
                     commands,
                     kernels,
@@ -63296,7 +63428,9 @@ impl VulkanTransformerLayer {
                             rows,
                             config.architecture == VulkanTransformerArchitecture::Gemma4,
                         )?;
-                    if matches!(
+                    if (kernels.cpu_wide_row_gemm
+                        && config.architecture == VulkanTransformerArchitecture::Llama)
+                        || matches!(
                         config.architecture,
                         VulkanTransformerArchitecture::Gemma3
                             | VulkanTransformerArchitecture::Gemma4
@@ -63727,7 +63861,7 @@ impl VulkanTransformerLayer {
                 rows * d,
             );
         }
-        if self.base_frozen_for_peft
+        if ((self.base_frozen_for_peft
             && matches!(
                 config.architecture,
                 VulkanTransformerArchitecture::MiniMaxM2
@@ -63735,7 +63869,8 @@ impl VulkanTransformerLayer {
                     | VulkanTransformerArchitecture::Qwen2
                     | VulkanTransformerArchitecture::Gemma3
                     | VulkanTransformerArchitecture::Gemma4
-            )
+            )) || (kernels.cpu_wide_row_gemm
+                && config.architecture == VulkanTransformerArchitecture::Llama))
             && !self.shared_pre_norm
             && !config.parallel_residual
             && !cross_attention_active
@@ -67866,7 +68001,8 @@ impl VulkanTransformer {
         let repaired_gpt2 = rdna3_gpt2_cpu_math(
             config.architecture, device.vendor_id(), device.device_id(),
         );
-        let layer_norm_spv = if repaired_gpt2 {
+        let cpu_welford = gpt2_welford_norm(config.architecture);
+        let layer_norm_spv = if cpu_welford {
             // One chunk has the identical Welford association without a cascade
             // stack. Keep unmeasured adapters/drivers and larger widths on the
             // independently qualified general implementation.
@@ -67882,15 +68018,11 @@ impl VulkanTransformer {
             &device,
             layer_norm_spv,
         )?);
-        if repaired_gpt2
-            && small_welford_is_qualified(device.decision_device_name(), config.hidden_size)
+        if cpu_welford && small_welford_is_qualified(device.decision_device_name(), config.hidden_size)
         {
             kernels.layer_norm_rows_per_workgroup = 8;
         }
-        if repaired_gpt2 {
-            // PyTorch's FP32 tanh dispatches through MKL VML in the CPU oracle.
-            // Use a high-accuracy FP32 reconstruction on this qualified adapter;
-            // the existing Gen9 and other architecture pipelines stay selected.
+        if gpt2_attention_reciprocal(config.architecture) {
             kernels.attention_forward = vulkan::ComputeKernel::new(
                 &device,
                 include_bytes!("../shaders/transformer_attention_forward_cpu_reciprocal.spv"),
@@ -67903,6 +68035,11 @@ impl VulkanTransformer {
                 15,
                 std::mem::size_of::<AttentionBackwardPush>() as u32,
             )?;
+        }
+        if repaired_gpt2 {
+            // PyTorch's FP32 tanh dispatches through MKL VML in the CPU oracle.
+            // Use a high-accuracy FP32 reconstruction on this qualified adapter;
+            // the existing Gen9 and other architecture pipelines stay selected.
             kernels.gelu_tanh_forward = vulkan::ComputeKernel::new(
                 &device,
                 include_bytes!("../shaders/transformer_gelu_tanh_ha_forward.spv"),
@@ -75335,7 +75472,16 @@ impl VulkanTransformer {
     ) -> Result<Vec<f32>> {
         self.forward_logits_with_context_and_roc_bert_ids_and_layer_count(
             input_ids, None, None, None, None, attention_mask, None, None,
-            self.layers.len(), false, Some(modality_rows),
+            self.layers.len(), false, Some(ModalityEmbeddingInput::Host(modality_rows)), None, false,
+        ).map(|(logits, _)| logits)
+    }
+
+    fn forward_logits_with_device_modality_embeddings(
+        &self, input_ids: &[u32], attention_mask: &[f32], rows: &[usize], values: &GpuBuffer,
+    ) -> Result<Vec<f32>> {
+        self.forward_logits_with_context_and_roc_bert_ids_and_layer_count(
+            input_ids, None, None, None, None, attention_mask, None, None,
+            self.layers.len(), false, Some(ModalityEmbeddingInput::Device { rows, values }), None, false,
         ).map(|(logits, _)| logits)
     }
 
@@ -75554,6 +75700,8 @@ impl VulkanTransformer {
             self.layers.len(),
             read_last_hidden_state,
             None,
+            None,
+            false,
         )
     }
 
@@ -75574,9 +75722,11 @@ impl VulkanTransformer {
         encoder_attention_mask: Option<&[f32]>,
         active_layer_count: usize,
         read_last_hidden_state: bool,
-        modality_rows: Option<ModalityEmbeddingRows<'_>>,
+        modality_rows: Option<ModalityEmbeddingInput<'_>>,
+        encoder_hidden_device: Option<&GpuBuffer>,
+        encoder_only: bool,
     ) -> Result<(Vec<f32>, Vec<f32>)> {
-        let modality_rows = modality_rows.map(|input| PreparedModalityRows::new(
+        let modality_rows = modality_rows.map(|input| PreparedModalityRows::from_input(
             &self.device, input, self.rows, self.config.effective_embedding_size(), false,
         )).transpose()?;
         if active_layer_count == 0 || active_layer_count > self.layers.len() {
@@ -75604,8 +75754,12 @@ impl VulkanTransformer {
         if attention_mask.iter().any(|value| !value.is_finite()) {
             bail!("attention mask contains non-finite values");
         }
-        let encoder_seq_len =
-            self.validate_encoder_context(encoder_hidden_states, encoder_attention_mask)?;
+        let encoder_seq_len = if let Some(hidden) = encoder_hidden_device {
+            if encoder_hidden_states.is_some() { bail!("encoder context supplied twice"); }
+            self.validate_device_encoder_context(hidden, encoder_attention_mask)?
+        } else {
+            self.validate_encoder_context(encoder_hidden_states, encoder_attention_mask)?
+        };
         if let Some(frontend) = self.roc_bert_embedding_frontend.as_ref() {
             frontend.validate_ids(self.rows, input_shape_ids, input_pronunciation_ids)?;
         } else if input_shape_ids.is_some() || input_pronunciation_ids.is_some() {
@@ -75696,12 +75850,13 @@ impl VulkanTransformer {
         commands.upload_u32(&self.token_ids, input_ids)?;
         commands.upload_f32(&self.attention_mask, attention_mask)?;
         if encoder_seq_len > 0 {
-            commands.upload_f32(
-                self.encoder_hidden
-                    .as_ref()
-                    .context("cross-attention graph is missing encoder hidden storage")?,
-                encoder_hidden_states.expect("validated encoder hidden states"),
-            )?;
+            let destination = self.encoder_hidden.as_ref()
+                .context("cross-attention graph is missing encoder hidden storage")?;
+            if let Some(hidden) = encoder_hidden_device {
+                commands.copy_f32(hidden, destination, self.encoder_rows * self.encoder_hidden_size)?;
+            } else {
+                commands.upload_f32(destination, encoder_hidden_states.expect("validated encoder hidden states"))?;
+            }
             let encoder_mask = self
                 .encoder_attention_mask
                 .as_ref()
@@ -76331,6 +76486,10 @@ impl VulkanTransformer {
         } else {
             final_input
         };
+        if encoder_only {
+            commands.submit()?;
+            return Ok((Vec::new(), Vec::new()));
+        }
         let decoder_output = if let Some(output_project) = self.output_project.as_ref() {
             output_project.record_forward(
                 &mut commands,
@@ -76388,19 +76547,10 @@ impl VulkanTransformer {
                 self.rows,
             )?;
         } else {
-            self.kernels.linear_forward.record_dispatch(
-                &mut commands,
-                &[
-                    projection_input,
-                    self.shared_embedding.weight_buffer()?,
-                    projection_logits,
-                ],
-                bytemuck::bytes_of(&lm_push),
-                [
-                    div_ceil_u32(eval_config.vocab_size, 16),
-                    div_ceil_u32(self.rows, 16),
-                    1,
-                ],
+            record_linear_projection(
+                &mut commands, &self.kernels, projection_input,
+                self.shared_embedding.weight_buffer()?, None, projection_logits,
+                self.rows, lm_push.input_dim as usize, lm_push.output_dim as usize, false,
             )?;
             if let Some(lm_head_bias) = self.lm_head_bias.as_ref() {
                 let bias_push = BiasPush {
@@ -78309,6 +78459,8 @@ impl VulkanTransformer {
             active_layer_count,
             false,
             None,
+            None,
+            false,
         )?;
         let row_start = (prefix.len() - 1) * self.config.vocab_size;
         Ok(logits[row_start..row_start + self.config.vocab_size].to_vec())
@@ -82844,7 +82996,7 @@ impl VulkanTransformer {
         self.train_step_with_context_and_modality_embeddings(
             input_ids, input_shape_ids, input_pronunciation_ids, auxiliary_ids,
             token_type_ids, targets, attention_mask, loss_weights,
-            encoder_hidden_states, encoder_attention_mask, hyper, None,
+            encoder_hidden_states, encoder_attention_mask, hyper, None, ComposedTrainingOptions::default(),
         ).map(|result| result.text)
     }
 
@@ -82863,7 +83015,21 @@ impl VulkanTransformer {
     ) -> Result<MultimodalTransformerStepResult> {
         self.train_step_with_context_and_modality_embeddings(
             input_ids, None, None, None, None, targets, attention_mask, loss_weights,
-            None, None, hyper, Some(modality_rows),
+            None, None, hyper, Some(ModalityEmbeddingInput::Host(modality_rows)), ComposedTrainingOptions::default(),
+        ).and_then(|result| Ok(MultimodalTransformerStepResult {
+            modality_embedding_grad: result.gradient.as_ref()
+                .map(|gradient| gradient.read_f32(modality_rows.values.len())).transpose()?.unwrap_or_default(),
+            text: result.text,
+        }))
+    }
+
+    fn train_step_with_device_modality_embeddings(
+        &mut self, input_ids: &[u32], targets: &[u32], attention_mask: &[f32], loss_weights: &[f32],
+        hyper: AdamWHyperParams, rows: &[usize], values: &GpuBuffer,
+    ) -> Result<DeviceMultimodalStepResult> {
+        self.train_step_with_context_and_modality_embeddings(
+            input_ids, None, None, None, None, targets, attention_mask, loss_weights,
+            None, None, hyper, Some(ModalityEmbeddingInput::Device { rows, values }), ComposedTrainingOptions::default(),
         )
     }
 
@@ -82889,13 +83055,40 @@ impl VulkanTransformer {
         encoder_hidden_states: Option<&[f32]>,
         encoder_attention_mask: Option<&[f32]>,
         hyper: AdamWHyperParams,
-        modality_rows: Option<ModalityEmbeddingRows<'_>>,
-    ) -> Result<MultimodalTransformerStepResult> {
+        modality_rows: Option<ModalityEmbeddingInput<'_>>,
+        options: ComposedTrainingOptions<'_>,
+    ) -> Result<DeviceMultimodalStepResult> {
+        // BART-layout conditional-generation checkpoints expose this as
+        // final_logits_bias, an HF buffer rather than an optimizer parameter.
+        let train_lm_head_bias = !matches!(self.config.architecture,
+            VulkanTransformerArchitecture::Bart | VulkanTransformerArchitecture::MBart
+            | VulkanTransformerArchitecture::PLBart | VulkanTransformerArchitecture::Mvp
+            | VulkanTransformerArchitecture::Blenderbot | VulkanTransformerArchitecture::BlenderbotSmall
+            | VulkanTransformerArchitecture::Pegasus | VulkanTransformerArchitecture::BigBirdPegasus
+            | VulkanTransformerArchitecture::M2M100 | VulkanTransformerArchitecture::PegasusX
+            | VulkanTransformerArchitecture::Marian);
+        if options.forward_only || options.terminal_gradient.is_some() || options.retained_forward {
+            if !matches!(self.config.architecture, VulkanTransformerArchitecture::Bart
+                | VulkanTransformerArchitecture::T5 | VulkanTransformerArchitecture::SwitchTransformers)
+                || self.causal_attention || self.lora_config.is_some() {
+                bail!("retained terminal training requires a full-parameter BART/T5/Switch encoder");
+            }
+            if options.forward_only && (options.retained_forward || options.terminal_gradient.is_some())
+                || options.retained_forward && options.terminal_gradient.is_none() {
+                bail!("inconsistent retained encoder training options");
+            }
+            if let Some(gradient) = options.terminal_gradient {
+                if !gradient.belongs_to_device(&self.device)
+                    || gradient.f32_capacity() < self.rows * self.config.hidden_size {
+                    bail!("terminal encoder gradient has the wrong device or capacity");
+                }
+            }
+        }
         if modality_rows.is_some() && self.lora_config.is_some() {
             bail!("modality embedding training currently requires full-parameter mode");
         }
-        let modality_rows = modality_rows.map(|input| PreparedModalityRows::new(
-            &self.device, input, self.rows, self.config.effective_embedding_size(), true,
+        let modality_rows = modality_rows.map(|input| PreparedModalityRows::from_input(
+            &self.device, input, self.rows, self.config.effective_embedding_size(), !options.forward_only,
         )).transpose()?;
         if self.streamed_linears != 0 || self.tiered_tied_head.is_some()
             || self
@@ -82944,8 +83137,12 @@ impl VulkanTransformer {
         {
             bail!("attention mask/loss weights contain non-finite values");
         }
-        let encoder_seq_len =
-            self.validate_encoder_context(encoder_hidden_states, encoder_attention_mask)?;
+        let encoder_seq_len = if let Some(hidden) = options.encoder_hidden_device {
+            if encoder_hidden_states.is_some() { bail!("encoder context supplied twice"); }
+            self.validate_device_encoder_context(hidden, encoder_attention_mask)?
+        } else {
+            self.validate_encoder_context(encoder_hidden_states, encoder_attention_mask)?
+        };
         if let Some(frontend) = self.roc_bert_embedding_frontend.as_ref() {
             frontend.validate_ids(self.rows, input_shape_ids, input_pronunciation_ids)?;
         } else if input_shape_ids.is_some() || input_pronunciation_ids.is_some() {
@@ -83022,7 +83219,7 @@ impl VulkanTransformer {
             .iter()
             .zip(loss_weights)
             .any(|(&target, &weight)| target != u32::MAX && weight > 0.0);
-        if !has_supervised_weight {
+        if !has_supervised_weight && !options.forward_only && options.terminal_gradient.is_none() {
             bail!("Transformer batch has no positive supervised loss weight");
         }
         let supervised_tokens = targets
@@ -83055,12 +83252,13 @@ impl VulkanTransformer {
         commands.upload_f32(&self.attention_mask, attention_mask)?;
         commands.upload_f32(&self.loss_weights, loss_weights)?;
         if encoder_seq_len > 0 {
-            commands.upload_f32(
-                self.encoder_hidden
-                    .as_ref()
-                    .context("cross-attention graph is missing encoder hidden storage")?,
-                encoder_hidden_states.expect("validated encoder hidden states"),
-            )?;
+            let destination = self.encoder_hidden.as_ref()
+                .context("cross-attention graph is missing encoder hidden storage")?;
+            if let Some(hidden) = options.encoder_hidden_device {
+                commands.copy_f32(hidden, destination, self.encoder_rows * self.encoder_hidden_size)?;
+            } else {
+                commands.upload_f32(destination, encoder_hidden_states.expect("validated encoder hidden states"))?;
+            }
             let encoder_mask = self
                 .encoder_attention_mask
                 .as_ref()
@@ -83159,7 +83357,8 @@ impl VulkanTransformer {
                 .lora_config
                 .as_ref()
                 .is_some_and(|config| !config.inference_mode);
-        if !peft_mode || peft_saves_input_embedding || peft_trainable_tokens_active {
+        if !options.preserve_shared_embedding_gradient
+            && (!peft_mode || peft_saves_input_embedding || peft_trainable_tokens_active) {
             self.shared_embedding.record_zero_grad(&mut commands)?;
         }
         if !peft_mode {
@@ -83189,461 +83388,463 @@ impl VulkanTransformer {
             }
         }
 
-        self.token_embedding.record_forward(
-            &mut commands,
-            self.rows,
-            &self.token_ids,
-            &self.token_embedding_output,
-        )?;
-        if let Some(modality_rows) = modality_rows.as_ref() {
-            modality_rows.record_forward(&mut commands, &self.token_embedding_output)?;
-        }
-        let token_embedding_source =
-            if let Some(scales) = self.esm_token_dropout_scales(input_ids, attention_mask)? {
-                let scale_buffer = self
-                    .esm_token_scales
-                    .as_ref()
-                    .context("ESM token-dropout graph is missing row-scale storage")?;
-                commands.upload_f32(scale_buffer, &scales)?;
-                record_row_scale(
-                    &mut commands,
-                    &self.kernels,
-                    &self.token_embedding_output,
-                    scale_buffer,
-                    &self.embedding_composed_with_type,
-                    self.rows,
-                    embedding_size,
-                )?;
-                &self.embedding_composed_with_type
-            } else {
-                &self.token_embedding_output
-            };
-        let token_embedding_source = if let Some(frontend) = self
-            .roc_bert_embedding_frontend
-            .as_ref()
-            .filter(|frontend| frontend.concat_input)
-        {
-            frontend.record_concat_forward(
+        if !options.retained_forward {
+            self.token_embedding.record_forward(
                 &mut commands,
-                &self.kernels,
-                token_embedding_source,
-                input_shape_ids,
-                input_pronunciation_ids,
                 self.rows,
-            )?
-        } else {
-            token_embedding_source
-        };
-        let token_embedding_source = if self
-            .config
-            .architecture
-            .token_scale_before_embedding_composition()
-            && self.config.token_embedding_scale() != 1.0
-        {
-            let scale_push = ScalePush {
-                len: (self.rows * embedding_size) as u32,
-                scale: self.config.token_embedding_scale(),
-            };
-            self.kernels.scale_copy.record_dispatch(
-                &mut commands,
-                &[token_embedding_source, &self.embedding_dropout_output],
-                bytemuck::bytes_of(&scale_push),
-                [div_ceil_u32(self.rows * embedding_size, 256), 1, 1],
+                &self.token_ids,
+                &self.token_embedding_output,
             )?;
-            &self.embedding_dropout_output
-        } else {
-            token_embedding_source
-        };
-        if let Some(embedding_norm) = self.embedding_norm.as_ref() {
-            if self.config.architecture.embedding_norm_before_positions() {
-                let position_embedding = self
-                    .position_embedding
-                    .as_ref()
-                    .context("BlenderbotSmall graph is missing learned position embeddings")?;
-                embedding_norm.record_forward(
-                    &mut commands,
-                    &self.kernels,
-                    &self.token_embedding_output,
-                    &self.embedding_composed,
-                    &self.embedding_norm_mean,
-                    &self.embedding_norm_rstd,
-                    self.rows,
-                )?;
-                let position_push = PositionPush {
-                    rows_or_batch: self.rows as u32,
-                    seq_len: self.seq_len as u32,
-                    dim: self.config.hidden_size as u32,
-                    position_offset: 0,
-                };
-                self.kernels.position_add.record_dispatch(
-                    &mut commands,
-                    &[
-                        &self.embedding_composed,
-                        &position_embedding.values,
-                        &self.input_hidden,
-                    ],
-                    bytemuck::bytes_of(&position_push),
-                    [
-                        div_ceil_u32(self.config.hidden_size, 16),
-                        div_ceil_u32(self.rows, 16),
-                        1,
-                    ],
-                )?;
-            } else {
-                let base_norm_input =
-                    if let Some(position_embedding) = self.position_embedding.as_ref() {
-                        if self.config.architecture.uses_roberta_position_ids() {
-                            let position_push = self.roberta_position_push()?;
-                            self.kernels.roberta_position_add.record_dispatch(
-                                &mut commands,
-                                &[
-                                    token_embedding_source,
-                                    &position_embedding.values,
-                                    &self.token_ids,
-                                    &self.embedding_composed,
-                                ],
-                                bytemuck::bytes_of(&position_push),
-                                [
-                                    div_ceil_u32(self.config.hidden_size, 16),
-                                    div_ceil_u32(self.rows, 16),
-                                    1,
-                                ],
-                            )?;
-                        } else if matches!(
-                            self.config.architecture,
-                            VulkanTransformerArchitecture::Bart
-                                | VulkanTransformerArchitecture::MBart
-                                | VulkanTransformerArchitecture::PLBart
-                                | VulkanTransformerArchitecture::Mvp
-                        ) {
-                            let position_push = OffsetPositionPush {
-                                rows_or_batch: self.rows as u32,
-                                seq_len: self.seq_len as u32,
-                                dim: self.config.hidden_size as u32,
-                                offset: 2,
-                                embedding_scale: self.config.token_embedding_scale(),
-                            };
-                            self.kernels.offset_position_add.record_dispatch(
-                                &mut commands,
-                                &[
-                                    token_embedding_source,
-                                    &position_embedding.values,
-                                    &self.embedding_composed,
-                                ],
-                                bytemuck::bytes_of(&position_push),
-                                [
-                                    div_ceil_u32(self.config.hidden_size, 16),
-                                    div_ceil_u32(self.rows, 16),
-                                    1,
-                                ],
-                            )?;
-                        } else {
-                            let position_push = PositionPush {
-                                rows_or_batch: self.rows as u32,
-                                seq_len: self.seq_len as u32,
-                                dim: embedding_size as u32,
-                                position_offset: 0,
-                            };
-                            self.kernels.position_add.record_dispatch(
-                                &mut commands,
-                                &[
-                                    token_embedding_source,
-                                    &position_embedding.values,
-                                    &self.embedding_composed,
-                                ],
-                                bytemuck::bytes_of(&position_push),
-                                [
-                                    div_ceil_u32(embedding_size, 16),
-                                    div_ceil_u32(self.rows, 16),
-                                    1,
-                                ],
-                            )?;
-                        }
-                        &self.embedding_composed
-                    } else {
-                        token_embedding_source
-                    };
-                let norm_input = if token_type_stream_active {
-                    record_add(
+            if let Some(modality_rows) = modality_rows.as_ref() {
+                modality_rows.record_forward(&mut commands, &self.token_embedding_output)?;
+            }
+            let token_embedding_source =
+                if let Some(scales) = self.esm_token_dropout_scales(input_ids, attention_mask)? {
+                    let scale_buffer = self
+                        .esm_token_scales
+                        .as_ref()
+                        .context("ESM token-dropout graph is missing row-scale storage")?;
+                    commands.upload_f32(scale_buffer, &scales)?;
+                    record_row_scale(
                         &mut commands,
                         &self.kernels,
-                        base_norm_input,
-                        &self.token_type_embedding_output,
+                        &self.token_embedding_output,
+                        scale_buffer,
                         &self.embedding_composed_with_type,
-                        self.rows * embedding_size,
+                        self.rows,
+                        embedding_size,
                     )?;
                     &self.embedding_composed_with_type
                 } else {
-                    base_norm_input
+                    &self.token_embedding_output
                 };
-                let norm_input = if auxiliary_stream_active {
-                    record_add(
-                        &mut commands,
-                        &self.kernels,
-                        norm_input,
-                        &self.auxiliary_embedding_output,
-                        &self.embedding_composed_with_aux,
-                        self.rows * embedding_size,
-                    )?;
-                    &self.embedding_composed_with_aux
-                } else {
-                    norm_input
-                };
-                let norm_input = if self.config.architecture.embedding_dropout_before_norm()
-                    && self.config.embedding_dropout > 0.0
-                {
-                    record_transformer_dropout(
-                        &mut commands,
-                        &self.kernels,
-                        norm_input,
-                        &self.input_hidden_dropout,
-                        self.config.embedding_dropout,
-                        next_step,
-                        TRANSFORMER_EMBEDDING_DROPOUT_SITE,
-                        self.dropout_seed,
-                        self.rows * embedding_size,
-                    )?;
-                    &self.input_hidden_dropout
-                } else {
-                    norm_input
-                };
-                let norm_output = if self.embedding_project.is_some() {
-                    &self.embedding_norm_output
-                } else {
-                    &self.input_hidden
-                };
-                embedding_norm.record_forward(
+            let token_embedding_source = if let Some(frontend) = self
+                .roc_bert_embedding_frontend
+                .as_ref()
+                .filter(|frontend| frontend.concat_input)
+            {
+                frontend.record_concat_forward(
                     &mut commands,
                     &self.kernels,
-                    norm_input,
-                    norm_output,
-                    &self.embedding_norm_mean,
-                    &self.embedding_norm_rstd,
+                    token_embedding_source,
+                    input_shape_ids,
+                    input_pronunciation_ids,
                     self.rows,
+                )?
+            } else {
+                token_embedding_source
+            };
+            let token_embedding_source = if self
+                .config
+                .architecture
+                .token_scale_before_embedding_composition()
+                && self.config.token_embedding_scale() != 1.0
+            {
+                let scale_push = ScalePush {
+                    len: (self.rows * embedding_size) as u32,
+                    scale: self.config.token_embedding_scale(),
+                };
+                self.kernels.scale_copy.record_dispatch(
+                    &mut commands,
+                    &[token_embedding_source, &self.embedding_dropout_output],
+                    bytemuck::bytes_of(&scale_push),
+                    [div_ceil_u32(self.rows * embedding_size, 256), 1, 1],
                 )?;
-                if let Some(embedding_project) = self.embedding_project.as_ref() {
-                    let project_input = if self.config.embedding_dropout > 0.0 {
+                &self.embedding_dropout_output
+            } else {
+                token_embedding_source
+            };
+            if let Some(embedding_norm) = self.embedding_norm.as_ref() {
+                if self.config.architecture.embedding_norm_before_positions() {
+                    let position_embedding = self
+                        .position_embedding
+                        .as_ref()
+                        .context("BlenderbotSmall graph is missing learned position embeddings")?;
+                    embedding_norm.record_forward(
+                        &mut commands,
+                        &self.kernels,
+                        &self.token_embedding_output,
+                        &self.embedding_composed,
+                        &self.embedding_norm_mean,
+                        &self.embedding_norm_rstd,
+                        self.rows,
+                    )?;
+                    let position_push = PositionPush {
+                        rows_or_batch: self.rows as u32,
+                        seq_len: self.seq_len as u32,
+                        dim: self.config.hidden_size as u32,
+                        position_offset: 0,
+                    };
+                    self.kernels.position_add.record_dispatch(
+                        &mut commands,
+                        &[
+                            &self.embedding_composed,
+                            &position_embedding.values,
+                            &self.input_hidden,
+                        ],
+                        bytemuck::bytes_of(&position_push),
+                        [
+                            div_ceil_u32(self.config.hidden_size, 16),
+                            div_ceil_u32(self.rows, 16),
+                            1,
+                        ],
+                    )?;
+                } else {
+                    let base_norm_input =
+                        if let Some(position_embedding) = self.position_embedding.as_ref() {
+                            if self.config.architecture.uses_roberta_position_ids() {
+                                let position_push = self.roberta_position_push()?;
+                                self.kernels.roberta_position_add.record_dispatch(
+                                    &mut commands,
+                                    &[
+                                        token_embedding_source,
+                                        &position_embedding.values,
+                                        &self.token_ids,
+                                        &self.embedding_composed,
+                                    ],
+                                    bytemuck::bytes_of(&position_push),
+                                    [
+                                        div_ceil_u32(self.config.hidden_size, 16),
+                                        div_ceil_u32(self.rows, 16),
+                                        1,
+                                    ],
+                                )?;
+                            } else if matches!(
+                                self.config.architecture,
+                                VulkanTransformerArchitecture::Bart
+                                    | VulkanTransformerArchitecture::MBart
+                                    | VulkanTransformerArchitecture::PLBart
+                                    | VulkanTransformerArchitecture::Mvp
+                            ) {
+                                let position_push = OffsetPositionPush {
+                                    rows_or_batch: self.rows as u32,
+                                    seq_len: self.seq_len as u32,
+                                    dim: self.config.hidden_size as u32,
+                                    offset: 2,
+                                    embedding_scale: self.config.token_embedding_scale(),
+                                };
+                                self.kernels.offset_position_add.record_dispatch(
+                                    &mut commands,
+                                    &[
+                                        token_embedding_source,
+                                        &position_embedding.values,
+                                        &self.embedding_composed,
+                                    ],
+                                    bytemuck::bytes_of(&position_push),
+                                    [
+                                        div_ceil_u32(self.config.hidden_size, 16),
+                                        div_ceil_u32(self.rows, 16),
+                                        1,
+                                    ],
+                                )?;
+                            } else {
+                                let position_push = PositionPush {
+                                    rows_or_batch: self.rows as u32,
+                                    seq_len: self.seq_len as u32,
+                                    dim: embedding_size as u32,
+                                    position_offset: 0,
+                                };
+                                self.kernels.position_add.record_dispatch(
+                                    &mut commands,
+                                    &[
+                                        token_embedding_source,
+                                        &position_embedding.values,
+                                        &self.embedding_composed,
+                                    ],
+                                    bytemuck::bytes_of(&position_push),
+                                    [
+                                        div_ceil_u32(embedding_size, 16),
+                                        div_ceil_u32(self.rows, 16),
+                                        1,
+                                    ],
+                                )?;
+                            }
+                            &self.embedding_composed
+                        } else {
+                            token_embedding_source
+                        };
+                    let norm_input = if token_type_stream_active {
+                        record_add(
+                            &mut commands,
+                            &self.kernels,
+                            base_norm_input,
+                            &self.token_type_embedding_output,
+                            &self.embedding_composed_with_type,
+                            self.rows * embedding_size,
+                        )?;
+                        &self.embedding_composed_with_type
+                    } else {
+                        base_norm_input
+                    };
+                    let norm_input = if auxiliary_stream_active {
+                        record_add(
+                            &mut commands,
+                            &self.kernels,
+                            norm_input,
+                            &self.auxiliary_embedding_output,
+                            &self.embedding_composed_with_aux,
+                            self.rows * embedding_size,
+                        )?;
+                        &self.embedding_composed_with_aux
+                    } else {
+                        norm_input
+                    };
+                    let norm_input = if self.config.architecture.embedding_dropout_before_norm()
+                        && self.config.embedding_dropout > 0.0
+                    {
                         record_transformer_dropout(
                             &mut commands,
                             &self.kernels,
-                            norm_output,
-                            &self.embedding_dropout_output,
+                            norm_input,
+                            &self.input_hidden_dropout,
                             self.config.embedding_dropout,
                             next_step,
                             TRANSFORMER_EMBEDDING_DROPOUT_SITE,
                             self.dropout_seed,
                             self.rows * embedding_size,
                         )?;
-                        &self.embedding_dropout_output
-                    } else {
-                        norm_output
-                    };
-                    embedding_project.record_forward(
-                        &mut commands,
-                        &self.kernels,
-                        project_input,
-                        &self.input_hidden,
-                        self.rows,
-                    )?;
-                }
-            }
-        } else if let Some(position_embedding) = self.position_embedding.as_ref() {
-            if self.config.architecture.uses_roberta_position_ids() {
-                let position_push = self.roberta_position_push()?;
-                self.kernels.roberta_position_add.record_dispatch(
-                    &mut commands,
-                    &[
-                        token_embedding_source,
-                        &position_embedding.values,
-                        &self.token_ids,
-                        &self.input_hidden,
-                    ],
-                    bytemuck::bytes_of(&position_push),
-                    [
-                        div_ceil_u32(self.config.hidden_size, 16),
-                        div_ceil_u32(self.rows, 16),
-                        1,
-                    ],
-                )?;
-            } else if matches!(
-                self.config.architecture,
-                VulkanTransformerArchitecture::BioGpt
-                    | VulkanTransformerArchitecture::Xglm
-                    | VulkanTransformerArchitecture::Ctrl
-                    | VulkanTransformerArchitecture::Marian
-                    | VulkanTransformerArchitecture::Blenderbot
-                    | VulkanTransformerArchitecture::Pegasus
-                    | VulkanTransformerArchitecture::BigBirdPegasus
-                    | VulkanTransformerArchitecture::PegasusX
-            ) {
-                let position_push = OffsetPositionPush {
-                    rows_or_batch: self.rows as u32,
-                    seq_len: self.seq_len as u32,
-                    dim: self.config.hidden_size as u32,
-                    offset: if matches!(
-                        self.config.architecture,
-                        VulkanTransformerArchitecture::Ctrl
-                            | VulkanTransformerArchitecture::Marian
-                            | VulkanTransformerArchitecture::Blenderbot
-                            | VulkanTransformerArchitecture::Pegasus
-                            | VulkanTransformerArchitecture::BigBirdPegasus
-                            | VulkanTransformerArchitecture::PegasusX
-                    ) {
-                        0
-                    } else {
-                        2
-                    },
-                    embedding_scale: self.config.token_embedding_scale(),
-                };
-                self.kernels.offset_position_add.record_dispatch(
-                    &mut commands,
-                    &[
-                        &self.token_embedding_output,
-                        &position_embedding.values,
-                        &self.input_hidden,
-                    ],
-                    bytemuck::bytes_of(&position_push),
-                    [
-                        div_ceil_u32(self.config.hidden_size, 16),
-                        div_ceil_u32(self.rows, 16),
-                        1,
-                    ],
-                )?;
-            } else if self.config.architecture == VulkanTransformerArchitecture::Opt {
-                let opt_token_embedding_source =
-                    if let Some(embedding_project) = self.embedding_project.as_ref() {
-                        embedding_project.record_forward(
-                            &mut commands,
-                            &self.kernels,
-                            token_embedding_source,
-                            &self.input_hidden_dropout,
-                            self.rows,
-                        )?;
                         &self.input_hidden_dropout
                     } else {
-                        token_embedding_source
+                        norm_input
                     };
-                let position_push = OptPositionPush {
-                    batch_size: self.batch_size as u32,
-                    seq_len: self.seq_len as u32,
-                    dim: self.config.hidden_size as u32,
-                    table_rows: (self.config.max_position_embeddings + 2) as u32,
-                    offset: 2,
-                };
-                self.kernels.opt_position_add.record_dispatch(
-                    &mut commands,
-                    &[
-                        opt_token_embedding_source,
-                        &position_embedding.values,
-                        &self.attention_mask,
-                        &self.input_hidden,
-                    ],
-                    bytemuck::bytes_of(&position_push),
-                    [
-                        div_ceil_u32(self.config.hidden_size, 16),
-                        div_ceil_u32(self.rows, 16),
-                        1,
-                    ],
-                )?;
-            } else {
-                let position_push = PositionPush {
-                    rows_or_batch: self.rows as u32,
-                    seq_len: self.seq_len as u32,
-                    dim: self.config.hidden_size as u32,
-                    position_offset: 0,
-                };
-                self.kernels.position_add.record_dispatch(
-                    &mut commands,
-                    &[
-                        &self.token_embedding_output,
-                        &position_embedding.values,
-                        &self.input_hidden,
-                    ],
-                    bytemuck::bytes_of(&position_push),
-                    [
-                        div_ceil_u32(self.config.hidden_size, 16),
-                        div_ceil_u32(self.rows, 16),
-                        1,
-                    ],
-                )?;
-            }
-        } else {
-            let embedding_scale = self.config.token_embedding_scale();
-            let copy_push = ScalePush {
-                len: (self.rows * self.config.hidden_size) as u32,
-                scale: embedding_scale,
-            };
-            self.kernels.scale_copy.record_dispatch(
-                &mut commands,
-                &[token_embedding_source, &self.input_hidden],
-                bytemuck::bytes_of(&copy_push),
-                [div_ceil_u32(self.rows * self.config.hidden_size, 256), 1, 1],
-            )?;
-        }
-
-        if self.config.embedding_dropout > 0.0
-            && self.embedding_project.is_none()
-            && !self.config.architecture.embedding_dropout_before_norm()
-        {
-            record_transformer_dropout(
-                &mut commands,
-                &self.kernels,
-                &self.input_hidden,
-                &self.input_hidden_dropout,
-                self.config.embedding_dropout,
-                next_step,
-                TRANSFORMER_EMBEDDING_DROPOUT_SITE,
-                self.dropout_seed,
-                self.rows * self.config.hidden_size,
-            )?;
-        }
-
-        if let Some(frontend) = self
-            .roc_bert_embedding_frontend
-            .as_ref()
-            .filter(|frontend| !frontend.concat_input)
-        {
-            let base = if self.config.embedding_dropout > 0.0 && self.embedding_project.is_none() {
-                &self.input_hidden_dropout
-            } else {
-                &self.input_hidden
-            };
-            if let Some(average) = frontend.record_nonconcat_forward(
-                &mut commands,
-                &self.kernels,
-                base,
-                input_shape_ids,
-                input_pronunciation_ids,
-                self.rows,
-            )? {
-                let destination =
-                    if self.config.embedding_dropout > 0.0 && self.embedding_project.is_none() {
-                        &self.input_hidden_dropout
+                    let norm_output = if self.embedding_project.is_some() {
+                        &self.embedding_norm_output
                     } else {
                         &self.input_hidden
                     };
-                commands.copy_f32(average, destination, self.rows * self.config.hidden_size)?;
-            }
-        }
-
-        if self.config.architecture == VulkanTransformerArchitecture::Esm {
-            let source = if self.config.embedding_dropout > 0.0 && self.embedding_project.is_none()
-            {
-                &self.input_hidden_dropout
+                    embedding_norm.record_forward(
+                        &mut commands,
+                        &self.kernels,
+                        norm_input,
+                        norm_output,
+                        &self.embedding_norm_mean,
+                        &self.embedding_norm_rstd,
+                        self.rows,
+                    )?;
+                    if let Some(embedding_project) = self.embedding_project.as_ref() {
+                        let project_input = if self.config.embedding_dropout > 0.0 {
+                            record_transformer_dropout(
+                                &mut commands,
+                                &self.kernels,
+                                norm_output,
+                                &self.embedding_dropout_output,
+                                self.config.embedding_dropout,
+                                next_step,
+                                TRANSFORMER_EMBEDDING_DROPOUT_SITE,
+                                self.dropout_seed,
+                                self.rows * embedding_size,
+                            )?;
+                            &self.embedding_dropout_output
+                        } else {
+                            norm_output
+                        };
+                        embedding_project.record_forward(
+                            &mut commands,
+                            &self.kernels,
+                            project_input,
+                            &self.input_hidden,
+                            self.rows,
+                        )?;
+                    }
+                }
+            } else if let Some(position_embedding) = self.position_embedding.as_ref() {
+                if self.config.architecture.uses_roberta_position_ids() {
+                    let position_push = self.roberta_position_push()?;
+                    self.kernels.roberta_position_add.record_dispatch(
+                        &mut commands,
+                        &[
+                            token_embedding_source,
+                            &position_embedding.values,
+                            &self.token_ids,
+                            &self.input_hidden,
+                        ],
+                        bytemuck::bytes_of(&position_push),
+                        [
+                            div_ceil_u32(self.config.hidden_size, 16),
+                            div_ceil_u32(self.rows, 16),
+                            1,
+                        ],
+                    )?;
+                } else if matches!(
+                    self.config.architecture,
+                    VulkanTransformerArchitecture::BioGpt
+                        | VulkanTransformerArchitecture::Xglm
+                        | VulkanTransformerArchitecture::Ctrl
+                        | VulkanTransformerArchitecture::Marian
+                        | VulkanTransformerArchitecture::Blenderbot
+                        | VulkanTransformerArchitecture::Pegasus
+                        | VulkanTransformerArchitecture::BigBirdPegasus
+                        | VulkanTransformerArchitecture::PegasusX
+                ) {
+                    let position_push = OffsetPositionPush {
+                        rows_or_batch: self.rows as u32,
+                        seq_len: self.seq_len as u32,
+                        dim: self.config.hidden_size as u32,
+                        offset: if matches!(
+                            self.config.architecture,
+                            VulkanTransformerArchitecture::Ctrl
+                                | VulkanTransformerArchitecture::Marian
+                                | VulkanTransformerArchitecture::Blenderbot
+                                | VulkanTransformerArchitecture::Pegasus
+                                | VulkanTransformerArchitecture::BigBirdPegasus
+                                | VulkanTransformerArchitecture::PegasusX
+                        ) {
+                            0
+                        } else {
+                            2
+                        },
+                        embedding_scale: self.config.token_embedding_scale(),
+                    };
+                    self.kernels.offset_position_add.record_dispatch(
+                        &mut commands,
+                        &[
+                            &self.token_embedding_output,
+                            &position_embedding.values,
+                            &self.input_hidden,
+                        ],
+                        bytemuck::bytes_of(&position_push),
+                        [
+                            div_ceil_u32(self.config.hidden_size, 16),
+                            div_ceil_u32(self.rows, 16),
+                            1,
+                        ],
+                    )?;
+                } else if self.config.architecture == VulkanTransformerArchitecture::Opt {
+                    let opt_token_embedding_source =
+                        if let Some(embedding_project) = self.embedding_project.as_ref() {
+                            embedding_project.record_forward(
+                                &mut commands,
+                                &self.kernels,
+                                token_embedding_source,
+                                &self.input_hidden_dropout,
+                                self.rows,
+                            )?;
+                            &self.input_hidden_dropout
+                        } else {
+                            token_embedding_source
+                        };
+                    let position_push = OptPositionPush {
+                        batch_size: self.batch_size as u32,
+                        seq_len: self.seq_len as u32,
+                        dim: self.config.hidden_size as u32,
+                        table_rows: (self.config.max_position_embeddings + 2) as u32,
+                        offset: 2,
+                    };
+                    self.kernels.opt_position_add.record_dispatch(
+                        &mut commands,
+                        &[
+                            opt_token_embedding_source,
+                            &position_embedding.values,
+                            &self.attention_mask,
+                            &self.input_hidden,
+                        ],
+                        bytemuck::bytes_of(&position_push),
+                        [
+                            div_ceil_u32(self.config.hidden_size, 16),
+                            div_ceil_u32(self.rows, 16),
+                            1,
+                        ],
+                    )?;
+                } else {
+                    let position_push = PositionPush {
+                        rows_or_batch: self.rows as u32,
+                        seq_len: self.seq_len as u32,
+                        dim: self.config.hidden_size as u32,
+                        position_offset: 0,
+                    };
+                    self.kernels.position_add.record_dispatch(
+                        &mut commands,
+                        &[
+                            &self.token_embedding_output,
+                            &position_embedding.values,
+                            &self.input_hidden,
+                        ],
+                        bytemuck::bytes_of(&position_push),
+                        [
+                            div_ceil_u32(self.config.hidden_size, 16),
+                            div_ceil_u32(self.rows, 16),
+                            1,
+                        ],
+                    )?;
+                }
             } else {
-                &self.input_hidden
-            };
-            record_row_scale(
-                &mut commands,
-                &self.kernels,
-                source,
-                &self.attention_mask,
-                &self.embedding_dropout_output,
-                self.rows,
-                self.config.hidden_size,
-            )?;
-        }
+                let embedding_scale = self.config.token_embedding_scale();
+                let copy_push = ScalePush {
+                    len: (self.rows * self.config.hidden_size) as u32,
+                    scale: embedding_scale,
+                };
+                self.kernels.scale_copy.record_dispatch(
+                    &mut commands,
+                    &[token_embedding_source, &self.input_hidden],
+                    bytemuck::bytes_of(&copy_push),
+                    [div_ceil_u32(self.rows * self.config.hidden_size, 256), 1, 1],
+                )?;
+            }
 
+            if self.config.embedding_dropout > 0.0
+                && self.embedding_project.is_none()
+                && !self.config.architecture.embedding_dropout_before_norm()
+            {
+                record_transformer_dropout(
+                    &mut commands,
+                    &self.kernels,
+                    &self.input_hidden,
+                    &self.input_hidden_dropout,
+                    self.config.embedding_dropout,
+                    next_step,
+                    TRANSFORMER_EMBEDDING_DROPOUT_SITE,
+                    self.dropout_seed,
+                    self.rows * self.config.hidden_size,
+                )?;
+            }
+
+            if let Some(frontend) = self
+                .roc_bert_embedding_frontend
+                .as_ref()
+                .filter(|frontend| !frontend.concat_input)
+            {
+                let base = if self.config.embedding_dropout > 0.0 && self.embedding_project.is_none() {
+                    &self.input_hidden_dropout
+                } else {
+                    &self.input_hidden
+                };
+                if let Some(average) = frontend.record_nonconcat_forward(
+                    &mut commands,
+                    &self.kernels,
+                    base,
+                    input_shape_ids,
+                    input_pronunciation_ids,
+                    self.rows,
+                )? {
+                    let destination =
+                        if self.config.embedding_dropout > 0.0 && self.embedding_project.is_none() {
+                            &self.input_hidden_dropout
+                        } else {
+                            &self.input_hidden
+                        };
+                    commands.copy_f32(average, destination, self.rows * self.config.hidden_size)?;
+                }
+            }
+
+            if self.config.architecture == VulkanTransformerArchitecture::Esm {
+                let source = if self.config.embedding_dropout > 0.0 && self.embedding_project.is_none()
+                {
+                    &self.input_hidden_dropout
+                } else {
+                    &self.input_hidden
+                };
+                record_row_scale(
+                    &mut commands,
+                    &self.kernels,
+                    source,
+                    &self.attention_mask,
+                    &self.embedding_dropout_output,
+                    self.rows,
+                    self.config.hidden_size,
+                )?;
+            }
+
+        }
         let layer0_standard_input =
             if self.config.architecture == VulkanTransformerArchitecture::Esm {
                 &self.embedding_dropout_output
@@ -83705,72 +83906,74 @@ impl VulkanTransformer {
             None
         };
 
-        for layer_index in 0..self.layers.len() {
-            let input = if layer_index == 0 {
-                deepseek_v4_initial_input
-                    .or(qwen4_initial_input)
-                    .unwrap_or(layer0_standard_input)
-            } else {
-                self.layers[layer_index - 1].forward_output()
-            };
-            if active_layers[layer_index] {
-                self.layers[layer_index].prepare_qwen4_ple_embeddings(
-                    &mut commands,
-                    input_ids,
-                    attention_mask,
-                )?;
-                let shared_dsa_sparse_mask = self.shared_dsa_sparse_mask_for_layer(layer_index)?;
-                self.layers[layer_index].record_forward_with_cross_attention(
-                    &mut commands,
-                    &self.kernels,
-                    &self.config,
-                    self.causal_attention,
-                    input,
-                    Some(&self.token_ids),
-                    &self.attention_mask,
-                    &self.alibi_positions,
-                    self.relative_attention_bias_for_layer(layer_index),
-                    self.relative_attention_num_buckets,
-                    self.relative_attention_max_distance,
-                    self.encoder_hidden.as_ref(),
-                    self.encoder_attention_mask.as_ref(),
-                    encoder_seq_len,
-                    self.batch_size,
-                    self.seq_len,
-                    next_step,
-                    self.dropout_seed,
-                    true,
-                    None,
-                    self.kimi_attn_res.as_ref(),
-                    shared_dsa_sparse_mask,
-                )?;
-                self.record_longcat_pair_forward_merge(&mut commands, layer_index, self.rows)?;
-            } else {
-                let output_width =
-                    if let Some(hyper) = self.layers[layer_index].deepseek_v4_ffn_hc.as_ref() {
-                        self.config
-                            .hidden_size
-                            .checked_mul(hyper.hc_mult)
-                            .context("DeepSeek-V4 skipped-layer output width overflow")?
-                    } else {
-                        self.layers[layer_index]
-                            .qwen4_mlp_hyper_connection
-                            .as_ref()
-                            .map(|hyper| hyper.hc_hidden_size)
-                            .unwrap_or(self.config.hidden_size)
-                    };
-                let copy_push = ScalePush {
-                    len: (self.rows * output_width) as u32,
-                    scale: 1.0,
+        if !options.retained_forward {
+            for layer_index in 0..self.layers.len() {
+                let input = if layer_index == 0 {
+                    deepseek_v4_initial_input
+                        .or(qwen4_initial_input)
+                        .unwrap_or(layer0_standard_input)
+                } else {
+                    self.layers[layer_index - 1].forward_output()
                 };
-                self.kernels.scale_copy.record_dispatch(
-                    &mut commands,
-                    &[input, self.layers[layer_index].forward_output()],
-                    bytemuck::bytes_of(&copy_push),
-                    [div_ceil_u32(self.rows * output_width, 256), 1, 1],
-                )?;
+                if active_layers[layer_index] {
+                    self.layers[layer_index].prepare_qwen4_ple_embeddings(
+                        &mut commands,
+                        input_ids,
+                        attention_mask,
+                    )?;
+                    let shared_dsa_sparse_mask = self.shared_dsa_sparse_mask_for_layer(layer_index)?;
+                    self.layers[layer_index].record_forward_with_cross_attention(
+                        &mut commands,
+                        &self.kernels,
+                        &self.config,
+                        self.causal_attention,
+                        input,
+                        Some(&self.token_ids),
+                        &self.attention_mask,
+                        &self.alibi_positions,
+                        self.relative_attention_bias_for_layer(layer_index),
+                        self.relative_attention_num_buckets,
+                        self.relative_attention_max_distance,
+                        self.encoder_hidden.as_ref(),
+                        self.encoder_attention_mask.as_ref(),
+                        encoder_seq_len,
+                        self.batch_size,
+                        self.seq_len,
+                        next_step,
+                        self.dropout_seed,
+                        true,
+                        None,
+                        self.kimi_attn_res.as_ref(),
+                        shared_dsa_sparse_mask,
+                    )?;
+                    self.record_longcat_pair_forward_merge(&mut commands, layer_index, self.rows)?;
+                } else {
+                    let output_width =
+                        if let Some(hyper) = self.layers[layer_index].deepseek_v4_ffn_hc.as_ref() {
+                            self.config
+                                .hidden_size
+                                .checked_mul(hyper.hc_mult)
+                                .context("DeepSeek-V4 skipped-layer output width overflow")?
+                        } else {
+                            self.layers[layer_index]
+                                .qwen4_mlp_hyper_connection
+                                .as_ref()
+                                .map(|hyper| hyper.hc_hidden_size)
+                                .unwrap_or(self.config.hidden_size)
+                        };
+                    let copy_push = ScalePush {
+                        len: (self.rows * output_width) as u32,
+                        scale: 1.0,
+                    };
+                    self.kernels.scale_copy.record_dispatch(
+                        &mut commands,
+                        &[input, self.layers[layer_index].forward_output()],
+                        bytemuck::bytes_of(&copy_push),
+                        [div_ceil_u32(self.rows * output_width, 256), 1, 1],
+                    )?;
+                }
+                commands.force_watchdog_checkpoint()?;
             }
-            commands.force_watchdog_checkpoint()?;
         }
         let final_prefix = self
             .layers
@@ -83788,7 +83991,9 @@ impl VulkanTransformer {
         } else {
             final_prefix
         };
-        let terminal_hidden = if let Some(head) = self.deepseek_v4_hyper_head.as_ref() {
+        let terminal_hidden = if options.retained_forward {
+            self.training_terminal_output()?
+        } else if let Some(head) = self.deepseek_v4_hyper_head.as_ref() {
             head.record_forward(&mut commands, &self.kernels, final_input)?;
             if self.config.uses_final_norm() {
                 self.final_norm.record_forward(
@@ -83860,327 +84065,332 @@ impl VulkanTransformer {
         } else {
             final_input
         };
-        let decoder_output = if let Some(output_project) = self.output_project.as_ref() {
-            output_project.record_forward(
-                &mut commands,
-                &self.kernels,
-                terminal_hidden,
-                &self.output_project_output,
-                self.rows,
-            )?;
-            &self.output_project_output
-        } else {
-            terminal_hidden
-        };
-        let projection_input = if let Some(prediction_head) = self.prediction_head.as_ref() {
-            prediction_head.record_forward(
-                &mut commands,
-                &self.kernels,
-                decoder_output,
-                self.rows,
-            )?;
-            &prediction_head.output
-        } else {
-            decoder_output
-        };
-        let lm_input_dim = self
-            .prediction_head
-            .as_ref()
-            .map(|head| head.output_dim)
-            .unwrap_or_else(|| {
-                if self.output_project.is_some() {
-                    self.config.effective_embedding_size()
-                } else {
-                    self.config.hidden_size
-                }
+        if options.forward_only {
+            commands.submit()?;
+            return Ok(DeviceMultimodalStepResult {
+                text: VulkanTransformerStepResult { loss: 0., step: self.step, supervised_tokens: 0 },
+                gradient: None,
             });
-        let lm_push = LinearPush {
-            rows: self.rows as u32,
-            input_dim: lm_input_dim as u32,
-            output_dim: self.config.vocab_size as u32,
-        };
-        let projection_logits = self.raw_logits.as_ref().unwrap_or(&self.logits);
-        if let Some(lm_head) = self.lm_head.as_ref() {
-            lm_head.record_forward(
-                &mut commands,
-                &self.kernels,
-                projection_input,
-                projection_logits,
-                self.rows,
-            )?;
-        } else if let Some(head) = self.tiered_tied_head.as_ref() {
-            head.record_projection(
-                &mut commands,
-                &self.kernels,
-                projection_input,
-                projection_logits,
-                self.rows,
-                true,
-                false,
-            )?;
+        }
+        if let Some(gradient) = options.terminal_gradient {
+            let destination = if self.config.uses_final_norm() {
+                &self.grad_final_norm_output
+            } else { &self.grad_final_norm_input };
+            commands.copy_f32(gradient, destination, self.rows * self.config.hidden_size)?;
         } else {
-            self.kernels.linear_forward.record_dispatch(
-                &mut commands,
-                &[
-                    projection_input,
-                    self.shared_embedding.weight_buffer()?,
-                    projection_logits,
-                ],
-                bytemuck::bytes_of(&lm_push),
-                [
-                    div_ceil_u32(self.config.vocab_size, 16),
-                    div_ceil_u32(self.rows, 16),
-                    1,
-                ],
-            )?;
-            if let Some(lm_head_bias) = self.lm_head_bias.as_ref() {
-                let bias_push = BiasPush {
-                    rows: self.rows as u32,
-                    dim: self.config.vocab_size as u32,
-                };
-                self.kernels.bias_add.record_dispatch(
+            let decoder_output = if let Some(output_project) = self.output_project.as_ref() {
+                output_project.record_forward(
                     &mut commands,
-                    &[projection_logits, &lm_head_bias.values],
-                    bytemuck::bytes_of(&bias_push),
-                    [div_ceil_u32(self.rows * self.config.vocab_size, 256), 1, 1],
+                    &self.kernels,
+                    terminal_hidden,
+                    &self.output_project_output,
+                    self.rows,
                 )?;
-            }
-        }
-        if let Some(cap) = self.config.final_logit_softcapping {
-            let raw_logits = self
-                .raw_logits
+                &self.output_project_output
+            } else {
+                terminal_hidden
+            };
+            let projection_input = if let Some(prediction_head) = self.prediction_head.as_ref() {
+                prediction_head.record_forward(
+                    &mut commands,
+                    &self.kernels,
+                    decoder_output,
+                    self.rows,
+                )?;
+                &prediction_head.output
+            } else {
+                decoder_output
+            };
+            let lm_input_dim = self
+                .prediction_head
                 .as_ref()
-                .context("logit soft-capping requires raw-logit storage")?;
-            let scratch = self
-                .logit_postprocess_scratch
-                .as_ref()
-                .context("logit soft-capping requires scratch storage")?;
-            let len = self.rows * self.config.vocab_size;
-            let scale_into_tanh = ScalePush {
-                len: len as u32,
-                scale: self.config.logits_multiplier / cap,
+                .map(|head| head.output_dim)
+                .unwrap_or_else(|| {
+                    if self.output_project.is_some() {
+                        self.config.effective_embedding_size()
+                    } else {
+                        self.config.hidden_size
+                    }
+                });
+            let lm_push = LinearPush {
+                rows: self.rows as u32,
+                input_dim: lm_input_dim as u32,
+                output_dim: self.config.vocab_size as u32,
             };
-            self.kernels.scale_copy.record_dispatch(
-                &mut commands,
-                &[raw_logits, scratch],
-                bytemuck::bytes_of(&scale_into_tanh),
-                [div_ceil_u32(len, 256), 1, 1],
-            )?;
-            let tanh_push = LenPush { len: len as u32 };
-            self.kernels.tanh_forward.record_dispatch(
-                &mut commands,
-                &[scratch, raw_logits],
-                bytemuck::bytes_of(&tanh_push),
-                [div_ceil_u32(len, 256), 1, 1],
-            )?;
-            let scale_out = ScalePush {
-                len: len as u32,
-                scale: cap,
-            };
-            self.kernels.scale_copy.record_dispatch(
-                &mut commands,
-                &[raw_logits, &self.logits],
-                bytemuck::bytes_of(&scale_out),
-                [div_ceil_u32(len, 256), 1, 1],
-            )?;
-        } else if let Some(raw_logits) = self.raw_logits.as_ref() {
-            let push = ScalePush {
-                len: (self.rows * self.config.vocab_size) as u32,
-                scale: self.config.logits_multiplier,
-            };
-            self.kernels.scale_copy.record_dispatch(
-                &mut commands,
-                &[raw_logits, &self.logits],
-                bytemuck::bytes_of(&push),
-                [div_ceil_u32(self.rows * self.config.vocab_size, 256), 1, 1],
-            )?;
-        }
-        let ce_push = CrossEntropyPush {
-            rows: self.rows as u32,
-            vocab_size: self.config.vocab_size as u32,
-        };
-        // PEFT and modality bridges expose actual input gradients. Preserve
-        // PyTorch's materialized log-softmax adjoint for both: collapsing it to
-        // (softmax - one_hot) changes rounding before the embedding/tower VJP
-        // and compounds across composed full-parameter optimizer steps.
-        let ce_kernel = if self.lora_config.is_some()
-            || modality_rows.is_some()
-            || self.config.architecture == VulkanTransformerArchitecture::FalconH1
-        {
-            self.kernels.falcon_cross_entropy()
-        } else {
-            &self.kernels.cross_entropy
-        };
-        ce_kernel.record_dispatch(
-            &mut commands,
-            &[
-                &self.logits,
-                &self.targets,
-                &self.loss_weights,
-                &self.grad_logits,
-                &self.row_loss,
-            ],
-            bytemuck::bytes_of(&ce_push),
-            [self.rows as u32, 1, 1],
-        )?;
-
-        let grad_lm_logits = if let Some(cap) = self.config.final_logit_softcapping {
-            let raw_logits = self
-                .raw_logits
-                .as_ref()
-                .context("logit soft-capping requires raw-logit storage")?;
-            let scratch = self
-                .logit_postprocess_scratch
-                .as_ref()
-                .context("logit soft-capping requires scratch storage")?;
-            let grad_raw_logits = self
-                .grad_raw_logits
-                .as_ref()
-                .context("logit soft-capping requires raw-logit gradient storage")?;
-            let len = self.rows * self.config.vocab_size;
-            let output_scale = ScalePush {
-                len: len as u32,
-                scale: cap,
-            };
-            self.kernels.scale_copy.record_dispatch(
-                &mut commands,
-                &[&self.grad_logits, grad_raw_logits],
-                bytemuck::bytes_of(&output_scale),
-                [div_ceil_u32(len, 256), 1, 1],
-            )?;
-            let tanh_push = LenPush { len: len as u32 };
-            self.kernels.tanh_backward.record_dispatch(
-                &mut commands,
-                &[grad_raw_logits, scratch, raw_logits],
-                bytemuck::bytes_of(&tanh_push),
-                [div_ceil_u32(len, 256), 1, 1],
-            )?;
-            let input_scale = ScalePush {
-                len: len as u32,
-                scale: self.config.logits_multiplier / cap,
-            };
-            self.kernels.scale_copy.record_dispatch(
-                &mut commands,
-                &[raw_logits, grad_raw_logits],
-                bytemuck::bytes_of(&input_scale),
-                [div_ceil_u32(len, 256), 1, 1],
-            )?;
-            grad_raw_logits
-        } else if let Some(grad_raw_logits) = self.grad_raw_logits.as_ref() {
-            let push = ScalePush {
-                len: (self.rows * self.config.vocab_size) as u32,
-                scale: self.config.logits_multiplier,
-            };
-            self.kernels.scale_copy.record_dispatch(
-                &mut commands,
-                &[&self.grad_logits, grad_raw_logits],
-                bytemuck::bytes_of(&push),
-                [div_ceil_u32(self.rows * self.config.vocab_size, 256), 1, 1],
-            )?;
-            grad_raw_logits
-        } else {
-            &self.grad_logits
-        };
-        let terminal_mixer_active = self.deepseek_v4_hyper_head.is_some()
-            || self.qwen4_final_mixer.is_some()
-            || self.kimi_attn_res.is_some()
-            || self.config.uses_final_norm();
-        let grad_projection_input = if let Some(prediction_head) = self.prediction_head.as_ref() {
-            &prediction_head.grad_output
-        } else if self.output_project.is_some() {
-            &self.grad_output_project_output
-        } else if terminal_mixer_active {
-            &self.grad_final_norm_output
-        } else {
-            &self.grad_final_norm_input
-        };
-
-        if let Some(lm_head) = self.lm_head.as_ref() {
-            lm_head.record_backward(
-                &mut commands,
-                &self.kernels,
-                projection_input,
-                grad_lm_logits,
-                grad_projection_input,
-                self.rows,
-            )?;
-        } else if let Some(head) = self.tiered_tied_head.as_ref() {
-            head.record_input_gradient(
-                &mut commands,
-                grad_lm_logits,
-                grad_projection_input,
-                self.rows,
-            )?;
-        } else {
-            if !peft_mode || peft_bias_all {
+            let projection_logits = self.raw_logits.as_ref().unwrap_or(&self.logits);
+            if let Some(lm_head) = self.lm_head.as_ref() {
+                lm_head.record_forward(
+                    &mut commands,
+                    &self.kernels,
+                    projection_input,
+                    projection_logits,
+                    self.rows,
+                )?;
+            } else if let Some(head) = self.tiered_tied_head.as_ref() {
+                head.record_projection(
+                    &mut commands,
+                    &self.kernels,
+                    projection_input,
+                    projection_logits,
+                    self.rows,
+                    true,
+                    false,
+                )?;
+            } else {
+                record_linear_projection(
+                    &mut commands, &self.kernels, projection_input,
+                    self.shared_embedding.weight_buffer()?, None, projection_logits,
+                    self.rows, lm_push.input_dim as usize, lm_push.output_dim as usize, false,
+                )?;
                 if let Some(lm_head_bias) = self.lm_head_bias.as_ref() {
                     let bias_push = BiasPush {
                         rows: self.rows as u32,
                         dim: self.config.vocab_size as u32,
                     };
-                    self.kernels.bias_grad.record_dispatch(
+                    self.kernels.bias_add.record_dispatch(
                         &mut commands,
-                        &[grad_lm_logits, lm_head_bias.grad_buffer()?],
+                        &[projection_logits, &lm_head_bias.values],
                         bytemuck::bytes_of(&bias_push),
-                        [div_ceil_u32(self.config.vocab_size, 256), 1, 1],
+                        [div_ceil_u32(self.rows * self.config.vocab_size, 256), 1, 1],
                     )?;
                 }
             }
-            if !peft_mode || peft_trainable_tokens_active || peft_ties_saved_embedding_to_lm_head {
-                self.kernels.linear_weight_grad.record_dispatch(
+            if let Some(cap) = self.config.final_logit_softcapping {
+                let raw_logits = self
+                    .raw_logits
+                    .as_ref()
+                    .context("logit soft-capping requires raw-logit storage")?;
+                let scratch = self
+                    .logit_postprocess_scratch
+                    .as_ref()
+                    .context("logit soft-capping requires scratch storage")?;
+                let len = self.rows * self.config.vocab_size;
+                let scale_into_tanh = ScalePush {
+                    len: len as u32,
+                    scale: self.config.logits_multiplier / cap,
+                };
+                self.kernels.scale_copy.record_dispatch(
                     &mut commands,
-                    &[projection_input, grad_lm_logits, &self.lm_weight_grad],
+                    &[raw_logits, scratch],
+                    bytemuck::bytes_of(&scale_into_tanh),
+                    [div_ceil_u32(len, 256), 1, 1],
+                )?;
+                let tanh_push = LenPush { len: len as u32 };
+                self.kernels.tanh_forward.record_dispatch(
+                    &mut commands,
+                    &[scratch, raw_logits],
+                    bytemuck::bytes_of(&tanh_push),
+                    [div_ceil_u32(len, 256), 1, 1],
+                )?;
+                let scale_out = ScalePush {
+                    len: len as u32,
+                    scale: cap,
+                };
+                self.kernels.scale_copy.record_dispatch(
+                    &mut commands,
+                    &[raw_logits, &self.logits],
+                    bytemuck::bytes_of(&scale_out),
+                    [div_ceil_u32(len, 256), 1, 1],
+                )?;
+            } else if let Some(raw_logits) = self.raw_logits.as_ref() {
+                let push = ScalePush {
+                    len: (self.rows * self.config.vocab_size) as u32,
+                    scale: self.config.logits_multiplier,
+                };
+                self.kernels.scale_copy.record_dispatch(
+                    &mut commands,
+                    &[raw_logits, &self.logits],
+                    bytemuck::bytes_of(&push),
+                    [div_ceil_u32(self.rows * self.config.vocab_size, 256), 1, 1],
+                )?;
+            }
+            let ce_push = CrossEntropyPush {
+                rows: self.rows as u32,
+                vocab_size: self.config.vocab_size as u32,
+            };
+            // PEFT and modality bridges expose actual input gradients. Preserve
+            // PyTorch's materialized log-softmax adjoint for both: collapsing it to
+            // (softmax - one_hot) changes rounding before the embedding/tower VJP
+            // and compounds across composed full-parameter optimizer steps.
+            let ce_kernel = if self.lora_config.is_some()
+                || modality_rows.is_some()
+                || self.config.architecture == VulkanTransformerArchitecture::FalconH1
+            {
+                self.kernels.falcon_cross_entropy()
+            } else {
+                &self.kernels.cross_entropy
+            };
+            ce_kernel.record_dispatch(
+                &mut commands,
+                &[
+                    &self.logits,
+                    &self.targets,
+                    &self.loss_weights,
+                    &self.grad_logits,
+                    &self.row_loss,
+                ],
+                bytemuck::bytes_of(&ce_push),
+                [self.rows as u32, 1, 1],
+            )?;
+
+            let grad_lm_logits = if let Some(cap) = self.config.final_logit_softcapping {
+                let raw_logits = self
+                    .raw_logits
+                    .as_ref()
+                    .context("logit soft-capping requires raw-logit storage")?;
+                let scratch = self
+                    .logit_postprocess_scratch
+                    .as_ref()
+                    .context("logit soft-capping requires scratch storage")?;
+                let grad_raw_logits = self
+                    .grad_raw_logits
+                    .as_ref()
+                    .context("logit soft-capping requires raw-logit gradient storage")?;
+                let len = self.rows * self.config.vocab_size;
+                let output_scale = ScalePush {
+                    len: len as u32,
+                    scale: cap,
+                };
+                self.kernels.scale_copy.record_dispatch(
+                    &mut commands,
+                    &[&self.grad_logits, grad_raw_logits],
+                    bytemuck::bytes_of(&output_scale),
+                    [div_ceil_u32(len, 256), 1, 1],
+                )?;
+                let tanh_push = LenPush { len: len as u32 };
+                self.kernels.tanh_backward.record_dispatch(
+                    &mut commands,
+                    &[grad_raw_logits, scratch, raw_logits],
+                    bytemuck::bytes_of(&tanh_push),
+                    [div_ceil_u32(len, 256), 1, 1],
+                )?;
+                let input_scale = ScalePush {
+                    len: len as u32,
+                    scale: self.config.logits_multiplier / cap,
+                };
+                self.kernels.scale_copy.record_dispatch(
+                    &mut commands,
+                    &[raw_logits, grad_raw_logits],
+                    bytemuck::bytes_of(&input_scale),
+                    [div_ceil_u32(len, 256), 1, 1],
+                )?;
+                grad_raw_logits
+            } else if let Some(grad_raw_logits) = self.grad_raw_logits.as_ref() {
+                let push = ScalePush {
+                    len: (self.rows * self.config.vocab_size) as u32,
+                    scale: self.config.logits_multiplier,
+                };
+                self.kernels.scale_copy.record_dispatch(
+                    &mut commands,
+                    &[&self.grad_logits, grad_raw_logits],
+                    bytemuck::bytes_of(&push),
+                    [div_ceil_u32(self.rows * self.config.vocab_size, 256), 1, 1],
+                )?;
+                grad_raw_logits
+            } else {
+                &self.grad_logits
+            };
+            let terminal_mixer_active = self.deepseek_v4_hyper_head.is_some()
+                || self.qwen4_final_mixer.is_some()
+                || self.kimi_attn_res.is_some()
+                || self.config.uses_final_norm();
+            let grad_projection_input = if let Some(prediction_head) = self.prediction_head.as_ref() {
+                &prediction_head.grad_output
+            } else if self.output_project.is_some() {
+                &self.grad_output_project_output
+            } else if terminal_mixer_active {
+                &self.grad_final_norm_output
+            } else {
+                &self.grad_final_norm_input
+            };
+
+            if let Some(lm_head) = self.lm_head.as_ref() {
+                lm_head.record_backward(
+                    &mut commands,
+                    &self.kernels,
+                    projection_input,
+                    grad_lm_logits,
+                    grad_projection_input,
+                    self.rows,
+                )?;
+            } else if let Some(head) = self.tiered_tied_head.as_ref() {
+                head.record_input_gradient(
+                    &mut commands,
+                    grad_lm_logits,
+                    grad_projection_input,
+                    self.rows,
+                )?;
+            } else {
+                if train_lm_head_bias && (!peft_mode || peft_bias_all) {
+                    if let Some(lm_head_bias) = self.lm_head_bias.as_ref() {
+                        let bias_push = BiasPush {
+                            rows: self.rows as u32,
+                            dim: self.config.vocab_size as u32,
+                        };
+                        self.kernels.bias_grad.record_dispatch(
+                            &mut commands,
+                            &[grad_lm_logits, lm_head_bias.grad_buffer()?],
+                            bytemuck::bytes_of(&bias_push),
+                            [div_ceil_u32(self.config.vocab_size, 256), 1, 1],
+                        )?;
+                    }
+                }
+                if !peft_mode || peft_trainable_tokens_active || peft_ties_saved_embedding_to_lm_head {
+                    self.kernels.linear_weight_grad.record_dispatch(
+                        &mut commands,
+                        &[projection_input, grad_lm_logits, &self.lm_weight_grad],
+                        bytemuck::bytes_of(&lm_push),
+                        [
+                            div_ceil_u32(lm_input_dim, 16),
+                            div_ceil_u32(self.config.vocab_size, 16),
+                            1,
+                        ],
+                    )?;
+                    self.shared_embedding
+                        .record_accumulate_gradient(&mut commands, &self.lm_weight_grad)?;
+                }
+                self.kernels.linear_input_grad.record_dispatch(
+                    &mut commands,
+                    &[
+                        grad_lm_logits,
+                        self.shared_embedding.weight_buffer()?,
+                        grad_projection_input,
+                    ],
                     bytemuck::bytes_of(&lm_push),
                     [
                         div_ceil_u32(lm_input_dim, 16),
-                        div_ceil_u32(self.config.vocab_size, 16),
+                        div_ceil_u32(self.rows, 16),
                         1,
                     ],
                 )?;
-                self.shared_embedding
-                    .record_accumulate_gradient(&mut commands, &self.lm_weight_grad)?;
             }
-            self.kernels.linear_input_grad.record_dispatch(
-                &mut commands,
-                &[
-                    grad_lm_logits,
-                    self.shared_embedding.weight_buffer()?,
-                    grad_projection_input,
-                ],
-                bytemuck::bytes_of(&lm_push),
-                [
-                    div_ceil_u32(lm_input_dim, 16),
-                    div_ceil_u32(self.rows, 16),
-                    1,
-                ],
-            )?;
-        }
-        if let Some(prediction_head) = self.prediction_head.as_ref() {
-            prediction_head.record_backward(
-                &mut commands,
-                &self.kernels,
-                decoder_output,
-                if terminal_mixer_active {
-                    &self.grad_final_norm_output
-                } else {
-                    &self.grad_final_norm_input
-                },
-                self.rows,
-            )?;
-        }
-        if let Some(output_project) = self.output_project.as_ref() {
-            output_project.record_backward(
-                &mut commands,
-                &self.kernels,
-                terminal_hidden,
-                &self.grad_output_project_output,
-                if terminal_mixer_active {
-                    &self.grad_final_norm_output
-                } else {
-                    &self.grad_final_norm_input
-                },
-                self.rows,
-            )?;
+            if let Some(prediction_head) = self.prediction_head.as_ref() {
+                prediction_head.record_backward(
+                    &mut commands,
+                    &self.kernels,
+                    decoder_output,
+                    if terminal_mixer_active {
+                        &self.grad_final_norm_output
+                    } else {
+                        &self.grad_final_norm_input
+                    },
+                    self.rows,
+                )?;
+            }
+            if let Some(output_project) = self.output_project.as_ref() {
+                output_project.record_backward(
+                    &mut commands,
+                    &self.kernels,
+                    terminal_hidden,
+                    &self.grad_output_project_output,
+                    if terminal_mixer_active {
+                        &self.grad_final_norm_output
+                    } else {
+                        &self.grad_final_norm_input
+                    },
+                    self.rows,
+                )?;
+            }
         }
         if let Some(head) = self.deepseek_v4_hyper_head.as_ref() {
             let head_grad_output = if self.config.uses_final_norm() {
@@ -85066,17 +85276,17 @@ impl VulkanTransformer {
             self.final_norm
                 .record_step(&mut commands, &self.kernels, next_step, hyper)?;
         }
-        if !peft_mode || peft_saves_lm_head || peft_bias_all {
+        if options.terminal_gradient.is_none() && (!peft_mode || peft_saves_lm_head || peft_bias_all) {
             if let Some(lm_head) = self.lm_head.as_ref() {
                 lm_head.record_step(&mut commands, &self.kernels, next_step, hyper)?;
             }
         }
-        if !peft_mode || peft_bias_all {
+        if options.terminal_gradient.is_none() && train_lm_head_bias && (!peft_mode || peft_bias_all) {
             if let Some(lm_head_bias) = self.lm_head_bias.as_ref() {
                 lm_head_bias.record_step(&mut commands, &self.kernels, next_step, hyper)?;
             }
         }
-        if !peft_mode || peft_bias_all || peft_saves_prediction_head_norm {
+        if options.terminal_gradient.is_none() && (!peft_mode || peft_bias_all || peft_saves_prediction_head_norm) {
             if let Some(prediction_head) = self.prediction_head.as_ref() {
                 prediction_head.record_step(&mut commands, &self.kernels, next_step, hyper)?;
             }
@@ -85098,19 +85308,21 @@ impl VulkanTransformer {
                     hyper,
                 )?;
             }
-            let mut tied_hyper = hyper;
-            tied_hyper.weight_decay = hyper.weight_decay;
-            let cpu_policy = *self.kernels.cpu_adamw_policy.lock()
-                .map_err(|_| anyhow!("CPU AdamW policy lock poisoned"))?;
-            let tied_step = if let Some(policy) = cpu_policy {
-                self.shared_embedding.record_step_with_cpu_policy(&mut commands, policy, &self.kernels.cpu_adamw)?
-            } else {
-                self.shared_embedding.record_step(&mut commands, tied_hyper)?
-            };
-            if tied_step != next_step {
-                bail!(
-                    "tied embedding optimizer step {tied_step} diverged from Transformer step {next_step}"
-                );
+            if !options.defer_shared_embedding_step {
+                let mut tied_hyper = hyper;
+                tied_hyper.weight_decay = hyper.weight_decay;
+                let cpu_policy = *self.kernels.cpu_adamw_policy.lock()
+                    .map_err(|_| anyhow!("CPU AdamW policy lock poisoned"))?;
+                let tied_step = if let Some(policy) = cpu_policy {
+                    self.shared_embedding.record_step_with_cpu_policy(&mut commands, policy, &self.kernels.cpu_adamw)?
+                } else {
+                    self.shared_embedding.record_step(&mut commands, tied_hyper)?
+                };
+                if tied_step != next_step {
+                    bail!(
+                        "tied embedding optimizer step {tied_step} diverged from Transformer step {next_step}"
+                    );
+                }
             }
         } else if peft_saves_input_embedding {
             let tied_step = self.shared_embedding.record_step(&mut commands, hyper)?;
@@ -85131,8 +85343,9 @@ impl VulkanTransformer {
                 );
             }
         }
-        self.loss_sum_reducer
-            .record_sum(&mut commands, &self.row_loss, self.rows)?;
+        if options.terminal_gradient.is_none() {
+            self.loss_sum_reducer.record_sum(&mut commands, &self.row_loss, self.rows)?;
+        }
         commands.submit()?;
         for (layer, active) in self.layers.iter().zip(&active_layers) {
             if *active {
@@ -85140,11 +85353,10 @@ impl VulkanTransformer {
             }
         }
         self.step = next_step;
-        let loss = self.loss_sum_reducer.read_sum()?;
-        Ok(MultimodalTransformerStepResult {
+        let loss = if options.terminal_gradient.is_some() { 0. } else { self.loss_sum_reducer.read_sum()? };
+        Ok(DeviceMultimodalStepResult {
             text: VulkanTransformerStepResult { loss, step: self.step, supervised_tokens },
-            modality_embedding_grad: modality_rows.as_ref()
-                .map(PreparedModalityRows::gradient).transpose()?.unwrap_or_default(),
+            gradient: modality_rows.as_ref().and_then(PreparedModalityRows::device_gradient),
         })
     }
 
@@ -87957,6 +88169,7 @@ impl VulkanTransformer {
         if !self.config.architecture.is_t5_family() {
             bail!("T5-family parameter export requires a T5/MT5 graph");
         }
+        let stack = if self.causal_attention { "decoder" } else { "encoder" };
         let d = self.config.hidden_size;
         let a = self.config.query_hidden_size();
         let i = self.config.intermediate_size;
@@ -87967,11 +88180,11 @@ impl VulkanTransformer {
             (vec![self.config.vocab_size, d], token_embedding.clone()),
         );
         values.insert(
-            "decoder.embed_tokens.weight".to_owned(),
+            format!("{stack}.embed_tokens.weight"),
             (vec![self.config.vocab_size, d], token_embedding.clone()),
         );
         for (index, layer) in self.layers.iter().enumerate() {
-            let self_prefix = format!("decoder.block.{index}.layer.0");
+            let self_prefix = format!("{stack}.block.{index}.layer.0");
             let self_attention = format!("{self_prefix}.SelfAttention");
             values.insert(
                 format!("{self_prefix}.layer_norm.weight"),
@@ -88022,40 +88235,41 @@ impl VulkanTransformer {
                 );
             }
 
-            let cross = layer
-                .cross_attention
-                .as_ref()
-                .context("T5 decoder layer is missing cross-attention")?;
-            let cross_prefix = format!("decoder.block.{index}.layer.1");
-            let cross_attention = format!("{cross_prefix}.EncDecAttention");
-            values.insert(
-                format!("{cross_prefix}.layer_norm.weight"),
-                (vec![d], cross.norm.weight.read()?),
-            );
-            values.insert(
-                format!("{cross_attention}.q.weight"),
-                (vec![a, d], cross.q_proj.weight.read()?),
-            );
-            values.insert(
-                format!("{cross_attention}.k.weight"),
-                (
-                    vec![a, cross.encoder_hidden_size],
-                    cross.k_proj.weight.read()?,
-                ),
-            );
-            values.insert(
-                format!("{cross_attention}.v.weight"),
-                (
-                    vec![a, cross.encoder_hidden_size],
-                    cross.v_proj.weight.read()?,
-                ),
-            );
-            values.insert(
-                format!("{cross_attention}.o.weight"),
-                (vec![d, a], cross.out_proj.weight.read()?),
-            );
+            if let Some(cross) = layer.cross_attention.as_ref() {
+                let cross_prefix = format!("{stack}.block.{index}.layer.1");
+                let cross_attention = format!("{cross_prefix}.EncDecAttention");
+                values.insert(
+                    format!("{cross_prefix}.layer_norm.weight"),
+                    (vec![d], cross.norm.weight.read()?),
+                );
+                values.insert(
+                    format!("{cross_attention}.q.weight"),
+                    (vec![a, d], cross.q_proj.weight.read()?),
+                );
+                values.insert(
+                    format!("{cross_attention}.k.weight"),
+                    (
+                        vec![a, cross.encoder_hidden_size],
+                        cross.k_proj.weight.read()?,
+                    ),
+                );
+                values.insert(
+                    format!("{cross_attention}.v.weight"),
+                    (
+                        vec![a, cross.encoder_hidden_size],
+                        cross.v_proj.weight.read()?,
+                    ),
+                );
+                values.insert(
+                    format!("{cross_attention}.o.weight"),
+                    (vec![d, a], cross.out_proj.weight.read()?),
+                );
 
-            let ff_prefix = format!("decoder.block.{index}.layer.2");
+            } else if self.causal_attention {
+                bail!("T5 decoder layer is missing cross-attention");
+            }
+            let ff_index = if self.causal_attention { 2 } else { 1 };
+            let ff_prefix = format!("{stack}.block.{index}.layer.{ff_index}");
             values.insert(
                 format!("{ff_prefix}.layer_norm.weight"),
                 (vec![d], layer.ln2.weight.read()?),
@@ -88130,10 +88344,10 @@ impl VulkanTransformer {
             }
         }
         values.insert(
-            "decoder.final_layer_norm.weight".to_owned(),
+            format!("{stack}.final_layer_norm.weight"),
             (vec![d], self.final_norm.weight.read()?),
         );
-        if self.source_has_lm_head_alias {
+        if self.causal_attention && self.source_has_lm_head_alias {
             values.insert(
                 "lm_head.weight".to_owned(),
                 (vec![self.config.vocab_size, d], token_embedding),

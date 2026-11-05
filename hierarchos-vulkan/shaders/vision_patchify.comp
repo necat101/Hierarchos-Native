@@ -1,9 +1,13 @@
 #version 450
 // Layout conversion only. Patch projection itself uses the native GEMM.
+// layout 0 keeps the checkpoint's (channel, kh, kw) order. layout 1 emits
+// (kh, kw, channel), the reduction order oneDNN's AVX2 direct convolution uses
+// for the patch embedding; the loader permutes the weight columns to match.
+// `inverse` selects the gradient direction for either layout.
 layout(local_size_x=256) in;
 layout(set=0,binding=0,std430) readonly buffer X { float x[]; };
 layout(set=0,binding=1,std430) writeonly buffer Y { float y[]; };
-layout(push_constant) uniform Push { uint images; uint side; uint patch_size; uint channels; uint inverse; } pc;
+layout(push_constant) uniform Push { uint images; uint side; uint patch_size; uint channels; uint inverse; uint order; } pc;
 void main() {
     uint i=gl_GlobalInvocationID.x;
     uint total=pc.images*pc.side*pc.side*pc.channels;
@@ -11,7 +15,15 @@ void main() {
     uint area=pc.patch_size*pc.patch_size, width=pc.channels*area, grid=pc.side/pc.patch_size;
     uint row=i/width, offset=i%width;
     uint image=row/(grid*grid), tile=row%(grid*grid);
-    uint channel=offset/area, within=offset%area;
+    uint channel, within;
+    if(pc.order==0) {
+        channel=offset/area;
+        within=offset%area;
+    } else {
+        channel=offset%pc.channels;
+        uint tap=offset/pc.channels;
+        within=(tap/pc.patch_size)*pc.patch_size+tap%pc.patch_size;
+    }
     uint py=(tile/grid)*pc.patch_size+within/pc.patch_size;
     uint px=(tile%grid)*pc.patch_size+within%pc.patch_size;
     uint nchw=((image*pc.channels+channel)*pc.side+py)*pc.side+px;

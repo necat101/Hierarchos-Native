@@ -1,0 +1,14 @@
+#version 450
+// Pointwise Gemma4 scaling. The patch embedder applies (x - 0.5) * 2 before
+// its linear; the pooler applies sqrt(hidden_size) after the spatial average.
+// `inverse` uses the same multiply without the offset as the exact adjoint.
+layout(local_size_x = 256) in;
+layout(set = 0, binding = 0, std430) readonly buffer X { float x[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer Y { float y[]; };
+layout(push_constant) uniform Push { uint len; float scale; float offset; uint inverse; } pc;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= pc.len) return;
+    y[i] = pc.inverse != 0u ? x[i] * pc.scale : (x[i] + pc.offset) * pc.scale;
+}

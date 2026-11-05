@@ -75,6 +75,16 @@ void main() {
         // ATen uses its naive bmm below 400 products; a narrow (1..8 column)
         // BLAS contraction above that threshold uses the four-lane GEMV tree.
         // Decode's masked 128-slot ring still has 128 columns, not two.
+#ifdef HIERARCHOS_V41_CPU_AVX2
+        // ATen's small bmm kernel performs separate multiply/add operations.
+        if (total * pc.heads * pc.dim < 400u) {
+            for (uint d=0u; d<pc.dim; ++d) {
+                float kv=slot<pc.window_topk ? window_kv[kv_base+d] : compressed_kv[kv_base+d];
+                precise float product=q[query_base+d]*kv;
+                dot+=product;
+            }
+        } else
+#endif
         if (total <= 8u && total * pc.heads * pc.dim >= 400u) {
             precise float a=0.0, b=0.0, c=0.0, d=0.0;
             uint aligned=pc.dim/4u*4u;

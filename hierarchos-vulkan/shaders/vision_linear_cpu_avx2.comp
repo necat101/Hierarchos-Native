@@ -1,0 +1,62 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+
+// ATen/MKL AVX2 SGEMM's six-row panel and short final panel. In the
+// qualified FP32 shapes the one/two-row tail materializes each product in
+// two interleaved accumulators, while a three-row tail uses two FMA lanes.
+// Full panels and four/five-row tails keep ascending-K FMA. The host excludes
+// single-row GEMV and unmeasured widths; no tensor values enter the policy.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BiasBuffer { float bias[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    uint has_bias;
+} pc;
+
+float matrix_weight(uint column, uint reduction) {
+#ifdef VISION_TRANSPOSE_WEIGHT
+    return weight[reduction * pc.output_dim + column];
+#else
+    return weight[column * pc.input_dim + reduction];
+#endif
+}
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || column >= pc.output_dim) return;
+    uint xb = row * pc.input_dim;
+    uint tail = pc.rows % 6u;
+    float result = 0.0;
+    if (tail > 0u && tail <= 3u && row >= pc.rows - tail) {
+        precise float lane0 = 0.0;
+        precise float lane1 = 0.0;
+        for (uint k = 0u; k < pc.input_dim; k += 2u) {
+            if (tail <= 2u) {
+                precise float product0 = x[xb+k] * matrix_weight(column, k);
+                precise float product1 = x[xb+k+1u] * matrix_weight(column, k+1u);
+                lane0 += product0;
+                lane1 += product1;
+            } else {
+                lane0 = fp32_fma_exact(x[xb+k], matrix_weight(column, k), lane0);
+                lane1 = fp32_fma_exact(x[xb+k+1u], matrix_weight(column, k+1u), lane1);
+            }
+        }
+        result = lane0 + lane1;
+    } else {
+        for (uint k = 0u; k < pc.input_dim; ++k) {
+            // A mixed precise/unfused branch can make Gen9 IGC split the
+            // surrounding fma() chain too. Reconstruct IEEE FMA explicitly
+            // so selecting the tail path cannot change a full-panel row.
+            result = fp32_fma_exact(x[xb+k], matrix_weight(column, k), result);
+        }
+    }
+    output_values[row * pc.output_dim + column] = pc.has_bias != 0u
+        ? result + bias[column] : result;
+}

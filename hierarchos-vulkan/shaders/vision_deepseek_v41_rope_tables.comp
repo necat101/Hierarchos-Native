@@ -1,0 +1,16 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sleef_trig.glsl"
+#include "fp32_vml_cos.glsl"
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer Frequencies {float inv_freq[];};
+layout(set=0,binding=1,std430) writeonly buffer Cos {float cosines[];};
+layout(set=0,binding=2,std430) writeonly buffer Sin {float sines[];};
+layout(push_constant) uniform Push {uint rows;uint width;uint half_dim;} pc;
+void main(){
+    uint i=gl_GlobalInvocationID.x;if(i>=pc.rows*pc.half_dim)return;
+    uint row=i/pc.half_dim,j=i%pc.half_dim,quarter=pc.half_dim/2u;
+    uint position=j<quarter?row/pc.width:row%pc.width;
+    precise float angle=float(position)*inv_freq[j%quarter];
+    cosines[i]=vml_cos_bounded(angle);sines[i]=fp32_sin(angle);
+}

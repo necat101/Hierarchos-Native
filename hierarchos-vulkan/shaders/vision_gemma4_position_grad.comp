@@ -1,0 +1,25 @@
+#version 450
+// Deterministic adjoint for the two learned position tables. Each table entry
+// owns one output element and folds matching rows in ascending patch order, so
+// no floating-point atomics are involved.
+layout(local_size_x = 256) in;
+layout(set = 0, binding = 0, std430) readonly buffer DY { float dy[]; };
+layout(set = 0, binding = 1, std430) readonly buffer Positions { uint positions[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer DTable { float dtable[]; };
+layout(push_constant) uniform Push { uint rows; uint dim; uint position_size; } pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint slot = gl_GlobalInvocationID.y;
+    uint axis = slot / pc.position_size;
+    uint index = slot % pc.position_size;
+    if (col >= pc.dim || axis > 1u) return;
+    float sum = 0.0;
+    for (uint row = 0u; row < pc.rows; ++row) {
+        uint position = positions[row * 2u + axis];
+        if (position == index) {
+            sum += dy[row * pc.dim + col];
+        }
+    }
+    dtable[slot * pc.dim + col] = sum;
+}

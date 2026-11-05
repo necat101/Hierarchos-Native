@@ -48,7 +48,7 @@ fn projection_weight_gradient_cpu_output_geometry_reduction() -> Result<()> {
             input_dim: c.input_dim as u32,
             output_dim: c.output_dim as u32,
         };
-        k.weight_kernel(c.input_dim, c.output_dim).record_dispatch(
+        k.weight_kernel(c.rows, c.input_dim, c.output_dim).record_dispatch(
             &mut batch,
             &[&x, &g, &output],
             bytemuck::bytes_of(&push),

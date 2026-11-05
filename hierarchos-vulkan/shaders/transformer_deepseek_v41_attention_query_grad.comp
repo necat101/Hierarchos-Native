@@ -26,7 +26,14 @@ void main() {
     uint column=i%pc.dim, head=(i/pc.dim)%pc.heads, row=i/(pc.dim*pc.heads);
     uint base=(row*pc.heads+head)*slot_count();
     precise float sum=0.0;
-    for (uint slot=0u;slot<slot_count();++slot)
+    for (uint slot=0u;slot<slot_count();++slot) {
+#ifdef HIERARCHOS_V41_CPU_AVX2
+        if(slot_count()*pc.heads*pc.dim<400u) {
+            precise float product=grad_score[base+slot]*slot_value(row,slot,column);
+            sum+=product;
+        } else
+#endif
         sum=fma(grad_score[base+slot],slot_value(row,slot,column),sum);
+    }
     grad_query[i]=sum;
 }

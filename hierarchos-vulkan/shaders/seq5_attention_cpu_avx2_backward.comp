@@ -1,0 +1,64 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+// CPU eager attention: ATen's small BMM materializes products in ascending
+// reduction order. The softmax adjoint and scale are materialized before BMM.
+layout(local_size_x=1) in;
+layout(set=0,binding=0,std430) readonly buffer Q {float q[];};
+layout(set=0,binding=1,std430) readonly buffer K {float k[];};
+layout(set=0,binding=2,std430) readonly buffer V {float v[];};
+layout(set=0,binding=3,std430) readonly buffer QM {float qm[];};
+layout(set=0,binding=4,std430) readonly buffer KM {float km[];};
+layout(set=0,binding=5,std430) readonly buffer A {float unused_a[];};
+layout(set=0,binding=6,std430) readonly buffer DY {float dy[];};
+layout(set=0,binding=7,std430) buffer DQ {float dq[];};
+layout(set=0,binding=8,std430) buffer DK {float dk[];};
+layout(set=0,binding=9,std430) buffer DV {float dv[];};
+layout(set=0,binding=10,std430) readonly buffer Sink {float unused_sink[];};
+layout(set=0,binding=11,std430) buffer DSink {float debug_lse[];};
+layout(set=0,binding=12,std430) readonly buffer Relative {float unused_relative[];};
+layout(set=0,binding=13,std430) buffer DRelative {float unused_drelative[];};
+layout(set=0,binding=14,std430) readonly buffer Sparse {float unused_sparse[];};
+layout(push_constant) uniform P {
+uint batch_size;uint query_seq_len;uint key_value_seq_len;uint query_hidden_size;uint value_hidden_size;
+uint num_heads;uint num_key_value_heads;uint window_size;float scale;float value_scale;float softcap;
+uint alibi_mode;float alibi_bias_max;float dropout_p;uint rng_step;uint rng_site;uint rng_seed;
+uint has_sink;uint causal;uint relative_bias_mode;uint relative_bias_num_buckets;uint relative_bias_max_distance;
+uint query_position_offset;uint has_sparse_mask;uint compressed_key_count;uint compressed_key_rate;
+uint paged_kv;uint kv_page_size;uint kv_page_table_stride;uint unfused_qk;uint key_block_index;uint key_block_count;
+} pc;
+
+precise float p[25];precise float ds[25];
+void main(){
+ uint head=gl_GlobalInvocationID.x,image=gl_GlobalInvocationID.y;
+ if(head>=pc.num_heads||image>=pc.batch_size)return;
+ uint dim=pc.query_hidden_size,hd=dim/pc.num_heads;
+ for(uint row=0u;row<5u;++row){
+  precise float maximum=-3.402823466e+38;
+  for(uint col=0u;col<5u;++col){
+   precise float dot=0.0;precise float dp=0.0;
+   for(uint d=0u;d<hd;++d){uint qi=(image*5u+row)*dim+head*hd+d,ki=(image*5u+col)*dim+head*hd+d;
+    precise float product=q[qi]*k[ki];dot+=product;
+    precise float dproduct=dy[qi]*v[ki];dp+=dproduct;
+   }
+   p[row*5u+col]=dot*pc.scale;maximum=max(maximum,p[row*5u+col]);ds[row*5u+col]=dp;
+  }
+  precise float total=0.0;
+  for(uint col=0u;col<5u;++col){p[row*5u+col]=sleef_expf_u10(p[row*5u+col]-maximum);total+=p[row*5u+col];}
+  precise float inverse=fp32_div(1.0,total);
+  precise float dot=0.0;
+  for(uint col=0u;col<5u;++col){p[row*5u+col]*=inverse;precise float product=p[row*5u+col]*ds[row*5u+col];dot+=product;}
+  for(uint col=0u;col<5u;++col){precise float delta=ds[row*5u+col]-dot;precise float product=delta*p[row*5u+col];ds[row*5u+col]=product*pc.scale;}
+ }
+ for(uint row=0u;row<5u;++row)for(uint d=0u;d<hd;++d){
+  precise float qa=0.0,ka=0.0,va=0.0;
+  for(uint j=0u;j<5u;++j){uint z=(image*5u+j)*dim+head*hd+d;
+   precise float qproduct=ds[row*5u+j]*k[z];qa+=qproduct;
+   precise float kproduct=ds[j*5u+row]*q[z];ka+=kproduct;
+   precise float vproduct=p[j*5u+row]*dy[z];va+=vproduct;
+  }
+  uint z=(image*5u+row)*dim+head*hd+d;dq[z]=qa;dk[z]=ka;dv[z]=va;
+ }
+}

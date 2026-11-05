@@ -1,0 +1,36 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+layout(local_size_x=64) in;
+#include "transformer_deepseek_v41_grad_dispatch.glsl"
+layout(set=0,binding=0,std430) readonly buffer Upstream { float upstream[]; };
+layout(set=0,binding=1,std430) readonly buffer Weight { float weight[]; };
+layout(set=0,binding=2,std430) writeonly buffer InputGradient { float grad_input[]; };
+layout(push_constant) uniform Push { uint rows; uint groups; uint width; uint rank; } pc;
+void main() {
+    uint i;
+    if (!v41_grad_index(pc.rows*pc.groups*pc.width,i)) return;
+    uint column=i%pc.width, group=(i/pc.width)%pc.groups, row=i/(pc.width*pc.groups);
+    uint base=(row*pc.groups+group)*pc.rank;
+    uint tail=pc.rows%6u;
+    bool short_panel=tail>0u && tail<=3u && row>=pc.rows-tail;
+    precise float a=0.0,b=0.0;
+    if(pc.rows==1u) {
+        for(uint start=0u;start<pc.rank;start+=4u) {
+            precise float partial=0.0;
+            for(uint k=start;k<min(start+4u,pc.rank);++k)
+                partial=fp32_fma_exact(upstream[base+k],weight[(group*pc.rank+k)*pc.width+column],partial);
+            a+=partial;
+        }
+        grad_input[i]=a;
+        return;
+    }
+    for(uint k=0u;k<pc.rank;++k) {
+        float g=upstream[base+k],w=weight[(group*pc.rank+k)*pc.width+column];
+        if(short_panel || pc.width<=8u) {
+            if(short_panel && tail<=2u) {precise float product=g*w;if((k&1u)==0u)a+=product;else b+=product;}
+            else {if((k&1u)==0u)a=fp32_fma_exact(g,w,a);else b=fp32_fma_exact(g,w,b);}
+        } else a=fp32_fma_exact(g,w,a);
+    }
+    grad_input[i]=a+b;
+}

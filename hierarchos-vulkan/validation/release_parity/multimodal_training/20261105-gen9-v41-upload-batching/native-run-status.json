@@ -1,0 +1,112 @@
+[
+  {
+    "name": "primitives",
+    "tests": [
+      "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_compressor_adjoint_matches_frozen_words",
+      "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_gate_adjoints_match_released_cpu",
+      "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_grouped_adjoints_match_frozen_words",
+      "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_hc_adjoints_match_released_cpu",
+      "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_input_adjoints_match_frozen_words",
+      "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_lora_matmuls_match_frozen_words",
+      "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_sparse_adjoints_match_frozen_words",
+      "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_swiglu_adjoints_match_frozen_cpu",
+      "deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_narrow_projections_match_frozen_cpu_tolerance",
+      "deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_projection_panels_match_frozen_words",
+      "deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_terminal_matches_frozen_words",
+      "deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_unary_boundaries_match_frozen_words"
+    ],
+    "expected_tests": 12,
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "name": "vision",
+    "tests": [
+      "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_aligner_linears_match_frozen_words",
+      "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_final_rms_adjoint_matches_frozen_words",
+      "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_sdpa_matches_independent_random_cpu",
+      "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_two_adamw_steps_match_frozen_cpu"
+    ],
+    "expected_tests": 4,
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "name": "joint",
+    "tests": [
+      "deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_multimodal_joint_two_adamw_steps_match_frozen_cpu"
+    ],
+    "expected_tests": 1,
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "name": "checkpoint",
+    "tests": [
+      "deepseek_v41::model::tests::training::native_vision::native_state::deepseek_v41_native_joint_checkpoint_resume_export_and_freshness"
+    ],
+    "expected_tests": 1,
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "name": "modality",
+    "tests": [
+      "deepseek_v41::model::tests::training::deepseek_v41_modality_absent_gradients_match_text_path_bits",
+      "deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_matches_train_sequence_bits",
+      "deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_state_matches_train_sequence",
+      "deepseek_v41::model::tests::training::hc_adjoint_tests::deepseek_v41_modality_hc_repeat_adjoint_matches_frozen_words"
+    ],
+    "expected_tests": 4,
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "name": "text",
+    "tests": [
+      "deepseek_v41::model::tests::training::deepseek_v41_full_model_cpu_autograd_adamw_resume_and_export_gate"
+    ],
+    "expected_tests": 1,
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "name": "mathscope",
+    "tests": [
+      "deepseek_v41::cpu_math::tests::native_avx2_scope_preserves_host_dispatch"
+    ],
+    "expected_tests": 1,
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "name": "mathscope-wide-host",
+    "tests": [
+      "deepseek_v41::cpu_math::tests::native_avx2_scope_preserves_host_dispatch"
+    ],
+    "expected_tests": 1,
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "name": "vision-wide-host",
+    "tests": [
+      "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_aligner_linears_match_frozen_words",
+      "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_final_rms_adjoint_matches_frozen_words",
+      "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_sdpa_matches_independent_random_cpu",
+      "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_two_adamw_steps_match_frozen_cpu"
+    ],
+    "expected_tests": 4,
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "name": "joint-wide-host",
+    "tests": [
+      "deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_multimodal_joint_two_adamw_steps_match_frozen_cpu"
+    ],
+    "expected_tests": 1,
+    "returncode": 0,
+    "pass": true
+  }
+]

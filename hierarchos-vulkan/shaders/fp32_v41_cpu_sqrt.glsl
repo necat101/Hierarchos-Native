@@ -3,6 +3,11 @@
 // the upper twelve mantissa bits. No model values or weights are in it.
 // V41_SQRT_SEEDS names a read-only uint storage buffer supplied by the caller.
 float v41_cpu_sqrt(float x) {
+#ifdef HIERARCHOS_V41_CPU_AVX2
+    // Pinned Intel AVX2 Torch uses the correctly rounded sqrt instruction.
+    // The historical AMD VML contract below intentionally remains separate.
+    return v41_sqrt(x);
+#else
     uint bits=floatBitsToUint(x);
     if (x<=0.0 || isnan(x) || isinf(x) || bits<0x00800000u) return v41_sqrt(x);
     int exponent=int(bits>>23u)-127;
@@ -22,4 +27,5 @@ float v41_cpu_sqrt(float x) {
     precise float residual=x-square;
     precise float delta=residual*half_inverse;
     return root+delta;
+#endif
 }

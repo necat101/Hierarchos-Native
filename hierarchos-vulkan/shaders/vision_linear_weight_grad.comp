@@ -1,0 +1,39 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+
+// ATen's AVX2 SGEMM accumulates eight interleaved reduction lanes before a
+// sequential lane fold. Gemma4's boundary linears are reduced over 36 patch
+// rows (or four pooled tokens), where the generic sequential row order can
+// leave a one-ULP parameter update.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradWeightBuffer { float grad_weight[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+} pc;
+
+void main() {
+    uint in_col = gl_GlobalInvocationID.x;
+    uint out_row = gl_GlobalInvocationID.y;
+    if (in_col >= pc.input_dim || out_row >= pc.output_dim) return;
+
+    float lanes[8];
+    for (uint j = 0u; j < 8u; ++j) lanes[j] = 0.0;
+    for (uint row = 0u; row < pc.rows; ++row) {
+        uint lane = row & 7u;
+        lanes[lane] = fp32_fma_exact(
+            grad_output[row * pc.output_dim + out_row],
+            x[row * pc.input_dim + in_col],
+            lanes[lane]
+        );
+    }
+    float sum = lanes[0];
+    for (uint j = 1u; j < 8u; ++j) sum += lanes[j];
+    grad_weight[out_row * pc.input_dim + in_col] = sum;
+}

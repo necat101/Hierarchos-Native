@@ -1,0 +1,26 @@
+#version 450
+// The released aligner sends a column-major logical [patch,channel] gradient
+// into the final ViT RMSNorm. Torch's strided sum handles outer groups of four
+// in source order, then reduces each remaining row with four interleaved
+// streams. The physical Vulkan buffers stay row-major; this kernel preserves
+// the reference's arithmetic rather than introducing a transpose/readback.
+layout(local_size_x=64) in;
+layout(set=0,binding=0,std430) readonly buffer G {float g[];};
+layout(set=0,binding=1,std430) readonly buffer X {float x[];};
+layout(set=0,binding=2,std430) readonly buffer W {float w[];};
+layout(set=0,binding=3,std430) readonly buffer R {float rstd[];};
+layout(set=0,binding=4,std430) writeonly buffer DX {float dx[];};
+layout(push_constant) uniform Push {uint rows;uint dim;} pc;
+void main(){
+    uint row=gl_GlobalInvocationID.x;if(row>=pc.rows)return;uint base=row*pc.dim;
+    precise float dot=0.;
+    if(row<pc.rows/4u*4u){
+        for(uint d=0u;d<pc.dim;++d){precise float weighted=g[base+d]*w[d];precise float product=weighted*x[base+d];dot+=product;}
+    }else{
+        precise float p[4];for(uint j=0u;j<4u;++j)p[j]=0.;
+        for(uint d=0u;d<pc.dim;++d){precise float weighted=g[base+d]*w[d];precise float product=weighted*x[base+d];p[d&3u]+=product;}
+        dot=p[0];for(uint j=1u;j<4u;++j)dot+=p[j];
+    }
+    float r=rstd[row];precise float cube=(r*r)*r;precise float grad_mean=(-0.5*dot)*cube;precise float grad_square=grad_mean/float(pc.dim);
+    for(uint d=0u;d<pc.dim;++d){precise float weighted=g[base+d]*w[d];precise float direct=weighted*r;precise float through=grad_square*(2.*x[base+d]);dx[base+d]=direct+through;}
+}

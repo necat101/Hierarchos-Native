@@ -32,8 +32,13 @@ float element(uint row, uint col, uint visible) {
     precise float d_activation = pc.expert == 0xffffffffu ? d : d * route[row];
     precise float du = d_activation * silu_value;
     float sigmoid = v41_cpu_sigmoid(g,i,visible * pc.inter);
+#ifdef HIERARCHOS_V41_CPU_AVX2
+    precise float weighted = (d_activation * u) * sigmoid;
+    precise float dg = weighted * (1.0f + g * (1.0f - sigmoid));
+#else
     precise float slope = sigmoid * (1.0f + g * (1.0f - sigmoid));
     precise float dg = (d_activation * u) * slope;
+#endif
     // Pinned CPU scalar-bound clamp_backward uses strict inequalities.
     if (pc.limit > 0.0f) {
         if (original_g >= pc.limit) dg = 0.0f;

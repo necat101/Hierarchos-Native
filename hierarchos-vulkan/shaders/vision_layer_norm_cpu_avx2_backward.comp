@@ -1,0 +1,74 @@
+#version 450
+// FP32 native_layer_norm_backward from the pinned Windows AVX2 ATen oracle.
+// Its raw-x reduction and affine coefficients are separately materialized;
+// the algebraically equivalent xhat formula has different FP32 rounding.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer DY { float dy[]; };
+layout(set = 0, binding = 1, std430) readonly buffer X { float x[]; };
+#ifdef VISION_NORM_PARAM_GRAD
+layout(set = 0, binding = 2, std430) readonly buffer Mean { float mean_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Rstd { float rstd_values[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer DG { float dg[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer DB { float db[]; };
+#else
+layout(set = 0, binding = 2, std430) readonly buffer Gamma { float gamma[]; };
+layout(set = 0, binding = 3, std430) readonly buffer Mean { float mean_values[]; };
+layout(set = 0, binding = 4, std430) readonly buffer Rstd { float rstd_values[]; };
+layout(set = 0, binding = 5, std430) writeonly buffer DX { float dx[]; };
+#endif
+layout(push_constant) uniform Push { uint rows; uint dim; } pc;
+
+void main() {
+#ifdef VISION_NORM_PARAM_GRAD
+    uint col = gl_GlobalInvocationID.x;
+    if (col >= pc.dim) return;
+    precise float grad_gamma = 0.0;
+    precise float grad_beta = 0.0;
+    for (uint row = 0u; row < pc.rows; ++row) {
+        uint index = row * pc.dim + col;
+        precise float a = rstd_values[row];
+        precise float b = -a * mean_values[row];
+        precise float ax = a * x[index];
+        precise float normalized = ax + b;
+        precise float product = dy[index] * normalized;
+        grad_gamma += product;
+        grad_beta += dy[index];
+    }
+    dg[col] = grad_gamma;
+    db[col] = grad_beta;
+#else
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) return;
+    uint base = row * pc.dim;
+    precise float ds_lanes[8];
+    precise float db_lanes[8];
+    for (uint j=0u; j<8u; ++j) { ds_lanes[j]=0.0; db_lanes[j]=0.0; }
+    for (uint col=0u; col<pc.dim; ++col) {
+        precise float dyx = dy[base+col] * x[base+col];
+        precise float weighted_dyx = dyx * gamma[col];
+        precise float dyg = dy[base+col] * gamma[col];
+        ds_lanes[col&7u] += weighted_dyx;
+        db_lanes[col&7u] += dyg;
+    }
+    precise float ds=ds_lanes[0];
+    precise float db=db_lanes[0];
+    for (uint j=1u; j<8u; ++j) { ds+=ds_lanes[j]; db+=db_lanes[j]; }
+    precise float a=rstd_values[row];
+    precise float mu=mean_values[row];
+    precise float scale=1.0/float(pc.dim);
+    precise float db_mu=db*mu;
+    precise float b=db_mu-ds;
+    b=b*a; b=b*a; b=b*a; b=b*scale;
+    precise float b_mu=-b*mu;
+    precise float db_a=db*a;
+    precise float db_scale=db_a*scale;
+    precise float c=b_mu-db_scale;
+    for (uint col=0u; col<pc.dim; ++col) {
+        precise float a_dy=a*dy[base+col];
+        precise float direct=a_dy*gamma[col];
+        precise float bx=b*x[base+col];
+        precise float combined=direct+bx;
+        dx[base+col]=combined+c;
+    }
+#endif
+}

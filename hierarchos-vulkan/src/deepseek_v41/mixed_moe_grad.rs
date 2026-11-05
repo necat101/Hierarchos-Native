@@ -98,7 +98,10 @@ impl DeepseekV41MixedMoeAdjoints {
             linear: DeepseekV41LinearAdjoints::new(device.clone())?,
             swiglu: vulkan::ComputeKernel::new_with_access(
                 &device,
-                include_bytes!("../../shaders/transformer_deepseek_v41_mixed_swiglu_grad.spv"),
+                crate::deepseek_v41::cpu_math::selected(
+                    &device,
+                    include_bytes!("../../shaders/transformer_deepseek_v41_mixed_swiglu_grad.spv"),
+                ),
                 &[R, R, R, R, R, W, W, W],
                 std::mem::size_of::<MixedSwigluPush>() as u32,
             )?,
@@ -110,7 +113,7 @@ impl DeepseekV41MixedMoeAdjoints {
             )?,
             gate: vulkan::ComputeKernel::new_with_access(
                 &device,
-                MOE_GATE_GRAD,
+                crate::deepseek_v41::cpu_math::selected(&device, MOE_GATE_GRAD),
                 &[R, R, R, R, W, R],
                 std::mem::size_of::<MoeGatePush>() as u32,
             )?,
@@ -198,8 +201,14 @@ impl DeepseekV41MixedMoeAdjoints {
         mapping: Option<GpuBuffer>,
         w: &MixedExpert,
     ) -> Result<ExpertTape> {
-        let w1 = self.linear.forward_mixed(x, rows, &w.w1, moe.precision)?;
-        let w3 = self.linear.forward_mixed(x, rows, &w.w3, moe.precision)?;
+        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        commands.enable_watchdog_submission_slicing();
+        let w1 = self
+            .linear
+            .record_forward_mixed(&mut commands, x, rows, &w.w1, moe.precision)?;
+        let w3 = self
+            .linear
+            .record_forward_mixed(&mut commands, x, rows, &w.w3, moe.precision)?;
         let activation = GpuBuffer::zeros_f32(&self.device, rows * moe.config.intermediate_size)?;
         let push = MixedSwigluPush {
             rows: rows as u32,
@@ -208,7 +217,6 @@ impl DeepseekV41MixedMoeAdjoints {
             bf16: u32::from(moe.precision == DeepseekV41WeightOutput::Bf16),
             limit: moe.config.swiglu_limit,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
         moe.swiglu.record_dispatch(
             &mut commands,
             &[&w1.output, &w3.output, &route, counts, &activation],
@@ -219,10 +227,14 @@ impl DeepseekV41MixedMoeAdjoints {
                 1,
             ],
         )?;
+        let w2 = self.linear.record_forward_mixed(
+            &mut commands,
+            &activation,
+            rows,
+            &w.w2,
+            moe.precision,
+        )?;
         commands.submit()?;
-        let w2 = self
-            .linear
-            .forward_mixed(&activation, rows, &w.w2, moe.precision)?;
         #[cfg(test)]
         {
             crate::deepseek_v41::training_trace::record(
@@ -270,6 +282,15 @@ impl DeepseekV41MixedMoeAdjoints {
         input: &GpuBuffer,
         rows: usize,
     ) -> Result<DeepseekV41MixedMoeTape> {
+        self.forward_with_text_mask(moe, input, rows, None)
+    }
+    pub(super) fn forward_with_text_mask(
+        &self,
+        moe: &DeepseekV41MixedMoe,
+        input: &GpuBuffer,
+        rows: usize,
+        text_mask: Option<&GpuBuffer>,
+    ) -> Result<DeepseekV41MixedMoeTape> {
         let (stream, slots) = self.geometry(moe, rows)?;
         let c = moe.config;
         let x = self.snapshot(
@@ -281,19 +302,14 @@ impl DeepseekV41MixedMoeAdjoints {
         let counts = GpuBuffer::zeros_u32(&self.device, c.experts)?;
         let push = gate_push(c, rows);
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
-        moe.gate.record_dispatch(
+        moe.record_gate(
             &mut commands,
-            &[
-                &x,
-                &moe.gate_weight,
-                &moe.gate_bias,
-                &route,
-                &indices,
-                &counts,
-                &moe.cpu_sqrt_seeds,
-            ],
-            bytemuck::bytes_of(&push),
-            [rows as u32, 1, 1],
+            &x,
+            &route,
+            &indices,
+            &counts,
+            rows,
+            text_mask,
         )?;
         commands.submit()?;
         let routed = GpuBuffer::zeros_f32(&self.device, slots * c.hidden_size)?;
@@ -468,7 +484,8 @@ impl DeepseekV41MixedMoeAdjoints {
         let (w1, w2, w3, _) = self.with_expert(moe, u32::MAX, |w| {
             self.expert_backward(moe, tape, &tape.shared, u32::MAX, w, upstream)
         })?;
-        let grad_tokens = self.add(&w1.grad_input, &w3.grad_input, stream)?;
+        let (gate_input, up_input) = self.expert_input_branches(&w1, &w3, stream)?;
+        let grad_tokens = self.add(&gate_input, &up_input, stream)?;
         collect_adapters(&mut adapters, u32::MAX, &w1, &w2, &w3)?;
         drop((w1, w2, w3));
         let grad_route_weights = GpuBuffer::zeros_f32(&self.device, slots)?;
@@ -509,12 +526,13 @@ impl DeepseekV41MixedMoeAdjoints {
             let (w1, w2, w3, dr) = self.with_expert(moe, id as u32, |w| {
                 self.expert_backward(moe, tape, expert, id as u32, w, &compact_grad)
             })?;
+            let (gate_input, up_input) = self.expert_input_branches(&w1, &w3, stream)?;
             let mut commands = vulkan::ComputeBatch::new(&self.device)?;
             self.scatter.record_dispatch(
                 &mut commands,
                 &[
-                    &w1.grad_input,
-                    &w3.grad_input,
+                    &gate_input,
+                    &up_input,
                     &tape.indices,
                     expert.mapping.as_ref().unwrap(),
                     &dr,
@@ -552,6 +570,29 @@ impl DeepseekV41MixedMoeAdjoints {
             experts: c.experts,
         })
     }
+
+    fn expert_input_branches(
+        &self,
+        gate: &DeepseekV41LinearGradients,
+        up: &DeepseekV41LinearGradients,
+        count: usize,
+    ) -> Result<(GpuBuffer, GpuBuffer)> {
+        if crate::deepseek_v41::cpu_math::active() {
+            if let Some(adapter) = &gate.grad_adapter_input {
+                // The released graph visits the up adapter/base, then the
+                // gate adapter, then the gate base. Preserve that accumulation
+                // order after B becomes nonzero during image training.
+                return Ok((
+                    gate.grad_base_input
+                        .as_ref()
+                        .context("V4.1 native expert lost its base input edge")?
+                        .clone(),
+                    self.add(&up.grad_input, adapter, count)?,
+                ));
+            }
+        }
+        Ok((gate.grad_input.clone(), up.grad_input.clone()))
+    }
 }
 
 fn gate_push(c: DeepseekV41MoeConfig, rows: usize) -> MoeGatePush {
@@ -579,13 +620,15 @@ fn collect_adapters(
     } else {
         format!("experts.{id}")
     };
-    for (name, gradient) in [("w1", w1), ("w2", w2), ("w3", w3)] {
-        if gradient.grad_a.is_some() {
-            out.push((
-                id,
-                gradient.read_adapter_gradient(&format!("{prefix}.{name}"))?,
-            ));
-        }
+    // The three expert projections share one transfer rather than one
+    // submission per factor.
+    let entries = [("w1", w1), ("w2", w2), ("w3", w3)]
+        .into_iter()
+        .filter(|(_, gradient)| gradient.grad_a.is_some())
+        .map(|(name, gradient)| (format!("{prefix}.{name}"), gradient))
+        .collect::<Vec<_>>();
+    for gradient in DeepseekV41LinearGradients::read_adapter_gradients_gathered(&entries)? {
+        out.push((id, gradient));
     }
     Ok(())
 }

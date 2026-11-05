@@ -1,0 +1,24 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+
+// ATen's FP32 SiLU backward: sigmoid is the SLEEF u10 exponential and a
+// correctly rounded quotient; the derivative keeps the staged FP32 order.
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 1, std430) readonly buffer InputBuffer { float input_values[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer GradInputBuffer { float grad_input[]; };
+layout(push_constant) uniform Push { uint len; } pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.len) return;
+    float value = input_values[index];
+    float sigmoid_value = fp32_div(1.0, 1.0 + sleef_expf_u10(-value));
+    precise float one_minus = 1.0 - sigmoid_value;
+    precise float inner = 1.0 + value * one_minus;
+    precise float weighted_grad = grad_output[index] * sigmoid_value;
+    grad_input[index] = weighted_grad * inner;
+}

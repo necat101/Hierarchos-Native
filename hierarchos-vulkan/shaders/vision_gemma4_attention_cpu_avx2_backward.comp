@@ -1,0 +1,72 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+// Adjoint of the measured 36-patch, width-4 full eager attention. Every
+// invocation owns one image/head, avoiding unordered floating-point atomics.
+layout(local_size_x=1,local_size_y=1,local_size_z=1) in;
+layout(set=0,binding=0,std430) readonly buffer Q {float q[];};
+layout(set=0,binding=1,std430) readonly buffer K {float k[];};
+layout(set=0,binding=2,std430) readonly buffer V {float v[];};
+layout(set=0,binding=3,std430) readonly buffer DY {float dy[];};
+layout(set=0,binding=4,std430) writeonly buffer DQ {float dq[];};
+layout(set=0,binding=5,std430) writeonly buffer DK {float dk[];};
+layout(set=0,binding=6,std430) writeonly buffer DV {float dv[];};
+layout(push_constant) uniform P {uint images;uint seq;uint dim;uint heads;} pc;
+float probabilities[1296];float ds[1296];
+uint index_at(uint image,uint row,uint head,uint d){return (image*36u+row)*pc.dim+head*4u+d;}
+void main(){
+    uint head=gl_GlobalInvocationID.x,image=gl_GlobalInvocationID.y;
+    if(image>=pc.images || head>=pc.heads)return;
+    for(uint row=0u;row<36u;++row){
+        float maximum=-3.402823466e+38;
+        for(uint col=0u;col<36u;++col){
+            float a=0.0,b=0.0,da=0.0,db=0.0;
+            for(uint d=0u;d<4u;++d){
+                float qi=q[index_at(image,row,head,d)],ki=k[index_at(image,col,head,d)];
+                float gi=dy[index_at(image,row,head,d)],vi=v[index_at(image,col,head,d)];
+                if(col>=32u && (d&1u)!=0u){b=fp32_fma_exact(qi,ki,b);db=fp32_fma_exact(gi,vi,db);}
+                else {a=fp32_fma_exact(qi,ki,a);da=fp32_fma_exact(gi,vi,da);}
+            }
+            probabilities[row*36u+col]=a+b;ds[row*36u+col]=da+db;
+            maximum=max(maximum,a+b);
+        }
+        precise float lanes[8];for(uint j=0u;j<8u;++j)lanes[j]=0.0;
+        for(uint col=0u;col<36u;++col){
+            uint z=row*36u+col;
+            probabilities[z]=sleef_expf_u10(probabilities[z]-maximum);
+            lanes[col&7u]+=probabilities[z];
+        }
+        precise float total=0.0;for(uint j=0u;j<8u;++j)total+=lanes[j];
+        float inverse=fp32_div(1.0,total);
+        for(uint j=0u;j<8u;++j)lanes[j]=0.0;
+        for(uint col=0u;col<36u;++col){
+            uint z=row*36u+col;probabilities[z]*=inverse;
+            precise float product=probabilities[z]*ds[z];lanes[col&7u]+=product;
+        }
+        precise float dot=0.0;for(uint j=0u;j<8u;++j)dot+=lanes[j];
+        for(uint col=0u;col<36u;++col){
+            uint z=row*36u+col;precise float delta=ds[z]-dot;ds[z]=probabilities[z]*delta;
+        }
+    }
+    for(uint row=0u;row<36u;++row)for(uint d=0u;d<4u;++d){
+        float qa=0.0,qb=0.0,ka=0.0,kb=0.0,va=0.0,vb=0.0;
+        for(uint j=0u;j<36u;++j){
+            float kval=k[index_at(image,j,head,d)],qval=q[index_at(image,j,head,d)];
+            float grad=dy[index_at(image,j,head,d)];
+            if((j&1u)!=0u){
+                qb=fp32_fma_exact(ds[row*36u+j],kval,qb);
+                vb=fp32_fma_exact(probabilities[j*36u+row],grad,vb);
+            }else{
+                qa=fp32_fma_exact(ds[row*36u+j],kval,qa);
+                va=fp32_fma_exact(probabilities[j*36u+row],grad,va);
+            }
+            // Autograd forms dK^T = Q^T @ dScores (4x36 output), then
+            // transposes it. Only the final four key columns use two lanes.
+            if(row>=32u && (j&1u)!=0u)kb=fp32_fma_exact(qval,ds[j*36u+row],kb);
+            else ka=fp32_fma_exact(qval,ds[j*36u+row],ka);
+        }
+        uint z=index_at(image,row,head,d);dq[z]=qa+qb;dk[z]=ka+kb;dv[z]=va+vb;
+    }
+}

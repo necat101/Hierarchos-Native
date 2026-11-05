@@ -7,10 +7,6 @@
       "reason": "Only the SPIR-V was ever committed: no .comp sits beside it, no historical revision of the tree carries one, and a search over every committed source and the pinned recipes reproduces it with none of them. Recovering its source means decompiling the module (spirv-cross or equivalent) and re-qualifying it; until then these are production kernels the manifest cannot rebuild."
     },
     {
-      "artifact": "falcon_h1_cross_entropy.spv",
-      "reason": "Same as falcon_h1_adamw.spv: the module was committed without its GLSL and no committed source reproduces it."
-    },
-    {
       "artifact": "falcon_h1_cross_entropy_lanes16.spv",
       "reason": "Same as falcon_h1_adamw.spv: the module was committed without its GLSL and no committed source reproduces it."
     },

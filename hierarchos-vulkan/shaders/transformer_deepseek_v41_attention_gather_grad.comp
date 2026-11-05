@@ -24,8 +24,16 @@ void main() {
     precise float key=0.0, value=0.0;
     for (uint head=0u;head<pc.heads;++head) {
         uint s=(row*pc.heads+head)*total+slot, q=(row*pc.heads+head)*pc.dim+column;
-        key=fma(grad_score[s],query[q],key);
-        value=fma(weights[s],upstream[q],value);
+#ifdef HIERARCHOS_V41_CPU_AVX2
+        if(total*pc.heads*pc.dim<400u) {
+            precise float kp=grad_score[s]*query[q],vp=weights[s]*upstream[q];
+            key+=kp;value+=vp;
+        } else
+#endif
+        {
+            key=fma(grad_score[s],query[q],key);
+            value=fma(weights[s],upstream[q],value);
+        }
     }
     grad_gather[i]=key+value;
 }

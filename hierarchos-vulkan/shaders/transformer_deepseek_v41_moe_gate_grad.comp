@@ -55,9 +55,17 @@ uint order[512];
 float raw[512];
 float scores[512];
 
+#ifdef HIERARCHOS_V41_CPU_AVX2
+#include "fp32_v41_avx2_dot.glsl"
+#endif
+
 float gate_dot(uint row, uint expert, bool matrix_body) {
     uint xb = row * pc.dim;
     uint wb = expert * pc.dim;
+#ifdef HIERARCHOS_V41_CPU_AVX2
+    if (pc.experts>=2u && pc.dim>=8u && pc.dim<=192u && (pc.rows>=2u || pc.experts<=3u))
+        return v41_avx2_projection_dot(xb,wb,pc.rows,pc.experts,pc.dim,row);
+#endif
     if (matrix_body) {
         precise float sum = 0.0;
         uint panel_width = pc.dim > 192u && pc.dim < 384u ? pc.dim / 2u : 192u;
@@ -157,8 +165,15 @@ void main() {
         precise float square = denominator * denominator;
         precise float tail = 0.0;
         for (uint slot = 0u; slot < pc.topk; ++slot) {
+#ifdef HIERARCHOS_V41_CPU_AVX2
+            precise float quotient = fp32_div(chosen[slot], denominator);
+            quotient = fp32_div(quotient, denominator);
+            precise float product = -d_normalized[slot] * quotient;
+            tail += product;
+#else
             precise float product = d_normalized[slot] * chosen[slot];
             tail += fp32_div(-product, square);
+#endif
         }
         for (uint slot = 0u; slot < pc.topk; ++slot)
             d_raw[slot] = fp32_div(d_normalized[slot], denominator) + tail;
@@ -192,7 +207,16 @@ void main() {
             precise float slope = 1.0;
             if (raw[expert] <= 20.0f)
                 slope = v41_cpu_sigmoid(raw[expert], row * pc.experts + expert, total_elements);
+#ifdef HIERARCHOS_V41_CPU_AVX2
+            if(raw[expert]<=20.0f) {
+                uint index=row*pc.experts+expert;
+                float exponential=index<total_elements/16u*16u ? sleef_expf_u10(raw[expert]) : v41_scalar_exp(raw[expert]);
+                precise float numerator=through_sqrt*exponential;
+                d_z[expert]=fp32_div(numerator,1.0+exponential);
+            } else d_z[expert]=through_sqrt;
+#else
             d_z[expert] = through_sqrt * slope;
+#endif
         }
     }
 
@@ -201,6 +225,36 @@ void main() {
     // expert axis as the contracted dimension.
     for (uint column = 0u; column < pc.dim; ++column) {
         precise float sum = 0.0;
+#ifdef HIERARCHOS_V41_CPU_AVX2
+        if(pc.experts<=192u) {
+            if(pc.rows==1u) {
+                for(uint start=0u;start<pc.experts;start+=4u) {
+                    precise float partial=0.0;
+                    for(uint k=start;k<min(start+4u,pc.experts);++k)
+                        partial=fma(fp32_div(d_z[k],pc.gate_temp),weight[k*pc.dim+column],partial);
+                    sum+=partial;
+                }
+            } else {
+                uint tail=pc.rows%6u;
+                bool short_panel=tail>0u && tail<=3u && row>=pc.rows-tail;
+                precise float a=0.0,b=0.0;
+                for(uint k=0u;k<pc.experts/2u*2u;++k) {
+                    float g=fp32_div(d_z[k],pc.gate_temp), w=weight[k*pc.dim+column];
+                    if(short_panel || pc.dim<=8u) {
+                        if(short_panel && tail<=2u) {precise float product=g*w;if((k&1u)==0u)a+=product;else b+=product;}
+                        else {if((k&1u)==0u)a=fma(g,w,a);else b=fma(g,w,b);}
+                    } else a=fma(g,w,a);
+                }
+                sum=a+b;
+                if((pc.experts&1u)!=0u) {
+                    uint k=pc.experts-1u;
+                    float g=fp32_div(d_z[k],pc.gate_temp),w=weight[k*pc.dim+column];
+                    if(short_panel && tail<=2u) {precise float product=g*w;sum+=product;}
+                    else sum=fma(g,w,sum);
+                }
+            }
+        } else
+#endif
         if (matrix_body) {
             for (uint expert = 0u; expert < pc.experts; ++expert)
                 sum = fma(fp32_div(d_z[expert], pc.gate_temp),

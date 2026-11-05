@@ -28,6 +28,11 @@ layout(set = 0, binding = 3, std430) writeonly buffer Weights { float weights[];
 layout(set = 0, binding = 4, std430) writeonly buffer Indices { uint indices[]; };
 layout(set = 0, binding = 5, std430) buffer Counts { uint counts[]; };
 layout(set = 0, binding = 6, std430) readonly buffer SqrtSeeds { uint sqrt_seeds[]; };
+#ifdef HIERARCHOS_V41_VISION_BIAS
+layout(set = 0, binding = 7, std430) readonly buffer VisionBias { float vision_bias[]; };
+// Same semantic mask as the released Engram path: 1=text, 0=image span.
+layout(set = 0, binding = 8, std430) readonly buffer TextMask { uint text_mask[]; };
+#endif
 #define V41_SQRT_SEEDS sqrt_seeds
 #include "fp32_v41_cpu_sqrt.glsl"
 layout(push_constant) uniform Push {
@@ -47,8 +52,14 @@ shared uint order[512];
 shared float scores[512];
 
 bool before(uint a, uint b) {
+#ifdef HIERARCHOS_V41_VISION_BIAS
+    bool image = text_mask[gl_WorkGroupID.x] == 0u;
+    float x = scores[a] + (image ? vision_bias[a] : bias[a]);
+    float y = scores[b] + (image ? vision_bias[b] : bias[b]);
+#else
     float x = scores[a] + bias[a];
     float y = scores[b] + bias[b];
+#endif
     return (isnan(x) && !isnan(y)) || x > y;
 }
 uint at(int i) { return order[uint(i)]; }
@@ -126,9 +137,17 @@ void heap_hole(int hole, int bottom, uint value) {
     put(hole,value);
 }
 
+#ifdef HIERARCHOS_V41_CPU_AVX2
+#include "fp32_v41_avx2_dot.glsl"
+#endif
+
 float gate_dot(uint row, uint expert, bool matrix_body) {
     uint xb = row * pc.dim;
     uint wb = expert * pc.dim;
+#ifdef HIERARCHOS_V41_CPU_AVX2
+    if (pc.experts>=2u && pc.dim>=8u && pc.dim<=192u && (pc.rows>=2u || pc.experts<=3u))
+        return v41_avx2_projection_dot(xb,wb,pc.rows,pc.experts,pc.dim,row);
+#endif
     if (matrix_body) {
         precise float sum = 0.0;
         // Gate.forward promotes even BF16 inputs/weights to FP32. Match the

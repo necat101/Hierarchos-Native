@@ -1,0 +1,33 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+// Single-row Linear's non-transposed GEMV adjoint, and the column-major
+// unfold input's two-row adjoint. The latter is computed as (W.T @ dY.T).T
+// by Torch addmm backward, so its SGEMM row panels run across input features.
+layout(local_size_x=16,local_size_y=16) in;
+layout(set=0,binding=0,std430) readonly buffer DY {float dy[];};
+layout(set=0,binding=1,std430) readonly buffer W {float weight[];};
+layout(set=0,binding=2,std430) writeonly buffer DX {float dx[];};
+layout(push_constant) uniform Push {uint rows;uint input_dim;uint output_dim;} pc;
+void main(){
+    uint col=gl_GlobalInvocationID.x,row=gl_GlobalInvocationID.y;
+    if(col>=pc.input_dim || row>=pc.rows)return;
+    precise float total=0.;
+    if(pc.rows==1u){
+        for(uint start=0u;start<pc.output_dim;start+=4u){
+            precise float partial=0.;
+            for(uint k=start;k<min(start+4u,pc.output_dim);++k)partial=fp32_fma_exact(dy[k],weight[k*pc.input_dim+col],partial);
+            total+=partial;
+        }
+    }else{
+        precise float a=0.,b=0.;uint tail=pc.input_dim%6u;
+        bool unfused=tail>0u && tail<=2u && col>=pc.input_dim-tail;
+        for(uint k=0u;k<pc.output_dim;++k){
+            float x=dy[row*pc.output_dim+k],w=weight[k*pc.input_dim+col];
+            if(unfused){precise float product=x*w;if((k&1u)==0u)a+=product;else b+=product;}
+            else if((k&1u)==0u)a=fp32_fma_exact(x,w,a);else b=fp32_fma_exact(x,w,b);
+        }
+        total=a+b;
+    }
+    dx[row*pc.input_dim+col]=total;
+}

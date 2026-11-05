@@ -6,6 +6,19 @@ use anyhow::{bail, Context, Result};
 
 use crate::{vulkan::ComputeBatch, GpuBuffer, VulkanDevice, VulkanTransformerStepResult};
 
+pub(crate) enum ModalityEmbeddingInput<'a> {
+    Host(ModalityEmbeddingRows<'a>),
+    Device {
+        rows: &'a [usize],
+        values: &'a GpuBuffer,
+    },
+}
+
+pub(crate) struct DeviceMultimodalStepResult {
+    pub text: VulkanTransformerStepResult,
+    pub gradient: Option<GpuBuffer>,
+}
+
 /// Replace selected rows of the raw token lookup, before embedding scaling,
 /// positions, normalization and dropout. Values have shape `[rows.len(), dim]`
 /// in exactly the supplied row order; rows index the flattened batch/sequence.
@@ -63,6 +76,69 @@ pub(crate) struct PreparedModalityRows<'a> {
 }
 
 impl<'a> PreparedModalityRows<'a> {
+    pub(crate) fn from_input(
+        device: &VulkanDevice,
+        input: ModalityEmbeddingInput<'a>,
+        sequence_rows: usize,
+        dim: usize,
+        training: bool,
+    ) -> Result<Self> {
+        match input {
+            ModalityEmbeddingInput::Host(input) => {
+                Self::new(device, input, sequence_rows, dim, training)
+            }
+            ModalityEmbeddingInput::Device { rows, values } => {
+                let count = rows
+                    .len()
+                    .checked_mul(dim)
+                    .context("device modality size overflow")?;
+                let bytes = count
+                    .checked_mul(4)
+                    .context("device modality byte size overflow")?;
+                if rows.is_empty()
+                    || dim == 0
+                    || bytes > values.capacity_bytes()
+                    || !values.belongs_to_device(device)
+                {
+                    bail!("device modality features have invalid geometry or device ownership");
+                }
+                let mut seen = std::collections::BTreeSet::new();
+                if rows
+                    .iter()
+                    .any(|&row| row >= sequence_rows || !seen.insert(row))
+                {
+                    bail!("device modality rows are out of range or duplicated");
+                }
+                Ok(Self {
+                    rows,
+                    dim,
+                    sequence_rows,
+                    features: values.clone(),
+                    backward: if training {
+                        Some((
+                            GpuBuffer::zeros_f32(
+                                device,
+                                sequence_rows
+                                    .checked_mul(dim)
+                                    .context("embedding size overflow")?,
+                            )?,
+                            GpuBuffer::zeros_f32(device, count)?,
+                            GpuBuffer::zeros_f32(device, dim)?,
+                        ))
+                    } else {
+                        None
+                    },
+                })
+            }
+        }
+    }
+
+    pub(crate) fn device_gradient(&self) -> Option<GpuBuffer> {
+        self.backward
+            .as_ref()
+            .map(|(_, gradient, _)| gradient.clone())
+    }
+
     pub(crate) fn new(
         device: &VulkanDevice,
         input: ModalityEmbeddingRows<'a>,

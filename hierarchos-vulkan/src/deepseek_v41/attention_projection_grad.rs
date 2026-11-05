@@ -60,12 +60,15 @@ impl DeepseekV41AttentionProjectionGradients {
         if prefix.is_empty() || prefix.ends_with('.') || prefix.chars().any(char::is_whitespace) {
             bail!("V4.1 attention adapter gradient prefix is invalid");
         }
-        let mut result = Vec::new();
-        for (name, gradient) in &self.adapters {
-            if gradient.grad_a.is_some() {
-                result.push(gradient.read_adapter_gradient(&format!("{prefix}.{name}"))?);
-            }
-        }
+        // One transfer for every adapter span in this projection group
+        // instead of two submissions per module.
+        let entries = self
+            .adapters
+            .iter()
+            .filter(|(_, gradient)| gradient.grad_a.is_some())
+            .map(|(name, gradient)| (format!("{prefix}.{name}"), gradient))
+            .collect::<Vec<_>>();
+        let mut result = DeepseekV41LinearGradients::read_adapter_gradients_gathered(&entries)?;
         result.sort_by(|a, b| a.target.cmp(&b.target));
         Ok(result)
     }
@@ -322,9 +325,28 @@ impl DeepseekV41AttentionProjectionAdjoints {
                 let qb = self.linear.backward(&t.qb, &p.wq_b, &rotated)?;
                 #[cfg(test)]
                 {
-                    crate::deepseek_v41::training_trace::record("qb/input", &t.query_latent, rows*c.q_lora_rank);
-                    crate::deepseek_v41::training_trace::record("qb/upstream", &rotated, rows*c.heads*c.head_dim);
-                    if let Some(a) = &qb.grad_a { crate::deepseek_v41::training_trace::record("qb/grad_a",a,a.f32_capacity()); }
+                    crate::deepseek_v41::training_trace::record(
+                        "qb/input",
+                        &t.query_latent,
+                        rows * c.q_lora_rank,
+                    );
+                    crate::deepseek_v41::training_trace::record(
+                        "qb/upstream",
+                        &rotated,
+                        rows * c.heads * c.head_dim,
+                    );
+                    crate::deepseek_v41::training_trace::record(
+                        "attn/q_latent/grad",
+                        &qb.grad_input,
+                        rows * c.q_lora_rank,
+                    );
+                    if let Some(a) = &qb.grad_a {
+                        crate::deepseek_v41::training_trace::record(
+                            "qb/grad_a",
+                            a,
+                            a.f32_capacity(),
+                        );
+                    }
                 }
                 let result = qb.grad_input.clone();
                 adapters.push(("wq_b", qb));
@@ -349,6 +371,12 @@ impl DeepseekV41AttentionProjectionAdjoints {
                     c.norm_eps,
                 )?;
                 let qa = self.linear.backward(&t.qa, &p.wq_a, &norm)?;
+                #[cfg(test)]
+                crate::deepseek_v41::training_trace::record(
+                    "attn/qa_upstream",
+                    &norm,
+                    rows * c.q_lora_rank,
+                );
                 let result = qa.grad_input.clone();
                 adapters.push(("wq_a", qa));
                 Some(result)
@@ -368,17 +396,64 @@ impl DeepseekV41AttentionProjectionAdjoints {
                 c.norm_eps,
             )?;
             let kv = self.linear.backward(&t.kv, &p.wkv, &norm)?;
+            #[cfg(test)]
+            {
+                crate::deepseek_v41::training_trace::record(
+                    "attn/kv_rotated/grad",
+                    &rotated,
+                    rows * c.head_dim,
+                );
+                crate::deepseek_v41::training_trace::record(
+                    "attn/kv_upstream",
+                    &norm,
+                    rows * c.head_dim,
+                );
+            }
             input = Some(match input {
-                Some(q) => self.add(&q, &kv.grad_input, rows * c.hidden_size)?,
+                Some(q) if !crate::deepseek_v41::cpu_math::active() => {
+                    self.add(&q, &kv.grad_input, rows * c.hidden_size)?
+                }
+                Some(q) => q,
                 None => kv.grad_input.clone(),
             });
             adapters.push(("wkv", kv));
         }
-        Ok(DeepseekV41AttentionProjectionGradients {
+        let mut result = DeepseekV41AttentionProjectionGradients {
             grad_input: input,
             grad_query_latent: latent,
             adapters,
-        })
+        };
+        if crate::deepseek_v41::cpu_math::active() {
+            result.grad_input = self.native_input_gradient(&result, None, rows * c.hidden_size)?;
+        }
+        Ok(result)
+    }
+
+    pub(crate) fn native_input_gradient(
+        &self,
+        gradients: &DeepseekV41AttentionProjectionGradients,
+        prefix: Option<&GpuBuffer>,
+        count: usize,
+    ) -> Result<Option<GpuBuffer>> {
+        let mut input = prefix.cloned();
+        // Released autograd visits compressor edges first, then window-KV's
+        // adapter/base, then query's adapter/base. Per-Linear subtotals lose
+        // this ordering once the trained B factors are nonzero.
+        for name in ["wkv", "wq_a"] {
+            if let Some((_, gradient)) = gradients.adapters.iter().find(|(n, _)| *n == name) {
+                for edge in gradient
+                    .grad_adapter_input
+                    .iter()
+                    .chain(gradient.grad_base_input.iter())
+                {
+                    input = Some(match input {
+                        Some(current) => self.add(&current, edge, count)?,
+                        None => edge.clone(),
+                    });
+                }
+            }
+        }
+        Ok(input)
     }
 
     /// Native inverse RoPE, FP8 rounding, frozen grouped wo_a and adapted wo_b.
@@ -479,6 +554,19 @@ impl DeepseekV41AttentionProjectionAdjoints {
             a.group_width,
             c.o_lora_rank,
         )?;
+        #[cfg(test)]
+        {
+            crate::deepseek_v41::training_trace::record(
+                "attn/ob_input/grad",
+                &ob.grad_input,
+                rows * c.o_groups * c.o_lora_rank,
+            );
+            crate::deepseek_v41::training_trace::record(
+                "attn/grouped_input/grad",
+                &grouped,
+                rows * c.heads * c.head_dim,
+            );
+        }
         let grad = a.rotary.input_gradient_repeated(
             &grouped,
             rows * c.heads,

@@ -1,0 +1,34 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+// Gemma4 spatial pooling is a sparse matrix multiply. Preserve each rounded
+// 1/area product and the measured AVX2 serial-FMA K reduction. Mode 1 is its
+// adjoint. Gemma3's AvgPool2d continues to use its separately qualified shader.
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer X {float x[];};
+layout(set=0,binding=1,std430) writeonly buffer Y {float y[];};
+layout(push_constant) uniform P {uint images;uint grid;uint kernel;uint dim;uint mode;} pc;
+void main(){
+    uint i=gl_GlobalInvocationID.x,side=pc.grid/pc.kernel,tokens=side*side;
+    float inverse=fp32_div(1.0,float(pc.kernel*pc.kernel));
+    if(pc.mode==0u){
+        if(i>=pc.images*tokens*pc.dim)return;
+        uint col=i%pc.dim,t=(i/pc.dim)%tokens,image=i/(pc.dim*tokens);
+        uint ty=t/side,tx=t%side;
+        float sum=0.0;
+        for(uint py=0u;py<pc.grid;++py)for(uint px=0u;px<pc.grid;++px){
+            bool inside=py>=ty*pc.kernel && py<(ty+1u)*pc.kernel
+                && px>=tx*pc.kernel && px<(tx+1u)*pc.kernel;
+            float weight=inside ? inverse : 0.0;
+            uint row=(image*pc.grid+py)*pc.grid+px;
+            sum=fp32_fma_exact(weight,x[row*pc.dim+col],sum);
+        }
+        y[i]=sum;
+    }else{
+        if(i>=pc.images*pc.grid*pc.grid*pc.dim)return;
+        uint col=i%pc.dim,cell=(i/pc.dim)%(pc.grid*pc.grid),image=i/(pc.dim*pc.grid*pc.grid);
+        uint t=(cell/pc.grid/pc.kernel)*side+(cell%pc.grid/pc.kernel);
+        y[i]=x[(image*tokens+t)*pc.dim+col]*inverse;
+    }
+}

@@ -1,0 +1,252 @@
+#version 450
+#extension GL_ARB_gpu_shader_fp64 : require
+
+// Exact CPU eager attention for the shared CLIP image-text adapter.
+//
+// The frozen oracle runs a two-layer, seq-8 text model.  Its QK and P@V
+// products are ATen/MKL SGEMMs with a six-row full panel and a two-row tail:
+//
+//   QK full rows: two interleaved FMA lanes over the head dimension
+//   QK tail rows: two interleaved lanes with a materialized product
+//   P@V full rows, head width 8: two interleaved FMA lanes
+//   P@V full rows, head width 16: one ascending-K FMA chain
+//   P@V tail rows: two interleaved lanes with a materialized product
+//
+// The softmax is PyTorch's SLEEF u10 exp, a serial key-order sum, and a
+// correctly rounded FP32 reciprocal.  Every arithmetic step is explicit so
+// Gen9's truncated MAD cannot change the association.  This kernel is only
+// installed by `VulkanImageText` for the 64-wide and Gemma4 shared adapter;
+// ordinary text graphs keep their independently qualified kernels.
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KBuffer { float k_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer VBuffer { float v_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer QueryMaskBuffer { float query_mask[]; };
+layout(set = 0, binding = 4, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 5, std430) readonly buffer AlibiPositionBuffer { float alibi_positions[]; };
+layout(set = 0, binding = 6, std430) buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 7, std430) readonly buffer SinkBuffer { float sink_values[]; };
+layout(set = 0, binding = 8, std430) readonly buffer RelativeBiasBuffer { float relative_bias[]; };
+layout(set = 0, binding = 9, std430) readonly buffer SparseMaskBuffer { float sparse_mask[]; };
+layout(set = 0, binding = 10, std430) readonly buffer KvPageTableBuffer { uint kv_page_table[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint query_hidden_size;
+    uint value_hidden_size;
+    uint num_heads;
+    uint num_key_value_heads;
+    uint window_size;
+    float scale;
+    float value_scale;
+    float softcap;
+    uint alibi_mode;
+    float alibi_bias_max;
+    float dropout_p;
+    uint rng_step;
+    uint rng_site;
+    uint rng_seed;
+    uint has_sink;
+    uint causal;
+    uint relative_bias_mode;
+    uint relative_bias_num_buckets;
+    uint relative_bias_max_distance;
+    uint query_position_offset;
+    uint has_sparse_mask;
+    uint compressed_key_count;
+    uint compressed_key_rate;
+    uint paged_kv;
+    uint kv_page_size;
+    uint kv_page_table_stride;
+    uint unfused_qk;
+} pc;
+
+float fp32_fma_exact(float a, float b, float c) {
+    return float(double(a) * double(b) + double(c));
+}
+
+uvec2 fp32_product(uint a, uint b) {
+    uint a0 = a & 0xffffu;
+    uint a1 = a >> 16u;
+    uint b0 = b & 0xffffu;
+    uint b1 = b >> 16u;
+    uint p0 = a0 * b0;
+    uint p1 = a0 * b1;
+    uint p2 = a1 * b0;
+    uint p3 = a1 * b1;
+    uint mid = (p0 >> 16u) + (p1 & 0xffffu) + (p2 & 0xffffu);
+    uint lo = (p0 & 0xffffu) | ((mid & 0xffffu) << 16u);
+    uint hi = p3 + (p1 >> 16u) + (p2 >> 16u) + (mid >> 16u);
+    return uvec2(lo, hi);
+}
+int fp32_compare(uvec2 a, uvec2 b) {
+    if (a.y != b.y) return a.y < b.y ? -1 : 1;
+    return a.x == b.x ? 0 : (a.x < b.x ? -1 : 1);
+}
+uvec2 fp32_shift(uint a, int shift) {
+    if (shift == 0) return uvec2(a, 0u);
+    if (shift < 32) return uvec2(a << uint(shift), a >> uint(32-shift));
+    return uvec2(0u, a << uint(shift-32));
+}
+uint fp32_mantissa(uint bits) { return (bits & 0x7fffffu) | 0x800000u; }
+int fp32_exponent(uint bits) { return int(bits >> 23u) - 127; }
+int fp32_div_compare(uint candidate, uint numerator, uint denominator, bool midpoint) {
+    uint m = fp32_mantissa(candidate);
+    int shift = fp32_exponent(numerator) - fp32_exponent(candidate) - fp32_exponent(denominator) + 23;
+    if (midpoint) { m = 2u*m+1u; ++shift; }
+    return fp32_compare(fp32_product(m, fp32_mantissa(denominator)), fp32_shift(fp32_mantissa(numerator), shift));
+}
+float fp32_div(float numerator, float denominator) {
+    precise float approximate = numerator / denominator;
+    uint nb = floatBitsToUint(abs(numerator));
+    uint db = floatBitsToUint(abs(denominator));
+    uint qb = floatBitsToUint(abs(approximate));
+    if (nb < 0x00800000u || db < 0x00800000u || qb < 0x00800000u ||
+        nb >= 0x7f800000u || db >= 0x7f800000u || qb >= 0x7f800000u) return approximate;
+    while (fp32_div_compare(qb, nb, db, false) > 0) --qb;
+    while (fp32_div_compare(qb + 1u, nb, db, false) <= 0) ++qb;
+    int cmp = fp32_div_compare(qb, nb, db, true);
+    if (cmp < 0 || (cmp == 0 && (qb & 1u) != 0u)) ++qb;
+    return uintBitsToFloat(qb | ((floatBitsToUint(numerator) ^ floatBitsToUint(denominator)) & 0x80000000u));
+}
+
+float sleef_pow2i(int q) {
+    if (q > 127) return uintBitsToFloat(0x7f800000u);
+    if (q >= -126) return uintBitsToFloat(uint(q + 127) << 23u);
+    if (q < -149) return 0.0;
+    return uintBitsToFloat(1u << uint(q + 149));
+}
+float sleef_expf_u10(float d) {
+    int q = int(roundEven(d * 1.44269504088896340736f));
+    precise float s = fp32_fma_exact(float(q), -0.693145751953125f, d);
+    s = fp32_fma_exact(float(q), -1.428606765330187045e-06f, s);
+    precise float u = 0.000198527617612853646278381f;
+    u = fp32_fma_exact(u, s, 0.00139304355252534151077271f);
+    u = fp32_fma_exact(u, s, 0.00833336077630519866943359f);
+    u = fp32_fma_exact(u, s, 0.0416664853692054748535156f);
+    u = fp32_fma_exact(u, s, 0.166666671633720397949219f);
+    u = fp32_fma_exact(u, s, 0.5f);
+    u = 1.0f + fp32_fma_exact(s * s, u, s);
+    u *= sleef_pow2i(q);
+    if (d < -104.0) return 0.0;
+    if (d > 100.0) return uintBitsToFloat(0x7f800000u);
+    return u;
+}
+
+bool key_visible(uint batch, uint key) {
+    return key_mask[batch * pc.key_value_seq_len + key] > 0.0;
+}
+
+float qk_dot(uint q_base, uint k_base, uint head_dim, bool tail_row) {
+    precise float lane0 = 0.0;
+    precise float lane1 = 0.0;
+    if (tail_row) {
+        for (uint d = 0u; d < head_dim; ++d) {
+            precise float product = q_values[q_base + d] * k_values[k_base + d];
+            if ((d & 1u) == 0u) lane0 += product;
+            else lane1 += product;
+        }
+    } else {
+        for (uint d = 0u; d < head_dim; ++d) {
+            if ((d & 1u) == 0u) lane0 = fp32_fma_exact(q_values[q_base + d], k_values[k_base + d], lane0);
+            else lane1 = fp32_fma_exact(q_values[q_base + d], k_values[k_base + d], lane1);
+        }
+    }
+    return lane0 + lane1;
+}
+
+void main() {
+    uint query = gl_GlobalInvocationID.x;
+    uint head = gl_GlobalInvocationID.y;
+    uint batch = gl_GlobalInvocationID.z;
+    if (batch >= pc.batch_size || head >= pc.num_heads || query >= pc.query_seq_len) return;
+    uint head_dim = pc.query_hidden_size / pc.num_heads;
+    uint value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
+    uint query_row = batch * pc.query_seq_len + query;
+    uint output_hidden_size = value_head_dim * pc.num_heads;
+    uint output_base = query_row * output_hidden_size + head * value_head_dim;
+    if (query_mask[query_row] <= 0.0) {
+        for (uint d = 0u; d < value_head_dim; ++d) output_values[output_base + d] = 0.0;
+        return;
+    }
+    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+    uint kv_head = head / queries_per_kv;
+    uint key_hidden_size = head_dim * pc.num_key_value_heads;
+    uint q_base = query_row * pc.query_hidden_size + head * head_dim;
+    uint first_key = 0u;
+    uint last_key = pc.key_value_seq_len - 1u;
+    if (pc.causal != 0u) last_key = query;
+    if (pc.window_size != 0u) {
+        if (pc.causal != 0u) {
+            first_key = query + 1u > pc.window_size ? query + 1u - pc.window_size : 0u;
+        } else {
+            first_key = query > pc.window_size ? query - pc.window_size : 0u;
+            uint right = min(pc.window_size, pc.key_value_seq_len - 1u - query);
+            last_key = query + right;
+        }
+    }
+    bool tail_row = pc.query_seq_len % 6u != 0u
+        && pc.query_seq_len % 6u <= 2u
+        && query >= pc.query_seq_len - (pc.query_seq_len % 6u);
+    precise float scores[32];
+    precise float maximum = -3.402823466e+38;
+    bool found = false;
+    for (uint key = first_key; key <= last_key; ++key) {
+        if (!key_visible(batch, key)) continue;
+        uint k_base = (batch * pc.key_value_seq_len + key) * key_hidden_size + kv_head * head_dim;
+        precise float score = qk_dot(q_base, k_base, head_dim, tail_row) * pc.scale;
+        scores[key] = score;
+        maximum = found ? max(maximum, score) : score;
+        found = true;
+    }
+    if (!found) {
+        for (uint d = 0u; d < value_head_dim; ++d) output_values[output_base + d] = 0.0;
+        return;
+    }
+    precise float probabilities[32];
+    precise float total = 0.0;
+    for (uint key = first_key; key <= last_key; ++key) {
+        if (!key_visible(batch, key)) continue;
+        precise float probability = sleef_expf_u10(scores[key] - maximum);
+        probabilities[key] = probability;
+        total += probability;
+    }
+    precise float inverse = fp32_div(1.0, total);
+    for (uint key = first_key; key <= last_key; ++key) {
+        if (!key_visible(batch, key)) continue;
+        probabilities[key] *= inverse;
+    }
+    for (uint d = 0u; d < value_head_dim; ++d) {
+        precise float value = 0.0;
+        if (tail_row || value_head_dim == 8u) {
+            precise float lane0 = 0.0;
+            precise float lane1 = 0.0;
+            for (uint key = first_key; key <= last_key; ++key) {
+                if (!key_visible(batch, key)) continue;
+                uint v_base = (batch * pc.key_value_seq_len + key) * pc.value_hidden_size
+                    + kv_head * value_head_dim;
+                if (tail_row) {
+                    precise float product = probabilities[key] * (v_values[v_base + d] * pc.value_scale);
+                    if ((key & 1u) == 0u) lane0 += product;
+                    else lane1 += product;
+                } else {
+                    precise float scaled = v_values[v_base + d] * pc.value_scale;
+                    if ((key & 1u) == 0u) lane0 = fp32_fma_exact(probabilities[key], scaled, lane0);
+                    else lane1 = fp32_fma_exact(probabilities[key], scaled, lane1);
+                }
+            }
+            value = lane0 + lane1;
+        } else {
+            for (uint key = first_key; key <= last_key; ++key) {
+                if (!key_visible(batch, key)) continue;
+                uint v_base = (batch * pc.key_value_seq_len + key) * pc.value_hidden_size
+                    + kv_head * value_head_dim;
+                precise float scaled = v_values[v_base + d] * pc.value_scale;
+                value = fp32_fma_exact(probabilities[key], scaled, value);
+            }
+        }
+        output_values[output_base + d] = value;
+    }
+}

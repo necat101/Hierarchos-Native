@@ -46,7 +46,15 @@ mod tied_embedding;
 mod token_frontend;
 mod training_numerics;
 mod transformer;
+pub use transformer::gemma3_vision::{
+    Gemma3Forward, Gemma3TrainResult, VulkanGemma3Vision,
+};
+pub use transformer::gemma4_vision::{
+    Gemma4Forward, Gemma4TrainResult, VulkanGemma4Vision,
+};
+pub use transformer::deepseek_v41_vision::{DeepseekV41VisionConfig,DeepseekV41VisionTensor,VulkanDeepseekV41Vision,VulkanDeepseekV41Image};
 pub use transformer::vision::{VulkanLlava, LlavaForward, LlavaTrainResult};
+pub use transformer::image_text::VulkanImageText;
 mod vendor;
 mod vulkan;
 /// Architecture-agnostic tiered weight residency: bounded package reads, a

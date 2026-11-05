@@ -43,6 +43,8 @@ hierarchos-vulkan/dist/
 hierarchos-vulkan/validation/_tmp_*
 hierarchos-vulkan/validation/_debug_*
 hierarchos-vulkan/validation/_codex_*
+hierarchos-vulkan/validation/tmp-*/
+shader-toolchain.status
 hierarchos-vulkan/validation/*_tmp.*
 hierarchos-vulkan/src/bin/*_tmp.rs
 hierarchos-vulkan/_tmp_*
@@ -62,6 +64,8 @@ hierarchos-vulkan/validation/fixtures/deepseek_v41_schedule_width_*/
 # Keep frozen JSON oracles and only the retained scalable release package.
 # Other fixture subdirectories are generated local checkpoint scratch.
 hierarchos-vulkan/validation/fixtures/*/
+!hierarchos-vulkan/validation/fixtures/vision_avx2_row_tail/
+!hierarchos-vulkan/validation/fixtures/gemma4_cpu_primitives/
 !hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/
 !hierarchos-vulkan/validation/fixtures/deepseek_v41_joint_4141111/*.safetensors
 !hierarchos-vulkan/validation/fixtures/gpt2_rdna3_parity/
@@ -77,3 +81,4 @@ hierarchos-vulkan/validation/fixtures/*/
 !hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/
 !hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/*.safetensors
 !hierarchos-vulkan/validation/release_parity/deepseek_v41/receipts/**/*.log
+!hierarchos-vulkan/validation/release_parity/multimodal_training/**/*.log

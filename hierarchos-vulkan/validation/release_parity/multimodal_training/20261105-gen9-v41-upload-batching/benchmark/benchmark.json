@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "pass": true,
+  "word_exact": true,
+  "binary_sha256": "0567b0266abd25265408087bce41da0455c51bd8d819737cde5dcc3650e7f23b",
+  "runner_sha256": "95b7a60d7f79168b38676d50047c4c0acc46c5f1ae5e4ad1426083029bacf71d",
+  "rounds": 2,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "updates_before_digest": 9,
+  "results": [
+    {
+      "case": "gpt2",
+      "individual": {
+        "median_ms": 18.85785,
+        "round_medians_ms": [
+          19.4222,
+          18.2935
+        ],
+        "submissions": [
+          11
+        ]
+      },
+      "grouped": {
+        "median_ms": 18.9829,
+        "round_medians_ms": [
+          18.9509,
+          19.0149
+        ],
+        "submissions": [
+          11
+        ]
+      },
+      "speedup": 0.9934124922956976
+    },
+    {
+      "case": "llama",
+      "individual": {
+        "median_ms": 20.329700000000003,
+        "round_medians_ms": [
+          20.732400000000002,
+          19.927
+        ],
+        "submissions": [
+          11
+        ]
+      },
+      "grouped": {
+        "median_ms": 19.792099999999998,
+        "round_medians_ms": [
+          19.8435,
+          19.7407
+        ],
+        "submissions": [
+          11
+        ]
+      },
+      "speedup": 1.027162352655858
+    },
+    {
+      "case": "native_vit_4x4",
+      "individual": {
+        "median_ms": 601.84275,
+        "round_medians_ms": [
+          596.6722,
+          607.0133
+        ],
+        "submissions": [
+          1102
+        ]
+      },
+      "grouped": {
+        "median_ms": 572.10475,
+        "round_medians_ms": [
+          573.3184,
+          570.8911
+        ],
+        "submissions": [
+          982
+        ]
+      },
+      "speedup": 1.0519799914263954
+    },
+    {
+      "case": "native_vit_6x4",
+      "individual": {
+        "median_ms": 618.41285,
+        "round_medians_ms": [
+          620.5272,
+          616.2985000000001
+        ],
+        "submissions": [
+          1102
+        ]
+      },
+      "grouped": {
+        "median_ms": 579.5023,
+        "round_medians_ms": [
+          581.2828000000001,
+          577.7217999999999
+        ],
+        "submissions": [
+          982
+        ]
+      },
+      "speedup": 1.0671447723330867
+    },
+    {
+      "case": "t5",
+      "individual": {
+        "median_ms": 43.359750000000005,
+        "round_medians_ms": [
+          41.4059,
+          45.3136
+        ],
+        "submissions": [
+          19
+        ]
+      },
+      "grouped": {
+        "median_ms": 41.3481,
+        "round_medians_ms": [
+          41.1062,
+          41.59
+        ],
+        "submissions": [
+          19
+        ]
+      },
+      "speedup": 1.0486515704470096
+    }
+  ],
+  "scope": "same-binary comparison on frozen tiny training geometry; host/GPU otherwise idle"
+}

@@ -1,7 +1,10 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-// RDNA3 has IEEE FP32 FMA; this module is never selected on Intel Gen9.
-#define fp32_fma_exact fma
+// Gen9's MAD truncates the product, so IGC lowers fma() to an unfused
+// multiply/add.  The compensated SLEEF staging below depends on a genuinely
+// fused multiply-add, so route every step through the exact software FMA
+// (identical arithmetic to RDNA3's IEEE FMA, just slower).
+#include "fp32_fma_exact.glsl"
 #include "fp32_sqrt_recip.glsl"
 #include "fp32_sleef_tanh.glsl"
 #include "fp32_tanh_ha.glsl"

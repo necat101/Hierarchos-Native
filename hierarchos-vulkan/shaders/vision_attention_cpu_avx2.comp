@@ -1,0 +1,52 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+
+// Qualified SigLIP eager attention: 16 tokens, four width-4 heads. CPU BMM
+// uses serial FMA for QK, two FMA lanes for PV, and softmax folds eight
+// interleaved exp lanes in source order. It is distinct from the small
+// unfused BMM path used by the four-token tower. The host gates admission.
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer Q { float q[]; };
+layout(set = 0, binding = 1, std430) readonly buffer K { float k[]; };
+layout(set = 0, binding = 2, std430) readonly buffer V { float v[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer O { float output_values[]; };
+layout(push_constant) uniform Push { uint images; uint seq; uint dim; uint heads; } pc;
+
+void main() {
+    uint query = gl_GlobalInvocationID.x;
+    uint head = gl_GlobalInvocationID.y;
+    uint image = gl_GlobalInvocationID.z;
+    if (image >= pc.images || query >= pc.seq || head >= pc.heads) return;
+    uint hd = pc.dim / pc.heads;
+    uint qb = (image * pc.seq + query) * pc.dim + head * hd;
+    float values[16];
+    float maximum = -3.402823466e+38;
+    for (uint key = 0u; key < 16u; ++key) {
+        uint kb = (image * pc.seq + key) * pc.dim + head * hd;
+        float dot = 0.0;
+        for (uint d = 0u; d < hd; ++d) dot = fp32_fma_exact(q[qb+d], k[kb+d], dot);
+        values[key] = dot * 0.5;
+        maximum = max(maximum, values[key]);
+    }
+    for (uint key = 0u; key < 16u; ++key) values[key] = sleef_expf_u10(values[key] - maximum);
+    precise float total = 0.0;
+    for (uint lane = 0u; lane < 8u; ++lane) {
+        precise float partial = values[lane] + values[lane+8u];
+        total += partial;
+    }
+    float inverse = fp32_div(1.0, total);
+    for (uint key = 0u; key < 16u; ++key) values[key] *= inverse;
+    for (uint d = 0u; d < hd; ++d) {
+        float lane0 = 0.0;
+        float lane1 = 0.0;
+        for (uint key = 0u; key < 16u; key += 2u) {
+            uint vb = (image * pc.seq + key) * pc.dim + head * hd + d;
+            lane0 = fp32_fma_exact(values[key], v[vb], lane0);
+            lane1 = fp32_fma_exact(values[key+1u], v[vb+pc.dim], lane1);
+        }
+        output_values[qb+d] = lane0 + lane1;
+    }
+}

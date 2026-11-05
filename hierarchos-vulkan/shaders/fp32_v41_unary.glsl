@@ -5,6 +5,11 @@
 // The vector body retains the existing SLEEF expf_u10 staging. PyTorch's
 // cpu_kernel_vec processes pairs of 16-wide AVX512 vectors, then scalar tails.
 // Include fp32_sqrt_recip, fp32_fma_exact, and fp32_sleef_exp before this file.
+#ifdef HIERARCHOS_V41_CPU_AVX2
+#define V41_CPU_UNARY_CHUNK 16u
+#else
+#define V41_CPU_UNARY_CHUNK 32u
+#endif
 
 vec2 v41_df_add(vec2 a, vec2 b) {
     precise float hi = a.x + b.x;
@@ -55,13 +60,13 @@ float v41_scalar_exp(float x) {
 }
 
 float v41_cpu_sigmoid(float x, uint index, uint elements) {
-    uint vector_end = elements / 32u * 32u;
+    uint vector_end = elements / V41_CPU_UNARY_CHUNK * V41_CPU_UNARY_CHUNK;
     float e = index < vector_end ? sleef_expf_u10(-x) : v41_scalar_exp(-x);
     return fp32_div(1.0f, 1.0f + e);
 }
 
 float v41_cpu_silu(float x, uint index, uint elements) {
-    uint vector_end = elements / 32u * 32u;
+    uint vector_end = elements / V41_CPU_UNARY_CHUNK * V41_CPU_UNARY_CHUNK;
     float e = index < vector_end ? sleef_expf_u10(-x) : v41_scalar_exp(-x);
     // PyTorch divides x by the denominator directly. x * sigmoid(x) adds
     // a separately rounded reciprocal and gives different FP32 results.
@@ -187,9 +192,36 @@ float v41_sleef_log1p_positive(float d) {
 
 float v41_cpu_softplus(float x, uint index, uint elements) {
     if (x > 20.0f) return x;
-    bool vector_body = index < elements / 32u * 32u;
+    bool vector_body = index < elements / V41_CPU_UNARY_CHUNK * V41_CPU_UNARY_CHUNK;
     float e = vector_body ? sleef_expf_u10(x) : v41_scalar_exp(x);
     return vector_body ? v41_sleef_log1p_positive(e) : v41_cpu_scalar_log1p_positive(e);
+}
+
+// Positive SLEEF xlogf_u1, same Boost-licensed revision as the log1p body above.
+// ATen LogSoftmaxKernelImpl maps this vector log even over a partial row batch.
+float v41_sleef_log_positive(float d) {
+    precise float scaled=d*1.33333333333333333333f;
+    int e=int(floatBitsToUint(scaled)>>23u)-127;
+    float m=ldexp(d,-e);
+    vec2 numerator=v41_df_add(vec2(-1.0,0.0),vec2(m,0.0));
+    vec2 denominator=v41_df_add(vec2(1.0,0.0),vec2(m,0.0));
+    precise float reciprocal=fp32_div(1.0,denominator.x);
+    precise float hi=numerator.x*reciprocal;
+    precise float error=fp32_fma_exact(reciprocal,numerator.x,-hi);
+    precise float correction=fp32_fma_exact(-denominator.x,reciprocal,1.0);
+    correction=fp32_fma_exact(-denominator.y,reciprocal,correction);
+    precise float lo=fp32_fma_exact(numerator.y,reciprocal,error);
+    lo=fp32_fma_exact(hi,correction,lo);
+    precise float x2=hi*hi;
+    precise float p=fp32_fma_exact(0.3027294874f,x2,0.3996108174f);
+    p=fp32_fma_exact(p,x2,0.6666694880f);
+    precise float shi=0.693147182464599609375f*float(e);
+    precise float slo=fp32_fma_exact(0.693147182464599609375f,float(e),-shi);
+    slo=fp32_fma_exact(-1.904654323148236e-9f,float(e),slo);
+    vec2 result=v41_df_add(vec2(shi,slo),vec2(hi*2.0,lo*2.0));
+    precise float tail=(x2*hi)*p;
+    result=v41_df_add(result,vec2(tail,0.0));
+    return result.x+result.y;
 }
 
 

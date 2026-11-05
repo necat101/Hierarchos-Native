@@ -57,6 +57,7 @@ pub(crate) struct BackboneStepTape {
     rows: usize,
     final_stream: GpuBuffer,
     final_pre: GpuBuffer,
+    vision_text_mask: Option<GpuBuffer>,
 }
 impl DeepseekV41Backbone {
     pub(crate) fn recording(&self) -> Result<AttentionRecording> {
@@ -172,9 +173,10 @@ impl DeepseekV41Backbone {
                 MoeExecution::Fp32(moe) => {
                     (moe.apply(&normalized, rows)?, MoeTape::Fp32(normalized))
                 }
-                MoeExecution::Mixed(moe) => {
-                    (moe.apply(&normalized, rows)?, MoeTape::Mixed(normalized))
-                }
+                MoeExecution::Mixed(moe) => (
+                    moe.apply_with_text_mask(&normalized, rows, self.vision_text_mask.as_ref())?,
+                    MoeTape::Mixed(normalized),
+                ),
             };
             let output =
                 self.hyper[layer].post(&mixed, &after_attention, &ffn.post, &ffn.comb, rows)?;
@@ -233,6 +235,7 @@ impl DeepseekV41Backbone {
                 rows,
                 final_stream: current,
                 final_pre: previous_pre,
+                vision_text_mask: self.vision_text_mask.clone(),
             },
         ))
     }
@@ -286,7 +289,12 @@ impl DeepseekV41Backbone {
                     kernels.block.moe(moe, &post.grad_x, &input, rows)?
                 }
                 (MoeExecution::Mixed(moe), MoeTape::Mixed(input)) => {
-                    let tape = kernels.moe.forward(moe, &input, rows)?;
+                    let tape = kernels.moe.forward_with_text_mask(
+                        moe,
+                        &input,
+                        rows,
+                        tape.vision_text_mask.as_ref(),
+                    )?;
                     let grad = kernels.moe.backward(moe, &tape, &post.grad_x)?;
                     adapters.extend(grad.adapter_gradients(&format!("layers.{l}.ffn"))?);
                     grad.grad_input
@@ -417,6 +425,15 @@ impl DeepseekV41Backbone {
                 self.hidden,
                 self.norm_eps,
             )?;
+            #[cfg(test)]
+            {
+                crate::deepseek_v41::training_trace::record(
+                    &format!("{}/{l}/attn_norm_upstream", tape.position), &attention, rows * self.hidden,
+                );
+                crate::deepseek_v41::training_trace::record(
+                    &format!("{}/{l}/attn_norm_collapsed/grad", tape.position), &norm, rows * self.hidden,
+                );
+            }
             let input_collapse = kernels.block.hc_pre(
                 &norm,
                 &t.stream,

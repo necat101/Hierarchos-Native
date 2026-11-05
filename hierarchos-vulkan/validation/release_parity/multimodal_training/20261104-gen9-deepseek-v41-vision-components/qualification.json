@@ -1,0 +1,9 @@
+{
+  "pass": true,
+  "returncode": 0,
+  "binary_sha256": "95d3d17e7568318d68c11d5ab82ca281c29cfed10116253ed3b2ddf14563a68f",
+  "metrics": 200,
+  "expected_metrics": 200,
+  "maximum": 1.8626451e-09,
+  "scope": "standalone native ViT/aligner training plus independent random SDPA, aligner Linear and strided RMS controls, not full VL pipeline"
+}

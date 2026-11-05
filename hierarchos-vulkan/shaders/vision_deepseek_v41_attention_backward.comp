@@ -1,0 +1,61 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_v41_unary.glsl"
+// Adjoint of the measured CPU flash-SDPA used by the released native ViT.
+// One invocation owns one head. No float atomics or host gradient reduction.
+layout(local_size_x=1) in;
+layout(set=0,binding=0,std430) readonly buffer Q {float q[];};
+layout(set=0,binding=1,std430) readonly buffer K {float k[];};
+layout(set=0,binding=2,std430) readonly buffer V {float v[];};
+layout(set=0,binding=3,std430) readonly buffer DY {float dy[];};
+layout(set=0,binding=4,std430) writeonly buffer DQ {float dq[];};
+layout(set=0,binding=5,std430) writeonly buffer DK {float dk[];};
+layout(set=0,binding=6,std430) writeonly buffer DV {float dv[];};
+layout(push_constant) uniform Push {uint rows;uint dim;uint heads;float scale;} pc;
+precise float probabilities[1024];precise float ds[1024];precise float ef[32];
+void main(){
+    uint head=gl_GlobalInvocationID.x;if(head>=pc.heads)return;
+    uint hd=pc.dim/pc.heads;
+    for(uint row=0u;row<pc.rows;++row){
+        uint base=row*pc.dim+head*hd;precise float maximum=-3.402823466e+38;
+        for(uint s=0u;s<pc.rows;++s){
+            uint kb=s*pc.dim+head*hd;precise float a=0.,b=0.;
+            for(uint d=0u;d<hd;++d){if((d&1u)==0u)a=fp32_fma_exact(q[base+d],k[kb+d],a);else b=fp32_fma_exact(q[base+d],k[kb+d],b);}
+            precise float dot=a+b;probabilities[row*pc.rows+s]=dot*pc.scale;
+            maximum=max(maximum,probabilities[row*pc.rows+s]);
+        }
+        precise float sum=0.;
+        for(uint s=0u;s<pc.rows;++s){ef[s]=v41_scalar_exp(probabilities[row*pc.rows+s]-maximum);sum+=ef[s];}
+        precise float inverse=fp32_div(1.,sum);
+        precise float lse=maximum+v41_cpu_scalar_log_positive(sum);
+        precise float products[32];
+        for(uint d=0u;d<hd;++d){
+            precise float a=0.,b=0.;
+            for(uint s=0u;s<pc.rows;++s){uint vb=s*pc.dim+head*hd+d;if((s&1u)==0u)a=fp32_fma_exact(ef[s],v[vb],a);else b=fp32_fma_exact(ef[s],v[vb],b);}
+            precise float total=a+b;precise float out_value=total*inverse;products[d]=dy[base+d]*out_value;
+        }
+        precise float delta=0.;
+        for(uint lane=0u;lane<8u;++lane){precise float term=0.;for(uint d=lane;d<hd;d+=8u)term+=products[d];delta+=term;}
+        for(uint s=0u;s<pc.rows;++s){
+            uint vb=s*pc.dim+head*hd;precise float a=0.,b=0.;
+            for(uint d=0u;d<hd;++d){if((d&1u)==0u)a=fp32_fma_exact(dy[base+d],v[vb+d],a);else b=fp32_fma_exact(dy[base+d],v[vb+d],b);}
+            // Backward's vector map also evaluates the partial tail through
+            // Vec256::exp (SLEEF); forward's exp-and-sum uses scalar tails.
+            precise float p=sleef_expf_u10_fused(probabilities[row*pc.rows+s]-lse);
+            probabilities[row*pc.rows+s]=p;precise float dot=a+b;precise float difference=dot-delta;ds[row*pc.rows+s]=p*difference;
+        }
+    }
+    for(uint row=0u;row<pc.rows;++row)for(uint d=0u;d<hd;++d){
+        precise float qa=0.,qb=0.,ka=0.,kb=0.,va=0.,vb=0.;
+        for(uint s=0u;s<pc.rows;++s){
+            uint index=s*pc.dim+head*hd+d;
+            if((s&1u)==0u){qa=fp32_fma_exact(ds[row*pc.rows+s],k[index],qa);ka=fp32_fma_exact(ds[s*pc.rows+row],q[index],ka);va=fp32_fma_exact(probabilities[s*pc.rows+row],dy[index],va);}
+            else{qb=fp32_fma_exact(ds[row*pc.rows+s],k[index],qb);kb=fp32_fma_exact(ds[s*pc.rows+row],q[index],kb);vb=fp32_fma_exact(probabilities[s*pc.rows+row],dy[index],vb);}
+        }
+        uint index=row*pc.dim+head*hd+d;precise float qtotal=qa+qb;precise float ktotal=ka+kb;precise float vtotal=va+vb;
+        dq[index]=qtotal*pc.scale;dk[index]=ktotal*pc.scale;dv[index]=vtotal;
+    }
+}

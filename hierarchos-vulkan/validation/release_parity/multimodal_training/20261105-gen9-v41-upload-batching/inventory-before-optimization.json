@@ -1,0 +1,1919 @@
+{
+ "schema": 1,
+ "absolute_logit_limit": 2e-07,
+ "rtol": 0,
+ "comparison": "strict_less_than",
+ "source_receipt": "hierarchos-vulkan/validation/release_parity/gen9_architectures/20261101/qualification.json",
+ "source_receipt_sha256": "606e8247883114267aa164c14aa4e690037ab032f86ff68fba3f896c4744c037",
+ "scope": "44 previously green text profiles with qualified joint image training at frozen Gen9 fixture geometry; registry aliases are not additional profiles",
+ "profiles": [
+  {
+   "profile": "bart",
+   "package_model_type": "bart",
+   "native_architecture": "bart",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload; real encoder/decoder with shared embeddings",
+   "tested_cases": [
+    {
+     "case": "bart/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/seq2seq-qualification.json"
+    },
+    {
+     "case": "bart/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/seq2seq-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json"
+  },
+  {
+   "profile": "bert",
+   "package_model_type": "bert",
+   "native_architecture": "bert",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "bert/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "bert/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "dbrx",
+   "package_model_type": "dbrx",
+   "native_architecture": "dbrx",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "dbrx/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "dbrx/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "deepseek_v4",
+   "package_model_type": "deepseek_v4",
+   "native_architecture": "deepseek_v4",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "deepseek_v4/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "deepseek_v4/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "falcon_h1_gated_after",
+   "package_model_type": "falcon_h1",
+   "native_architecture": "falcon_h1",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "falcon_h1_gated_after/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "falcon_h1_gated_after/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "falcon_h1_gated_before",
+   "package_model_type": "falcon_h1",
+   "native_architecture": "falcon_h1",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "falcon_h1_gated_before/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "falcon_h1_gated_before/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "falcon_h1_silu",
+   "package_model_type": "falcon_h1",
+   "native_architecture": "falcon_h1",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "falcon_h1_silu/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "falcon_h1_silu/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "gemma3",
+   "package_model_type": "gemma3_text",
+   "native_architecture": "gemma3_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "siglip_image_pipeline_4_of_4_cases",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "gemma3/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "gemma3/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "native_image_qualification": {
+    "cases": [
+     "siglip_default",
+     "siglip_batch_padded",
+     "siglip_full_grid",
+     "siglip_wider"
+    ],
+    "passed": 4,
+    "worst_visible_logit": 1.9650906324386597e-07,
+    "scope": "fixed small FP32 native tower/projector/backbone; two full AdamW updates; export/reload",
+    "receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/gemma3-qualification.json",
+    "rdna3_qualified": false,
+    "all_geometries_qualified": false
+   },
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "gemma3_softcap_tied",
+   "package_model_type": "gemma3_text",
+   "native_architecture": "gemma3_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "gemma3_softcap_tied/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "gemma3_softcap_tied/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-1/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 2.8312206268310547e-07,
+       "pass": false
+      }
+     ]
+    },
+    {
+     "case": "padded",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-1/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 2.4586915969848633e-07,
+       "pass": false
+      },
+      {
+       "metric": "step-2/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 2.2351741790771484e-07,
+       "pass": false
+      }
+     ]
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "gemma4",
+   "package_model_type": "gemma4_text",
+   "native_architecture": "gemma4_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "gemma4_image_pipeline_2_of_2_fixed_cases",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "gemma4/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "gemma4/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-1/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 2.384185791015625e-07,
+       "pass": false
+      },
+      {
+       "metric": "step-2/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 8.642673492431641e-07,
+       "pass": false
+      }
+     ]
+    },
+    {
+     "case": "padded",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-1/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 4.7497451305389404e-07,
+       "pass": false
+      },
+      {
+       "metric": "step-2/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 4.3213367462158203e-07,
+       "pass": false
+      }
+     ]
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "native_image_qualification": {
+    "cases": [
+     "gemma4_default",
+     "gemma4_rgb8"
+    ],
+    "passed": 2,
+    "worst_visible_logit": 1.341104507446289e-07,
+    "scope": "fixed small FP32 native tower/projector/backbone; two full AdamW updates; export/reload",
+    "receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/qualification.json",
+    "rdna3_qualified": false,
+    "all_geometries_qualified": false,
+    "pixel_domains": [
+     "raw_patch_values",
+     "rescaled_rgb8"
+    ],
+    "processor_padding": "explicitly compacted before both engines"
+   },
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "gpt2",
+   "package_model_type": "gpt2",
+   "native_architecture": "gpt2",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "gpt2/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "gpt2/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "gpt2_wide",
+   "package_model_type": "gpt2",
+   "native_architecture": "gpt2",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "gpt2_wide/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "gpt2_wide/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-1/logits",
+       "values": 3840,
+       "max_abs": 2.086162567138672e-07,
+       "pass": false
+      },
+      {
+       "metric": "final_logits",
+       "values": 3840,
+       "max_abs": 2.086162567138672e-07,
+       "pass": false
+      }
+     ]
+    },
+    {
+     "case": "padded",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-1/logits",
+       "values": 2880,
+       "max_abs": 2.086162567138672e-07,
+       "pass": false
+      },
+      {
+       "metric": "step-1/modality_embedding_grad",
+       "values": 192,
+       "max_abs": 2.980232238769531e-07,
+       "pass": false
+      },
+      {
+       "metric": "step-2/logits",
+       "values": 2880,
+       "max_abs": 2.942979335784912e-07,
+       "pass": false
+      },
+      {
+       "metric": "step-2/modality_embedding_grad",
+       "values": 192,
+       "max_abs": 2.086162567138672e-07,
+       "pass": false
+      },
+      {
+       "metric": "final_logits",
+       "values": 2880,
+       "max_abs": 2.384185791015625e-07,
+       "pass": false
+      }
+     ]
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "gpt_oss",
+   "package_model_type": "gpt_oss",
+   "native_architecture": "gpt_oss",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "gpt_oss/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "gpt_oss/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "kimi_k25_text",
+   "package_model_type": "kimi_k25",
+   "native_architecture": "deepseek_v3",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "kimi_k25_text/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "kimi_k25_text/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-2/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 2.384185791015625e-07,
+       "pass": false
+      }
+     ]
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "kimi_k3_kda",
+   "package_model_type": "kimi_linear",
+   "native_architecture": "kimi_linear",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "kimi_k3_kda/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "kimi_k3_mla",
+   "package_model_type": "kimi_linear",
+   "native_architecture": "kimi_linear",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "kimi_k3_mla/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "kimi_k3_text",
+   "package_model_type": "kimi_linear",
+   "native_architecture": "kimi_linear",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "kimi_k3_text/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "llama",
+   "package_model_type": "llama",
+   "native_architecture": "llama",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "clip_llava_image_pipeline_4_of_4_cases",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "llama/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "llama/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "native_image_pipeline": {
+    "wrapper": "llava",
+    "tower": "clip_vision_model",
+    "passed_cases": 4,
+    "text_hidden_size": 16,
+    "scope": "two complete AdamW updates, raw RGB8 at configured size, image/logit controls, exact native export/reload",
+    "receipt": "release_parity/multimodal_training/20261103-gen9-clip-llava-tail/native-qualification.json"
+   },
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "native_image_qualification": {
+    "cases": [
+     "clip_default_layer",
+     "clip_last_layer_padded",
+     "clip_full_tokens",
+     "clip_wider_grid"
+    ],
+    "passed": 4,
+    "worst_visible_logit": 7.450580596923828e-08,
+    "scope": "fixed small FP32 native tower/projector/backbone; two full AdamW updates; export/reload",
+    "receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/llava-qualification.json",
+    "rdna3_qualified": false,
+    "all_geometries_qualified": false
+   },
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "llama_wide",
+   "package_model_type": "llama",
+   "native_architecture": "llama",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "llama_wide/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "llama_wide/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-1/logits",
+       "values": 3840,
+       "max_abs": 2.086162567138672e-07,
+       "pass": false
+      },
+      {
+       "metric": "step-1/modality_embedding_grad",
+       "values": 192,
+       "max_abs": 2.2351741790771484e-07,
+       "pass": false
+      },
+      {
+       "metric": "step-2/logits",
+       "values": 3840,
+       "max_abs": 2.384185791015625e-07,
+       "pass": false
+      },
+      {
+       "metric": "final_logits",
+       "values": 3840,
+       "max_abs": 2.2351741790771484e-07,
+       "pass": false
+      }
+     ]
+    },
+    {
+     "case": "padded",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-1/logits",
+       "values": 2880,
+       "max_abs": 2.086162567138672e-07,
+       "pass": false
+      },
+      {
+       "metric": "step-1/modality_embedding_grad",
+       "values": 192,
+       "max_abs": 3.203749656677246e-07,
+       "pass": false
+      },
+      {
+       "metric": "step-2/logits",
+       "values": 2880,
+       "max_abs": 2.4586915969848633e-07,
+       "pass": false
+      },
+      {
+       "metric": "step-2/modality_embedding_grad",
+       "values": 192,
+       "max_abs": 2.7567148208618164e-07,
+       "pass": false
+      },
+      {
+       "metric": "final_logits",
+       "values": 2880,
+       "max_abs": 2.384185791015625e-07,
+       "pass": false
+      }
+     ]
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "minimax_m2",
+   "package_model_type": "minimax_m2",
+   "native_architecture": "minimax_m2",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "minimax_m2/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "minimax_m2/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-1/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 5.960464477539062e-07,
+       "pass": false
+      },
+      {
+       "metric": "step-2/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 1.5348196029663086e-06,
+       "pass": false
+      }
+     ]
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "minimax_m3",
+   "package_model_type": "minimax_m3_vl_text",
+   "native_architecture": "minimax_m3_vl_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "minimax_m3/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "minimax_m3/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "minimax_m3_dense",
+   "package_model_type": "minimax_m3_vl_text",
+   "native_architecture": "minimax_m3_vl_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "minimax_m3_dense/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "minimax_m3_dense/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "mistral",
+   "package_model_type": "mistral",
+   "native_architecture": "mistral",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "mistral/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "mistral/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-1/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 2.384185791015625e-07,
+       "pass": false
+      }
+     ]
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "mistral4",
+   "package_model_type": "mistral4",
+   "native_architecture": "mistral4",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "mistral4/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "mistral4/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "mixtral",
+   "package_model_type": "mixtral",
+   "native_architecture": "mixtral",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "mixtral/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "mixtral/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "phi3",
+   "package_model_type": "phi3",
+   "native_architecture": "phi3",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "phi3/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "phi3/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "phi4_multimodal_text",
+   "package_model_type": "phi4_multimodal",
+   "native_architecture": "phi3",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "phi4_multimodal_text/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "phi4_multimodal_text/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "qwen2",
+   "package_model_type": "qwen2",
+   "native_architecture": "qwen2",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "qwen2/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "qwen2/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "qwen2_5_gqa",
+   "package_model_type": "qwen2",
+   "native_architecture": "qwen2",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "qwen2_5_gqa/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "qwen2_5_gqa/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "qwen2_5_sliding_tied",
+   "package_model_type": "qwen2",
+   "native_architecture": "qwen2",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "qwen2_5_sliding_tied/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "qwen2_5_sliding_tied/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-1/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 2.384185791015625e-07,
+       "pass": false
+      }
+     ]
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "qwen3_5_full",
+   "package_model_type": "qwen3_5_text",
+   "native_architecture": "qwen3_5_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "qwen3_5_full/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "qwen3_5_full/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "qwen3_5_linear",
+   "package_model_type": "qwen3_5_text",
+   "native_architecture": "qwen3_5_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "qwen3_5_linear/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "qwen3_5_linear/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-2/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 2.384185791015625e-07,
+       "pass": false
+      }
+     ]
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "qwen3_5_mixed",
+   "package_model_type": "qwen3_5_text",
+   "native_architecture": "qwen3_5_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "qwen3_5_mixed/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "qwen3_5_mixed/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": false,
+     "failures": [
+      {
+       "metric": "step-2/modality_embedding_grad",
+       "values": 48,
+       "max_abs": 2.384185791015625e-07,
+       "pass": false
+      }
+     ]
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "qwen3_5_moe",
+   "package_model_type": "qwen3_5_moe_text",
+   "native_architecture": "qwen3_5_moe_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "qwen3_5_moe/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "qwen3_5_moe/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "qwen3_next",
+   "package_model_type": "qwen3_next",
+   "native_architecture": "qwen3_next",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "qwen3_next/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "qwen3_next/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "qwen4_exp_linear",
+   "package_model_type": "qwen4_exp_text",
+   "native_architecture": "qwen4_exp_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "qwen4_exp_linear/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "qwen4_exp_linear/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "qwen4_exp_mixed_ple",
+   "package_model_type": "qwen4_exp_text",
+   "native_architecture": "qwen4_exp_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "qwen4_exp_mixed_ple/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "qwen4_exp_mixed_ple/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "qwen4_exp_ple",
+   "package_model_type": "qwen4_exp_text",
+   "native_architecture": "qwen4_exp_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "qwen4_exp_ple/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "qwen4_exp_ple/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "qwen4_exp_qsa",
+   "package_model_type": "qwen4_exp_text",
+   "native_architecture": "qwen4_exp_text",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "qwen4_exp_qsa/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "qwen4_exp_qsa/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "smollm3",
+   "package_model_type": "smollm3",
+   "native_architecture": "smollm3",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "smollm3/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "smollm3/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "smollm3_yarn",
+   "package_model_type": "smollm3",
+   "native_architecture": "smollm3",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
+   "tested_cases": [
+    {
+     "case": "smollm3_yarn/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    },
+    {
+     "case": "smollm3_yarn/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/shared77-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "bridge_tested_cases": [
+    {
+     "case": "unmasked",
+     "pass": true,
+     "failures": []
+    },
+    {
+     "case": "padded",
+     "pass": true,
+     "failures": []
+    }
+   ],
+   "bridge_receipt": "release_parity/multimodal_training/20261103-gen9-gemma4-closure/bridge-qualification.json",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip"
+  },
+  {
+   "profile": "switch_transformers",
+   "package_model_type": "switch_transformers",
+   "native_architecture": "switch_transformers",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload; real encoder/decoder with shared embeddings",
+   "tested_cases": [
+    {
+     "case": "switch_transformers/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/seq2seq-qualification.json"
+    },
+    {
+     "case": "switch_transformers/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/seq2seq-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json"
+  },
+  {
+   "profile": "t5",
+   "package_model_type": "t5",
+   "native_architecture": "t5",
+   "text_logit_parity": "confirmed_below_2e-7",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "pending_or_not_defined_for_text_architecture",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "image_tower": "shared_trainable_clip",
+   "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload; real encoder/decoder with shared embeddings",
+   "tested_cases": [
+    {
+     "case": "t5/unmasked",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/seq2seq-qualification.json"
+    },
+    {
+     "case": "t5/padded",
+     "pass": true,
+     "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/seq2seq-qualification.json"
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json"
+  },
+  {
+   "profile": "deepseek_v41_scalable",
+   "package_model_type": "deepseek_v41",
+   "native_architecture": "deepseek_v41",
+   "text_logit_parity": "confirmed_below_2e-7_separate_receipt",
+   "multimodal_bridge": "joint_image_training_passed",
+   "native_modality_tower": "native_vit_aligner_and_delimiters_qualified",
+   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "full_image_training": "qualified_at_fixture_geometry",
+   "image_training_receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json",
+   "qualification_scope": "FP32 native image tower, aligner and delimiters; frozen language base with LoRA; two joint AdamW updates; checkpoint/resume and native export/reload",
+   "tested_cases": [
+    {
+     "case": "native_vit_4x4",
+     "pass": true
+    },
+    {
+     "case": "native_vit_6x4",
+     "pass": true
+    }
+   ],
+   "receipt": "release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json"
+  }
+ ],
+ "matrix_summary": {
+  "profiles_attempted": 44,
+  "fully_passing_profiles": 44,
+  "shared_image_cases": 77,
+  "seq2seq_image_cases": 6,
+  "native_v41_image_cases": 2,
+  "total_backbone_image_cases": 85,
+  "separate_native_llava_pipeline_cases": 4,
+  "separate_native_gemma3_pipeline_cases": 4,
+  "separate_native_gemma4_pipeline_cases": 2,
+  "text_regression_cases": 166,
+  "full_multimodal_inventory_qualified": true,
+  "qualification_geometry": "frozen fixture geometry",
+  "rdna3_multimodal_qualified": false,
+  "latest_image_pipeline_receipt": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261104-gen9-full-image-training/qualification.json"
+ },
+ "pending_native_image_families": [
+  "Qwen2.5-VL",
+  "Pixtral/Mistral3",
+  "Phi4 multimodal",
+  "Kimi K2.5/K3",
+  "MiniMax M3VL"
+ ],
+ "coverage_cautions": [
+  "registry aliases are not additional qualified architectures",
+  "shared tower coverage qualifies the listed text backbone, not a separately named upstream VL model",
+  "native image families listed separately retain their own qualified paths",
+  "physical RDNA3 multimodal replay pending",
+  "production geometry, BF16 training and production throughput remain unqualified"
+ ]
+}

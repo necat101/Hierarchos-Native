@@ -1,0 +1,87 @@
+diff --git a/hierarchos-vulkan/src/gpt2_cpu_math_tests.rs b/hierarchos-vulkan/src/gpt2_cpu_math_tests.rs
+index 4dc7fbf..8c94b25 100644
+--- a/hierarchos-vulkan/src/gpt2_cpu_math_tests.rs
++++ b/hierarchos-vulkan/src/gpt2_cpu_math_tests.rs
+@@ -4,11 +4,15 @@ use sha2::{Digest, Sha256};
+ #[test]
+ fn gpt2_cpu_math_preserves_gen9_and_other_architecture_routes() {
+     use VulkanTransformerArchitecture::{Gpt2, Llama};
+-    assert!(rdna3_gpt2_cpu_math(Gpt2, 0x1002, 0x15bf));
+-    assert!(!rdna3_gpt2_cpu_math(Gpt2, 0x8086, 0x1916));
+-    assert!(!rdna3_gpt2_cpu_math(Gpt2, 0x8086, 0x5916));
+-    assert!(!rdna3_gpt2_cpu_math(Gpt2, 0x1002, 0x163f));
+-    assert!(!rdna3_gpt2_cpu_math(Llama, 0x1002, 0x15bf));
++    // The CPU-matching kernels follow the GPT-2 architecture on every adapter.
++    assert!(gpt2_cpu_math(Gpt2));
++    assert!(!gpt2_cpu_math(Llama));
++    // Only the RDNA3-tuned k-block GEMM stays adapter-gated.
++    assert!(amd_rdna3_kblock_gemm(Gpt2, 0x1002, 0x15bf));
++    assert!(!amd_rdna3_kblock_gemm(Gpt2, 0x8086, 0x1916));
++    assert!(!amd_rdna3_kblock_gemm(Gpt2, 0x8086, 0x5916));
++    assert!(!amd_rdna3_kblock_gemm(Gpt2, 0x1002, 0x163f));
++    assert!(!amd_rdna3_kblock_gemm(Llama, 0x1002, 0x15bf));
+ }
+ 
+ #[derive(Deserialize)]
+diff --git a/hierarchos-vulkan/src/transformer.rs b/hierarchos-vulkan/src/transformer.rs
+index 33a4f86..b52e9fe 100644
+--- a/hierarchos-vulkan/src/transformer.rs
++++ b/hierarchos-vulkan/src/transformer.rs
+@@ -71,7 +71,21 @@ const LAYER_NORM_WELFORD_FORWARD_SPV: &[u8] =
+ const LAYER_NORM_WELFORD_SMALL_FORWARD_SPV: &[u8] =
+     include_bytes!("../shaders/transformer_layer_norm_welford_small_forward.spv");
+ 
+-fn rdna3_gpt2_cpu_math(architecture: VulkanTransformerArchitecture, vendor: u32, device: u32) -> bool {
++/// GPT-2 uses the kernels that reproduce the CPU oracle's arithmetic: fused
++/// Welford LayerNorm, correctly rounded reciprocal attention and MKL-style tanh
++/// GELU. These are architecture-level choices, not adapter-specific tuning, so
++/// they follow the architecture on every device.
++fn gpt2_cpu_math(architecture: VulkanTransformerArchitecture) -> bool {
++    architecture == VulkanTransformerArchitecture::Gpt2
++}
++
++/// The k-block GEMM is tuned for RDNA3 wave scheduling, so it keeps the
++/// adapter gate even inside the GPT-2 route.
++fn amd_rdna3_kblock_gemm(
++    architecture: VulkanTransformerArchitecture,
++    vendor: u32,
++    device: u32,
++) -> bool {
+     architecture == VulkanTransformerArchitecture::Gpt2
+         && vendor::is_amd_rdna3_pci_id(vendor, device)
+ }
+@@ -67863,9 +67877,7 @@ impl VulkanTransformer {
+         if config.uses_parameter_free_layer_norm() {
+             final_norm.freeze();
+         }
+-        let repaired_gpt2 = rdna3_gpt2_cpu_math(
+-            config.architecture, device.vendor_id(), device.device_id(),
+-        );
++        let repaired_gpt2 = gpt2_cpu_math(config.architecture);
+         let layer_norm_spv = if repaired_gpt2 {
+             // One chunk has the identical Welford association without a cascade
+             // stack. Keep unmeasured adapters/drivers and larger widths on the
+@@ -67889,8 +67901,8 @@ impl VulkanTransformer {
+         }
+         if repaired_gpt2 {
+             // PyTorch's FP32 tanh dispatches through MKL VML in the CPU oracle.
+-            // Use a high-accuracy FP32 reconstruction on this qualified adapter;
+-            // the existing Gen9 and other architecture pipelines stay selected.
++            // Use the high-accuracy FP32 reconstruction on the GPT-2 route;
++            // the other architecture pipelines stay selected.
+             kernels.attention_forward = vulkan::ComputeKernel::new(
+                 &device,
+                 include_bytes!("../shaders/transformer_attention_forward_cpu_reciprocal.spv"),
+@@ -67915,6 +67927,12 @@ impl VulkanTransformer {
+                 3,
+                 4,
+             )?;
++        }
++        if amd_rdna3_kblock_gemm(
++            config.architecture,
++            device.vendor_id(),
++            device.device_id(),
++        ) {
+             kernels.linear_bias_forward_kblock128 = Some(vulkan::ComputeKernel::new(
+                 &device,
+                 LINEAR_BIAS_FORWARD_AMD_KBLOCK128_SPV,

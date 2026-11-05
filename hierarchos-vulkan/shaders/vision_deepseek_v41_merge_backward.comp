@@ -1,0 +1,25 @@
+#version 450
+// Input is the released HC-repeat adjoint, reduced on-device to [rows,dim].
+// Projected rows have unique destinations. Each delimiter broadcast follows
+// Torch sum's source-order vector body and four-stream column remainder.
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer G {float g[];};
+layout(set=0,binding=1,std430) readonly buffer Map {uint row_map[];};
+layout(set=0,binding=2,std430) readonly buffer Positions {uint feature_rows[];};
+layout(set=0,binding=3,std430) writeonly buffer DG {float dg[];};
+layout(set=0,binding=4,std430) writeonly buffer DStart {float ds[];};
+layout(set=0,binding=5,std430) writeonly buffer DEnd {float de[];};
+layout(set=0,binding=6,std430) writeonly buffer DNewline {float dn[];};
+layout(push_constant) uniform Push {uint rows;uint features;uint dim;} pc;
+void main(){
+    uint i=gl_GlobalInvocationID.x;
+    if(i<pc.features*pc.dim)dg[i]=g[feature_rows[i/pc.dim]*pc.dim+i%pc.dim];
+    if(i>=pc.dim)return;
+    for(uint marker=0u;marker<3u;++marker){
+        precise float sum=0.;precise float p[4];for(uint j=0u;j<4u;++j)p[j]=0.;uint n=0u;
+        bool serial=i<pc.dim/32u*32u;
+        for(uint row=0u;row<pc.rows;++row){if(row_map[row]!=marker)continue;float value=g[row*pc.dim+i];if(serial)sum+=value;else{p[n&3u]+=value;++n;}}
+        if(!serial){sum=p[0];for(uint j=1u;j<4u;++j)sum+=p[j];}
+        if(marker==0u)ds[i]=sum;else if(marker==1u)de[i]=sum;else dn[i]=sum;
+    }
+}

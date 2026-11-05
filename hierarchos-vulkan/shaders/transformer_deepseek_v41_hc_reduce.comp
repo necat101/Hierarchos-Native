@@ -1,0 +1,22 @@
+#version 450
+// Adjoint of the released [batch,sequence,dim] -> [batch,sequence,hc,dim]
+// repeat. Reduce hc inside each row; never mix adjacent sequence positions.
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer StreamGradient { float gradient[]; };
+layout(set=0,binding=1,std430) writeonly buffer EmbeddingGradient { float output_values[]; };
+layout(push_constant) uniform Push { uint rows; uint hc; uint dim; } pc;
+void main() {
+    uint index=gl_GlobalInvocationID.x;
+    if(index>=pc.rows*pc.dim)return;
+    uint row=index/pc.dim;
+    uint col=index%pc.dim;
+    // ATen's outer reduction keeps four independent streams, then folds
+    // those streams in order. hc=2/4 and longer repeats share this topology.
+    precise float partials[4];
+    for(uint p=0u;p<4u;++p)partials[p]=0.0;
+    for(uint h=0u;h<pc.hc;++h)partials[h&3u]+=gradient[(row*pc.hc+h)*pc.dim+col];
+    precise float sum=partials[0]+partials[1];
+    sum+=partials[2];
+    sum+=partials[3];
+    output_values[index]=sum;
+}

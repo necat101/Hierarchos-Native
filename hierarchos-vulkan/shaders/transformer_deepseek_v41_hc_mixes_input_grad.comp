@@ -81,6 +81,33 @@ void main() {
     float mean_gradient = row_terms[1];
     for (uint column = lane; column < width; column += 64u) {
         precise float projected = 0.0;
+#ifdef HIERARCHOS_V41_CPU_AVX2
+        if(pc.mix_hc<=192u) {
+            if(pc.rows==1u) {
+                for(uint start=0u;start<pc.mix_hc;start+=4u) {
+                    precise float partial=0.0;
+                    for(uint m=start;m<min(start+4u,pc.mix_hc);++m) {
+                        precise float d=grad_mix[mix_base+m]*rstd;
+                        partial=fma(d,weight[m*width+column],partial);
+                    }
+                    projected+=partial;
+                }
+            } else {
+                uint tail=pc.rows%6u;
+                bool short_panel=tail>0u && tail<=3u && row>=pc.rows-tail;
+                precise float a=0.0,b=0.0;
+                for(uint m=0u;m<pc.mix_hc;++m) {
+                    precise float d=grad_mix[mix_base+m]*rstd;
+                    float w=weight[m*width+column];
+                    if(short_panel || width<=8u) {
+                        if(short_panel && tail<=2u) {precise float product=d*w;if((m&1u)==0u)a+=product;else b+=product;}
+                        else {if((m&1u)==0u)a=fma(d,w,a);else b=fma(d,w,b);}
+                    } else a=fma(d,w,a);
+                }
+                projected=a+b;
+            }
+        } else
+#endif
         if(pc.rows==1u) {
             for(uint base=0u;base<pc.mix_hc;base+=8u) {
                 precise float partial=0.0;

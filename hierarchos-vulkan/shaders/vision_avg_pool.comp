@@ -1,0 +1,55 @@
+#version 450
+// Gemma3 squashes the SigLIP patch grid with a kernel-size == stride
+// AvgPool2d before the soft-embedding norm. Mode 0 pools, mode 1 spreads the
+// pooled gradient back over every source cell with the 1/area factor.
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer X { float x[]; };
+layout(set=0,binding=1,std430) writeonly buffer Y { float y[]; };
+layout(push_constant) uniform Push { uint images; uint grid; uint kernel; uint dim; uint mode; } pc;
+void main() {
+    uint i=gl_GlobalInvocationID.x;
+    uint side=pc.grid/pc.kernel;
+    uint tokens=side*side;
+    uint area=pc.kernel*pc.kernel;
+    float inverse=1.0/float(area);
+    if(pc.mode==0) {
+        if(i>=pc.images*tokens*pc.dim) return;
+        uint col=i%pc.dim, t=(i/pc.dim)%tokens, image=i/(pc.dim*tokens);
+        uint ty=t/side, tx=t%side;
+        float sum=0.0;
+        for(uint dy=0;dy<pc.kernel;++dy) {
+            for(uint dx=0;dx<pc.kernel;++dx) {
+                uint row=(image*pc.grid+ty*pc.kernel+dy)*pc.grid+tx*pc.kernel+dx;
+                sum+=x[row*pc.dim+col];
+            }
+        }
+        y[i]=sum*inverse;
+    } else if(pc.mode==2) {
+        if(i>=pc.images*tokens*pc.dim) return;
+        uint col=i%pc.dim, t=(i/pc.dim)%tokens, image=i/(pc.dim*tokens);
+        uint ty=t/side, tx=t%side;
+        // Gemma4's position pooler is a [soft, patch] @ [patch, dim] GEMM.
+        // ATen's AVX2 K reduction accumulates interleaved lanes, so keep the
+        // 36 patch positions in their original lane before folding.
+        float lanes[8];
+        for(uint j=0;j<8u;++j) lanes[j]=0.0;
+        for(uint py=0;py<pc.grid;++py) {
+            for(uint px=0;px<pc.grid;++px) {
+                bool inside = py>=ty*pc.kernel && py<(ty+1u)*pc.kernel
+                    && px>=tx*pc.kernel && px<(tx+1u)*pc.kernel;
+                float weight = inside ? inverse : 0.0;
+                uint row=(image*pc.grid+py)*pc.grid+px;
+                lanes[(py*pc.grid+px)&7u]+=x[row*pc.dim+col]*weight;
+            }
+        }
+        float sum=lanes[0];
+        for(uint j=1u;j<8u;++j) sum+=lanes[j];
+        y[i]=sum;
+    } else {
+        if(i>=pc.images*pc.grid*pc.grid*pc.dim) return;
+        uint col=i%pc.dim, cell=(i/pc.dim)%(pc.grid*pc.grid), image=i/(pc.dim*pc.grid*pc.grid);
+        uint py=cell/pc.grid, px=cell%pc.grid;
+        uint t=(py/pc.kernel)*side+px/pc.kernel;
+        y[i]=x[(image*tokens+t)*pc.dim+col]*inverse;
+    }
+}

@@ -28,6 +28,11 @@ PyTorch and Transformers serve as development oracles for numerical qualificatio
 
 <sub>Registry breadth and measured qualification are separate: the November 2, 2026 RDNA3 matrix covers 43 scaled profiles / 26 architecture identifiers, in resident and streamed modes. The CPU gate uses `rtol=0`. [Evidence and limits](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md).</sub>
 
+**Joint image training:** all 44 previously green text profiles pass the frozen
+Gen9 FP32 image-training gate below `2e-7`, including 95 image cases and 166 text
+regressions. [Coverage, frozen oracles and Ally replay instructions](RDNA3_MULTIMODAL_HANDOFF.md).
+Physical RDNA3 multimodal qualification remains pending.
+
 ---
 
 ## Quick start

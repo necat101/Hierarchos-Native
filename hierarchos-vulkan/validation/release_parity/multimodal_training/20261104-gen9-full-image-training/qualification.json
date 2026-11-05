@@ -1,0 +1,137 @@
+{
+  "schema": 1,
+  "pass": true,
+  "target": "gen9",
+  "qualified_profiles": 44,
+  "expected_profiles": 44,
+  "full_multimodal_inventory_qualified": true,
+  "qualification_geometry": "frozen CPU fixture geometry",
+  "absolute_logit_limit": 2e-07,
+  "absolute_parameter_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "backbone_image_cases": 85,
+  "native_regression_cases": 10,
+  "text_regression_cases": 166,
+  "rdna3_multimodal_qualified": false,
+  "results": {
+    "shared77": {
+      "cases": 77,
+      "worst_logit": 1.7136335372924805e-07,
+      "worst_parameter": 1.1920928955078125e-07,
+      "binary_sha256": "825a63c7f69d3a1c04364bf54f999931ed0c98ca9560d5b76a1ffa90a6884a25"
+    },
+    "gemma4-legacy": {
+      "cases": 1,
+      "worst_logit": 1.341104507446289e-07,
+      "worst_parameter": 5.681067705154419e-08,
+      "binary_sha256": "262e8e69df5a9b32618a6b011c962e193bd9628361af36938d5a423d42872341"
+    },
+    "gemma4-rgb": {
+      "cases": 1,
+      "worst_logit": 1.341104507446289e-07,
+      "worst_parameter": 5.960464477539063e-08,
+      "binary_sha256": "262e8e69df5a9b32618a6b011c962e193bd9628361af36938d5a423d42872341"
+    },
+    "gemma3": {
+      "cases": 4,
+      "worst_logit": 1.9650906324386597e-07,
+      "worst_parameter": 1.1920928955078125e-07,
+      "binary_sha256": "7ec99a63703f2d2b0f4991dc5eafbe9bd3bf03813a67e664ef4153b14f27a35e"
+    },
+    "llava": {
+      "cases": 4,
+      "worst_logit": 7.450580596923828e-08,
+      "worst_parameter": 2.9802322387695312e-08,
+      "binary_sha256": "37460fd10143228eee20a5f670ab2f7df3a642cfc7c7bae12897d18734b2e8a2"
+    },
+    "text": {
+      "cases": 166,
+      "worst_logit": 1.7881393432617188e-07,
+      "worst_parameter": null,
+      "binary_sha256": "3e71a3c1ad0bc5ab29672b291a1f19f8f770f9f81ae04ee4318bd2498212c2ac"
+    },
+    "seq2seq": {
+      "cases": 6,
+      "worst_logit": 5.960464477539063e-08,
+      "worst_parameter": 1.1920928955078125e-07,
+      "binary_sha256": "825a63c7f69d3a1c04364bf54f999931ed0c98ca9560d5b76a1ffa90a6884a25"
+    },
+    "deepseek_v41": {
+      "cases": 2,
+      "test_executions": 30,
+      "worst_logit": 0.0,
+      "binary_sha256": "e897e38bd9e318c4d78eafd71be3ab82b1565e4d46de2d0b35769f5ed155773c"
+    }
+  },
+  "profiles": [
+    "bart",
+    "bert",
+    "dbrx",
+    "deepseek_v4",
+    "deepseek_v41_scalable",
+    "falcon_h1_gated_after",
+    "falcon_h1_gated_before",
+    "falcon_h1_silu",
+    "gemma3",
+    "gemma3_softcap_tied",
+    "gemma4",
+    "gpt2",
+    "gpt2_wide",
+    "gpt_oss",
+    "kimi_k25_text",
+    "kimi_k3_kda",
+    "kimi_k3_mla",
+    "kimi_k3_text",
+    "llama",
+    "llama_wide",
+    "minimax_m2",
+    "minimax_m3",
+    "minimax_m3_dense",
+    "mistral",
+    "mistral4",
+    "mixtral",
+    "phi3",
+    "phi4_multimodal_text",
+    "qwen2",
+    "qwen2_5_gqa",
+    "qwen2_5_sliding_tied",
+    "qwen3_5_full",
+    "qwen3_5_linear",
+    "qwen3_5_mixed",
+    "qwen3_5_moe",
+    "qwen3_next",
+    "qwen4_exp_linear",
+    "qwen4_exp_mixed_ple",
+    "qwen4_exp_ple",
+    "qwen4_exp_qsa",
+    "smollm3",
+    "smollm3_yarn",
+    "switch_transformers",
+    "t5"
+  ],
+  "receipts_sha256": {
+    "compiled-source-sha256.json": "8897a668389dd582038263467c06087ab376e5741b854f40fbc0632f0ea43a35",
+    "deepseek-v41-joint-wide-host.json": "b323ac77191b789f68dee870579fb3312d313a4632db99ba7470ec6a13dca4d7",
+    "deepseek-v41-joint.json": "b323ac77191b789f68dee870579fb3312d313a4632db99ba7470ec6a13dca4d7",
+    "deepseek-v41-run-status.json": "ad3dbc4ae39c45bd9d7c7250c507012e0aa611cdedc166ee80c68db4385ac816",
+    "deepseek_v41-qualification.json": "5fb73eeb3dd6210afeb43c0f6eeb16ae0aac14a14c95ef8148e99564f8917134",
+    "gemma3-qualification.json": "b82fc4acdc74354ce7a19ac90ec8779de5d236b26af3569c4da9e9773ee4d633",
+    "gemma4-legacy-qualification.json": "6ab2c3a111d357ff9b59e26eb9bc0f44f18df43858e69ba5cc25dce0428ff574",
+    "gemma4-rgb-qualification.json": "8aba504d27e025769f553c9ee49be977232de019385c55225ec2c4de349156a2",
+    "llava-qualification.json": "addc41bf8eff59f67ff5a875f398da6bddda4dfcd5c5f09fc5702a87a1803d10",
+    "preserved-v41-contract.json": "eecf4bd6835b215016ca286fe317bd464237d95678c4f9e8a021b90425234478",
+    "seq2seq-qualification.json": "ede260cf7dc747c35f5a3b87d641be7dfd1ffed6af4eba5e3b77e6b4ad2e0c48",
+    "shader-verification.json": "9e4f552422f3d591bb2f0ccd25fd1c4b41a2fb0198d885d85554596529afafde",
+    "shared77-qualification.json": "2e8b0ebf8523254eaa1bf166c89686599f544ab72bd548f7fc53b1db5e682a00",
+    "text-qualification.json": "548e0ca66f7e22c913ab9ab4535b8d2182a8a2cd6d323fc4b6afe80c9af0781a"
+  },
+  "inventory_sha256": "00e1ded279371d2abbd9750e99d452ea0254cc787bd6755f52fc241eef79267c",
+  "limits": [
+    "registry aliases are not additional qualified architectures",
+    "shared tower coverage qualifies the listed text backbone, not a separately named upstream VL model",
+    "native image families listed separately retain their own qualified paths",
+    "physical RDNA3 multimodal replay pending",
+    "production geometry, BF16 training and production throughput remain unqualified"
+  ]
+}

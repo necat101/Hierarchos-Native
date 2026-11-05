@@ -3,32 +3,109 @@
 use super::*;
 use crate::weight_offload::ModelPackage;
 
+#[cfg(test)]
+#[path = "vision_cpu_gemm_tests.rs"]
+mod cpu_gemm_tests;
+
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
-struct PatchPush {
+struct PatchLinearPush {
+    rows: u32,
+    input_dim: u32,
+    output_dim: u32,
+    channels: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub(super) struct PatchPush {
     images: u32,
     side: u32,
     patch: u32,
     channels: u32,
     inverse: u32,
+    /// 0 = checkpoint (channel, kh, kw), 1 = convolution (kh, kw, channel).
+    layout: u32,
+}
+impl PatchPush {
+    pub(super) fn new(
+        images: u32,
+        side: u32,
+        patch: u32,
+        channels: u32,
+        inverse: u32,
+        layout: u32,
+    ) -> Self {
+        Self {
+            images,
+            side,
+            patch,
+            channels,
+            inverse,
+            layout,
+        }
+    }
+}
+
+/// Reorder patch-projection columns between the checkpoint's
+/// (channel, kh, kw) reduction and the (kh, kw, channel) order oneDNN's AVX2
+/// direct convolution accumulates. Bias-free and biased `Conv2d` patch
+/// embeddings both follow it; the tower's serial-K GEMM then reproduces the
+/// convolution's rounding exactly. `to_convolution` selects the direction; the
+/// export path reverses it so the HF package stays bit-identical.
+pub(super) fn permute_patch_weights(
+    values: &[f32],
+    output: usize,
+    channels: usize,
+    patch: usize,
+    to_convolution: bool,
+) -> Vec<f32> {
+    let k = channels * patch * patch;
+    let mut permuted = vec![0.0; values.len()];
+    for o in 0..output {
+        for c in 0..channels {
+            for kh in 0..patch {
+                for kw in 0..patch {
+                    let checkpoint = o * k + (c * patch + kh) * patch + kw;
+                    let convolution = o * k + (kh * patch + kw) * channels + c;
+                    if to_convolution {
+                        permuted[convolution] = values[checkpoint];
+                    } else {
+                        permuted[checkpoint] = values[convolution];
+                    }
+                }
+            }
+        }
+    }
+    permuted
 }
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
-struct TokenPush {
+pub(super) struct TokenPush {
     images: u32,
     seq: u32,
     dim: u32,
     mode: u32,
 }
+impl TokenPush {
+    pub(super) fn new(images: u32, seq: u32, dim: u32, mode: u32) -> Self {
+        Self {
+            images,
+            seq,
+            dim,
+            mode,
+        }
+    }
+}
 
-fn tensor(package: &mut ModelPackage, name: &str, shape: &[usize]) -> Result<Vec<f32>> {
+pub(super) fn tensor(package: &mut ModelPackage, name: &str, shape: &[usize]) -> Result<Vec<f32>> {
     let (actual, values) = package.read_f32(name)?;
     if actual != shape {
         bail!("{name}: expected {shape:?}, found {actual:?}");
     }
     Ok(values)
 }
-fn linear(
+pub(super) fn linear(
     package: &mut ModelPackage,
     device: &VulkanDevice,
     prefix: &str,
@@ -49,7 +126,7 @@ fn linear(
         VulkanLinear::new_no_bias(device, input, output, &w)
     }
 }
-fn norm(
+pub(super) fn norm(
     package: &mut ModelPackage,
     device: &VulkanDevice,
     prefix: &str,
@@ -64,7 +141,7 @@ fn norm(
         &tensor(package, &format!("{prefix}.bias"), &[dim])?,
     )
 }
-fn export_linear(
+pub(super) fn export_linear(
     values: &mut BTreeMap<String, (Vec<usize>, Vec<f32>)>,
     prefix: &str,
     linear: &VulkanLinear,
@@ -84,7 +161,7 @@ fn export_linear(
     }
     Ok(())
 }
-fn export_norm(
+pub(super) fn export_norm(
     values: &mut BTreeMap<String, (Vec<usize>, Vec<f32>)>,
     prefix: &str,
     norm: &VulkanLayerNorm,
@@ -100,20 +177,90 @@ fn export_norm(
     Ok(())
 }
 
-struct VisionKernels {
-    patch: vulkan::ComputeKernel,
+pub(super) struct VisionKernels {
+    pub(super) patch: vulkan::ComputeKernel,
     tokens: vulkan::ComputeKernel,
     quick_forward: vulkan::ComputeKernel,
     quick_backward: vulkan::ComputeKernel,
+    tanh_high_accuracy_forward: vulkan::ComputeKernel,
+    tanh_high_accuracy_backward: vulkan::ComputeKernel,
+    /// The vision softmax denominator uses the correctly rounded reciprocal; the
+    /// text graph's default kernel takes the hardware approximation, which is
+    /// several hundred nano-units off across a two-layer tower.
+    pub(super) attention_forward: vulkan::ComputeKernel,
+    pub(super) attention_backward: vulkan::ComputeKernel,
+    pub(super) cpu_avx2_linear: vulkan::ComputeKernel,
+    pub(super) patch_linear: vulkan::ComputeKernel,
+    pub(super) gelu_cpu_forward: vulkan::ComputeKernel,
+    pub(super) gelu_cpu_backward: vulkan::ComputeKernel,
+    cpu_avx2_attention: vulkan::ComputeKernel,
+    cpu_avx2_attention_seq5: vulkan::ComputeKernel,
+    cpu_avx2_attention_seq5_backward: vulkan::ComputeKernel,
+    pub(super) cpu_avx2_input_grad: vulkan::ComputeKernel,
+    pub(super) weight_grad_cpu_avx2: vulkan::ComputeKernel,
 }
 impl VisionKernels {
-    fn new(device: &VulkanDevice) -> Result<Self> {
+    pub(super) fn new(device: &VulkanDevice) -> Result<Self> {
         Ok(Self {
+            cpu_avx2_linear: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/vision_linear_cpu_avx2.spv"),
+                4,
+                16,
+            )?,
+            patch_linear: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/vision_patch_linear_cpu_avx2.spv"),
+                3,
+                16,
+            )?,
+            gelu_cpu_forward: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/vision_gelu_erf_cpu_forward.spv"),
+                2,
+                4,
+            )?,
+            gelu_cpu_backward: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/vision_gelu_erf_cpu_backward.spv"),
+                3,
+                4,
+            )?,
+            cpu_avx2_attention: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/vision_attention_cpu_avx2.spv"),
+                4,
+                16,
+            )?,
+            cpu_avx2_attention_seq5: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/seq5_attention_cpu_avx2.spv"),
+                4,
+                20,
+            )?,
+            cpu_avx2_attention_seq5_backward: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/seq5_attention_cpu_avx2_backward.spv"),
+                15,
+                std::mem::size_of::<AttentionBackwardPush>() as u32,
+            )?,
+            cpu_avx2_input_grad: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/vision_linear_input_grad_cpu_avx2.spv"),
+                4,
+                16,
+            )?,
+            weight_grad_cpu_avx2: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/vision_linear_weight_grad.spv"),
+                3,
+                12,
+            )?,
             patch: vulkan::ComputeKernel::new(
                 device,
                 include_bytes!("../../shaders/vision_patchify.spv"),
                 2,
-                20,
+                24,
             )?,
             tokens: vulkan::ComputeKernel::new(
                 device,
@@ -133,9 +280,110 @@ impl VisionKernels {
                 3,
                 4,
             )?,
+            // torch's gelu_pytorch_tanh dispatches through the same
+            // high-accuracy tanh reconstruction the GPT-2 CPU route uses; the
+            // default kernel is a faster approximation that leaves the SigLIP
+            // tower several hundred nano-units away from the oracle.
+            tanh_high_accuracy_forward: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/transformer_gelu_tanh_ha_forward.spv"),
+                2,
+                4,
+            )?,
+            tanh_high_accuracy_backward: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/transformer_gelu_tanh_ha_backward.spv"),
+                3,
+                4,
+            )?,
+            attention_forward: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/transformer_attention_forward_cpu_reciprocal.spv"),
+                11,
+                std::mem::size_of::<AttentionPush>() as u32,
+            )?,
+            attention_backward: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../../shaders/transformer_attention_backward_cpu_reciprocal.spv"),
+                15,
+                std::mem::size_of::<AttentionBackwardPush>() as u32,
+            )?,
         })
     }
-    fn activation(
+    /// Replay only the independently measured AVX2 NN-linear geometries.
+    /// Convolution patch projections retain their own reduction order.
+    fn cpu_linear(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        k: &TransformerKernels,
+        linear: &VulkanLinear,
+        input: &GpuBuffer,
+        output: &GpuBuffer,
+        rows: usize,
+    ) -> Result<()> {
+        if cpu_avx2_vision_gemm(
+            rows,
+            linear.input_dim,
+            linear.output_dim,
+            aten_vector_width(),
+        ) {
+            let push = [
+                rows as u32,
+                linear.input_dim as u32,
+                linear.output_dim as u32,
+                u32::from(linear.has_bias),
+            ];
+            self.cpu_avx2_linear.record_dispatch(
+                commands,
+                &[input, &linear.weight.values, &linear.bias.values, output],
+                bytemuck::cast_slice(&push),
+                [
+                    div_ceil_u32(linear.output_dim, 16),
+                    div_ceil_u32(rows, 16),
+                    1,
+                ],
+            )
+        } else {
+            linear.record_forward(commands, k, input, output, rows)
+        }
+    }
+
+    fn cpu_input_grad(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        linear: &VulkanLinear,
+        gradient: &GpuBuffer,
+        output: &GpuBuffer,
+        rows: usize,
+    ) -> Result<()> {
+        if cpu_avx2_input_gradient_gemm(
+            rows,
+            linear.output_dim,
+            linear.input_dim,
+            aten_vector_width(),
+        ) && matches!(rows % 6, 1..=3)
+        {
+            let push = [
+                rows as u32,
+                linear.output_dim as u32,
+                linear.input_dim as u32,
+                0,
+            ];
+            self.cpu_avx2_input_grad.record_dispatch(
+                commands,
+                &[gradient, &linear.weight.values, &linear.bias.values, output],
+                bytemuck::cast_slice(&push),
+                [
+                    div_ceil_u32(linear.input_dim, 16),
+                    div_ceil_u32(rows, 16),
+                    1,
+                ],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn activation(
         &self,
         k: &TransformerKernels,
         name: &str,
@@ -152,6 +400,8 @@ impl VisionKernels {
             ("gelu", true) => &k.gelu_erf_backward,
             ("gelu_pytorch_tanh" | "gelu_new", false) => &k.gelu_tanh_forward,
             ("gelu_pytorch_tanh" | "gelu_new", true) => &k.gelu_tanh_backward,
+            ("gelu_pytorch_tanh_ha", false) => &self.tanh_high_accuracy_forward,
+            ("gelu_pytorch_tanh_ha", true) => &self.tanh_high_accuracy_backward,
             _ => bail!("unsupported native vision activation {name}"),
         };
         let bindings = if let Some(g) = gradient {
@@ -178,7 +428,7 @@ const R: usize = 6;
 const N2: usize = 7;
 const F: usize = 8;
 const ACT: usize = 9;
-const OUT: usize = 10;
+pub(super) const OUT: usize = 10;
 const M1: usize = 11;
 const S1: usize = 12;
 const M2: usize = 13;
@@ -195,10 +445,37 @@ const DQI: usize = 23;
 const DKI: usize = 24;
 const DVI: usize = 25;
 const DN1: usize = 26;
-const DI: usize = 27;
+pub(super) const DI: usize = 27;
 const TMP: usize = 28;
 
-struct ClipLayer {
+pub(super) fn cpu_avx2_vision_gemm(
+    rows: usize,
+    input: usize,
+    output: usize,
+    vector_width: u32,
+) -> bool {
+    vector_width == 8
+        && (2..=36).contains(&rows)
+        && (matches!(input, 8 | 12 | 16 | 32) || (rows == 8 && input == 64 && output == 64))
+        && matches!(output, 16 | 32 | 64)
+}
+
+pub(super) fn cpu_avx2_input_gradient_gemm(
+    rows: usize,
+    input: usize,
+    output: usize,
+    vector_width: u32,
+) -> bool {
+    cpu_avx2_vision_gemm(rows, input, output, vector_width)
+        || (vector_width == 8
+            && (2..=36).contains(&rows)
+            && input == 64
+            && matches!(output, 16 | 32))
+}
+
+pub(super) struct ClipLayer {
+    cpu_reference_math: bool,
+    reverse_qkv_adjoint: bool,
     q: VulkanLinear,
     key: VulkanLinear,
     v: VulkanLinear,
@@ -207,11 +484,11 @@ struct ClipLayer {
     fc2: VulkanLinear,
     ln1: VulkanLayerNorm,
     ln2: VulkanLayerNorm,
-    tape: Vec<GpuBuffer>,
+    pub(super) tape: Vec<GpuBuffer>,
     prefix: String,
 }
 impl ClipLayer {
-    fn load(
+    pub(super) fn load(
         package: &mut ModelPackage,
         device: &VulkanDevice,
         prefix: String,
@@ -219,6 +496,8 @@ impl ClipLayer {
         dim: usize,
         intermediate: usize,
         eps: f32,
+        cpu_reference_math: bool,
+        reverse_qkv_adjoint: bool,
     ) -> Result<Self> {
         let sizes = (0..29).map(|index| match index {
             F | ACT | DACT | DF => rows * intermediate,
@@ -226,6 +505,8 @@ impl ClipLayer {
             _ => rows * dim,
         });
         Ok(Self {
+            cpu_reference_math,
+            reverse_qkv_adjoint,
             q: linear(
                 package,
                 device,
@@ -274,15 +555,63 @@ impl ClipLayer {
                 dim,
                 true,
             )?,
-            ln1: norm(package, device, &format!("{prefix}.layer_norm1"), dim, eps)?,
-            ln2: norm(package, device, &format!("{prefix}.layer_norm2"), dim, eps)?,
+            ln1: norm(package, device, &format!("{prefix}.layer_norm1"), dim, eps)?
+                .use_cpu_welford(cpu_reference_math),
+            ln2: norm(package, device, &format!("{prefix}.layer_norm2"), dim, eps)?
+                .use_cpu_welford(cpu_reference_math),
             tape: sizes
                 .map(|len| GpuBuffer::zeros_f32(device, len))
                 .collect::<Result<_>>()?,
             prefix,
         })
     }
-    fn forward(
+    /// Diagnostic boundary dump used by the SigLIP stage diff. Not part of the
+    /// qualification path.
+    pub(super) fn stage_dump(
+        &self,
+        rows: usize,
+        dim: usize,
+        intermediate: usize,
+    ) -> Result<Vec<(&'static str, Vec<f32>)>> {
+        let mut stages = Vec::new();
+        for (name, index, len) in [
+            ("ln1", N1, rows * dim),
+            ("q", Q, rows * dim),
+            ("k", K, rows * dim),
+            ("v", V, rows * dim),
+            ("attention", A, rows * dim),
+            ("out_proj", O, rows * dim),
+            ("residual1", R, rows * dim),
+            ("ln2", N2, rows * dim),
+            ("fc1", F, rows * intermediate),
+            ("gte", ACT, rows * intermediate),
+            ("ln1_mean", M1, rows),
+            ("ln1_rstd", S1, rows),
+            ("ln2_mean", M2, rows),
+            ("ln2_rstd", S2, rows),
+        ] {
+            stages.push((name, self.tape[index].read_f32(len)?));
+        }
+        Ok(stages)
+    }
+    fn linear_forward(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        k: &TransformerKernels,
+        vk: &VisionKernels,
+        linear: &VulkanLinear,
+        input: &GpuBuffer,
+        output: &GpuBuffer,
+        rows: usize,
+    ) -> Result<()> {
+        if self.cpu_reference_math {
+            vk.cpu_linear(commands, k, linear, input, output, rows)
+        } else {
+            linear.record_forward(commands, k, input, output, rows)
+        }
+    }
+
+    pub(super) fn forward(
         &self,
         commands: &mut vulkan::ComputeBatch,
         k: &TransformerKernels,
@@ -298,22 +627,67 @@ impl ClipLayer {
         let t = &self.tape;
         self.ln1
             .record_forward(commands, k, x, &t[N1], &t[M1], &t[S1], rows)?;
-        self.q.record_forward(commands, k, &t[N1], &t[Q], rows)?;
-        self.key.record_forward(commands, k, &t[N1], &t[K], rows)?;
-        self.v.record_forward(commands, k, &t[N1], &t[V], rows)?;
-        k.attention_forward.record_dispatch(
-            commands,
-            &[
-                &t[Q], &t[K], &t[V], mask, mask, dummy, &t[A], dummy, dummy, mask, mask,
-            ],
-            bytemuck::bytes_of(&push),
-            [push.query_seq_len, push.num_heads, push.batch_size],
-        )?;
-        self.out.record_forward(commands, k, &t[A], &t[O], rows)?;
+        self.linear_forward(commands, k, vk, &self.q, &t[N1], &t[Q], rows)?;
+        self.linear_forward(commands, k, vk, &self.key, &t[N1], &t[K], rows)?;
+        self.linear_forward(commands, k, vk, &self.v, &t[N1], &t[V], rows)?;
+        if self.cpu_reference_math
+            && aten_vector_width() == 8
+            && matches!(push.batch_size, 1 | 2)
+            && push.query_seq_len == 5
+            && push.key_value_seq_len == 5
+            && push.query_hidden_size == 16
+            && push.value_hidden_size == 16
+            && push.num_heads == 2
+        {
+            let cpu_push = [
+                push.batch_size,
+                push.query_seq_len,
+                push.query_hidden_size,
+                push.num_heads,
+                push.scale.to_bits(),
+            ];
+            vk.cpu_avx2_attention_seq5.record_dispatch(
+                commands,
+                &[&t[Q], &t[K], &t[V], &t[A]],
+                bytemuck::cast_slice(&cpu_push),
+                [push.query_seq_len, push.num_heads, push.batch_size],
+            )?;
+        } else if self.cpu_reference_math
+            && aten_vector_width() == 8
+            && matches!(push.batch_size, 1 | 2)
+            && push.query_seq_len == 16
+            && push.key_value_seq_len == 16
+            && push.query_hidden_size == 16
+            && push.value_hidden_size == 16
+            && push.num_heads == 4
+        {
+            let cpu_push = [
+                push.batch_size,
+                push.query_seq_len,
+                push.query_hidden_size,
+                push.num_heads,
+            ];
+            vk.cpu_avx2_attention.record_dispatch(
+                commands,
+                &[&t[Q], &t[K], &t[V], &t[A]],
+                bytemuck::cast_slice(&cpu_push),
+                [push.query_seq_len, push.num_heads, push.batch_size],
+            )?;
+        } else {
+            vk.attention_forward.record_dispatch(
+                commands,
+                &[
+                    &t[Q], &t[K], &t[V], mask, mask, dummy, &t[A], dummy, dummy, mask, mask,
+                ],
+                bytemuck::bytes_of(&push),
+                [push.query_seq_len, push.num_heads, push.batch_size],
+            )?;
+        }
+        self.linear_forward(commands, k, vk, &self.out, &t[A], &t[O], rows)?;
         record_add(commands, k, x, &t[O], &t[R], rows * dim)?;
         self.ln2
             .record_forward(commands, k, &t[R], &t[N2], &t[M2], &t[S2], rows)?;
-        self.fc1.record_forward(commands, k, &t[N2], &t[F], rows)?;
+        self.linear_forward(commands, k, vk, &self.fc1, &t[N2], &t[F], rows)?;
         vk.activation(
             k,
             activation,
@@ -323,11 +697,30 @@ impl ClipLayer {
             &t[ACT],
             rows * self.fc1.output_dim,
         )?;
-        self.fc2
-            .record_forward(commands, k, &t[ACT], &t[OUT], rows)?;
+        self.linear_forward(commands, k, vk, &self.fc2, &t[ACT], &t[OUT], rows)?;
         record_add(commands, k, &t[R], &t[OUT], &t[OUT], rows * dim)
     }
-    fn backward(
+    fn linear_backward(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        k: &TransformerKernels,
+        vk: &VisionKernels,
+        linear: &VulkanLinear,
+        input: &GpuBuffer,
+        gradient: &GpuBuffer,
+        output: &GpuBuffer,
+        rows: usize,
+    ) -> Result<()> {
+        // Keep parameter gradients under the shared linear's ownership. Replay
+        // only the short-panel input-gradient GEMM before its consumer runs.
+        linear.record_backward(commands, k, input, gradient, output, rows)?;
+        if self.cpu_reference_math {
+            vk.cpu_input_grad(commands, linear, gradient, output, rows)?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn backward(
         &self,
         commands: &mut vulkan::ComputeBatch,
         k: &TransformerKernels,
@@ -342,8 +735,7 @@ impl ClipLayer {
         let rows = (push.batch_size * push.query_seq_len) as usize;
         let dim = push.query_hidden_size as usize;
         let t = &self.tape;
-        self.fc2
-            .record_backward(commands, k, &t[ACT], dy, &t[DACT], rows)?;
+        self.linear_backward(commands, k, vk, &self.fc2, &t[ACT], dy, &t[DACT], rows)?;
         vk.activation(
             k,
             activation,
@@ -353,14 +745,23 @@ impl ClipLayer {
             &t[DF],
             rows * self.fc1.output_dim,
         )?;
-        self.fc1
-            .record_backward(commands, k, &t[N2], &t[DF], &t[DN2], rows)?;
+        self.linear_backward(commands, k, vk, &self.fc1, &t[N2], &t[DF], &t[DN2], rows)?;
         self.ln2
             .record_backward(commands, k, &t[R], &t[DN2], &t[M2], &t[S2], &t[DR], rows)?;
         record_add(commands, k, dy, &t[DR], &t[DR], rows * dim)?;
-        self.out
-            .record_backward(commands, k, &t[A], &t[DR], &t[DA], rows)?;
-        k.attention_backward.record_dispatch(
+        self.linear_backward(commands, k, vk, &self.out, &t[A], &t[DR], &t[DA], rows)?;
+        let attention_backward = if self.cpu_reference_math
+            && aten_vector_width() == 8
+            && push.batch_size == 2
+            && push.query_seq_len == 5
+            && push.query_hidden_size == 16
+            && push.num_heads == 2
+        {
+            &vk.cpu_avx2_attention_seq5_backward
+        } else {
+            &vk.attention_backward
+        };
+        attention_backward.record_dispatch(
             commands,
             &[
                 &t[Q], &t[K], &t[V], mask, mask, dummy, &t[DA], &t[DQ], &t[DK], &t[DV], dummy,
@@ -369,19 +770,21 @@ impl ClipLayer {
             bytemuck::bytes_of(&push.as_backward_push(0, 1)),
             [push.num_heads, push.batch_size, 1],
         )?;
-        self.q
-            .record_backward(commands, k, &t[N1], &t[DQ], &t[DQI], rows)?;
-        self.key
-            .record_backward(commands, k, &t[N1], &t[DK], &t[DKI], rows)?;
-        self.v
-            .record_backward(commands, k, &t[N1], &t[DV], &t[DVI], rows)?;
-        record_add(commands, k, &t[DQI], &t[DKI], &t[TMP], rows * dim)?;
-        record_add(commands, k, &t[TMP], &t[DVI], &t[DN1], rows * dim)?;
+        self.linear_backward(commands, k, vk, &self.q, &t[N1], &t[DQ], &t[DQI], rows)?;
+        self.linear_backward(commands, k, vk, &self.key, &t[N1], &t[DK], &t[DKI], rows)?;
+        self.linear_backward(commands, k, vk, &self.v, &t[N1], &t[DV], &t[DVI], rows)?;
+        let (first, last) = if self.reverse_qkv_adjoint && aten_vector_width() == 8 {
+            (&t[DVI], &t[DQI])
+        } else {
+            (&t[DQI], &t[DVI])
+        };
+        record_add(commands, k, first, &t[DKI], &t[TMP], rows * dim)?;
+        record_add(commands, k, &t[TMP], last, &t[DN1], rows * dim)?;
         self.ln1
             .record_backward(commands, k, x, &t[DN1], &t[M1], &t[S1], &t[DI], rows)?;
         record_add(commands, k, &t[DR], &t[DI], &t[DI], rows * dim)
     }
-    fn step(
+    pub(super) fn step(
         &self,
         commands: &mut vulkan::ComputeBatch,
         k: &TransformerKernels,
@@ -394,7 +797,10 @@ impl ClipLayer {
         self.ln1.record_step(commands, k, step, hyper)?;
         self.ln2.record_step(commands, k, step, hyper)
     }
-    fn export(&self, values: &mut BTreeMap<String, (Vec<usize>, Vec<f32>)>) -> Result<()> {
+    pub(super) fn export(
+        &self,
+        values: &mut BTreeMap<String, (Vec<usize>, Vec<f32>)>,
+    ) -> Result<()> {
         for (suffix, linear) in [
             ("self_attn.q_proj", &self.q),
             ("self_attn.k_proj", &self.key),
@@ -414,6 +820,8 @@ impl ClipLayer {
 pub struct LlavaForward {
     pub logits: Vec<f32>,
     pub vision_features: Vec<f32>,
+    pub projector_pre: Vec<f32>,
+    pub projector_act: Vec<f32>,
     pub projected_features: Vec<f32>,
 }
 #[derive(Debug, Serialize)]
@@ -428,8 +836,188 @@ pub struct LlavaTrainResult {
 /// Dynamic positional interpolation, video, multiple selected feature layers,
 /// dropout and non-CLIP towers fail closed pending separate implementations.
 pub struct VulkanLlava {
+    pub(super) language: VulkanTransformer,
+    pub(super) image: VulkanClipImageAdapter,
+}
+
+pub(super) struct ClipAdapterGradients {
+    pub(super) pixel_gradient: Vec<f32>,
+    pub(super) projected_gradient: Vec<f32>,
+}
+
+impl VulkanLlava {
+    pub fn from_hf_package(
+        device: VulkanDevice,
+        directory: impl AsRef<Path>,
+        batch_size: usize,
+        seq_len: usize,
+        image_count: usize,
+    ) -> Result<Self> {
+        let directory = directory.as_ref();
+        let config: serde_json::Value =
+            serde_json::from_slice(&fs::read(directory.join("config.json"))?)?;
+        if config["model_type"].as_str() != Some("llava") {
+            bail!("native LLaVA pipeline requires model_type=llava");
+        }
+        let language =
+            VulkanTransformer::from_hf_package(device.clone(), directory, batch_size, seq_len)?;
+        if language.config.architecture != VulkanTransformerArchitecture::Llama {
+            bail!("native LLaVA pipeline requires its qualified Llama backbone");
+        }
+        Self::from_language(device, directory, image_count, language)
+    }
+    pub(super) fn from_language(
+        device: VulkanDevice,
+        directory: &Path,
+        image_count: usize,
+        mut language: VulkanTransformer,
+    ) -> Result<Self> {
+        if language.config.embedding_dropout != 0.0
+            || language.config.attention_dropout != 0.0
+            || language.config.mlp_output_dropout != 0.0
+            || language.config.attention_output_dropout != 0.0
+        {
+            bail!("native LLaVA training requires deterministic zero-dropout text configuration");
+        }
+        let image = VulkanClipImageAdapter::load(
+            device,
+            directory,
+            image_count,
+            language.rows,
+            language.config.vocab_size,
+            language.config.effective_embedding_size(),
+            &mut language.kernels,
+        )?;
+        Ok(Self { language, image })
+    }
+
+    pub fn preprocess_rgb8(&self, rgb: &[u8]) -> Result<Vec<f32>> {
+        self.image.preprocess_rgb8(rgb)
+    }
+    pub(super) fn validate(&self, ids: &[u32], mask: &[f32], pixels: &[f32]) -> Result<Vec<usize>> {
+        self.image.validate(ids, mask, pixels)
+    }
+    pub(super) fn encode_device(&self, pixels: &[f32]) -> Result<()> {
+        self.image.encode_device(pixels, &self.language.kernels)
+    }
+    pub(super) fn forward_result(&self, logits: Vec<f32>) -> Result<LlavaForward> {
+        self.image.forward_result(logits)
+    }
+    pub fn forward(
+        &self,
+        input_ids: &[u32],
+        attention_mask: &[f32],
+        pixel_values: &[f32],
+    ) -> Result<LlavaForward> {
+        let rows = self.validate(input_ids, attention_mask, pixel_values)?;
+        self.encode_device(pixel_values)?;
+        let logits = self
+            .language
+            .forward_logits_with_device_modality_embeddings(
+                input_ids,
+                attention_mask,
+                &rows,
+                &self.image.projected,
+            )?;
+        self.forward_result(logits)
+    }
+    pub fn train_step(
+        &mut self,
+        input_ids: &[u32],
+        attention_mask: &[f32],
+        pixel_values: &[f32],
+        targets: &[u32],
+        loss_weights: &[f32],
+        hyper: AdamWHyperParams,
+    ) -> Result<LlavaTrainResult> {
+        self.train_step_with_optimizer(
+            input_ids,
+            attention_mask,
+            pixel_values,
+            targets,
+            loss_weights,
+            hyper.into(),
+        )
+    }
+    pub fn train_step_with_optimizer(
+        &mut self,
+        input_ids: &[u32],
+        attention_mask: &[f32],
+        pixel_values: &[f32],
+        targets: &[u32],
+        loss_weights: &[f32],
+        optimizer: crate::CpuAdamWHyperParams,
+    ) -> Result<LlavaTrainResult> {
+        optimizer.validate()?;
+        let hyper = optimizer.as_f32();
+        self.language.set_cpu_adamw_policy(Some(optimizer))?;
+        hyper.validate()?;
+        let rows = self.validate(input_ids, attention_mask, pixel_values)?;
+        if targets.len() != input_ids.len()
+            || loss_weights.len() != input_ids.len()
+            || targets
+                .iter()
+                .zip(loss_weights)
+                .any(|(&id, &w)| id == self.image.image_token && w > 0.)
+        {
+            bail!("LLaVA targets must match text rows and exclude image-token supervision");
+        }
+        self.encode_device(pixel_values)?;
+        let result = self.language.train_step_with_device_modality_embeddings(
+            input_ids,
+            targets,
+            attention_mask,
+            loss_weights,
+            hyper,
+            &rows,
+            &self.image.projected,
+        )?;
+        self.backward_image(result, pixel_values, hyper)
+    }
+    pub(super) fn backward_image(
+        &mut self,
+        result: DeviceMultimodalStepResult,
+        pixels: &[f32],
+        hyper: AdamWHyperParams,
+    ) -> Result<LlavaTrainResult> {
+        let gradient = result
+            .gradient
+            .as_ref()
+            .context("image-text backward omitted its device gradient")?;
+        let gradients = self.image.backward_image(
+            gradient,
+            result.text.step,
+            pixels,
+            &self.language.kernels,
+            hyper,
+        )?;
+        Ok(LlavaTrainResult {
+            text: result.text,
+            pixel_gradient: gradients.pixel_gradient,
+            projected_gradient: gradients.projected_gradient,
+        })
+    }
+    pub fn export_hf_package(
+        &self,
+        source: impl AsRef<Path>,
+        destination: impl AsRef<Path>,
+    ) -> Result<()> {
+        self.language
+            .export_hf_package(source.as_ref(), destination.as_ref())?;
+        self.export_image_parameters(source.as_ref(), destination.as_ref())
+    }
+    pub(super) fn debug_image_training_stages(&self) -> Result<serde_json::Value> {
+        self.image.debug_image_training_stages()
+    }
+    pub(super) fn export_image_parameters(&self, source: &Path, destination: &Path) -> Result<()> {
+        self.image.export_image_parameters(source, destination)
+    }
+}
+
+pub(super) struct VulkanClipImageAdapter {
     device: VulkanDevice,
-    language: VulkanTransformer,
+    text_rows: usize,
+    vocab_size: usize,
     vk: VisionKernels,
     image_count: usize,
     side: usize,
@@ -441,6 +1029,7 @@ pub struct VulkanLlava {
     features_per_image: usize,
     drop_cls: bool,
     image_token: u32,
+    cpu_reference_math: bool,
     activation: String,
     projector_activation: String,
     processor: Option<serde_json::Value>,
@@ -465,7 +1054,7 @@ pub struct VulkanLlava {
     selected: GpuBuffer,
     projector_pre: GpuBuffer,
     projector_act: GpuBuffer,
-    projected: GpuBuffer,
+    pub(super) projected: GpuBuffer,
     grad_projected: GpuBuffer,
     grad_act: GpuBuffer,
     grad_projector_pre: GpuBuffer,
@@ -477,19 +1066,36 @@ pub struct VulkanLlava {
     grad_pixels: GpuBuffer,
 }
 
-impl VulkanLlava {
-    pub fn from_hf_package(
+impl VulkanClipImageAdapter {
+    fn vision_heads(&self) -> u32 {
+        self.heads
+    }
+    pub(super) fn load(
         device: VulkanDevice,
-        directory: impl AsRef<Path>,
-        batch_size: usize,
-        seq_len: usize,
+        directory: &Path,
         image_count: usize,
+        text_rows: usize,
+        vocab_size: usize,
+        text_dim: usize,
+        kernels: &mut TransformerKernels,
     ) -> Result<Self> {
-        let directory = directory.as_ref();
         let config: serde_json::Value =
             serde_json::from_slice(&fs::read(directory.join("config.json"))?)?;
-        if config["model_type"].as_str() != Some("llava") {
-            bail!("native image pipeline requires model_type=llava");
+        if !matches!(
+            config["model_type"].as_str(),
+            Some("llava" | "hierarchos_clip_adapter")
+        ) {
+            bail!("image adapter requires llava or hierarchos_clip_adapter metadata");
+        }
+        let cpu_reference_math = config["model_type"].as_str() == Some("hierarchos_clip_adapter");
+        if cpu_reference_math && aten_vector_width() == 8 {
+            kernels.cpu_layer_norm_adjoint = true;
+            kernels.bias_grad = vulkan::ComputeKernel::new(
+                &device,
+                include_bytes!("../../shaders/vision_bias_grad_cpu_avx2.spv"),
+                2,
+                8,
+            )?;
         }
         let vision = &config["vision_config"];
         if vision["model_type"].as_str() != Some("clip_vision_model") {
@@ -585,27 +1191,12 @@ impl VulkanLlava {
         if !eps.is_finite() || eps <= 0.0 {
             bail!("invalid CLIP layer norm epsilon");
         }
-        let language =
-            VulkanTransformer::from_hf_package(device.clone(), directory, batch_size, seq_len)?;
-        // The initial public composite contract is exactly CLIP + Llama. Other
-        // backbones keep their separate feature-bridge qualification records.
-        if language.config.architecture != VulkanTransformerArchitecture::Llama {
-            bail!("native LLaVA pipeline currently requires its qualified Llama backbone");
-        }
-        if language.config.embedding_dropout != 0.0
-            || language.config.attention_dropout != 0.0
-            || language.config.mlp_output_dropout != 0.0
-            || language.config.attention_output_dropout != 0.0
-        {
-            bail!("native LLaVA training requires deterministic zero-dropout text configuration");
-        }
-        let text_dim = language.config.effective_embedding_size();
         let image_token = u32::try_from(
             config["image_token_index"]
                 .as_u64()
                 .context("missing image_token_index")?,
         )?;
-        if image_token as usize >= language.config.vocab_size {
+        if image_token as usize >= vocab_size {
             bail!("image token must be in the text vocabulary");
         }
         let mut package = ModelPackage::open_directory(directory)?;
@@ -662,7 +1253,8 @@ impl VulkanLlava {
                 &format!("{vision_prefix}.pre_layrnorm"),
                 dim,
                 eps,
-            )?,
+            )?
+            .use_cpu_welford(cpu_reference_math),
             layers: (0..active as usize)
                 .map(|i| {
                     ClipLayer::load(
@@ -673,6 +1265,8 @@ impl VulkanLlava {
                         dim,
                         intermediate,
                         eps,
+                        cpu_reference_math,
+                        cpu_reference_math,
                     )
                 })
                 .collect::<Result<_>>()?,
@@ -724,7 +1318,8 @@ impl VulkanLlava {
             heads: heads as u32,
             vk: VisionKernels::new(&device)?,
             device,
-            language,
+            text_rows,
+            vocab_size,
             image_count,
             side,
             patch_size,
@@ -734,12 +1329,14 @@ impl VulkanLlava {
             features_per_image,
             drop_cls,
             image_token,
+            cpu_reference_math,
             activation,
             projector_activation,
             vision_prefix,
             projector_prefix,
         })
     }
+
     fn attention_push(&self) -> AttentionPush {
         let mut push = AttentionPush::zeroed();
         push.batch_size = self.image_count as u32;
@@ -758,12 +1355,6 @@ impl VulkanLlava {
         push.kv_page_table_stride = 1;
         push
     }
-    fn vision_heads(&self) -> u32 {
-        self.heads
-    }
-    /// Rescale and normalize fixed-size interleaved RGB8 images using the
-    /// package's processor contract. Resize/crop must be disabled explicitly;
-    /// arbitrary decoded-image resizing is a separate processor qualification.
     pub fn preprocess_rgb8(&self, rgb: &[u8]) -> Result<Vec<f32>> {
         let p = self
             .processor
@@ -813,17 +1404,14 @@ impl VulkanLlava {
         }
         Ok(values)
     }
-    fn validate(&self, ids: &[u32], mask: &[f32], pixels: &[f32]) -> Result<Vec<usize>> {
-        if ids.len() != self.language.rows || mask.len() != ids.len() {
+    pub(super) fn validate(&self, ids: &[u32], mask: &[f32], pixels: &[f32]) -> Result<Vec<usize>> {
+        if ids.len() != self.text_rows || mask.len() != ids.len() {
             bail!("invalid LLaVA text batch geometry");
         }
         if mask.iter().any(|&v| v != 0. && v != 1.) {
             bail!("LLaVA attention mask must be binary");
         }
-        if ids
-            .iter()
-            .any(|&id| id as usize >= self.language.config.vocab_size)
-        {
+        if ids.iter().any(|&id| id as usize >= self.vocab_size) {
             bail!("LLaVA token outside vocabulary");
         }
         if pixels.len() != self.image_count * self.channels * self.side * self.side
@@ -843,8 +1431,7 @@ impl VulkanLlava {
         }
         Ok(rows)
     }
-    fn encode(&self, pixels: &[f32]) -> Result<(Vec<f32>, Vec<f32>)> {
-        let k = &self.language.kernels;
+    pub(super) fn encode_device(&self, pixels: &[f32], k: &TransformerKernels) -> Result<()> {
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
         commands.enable_watchdog_submission_slicing();
         commands.upload_f32(&self.pixels, pixels)?;
@@ -854,6 +1441,7 @@ impl VulkanLlava {
             patch: self.patch_size as u32,
             channels: self.channels as u32,
             inverse: 0,
+            layout: 0,
         };
         self.vk.patch.record_dispatch(
             &mut commands,
@@ -861,13 +1449,29 @@ impl VulkanLlava {
             bytemuck::bytes_of(&patch),
             [div_ceil_u32(pixels.len(), 256), 1, 1],
         )?;
-        self.patch.record_forward(
-            &mut commands,
-            k,
-            &self.patches,
-            &self.patch_output,
-            self.image_count * (self.seq - 1),
-        )?;
+        let patch_rows = self.image_count * (self.seq - 1);
+        if self.cpu_reference_math {
+            let push = PatchLinearPush {
+                rows: patch_rows as u32,
+                input_dim: (self.channels * self.patch_size * self.patch_size) as u32,
+                output_dim: self.dim as u32,
+                channels: self.channels as u32,
+            };
+            self.vk.patch_linear.record_dispatch(
+                &mut commands,
+                &[&self.patches, &self.patch.weight.values, &self.patch_output],
+                bytemuck::bytes_of(&push),
+                [div_ceil_u32(self.dim, 16), div_ceil_u32(patch_rows, 16), 1],
+            )?;
+        } else {
+            self.patch.record_forward(
+                &mut commands,
+                k,
+                &self.patches,
+                &self.patch_output,
+                patch_rows,
+            )?;
+        }
         let tokens = TokenPush {
             images: self.image_count as u32,
             seq: self.seq as u32,
@@ -929,15 +1533,25 @@ impl VulkanLlava {
             &self.projector_pre,
             rows,
         )?;
-        self.vk.activation(
-            k,
-            &self.projector_activation,
-            &mut commands,
-            &self.projector_pre,
-            None,
-            &self.projector_act,
-            rows * self.projector1.output_dim,
-        )?;
+        if self.cpu_reference_math && self.projector_activation == "gelu" {
+            let len = rows * self.projector1.output_dim;
+            self.vk.gelu_cpu_forward.record_dispatch(
+                &mut commands,
+                &[&self.projector_pre, &self.projector_act],
+                bytemuck::cast_slice(&[len as u32]),
+                [div_ceil_u32(len, 256), 1, 1],
+            )?;
+        } else {
+            self.vk.activation(
+                k,
+                &self.projector_activation,
+                &mut commands,
+                &self.projector_pre,
+                None,
+                &self.projector_act,
+                rows * self.projector1.output_dim,
+            )?;
+        }
         self.projector2.record_forward(
             &mut commands,
             k,
@@ -945,94 +1559,40 @@ impl VulkanLlava {
             &self.projected,
             rows,
         )?;
-        commands.submit()?;
-        Ok((
-            self.selected.read_f32(rows * self.dim)?,
-            self.projected.read_f32(rows * self.projector2.output_dim)?,
-        ))
+        commands.submit()
     }
-    pub fn forward(
-        &self,
-        input_ids: &[u32],
-        attention_mask: &[f32],
-        pixel_values: &[f32],
-    ) -> Result<LlavaForward> {
-        let rows = self.validate(input_ids, attention_mask, pixel_values)?;
-        let (vision_features, projected_features) = self.encode(pixel_values)?;
-        let logits = self.language.forward_logits_with_modality_embeddings(
-            input_ids,
-            attention_mask,
-            ModalityEmbeddingRows {
-                rows: &rows,
-                values: &projected_features,
-            },
-        )?;
+    pub(super) fn forward_result(&self, logits: Vec<f32>) -> Result<LlavaForward> {
+        let feature_rows = self.image_count * self.features_per_image;
         Ok(LlavaForward {
             logits,
-            vision_features,
-            projected_features,
+            vision_features: self.selected.read_f32(feature_rows * self.dim)?,
+            projector_pre: self
+                .projector_pre
+                .read_f32(feature_rows * self.projector1.output_dim)?,
+            projector_act: self
+                .projector_act
+                .read_f32(feature_rows * self.projector1.output_dim)?,
+            projected_features: self
+                .projected
+                .read_f32(feature_rows * self.projector2.output_dim)?,
         })
     }
-    pub fn train_step(
+    pub(super) fn backward_image(
         &mut self,
-        input_ids: &[u32],
-        attention_mask: &[f32],
+        projected_gradient: &GpuBuffer,
+        step: u32,
         pixel_values: &[f32],
-        targets: &[u32],
-        loss_weights: &[f32],
+        k: &TransformerKernels,
         hyper: AdamWHyperParams,
-    ) -> Result<LlavaTrainResult> {
-        self.train_step_with_optimizer(
-            input_ids,
-            attention_mask,
-            pixel_values,
-            targets,
-            loss_weights,
-            hyper.into(),
-        )
-    }
-
-    pub fn train_step_with_optimizer(
-        &mut self,
-        input_ids: &[u32],
-        attention_mask: &[f32],
-        pixel_values: &[f32],
-        targets: &[u32],
-        loss_weights: &[f32],
-        optimizer: crate::CpuAdamWHyperParams,
-    ) -> Result<LlavaTrainResult> {
-        optimizer.validate()?;
-        let hyper = optimizer.as_f32();
-        self.language.set_cpu_adamw_policy(Some(optimizer))?;
-        hyper.validate()?;
-        let rows = self.validate(input_ids, attention_mask, pixel_values)?;
-        if targets.len() != input_ids.len()
-            || loss_weights.len() != input_ids.len()
-            || targets
-                .iter()
-                .zip(loss_weights)
-                .any(|(&id, &w)| id == self.image_token && w > 0.)
-        {
-            bail!("LLaVA targets must match text rows and exclude image-token supervision");
-        }
-        let (_, projected) = self.encode(pixel_values)?;
-        let result = self.language.train_step_with_modality_embeddings(
-            input_ids,
-            targets,
-            attention_mask,
-            loss_weights,
-            hyper,
-            ModalityEmbeddingRows {
-                rows: &rows,
-                values: &projected,
-            },
-        )?;
-        let step = result.text.step;
-        let k = &self.language.kernels;
+    ) -> Result<ClipAdapterGradients> {
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
         commands.enable_watchdog_submission_slicing();
-        commands.upload_f32(&self.grad_projected, &result.modality_embedding_grad)?;
         let feature_rows = self.image_count * self.features_per_image;
+        commands.copy_f32(
+            projected_gradient,
+            &self.grad_projected,
+            feature_rows * self.projector2.output_dim,
+        )?;
         self.projector2.record_backward(
             &mut commands,
             k,
@@ -1041,15 +1601,29 @@ impl VulkanLlava {
             &self.grad_act,
             feature_rows,
         )?;
-        self.vk.activation(
-            k,
-            &self.projector_activation,
-            &mut commands,
-            &self.projector_pre,
-            Some(&self.grad_act),
-            &self.grad_projector_pre,
-            feature_rows * self.projector1.output_dim,
-        )?;
+        if self.cpu_reference_math && self.projector_activation == "gelu" {
+            let len = feature_rows * self.projector1.output_dim;
+            self.vk.gelu_cpu_backward.record_dispatch(
+                &mut commands,
+                &[
+                    &self.projector_pre,
+                    &self.grad_act,
+                    &self.grad_projector_pre,
+                ],
+                bytemuck::cast_slice(&[len as u32]),
+                [div_ceil_u32(len, 256), 1, 1],
+            )?;
+        } else {
+            self.vk.activation(
+                k,
+                &self.projector_activation,
+                &mut commands,
+                &self.projector_pre,
+                Some(&self.grad_act),
+                &self.grad_projector_pre,
+                feature_rows * self.projector1.output_dim,
+            )?;
+        }
         self.projector1.record_backward(
             &mut commands,
             k,
@@ -1144,6 +1718,7 @@ impl VulkanLlava {
             patch: self.patch_size as u32,
             channels: self.channels as u32,
             inverse: 1,
+            layout: 0,
         };
         self.vk.patch.record_dispatch(
             &mut commands,
@@ -1161,23 +1736,111 @@ impl VulkanLlava {
         self.cls.record_step(&mut commands, k, step, hyper)?;
         self.position.record_step(&mut commands, k, step, hyper)?;
         commands.submit()?;
-        Ok(LlavaTrainResult {
-            text: result.text,
+        Ok(ClipAdapterGradients {
             pixel_gradient: self.grad_pixels.read_f32(pixel_values.len())?,
-            projected_gradient: result.modality_embedding_grad,
+            projected_gradient: projected_gradient
+                .read_f32(feature_rows * self.projector2.output_dim)?,
         })
     }
-    pub fn export_hf_package(
-        &self,
-        source: impl AsRef<Path>,
-        destination: impl AsRef<Path>,
-    ) -> Result<()> {
-        self.language
-            .export_hf_package(source.as_ref(), destination.as_ref())?;
-        if source.as_ref().join("preprocessor_config.json").is_file() {
+    pub(super) fn debug_image_training_stages(&self) -> Result<serde_json::Value> {
+        let mut stages = serde_json::Map::new();
+        let mut gradients = serde_json::Map::new();
+        let rows = self.image_count * self.seq;
+        let feature_rows = self.image_count * self.features_per_image;
+        for (name, forward, gradient, len) in [
+            (
+                "selected",
+                &self.selected,
+                &self.grad_selected,
+                feature_rows * self.dim,
+            ),
+            (
+                "projector_pre",
+                &self.projector_pre,
+                &self.grad_projector_pre,
+                feature_rows * self.projector1.output_dim,
+            ),
+            (
+                "projector_act",
+                &self.projector_act,
+                &self.grad_act,
+                feature_rows * self.projector1.output_dim,
+            ),
+            (
+                "projected",
+                &self.projected,
+                &self.grad_projected,
+                feature_rows * self.projector2.output_dim,
+            ),
+            ("tokens", &self.tokens, &self.grad_tokens, rows * self.dim),
+        ] {
+            stages.insert(name.into(), serde_json::json!(forward.read_f32(len)?));
+            gradients.insert(name.into(), serde_json::json!(gradient.read_f32(len)?));
+        }
+        stages.insert(
+            "pre_output".into(),
+            serde_json::json!(self.pre_output.read_f32(rows * self.dim)?),
+        );
+        let first_grad = self
+            .layers
+            .first()
+            .map(|l| &l.tape[DI])
+            .unwrap_or(&self.grad_vision_output);
+        gradients.insert(
+            "pre_output".into(),
+            serde_json::json!(first_grad.read_f32(rows * self.dim)?),
+        );
+        for (i, layer) in self.layers.iter().enumerate() {
+            let t = &layer.tape;
+            let mid = layer.fc1.output_dim;
+            for (name, forward, gradient, width) in [
+                ("n1", N1, DN1, self.dim),
+                ("q", Q, DQ, self.dim),
+                ("k", K, DK, self.dim),
+                ("v", V, DV, self.dim),
+                ("a", A, DA, self.dim),
+                ("o", O, DR, self.dim),
+                ("r", R, DR, self.dim),
+                ("n2", N2, DN2, self.dim),
+                ("f", F, DF, mid),
+                ("act", ACT, DACT, mid),
+            ] {
+                stages.insert(
+                    format!("layer_{i}/{name}"),
+                    serde_json::json!(t[forward].read_f32(rows * width)?),
+                );
+                gradients.insert(
+                    format!("layer_{i}/{name}"),
+                    serde_json::json!(t[gradient].read_f32(rows * width)?),
+                );
+            }
+            let incoming = self
+                .layers
+                .get(i + 1)
+                .map(|l| &l.tape[DI])
+                .unwrap_or(&self.grad_vision_output);
+            stages.insert(
+                format!("layer_{i}/out"),
+                serde_json::json!(t[OUT].read_f32(rows * self.dim)?),
+            );
+            gradients.insert(
+                format!("layer_{i}/out"),
+                serde_json::json!(incoming.read_f32(rows * self.dim)?),
+            );
+            gradients.insert(
+                format!("layer_{i}/out_linear"),
+                serde_json::json!(incoming.read_f32(rows * self.dim)?),
+            );
+        }
+        Ok(
+            serde_json::json!({"stages":stages,"gradients":gradients,"pixel_gradient":self.grad_pixels.read_f32(self.image_count*self.channels*self.side*self.side)?}),
+        )
+    }
+    pub(super) fn export_image_parameters(&self, source: &Path, destination: &Path) -> Result<()> {
+        if source.join("preprocessor_config.json").is_file() {
             fs::copy(
-                source.as_ref().join("preprocessor_config.json"),
-                destination.as_ref().join("preprocessor_config.json"),
+                source.join("preprocessor_config.json"),
+                destination.join("preprocessor_config.json"),
             )?;
         }
         let mut values = BTreeMap::new();
@@ -1219,7 +1882,7 @@ impl VulkanLlava {
             .iter()
             .map(|(name, (shape, values))| (name.as_str(), shape.as_slice(), values.as_slice()))
             .collect::<Vec<_>>();
-        let path = destination.as_ref().join("model.safetensors");
+        let path = destination.join("model.safetensors");
         crate::replace_f32_tensors(&path, &path, &replacements)
     }
 }

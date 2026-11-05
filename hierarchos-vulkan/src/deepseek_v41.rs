@@ -49,6 +49,7 @@ mod checkpoint;
 mod compressed_kv;
 mod compressor;
 mod compressor_grad;
+mod cpu_math;
 mod engram;
 mod gen9;
 mod indexer;
@@ -62,17 +63,31 @@ mod rotary;
 mod terminal;
 mod tokenizer;
 mod train;
+mod upload;
+
+// Native image artifacts pin one CPU arithmetic contract across host machines.
+// The opaque guard keeps the underlying thread-local scope private.
+pub(crate) fn native_avx2_math_scope() -> impl Drop {
+    cpu_math::avx2()
+}
+pub(crate) fn native_avx2_math_active() -> bool {
+    cpu_math::active()
+}
 #[cfg(test)]
 mod cpu_loss_tests;
 #[cfg(test)]
 pub(crate) mod training_trace {
     use crate::GpuBuffer;
     thread_local! { static VALUES: std::cell::RefCell<Option<Vec<serde_json::Value>>> = const { std::cell::RefCell::new(None) }; }
-    pub fn begin() { VALUES.with(|v| *v.borrow_mut() = Some(Vec::new())); }
+    pub fn begin() {
+        VALUES.with(|v| *v.borrow_mut() = Some(Vec::new()));
+    }
     pub fn record(label: &str, value: &GpuBuffer, len: usize) {
         VALUES.with(|v| { if let Some(values) = v.borrow_mut().as_mut() { values.push(serde_json::json!({"label":label,"bits":value.read_f32(len).unwrap().iter().map(|f|f.to_bits()).collect::<Vec<_>>()})); } });
     }
-    pub fn finish() -> Vec<serde_json::Value> { VALUES.with(|v| v.borrow_mut().take().unwrap_or_default()) }
+    pub fn finish() -> Vec<serde_json::Value> {
+        VALUES.with(|v| v.borrow_mut().take().unwrap_or_default())
+    }
 }
 pub use attention::{
     deepseek_v41_window_indices, DeepseekV41Attention, DeepseekV41AttentionCacheId,
@@ -131,7 +146,8 @@ pub use mixed_linear::{
 pub use model::{
     DeepseekV41CausalLM, DeepseekV41Logits, DeepseekV41ModelGradients, DeepseekV41ModelTrainResult,
     DeepseekV41ModelTrainer, DeepseekV41ModelTrainingConfig, DeepseekV41ModelWeights,
-    DeepseekV41TrainingBatch, DeepseekV41VocabularyResidency,
+    DeepseekV41MultimodalGradients, DeepseekV41MultimodalTrainer, DeepseekV41TrainingBatch,
+    DeepseekV41VocabularyResidency,
 };
 pub use orchestrator::{
     DeepseekV41AttentionLayerWeights, DeepseekV41AttentionOrchestrator,
@@ -151,8 +167,8 @@ pub use quantization::{
 pub use rotary::{DeepseekV41Rotary, DeepseekV41RotaryConfig};
 pub use terminal::{DeepseekV41TerminalAdjoints, DeepseekV41TerminalGradients};
 pub use train::{
-    DeepseekV41AdapterFactorState, DeepseekV41AdapterGradient, DeepseekV41AdapterParameterGradient,
-    DeepseekV41AdapterTrainer, DeepseekV41AdamWConfig,
+    DeepseekV41AdamWConfig, DeepseekV41AdapterFactorState, DeepseekV41AdapterGradient,
+    DeepseekV41AdapterParameterGradient, DeepseekV41AdapterTrainer,
 };
 
 pub const REFERENCE_MODEL: &str = "deepseek-ai/DeepSeek-V4.1-Flash-1017";
