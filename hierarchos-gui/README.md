@@ -62,3 +62,35 @@ pure-Rust inference engine linked by that CLI.
 For a distributable source + binary bundle that does not rely on the parent
 Transformers checkout, run `hierarchos-vulkan/package-standalone.ps1` from the
 repository root.
+
+## Workflows
+
+The desktop app exposes ten workflows: Transformer training, full-parameter
+fine-tuning, LoRA, Hierarchos training, Hierarchos fine-tuning, Transformer
+generation, native vision training, image-to-text, text-to-image, and Hierarchos
+inference. Each form builds the exact CLI arguments shown above the launch button;
+text-cache and continuous-batching controls are not forwarded to image workers.
+
+- **Vision training** takes a native image package and an image/text JSONL, and
+  writes a new or empty output directory.
+- **Image-to-text** takes one image plus a prompt about it, with greedy or sampled
+  decoding.
+- **Text-to-image** takes a Stable Diffusion single-file checkpoint, an optional
+  VAE and engine path, prompt/negative prompt, dimensions, steps, CFG and seed,
+  and writes a new PNG with a preview. Install the engine with
+  `hierarchos-native-cli/install-image-engine.ps1`; without it the workflow reports
+  the missing engine instead of generating.
+
+Native V4.1 keeps its base model and trains image parameters plus a language LoRA,
+so its form carries the LoRA rank, streaming and resume/export fields. The other
+families load a complete exported image package.
+
+On Windows each run is placed in a job object with `KILL_ON_JOB_CLOSE`, so Stop —
+or closing the window — terminates the CLI and any companion image engine it
+spawned. On Unix the CLI is started in its own process group and the group is
+signalled. A cancelled worker can still report exit code 0 on Windows; the test
+therefore checks that the process is gone, not that it failed.
+
+When the GUI and CLI are built separately, `discover_cli` falls back to the
+repository's crate build directories before giving up, and the CLI path field
+accepts an explicit binary.

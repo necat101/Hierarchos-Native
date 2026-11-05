@@ -428,3 +428,54 @@ training defaults (`epochs=3`, `batch_size=64`, `seed=1337`, `min_lr=1e-6`, and
 `ponder_loss_weight=0.01`) while still letting explicit arguments win. Legacy
 `--amp` maps to the qualified `fp16-storage-parity` Vulkan policy and `--no-amp`
 maps to `fp32`; the native binary never dispatches either option to a framework.
+
+## Vision training and image generation
+
+Five commands share the native backend with training and inference. None of them
+launch Python.
+
+```text
+hierarchos-native-cli vision-train --model-path PACKAGE --train DATA.jsonl --out-dir NEW_DIR [options]
+hierarchos-native-cli vision-generate --model-path PACKAGE --image IMAGE.png --prompt TEXT [options]
+hierarchos-native-cli vision-info --model-path PACKAGE
+hierarchos-native-cli image-generate --model-path SD_CHECKPOINT --prompt TEXT --output NEW.png [options]
+hierarchos-native-cli image-engine-info [--engine SD_CLI]
+```
+
+`vision-train` and `vision-generate` accept a `hierarchos_image_text` package
+(causal or encoder-decoder, including BART/T5/Switch), native LLaVA, Gemma3,
+Gemma4, or DeepSeek V4.1. The package decides the backend; an ordinary text
+package is rejected rather than guessed at. `vision-generate` produces text from
+an image and is not a diffusion model.
+
+Dataset rows name an image and either `prompt`/`completion` or explicit
+`input_ids`, `attention_mask`, `targets`, `loss_weights` and the decoder arrays
+for encoder-decoder packages. Image paths are relative to the JSONL file. Images
+must already be at the package's processor dimensions: there is no implicit
+resize or crop, and a fixed-grid run requires every image in the dataset to have
+the same size. Native Gemma4 and V4.1 training take one complete image per step
+(`--batch-size 1`).
+
+Output is `OUT/model/` for the shared and native families, or `OUT/native/` plus
+`OUT/checkpoint/` for V4.1, whose image parameters and language LoRA are exported
+apart from an optimizer checkpoint. V4.1 additionally accepts `--lora-rank`,
+`--lora-alpha`, `--adapter-path`, `--resume`, `--native-state` and
+`--stream-parameters`; `training_report.json` records the run.
+
+`image-generate` is text-to-image and requires a separate Stable Diffusion
+single-file checkpoint (`.safetensors`, `.gguf` or `.ckpt`). It drives a companion
+stable-diffusion.cpp Vulkan build, located from `--engine`,
+`HIERARCHOS_SD_CLI`, next to the CLI, or on `PATH`. Install the pinned engine
+with:
+
+```powershell
+hierarchos-native-cli/install-image-engine.ps1 -OutDir target/image-engine
+```
+
+The script verifies the release archive's SHA-256 before extracting and records
+the source commit and executable hash. It does not download any model. Requests
+are forced onto Vulkan (`--backend VulkanN --params-backend VulkanN --auto-fit
+off`), and width/height must be multiples of 64 from 64 to 4096. Output is a new
+PNG plus a `*.generation.json` receipt binding the model, engine and image
+hashes; an existing file is never overwritten. These images carry no claim of the
+< 2e-7 text parity used by the training gates.

@@ -10,6 +10,8 @@ use std::{
 };
 
 use eframe::egui;
+mod multimodal_ui;
+mod process_tree;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Workflow {
@@ -19,6 +21,9 @@ enum Workflow {
     HierarchosTrain,
     HierarchosFinetune,
     TransformerGenerate,
+    VisionTrain,
+    VisionGenerate,
+    ImageGenerate,
     HierarchosInference,
 }
 
@@ -31,6 +36,9 @@ impl Workflow {
             Self::HierarchosTrain => "train",
             Self::HierarchosFinetune => "finetune",
             Self::TransformerGenerate => "transformer-generate",
+            Self::VisionTrain => "vision-train",
+            Self::VisionGenerate => "vision-generate",
+            Self::ImageGenerate => "image-generate",
             Self::HierarchosInference => "chat",
         }
     }
@@ -43,6 +51,9 @@ impl Workflow {
             Self::HierarchosTrain => "Hierarchos training",
             Self::HierarchosFinetune => "Hierarchos fine-tuning",
             Self::TransformerGenerate => "Transformer inference / generation",
+            Self::VisionTrain => "Vision / image-text training",
+            Self::VisionGenerate => "Vision / image-to-text",
+            Self::ImageGenerate => "Text-to-image generation",
             Self::HierarchosInference => "Hierarchos inference / chat",
         }
     }
@@ -60,6 +71,8 @@ impl Workflow {
     fn is_training(self) -> bool {
         matches!(
             self,
+            Self::VisionTrain
+                |
             Self::TransformerTrain
                 | Self::TransformerFullFinetune
                 | Self::TransformerFinetune
@@ -69,11 +82,16 @@ impl Workflow {
     }
 
     fn action_label(self) -> &'static str {
-        if self.is_training() {
+        if self == Self::ImageGenerate {
+            "Generate image"
+        } else if self.is_training() {
             "Start training"
         } else {
             "Run inference"
         }
+    }
+    fn is_multimodal(self) -> bool {
+        matches!(self,Self::VisionTrain|Self::VisionGenerate|Self::ImageGenerate)
     }
 }
 
@@ -128,6 +146,21 @@ struct NativeApp {
     log: String,
     status: String,
     last_command: String,
+    vision_image: String,
+    vision_state: String,
+    vision_resume: String,
+    image_engine: String,
+    image_width: String,
+    image_height: String,
+    image_steps: String,
+    image_cfg: String,
+    image_seed: String,
+    image_negative: String,
+    image_vae: String,
+    preview_key: String,
+    preview: Option<egui::TextureHandle>,
+    preview_error: String,
+    process_tree: Option<process_tree::ProcessTree>,
 }
 
 impl Default for NativeApp {
@@ -164,12 +197,18 @@ impl Default for NativeApp {
             log: String::new(),
             status: "Ready".to_owned(),
             last_command: String::new(),
+            vision_image: String::new(),vision_state:String::new(),vision_resume:String::new(),
+            image_engine:env::var("HIERARCHOS_SD_CLI").unwrap_or_default(),
+            image_width:"512".into(),image_height:"512".into(),image_steps:"20".into(),image_cfg:"7.0".into(),image_seed:"42".into(),
+            image_negative:String::new(),image_vae:String::new(),preview_key:String::new(),preview:None,preview_error:String::new(),
+            process_tree:None,
         }
     }
 }
 
 impl Drop for NativeApp {
     fn drop(&mut self) {
+        self.process_tree = None;
         if let Some(child) = self.child.as_mut() {
             let _ = child.kill();
             let _ = child.wait();
@@ -194,12 +233,14 @@ impl NativeApp {
                         format!("Exited with {status}")
                     };
                     self.child = None;
+                    self.process_tree = None;
                     self.output_rx = None;
                 }
                 Ok(None) => {}
                 Err(error) => {
                     self.status = format!("Could not query worker: {error}");
                     self.child = None;
+                    self.process_tree = None;
                     self.output_rx = None;
                 }
             }
@@ -207,6 +248,7 @@ impl NativeApp {
     }
 
     fn build_args(&self) -> Result<Vec<String>, String> {
+        if self.mode.is_multimodal() {return self.build_multimodal_args();}
         if self.mode.is_training() {
             self.build_training_args()
         } else {
@@ -425,6 +467,8 @@ impl NativeApp {
         self.log.push_str(&format!("$ {}\n", self.last_command));
 
         let mut command = Command::new(cli);
+        #[cfg(unix)]
+        {use std::os::unix::process::CommandExt;command.process_group(0);}
         command
             .args(&args)
             .stdout(Stdio::piped())
@@ -442,6 +486,10 @@ impl NativeApp {
                 self.status = format!("Could not start native CLI: {error}");
                 return;
             }
+        };
+        self.process_tree=match process_tree::ProcessTree::new(&child) {
+            Ok(tree)=>Some(tree),
+            Err(error)=>{let _=child.kill();let _=child.wait();self.status=format!("Could not supervise worker process: {error}");return;}
         };
 
         let (tx, rx) = mpsc::channel::<String>();
@@ -471,9 +519,9 @@ impl NativeApp {
 
     fn stop(&mut self) {
         if let Some(mut child) = self.child.take() {
-            match child.kill() {
+            let result=if self.process_tree.take().is_some(){child.wait().map(|_|())}else{child.kill().and_then(|_|child.wait().map(|_|()))};
+            match result {
                 Ok(()) => {
-                    let _ = child.wait();
                     self.status = "Operation stopped".to_owned();
                     self.log.push_str("[GUI] Native worker stopped.\n");
                 }
@@ -484,12 +532,19 @@ impl NativeApp {
     }
 
     fn run_utility(&mut self, subcommand: &str) {
+        self.run_utility_args(&[subcommand.to_owned()]);
+    }
+
+    fn run_utility_args(&mut self, args:&[String]) {
         if self.child.is_some() {
             self.status = "Stop the running operation before using a diagnostic.".to_owned();
             return;
         }
         let cli = self.cli_path.trim();
-        match Command::new(cli).arg(subcommand).output() {
+        let subcommand=args.first().map(String::as_str).unwrap_or("diagnostic");
+        let mut command=Command::new(cli);command.args(args);
+        #[cfg(windows)] {use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
+        match command.output() {
             Ok(output) => {
                 self.log.clear();
                 self.log.push_str(&String::from_utf8_lossy(&output.stdout));
@@ -524,6 +579,7 @@ impl eframe::App for NativeApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            egui::ScrollArea::vertical().id_salt("workflow-form").show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label("Workflow");
                 egui::ComboBox::from_id_salt("workflow")
@@ -534,16 +590,25 @@ impl eframe::App for NativeApp {
                             Workflow::TransformerFullFinetune,
                             Workflow::TransformerFinetune,
                             Workflow::TransformerGenerate,
+                            Workflow::VisionTrain,
+                            Workflow::VisionGenerate,
+                            Workflow::ImageGenerate,
                             Workflow::HierarchosTrain,
                             Workflow::HierarchosFinetune,
                             Workflow::HierarchosInference,
                         ] {
-                            ui.selectable_value(&mut self.mode, mode, mode.label());
+                            if ui.selectable_value(&mut self.mode, mode, mode.label()).changed() && mode.is_multimodal() {
+                                self.hf_model=false;self.hf_dataset=false;
+                                if mode==Workflow::VisionTrain {self.batch_size="1".into();}
+                            }
                         }
                     });
             });
             ui.add_space(6.0);
 
+            if self.mode.is_multimodal() {
+                self.multimodal_form(ui);
+            } else {
             if self.mode == Workflow::HierarchosInference {
                 self.hf_model = false;
             }
@@ -735,6 +800,7 @@ impl eframe::App for NativeApp {
                 }
             }
 
+            }
             ui.separator();
             ui.horizontal(|ui| {
                 ui.label("Native CLI");
@@ -758,13 +824,15 @@ impl eframe::App for NativeApp {
                     .add_enabled(!running, egui::Button::new("Check backend"))
                     .clicked()
                 {
-                    self.run_utility("doctor");
+                    self.run_utility_args(&self.backend_check_args());
                 }
                 if ui
-                    .add_enabled(!running, egui::Button::new("List architectures"))
+                    .add_enabled(!running, egui::Button::new(if self.mode==Workflow::ImageGenerate{"Image model help"}else if self.mode.is_multimodal(){"Inspect image package"}else{"List architectures"}))
                     .clicked()
                 {
-                    self.run_utility("architectures");
+                    if self.mode==Workflow::ImageGenerate{self.run_utility_args(&["image-generate".into(),"--help".into()]);}
+                    else if self.mode.is_multimodal(){self.run_utility_args(&["vision-info".into(),"--model-path".into(),self.model.trim().into()]);}
+                    else{self.run_utility("architectures");}
                 }
             });
 
@@ -788,6 +856,7 @@ impl eframe::App for NativeApp {
                             .interactive(false),
                     );
                 });
+            });
         });
     }
 }
@@ -797,6 +866,7 @@ enum FileChoice {
     File,
     Folder,
     Either,
+    SaveImage,
 }
 
 fn path_row(
@@ -810,6 +880,11 @@ fn path_row(
         ui.label(label);
         ui.add(egui::TextEdit::singleline(value).desired_width(520.0));
         let picked = match choice {
+            FileChoice::SaveImage => ui
+                .add_enabled(browse_enabled, egui::Button::new("Save as…"))
+                .clicked()
+                .then(|| rfd::FileDialog::new().add_filter("PNG image", &["png"]).set_file_name("generated.png").save_file())
+                .flatten(),
             FileChoice::File => ui
                 .add_enabled(browse_enabled, egui::Button::new("Browse file…"))
                 .clicked()
@@ -857,6 +932,13 @@ fn discover_cli() -> PathBuf {
                 .join(platform_executable("hierarchos-native-cli"));
             if bin_sibling.is_file() {
                 return bin_sibling;
+            }
+            // Separate crate builds use separate target directories. Prefer the
+            // newest CLI in this checkout when no portable sibling was found.
+            if let Some(root)=dir.ancestors().find(|p|p.join("hierarchos-gui/Cargo.toml").is_file()&&p.join("hierarchos-native-cli/Cargo.toml").is_file()) {
+                let name=platform_executable("hierarchos-native-cli");
+                let candidates=["target/debug","target/release","hierarchos-native-cli/target/debug","hierarchos-native-cli/target/release","hierarchos-vulkan/target/debug","hierarchos-vulkan/target/release"];
+                if let Some(path)=candidates.into_iter().map(|p|root.join(p).join(&name)).filter(|p|p.is_file()).max_by_key(|p|std::fs::metadata(p).and_then(|m|m.modified()).ok()) {return path;}
             }
         }
     }

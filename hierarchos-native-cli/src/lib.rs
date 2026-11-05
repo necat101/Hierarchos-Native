@@ -29,6 +29,8 @@ use sha2::{Digest, Sha256};
 use tokenizers::Tokenizer;
 
 mod deepseek_v41_training;
+mod vision;
+mod image_generation;
 
 const TOKENIZER_ASSETS: &[&str] = &[
     "tokenizer.json",
@@ -136,6 +138,9 @@ fn run() -> Result<u8, String> {
         return Ok(0);
     }
     match mode.as_str() {
+        "vision-train" | "vision-generate" | "vision-info" => vision::run(&mode, argv),
+        "image-generate" => image_generation::run(argv, false),
+        "image-engine-info" => image_generation::run(argv, true),
         "train" => run_training(mode.as_str(), argv),
         "finetune" => run_training(mode.as_str(), argv),
         "transformer-train" | "transformer-finetune" => run_transformer_training(mode.as_str(), argv),
@@ -175,6 +180,11 @@ Usage:\n\
   hierarchos-native-cli transformer-train --model-path MODEL --train DATA.jsonl --out-dir OUT [options]\n\
   hierarchos-native-cli transformer-finetune --model-path MODEL --train DATA.jsonl --out-dir OUT [--peft --architecture MODEL_TYPE | --full-finetune] [options]\n\
   hierarchos-native-cli transformer-generate --model-path MODEL --prompt TEXT [generation options]\n\
+  hierarchos-native-cli vision-train --model-path IMAGE_MODEL --train DATA.jsonl --out-dir OUT [options]\n\
+  hierarchos-native-cli vision-generate --model-path IMAGE_MODEL --image IMAGE.png --prompt TEXT [options]\n\
+  hierarchos-native-cli vision-info --model-path IMAGE_MODEL\n\
+  hierarchos-native-cli image-generate --model-path IMAGE_CHECKPOINT --prompt TEXT --output NEW.png [options]\n\
+  hierarchos-native-cli image-engine-info [--engine SD_CLI]\n\
   hierarchos-native-cli infer --model-path MODEL --prompt TEXT [generation options]  # shorthand\n\
   hierarchos-native-cli chat --model-path MODEL [--prompt TEXT] [sampling options]\n\
   hierarchos-native-cli benchmark --model-path MODEL [--prompt TEXT] [--benchmark-iterations N]\n\
