@@ -1,0 +1,61 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+// RDNA3 serial scheduling control for the same Windows AVX512-host arithmetic.
+// The packed module coalesces eight moment streams per row across GPU lanes;
+// this control owns all streams in one invocation for exact paired timings.
+layout(local_size_x=64) in;
+layout(set=0,binding=0,std430) readonly buffer X { float x[]; };
+layout(set=0,binding=1,std430) readonly buffer W { float w[]; };
+layout(set=0,binding=2,std430) readonly buffer B { float b[]; };
+layout(set=0,binding=3,std430) writeonly buffer Y { float y[]; };
+layout(set=0,binding=4,std430) writeonly buffer Mean { float means[]; };
+layout(set=0,binding=5,std430) writeonly buffer Rstd { float rstds[]; };
+layout(push_constant) uniform Push { uint rows; uint dim; float eps; } pc;
+float reciprocal(uint n) {
+    const uint bits[16]=uint[16](0x3f800000u,0x3f000000u,0x3eaaaaabu,0x3e800000u,
+        0x3e4ccccdu,0x3e2aaaabu,0x3e124925u,0x3e000000u,0x3de38e39u,0x3dcccccdu,
+        0x3dba2e8cu,0x3daaaaabu,0x3d9d89d9u,0x3d924925u,0x3d888889u,0x3d800000u);
+    return uintBitsToFloat(bits[n-1u]);
+}
+void main() {
+    uint row=gl_GlobalInvocationID.x;
+    if(row>=pc.rows) return;
+    uint base=row*pc.dim, vectors=pc.dim/8u;
+    precise float m[8],v[8];
+    for(uint lane=0u;lane<8u;++lane) {m[lane]=0.0;v[lane]=0.0;}
+    for(uint j=0u;j<vectors;++j) {
+        for(uint lane=0u;lane<8u;++lane) {
+            float a=x[base+j*8u+lane];
+            precise float delta=a-m[lane];
+            precise float step=reciprocal(j+1u)*delta;
+            m[lane]+=step;
+            precise float centered=a-m[lane];
+            precise float product=delta*centered;
+            v[lane]+=product;
+        }
+    }
+    precise float mean=0.0,variance=0.0;
+    uint count=0u;
+    for(uint lane=0u;lane<8u;++lane) {
+        precise float delta=m[lane]-mean;
+        precise float c=reciprocal(lane+1u);
+        precise float step=c*delta;
+        mean+=step;
+        precise float square=delta*delta;
+        precise float dc=square*c;
+        precise float correction=dc*float(count);
+        precise float add=v[lane]+correction;
+        variance+=add;count+=vectors;
+    }
+    variance=fp32_div(variance,float(pc.dim));
+    precise float with_eps=variance+pc.eps;
+    float rstd=fp32_sqrt_recip(with_eps);
+    means[row]=mean;rstds[row]=rstd;
+    for(uint col=0u;col<pc.dim;++col) {
+        precise float centered=x[base+col]-mean;
+        precise float norm=centered*rstd;
+        precise float scaled=norm*w[col];
+        y[base+col]=scaled+b[col];
+    }
+}

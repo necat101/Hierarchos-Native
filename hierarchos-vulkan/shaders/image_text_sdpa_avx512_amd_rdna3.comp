@@ -1,0 +1,160 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_scalar_exp_rdna3.glsl"
+
+// RDNA3 flash-SDPA for the measured AVX512-host wide image composition.
+// QK uses four materialized reduction streams folded (0+2)+(1+3), measured
+// independently against this host's MKL. Native FMA accumulates E@V, then the
+// result is normalized, following Torch 2.6 FlashAttentionKernel.cpp.
+// Admission is seq=kv_seq=8, qk/value head_dim=16, plain features only.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KBuffer { float k_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer VBuffer { float v_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer QueryMaskBuffer { float query_mask[]; };
+layout(set = 0, binding = 4, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 5, std430) readonly buffer AlibiPositionBuffer { float alibi_positions[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 7, std430) readonly buffer SinkBuffer { float sink_values[]; };
+layout(set = 0, binding = 8, std430) readonly buffer RelativeBiasBuffer { float relative_bias[]; };
+layout(set = 0, binding = 9, std430) readonly buffer SparseMaskBuffer { float sparse_mask[]; };
+layout(set = 0, binding = 10, std430) readonly buffer KvPageTableBuffer { uint kv_page_table[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint query_hidden_size;
+    uint value_hidden_size;
+    uint num_heads;
+    uint num_key_value_heads;
+    uint window_size;
+    float scale;
+    float value_scale;
+    float softcap;
+    uint alibi_mode;
+    float alibi_bias_max;
+    float dropout_p;
+    uint rng_step;
+    uint rng_site;
+    uint rng_seed;
+    uint has_sink;
+    uint causal;
+    uint relative_bias_mode;
+    uint relative_bias_num_buckets;
+    uint relative_bias_max_distance;
+    uint query_position_offset;
+    uint has_sparse_mask;
+    uint compressed_key_count;
+    uint compressed_key_rate;
+    uint paged_kv;
+    uint kv_page_size;
+    uint kv_page_table_stride;
+    uint unfused_qk;
+} pc;
+
+const uint MAX_SHORT_SEQ = 16u;
+
+float rdna3_exp20(float x) {
+    if (x < uintBitsToFloat(0xc2aeac50u)) return 0.0;
+    float n=floor(fma(x,uintBitsToFloat(0x3fb8aa3bu),0.5));
+    float r=fma(-n,uintBitsToFloat(0x3f317218u),x);
+    float p=fma(r,0.00828929059,0.0418978221);
+    p=fma(r,p,0.166676521); p=fma(r,p,0.499991506);
+    p=fma(r,p,0.999999701); p=fma(r,p,1.0);
+    precise float scaled=p*uintBitsToFloat(uint(int(n)+126)<<23u);
+    return scaled*2.0;
+}
+void main() {
+    uint query_seq = pc.query_seq_len;
+    uint total_rows = pc.batch_size * pc.num_heads * query_seq;
+    uint row_index = gl_GlobalInvocationID.x;
+    if (row_index >= total_rows) {
+        return;
+    }
+    // Same row order as the generic [query, head, batch] dispatch.
+    uint query = row_index % query_seq;
+    uint head = (row_index / query_seq) % pc.num_heads;
+    uint batch = row_index / (query_seq * pc.num_heads);
+
+    uint value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
+    uint output_hidden_size = value_head_dim * pc.num_heads;
+    uint row = batch * query_seq + query;
+    uint out_base = row * output_hidden_size + head * value_head_dim;
+    if (pc.causal != 2u && query_mask[row] <= 0.0) {
+        for (uint d = 0u; d < value_head_dim; ++d) {
+            output_values[out_base + d] = 0.0;
+        }
+        return;
+    }
+
+    uint qk_head_dim = pc.query_hidden_size / pc.num_heads;
+    uint key_hidden_size = qk_head_dim * pc.num_key_value_heads;
+    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+    uint kv_head = head / queries_per_kv;
+    uint q_base = row * pc.query_hidden_size + head * qk_head_dim;
+    uint key_row_base = batch * pc.key_value_seq_len;
+    uint k_base = key_row_base * key_hidden_size + kv_head * qk_head_dim;
+    uint first_key = pc.window_size != 0u && query+1u>pc.window_size ? query+1u-pc.window_size : 0u;
+    uint last_key = pc.causal != 0u
+        ? min(query, pc.key_value_seq_len - 1u)
+        : pc.key_value_seq_len - 1u;
+
+    float scores[MAX_SHORT_SEQ];
+    bool visible[MAX_SHORT_SEQ];
+    bool found = false;
+    float max_score = -3.402823466e+38;
+    for (uint key = first_key; key <= last_key; ++key) {
+        bool key_visible = key_mask[key_row_base + key] > 0.0;
+        visible[key] = key_visible;
+        if (!key_visible) {
+            continue;
+        }
+        uint k_row = k_base + key * key_hidden_size;
+        precise float partial[4]=float[4](0.0,0.0,0.0,0.0);
+        for (uint d=0u;d<qk_head_dim;++d) {
+            precise float product=q_values[q_base+d]*k_values[k_row+d];
+            partial[d&3u]+=product;
+        }
+        precise float even=partial[0]+partial[2];
+        precise float odd=partial[1]+partial[3];
+        precise float score=even+odd;
+        score *= pc.scale;
+        scores[key] = score;
+        max_score = found ? max(max_score, score) : score;
+        found = true;
+    }
+    if (!found) {
+        for (uint d = 0u; d < value_head_dim; ++d) {
+            output_values[out_base + d] = 0.0;
+        }
+        return;
+    }
+
+    float exp_sum = 0.0;
+    for (uint key = first_key; key <= last_key; ++key) {
+        if (!visible[key]) {
+            continue;
+        }
+        float e = rdna3_scalar_expf(scores[key] - max_score);
+        scores[key] = e;
+        exp_sum += e;
+    }
+    float inv_sum=fp32_div(1.0,exp_sum);
+    for (uint d = 0u; d < value_head_dim; ++d) {
+        precise float value = 0.0;
+        for (uint key = first_key; key <= last_key; ++key) {
+            if (!visible[key]) {
+                continue;
+            }
+            uint v_index = (key_row_base + key) * pc.value_hidden_size
+                + kv_head * value_head_dim + d;
+            precise float scaled = v_values[v_index] * pc.value_scale;
+            precise float product = scores[key] * scaled;
+            value += product;
+        }
+        output_values[out_base + d] = value*inv_sum;
+    }
+}

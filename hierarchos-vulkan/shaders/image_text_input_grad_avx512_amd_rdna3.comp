@@ -1,0 +1,21 @@
+#version 450
+// MKL 2025 on the AVX512 host: dY@W at M=16, N=64, K=256/320
+// uses two ascending-K FMA panels, then one rounded add. Independent CPU-word
+// diagnosis admits only those shapes. RDNA3 uses native IEEE FMA and contiguous
+// weight-column loads; no software-FMA emulation or CPU-width substitution.
+layout(local_size_x=16,local_size_y=16) in;
+layout(set=0,binding=0,std430) readonly buffer DY { float dy[]; };
+layout(set=0,binding=1,std430) readonly buffer W { float w[]; };
+layout(set=0,binding=2,std430) writeonly buffer DX { float dx[]; };
+layout(push_constant) uniform Push { uint rows; uint input_dim; uint output_dim; } pc;
+void main() {
+    uint col=gl_GlobalInvocationID.x, row=gl_GlobalInvocationID.y;
+    if(row>=pc.rows || col>=pc.input_dim) return;
+    uint panel=pc.output_dim/2u;
+    precise float a=0.0,b=0.0;
+    for(uint k=0u;k<panel;++k) {
+        a=fma(dy[row*pc.output_dim+k],w[k*pc.input_dim+col],a);
+        b=fma(dy[row*pc.output_dim+k+panel],w[(k+panel)*pc.input_dim+col],b);
+    }
+    dx[row*pc.input_dim+col]=a+b;
+}

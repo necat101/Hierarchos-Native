@@ -1,0 +1,170 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#ifdef RDNA3_CPU_RECIPROCAL
+#include "fp32_sqrt_recip.glsl"
+#endif
+
+// RDNA3 short-sequence text attention.
+//
+// The generic transformer_attention_forward kernel launches one invocation per
+// (batch, head, query) row with local_size_x = 1.  On RDNA3 that leaves 63 of
+// the 64 lanes in every wave idle.  This module keeps exactly the generic
+// kernel's plain-path arithmetic -- hardware fma for QK and P@V, hardware exp,
+// a plain FP32 reciprocal, and per-row key order -- but packs 64 consecutive
+// rows into one wave64 workgroup.  No row ever reads another row's scores, so
+// the result is bit-identical; only occupancy changes.
+//
+// Deliberately a separate module and a separate gate from the AVX2 text
+// specializations and from the vision RDNA3 family.  It is installed only by
+// the shared image-text composition, only on RDNA3, and only for the plain
+// short path checked by the host:
+//   seq <= 16, kv_seq <= 16, no sink/alibi/relative/sparse/compressed/paged/
+//   window/softcap/dropout, value_scale == 1, unfused_qk == 0, offset == 0,
+//   causal in {0, 1}.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KBuffer { float k_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer VBuffer { float v_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer QueryMaskBuffer { float query_mask[]; };
+layout(set = 0, binding = 4, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 5, std430) readonly buffer AlibiPositionBuffer { float alibi_positions[]; };
+layout(set = 0, binding = 6, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(set = 0, binding = 7, std430) readonly buffer SinkBuffer { float sink_values[]; };
+layout(set = 0, binding = 8, std430) readonly buffer RelativeBiasBuffer { float relative_bias[]; };
+layout(set = 0, binding = 9, std430) readonly buffer SparseMaskBuffer { float sparse_mask[]; };
+layout(set = 0, binding = 10, std430) readonly buffer KvPageTableBuffer { uint kv_page_table[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint query_hidden_size;
+    uint value_hidden_size;
+    uint num_heads;
+    uint num_key_value_heads;
+    uint window_size;
+    float scale;
+    float value_scale;
+    float softcap;
+    uint alibi_mode;
+    float alibi_bias_max;
+    float dropout_p;
+    uint rng_step;
+    uint rng_site;
+    uint rng_seed;
+    uint has_sink;
+    uint causal;
+    uint relative_bias_mode;
+    uint relative_bias_num_buckets;
+    uint relative_bias_max_distance;
+    uint query_position_offset;
+    uint has_sparse_mask;
+    uint compressed_key_count;
+    uint compressed_key_rate;
+    uint paged_kv;
+    uint kv_page_size;
+    uint kv_page_table_stride;
+    uint unfused_qk;
+} pc;
+
+const uint MAX_SHORT_SEQ = 16u;
+
+void main() {
+    uint query_seq = pc.query_seq_len;
+    uint total_rows = pc.batch_size * pc.num_heads * query_seq;
+    uint row_index = gl_GlobalInvocationID.x;
+    if (row_index >= total_rows) {
+        return;
+    }
+    // Same row order as the generic [query, head, batch] dispatch.
+    uint query = row_index % query_seq;
+    uint head = (row_index / query_seq) % pc.num_heads;
+    uint batch = row_index / (query_seq * pc.num_heads);
+
+    uint value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
+    uint output_hidden_size = value_head_dim * pc.num_heads;
+    uint row = batch * query_seq + query;
+    uint out_base = row * output_hidden_size + head * value_head_dim;
+    if (pc.causal != 2u && query_mask[row] <= 0.0) {
+        for (uint d = 0u; d < value_head_dim; ++d) {
+            output_values[out_base + d] = 0.0;
+        }
+        return;
+    }
+
+    uint qk_head_dim = pc.query_hidden_size / pc.num_heads;
+    uint key_hidden_size = qk_head_dim * pc.num_key_value_heads;
+    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+    uint kv_head = head / queries_per_kv;
+    uint q_base = row * pc.query_hidden_size + head * qk_head_dim;
+    uint key_row_base = batch * pc.key_value_seq_len;
+    uint k_base = key_row_base * key_hidden_size + kv_head * qk_head_dim;
+    uint last_key = pc.causal != 0u
+        ? min(query, pc.key_value_seq_len - 1u)
+        : pc.key_value_seq_len - 1u;
+
+    float scores[MAX_SHORT_SEQ];
+    bool visible[MAX_SHORT_SEQ];
+    bool found = false;
+    float max_score = -3.402823466e+38;
+    for (uint key = 0u; key <= last_key; ++key) {
+        bool key_visible = key_mask[key_row_base + key] > 0.0;
+        visible[key] = key_visible;
+        if (!key_visible) {
+            continue;
+        }
+        float score = 0.0;
+        uint k_row = k_base + key * key_hidden_size;
+        for (uint d = 0u; d < qk_head_dim; ++d) {
+            score = fma(q_values[q_base + d], k_values[k_row + d], score);
+        }
+        score *= pc.scale;
+        scores[key] = score;
+        max_score = found ? max(max_score, score) : score;
+        found = true;
+    }
+    if (!found) {
+        for (uint d = 0u; d < value_head_dim; ++d) {
+            output_values[out_base + d] = 0.0;
+        }
+        return;
+    }
+
+    float exp_sum = 0.0;
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (!visible[key]) {
+            continue;
+        }
+        float e = exp(scores[key] - max_score);
+        scores[key] = e;
+        exp_sum += e;
+    }
+    float inv_sum =
+#ifdef RDNA3_CPU_RECIPROCAL
+        fp32_div(1.0, exp_sum);
+#else
+        1.0 / exp_sum;
+#endif
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (!visible[key]) {
+            continue;
+        }
+        float probability = scores[key] * inv_sum;
+        probability *= 1.0;
+        scores[key] = probability;
+    }
+
+    for (uint d = 0u; d < value_head_dim; ++d) {
+        float value = 0.0;
+        for (uint key = 0u; key <= last_key; ++key) {
+            if (!visible[key]) {
+                continue;
+            }
+            uint v_index = (key_row_base + key) * pc.value_hidden_size
+                + kv_head * value_head_dim + d;
+            value = fma(scores[key], v_values[v_index] * pc.value_scale, value);
+        }
+        output_values[out_base + d] = value;
+    }
+}

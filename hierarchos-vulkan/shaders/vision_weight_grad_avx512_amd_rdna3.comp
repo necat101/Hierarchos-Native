@@ -1,0 +1,17 @@
+#version 450
+// The AVX512 host's MKL image dW uses an ascending row FMA reduction.
+// This is distinct from the eight interleaved streams of the AVX2 contract.
+// RDNA3 uses native IEEE FMA, with adjacent lanes loading adjacent input cols.
+layout(local_size_x=16,local_size_y=16) in;
+layout(set=0,binding=0,std430) readonly buffer X {float x[];};
+layout(set=0,binding=1,std430) readonly buffer DY {float dy[];};
+layout(set=0,binding=2,std430) writeonly buffer DW {float dw[];};
+layout(push_constant) uniform Push {uint rows;uint input_dim;uint output_dim;} pc;
+void main() {
+    uint col=gl_GlobalInvocationID.x,out_row=gl_GlobalInvocationID.y;
+    if(col>=pc.input_dim || out_row>=pc.output_dim) return;
+    precise float sum=0.0;
+    for(uint row=0u;row<pc.rows;++row)
+        sum=fma(dy[row*pc.output_dim+out_row],x[row*pc.input_dim+col],sum);
+    dw[out_row*pc.input_dim+col]=sum;
+}

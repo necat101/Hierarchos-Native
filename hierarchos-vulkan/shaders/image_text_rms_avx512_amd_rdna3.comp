@@ -1,0 +1,85 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+// Width-64 RMSNorm on this Windows AVX512 host. ATen's SumKernel accumulates
+// four independent vector streams and folds them before folding lanes.
+// A native RDNA3 workgroup packs 64 independent rows, with no software FMA.
+layout(local_size_x=64) in;
+#ifdef RDNA3_RMS_BACKWARD
+layout(set=0,binding=0,std430) readonly buffer DY { float dy[]; };
+layout(set=0,binding=1,std430) readonly buffer X { float x[]; };
+layout(set=0,binding=2,std430) readonly buffer W { float w[]; };
+layout(set=0,binding=3,std430) readonly buffer RS { float rs[]; };
+layout(set=0,binding=4,std430) readonly buffer MS { float ms[]; };
+#ifdef RDNA3_RMS_RESIDUAL
+layout(set=0,binding=5,std430) readonly buffer Residual { float residual[]; };
+layout(set=0,binding=6,std430) writeonly buffer Branch { float branch[]; };
+layout(set=0,binding=7,std430) writeonly buffer DX { float dx[]; };
+#else
+layout(set=0,binding=5,std430) writeonly buffer DX { float dx[]; };
+#endif
+layout(push_constant) uniform Push {
+    uint rows; uint dim; uint groups; float offset;
+    uint pow_rstd; uint unfused; uint exact_pow;
+} pc;
+#else
+layout(set=0,binding=0,std430) readonly buffer X { float x[]; };
+layout(set=0,binding=1,std430) readonly buffer W { float w[]; };
+layout(set=0,binding=2,std430) writeonly buffer Y { float y[]; };
+layout(set=0,binding=3,std430) writeonly buffer RS { float rs[]; };
+layout(set=0,binding=4,std430) writeonly buffer MS { float ms[]; };
+layout(push_constant) uniform Push {
+    uint rows; uint dim; uint groups; float eps; float offset;
+    uint pow_rstd; uint unfused; uint refinement;
+} pc;
+#endif
+void main() {
+    uint row=gl_GlobalInvocationID.x;
+    if(row>=pc.rows) return;
+    uint base=row*64u, wb=(row%pc.groups)*64u;
+    precise float partial[32];
+    for(uint lane=0u;lane<32u;++lane) partial[lane]=0.0;
+    for(uint col=0u;col<64u;++col) {
+#ifdef RDNA3_RMS_BACKWARD
+        precise float weighted=dy[base+col]*(w[wb+col]+pc.offset);
+        precise float product=weighted*x[base+col];
+#else
+        precise float product=x[base+col]*x[base+col];
+#endif
+        partial[col&31u]+=product;
+    }
+    precise float sum=0.0;
+    for(uint lane=0u;lane<8u;++lane) {
+        precise float p=partial[lane]+partial[8u+lane];
+        p+=partial[16u+lane]; p+=partial[24u+lane]; sum+=p;
+    }
+#ifdef RDNA3_RMS_BACKWARD
+    precise float square=rs[row]*rs[row];
+    precise float cube=square*rs[row];
+    precise float half_sum=-0.5*sum;
+    precise float gm=half_sum*cube;
+    precise float gs=gm*(1.0/64.0);
+    for(uint col=0u;col<64u;++col) {
+        precise float weighted=dy[base+col]*(w[wb+col]+pc.offset);
+        precise float direct=weighted*rs[row];
+        precise float twice=2.0*x[base+col];
+        precise float indirect=gs*twice;
+#ifdef RDNA3_RMS_RESIDUAL
+        branch[base+col]=direct+indirect;
+        precise float added=residual[base+col]+direct;
+        dx[base+col]=added+indirect;
+#else
+        dx[base+col]=direct+indirect;
+#endif
+    }
+#else
+    precise float mean=sum*(1.0/64.0);
+    precise float with_eps=mean+pc.eps;
+    float r=fp32_sqrt_recip(with_eps);
+    ms[row]=with_eps; rs[row]=r;
+    for(uint col=0u;col<64u;++col) {
+        precise float normalized=x[base+col]*r;
+        y[base+col]=normalized*(w[wb+col]+pc.offset);
+    }
+#endif
+}

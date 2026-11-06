@@ -37,6 +37,8 @@ fn run() -> Result<()> {
     let mut fixture = None;
     let mut output = None;
     let mut stages = None;
+    let mut text_stages = None;
+    let mut backward_stages = None;
     let mut args = std::env::args_os().skip(1);
     while let Some(arg) = args.next() {
         let value = PathBuf::from(args.next().context("missing argument value")?);
@@ -45,6 +47,8 @@ fn run() -> Result<()> {
             Some("--fixture") => fixture = Some(value),
             Some("--output") => output = Some(value),
             Some("--stages") => stages = Some(value),
+            Some("--text-stages") => text_stages = Some(value),
+            Some("--backward-stages") => backward_stages = Some(value),
             _ => bail!("unknown argument {arg:?}"),
         }
     }
@@ -63,6 +67,17 @@ fn run() -> Result<()> {
         f.image_count,
     )?;
     let pixels = graph.preprocess_rgb8(&f.rgb)?;
+    if let Some(path) = text_stages {
+        fs::write(
+            path,
+            serde_json::to_vec_pretty(&graph.text_stage_dump(
+                &f.input_ids,
+                &f.attention_mask,
+                &pixels,
+            )?)?,
+        )?;
+        return Ok(());
+    }
     if let Some(path) = stages {
         fs::write(
             path,
@@ -95,6 +110,11 @@ fn run() -> Result<()> {
             &f.loss_weights,
             hyper,
         )?;
+        if result.text.step == 1 {
+            if let Some(path) = &backward_stages {
+                fs::write(path, serde_json::to_vec(&graph.debug_text_training_states()?)?)?;
+            }
+        }
         graph.export_hf_package(&model, output.join(format!("step-{}", result.text.step)))?;
         steps.push(serde_json::json!({"forward":forward,"training":result}));
     }

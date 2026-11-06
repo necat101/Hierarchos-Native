@@ -6747,6 +6747,30 @@
       "target_env": "vulkan1.0"
     },
     {
+      "artifact": "vision_linear_hw_fma_amd_rdna3.spv",
+      "source": "vision_linear_hw_fma_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_attention_short_amd_rdna3.spv",
+      "source": "transformer_attention_short_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "vision_linear_cpu_avx2.spv",
       "source": "vision_linear_cpu_avx2.comp",
       "compiler": "glslangValidator",
@@ -6755,6 +6779,19 @@
         "-V",
         "-S",
         "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "vision_linear_input_grad_hw_fma_amd_rdna3.spv",
+      "source": "vision_linear_hw_fma_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DVISION_TRANSPOSE_WEIGHT=1"
       ],
       "target_env": "vulkan1.0"
     },
@@ -6776,6 +6813,18 @@
       "source": "vision_linear_input_grad_wide_cpu_avx2.comp",
       "compiler": "glslangValidator",
       "compiler_version": "16.6.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "vision_linear_weight_grad_hw_fma_amd_rdna3.spv",
+      "source": "vision_linear_weight_grad_hw_fma_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
       "flags": [
         "-V",
         "-S",
@@ -6811,6 +6860,18 @@
       "source": "vision_linear_weight_grad_wide_cpu_avx2.comp",
       "compiler": "glslangValidator",
       "compiler_version": "16.6.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "vision_patch_linear_hw_fma_amd_rdna3.spv",
+      "source": "vision_patch_linear_hw_fma_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
       "flags": [
         "-V",
         "-S",
@@ -6897,6 +6958,338 @@
       "compiler": "glslc",
       "compiler_version": "2023.8",
       "flags": [],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_attention_forward_avx512_amd_rdna3.spv",
+      "source": "image_text_attention_forward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_attention_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_attention_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_eager_avx512_amd_rdna3.spv",
+      "source": "image_text_eager_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_eager_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_eager_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_EAGER_BACKWARD"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_gelu_avx512_amd_rdna3.spv",
+      "source": "image_text_gelu_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_gelu_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_gelu_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_GELU_BACKWARD"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_input_grad_avx512_amd_rdna3.spv",
+      "source": "image_text_input_grad_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_layer_norm_avx512_amd_rdna3.spv",
+      "source": "image_text_layer_norm_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_layer_norm_serial_avx512_amd_rdna3.spv",
+      "source": "image_text_layer_norm_serial_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_layer_norm_input_grad_avx512_amd_rdna3.spv",
+      "source": "image_text_layer_norm_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_layer_norm_param_grad_avx512_amd_rdna3.spv",
+      "source": "image_text_layer_norm_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_NORM_PARAMS"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_pow_rms_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_pow_rms_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_pow_rms_residual_avx512_amd_rdna3.spv",
+      "source": "image_text_pow_rms_residual_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_rms_avx512_amd_rdna3.spv",
+      "source": "image_text_rms_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_rms_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_rms_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_RMS_BACKWARD"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_rms_residual_avx512_amd_rdna3.spv",
+      "source": "image_text_rms_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_RMS_BACKWARD",
+        "-DRDNA3_RMS_RESIDUAL"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_rope_forward_avx512_amd_rdna3.spv",
+      "source": "image_text_rope_forward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_rope_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_rope_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_sdpa_avx512_amd_rdna3.spv",
+      "source": "image_text_sdpa_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_sdpa_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_sdpa_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_silu_avx512_amd_rdna3.spv",
+      "source": "image_text_silu_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_silu_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_silu_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_SILU_BACKWARD"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_attention_short_cpu_reciprocal_amd_rdna3.spv",
+      "source": "transformer_attention_short_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_CPU_RECIPROCAL"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "vision_attention_avx512_amd_rdna3.spv",
+      "source": "vision_attention_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "vision_projector_rms_avx512_amd_rdna3.spv",
+      "source": "vision_projector_rms_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "vision_weight_grad_avx512_amd_rdna3.spv",
+      "source": "vision_weight_grad_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rdna3_pow_probe.spv",
+      "source": "rdna3_pow_probe.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
       "target_env": "vulkan1.0"
     }
   ]

@@ -611,6 +611,68 @@ pub fn rdna3_module_enabled(device: &VulkanDevice) -> bool {
     !vendor_kernels_disabled() && effective_vendor(device) == GpuVendor::Amd && is_amd_rdna3(device)
 }
 
+/// Qualification switch: restore the committed multimodal kernels on RDNA3.
+pub const HIERARCHOS_VULKAN_RDNA3_VISION_ENV: &str = "HIERARCHOS_VULKAN_RDNA3_VISION";
+
+/// Whether the RDNA3 hardware-FMA multimodal kernels may be selected.
+///
+/// Deliberately additive: Gen9, portable and every non-RDNA3 AMD part keep the
+/// committed multimodal kernels. The gate reuses the RDNA3 PCI table and the
+/// shapes the qualified modules declare. `HIERARCHOS_VULKAN_RDNA3_VISION=0` or
+/// `HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS` restores the prior modules.
+pub fn rdna3_vision_variants(device: &VulkanDevice) -> bool {
+    std::env::var_os(HIERARCHOS_VULKAN_RDNA3_VISION_ENV).is_none_or(|value| value != "0")
+        && rdna3_module_enabled(device)
+        && device.supports_storage_buffer_bindings(4)
+        && device.supports_compute_work_group_size([16, 16, 1])
+}
+
+/// Device-independent form of [`rdna3_vision_variants`], for regression tests.
+pub const fn rdna3_vision_capability(vendor_id: u32, device_id: u32) -> bool {
+    is_amd_rdna3_pci_id(vendor_id, device_id)
+}
+
+/// Qualification switch: restore the committed short text-attention kernel on RDNA3.
+pub const HIERARCHOS_VULKAN_RDNA3_TEXT_ENV: &str = "HIERARCHOS_VULKAN_RDNA3_TEXT";
+
+/// Whether the RDNA3 wave64 short text-attention module may be selected.
+///
+/// Separate from [`rdna3_vision_variants`]: this family is installed only by the
+/// shared image-text composition, needs all eleven attention bindings, and
+/// launches 64-wide workgroups. `HIERARCHOS_VULKAN_RDNA3_TEXT=0` or
+/// `HIERARCHOS_VULKAN_DISABLE_VENDOR_KERNELS` restores the generic kernel.
+pub fn rdna3_text_variants(device: &VulkanDevice) -> bool {
+    std::env::var_os(HIERARCHOS_VULKAN_RDNA3_TEXT_ENV).is_none_or(|value| value != "0")
+        && rdna3_module_enabled(device)
+        && device.supports_storage_buffer_bindings(11)
+        && device.supports_compute_work_group_size([64, 1, 1])
+}
+
+/// Numerical profile qualified against Windows Torch 2.6/MKL on Z1 Extreme.
+/// CPU capability alone does not identify an operator's reduction schedule.
+pub const fn rdna3_avx512_profile_matches(
+    vendor_id: u32,
+    device_id: u32,
+    driver_version: u32,
+    vector_width: u32,
+    windows: bool,
+) -> bool {
+    windows && vector_width == 16 && vendor_id == PCI_VENDOR_AMD
+        && device_id == 0x15bf && driver_version == 0x00800184
+}
+
+pub fn rdna3_avx512_cpu_contract(device: &VulkanDevice, vector_width: u32) -> bool {
+    rdna3_avx512_profile_matches(device.vendor_id(), device.device_id(),
+        device.driver_version(), vector_width, cfg!(target_os = "windows"))
+}
+
+/// Additional modules require 256 invocations and the generic adjoint's bindings.
+pub fn rdna3_avx512_variants(device: &VulkanDevice, vector_width: u32) -> bool {
+    rdna3_avx512_cpu_contract(device, vector_width) && rdna3_text_variants(device)
+        && device.supports_storage_buffer_bindings(15)
+        && device.supports_compute_work_group_size([256, 1, 1])
+}
+
 /// Geometry gate for the RDNA3 matmul modules.
 ///
 /// Deliberately the same structural threshold the portable modules use to pick

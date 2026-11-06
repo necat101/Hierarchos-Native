@@ -25462,6 +25462,107 @@ impl AttentionPush {
     }
 }
 
+/// Whether the RDNA3 wave64 short-attention module reproduces the generic
+/// plain path for this geometry. These are exactly the fields the module reads
+/// unconditionally; every excluded feature keeps the generic kernel.
+fn rdna3_short_attention_supported(push: &AttentionPush) -> bool {
+    push.batch_size > 0
+        && push.query_seq_len > 0
+        && push.query_seq_len <= 16
+        && push.key_value_seq_len > 0
+        && push.key_value_seq_len <= 16
+        && push.num_heads > 0
+        && push.num_key_value_heads > 0
+        && push.num_heads % push.num_key_value_heads == 0
+        && push.query_hidden_size % push.num_heads == 0
+        && push.value_hidden_size % push.num_key_value_heads == 0
+        && push.query_hidden_size / push.num_heads
+            == push.value_hidden_size / push.num_key_value_heads
+        && push.window_size == 0
+        && push.softcap == 0.0
+        && push.alibi_mode == 0
+        && push.relative_bias_mode == 0
+        && push.dropout_p == 0.0
+        && push.has_sink == 0
+        && push.causal <= 1
+        && push.query_position_offset == 0
+        && push.has_sparse_mask == 0
+        && push.compressed_key_count == 0
+        && push.paged_kv == 0
+        && push.unfused_qk == 0
+        && push.value_scale == 1.0
+}
+
+fn rdna3_avx512_sdpa_supported(push: &AttentionPush) -> bool {
+    let mut plain=*push;
+    plain.unfused_qk=0;
+    plain.window_size=0;
+    push.unfused_qk==1 && push.causal==1 && push.window_size<=8
+        && push.query_seq_len==8 && push.key_value_seq_len==8
+        && push.num_heads>0 && push.query_hidden_size/push.num_heads==8
+        && rdna3_short_attention_supported(&plain)
+}
+
+fn rdna3_avx512_eager_supported(push: &AttentionPush) -> bool {
+    let mut plain=*push;
+    plain.query_seq_len=8;plain.key_value_seq_len=8;
+    plain.window_size=0;plain.unfused_qk=0;
+    let known_kv_layout = (push.num_key_value_heads == 1 && push.value_hidden_size == 8)
+        || (push.num_key_value_heads == 2 && push.value_hidden_size == 16);
+    matches!(push.batch_size,1|2) && matches!(push.query_seq_len,8|10|20)
+        && push.key_value_seq_len==push.query_seq_len && push.query_hidden_size==16
+        && known_kv_layout && push.num_heads==2
+        && push.causal==1 && push.unfused_qk==1
+        && (push.window_size == 0 || push.window_size >= push.query_seq_len)
+        && rdna3_short_attention_supported(&plain)
+}
+
+fn rdna3_eager_push(push: &AttentionPush) -> [u32;9] {
+    [push.batch_size,push.query_seq_len,push.query_hidden_size,push.value_hidden_size,
+        push.num_heads,push.num_key_value_heads,push.window_size,push.scale.to_bits(),push.causal]
+}
+
+/// Dispatch the standard text attention. When the shared image-text
+/// composition installed the RDNA3 wave64 module and this push is the plain
+/// short path, rows are flattened into one 64-row grid; otherwise the committed
+/// generic kernel keeps its original geometry.
+fn record_text_attention_dispatch(
+    kernels: &TransformerKernels,
+    commands: &mut vulkan::ComputeBatch,
+    bindings: &[&GpuBuffer],
+    push: &AttentionPush,
+    geometry: [u32; 3],
+) -> Result<()> {
+    if let Some(family)=kernels.rdna3_avx512_eager.as_ref().filter(|_| rdna3_avx512_eager_supported(push)) {
+        let packed=rdna3_eager_push(push);
+        let rows=push.batch_size*push.num_heads*push.query_seq_len;
+        return family[0].record_dispatch(commands,&[bindings[0],bindings[1],bindings[2],bindings[3],bindings[4],bindings[6]],
+            bytemuck::cast_slice(&packed),[rows.div_ceil(64),1,1]);
+    }
+    if let Some(kernel) = kernels.rdna3_avx512_sdpa.as_ref() {
+        if rdna3_avx512_sdpa_supported(push) {
+            let rows = push.batch_size as u64 * push.num_heads as u64 * 8;
+            return kernel.record_dispatch(commands, bindings, bytemuck::bytes_of(push),
+                [rows.div_ceil(64) as u32, 1, 1]);
+        }
+    }
+    if let Some(kernel) = kernels.rdna3_short_attention.as_ref() {
+        if rdna3_short_attention_supported(push) {
+            let rows = push.batch_size as u64 * push.num_heads as u64 * push.query_seq_len as u64;
+            let groups = ((rows + 63) / 64) as u32;
+            return kernel.record_dispatch(
+                commands,
+                bindings,
+                bytemuck::bytes_of(push),
+                [groups, 1, 1],
+            );
+        }
+    }
+    kernels
+        .attention_forward
+        .record_dispatch(commands, bindings, bytemuck::bytes_of(push), geometry)
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct DsaIndexScoresPush {
@@ -26038,6 +26139,14 @@ struct TransformerKernels {
     /// ATen-compatible eight-lane Welford reduction, used by module instances
     /// that opted in through `VulkanLayerNorm::use_cpu_welford`.
     layer_norm_welford_forward: vulkan::ComputeKernel,
+    rdna3_avx512_layer_norm: Option<vulkan::ComputeKernel>,
+    rdna3_avx512_layer_norm_rows: usize,
+    rdna3_avx512_input_grad: Option<vulkan::ComputeKernel>,
+    rdna3_avx512_rms: Option<[vulkan::ComputeKernel; 3]>,
+    rdna3_avx512_sdpa: Option<vulkan::ComputeKernel>,
+    rdna3_avx512_sdpa_backward: Option<vulkan::ComputeKernel>,
+    rdna3_avx512_eager: Option<[vulkan::ComputeKernel;2]>,
+    rdna3_avx512_wide: bool,
     layer_norm_cpu_input_grad: vulkan::ComputeKernel,
     layer_norm_cpu_param_grad: vulkan::ComputeKernel,
     /// Shared CLIP adapter arithmetic; native towers retain their own policy.
@@ -26057,6 +26166,7 @@ struct TransformerKernels {
     cpu_adamw: crate::cpu_adamw::CpuAdamW,
     cpu_adamw_policy: Mutex<Option<crate::cpu_adamw::CpuAdamWHyperParams>>,
     attention_forward: vulkan::ComputeKernel,
+    rdna3_short_attention: Option<vulkan::ComputeKernel>,
     attention_backward: vulkan::ComputeKernel,
     alibi_positions: vulkan::ComputeKernel,
     position_add: vulkan::ComputeKernel,
@@ -26196,6 +26306,40 @@ struct TransformerKernels {
 }
 
 impl TransformerKernels {
+    fn install_rdna3_avx512_eager(&mut self, device: &VulkanDevice) -> Result<()> {
+        if !vendor::rdna3_avx512_variants(device, aten_vector_width()) {return Ok(());}
+        self.rdna3_avx512_eager=Some([
+            vulkan::ComputeKernel::new(device,include_bytes!("../shaders/image_text_eager_avx512_amd_rdna3.spv"),6,36)?,
+            vulkan::ComputeKernel::new(device,include_bytes!("../shaders/image_text_eager_backward_avx512_amd_rdna3.spv"),9,36)?,
+        ]);
+        Ok(())
+    }
+    fn install_rdna3_avx512_rope(&mut self, device: &VulkanDevice) -> Result<()> {
+        if !vendor::rdna3_avx512_variants(device, aten_vector_width()) { return Ok(()); }
+        self.rope_forward = vulkan::ComputeKernel::new(device,
+            include_bytes!("../shaders/image_text_rope_forward_avx512_amd_rdna3.spv"),5,std::mem::size_of::<RopePush>() as u32)?;
+        self.rope_backward = vulkan::ComputeKernel::new(device,
+            include_bytes!("../shaders/image_text_rope_backward_avx512_amd_rdna3.spv"),5,std::mem::size_of::<RopePush>() as u32)?;
+        Ok(())
+    }
+    fn install_rdna3_avx512_layer_norm(&mut self, device: &VulkanDevice) -> Result<()> {
+        if !vendor::rdna3_avx512_variants(device, aten_vector_width()) {
+            return Ok(());
+        }
+        let packed = std::env::var_os("HIERARCHOS_VULKAN_RDNA3_PACKED_NORMS").is_none_or(|v| v != "0");
+        let shader: &[u8] = if packed {
+            include_bytes!("../shaders/image_text_layer_norm_avx512_amd_rdna3.spv")
+        } else {
+            include_bytes!("../shaders/image_text_layer_norm_serial_avx512_amd_rdna3.spv")
+        };
+        self.rdna3_avx512_layer_norm = Some(vulkan::ComputeKernel::new(device,shader,6,12)?);
+        self.rdna3_avx512_layer_norm_rows = if packed {8} else {64};
+        self.layer_norm_input_grad = vulkan::ComputeKernel::new(device,
+            include_bytes!("../shaders/image_text_layer_norm_input_grad_avx512_amd_rdna3.spv"),6,8)?;
+        self.layer_norm_param_grad = vulkan::ComputeKernel::new(device,
+            include_bytes!("../shaders/image_text_layer_norm_param_grad_avx512_amd_rdna3.spv"),6,8)?;
+        Ok(())
+    }
     #[allow(clippy::too_many_arguments)]
     fn try_silu_product(&self, commands: &mut vulkan::ComputeBatch, activation: &str,
         gate: &GpuBuffer, up: &GpuBuffer, activated: &GpuBuffer, product: &GpuBuffer,
@@ -26321,6 +26465,14 @@ impl TransformerKernels {
                 device, include_bytes!("../shaders/vision_layer_norm_param_grad_cpu_avx2.spv"), 6, 8,
             )?,
             cpu_layer_norm_adjoint: false,
+            rdna3_avx512_layer_norm: None,
+            rdna3_avx512_layer_norm_rows: 64,
+            rdna3_avx512_input_grad: None,
+            rdna3_avx512_rms: None,
+            rdna3_avx512_sdpa: None,
+            rdna3_avx512_sdpa_backward: None,
+            rdna3_avx512_eager: None,
+            rdna3_avx512_wide: false,
             layer_norm_rows_per_workgroup: 64,
             layer_norm_input_grad: vulkan::ComputeKernel::new(
                 device,
@@ -26386,6 +26538,7 @@ impl TransformerKernels {
                 11,
                 std::mem::size_of::<AttentionPush>() as u32,
             )?,
+            rdna3_short_attention: None,
             attention_backward: vulkan::ComputeKernel::new(
                 device,
                 ATTENTION_BACKWARD_SPV,
@@ -29168,6 +29321,12 @@ impl VulkanLinear {
             .unwrap_or(grad_input);
         if let Some(tiered) = self.weight.tiered_source() {
             tiered.record_input_gradient(commands, base_grad_output, base_grad_input, rows)?;
+        } else if let Some(kernel) = kernels.rdna3_avx512_input_grad.as_ref().filter(|_| {
+            rows == 16 && self.input_dim == 64 && matches!(self.output_dim, 256 | 320)
+        }) {
+            kernel.record_dispatch(commands,
+                &[base_grad_output, &self.weight.values, base_grad_input],
+                bytemuck::bytes_of(&push), [4, 1, 1])?;
         } else if let Some((_, gradient)) = kernels.cpu_row_gemm.as_ref().filter(|_| {
             (vision::cpu_avx2_input_gradient_gemm(
                 rows,
@@ -29499,6 +29658,10 @@ struct VulkanLayerNorm {
     cpu_welford: bool,
     trainable: bool,
     train_bias: bool,
+    /// Optional separate RDNA3 AVX-512 projector norm. The Gemma3 vision
+    /// loader attaches this only to its pooled projector RMSNorm; every other
+    /// norm keeps the generic kernel.
+    rdna3_avx512_projector_rms: Option<std::sync::Arc<vulkan::ComputeKernel>>,
 }
 
 impl VulkanLayerNorm {
@@ -29528,6 +29691,7 @@ impl VulkanLayerNorm {
             cpu_welford: false,
             trainable: true,
             train_bias: true,
+            rdna3_avx512_projector_rms: None,
         })
     }
 
@@ -29554,6 +29718,7 @@ impl VulkanLayerNorm {
             cpu_welford: false,
             trainable: true,
             train_bias: false,
+            rdna3_avx512_projector_rms: None,
         })
     }
 
@@ -29583,6 +29748,7 @@ impl VulkanLayerNorm {
             cpu_welford: false,
             trainable: true,
             train_bias: false,
+            rdna3_avx512_projector_rms: None,
         })
     }
 
@@ -29641,6 +29807,7 @@ impl VulkanLayerNorm {
             cpu_welford: false,
             trainable: true,
             train_bias: false,
+            rdna3_avx512_projector_rms: None,
         })
     }
 
@@ -29671,6 +29838,7 @@ impl VulkanLayerNorm {
             cpu_welford: false,
             trainable: true,
             train_bias: false,
+            rdna3_avx512_projector_rms: None,
         })
     }
 
@@ -29691,6 +29859,7 @@ impl VulkanLayerNorm {
             cpu_welford: self.cpu_welford,
             trainable: self.trainable,
             train_bias: self.train_bias,
+            rdna3_avx512_projector_rms: self.rdna3_avx512_projector_rms.clone(),
         }
     }
 
@@ -29722,6 +29891,11 @@ impl VulkanLayerNorm {
     /// gate, so those instances select the Welford kernel.
     fn use_cpu_welford(mut self, enabled: bool) -> Self {
         self.cpu_welford = enabled;
+        self
+    }
+
+    fn use_rdna3_avx512_projector_rms(mut self, kernel: vulkan::ComputeKernel) -> Self {
+        self.rdna3_avx512_projector_rms = Some(std::sync::Arc::new(kernel));
         self
     }
 
@@ -29808,6 +29982,31 @@ impl VulkanLayerNorm {
             if self.parameter_groups == 0 || !rows.is_multiple_of(self.parameter_groups) {
                 bail!("grouped RMSNorm rows must be divisible by parameter_groups");
             }
+            if let Some(kernel) = self.rdna3_avx512_projector_rms.as_ref() {
+                let lanes = match rows {
+                    16 => 4,
+                    8 => 16,
+                    _ => 0,
+                };
+                if lanes != 0 && self.dim == 16 {
+                    let push = RmsNormForwardPush {
+                        rows: rows as u32,
+                        dim: self.dim as u32,
+                        parameter_groups: self.parameter_groups as u32,
+                        eps: self.eps,
+                        weight_offset: self.weight_offset,
+                        pow_rstd: u32::from(self.pow_rstd),
+                        unfused_products: u32::from(self.unfused_products),
+                        extra_rsqrt_refinement: lanes,
+                    };
+                    return kernel.record_dispatch(
+                        commands,
+                        &[input, &self.weight.values, output, rstd, mean],
+                        bytemuck::bytes_of(&push),
+                        [div_ceil_u32(rows, 64), 1, 1],
+                    );
+                }
+            }
             let push = RmsNormForwardPush {
                 rows: rows as u32,
                 dim: self.dim as u32,
@@ -29818,7 +30017,10 @@ impl VulkanLayerNorm {
                 unfused_products: u32::from(self.unfused_products),
                 extra_rsqrt_refinement: self.extra_rsqrt_refinement,
             };
-            kernels.rms_norm_forward.record_dispatch(
+            let kernel = kernels.rdna3_avx512_rms.as_ref()
+                .filter(|_| self.dim == 64 && !self.pow_rstd && self.extra_rsqrt_refinement == 3)
+                .map(|family| &family[0]).unwrap_or(&kernels.rms_norm_forward);
+            kernel.record_dispatch(
                 commands,
                 &[input, &self.weight.values, output, rstd, mean],
                 bytemuck::bytes_of(&push),
@@ -29830,7 +30032,11 @@ impl VulkanLayerNorm {
                 dim: self.dim as u32,
                 eps: self.eps,
             };
-            let kernel = if self.cpu_welford {
+            let rdna3_norm = kernels.rdna3_avx512_layer_norm.as_ref()
+                .filter(|_| (16..=128).contains(&self.dim) && self.dim % 16 == 0);
+            let kernel = if let Some(kernel) = rdna3_norm {
+                kernel
+            } else if self.cpu_welford {
                 &kernels.layer_norm_welford_forward
             } else {
                 &kernels.layer_norm_forward
@@ -29847,7 +30053,7 @@ impl VulkanLayerNorm {
                 ],
                 bytemuck::bytes_of(&push),
                 [
-                    div_ceil_u32(rows, kernels.layer_norm_rows_per_workgroup),
+                    div_ceil_u32(rows, if rdna3_norm.is_some() { kernels.rdna3_avx512_layer_norm_rows } else { kernels.layer_norm_rows_per_workgroup }),
                     1,
                     1,
                 ],
@@ -29954,7 +30160,10 @@ impl VulkanLayerNorm {
                 // provably reaches a scalar pow.
                 exact_pow_backward: 0,
             };
-            kernels.rms_norm_input_grad.record_dispatch(
+            let kernel = kernels.rdna3_avx512_rms.as_ref()
+                .filter(|_| self.dim == 64 && !self.pow_rstd && self.extra_rsqrt_refinement == 3)
+                .map(|family| &family[1]).unwrap_or(&kernels.rms_norm_input_grad);
+            kernel.record_dispatch(
                 commands,
                 &[
                     grad_output,
@@ -30123,7 +30332,10 @@ impl VulkanLayerNorm {
             // not correctly rounded real arithmetic.
             exact_pow_backward: 0,
         };
-        kernels.rms_norm_input_grad_residual.record_dispatch(
+        let kernel = kernels.rdna3_avx512_rms.as_ref()
+            .filter(|_| self.dim == 64 && !self.pow_rstd && self.extra_rsqrt_refinement == 3)
+            .map(|family| &family[2]).unwrap_or(&kernels.rms_norm_input_grad_residual);
+        kernel.record_dispatch(
             commands,
             &[
                 grad_output,
@@ -60919,7 +61131,8 @@ impl VulkanTransformerLayer {
                 let relative_attention_values = relative_attention_bias
                     .map(|parameter| &parameter.values)
                     .unwrap_or(&self.attention_sink.values);
-                kernels.attention_forward.record_dispatch(
+                record_text_attention_dispatch(
+                    kernels,
                     commands,
                     &[
                         attention_q,
@@ -60937,7 +61150,7 @@ impl VulkanTransformerLayer {
                             .map(|snapshot| &snapshot.page_table)
                             .unwrap_or(attention_mask),
                     ],
-                    bytemuck::bytes_of(&attention_push),
+                    &attention_push,
                     [seq_len as u32, self.num_heads as u32, batch_size as u32],
                 )?;
             }
@@ -62545,8 +62758,10 @@ impl VulkanTransformerLayer {
                         | VulkanTransformerArchitecture::Qwen2
                         | VulkanTransformerArchitecture::Gemma3
                         | VulkanTransformerArchitecture::Gemma4
-                )) || (kernels.cpu_wide_row_gemm
-                    && config.architecture == VulkanTransformerArchitecture::Llama))
+                )) || ((kernels.cpu_wide_row_gemm || kernels.rdna3_avx512_wide)
+                    && config.architecture == VulkanTransformerArchitecture::Llama)
+                    || (kernels.rdna3_avx512_layer_norm.is_some()
+                        && config.architecture == VulkanTransformerArchitecture::Gemma3))
                 && !config.parallel_residual
                 && !self.shared_pre_norm
                 && !cross_attention_active
@@ -63097,7 +63312,22 @@ impl VulkanTransformerLayer {
                 // is submitted on its own; the wait between blocks preserves the order
                 // they accumulate in. A count of one leaves this a single dispatch with
                 // no extra submission, exactly as it was before the split existed.
-                for key_block in 0..key_blocks {
+                if let Some(family)=kernels.rdna3_avx512_eager.as_ref()
+                    .filter(|_| key_blocks==1 && rdna3_avx512_eager_supported(&attention_push)) {
+                    let push=rdna3_eager_push(&attention_push);
+                    family[1].record_dispatch(commands,&[backward_bindings[0],backward_bindings[1],backward_bindings[2],
+                        attention_mask,attention_mask,grad_attention,backward_bindings[7],backward_bindings[8],backward_bindings[9]],
+                        bytemuck::cast_slice(&push),[num_key_value_heads as u32,batch_size as u32,1])?;
+                } else if let Some(kernel) = kernels.rdna3_avx512_sdpa_backward.as_ref()
+                    .filter(|_| key_blocks==1 && rdna3_avx512_sdpa_supported(&attention_push)) {
+                    let push=[attention_push.batch_size,8,attention_push.query_hidden_size,
+                        attention_push.value_hidden_size,attention_push.num_heads,
+                        attention_push.num_key_value_heads,attention_push.window_size,attention_push.scale.to_bits()];
+                    kernel.record_dispatch(commands,&[backward_bindings[0],backward_bindings[1],backward_bindings[2],
+                        attention_mask,attention_mask,grad_attention,&self.tape.attention,
+                        backward_bindings[7],backward_bindings[8],backward_bindings[9]],
+                        bytemuck::cast_slice(&push),[num_key_value_heads as u32,batch_size as u32,1])?;
+                } else { for key_block in 0..key_blocks {
                     kernels.attention_backward.record_dispatch(
                         commands,
                         &backward_bindings,
@@ -63107,7 +63337,7 @@ impl VulkanTransformerLayer {
                     if key_block + 1 < key_blocks {
                         commands.submit_and_restart()?;
                     }
-                }
+                } }
                 if post_rope_qk_norm {
                     if let (Some(q_norm), Some(k_norm)) =
                         (self.q_norm.as_ref(), self.k_norm.as_ref())
@@ -63428,7 +63658,7 @@ impl VulkanTransformerLayer {
                             rows,
                             config.architecture == VulkanTransformerArchitecture::Gemma4,
                         )?;
-                    if (kernels.cpu_wide_row_gemm
+                    if ((kernels.cpu_wide_row_gemm || kernels.rdna3_avx512_wide)
                         && config.architecture == VulkanTransformerArchitecture::Llama)
                         || matches!(
                         config.architecture,
@@ -63869,8 +64099,10 @@ impl VulkanTransformerLayer {
                     | VulkanTransformerArchitecture::Qwen2
                     | VulkanTransformerArchitecture::Gemma3
                     | VulkanTransformerArchitecture::Gemma4
-            )) || (kernels.cpu_wide_row_gemm
-                && config.architecture == VulkanTransformerArchitecture::Llama))
+            )) || ((kernels.cpu_wide_row_gemm || kernels.rdna3_avx512_wide)
+                && config.architecture == VulkanTransformerArchitecture::Llama)
+                || (kernels.rdna3_avx512_layer_norm.is_some()
+                    && config.architecture == VulkanTransformerArchitecture::Gemma3))
             && !self.shared_pre_norm
             && !config.parallel_residual
             && !cross_attention_active

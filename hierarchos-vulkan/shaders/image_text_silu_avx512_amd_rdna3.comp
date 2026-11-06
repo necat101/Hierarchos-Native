@@ -1,0 +1,32 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact_hw_rdna3.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+// Windows ATen SiLU on the AVX512 host. RDNA3 uses native FMA for SLEEF,
+// and preserves the reference's unfused derivative and quotient boundaries.
+layout(local_size_x=256) in;
+#ifdef RDNA3_SILU_BACKWARD
+layout(set=0,binding=0,std430) readonly buffer DY { float dy[]; };
+layout(set=0,binding=1,std430) readonly buffer X { float x[]; };
+layout(set=0,binding=2,std430) writeonly buffer Y { float y[]; };
+#else
+layout(set=0,binding=0,std430) readonly buffer X { float x[]; };
+layout(set=0,binding=1,std430) writeonly buffer Y { float y[]; };
+#endif
+layout(push_constant) uniform Push { uint len; } pc;
+void main() {
+    uint i=gl_GlobalInvocationID.x;
+    if(i>=pc.len) return;
+    precise float den=1.0+sleef_expf_u10(-x[i]);
+#ifdef RDNA3_SILU_BACKWARD
+    float sigmoid=fp32_div(1.0,den);
+    precise float one_minus=1.0-sigmoid;
+    precise float product=x[i]*one_minus;
+    precise float inner=1.0+product;
+    precise float weighted=dy[i]*sigmoid;
+    y[i]=weighted*inner;
+#else
+    y[i]=fp32_div(x[i],den);
+#endif
+}

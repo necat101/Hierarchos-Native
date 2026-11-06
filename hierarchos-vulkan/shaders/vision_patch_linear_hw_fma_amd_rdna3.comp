@@ -1,0 +1,46 @@
+#version 450
+// Exact CPU-reference CLIP patch projection. The checkpoint keeps the patch
+// weight and patchify output in channel-major (C, KH, KW) order, while the
+// oneDNN AVX2 direct convolution that produced the oracle reduces each output
+// in (KH, KW, C) order with a single ascending FMA chain. Read the stored
+// channel-major values through the index map below so the layout and export
+// format stay unchanged.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) buffer OutputBuffer { float output_values[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    uint channels;
+} pc;
+
+// RDNA3 fma is correctly rounded, so its single-rounding value replaces the
+// double-rounding patch evaluation without changing the result.
+float fp32_fma_exact_patch(float a, float b, float c) {
+    precise float value = fma(a, b, c);
+    return value;
+}
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || column >= pc.output_dim) {
+        return;
+    }
+    uint area = pc.input_dim / pc.channels;
+    precise float result = 0.0;
+    for (uint k = 0u; k < pc.input_dim; ++k) {
+        uint channel = k % pc.channels;
+        uint tap = k / pc.channels;
+        uint index = channel * area + tap;
+        result = fp32_fma_exact_patch(
+            x[row * pc.input_dim + index],
+            weight[column * pc.input_dim + index],
+            result
+        );
+    }
+    output_values[row * pc.output_dim + column] = result;
+}

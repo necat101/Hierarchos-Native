@@ -1,0 +1,76 @@
+#version 450
+
+// RDNA3 (gfx11) schedule for the exact ATen/MKL AVX2 row-tail GEMM.
+//
+// The committed Gen9 module rebuilds IEEE fused multiply-add from the Dekker
+// two-product and Knuth two-sum because Intel Gen9's MAD truncates the
+// intermediate product. RDNA3's `fma` is the same correctly rounded operation
+// the software construction reproduces, so this module keeps the exact
+// schedule -- the same per-element ascending `fp32_fma_exact` chain, the same
+// six-row tail rule, and the same `result + bias[column]` epilogue -- and
+// replaces only the primitive with the hardware instruction. That is a
+// bit-identical substitution by definition, and RDNA3 executes it as one
+// instruction instead of roughly fifteen.
+//
+// The host admits this module only on RDNA3 parts with the committed geometry
+// gate; every other adapter keeps the Gen9/portable bytes.
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float x[]; };
+layout(set = 0, binding = 1, std430) readonly buffer WeightBuffer { float weight[]; };
+layout(set = 0, binding = 2, std430) readonly buffer BiasBuffer { float bias[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer OutputBuffer { float output_values[]; };
+layout(push_constant) uniform Push {
+    uint rows;
+    uint input_dim;
+    uint output_dim;
+    uint has_bias;
+} pc;
+
+// RDNA3 lowers this to a single correctly rounded fused multiply-add. `precise`
+// forbids contraction or reassociation around it, matching the caller's
+// per-element rounding contract.
+float fp32_fma_exact(float a, float b, float c) {
+    precise float value = fma(a, b, c);
+    return value;
+}
+
+float matrix_weight(uint column, uint reduction) {
+#ifdef VISION_TRANSPOSE_WEIGHT
+    return weight[reduction * pc.output_dim + column];
+#else
+    return weight[column * pc.input_dim + reduction];
+#endif
+}
+
+void main() {
+    uint column = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.rows || column >= pc.output_dim) return;
+    uint xb = row * pc.input_dim;
+    uint tail = pc.rows % 6u;
+    float result = 0.0;
+    if (tail > 0u && tail <= 3u && row >= pc.rows - tail) {
+        precise float lane0 = 0.0;
+        precise float lane1 = 0.0;
+        for (uint k = 0u; k < pc.input_dim; k += 2u) {
+            if (tail <= 2u) {
+                precise float product0 = x[xb+k] * matrix_weight(column, k);
+                precise float product1 = x[xb+k+1u] * matrix_weight(column, k+1u);
+                lane0 += product0;
+                lane1 += product1;
+            } else {
+                lane0 = fp32_fma_exact(x[xb+k], matrix_weight(column, k), lane0);
+                lane1 = fp32_fma_exact(x[xb+k+1u], matrix_weight(column, k+1u), lane1);
+            }
+        }
+        result = lane0 + lane1;
+    } else {
+        precise float sum = 0.0;
+        for (uint k = 0u; k < pc.input_dim; ++k) {
+            sum = fp32_fma_exact(x[xb+k], matrix_weight(column, k), sum);
+        }
+        result = sum;
+    }
+    output_values[row * pc.output_dim + column] = pc.has_bias != 0u
+        ? result + bias[column] : result;
+}

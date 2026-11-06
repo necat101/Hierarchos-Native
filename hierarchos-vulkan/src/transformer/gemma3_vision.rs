@@ -184,6 +184,9 @@ impl VulkanGemma3Vision {
         if language.config.architecture != VulkanTransformerArchitecture::Gemma3 {
             bail!("native Gemma3 image pipeline requires its qualified Gemma3 backbone");
         }
+        language.kernels.install_rdna3_avx512_layer_norm(&device)?;
+        language.kernels.install_rdna3_avx512_rope(&device)?;
+        language.kernels.install_rdna3_avx512_eager(&device)?;
         if language.config.embedding_dropout != 0.0
             || language.config.attention_dropout != 0.0
             || language.config.mlp_output_dropout != 0.0
@@ -237,12 +240,18 @@ impl VulkanGemma3Vision {
         // native convolution (channel, kh, kw); batch 2 and patch 4 use
         // oneDNN's direct convolution (kh, kw, channel). Preserve the order
         // through load, patchify, backward and export.
+        // This Windows AVX512 host's small single-image convolution uses
+        // channel/kh/kw reduction order too. Keep that independently measured
+        // RDNA3 admission separate from the frozen AVX2 branch.
+        let rdna3_native_conv = vendor::rdna3_avx512_cpu_contract(&device, aten_vector_width())
+            && image_count == 1 && side == 8 && channels == 3
+            && (dim, patch_size) == (16, 2);
         let patch_order = u32::from(
-            !(aten_vector_width() == 8
+            !((aten_vector_width() == 8
                 && image_count == 1
                 && side == 8
                 && channels == 3
-                && (dim, patch_size) == (16, 2)),
+                && (dim, patch_size) == (16, 2)) || rdna3_native_conv),
         );
         let patch_weights = tensor(
             &mut package,
@@ -290,6 +299,16 @@ impl VulkanGemma3Vision {
         // backward still receives a contiguous matmul adjoint (mode 1).
         .use_vector_cpu_rsqrt(tokens_per_image == 1)
         .use_torch_cpu_rsqrt(tokens_per_image > 1);
+        let projector_norm = if vendor::rdna3_avx512_variants(&device, aten_vector_width()) {
+            projector_norm.use_rdna3_avx512_projector_rms(vulkan::ComputeKernel::new(
+                &device,
+                include_bytes!("../../shaders/vision_projector_rms_avx512_amd_rdna3.spv"),
+                5,
+                32,
+            )?)
+        } else {
+            projector_norm
+        };
         let selected_rows = image_count * tokens_per_image;
         let buffer = |len| GpuBuffer::zeros_f32(&device, len);
         Ok(Self {
@@ -821,6 +840,12 @@ impl VulkanGemma3Vision {
             projected_features,
         })
     }
+    /// Read retained text training buffers without changing the graph.
+    #[doc(hidden)]
+    pub fn debug_text_training_states(&self) -> Result<BTreeMap<String, Vec<f32>>> {
+        self.language.debug_first_layer_norm_states()
+    }
+
     pub fn train_step_with_optimizer(
         &mut self,
         input_ids: &[u32],

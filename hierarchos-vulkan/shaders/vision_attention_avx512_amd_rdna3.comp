@@ -1,0 +1,54 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact_hw_rdna3.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+// Windows AVX512-host SigLIP, measured on the native 5- and 17-token rows:
+//   * 16/17 tokens: QK is serial hardware FMA.
+//   * 5 tokens: QK materializes each product before the serial add.
+//   * softmax folds sixteen CPU lanes with SLEEF exp and reciprocal multiply.
+//   * PV materializes each product in one ascending-key stream.
+// RDNA3 packs 64 independent query rows, without assuming subgroup width.
+layout(local_size_x=64) in;
+layout(set=0,binding=0,std430) readonly buffer Q {float q[];};
+layout(set=0,binding=1,std430) readonly buffer K {float k[];};
+layout(set=0,binding=2,std430) readonly buffer V {float v[];};
+layout(set=0,binding=3,std430) writeonly buffer O {float out_values[];};
+layout(push_constant) uniform Push {uint images;uint seq;uint dim;uint heads;} pc;
+void main() {
+    uint rows=pc.images*pc.heads*pc.seq;
+    uint index=gl_GlobalInvocationID.x;
+    if(index>=rows) return;
+    uint query=index%pc.seq,head=(index/pc.seq)%pc.heads,image=index/(pc.seq*pc.heads);
+    uint hd=pc.dim/pc.heads,qb=(image*pc.seq+query)*pc.dim+head*hd;
+    float p[32];float maximum=-3.402823466e38;
+    for(uint key=0u;key<pc.seq;++key) {
+        uint kb=(image*pc.seq+key)*pc.dim+head*hd;
+        precise float dot=0.0;
+        if(pc.seq>=16u) {
+            for(uint d=0u;d<hd;++d) dot=fma(q[qb+d],k[kb+d],dot);
+        } else {
+            for(uint d=0u;d<hd;++d) {
+                precise float product=q[qb+d]*k[kb+d];
+                dot+=product;
+            }
+        }
+        p[key]=dot*0.5;maximum=max(maximum,p[key]);
+    }
+    for(uint key=0u;key<pc.seq;++key) p[key]=sleef_expf_u10(p[key]-maximum);
+    precise float lanes[16];
+    for(uint lane=0u;lane<16u;++lane) lanes[lane]=0.0;
+    for(uint key=0u;key<pc.seq;++key) lanes[key&15u]+=p[key];
+    precise float total=0.0;
+    for(uint lane=0u;lane<16u;++lane) total+=lanes[lane];
+    float inverse=fp32_div(1.0,total);
+    for(uint key=0u;key<pc.seq;++key) p[key]*=inverse;
+    for(uint d=0u;d<hd;++d) {
+        precise float value=0.0;
+        for(uint key=0u;key<pc.seq;++key) {
+            precise float product=p[key]*v[(image*pc.seq+key)*pc.dim+head*hd+d];
+            value+=product;
+        }
+        out_values[qb+d]=value;
+    }
+}

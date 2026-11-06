@@ -198,10 +198,51 @@ pub(super) struct VisionKernels {
     cpu_avx2_attention_seq5_backward: vulkan::ComputeKernel,
     pub(super) cpu_avx2_input_grad: vulkan::ComputeKernel,
     pub(super) weight_grad_cpu_avx2: vulkan::ComputeKernel,
+    /// RDNA3-only hardware-FMA schedules of the exact CPU-arithmetic vision
+    /// kernels. Every other adapter leaves these unset and keeps the committed
+    /// modules, so the Gen9 path is untouched.
+    rdna3_cpu_linear: Option<vulkan::ComputeKernel>,
+    rdna3_patch_linear: Option<vulkan::ComputeKernel>,
+    rdna3_cpu_input_grad: Option<vulkan::ComputeKernel>,
+    rdna3_weight_grad: Option<vulkan::ComputeKernel>,
+    rdna3_avx512_gelu: Option<[vulkan::ComputeKernel; 2]>,
+    rdna3_avx512_weight_grad: Option<vulkan::ComputeKernel>,
+    rdna3_avx512_siglip_attention: Option<vulkan::ComputeKernel>,
+    rdna3_avx512_siglip_backward: Option<vulkan::ComputeKernel>,
 }
 impl VisionKernels {
     pub(super) fn new(device: &VulkanDevice) -> Result<Self> {
+        let rdna3 = aten_vector_width() == 8 && crate::vendor::rdna3_vision_variants(device);
+        let rdna3_kernel = |spirv: &'static [u8],
+                            bindings: usize,
+                            push: u32|
+         -> Result<Option<vulkan::ComputeKernel>> {
+            if !rdna3 {
+                return Ok(None);
+            }
+            Ok(Some(vulkan::ComputeKernel::new(
+                device, spirv, bindings, push,
+            )?))
+        };
         Ok(Self {
+            rdna3_avx512_siglip_backward: if crate::vendor::rdna3_avx512_variants(device, aten_vector_width()) {
+                Some(vulkan::ComputeKernel::new(device,
+                    include_bytes!("../../shaders/image_text_eager_backward_avx512_amd_rdna3.spv"),9,36)?)
+            } else {None},
+            rdna3_avx512_siglip_attention: if crate::vendor::rdna3_avx512_variants(device, aten_vector_width()) {
+                Some(vulkan::ComputeKernel::new(device,
+                    include_bytes!("../../shaders/vision_attention_avx512_amd_rdna3.spv"),4,16)?)
+            } else { None },
+            rdna3_avx512_weight_grad: if crate::vendor::rdna3_avx512_variants(device, aten_vector_width()) {
+                Some(vulkan::ComputeKernel::new(device,
+                    include_bytes!("../../shaders/vision_weight_grad_avx512_amd_rdna3.spv"),3,12)?)
+            } else { None },
+            rdna3_avx512_gelu: if crate::vendor::rdna3_avx512_variants(device, aten_vector_width()) {
+                Some([
+                    vulkan::ComputeKernel::new(device, include_bytes!("../../shaders/image_text_gelu_avx512_amd_rdna3.spv"),2,4)?,
+                    vulkan::ComputeKernel::new(device, include_bytes!("../../shaders/image_text_gelu_backward_avx512_amd_rdna3.spv"),3,4)?,
+                ])
+            } else { None },
             cpu_avx2_linear: vulkan::ComputeKernel::new(
                 device,
                 include_bytes!("../../shaders/vision_linear_cpu_avx2.spv"),
@@ -253,6 +294,26 @@ impl VisionKernels {
             weight_grad_cpu_avx2: vulkan::ComputeKernel::new(
                 device,
                 include_bytes!("../../shaders/vision_linear_weight_grad.spv"),
+                3,
+                12,
+            )?,
+            rdna3_cpu_linear: rdna3_kernel(
+                include_bytes!("../../shaders/vision_linear_hw_fma_amd_rdna3.spv"),
+                4,
+                16,
+            )?,
+            rdna3_patch_linear: rdna3_kernel(
+                include_bytes!("../../shaders/vision_patch_linear_hw_fma_amd_rdna3.spv"),
+                3,
+                16,
+            )?,
+            rdna3_cpu_input_grad: rdna3_kernel(
+                include_bytes!("../../shaders/vision_linear_input_grad_hw_fma_amd_rdna3.spv"),
+                4,
+                16,
+            )?,
+            rdna3_weight_grad: rdna3_kernel(
+                include_bytes!("../../shaders/vision_linear_weight_grad_hw_fma_amd_rdna3.spv"),
                 3,
                 12,
             )?,
@@ -310,6 +371,33 @@ impl VisionKernels {
             )?,
         })
     }
+
+    /// The exact vision kernel selected on this adapter. The RDNA3 module
+    /// substitutes correctly rounded hardware FMA for the software construction
+    /// and keeps every other step, so selection cannot change a result bit.
+    fn cpu_linear_kernel(&self) -> &vulkan::ComputeKernel {
+        self.rdna3_cpu_linear
+            .as_ref()
+            .unwrap_or(&self.cpu_avx2_linear)
+    }
+
+    fn cpu_input_grad_kernel(&self) -> &vulkan::ComputeKernel {
+        self.rdna3_cpu_input_grad
+            .as_ref()
+            .unwrap_or(&self.cpu_avx2_input_grad)
+    }
+
+    pub(super) fn patch_linear_kernel(&self) -> &vulkan::ComputeKernel {
+        self.rdna3_patch_linear
+            .as_ref()
+            .unwrap_or(&self.patch_linear)
+    }
+
+    pub(super) fn weight_grad_kernel(&self) -> &vulkan::ComputeKernel {
+        self.rdna3_avx512_weight_grad.as_ref().or(self.rdna3_weight_grad.as_ref())
+            .unwrap_or(&self.weight_grad_cpu_avx2)
+    }
+
     /// Replay only the independently measured AVX2 NN-linear geometries.
     /// Convolution patch projections retain their own reduction order.
     fn cpu_linear(
@@ -333,7 +421,7 @@ impl VisionKernels {
                 linear.output_dim as u32,
                 u32::from(linear.has_bias),
             ];
-            self.cpu_avx2_linear.record_dispatch(
+            self.cpu_linear_kernel().record_dispatch(
                 commands,
                 &[input, &linear.weight.values, &linear.bias.values, output],
                 bytemuck::cast_slice(&push),
@@ -369,7 +457,7 @@ impl VisionKernels {
                 linear.input_dim as u32,
                 0,
             ];
-            self.cpu_avx2_input_grad.record_dispatch(
+            self.cpu_input_grad_kernel().record_dispatch(
                 commands,
                 &[gradient, &linear.weight.values, &linear.bias.values, output],
                 bytemuck::cast_slice(&push),
@@ -630,7 +718,18 @@ impl ClipLayer {
         self.linear_forward(commands, k, vk, &self.q, &t[N1], &t[Q], rows)?;
         self.linear_forward(commands, k, vk, &self.key, &t[N1], &t[K], rows)?;
         self.linear_forward(commands, k, vk, &self.v, &t[N1], &t[V], rows)?;
-        if self.cpu_reference_math
+        if let Some(kernel) = vk.rdna3_avx512_siglip_attention.as_ref().filter(|_| {
+            self.cpu_reference_math && matches!(push.batch_size, 1 | 2)
+                && matches!(push.query_seq_len, 4 | 5 | 16 | 17)
+                && push.key_value_seq_len == push.query_seq_len
+                && push.query_hidden_size == 16 && push.value_hidden_size == 16
+                && push.num_heads == 4 && push.num_key_value_heads == 4
+        }) {
+            let cpu_push=[push.batch_size,push.query_seq_len,push.query_hidden_size,push.num_heads];
+            let rows=push.batch_size*push.num_heads*push.query_seq_len;
+            kernel.record_dispatch(commands,&[&t[Q],&t[K],&t[V],&t[A]],
+                bytemuck::cast_slice(&cpu_push),[rows.div_ceil(64),1,1])?;
+        } else if self.cpu_reference_math
             && aten_vector_width() == 8
             && matches!(push.batch_size, 1 | 2)
             && push.query_seq_len == 5
@@ -750,6 +849,13 @@ impl ClipLayer {
             .record_backward(commands, k, &t[R], &t[DN2], &t[M2], &t[S2], &t[DR], rows)?;
         record_add(commands, k, dy, &t[DR], &t[DR], rows * dim)?;
         self.linear_backward(commands, k, vk, &self.out, &t[A], &t[DR], &t[DA], rows)?;
+        if let Some(kernel)=vk.rdna3_avx512_siglip_backward.as_ref().filter(|_| self.cpu_reference_math
+            && matches!(push.batch_size,1|2) && push.query_seq_len==16 && push.key_value_seq_len==16
+            && push.query_hidden_size==16 && push.value_hidden_size==16 && push.num_heads==4 && push.num_key_value_heads==4) {
+            let packed=rdna3_eager_push(&push);
+            kernel.record_dispatch(commands,&[&t[Q],&t[K],&t[V],mask,mask,&t[DA],&t[DQ],&t[DK],&t[DV]],
+                bytemuck::cast_slice(&packed),[4,push.batch_size,1])?;
+        } else {
         let attention_backward = if self.cpu_reference_math
             && aten_vector_width() == 8
             && push.batch_size == 2
@@ -770,6 +876,7 @@ impl ClipLayer {
             bytemuck::bytes_of(&push.as_backward_push(0, 1)),
             [push.num_heads, push.batch_size, 1],
         )?;
+        }
         self.linear_backward(commands, k, vk, &self.q, &t[N1], &t[DQ], &t[DQI], rows)?;
         self.linear_backward(commands, k, vk, &self.key, &t[N1], &t[DK], &t[DKI], rows)?;
         self.linear_backward(commands, k, vk, &self.v, &t[N1], &t[DV], &t[DVI], rows)?;
@@ -1393,9 +1500,23 @@ impl VulkanClipImageAdapter {
         }
         let area = self.side * self.side;
         let mut values = vec![0.; rgb.len()];
+        // The width-16 RDNA3 oracle uses Transformers' Torchvision backend:
+        // normalize RGB directly with FP32 mean/std multiplied by 1/factor.
+        // Keep the frozen Gen9/AVX2 processor's operation order unchanged.
+        let rdna3_avx512 = crate::vendor::rdna3_avx512_cpu_contract(&self.device, aten_vector_width());
+        let inverse_factor = (1.0 / factor) as f32;
+        let fused_mean = mean.map(|v| v * inverse_factor);
+        let fused_std = std.map(|v| v * inverse_factor);
         for image in 0..self.image_count {
             for pixel in 0..area {
                 for channel in 0..3 {
+                    if rdna3_avx512 {
+                        values[(image * 3 + channel) * area + pixel] =
+                            (rgb[(image * area + pixel) * 3 + channel] as f32
+                                - fused_mean[channel])
+                                / fused_std[channel];
+                        continue;
+                    }
                     let scaled = (rgb[(image * area + pixel) * 3 + channel] as f64 * factor) as f32;
                     values[(image * 3 + channel) * area + pixel] =
                         (scaled - mean[channel]) / std[channel];
@@ -1457,7 +1578,7 @@ impl VulkanClipImageAdapter {
                 output_dim: self.dim as u32,
                 channels: self.channels as u32,
             };
-            self.vk.patch_linear.record_dispatch(
+            self.vk.patch_linear_kernel().record_dispatch(
                 &mut commands,
                 &[&self.patches, &self.patch.weight.values, &self.patch_output],
                 bytemuck::bytes_of(&push),
@@ -1535,7 +1656,8 @@ impl VulkanClipImageAdapter {
         )?;
         if self.cpu_reference_math && self.projector_activation == "gelu" {
             let len = rows * self.projector1.output_dim;
-            self.vk.gelu_cpu_forward.record_dispatch(
+            self.vk.rdna3_avx512_gelu.as_ref().map(|family| &family[0])
+                .unwrap_or(&self.vk.gelu_cpu_forward).record_dispatch(
                 &mut commands,
                 &[&self.projector_pre, &self.projector_act],
                 bytemuck::cast_slice(&[len as u32]),
@@ -1603,7 +1725,8 @@ impl VulkanClipImageAdapter {
         )?;
         if self.cpu_reference_math && self.projector_activation == "gelu" {
             let len = feature_rows * self.projector1.output_dim;
-            self.vk.gelu_cpu_backward.record_dispatch(
+            self.vk.rdna3_avx512_gelu.as_ref().map(|family| &family[1])
+                .unwrap_or(&self.vk.gelu_cpu_backward).record_dispatch(
                 &mut commands,
                 &[
                     &self.projector_pre,

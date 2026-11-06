@@ -1,0 +1,72 @@
+#version 450
+// Windows ATen 2.6 LayerNorm adjoint on this AVX512-capable host.
+// Explicitly unfused products reproduce MSVC's operation boundaries. Each
+// invocation owns an independent row (dx) or column (parameter gradients).
+#ifdef RDNA3_NORM_PARAMS
+layout(local_size_x=256) in;
+#else
+layout(local_size_x=64) in;
+#endif
+layout(set=0,binding=0,std430) readonly buffer DY { float dy[]; };
+layout(set=0,binding=1,std430) readonly buffer X { float x[]; };
+#ifdef RDNA3_NORM_PARAMS
+layout(set=0,binding=2,std430) readonly buffer Mean { float mean[]; };
+layout(set=0,binding=3,std430) readonly buffer Rstd { float rstd[]; };
+layout(set=0,binding=4,std430) writeonly buffer DG { float dg[]; };
+layout(set=0,binding=5,std430) writeonly buffer DB { float db[]; };
+#else
+layout(set=0,binding=2,std430) readonly buffer Gamma { float gamma[]; };
+layout(set=0,binding=3,std430) readonly buffer Mean { float mean[]; };
+layout(set=0,binding=4,std430) readonly buffer Rstd { float rstd[]; };
+layout(set=0,binding=5,std430) writeonly buffer DX { float dx[]; };
+#endif
+layout(push_constant) uniform Push { uint rows; uint dim; } pc;
+void main() {
+#ifdef RDNA3_NORM_PARAMS
+    uint col=gl_GlobalInvocationID.x;
+    if(col>=pc.dim) return;
+    precise float g=0.0, b=0.0;
+    for(uint row=0u;row<pc.rows;++row) {
+        uint at=row*pc.dim+col;
+        precise float offset=-rstd[row]*mean[row];
+        precise float scaled=rstd[row]*x[at];
+        precise float centered=scaled+offset;
+        precise float product=dy[at]*centered;
+        g+=product; b+=dy[at];
+    }
+    dg[col]=g; db[col]=b;
+#else
+    uint row=gl_GlobalInvocationID.x;
+    if(row>=pc.rows) return;
+    uint base=row*pc.dim;
+    precise float sx[8], sy[8];
+    for(uint lane=0u;lane<8u;++lane) { sx[lane]=0.0; sy[lane]=0.0; }
+    for(uint col=0u;col<pc.dim;++col) {
+        precise float p=dy[base+col]*x[base+col];
+        precise float px=p*gamma[col];
+        precise float py=dy[base+col]*gamma[col];
+        sx[col&7u]+=px; sy[col&7u]+=py;
+    }
+    precise float ds=sx[0], db=sy[0];
+    for(uint lane=1u;lane<8u;++lane) { ds+=sx[lane]; db+=sy[lane]; }
+    precise float a=rstd[row];
+    const float scales[8]=float[8](1.0/16.0,1.0/32.0,1.0/48.0,1.0/64.0,
+        1.0/80.0,1.0/96.0,1.0/112.0,1.0/128.0);
+    precise float scale=pc.dim>=16u && pc.dim<=128u && pc.dim%16u==0u
+        ? scales[pc.dim/16u-1u] : 1.0/float(pc.dim);
+    precise float dbm=db*mean[row];
+    precise float b=dbm-ds;
+    b*=a; b*=a; b*=a; b*=scale;
+    precise float bm=-b*mean[row];
+    precise float da=db*a;
+    precise float das=da*scale;
+    precise float c=bm-das;
+    for(uint col=0u;col<pc.dim;++col) {
+        precise float ady=a*dy[base+col];
+        precise float direct=ady*gamma[col];
+        precise float bx=b*x[base+col];
+        precise float combined=direct+bx;
+        dx[base+col]=combined+c;
+    }
+#endif
+}

@@ -858,3 +858,713 @@ fn image_text_cpu_attention_matches_frozen_eager_context() -> Result<()> {
     assert_eq!(differences, 0, "image-text CPU attention differs");
     Ok(())
 }
+
+// --- RDNA3 staged multimodal schedules -------------------------------------
+//
+// The RDNA3 modules keep the exact per-element arithmetic of the committed
+// vision kernels and change only where the operands are read from. These tests
+// execute both modules on the running adapter and require raw word identity;
+// the timings are recorded for the RDNA3 port receipt, not as a cross-adapter
+// performance claim.
+
+fn dispatch_words(
+    device: &VulkanDevice,
+    kernel: &vulkan::ComputeKernel,
+    base_bindings: &[&GpuBuffer],
+    output: &GpuBuffer,
+    push: &[u8],
+    groups: [u32; 3],
+    len: usize,
+) -> Result<Vec<f32>> {
+    let mut bindings = base_bindings.to_vec();
+    bindings.push(output);
+    let mut commands = vulkan::ComputeBatch::new(device)?;
+    kernel.record_dispatch(&mut commands, &bindings, push, groups)?;
+    commands.submit()?;
+    output.read_f32(len)
+}
+
+fn median_dispatch_ms(
+    device: &VulkanDevice,
+    kernel: &vulkan::ComputeKernel,
+    base_bindings: &[&GpuBuffer],
+    output: &GpuBuffer,
+    push: &[u8],
+    groups: [u32; 3],
+    len: usize,
+    iterations: usize,
+) -> Result<f64> {
+    let mut samples = Vec::with_capacity(iterations);
+    for _ in 0..iterations {
+        let mut bindings = base_bindings.to_vec();
+        bindings.push(output);
+        let mut commands = vulkan::ComputeBatch::new(device)?;
+        let start = std::time::Instant::now();
+        kernel.record_dispatch(&mut commands, &bindings, push, groups)?;
+        commands.submit()?;
+        let _ = output.read_f32(len)?;
+        samples.push(start.elapsed().as_secs_f64() * 1.0e3);
+    }
+    samples.sort_by(|a, b| a.partial_cmp(b).expect("finite timing samples"));
+    Ok(samples[samples.len() / 2])
+}
+
+fn assert_words_equal(label: &str, staged: &[f32], portable: &[f32]) -> Result<()> {
+    if staged.len() != portable.len() {
+        anyhow::bail!("{label}: staged length {} != portable {}", staged.len(), portable.len());
+    }
+    let differences = staged
+        .iter()
+        .zip(portable)
+        .filter(|(a, b)| a.to_bits() != b.to_bits())
+        .count();
+    assert_eq!(differences, 0, "{label}: {differences} differing words");
+    Ok(())
+}
+
+#[test]
+fn rdna3_hw_fma_vision_linear_is_word_exact_and_measured() -> Result<()> {
+    let bytes = include_bytes!("../../validation/fixtures/vision_avx2_row_tail/fixture.json");
+    let corpus: Corpus = serde_json::from_slice(bytes)?;
+    let device = VulkanDevice::new()?;
+    let portable = vulkan::ComputeKernel::new(
+        &device,
+        include_bytes!("../../shaders/vision_linear_cpu_avx2.spv"),
+        4,
+        16,
+    )?;
+    let staged = vulkan::ComputeKernel::new(
+        &device,
+        include_bytes!("../../shaders/vision_linear_hw_fma_amd_rdna3.spv"),
+        4,
+        16,
+    )?;
+    let mut words = 0usize;
+    let mut timed = false;
+    for case in &corpus.cases {
+        assert!(cpu_avx2_vision_gemm(
+            case.rows,
+            case.input_dim,
+            case.output_dim,
+            8
+        ));
+        let input = GpuBuffer::from_f32(&device, &case.input)?;
+        let weight = GpuBuffer::from_f32(&device, &case.weight)?;
+        let bias = GpuBuffer::from_f32(&device, &case.bias)?;
+        let output = GpuBuffer::zeros_f32(&device, case.expected_bits.len())?;
+        let push = [
+            case.rows as u32,
+            case.input_dim as u32,
+            case.output_dim as u32,
+            1,
+        ];
+        let groups = [
+            div_ceil_u32(case.output_dim, 16),
+            div_ceil_u32(case.rows, 16),
+            1,
+        ];
+        let bindings = [&input, &weight, &bias];
+        let reference = dispatch_words(
+            &device, &portable, &bindings, &output, bytemuck::cast_slice(&push), groups,
+            case.expected_bits.len(),
+        )?;
+        let candidate = dispatch_words(
+            &device, &staged, &bindings, &output, bytemuck::cast_slice(&push), groups,
+            case.expected_bits.len(),
+        )?;
+        assert_words_equal(
+            &format!("RDNA3 vision linear M={} K={} N={}", case.rows, case.input_dim, case.output_dim),
+            &candidate,
+            &reference,
+        )?;
+        words += reference.len();
+        if !timed {
+            let portable_ms = median_dispatch_ms(
+                &device, &portable, &bindings, &output, bytemuck::cast_slice(&push), groups,
+                case.expected_bits.len(), 20,
+            )?;
+            let staged_ms = median_dispatch_ms(
+                &device, &staged, &bindings, &output, bytemuck::cast_slice(&push), groups,
+                case.expected_bits.len(), 20,
+            )?;
+            eprintln!(
+                "RDNA3 vision linear M={} K={} N={}: portable {portable_ms:.4} ms, hardware {staged_ms:.4} ms, ratio {:.3}x",
+                case.rows, case.input_dim, case.output_dim, portable_ms / staged_ms
+            );
+            timed = true;
+        }
+    }
+    assert_eq!(words, 4208);
+    eprintln!("RDNA3 hardware FMA vision linear: {words} frozen words exact on {}", device.name());
+    Ok(())
+}
+
+#[test]
+fn rdna3_hw_fma_vision_input_gradient_is_word_exact_and_measured() -> Result<()> {
+    let mut corpus: InputGradientCorpus =
+        serde_json::from_slice(include_bytes!("../../validation/fixtures/vision_avx2_row_tail/input-gradient.json"))?;
+    let extra: InputGradientCorpus =
+        serde_json::from_slice(include_bytes!("../../validation/fixtures/vision_avx2_row_tail/input-gradient-wide.json"))?;
+    corpus.cases.extend(extra.cases);
+    let device = VulkanDevice::new()?;
+    let portable = vulkan::ComputeKernel::new(
+        &device,
+        include_bytes!("../../shaders/vision_linear_input_grad_cpu_avx2.spv"),
+        4,
+        16,
+    )?;
+    let staged = vulkan::ComputeKernel::new(
+        &device,
+        include_bytes!("../../shaders/vision_linear_input_grad_hw_fma_amd_rdna3.spv"),
+        4,
+        16,
+    )?;
+    let dummy = GpuBuffer::from_f32(&device, &[0.0])?;
+    let mut words = 0usize;
+    let mut timed = false;
+    for case in &corpus.cases {
+        let gradient = GpuBuffer::from_f32(&device, &case.input)?;
+        let weight = GpuBuffer::from_f32(&device, &case.weight_transposed)?;
+        let output = GpuBuffer::zeros_f32(&device, case.expected_bits.len())?;
+        let push = [
+            case.rows as u32,
+            case.input_dim as u32,
+            case.output_dim as u32,
+            0,
+        ];
+        let groups = [
+            div_ceil_u32(case.output_dim, 16),
+            div_ceil_u32(case.rows, 16),
+            1,
+        ];
+        let bindings = [&gradient, &weight, &dummy];
+        let reference = dispatch_words(
+            &device, &portable, &bindings, &output, bytemuck::cast_slice(&push), groups,
+            case.expected_bits.len(),
+        )?;
+        let candidate = dispatch_words(
+            &device, &staged, &bindings, &output, bytemuck::cast_slice(&push), groups,
+            case.expected_bits.len(),
+        )?;
+        assert_words_equal(
+            &format!("RDNA3 vision dX M={} K={} N={}", case.rows, case.input_dim, case.output_dim),
+            &candidate,
+            &reference,
+        )?;
+        words += reference.len();
+        if !timed {
+            let portable_ms = median_dispatch_ms(
+                &device, &portable, &bindings, &output, bytemuck::cast_slice(&push), groups,
+                case.expected_bits.len(), 20,
+            )?;
+            let staged_ms = median_dispatch_ms(
+                &device, &staged, &bindings, &output, bytemuck::cast_slice(&push), groups,
+                case.expected_bits.len(), 20,
+            )?;
+            eprintln!(
+                "RDNA3 vision dX M={} K={} N={}: portable {portable_ms:.4} ms, hardware {staged_ms:.4} ms, ratio {:.3}x",
+                case.rows, case.input_dim, case.output_dim, portable_ms / staged_ms
+            );
+            timed = true;
+        }
+    }
+    assert!(words >= 5632);
+    eprintln!("RDNA3 hardware FMA vision dX: {words} frozen words exact on {}", device.name());
+    Ok(())
+}
+
+fn deterministic_values(len: usize, salt: usize) -> Vec<f32> {
+    (0..len)
+        .map(|index| {
+            let value = (index * 37 + salt * 53 + 11) % 251;
+            (value as f32 - 125.0) / 113.0
+        })
+        .collect()
+}
+
+#[test]
+fn rdna3_hw_fma_patch_linear_is_word_exact() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    let portable = vulkan::ComputeKernel::new(
+        &device,
+        include_bytes!("../../shaders/vision_patch_linear_cpu_avx2.spv"),
+        3,
+        16,
+    )?;
+    let staged = vulkan::ComputeKernel::new(
+        &device,
+        include_bytes!("../../shaders/vision_patch_linear_hw_fma_amd_rdna3.spv"),
+        3,
+        16,
+    )?;
+    let mut words = 0usize;
+    let geometries: Vec<(usize, usize, usize, usize)> = [2usize, 3, 4, 5, 6, 7, 8, 12, 32, 36]
+        .into_iter()
+        .flat_map(|rows| [(48usize, 16usize), (12, 16), (48, 32)].map(|(k, n)| (rows, k, n, 3)))
+        .collect();
+    for (rows, input_dim, output_dim, channels) in geometries {
+        let input = GpuBuffer::from_f32(&device, &deterministic_values(rows * input_dim, 1))?;
+        let weight = GpuBuffer::from_f32(&device, &deterministic_values(output_dim * input_dim, 2))?;
+        let output = GpuBuffer::zeros_f32(&device, rows * output_dim)?;
+        let push = PatchLinearPush {
+            rows: rows as u32,
+            input_dim: input_dim as u32,
+            output_dim: output_dim as u32,
+            channels: channels as u32,
+        };
+        let groups = [
+            div_ceil_u32(output_dim, 16),
+            div_ceil_u32(rows, 16),
+            1,
+        ];
+        let bindings = [&input, &weight];
+        let reference = dispatch_words(
+            &device, &portable, &bindings, &output, bytemuck::bytes_of(&push), groups,
+            rows * output_dim,
+        )?;
+        let candidate = dispatch_words(
+            &device, &staged, &bindings, &output, bytemuck::bytes_of(&push), groups,
+            rows * output_dim,
+        )?;
+        assert_words_equal(
+            &format!("RDNA3 patch linear M={rows} K={input_dim} N={output_dim}"),
+            &candidate,
+            &reference,
+        )?;
+        words += reference.len();
+    }
+    eprintln!("RDNA3 hardware FMA patch linear: {words} words exact on {}", device.name());
+    Ok(())
+}
+
+#[test]
+fn rdna3_hw_fma_weight_gradient_is_word_exact_and_measured() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    let portable = vulkan::ComputeKernel::new(
+        &device,
+        include_bytes!("../../shaders/vision_linear_weight_grad.spv"),
+        3,
+        12,
+    )?;
+    let staged = vulkan::ComputeKernel::new(
+        &device,
+        include_bytes!("../../shaders/vision_linear_weight_grad_hw_fma_amd_rdna3.spv"),
+        3,
+        12,
+    )?;
+    let mut words = 0usize;
+    for (rows, input_dim, output_dim) in
+        [(36usize, 16usize, 16usize), (16, 16, 16), (8, 12, 16), (7, 16, 32), (4, 16, 16)]
+    {
+        let input = GpuBuffer::from_f32(&device, &deterministic_values(rows * input_dim, 3))?;
+        let gradient = GpuBuffer::from_f32(&device, &deterministic_values(rows * output_dim, 4))?;
+        let output = GpuBuffer::zeros_f32(&device, output_dim * input_dim)?;
+        let push = [rows as u32, input_dim as u32, output_dim as u32];
+        let groups = [
+            div_ceil_u32(input_dim, 16),
+            div_ceil_u32(output_dim, 16),
+            1,
+        ];
+        let bindings = [&input, &gradient];
+        let reference = dispatch_words(
+            &device, &portable, &bindings, &output, bytemuck::cast_slice(&push), groups,
+            output_dim * input_dim,
+        )?;
+        let candidate = dispatch_words(
+            &device, &staged, &bindings, &output, bytemuck::cast_slice(&push), groups,
+            output_dim * input_dim,
+        )?;
+        assert_words_equal(
+            &format!("RDNA3 weight grad M={rows} K={input_dim} N={output_dim}"),
+            &candidate,
+            &reference,
+        )?;
+        words += reference.len();
+        if rows == 36 && input_dim == 16 && output_dim == 16 {
+            let portable_ms = median_dispatch_ms(
+                &device, &portable, &bindings, &output, bytemuck::cast_slice(&push), groups,
+                output_dim * input_dim, 20,
+            )?;
+            let staged_ms = median_dispatch_ms(
+                &device, &staged, &bindings, &output, bytemuck::cast_slice(&push), groups,
+                output_dim * input_dim, 20,
+            )?;
+            eprintln!(
+                "RDNA3 weight grad M={rows} K={input_dim} N={output_dim}: portable {portable_ms:.4} ms, hardware {staged_ms:.4} ms, ratio {:.3}x",
+                portable_ms / staged_ms
+            );
+        }
+    }
+    eprintln!("RDNA3 hardware FMA weight grad: {words} words exact on {}", device.name());
+    Ok(())
+}
+
+fn ab_report(
+    device: &VulkanDevice,
+    label: &str,
+    portable: &vulkan::ComputeKernel,
+    staged: &vulkan::ComputeKernel,
+    bindings: &[&GpuBuffer],
+    output: &GpuBuffer,
+    push: &[u8],
+    groups: [u32; 3],
+    len: usize,
+) -> Result<()> {
+    let reference = dispatch_words(device, portable, bindings, output, push, groups, len)?;
+    let candidate = dispatch_words(device, staged, bindings, output, push, groups, len)?;
+    assert_words_equal(label, &candidate, &reference)?;
+    let portable_ms = median_dispatch_ms(device, portable, bindings, output, push, groups, len, 30)?;
+    let staged_ms = median_dispatch_ms(device, staged, bindings, output, push, groups, len, 30)?;
+    eprintln!(
+        "AB {label}: portable {portable_ms:.4} ms, hardware {staged_ms:.4} ms, ratio {:.3}x",
+        portable_ms / staged_ms
+    );
+    Ok(())
+}
+
+#[test]
+fn rdna3_hw_fma_vision_ab_geometry_matrix() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    let forward = (
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_linear_cpu_avx2.spv"), 4, 16)?,
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_linear_hw_fma_amd_rdna3.spv"), 4, 16)?,
+    );
+    for (rows, input_dim, output_dim) in [
+        (2usize, 16usize, 16usize),
+        (6, 16, 16),
+        (16, 16, 16),
+        (32, 16, 16),
+        (36, 16, 16),
+        (36, 16, 32),
+        (36, 32, 16),
+        (8, 64, 64),
+        (16, 16, 64),
+    ] {
+        let input = GpuBuffer::from_f32(&device, &deterministic_values(rows * input_dim, 5))?;
+        let weight = GpuBuffer::from_f32(&device, &deterministic_values(output_dim * input_dim, 6))?;
+        let bias = GpuBuffer::from_f32(&device, &deterministic_values(output_dim, 7))?;
+        let output = GpuBuffer::zeros_f32(&device, rows * output_dim)?;
+        let push = [rows as u32, input_dim as u32, output_dim as u32, 1];
+        let groups = [div_ceil_u32(output_dim, 16), div_ceil_u32(rows, 16), 1];
+        ab_report(
+            &device,
+            &format!("forward M={rows} K={input_dim} N={output_dim}"),
+            &forward.0,
+            &forward.1,
+            &[&input, &weight, &bias],
+            &output,
+            bytemuck::cast_slice(&push),
+            groups,
+            rows * output_dim,
+        )?;
+    }
+
+    let input_gradient = (
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_linear_input_grad_cpu_avx2.spv"), 4, 16)?,
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_linear_input_grad_hw_fma_amd_rdna3.spv"), 4, 16)?,
+    );
+    let dummy = GpuBuffer::from_f32(&device, &[0.0])?;
+    for (rows, dy_dim, dx_dim) in [
+        (2usize, 16usize, 16usize),
+        (6, 16, 16),
+        (16, 16, 16),
+        (32, 16, 16),
+        (36, 16, 16),
+        (36, 32, 16),
+        (8, 64, 64),
+    ] {
+        let gradient = GpuBuffer::from_f32(&device, &deterministic_values(rows * dy_dim, 8))?;
+        let weight = GpuBuffer::from_f32(&device, &deterministic_values(dy_dim * dx_dim, 9))?;
+        let output = GpuBuffer::zeros_f32(&device, rows * dx_dim)?;
+        let push = [rows as u32, dy_dim as u32, dx_dim as u32, 0];
+        let groups = [div_ceil_u32(dx_dim, 16), div_ceil_u32(rows, 16), 1];
+        ab_report(
+            &device,
+            &format!("dX M={rows} K={dy_dim} N={dx_dim}"),
+            &input_gradient.0,
+            &input_gradient.1,
+            &[&gradient, &weight, &dummy],
+            &output,
+            bytemuck::cast_slice(&push),
+            groups,
+            rows * dx_dim,
+        )?;
+    }
+
+    let weight_gradient = (
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_linear_weight_grad.spv"), 3, 12)?,
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_linear_weight_grad_hw_fma_amd_rdna3.spv"), 3, 12)?,
+    );
+    for (rows, input_dim, output_dim) in [
+        (4usize, 16usize, 16usize),
+        (8, 12, 16),
+        (16, 16, 16),
+        (36, 16, 16),
+        (36, 16, 32),
+    ] {
+        let input = GpuBuffer::from_f32(&device, &deterministic_values(rows * input_dim, 10))?;
+        let gradient = GpuBuffer::from_f32(&device, &deterministic_values(rows * output_dim, 11))?;
+        let output = GpuBuffer::zeros_f32(&device, output_dim * input_dim)?;
+        let push = [rows as u32, input_dim as u32, output_dim as u32];
+        let groups = [div_ceil_u32(input_dim, 16), div_ceil_u32(output_dim, 16), 1];
+        ab_report(
+            &device,
+            &format!("dW M={rows} K={input_dim} N={output_dim}"),
+            &weight_gradient.0,
+            &weight_gradient.1,
+            &[&input, &gradient],
+            &output,
+            bytemuck::cast_slice(&push),
+            groups,
+            output_dim * input_dim,
+        )?;
+    }
+
+    let patch = (
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_patch_linear_cpu_avx2.spv"), 3, 16)?,
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_patch_linear_hw_fma_amd_rdna3.spv"), 3, 16)?,
+    );
+    for (rows, input_dim, output_dim, channels) in
+        [(32usize, 12usize, 16usize, 3usize), (36, 48, 16, 3), (36, 48, 32, 3)]
+    {
+        let input = GpuBuffer::from_f32(&device, &deterministic_values(rows * input_dim, 12))?;
+        let weight = GpuBuffer::from_f32(&device, &deterministic_values(output_dim * input_dim, 13))?;
+        let output = GpuBuffer::zeros_f32(&device, rows * output_dim)?;
+        let push = PatchLinearPush {
+            rows: rows as u32,
+            input_dim: input_dim as u32,
+            output_dim: output_dim as u32,
+            channels: channels as u32,
+        };
+        let groups = [div_ceil_u32(output_dim, 16), div_ceil_u32(rows, 16), 1];
+        ab_report(
+            &device,
+            &format!("patch M={rows} K={input_dim} N={output_dim}"),
+            &patch.0,
+            &patch.1,
+            &[&input, &weight],
+            &output,
+            bytemuck::bytes_of(&push),
+            groups,
+            rows * output_dim,
+        )?;
+    }
+    Ok(())
+}
+
+#[test]
+fn rdna3_hw_fma_operator_scale_ab() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    let forward = (
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_linear_cpu_avx2.spv"), 4, 16)?,
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_linear_hw_fma_amd_rdna3.spv"), 4, 16)?,
+    );
+    let (rows, input_dim, output_dim) = (512usize, 64usize, 64usize);
+    let input = GpuBuffer::from_f32(&device, &deterministic_values(rows * input_dim, 21))?;
+    let weight = GpuBuffer::from_f32(&device, &deterministic_values(output_dim * input_dim, 22))?;
+    let bias = GpuBuffer::from_f32(&device, &deterministic_values(output_dim, 23))?;
+    let output = GpuBuffer::zeros_f32(&device, rows * output_dim)?;
+    let push = [rows as u32, input_dim as u32, output_dim as u32, 1];
+    let groups = [div_ceil_u32(output_dim, 16), div_ceil_u32(rows, 16), 1];
+    ab_report(
+        &device,
+        "forward M=512 K=64 N=64",
+        &forward.0,
+        &forward.1,
+        &[&input, &weight, &bias],
+        &output,
+        bytemuck::cast_slice(&push),
+        groups,
+        rows * output_dim,
+    )?;
+
+    let input_gradient = (
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_linear_input_grad_cpu_avx2.spv"), 4, 16)?,
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_linear_input_grad_hw_fma_amd_rdna3.spv"), 4, 16)?,
+    );
+    let dummy = GpuBuffer::from_f32(&device, &[0.0])?;
+    let output = GpuBuffer::zeros_f32(&device, rows * output_dim)?;
+    let push = [rows as u32, output_dim as u32, input_dim as u32, 0];
+    let groups = [div_ceil_u32(input_dim, 16), div_ceil_u32(rows, 16), 1];
+    ab_report(
+        &device,
+        "dX M=512 K=64 N=64",
+        &input_gradient.0,
+        &input_gradient.1,
+        &[&input, &weight, &dummy],
+        &output,
+        bytemuck::cast_slice(&push),
+        groups,
+        rows * input_dim,
+    )?;
+
+    let weight_gradient = (
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_linear_weight_grad.spv"), 3, 12)?,
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_linear_weight_grad_hw_fma_amd_rdna3.spv"), 3, 12)?,
+    );
+    let output = GpuBuffer::zeros_f32(&device, output_dim * input_dim)?;
+    let push = [rows as u32, input_dim as u32, output_dim as u32];
+    let groups = [div_ceil_u32(input_dim, 16), div_ceil_u32(output_dim, 16), 1];
+    ab_report(
+        &device,
+        "dW M=512 K=64 N=64",
+        &weight_gradient.0,
+        &weight_gradient.1,
+        &[&input, &weight],
+        &output,
+        bytemuck::cast_slice(&push),
+        groups,
+        output_dim * input_dim,
+    )?;
+
+    let patch = (
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_patch_linear_cpu_avx2.spv"), 3, 16)?,
+        vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/vision_patch_linear_hw_fma_amd_rdna3.spv"), 3, 16)?,
+    );
+    let (patch_rows, patch_input, patch_output) = (576usize, 48usize, 16usize);
+    let patch_input_values = GpuBuffer::from_f32(&device, &deterministic_values(patch_rows * patch_input, 24))?;
+    let patch_weight = GpuBuffer::from_f32(&device, &deterministic_values(patch_output * patch_input, 25))?;
+    let patch_output_values = GpuBuffer::zeros_f32(&device, patch_rows * patch_output)?;
+    let patch_push = PatchLinearPush {
+        rows: patch_rows as u32,
+        input_dim: patch_input as u32,
+        output_dim: patch_output as u32,
+        channels: 3,
+    };
+    ab_report(
+        &device,
+        "patch M=576 K=48 N=16",
+        &patch.0,
+        &patch.1,
+        &[&patch_input_values, &patch_weight],
+        &patch_output_values,
+        bytemuck::bytes_of(&patch_push),
+        [div_ceil_u32(patch_output, 16), div_ceil_u32(patch_rows, 16), 1],
+        patch_rows * patch_output,
+    )?;
+    Ok(())
+}
+
+#[test]
+fn rdna3_hw_fma_vision_gate_is_rdna3_only() {
+    assert!(crate::vendor::rdna3_vision_capability(0x1002, 0x15bf));
+    assert!(crate::vendor::rdna3_vision_capability(0x1002, 0x7448));
+    for (vendor, device) in [
+        (0x8086_u32, 0x1916_u32),
+        (0x1002, 0x73ff),
+        (0x10de, 0x2684),
+    ] {
+        assert!(!crate::vendor::rdna3_vision_capability(vendor, device));
+    }
+}
+
+fn spirv_workgroup_declaration(spv: &[u8]) -> (Vec<u32>, usize) {
+    let words: Vec<u32> = spv
+        .chunks_exact(4)
+        .map(|word| u32::from_le_bytes(word.try_into().expect("four-byte word")))
+        .collect();
+    let mut offset = 5usize;
+    let mut local_size = Vec::new();
+    let mut workgroup_variables = 0usize;
+    while offset < words.len() {
+        let count = (words[offset] >> 16) as usize;
+        let opcode = (words[offset] & 0xffff) as usize;
+        assert!(count > 0 && offset + count <= words.len(), "malformed SPIR-V");
+        if opcode == 16 && count == 6 && words[offset + 2] == 17 {
+            local_size = words[offset + 3..offset + 6].to_vec();
+        }
+        if opcode == 59 && count >= 4 && words[offset + 3] == 4 {
+            workgroup_variables += 1;
+        }
+        offset += count;
+    }
+    (local_size, workgroup_variables)
+}
+
+#[test]
+fn rdna3_hw_fma_linear_matches_the_software_construction() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    let software = vulkan::ComputeKernel::new(
+        &device,
+        include_bytes!("../../shaders/vision_linear_cpu_avx2.spv"),
+        4,
+        16,
+    )?;
+    let hardware = vulkan::ComputeKernel::new(
+        &device,
+        include_bytes!("../../shaders/vision_linear_hw_fma_amd_rdna3.spv"),
+        4,
+        16,
+    )?;
+    let corpus: Corpus = serde_json::from_slice(include_bytes!(
+        "../../validation/fixtures/vision_avx2_row_tail/fixture.json"
+    ))?;
+    let mut state = 0x1234_5678_u64;
+    let mut values = |len: usize| -> Vec<f32> {
+        (0..len)
+            .map(|_| {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                let unit = ((state >> 40) as u32 as f32) / ((1u32 << 24) as f32);
+                unit * 4.0 - 2.0
+            })
+            .collect()
+    };
+    let mut geometries: Vec<(usize, usize, usize)> = corpus
+        .cases
+        .iter()
+        .map(|case| (case.rows, case.input_dim, case.output_dim))
+        .collect();
+    for rows in [2usize, 3, 4, 5, 6, 7, 8, 12, 16, 17, 32, 36] {
+        for input_dim in [8usize, 12, 16, 32, 64] {
+            for output_dim in [16usize, 32, 64] {
+                geometries.push((rows, input_dim, output_dim));
+            }
+        }
+    }
+    let mut words = 0usize;
+    for &(rows, input_dim, output_dim) in &geometries {
+        let input = GpuBuffer::from_f32(&device, &values(rows * input_dim))?;
+        let weight = GpuBuffer::from_f32(&device, &values(output_dim * input_dim))?;
+        let bias = GpuBuffer::from_f32(&device, &values(output_dim))?;
+        let output = GpuBuffer::zeros_f32(&device, rows * output_dim)?;
+        let push = [rows as u32, input_dim as u32, output_dim as u32, 1];
+        let groups = [
+            div_ceil_u32(output_dim, 16),
+            div_ceil_u32(rows, 16),
+            1,
+        ];
+        let bindings = [&input, &weight, &bias];
+        let reference = dispatch_words(
+            &device, &software, &bindings, &output, bytemuck::cast_slice(&push), groups,
+            rows * output_dim,
+        )?;
+        let candidate = dispatch_words(
+            &device, &hardware, &bindings, &output, bytemuck::cast_slice(&push), groups,
+            rows * output_dim,
+        )?;
+        assert_words_equal(
+            &format!("RDNA3 hardware-FMA forward M={rows} K={input_dim} N={output_dim}"),
+            &candidate,
+            &reference,
+        )?;
+        words += reference.len();
+    }
+    eprintln!(
+        "RDNA3 hardware FMA vs software FMA: {words} words exact across {} forward geometries on {}",
+        geometries.len(),
+        device.name()
+    );
+    Ok(())
+}
+
+#[test]
+fn rdna3_hw_fma_vision_modules_declare_the_expected_workgroup() {
+    for spv in [
+        include_bytes!("../../shaders/vision_linear_hw_fma_amd_rdna3.spv").as_slice(),
+        include_bytes!("../../shaders/vision_linear_input_grad_hw_fma_amd_rdna3.spv").as_slice(),
+        include_bytes!("../../shaders/vision_patch_linear_hw_fma_amd_rdna3.spv").as_slice(),
+        include_bytes!("../../shaders/vision_linear_weight_grad_hw_fma_amd_rdna3.spv").as_slice(),
+    ] {
+        assert_eq!(spirv_workgroup_declaration(spv), (vec![16, 16, 1], 0));
+    }
+}

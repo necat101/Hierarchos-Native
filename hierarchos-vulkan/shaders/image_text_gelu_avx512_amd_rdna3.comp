@@ -1,0 +1,34 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact_hw_rdna3.glsl"
+#include "fp32_gelu_avx512_rdna3.glsl"
+#include "fp32_onednn_gelu.glsl"
+// oneDNN 3.5.3 selects its AVX512 piecewise minimax forward on this host.
+// The adjoint uses its Abramowitz/Stegun schedule. RDNA3 native FMA replaces
+// software emulation; all surrounding rounding points are explicit.
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer X { float x[]; };
+#ifdef RDNA3_GELU_BACKWARD
+layout(set=0,binding=1,std430) readonly buffer DY { float dy[]; };
+layout(set=0,binding=2,std430) writeonly buffer Y { float y[]; };
+#else
+layout(set=0,binding=1,std430) writeonly buffer Y { float y[]; };
+#endif
+layout(push_constant) uniform Push { uint len; } pc;
+void main() {
+    uint i=gl_GlobalInvocationID.x;
+    if(i>=pc.len) return;
+#ifdef RDNA3_GELU_BACKWARD
+    y[i]=onednn_gelu_backward(x[i],dy[i]);
+#else
+    float v=abs(x[i]);
+    int index=clamp((int(floatBitsToUint(v)+0xc21fffffu))>>21,1,24);
+    if(v>uintBitsToFloat(0x40b15ceeu)) index=23;
+    float p=uintBitsToFloat(RDNA3_GELU_COEFFICIENTS[160+index]);
+    for(int d=4;d>=0;--d) p=fma(p,v,uintBitsToFloat(RDNA3_GELU_COEFFICIENTS[d*32+index]));
+    p=uintBitsToFloat(floatBitsToUint(p)^(floatBitsToUint(x[i])&0x80000000u));
+    precise float shifted=p+1.0;
+    precise float product=x[i]*shifted;
+    y[i]=product*0.5;
+#endif
+}

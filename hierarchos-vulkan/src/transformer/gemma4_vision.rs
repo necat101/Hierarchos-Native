@@ -1301,7 +1301,7 @@ impl VulkanGemma4Vision {
             linear.input_dim as u32,
             linear.output_dim as u32,
         ];
-        self.vk.weight_grad_cpu_avx2.record_dispatch(
+        self.vk.weight_grad_kernel().record_dispatch(
             commands,
             &[input, gradient, linear.weight.grad_target()?],
             bytemuck::cast_slice(&push),

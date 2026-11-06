@@ -1,0 +1,44 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_sqrt_recip.glsl"
+// Separate RDNA3 AVX-512 contract for Gemma3's projector RMSNorm.
+//
+// The projector consumes the NCHW average-pool tensor after a permute, so the
+// hidden axis is strided.  On this Windows Torch 2.6 AVX512 CPU the reduction
+// topology depends on the pooled row count: 16 rows use four interleaved
+// streams, while 8 rows use sixteen.  The generic shader uses source order and
+// is one ULP high on the full-grid fixture.  This module owns only the two
+// measured shapes; all other norms keep the generic path.
+layout(local_size_x=64) in;
+layout(set=0,binding=0,std430) readonly buffer X { float x[]; };
+layout(set=0,binding=1,std430) readonly buffer W { float w[]; };
+layout(set=0,binding=2,std430) writeonly buffer Y { float y[]; };
+layout(set=0,binding=3,std430) writeonly buffer RS { float rs[]; };
+layout(set=0,binding=4,std430) writeonly buffer MS { float ms[]; };
+layout(push_constant) uniform Push {
+    uint rows; uint dim; uint groups; float eps; float offset;
+    uint pow_rstd; uint unfused; uint lanes;
+} pc;
+void main() {
+    uint row=gl_GlobalInvocationID.x;
+    if(row>=pc.rows) return;
+    if(pc.lanes!=4u && pc.lanes!=16u) return;
+    uint base=row*pc.dim;
+    precise float partial[16];
+    for(uint lane=0u;lane<pc.lanes;++lane) partial[lane]=0.0;
+    for(uint col=0u;col<pc.dim;++col) {
+        precise float value=x[base+col];
+        precise float square=value*value;
+        partial[col%pc.lanes]+=square;
+    }
+    precise float sum=0.0;
+    for(uint lane=0u;lane<pc.lanes;++lane) sum+=partial[lane];
+    precise float mean=sum/float(pc.dim)+pc.eps;
+    float rstd=fp32_sqrt_recip(mean);
+    ms[row]=mean;
+    rs[row]=rstd;
+    for(uint col=0u;col<pc.dim;++col) {
+        precise float normalized=x[base+col]*rstd;
+        y[base+col]=normalized*(w[col]+pc.offset);
+    }
+}

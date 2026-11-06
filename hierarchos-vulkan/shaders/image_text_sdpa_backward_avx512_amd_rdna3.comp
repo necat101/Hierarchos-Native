@@ -1,0 +1,107 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#extension GL_ARB_gpu_shader_fp64 : require
+#include "fp32_fma_exact_hw_rdna3.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_scalar_exp_rdna3.glsl"
+// Torch 2.6 CPU flash SDPA adjoint at seq=8, head_dim=8. Reconstruct the
+// forward logsumexp, restore P with exp(score-lse), and use sum(dO*O), as the
+// CPU kernel does. One RDNA3 workgroup owns a KV head; query-head contributions
+// join in source order without atomics. LDS reuses P and dS across dimensions.
+layout(local_size_x=64) in;
+layout(set=0,binding=0,std430) readonly buffer Q {float q[];};
+layout(set=0,binding=1,std430) readonly buffer K {float k[];};
+layout(set=0,binding=2,std430) readonly buffer V {float v[];};
+layout(set=0,binding=3,std430) readonly buffer QM {float qm[];};
+layout(set=0,binding=4,std430) readonly buffer KM {float km[];};
+layout(set=0,binding=5,std430) readonly buffer DY {float dy[];};
+layout(set=0,binding=6,std430) readonly buffer O {float o[];};
+layout(set=0,binding=7,std430) writeonly buffer DQ {float dq[];};
+layout(set=0,binding=8,std430) writeonly buffer DK {float dk[];};
+layout(set=0,binding=9,std430) writeonly buffer DV {float dv[];};
+layout(push_constant) uniform Push {
+    uint batch;uint seq;uint qhidden;uint vhidden;
+    uint heads;uint kvheads;uint window;float scale;
+} pc;
+shared float probabilities[72];
+shared float derivatives[72];
+float exp20(float x) {
+    if(x<uintBitsToFloat(0xc2aeac50u)) return 0.0;
+    float n=floor(fma(x,uintBitsToFloat(0x3fb8aa3bu),0.5));
+    float r=fma(-n,uintBitsToFloat(0x3f317218u),x);
+    float p=fma(r,0.00828929059,0.0418978221);
+    p=fma(r,p,0.166676521);p=fma(r,p,0.499991506);
+    p=fma(r,p,0.999999701);p=fma(r,p,1.0);
+    precise float product=p*uintBitsToFloat(uint(int(n)+126)<<23u);
+    return product*2.0;
+}
+float rounded_log(float value) {
+    int e=int(floatBitsToUint(value)>>23u)-127;
+    double m=double(value)*double(sleef_pow2i(-e));
+    if(m>1.4142135623730951) {m*=0.5;++e;}
+    double z=(m-1.0)/(m+1.0),square=z*z;
+    precise double term=z,sum=z;
+    for(int n=3;n<=25;n+=2) {term*=square;sum+=term/double(n);}
+    return float(fma(double(e),0.693147180559945309417232121458,2.0*sum));
+}
+float dot4(uint a,uint b,bool grad) {
+    precise float part[4]=float[4](0.0,0.0,0.0,0.0);
+    for(uint d=0u;d<8u;++d) {
+        precise float product=grad ? dy[a+d]*v[b+d] : q[a+d]*k[b+d];
+        part[d&3u]+=product;
+    }
+    precise float even=part[0]+part[2],odd=part[1]+part[3];
+    return even+odd;
+}
+void main() {
+    uint local=gl_LocalInvocationID.x,kv=gl_WorkGroupID.x,batch=gl_WorkGroupID.y;
+    uint row=local/8u,d=local%8u,kvwidth=pc.kvheads*8u;
+    uint key_base=batch*8u*kvwidth+kv*8u;
+    uint output_width=pc.heads*8u;
+    precise float sum_k=0.0,sum_v=0.0;
+    uint repeat=pc.heads/pc.kvheads;
+    for(uint h=0u;h<repeat;++h) {
+        uint head=kv*repeat+h;
+        if(local<8u) {
+            uint query=local,qbase=(batch*8u+query)*pc.qhidden+head*8u;
+            uint obase=(batch*8u+query)*output_width+head*8u;
+            float scores[8];bool visible[8];bool found=false;
+            float maximum=-3.402823466e38;
+            for(uint key=0u;key<8u;++key) {
+                visible[key]=qm[batch*8u+query]>0.0 && km[batch*8u+key]>0.0
+                    && key<=query && (pc.window==0u || key+pc.window>query);
+                if(visible[key]) {
+                    scores[key]=dot4(qbase,key_base+key*kvwidth,false)*pc.scale;
+                    maximum=found ? max(maximum,scores[key]) : scores[key];found=true;
+                }
+            }
+            precise float total=0.0;
+            for(uint key=0u;key<8u;++key) if(visible[key]) total+=rdna3_scalar_expf(scores[key]-maximum);
+            precise float log_total=found ? rounded_log(total) : 0.0;
+            precise float lse=maximum+log_total;
+            precise float delta=0.0;
+            for(uint j=0u;j<8u;++j) {precise float product=dy[obase+j]*o[obase+j];delta+=product;}
+            for(uint key=0u;key<8u;++key) {
+                float p=visible[key] ? sleef_expf_u10(scores[key]-lse) : 0.0;
+                probabilities[query*9u+key]=p;
+                float dp=visible[key] ? dot4(obase,key_base+key*kvwidth,true) : 0.0;
+                precise float difference=dp-delta;
+                derivatives[query*9u+key]=p*difference;
+            }
+        }
+        barrier();
+        precise float qvalue=0.0,kvalue=0.0,vvalue=0.0;
+        for(uint key=0u;key<8u;++key) {
+            precise float qp=derivatives[row*9u+key]*k[key_base+key*kvwidth+d];qvalue+=qp;
+            uint other_q=(batch*8u+key)*pc.qhidden+head*8u+d;
+            precise float kp=derivatives[key*9u+row]*q[other_q];kvalue+=kp;
+            precise float vp=probabilities[key*9u+row]*dy[(batch*8u+key)*output_width+head*8u+d];vvalue+=vp;
+        }
+        dq[(batch*8u+row)*pc.qhidden+head*8u+d]=qvalue*pc.scale;
+        sum_k+=kvalue*pc.scale;sum_v+=vvalue;
+        barrier();
+    }
+    dk[key_base+row*kvwidth+d]=sum_k;
+    dv[key_base+row*kvwidth+d]=sum_v;
+}
