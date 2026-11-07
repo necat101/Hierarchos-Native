@@ -89,11 +89,14 @@ struct DeviceInner {
 
 /// One `vkCmdFillBuffer(0)` owed to a buffer before anyone reads it.
 ///
-/// The buffer is held by the entry, not merely referenced, because the fill is
-/// recorded later than the allocation: dropping the last user between the two
-/// must not destroy the `VkBuffer` that the clear still targets.
+/// The entry holds a weak allocation, not a strong `GpuBuffer`. A strong view
+/// here would form a reference cycle with the device: `DeviceInner` owns the
+/// pending-clear list, the clear owns the allocation, and the allocation owns
+/// an `Arc<DeviceInner>`. Every zeroed intermediate dropped without being bound
+/// would then pin a whole logical Vulkan device. The weak entry lets an
+/// unreachable fill disappear with its last user instead.
 struct PendingClear {
-    buffer: GpuBuffer,
+    allocation: Weak<GpuBufferAllocation>,
     size_bytes: usize,
     /// The thread that allocated the buffer. Only that thread's command buffers
     /// may consume the fill: another thread's batch could otherwise record the
@@ -1948,7 +1951,7 @@ impl VulkanDevice {
             .lock()
             .map_err(|_| anyhow!("Vulkan pending-clear list was poisoned"))?;
         pending.entries.push(PendingClear {
-            buffer: buffer.clone(),
+            allocation: Arc::downgrade(&buffer.allocation),
             size_bytes,
             owner: std::thread::current().id(),
         });
@@ -1979,12 +1982,17 @@ impl VulkanDevice {
                 .map_err(|_| anyhow!("Vulkan pending-clear list was poisoned"))?;
             let mut kept = Vec::with_capacity(pending.entries.len());
             for clear in pending.entries.drain(..) {
+                let Some(allocation) = clear.allocation.upgrade() else {
+                    // The last user dropped the buffer before it was bound. There
+                    // is no read to protect, so the fill is unreachable.
+                    continue;
+                };
                 let bound = buffers
                     .iter()
-                    .any(|buffer| Arc::ptr_eq(&buffer.allocation, &clear.buffer.allocation));
+                    .any(|buffer| Arc::ptr_eq(&buffer.allocation, &allocation));
                 if bound && clear.owner == current {
-                    ready.push(clear);
-                } else if bound || Arc::strong_count(&clear.buffer.allocation) > 1 {
+                    ready.push((allocation, clear.size_bytes));
+                } else {
                     // Another worker's fill, or one whose buffer is still in use:
                     // leave it for the thread that allocated it.
                     kept.push(clear);
@@ -1995,8 +2003,8 @@ impl VulkanDevice {
                 .pending_clear_count
                 .store(pending.entries.len(), Ordering::Relaxed);
         }
-        for clear in &ready {
-            batch.record_zero_fill(clear)?;
+        for (allocation, size_bytes) in &ready {
+            batch.record_zero_fill(allocation, *size_bytes)?;
         }
         Ok(())
     }
@@ -2007,9 +2015,11 @@ impl VulkanDevice {
         let Ok(mut pending) = self.inner.pending_clears.lock() else {
             return;
         };
-        pending
-            .entries
-            .retain(|clear| !Arc::ptr_eq(&clear.buffer.allocation, &buffer.allocation));
+        pending.entries.retain(|clear| {
+            clear.allocation.upgrade().map_or(false, |allocation| {
+                !Arc::ptr_eq(&allocation, &buffer.allocation)
+            })
+        });
         self.inner
             .pending_clear_count
             .store(pending.entries.len(), Ordering::Relaxed);
@@ -7796,13 +7806,17 @@ impl ComputeBatch {
     /// bracketed by the same transfer/shader barriers the upload path uses, so
     /// the zero is visible to the shader that reads it without a submission of
     /// its own.
-    fn record_zero_fill(&mut self, clear: &PendingClear) -> Result<()> {
-        if !Arc::ptr_eq(&clear.buffer.allocation.inner, &self.inner) {
+    fn record_zero_fill(
+        &mut self,
+        allocation: &GpuBufferAllocation,
+        size_bytes: usize,
+    ) -> Result<()> {
+        if !Arc::ptr_eq(&allocation.inner, &self.inner) {
             bail!("deferred Vulkan zero fill belongs to a different device");
         }
-        let offset = clear.buffer.allocation.buffer_offset_bytes as u64;
-        let size = clear.size_bytes as u64;
-        let buffer = clear.buffer.allocation.buffer;
+        let offset = allocation.buffer_offset_bytes as u64;
+        let size = size_bytes as u64;
+        let buffer = allocation.buffer;
         self.inner.with_command_pool_host_access(|| unsafe {
             let before = [vk::BufferMemoryBarrier::default()
                 .src_access_mask(vk::AccessFlags::SHADER_WRITE)
@@ -9653,6 +9667,28 @@ mod tests {
                 .load(std::sync::atomic::Ordering::Relaxed),
             0
         );
+        Ok(())
+    }
+
+    #[test]
+    fn deferred_zero_fill_does_not_pin_its_device() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        let buffer = GpuBuffer::new(&device, 32)?;
+        device.enqueue_zero_clear(&buffer, 32)?;
+        assert_eq!(
+            device
+                .inner
+                .pending_clear_count
+                .load(std::sync::atomic::Ordering::Relaxed),
+            1
+        );
+        assert!(std::sync::Arc::strong_count(&device.inner) > 1);
+
+        drop(buffer);
+
+        // The weak pending entry must not keep the allocation, and through its
+        // cloned device handle, the logical Vulkan device alive.
+        assert_eq!(std::sync::Arc::strong_count(&device.inner), 1);
         Ok(())
     }
 

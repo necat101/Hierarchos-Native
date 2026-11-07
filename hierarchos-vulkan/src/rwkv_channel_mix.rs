@@ -1280,6 +1280,7 @@ mod tests {
 
     #[test]
     fn fused_channel_mix_full_forward_matches_legacy_four_dispatch_chain() -> Result<()> {
+        let _env = crate::test_support::env_lock();
         let Ok(device) = VulkanDevice::new() else {
             return Ok(());
         };
@@ -1452,6 +1453,7 @@ mod tests {
 
     #[test]
     fn fused_channel_mix_producer_matches_legacy_three_dispatch_chain() -> Result<()> {
+        let _env = crate::test_support::env_lock();
         let Ok(device) = VulkanDevice::new() else {
             return Ok(());
         };

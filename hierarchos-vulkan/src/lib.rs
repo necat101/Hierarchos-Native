@@ -42,6 +42,8 @@ mod rwkv_time_mix_core;
 mod shared_lm_head;
 mod stochastic;
 mod tape_profiles;
+#[cfg(test)]
+mod test_support;
 mod tied_embedding;
 mod token_frontend;
 mod training_numerics;

@@ -26126,7 +26126,35 @@ pub const HIERARCHOS_ATEN_VECTOR_WIDTH_ENV: &str = "HIERARCHOS_ATEN_VECTOR_WIDTH
 /// The check is a CPU capability probe, not a build-time assumption, because a
 /// shipped binary runs on both kinds of machine.  The result is cached after
 /// the first call so per-dispatch callers pay nothing.
+#[cfg(test)]
+thread_local! {
+    /// A focused parity test may reproduce an AVX2 oracle on an AVX-512 host
+    /// without changing the process-wide cached width used by other tests.
+    static ATEN_VECTOR_WIDTH_OVERRIDE: std::cell::Cell<Option<u32>> =
+        const { std::cell::Cell::new(None) };
+}
+
+#[cfg(test)]
+struct AtenVectorWidthOverride(Option<u32>);
+
+#[cfg(test)]
+impl Drop for AtenVectorWidthOverride {
+    fn drop(&mut self) {
+        ATEN_VECTOR_WIDTH_OVERRIDE.with(|cell| cell.set(self.0));
+    }
+}
+
+#[cfg(test)]
+fn with_aten_vector_width(width: u32) -> AtenVectorWidthOverride {
+    let previous = ATEN_VECTOR_WIDTH_OVERRIDE.with(|cell| cell.replace(Some(width)));
+    AtenVectorWidthOverride(previous)
+}
+
 pub fn aten_vector_width() -> u32 {
+    #[cfg(test)]
+    if let Some(width) = ATEN_VECTOR_WIDTH_OVERRIDE.with(|cell| cell.get()) {
+        return width;
+    }
     if crate::deepseek_v41::native_avx2_math_active() {
         return 8;
     }

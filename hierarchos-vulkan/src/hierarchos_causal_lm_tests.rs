@@ -1161,6 +1161,7 @@ fn hierarchos_causal_lm_vendor_kernels_match_portable() -> Result<()> {
 /// vendor module's availability does not qualify an AMD fusion replacement.
 /// Dispatch counters prove all four vendor modules actually ran.
 fn vendor_kernels_match_portable() -> Result<()> {
+    let _env = crate::test_support::env_lock();
     // Module arithmetic qualification includes measured performance losers.
     // Shipping geometry decisions are exercised by the ordinary trajectory gates.
     let _modules = EnvVarGuard::set(

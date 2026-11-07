@@ -40,6 +40,11 @@ struct ParityCase {
 
 #[test]
 fn gpt2_wide_frozen_cpu_logits_resident_and_streamed() -> Result<()> {
+    let _env = crate::test_support::env_lock();
+    // The frozen fixture records an AVX2 oracle (`"cpu": "AVX2"`). Pin the
+    // CPU-shaped kernels to that oracle instead of inheriting this host's
+    // AVX-512 width; the global 2e-7, rtol=0 gate is unchanged.
+    let _width = with_aten_vector_width(8);
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("validation/fixtures/gpt2_rdna3_parity");
     let fixture: ParityFixture = serde_json::from_slice(&fs::read(root.join("fixture.json"))?)?;
     assert_eq!(fixture.comparison, "strict_less_than");
