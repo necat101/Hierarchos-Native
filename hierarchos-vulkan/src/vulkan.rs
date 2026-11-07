@@ -6463,6 +6463,66 @@ struct DescriptorSetCacheKey {
     buffers: Vec<BufferRegionKey>,
 }
 
+/// Test-only accounting of session retirements by caller. A retirement is a
+/// host publication point, not necessarily a unique queue submission: it
+/// records the session, submits it and waits before the caller can read host
+/// memory or record a private batch. Keep both the event count and the measured
+/// blocking cost so a high-frequency cheap retirement is not mistaken for the
+/// dominant latency source.
+#[cfg(test)]
+pub(crate) mod retirement_report {
+    use std::collections::BTreeMap;
+    use std::sync::{Mutex, OnceLock};
+    use std::time::Duration;
+
+    #[derive(Default)]
+    struct Row {
+        count: u64,
+        dispatches: u64,
+        elapsed: Duration,
+    }
+
+    type Key = (&'static str, u32);
+
+    fn rows() -> &'static Mutex<BTreeMap<Key, Row>> {
+        static ROWS: OnceLock<Mutex<BTreeMap<Key, Row>>> = OnceLock::new();
+        ROWS.get_or_init(|| Mutex::new(BTreeMap::new()))
+    }
+
+    pub(crate) fn enabled() -> bool {
+        std::env::var_os("HIERARCHOS_VULKAN_SUBMISSION_REPORT").is_some()
+    }
+
+    pub(crate) fn record(
+        location: &'static std::panic::Location<'static>,
+        elapsed: Duration,
+        dispatches: usize,
+    ) {
+        if !enabled() {
+            return;
+        }
+        if let Ok(mut rows) = rows().lock() {
+            let row = rows.entry((location.file(), location.line())).or_default();
+            row.count += 1;
+            row.dispatches += dispatches as u64;
+            row.elapsed += elapsed;
+        }
+    }
+
+    pub(crate) fn take() -> Vec<(&'static str, u32, u64, u64, Duration)> {
+        let mut rows = match rows().lock() {
+            Ok(rows) => rows,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let report = rows
+            .iter()
+            .map(|(&(file, line), row)| (file, line, row.count, row.dispatches, row.elapsed))
+            .collect();
+        rows.clear();
+        report
+    }
+}
+
 /// Test-only accounting of logical queue submissions by call site. Nothing is
 /// recorded unless `HIERARCHOS_VULKAN_SUBMISSION_REPORT` is set, and the whole
 /// module is compiled out of non-test builds.
@@ -7661,7 +7721,9 @@ impl ComputeBatch {
     #[cfg_attr(test, track_caller)]
     pub(crate) fn submit_and_restart(&mut self) -> Result<()> {
         #[cfg(test)]
-        submission_report::record(std::panic::Location::caller());
+        let caller = std::panic::Location::caller();
+        #[cfg(test)]
+        submission_report::record(caller);
         let device = self.device.clone();
         let session_owned = self.session_owned;
         let watchdog_submission_slicing = self.watchdog_submission_slicing;
@@ -7699,6 +7761,8 @@ impl ComputeBatch {
         let submitted = current.submit();
         let elapsed_micros = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
         submitted?;
+        #[cfg(test)]
+        retirement_report::record(caller, started.elapsed(), retired_dispatches);
         if let Some(arena) = persistent_arena {
             *self = Self::new_with_persistent_upload_arena(&device, arena)?;
         }

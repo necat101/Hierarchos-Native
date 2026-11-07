@@ -39,6 +39,7 @@ RESERVED = {
     "HIERARCHOS_MULTIMODAL_BENCH_OUTPUT",
     "HIERARCHOS_MULTIMODAL_BENCH_FIXTURES",
     "HIERARCHOS_MULTIMODAL_BENCH_STEPS",
+    "HIERARCHOS_MULTIMODAL_BENCH_BATCH",
 }
 
 
@@ -122,10 +123,16 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--rounds", type=int, default=6)
     parser.add_argument("--steps", type=int, default=7)
+    parser.add_argument("--batch", type=int, default=1, choices=(1, 2, 4))
     parser.add_argument("--baseline-env", action="append", default=[])
     parser.add_argument("--candidate-env", action="append", default=[])
     parser.add_argument("--scope", default="paired baseline/candidate V4.1 training benchmark")
     parser.add_argument("--allow-cross-arm-signature-difference", action="store_true")
+    parser.add_argument(
+        "--allow-legacy-batch1",
+        action="store_true",
+        help="accept batch-1 binaries that predate the batch field; never valid for batch>1",
+    )
     parser.add_argument("--require-native-improvement", action="store_true")
     parser.add_argument("--forbid-control-regression", action="store_true")
     parser.add_argument("--bootstrap-draws", type=int, default=10000)
@@ -166,6 +173,7 @@ def main():
                 "HIERARCHOS_MULTIMODAL_BENCH_OUTPUT": str(destination),
                 "HIERARCHOS_MULTIMODAL_BENCH_FIXTURES": str(fixtures),
                 "HIERARCHOS_MULTIMODAL_BENCH_STEPS": str(args.steps),
+                "HIERARCHOS_MULTIMODAL_BENCH_BATCH": str(args.batch),
             }
             for key in CLEAR:
                 env.pop(key, None)
@@ -201,13 +209,17 @@ def main():
                 raise ValueError(f"{name}: benchmark binary changed")
             raw = json.loads(destination.read_text(encoding="utf-8"))
             records = raw["records"]
+            legacy_batch = raw.get("batch") is None
+            if legacy_batch and not (args.allow_legacy_batch1 and args.batch == 1):
+                raise ValueError(f"{name}: benchmark did not declare its batch")
             if (
                 raw["warmup"] != 2
                 or raw["iterations"] != args.steps
+                or (not legacy_batch and raw.get("batch") != args.batch)
                 or len(records) != len(CASES)
                 or {record["case"] for record in records} != set(CASES)
             ):
-                raise ValueError(f"{name}: benchmark coverage changed")
+                raise ValueError(f"{name}: benchmark coverage/batch changed")
             for record in records:
                 samples = record["samples"]
                 if len(samples) != args.steps or any(
@@ -215,6 +227,8 @@ def main():
                     for sample in samples
                 ):
                     raise ValueError(f"{name}: invalid timing samples")
+                if record.get("batch") is not None and record["batch"] != args.batch:
+                    raise ValueError(f"{name}: native record batch changed")
             signatures = {record["case"]: signature(record) for record in records}
             if arm in arm_signatures and signatures != arm_signatures[arm]:
                 raise ValueError(f"{name}: final words changed within the {arm} arm")
@@ -311,6 +325,7 @@ def main():
         "scope": args.scope,
         "order": "ABBA",
         "rounds": args.rounds,
+        "batch": args.batch,
         "measured_steps": args.steps,
         "warmup_steps": 2,
         "bootstrap_draws": args.bootstrap_draws,
@@ -318,6 +333,12 @@ def main():
         "cross_arm_word_exact": not mismatched,
         "cross_arm_mismatched_cases": mismatched,
         "allowed_cross_arm_signature_difference": args.allow_cross_arm_signature_difference,
+        "legacy_batch_unreported": any(
+            record.get("batch") is None
+            for run in runs
+            for record in run["records"]
+            if record["kind"] == "native_v41"
+        ),
         "devices": sorted(str(device) for device in devices),
         "fixtures": str(fixtures),
         "baseline": {

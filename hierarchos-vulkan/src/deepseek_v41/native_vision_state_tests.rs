@@ -110,6 +110,71 @@ fn setup(
     ))
 }
 
+/// Expand a released batch-1 case to a real native batch. The released fixture
+/// has one complete image span in sample zero; additional samples are text-only
+/// rows with the processor's TEXT=-1 type. The trainer receives the full
+/// `batch * seq_len` token, target and type geometry, and the model runtime is
+/// constructed with the same batch size. This is not a repeated batch-1 call.
+fn with_batch(case: &Value, batch: usize) -> Result<Value> {
+    if !(1..=4).contains(&batch) {
+        bail!("native benchmark batch must be 1..=4, got {batch}");
+    }
+    let mut case = case.clone();
+    if batch == 1 {
+        return Ok(case);
+    }
+    let seq_len = case["seq_len"]
+        .as_u64()
+        .context("benchmark case has no seq_len")? as usize;
+    let mut ids = case["token_ids"]
+        .as_array()
+        .context("benchmark case has no token_ids")?
+        .iter()
+        .map(|v| Ok(v.as_u64().context("benchmark token id")? as u32))
+        .collect::<Result<Vec<_>>>()?;
+    let mut targets = case["targets"]
+        .as_array()
+        .context("benchmark case has no targets")?
+        .iter()
+        .map(|v| {
+            if v.as_i64() == Some(-100) {
+                Ok(u32::MAX)
+            } else {
+                Ok(v.as_u64().context("benchmark target")? as u32)
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let mut types = case["token_types"]
+        .as_array()
+        .context("benchmark case has no token_types")?
+        .iter()
+        .map(|v| Ok(v.as_i64().context("benchmark token type")? as i32))
+        .collect::<Result<Vec<_>>>()?;
+    if ids.len() != seq_len || targets.len() != seq_len || types.len() != seq_len {
+        bail!("batch-1 benchmark case geometry is not one sequence");
+    }
+    let text_row = types
+        .iter()
+        .position(|&kind| kind == -1)
+        .context("batch expansion requires a text-only token in the released case")?;
+    let filler_id = ids[text_row];
+    let filler_target = targets
+        .iter()
+        .copied()
+        .find(|&target| target != u32::MAX)
+        .unwrap_or(filler_id);
+    for _ in 1..batch {
+        ids.extend(std::iter::repeat_n(filler_id, seq_len));
+        targets.extend(std::iter::repeat_n(filler_target, seq_len));
+        types.extend(std::iter::repeat_n(-1, seq_len));
+    }
+    case["batch_size"] = json!(batch);
+    case["token_ids"] = json!(ids);
+    case["targets"] = json!(targets);
+    case["token_types"] = json!(types);
+    Ok(case)
+}
+
 /// Explicit performance run: measures training without qualification readbacks,
 /// export I/O or timestamp-query instrumentation in the timed region.
 #[test]
@@ -133,6 +198,11 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(7);
     assert!((3..=100).contains(&iterations));
+    let bench_batch = std::env::var("HIERARCHOS_MULTIMODAL_BENCH_BATCH")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(1);
+    assert!((1..=4).contains(&bench_batch));
     let warmup = 2;
     let device = VulkanDevice::new()?;
     let cpu: Value = serde_json::from_slice(include_bytes!(
@@ -140,7 +210,8 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
     ))?;
     let mut records = Vec::new();
     for case in cpu["cases"].as_array().unwrap() {
-        let (_package, mut trainer, batch, types, patches, start) = setup(device.clone(), case)?;
+        let case = with_batch(case, bench_batch)?;
+        let (_package, mut trainer, batch, types, patches, start) = setup(device.clone(), &case)?;
         let mut samples = Vec::new();
         for index in 0..warmup + iterations {
             let before = device.submission_count();
@@ -168,7 +239,7 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
         }
         let memory = device.memory_stats()?;
         records.push(
-            json!({"case":case["name"],"kind":"native_v41","samples":samples,
+            json!({"case":case["name"],"kind":"native_v41","batch":bench_batch,"samples":samples,
             "final_logits_bits":bits(&logits),"image_digest":format!("{:x}",digest.finalize()),
             "adapter_digest":trainer.adapter()?.snapshot_digest()?,
             "memory":{"live_buffer_bytes":memory.live_buffer_bytes,
@@ -264,11 +335,21 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
                 count as f64 / steps as f64
             );
         }
+        let mut retirements = crate::vulkan::retirement_report::take();
+        retirements.sort_by_key(|&(_, _, count, _, _)| std::cmp::Reverse(count));
+        for (file, line, count, dispatches, elapsed) in retirements {
+            eprintln!(
+                "hierarchos_retirement_report file={file} line={line} total={count} per_step={:.2} dispatches={dispatches} total_ms={:.3} ms_per_step={:.3}",
+                count as f64 / steps as f64,
+                elapsed.as_secs_f64() * 1000.0,
+                elapsed.as_secs_f64() * 1000.0 / steps as f64
+            );
+        }
     }
     fs::write(
         destination,
         serde_json::to_vec_pretty(
-            &json!({"device":device.name(),"warmup":warmup,"iterations":iterations,"records":records}),
+            &json!({"device":device.name(),"batch":bench_batch,"warmup":warmup,"iterations":iterations,"records":records}),
         )?,
     )?;
     Ok(())
