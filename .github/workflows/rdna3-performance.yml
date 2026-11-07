@@ -1,0 +1,141 @@
+name: RDNA3 V4.1 performance
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_ref:
+        description: Git revision of the optimization baseline
+        required: true
+        default: 722acd09626c592ead883b8c7aa652dd0d6ceeac
+      rounds:
+        description: Paired ABBA rounds (at least 4)
+        required: true
+        default: "6"
+      steps:
+        description: Measured optimizer updates per case
+        required: true
+        default: "7"
+      require_native_improvement:
+        description: Fail when native improvement is not statistically established
+        required: true
+        type: boolean
+        default: false
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rdna3-v41-performance
+  cancel-in-progress: false
+
+jobs:
+  performance:
+    # This label set is intentionally unique. Do not add pull_request to this
+    # workflow: self-hosted runners must never execute untrusted PR code.
+    runs-on: [self-hosted, Windows, X64, rdna3, vulkan]
+    timeout-minutes: 90
+    env:
+      CARGO_TERM_COLOR: never
+      RDNA3_V41_FIXTURES: ${{ vars.RDNA3_V41_FIXTURES }}
+      BASELINE_REF: ${{ inputs.baseline_ref || '722acd09626c592ead883b8c7aa652dd0d6ceeac' }}
+      ROUNDS: ${{ inputs.rounds || '6' }}
+      STEPS: ${{ inputs.steps || '7' }}
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate dedicated runner prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v cargo
+          command -v python
+          test -n "${RDNA3_V41_FIXTURES:?set repository variable RDNA3_V41_FIXTURES to the frozen Gen9 fixture root}"
+          test -d "$RDNA3_V41_FIXTURES"
+          python - <<'PY'
+          import subprocess, sys
+          out = subprocess.check_output(["cargo", "--version"], text=True)
+          print(out.strip())
+          if "rustc" not in out:
+              sys.exit("unexpected cargo version output")
+          PY
+
+      - name: Build candidate test binary
+        shell: bash
+        working-directory: hierarchos-vulkan
+        run: |
+          set -euo pipefail
+          cargo test --locked --lib --no-run
+          CANDIDATE_BIN="$(find target/debug/deps -maxdepth 1 -name 'hierarchos_vulkan-*.exe' -type f -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+          test -x "$CANDIDATE_BIN"
+          echo "CANDIDATE_BIN=$CANDIDATE_BIN" >> "$GITHUB_ENV"
+          sha256sum "$CANDIDATE_BIN"
+
+      - name: Build baseline test binary
+        shell: bash
+        working-directory: hierarchos-vulkan
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/rdna3-baseline-target
+        run: |
+          set -euo pipefail
+          BASELINE_SRC="$RUNNER_TEMP/rdna3-baseline-src"
+          git worktree add --detach "$BASELINE_SRC" "$BASELINE_REF"
+          (cd "$BASELINE_SRC/hierarchos-vulkan" && cargo test --locked --lib --no-run)
+          BASELINE_BIN="$(find "$CARGO_TARGET_DIR/debug/deps" -maxdepth 1 -name 'hierarchos_vulkan-*.exe' -type f -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+          test -x "$BASELINE_BIN"
+          echo "BASELINE_BIN=$BASELINE_BIN" >> "$GITHUB_ENV"
+          echo "BASELINE_SRC=$BASELINE_SRC" >> "$GITHUB_ENV"
+          sha256sum "$BASELINE_BIN"
+
+      - name: Paired ABBA benchmark
+        shell: bash
+        working-directory: hierarchos-vulkan
+        run: |
+          set -euo pipefail
+          rm -rf target/rdna3-port/ci-benchmark
+          python validation/benchmark_rdna3_v41_paired.py \
+            --baseline-binary "$BASELINE_BIN" \
+            --candidate-binary "$CANDIDATE_BIN" \
+            --fixtures "$RDNA3_V41_FIXTURES" \
+            --output target/rdna3-port/ci-benchmark \
+            --rounds "$ROUNDS" --steps "$STEPS" \
+            --scope "CI ${GITHUB_SHA} vs ${BASELINE_REF}" \
+            --forbid-control-regression
+
+      - name: Performance regression gate
+        shell: bash
+        working-directory: hierarchos-vulkan
+        run: |
+          set -euo pipefail
+          EXTRA=()
+          if [ "${{ inputs.require_native_improvement }}" = "true" ]; then
+            EXTRA+=(--require-native-improvement)
+          fi
+          python validation/rdna3_performance_gate.py \
+            target/rdna3-port/ci-benchmark/benchmark.json \
+            "${EXTRA[@]}" \
+            --json target/rdna3-port/ci-benchmark/gate.json \
+            --markdown target/rdna3-port/ci-benchmark/gate.md
+
+      - name: Upload raw benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rdna3-v41-performance-${{ github.run_id }}
+          path: |
+            hierarchos-vulkan/target/rdna3-port/ci-benchmark/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove baseline worktree
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [ -n "${BASELINE_SRC:-}" ] && [ -d "$BASELINE_SRC" ]; then
+            git worktree remove --force "$BASELINE_SRC"
+          fi

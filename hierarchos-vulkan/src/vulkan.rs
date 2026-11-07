@@ -4649,18 +4649,44 @@ impl GpuBuffer {
                 .checked_add(*len)
                 .context("batched read length overflow")?;
         }
-        // A session's stages are recorded, not submitted; the host read must
-        // see them before any copy is recorded.
-        retire_active_compute_session(&device)?;
         let slab_bytes = total.checked_mul(4).context("batched read size overflow")?;
         let slab = Self::new_host_visible(&device, slab_bytes)?;
-        let mut commands = ComputeBatch::new(&device)?;
-        let mut offset = 0usize;
-        for (buffer, len) in items {
-            commands.readback_f32_range(buffer, 0, &slab, offset, *len)?;
-            offset += *len;
+        // If this thread already has a matching recording session, put the
+        // copies in that command buffer and retire it once. The old path
+        // retired first and then allocated a second batch for the copies, so
+        // every gathered read paid two submissions and two fence waits. The
+        // copies carry their own compute->transfer and transfer->host
+        // barriers; the one retirement below is the same host-visibility
+        // boundary the old first retirement provided.
+        let active = ACTIVE_COMPUTE_SESSION.with(|session| session.get());
+        let mut submitted_session = false;
+        if !active.is_null() {
+            // SAFETY: the thread-local pointer is live until its scope finishes.
+            let session = unsafe { &mut *active };
+            if Arc::ptr_eq(&session.device.inner, &device.inner) {
+                let mut offset = 0usize;
+                for (buffer, len) in items {
+                    session
+                        .batch
+                        .readback_f32_range(buffer, 0, &slab, offset, *len)?;
+                    offset += *len;
+                }
+                session.batch.submit_and_restart()?;
+                submitted_session = true;
+            }
         }
-        commands.submit()?;
+        if !submitted_session {
+            // A host read must observe work from another device's session (or
+            // no session at all) before the separate read batch is recorded.
+            retire_active_compute_session(&device)?;
+            let mut commands = ComputeBatch::new(&device)?;
+            let mut offset = 0usize;
+            for (buffer, len) in items {
+                commands.readback_f32_range(buffer, 0, &slab, offset, *len)?;
+                offset += *len;
+            }
+            commands.submit()?;
+        }
         let all = slab.read_mapped_f32(total)?;
         let mut out = Vec::with_capacity(items.len());
         let mut cursor = 0usize;
@@ -9297,6 +9323,26 @@ mod tests {
         session.finish(Ok(()))?;
         drop((a, b));
         assert_eq!(device.memory_stats()?.live_buffer_bytes, baseline_bytes);
+        Ok(())
+    }
+
+    #[test]
+    fn batched_read_reuses_the_open_session_submission() -> anyhow::Result<()> {
+        let device = super::VulkanDevice::new()?;
+        let session = device.begin_compute_session()?;
+        let mut batch = device.compute_batch()?;
+        let a = super::GpuBuffer::from_f32_recorded(&device, &mut batch, &[1.5, -2.25])?;
+        let b = super::GpuBuffer::from_f32_recorded(&device, &mut batch, &[0.0, 7.25])?;
+        let before = device.submission_count();
+        let values = super::GpuBuffer::read_many_f32(&[(&a, 2), (&b, 2)])?;
+        assert_eq!(
+            device.submission_count() - before,
+            1,
+            "a gathered read must retire the open session once, not submit a second read batch"
+        );
+        assert_eq!(values, vec![vec![1.5, -2.25], vec![0.0, 7.25]]);
+        drop(batch);
+        session.finish(Ok(()))?;
         Ok(())
     }
 
