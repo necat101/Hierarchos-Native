@@ -8,8 +8,8 @@
 
 use super::*;
 use crate::deepseek_v41::{
-    DeepseekV41AdapterGradient, DeepseekV41LinearAdjoints, DeepseekV41LinearGradients,
-    DeepseekV41LinearTape,
+    DeepseekV41AdapterGradient, DeepseekV41AdapterGradientSpan, DeepseekV41LinearAdjoints,
+    DeepseekV41LinearGradients, DeepseekV41LinearTape,
 };
 
 #[cfg(test)]
@@ -508,13 +508,13 @@ impl DeepseekV41MixedMoeAdjoints {
         self.check(&tape.input, stream)?;
         let c = moe.config;
         let rows = tape.rows;
-        let mut adapters = Vec::new();
+        let mut adapter_spans = Vec::<(u32, Vec<DeepseekV41AdapterGradientSpan>)>::new();
         let (w1, w2, w3, _) = self.with_expert(moe, u32::MAX, |w| {
             self.expert_backward(moe, tape, &tape.shared, u32::MAX, w, upstream)
         })?;
         let (gate_input, up_input) = self.expert_input_branches(&w1, &w3, stream)?;
         let grad_tokens = self.add(&gate_input, &up_input, stream)?;
-        collect_adapters(&mut adapters, u32::MAX, &w1, &w2, &w3)?;
+        collect_adapter_spans(&mut adapter_spans, u32::MAX, &w1, &w2, &w3)?;
         drop((w1, w2, w3));
         let grad_route_weights = GpuBuffer::zeros_f32(&self.device, slots)?;
         // Shared was created last by the CPU graph; autograd visits routed
@@ -571,7 +571,25 @@ impl DeepseekV41MixedMoeAdjoints {
                 grid,
             )?;
             commands.submit()?;
-            collect_adapters(&mut adapters, id as u32, &w1, &w2, &w3)?;
+            collect_adapter_spans(&mut adapter_spans, id as u32, &w1, &w2, &w3)?;
+        }
+        // One transfer for every visited expert's adapter spans. The large
+        // input-gradient buffers above are already dropped; only the small
+        // A/B spans stay alive until this point.
+        let mut ordered_spans: Vec<(u32, &DeepseekV41AdapterGradientSpan)> = Vec::new();
+        for (id, spans) in &adapter_spans {
+            for span in spans {
+                ordered_spans.push((*id, span));
+            }
+        }
+        let spans = ordered_spans
+            .iter()
+            .map(|(_, span)| (*span).clone())
+            .collect::<Vec<_>>();
+        let gradients = DeepseekV41LinearGradients::read_adapter_spans_gathered(&spans)?;
+        let mut adapters = Vec::with_capacity(gradients.len());
+        for ((id, _), gradient) in ordered_spans.into_iter().zip(gradients) {
+            adapters.push((id, gradient));
         }
         let grad_gate = GpuBuffer::zeros_f32(&self.device, stream)?;
         let push = gate_push(c, rows);
@@ -637,8 +655,8 @@ fn gate_push(c: DeepseekV41MoeConfig, rows: usize) -> MoeGatePush {
     }
 }
 
-fn collect_adapters(
-    out: &mut Vec<(u32, DeepseekV41AdapterGradient)>,
+fn collect_adapter_spans(
+    out: &mut Vec<(u32, Vec<DeepseekV41AdapterGradientSpan>)>,
     id: u32,
     w1: &DeepseekV41LinearGradients,
     w2: &DeepseekV41LinearGradients,
@@ -649,15 +667,14 @@ fn collect_adapters(
     } else {
         format!("experts.{id}")
     };
-    // The three expert projections share one transfer rather than one
-    // submission per factor.
-    let entries = [("w1", w1), ("w2", w2), ("w3", w3)]
-        .into_iter()
-        .filter(|(_, gradient)| gradient.grad_a.is_some())
-        .map(|(name, gradient)| (format!("{prefix}.{name}"), gradient))
-        .collect::<Vec<_>>();
-    for gradient in DeepseekV41LinearGradients::read_adapter_gradients_gathered(&entries)? {
-        out.push((id, gradient));
+    let mut spans = Vec::new();
+    for (name, gradient) in [("w1", w1), ("w2", w2), ("w3", w3)] {
+        if let Some(span) = gradient.adapter_gradient_span(format!("{prefix}.{name}"))? {
+            spans.push(span);
+        }
+    }
+    if !spans.is_empty() {
+        out.push((id, spans));
     }
     Ok(())
 }

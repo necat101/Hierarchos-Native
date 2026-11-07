@@ -1,6 +1,6 @@
 """Run every green DeepSeek test with bounded driver-cache lifetime on the APU.
 
-All 217 active tests execute exactly once. The original 26 opt-in tests are
+All 218 active tests execute exactly once. The original 26 opt-in tests are
 enumerated separately and must match the released Gen9 ignore list exactly.
 """
 import argparse,hashlib,json,os,re,subprocess
@@ -30,15 +30,15 @@ def main():
     (a.output/'ignored-tests.log').write_text(ignored.stdout+ignored.stderr)
     names=lambda text:set(re.findall(r'^(\S+): test$',text,re.M))
     all_names=names(full.stdout);ignored_names=names(ignored.stdout)
-    require(full.returncode==ignored.returncode==0 and len(all_names)==243,'full suite enumeration changed')
+    require(full.returncode==ignored.returncode==0 and len(all_names)==244,'full suite enumeration changed')
     require(ignored_names==set(json.loads(BASELINE.read_text())['ignored']),'opt-in test list changed')
-    active=sorted(all_names-ignored_names);require(len(active)==217,'active test list changed')
+    active=sorted(all_names-ignored_names);require(len(active)==218,'active test list changed')
     sha=digest(a.binary);rows=[]
     def persist():
         completed=sum(len(r['tests']) for r in rows if r['pass'])
         write(a.output/'qualification.json',dict(schema=1,target='rdna3',host_vector_width=a.host_width,
-            **{'pass':completed==217 and all(r['pass'] for r in rows)},complete=sum(len(r['tests']) for r in rows)==217,
-            expected_tests=243,expected_passed=217,expected_ignored=26,verified_passed=completed,
+            **{'pass':completed==218 and all(r['pass'] for r in rows)},complete=sum(len(r['tests']) for r in rows)==218,
+            expected_tests=244,expected_passed=218,expected_ignored=26,verified_passed=completed,
             ignored=sorted(ignored_names),active=active,shards=rows,binary_sha256=sha,
             runner_sha256=digest(Path(__file__)),baseline_sha256=digest(BASELINE),
             process_policy='fresh process per bounded shard; serial GPU execution; no test omitted'))

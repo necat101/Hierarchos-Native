@@ -13,7 +13,10 @@ use bytemuck::{Pod, Zeroable};
 
 #[path = "linear_grad.rs"]
 mod gradients;
-pub use gradients::{DeepseekV41LinearAdjoints, DeepseekV41LinearGradients, DeepseekV41LinearTape};
+pub use gradients::{
+    DeepseekV41AdapterGradientSpan, DeepseekV41LinearAdjoints, DeepseekV41LinearGradients,
+    DeepseekV41LinearTape,
+};
 
 const BF16_CAST: &[u8] = include_bytes!("../../shaders/transformer_deepseek_v41_bf16_cast.spv");
 const LORA_ADD: &[u8] = include_bytes!("../../shaders/transformer_deepseek_v41_lora_add.spv");

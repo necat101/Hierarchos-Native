@@ -64,6 +64,19 @@ pub struct DeepseekV41LinearGradients {
     a_len: usize,
     b_len: usize,
 }
+
+/// A small adapter-gradient span that can be retained after the full linear
+/// gradient object is released. This is used to gather readbacks across a
+/// whole MoE layer without keeping its large input-gradient buffers alive.
+#[derive(Clone)]
+pub struct DeepseekV41AdapterGradientSpan {
+    target: String,
+    grad_a: GpuBuffer,
+    grad_b: GpuBuffer,
+    a_len: usize,
+    b_len: usize,
+}
+
 impl DeepseekV41LinearGradients {
     /// Read only the small adapter gradients for the native AdamW state.
     /// `target` is the canonical module path reported by that state's targets().
@@ -83,6 +96,29 @@ impl DeepseekV41LinearGradients {
             grad_b: b.read_f32(self.b_len)?,
         })
     }
+
+    /// Retain only the adapter buffers for a later gathered read. Returns
+    /// `None` for a frozen projection; a half-present adapter is an error.
+    pub fn adapter_gradient_span(
+        &self,
+        target: String,
+    ) -> Result<Option<DeepseekV41AdapterGradientSpan>> {
+        if target.is_empty() {
+            bail!("V4.1 projection gradient requires a target name");
+        }
+        match (&self.grad_a, &self.grad_b) {
+            (None, None) => Ok(None),
+            (Some(grad_a), Some(grad_b)) => Ok(Some(DeepseekV41AdapterGradientSpan {
+                target,
+                grad_a: grad_a.clone(),
+                grad_b: grad_b.clone(),
+                a_len: self.a_len,
+                b_len: self.b_len,
+            })),
+            _ => bail!("V4.1 projection gradient has unmatched adapter gradients"),
+        }
+    }
+
     /// Read the adapter gradients of several modules with one submission.
     ///
     /// One `read_adapter_gradient` per module would cost two device-to-host
@@ -94,25 +130,33 @@ impl DeepseekV41LinearGradients {
     pub fn read_adapter_gradients_gathered(
         entries: &[(String, &DeepseekV41LinearGradients)],
     ) -> Result<Vec<crate::deepseek_v41::DeepseekV41AdapterGradient>> {
+        let mut spans = Vec::with_capacity(entries.len());
         for (target, gradient) in entries {
-            if target.is_empty() {
-                bail!("V4.1 projection gradient requires a target name");
-            }
-            if gradient.grad_a.is_none() || gradient.grad_b.is_none() {
+            if let Some(span) = gradient.adapter_gradient_span(target.clone())? {
+                spans.push(span);
+            } else {
                 bail!("V4.1 frozen projection has no adapter gradients");
             }
         }
-        let mut spans = Vec::with_capacity(entries.len().saturating_mul(2));
-        for (_, gradient) in entries {
-            let (Some(a), Some(b)) = (&gradient.grad_a, &gradient.grad_b) else {
-                unreachable!("validated adapter gradients above");
-            };
-            spans.push((a, gradient.a_len));
-            spans.push((b, gradient.b_len));
+        Self::read_adapter_spans_gathered(&spans)
+    }
+
+    /// Download retained adapter spans in one queue submission. The output
+    /// order matches `spans`, including the A/B pair order for each target.
+    pub fn read_adapter_spans_gathered(
+        spans: &[DeepseekV41AdapterGradientSpan],
+    ) -> Result<Vec<crate::deepseek_v41::DeepseekV41AdapterGradient>> {
+        if spans.is_empty() {
+            return Ok(Vec::new());
         }
-        let mut values = GpuBuffer::read_many_f32(&spans)?.into_iter();
-        let mut out = Vec::with_capacity(entries.len());
-        for (target, _) in entries {
+        let mut reads = Vec::with_capacity(spans.len().saturating_mul(2));
+        for span in spans {
+            reads.push((&span.grad_a, span.a_len));
+            reads.push((&span.grad_b, span.b_len));
+        }
+        let mut values = GpuBuffer::read_many_f32(&reads)?.into_iter();
+        let mut out = Vec::with_capacity(spans.len());
+        for span in spans {
             let grad_a = values
                 .next()
                 .context("batched adapter gradient A missing")?;
@@ -120,7 +164,7 @@ impl DeepseekV41LinearGradients {
                 .next()
                 .context("batched adapter gradient B missing")?;
             out.push(crate::deepseek_v41::DeepseekV41AdapterGradient {
-                target: target.clone(),
+                target: span.target.clone(),
                 grad_a,
                 grad_b,
             });

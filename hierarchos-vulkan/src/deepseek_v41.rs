@@ -140,8 +140,9 @@ pub use indexer::{
     DeepseekV41MixedIndexerWeights,
 };
 pub use mixed_linear::{
-    DeepseekV41LinearAdjoints, DeepseekV41LinearGradients, DeepseekV41LinearTape,
-    DeepseekV41LinearWeights, DeepseekV41MixedLinearKernel, DeepseekV41ResidentLinear,
+    DeepseekV41AdapterGradientSpan, DeepseekV41LinearAdjoints, DeepseekV41LinearGradients,
+    DeepseekV41LinearTape, DeepseekV41LinearWeights, DeepseekV41MixedLinearKernel,
+    DeepseekV41ResidentLinear,
 };
 pub use model::{
     DeepseekV41CausalLM, DeepseekV41Logits, DeepseekV41ModelGradients, DeepseekV41ModelTrainResult,

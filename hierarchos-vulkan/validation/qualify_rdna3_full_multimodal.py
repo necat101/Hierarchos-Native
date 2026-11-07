@@ -110,7 +110,7 @@ def main():
                 check(all(r['pass'] and 0<=r['max_abs']<2e-7 for r in q['records']),'text logit gate failed')
             elif stage=='deepseek215':
                 q=read(dest/'qualification.json')
-                check(q['pass'] and q['verified_passed']==217 and q['complete'],'incomplete DeepSeek suite')
+                check(q['pass'] and q['verified_passed']==218 and q['complete'],'incomplete DeepSeek suite')
                 check(set(q['ignored'])==set(read(BASELINE/'deepseek-suite-qualification.json')['ignored']),'ignored coverage changed')
             else:
                 q=read(dest/'qualification.json')

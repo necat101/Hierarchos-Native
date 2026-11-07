@@ -837,3 +837,66 @@ fn projection_checkpoints_bind_trained_factors_config_and_moments() -> Result<()
     assert!(DeepseekV41AdapterTrainer::resume_from_checkpoint(&checkpoint).is_err());
     Ok(())
 }
+
+#[test]
+fn gathered_adapter_spans_preserve_individual_words_and_order() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    let make = |a: &[f32], b: &[f32]| -> Result<DeepseekV41LinearGradients> {
+        Ok(DeepseekV41LinearGradients {
+            grad_input: GpuBuffer::zeros_f32(&device, 1)?,
+            grad_base_input: None,
+            grad_adapter_input: None,
+            grad_a: Some(GpuBuffer::from_f32(&device, a)?),
+            grad_b: Some(GpuBuffer::from_f32(&device, b)?),
+            a_len: a.len(),
+            b_len: b.len(),
+        })
+    };
+    let first = make(&[1.0, -2.5], &[3.25])?;
+    let second = make(&[0.0, 4.5, -0.125], &[9.0, -8.0])?;
+    let targets = ["layers.0.experts.3.w1", "layers.0.experts.3.w2"];
+    let expected = [
+        first.read_adapter_gradient(targets[0])?,
+        second.read_adapter_gradient(targets[1])?,
+    ];
+    let spans = [
+        first
+            .adapter_gradient_span(targets[0].to_owned())?
+            .expect("first adapter span"),
+        second
+            .adapter_gradient_span(targets[1].to_owned())?
+            .expect("second adapter span"),
+    ];
+    let gathered = DeepseekV41LinearGradients::read_adapter_spans_gathered(&spans)?;
+    assert_eq!(gathered.len(), expected.len());
+    for (actual, expected) in gathered.iter().zip(&expected) {
+        assert_eq!(actual.target, expected.target);
+        assert_eq!(
+            actual
+                .grad_a
+                .iter()
+                .map(|v| v.to_bits())
+                .collect::<Vec<_>>(),
+            expected
+                .grad_a
+                .iter()
+                .map(|v| v.to_bits())
+                .collect::<Vec<_>>(),
+            "adapter A words changed"
+        );
+        assert_eq!(
+            actual
+                .grad_b
+                .iter()
+                .map(|v| v.to_bits())
+                .collect::<Vec<_>>(),
+            expected
+                .grad_b
+                .iter()
+                .map(|v| v.to_bits())
+                .collect::<Vec<_>>(),
+            "adapter B words changed"
+        );
+    }
+    Ok(())
+}
