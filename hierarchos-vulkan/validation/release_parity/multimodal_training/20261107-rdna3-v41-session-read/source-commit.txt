@@ -1,0 +1,7 @@
+e8d8924 Reuse open sessions for gathered V4.1 readbacks
+ .github/workflows/rdna3-performance.yml            | 141 +++++++++++++++++
+ hierarchos-vulkan/src/vulkan.rs                    |  64 ++++++--
+ .../validation/RDNA3_PERFORMANCE_CI.md             |  70 +++++++++
+ .../validation/rdna3_performance_gate.py           | 175 +++++++++++++++++++++
+ .../validation/test_rdna3_performance_gate.py      |  58 +++++++
+ 5 files changed, 499 insertions(+), 9 deletions(-)

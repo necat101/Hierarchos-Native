@@ -1,0 +1,20 @@
+[receipt-guard] sha256 verified: 10 receipts
+[receipt-guard] inventory 44/44 green, 85/85 cases pass, all profiles green
+[receipt-guard] six-profile replay: 9/9 cases pass
+[receipt-guard] native V4.1: 30/30 tests, max_abs_logit=0.0
+[receipt-guard] Gen9 physical run recorded as blocked, no receipt issued
+[receipt-guard] 44/44 and qualified claims are evidence-backed
+PASS
+PASS: 16 GPT2 cases; 85 shared image cases; 10 native Gemma/LLaVA cases; 30 V4.1 tests; unchanged strict gate
+PASS: 12 step(s) PASS in training_stack_receipt.json on Intel(R) HD Graphics 520 and the coverage floors hold
+PASS: 10 coverage count(s) at or above their floors
+test_clear_improvement_is_reported (test_rdna3_performance_gate.GateTests.test_clear_improvement_is_reported) ... ok
+test_clear_regression_fails (test_rdna3_performance_gate.GateTests.test_clear_regression_fails) ... ok
+test_cross_arm_word_difference_fails (test_rdna3_performance_gate.GateTests.test_cross_arm_word_difference_fails) ... ok
+test_inconclusive_is_not_a_regression (test_rdna3_performance_gate.GateTests.test_inconclusive_is_not_a_regression) ... ok
+test_release_policy_requires_native_improvement (test_rdna3_performance_gate.GateTests.test_release_policy_requires_native_improvement) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.001s
+
+OK

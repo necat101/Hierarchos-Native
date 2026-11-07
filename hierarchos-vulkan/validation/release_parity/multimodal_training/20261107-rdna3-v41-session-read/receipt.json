@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "receipt": "rdna3-v41-session-read-20261107",
+  "generated_utc": "2026-11-07T08:08:46.159700+00:00",
+  "source_commit": "e8d892418385bc99702ff77209c345abf094d312",
+  "source_parent": "0cd37de85eda2cc084fe3be592ee3e81976a6868",
+  "source_patch": "source.patch",
+  "candidate_binary_sha256": "9cc5a6504a2e74eb8cfbdce2b00e2d9419598ce3d364c6b45de4e780438a6c32",
+  "baseline_binary_sha256": "7afa0d985a5304f9383b47d4deaf6119c982d50ab0ccee75db3715e60ab41642",
+  "baseline_source_commit": "722acd09626c592ead883b8c7aa652dd0d6ceeac",
+  "baseline_binary_note": "rebuilt from 722acd0 in a separate worktree; the original 8ec108f1 binary was overwritten and was not retained",
+  "benchmark": {
+    "harness": "validation/benchmark_rdna3_v41_paired.py",
+    "case_scope": "frozen five-case batch-1 training geometry",
+    "rounds": 6,
+    "measured_steps": 7,
+    "warmup_steps": 2,
+    "cross_arm_word_exact": true,
+    "harness_strict_improvement_pass": false,
+    "harness_gate_failures": [
+      "native_vit_4x4: native speedup CI does not exclude 1.0 ([0.9771219888106635, 1.0378290565134605])"
+    ],
+    "clear_regression_gate_pass": true,
+    "clear_regression_policy": "clear-regression-only"
+  },
+  "performance": {
+    "native_vit_4x4": {
+      "role": "native",
+      "baseline_median_ms": 225.75529999999998,
+      "candidate_median_ms": 219.97605000000001,
+      "paired_median_speedup": 1.0280462772115788,
+      "speedup_ci95": [
+        0.9771219888106635,
+        1.0378290565134605
+      ],
+      "conclusion": "inconclusive",
+      "baseline_submissions": [
+        187
+      ],
+      "candidate_submissions": [
+        151
+      ]
+    },
+    "native_vit_6x4": {
+      "role": "native",
+      "baseline_median_ms": 288.32475,
+      "candidate_median_ms": 281.16240000000005,
+      "paired_median_speedup": 1.030482912652136,
+      "speedup_ci95": [
+        1.0159776286438444,
+        1.0449917114185414
+      ],
+      "conclusion": "candidate_faster",
+      "baseline_submissions": [
+        187
+      ],
+      "candidate_submissions": [
+        151
+      ]
+    },
+    "llama": {
+      "role": "control",
+      "baseline_median_ms": 12.771999999999998,
+      "candidate_median_ms": 12.72765,
+      "paired_median_speedup": 1.0034845239025287,
+      "speedup_ci95": [
+        0.9863042067575967,
+        1.182647683931385
+      ],
+      "conclusion": "inconclusive",
+      "baseline_submissions": [
+        5
+      ],
+      "candidate_submissions": [
+        5
+      ]
+    },
+    "gpt2": {
+      "role": "control",
+      "baseline_median_ms": 10.4928,
+      "candidate_median_ms": 10.347100000000001,
+      "paired_median_speedup": 1.0102398494586775,
+      "speedup_ci95": [
+        0.993462694694635,
+        1.0883984682511345
+      ],
+      "conclusion": "inconclusive",
+      "baseline_submissions": [
+        5
+      ],
+      "candidate_submissions": [
+        5
+      ]
+    },
+    "t5": {
+      "role": "control",
+      "baseline_median_ms": 30.940199999999997,
+      "candidate_median_ms": 31.00025,
+      "paired_median_speedup": 1.0002898465271888,
+      "speedup_ci95": [
+        0.9898222652417915,
+        1.0160677207209932
+      ],
+      "conclusion": "inconclusive",
+      "baseline_submissions": [
+        7
+      ],
+      "candidate_submissions": [
+        7
+      ]
+    }
+  },
+  "correctness": {
+    "targeted_rust_tests": "9/9 pass",
+    "mixed_moe_tests": "6/6 pass",
+    "adapter_word_order": "pass",
+    "in_session_readback_exact_and_one_submission": "pass",
+    "multimodal_receipt_guard": "44/44 inventory, 85/85 cases; PASS",
+    "gpt2_receipt_guard": "16 GPT-2, 85 shared, 10 native Gemma/LLaVA, 30 V4.1; PASS",
+    "training_stack_guard": "12 steps; 10 coverage floors; PASS",
+    "native_qualifier": {
+      "pass": true,
+      "stages": 8,
+      "retained_cases": 95,
+      "expanded_shape_cases": 16,
+      "absolute_limit": 2e-07,
+      "rtol": 0,
+      "comparison": "strict_less_than",
+      "binary_sha256": {
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\llava_pipeline_probe.exe": "11062bd3efbc7e77db3ec23110fbc518fb7af06488776000aa8ef78b320202e6",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\gemma3_vision_probe.exe": "3236d69220c76b5857d0176e139b448fd8880cd603765ea35a9cc99a6f5c4130",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\gemma4_vision_probe.exe": "809dbbeb37f1a94cf5720864d82fd891aadde891f7a37bf13a7a2749610fb59b",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\image_text_pipeline_probe.exe": "37cbdd5cb3b32564ae8614161c14b68df9a85541a3fa9f3ad7b62bae79062b4f",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe": "9cc5a6504a2e74eb8cfbdce2b00e2d9419598ce3d364c6b45de4e780438a6c32"
+      }
+    },
+    "ci_gate_unit_tests": "5/5 pass",
+    "fmt_check": "pass",
+    "diff_check": "pass"
+  },
+  "ci": {
+    "workflow": ".github/workflows/rdna3-performance.yml",
+    "gate": "validation/rdna3_performance_gate.py",
+    "runner_labels": [
+      "self-hosted",
+      "Windows",
+      "X64",
+      "rdna3",
+      "vulkan"
+    ],
+    "trigger": "workflow_dispatch or weekly schedule; no pull_request",
+    "failure_policy": "fail only when a full 95% CI is below 1.0; opt-in strict native-improvement policy",
+    "artifact_retention_days": 30
+  },
+  "limitations": [
+    "Batch-2/4 throughput is unsupported by the frozen fixture/harness; only batch-1 throughput was measured.",
+    "The 4x4 speedup is statistically inconclusive (CI crosses 1.0).",
+    "Historical 372407b versus final and session OFF/ON were not rerun in this pass.",
+    "Session-retirement count was not separately re-profiled.",
+    "Physical Intel Gen9 execution is unavailable on this host.",
+    "Shader-oracle parity remains skipped because the trusted Hierarchos-Native-stable checkout is absent."
+  ],
+  "rejected_attempts": [
+    {
+      "name": "cross-layer MoE adapter-span deferral",
+      "reason": "measured native regressions against the same prior binary",
+      "native_vit_4x4_speedup": 0.9232827388442864,
+      "native_vit_6x4_speedup": 0.9057275494794372,
+      "evidence": "rejected-cross-layer.log"
+    }
+  ],
+  "hashes_sha256": "3d85ccfea54f56d033513b1d1d9b29433b64a871f4ead0f679b8ac39efbef57f"
+}

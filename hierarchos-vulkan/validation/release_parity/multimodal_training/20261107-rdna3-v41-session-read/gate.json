@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "policy": "clear-regression-only",
+  "pass": true,
+  "cross_arm_word_exact": true,
+  "cases": [
+    {
+      "case": "native_vit_4x4",
+      "role": "native",
+      "speedup": 1.0262721782666793,
+      "paired_median_speedup": 1.0280462772115788,
+      "speedup_ci95": [
+        0.9771219888106635,
+        1.0378290565134605
+      ],
+      "conclusion": "inconclusive"
+    },
+    {
+      "case": "native_vit_6x4",
+      "role": "native",
+      "speedup": 1.0254740676562726,
+      "paired_median_speedup": 1.030482912652136,
+      "speedup_ci95": [
+        1.0159776286438444,
+        1.0449917114185414
+      ],
+      "conclusion": "candidate_faster"
+    },
+    {
+      "case": "llama",
+      "role": "control",
+      "speedup": 1.0034845395654342,
+      "paired_median_speedup": 1.0034845239025287,
+      "speedup_ci95": [
+        0.9863042067575967,
+        1.182647683931385
+      ],
+      "conclusion": "inconclusive"
+    },
+    {
+      "case": "gpt2",
+      "role": "control",
+      "speedup": 1.014081240154246,
+      "paired_median_speedup": 1.0102398494586775,
+      "speedup_ci95": [
+        0.993462694694635,
+        1.0883984682511345
+      ],
+      "conclusion": "inconclusive"
+    },
+    {
+      "case": "t5",
+      "role": "control",
+      "speedup": 0.9980629188474285,
+      "paired_median_speedup": 1.0002898465271888,
+      "speedup_ci95": [
+        0.9898222652417915,
+        1.0160677207209932
+      ],
+      "conclusion": "inconclusive"
+    }
+  ],
+  "significant_regressions": [],
+  "significant_improvements": [
+    "native_vit_6x4"
+  ],
+  "native_improvements": [
+    "native_vit_6x4"
+  ],
+  "inconclusive": [
+    "native_vit_4x4",
+    "llama",
+    "gpt2",
+    "t5"
+  ],
+  "gate_failures": []
+}
