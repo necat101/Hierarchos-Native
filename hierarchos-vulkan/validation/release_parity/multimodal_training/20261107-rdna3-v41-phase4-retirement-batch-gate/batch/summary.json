@@ -1,0 +1,100 @@
+{
+  "1": {
+    "batch": 1,
+    "device": "AMD Radeon Graphics",
+    "cases": {
+      "native_vit_4x4": {
+        "median_ms": 228.7019,
+        "min_ms": 226.6736,
+        "max_ms": 233.0914,
+        "samples_per_second": 4.372504119992007,
+        "submissions": [
+          151
+        ],
+        "logits": 128,
+        "peak_live_buffer_bytes": 9094168,
+        "adapter_digest_sha256": "29d5804ba506355372756ef970a2afa21028529c4ca319e581678de562da8389"
+      },
+      "native_vit_6x4": {
+        "median_ms": 293.0339,
+        "min_ms": 290.6941,
+        "max_ms": 293.227,
+        "samples_per_second": 3.4125744495773356,
+        "submissions": [
+          151
+        ],
+        "logits": 144,
+        "peak_live_buffer_bytes": 9143036,
+        "adapter_digest_sha256": "bf233aa4ca31f87285ec0d355b5256d650f2a2f2ca1117888384650962d9f8b1"
+      }
+    }
+  },
+  "2": {
+    "batch": 2,
+    "device": "AMD Radeon Graphics",
+    "cases": {
+      "native_vit_4x4": {
+        "median_ms": 227.3908,
+        "min_ms": 226.3008,
+        "max_ms": 232.80730000000003,
+        "samples_per_second": 8.79543059789578,
+        "submissions": [
+          151
+        ],
+        "logits": 256,
+        "peak_live_buffer_bytes": 9348088,
+        "adapter_digest_sha256": "9f32ffc56bdf718adc8d320b17e0f1d0020c9a2d38f3b4c2324b3dcf394cbf6e",
+        "latency_scaling_vs_batch1": 1.0057658445284505,
+        "throughput_scaling_vs_batch1": 2.011531689056901
+      },
+      "native_vit_6x4": {
+        "median_ms": 294.8121,
+        "min_ms": 292.6772,
+        "max_ms": 302.8378,
+        "samples_per_second": 6.783982068578597,
+        "submissions": [
+          151
+        ],
+        "logits": 288,
+        "peak_live_buffer_bytes": 9428516,
+        "adapter_digest_sha256": "e0d824522b3985e193e67c53a3cfe57c654986291c294d366b9da5bab4817150",
+        "latency_scaling_vs_batch1": 0.9939683615428269,
+        "throughput_scaling_vs_batch1": 1.9879367230856537
+      }
+    }
+  },
+  "4": {
+    "batch": 4,
+    "device": "AMD Radeon Graphics",
+    "cases": {
+      "native_vit_4x4": {
+        "median_ms": 231.2021,
+        "min_ms": 228.5625,
+        "max_ms": 233.0969,
+        "samples_per_second": 17.300880917604122,
+        "submissions": [
+          151
+        ],
+        "logits": 512,
+        "peak_live_buffer_bytes": 9855928,
+        "adapter_digest_sha256": "06c632240ea56f8e8b77eb45797b38847720bfe6df851597311d9f6ac8c65087",
+        "latency_scaling_vs_batch1": 0.9891860843824515,
+        "throughput_scaling_vs_batch1": 3.9567443375298064
+      },
+      "native_vit_6x4": {
+        "median_ms": 291.9916,
+        "min_ms": 287.96979999999996,
+        "max_ms": 337.331,
+        "samples_per_second": 13.699024218504915,
+        "submissions": [
+          151
+        ],
+        "logits": 576,
+        "peak_live_buffer_bytes": 9999476,
+        "adapter_digest_sha256": "bd1f9b1e65be5063887201070b1f96979343c62d909ac3774b18d77e809d820f",
+        "latency_scaling_vs_batch1": 1.003569623235737,
+        "throughput_scaling_vs_batch1": 4.014278492942948
+      }
+    }
+  }
+}

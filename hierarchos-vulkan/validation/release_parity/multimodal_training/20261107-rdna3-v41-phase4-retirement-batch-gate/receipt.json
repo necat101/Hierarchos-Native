@@ -1,0 +1,157 @@
+{
+  "schema": 1,
+  "kind": "rdna3_v41_phase4_retirement_batch_gate",
+  "source_commit": "1d859d7b428567a2b8062a78007be6860cc568e8",
+  "measured_binary": {
+    "path": "target/debug/deps/hierarchos_vulkan-2f708da7cb986ebb.exe",
+    "sha256": "f1f597c7a87d73676e7f418eb27bc6435d0cee56f870280223a857e0286ab265",
+    "profile": "debug test profile",
+    "provenance_note": "built before the final rustfmt-only whitespace change to test instrumentation; production execution path unchanged"
+  },
+  "device": "AMD Radeon Graphics",
+  "fixtures": "target/rdna3-port/gen9-frozen/target/multimodal-gen9",
+  "acceptance": {
+    "max_abs": 2e-7,
+    "rtol": 0,
+    "comparison": "strict_less_than",
+    "changed": false
+  },
+  "retirement_profile": {
+    "warmup_steps": 2,
+    "measured_steps": 3,
+    "batch": 1,
+    "retirements_per_step": 279.2,
+    "retirement_blocking_ms_per_step": 181.553,
+    "native_submissions_per_step": 151,
+    "call_sites": [
+      {
+        "file": "src/vulkan.rs",
+        "line": 5502,
+        "site": "ComputeBatch::submit_and_restart",
+        "events_per_step": 243.2,
+        "dispatches": 17534,
+        "blocking_ms_per_step": 142.107
+      },
+      {
+        "file": "src/deepseek_v41/linear_grad.rs",
+        "line": 157,
+        "site": "in-session read_many_f32",
+        "events_per_step": 36.0,
+        "dispatches": 5090,
+        "blocking_ms_per_step": 39.446
+      }
+    ],
+    "interpretation": "A retirement is a host publication point, not a unique queue submission; the observed benchmark still reports 151 native submissions per step."
+  },
+  "batch_scaling": {
+    "native_vit_4x4": {
+      "batch_1": {"median_ms": 228.702, "samples_per_second": 4.373, "throughput_scaling": 1.0, "submissions": 151, "peak_live_buffer_bytes": 9094168, "logits": 128},
+      "batch_2": {"median_ms": 227.391, "samples_per_second": 8.795, "throughput_scaling": 2.011531689056901, "submissions": 151, "peak_live_buffer_bytes": 9348088, "logits": 256},
+      "batch_4": {"median_ms": 231.202, "samples_per_second": 17.301, "throughput_scaling": 3.9567443375298064, "submissions": 151, "peak_live_buffer_bytes": 9855928, "logits": 512}
+    },
+    "native_vit_6x4": {
+      "batch_1": {"median_ms": 293.034, "samples_per_second": 3.413, "throughput_scaling": 1.0, "submissions": 151, "peak_live_buffer_bytes": 9143036, "logits": 144},
+      "batch_2": {"median_ms": 294.812, "samples_per_second": 6.784, "throughput_scaling": 1.9879367230856537, "submissions": 151, "peak_live_buffer_bytes": 9428516, "logits": 288},
+      "batch_4": {"median_ms": 291.992, "samples_per_second": 13.699, "throughput_scaling": 4.014278492942948, "submissions": 151, "peak_live_buffer_bytes": 9999476, "logits": 576}
+    },
+    "notes": [
+      "Additional rows are text-only TEXT=-1 samples; row zero retains the released image span.",
+      "Logits length grows with batch, proving real native row execution rather than repeated batch-1 calls.",
+      "Batch 4 ViT 6x4 contains one 337.331 ms outlier among seven measured samples; median is 291.992 ms.",
+      "Controls were not extended to batch 2/4; no control multi-batch claim is made."
+    ]
+  },
+  "comparisons": {
+    "final_vs_722acd0": {
+      "baseline_sha256": "7afa0d985a5304f9383b47d4deaf6119c982d50ab0ccee75db3715e60ab41642",
+      "candidate_sha256": "f1f597c7a87d73676e7f418eb27bc6435d0cee56f870280223a857e0286ab265",
+      "rounds": 6,
+      "measured_steps": 7,
+      "legacy_batch_unreported": true,
+      "cross_arm_word_exact": true,
+      "gate_state": "INCONCLUSIVE",
+      "cases": {
+        "native_vit_4x4": {"paired_median_speedup": 1.0381, "ci95": [0.9403807361068475, 1.0836988870252697], "conclusion": "inconclusive"},
+        "native_vit_6x4": {"paired_median_speedup": 1.0163, "ci95": [0.9529748939264151, 1.0964888246241555], "conclusion": "inconclusive"},
+        "llama": {"paired_median_speedup": 1.0016, "ci95": [0.9900189345930299, 1.1445535957340038], "conclusion": "inconclusive"},
+        "gpt2": {"paired_median_speedup": 0.9995, "ci95": [0.8916727604958947, 1.0403743930494904], "conclusion": "inconclusive"},
+        "t5": {"paired_median_speedup": 1.0011, "ci95": [0.9735340040340368, 1.192834096027573], "conclusion": "inconclusive"}
+      }
+    },
+    "final_vs_61591bc": {
+      "baseline_sha256": "9cc5a6504a2e74eb8cfbdce2b00e2d9419598ce3d364c6b45de4e780438a6c32",
+      "candidate_sha256": "f1f597c7a87d73676e7f418eb27bc6435d0cee56f870280223a857e0286ab265",
+      "rounds": 6,
+      "measured_steps": 7,
+      "legacy_batch_unreported": true,
+      "cross_arm_word_exact": true,
+      "gate_state": "INCONCLUSIVE",
+      "cases": {
+        "native_vit_4x4": {"paired_median_speedup": 1.0068, "ci95": [0.9914187528711237, 1.0860254528793263], "conclusion": "inconclusive"},
+        "native_vit_6x4": {"paired_median_speedup": 1.0037, "ci95": [0.9891498205625022, 1.0763016735610464], "conclusion": "inconclusive"},
+        "llama": {"paired_median_speedup": 1.0148, "ci95": [0.9888270973826421, 1.063621529689915], "conclusion": "inconclusive"},
+        "gpt2": {"paired_median_speedup": 1.0033, "ci95": [0.9546778569182637, 1.2453395015815865], "conclusion": "inconclusive"},
+        "t5": {"paired_median_speedup": 1.0089, "ci95": [1.0023725953942932, 1.0263465567624912], "conclusion": "candidate_faster"}
+      }
+    },
+    "not_run": [
+      "historical 372407b to final (no preserved historical binary; a rebuild would be a different artifact)",
+      "session OFF/ON ablation on the final binary"
+    ]
+  },
+  "gate": {
+    "unit_tests": 10,
+    "unit_tests_status": "PASS",
+    "development_comparison_state": "INCONCLUSIVE",
+    "release_qualified": false,
+    "release_requirement": "PASS for every native/control case at batches 1, 2, and 4",
+    "release_matrix_paired": false,
+    "workflow_syntax": "PASS (PyYAML)",
+    "workflow_executed_in_github_actions": false,
+    "runner_blocker": "no registered self-hosted [self-hosted, Windows, X64, rdna3, vulkan] runner"
+  },
+  "rejected": {
+    "streamed_wait_interval_2": {
+      "native_vit_4x4": {"paired_median_speedup": 0.9966, "ci95": [0.9856, 1.0108], "conclusion": "inconclusive"},
+      "native_vit_6x4": {"paired_median_speedup": 1.0009, "ci95": [0.9886, 1.0083], "conclusion": "inconclusive"}
+    },
+    "streamed_wait_interval_4": {
+      "native_vit_4x4": {"paired_median_speedup": 1.0201, "ci95": [0.9969, 1.0465], "conclusion": "inconclusive"},
+      "native_vit_6x4": {"paired_median_speedup": 1.0055, "ci95": [0.9746, 1.1077], "conclusion": "inconclusive"}
+    },
+    "reason": "No gain established and live staging grows; path removed from source."
+  },
+  "correctness": {
+    "full_lib_suite": {
+      "status": "FAILED_INCOMPLETE",
+      "passed": 411,
+      "exit_code": "0xc0000409 STATUS_STACK_BUFFER_OVERRUN",
+      "aborted_at": "rwkv_optimizer::tests::loss_unscale_and_adamw_share_one_command_stream",
+      "isolated_test": "PASS",
+      "full_rwkv_optimizer_module": "PASS (22/22)",
+      "log": "gate/full-lib-tests.log"
+    },
+    "batched_read_reuses_the_open_session_submission": "PASS",
+    "gathered_adapter_spans_preserve_individual_words_and_order": "PASS",
+    "deepseek_v41_compressor_prefill_and_decode_match_pinned_fp32_reference": {
+      "status": "PASS",
+      "worst_absolute_drift": 1.788139343262e-7
+    },
+    "deepseek_v41_compressor_tape_snapshots_norm_gain": "PASS",
+    "prior_multimodal_receipt_guard": "PASS",
+    "training_stack_receipt_guard": "PASS",
+    "physical_gen9": "NOT_RUN",
+    "shader_oracle": "NOT_RUN",
+    "native_avx512_execution": "NOT_RUN",
+    "nine_stage_gen9_replay": "NOT_RUN"
+  },
+  "limitations": [
+    "The full library suite did not finish; 411 tests passed before the suite-order abort.",
+    "The historical 372407b comparison and session OFF/ON ablation were not rerun.",
+    "No physical Intel Gen9 hardware execution or shader-oracle parity was performed.",
+    "No RDNA3 self-hosted CI runner is registered, so the workflow has not run in Actions.",
+    "Release qualification fails closed: both final comparisons are INCONCLUSIVE.",
+    "Batch 2/4 coverage is native ViT only; controls remain batch 1.",
+    "The measurement binary predates a rustfmt-only instrumentation whitespace change."
+  ]
+}

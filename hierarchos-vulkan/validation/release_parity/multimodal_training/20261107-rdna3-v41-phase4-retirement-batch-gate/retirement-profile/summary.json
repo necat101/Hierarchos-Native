@@ -1,0 +1,27 @@
+{
+  "measured_steps": 3,
+  "warmup_steps": 2,
+  "batch": 1,
+  "retirements_per_step": 279.2,
+  "retirement_ms_per_step": 181.553,
+  "call_sites": [
+    {
+      "file": "src\\vulkan.rs",
+      "line": 5502,
+      "total": 1216,
+      "per_step": 243.2,
+      "dispatches": 17534,
+      "total_ms": 710.536,
+      "ms_per_step": 142.107
+    },
+    {
+      "file": "src\\deepseek_v41\\linear_grad.rs",
+      "line": 157,
+      "total": 180,
+      "per_step": 36.0,
+      "dispatches": 5090,
+      "total_ms": 197.23,
+      "ms_per_step": 39.446
+    }
+  ]
+}

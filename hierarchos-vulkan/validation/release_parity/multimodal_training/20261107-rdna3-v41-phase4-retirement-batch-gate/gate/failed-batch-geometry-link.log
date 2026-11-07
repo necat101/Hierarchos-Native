@@ -1,0 +1,309 @@
+   Compiling hierarchos-vulkan v0.1.0 (C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan)
+warning: unused variable: `push`
+   --> src\deepseek_v41\mixed_moe_grad.rs:322:13
+    |
+322 |         let push = gate_push(c, rows);
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `push`
+    --> src\deepseek_v41\backbone.rs:2136:13
+     |
+2136 |         let push = MoeGatePush {
+     |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+
+warning: variable does not need to be mutable
+     --> src\full_training_graph.rs:20140:21
+      |
+20140 |                 let mut readback = GpuBuffer::uninitialized_host_f32(&source.device, len)?;
+      |                     ----^^^^^^^^
+      |                     |
+      |                     help: remove this `mut`
+      |
+      = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unreachable pattern
+    --> src\transformer\peft_state.rs:1344:21
+     |
+1344 |                     _ => {}
+     |                     ^ no value can reach this
+     |
+note: multiple earlier patterns match some of the same values
+    --> src\transformer\peft_state.rs:1344:21
+     |
+1298 |                       VulkanQwenGatedDeltaProjection::Qwen3Next { qkvz, ba, .. } => {
+     |                       ---------------------------------------------------------- matches some of the same values
+...
+1303 |                       VulkanQwenGatedDeltaProjection::Qwen35 { qkv, z, b, a } => {
+     |                       ------------------------------------------------------- matches some of the same values
+...
+1308 | /                     VulkanQwenGatedDeltaProjection::OlmoHybrid {
+1309 | |                         q, k, v, z, b, a, ..
+1310 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1315 | /                     VulkanQwenGatedDeltaProjection::Glm5 {
+1316 | |                         q,
+1317 | |                         k,
+1318 | |                         v,
+...    |
+1324 | |                         ..
+1325 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1344 |                       _ => {}
+     |                       ^ ...and 1 other patterns collectively make this unreachable
+     = note: `#[warn(unreachable_patterns)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+     --> src\transformer.rs:11735:13
+      |
+11735 |         let mut config = Self {
+      |             ----^^^^^^
+      |             |
+      |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src\gpt2_cpu_math_tests.rs:59:13
+   |
+59 |         let mut resident = VulkanTransformer::from_hf_package_with_config(
+   |             ----^^^^^^^^
+   |             |
+   |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src\gpt2_cpu_math_tests.rs:66:13
+   |
+66 |         let mut streamed = VulkanTransformer::from_hf_package_with_streamed_parameters(
+   |             ----^^^^^^^^
+   |             |
+   |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src\vulkan.rs:7875:9
+     |
+7875 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src\vulkan.rs:8035:9
+     |
+8035 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: type `deepseek_v41::checkpoint::payload_cache::Key` is more private than the item `deepseek_v41::checkpoint::payload_cache::PayloadCache::get`
+  --> src\deepseek_v41\checkpoint_cache.rs:75:5
+   |
+75 |     pub fn get(&mut self, key: &Key) -> Option<Arc<Vec<u8>>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `deepseek_v41::checkpoint::payload_cache::PayloadCache::get` is reachable at visibility `pub(in crate::deepseek_v41)`
+   |
+note: but type `deepseek_v41::checkpoint::payload_cache::Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+  --> src\deepseek_v41\checkpoint_cache.rs:31:1
+   |
+31 | pub(super) struct Key {
+   | ^^^^^^^^^^^^^^^^^^^^^
+   = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `deepseek_v41::checkpoint::payload_cache::Key` is more private than the item `deepseek_v41::checkpoint::payload_cache::PayloadCache::insert`
+   --> src\deepseek_v41\checkpoint_cache.rs:103:5
+    |
+103 |     pub fn insert(&mut self, key: Key, bytes: &[u8]) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `deepseek_v41::checkpoint::payload_cache::PayloadCache::insert` is reachable at visibility `pub(in crate::deepseek_v41)`
+    |
+note: but type `deepseek_v41::checkpoint::payload_cache::Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+   --> src\deepseek_v41\checkpoint_cache.rs:31:1
+    |
+ 31 | pub(super) struct Key {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer`
+    --> src\deepseek_v41\mixed_linear.rs:337:5
+     |
+ 337 | /     pub fn record_cast_buffer(
+ 338 | |         &self,
+ 339 | |         commands: &mut vulkan::ComputeBatch,
+ 340 | |         input: &GpuBuffer,
+ 341 | |         elements: usize,
+ 342 | |         precision: DeepseekV41WeightOutput,
+ 343 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5187:1
+     |
+5187 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_apply`
+    --> src\deepseek_v41\mixed_linear.rs:397:5
+     |
+ 397 | /     pub fn record_apply(
+ 398 | |         &self,
+ 399 | |         commands: &mut vulkan::ComputeBatch,
+ 400 | |         input: &GpuBuffer,
+...    |
+ 403 | |         precision: DeepseekV41WeightOutput,
+ 404 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_apply` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5187:1
+     |
+5187 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeSession` is more private than the item `BatchHandle::Session::session`
+    --> src\vulkan.rs:5316:9
+     |
+5316 |         session: *mut ComputeSession,
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `BatchHandle::Session::session` is reachable at visibility `pub(crate)`
+     |
+note: but type `ComputeSession` is only usable at visibility `pub(self)`
+    --> src\vulkan.rs:5290:1
+     |
+5290 | struct ComputeSession {
+     | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled` is never used
+    --> src\lib.rs:3247:19
+     |
+1110 | impl HierarchosOutNormHeadTrainer {
+     | --------------------------------- method in this implementation
+...
+3247 |     pub(crate) fn record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled(
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `apply` is never used
+    --> src\deepseek_v41\backbone.rs:2392:8
+     |
+2391 | impl MoeExecution {
+     | ----------------- method in this implementation
+2392 |     fn apply(&self, input: &GpuBuffer, rows: usize) -> Result<GpuBuffer> {
+     |        ^^^^^
+
+warning: field `directory` is never read
+  --> src\deepseek_v41\model_train.rs:81:5
+   |
+78 | pub struct DeepseekV41ModelTrainer {
+   |            ----------------------- field in this struct
+...
+81 |     directory: PathBuf,
+   |     ^^^^^^^^^
+
+warning: field `hidden_bits` is never read
+  --> src\deepseek_v41\terminal_tests.rs:27:5
+   |
+14 | struct Fixture {
+   |        ------- field in this struct
+...
+27 |     hidden_bits: Vec<u32>,
+   |     ^^^^^^^^^^^
+
+warning: field `alpha` is never read
+   --> src\deepseek_v41\train.rs:103:5
+    |
+101 | struct TrainableFactors {
+    |        ---------------- field in this struct
+102 |     rank: usize,
+103 |     alpha: f64,
+    |     ^^^^^
+    |
+    = note: `TrainableFactors` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `record_prepared_full_model_optimizer_step` and `finish_prepared_full_model_accumulation_wavefront` are never used
+     --> src\full_training_graph.rs:22904:8
+      |
+ 8187 | impl HierarchosTrainingGraph {
+      | ---------------------------- methods in this implementation
+...
+22904 |     fn record_prepared_full_model_optimizer_step(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+23391 |     fn finish_prepared_full_model_accumulation_wavefront(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `release_training_state` is never used
+   --> src\shared_lm_head.rs:456:19
+    |
+ 99 | impl SharedLmHeadParameter {
+    | -------------------------- method in this implementation
+...
+456 |     pub(crate) fn release_training_state(&self) -> Result<()> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_forward` is never used
+     --> src\transformer.rs:28083:8
+      |
+27456 | impl TieredLmHead {
+      | ----------------- method in this implementation
+...
+28083 |     fn record_forward(
+      |        ^^^^^^^^^^^^^^
+
+warning: function `decode_transformer_float_tensor` is never used
+     --> src\transformer.rs:36328:4
+      |
+36328 | fn decode_transformer_float_tensor(name: &str, tensor: TensorView<'_>) -> Result<HostFloatTensor> {
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `load_gpt2_weights` is never used
+     --> src\transformer.rs:40535:4
+      |
+40535 | fn load_gpt2_weights(
+      |    ^^^^^^^^^^^^^^^^^
+
+warning: field `grad_attention_gate_values` is never read
+     --> src\transformer.rs:49152:5
+      |
+49082 | struct TransformerLayerTape {
+      |        -------------------- field in this struct
+...
+49152 |     grad_attention_gate_values: GpuBuffer,
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `key_hidden_size` is never used
+     --> src\transformer.rs:55529:8
+      |
+55374 | impl VulkanMlaAttention {
+      | ----------------------- method in this implementation
+...
+55529 |     fn key_hidden_size(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^
+
+warning: field `eps` is never read
+   --> src\transformer\gemma4_vision.rs:904:5
+    |
+886 | pub struct VulkanGemma4Vision {
+    |            ------------------ field in this struct
+...
+904 |     eps: f32,
+    |     ^^^
+
+warning: fields `physical_device` and `physical_device_index` are never read
+  --> src\vulkan.rs:38:5
+   |
+35 | struct DeviceInner {
+   |        ----------- fields in this struct
+...
+38 |     physical_device: vk::PhysicalDevice,
+   |     ^^^^^^^^^^^^^^^
+...
+72 |     physical_device_index: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+error: linking with `link.exe` failed: exit code: 1104
+  |
+  = note: "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\HostX64\\x64\\link.exe" "/NOLOGO" "C:\\Users\\User\\AppData\\Local\\Temp\\rustcGPVxRA\\symbols.o" "<257 object files omitted>" "<sysroot>\\lib\\rustlib\\x86_64-pc-windows-msvc\\lib/{libtest-*,libgetopts-*,librustc_std_workspace_std-*}.rlib" "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps/{libwindows_sys-14ecb4dc08da1809,libwindows_targets-8f35a6d2410dd7da,libash-8b3db12f44b0d916,liblibloading-cf7fa2d8976067fd,libpeft_rs-4891d604d051bea8,libsafetensors-8941aa5493fc8a98,libcandle_nn-033f6c6dd33d85e2,libcandle_core-6636c9cc4876b81e,libnum_cpus-5e37c216f2c71fe0,libzip-00364b23ce53c719,libindexmap-006b44c3f2cb9ef4,libequivalent-81775ab5d8154b89,libhashbrown-635befb600e68988,libtyped_path-b3b7948e58ada0b6,libcrc32fast-0ffb4d97d00b09c4,libyoke-8dac6628d7fa6014,libzerofrom-6c91d2748d38e79d,libsafetensors-1fd89ce88c5e699c,libtempfile-23114b5774c7e088,libgetrandom-8870e4b0ae418807,librand_core-f5a4f9121bdf1050,libfastrand-47a98696364f0018,libwindows_sys-0eb5835cf28a16da,libwindows_link-750c1e8395263f2e,libgemm-93258c80f80aff6e,libgemm_c32-00107735a81a7df7,libgemm_c64-3bb84aba80486df8,libgemm_f64-338680d11c945880,libgemm_f16-662e21ace6c9d762,libgemm_f32-77259b6372351b02,libgemm_common-9938a41a1b93af03,libpulp-4e4d479204f169ff,libdyn_stack-b7f4df5174ce263e,libraw_cpuid-24aa2caeb1d94321,libfloat8-e252ec9d12b6aaac,libbyteorder-2f17c2fb6da14559,libhalf-c637408c77123752,librand_distr-a8bea58fc1f4d4eb,libnalgebra-3e331b30edca3ace,libmatrixmultiply-2ff49cb076119d75,librawpointer-6bee0fb8b43d90d6,libnum_rational-d0cb7d17df56359f,libnum_integer-0b7e53744c0b6023,libsimba-be177f17174e36b8,libwide-2b28ff3721148ca3,libsafe_arch-08b4229c947ab6d7,libnum_complex-e455f1b0c70837aa,libapprox-760aafe48aeaf0d6,libnum_traits-873db76c6ae1fcc4,libtokenizers-a9df1024b102b51a,libesaxx_rs-b83c763a7b983462,libregex-b90fb2e3073d437d,libregex_automata-354314cd738ac014,libaho_corasick-e89ea38c7c622ce5,libregex_syntax-96a98ca4b98b0af0,libunicode_normalization_alignments-c020a23833b5f7cf,libsmallvec-d87042a42b0d8f67,libspm_precompiled-bb1ecccb01f88a11,libbase64-39859335eff072c2,libunicode_segmentation-f4ff5f49a0b767b1,libnom-17e4398d354384fe,libunicode_categories-8fe3a288ca57c43f,libdary_heap-c526637ab8baef2c,libcompact_str-2c3a2461508329e6,libryu-42a7cb369c870548,libstatic_assertions-3a8f2c95c8c4e01c,libcastaway-36bb3065d1424b0f,libmonostate-36ed28368ca833f0,libmacro_rules_attribute-c9ad41cdd16eb97b,librayon_cond-65cd0d207127310a,libitertools-1ea1920d4e1dc583,libonig-2e16287ab0880db2,libbitflags-0d329962efeab39a,libonig_sys-8a3dd7688db5ea08,libahash-28bc052c302987ee,libonce_cell-c1977e0f384490a3,libderive_builder-56b3bc10d391f5d6,liblog-866e803d87b63a46,libhierarchos_inference-2595899976a71abb,liblibm-450c9c1047711d58,libmemmap2-10ad9997a4ba5950,libstable_deref_trait-5e337271cc0ebaad,librayon-c3b86885523903c4,librayon_core-fc63806e6568be6f,libcrossbeam_deque-c599e2cfdc2f3a2d,libcrossbeam_epoch-4cc07c09057d762e,libcrossbeam_utils-104eb0221aafec57,libeither-d49fbad82e1e52d6,libthiserror-aded88e42d419319,libsha2-24b99d2758e19cd0,libcpufeatures-c232fa689cff9078,libdigest-a9ded30182dc9ba8,libblock_buffer-7afe031c92b89e1c,libcrypto_common-38bd24d386ad0136,libgeneric_array-6efae25bedc163a0,libtypenum-5b38d9aafac5529f,libsafetensors-4d49f5df3625caca,libserde_json-4a3c8104316d82e6,libmemchr-0af0d419452d54d8,libitoa-2fadb60393a045de,libzmij-15992e6ec9763b3a,librand-73178996d52932a0,librand_chacha-7495047271bc01fe,libppv_lite86-a42134a0bdeeec38,libzerocopy-4f917ff151e364e7,librand_core-301c0a851b7d1c70,libgetrandom-37fabfcbe3892758,libcfg_if-4be1d57b9cd9afec,libserde-18039975ba630d65,libserde_core-a2e2fa9dd61664e3,libbytemuck-1db803438ca6ed8b,libanyhow-5e5ed55c8ea771c8}.rlib" "<sysroot>\\lib\\rustlib\\x86_64-pc-windows-msvc\\lib/{libstd-*,libpanic_unwind-*,libcfg_if-*,libwindows_targets-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libunwind-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "kernel32.lib" "C:\\Users\\User\\.cargo\\registry\\src\\index.crates.io-1949cf8c6b5b557f\\windows_x86_64_msvc-0.52.6\\lib\\windows.0.52.0.lib" "kernel32.lib" "kernel32.lib" "kernel32.lib" "ntdll.lib" "userenv.lib" "ws2_32.lib" "dbghelp.lib" "/defaultlib:msvcrt" "/NXCOMPAT" "/LIBPATH:C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\build\\aws-lc-sys-1c19aca02f8b5c2b\\out" "/LIBPATH:C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\build\\blake3-52a68a47845f3d2f\\out" "/LIBPATH:C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\build\\onig_sys-27666f411c2bc897\\out" "/LIBPATH:C:\\Users\\User\\.cargo\\registry\\src\\index.crates.io-1949cf8c6b5b557f\\windows_x86_64_msvc-0.52.6\\lib" "/OUT:C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe" "/OPT:REF,NOICF" "/DEBUG" "/PDBALTPATH:%_PDB%" "/NATVIS:<sysroot>\\lib\\rustlib\\etc\\intrinsic.natvis" "/NATVIS:<sysroot>\\lib\\rustlib\\etc\\liballoc.natvis" "/NATVIS:<sysroot>\\lib\\rustlib\\etc\\libcore.natvis" "/NATVIS:<sysroot>\\lib\\rustlib\\etc\\libstd.natvis"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: LINK : fatal error LNK1104: cannot open file 'C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\target\debug\deps\hierarchos_vulkan-2f708da7cb986ebb.exe'␍
+          
+
+warning: `hierarchos-vulkan` (lib test) generated 28 warnings
+error: could not compile `hierarchos-vulkan` (lib test) due to 1 previous error; 28 warnings emitted

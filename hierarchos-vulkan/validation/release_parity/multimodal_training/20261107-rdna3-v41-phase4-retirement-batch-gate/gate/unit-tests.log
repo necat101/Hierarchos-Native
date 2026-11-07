@@ -1,0 +1,15 @@
+test_clear_improvement_passes (test_rdna3_performance_gate.GateTests.test_clear_improvement_passes) ... ok
+test_clear_regression_fails (test_rdna3_performance_gate.GateTests.test_clear_regression_fails) ... ok
+test_corrupted_json_file_is_invalid (test_rdna3_performance_gate.GateTests.test_corrupted_json_file_is_invalid) ... ok
+test_equality_at_equivalence_boundary_is_accepted (test_rdna3_performance_gate.GateTests.test_equality_at_equivalence_boundary_is_accepted) ... ok
+test_incomplete_release_matrix_is_invalid (test_rdna3_performance_gate.GateTests.test_incomplete_release_matrix_is_invalid) ... ok
+test_mismatched_binary_is_invalid (test_rdna3_performance_gate.GateTests.test_mismatched_binary_is_invalid) ... ok
+test_mismatched_configuration_is_invalid (test_rdna3_performance_gate.GateTests.test_mismatched_configuration_is_invalid) ... ok
+test_missing_samples_is_invalid (test_rdna3_performance_gate.GateTests.test_missing_samples_is_invalid) ... ok
+test_noisy_slowdown_is_inconclusive (test_rdna3_performance_gate.GateTests.test_noisy_slowdown_is_inconclusive) ... ok
+test_practical_equivalence_passes_controls_in_release (test_rdna3_performance_gate.GateTests.test_practical_equivalence_passes_controls_in_release) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.121s
+
+OK

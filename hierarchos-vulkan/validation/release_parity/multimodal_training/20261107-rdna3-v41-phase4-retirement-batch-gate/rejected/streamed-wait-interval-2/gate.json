@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "policy": "clear-regression-only",
+  "pass": true,
+  "cross_arm_word_exact": true,
+  "cases": [
+    {
+      "case": "native_vit_4x4",
+      "role": "native",
+      "speedup": 0.9983492070168887,
+      "paired_median_speedup": 0.9966280950054633,
+      "speedup_ci95": [
+        0.9855959127547014,
+        1.010830697368962
+      ],
+      "conclusion": "inconclusive"
+    },
+    {
+      "case": "native_vit_6x4",
+      "role": "native",
+      "speedup": 0.9986589397855025,
+      "paired_median_speedup": 1.0009375354218983,
+      "speedup_ci95": [
+        0.9885894316937209,
+        1.008277141209422
+      ],
+      "conclusion": "inconclusive"
+    },
+    {
+      "case": "llama",
+      "role": "control",
+      "speedup": 0.9995358280374961,
+      "paired_median_speedup": 1.011750130758101,
+      "speedup_ci95": [
+        0.9826286968491584,
+        1.0326697544050365
+      ],
+      "conclusion": "inconclusive"
+    },
+    {
+      "case": "gpt2",
+      "role": "control",
+      "speedup": 0.9946043165467626,
+      "paired_median_speedup": 0.9946048753848615,
+      "speedup_ci95": [
+        0.9641578048445181,
+        1.0118533775319114
+      ],
+      "conclusion": "inconclusive"
+    },
+    {
+      "case": "t5",
+      "role": "control",
+      "speedup": 1.0020883733108399,
+      "paired_median_speedup": 1.0013915380203342,
+      "speedup_ci95": [
+        0.9874765831451772,
+        1.0161344115449977
+      ],
+      "conclusion": "inconclusive"
+    }
+  ],
+  "significant_regressions": [],
+  "significant_improvements": [],
+  "native_improvements": [],
+  "inconclusive": [
+    "native_vit_4x4",
+    "native_vit_6x4",
+    "llama",
+    "gpt2",
+    "t5"
+  ],
+  "gate_failures": []
+}

@@ -1,0 +1,104 @@
+{
+  "final-vs-722acd0": {
+    "state": "INCONCLUSIVE",
+    "mode": "development",
+    "legacy_batch_unreported": true,
+    "baseline_sha256": "7afa0d985a5304f9383b47d4deaf6119c982d50ab0ccee75db3715e60ab41642",
+    "candidate_sha256": "f1f597c7a87d73676e7f418eb27bc6435d0cee56f870280223a857e0286ab265",
+    "rounds": 6,
+    "measured_steps": 7,
+    "cases": {
+      "native_vit_4x4": {
+        "paired_median_speedup": 1.0380723596949748,
+        "ci95": [
+          0.9403807361068475,
+          1.0836988870252697
+        ],
+        "conclusion": "inconclusive"
+      },
+      "native_vit_6x4": {
+        "paired_median_speedup": 1.0163383616185995,
+        "ci95": [
+          0.9529748939264151,
+          1.0964888246241555
+        ],
+        "conclusion": "inconclusive"
+      },
+      "llama": {
+        "paired_median_speedup": 1.001586244105649,
+        "ci95": [
+          0.9900189345930299,
+          1.1445535957340038
+        ],
+        "conclusion": "inconclusive"
+      },
+      "gpt2": {
+        "paired_median_speedup": 0.9994878916544156,
+        "ci95": [
+          0.8916727604958947,
+          1.0403743930494904
+        ],
+        "conclusion": "inconclusive"
+      },
+      "t5": {
+        "paired_median_speedup": 1.0011385575800533,
+        "ci95": [
+          0.9735340040340368,
+          1.192834096027573
+        ],
+        "conclusion": "inconclusive"
+      }
+    }
+  },
+  "final-vs-61591bc": {
+    "state": "INCONCLUSIVE",
+    "mode": "development",
+    "legacy_batch_unreported": true,
+    "baseline_sha256": "9cc5a6504a2e74eb8cfbdce2b00e2d9419598ce3d364c6b45de4e780438a6c32",
+    "candidate_sha256": "f1f597c7a87d73676e7f418eb27bc6435d0cee56f870280223a857e0286ab265",
+    "rounds": 6,
+    "measured_steps": 7,
+    "cases": {
+      "native_vit_4x4": {
+        "paired_median_speedup": 1.0068111770079264,
+        "ci95": [
+          0.9914187528711237,
+          1.0860254528793263
+        ],
+        "conclusion": "inconclusive"
+      },
+      "native_vit_6x4": {
+        "paired_median_speedup": 1.0036960486656357,
+        "ci95": [
+          0.9891498205625022,
+          1.0763016735610464
+        ],
+        "conclusion": "inconclusive"
+      },
+      "llama": {
+        "paired_median_speedup": 1.014817160735819,
+        "ci95": [
+          0.9888270973826421,
+          1.063621529689915
+        ],
+        "conclusion": "inconclusive"
+      },
+      "gpt2": {
+        "paired_median_speedup": 1.0032598818113738,
+        "ci95": [
+          0.9546778569182637,
+          1.2453395015815865
+        ],
+        "conclusion": "inconclusive"
+      },
+      "t5": {
+        "paired_median_speedup": 1.0089366011469245,
+        "ci95": [
+          1.0023725953942932,
+          1.0263465567624912
+        ],
+        "conclusion": "candidate_faster"
+      }
+    }
+  }
+}

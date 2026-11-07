@@ -1,0 +1,179 @@
+{
+  "schema": 2,
+  "mode": "development",
+  "policy": "development",
+  "state": "INCONCLUSIVE",
+  "pass": false,
+  "release_qualified": false,
+  "reason": "5 case(s) are not release-acceptable",
+  "required_batches": [
+    1
+  ],
+  "batch_present": [
+    1
+  ],
+  "cross_arm_word_exact": true,
+  "fixtures": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gen9-frozen\\target\\multimodal-gen9",
+  "baseline_sha256": "7afa0d985a5304f9383b47d4deaf6119c982d50ab0ccee75db3715e60ab41642",
+  "candidate_sha256": "f1f597c7a87d73676e7f418eb27bc6435d0cee56f870280223a857e0286ab265",
+  "rounds": 6,
+  "measured_steps": 7,
+  "reports": [
+    {
+      "batch": 1,
+      "state": "INCONCLUSIVE",
+      "cases": [
+        {
+          "case": "native_vit_4x4",
+          "role": "native",
+          "batch": 1,
+          "speedup": 0.9398540305838889,
+          "paired_median_speedup": 1.0380723596949748,
+          "speedup_ci95": [
+            0.9403807361068475,
+            1.0836988870252697
+          ],
+          "equivalence_margin": 0.02,
+          "state": "INCONCLUSIVE",
+          "reason": "native improvement is not established (0.9404, 1.0837)"
+        },
+        {
+          "case": "native_vit_6x4",
+          "role": "native",
+          "batch": 1,
+          "speedup": 1.0173185670459375,
+          "paired_median_speedup": 1.0163383616185995,
+          "speedup_ci95": [
+            0.9529748939264151,
+            1.0964888246241555
+          ],
+          "equivalence_margin": 0.02,
+          "state": "INCONCLUSIVE",
+          "reason": "native improvement is not established (0.9530, 1.0965)"
+        },
+        {
+          "case": "llama",
+          "role": "control",
+          "batch": 1,
+          "speedup": 1.0045323708481524,
+          "paired_median_speedup": 1.001586244105649,
+          "speedup_ci95": [
+            0.9900189345930299,
+            1.1445535957340038
+          ],
+          "equivalence_margin": 0.02,
+          "state": "INCONCLUSIVE",
+          "reason": "control interval exceeds the +/-0.0200 equivalence bounds (0.9900, 1.1446)"
+        },
+        {
+          "case": "gpt2",
+          "role": "control",
+          "batch": 1,
+          "speedup": 0.9857197169907548,
+          "paired_median_speedup": 0.9994878916544156,
+          "speedup_ci95": [
+            0.8916727604958947,
+            1.0403743930494904
+          ],
+          "equivalence_margin": 0.02,
+          "state": "INCONCLUSIVE",
+          "reason": "control interval exceeds the +/-0.0200 equivalence bounds (0.8917, 1.0404)"
+        },
+        {
+          "case": "t5",
+          "role": "control",
+          "batch": 1,
+          "speedup": 1.0270128463059842,
+          "paired_median_speedup": 1.0011385575800533,
+          "speedup_ci95": [
+            0.9735340040340368,
+            1.192834096027573
+          ],
+          "equivalence_margin": 0.02,
+          "state": "INCONCLUSIVE",
+          "reason": "control interval exceeds the +/-0.0200 equivalence bounds (0.9735, 1.1928)"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "case": "native_vit_4x4",
+      "role": "native",
+      "batch": 1,
+      "speedup": 0.9398540305838889,
+      "paired_median_speedup": 1.0380723596949748,
+      "speedup_ci95": [
+        0.9403807361068475,
+        1.0836988870252697
+      ],
+      "equivalence_margin": 0.02,
+      "state": "INCONCLUSIVE",
+      "reason": "native improvement is not established (0.9404, 1.0837)"
+    },
+    {
+      "case": "native_vit_6x4",
+      "role": "native",
+      "batch": 1,
+      "speedup": 1.0173185670459375,
+      "paired_median_speedup": 1.0163383616185995,
+      "speedup_ci95": [
+        0.9529748939264151,
+        1.0964888246241555
+      ],
+      "equivalence_margin": 0.02,
+      "state": "INCONCLUSIVE",
+      "reason": "native improvement is not established (0.9530, 1.0965)"
+    },
+    {
+      "case": "llama",
+      "role": "control",
+      "batch": 1,
+      "speedup": 1.0045323708481524,
+      "paired_median_speedup": 1.001586244105649,
+      "speedup_ci95": [
+        0.9900189345930299,
+        1.1445535957340038
+      ],
+      "equivalence_margin": 0.02,
+      "state": "INCONCLUSIVE",
+      "reason": "control interval exceeds the +/-0.0200 equivalence bounds (0.9900, 1.1446)"
+    },
+    {
+      "case": "gpt2",
+      "role": "control",
+      "batch": 1,
+      "speedup": 0.9857197169907548,
+      "paired_median_speedup": 0.9994878916544156,
+      "speedup_ci95": [
+        0.8916727604958947,
+        1.0403743930494904
+      ],
+      "equivalence_margin": 0.02,
+      "state": "INCONCLUSIVE",
+      "reason": "control interval exceeds the +/-0.0200 equivalence bounds (0.8917, 1.0404)"
+    },
+    {
+      "case": "t5",
+      "role": "control",
+      "batch": 1,
+      "speedup": 1.0270128463059842,
+      "paired_median_speedup": 1.0011385575800533,
+      "speedup_ci95": [
+        0.9735340040340368,
+        1.192834096027573
+      ],
+      "equivalence_margin": 0.02,
+      "state": "INCONCLUSIVE",
+      "reason": "control interval exceeds the +/-0.0200 equivalence bounds (0.9735, 1.1928)"
+    }
+  ],
+  "regressions": [],
+  "inconclusive": [
+    "native_vit_4x4",
+    "native_vit_6x4",
+    "llama",
+    "gpt2",
+    "t5"
+  ]
+}
