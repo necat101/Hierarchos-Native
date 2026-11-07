@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "source_commit": "722acd09626c592ead883b8c7aa652dd0d6ceeac",
+  "source_tree": "fb6cd89e393cd3c9eac6f8f48a52cb482144fc59",
+  "parent_commit": "24424bf158cc0cf5491a28c60a3818852b2c61cf",
+  "branch": "main",
+  "remote": "origin",
+  "historical_commit": "372407b",
+  "receipt_directory": "validation/release_parity/multimodal_training/20261107-rdna3-v41-adapter-span-batch",
+  "note": "The source commit binds the benchmarked source. This directory is committed immediately after and is integrity-bound by receipt-hashes.json; the source commit is not rewritten by the receipt commit."
+}

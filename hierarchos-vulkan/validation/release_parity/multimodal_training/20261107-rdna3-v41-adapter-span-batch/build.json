@@ -1,0 +1,17 @@
+{
+  "profile": "test (dev, debug assertions)",
+  "test_build_command": "cargo test --locked --lib --no-run",
+  "rustc": "1.93.0 (254b59607 2026-01-19)",
+  "cargo": "1.93.0 (083ac5135 2025-12-15)",
+  "host": "x86_64-pc-windows-msvc",
+  "llvm": "21.1.8",
+  "benchmark_binary": "target/debug/deps/hierarchos_vulkan-2f708da7cb986ebb.exe",
+  "software_fma": true,
+  "environment": {
+    "HIERARCHOS_ATEN_VECTOR_WIDTH": "16",
+    "HIERARCHOS_VULKAN_RDNA3_V41": "0"
+  },
+  "warmup_steps": 2,
+  "measured_steps": 7,
+  "abba_rounds": 6
+}

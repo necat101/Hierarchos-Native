@@ -1,0 +1,38 @@
+test_diagnostic_state_writer_preserves_tensor_names_shapes_and_values (test_multimodal_training.MultimodalGateTests.test_diagnostic_state_writer_preserves_tensor_names_shapes_and_values) ... ok
+test_frozen_cpu_vector_policy_overrides_replay_host (test_multimodal_training.MultimodalGateTests.test_frozen_cpu_vector_policy_overrides_replay_host) ... ok
+test_incomplete_cpu_preparation_cannot_run (test_multimodal_training.MultimodalGateTests.test_incomplete_cpu_preparation_cannot_run) ... ok
+test_no_empty_or_partial_comparisons (test_multimodal_training.MultimodalGateTests.test_no_empty_or_partial_comparisons) ... ok
+test_nonfinite_is_never_a_pass (test_multimodal_training.MultimodalGateTests.test_nonfinite_is_never_a_pass) ... ok
+test_physical_device_required (test_multimodal_training.MultimodalGateTests.test_physical_device_required) ... ok
+test_safetensors_shape_and_payload_coverage (test_multimodal_training.MultimodalGateTests.test_safetensors_shape_and_payload_coverage) ... ok
+test_strict_threshold_and_no_relative_tolerance (test_multimodal_training.MultimodalGateTests.test_strict_threshold_and_no_relative_tolerance) ... ok
+test_alias_cannot_claim_another_profile (test_shared_image_pipeline.CoverageTests.test_alias_cannot_claim_another_profile) ... ok
+test_all_required_cases_qualify (test_shared_image_pipeline.CoverageTests.test_all_required_cases_qualify) ... ok
+test_empty_or_duplicate_inventory_and_cases_rejected (test_shared_image_pipeline.CoverageTests.test_empty_or_duplicate_inventory_and_cases_rejected) ... ok
+test_kimi_scope_matches_original_unpadded_cpu_qualification (test_shared_image_pipeline.CoverageTests.test_kimi_scope_matches_original_unpadded_cpu_qualification) ... ok
+test_missing_runtime_keeps_full_inventory_pending (test_shared_image_pipeline.CoverageTests.test_missing_runtime_keeps_full_inventory_pending) ... ok
+test_one_failed_mask_case_keeps_profile_pending (test_shared_image_pipeline.CoverageTests.test_one_failed_mask_case_keeps_profile_pending) ... ok
+test_partial_profile_does_not_qualify (test_shared_image_pipeline.CoverageTests.test_partial_profile_does_not_qualify) ... ok
+test_policy_and_requested_coverage_fail_closed (test_shared_image_pipeline.CoverageTests.test_policy_and_requested_coverage_fail_closed) ... ok
+test_invalid_inputs_fail_before_export (test_llava_pipeline.NativeImageGuards.test_invalid_inputs_fail_before_export) ... skipped 'native image fixtures/binary are opt-in'
+test_empty_matrix_and_duplicate_cases_cannot_qualify (test_llava_pipeline.PipelineAcceptance.test_empty_matrix_and_duplicate_cases_cannot_qualify) ... ok
+test_frozen_cpu_vector_width_is_pinned (test_llava_pipeline.PipelineAcceptance.test_frozen_cpu_vector_width_is_pinned) ... ok
+test_limit_is_strict (test_llava_pipeline.PipelineAcceptance.test_limit_is_strict) ... ok
+test_nonfinite_intermediates_are_errors (test_llava_pipeline.PipelineAcceptance.test_nonfinite_intermediates_are_errors) ... ok
+test_relaxed_or_incomplete_policy_cannot_run (test_llava_pipeline.PipelineAcceptance.test_relaxed_or_incomplete_policy_cannot_run) ... ok
+test_duplicate_cases_cannot_inflate_coverage (test_gemma4_pipeline.Gemma4GateTests.test_duplicate_cases_cannot_inflate_coverage) ... ok
+test_empty_and_unknown_requests_cannot_pass (test_gemma4_pipeline.Gemma4GateTests.test_empty_and_unknown_requests_cannot_pass) ... ok
+test_empty_inventory_cannot_pass (test_gemma4_pipeline.Gemma4GateTests.test_empty_inventory_cannot_pass) ... ok
+test_modified_cpu_source_cannot_run (test_gemma4_pipeline.Gemma4GateTests.test_modified_cpu_source_cannot_run) ... ok
+test_unknown_pixel_domain_cannot_run (test_gemma4_pipeline.Gemma4GateTests.test_unknown_pixel_domain_cannot_run) ... ok
+test_bad_inputs_and_unsupported_features_cannot_export_or_modify_source (test_gemma4_pipeline.NativeGemma4Guards.test_bad_inputs_and_unsupported_features_cannot_export_or_modify_source) ... skipped 'native Gemma4 fixture paths not configured'
+test_duplicate_frozen_case_cannot_inflate_coverage (test_gemma3_pipeline.Gemma3GateTests.test_duplicate_frozen_case_cannot_inflate_coverage) ... ok
+test_empty_frozen_inventory_cannot_pass (test_gemma3_pipeline.Gemma3GateTests.test_empty_frozen_inventory_cannot_pass) ... ok
+test_modified_oracle_source_cannot_run (test_gemma3_pipeline.Gemma3GateTests.test_modified_oracle_source_cannot_run) ... ok
+test_unknown_and_empty_requests_cannot_pass (test_gemma3_pipeline.Gemma3GateTests.test_unknown_and_empty_requests_cannot_pass) ... ok
+test_malformed_inputs_cannot_export_or_change_source (test_gemma3_pipeline.NativeGemma3Guards.test_malformed_inputs_cannot_export_or_change_source) ... skipped 'native Gemma3 fixture paths not configured'
+
+----------------------------------------------------------------------
+Ran 33 tests in 0.185s
+
+OK (skipped=3)

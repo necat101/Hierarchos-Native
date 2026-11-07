@@ -1,0 +1,7 @@
+v41_probe_summary prefill_tokens=1 decode_tokens=1 steps=1 residency=resident prefill_ms_median=256.011 decode_ms_median=257.910 decode_ms_per_token=257.910 vocab=67 logits=67 digest=8e61e9bd28665ff1
+v41_probe_load ms=8926.273 submissions=472 device="AMD Radeon Graphics" vendor=0x1002
+v41_probe_io phase=warmup_complete json={"identity_checks":93338,"payload_reads":93338,"payload_bytes_read":29447344,"cache_hits":0,"cache_misses":93338,"cache_bytes":0,"cache_peak_bytes":0,"cache_entries":0,"evictions":0,"invalidations":0,"capacity_bytes":0}
+v41_probe_phase phase=prefill step=0 measured=true ms=256.011 rows=1 vocab=67 submissions=170
+v41_probe_phase phase=decode step=0 position=1 measured=true ms=257.910 submissions=170
+v41_probe_logits step=0 count=67 digest=8e61e9bd28665ff1
+v41_probe_io phase=complete json={"identity_checks":93338,"payload_reads":93338,"payload_bytes_read":29447344,"cache_hits":0,"cache_misses":93338,"cache_bytes":0,"cache_peak_bytes":0,"cache_entries":0,"evictions":0,"invalidations":0,"capacity_bytes":0}

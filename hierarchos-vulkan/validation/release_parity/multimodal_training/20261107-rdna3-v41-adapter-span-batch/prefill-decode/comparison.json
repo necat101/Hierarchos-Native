@@ -1,0 +1,1317 @@
+{
+  "binaries": {
+    "baseline": {
+      "path": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-baseline-372407b\\hierarchos-vulkan\\target\\debug\\hierarchos-vulkan-deepseek-v41-forward-probe.exe",
+      "sha256": "9fe246d0c4f2bf0cfc5eccd732fe4f7e8f744f5d30f1025f10286298c1b88017"
+    },
+    "candidate": {
+      "path": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\hierarchos-vulkan-deepseek-v41-forward-probe.exe",
+      "sha256": "60b05f5e66e3703682937efc6f9dfc4ac9eabb8389a9b821d6a98ba8d376199f"
+    }
+  },
+  "timings": {
+    "resident": {
+      "baseline": {
+        "prefill_ms": 565.867,
+        "decode_ms": 257.6855
+      },
+      "candidate": {
+        "prefill_ms": 565.9875,
+        "decode_ms": 255.09550000000002
+      },
+      "latency_reduction_percent": {
+        "prefill_ms": -0.021294756541734294,
+        "decode_ms": 1.0051011795386144
+      }
+    },
+    "default": {
+      "baseline": {
+        "prefill_ms": 1958.908,
+        "decode_ms": 742.2735
+      },
+      "candidate": {
+        "prefill_ms": 1901.2935,
+        "decode_ms": 722.13
+      },
+      "latency_reduction_percent": {
+        "prefill_ms": 2.941153949036912,
+        "decode_ms": 2.7137571259111426
+      }
+    }
+  },
+  "runs": [
+    {
+      "arm": "baseline",
+      "residency": "resident",
+      "prefill": 8,
+      "decode": 8,
+      "log": "baseline-resident-8-8-pair0.log",
+      "staged": false,
+      "profile": false,
+      "digest": "90e096ebc5bf0659",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 565.665,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 258.356,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 258.725,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 253.645,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 254.561,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 257.178,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 260.3,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 253.154,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 257.698,
+          "submissions": 170
+        },
+        {
+          "phase": "prefill",
+          "ms": 564.441,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 256.659,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 257.852,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 261.428,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 251.774,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 255.909,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 269.392,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 257.995,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 258.927,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=11896.836 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    },
+    {
+      "arm": "candidate",
+      "residency": "resident",
+      "prefill": 8,
+      "decode": 8,
+      "log": "candidate-resident-8-8-pair0.log",
+      "staged": false,
+      "profile": false,
+      "digest": "90e096ebc5bf0659",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 571.702,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 255.45,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 254.305,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 256.164,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 262.665,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 256.921,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 262.338,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 257.4,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 277.413,
+          "submissions": 170
+        },
+        {
+          "phase": "prefill",
+          "ms": 564.993,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 253.707,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 256.562,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 256.464,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 255.843,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 256.411,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 269.088,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 251.402,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 251.569,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=11842.196 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    },
+    {
+      "arm": "candidate",
+      "residency": "resident",
+      "prefill": 8,
+      "decode": 8,
+      "log": "candidate-resident-8-8-pair1.log",
+      "staged": false,
+      "profile": false,
+      "digest": "90e096ebc5bf0659",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 564.805,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 250.022,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 255.082,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 267.788,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 259.539,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 253.248,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 259.336,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 253.252,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 254.474,
+          "submissions": 170
+        },
+        {
+          "phase": "prefill",
+          "ms": 569.419,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 252.267,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 260.984,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 256.133,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 258.541,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 251.427,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 255.825,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 258.13,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 255.109,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=8850.865 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "residency": "resident",
+      "prefill": 8,
+      "decode": 8,
+      "log": "baseline-resident-8-8-pair1.log",
+      "staged": false,
+      "profile": false,
+      "digest": "90e096ebc5bf0659",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 566.069,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 250.64,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 254.923,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 271.099,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 257.645,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 258.721,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 260.42,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 258.874,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 258.851,
+          "submissions": 170
+        },
+        {
+          "phase": "prefill",
+          "ms": 576.808,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 262.325,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 257.236,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 254.827,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 265.806,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 266.075,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 265.605,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 255.071,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 261.244,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=8963.559 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "residency": "resident",
+      "prefill": 8,
+      "decode": 8,
+      "log": "baseline-resident-8-8-pair2.log",
+      "staged": false,
+      "profile": false,
+      "digest": "90e096ebc5bf0659",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 565.61,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 254.776,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 257.813,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 271.802,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 257.725,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 251.967,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 257.673,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 264.168,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 254.029,
+          "submissions": 170
+        },
+        {
+          "phase": "prefill",
+          "ms": 572.234,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 258.63,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 253.421,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 256.333,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 252.76,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 249.211,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 253.587,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 250.455,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 252.35,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=9104.742 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    },
+    {
+      "arm": "candidate",
+      "residency": "resident",
+      "prefill": 8,
+      "decode": 8,
+      "log": "candidate-resident-8-8-pair2.log",
+      "staged": false,
+      "profile": false,
+      "digest": "90e096ebc5bf0659",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 566.982,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 249.547,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 245.715,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 253.406,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 250.733,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 248.802,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 249.372,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 248.844,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 250.277,
+          "submissions": 170
+        },
+        {
+          "phase": "prefill",
+          "ms": 561.06,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 252.653,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 246.84,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 256.661,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 254.248,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 255.24,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 255.495,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 251.844,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 249.199,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=9035.477 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "residency": "default",
+      "prefill": 8,
+      "decode": 4,
+      "log": "baseline-default-8-4-pair0.log",
+      "staged": false,
+      "profile": false,
+      "digest": "2d2f8e2d5914a0d2",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 1961.405,
+          "submissions": 1429
+        },
+        {
+          "phase": "decode",
+          "ms": 731.77,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 723.439,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 729.893,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 734.042,
+          "submissions": 556
+        },
+        {
+          "phase": "prefill",
+          "ms": 1897.935,
+          "submissions": 1429
+        },
+        {
+          "phase": "decode",
+          "ms": 721.26,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 720.284,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 742.06,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 726.686,
+          "submissions": 556
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=1696.592 submissions=313 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":18435,\"payload_reads\":9847,\"payload_bytes_read\":5985062,\"cache_hits\":8588,\"cache_misses\":9847,\"cache_bytes\":5985062,\"cache_peak_bytes\":5985062,\"cache_entries\":9847,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":33554432}",
+        "v41_probe_io phase=complete json={\"identity_checks\":54487,\"payload_reads\":9847,\"payload_bytes_read\":5985062,\"cache_hits\":44640,\"cache_misses\":9847,\"cache_bytes\":5985062,\"cache_peak_bytes\":5985062,\"cache_entries\":9847,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":33554432}"
+      ]
+    },
+    {
+      "arm": "candidate",
+      "residency": "default",
+      "prefill": 8,
+      "decode": 4,
+      "log": "candidate-default-8-4-pair0.log",
+      "staged": false,
+      "profile": false,
+      "digest": "2d2f8e2d5914a0d2",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 1893.699,
+          "submissions": 1355
+        },
+        {
+          "phase": "decode",
+          "ms": 731.449,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 703.168,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 711.84,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 733.419,
+          "submissions": 482
+        },
+        {
+          "phase": "prefill",
+          "ms": 1871.679,
+          "submissions": 1355
+        },
+        {
+          "phase": "decode",
+          "ms": 689.428,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 704.302,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 727.868,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 716.404,
+          "submissions": 482
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=1716.449 submissions=313 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":18435,\"payload_reads\":9847,\"payload_bytes_read\":5985062,\"cache_hits\":8588,\"cache_misses\":9847,\"cache_bytes\":5985062,\"cache_peak_bytes\":5985062,\"cache_entries\":9847,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":33554432}",
+        "v41_probe_io phase=complete json={\"identity_checks\":54487,\"payload_reads\":9847,\"payload_bytes_read\":5985062,\"cache_hits\":44640,\"cache_misses\":9847,\"cache_bytes\":5985062,\"cache_peak_bytes\":5985062,\"cache_entries\":9847,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":33554432}"
+      ]
+    },
+    {
+      "arm": "candidate",
+      "residency": "default",
+      "prefill": 8,
+      "decode": 4,
+      "log": "candidate-default-8-4-pair1.log",
+      "staged": false,
+      "profile": false,
+      "digest": "2d2f8e2d5914a0d2",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 1901.37,
+          "submissions": 1355
+        },
+        {
+          "phase": "decode",
+          "ms": 710.404,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 737.31,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 726.491,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 736.617,
+          "submissions": 482
+        },
+        {
+          "phase": "prefill",
+          "ms": 1933.623,
+          "submissions": 1355
+        },
+        {
+          "phase": "decode",
+          "ms": 731.866,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 711.843,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 708.592,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 742.075,
+          "submissions": 482
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=1716.630 submissions=313 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":18435,\"payload_reads\":9847,\"payload_bytes_read\":5985062,\"cache_hits\":8588,\"cache_misses\":9847,\"cache_bytes\":5985062,\"cache_peak_bytes\":5985062,\"cache_entries\":9847,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":33554432}",
+        "v41_probe_io phase=complete json={\"identity_checks\":54487,\"payload_reads\":9847,\"payload_bytes_read\":5985062,\"cache_hits\":44640,\"cache_misses\":9847,\"cache_bytes\":5985062,\"cache_peak_bytes\":5985062,\"cache_entries\":9847,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":33554432}"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "residency": "default",
+      "prefill": 8,
+      "decode": 4,
+      "log": "baseline-default-8-4-pair1.log",
+      "staged": false,
+      "profile": false,
+      "digest": "2d2f8e2d5914a0d2",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 1952.182,
+          "submissions": 1429
+        },
+        {
+          "phase": "decode",
+          "ms": 742.487,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 756.594,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 740.445,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 737.531,
+          "submissions": 556
+        },
+        {
+          "phase": "prefill",
+          "ms": 1963.773,
+          "submissions": 1429
+        },
+        {
+          "phase": "decode",
+          "ms": 747.022,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 745.094,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 747.932,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 761.001,
+          "submissions": 556
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=1735.139 submissions=313 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":18435,\"payload_reads\":9847,\"payload_bytes_read\":5985062,\"cache_hits\":8588,\"cache_misses\":9847,\"cache_bytes\":5985062,\"cache_peak_bytes\":5985062,\"cache_entries\":9847,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":33554432}",
+        "v41_probe_io phase=complete json={\"identity_checks\":54487,\"payload_reads\":9847,\"payload_bytes_read\":5985062,\"cache_hits\":44640,\"cache_misses\":9847,\"cache_bytes\":5985062,\"cache_peak_bytes\":5985062,\"cache_entries\":9847,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":33554432}"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "residency": "default",
+      "prefill": 8,
+      "decode": 4,
+      "log": "baseline-default-8-4-pair2.log",
+      "staged": false,
+      "profile": false,
+      "digest": "2d2f8e2d5914a0d2",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 1992.768,
+          "submissions": 1429
+        },
+        {
+          "phase": "decode",
+          "ms": 739.676,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 753.878,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 743.541,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 750.472,
+          "submissions": 556
+        },
+        {
+          "phase": "prefill",
+          "ms": 1956.411,
+          "submissions": 1429
+        },
+        {
+          "phase": "decode",
+          "ms": 760.257,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 748.977,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 739.753,
+          "submissions": 556
+        },
+        {
+          "phase": "decode",
+          "ms": 763.809,
+          "submissions": 556
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=1700.622 submissions=313 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":18435,\"payload_reads\":9847,\"payload_bytes_read\":5985062,\"cache_hits\":8588,\"cache_misses\":9847,\"cache_bytes\":5985062,\"cache_peak_bytes\":5985062,\"cache_entries\":9847,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":33554432}",
+        "v41_probe_io phase=complete json={\"identity_checks\":54487,\"payload_reads\":9847,\"payload_bytes_read\":5985062,\"cache_hits\":44640,\"cache_misses\":9847,\"cache_bytes\":5985062,\"cache_peak_bytes\":5985062,\"cache_entries\":9847,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":33554432}"
+      ]
+    },
+    {
+      "arm": "candidate",
+      "residency": "default",
+      "prefill": 8,
+      "decode": 4,
+      "log": "candidate-default-8-4-pair2.log",
+      "staged": false,
+      "profile": false,
+      "digest": "2d2f8e2d5914a0d2",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 1924.078,
+          "submissions": 1355
+        },
+        {
+          "phase": "decode",
+          "ms": 735.244,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 715.285,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 710.474,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 726.517,
+          "submissions": 482
+        },
+        {
+          "phase": "prefill",
+          "ms": 1901.217,
+          "submissions": 1355
+        },
+        {
+          "phase": "decode",
+          "ms": 717.704,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 741.852,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 719.319,
+          "submissions": 482
+        },
+        {
+          "phase": "decode",
+          "ms": 724.941,
+          "submissions": 482
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=1718.524 submissions=313 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":18435,\"payload_reads\":9847,\"payload_bytes_read\":5985062,\"cache_hits\":8588,\"cache_misses\":9847,\"cache_bytes\":5985062,\"cache_peak_bytes\":5985062,\"cache_entries\":9847,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":33554432}",
+        "v41_probe_io phase=complete json={\"identity_checks\":54487,\"payload_reads\":9847,\"payload_bytes_read\":5985062,\"cache_hits\":44640,\"cache_misses\":9847,\"cache_bytes\":5985062,\"cache_peak_bytes\":5985062,\"cache_entries\":9847,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":33554432}"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "residency": "resident",
+      "prefill": 1,
+      "decode": 1,
+      "log": "baseline-resident-1-1-guard.log",
+      "staged": false,
+      "profile": false,
+      "digest": "8e61e9bd28665ff1",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 256.011,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 257.91,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=8926.273 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    },
+    {
+      "arm": "candidate",
+      "residency": "resident",
+      "prefill": 1,
+      "decode": 1,
+      "log": "candidate-resident-1-1-guard.log",
+      "staged": false,
+      "profile": false,
+      "digest": "8e61e9bd28665ff1",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 256.395,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 245.717,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=8858.738 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "residency": "resident",
+      "prefill": 2,
+      "decode": 1,
+      "log": "baseline-resident-2-1-guard.log",
+      "staged": false,
+      "profile": false,
+      "digest": "95e693dcb9e76429",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 331.857,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 253.709,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=8859.395 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    },
+    {
+      "arm": "candidate",
+      "residency": "resident",
+      "prefill": 2,
+      "decode": 1,
+      "log": "candidate-resident-2-1-guard.log",
+      "staged": false,
+      "profile": false,
+      "digest": "95e693dcb9e76429",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 330.506,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 253.564,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=8825.006 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "residency": "resident",
+      "prefill": 3,
+      "decode": 1,
+      "log": "baseline-resident-3-1-guard.log",
+      "staged": false,
+      "profile": false,
+      "digest": "17cc1ba6404ff8d6",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 388.862,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 269.351,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=8901.638 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    },
+    {
+      "arm": "candidate",
+      "residency": "resident",
+      "prefill": 3,
+      "decode": 1,
+      "log": "candidate-resident-3-1-guard.log",
+      "staged": false,
+      "profile": false,
+      "digest": "17cc1ba6404ff8d6",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 384.631,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 252.186,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=8896.499 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    },
+    {
+      "arm": "candidate",
+      "residency": "resident",
+      "prefill": 8,
+      "decode": 8,
+      "log": "candidate-resident-8-8-staged-guard.log",
+      "staged": true,
+      "profile": false,
+      "digest": "90e096ebc5bf0659",
+      "phases": [
+        {
+          "phase": "prefill",
+          "ms": 591.204,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 253.361,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 254.943,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 258.563,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 254.154,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 258.026,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 258.478,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 253.277,
+          "submissions": 170
+        },
+        {
+          "phase": "decode",
+          "ms": 261.856,
+          "submissions": 170
+        }
+      ],
+      "context": [
+        "v41_probe_load ms=8885.296 submissions=472 device=\"AMD Radeon Graphics\" vendor=0x1002",
+        "v41_probe_io phase=warmup_complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}",
+        "v41_probe_io phase=complete json={\"identity_checks\":93338,\"payload_reads\":93338,\"payload_bytes_read\":29447344,\"cache_hits\":0,\"cache_misses\":93338,\"cache_bytes\":0,\"cache_peak_bytes\":0,\"cache_entries\":0,\"evictions\":0,\"invalidations\":0,\"capacity_bytes\":0}"
+      ]
+    }
+  ],
+  "limits": [
+    "Scaled checkpoint",
+    "Final-row digest guards, separate full-logit Rust gates",
+    "Unprofiled paired phases only contribute to latency medians"
+  ]
+}

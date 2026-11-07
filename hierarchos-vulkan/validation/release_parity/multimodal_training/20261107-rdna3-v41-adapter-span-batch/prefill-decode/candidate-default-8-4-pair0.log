@@ -1,0 +1,22 @@
+v41_probe_summary prefill_tokens=8 decode_tokens=4 steps=2 residency=default prefill_ms_median=1882.689 decode_ms_median=714.122 decode_ms_per_token=714.122 vocab=67 logits=67 digest=2d2f8e2d5914a0d2
+v41_probe_load ms=1716.449 submissions=313 device="AMD Radeon Graphics" vendor=0x1002
+v41_probe_phase phase=prefill step=0 measured=false ms=2123.364 rows=8 vocab=67 submissions=1355
+v41_probe_phase phase=decode step=0 position=8 measured=false ms=720.341 submissions=482
+v41_probe_phase phase=decode step=0 position=9 measured=false ms=782.109 submissions=482
+v41_probe_phase phase=decode step=0 position=10 measured=false ms=832.644 submissions=482
+v41_probe_phase phase=decode step=0 position=11 measured=false ms=719.066 submissions=482
+v41_probe_logits step=0 count=67 digest=2d2f8e2d5914a0d2
+v41_probe_io phase=warmup_complete json={"identity_checks":18435,"payload_reads":9847,"payload_bytes_read":5985062,"cache_hits":8588,"cache_misses":9847,"cache_bytes":5985062,"cache_peak_bytes":5985062,"cache_entries":9847,"evictions":0,"invalidations":0,"capacity_bytes":33554432}
+v41_probe_phase phase=prefill step=1 measured=true ms=1893.699 rows=8 vocab=67 submissions=1355
+v41_probe_phase phase=decode step=1 position=8 measured=true ms=731.449 submissions=482
+v41_probe_phase phase=decode step=1 position=9 measured=true ms=703.168 submissions=482
+v41_probe_phase phase=decode step=1 position=10 measured=true ms=711.840 submissions=482
+v41_probe_phase phase=decode step=1 position=11 measured=true ms=733.419 submissions=482
+v41_probe_logits step=1 count=67 digest=2d2f8e2d5914a0d2
+v41_probe_phase phase=prefill step=2 measured=true ms=1871.679 rows=8 vocab=67 submissions=1355
+v41_probe_phase phase=decode step=2 position=8 measured=true ms=689.428 submissions=482
+v41_probe_phase phase=decode step=2 position=9 measured=true ms=704.302 submissions=482
+v41_probe_phase phase=decode step=2 position=10 measured=true ms=727.868 submissions=482
+v41_probe_phase phase=decode step=2 position=11 measured=true ms=716.404 submissions=482
+v41_probe_logits step=2 count=67 digest=2d2f8e2d5914a0d2
+v41_probe_io phase=complete json={"identity_checks":54487,"payload_reads":9847,"payload_bytes_read":5985062,"cache_hits":44640,"cache_misses":9847,"cache_bytes":5985062,"cache_peak_bytes":5985062,"cache_entries":9847,"evictions":0,"invalidations":0,"capacity_bytes":33554432}

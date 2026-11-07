@@ -1,0 +1,34 @@
+v41_probe_summary prefill_tokens=8 decode_tokens=8 steps=2 residency=resident prefill_ms_median=567.112 decode_ms_median=255.467 decode_ms_per_token=255.467 vocab=67 logits=67 digest=90e096ebc5bf0659
+v41_probe_load ms=8850.865 submissions=472 device="AMD Radeon Graphics" vendor=0x1002
+v41_probe_phase phase=prefill step=0 measured=false ms=584.841 rows=8 vocab=67 submissions=170
+v41_probe_phase phase=decode step=0 position=8 measured=false ms=254.176 submissions=170
+v41_probe_phase phase=decode step=0 position=9 measured=false ms=250.416 submissions=170
+v41_probe_phase phase=decode step=0 position=10 measured=false ms=249.296 submissions=170
+v41_probe_phase phase=decode step=0 position=11 measured=false ms=260.289 submissions=170
+v41_probe_phase phase=decode step=0 position=12 measured=false ms=255.296 submissions=170
+v41_probe_phase phase=decode step=0 position=13 measured=false ms=256.387 submissions=170
+v41_probe_phase phase=decode step=0 position=14 measured=false ms=253.116 submissions=170
+v41_probe_phase phase=decode step=0 position=15 measured=false ms=255.330 submissions=170
+v41_probe_logits step=0 count=67 digest=90e096ebc5bf0659
+v41_probe_io phase=warmup_complete json={"identity_checks":93338,"payload_reads":93338,"payload_bytes_read":29447344,"cache_hits":0,"cache_misses":93338,"cache_bytes":0,"cache_peak_bytes":0,"cache_entries":0,"evictions":0,"invalidations":0,"capacity_bytes":0}
+v41_probe_phase phase=prefill step=1 measured=true ms=564.805 rows=8 vocab=67 submissions=170
+v41_probe_phase phase=decode step=1 position=8 measured=true ms=250.022 submissions=170
+v41_probe_phase phase=decode step=1 position=9 measured=true ms=255.082 submissions=170
+v41_probe_phase phase=decode step=1 position=10 measured=true ms=267.788 submissions=170
+v41_probe_phase phase=decode step=1 position=11 measured=true ms=259.539 submissions=170
+v41_probe_phase phase=decode step=1 position=12 measured=true ms=253.248 submissions=170
+v41_probe_phase phase=decode step=1 position=13 measured=true ms=259.336 submissions=170
+v41_probe_phase phase=decode step=1 position=14 measured=true ms=253.252 submissions=170
+v41_probe_phase phase=decode step=1 position=15 measured=true ms=254.474 submissions=170
+v41_probe_logits step=1 count=67 digest=90e096ebc5bf0659
+v41_probe_phase phase=prefill step=2 measured=true ms=569.419 rows=8 vocab=67 submissions=170
+v41_probe_phase phase=decode step=2 position=8 measured=true ms=252.267 submissions=170
+v41_probe_phase phase=decode step=2 position=9 measured=true ms=260.984 submissions=170
+v41_probe_phase phase=decode step=2 position=10 measured=true ms=256.133 submissions=170
+v41_probe_phase phase=decode step=2 position=11 measured=true ms=258.541 submissions=170
+v41_probe_phase phase=decode step=2 position=12 measured=true ms=251.427 submissions=170
+v41_probe_phase phase=decode step=2 position=13 measured=true ms=255.825 submissions=170
+v41_probe_phase phase=decode step=2 position=14 measured=true ms=258.130 submissions=170
+v41_probe_phase phase=decode step=2 position=15 measured=true ms=255.109 submissions=170
+v41_probe_logits step=2 count=67 digest=90e096ebc5bf0659
+v41_probe_io phase=complete json={"identity_checks":93338,"payload_reads":93338,"payload_bytes_read":29447344,"cache_hits":0,"cache_misses":93338,"cache_bytes":0,"cache_peak_bytes":0,"cache_entries":0,"evictions":0,"invalidations":0,"capacity_bytes":0}

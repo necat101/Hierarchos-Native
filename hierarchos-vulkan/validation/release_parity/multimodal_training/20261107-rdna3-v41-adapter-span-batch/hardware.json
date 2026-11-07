@@ -1,0 +1,11 @@
+{
+  "gpu": "AMD Radeon Graphics",
+  "gpu_pci_id": "1002:15bf",
+  "gpu_driver": "32.0.31007.6002",
+  "gpu_pnp_id": "PCI\\VEN_1002&DEV_15BF&SUBSYS_17F31043&REV_04\u0004&98C338A&0&0041",
+  "cpu": "AMD Ryzen Z1 Extreme",
+  "cores": 8,
+  "logical_processors": 16,
+  "os": "Microsoft Windows 11 Enterprise 10.0.26300",
+  "validation_host": "RDNA3 validation host"
+}

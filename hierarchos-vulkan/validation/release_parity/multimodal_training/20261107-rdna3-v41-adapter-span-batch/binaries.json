@@ -1,0 +1,32 @@
+{
+  "historical_372407b": {
+    "kind": "test-binary",
+    "source_commit": "372407b",
+    "path": "hierarchos-vulkan/target/rdna3-port/baseline-372407b.exe",
+    "sha256": "7e7a713106b76f93425b0b08b0f1ef9cec053935ddfb3323874883c81e29c9ab"
+  },
+  "before_adapter_batch": {
+    "kind": "test-binary",
+    "source_commit": "24424bf158cc0cf5491a28c60a3818852b2c61cf",
+    "path": "hierarchos-vulkan/target/rdna3-port/before-adapter-batch-2e9c.exe",
+    "sha256": "2e9cfaf1e7bc9c1242977f0e6d0f14aa00672560bc3574ced2a836737d98aedd"
+  },
+  "optimized": {
+    "kind": "test-binary",
+    "source_commit": "722acd09626c592ead883b8c7aa652dd0d6ceeac",
+    "path": "hierarchos-vulkan/target/debug/deps/hierarchos_vulkan-2f708da7cb986ebb.exe",
+    "sha256": "8ec108f10107e2e104b987e57c81bd433e125d21f4274e6687dbe500fa274c48"
+  },
+  "forward_probe_baseline_372407b": {
+    "kind": "forward-probe",
+    "source_commit": "372407b",
+    "path": "Hierarchos-Native-baseline-372407b/hierarchos-vulkan/target/debug/hierarchos-vulkan-deepseek-v41-forward-probe.exe",
+    "sha256": "9fe246d0c4f2bf0cfc5eccd732fe4f7e8f744f5d30f1025f10286298c1b88017"
+  },
+  "forward_probe_optimized": {
+    "kind": "forward-probe",
+    "source_commit": "722acd09626c592ead883b8c7aa652dd0d6ceeac",
+    "path": "hierarchos-vulkan/target/debug/hierarchos-vulkan-deepseek-v41-forward-probe.exe",
+    "sha256": "60b05f5e66e3703682937efc6f9dfc4ac9eabb8389a9b821d6a98ba8d376199f"
+  }
+}
