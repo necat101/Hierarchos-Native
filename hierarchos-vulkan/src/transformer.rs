@@ -26110,22 +26110,6 @@ struct RopePush {
 /// them.
 pub const HIERARCHOS_ATEN_VECTOR_WIDTH_ENV: &str = "HIERARCHOS_ATEN_VECTOR_WIDTH";
 
-/// Vector width (in `f32` lanes) of the ATen CPU kernels the narrow-GEMM and
-/// reduction modules mirror.
-///
-/// ATen dispatches its vectorized CPU code by ISA at run time, and several of
-/// the reductions this crate reproduces change shape with that dispatch: an
-/// AVX-512 host works on 16-float vectors (four interleaved narrow-GEMM lanes
-/// with materialized products, a 16-lane log-softmax fold), an AVX2-only host
-/// on 8-float vectors (two interleaved fused FMA lanes, an 8-lane fold).  Which
-/// shape is the correct oracle is therefore a property of the *host*, not of
-/// the GPU: baking either one in makes the same binary bit-exact on one machine
-/// and one ulp away on the other, and that ulp is amplified by every lower norm
-/// on the saved-module gradient path.
-///
-/// The check is a CPU capability probe, not a build-time assumption, because a
-/// shipped binary runs on both kinds of machine.  The result is cached after
-/// the first call so per-dispatch callers pay nothing.
 #[cfg(test)]
 thread_local! {
     /// A focused parity test may reproduce an AVX2 oracle on an AVX-512 host
@@ -26150,6 +26134,22 @@ fn with_aten_vector_width(width: u32) -> AtenVectorWidthOverride {
     AtenVectorWidthOverride(previous)
 }
 
+/// Vector width (in `f32` lanes) of the ATen CPU kernels the narrow-GEMM and
+/// reduction modules mirror.
+///
+/// ATen dispatches its vectorized CPU code by ISA at run time, and several of
+/// the reductions this crate reproduces change shape with that dispatch: an
+/// AVX-512 host works on 16-float vectors (four interleaved narrow-GEMM lanes
+/// with materialized products, a 16-lane log-softmax fold), an AVX2-only host
+/// on 8-float vectors (two interleaved fused FMA lanes, an 8-lane fold).  Which
+/// shape is the correct oracle is therefore a property of the *host*, not of
+/// the GPU: baking either one in makes the same binary bit-exact on one machine
+/// and one ulp away on the other, and that ulp is amplified by every lower norm
+/// on the saved-module gradient path.
+///
+/// The check is a CPU capability probe, not a build-time assumption, because a
+/// shipped binary runs on both kinds of machine.  The result is cached after
+/// the first call so per-dispatch callers pay nothing.
 pub fn aten_vector_width() -> u32 {
     #[cfg(test)]
     if let Some(width) = ATEN_VECTOR_WIDTH_OVERRIDE.with(|cell| cell.get()) {
