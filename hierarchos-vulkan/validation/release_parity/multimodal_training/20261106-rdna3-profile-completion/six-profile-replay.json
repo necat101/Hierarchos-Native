@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "target": "rdna3",
+  "device_id": "0x15bf",
+  "profile_count": 6,
+  "case_count": 9,
+  "all_pass": true,
+  "profiles": {
+    "bart": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 6.705522537231445e-08,
+      "source": "seq2seq",
+      "cases": {
+        "bart/unmasked": {
+          "pass": true,
+          "worst_logit": 6.705522537231445e-08
+        },
+        "bart/padded": {
+          "pass": true,
+          "worst_logit": 5.960464477539063e-08
+        }
+      }
+    },
+    "t5": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 4.470348358154297e-08,
+      "source": "seq2seq",
+      "cases": {
+        "t5/unmasked": {
+          "pass": true,
+          "worst_logit": 4.470348358154297e-08
+        },
+        "t5/padded": {
+          "pass": true,
+          "worst_logit": 4.470348358154297e-08
+        }
+      }
+    },
+    "switch_transformers": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.960464477539063e-08,
+      "source": "seq2seq",
+      "cases": {
+        "switch_transformers/unmasked": {
+          "pass": true,
+          "worst_logit": 5.960464477539063e-08
+        },
+        "switch_transformers/padded": {
+          "pass": true,
+          "worst_logit": 5.960464477539063e-08
+        }
+      }
+    },
+    "kimi_k3_kda": {
+      "pass": true,
+      "expected_cases": 1,
+      "completed_cases": 1,
+      "failing_cases": [],
+      "worst_logit": 2.9802322387695312e-08,
+      "source": "kimi",
+      "cases": {
+        "kimi_k3_kda/unmasked": {
+          "pass": true,
+          "worst_logit": 2.9802322387695312e-08
+        }
+      }
+    },
+    "kimi_k3_mla": {
+      "pass": true,
+      "expected_cases": 1,
+      "completed_cases": 1,
+      "failing_cases": [],
+      "worst_logit": 2.2351741790771484e-08,
+      "source": "kimi",
+      "cases": {
+        "kimi_k3_mla/unmasked": {
+          "pass": true,
+          "worst_logit": 2.2351741790771484e-08
+        }
+      }
+    },
+    "kimi_k3_text": {
+      "pass": true,
+      "expected_cases": 1,
+      "completed_cases": 1,
+      "failing_cases": [],
+      "worst_logit": 3.166496753692627e-08,
+      "source": "kimi",
+      "cases": {
+        "kimi_k3_text/unmasked": {
+          "pass": true,
+          "worst_logit": 3.166496753692627e-08
+        }
+      }
+    }
+  },
+  "receipts": {
+    "seq2seq": "hierarchos-vulkan/target/rdna3-port/cpu-seq2seq-v1-run/qualification.json",
+    "kimi": "hierarchos-vulkan/target/rdna3-port/kimi-replay-v1/qualification.json"
+  },
+  "source_sha256": {
+    "seq2seq": "1962980f63f9a417a8edd965497abeeac0f58bd0ffe5dc3e67bd74398c943ac1",
+    "kimi": "6a77524dbea8f9887a6313057eabd888d1103f9f29ad8ba7e85f6c4c53eced32"
+  }
+}

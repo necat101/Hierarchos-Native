@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "refreshed": {
+    "hierarchos-vulkan/src/deepseek_v41/compressor_tape_tests.rs": {
+      "previous": "7859981104b1d02e7924e951657e677b09797ee93632c0cc229d1221a68ae018",
+      "current": "94a50a3e0d38c7ea0311a9ad6ada76a922571dd050edc22b06317605b8ca7d17"
+    }
+  },
+  "reason": "batch-4 state-gradient coverage extension; all other source bindings unchanged"
+}

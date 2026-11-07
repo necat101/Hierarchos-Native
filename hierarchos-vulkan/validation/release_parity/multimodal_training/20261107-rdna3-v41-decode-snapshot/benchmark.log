@@ -1,0 +1,196 @@
+Starting 1-resident
+Starting 1-streamed
+Starting 2-streamed
+Starting 2-resident
+Starting 3-resident
+Starting 3-streamed
+Starting 4-streamed
+Starting 4-resident
+{
+  "schema": 1,
+  "pass": true,
+  "gate": {
+    "max_abs": 2e-07,
+    "rtol": 0,
+    "observed_max_abs": 0.0
+  },
+  "digests_identical": true,
+  "order": "ABBA",
+  "rounds": 4,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "binary_sha256": "0bd455687ed18f3198af8caa2ca6231960c82e79df37d552e50a974f0bfb0a8c",
+  "results": [
+    {
+      "case": "native_vit_4x4",
+      "streamed": {
+        "round_medians_ms": [
+          257.8023,
+          252.92620000000002,
+          251.20759999999999,
+          253.2457
+        ],
+        "median_ms": 253.08595000000003,
+        "submissions": [
+          241
+        ],
+        "peak_live_buffer_bytes": [
+          9092760,
+          9092760,
+          9092760,
+          9092760
+        ]
+      },
+      "resident": {
+        "round_medians_ms": [
+          221.32,
+          214.3765,
+          213.9803,
+          213.89849999999998
+        ],
+        "median_ms": 214.1784,
+        "submissions": [
+          169
+        ],
+        "peak_live_buffer_bytes": [
+          9228696,
+          9228696,
+          9228696,
+          9228696
+        ]
+      },
+      "speedup": 1.1816595417651827
+    },
+    {
+      "case": "native_vit_6x4",
+      "streamed": {
+        "round_medians_ms": [
+          391.17679999999996,
+          377.2444,
+          390.2349,
+          394.2616
+        ],
+        "median_ms": 390.70584999999994,
+        "submissions": [
+          241
+        ],
+        "peak_live_buffer_bytes": [
+          9141628,
+          9141628,
+          9141628,
+          9141628
+        ]
+      },
+      "resident": {
+        "round_medians_ms": [
+          353.855,
+          357.4309,
+          360.2161,
+          361.705
+        ],
+        "median_ms": 358.82349999999997,
+        "submissions": [
+          169
+        ],
+        "peak_live_buffer_bytes": [
+          9277564,
+          9277564,
+          9277564,
+          9277564
+        ]
+      },
+      "speedup": 1.0888524581026604
+    },
+    {
+      "case": "llama",
+      "streamed": {
+        "round_medians_ms": [
+          16.2578,
+          17.1321,
+          17.0902,
+          17.578500000000002
+        ],
+        "median_ms": 17.111150000000002,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          17.1055,
+          17.486700000000003,
+          18.0555,
+          17.68
+        ],
+        "median_ms": 17.583350000000003,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9731450491516122
+    },
+    {
+      "case": "gpt2",
+      "streamed": {
+        "round_medians_ms": [
+          12.93,
+          13.2759,
+          13.4521,
+          13.368599999999999
+        ],
+        "median_ms": 13.32225,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          13.950199999999999,
+          13.390799999999999,
+          14.0565,
+          13.8673
+        ],
+        "median_ms": 13.90875,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9578322998112699
+    },
+    {
+      "case": "t5",
+      "streamed": {
+        "round_medians_ms": [
+          40.0977,
+          40.0381,
+          40.0683,
+          37.596
+        ],
+        "median_ms": 40.053200000000004,
+        "submissions": [
+          7
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          38.693400000000004,
+          39.793099999999995,
+          38.7224,
+          40.414199999999994
+        ],
+        "median_ms": 39.25775,
+        "submissions": [
+          7
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 1.0202622412135185
+    }
+  ],
+  "scope": "same binary; software FMA in both arms; residency moves expert payloads to device memory and removes the per-step expert uploads"
+}

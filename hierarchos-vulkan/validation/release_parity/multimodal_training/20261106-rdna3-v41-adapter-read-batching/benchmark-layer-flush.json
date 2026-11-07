@@ -1,0 +1,188 @@
+{
+  "schema": 1,
+  "pass": true,
+  "gate": {
+    "max_abs": 2e-07,
+    "rtol": 0,
+    "observed_max_abs": 0.0
+  },
+  "digests_identical": true,
+  "order": "ABBA",
+  "rounds": 4,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "binary_sha256": "ac10b74ba1ab79a21b53182f29500c43f0bcd8c0ca725e94ecae6e7c21f71995",
+  "results": [
+    {
+      "case": "native_vit_4x4",
+      "streamed": {
+        "round_medians_ms": [
+          247.343,
+          248.5901,
+          244.7291,
+          244.0622
+        ],
+        "median_ms": 246.03605,
+        "submissions": [
+          130
+        ],
+        "peak_live_buffer_bytes": [
+          9125484,
+          9125484,
+          9125484,
+          9125484
+        ]
+      },
+      "resident": {
+        "round_medians_ms": [
+          211.8965,
+          209.8788,
+          216.8434,
+          209.73160000000001
+        ],
+        "median_ms": 210.88765,
+        "submissions": [
+          58
+        ],
+        "peak_live_buffer_bytes": [
+          9323420,
+          9323420,
+          9323420,
+          9323420
+        ]
+      },
+      "speedup": 1.1666688400197924
+    },
+    {
+      "case": "native_vit_6x4",
+      "streamed": {
+        "round_medians_ms": [
+          330.37620000000004,
+          329.6721,
+          331.2626,
+          333.6938
+        ],
+        "median_ms": 330.81940000000003,
+        "submissions": [
+          130
+        ],
+        "peak_live_buffer_bytes": [
+          9178292,
+          9178292,
+          9178292,
+          9178292
+        ]
+      },
+      "resident": {
+        "round_medians_ms": [
+          308.2205,
+          303.59020000000004,
+          304.0424,
+          302.2928
+        ],
+        "median_ms": 303.8163,
+        "submissions": [
+          58
+        ],
+        "peak_live_buffer_bytes": [
+          9383060,
+          9383060,
+          9383060,
+          9383060
+        ]
+      },
+      "speedup": 1.0888796947365893
+    },
+    {
+      "case": "llama",
+      "streamed": {
+        "round_medians_ms": [
+          13.4001,
+          13.376900000000001,
+          13.0189,
+          13.1096
+        ],
+        "median_ms": 13.24325,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          13.4851,
+          13.4231,
+          14.126299999999999,
+          13.1206
+        ],
+        "median_ms": 13.4541,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9843281973524799
+    },
+    {
+      "case": "gpt2",
+      "streamed": {
+        "round_medians_ms": [
+          10.449200000000001,
+          10.5974,
+          10.6444,
+          10.95
+        ],
+        "median_ms": 10.620899999999999,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          10.4818,
+          11.0629,
+          10.714,
+          10.6592
+        ],
+        "median_ms": 10.6866,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9938521138622198
+    },
+    {
+      "case": "t5",
+      "streamed": {
+        "round_medians_ms": [
+          32.4753,
+          32.2226,
+          32.5719,
+          32.3491
+        ],
+        "median_ms": 32.4122,
+        "submissions": [
+          7
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          33.5669,
+          36.8187,
+          38.6866,
+          32.9917
+        ],
+        "median_ms": 35.1928,
+        "submissions": [
+          7
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9209895205837557
+    }
+  ],
+  "scope": "same binary; software FMA in both arms; residency moves expert payloads to device memory and removes the per-step expert uploads"
+}

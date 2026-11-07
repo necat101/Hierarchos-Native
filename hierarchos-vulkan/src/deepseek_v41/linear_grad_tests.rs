@@ -48,12 +48,13 @@ fn projection_weight_gradient_cpu_output_geometry_reduction() -> Result<()> {
             input_dim: c.input_dim as u32,
             output_dim: c.output_dim as u32,
         };
-        k.weight_kernel(c.rows, c.input_dim, c.output_dim).record_dispatch(
-            &mut batch,
-            &[&x, &g, &output],
-            bytemuck::bytes_of(&push),
-            weight_grid(c.input_dim, c.output_dim),
-        )?;
+        k.weight_kernel(c.rows, c.input_dim, c.output_dim)
+            .record_dispatch(
+                &mut batch,
+                &[&x, &g, &output],
+                bytemuck::bytes_of(&push),
+                weight_grid(c.input_dim, c.output_dim),
+            )?;
         batch.submit()?;
         let actual = output.read_u32(c.weight_grad_bits.len())?;
         for (&a, &b) in actual.iter().zip(&c.weight_grad_bits) {
@@ -584,7 +585,10 @@ fn train_step(
         c.out,
     )?;
     let expected_loss = crate::deepseek_v41::cpu_loss_tests::expected_loss(
-        &expected.logits_bits, &c.targets, c.vocab, expected.loss,
+        &expected.logits_bits,
+        &c.targets,
+        c.vocab,
+        expected.loss,
     );
     if (loss.loss as f64 - expected_loss as f64).abs() >= 2e-7 {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../target/v41-projection-backward");

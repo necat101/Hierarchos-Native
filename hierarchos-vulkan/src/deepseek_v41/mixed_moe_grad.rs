@@ -38,6 +38,7 @@ pub struct DeepseekV41MixedMoeTape {
     rows: usize,
     config: DeepseekV41MoeConfig,
     precision: DeepseekV41WeightOutput,
+    visited: Option<Vec<u32>>,
 }
 
 pub struct DeepseekV41MixedMoeGradients {
@@ -47,6 +48,7 @@ pub struct DeepseekV41MixedMoeGradients {
     adapters: Vec<(u32, DeepseekV41AdapterGradient)>,
     counts: GpuBuffer,
     experts: usize,
+    visited: Option<Vec<u32>>,
 }
 impl DeepseekV41MixedMoeGradients {
     /// Materialize canonical host adapter gradients, e.g. prefix
@@ -60,7 +62,10 @@ impl DeepseekV41MixedMoeGradients {
         if self.adapters.is_empty() {
             return Ok(Vec::new());
         }
-        let counts = self.counts.read_u32(self.experts)?;
+        let counts = match &self.visited {
+            Some(visited) => visited.clone(),
+            None => self.counts.read_u32(self.experts)?,
+        };
         let mut gradients = Vec::new();
         for (id, gradient) in &self.adapters {
             if *id != u32::MAX && counts[*id as usize] == 0 {
@@ -153,7 +158,7 @@ impl DeepseekV41MixedMoeAdjoints {
     fn snapshot(&self, input: &GpuBuffer, elements: usize) -> Result<GpuBuffer> {
         self.check(input, elements)?;
         let copy = GpuBuffer::zeros_f32(&self.device, elements)?;
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         commands.copy_f32_range(input, 0, &copy, 0, elements)?;
         commands.submit()?;
         Ok(copy)
@@ -201,7 +206,7 @@ impl DeepseekV41MixedMoeAdjoints {
         mapping: Option<GpuBuffer>,
         w: &MixedExpert,
     ) -> Result<ExpertTape> {
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         commands.enable_watchdog_submission_slicing();
         let w1 = self
             .linear
@@ -291,6 +296,20 @@ impl DeepseekV41MixedMoeAdjoints {
         rows: usize,
         text_mask: Option<&GpuBuffer>,
     ) -> Result<DeepseekV41MixedMoeTape> {
+        self.forward_with_text_mask_visited(moe, input, rows, text_mask, None)
+    }
+
+    /// Recompute the retained MoE forward. `visited` is the forward gate's
+    /// host-side live-row count; when present, backward skips the duplicate
+    /// `counts.read_u32` synchronization and uses exactly that routing result.
+    pub(super) fn forward_with_text_mask_visited(
+        &self,
+        moe: &DeepseekV41MixedMoe,
+        input: &GpuBuffer,
+        rows: usize,
+        text_mask: Option<&GpuBuffer>,
+        visited: Option<&[u32]>,
+    ) -> Result<DeepseekV41MixedMoeTape> {
         let (stream, slots) = self.geometry(moe, rows)?;
         let c = moe.config;
         let x = self.snapshot(
@@ -301,7 +320,7 @@ impl DeepseekV41MixedMoeAdjoints {
         let indices = GpuBuffer::zeros_u32(&self.device, slots)?;
         let counts = GpuBuffer::zeros_u32(&self.device, c.experts)?;
         let push = gate_push(c, rows);
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         moe.record_gate(
             &mut commands,
             &x,
@@ -314,7 +333,15 @@ impl DeepseekV41MixedMoeAdjoints {
         commands.submit()?;
         let routed = GpuBuffer::zeros_f32(&self.device, slots * c.hidden_size)?;
         let mut experts = Vec::with_capacity(c.experts);
-        let visited = counts.read_u32(c.experts)?;
+        let visited = match visited {
+            Some(visited) if visited.len() == c.experts => visited.to_vec(),
+            Some(visited) => bail!(
+                "V4.1 retained MoE routing counts have length {}, expected {}",
+                visited.len(),
+                c.experts
+            ),
+            None => counts.read_u32(c.experts)?,
+        };
         for id in 0..c.experts {
             if visited[id] == 0 {
                 experts.push(None);
@@ -330,7 +357,7 @@ impl DeepseekV41MixedMoeAdjoints {
                 expert: id as u32,
             };
             let grid = [c.hidden_size.div_ceil(64) as u32, rows as u32, 1];
-            let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+            let mut commands = self.device.compute_batch()?;
             moe.pack.record_dispatch(
                 &mut commands,
                 &[&x, &indices, &route, &compact, &weights, &mapping],
@@ -350,7 +377,7 @@ impl DeepseekV41MixedMoeAdjoints {
                     w,
                 )
             })?;
-            let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+            let mut commands = self.device.compute_batch()?;
             moe.scatter.record_dispatch(
                 &mut commands,
                 &[&tape.w2.output, &indices, &mapping, &routed],
@@ -369,7 +396,7 @@ impl DeepseekV41MixedMoeAdjoints {
             dim: c.hidden_size as u32,
             topk: c.activated as u32,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         moe.combine.record_dispatch(
             &mut commands,
             &[&routed, &shared.w2.output, &combined, &indices],
@@ -389,6 +416,7 @@ impl DeepseekV41MixedMoeAdjoints {
             rows,
             config: c,
             precision: moe.precision,
+            visited: Some(visited),
         })
     }
 
@@ -400,7 +428,7 @@ impl DeepseekV41MixedMoeAdjoints {
             add: 1,
         };
         let groups = len.div_ceil(64);
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.vector.record_dispatch(
             &mut commands,
             &[left, right, &output],
@@ -438,7 +466,7 @@ impl DeepseekV41MixedMoeAdjoints {
             bf16: u32::from(moe.precision == DeepseekV41WeightOutput::Bf16),
             limit: moe.config.swiglu_limit,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.swiglu.record_dispatch(
             &mut commands,
             &[
@@ -505,7 +533,7 @@ impl DeepseekV41MixedMoeAdjoints {
                 expert: id as u32,
             };
             let grid = [c.hidden_size.div_ceil(64) as u32, rows as u32, 1];
-            let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+            let mut commands = self.device.compute_batch()?;
             // Combine/scatter's adjoint gathers the upstream into the same
             // torch.where compact-row order as the forward gather.
             moe.pack.record_dispatch(
@@ -527,7 +555,7 @@ impl DeepseekV41MixedMoeAdjoints {
                 self.expert_backward(moe, tape, expert, id as u32, w, &compact_grad)
             })?;
             let (gate_input, up_input) = self.expert_input_branches(&w1, &w3, stream)?;
-            let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+            let mut commands = self.device.compute_batch()?;
             self.scatter.record_dispatch(
                 &mut commands,
                 &[
@@ -547,7 +575,7 @@ impl DeepseekV41MixedMoeAdjoints {
         }
         let grad_gate = GpuBuffer::zeros_f32(&self.device, stream)?;
         let push = gate_push(c, rows);
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.gate.record_dispatch(
             &mut commands,
             &[
@@ -568,6 +596,7 @@ impl DeepseekV41MixedMoeAdjoints {
             adapters,
             counts: tape.counts.clone(),
             experts: c.experts,
+            visited: tape.visited.clone(),
         })
     }
 

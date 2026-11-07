@@ -1,0 +1,154 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#extension GL_ARB_gpu_shader_fp64 : require
+#include "fp32_fma_exact_hw_rdna3.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+#include "fp32_scalar_exp_rdna3.glsl"
+#include "fp32_scalar_log_rdna3.glsl"
+
+// Windows Torch 2.6 CPU flash SDPA with GPT-2's strided QKV views.
+// Packed query rows forward; backward reuses P/dS in LDS per head, avoiding
+// generic per-output replay and atomics. No subgroup-width requirement.
+#ifdef RDNA3_GPT2_BACKWARD
+layout(local_size_x=64) in;
+#elif defined(RDNA3_GPT2_PACKED_FORWARD)
+layout(local_size_x=8) in;
+#else
+layout(local_size_x=1) in;
+#endif
+layout(set=0,binding=0,std430) readonly buffer Q {float q[];};
+layout(set=0,binding=1,std430) readonly buffer K {float k[];};
+layout(set=0,binding=2,std430) readonly buffer V {float v[];};
+layout(set=0,binding=3,std430) readonly buffer QM {float qm[];};
+layout(set=0,binding=4,std430) readonly buffer KM {float km[];};
+#ifdef RDNA3_GPT2_BACKWARD
+layout(set=0,binding=5,std430) readonly buffer DY {float dy[];};
+layout(set=0,binding=6,std430) readonly buffer O {float out_values[];};
+layout(set=0,binding=7,std430) writeonly buffer DQ {float dq[];};
+layout(set=0,binding=8,std430) writeonly buffer DK {float dk[];};
+layout(set=0,binding=9,std430) writeonly buffer DV {float dv[];};
+shared float shared_p[272];
+shared float shared_ds[272];
+#else
+layout(set=0,binding=5,std430) writeonly buffer O {float out_values[];};
+#endif
+layout(push_constant) uniform Push {
+    uint batch;uint seq;uint hidden;uint vhidden;
+    uint heads;uint kvheads;uint window;float scale;uint causal;
+} pc;
+
+float exp20(float x) {
+    if(x<uintBitsToFloat(0xc2aeac50u)) return 0.0;
+    float n=floor(fma(x,uintBitsToFloat(0x3fb8aa3bu),0.5));
+    float r=fma(-n,uintBitsToFloat(0x3f317218u),x);
+    float p=fma(r,0.00828929059,0.0418978221);
+    p=fma(r,p,0.166676521);p=fma(r,p,0.499991506);
+    p=fma(r,p,0.999999701);p=fma(r,p,1.0);
+    precise float product=p*uintBitsToFloat(uint(int(n)+126)<<23u);
+    return product*2.0;
+}
+bool visible(uint batch,uint query,uint key) {
+    return key<=query && km[batch*pc.seq+key]>0.0;
+}
+// The transposed narrow GEMM uses four materialized streams, eight in its
+// final two output rows; the seq=16 block uses an ascending native FMA.
+float score_dot(uint a,uint b,uint key,bool gradient) {
+    uint hd=pc.hidden/pc.heads;
+    precise float acc=0.0;
+    precise float part[8];for(uint j=0u;j<8u;++j) part[j]=0.0;
+    uint streams=key>=pc.seq/4u*4u ? 8u : 4u;
+    for(uint d=0u;d<hd;++d) {
+#ifdef RDNA3_GPT2_BACKWARD
+        float left=gradient ? dy[a+d] : q[a+d];
+        float right=gradient ? v[b+d] : k[b+d];
+#else
+        float left=q[a+d],right=k[b+d];
+#endif
+        if(pc.seq==16u) acc=fma(left,right,acc);
+        else {precise float product=left*right;part[d&(streams-1u)]+=product;}
+    }
+    if(pc.seq==16u) return acc;
+    for(uint stride=streams/2u;stride>0u;stride/=2u)
+        for(uint j=0u;j<stride;++j) part[j]+=part[j+stride];
+    return part[0];
+}
+void row_stats(uint batch,uint head,uint query,out float scores[16],out float total,out float maximum) {
+    uint hd=pc.hidden/pc.heads;
+    uint qb=(batch*pc.seq+query)*pc.hidden+head*hd;
+    maximum=-3.402823466e38;
+    for(uint key=0u;key<pc.seq;++key) {
+        if(visible(batch,query,key)) {
+            scores[key]=score_dot(qb,(batch*pc.seq+key)*pc.hidden+head*hd,key,false)*pc.scale;
+            maximum=max(maximum,scores[key]);
+        } else scores[key]=-3.402823466e38;
+    }
+    precise float sum=0.0;
+    for(uint key=0u;key<pc.seq;++key) {
+        scores[key]=visible(batch,query,key) ? (pc.seq==16u ? exp20(scores[key]-maximum)
+            : rdna3_scalar_expf(scores[key]-maximum)) : 0.0;
+        sum+=scores[key];
+    }
+    total=sum;
+}
+void main() {
+    uint hd=pc.hidden/pc.heads;
+#ifndef RDNA3_GPT2_BACKWARD
+    uint index=gl_GlobalInvocationID.x;
+    if(index>=pc.batch*pc.heads*pc.seq) return;
+    uint query=index%pc.seq,head=(index/pc.seq)%pc.heads,batch=index/(pc.seq*pc.heads);
+    uint qb=(batch*pc.seq+query)*pc.hidden+head*hd;
+    float e[16],total,maximum;row_stats(batch,head,query,e,total,maximum);
+    float inverse=total>0.0 ? fp32_div(1.0,total) : 0.0;
+    for(uint d=0u;d<hd;++d) {
+        precise float value=0.0;
+        for(uint key=0u;key<pc.seq;++key) {
+            float input_value=v[(batch*pc.seq+key)*pc.hidden+head*hd+d];
+            if(hd>=16u) value=fma(e[key],input_value,value);
+            else {precise float product=e[key]*input_value;value+=product;}
+        }
+        out_values[qb+d]=qm[batch*pc.seq+query]>0.0 ? value*inverse : 0.0;
+    }
+#else
+    uint local=gl_LocalInvocationID.x,head=gl_WorkGroupID.x,batch=gl_WorkGroupID.y;
+    if(local<pc.seq) {
+        uint query=local,qb=(batch*pc.seq+query)*pc.hidden+head*hd;
+        float e[16],total,maximum;row_stats(batch,head,query,e,total,maximum);
+        precise float lse=maximum+rdna3_scalar_logf(total>0.0 ? total : 1.0);
+        precise float lanes[16];for(uint j=0u;j<16u;++j) lanes[j]=0.0;
+        precise float delta=0.0;
+        for(uint d=0u;d<hd;++d) {precise float product=dy[qb+d]*out_values[qb+d];lanes[d&15u]+=product;}
+        for(uint j=0u;j<16u;++j) delta+=lanes[j];
+        for(uint key=0u;key<pc.seq;++key) {
+            float dot=score_dot(qb,(batch*pc.seq+key)*pc.hidden+head*hd,key,false)*pc.scale;
+            float p=visible(batch,query,key) && qm[batch*pc.seq+query]>0.0 ? sleef_expf_u10(dot-lse) : 0.0;
+            shared_p[query*17u+key]=p;
+            float dp=score_dot(qb,(batch*pc.seq+key)*pc.hidden+head*hd,key,true);
+            precise float difference=dp-delta;
+            precise float ds=p*difference;
+            shared_ds[query*17u+key]=hd==32u ? ds : ds*pc.scale;
+        }
+    }
+    barrier();
+    for(uint index=local;index<pc.seq*hd;index+=64u) {
+        uint row=index/hd,d=index%hd;
+        precise float qsum=0.0,ksum=0.0,vsum=0.0;
+        for(uint key=0u;key<pc.seq;++key) {
+            uint at=(batch*pc.seq+key)*pc.hidden+head*hd+d;
+            if(hd>=16u) {
+                precise float key_value=hd==32u ? k[at]*pc.scale : k[at];
+                precise float query_value=hd==32u ? q[at]*pc.scale : q[at];
+                qsum=fma(shared_ds[row*17u+key],key_value,qsum);
+                ksum=fma(shared_ds[key*17u+row],query_value,ksum);
+                vsum=fma(shared_p[key*17u+row],dy[at],vsum);
+            } else {
+                precise float qp=shared_ds[row*17u+key]*k[at];qsum+=qp;
+                precise float kp=shared_ds[key*17u+row]*q[at];ksum+=kp;
+                precise float vp=shared_p[key*17u+row]*dy[at];vsum+=vp;
+            }
+        }
+        uint at=(batch*pc.seq+row)*pc.hidden+head*hd+d;
+        dq[at]=qsum;dk[at]=ksum;dv[at]=vsum;
+    }
+#endif
+}

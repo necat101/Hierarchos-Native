@@ -1,0 +1,13 @@
+
+running 2 tests
+test transformer::image_text::rdna3_text_attention_tests::rdna3_builtin_gelu_backward_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_siglip_avx2_backward_cpu_words ... ok
+
+successes:
+
+successes:
+    transformer::image_text::rdna3_text_attention_tests::rdna3_builtin_gelu_backward_cpu_words
+    transformer::image_text::rdna3_text_attention_tests::rdna3_siglip_avx2_backward_cpu_words
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1162 filtered out; finished in 45.96s
+

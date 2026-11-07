@@ -1,0 +1,188 @@
+{
+  "schema": 1,
+  "pass": true,
+  "gate": {
+    "max_abs": 2e-07,
+    "rtol": 0,
+    "observed_max_abs": 0.0
+  },
+  "digests_identical": true,
+  "order": "ABBA",
+  "rounds": 4,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "binary_sha256": "67c53679c39174947ebdfabba2d33da9e399e7b34e06fb4139beddad39c9d779",
+  "results": [
+    {
+      "case": "native_vit_4x4",
+      "streamed": {
+        "round_medians_ms": [
+          252.89019999999996,
+          247.0629,
+          245.9445,
+          249.56990000000002
+        ],
+        "median_ms": 248.31640000000002,
+        "submissions": [
+          124
+        ],
+        "peak_live_buffer_bytes": [
+          9134712,
+          9134712,
+          9134712,
+          9134712
+        ]
+      },
+      "resident": {
+        "round_medians_ms": [
+          318.43,
+          320.0368,
+          317.0723,
+          320.3107
+        ],
+        "median_ms": 319.2334,
+        "submissions": [
+          52
+        ],
+        "peak_live_buffer_bytes": [
+          10137076,
+          10137076,
+          10137076,
+          10137076
+        ]
+      },
+      "speedup": 0.7778521921578381
+    },
+    {
+      "case": "native_vit_6x4",
+      "streamed": {
+        "round_medians_ms": [
+          344.25550000000004,
+          338.1093,
+          341.0536,
+          340.51500000000004
+        ],
+        "median_ms": 340.78430000000003,
+        "submissions": [
+          124
+        ],
+        "peak_live_buffer_bytes": [
+          9187256,
+          9187256,
+          9187256,
+          9187256
+        ]
+      },
+      "resident": {
+        "round_medians_ms": [
+          453.2275,
+          457.28700000000003,
+          453.6833,
+          449.91519999999997
+        ],
+        "median_ms": 453.4554,
+        "submissions": [
+          52
+        ],
+        "peak_live_buffer_bytes": [
+          10281932,
+          10281932,
+          10281932,
+          10281932
+        ]
+      },
+      "speedup": 0.751527713640636
+    },
+    {
+      "case": "llama",
+      "streamed": {
+        "round_medians_ms": [
+          13.3741,
+          13.0267,
+          13.078,
+          13.382700000000002
+        ],
+        "median_ms": 13.22605,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          13.581299999999999,
+          17.1557,
+          13.2987,
+          12.9967
+        ],
+        "median_ms": 13.44,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9840811011904763
+    },
+    {
+      "case": "gpt2",
+      "streamed": {
+        "round_medians_ms": [
+          10.829099999999999,
+          10.9786,
+          10.8515,
+          10.546
+        ],
+        "median_ms": 10.8403,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          10.375399999999999,
+          12.9586,
+          10.5632,
+          11.2368
+        ],
+        "median_ms": 10.9,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9945229357798164
+    },
+    {
+      "case": "t5",
+      "streamed": {
+        "round_medians_ms": [
+          32.1846,
+          32.3149,
+          32.0062,
+          31.8889
+        ],
+        "median_ms": 32.0954,
+        "submissions": [
+          7
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          31.553900000000002,
+          32.3076,
+          31.951300000000003,
+          32.6872
+        ],
+        "median_ms": 32.129450000000006,
+        "submissions": [
+          7
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9989402246225813
+    }
+  ],
+  "scope": "same binary; software FMA in both arms; residency moves expert payloads to device memory and removes the per-step expert uploads"
+}

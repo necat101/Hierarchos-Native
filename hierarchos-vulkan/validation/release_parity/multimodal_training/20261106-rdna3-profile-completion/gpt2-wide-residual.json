@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "profile": "gpt2_wide",
+  "target": "rdna3",
+  "device_id": "0x15bf",
+  "acceptance": {
+    "absolute_limit": 2e-07,
+    "rtol": 0,
+    "comparison": "strict_less_than",
+    "unchanged": true
+  },
+  "forward_oracle": {
+    "report": "hierarchos-vulkan/target/rdna3-port/report-bwdgpt2.json",
+    "all_exact": true,
+    "divergent_operations": 0,
+    "layers": 2,
+    "note": "Every GPT-2-wide forward stage, including both layer attention outputs, is bit-exact against the eager ATen oracle on native stage inputs."
+  },
+  "backward_alignment": {
+    "artifact": "transformer_attention_backward_short_gpt2_amd_rdna3.spv",
+    "source": "transformer_attention_backward.comp",
+    "defines": [
+      "RDNA3_SHORT_GPT2"
+    ],
+    "note": "GPT-2 backward now reconstructs the same QK separately-rounded products, SLEEF-u10 exp, exact FP32 reciprocal and serial exp sum as the forward short kernel; P@V remains fused FMA."
+  },
+  "gate": {
+    "receipt": "hierarchos-vulkan/target/rdna3-port/full-suite-final/qualification.json",
+    "receipt_sha256": "9ee3054a9e2e3a9030d964a01749353a938b11d567048edcf2591620c12b43a3",
+    "pass": true,
+    "cases": {
+      "gpt2_wide/unmasked": {
+        "pass": true,
+        "worst_logit": 1.7881393432617188e-07
+      },
+      "gpt2_wide/padded": {
+        "pass": true,
+        "worst_logit": 1.9371509552001953e-07
+      }
+    }
+  },
+  "closure_attempts": [
+    {
+      "hypothesis": "restrict the 128-block GEMM to exactly K=128",
+      "max_abs": 2.384185791015625e-07,
+      "closed": false
+    },
+    {
+      "hypothesis": "disable the one-chunk small Welford norm",
+      "max_abs": 2.384185791015625e-07,
+      "closed": false
+    },
+    {
+      "hypothesis": "install the AVX2 ATen-association row GEMM at width 16",
+      "max_abs": 2.384185791015625e-07,
+      "closed": false
+    },
+    {
+      "hypothesis": "use AVX-512 lane folding for both QK and P@V",
+      "max_abs": 2.9802322387695312e-08,
+      "closed": false,
+      "note": "The lane-folded QK/P@V topology moved the gate but did not match eager; it was reverted."
+    },
+    {
+      "hypothesis": "match eager QK separate muladd and P@V fused FMA in the short forward kernel",
+      "max_abs": 0.0,
+      "closed": true,
+      "note": "Forward stage tape became bit-exact for both layers."
+    },
+    {
+      "hypothesis": "match the same softmax and QK arithmetic in the GPT-2 backward attention kernel",
+      "max_abs": 1.9371509552001953e-07,
+      "closed": true,
+      "note": "The full gate passed both GPT-2-wide cases; no tolerance was changed."
+    }
+  ],
+  "conclusion": {
+    "classification": "closed_by_atomic_alignment",
+    "profile_gate": "PASS",
+    "waived": false,
+    "closure_status": "closed",
+    "forward_exact": true,
+    "backward_exact_seed": true,
+    "short_attention_module_effect": "closed",
+    "packed_norm_effect": "none"
+  }
+}

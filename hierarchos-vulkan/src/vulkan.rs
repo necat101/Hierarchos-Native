@@ -1965,11 +1965,7 @@ impl VulkanDevice {
     /// this batch actually binds, so a concurrent graph on the same device can
     /// neither steal nor reorder another worker's fill. Entries whose buffer has
     /// no owner left are unreachable and are dropped instead of pinning memory.
-    fn drain_pending_clears(
-        &self,
-        batch: &mut ComputeBatch,
-        buffers: &[&GpuBuffer],
-    ) -> Result<()> {
+    fn drain_pending_clears(&self, batch: &mut ComputeBatch, buffers: &[&GpuBuffer]) -> Result<()> {
         if self.inner.pending_clear_count.load(Ordering::Relaxed) == 0 {
             return Ok(());
         }
@@ -2018,7 +2014,6 @@ impl VulkanDevice {
             .pending_clear_count
             .store(pending.entries.len(), Ordering::Relaxed);
     }
-
 
     /// Offline route measurements on AMD must not be shared by unrelated parts
     /// reporting the same generic marketing name. Keep historical Intel keys.
@@ -3855,6 +3850,7 @@ impl GpuBuffer {
     /// parameters, this is a device-to-device copy. PEFT uses it when a fresh
     /// `modules_to_save` wrapper needs an adapter-local parameter object without
     /// round-tripping the base tensor through host memory.
+    #[cfg_attr(test, track_caller)]
     pub(crate) fn duplicate_f32(&self, len: usize) -> Result<Self> {
         let size_bytes = len
             .checked_mul(std::mem::size_of::<f32>())
@@ -3867,6 +3863,14 @@ impl GpuBuffer {
         }
         let device = self.allocation.device.clone();
         let duplicate = Self::zeros_f32(&device, len)?;
+        // A device-to-device snapshot inside a session is just another recorded
+        // transfer. Waiting here would split the graph once per tape snapshot.
+        if device.has_active_compute_session() {
+            let mut commands = device.compute_batch()?;
+            commands.copy_f32_range(self, 0, &duplicate, 0, len)?;
+            commands.submit()?;
+            return Ok(duplicate);
+        }
         copy_buffer(&device, self, &duplicate, size_bytes, "duplicate_f32")?;
         Ok(duplicate)
     }
@@ -3949,9 +3953,7 @@ impl GpuBuffer {
         {
             return self.zero_mapped(size_bytes);
         }
-        self.allocation
-            .device
-            .enqueue_zero_clear(self, size_bytes)
+        self.allocation.device.enqueue_zero_clear(self, size_bytes)
     }
 
     fn zero_mapped(&self, size_bytes: usize) -> Result<()> {
@@ -4200,7 +4202,17 @@ impl GpuBuffer {
         })
     }
 
+    #[cfg_attr(test, track_caller)]
     pub fn from_f32(device: &VulkanDevice, values: &[f32]) -> Result<Self> {
+        // Inside a recording session the upload joins the session's command
+        // buffer instead of retiring it and waiting. Any later host read
+        // retires the session first, so the bytes are visible in order.
+        if device.has_active_compute_session() {
+            let mut commands = device.compute_batch()?;
+            let value = Self::from_f32_in_upload_arena(device, &mut commands, values)?;
+            commands.submit()?;
+            return Ok(value);
+        }
         let buffer = Self::new(
             device,
             values
@@ -4212,7 +4224,23 @@ impl GpuBuffer {
         Ok(buffer)
     }
 
+    #[cfg_attr(test, track_caller)]
     pub fn from_u32(device: &VulkanDevice, values: &[u32]) -> Result<Self> {
+        // Same session rule as `from_f32`: record the copy when the device is
+        // already recording, so metadata uploads stop retiring the graph.
+        if device.has_active_compute_session() {
+            let buffer = Self::new(
+                device,
+                values
+                    .len()
+                    .checked_mul(4)
+                    .context("buffer size overflow")?,
+            )?;
+            let mut commands = device.compute_batch()?;
+            commands.upload_u32(&buffer, values)?;
+            commands.submit()?;
+            return Ok(buffer);
+        }
         let buffer = Self::new(
             device,
             values
@@ -4229,7 +4257,10 @@ impl GpuBuffer {
         commands: &mut ComputeBatch,
         values: &[u32],
     ) -> Result<Self> {
-        let size_bytes = values.len().checked_mul(4).context("buffer size overflow")?;
+        let size_bytes = values
+            .len()
+            .checked_mul(4)
+            .context("buffer size overflow")?;
         let buffer = Self::new(device, size_bytes)?;
         commands.upload_bytes_with_staging(&buffer, bytemuck::cast_slice(values), true)?;
         Ok(buffer)
@@ -4240,7 +4271,10 @@ impl GpuBuffer {
         commands: &mut ComputeBatch,
         values: &[f32],
     ) -> Result<Self> {
-        let size_bytes = values.len().checked_mul(4).context("buffer size overflow")?;
+        let size_bytes = values
+            .len()
+            .checked_mul(4)
+            .context("buffer size overflow")?;
         let buffer = Self::new(device, size_bytes)?;
         if values.iter().any(|value| !value.is_finite()) {
             bail!("refusing to upload non-finite FP32 values");
@@ -4257,7 +4291,10 @@ impl GpuBuffer {
         commands: &mut ComputeBatch,
         values: &[f32],
     ) -> Result<Self> {
-        let size_bytes = values.len().checked_mul(4).context("buffer size overflow")?;
+        let size_bytes = values
+            .len()
+            .checked_mul(4)
+            .context("buffer size overflow")?;
         let buffer = Self::new(device, size_bytes)?;
         commands.upload_f32(&buffer, values)?;
         Ok(buffer)
@@ -4269,7 +4306,10 @@ impl GpuBuffer {
     pub(crate) fn from_u32_scheduled(device: &VulkanDevice, values: &[u32]) -> Result<Self> {
         let buffer = Self::new(
             device,
-            values.len().checked_mul(4).context("buffer size overflow")?,
+            values
+                .len()
+                .checked_mul(4)
+                .context("buffer size overflow")?,
         )?;
         let mut commands = device.compute_batch()?;
         commands.upload_u32(&buffer, values)?;
@@ -4444,6 +4484,7 @@ impl GpuBuffer {
         })
     }
 
+    #[cfg_attr(test, track_caller)]
     pub fn write_f32(&self, values: &[f32]) -> Result<()> {
         if values.iter().any(|value| !value.is_finite()) {
             bail!("refusing to upload non-finite FP32 values");
@@ -4451,10 +4492,12 @@ impl GpuBuffer {
         self.write_bytes(bytemuck::cast_slice(values))
     }
 
+    #[cfg_attr(test, track_caller)]
     pub fn write_u32(&self, values: &[u32]) -> Result<()> {
         self.write_bytes(bytemuck::cast_slice(values))
     }
 
+    #[cfg_attr(test, track_caller)]
     fn write_bytes(&self, bytes: &[u8]) -> Result<()> {
         if bytes.len() > self.allocation.size_bytes {
             bail!(
@@ -4546,7 +4589,10 @@ impl GpuBuffer {
         Ok(())
     }
 
+    #[cfg_attr(test, track_caller)]
     pub fn read_f32(&self, len: usize) -> Result<Vec<f32>> {
+        #[cfg(test)]
+        submission_report::record(std::panic::Location::caller());
         // A session's stages are recorded, not submitted; a host read must see
         // them before it can report anything.
         retire_active_compute_session(&self.allocation.device)?;
@@ -4579,7 +4625,10 @@ impl GpuBuffer {
     /// recorded into one batch, submitted once, and the single host-visible
     /// slab is mapped once. The values are the same bytes a sequence of
     /// individual reads would return; only the number of submissions changes.
+    #[cfg_attr(test, track_caller)]
     pub fn read_many_f32(items: &[(&GpuBuffer, usize)]) -> Result<Vec<Vec<f32>>> {
+        #[cfg(test)]
+        submission_report::record(std::panic::Location::caller());
         if items.is_empty() {
             return Ok(Vec::new());
         }
@@ -4622,7 +4671,10 @@ impl GpuBuffer {
         Ok(out)
     }
 
+    #[cfg_attr(test, track_caller)]
     pub fn read_u32(&self, len: usize) -> Result<Vec<u32>> {
+        #[cfg(test)]
+        submission_report::record(std::panic::Location::caller());
         retire_active_compute_session(&self.allocation.device)?;
         let bytes = len.checked_mul(4).context("read size overflow")?;
         if bytes > self.allocation.size_bytes {
@@ -5002,7 +5054,6 @@ impl GpuBuffer {
         first < second.saturating_add(other.allocation.size_bytes)
             && second < first.saturating_add(self.allocation.size_bytes)
     }
-
 }
 
 impl Drop for GpuBufferAllocation {
@@ -5076,6 +5127,7 @@ fn find_memory_type_prefer(
     })
 }
 
+#[cfg_attr(test, track_caller)]
 fn copy_buffer(
     device: &VulkanDevice,
     src: &GpuBuffer,
@@ -5083,9 +5135,9 @@ fn copy_buffer(
     size_bytes: usize,
     label: &'static str,
 ) -> Result<()> {
-    #[cfg(test)]
-    let _label = submission_report::label(label);
-    #[cfg(not(test))]
+    // Attribute the retirement to the caller that requested the copy. A fixed
+    // per-operation label hid whether uploads came from model construction, a
+    // tape snapshot or a readback funnel.
     let _ = label;
     let mut commands = ComputeBatch::new(device)?;
     // A source that was zeroed but never dispatched on must be filled before
@@ -5246,9 +5298,7 @@ impl Drop for BatchHandle {
         // its recorded work stays in the session, but the session is no longer
         // mid-stage, so a later retirement is allowed to split there.
         if let Self::Session {
-            session,
-            released,
-            ..
+            session, released, ..
         } = self
         {
             if !*released {
@@ -5310,9 +5360,7 @@ impl BatchHandle {
                 batch.submit()
             }
             Self::Session {
-                session,
-                released,
-                ..
+                session, released, ..
             } => {
                 if !*released {
                     // SAFETY: `compute_batch` only builds this variant from a
@@ -5328,9 +5376,7 @@ impl BatchHandle {
                     // this a later stage could read a value the earlier stage
                     // has not produced yet, which is exactly the nondeterminism
                     // a whole-layer submission otherwise exposes.
-                    if session.outstanding <= 1
-                        && !session.batch.pending_shader_writes.is_empty()
-                    {
+                    if session.outstanding <= 1 && !session.batch.pending_shader_writes.is_empty() {
                         session.batch.shader_barrier()?;
                         session.batch.pending_shader_buffers.clear();
                         session.batch.pending_shader_reads.clear();
@@ -5464,6 +5510,18 @@ impl VulkanDevice {
         }));
         ACTIVE_COMPUTE_SESSION.with(|active| active.set(session));
         Ok(ComputeSessionScope { session })
+    }
+
+    /// Whether this device currently owns the active recording session on
+    /// this thread. A stage on another device does not.
+    pub(crate) fn has_active_compute_session(&self) -> bool {
+        let ptr = ACTIVE_COMPUTE_SESSION.with(|active| active.get());
+        if ptr.is_null() {
+            return false;
+        }
+        // SAFETY: non-null only while the scope owning this boxed session lives.
+        let session = unsafe { &*ptr };
+        Arc::ptr_eq(&session.device.inner, &self.inner)
     }
 
     /// The recording target for one stage: the enclosing session's command
@@ -6398,37 +6456,14 @@ pub(crate) mod submission_report {
         std::env::var_os("HIERARCHOS_VULKAN_SUBMISSION_REPORT").is_some()
     }
 
-    thread_local! {
-        static LABEL: std::cell::Cell<Option<&'static str>> = const { std::cell::Cell::new(None) };
-    }
-
-    /// Attribute submissions made while this guard is alive to a stable label
-    /// instead of a source line, so a funnel with several callers can be split.
-    pub(crate) struct LabelGuard(Option<&'static str>);
-
-    pub(crate) fn label(name: &'static str) -> LabelGuard {
-        LabelGuard(LABEL.with(|label| label.replace(Some(name))))
-    }
-
-    impl Drop for LabelGuard {
-        fn drop(&mut self) {
-            let previous = self.0;
-            LABEL.with(|label| label.set(previous));
-        }
-    }
-
     pub(crate) fn record(location: &'static std::panic::Location<'static>) {
         if !enabled() {
             return;
         }
-        if let Some(label) = LABEL.with(|label| label.get()) {
-            if let Ok(mut counts) = counts().lock() {
-                *counts.entry((label, 0)).or_insert(0) += 1;
-            }
-            return;
-        }
         if let Ok(mut counts) = counts().lock() {
-            *counts.entry((location.file(), location.line())).or_insert(0) += 1;
+            *counts
+                .entry((location.file(), location.line()))
+                .or_insert(0) += 1;
         }
     }
 
@@ -6437,7 +6472,10 @@ pub(crate) mod submission_report {
             Ok(counts) => counts,
             Err(poisoned) => poisoned.into_inner(),
         };
-        let report = counts.iter().map(|(&(file, line), &count)| (file, line, count)).collect();
+        let report = counts
+            .iter()
+            .map(|(&(file, line), &count)| (file, line, count))
+            .collect();
         counts.clear();
         report
     }
@@ -7676,44 +7714,44 @@ impl ComputeBatch {
         let size = clear.size_bytes as u64;
         let buffer = clear.buffer.allocation.buffer;
         self.inner.with_command_pool_host_access(|| unsafe {
-                let before = [vk::BufferMemoryBarrier::default()
-                    .src_access_mask(vk::AccessFlags::SHADER_WRITE)
-                    .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
-                    .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-                    .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-                    .buffer(buffer)
-                    .offset(offset)
-                    .size(size)];
-                self.inner.device.cmd_pipeline_barrier(
-                    self.command_buffer,
-                    vk::PipelineStageFlags::COMPUTE_SHADER,
-                    vk::PipelineStageFlags::TRANSFER,
-                    vk::DependencyFlags::empty(),
-                    &[],
-                    &before,
-                    &[],
-                );
-                self.inner
-                    .device
-                    .cmd_fill_buffer(self.command_buffer, buffer, offset, size, 0u32);
-                let after = [vk::BufferMemoryBarrier::default()
-                    .src_access_mask(vk::AccessFlags::TRANSFER_WRITE)
-                    .dst_access_mask(vk::AccessFlags::SHADER_READ | vk::AccessFlags::SHADER_WRITE)
-                    .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-                    .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-                    .buffer(buffer)
-                    .offset(offset)
-                    .size(size)];
-                self.inner.device.cmd_pipeline_barrier(
-                    self.command_buffer,
-                    vk::PipelineStageFlags::TRANSFER,
-                    vk::PipelineStageFlags::COMPUTE_SHADER,
-                    vk::DependencyFlags::empty(),
-                    &[],
-                    &after,
-                    &[],
-                );
-            })?;
+            let before = [vk::BufferMemoryBarrier::default()
+                .src_access_mask(vk::AccessFlags::SHADER_WRITE)
+                .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+                .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .buffer(buffer)
+                .offset(offset)
+                .size(size)];
+            self.inner.device.cmd_pipeline_barrier(
+                self.command_buffer,
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::DependencyFlags::empty(),
+                &[],
+                &before,
+                &[],
+            );
+            self.inner
+                .device
+                .cmd_fill_buffer(self.command_buffer, buffer, offset, size, 0u32);
+            let after = [vk::BufferMemoryBarrier::default()
+                .src_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+                .dst_access_mask(vk::AccessFlags::SHADER_READ | vk::AccessFlags::SHADER_WRITE)
+                .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .buffer(buffer)
+                .offset(offset)
+                .size(size)];
+            self.inner.device.cmd_pipeline_barrier(
+                self.command_buffer,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vk::DependencyFlags::empty(),
+                &[],
+                &after,
+                &[],
+            );
+        })?;
         Ok(())
     }
 
@@ -7766,7 +7804,6 @@ impl ComputeBatch {
                 self.inner.device.end_command_buffer(self.command_buffer)
             })?
             .map_err(|err| anyhow!("ending Vulkan compute batch: {err:?}"))?;
-
 
         if std::env::var_os(SUBMIT_TRACE_ENV).is_some() {
             eprintln!(
@@ -7940,7 +7977,6 @@ impl ComputeBatch {
                 self.inner.device.end_command_buffer(self.command_buffer)
             })?
             .map_err(|err| anyhow!("ending Vulkan compute batch: {err:?}"))?;
-
 
         if std::env::var_os(SUBMIT_TRACE_ENV).is_some() {
             eprintln!(
@@ -9274,8 +9310,11 @@ mod tests {
         let first = super::GpuBuffer::from_u32_scheduled(&device, &values)?;
         values.fill(42);
         let second = super::GpuBuffer::from_u32_scheduled(&device, &values)?;
-        assert_eq!(device.submission_count(), before,
-            "immutable metadata must join the pending layer rather than force a retirement");
+        assert_eq!(
+            device.submission_count(),
+            before,
+            "immutable metadata must join the pending layer rather than force a retirement"
+        );
         session.finish(Ok(()))?;
         assert_eq!(device.submission_count(), before + 1);
         assert_eq!(first.read_u32(expected.len())?, expected);

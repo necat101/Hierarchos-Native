@@ -1,7 +1,7 @@
 use super::*;
 use crate::deepseek_v41::train::reference_adamw_parameter_bits;
 use crate::deepseek_v41::{
-    DeepseekV41AdapterFactorState, DeepseekV41AdamWConfig, DeepseekV41ModelTrainer,
+    DeepseekV41AdamWConfig, DeepseekV41AdapterFactorState, DeepseekV41ModelTrainer,
     DeepseekV41ModelTrainingConfig, DeepseekV41TrainingBatch,
 };
 use std::io::Write;
@@ -241,7 +241,11 @@ fn pinned_state<'a>(case: &'a TrainingCase, step: usize, target: &str) -> Pinned
         ("B", state.step_b, &state.m_b, &state.v_b),
     ] {
         assert!(
-            step != 0 || avg.iter().chain(square).all(|&raw| f32::from_bits(raw) == 0.0),
+            step != 0
+                || avg
+                    .iter()
+                    .chain(square)
+                    .all(|&raw| f32::from_bits(raw) == 0.0),
             "inactive {target} {label} carries optimizer moments"
         );
     }
@@ -338,8 +342,7 @@ fn optimizer_residual_gate(
             let one_minus_beta2 = (1.0 - config.beta2) as f32 as f64;
             let step_size =
                 (config.learning_rate / (1.0 - config.beta1.powi(f.step as i32 + 1))) as f32 as f64;
-            let bias2_sqrt =
-                (1.0 - config.beta2.powi(f.step as i32 + 1)).sqrt() as f32 as f64;
+            let bias2_sqrt = (1.0 - config.beta2.powi(f.step as i32 + 1)).sqrt() as f32 as f64;
             let decay = (1.0 - config.learning_rate * config.weight_decay) as f32 as f64;
             let sensitivity = |gradient: f64, avg: f64, square: f64| -> (f64, f64) {
                 let square = config.beta2 * square + one_minus_beta2 * gradient * gradient;
@@ -429,11 +432,15 @@ fn optimizer_residual_gate(
 
 #[test]
 fn deepseek_v41_full_model_cpu_autograd_adamw_resume_and_export_gate() -> Result<()> {
-    full_training_fixture_gate(include_str!("../../validation/fixtures/deepseek_v41_full_training.json"))
+    full_training_fixture_gate(include_str!(
+        "../../validation/fixtures/deepseek_v41_full_training.json"
+    ))
 }
 #[test]
 fn deepseek_v41_full_model_packed_cpu_autograd_adamw_resume_and_export_gate() -> Result<()> {
-    full_training_fixture_gate(include_str!("../../validation/fixtures/deepseek_v41_full_mixed_training.json"))
+    full_training_fixture_gate(include_str!(
+        "../../validation/fixtures/deepseek_v41_full_mixed_training.json"
+    ))
 }
 #[test]
 fn deepseek_v41_full_model_bf16_cpu_autograd_adamw_resume_and_export_gate() -> Result<()> {
@@ -444,14 +451,20 @@ fn deepseek_v41_full_model_bf16_cpu_autograd_adamw_resume_and_export_gate() -> R
 }
 
 fn host_fixture<'a>(original: &'a str, avx2: &'a str) -> &'a str {
-    if crate::transformer::aten_vector_width() == 8 { avx2 } else { original }
+    if crate::transformer::aten_vector_width() == 8 {
+        avx2
+    } else {
+        original
+    }
 }
 #[test]
 #[ignore = "six-layer/384-expert production-ratio training gate; run in a fresh process to bound this machine's commit peak"]
 fn deepseek_v41_full_model_production_ratio_cpu_training_gate() -> Result<()> {
     // Keep the larger scalable oracle out of the binary's static image.
-    let root=Path::new(env!("CARGO_MANIFEST_DIR")).join("validation/fixtures");
-    full_training_fixture_gate(&fs::read_to_string(root.join("deepseek_v41_production_ratio_training_v2.json"))?)
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("validation/fixtures");
+    full_training_fixture_gate(&fs::read_to_string(
+        root.join("deepseek_v41_production_ratio_training_v2.json"),
+    )?)
 }
 
 #[test]
@@ -472,28 +485,71 @@ fn deepseek_v41_production_uninterrupted_training_logit_trajectory() -> Result<(
     let mut failures = Vec::new();
     let mut receipt = Vec::new();
     for case in oracle.cases {
-        let value=bases["cases"].as_array().unwrap().iter().find(|v|v["seed"].as_u64()==case.base_seed).unwrap();
-        let f:Fixture=serde_json::from_value(value.clone())?;
-        let package=Package::new(&f,false)?;
-        fs::write(package.root.join("engram_tokens.json"),serde_json::to_vec(&f.tokens)?)?;
-        let device=VulkanDevice::new()?;let mut reader=package.reader()?;
-        let adapter=DeepseekV41LoraAdapter::initialize(&mut reader,&[],2,2.0,case.rslora,case.seed)?;
-        let mut trainer=DeepseekV41ModelTrainer::new(device.clone(),&package.root,&adapter,case.hyper,DeepseekV41ModelTrainingConfig{batch_size:f.batch_size,..Default::default()})?;
-        let batches=case.batches.iter().map(|b|DeepseekV41TrainingBatch{token_ids:b.token_ids.clone(),targets:b.targets.iter().map(|&v|if v<0{u32::MAX}else{v as u32}).collect(),seq_len:b.seq_len,engram_mask:Some(b.engram_mask.clone())}).collect::<Vec<_>>();
-        for (step,expected) in case.steps.iter().enumerate() {
+        let value = bases["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|v| v["seed"].as_u64() == case.base_seed)
+            .unwrap();
+        let f: Fixture = serde_json::from_value(value.clone())?;
+        let package = Package::new(&f, false)?;
+        fs::write(
+            package.root.join("engram_tokens.json"),
+            serde_json::to_vec(&f.tokens)?,
+        )?;
+        let device = VulkanDevice::new()?;
+        let mut reader = package.reader()?;
+        let adapter =
+            DeepseekV41LoraAdapter::initialize(&mut reader, &[], 2, 2.0, case.rslora, case.seed)?;
+        let mut trainer = DeepseekV41ModelTrainer::new(
+            device.clone(),
+            &package.root,
+            &adapter,
+            case.hyper,
+            DeepseekV41ModelTrainingConfig {
+                batch_size: f.batch_size,
+                ..Default::default()
+            },
+        )?;
+        let batches = case
+            .batches
+            .iter()
+            .map(|b| DeepseekV41TrainingBatch {
+                token_ids: b.token_ids.clone(),
+                targets: b
+                    .targets
+                    .iter()
+                    .map(|&v| if v < 0 { u32::MAX } else { v as u32 })
+                    .collect(),
+                seq_len: b.seq_len,
+                engram_mask: Some(b.engram_mask.clone()),
+            })
+            .collect::<Vec<_>>();
+        for (step, expected) in case.steps.iter().enumerate() {
             // No fixture factor/moment load occurs here: step N consumes the
             // native factors and optimizer moments produced at step N-1.
-            let actual=trainer.train_sequence(&batches)?;
-            assert_eq!(actual.optimizer_step,step as u64+1);
-            for (batch,(actual,expected)) in actual.logits.iter().zip(&expected.logits_bits).enumerate() {
-                let label=format!("uninterrupted-{}-{} step {step} logits {batch}",f.seed,case.name);
-                let stats=full_gate(&label,&actual.read_all()?,expected,&mut failures);
+            let actual = trainer.train_sequence(&batches)?;
+            assert_eq!(actual.optimizer_step, step as u64 + 1);
+            for (batch, (actual, expected)) in
+                actual.logits.iter().zip(&expected.logits_bits).enumerate()
+            {
+                let label = format!(
+                    "uninterrupted-{}-{} step {step} logits {batch}",
+                    f.seed, case.name
+                );
+                let stats = full_gate(&label, &actual.read_all()?, expected, &mut failures);
                 receipt.push(json!({"label":label,"values":stats.values,"max_abs":stats.worst,"bit_exact":stats.exact}));
             }
         }
     }
-    fs::write(Path::new(env!("CARGO_MANIFEST_DIR")).join("../target/rdna3-streaming/v41-uninterrupted-trajectory.json"),serde_json::to_vec_pretty(&json!({"atol":2e-7,"rtol":0,"comparison":"strict_less_than","pinned_step_inputs":false,"pass":failures.is_empty(),"records":receipt,"failures":failures}))?)?;
-    assert!(failures.is_empty(),"{}",failures.join("\n"));
+    fs::write(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/rdna3-streaming/v41-uninterrupted-trajectory.json"),
+        serde_json::to_vec_pretty(
+            &json!({"atol":2e-7,"rtol":0,"comparison":"strict_less_than","pinned_step_inputs":false,"pass":failures.is_empty(),"records":receipt,"failures":failures}),
+        )?,
+    )?;
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
     Ok(())
 }
 fn full_training_fixture_gate(source: &str) -> Result<()> {
@@ -523,30 +579,45 @@ fn full_training_fixture_gate(source: &str) -> Result<()> {
     let dump_grads = std::env::var("V41_DUMP_GRADS").is_ok();
     for case in oracle.cases {
         if let Some(names) = only_cases.as_ref() {
-            let matches = names.iter().any(|name| {
-                case.name == *name || case.name.ends_with(&format!("-{name}"))
-            });
+            let matches = names
+                .iter()
+                .any(|name| case.name == *name || case.name.ends_with(&format!("-{name}")));
             if !matches {
                 continue;
             }
         }
         let f = if let Some(name) = &case.base_fixture {
             let production;
-            let source=match name.as_str() {
-                "deepseek_v41_mixed_model.json"=>include_str!("../../validation/fixtures/deepseek_v41_mixed_model.json"),
-                "deepseek_v41_bf16_model.json"=>include_str!("../../validation/fixtures/deepseek_v41_bf16_model.json"),
-                "deepseek_v41_production_ratio_model.json"=>{
-                    production=fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("validation/fixtures").join(name))?;
+            let source = match name.as_str() {
+                "deepseek_v41_mixed_model.json" => {
+                    include_str!("../../validation/fixtures/deepseek_v41_mixed_model.json")
+                }
+                "deepseek_v41_bf16_model.json" => {
+                    include_str!("../../validation/fixtures/deepseek_v41_bf16_model.json")
+                }
+                "deepseek_v41_production_ratio_model.json" => {
+                    production = fs::read_to_string(
+                        Path::new(env!("CARGO_MANIFEST_DIR"))
+                            .join("validation/fixtures")
+                            .join(name),
+                    )?;
                     &production
-                },
-                _=>panic!("unexpected training base fixture {name}"),
+                }
+                _ => panic!("unexpected training base fixture {name}"),
             };
-            let values:Value=serde_json::from_str(source)?;
-            let value=values["cases"].as_array().unwrap().iter().find(|v|v["seed"].as_u64()==case.base_seed).unwrap();
+            let values: Value = serde_json::from_str(source)?;
+            let value = values["cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|v| v["seed"].as_u64() == case.base_seed)
+                .unwrap();
             serde_json::from_value::<Fixture>(value.clone())?
-        } else {fixture()?};
-        let mut case=case;
-        case.name=format!("{}-{}",f.seed,case.name);
+        } else {
+            fixture()?
+        };
+        let mut case = case;
+        case.name = format!("{}-{}", f.seed, case.name);
         let p = Package::new(&f, false)?;
         fs::write(
             p.root.join("engram_tokens.json"),
@@ -652,9 +723,14 @@ fn full_training_fixture_gate(source: &str) -> Result<()> {
             )?;
             crate::deepseek_v41::training_trace::begin();
             let actual = trainer.gradients(&batches)?;
-            let memory=device.memory_stats()?;
+            let memory = device.memory_stats()?;
             eprintln!("V4.1 full training {} step {step} memory: activation estimate {} bytes, peak live {} bytes, largest buffer {} bytes",case.name,actual.estimated_activation_bytes,memory.peak_live_buffer_bytes,memory.largest_buffer_bytes);
-            fs::write(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../target/v41-completion").join(format!("native-{}-{step}-stages.json",case.name)),serde_json::to_vec(&crate::deepseek_v41::training_trace::finish())?)?;
+            fs::write(
+                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../target/v41-completion")
+                    .join(format!("native-{}-{step}-stages.json", case.name)),
+                serde_json::to_vec(&crate::deepseek_v41::training_trace::finish())?,
+            )?;
             let trace_logits = actual
                 .logits
                 .iter()
@@ -678,19 +754,56 @@ fn full_training_fixture_gate(source: &str) -> Result<()> {
             // separately on exactly the frozen CPU inputs, and report the
             // coupled trajectory's loss drift without mistaking it for an
             // arithmetic defect in CE (which is 2-Lipschitz in max logit norm).
-            let expected_values=expected.logits_bits.iter().flatten().map(|&b|f32::from_bits(b)).collect::<Vec<_>>();
-            let native_values=actual.logits.iter().map(|l|l.read_all()).collect::<Result<Vec<_>>>()?.into_iter().flatten().collect::<Vec<_>>();
-            let max_logit=native_values.iter().zip(&expected_values).map(|(&a,&b)|(a as f64-b as f64).abs()).fold(0.0f64,f64::max);
-            let labels=batches.iter().flat_map(|b|b.targets.iter().copied()).collect::<Vec<_>>();
-            let expected_bits=expected.logits_bits.iter().flatten().copied().collect::<Vec<_>>();
-            let expected_loss=crate::deepseek_v41::cpu_loss_tests::expected_loss(&expected_bits,&labels,16,expected.loss);
-            let terminal=crate::deepseek_v41::DeepseekV41TerminalAdjoints::new(device.clone())?;
-            let frozen=GpuBuffer::from_f32(&device,&expected_values)?;
-            let (same_input_loss,_)=terminal.masked_cross_entropy(&frozen,&labels,16)?;
-            assert_eq!(same_input_loss.to_bits(),expected_loss.to_bits(),"{label} CE on identical CPU logits");
-            let loss_drift=(actual.loss as f64-expected_loss as f64).abs();
-            let loss_ulp=(f32::from_bits(expected_loss.to_bits()+1)-expected_loss).abs() as f64;
-            assert!(loss_drift<=2.0*max_logit+loss_ulp,"{label} loss exceeds its input/rounding error bound");
+            let expected_values = expected
+                .logits_bits
+                .iter()
+                .flatten()
+                .map(|&b| f32::from_bits(b))
+                .collect::<Vec<_>>();
+            let native_values = actual
+                .logits
+                .iter()
+                .map(|l| l.read_all())
+                .collect::<Result<Vec<_>>>()?
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+            let max_logit = native_values
+                .iter()
+                .zip(&expected_values)
+                .map(|(&a, &b)| (a as f64 - b as f64).abs())
+                .fold(0.0f64, f64::max);
+            let labels = batches
+                .iter()
+                .flat_map(|b| b.targets.iter().copied())
+                .collect::<Vec<_>>();
+            let expected_bits = expected
+                .logits_bits
+                .iter()
+                .flatten()
+                .copied()
+                .collect::<Vec<_>>();
+            let expected_loss = crate::deepseek_v41::cpu_loss_tests::expected_loss(
+                &expected_bits,
+                &labels,
+                16,
+                expected.loss,
+            );
+            let terminal = crate::deepseek_v41::DeepseekV41TerminalAdjoints::new(device.clone())?;
+            let frozen = GpuBuffer::from_f32(&device, &expected_values)?;
+            let (same_input_loss, _) = terminal.masked_cross_entropy(&frozen, &labels, 16)?;
+            assert_eq!(
+                same_input_loss.to_bits(),
+                expected_loss.to_bits(),
+                "{label} CE on identical CPU logits"
+            );
+            let loss_drift = (actual.loss as f64 - expected_loss as f64).abs();
+            let loss_ulp =
+                (f32::from_bits(expected_loss.to_bits() + 1) - expected_loss).abs() as f64;
+            assert!(
+                loss_drift <= 2.0 * max_logit + loss_ulp,
+                "{label} loss exceeds its input/rounding error bound"
+            );
             eprintln!("V4.1 full training {label} coupled loss drift {loss_drift:.17e}; identical-input CE bit-exact");
             let mut logit_tally = Tally::default();
             for (i, (a, b)) in actual.logits.iter().zip(&expected.logits_bits).enumerate() {
@@ -869,9 +982,13 @@ fn full_training_fixture_gate(source: &str) -> Result<()> {
                     ("exp_avg_sq_b", &state.v_b),
                 ] {
                     let is_a = name.ends_with("_a");
-                    let inactive = if is_a {state.step_a==0} else {state.step_b==0};
+                    let inactive = if is_a {
+                        state.step_a == 0
+                    } else {
+                        state.step_b == 0
+                    };
                     if inactive {
-                        assert!(values.iter().all(|&bits| f32::from_bits(bits)==0.0));
+                        assert!(values.iter().all(|&bits| f32::from_bits(bits) == 0.0));
                         assert!(tensors.tensor(&format!("{target}.{name}")).is_err());
                         continue;
                     }
@@ -890,12 +1007,31 @@ fn full_training_fixture_gate(source: &str) -> Result<()> {
                     // A factor without a gradient this step keeps its moments
                     // bit-identically, in the fixture and in the replication.
                     let pinned_bits = if name.contains("exp_avg_sq_") {
-                        if is_a { pinned.square_a } else { pinned.square_b }
-                    } else if is_a { pinned.avg_a } else { pinned.avg_b };
-                    let updated = if is_a { state.step_a != pinned.step_a } else { state.step_b != pinned.step_b };
+                        if is_a {
+                            pinned.square_a
+                        } else {
+                            pinned.square_b
+                        }
+                    } else if is_a {
+                        pinned.avg_a
+                    } else {
+                        pinned.avg_b
+                    };
+                    let updated = if is_a {
+                        state.step_a != pinned.step_a
+                    } else {
+                        state.step_b != pinned.step_b
+                    };
                     if !updated && !pinned_bits.is_empty() {
-                        assert_eq!(actual.iter().map(|v| v.to_bits()).collect::<Vec<_>>(), pinned_bits, "{label} {target} {name} moved without a gradient");
-                        assert_eq!(values, pinned_bits, "{label} {target} {name} fixture moved without a gradient");
+                        assert_eq!(
+                            actual.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+                            pinned_bits,
+                            "{label} {target} {name} moved without a gradient"
+                        );
+                        assert_eq!(
+                            values, pinned_bits,
+                            "{label} {target} {name} fixture moved without a gradient"
+                        );
                     }
                 }
             }
@@ -1008,36 +1144,80 @@ fn batches(f: &Fixture) -> Vec<DeepseekV41TrainingBatch> {
 
 #[test]
 fn deepseek_v41_full_model_streamed_training_matches_resident_dense_and_packed() -> Result<()> {
-    let packed:Value=serde_json::from_str(include_str!("../../validation/fixtures/deepseek_v41_bf16_model.json"))?;
-    let cases=[fixture()?,serde_json::from_value(packed["cases"][0].clone())?,serde_json::from_value(packed["cases"][1].clone())?];
+    let packed: Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/deepseek_v41_bf16_model.json"
+    ))?;
+    let cases = [
+        fixture()?,
+        serde_json::from_value(packed["cases"][0].clone())?,
+        serde_json::from_value(packed["cases"][1].clone())?,
+    ];
     for f in cases {
-        let package=Package::new(&f,false)?;
-        fs::write(package.root.join("engram_tokens.json"),serde_json::to_vec(&f.tokens)?)?;
-        let device=VulkanDevice::new()?;
-        let mut reader=package.reader()?;
-        let adapter=DeepseekV41LoraAdapter::initialize(&mut reader,&[],2,2.0,false,1793)?;
-        let mut streamed=DeepseekV41ModelTrainer::new(device.clone(),&package.root,&adapter,DeepseekV41AdamWConfig::default(),DeepseekV41ModelTrainingConfig{batch_size:f.batch_size,..Default::default()})?;
-        let mut resident=DeepseekV41ModelTrainer::new(device.clone(),&package.root,&adapter,DeepseekV41AdamWConfig::default(),DeepseekV41ModelTrainingConfig{batch_size:f.batch_size,stream_experts:false,stream_projections:false,stream_engram_tables:false,stream_vocabulary:false,..Default::default()})?;
-        let sequence=batches(&f);
-        let a=streamed.gradients(&sequence)?;let b=resident.gradients(&sequence)?;
-        assert_eq!(a.loss.to_bits(),b.loss.to_bits());
-        assert_eq!(a.adapters.len(),b.adapters.len());
-        let mut failures=Vec::new();
-        for ((a,b),expected) in a.logits.iter().zip(&b.logits).zip(&f.steps) {
-            let a=a.read_all()?;let b=b.read_all()?;
-            assert_eq!(bits(&a),bits(&b));
-            full_gate(&format!("initial mixed training seed {}",f.seed),&a,&bits(&expected.logits),&mut failures);
+        let package = Package::new(&f, false)?;
+        fs::write(
+            package.root.join("engram_tokens.json"),
+            serde_json::to_vec(&f.tokens)?,
+        )?;
+        let device = VulkanDevice::new()?;
+        let mut reader = package.reader()?;
+        let adapter = DeepseekV41LoraAdapter::initialize(&mut reader, &[], 2, 2.0, false, 1793)?;
+        let mut streamed = DeepseekV41ModelTrainer::new(
+            device.clone(),
+            &package.root,
+            &adapter,
+            DeepseekV41AdamWConfig::default(),
+            DeepseekV41ModelTrainingConfig {
+                batch_size: f.batch_size,
+                ..Default::default()
+            },
+        )?;
+        let mut resident = DeepseekV41ModelTrainer::new(
+            device.clone(),
+            &package.root,
+            &adapter,
+            DeepseekV41AdamWConfig::default(),
+            DeepseekV41ModelTrainingConfig {
+                batch_size: f.batch_size,
+                stream_experts: false,
+                stream_projections: false,
+                stream_engram_tables: false,
+                stream_vocabulary: false,
+                ..Default::default()
+            },
+        )?;
+        let sequence = batches(&f);
+        let a = streamed.gradients(&sequence)?;
+        let b = resident.gradients(&sequence)?;
+        assert_eq!(a.loss.to_bits(), b.loss.to_bits());
+        assert_eq!(a.adapters.len(), b.adapters.len());
+        let mut failures = Vec::new();
+        for ((a, b), expected) in a.logits.iter().zip(&b.logits).zip(&f.steps) {
+            let a = a.read_all()?;
+            let b = b.read_all()?;
+            assert_eq!(bits(&a), bits(&b));
+            full_gate(
+                &format!("initial mixed training seed {}", f.seed),
+                &a,
+                &bits(&expected.logits),
+                &mut failures,
+            );
         }
-        for (a,b) in a.adapters.iter().zip(&b.adapters) {
-            assert_eq!(a.target,b.target);assert_eq!(bits(&a.grad_a),bits(&b.grad_a));assert_eq!(bits(&a.grad_b),bits(&b.grad_b));
+        for (a, b) in a.adapters.iter().zip(&b.adapters) {
+            assert_eq!(a.target, b.target);
+            assert_eq!(bits(&a.grad_a), bits(&b.grad_a));
+            assert_eq!(bits(&a.grad_b), bits(&b.grad_b));
         }
-        assert!(failures.is_empty(),"{failures:?}");
-        let a=streamed.train_sequence(&sequence)?;let b=resident.train_sequence(&sequence)?;
-        assert_eq!(a.loss.to_bits(),b.loss.to_bits());
-        let a=streamed.adapter()?;let b=resident.adapter()?;
-        for (target,_,_) in a.targets() {
-            let a=a.module_for_tensor(&format!("{target}.weight")).unwrap();let b=b.module_for_tensor(&format!("{target}.weight")).unwrap();
-            assert_eq!(bits(&a.a),bits(&b.a));assert_eq!(bits(&a.b),bits(&b.b));
+        assert!(failures.is_empty(), "{failures:?}");
+        let a = streamed.train_sequence(&sequence)?;
+        let b = resident.train_sequence(&sequence)?;
+        assert_eq!(a.loss.to_bits(), b.loss.to_bits());
+        let a = streamed.adapter()?;
+        let b = resident.adapter()?;
+        for (target, _, _) in a.targets() {
+            let a = a.module_for_tensor(&format!("{target}.weight")).unwrap();
+            let b = b.module_for_tensor(&format!("{target}.weight")).unwrap();
+            assert_eq!(bits(&a.a), bits(&b.a));
+            assert_eq!(bits(&a.b), bits(&b.b));
         }
         eprintln!("V4.1 full model streamed/resident seed {}: logits, factor gradients, optimizer factors bit-exact; {} adapter modules",f.seed,b.len());
     }
@@ -1176,14 +1356,22 @@ fn deepseek_v41_modality_absent_gradients_match_text_path_bits() -> Result<()> {
     let text_only = trainer.gradients(&sequence)?;
     let (explicit_none, modality) = trainer.gradients_with_modality(&sequence, None)?;
 
-    assert!(modality.is_none(), "an absent modality must not synthesise a stream");
+    assert!(
+        modality.is_none(),
+        "an absent modality must not synthesise a stream"
+    );
     assert_eq!(text_only.loss.to_bits(), explicit_none.loss.to_bits());
     assert_eq!(
         text_only.estimated_activation_bytes,
         explicit_none.estimated_activation_bytes
     );
     assert_eq!(text_only.logits.len(), explicit_none.logits.len());
-    for (step, (a, b)) in text_only.logits.iter().zip(&explicit_none.logits).enumerate() {
+    for (step, (a, b)) in text_only
+        .logits
+        .iter()
+        .zip(&explicit_none.logits)
+        .enumerate()
+    {
         let a = a.read_all()?;
         let b = b.read_all()?;
         assert_eq!(a.len(), b.len());
@@ -1364,5 +1552,5 @@ fn deepseek_v41_modality_absent_optimizer_state_matches_train_sequence() -> Resu
     Ok(())
 }
 
-#[path="native_vision_training_tests.rs"]
+#[path = "native_vision_training_tests.rs"]
 mod native_vision;

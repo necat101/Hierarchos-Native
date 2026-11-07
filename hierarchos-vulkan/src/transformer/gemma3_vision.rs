@@ -187,6 +187,18 @@ impl VulkanGemma3Vision {
         language.kernels.install_rdna3_avx512_layer_norm(&device)?;
         language.kernels.install_rdna3_avx512_rope(&device)?;
         language.kernels.install_rdna3_avx512_eager(&device)?;
+        let rdna3_avx2 = vendor::rdna3_frozen_avx2_variants(&device, aten_vector_width());
+        if rdna3_avx2 {
+            // Match ATen's materialized raw-x LayerNorm VJP and bias reduction
+            // in the frozen AVX2 track, as already used by the CLIP adapter.
+            language.kernels.cpu_layer_norm_adjoint = true;
+            language.kernels.bias_grad = vulkan::ComputeKernel::new(
+                &device,
+                include_bytes!("../../shaders/vision_bias_grad_cpu_avx2.spv"),
+                2,
+                8,
+            )?;
+        }
         if language.config.embedding_dropout != 0.0
             || language.config.attention_dropout != 0.0
             || language.config.mlp_output_dropout != 0.0
@@ -244,14 +256,17 @@ impl VulkanGemma3Vision {
         // channel/kh/kw reduction order too. Keep that independently measured
         // RDNA3 admission separate from the frozen AVX2 branch.
         let rdna3_native_conv = vendor::rdna3_avx512_cpu_contract(&device, aten_vector_width())
-            && image_count == 1 && side == 8 && channels == 3
+            && image_count == 1
+            && side == 8
+            && channels == 3
             && (dim, patch_size) == (16, 2);
         let patch_order = u32::from(
             !((aten_vector_width() == 8
                 && image_count == 1
                 && side == 8
                 && channels == 3
-                && (dim, patch_size) == (16, 2)) || rdna3_native_conv),
+                && (dim, patch_size) == (16, 2))
+                || rdna3_native_conv),
         );
         let patch_weights = tensor(
             &mut package,
@@ -299,7 +314,11 @@ impl VulkanGemma3Vision {
         // backward still receives a contiguous matmul adjoint (mode 1).
         .use_vector_cpu_rsqrt(tokens_per_image == 1)
         .use_torch_cpu_rsqrt(tokens_per_image > 1);
-        let projector_norm = if vendor::rdna3_avx512_variants(&device, aten_vector_width()) {
+        let projector_norm = if vendor::rdna3_avx512_variants(&device, aten_vector_width())
+            || (rdna3_avx2 && tokens_per_image == 16 && image_count == 1 && dim == 16)
+        {
+            // The frozen AVX2 full-grid projector has the same strided
+            // four-stream reduction as the independently qualified AVX512 case.
             projector_norm.use_rdna3_avx512_projector_rms(vulkan::ComputeKernel::new(
                 &device,
                 include_bytes!("../../shaders/vision_projector_rms_avx512_amd_rdna3.spv"),
@@ -347,7 +366,7 @@ impl VulkanGemma3Vision {
                         intermediate,
                         eps,
                         true,
-                        false,
+                        rdna3_avx2,
                     )
                 })
                 .collect::<Result<_>>()?,
@@ -843,7 +862,52 @@ impl VulkanGemma3Vision {
     /// Read retained text training buffers without changing the graph.
     #[doc(hidden)]
     pub fn debug_text_training_states(&self) -> Result<BTreeMap<String, Vec<f32>>> {
-        self.language.debug_first_layer_norm_states()
+        let mut states = self.language.debug_first_layer_norm_states()?;
+        for (name, buffer, len) in [
+            ("tokens", &self.tokens, self.rows * self.dim),
+            ("post_norm", &self.post_output, self.rows * self.dim),
+            ("grad_tokens", &self.grad_tokens, self.rows * self.dim),
+            (
+                "grad_post_output",
+                &self.grad_post_output,
+                self.rows * self.dim,
+            ),
+            (
+                "pooled",
+                &self.pooled,
+                self.image_count * self.tokens_per_image * self.dim,
+            ),
+            (
+                "pooled_norm",
+                &self.pooled_norm,
+                self.image_count * self.tokens_per_image * self.dim,
+            ),
+            (
+                "grad_pooled",
+                &self.grad_pooled,
+                self.image_count * self.tokens_per_image * self.dim,
+            ),
+            (
+                "grad_pooled_norm",
+                &self.grad_pooled_norm,
+                self.image_count * self.tokens_per_image * self.dim,
+            ),
+            (
+                "grad_projected",
+                &self.grad_projected,
+                self.image_count * self.tokens_per_image * self.projector.output_dim,
+            ),
+        ] {
+            states.insert(format!("vision.{name}"), buffer.read_f32(len)?);
+        }
+        for (index, layer) in self.layers.iter().enumerate() {
+            for (name, values) in
+                layer.backward_stage_dump(self.rows, self.dim, self.intermediate)?
+            {
+                states.insert(format!("vision.layer_{index}/{name}"), values);
+            }
+        }
+        Ok(states)
     }
 
     pub fn train_step_with_optimizer(

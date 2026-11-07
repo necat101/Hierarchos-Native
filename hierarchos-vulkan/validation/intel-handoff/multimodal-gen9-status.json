@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "pack": "hierarchos-vulkan/validation/intel-handoff/MULTIMODAL_GEN9.md",
+  "target": {
+    "name": "Intel HD Graphics 520 (Gen9)",
+    "vendor_id": "0x8086",
+    "device_id": "0x1916"
+  },
+  "status": "blocked",
+  "physical_run": false,
+  "receipt_issued": false,
+  "qualified": false,
+  "blocker": "no_intel_gen9_adapter_present",
+  "attempt": {
+    "date": "2026-11-06",
+    "preflight": "Get-CimInstance Win32_VideoController | Select-Object Name,PNPDeviceID,DriverVersion",
+    "preflight_result": "failed",
+    "pack_replay_attempted": false,
+    "reason": "The handoff runner rejects any non-Intel vendor or a device ID other than 0x1916; this host enumerates only 0x1002:0x15bf, so replay was not attempted and no qualification receipt was issued."
+  },
+  "host": {
+    "platform": "Windows x64",
+    "adapters": [
+      {
+        "name": "AMD Radeon Graphics",
+        "pnp_device_id": "PCI\\VEN_1002&DEV_15BF&SUBSYS_17F31043&REV_04\\4&98C338A&0&0041",
+        "vendor_id": "0x1002",
+        "device_id": "0x15bf",
+        "driver_version": "32.0.31007.6002"
+      }
+    ],
+    "intel_gen9_present": false
+  },
+  "expected_values": {
+    "path": "hierarchos-vulkan/validation/intel-handoff/multimodal-gen9-expected-values.json",
+    "sha256": "64c7f85731ccbb86799c782e422c3f3a7b2ca2894e10dc02a55f291ea86d1882"
+  },
+  "required_gate": {
+    "absolute_limit": 2e-07,
+    "rtol": 0,
+    "comparison": "strict_less_than"
+  },
+  "blockers": [
+    "Physical Intel HD 520 (8086:1916) hardware is not present on this machine; the adapter list contains only 1002:15bf.",
+    "The Gen9 pack must not be replayed against the AMD adapter, and RDNA3 values must not be copied into a Gen9 receipt."
+  ],
+  "next_steps": [
+    "Run MULTIMODAL_GEN9.md on a host whose Vulkan adapter enumerates as 8086:1916.",
+    "Bind the resulting receipt to the expected-values SHA-256 above and write physical_run=true with receipt_issued=true only after all listed gates pass."
+  ],
+  "notes": [
+    "This record is a blocker receipt, not a Gen9 qualification.",
+    "The current Gen9 expectations remain the 20261103 SigLIP tail and the 20261105 shared-77/GPT-2-wide receipts; the older 2026-11-02 red values are superseded."
+  ]
+}

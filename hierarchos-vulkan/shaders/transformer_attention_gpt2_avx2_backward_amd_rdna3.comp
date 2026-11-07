@@ -1,0 +1,875 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact_hw_rdna3.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+#ifdef HIERARCHOS_CPU_ATTENTION_SHORT_SDPA
+#include "fp32_v41_unary.glsl"
+#endif
+
+// Deterministic scaled-dot-product-attention backward. The same kernel handles
+// causal decoder attention and full bidirectional encoder attention. A single
+// invocation owns one (batch, KV head) and all query heads mapped to it. This
+// supports MHA/GQA without float atomics while keeping shared K/V gradient
+// reductions ordered.
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+// Each workgroup has exactly one invocation. These caches are invocation-local:
+// workgroup storage provides no sharing and reserves 14,400 bytes even in modes
+// that do not use the strict-adjoint caches. Private storage avoids that fixed
+// per-workgroup reservation. Keep every reduction and its evaluation order;
+// oversized rows/heads still use the original streaming reductions.
+const uint KEY_CACHE_SIZE = 512u;
+const uint STATS_CACHE_SIZE = 512u;
+const uint HEAD_CACHE_SIZE = 256u;
+float key_probability[KEY_CACHE_SIZE];
+float key_dp[KEY_CACHE_SIZE];
+uint key_visible[(KEY_CACHE_SIZE + 31u) / 32u];
+float row_max[STATS_CACHE_SIZE];
+float row_inverse[STATS_CACHE_SIZE];
+float row_softmax_dot[STATS_CACHE_SIZE];
+float head_k_cache[HEAD_CACHE_SIZE];
+float head_v_cache[HEAD_CACHE_SIZE];
+float shared_k_cache[HEAD_CACHE_SIZE];
+float shared_v_cache[HEAD_CACHE_SIZE];
+
+bool cached_key_visible(uint offset) {
+    return (key_visible[offset >> 5u] & (1u << (offset & 31u))) != 0u;
+}
+
+layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KBuffer { float k_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer VBuffer { float v_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer QueryMaskBuffer { float query_mask[]; };
+layout(set = 0, binding = 4, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 5, std430) readonly buffer AlibiPositionBuffer { float alibi_positions[]; };
+layout(set = 0, binding = 6, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 7, std430) writeonly buffer GradQBuffer { float grad_q[]; };
+layout(set = 0, binding = 8, std430) writeonly buffer GradKBuffer { float grad_k[]; };
+layout(set = 0, binding = 9, std430) writeonly buffer GradVBuffer { float grad_v[]; };
+layout(set = 0, binding = 10, std430) readonly buffer SinkBuffer { float sink_values[]; };
+layout(set = 0, binding = 11, std430) writeonly buffer GradSinkBuffer { float grad_sink[]; };
+layout(set = 0, binding = 12, std430) readonly buffer RelativeBiasBuffer { float relative_bias[]; };
+layout(set = 0, binding = 13, std430) buffer GradRelativeBiasBuffer { float grad_relative_bias[]; };
+layout(set = 0, binding = 14, std430) readonly buffer SparseMaskBuffer { float sparse_mask[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint query_hidden_size;
+    uint value_hidden_size;
+    uint num_heads;
+    uint num_key_value_heads;
+    uint window_size;
+    float scale;
+    float value_scale;
+    float softcap;
+    uint alibi_mode;
+    float alibi_bias_max;
+    float dropout_p;
+    uint rng_step;
+    uint rng_site;
+    uint rng_seed;
+    uint has_sink;
+    uint causal;
+    uint relative_bias_mode;
+    uint relative_bias_num_buckets;
+    uint relative_bias_max_distance;
+    uint query_position_offset;
+    uint has_sparse_mask;
+    uint compressed_key_count;
+    uint compressed_key_rate;
+    uint paged_kv;
+    uint kv_page_size;
+    uint kv_page_table_stride;
+    uint unfused_qk;
+    // The key-range block this submission owns. The watchdog bounds a
+    // submission, so a split can only pay off when each block is submitted on
+    // its own, and a separately submitted block cannot identify itself from the
+    // grid it was launched with -- every such submission is launched with a z of
+    // one. These two words carry its identity instead. A count of one is the
+    // unsplit path.
+    uint key_block_index;
+    uint key_block_count;
+} pc;
+
+bool h1_fully_masked(uint batch, uint query) {
+    if (pc.causal != 2u) return false;
+    for (uint k=0u;k<pc.key_value_seq_len && k<=pc.query_position_offset+query;k++) {
+        if (key_mask[batch*pc.key_value_seq_len+k]>0.0) return false;
+    }
+    return true;
+}
+bool key_is_visible(uint batch, uint head, uint query, uint key) {
+    if (h1_fully_masked(batch,query)) return true;
+    uint local_key_count = pc.key_value_seq_len - pc.compressed_key_count;
+    if (pc.compressed_key_count != 0u && key >= local_key_count) {
+        if (pc.compressed_key_rate == 0u) return false;
+        uint compressed_index = key - local_key_count;
+        uint absolute_query = pc.query_position_offset + query;
+        if (compressed_index >= (absolute_query + 1u) / pc.compressed_key_rate) return false;
+    } else {
+        uint key_row = batch * local_key_count + key;
+        if (key_mask[key_row] <= 0.0) return false;
+        if (pc.compressed_key_count != 0u) {
+            uint absolute_query = pc.query_position_offset + query;
+            if (pc.causal != 0u && key > absolute_query) return false;
+            if (pc.window_size != 0u) {
+                if (pc.causal != 0u) {
+                    uint first_local = absolute_query + 1u > pc.window_size
+                        ? absolute_query + 1u - pc.window_size
+                        : 0u;
+                    if (key < first_local) return false;
+                } else {
+                    uint distance = key > absolute_query ? key - absolute_query : absolute_query - key;
+                    if (distance > pc.window_size) return false;
+                }
+            }
+        }
+    }
+    if (pc.has_sparse_mask == 0u) return true;
+    uint sparse_index;
+    if (pc.has_sparse_mask == 2u) {
+        uint heads_per_kv = pc.num_heads / pc.num_key_value_heads;
+        uint kv_head = head / heads_per_kv;
+        sparse_index = (((batch * pc.num_key_value_heads + kv_head) * pc.query_seq_len + query)
+            * pc.key_value_seq_len) + key;
+    } else {
+        sparse_index = (batch * pc.query_seq_len + query) * pc.key_value_seq_len + key;
+    }
+    return sparse_mask[sparse_index] > 0.0;
+}
+
+uint dropout_hash(uint value) {
+    value ^= value >> 16u;
+    value *= 0x7feb352du;
+    value ^= value >> 15u;
+    value *= 0x846ca68bu;
+    value ^= value >> 16u;
+    return value;
+}
+
+float dropout_scale(uint batch, uint head, uint query, uint key) {
+    if (pc.dropout_p <= 0.0) return 1.0;
+    uint element = (((batch * pc.num_heads + head) * pc.query_seq_len + query) * pc.key_value_seq_len) + key;
+    uint value = pc.rng_seed;
+    value ^= pc.rng_step * 0x9e3779b9u;
+    value ^= pc.rng_site * 0x85ebca6bu;
+    value ^= element * 0xc2b2ae35u;
+    value = dropout_hash(value);
+    float random_value = (float(value >> 8u) + 0.5) * (1.0 / 16777216.0);
+    return random_value >= pc.dropout_p ? (1.0 / (1.0 - pc.dropout_p)) : 0.0;
+}
+
+uint floor_power_of_two(uint value) {
+    uint power = 1u;
+    while ((power << 1u) <= value) {
+        power <<= 1u;
+    }
+    return power;
+}
+
+float bloom_alibi_slope(uint head) {
+    uint closest_power = floor_power_of_two(pc.num_heads);
+    float base = exp2(-exp2(-(log2(float(closest_power)) - 3.0)));
+    if (head < closest_power) {
+        return pow(base, float(head + 1u));
+    }
+    float extra_base = exp2(-exp2(-(log2(float(2u * closest_power)) - 3.0)));
+    uint extra_head = head - closest_power;
+    return pow(extra_base, float(1u + 2u * extra_head));
+}
+
+float mpt_alibi_slope(uint head) {
+    uint power = 1u;
+    while (power < pc.num_heads) {
+        power <<= 1u;
+    }
+    uint slope_index = head;
+    if (power != pc.num_heads) {
+        uint odd_count = power / 2u;
+        slope_index = head < odd_count ? (2u * head + 1u) : (2u * (head - odd_count));
+    }
+    float exponent = pc.alibi_bias_max * float(slope_index + 1u) / float(power);
+    return exp2(-exponent);
+}
+
+uint t5_relative_position_bucket(uint query, uint key) {
+    int relative_position = int(key) - int(query);
+    uint num_buckets = pc.relative_bias_num_buckets;
+    uint bucket = 0u;
+    uint distance;
+    if (pc.causal == 0u) {
+        uint half_buckets = num_buckets / 2u;
+        if (relative_position > 0) bucket += half_buckets;
+        num_buckets = half_buckets;
+        distance = uint(abs(relative_position));
+    } else {
+        distance = uint(max(-relative_position, 0));
+    }
+    uint max_exact = num_buckets / 2u;
+    if (distance < max_exact) return bucket + distance;
+    float log_scale = log(float(distance) / float(max_exact))
+        / log(float(pc.relative_bias_max_distance) / float(max_exact));
+    uint large_bucket = max_exact
+        + uint(log_scale * float(num_buckets - max_exact));
+    return bucket + min(large_bucket, num_buckets - 1u);
+}
+
+float raw_score(uint batch, uint head, uint query, uint key) {
+    if (h1_fully_masked(batch,query)) return -3.402823466e+38;
+    uint qk_head_dim = pc.query_hidden_size / pc.num_heads;
+    uint key_hidden_size = qk_head_dim * pc.num_key_value_heads;
+    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+    uint kv_head = head / queries_per_kv;
+    uint q_base = (batch * pc.query_seq_len + query) * pc.query_hidden_size + head * qk_head_dim;
+    uint k_base = (batch * pc.key_value_seq_len + key) * key_hidden_size + kv_head * qk_head_dim;
+    float value = 0.0;
+    if (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u) {
+        precise float unfused_value = 0.0;
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            precise float product = q_values[q_base + d] * k_values[k_base + d];
+            unfused_value += product;
+        }
+        value = unfused_value;
+    } else {
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            value = fma(q_values[q_base + d], k_values[k_base + d], value);
+        }
+    }
+    value *= pc.scale;
+    if (pc.alibi_mode == 1u) {
+        uint key_row = batch * pc.key_value_seq_len + key;
+        value += bloom_alibi_slope(head) * alibi_positions[key_row];
+    } else if (pc.alibi_mode == 2u) {
+        value += mpt_alibi_slope(head) * float(key);
+    } else if (pc.alibi_mode == 3u) {
+        uint key_row = batch * pc.key_value_seq_len + key;
+        value += bloom_alibi_slope(head) * alibi_positions[key_row] * pc.scale;
+    }
+    if (pc.relative_bias_mode == 1u) {
+        uint bucket = t5_relative_position_bucket(query, key);
+        value += relative_bias[bucket * pc.num_heads + head];
+    }
+    return value;
+}
+
+float score(uint batch, uint head, uint query, uint key) {
+    float value = raw_score(batch, head, query, key);
+    if (pc.softcap > 0.0) {
+        value = pc.softcap * tanh(value / pc.softcap);
+    }
+    return value;
+}
+
+float score_derivative(uint batch, uint head, uint query, uint key) {
+    if (pc.softcap <= 0.0) return 1.0;
+    float t = tanh(raw_score(batch, head, query, key) / pc.softcap);
+    return 1.0 - t * t;
+}
+
+float attention_exp(float value) {
+#ifdef HIERARCHOS_CPU_ATTENTION_SHORT_SDPA
+    if (pc.key_value_seq_len < 8u && pc.dropout_p == 0.0
+        && pc.has_sink == 0u && pc.value_scale == 1.0) return v41_scalar_exp(value);
+#endif
+    // Gemma4 (unfused_qk=1) uses the ordinary GLSL exp/division path in the
+    // forward kernel.  Reconstruct the exact same softmax arithmetic during
+    // backward; otherwise the Q/K/V RMSNorm adjoints amplify the tiny
+    // probability mismatch into saved-module gradient drift.  Modes 2/3 keep
+    // their independently-qualified deterministic helpers.
+    if (pc.unfused_qk == 1u || pc.unfused_qk == 9u) {
+        // Same fused reconstruction as the forward kernel: the CPU's fused
+        // SLEEF sequence, not the driver's unfused multiply-add lowering.
+        return sleef_expf_u10_fused(value);
+    }
+    return (pc.causal == 2u || pc.unfused_qk == 2u || pc.unfused_qk == 3u)
+        ? sleef_expf_u10(value)
+        : exp(value);
+}
+
+float attention_reciprocal(float value) {
+#ifdef HIERARCHOS_CPU_ATTENTION_RECIPROCAL
+    return fp32_div(1.0, value);
+#else
+    // Gemma4 mode 1 and llama mode 9 use the deterministic divider in forward.
+    // Backward must reconstruct the identical probability vector from the saved
+    // Q/K/V operands; a raw OpFDiv here can differ by one FP32 ulp and that
+    // seed is amplified by the per-head RMSNorm adjoints.
+    return (pc.causal == 2u || pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 3u
+            || pc.unfused_qk == 9u)
+        ? fp32_div(1.0, value)
+        : (1.0 / value);
+#endif
+}
+
+float probability(uint batch, uint head, uint query, uint key, float max_score, float inv_sum) {
+    return attention_exp(score(batch, head, query, key) - max_score) * inv_sum;
+}
+
+#ifdef HIERARCHOS_GEMMA4_TEXT_CPU_AVX2
+#include "transformer_gemma4_text_cpu_backward.glsl"
+#endif
+
+void main() {
+#ifdef HIERARCHOS_GEMMA4_TEXT_CPU_AVX2
+    if(gemma4_cpu_text_profile()){gemma4_cpu_text_backward();return;}
+#endif
+    uint kv_head = gl_GlobalInvocationID.x;
+    uint invocation_batch = gl_GlobalInvocationID.y;
+    if (kv_head >= pc.num_key_value_heads) {
+        return;
+    }
+    bool shared_score_parameter = pc.has_sink != 0u || pc.relative_bias_mode != 0u;
+    if (!shared_score_parameter && invocation_batch >= pc.batch_size) {
+        return;
+    }
+    if (shared_score_parameter && invocation_batch != 0u) {
+        return;
+    }
+    // Key-range split. One block is one submission, and this invocation's block
+    // index and count arrive in the push constants, so the key range a
+    // submission owns no longer has to be encoded in its grid. Every split
+    // submission is therefore launched with a z of one; a z above one would
+    // repeat a block rather than add one. The watchdog bounds a submission
+    // rather than an invocation, so dividing the work inside a single submission
+    // buys nothing -- measured at 257 queries and head dim 8, one dispatch and
+    // eight key-range blocks of the same span both lost the device. A count of
+    // one is byte-for-byte today's single-dispatch path. Only the strict adjoint
+    // (unfused_qk 1/2/9) may be split: its per-key K/V outputs are self-contained
+    // assignments, so blocking keys leaves every reduction order intact. The
+    // shared primary pass and the fused path accumulate a running softmax_dot
+    // over keys and would need cross-submission state, so every other mode runs
+    // one block however the caller sized the count.
+    uint key_blocks = (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u)
+        ? max(pc.key_block_count, 1u) : 1u;
+    uint key_block = min(pc.key_block_index, key_blocks - 1u);
+    bool split_active = key_blocks > 1u;
+    bool split_owner = !split_active || key_block == 0u;
+    uint split_begin = split_active
+        ? (key_block * pc.key_value_seq_len) / key_blocks : 0u;
+    uint split_end = split_active
+        ? ((key_block + 1u) * pc.key_value_seq_len) / key_blocks
+        : pc.key_value_seq_len;
+    uint qk_head_dim = pc.query_hidden_size / pc.num_heads;
+    uint key_hidden_size = qk_head_dim * pc.num_key_value_heads;
+    uint value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
+    uint output_hidden_size = value_head_dim * pc.num_heads;
+    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+    uint first_head = kv_head * queries_per_kv;
+    uint last_head = first_head + queries_per_kv;
+    uint first_batch = shared_score_parameter ? 0u : invocation_batch;
+    uint last_batch = shared_score_parameter ? pc.batch_size : invocation_batch + 1u;
+    bool cache_stats = (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u)
+        && (last_batch - first_batch) * queries_per_kv * pc.query_seq_len <= STATS_CACHE_SIZE;
+
+    // Per-key K/V gradients are zeroed over this block's own key range only:
+    // key ownership is disjoint, so no block writes an element that another
+    // block owns and the zeroing cannot race the assignments the other blocks
+    // make for their own keys.
+    // This invocation exclusively owns the shared K/V slice. Sink-bearing
+    // attention owns all batches for the KV head so its per-query-head sink
+    // gradient can be reduced deterministically without float atomics.
+    for (uint batch = first_batch; batch < last_batch; ++batch) {
+        for (uint position = split_begin; position < split_end; ++position) {
+            uint key_base = (batch * pc.key_value_seq_len + position) * key_hidden_size + kv_head * qk_head_dim;
+            uint value_base = (batch * pc.key_value_seq_len + position) * pc.value_hidden_size + kv_head * value_head_dim;
+            for (uint d = 0; d < qk_head_dim; ++d) {
+                grad_k[key_base + d] = 0.0;
+            }
+            for (uint d = 0; d < value_head_dim; ++d) {
+                grad_v[value_base + d] = 0.0;
+            }
+        }
+    }
+
+    // The shared primary pass: the row statistics and grad_q accumulate across
+    // the whole key range and are not per-key, so exactly one block owns them --
+    // the split owner, or the sole block when the grid is unsplit. Later blocks
+    // run only the per-key strict adjoint below. (Deliberately un-indented, so
+    // the gate stays visible without reflowing 200 lines of reduction code.)
+    if (split_owner) {
+    for (uint head = first_head; head < last_head; ++head) {
+        if (pc.has_sink != 0u) {
+            grad_sink[head] = 0.0;
+        }
+        for (uint batch = first_batch; batch < last_batch; ++batch) {
+            // Each query head is also owned exclusively by this invocation.
+            for (uint position = 0; position < pc.query_seq_len; ++position) {
+                uint q_base = (batch * pc.query_seq_len + position) * pc.query_hidden_size + head * qk_head_dim;
+                for (uint d = 0; d < qk_head_dim; ++d) {
+                    grad_q[q_base + d] = 0.0;
+                }
+            }
+
+            for (uint query = 0; query < pc.query_seq_len; ++query) {
+                uint query_row = batch * pc.query_seq_len + query;
+                uint stats_index = ((batch - first_batch) * queries_per_kv + head - first_head)
+                    * pc.query_seq_len + query;
+                if (cache_stats) row_inverse[stats_index] = 0.0;
+                if (pc.causal != 2u && query_mask[query_row] <= 0.0) {
+                    continue;
+                }
+
+                // Match forward exactly: causal local attention is a trailing
+                // window, while bidirectional local attention is symmetric.
+                uint absolute_query = pc.query_position_offset + query;
+                uint first_key = 0u;
+                uint last_key = pc.key_value_seq_len - 1u;
+                if (pc.compressed_key_count == 0u && pc.causal != 0u && !h1_fully_masked(batch,query)) {
+                    last_key = min(absolute_query, pc.key_value_seq_len - 1u);
+                }
+                if (pc.compressed_key_count == 0u && pc.window_size != 0u) {
+                    if (pc.causal != 0u) {
+                        first_key = absolute_query + 1u > pc.window_size
+                            ? absolute_query + 1u - pc.window_size
+                            : 0u;
+                    } else {
+                        first_key = absolute_query > pc.window_size ? absolute_query - pc.window_size : 0u;
+                        uint right = min(pc.window_size, pc.key_value_seq_len - 1u - absolute_query);
+                        last_key = absolute_query + right;
+                    }
+                }
+                bool use_cache = last_key >= first_key && last_key - first_key < KEY_CACHE_SIZE;
+                if (use_cache) {
+                    for (uint word = 0u; word <= (last_key - first_key) / 32u; ++word) key_visible[word] = 0u;
+                }
+                bool found = false;
+                float max_score = -3.402823466e+38;
+                for (uint key = first_key; key <= last_key; ++key) {
+                    if (!key_is_visible(batch, head, query, key)) continue;
+                    float s = score(batch, head, query, key);
+                    if (use_cache) {
+                        uint offset = key - first_key;
+                        key_probability[offset] = s;
+                        key_visible[offset >> 5u] |= 1u << (offset & 31u);
+                    }
+                    max_score = found ? max(max_score, s) : s;
+                    found = true;
+                }
+                if (!found) continue;
+                if (pc.has_sink != 0u) {
+                    max_score = max(max_score, sink_values[head]);
+                }
+
+                float exp_sum = 0.0;
+                if (pc.unfused_qk != 0u || pc.causal == 2u) {
+                    precise float precise_exp_sum = pc.has_sink != 0u
+                        ? attention_exp(sink_values[head] - max_score)
+                        : 0.0;
+                    for (uint key = first_key; key <= last_key; ++key) {
+                        if (use_cache ? cached_key_visible(key - first_key) : key_is_visible(batch, head, query, key)) {
+                            float e = attention_exp((use_cache ? key_probability[key - first_key]
+                                : score(batch, head, query, key)) - max_score);
+                            if (use_cache) key_probability[key - first_key] = e;
+                            precise_exp_sum += e;
+                        }
+                    }
+                    exp_sum = precise_exp_sum;
+                } else {
+                    exp_sum = pc.has_sink != 0u ? exp(sink_values[head] - max_score) : 0.0;
+                    for (uint key = first_key; key <= last_key; ++key) {
+                        if (use_cache ? cached_key_visible(key - first_key) : key_is_visible(batch, head, query, key)) {
+                            float e = exp((use_cache ? key_probability[key - first_key]
+                                : score(batch, head, query, key)) - max_score);
+                            if (use_cache) key_probability[key - first_key] = e;
+                            exp_sum += e;
+                        }
+                    }
+                }
+                float inv_sum = attention_reciprocal(exp_sum);
+                float softmax_dot = 0.0;
+                precise float deterministic_softmax_dot = 0.0;
+                precise float kv_softmax_dot = 0.0;
+                uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+                for (uint key = first_key; key <= last_key; ++key) {
+                    uint key_row = batch * pc.key_value_seq_len + key;
+                    if (!(use_cache ? cached_key_visible(key - first_key) : key_is_visible(batch, head, query, key))) continue;
+                    uint v_base = key_row * pc.value_hidden_size + kv_head * value_head_dim;
+                    float dp = 0.0;
+                    if (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u) {
+                        precise float unfused_dp = 0.0;
+                        for (uint d = 0; d < value_head_dim; ++d) {
+                            precise float scaled_value = v_values[v_base + d] * pc.value_scale;
+                            precise float product = grad_output[grad_out_base + d] * scaled_value;
+                            unfused_dp += product;
+                        }
+                        dp = unfused_dp;
+                    } else {
+                        for (uint d = 0; d < value_head_dim; ++d) {
+                            dp = fma(
+                                grad_output[grad_out_base + d],
+                                v_values[v_base + d] * pc.value_scale,
+                                dp
+                            );
+                        }
+                    }
+                    float dropout = dropout_scale(batch, head, query, key);
+                    float p = use_cache ? key_probability[key - first_key] * inv_sum
+                        : probability(batch, head, query, key, max_score, inv_sum);
+                    if (use_cache) {
+                        key_probability[key - first_key] = p;
+                        key_dp[key - first_key] = dp;
+                    }
+                    if (cache_stats) {
+                        precise float weighted_dp = p * dp;
+                        kv_softmax_dot += weighted_dp * dropout;
+                    }
+                    if (pc.unfused_qk == 2u || pc.unfused_qk == 3u) {
+                        deterministic_softmax_dot += p * dp * dropout;
+                    } else {
+                        softmax_dot += p * dp * dropout;
+                    }
+                }
+                if (pc.unfused_qk == 2u || pc.unfused_qk == 3u) {
+                    softmax_dot = deterministic_softmax_dot;
+                }
+                if (cache_stats) {
+                    row_max[stats_index] = max_score;
+                    row_inverse[stats_index] = inv_sum;
+                    row_softmax_dot[stats_index] = kv_softmax_dot;
+                }
+                if (pc.has_sink != 0u) {
+                    float sink_probability = attention_exp(sink_values[head] - max_score) * inv_sum;
+                    grad_sink[head] -= sink_probability * softmax_dot;
+                }
+
+                uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+                for (uint key = first_key; key <= last_key; ++key) {
+                    uint key_row = batch * pc.key_value_seq_len + key;
+                    if (!(use_cache ? cached_key_visible(key - first_key) : key_is_visible(batch, head, query, key))) continue;
+                    uint k_base = key_row * key_hidden_size + kv_head * qk_head_dim;
+                    uint v_base = key_row * pc.value_hidden_size + kv_head * value_head_dim;
+                    float dp = 0.0;
+                    if (use_cache) {
+                        dp = key_dp[key - first_key];
+                    } else if (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u) {
+                        precise float unfused_dp = 0.0;
+                        for (uint d = 0; d < value_head_dim; ++d) {
+                            precise float scaled_value = v_values[v_base + d] * pc.value_scale;
+                            precise float product = grad_output[grad_out_base + d] * scaled_value;
+                            unfused_dp += product;
+                        }
+                        dp = unfused_dp;
+                    } else {
+                        for (uint d = 0; d < value_head_dim; ++d) {
+                            dp = fma(
+                                grad_output[grad_out_base + d],
+                                v_values[v_base + d] * pc.value_scale,
+                                dp
+                            );
+                        }
+                    }
+                    float p = use_cache ? key_probability[key - first_key]
+                        : probability(batch, head, query, key, max_score, inv_sum);
+                    float dropout = dropout_scale(batch, head, query, key);
+                    float ds = p * (dp * dropout - softmax_dot);
+                    float softcap_derivative = score_derivative(batch, head, query, key);
+                    if (pc.relative_bias_mode == 1u) {
+                        uint bucket = t5_relative_position_bucket(query, key);
+                        grad_relative_bias[bucket * pc.num_heads + head] += softcap_derivative * ds;
+                    }
+                    if (pc.unfused_qk == 0u || pc.unfused_qk == 3u) {
+                        for (uint d = 0; d < value_head_dim; ++d) {
+                            if (pc.unfused_qk == 3u) {
+                                // The preserved MiniMax-M2 passing trace is
+                                // closer to the CPU matmul adjoint when the
+                                // probability/output product is accumulated as
+                                // an explicit FMA. Keep this isolated from the
+                                // Gemma4 two-stage repeated-head path.
+                                precise float probability_scale = p * dropout;
+                                probability_scale = probability_scale * pc.value_scale;
+                                grad_v[v_base + d] = fma(
+                                    probability_scale,
+                                    grad_output[grad_out_base + d],
+                                    grad_v[v_base + d]
+                                );
+                            } else {
+                                grad_v[v_base + d] += p * dropout * grad_output[grad_out_base + d] * pc.value_scale;
+                            }
+                        }
+                    }
+                    for (uint d = 0; d < qk_head_dim; ++d) {
+                        if (pc.unfused_qk == 2u) {
+                            float scaled_ds = pc.scale * softcap_derivative * ds;
+                            grad_q[q_base + d] += scaled_ds * k_values[k_base + d];
+                        } else if (pc.unfused_qk == 3u || pc.unfused_qk == 9u) {
+                            precise float score_scale = pc.scale * softcap_derivative;
+                            score_scale = score_scale * ds;
+                            precise float contribution = score_scale * k_values[k_base + d];
+                            grad_q[q_base + d] += contribution;
+                        } else {
+                            grad_q[q_base + d] += pc.scale * softcap_derivative * ds * k_values[k_base + d];
+                        }
+                        if (pc.unfused_qk == 0u || pc.unfused_qk == 3u) {
+                            if (pc.unfused_qk == 3u) {
+                            precise float score_scale = pc.scale * softcap_derivative;
+                            score_scale = score_scale * ds;
+                            precise float contribution = score_scale * q_values[q_base + d];
+                            grad_k[k_base + d] += contribution;
+                        } else {
+                            grad_k[k_base + d] += pc.scale * softcap_derivative * ds * q_values[q_base + d];
+                        }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    }
+
+    if (pc.unfused_qk == 1u || pc.unfused_qk == 2u || pc.unfused_qk == 9u) {
+        // The strict adjoint still reduces queries from zero for each repeated
+        // head, then sums completed heads. Move independent channels inside
+        // those loops so each (query, key) score/dp is evaluated once. Reusing
+        // row statistics removes the former full-softmax replay per key and
+        // channel. Every element retains its original FP32 reduction order.
+        // The strict adjoint reuses the row statistics the primary pass recorded.
+        // Only the accumulators are bounded by HEAD_CACHE_SIZE, and each output
+        // element accumulates independently, so the head dimension is processed in
+        // windows here instead of bounding the whole path: a head dimension above the
+        // cache bound otherwise fell through to a replay that recomputed every
+        // d-independent statistic once per head-dimension element.
+        // The cached-statistics adjoint reads the row statistics the owner block
+        // recorded, so it is only valid unsplit; a split run takes the streaming
+        // adjoint below, which recomputes what it needs from the key range it owns.
+        if (cache_stats && !split_active) {
+            uint max_head_dim = max(qk_head_dim, value_head_dim);
+            for (uint batch = first_batch; batch < last_batch; ++batch) {
+                for (uint key = split_begin; key < split_end; ++key) {
+                    uint key_row = batch * pc.key_value_seq_len + key;
+                    uint k_base = key_row * key_hidden_size + kv_head * qk_head_dim;
+                    uint v_base = key_row * pc.value_hidden_size + kv_head * value_head_dim;
+                    for (uint d_base = 0u; d_base < max_head_dim; d_base += HEAD_CACHE_SIZE) {
+                    uint window = min(HEAD_CACHE_SIZE, max_head_dim - d_base);
+                    uint k_window = d_base < qk_head_dim ? min(window, qk_head_dim - d_base) : 0u;
+                    uint v_window = d_base < value_head_dim ? min(window, value_head_dim - d_base) : 0u;
+                        for (uint d = 0u; d < window; ++d) {
+                            shared_k_cache[d] = 0.0;
+                            shared_v_cache[d] = 0.0;
+                        }
+                        for (uint head = first_head; head < last_head; ++head) {
+                            for (uint d = 0u; d < window; ++d) {
+                                head_k_cache[d] = 0.0;
+                                head_v_cache[d] = 0.0;
+                            }
+                            for (uint query = 0u; query < pc.query_seq_len; ++query) {
+                                uint stats_index = ((batch - first_batch) * queries_per_kv + head - first_head)
+                                    * pc.query_seq_len + query;
+                                float inv_sum = row_inverse[stats_index];
+                                if (inv_sum == 0.0) continue;
+                                uint absolute_query = pc.query_position_offset + query;
+                                uint first_key = 0u;
+                                uint last_key = pc.key_value_seq_len - 1u;
+                                if (pc.compressed_key_count == 0u && pc.causal != 0u && !h1_fully_masked(batch,query)) {
+                                    last_key = min(absolute_query, pc.key_value_seq_len - 1u);
+                                }
+                                if (pc.compressed_key_count == 0u && pc.window_size != 0u) {
+                                    if (pc.causal != 0u) {
+                                        first_key = absolute_query + 1u > pc.window_size
+                                            ? absolute_query + 1u - pc.window_size : 0u;
+                                    } else {
+                                        first_key = absolute_query > pc.window_size ? absolute_query - pc.window_size : 0u;
+                                        uint right = min(pc.window_size, pc.key_value_seq_len - 1u - absolute_query);
+                                        last_key = absolute_query + right;
+                                    }
+                                }
+                                if (key < first_key || key > last_key || !key_is_visible(batch, head, query, key)) continue;
+                                uint query_row = batch * pc.query_seq_len + query;
+                                uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+                                precise float dp = 0.0;
+                                for (uint d = 0u; d < value_head_dim; ++d) {
+                                    precise float scaled_value = v_values[v_base + d] * pc.value_scale;
+                                    precise float product = grad_output[grad_out_base + d] * scaled_value;
+                                    dp += product;
+                                }
+                                float p = probability(batch, head, query, key, row_max[stats_index], inv_sum);
+                                float dropout = dropout_scale(batch, head, query, key);
+                                precise float dp_dropout = dp * dropout;
+                                precise float softmax_delta = dp_dropout - row_softmax_dot[stats_index];
+                                precise float ds = p * softmax_delta;
+                                float softcap_derivative = score_derivative(batch, head, query, key);
+                                uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+                                for (uint d = 0u; d < k_window; ++d) {
+                                    precise float scaled_ds = pc.scale * softcap_derivative;
+                                    scaled_ds = scaled_ds * ds;
+                                    precise float product = scaled_ds * q_values[q_base + d_base + d];
+                                    precise float next_k = head_k_cache[d] + product;
+                                    head_k_cache[d] = next_k;
+                                }
+                                for (uint d = 0u; d < v_window; ++d) {
+                                    precise float weighted_p = p * dropout;
+                                    precise float product = weighted_p * grad_output[grad_out_base + d_base + d];
+                                    product = product * pc.value_scale;
+                                    precise float next_v = head_v_cache[d] + product;
+                                    head_v_cache[d] = next_v;
+                                }
+                            }
+                            for (uint d = 0u; d < window; ++d) {
+                                precise float next_k = shared_k_cache[d] + head_k_cache[d];
+                                precise float next_v = shared_v_cache[d] + head_v_cache[d];
+                                shared_k_cache[d] = next_k;
+                                shared_v_cache[d] = next_v;
+                            }
+                        }
+                        for (uint d = 0u; d < k_window; ++d) grad_k[k_base + d_base + d] = shared_k_cache[d];
+                        for (uint d = 0u; d < v_window; ++d) grad_v[v_base + d_base + d] = shared_v_cache[d];
+                    }
+                }
+            }
+            return;
+        }
+        // Gemma4's CPU reference forms the K/V matmul adjoint independently
+        // for every repeated query head and only then reduces those completed
+        // tensors through repeat_kv's expand backward.  Accumulating query 0..N
+        // of head 1 directly on top of head 0 changes FP32 rounding by a few
+        // ulps; its small per-head RMSNorm then amplifies that seed.  Recreate
+        // the two-stage reduction exactly: query reduction from zero per head,
+        // followed by the shared-head reduction.
+        uint max_head_dim = max(qk_head_dim, value_head_dim);
+        for (uint batch = first_batch; batch < last_batch; ++batch) {
+            for (uint key = split_begin; key < split_end; ++key) {
+                uint key_row = batch * pc.key_value_seq_len + key;
+                uint k_base = key_row * key_hidden_size + kv_head * qk_head_dim;
+                uint v_base = key_row * pc.value_hidden_size + kv_head * value_head_dim;
+                for (uint d = 0u; d < max_head_dim; ++d) {
+                    precise float shared_k = 0.0;
+                    precise float shared_v = 0.0;
+                    for (uint head = first_head; head < last_head; ++head) {
+                        precise float head_k = 0.0;
+                        precise float head_v = 0.0;
+                        for (uint query = 0u; query < pc.query_seq_len; ++query) {
+                            uint query_row = batch * pc.query_seq_len + query;
+                            if (pc.causal != 2u && query_mask[query_row] <= 0.0) {
+                                continue;
+                            }
+
+                            uint absolute_query = pc.query_position_offset + query;
+                            uint first_key = 0u;
+                            uint last_key = pc.key_value_seq_len - 1u;
+                            if (pc.compressed_key_count == 0u && pc.causal != 0u && !h1_fully_masked(batch,query)) {
+                                last_key = min(absolute_query, pc.key_value_seq_len - 1u);
+                            }
+                            if (pc.compressed_key_count == 0u && pc.window_size != 0u) {
+                                if (pc.causal != 0u) {
+                                    first_key = absolute_query + 1u > pc.window_size
+                                        ? absolute_query + 1u - pc.window_size
+                                        : 0u;
+                                } else {
+                                    first_key = absolute_query > pc.window_size ? absolute_query - pc.window_size : 0u;
+                                    uint right = min(pc.window_size, pc.key_value_seq_len - 1u - absolute_query);
+                                    last_key = absolute_query + right;
+                                }
+                            }
+                            if (key < first_key || key > last_key || !key_is_visible(batch, head, query, key)) {
+                                continue;
+                            }
+
+                            bool found = false;
+                            float max_score = -3.402823466e+38;
+                            for (uint score_key = first_key; score_key <= last_key; ++score_key) {
+                                if (!key_is_visible(batch, head, query, score_key)) continue;
+                                float s = score(batch, head, query, score_key);
+                                max_score = found ? max(max_score, s) : s;
+                                found = true;
+                            }
+                            if (!found) continue;
+                            if (pc.has_sink != 0u) {
+                                max_score = max(max_score, sink_values[head]);
+                            }
+
+                            // Keep the Gemma4 two-stage K/V reduction on the
+                            // same softmax arithmetic as the primary backward
+                            // pass above.  Falcon H1 alone selects the SLEEF /
+                            // exact-reciprocal helpers through causal=2.
+                            precise float exp_sum = pc.has_sink != 0u
+                                ? attention_exp(sink_values[head] - max_score)
+                                : 0.0;
+                            for (uint score_key = first_key; score_key <= last_key; ++score_key) {
+                                if (key_is_visible(batch, head, query, score_key)) {
+                                    exp_sum += attention_exp(
+                                        score(batch, head, query, score_key) - max_score
+                                    );
+                                }
+                            }
+                            float inv_sum = attention_reciprocal(exp_sum);
+                            uint grad_out_base =
+                                query_row * output_hidden_size + head * value_head_dim;
+                            precise float softmax_dot = 0.0;
+                            for (uint score_key = first_key; score_key <= last_key; ++score_key) {
+                                uint score_key_row = batch * pc.key_value_seq_len + score_key;
+                                if (!key_is_visible(batch, head, query, score_key)) continue;
+                                uint score_v_base =
+                                    score_key_row * pc.value_hidden_size + kv_head * value_head_dim;
+                                precise float score_dp = 0.0;
+                                for (uint value_d = 0u; value_d < value_head_dim; ++value_d) {
+                                    precise float scaled_value =
+                                        v_values[score_v_base + value_d] * pc.value_scale;
+                                    precise float product =
+                                        grad_output[grad_out_base + value_d] * scaled_value;
+                                    score_dp += product;
+                                }
+                                float score_dropout =
+                                    dropout_scale(batch, head, query, score_key);
+                                precise float weighted_dp =
+                                    probability(
+                                        batch,
+                                        head,
+                                        query,
+                                        score_key,
+                                        max_score,
+                                        inv_sum
+                                    ) * score_dp;
+                                softmax_dot += weighted_dp * score_dropout;
+                            }
+
+                            precise float dp = 0.0;
+                            for (uint value_d = 0u; value_d < value_head_dim; ++value_d) {
+                                precise float scaled_value =
+                                    v_values[v_base + value_d] * pc.value_scale;
+                                precise float product =
+                                    grad_output[grad_out_base + value_d] * scaled_value;
+                                dp += product;
+                            }
+                            float p = probability(
+                                batch,
+                                head,
+                                query,
+                                key,
+                                max_score,
+                                inv_sum
+                            );
+                            float dropout = dropout_scale(batch, head, query, key);
+                            precise float dp_dropout = dp * dropout;
+                            precise float softmax_delta = dp_dropout - softmax_dot;
+                            precise float ds = p * softmax_delta;
+                            float softcap_derivative =
+                                score_derivative(batch, head, query, key);
+                            uint q_base =
+                                query_row * pc.query_hidden_size + head * qk_head_dim;
+
+                            if (d < qk_head_dim) {
+                                precise float scaled_ds = pc.scale * softcap_derivative;
+                                scaled_ds = scaled_ds * ds;
+                                precise float product = scaled_ds * q_values[q_base + d];
+                                head_k += product;
+                            }
+                            if (d < value_head_dim) {
+                                precise float weighted_p = p * dropout;
+                                precise float product =
+                                    weighted_p * grad_output[grad_out_base + d];
+                                product = product * pc.value_scale;
+                                head_v += product;
+                            }
+                        }
+                        if (d < qk_head_dim) shared_k += head_k;
+                        if (d < value_head_dim) shared_v += head_v;
+                    }
+                    if (d < qk_head_dim) grad_k[k_base + d] = shared_k;
+                    if (d < value_head_dim) grad_v[v_base + d] = shared_v;
+                }
+            }
+        }
+    }
+}

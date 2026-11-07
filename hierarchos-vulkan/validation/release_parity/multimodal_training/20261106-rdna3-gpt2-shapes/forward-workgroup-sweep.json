@@ -1,0 +1,4182 @@
+[
+  {
+    "cases": [
+      {
+        "phase": "forward",
+        "samples": [
+          {
+            "batch_ms": 3.34952,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.26376,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.26404,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.3518,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.35116,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.26684,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.26136,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.3504,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.34824,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.25644,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.2544,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.34676,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.3484,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.25892,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.25804,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.34956,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.29144,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.13964,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.087,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.10856,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.06284,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.94304,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.90888,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.93728,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.89772,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.80096,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.77684,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.8354,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.83228,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.76452,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.76752,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.82068,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 8,
+        "median_batch_ms": {
+          "serial": 3.3191,
+          "packed": 3.19702
+        },
+        "packed_speedup": 1.038185560303032
+      },
+      {
+        "phase": "backward",
+        "samples": [
+          {
+            "batch_ms": 21.02364,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.5844,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.53016,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 18.06896,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 16.566,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.95716,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.9274,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 15.19924,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 14.40668,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.6218,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.61224,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 13.6092,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 13.08896,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.4612,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.45648,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 12.92964,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 12.92604,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.45312,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.45388,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 12.92808,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 12.93264,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.45764,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.45744,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 12.90808,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 12.90304,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.4498,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.45512,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 12.9346,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 12.93668,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.45664,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.45344,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 12.92552,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 8,
+        "median_batch_ms": {
+          "serial": 12.93564,
+          "packed": 2.45754
+        },
+        "packed_speedup": 5.263653897800239
+      },
+      {
+        "phase": "forward",
+        "samples": [
+          {
+            "batch_ms": 1.0098,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.10256,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.10056,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.01148,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.01408,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.10996,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.1156,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.03212,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.03824,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.13444,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.15204,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.0556,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.06544,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.16048,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.16432,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.0818,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.08628,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.18664,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.19004,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.10344,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.10836,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.21112,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.22264,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.13564,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.13736,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.23996,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.24464,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.15772,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.1652,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.26656,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.28132,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.18848,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 16,
+        "median_batch_ms": {
+          "serial": 1.08404,
+          "packed": 1.1754799999999999
+        },
+        "packed_speedup": 0.9222105012420458
+      },
+      {
+        "phase": "backward",
+        "samples": [
+          {
+            "batch_ms": 22.32248,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 2.07424,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 2.07796,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 22.05104,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 22.05408,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.07408,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.074,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 22.05348,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 22.04612,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.074,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.07832,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 22.05436,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 22.04728,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.085,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.08412,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 22.04612,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 22.05632,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.08768,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.07932,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 22.04992,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 22.0642,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.08144,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.08528,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 22.04936,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 22.06064,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.08884,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.08388,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 22.04748,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 22.04028,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.081,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.08228,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 22.0466,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 16,
+        "median_batch_ms": {
+          "serial": 22.05048,
+          "packed": 2.08122
+        },
+        "packed_speedup": 10.594977945628045
+      }
+    ],
+    "dispatches_per_batch": 32,
+    "order": "ABBA",
+    "outputs_word_identical": true,
+    "rounds": 8,
+    "scope": "isolated persistent-buffer kernels; timestamp queries with submit/wait fallback; not production throughput",
+    "source_sha256": "8eabdf54da001affa2959ef54503653dc023a65076fa14ab533ce08599cb7606",
+    "control_sha256": "4fb5c5630861efcbdf1a8921c9a483b9cbc9d1c1fe92f35459094c6c876884f6",
+    "forward_lanes": 2,
+    "candidate_sha256": "bf52d9b020aabec6ef61132a3531af2e388b25eb3fb4a82521af205c47f9e9fe"
+  },
+  {
+    "cases": [
+      {
+        "phase": "forward",
+        "samples": [
+          {
+            "batch_ms": 3.35524,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.20508,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.2028,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.35036,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.35012,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.20496,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.20228,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.34832,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.34856,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.20176,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.20368,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.35304,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.34908,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.20236,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.20116,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.35068,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.3452,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.1962,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.19956,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.34988,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.35404,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 3.20572,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 3.20356,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 3.34788,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 3.34812,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 3.20336,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 3.188,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 3.30276,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 3.27008,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 3.08892,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 3.05152,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 3.13724,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 8,
+        "median_batch_ms": {
+          "serial": 3.34882,
+          "packed": 3.2023200000000003
+        },
+        "packed_speedup": 1.0457480826400858
+      },
+      {
+        "phase": "backward",
+        "samples": [
+          {
+            "batch_ms": 20.56032,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.53492,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.46092,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 17.78416,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 16.32556,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.9242,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.8896,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 15.02344,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 14.21872,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.59592,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.58396,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 13.70087,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 12.99824,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.45444,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.45232,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 12.92664,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 12.92412,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.45548,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.45492,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 12.92376,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 12.92432,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.45728,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.45472,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 12.92972,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 12.92284,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.45384,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.45648,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 12.9258,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 12.9268,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.45248,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.45424,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 12.92408,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 8,
+        "median_batch_ms": {
+          "serial": 12.92826,
+          "packed": 2.4559800000000003
+        },
+        "packed_speedup": 5.263992377788092
+      },
+      {
+        "phase": "forward",
+        "samples": [
+          {
+            "batch_ms": 1.00996,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.08228,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.08324,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.02372,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.02888,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.0964,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.10228,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.04928,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.05336,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.12652,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.13664,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.07104,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.08104,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.16052,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.16624,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.10168,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.11228,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.1878,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.19004,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.13636,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.14504,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.21992,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.23384,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.16964,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.18068,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.25876,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.27048,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.20896,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.22144,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.30672,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.31516,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.25512,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 16,
+        "median_batch_ms": {
+          "serial": 1.10698,
+          "packed": 1.17702
+        },
+        "packed_speedup": 0.9404937894003501
+      },
+      {
+        "phase": "backward",
+        "samples": [
+          {
+            "batch_ms": 23.0018,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 2.07692,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 2.0768,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 22.048,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 22.15308,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.07508,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.09032,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 22.1814,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 22.22556,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.07384,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.08344,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 22.29588,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 22.12704,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.07796,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.07888,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 22.26392,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 22.13532,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.078,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.09144,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 22.25252,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 22.07112,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.07316,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.07948,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 22.13288,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 22.17656,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.19776,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.08128,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 22.26492,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 22.14304,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.07356,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.07832,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 22.12656,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 16,
+        "median_batch_ms": {
+          "serial": 22.16482,
+          "packed": 2.07816
+        },
+        "packed_speedup": 10.665598413981598
+      }
+    ],
+    "dispatches_per_batch": 32,
+    "order": "ABBA",
+    "outputs_word_identical": true,
+    "rounds": 8,
+    "scope": "isolated persistent-buffer kernels; timestamp queries with submit/wait fallback; not production throughput",
+    "source_sha256": "8eabdf54da001affa2959ef54503653dc023a65076fa14ab533ce08599cb7606",
+    "control_sha256": "4fb5c5630861efcbdf1a8921c9a483b9cbc9d1c1fe92f35459094c6c876884f6",
+    "forward_lanes": 4,
+    "candidate_sha256": "433d436a5ebe4907e1f0b9c4f407d9e3606726443a1cf524f7e9e070ce0ecf7a"
+  },
+  {
+    "cases": [
+      {
+        "phase": "forward",
+        "samples": [
+          {
+            "batch_ms": 3.34968,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.11684,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.11536,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.35076,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.35472,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.11844,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.11852,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.35312,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.3538,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.11784,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.11824,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.35368,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.35404,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.1156,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.11668,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.35032,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.35176,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.12016,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.25931,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.245,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.17104,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.88528,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.8286,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.995,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.95516,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.71556,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.68368,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.84156,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.81584,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.60988,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.59536,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.77128,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 8,
+        "median_batch_ms": {
+          "serial": 3.35,
+          "packed": 3.11614
+        },
+        "packed_speedup": 1.0750479760216165
+      },
+      {
+        "phase": "backward",
+        "samples": [
+          {
+            "batch_ms": 20.75068,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.56156,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.49576,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 17.93444,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 16.47492,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.94916,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.90816,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 15.16084,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 14.40636,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.61548,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.60684,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 13.6078,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 13.11488,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.4574,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.454,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 15.61796,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 15.02252,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.45432,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.46004,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 15.62624,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 16.30952,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.4478,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.47308,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 17.186,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 16.74752,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.47092,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.45328,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 17.69852,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 17.40752,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.47836,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.46648,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 15.24568,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 8,
+        "median_batch_ms": {
+          "serial": 15.96788,
+          "packed": 2.472
+        },
+        "packed_speedup": 6.459498381877022
+      },
+      {
+        "phase": "forward",
+        "samples": [
+          {
+            "batch_ms": 1.0294,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.08548,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.09568,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.0576,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.06184,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.10972,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.12548,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.0772,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.09236,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.15156,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.1516,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.10864,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.1092,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.16784,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.17468,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.13512,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.13836,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.1928,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.19848,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.16092,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.16832,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.22892,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.23704,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.19348,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.20248,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.2632,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.26888,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.22628,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.23432,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.2974,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.30784,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.26216,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 16,
+        "median_batch_ms": {
+          "serial": 1.13674,
+          "packed": 1.18374
+        },
+        "packed_speedup": 0.9602953351242672
+      },
+      {
+        "phase": "backward",
+        "samples": [
+          {
+            "batch_ms": 23.54428,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 2.06752,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 2.06768,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 22.30264,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 22.22192,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.07548,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.08592,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 22.19352,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 22.19508,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.07188,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.08668,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 22.28076,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 22.27036,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.07664,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.07896,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 22.23004,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 22.08168,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.09164,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.08668,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 22.35824,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 22.05516,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.07552,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.07536,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 22.25368,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 22.36711,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.07928,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.08164,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 22.25152,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 22.27256,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.07936,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.08236,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 22.28728,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 16,
+        "median_batch_ms": {
+          "serial": 22.26202,
+          "packed": 2.0791199999999996
+        },
+        "packed_speedup": 10.707424294893995
+      }
+    ],
+    "dispatches_per_batch": 32,
+    "order": "ABBA",
+    "outputs_word_identical": true,
+    "rounds": 8,
+    "scope": "isolated persistent-buffer kernels; timestamp queries with submit/wait fallback; not production throughput",
+    "source_sha256": "8eabdf54da001affa2959ef54503653dc023a65076fa14ab533ce08599cb7606",
+    "control_sha256": "4fb5c5630861efcbdf1a8921c9a483b9cbc9d1c1fe92f35459094c6c876884f6",
+    "forward_lanes": 8,
+    "candidate_sha256": "ca245052887772b3338d2187b22ae3486aff24fbea0d6a6817480dbc88227384"
+  },
+  {
+    "cases": [
+      {
+        "phase": "forward",
+        "samples": [
+          {
+            "batch_ms": 3.35532,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.12336,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.12276,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.35056,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.349,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.12316,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.12164,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.35156,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.34808,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.1226,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.1224,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.34732,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.34632,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.12116,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.12072,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.35172,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.34912,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.12148,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.11996,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.30156,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.22852,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.96824,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.92512,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 3.08704,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 3.04556,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.81912,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.78976,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.96704,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.94068,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.7278,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.7144,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.88632,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 8,
+        "median_batch_ms": {
+          "serial": 3.34682,
+          "packed": 3.12094
+        },
+        "packed_speedup": 1.0723756304190404
+      },
+      {
+        "phase": "backward",
+        "samples": [
+          {
+            "batch_ms": 20.80232,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.55652,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.51136,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 18.04084,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 16.57004,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.96128,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.91724,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 15.17432,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 14.37576,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.61672,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.58596,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 13.5312,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 13.05044,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.464,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.47296,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 15.08068,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 17.29068,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.44908,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.44672,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 17.3748,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 17.21528,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.46748,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.45272,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 17.33184,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 17.59456,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.45304,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.45356,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 16.99384,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 17.32372,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 3.63696,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 3.14136,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 16.66328,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 8,
+        "median_batch_ms": {
+          "serial": 17.10456,
+          "packed": 2.5294600000000003
+        },
+        "packed_speedup": 6.76213895455947
+      },
+      {
+        "phase": "forward",
+        "samples": [
+          {
+            "batch_ms": 1.0366,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.16876,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.18208,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.04836,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.0618,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.19724,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.20876,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.07728,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.09028,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.23492,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.2394,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.10496,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.11424,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.25392,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.26204,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.13036,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.14084,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.27984,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.2886,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.15448,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.16316,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.30648,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.31716,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.17856,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.19376,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.34088,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.35312,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.2258,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.24184,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.46268,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.43268,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.31328,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 16,
+        "median_batch_ms": {
+          "serial": 1.1356000000000002,
+          "packed": 1.27094
+        },
+        "packed_speedup": 0.8935118888381829
+      },
+      {
+        "phase": "backward",
+        "samples": [
+          {
+            "batch_ms": 24.71216,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 2.15668,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 2.141,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 22.65104,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 22.21048,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.06908,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.07496,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 22.31228,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 22.21632,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.08752,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.07684,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 22.28652,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 22.22204,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.07512,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.08156,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 22.21756,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 22.05608,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.06864,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.08,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 22.23112,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 22.132,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.0712,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.07388,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 22.23972,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 22.11756,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.06948,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.07656,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 23.19632,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 22.00316,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.0882,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.07944,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 22.21784,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 16,
+        "median_batch_ms": {
+          "serial": 22.21994,
+          "packed": 2.0766999999999998
+        },
+        "packed_speedup": 10.699638850098715
+      }
+    ],
+    "dispatches_per_batch": 32,
+    "order": "ABBA",
+    "outputs_word_identical": true,
+    "rounds": 8,
+    "scope": "isolated persistent-buffer kernels; timestamp queries with submit/wait fallback; not production throughput",
+    "source_sha256": "8eabdf54da001affa2959ef54503653dc023a65076fa14ab533ce08599cb7606",
+    "control_sha256": "4fb5c5630861efcbdf1a8921c9a483b9cbc9d1c1fe92f35459094c6c876884f6",
+    "forward_lanes": 16,
+    "candidate_sha256": "92ef7b21b353b336f4fd36491ad894c3d9ecbfde2cf53a7d02f2d18e219cd7ee"
+  },
+  {
+    "cases": [
+      {
+        "phase": "forward",
+        "samples": [
+          {
+            "batch_ms": 3.35272,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.14892,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.14904,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.35356,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.3542,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.15168,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.14948,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.35244,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.35164,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.14676,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.14956,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.35188,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.34868,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.14656,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.14584,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.35152,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.351,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.14712,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.103,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.25604,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.19964,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.95992,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.92016,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 3.06684,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 3.02488,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.80864,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.78104,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.91684,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.88864,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.696,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.67576,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.81532,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 8,
+        "median_batch_ms": {
+          "serial": 3.34984,
+          "packed": 3.1462000000000003
+        },
+        "packed_speedup": 1.0647257008454643
+      },
+      {
+        "phase": "backward",
+        "samples": [
+          {
+            "batch_ms": 20.94576,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.581,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.52744,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 17.99132,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 16.477,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.94464,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.91648,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 15.25596,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 14.53572,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.63724,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.61924,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 13.71284,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 13.15796,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.46324,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.46144,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 15.584,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 16.86792,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.46992,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.45184,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 14.64108,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 14.87276,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.47064,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.45656,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 17.30636,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 16.53856,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.46368,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.45864,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 15.97276,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 17.14036,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.54172,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.4592,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 17.67672,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 8,
+        "median_batch_ms": {
+          "serial": 16.22488,
+          "packed": 2.47028
+        },
+        "packed_speedup": 6.568032773612708
+      },
+      {
+        "phase": "forward",
+        "samples": [
+          {
+            "batch_ms": 1.019,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.16064,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.1586,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.02304,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.03756,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.17836,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.18388,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.04972,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.0648,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.20604,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.23456,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.08084,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.09456,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.24268,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.24748,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.12176,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.18336,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.3006,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.32212,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.19444,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.21416,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.37428,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.38952,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.2566,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.26996,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.43284,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.4552,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.312,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.32032,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.48312,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.49792,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.35664,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 16,
+        "median_batch_ms": {
+          "serial": 1.15256,
+          "packed": 1.2740399999999998
+        },
+        "packed_speedup": 0.9046497755172523
+      },
+      {
+        "phase": "backward",
+        "samples": [
+          {
+            "batch_ms": 25.02408,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 2.173,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 2.16056,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 22.90412,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 22.19952,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.07552,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.08036,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 22.21224,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 22.19132,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.07568,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.07952,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 22.20076,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 22.11708,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.08128,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.08596,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 22.19828,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 22.19228,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.07904,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.08388,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 22.1704,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 22.1898,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.09084,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.0766,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 22.19432,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 22.19136,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.07732,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.087,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 22.12636,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 22.0722,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.07464,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.0754,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 22.24028,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 16,
+        "median_batch_ms": {
+          "serial": 22.1933,
+          "packed": 2.07994
+        },
+        "packed_speedup": 10.670163562410455
+      }
+    ],
+    "dispatches_per_batch": 32,
+    "order": "ABBA",
+    "outputs_word_identical": true,
+    "rounds": 8,
+    "scope": "isolated persistent-buffer kernels; timestamp queries with submit/wait fallback; not production throughput",
+    "source_sha256": "8eabdf54da001affa2959ef54503653dc023a65076fa14ab533ce08599cb7606",
+    "control_sha256": "4fb5c5630861efcbdf1a8921c9a483b9cbc9d1c1fe92f35459094c6c876884f6",
+    "forward_lanes": 32,
+    "candidate_sha256": "d412421b0902f12b96eb26026359bf6d139a0b6e89f13dc264c55e94cc516eb1"
+  },
+  {
+    "cases": [
+      {
+        "phase": "forward",
+        "samples": [
+          {
+            "batch_ms": 3.3486,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.90096,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.90296,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.34844,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.34472,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.90164,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.90296,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.3474,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.34672,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.9028,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.90252,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.3512,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 3.34388,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.81616,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.70856,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.09848,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 3.03732,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.45296,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.36796,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.822,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.78216,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 3.421,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 3.16376,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.64052,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.59756,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 3.01392,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 3.00292,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.5682,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.58656,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 3.08404,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 3.1068,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.6656,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 8,
+        "median_batch_ms": {
+          "serial": 3.0679,
+          "packed": 3.5807599999999997
+        },
+        "packed_speedup": 0.8567734224019482
+      },
+      {
+        "phase": "backward",
+        "samples": [
+          {
+            "batch_ms": 25.57468,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.86496,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 3.81364,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 23.16936,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 21.11928,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.11836,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 3.16064,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 19.66316,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 18.32172,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.72084,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.7236,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 18.33556,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 17.60512,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.45436,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.46724,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 14.24276,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 15.07132,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.44864,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 3.01844,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 16.62972,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 16.93808,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.44804,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.47472,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 17.18664,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 16.4014,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.45324,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.47548,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 16.99944,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 16.9484,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.44776,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.45652,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 16.48032,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 8,
+        "median_batch_ms": {
+          "serial": 17.093040000000002,
+          "packed": 2.4751000000000003
+        },
+        "packed_speedup": 6.905999757585552
+      },
+      {
+        "phase": "forward",
+        "samples": [
+          {
+            "batch_ms": 1.01776,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.2492,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.28448,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.05204,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 1.06196,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.31436,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.34068,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.11492,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 1.12836,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.3936,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.41252,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.18816,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 1.21108,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.48916,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.51072,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.27896,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 1.30872,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.5838,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.60988,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.353,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 1.36568,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.65288,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.66608,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.40468,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 1.4184,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.70944,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.74196,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.45584,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 1.46724,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.76216,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.76992,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 1.49496,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 16,
+        "median_batch_ms": {
+          "serial": 1.29384,
+          "packed": 1.54726
+        },
+        "packed_speedup": 0.8362136938846736
+      },
+      {
+        "phase": "backward",
+        "samples": [
+          {
+            "batch_ms": 24.48684,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 2.142,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 2.12296,
+            "mode": "packed",
+            "round": 0
+          },
+          {
+            "batch_ms": 22.15328,
+            "mode": "serial",
+            "round": 0
+          },
+          {
+            "batch_ms": 22.00436,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.075,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 2.0806,
+            "mode": "packed",
+            "round": 1
+          },
+          {
+            "batch_ms": 22.05888,
+            "mode": "serial",
+            "round": 1
+          },
+          {
+            "batch_ms": 22.0534,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.0802,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 2.08744,
+            "mode": "packed",
+            "round": 2
+          },
+          {
+            "batch_ms": 22.04484,
+            "mode": "serial",
+            "round": 2
+          },
+          {
+            "batch_ms": 22.04236,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.0798,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 2.0792,
+            "mode": "packed",
+            "round": 3
+          },
+          {
+            "batch_ms": 22.03812,
+            "mode": "serial",
+            "round": 3
+          },
+          {
+            "batch_ms": 22.1512,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.0802,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 2.08052,
+            "mode": "packed",
+            "round": 4
+          },
+          {
+            "batch_ms": 22.10364,
+            "mode": "serial",
+            "round": 4
+          },
+          {
+            "batch_ms": 22.08392,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.07952,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 2.07628,
+            "mode": "packed",
+            "round": 5
+          },
+          {
+            "batch_ms": 22.0526,
+            "mode": "serial",
+            "round": 5
+          },
+          {
+            "batch_ms": 22.04428,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.07336,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 2.07592,
+            "mode": "packed",
+            "round": 6
+          },
+          {
+            "batch_ms": 22.04184,
+            "mode": "serial",
+            "round": 6
+          },
+          {
+            "batch_ms": 22.05492,
+            "mode": "serial",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.07512,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 2.0748,
+            "mode": "packed",
+            "round": 7
+          },
+          {
+            "batch_ms": 22.0454,
+            "mode": "serial",
+            "round": 7
+          }
+        ],
+        "sequence": 16,
+        "median_batch_ms": {
+          "serial": 22.053,
+          "packed": 2.07966
+        },
+        "packed_speedup": 10.604137214737024
+      }
+    ],
+    "dispatches_per_batch": 32,
+    "order": "ABBA",
+    "outputs_word_identical": true,
+    "rounds": 8,
+    "scope": "isolated persistent-buffer kernels; timestamp queries with submit/wait fallback; not production throughput",
+    "source_sha256": "8eabdf54da001affa2959ef54503653dc023a65076fa14ab533ce08599cb7606",
+    "control_sha256": "4fb5c5630861efcbdf1a8921c9a483b9cbc9d1c1fe92f35459094c6c876884f6"
+  }
+]

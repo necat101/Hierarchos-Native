@@ -861,7 +861,10 @@ impl ModelPackage {
         let entry = self.entry(name)?;
         let raw = self.read_rows(name, first_row, rows)?;
         self.ledger.decoded_bytes = self.ledger.decoded_bytes.saturating_add(raw.len() as u64);
-        self.ledger.max_f32_request_bytes = self.ledger.max_f32_request_bytes.max((raw.len() / entry.dtype.item_bytes() * 4) as u64);
+        self.ledger.max_f32_request_bytes = self
+            .ledger
+            .max_f32_request_bytes
+            .max((raw.len() / entry.dtype.item_bytes() * 4) as u64);
         Self::decode_f32(entry.dtype, &raw)
     }
 
@@ -989,7 +992,10 @@ impl ModelPackage {
         if rows > total_rows {
             bail!("tensor {name} has {total_rows} rows; cannot materialize a {rows}-row prefix");
         }
-        self.ledger.max_f32_request_bytes = self.ledger.max_f32_request_bytes.max(rows.saturating_mul(entry.shape[1]).saturating_mul(4) as u64);
+        self.ledger.max_f32_request_bytes = self
+            .ledger
+            .max_f32_request_bytes
+            .max(rows.saturating_mul(entry.shape[1]).saturating_mul(4) as u64);
         let row_bytes = entry.row_bytes()?;
         let tile_rows = (self.tile_bytes / row_bytes.max(1) as u64).max(1) as usize;
         let mut values = Vec::new();
@@ -1044,20 +1050,29 @@ impl ModelPackage {
                 header.path.display()
             );
         }
-        if self.files.get(&header.path).is_none_or(|(old, _)| !Arc::ptr_eq(old, &header)) {
+        if self
+            .files
+            .get(&header.path)
+            .is_none_or(|(old, _)| !Arc::ptr_eq(old, &header))
+        {
             let file = File::open(&header.path)
                 .with_context(|| format!("opening {}", header.path.display()))?;
-            self.files.insert(header.path.clone(), (Arc::clone(&header), file));
+            self.files
+                .insert(header.path.clone(), (Arc::clone(&header), file));
             self.ledger.payload_file_opens += 1;
         }
-        let file = &mut self.files.get_mut(&header.path).expect("shard handle inserted").1;
+        let file = &mut self
+            .files
+            .get_mut(&header.path)
+            .expect("shard handle inserted")
+            .1;
         file.seek(SeekFrom::Start(absolute))?;
         let mut buffer = vec![0u8; length];
         file.read_exact(&mut buffer)?;
         self.ledger.payload_bytes_read =
             self.ledger.payload_bytes_read.saturating_add(length as u64);
         self.ledger.payload_reads += 1;
-        self.ledger.max_payload_read_bytes=self.ledger.max_payload_read_bytes.max(length as u64);
+        self.ledger.max_payload_read_bytes = self.ledger.max_payload_read_bytes.max(length as u64);
         Ok(buffer)
     }
 
@@ -1259,7 +1274,10 @@ impl ModelPackage {
     pub fn read_f32(&mut self, name: &str) -> Result<(Vec<usize>, Vec<f32>)> {
         let (dtype, shape, raw) = self.read_payload(name)?;
         self.ledger.decoded_bytes = self.ledger.decoded_bytes.saturating_add(raw.len() as u64);
-        self.ledger.max_f32_request_bytes = self.ledger.max_f32_request_bytes.max((raw.len() / dtype.item_bytes() * 4) as u64);
+        self.ledger.max_f32_request_bytes = self
+            .ledger
+            .max_f32_request_bytes
+            .max((raw.len() / dtype.item_bytes() * 4) as u64);
         Ok((shape, Self::decode_f32(dtype, &raw)?))
     }
 }
@@ -1279,8 +1297,10 @@ fn extend_f32_values_from_le_bytes(out: &mut Vec<f32>, raw: &[u8]) {
         out.extend_from_slice(values);
         return;
     }
-    out.extend(raw.chunks_exact(4)
-        .map(|word| f32::from_le_bytes([word[0], word[1], word[2], word[3]])));
+    out.extend(
+        raw.chunks_exact(4)
+            .map(|word| f32::from_le_bytes([word[0], word[1], word[2], word[3]])),
+    );
 }
 
 /// IEEE-754 binary16 to binary32 widening, including subnormals and infinities.
@@ -1466,14 +1486,30 @@ mod tests {
     fn retained_payload_handles_reopen_on_change_and_reject_missing_sources() -> Result<()> {
         let dir = scratch("retained-payload-handle");
         let path = dir.join("model.safetensors");
-        write_package(&path, &[("w", TensorDtype::F32, vec![2, 2], f32_bytes(&[1.0, 2.0, 3.0, 4.0]))]);
+        write_package(
+            &path,
+            &[(
+                "w",
+                TensorDtype::F32,
+                vec![2, 2],
+                f32_bytes(&[1.0, 2.0, 3.0, 4.0]),
+            )],
+        );
         let mut reader = ModelPackage::open_file(&path)?.with_cache_bytes(0);
         assert_eq!(reader.read_f32_elements("w", 0, 2)?, [1.0, 2.0]);
         assert_eq!(reader.read_f32_elements("w", 2, 2)?, [3.0, 4.0]);
         assert_eq!(reader.ledger().payload_file_opens, 1);
         assert!(reader.ledger().entry_cache_hits > 0);
         std::thread::sleep(std::time::Duration::from_millis(2));
-        write_package(&path, &[("w", TensorDtype::F32, vec![2, 2], f32_bytes(&[5.0, 6.0, 7.0, 8.0]))]);
+        write_package(
+            &path,
+            &[(
+                "w",
+                TensorDtype::F32,
+                vec![2, 2],
+                f32_bytes(&[5.0, 6.0, 7.0, 8.0]),
+            )],
+        );
         assert_eq!(reader.read_f32_elements("w", 0, 2)?, [5.0, 6.0]);
         assert_eq!(reader.ledger().payload_file_opens, 2);
         fs::write(&path, [0u8; 3])?;
@@ -1486,73 +1522,113 @@ mod tests {
 
     #[test]
     fn flat_views_reuse_physical_tiles_without_row_geometry_collisions() -> Result<()> {
-        let dir=scratch("flat-cache");
-        let path=dir.join("model.safetensors");
-        let values=(0..24).map(|n| n as f32 * 0.125).collect::<Vec<_>>();
-        write_package(&path,&[("w",TensorDtype::F32,vec![4,4],f32_bytes(&values[..16])),
-            ("odd",TensorDtype::F32,vec![3,3],f32_bytes(&values[..9])),
-            ("packed",TensorDtype::F32,vec![2,3,4],f32_bytes(&values))]);
-        let mut package=ModelPackage::open_file(&path)?.with_tile_bytes(32).with_cache_bytes(128);
-        assert_eq!(package.read_f32_rows("w",1,1)?,values[4..8]);
-        let reads=package.ledger().payload_reads;
-        assert_eq!(package.read_f32_elements("w",4,4)?,values[4..8]);
-        assert_eq!(package.ledger().payload_reads,reads,"equal physical ranges must share a cache entry");
-        assert_eq!(package.read_f32_elements("w",8,2)?,values[8..10]);
-        let reads=package.ledger().payload_reads;
-        assert_eq!(package.read_f32_rows("w",2,2)?,values[8..16]);
-        assert_eq!(package.ledger().payload_reads,reads);
+        let dir = scratch("flat-cache");
+        let path = dir.join("model.safetensors");
+        let values = (0..24).map(|n| n as f32 * 0.125).collect::<Vec<_>>();
+        write_package(
+            &path,
+            &[
+                ("w", TensorDtype::F32, vec![4, 4], f32_bytes(&values[..16])),
+                ("odd", TensorDtype::F32, vec![3, 3], f32_bytes(&values[..9])),
+                (
+                    "packed",
+                    TensorDtype::F32,
+                    vec![2, 3, 4],
+                    f32_bytes(&values),
+                ),
+            ],
+        );
+        let mut package = ModelPackage::open_file(&path)?
+            .with_tile_bytes(32)
+            .with_cache_bytes(128);
+        assert_eq!(package.read_f32_rows("w", 1, 1)?, values[4..8]);
+        let reads = package.ledger().payload_reads;
+        assert_eq!(package.read_f32_elements("w", 4, 4)?, values[4..8]);
+        assert_eq!(
+            package.ledger().payload_reads,
+            reads,
+            "equal physical ranges must share a cache entry"
+        );
+        assert_eq!(package.read_f32_elements("w", 8, 2)?, values[8..10]);
+        let reads = package.ledger().payload_reads;
+        assert_eq!(package.read_f32_rows("w", 2, 2)?, values[8..16]);
+        assert_eq!(package.ledger().payload_reads, reads);
         // Row-aligned tiles here span 24 bytes; flat-aligned tiles span 32.
         // Their equal start offset must not turn them into the same cache key.
-        assert_eq!(package.read_f32_rows("odd",0,1)?,values[..3]);
-        assert_eq!(package.read_f32_elements("odd",5,4)?,values[5..9]);
-        assert_eq!(package.read_f32_elements("packed",7,11)?,values[7..18]);
-        assert!(package.ledger().cache_peak_bytes<=128);
-        assert!(package.read_f32_elements("packed",23,2).is_err());
+        assert_eq!(package.read_f32_rows("odd", 0, 1)?, values[..3]);
+        assert_eq!(package.read_f32_elements("odd", 5, 4)?, values[5..9]);
+        assert_eq!(package.read_f32_elements("packed", 7, 11)?, values[7..18]);
+        assert!(package.ledger().cache_peak_bytes <= 128);
+        assert!(package.read_f32_elements("packed", 23, 2).is_err());
         fs::remove_dir_all(dir)?;
         Ok(())
     }
 
     #[test]
     fn flat_cache_eviction_disabled_reads_and_finite_checks_remain_bounded() -> Result<()> {
-        let dir=scratch("flat-cache-errors");
-        let path=dir.join("model.safetensors");
-        let mut values=(0..24).map(|n| n as f32).collect::<Vec<_>>();
-        values[23]=f32::NAN;
-        write_package(&path,&[("w",TensorDtype::F32,vec![2,3,4],f32_bytes(&values))]);
-        let mut package=ModelPackage::open_file(&path)?.with_tile_bytes(16).with_cache_bytes(32);
-        assert_eq!(package.read_f32_elements("w",0,2)?,values[..2]);
-        assert_eq!(package.read_f32_elements("w",2,2)?,values[2..4]);
-        assert_eq!(package.ledger().payload_reads,1);
-        for start in [8,16,0] {assert_eq!(package.read_f32_elements("w",start,1)?,values[start..start+1]);}
-        assert!(package.ledger().tiles_evicted>=2);
+        let dir = scratch("flat-cache-errors");
+        let path = dir.join("model.safetensors");
+        let mut values = (0..24).map(|n| n as f32).collect::<Vec<_>>();
+        values[23] = f32::NAN;
+        write_package(
+            &path,
+            &[("w", TensorDtype::F32, vec![2, 3, 4], f32_bytes(&values))],
+        );
+        let mut package = ModelPackage::open_file(&path)?
+            .with_tile_bytes(16)
+            .with_cache_bytes(32);
+        assert_eq!(package.read_f32_elements("w", 0, 2)?, values[..2]);
+        assert_eq!(package.read_f32_elements("w", 2, 2)?, values[2..4]);
+        assert_eq!(package.ledger().payload_reads, 1);
+        for start in [8, 16, 0] {
+            assert_eq!(
+                package.read_f32_elements("w", start, 1)?,
+                values[start..start + 1]
+            );
+        }
+        assert!(package.ledger().tiles_evicted >= 2);
         // The prefetched tile contains a NaN outside this request. Only the
         // requested elements are decoded/validated; the NaN itself must reject.
-        assert_eq!(package.read_f32_elements("w",20,2)?,values[20..22]);
-        assert!(package.read_f32_elements("w",23,1).is_err());
-        assert!(package.ledger().cache_peak_bytes<=32);
-        let mut uncached=ModelPackage::open_file(&path)?.with_tile_bytes(16).with_cache_bytes(0);
-        for _ in 0..2 {assert_eq!(uncached.read_f32_elements("w",3,2)?,values[3..5]);}
-        assert_eq!(uncached.ledger().payload_bytes_read,16);
-        assert_eq!(uncached.ledger().cache_hits,0);
-        assert_eq!(uncached.ledger().cache_peak_bytes,0);
+        assert_eq!(package.read_f32_elements("w", 20, 2)?, values[20..22]);
+        assert!(package.read_f32_elements("w", 23, 1).is_err());
+        assert!(package.ledger().cache_peak_bytes <= 32);
+        let mut uncached = ModelPackage::open_file(&path)?
+            .with_tile_bytes(16)
+            .with_cache_bytes(0);
+        for _ in 0..2 {
+            assert_eq!(uncached.read_f32_elements("w", 3, 2)?, values[3..5]);
+        }
+        assert_eq!(uncached.ledger().payload_bytes_read, 16);
+        assert_eq!(uncached.ledger().cache_hits, 0);
+        assert_eq!(uncached.ledger().cache_peak_bytes, 0);
         fs::remove_dir_all(dir)?;
         Ok(())
     }
 
     #[test]
     fn bulk_f32_decode_preserves_bits_and_unaligned_fallback_errors() -> Result<()> {
-        let bits=[0u32,0x80000000,1,0x007fffff,0x00800000,0x3f800000,0xbf800000,0x7f7fffff];
-        let raw=bits.iter().flat_map(|n| n.to_le_bytes()).collect::<Vec<_>>();
-        let mut unaligned=vec![0u8];unaligned.extend_from_slice(&raw);
-        for bytes in [&raw[..],&unaligned[1..]] {
-            let decoded=ModelPackage::decode_f32(TensorDtype::F32,bytes)?;
-            assert_eq!(decoded.iter().map(|n|n.to_bits()).collect::<Vec<_>>(),bits);
+        let bits = [
+            0u32, 0x80000000, 1, 0x007fffff, 0x00800000, 0x3f800000, 0xbf800000, 0x7f7fffff,
+        ];
+        let raw = bits
+            .iter()
+            .flat_map(|n| n.to_le_bytes())
+            .collect::<Vec<_>>();
+        let mut unaligned = vec![0u8];
+        unaligned.extend_from_slice(&raw);
+        for bytes in [&raw[..], &unaligned[1..]] {
+            let decoded = ModelPackage::decode_f32(TensorDtype::F32, bytes)?;
+            assert_eq!(
+                decoded.iter().map(|n| n.to_bits()).collect::<Vec<_>>(),
+                bits
+            );
         }
-        for bad in [f32::INFINITY,f32::NAN,f32::NEG_INFINITY] {
-            let mut bytes=vec![0u8];bytes.extend_from_slice(&bad.to_le_bytes());
-            assert!(ModelPackage::decode_f32(TensorDtype::F32,&bytes[1..]).is_err());
+        for bad in [f32::INFINITY, f32::NAN, f32::NEG_INFINITY] {
+            let mut bytes = vec![0u8];
+            bytes.extend_from_slice(&bad.to_le_bytes());
+            assert!(ModelPackage::decode_f32(TensorDtype::F32, &bytes[1..]).is_err());
         }
-        assert!(ModelPackage::decode_f32(TensorDtype::F32,&raw[..raw.len()-1]).is_err());
+        assert!(ModelPackage::decode_f32(TensorDtype::F32, &raw[..raw.len() - 1]).is_err());
         Ok(())
     }
 
@@ -2057,15 +2133,19 @@ mod tests {
         assert_eq!(package.read_f32("a.weight")?.1, left);
         assert_eq!(package.read_f32("b.weight")?.1, right);
         assert!(package.read_f32("c.weight").is_err());
-        let shared=shared_package(&root)?;
-        assert!(Arc::ptr_eq(&shared,&shared_package(&root)?));
-        let mut reader=shared.lock().unwrap();
-        assert_eq!(reader.read_f32_elements("a.weight",0,32)?,left);
-        assert_eq!(reader.read_f32_elements("b.weight",0,32)?,right);
-        let reads=reader.ledger().payload_reads;
-        assert_eq!(reader.read_f32_elements("a.weight",0,32)?,left);
-        assert_eq!(reader.ledger().payload_reads,reads,"one reader/cache must serve both shards");
-        assert_eq!(reader.ledger().cache_peak_bytes,256);
+        let shared = shared_package(&root)?;
+        assert!(Arc::ptr_eq(&shared, &shared_package(&root)?));
+        let mut reader = shared.lock().unwrap();
+        assert_eq!(reader.read_f32_elements("a.weight", 0, 32)?, left);
+        assert_eq!(reader.read_f32_elements("b.weight", 0, 32)?, right);
+        let reads = reader.ledger().payload_reads;
+        assert_eq!(reader.read_f32_elements("a.weight", 0, 32)?, left);
+        assert_eq!(
+            reader.ledger().payload_reads,
+            reads,
+            "one reader/cache must serve both shards"
+        );
+        assert_eq!(reader.ledger().cache_peak_bytes, 256);
         Ok(())
     }
 

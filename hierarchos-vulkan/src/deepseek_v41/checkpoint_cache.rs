@@ -54,7 +54,9 @@ impl Default for PayloadCache {
     }
 }
 impl PayloadCache {
-    pub fn record_identity_check(&mut self) { self.stats.identity_checks += 1; }
+    pub fn record_identity_check(&mut self) {
+        self.stats.identity_checks += 1;
+    }
     pub fn enable(&mut self) {
         self.stats.capacity_bytes = DEFAULT_BYTES;
     }

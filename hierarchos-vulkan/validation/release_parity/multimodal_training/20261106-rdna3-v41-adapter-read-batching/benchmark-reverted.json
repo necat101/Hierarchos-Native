@@ -1,0 +1,188 @@
+{
+  "schema": 1,
+  "pass": true,
+  "gate": {
+    "max_abs": 2e-07,
+    "rtol": 0,
+    "observed_max_abs": 0.0
+  },
+  "digests_identical": true,
+  "order": "ABBA",
+  "rounds": 4,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "binary_sha256": "f621203e43ceb07d1f273c13c4cc40111d12b9931102c078d61fb292f1ea61de",
+  "results": [
+    {
+      "case": "native_vit_4x4",
+      "streamed": {
+        "round_medians_ms": [
+          242.6148,
+          245.1157,
+          241.6624,
+          245.0754
+        ],
+        "median_ms": 243.8451,
+        "submissions": [
+          241
+        ],
+        "peak_live_buffer_bytes": [
+          9092760,
+          9092760,
+          9092760,
+          9092760
+        ]
+      },
+      "resident": {
+        "round_medians_ms": [
+          205.4445,
+          207.2858,
+          210.0131,
+          208.73639999999997
+        ],
+        "median_ms": 208.0111,
+        "submissions": [
+          169
+        ],
+        "peak_live_buffer_bytes": [
+          9228696,
+          9228696,
+          9228696,
+          9228696
+        ]
+      },
+      "speedup": 1.1722696529175607
+    },
+    {
+      "case": "native_vit_6x4",
+      "streamed": {
+        "round_medians_ms": [
+          311.2896,
+          309.9597,
+          307.6211,
+          313.7921
+        ],
+        "median_ms": 310.62465,
+        "submissions": [
+          241
+        ],
+        "peak_live_buffer_bytes": [
+          9141628,
+          9141628,
+          9141628,
+          9141628
+        ]
+      },
+      "resident": {
+        "round_medians_ms": [
+          278.2158,
+          275.3956,
+          277.928,
+          285.2108
+        ],
+        "median_ms": 278.0719,
+        "submissions": [
+          169
+        ],
+        "peak_live_buffer_bytes": [
+          9277564,
+          9277564,
+          9277564,
+          9277564
+        ]
+      },
+      "speedup": 1.1170659458938494
+    },
+    {
+      "case": "llama",
+      "streamed": {
+        "round_medians_ms": [
+          13.268,
+          13.3073,
+          13.080400000000001,
+          13.3806
+        ],
+        "median_ms": 13.28765,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          14.3492,
+          13.0328,
+          13.349599999999999,
+          13.6005
+        ],
+        "median_ms": 13.47505,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9860928159821299
+    },
+    {
+      "case": "gpt2",
+      "streamed": {
+        "round_medians_ms": [
+          11.0749,
+          10.6967,
+          11.0808,
+          11.0613
+        ],
+        "median_ms": 11.0681,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          11.261000000000001,
+          10.7234,
+          10.846,
+          11.408700000000001
+        ],
+        "median_ms": 11.0535,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 1.001320848599991
+    },
+    {
+      "case": "t5",
+      "streamed": {
+        "round_medians_ms": [
+          32.6482,
+          32.635999999999996,
+          32.2336,
+          32.9681
+        ],
+        "median_ms": 32.6421,
+        "submissions": [
+          7
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          32.4823,
+          39.5957,
+          33.5684,
+          32.614200000000004
+        ],
+        "median_ms": 33.091300000000004,
+        "submissions": [
+          7
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9864254350841458
+    }
+  ],
+  "scope": "same binary; software FMA in both arms; residency moves expert payloads to device memory and removes the per-step expert uploads"
+}

@@ -30,6 +30,17 @@ jobs:
         shell: pwsh
         run: ./check-workspace.ps1
 
+      # Binds the tracked RDNA3 multimodal receipts by SHA-256, re-derives the
+      # 44/44 and 85/85 totals from the per-profile rows. CPU-side; no adapter needed.
+      - name: RDNA3 multimodal receipt guard
+        run: python hierarchos-vulkan/validation/check_rdna3_multimodal_receipts.py
+
+      - name: Expanded RDNA3 GPT2 receipt guard
+        run: python hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py
+
+      - name: Expanded RDNA3 GPT2 receipt negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_rdna3_gpt2_receipts.py"
+
       # The measured route tables are checked in, so the cheapest guard against a
       # stale one is a CPU-side comparison of each receipt with the record it was
       # written into. The checker covers every producer with a route record -- the

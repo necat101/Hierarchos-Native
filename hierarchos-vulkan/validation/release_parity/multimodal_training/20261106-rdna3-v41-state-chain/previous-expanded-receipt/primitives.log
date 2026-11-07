@@ -1,0 +1,79 @@
+
+running 10 tests
+test transformer::image_text::rdna3_text_attention_tests::gpt2_bench::rdna3_gpt2_paired_gpu_benchmark ... ignored, requires the explicit serial-control benchmark runner
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_adamw_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_attention_admission_excludes_unmeasured_features ... ok
+gpt2 b=1 s=8 padded=false o: words=0 max=0e0
+gpt2 b=1 s=8 padded=false dq: words=0 max=0e0
+gpt2 b=1 s=8 padded=false dk: words=0 max=0e0
+gpt2 b=1 s=8 padded=false dv: words=0 max=0e0
+gpt2 b=1 s=8 padded=true o: words=0 max=0e0
+gpt2 b=1 s=8 padded=true dq: words=0 max=0e0
+gpt2 b=1 s=8 padded=true dk: words=0 max=0e0
+gpt2 b=1 s=8 padded=true dv: words=0 max=0e0
+gpt2 b=2 s=8 padded=false o: words=0 max=0e0
+gpt2 b=2 s=8 padded=false dq: words=0 max=0e0
+gpt2 b=2 s=8 padded=false dk: words=0 max=0e0
+gpt2 b=2 s=8 padded=false dv: words=0 max=0e0
+gpt2 b=2 s=8 padded=true o: words=0 max=0e0
+gpt2 b=2 s=8 padded=true dq: words=0 max=0e0
+gpt2 b=2 s=8 padded=true dk: words=0 max=0e0
+gpt2 b=2 s=8 padded=true dv: words=0 max=0e0
+gpt2 b=3 s=8 padded=false o: words=0 max=0e0
+gpt2 b=3 s=8 padded=false dq: words=0 max=0e0
+gpt2 b=3 s=8 padded=false dk: words=0 max=0e0
+gpt2 b=3 s=8 padded=false dv: words=0 max=0e0
+gpt2 b=3 s=8 padded=true o: words=0 max=0e0
+gpt2 b=3 s=8 padded=true dq: words=0 max=0e0
+gpt2 b=3 s=8 padded=true dk: words=0 max=0e0
+gpt2 b=3 s=8 padded=true dv: words=0 max=0e0
+gpt2 b=2 s=6 padded=false o: words=0 max=0e0
+gpt2 b=2 s=6 padded=false dq: words=0 max=0e0
+gpt2 b=2 s=6 padded=false dk: words=0 max=0e0
+gpt2 b=2 s=6 padded=false dv: words=0 max=0e0
+gpt2 b=2 s=6 padded=true o: words=0 max=0e0
+gpt2 b=2 s=6 padded=true dq: words=0 max=0e0
+gpt2 b=2 s=6 padded=true dk: words=0 max=0e0
+gpt2 b=2 s=6 padded=true dv: words=0 max=0e0
+gpt2 b=2 s=10 padded=false o: words=0 max=0e0
+gpt2 b=2 s=10 padded=false dq: words=0 max=0e0
+gpt2 b=2 s=10 padded=false dk: words=0 max=0e0
+gpt2 b=2 s=10 padded=false dv: words=0 max=0e0
+gpt2 b=2 s=10 padded=true o: words=0 max=0e0
+gpt2 b=2 s=10 padded=true dq: words=0 max=0e0
+gpt2 b=2 s=10 padded=true dk: words=0 max=0e0
+gpt2 b=2 s=10 padded=true dv: words=0 max=0e0
+gpt2 b=2 s=16 padded=false o: words=0 max=0e0
+gpt2 b=2 s=16 padded=false dq: words=0 max=0e0
+gpt2 b=2 s=16 padded=false dk: words=0 max=0e0
+gpt2 b=2 s=16 padded=false dv: words=0 max=0e0
+gpt2 b=2 s=16 padded=true o: words=0 max=0e0
+gpt2 b=2 s=16 padded=true dq: words=0 max=0e0
+gpt2 b=2 s=16 padded=true dk: words=0 max=0e0
+gpt2 b=2 s=16 padded=true dv: words=0 max=0e0
+gpt2 b=2 s=8 padded=false o: words=0 max=0e0
+gpt2 b=2 s=8 padded=false dq: words=0 max=0e0
+gpt2 b=2 s=8 padded=false dk: words=0 max=0e0
+gpt2 b=2 s=8 padded=false dv: words=0 max=0e0
+gpt2 b=2 s=8 padded=true o: words=0 max=0e0
+gpt2 b=2 s=8 padded=true dq: words=0 max=0e0
+gpt2 b=2 s=8 padded=true dk: words=0 max=0e0
+gpt2 b=2 s=8 padded=true dv: words=0 max=0e0
+gpt2 b=2 s=8 padded=false o: words=0 max=0e0
+gpt2 b=2 s=8 padded=false dq: words=0 max=0e0
+gpt2 b=2 s=8 padded=false dk: words=0 max=0e0
+gpt2 b=2 s=8 padded=false dv: words=0 max=0e0
+gpt2 b=2 s=8 padded=true o: words=0 max=0e0
+gpt2 b=2 s=8 padded=true dq: words=0 max=0e0
+gpt2 b=2 s=8 padded=true dk: words=0 max=0e0
+gpt2 b=2 s=8 padded=true dv: words=0 max=0e0
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_attention_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_bias_grad_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_clip_backward_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_cross_entropy_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_new_gelu_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_scalar_log_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_wide_input_grad_cpu_words ... ok
+
+test result: ok. 9 passed; 0 failed; 1 ignored; 0 measured; 1150 filtered out; finished in 61.99s
+

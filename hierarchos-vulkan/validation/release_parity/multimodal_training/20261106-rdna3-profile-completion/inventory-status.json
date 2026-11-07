@@ -1,0 +1,428 @@
+{
+  "schema": 1,
+  "target": "rdna3",
+  "device_id": "0x15bf",
+  "acceptance": {
+    "absolute_limit": 2e-07,
+    "rtol": 0,
+    "comparison": "strict_less_than",
+    "unchanged": true
+  },
+  "inventory": {
+    "expected_profiles": 44,
+    "fully_green_profiles": 44,
+    "failing_profiles": [],
+    "missing_profiles": [],
+    "profile_coverage_complete": true,
+    "all_profiles_green": true,
+    "all_green_backbones_qualified": true,
+    "rdna3_multimodal_qualified": true,
+    "six_previous_missing_profiles_green": true,
+    "seventh_native_v41_profile_green": true
+  },
+  "cases": {
+    "shared_base": 74,
+    "kimi": 3,
+    "seq2seq": 6,
+    "native_v41": 2,
+    "shared_family": 77,
+    "expected": 85,
+    "completed": 85,
+    "passing": 85,
+    "failing": 0
+  },
+  "six_profile_replay": {
+    "profiles": [
+      "bart",
+      "t5",
+      "switch_transformers",
+      "kimi_k3_kda",
+      "kimi_k3_mla",
+      "kimi_k3_text"
+    ],
+    "profile_count": 6,
+    "case_count": 9,
+    "all_pass": true,
+    "receipt": "six-profile-replay.json"
+  },
+  "native_v41": {
+    "profile": "deepseek_v41_scalable",
+    "pass": true,
+    "cases": 2,
+    "worst_logit": 0.0,
+    "receipt": "hierarchos-vulkan/target/rdna3-port/cpu-deepseek-v41-v1-run/qualification.json"
+  },
+  "profiles": {
+    "bart": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 6.705522537231445e-08,
+      "source": "seq2seq"
+    },
+    "bert": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 1.4901161193847656e-07,
+      "source": "shared"
+    },
+    "dbrx": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 8.940696716308594e-08,
+      "source": "shared"
+    },
+    "deepseek_v4": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 4.470348358154297e-08,
+      "source": "shared"
+    },
+    "falcon_h1_gated_after": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.21540641784668e-08,
+      "source": "shared"
+    },
+    "falcon_h1_gated_before": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.21540641784668e-08,
+      "source": "shared"
+    },
+    "falcon_h1_silu": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.21540641784668e-08,
+      "source": "shared"
+    },
+    "gemma3": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 8.940696716308594e-08,
+      "source": "shared"
+    },
+    "gemma3_softcap_tied": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 1.1175870895385742e-07,
+      "source": "shared"
+    },
+    "gemma4": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 1.9371509552001953e-07,
+      "source": "shared"
+    },
+    "gpt2": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 4.470348358154297e-08,
+      "source": "shared"
+    },
+    "gpt2_wide": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 1.9371509552001953e-07,
+      "source": "shared"
+    },
+    "gpt_oss": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.960464477539063e-08,
+      "source": "shared"
+    },
+    "kimi_k25_text": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.960464477539063e-08,
+      "source": "shared"
+    },
+    "kimi_k3_kda": {
+      "pass": true,
+      "expected_cases": 1,
+      "completed_cases": 1,
+      "failing_cases": [],
+      "worst_logit": 2.9802322387695312e-08,
+      "source": "kimi"
+    },
+    "kimi_k3_mla": {
+      "pass": true,
+      "expected_cases": 1,
+      "completed_cases": 1,
+      "failing_cases": [],
+      "worst_logit": 2.2351741790771484e-08,
+      "source": "kimi"
+    },
+    "kimi_k3_text": {
+      "pass": true,
+      "expected_cases": 1,
+      "completed_cases": 1,
+      "failing_cases": [],
+      "worst_logit": 3.166496753692627e-08,
+      "source": "kimi"
+    },
+    "llama": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 4.470348358154297e-08,
+      "source": "shared"
+    },
+    "llama_wide": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 1.9371509552001953e-07,
+      "source": "shared"
+    },
+    "minimax_m2": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 4.470348358154297e-08,
+      "source": "shared"
+    },
+    "minimax_m3": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 9.685754776000977e-08,
+      "source": "shared"
+    },
+    "minimax_m3_dense": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 7.450580596923828e-08,
+      "source": "shared"
+    },
+    "mistral": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 1.30385160446167e-07,
+      "source": "shared"
+    },
+    "mistral4": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.960464477539063e-08,
+      "source": "shared"
+    },
+    "mixtral": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 4.470348358154297e-08,
+      "source": "shared"
+    },
+    "phi3": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.960464477539063e-08,
+      "source": "shared"
+    },
+    "phi4_multimodal_text": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 1.1175870895385742e-07,
+      "source": "shared"
+    },
+    "qwen2": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.960464477539063e-08,
+      "source": "shared"
+    },
+    "qwen2_5_gqa": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 4.470348358154297e-08,
+      "source": "shared"
+    },
+    "qwen2_5_sliding_tied": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 8.940696716308594e-08,
+      "source": "shared"
+    },
+    "qwen3_5_full": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 4.470348358154297e-08,
+      "source": "shared"
+    },
+    "qwen3_5_linear": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 3.725290298461914e-08,
+      "source": "shared"
+    },
+    "qwen3_5_mixed": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.960464477539063e-08,
+      "source": "shared"
+    },
+    "qwen3_5_moe": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.960464477539063e-08,
+      "source": "shared"
+    },
+    "qwen3_next": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 1.1920928955078125e-07,
+      "source": "shared"
+    },
+    "qwen4_exp_linear": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 2.2351741790771484e-08,
+      "source": "shared"
+    },
+    "qwen4_exp_mixed_ple": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 2.2351741790771484e-08,
+      "source": "shared"
+    },
+    "qwen4_exp_ple": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 2.1886080503463745e-08,
+      "source": "shared"
+    },
+    "qwen4_exp_qsa": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 3.725290298461914e-08,
+      "source": "shared"
+    },
+    "smollm3": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 4.470348358154297e-08,
+      "source": "shared"
+    },
+    "smollm3_yarn": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.960464477539063e-08,
+      "source": "shared"
+    },
+    "switch_transformers": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 5.960464477539063e-08,
+      "source": "seq2seq"
+    },
+    "t5": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 4.470348358154297e-08,
+      "source": "seq2seq"
+    },
+    "deepseek_v41_scalable": {
+      "pass": true,
+      "expected_cases": 2,
+      "completed_cases": 2,
+      "failing_cases": [],
+      "worst_logit": 0.0,
+      "source": "v41"
+    }
+  },
+  "receipts": {
+    "shared": "hierarchos-vulkan/target/rdna3-port/full-suite-final/qualification.json",
+    "seq2seq": "hierarchos-vulkan/target/rdna3-port/cpu-seq2seq-v1-run/qualification.json",
+    "kimi": "hierarchos-vulkan/target/rdna3-port/kimi-replay-v1/qualification.json",
+    "v41": "hierarchos-vulkan/target/rdna3-port/cpu-deepseek-v41-v1-run/qualification.json"
+  },
+  "source_sha256": {
+    "shared": "9ee3054a9e2e3a9030d964a01749353a938b11d567048edcf2591620c12b43a3",
+    "seq2seq": "1962980f63f9a417a8edd965497abeeac0f58bd0ffe5dc3e67bd74398c943ac1",
+    "kimi": "6a77524dbea8f9887a6313057eabd888d1103f9f29ad8ba7e85f6c4c53eced32",
+    "v41": "18de418f9723fc2b872e93ef4ffb10541c8444e177fc654a28f3a17dc263dc19"
+  },
+  "notes": [
+    "The six shared-profile gaps are now replayed on the physical RDNA3 adapter.",
+    "The native V4.1 profile uses DeepseekV41MultimodalTrainer, not the shared CLIP adapter.",
+    "All 44 profiles and all 85 image cases pass at the unchanged strict gate.",
+    "GPT-2-wide passes both unmasked and padded; its composed forward stages are bit-exact against eager ATen.",
+    "The former residual was closed by matching QK muladd, SLEEF-u10 exp, the exact reciprocal and the softmax sum in the GPT-2 forward and backward attention paths."
+  ]
+}

@@ -79,11 +79,27 @@ impl DeepseekV41AdapterTrainer {
             .context("V4.1 optimizer call count overflow")?;
         let mut seen = std::collections::BTreeSet::new();
         let mut prepared = Vec::new();
-        let legacy=self.math_policy==AdamWMathPolicy::LegacyF32V1;
-        let lr = if legacy {(self.config.learning_rate as f32) as f64} else {self.config.learning_rate};
-        let wd=if legacy {(self.config.weight_decay as f32) as f64} else {self.config.weight_decay};
-        let b1=if legacy {(self.config.beta1 as f32) as f64} else {self.config.beta1};
-        let b2=if legacy {(self.config.beta2 as f32) as f64} else {self.config.beta2};
+        let legacy = self.math_policy == AdamWMathPolicy::LegacyF32V1;
+        let lr = if legacy {
+            (self.config.learning_rate as f32) as f64
+        } else {
+            self.config.learning_rate
+        };
+        let wd = if legacy {
+            (self.config.weight_decay as f32) as f64
+        } else {
+            self.config.weight_decay
+        };
+        let b1 = if legacy {
+            (self.config.beta1 as f32) as f64
+        } else {
+            self.config.beta1
+        };
+        let b2 = if legacy {
+            (self.config.beta2 as f32) as f64
+        } else {
+            self.config.beta2
+        };
         let decay = (1.0 - lr * wd) as f32;
         for g in gradients {
             if !seen.insert(g.target) {
@@ -150,7 +166,9 @@ impl DeepseekV41AdapterTrainer {
                         step_size,
                         bias2_sqrt,
                         self.math_policy,
-                        i<param.len()/(2*crate::deepseek_v41::cpu_math::vector_width() as usize)*(2*crate::deepseek_v41::cpu_math::vector_width() as usize),
+                        i < param.len()
+                            / (2 * crate::deepseek_v41::cpu_math::vector_width() as usize)
+                            * (2 * crate::deepseek_v41::cpu_math::vector_width() as usize),
                     );
                     if !p.is_finite() || !m.is_finite() || !v.is_finite() || v < 0.0 {
                         bail!(

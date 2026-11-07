@@ -1,0 +1,137 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact_hw_rdna3.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+// Measured Windows AVX512-host eager attention: seq 8/16/20, head dim 4/8.
+// The large QK/dP GEMMs use native FMA; PV/dQ/dK/dV retain materialized
+// products. Softmax and its adjoint fold sixteen CPU streams. On RDNA3 the
+// adjoint stages P and dS in LDS once per KV head, avoiding per-output replay.
+layout(local_size_x=64) in;
+layout(set=0,binding=0,std430) readonly buffer Q {float q[];};
+layout(set=0,binding=1,std430) readonly buffer K {float k[];};
+layout(set=0,binding=2,std430) readonly buffer V {float v[];};
+layout(set=0,binding=3,std430) readonly buffer QM {float qm[];};
+layout(set=0,binding=4,std430) readonly buffer KM {float km[];};
+#ifdef RDNA3_EAGER_BACKWARD
+layout(set=0,binding=5,std430) readonly buffer DY {float dy[];};
+layout(set=0,binding=6,std430) writeonly buffer DQ {float dq[];};
+layout(set=0,binding=7,std430) writeonly buffer DK {float dk[];};
+layout(set=0,binding=8,std430) writeonly buffer DV {float dv[];};
+shared float shared_p[1056];
+shared float shared_ds[1056];
+#else
+layout(set=0,binding=5,std430) writeonly buffer O {float out_values[];};
+#endif
+layout(push_constant) uniform Push {
+    uint batch;uint seq;uint qhidden;uint vhidden;
+    uint heads;uint kvheads;uint window;float scale;uint causal;
+} pc;
+bool visible(uint batch,uint query,uint key) {
+    return km[batch*pc.seq+key]>0.0 && (pc.causal==0u || key<=query)
+        && (pc.window==0u || (pc.causal!=0u ? key+pc.window>query
+            : (key+pc.window>query && key<query+pc.window)));
+}
+void probabilities(uint batch,uint head,uint query,out float p[32]) {
+    uint hd=pc.qhidden/pc.heads,kw=hd*pc.kvheads,kv=head/(pc.heads/pc.kvheads);
+    uint qb=(batch*pc.seq+query)*pc.qhidden+head*hd;
+    float maximum=-3.402823466e38;bool found=false;
+    for(uint key=0u;key<pc.seq;++key) {
+        if(!visible(batch,query,key)) {p[key]=0.0;continue;}
+        uint kb=(batch*pc.seq+key)*kw+kv*hd;
+        precise float dot=0.0;
+        for(uint d=0u;d<hd;++d) {
+            if(pc.seq>=16u) dot=fma(q[qb+d],k[kb+d],dot);
+            else {precise float product=q[qb+d]*k[kb+d];dot+=product;}
+        }
+        p[key]=dot*pc.scale;maximum=found ? max(maximum,p[key]) : p[key];found=true;
+    }
+    precise float lanes[16];
+    for(uint lane=0u;lane<16u;++lane) lanes[lane]=0.0;
+    for(uint key=0u;key<pc.seq;++key) {
+        p[key]=found && visible(batch,query,key) ? sleef_expf_u10(p[key]-maximum) : 0.0;
+        lanes[key&15u]+=p[key];
+    }
+    precise float total=0.0;
+    for(uint lane=0u;lane<16u;++lane) total+=lanes[lane];
+    float inverse=found ? fp32_div(1.0,total) : 0.0;
+    for(uint key=0u;key<pc.seq;++key) p[key]*=inverse;
+}
+void main() {
+    uint hd=pc.qhidden/pc.heads,kw=hd*pc.kvheads;
+#ifndef RDNA3_EAGER_BACKWARD
+    uint index=gl_GlobalInvocationID.x;
+    if(index>=pc.batch*pc.heads*pc.seq) return;
+    uint query=index%pc.seq,head=(index/pc.seq)%pc.heads,batch=index/(pc.seq*pc.heads);
+    uint kv=head/(pc.heads/pc.kvheads),qb=(batch*pc.seq+query)*pc.qhidden+head*hd;
+    float p[32];probabilities(batch,head,query,p);
+    for(uint d=0u;d<hd;++d) {
+        precise float sum=0.0;
+        for(uint key=0u;key<pc.seq;++key) {
+            precise float product=p[key]*v[(batch*pc.seq+key)*kw+kv*hd+d];sum+=product;
+        }
+        out_values[qb+d]=qm[batch*pc.seq+query]>0.0 ? sum : 0.0;
+    }
+#else
+    uint local=gl_LocalInvocationID.x,kv=gl_WorkGroupID.x,batch=gl_WorkGroupID.y;
+    precise float kacc[4],vacc[4];
+    for(uint slot=0u;slot<4u;++slot) {kacc[slot]=0.0;vacc[slot]=0.0;}
+    uint repeat=pc.heads/pc.kvheads;
+    for(uint h=0u;h<repeat;++h) {
+        uint head=kv*repeat+h;
+        if(local<pc.seq) {
+            uint query=local,gb=(batch*pc.seq+query)*pc.qhidden+head*hd;
+            float p[32],dp[32];probabilities(batch,head,query,p);
+            precise float lanes[16];
+            for(uint lane=0u;lane<16u;++lane) lanes[lane]=0.0;
+            for(uint key=0u;key<pc.seq;++key) {
+                uint vb=(batch*pc.seq+key)*kw+kv*hd;
+                precise float sum=0.0;
+                precise float parts[4]=float[4](0.0,0.0,0.0,0.0);
+                for(uint d=0u;d<hd;++d) {
+                    if(pc.seq>=16u) sum=fma(dy[gb+d],v[vb+d],sum);
+                    else if(pc.batch>1u && pc.seq>=8u) {precise float product=dy[gb+d]*v[vb+d];parts[d&3u]+=product;}
+                    else {precise float product=dy[gb+d]*v[vb+d];sum+=product;}
+                }
+                if(pc.seq>=8u && pc.seq<16u && pc.batch>1u) {precise float even=parts[0]+parts[2],odd=parts[1]+parts[3];sum=even+odd;}
+                dp[key]=sum;
+                precise float product=p[key]*sum;lanes[key&15u]+=product;
+            }
+            precise float dot=0.0;
+            for(uint lane=0u;lane<16u;++lane) dot+=lanes[lane];
+            for(uint key=0u;key<pc.seq;++key) {
+                bool active_row=qm[batch*pc.seq+query]>0.0;
+                shared_p[query*33u+key]=active_row ? p[key] : 0.0;
+                precise float delta=dp[key]-dot;
+                precise float ds=p[key]*delta;
+                shared_ds[query*33u+key]=active_row ? ds*pc.scale : 0.0;
+            }
+        }
+        barrier();
+        uint slot=0u;
+        for(uint index=local;index<pc.seq*hd;index+=64u,++slot) {
+            uint row=index/hd,d=index%hd;
+            precise float qsum=0.0,ksum=0.0,vsum=0.0;
+            precise float parts[4]=float[4](0.0,0.0,0.0,0.0);
+            for(uint key=0u;key<pc.seq;++key) {
+                uint kb=(batch*pc.seq+key)*kw+kv*hd+d;
+                uint qb=(batch*pc.seq+key)*pc.qhidden+head*hd+d;
+                precise float qp=shared_ds[row*33u+key]*k[kb];
+                if(pc.batch>1u && pc.seq>=8u) parts[key&3u]+=qp;else qsum+=qp;
+                if(pc.seq>=16u) ksum=fma(shared_ds[key*33u+row],q[qb],ksum);
+                else {precise float kp=shared_ds[key*33u+row]*q[qb];ksum+=kp;}
+                precise float vp=shared_p[key*33u+row]*dy[qb];vsum+=vp;
+            }
+            if(pc.batch>1u && pc.seq>=8u) {precise float even=parts[0]+parts[2],odd=parts[1]+parts[3];qsum=even+odd;}
+            dq[(batch*pc.seq+row)*pc.qhidden+head*hd+d]=qsum;
+            kacc[slot]+=ksum;vacc[slot]+=vsum;
+        }
+        barrier();
+    }
+    uint slot=0u;
+    for(uint index=local;index<pc.seq*hd;index+=64u,++slot) {
+        uint row=index/hd,d=index%hd,at=(batch*pc.seq+row)*kw+kv*hd+d;
+        dk[at]=kacc[slot];dv[at]=vacc[slot];
+    }
+#endif
+}

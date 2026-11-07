@@ -1,7 +1,9 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::{bail, Context, Result};
-use hierarchos_vulkan::{VulkanDevice, VulkanSeq2SeqTransformer, VulkanTransformer, VulkanTransformerConfig};
+use hierarchos_vulkan::{
+    VulkanDevice, VulkanSeq2SeqTransformer, VulkanTransformer, VulkanTransformerConfig,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -119,7 +121,10 @@ fn run() -> Result<()> {
             }
             "--disable-adapter" => bypass_adapters = true,
             "--stream-lm-head" => stream_lm_head = true,
-            "--stream-parameters" => {stream_parameters=true;stream_lm_head=true;},
+            "--stream-parameters" => {
+                stream_parameters = true;
+                stream_lm_head = true;
+            }
             "--device-index" => {
                 device_index = Some(
                     args.next()
@@ -208,16 +213,21 @@ fn run() -> Result<()> {
         }
         let mut graph = if stream_parameters {
             VulkanSeq2SeqTransformer::from_hf_package_with_streamed_parameters(
-                device.clone(), &model, fixture.batch_size,
-                encoder_ids.len() / fixture.batch_size, fixture.seq_len,
+                device.clone(),
+                &model,
+                fixture.batch_size,
+                encoder_ids.len() / fixture.batch_size,
+                fixture.seq_len,
             )?
-        } else { VulkanSeq2SeqTransformer::from_hf_package_with_batch_size(
-            device.clone(),
-            &model,
-            fixture.batch_size,
-            encoder_ids.len() / fixture.batch_size,
-            fixture.seq_len,
-        )? };
+        } else {
+            VulkanSeq2SeqTransformer::from_hf_package_with_batch_size(
+                device.clone(),
+                &model,
+                fixture.batch_size,
+                encoder_ids.len() / fixture.batch_size,
+                fixture.seq_len,
+            )?
+        };
         let loading_linear_package_io = graph.streamed_linear_package_io()?;
         let loading_stats = device.memory_stats()?;
         let logits = graph.forward_logits(
@@ -256,9 +266,14 @@ fn run() -> Result<()> {
         // Freeze/package-back the vocabulary before attaching body adapters.
         // GPT-2 and Llama-layout loaders also avoid resident table allocation.
         let mut graph = if stream_parameters {
-            let config=VulkanTransformerConfig::from_hf_config(model.join("config.json"))?;
+            let config = VulkanTransformerConfig::from_hf_config(model.join("config.json"))?;
             VulkanTransformer::from_hf_package_with_streamed_parameters(
-                device.clone(), &model, config, fixture.batch_size, fixture.seq_len)?
+                device.clone(),
+                &model,
+                config,
+                fixture.batch_size,
+                fixture.seq_len,
+            )?
         } else if stream_lm_head {
             VulkanTransformer::from_hf_package_with_streamed_lm_head(
                 device.clone(),
@@ -267,14 +282,19 @@ fn run() -> Result<()> {
                 fixture.seq_len,
             )?
         } else {
-            VulkanTransformer::from_hf_package(device.clone(), &model, fixture.batch_size, fixture.seq_len)?
+            VulkanTransformer::from_hf_package(
+                device.clone(),
+                &model,
+                fixture.batch_size,
+                fixture.seq_len,
+            )?
         };
-        let streamed_linears=graph.streamed_linear_count();
+        let streamed_linears = graph.streamed_linear_count();
         // No resident graph is constructed just to estimate a saving.
-        let retired_parameter_bytes=graph.streaming_retired_parameter_bytes();
-        let source_first_parameters=graph.parameters_streamed_during_loading();
-        let loading_stats=device.memory_stats()?;
-        let loading_linear_package_io=graph.streamed_linear_package_io()?;
+        let retired_parameter_bytes = graph.streaming_retired_parameter_bytes();
+        let source_first_parameters = graph.parameters_streamed_during_loading();
+        let loading_stats = device.memory_stats()?;
+        let loading_linear_package_io = graph.streamed_linear_package_io()?;
         if let Some(adapter_dir) = lora_adapter.as_deref() {
             graph.load_lora_adapter(adapter_dir)?;
         }

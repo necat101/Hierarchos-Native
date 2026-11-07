@@ -1120,16 +1120,20 @@ impl VulkanTransformer {
     /// moved while the mutable visitor runs. Separate packed projection pieces
     /// retain separate storage keys while sharing the HF module name.
     pub(super) fn for_each_graph_peft_linear_mut<F>(&mut self, visit: F) -> Result<()>
-    where F:FnMut(String,String,&mut VulkanLinear)->Result<()> {
-        self.for_each_graph_linear_mut(false,visit)
+    where
+        F: FnMut(String, String, &mut VulkanLinear) -> Result<()>,
+    {
+        self.for_each_graph_linear_mut(false, visit)
     }
 
-    pub(super) fn for_each_frozen_graph_linear_mut<F>(&mut self, visit:F)->Result<()>
-    where F:FnMut(String,String,&mut VulkanLinear)->Result<()> {
-        self.for_each_graph_linear_mut(true,visit)
+    pub(super) fn for_each_frozen_graph_linear_mut<F>(&mut self, visit: F) -> Result<()>
+    where
+        F: FnMut(String, String, &mut VulkanLinear) -> Result<()>,
+    {
+        self.for_each_graph_linear_mut(true, visit)
     }
 
-    fn for_each_graph_linear_mut<F>(&mut self, include_frozen_moe:bool, mut visit: F) -> Result<()>
+    fn for_each_graph_linear_mut<F>(&mut self, include_frozen_moe: bool, mut visit: F) -> Result<()>
     where
         F: FnMut(String, String, &mut VulkanLinear) -> Result<()>,
     {
@@ -1139,7 +1143,8 @@ impl VulkanTransformer {
             // Frozen encoder streaming has the same ordinary projections, but
             // no cross-attention or decoder adapter schema.
             let modules = if include_frozen_moe
-                && self.config.architecture.is_t5_family() && !self.causal_attention
+                && self.config.architecture.is_t5_family()
+                && !self.causal_attention
             {
                 let layer = &self.layers[index];
                 let prefix = format!("native.encoder.layers.{index}");
@@ -1148,12 +1153,20 @@ impl VulkanTransformer {
                     (format!("{prefix}.up"), &layer.c_fc),
                     (format!("{prefix}.down"), &layer.c_mlp_proj),
                 ];
-                for (suffix, linear) in [("q", &layer.q_proj), ("k", &layer.k_proj),
-                    ("v", &layer.v_proj), ("gate", &layer.c_gate)] {
-                    if let Some(linear) = linear { modules.push((format!("{prefix}.{suffix}"), linear)); }
+                for (suffix, linear) in [
+                    ("q", &layer.q_proj),
+                    ("k", &layer.k_proj),
+                    ("v", &layer.v_proj),
+                    ("gate", &layer.c_gate),
+                ] {
+                    if let Some(linear) = linear {
+                        modules.push((format!("{prefix}.{suffix}"), linear));
+                    }
                 }
                 modules
-            } else { self.peft_layer_linears(index)? };
+            } else {
+                self.peft_layer_linears(index)?
+            };
             for (name, linear) in modules {
                 names.insert(std::ptr::from_ref(linear) as usize, (name.clone(), name));
             }
@@ -1161,31 +1174,50 @@ impl VulkanTransformer {
             // whose PEFT schema exposes only attention/shared expert targets.
             // Keep the PEFT target discovery unchanged.
             if include_frozen_moe {
-                let layer=&self.layers[index];
-                let mut add=|key:String,linear:&VulkanLinear| {
-                    names.entry(std::ptr::from_ref(linear) as usize).or_insert_with(||(key.clone(),key));
+                let layer = &self.layers[index];
+                let mut add = |key: String, linear: &VulkanLinear| {
+                    names
+                        .entry(std::ptr::from_ref(linear) as usize)
+                        .or_insert_with(|| (key.clone(), key));
                 };
-                for (kind,moe) in [("moe",&layer.moe),("shortcut_moe",&layer.shortcut_moe)] {
-                    let Some(moe)=moe else {continue};
-                    let p=format!("native.layers.{index}.{kind}");
-                    add(format!("{p}.router"),&moe.router);
-                    for (name,linear) in [("shared_gate",&moe.shared_expert_gate),("latent_down",&moe.latent_down_proj),("latent_up",&moe.latent_up_proj)] {
-                        if let Some(linear)=linear {add(format!("{p}.{name}"),linear);}
-                    }
-                    for (id,expert) in moe.experts.iter().enumerate() {
-                        if let Some(g)=&expert.gate {add(format!("{p}.experts.{}.gate",id+1),g);}
-                        add(format!("{p}.experts.{}.up",id+1),&expert.up);
-                        add(format!("{p}.experts.{}.down",id+1),&expert.down);
-                    }
-                    for (name,expert) in [("expert0",&moe.owned_expert0),("shared",&moe.shared_expert)] {
-                        if let Some(expert)=expert {
-                            if let Some(g)=&expert.gate {add(format!("{p}.{name}.gate"),g);}
-                            add(format!("{p}.{name}.up"),&expert.up);add(format!("{p}.{name}.down"),&expert.down);
+                for (kind, moe) in [("moe", &layer.moe), ("shortcut_moe", &layer.shortcut_moe)] {
+                    let Some(moe) = moe else { continue };
+                    let p = format!("native.layers.{index}.{kind}");
+                    add(format!("{p}.router"), &moe.router);
+                    for (name, linear) in [
+                        ("shared_gate", &moe.shared_expert_gate),
+                        ("latent_down", &moe.latent_down_proj),
+                        ("latent_up", &moe.latent_up_proj),
+                    ] {
+                        if let Some(linear) = linear {
+                            add(format!("{p}.{name}"), linear);
                         }
                     }
-                    if kind=="moe" && moe.owned_expert0.is_none() {
-                        if let Some(g)=&layer.c_gate {add(format!("{p}.expert0.gate"),g);}
-                        add(format!("{p}.expert0.up"),&layer.c_fc);add(format!("{p}.expert0.down"),&layer.c_mlp_proj);
+                    for (id, expert) in moe.experts.iter().enumerate() {
+                        if let Some(g) = &expert.gate {
+                            add(format!("{p}.experts.{}.gate", id + 1), g);
+                        }
+                        add(format!("{p}.experts.{}.up", id + 1), &expert.up);
+                        add(format!("{p}.experts.{}.down", id + 1), &expert.down);
+                    }
+                    for (name, expert) in [
+                        ("expert0", &moe.owned_expert0),
+                        ("shared", &moe.shared_expert),
+                    ] {
+                        if let Some(expert) = expert {
+                            if let Some(g) = &expert.gate {
+                                add(format!("{p}.{name}.gate"), g);
+                            }
+                            add(format!("{p}.{name}.up"), &expert.up);
+                            add(format!("{p}.{name}.down"), &expert.down);
+                        }
+                    }
+                    if kind == "moe" && moe.owned_expert0.is_none() {
+                        if let Some(g) = &layer.c_gate {
+                            add(format!("{p}.expert0.gate"), g);
+                        }
+                        add(format!("{p}.expert0.up"), &layer.c_fc);
+                        add(format!("{p}.expert0.down"), &layer.c_mlp_proj);
                     }
                 }
             }
@@ -1239,7 +1271,12 @@ impl VulkanTransformer {
                 node(linear)?;
             }
             if let Some(cross) = &mut layer.cross_attention {
-                for linear in [&mut cross.q_proj, &mut cross.k_proj, &mut cross.v_proj, &mut cross.out_proj] {
+                for linear in [
+                    &mut cross.q_proj,
+                    &mut cross.k_proj,
+                    &mut cross.v_proj,
+                    &mut cross.out_proj,
+                ] {
                     node(linear)?;
                 }
             }
@@ -1268,7 +1305,9 @@ impl VulkanTransformer {
                             node(linear)?;
                         }
                     }
-                    VulkanQwenGatedDeltaProjection::OlmoHybrid { q, k, v, z, b, a, .. } => {
+                    VulkanQwenGatedDeltaProjection::OlmoHybrid {
+                        q, k, v, z, b, a, ..
+                    } => {
                         for linear in [q, k, v, z, b, a] {
                             node(linear)?;
                         }

@@ -1,0 +1,188 @@
+{
+  "schema": 1,
+  "pass": true,
+  "gate": {
+    "max_abs": 2e-07,
+    "rtol": 0,
+    "observed_max_abs": 0.0
+  },
+  "digests_identical": true,
+  "order": "ABBA",
+  "rounds": 4,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "binary_sha256": "ff5e4806c0158617f2ee3739c7a7c4fcbc0d67b2b14f0b10829e8652092b39e4",
+  "results": [
+    {
+      "case": "native_vit_4x4",
+      "streamed": {
+        "round_medians_ms": [
+          240.8583,
+          235.3524,
+          242.04260000000002,
+          239.2972
+        ],
+        "median_ms": 240.07775,
+        "submissions": [
+          241
+        ],
+        "peak_live_buffer_bytes": [
+          9092760,
+          9092760,
+          9092760,
+          9092760
+        ]
+      },
+      "resident": {
+        "round_medians_ms": [
+          212.0163,
+          204.30460000000002,
+          204.8274,
+          202.3252
+        ],
+        "median_ms": 204.56600000000003,
+        "submissions": [
+          169
+        ],
+        "peak_live_buffer_bytes": [
+          9228696,
+          9228696,
+          9228696,
+          9228696
+        ]
+      },
+      "speedup": 1.1735955632900872
+    },
+    {
+      "case": "native_vit_6x4",
+      "streamed": {
+        "round_medians_ms": [
+          374.9518,
+          370.7532,
+          371.4366,
+          364.41900000000004
+        ],
+        "median_ms": 371.0949,
+        "submissions": [
+          241
+        ],
+        "peak_live_buffer_bytes": [
+          9141628,
+          9141628,
+          9141628,
+          9141628
+        ]
+      },
+      "resident": {
+        "round_medians_ms": [
+          350.8819,
+          339.72159999999997,
+          330.84000000000003,
+          335.97330000000005
+        ],
+        "median_ms": 337.84745,
+        "submissions": [
+          169
+        ],
+        "peak_live_buffer_bytes": [
+          9277564,
+          9277564,
+          9277564,
+          9277564
+        ]
+      },
+      "speedup": 1.09840965204858
+    },
+    {
+      "case": "llama",
+      "streamed": {
+        "round_medians_ms": [
+          16.4767,
+          17.1026,
+          14.328000000000001,
+          16.2398
+        ],
+        "median_ms": 16.358249999999998,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          17.401799999999998,
+          16.2384,
+          16.5333,
+          16.3197
+        ],
+        "median_ms": 16.4265,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9958451282987854
+    },
+    {
+      "case": "gpt2",
+      "streamed": {
+        "round_medians_ms": [
+          13.8986,
+          13.652,
+          11.2389,
+          13.5311
+        ],
+        "median_ms": 13.59155,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          13.7296,
+          10.9553,
+          13.8982,
+          13.7672
+        ],
+        "median_ms": 13.7484,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9885913997265136
+    },
+    {
+      "case": "t5",
+      "streamed": {
+        "round_medians_ms": [
+          38.093599999999995,
+          38.213499999999996,
+          38.5685,
+          37.8965
+        ],
+        "median_ms": 38.153549999999996,
+        "submissions": [
+          7
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          38.9715,
+          38.048899999999996,
+          38.2237,
+          37.9399
+        ],
+        "median_ms": 38.1363,
+        "submissions": [
+          7
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 1.0004523249502442
+    }
+  ],
+  "scope": "same binary; software FMA in both arms; residency moves expert payloads to device memory and removes the per-step expert uploads"
+}

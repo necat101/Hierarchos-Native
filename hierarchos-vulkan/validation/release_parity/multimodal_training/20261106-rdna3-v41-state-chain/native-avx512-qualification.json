@@ -1,0 +1,197 @@
+{
+  "schema": 1,
+  "target": "rdna3",
+  "scope": "native_avx512_multimodal_and_expanded_gpt2",
+  "host_vector_width": 16,
+  "native_v41_private_vector_width": 8,
+  "absolute_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "complete": true,
+  "pass": true,
+  "expected_stages": 8,
+  "retained_cases": 95,
+  "expanded_shape_cases": 16,
+  "binary_sha256": {
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\gemma3_vision_probe.exe": "35ef7d9f5997b24bef9b204988dc1212059af42571864e76467ac5d8c0b0d9b6",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe": "e4384546d16e6bfb1c6fa97d9eb42917b68e8f157367188c2d98f15d5bf3e964",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\image_text_pipeline_probe.exe": "effad93ce15273231a4fbfeaffb0d132ca2e97919734a35097baf987d1b38c23",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\llava_pipeline_probe.exe": "37bd1ad68fd9dc514a6a6cb20ebba2684b0cf8dcb0f201948282289cb28537ec",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\gemma4_vision_probe.exe": "9f87cb2e052400cf4b84f74258ec8271b2d618595a6a258859f2b49aff706592"
+  },
+  "runner_sha256": "1d4f2a623282976a2f8ee96c4a9926603a68c2dc3b11af207c804ac3ab39b81b",
+  "results": [
+    {
+      "stage": "shapes",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\.venv-torch\\Scripts\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_rdna3_gpt2_shapes.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gpt2-shapes-final-cpu",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\image_text_pipeline_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\state-chain-final-20261106\\native-avx512\\shapes"
+      ],
+      "returncode": 0,
+      "fixture_manifest_sha256": "709427881624237c05dccf1e9bdd7593285819304af7d3778b885bc206fbad0c",
+      "expected_cases": 16,
+      "pass": true
+    },
+    {
+      "stage": "shared",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\.venv-torch\\Scripts\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_shared_image_pipeline.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\cpu-shared-v2",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\image_text_pipeline_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\state-chain-final-20261106\\native-avx512\\shared",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "fixture_manifest_sha256": "d5e1eea4b055e147831e4ec50b381d308cbbfaa3e17675d50fe9d592600ed3f3",
+      "expected_cases": 74,
+      "pass": true
+    },
+    {
+      "stage": "kimi",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\.venv-torch\\Scripts\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_shared_image_pipeline.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\cpu-kimi",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\image_text_pipeline_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\state-chain-final-20261106\\native-avx512\\kimi",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "fixture_manifest_sha256": "257b3aa33555983da22608cf8cc88478454d8625c16a615579f165609efcde38",
+      "expected_cases": 3,
+      "pass": true
+    },
+    {
+      "stage": "seq2seq",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\.venv-torch\\Scripts\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_seq2seq_image_pipeline.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\cpu-seq2seq",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\image_text_pipeline_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\state-chain-final-20261106\\native-avx512\\seq2seq",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "fixture_manifest_sha256": "1cebd78e3d3cf4bde56de4cf777a19d6b83eef28a841491e5b635a9fc096c021",
+      "expected_cases": 6,
+      "pass": true
+    },
+    {
+      "stage": "gemma3",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\.venv-torch\\Scripts\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_gemma3_pipeline.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\cpu-gemma3",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\gemma3_vision_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\state-chain-final-20261106\\native-avx512\\gemma3",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "fixture_manifest_sha256": "39aaa932ec9f48f912d1f30bbd0280b828731559626a687649360acd1ef2985d",
+      "expected_cases": 4,
+      "pass": true
+    },
+    {
+      "stage": "gemma4",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\.venv-torch\\Scripts\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_gemma4_pipeline.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\cpu-gemma4",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\gemma4_vision_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\state-chain-final-20261106\\native-avx512\\gemma4",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "fixture_manifest_sha256": "4ab22c5474de7fbb9cedfaf9443f561035b3732ffc8df44913bf5604a376bfa0",
+      "expected_cases": 2,
+      "pass": true
+    },
+    {
+      "stage": "llava",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\.venv-torch\\Scripts\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_llava_pipeline.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\cpu-llava",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\llava_pipeline_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\state-chain-final-20261106\\native-avx512\\llava",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "fixture_manifest_sha256": "252e556f4b59a8854fb368e214bdd3d72076b6e9eb9ccc4e941f580bfbb728e4",
+      "expected_cases": 4,
+      "pass": true
+    },
+    {
+      "stage": "bridge",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\.venv-torch\\Scripts\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_deepseek_v41_shared_image.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\cpu-deepseek-v41-v1",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\state-chain-final-20261106\\native-avx512\\bridge",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "fixture_manifest_sha256": "4154c76152196b72d731fdcd03478d1f0bbcfa1d03a303317339fa4595efd314",
+      "expected_cases": 2,
+      "pass": true
+    }
+  ]
+}

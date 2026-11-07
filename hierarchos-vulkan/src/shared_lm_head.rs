@@ -517,7 +517,9 @@ impl SharedLmHeadParameter {
     }
 
     pub(crate) fn record_step_with_cpu_policy(
-        &self, commands: &mut vulkan::ComputeBatch, hyper: crate::CpuAdamWHyperParams,
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        hyper: crate::CpuAdamWHyperParams,
         kernel: &crate::cpu_adamw::CpuAdamW,
     ) -> Result<u32> {
         hyper.validate()?;
@@ -525,7 +527,9 @@ impl SharedLmHeadParameter {
     }
 
     fn record_step_policy(
-        &self, commands: &mut vulkan::ComputeBatch, hyper: AdamWHyperParams,
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        hyper: AdamWHyperParams,
         policy: Option<(crate::CpuAdamWHyperParams, &crate::cpu_adamw::CpuAdamW)>,
     ) -> Result<u32> {
         hyper.validate()?;
@@ -548,19 +552,30 @@ impl SharedLmHeadParameter {
             weight_decay: hyper.weight_decay,
         };
         if let Some((config, kernel)) = policy {
-            kernel.record_step(commands, &self.inner.weight, &state.accumulated_grad,
-                &state.exp_avg, &state.exp_avg_sq, self.len(), next_step, config, true)?;
-        } else { self.inner.adamw.record_dispatch(
-            commands,
-            &[
+            kernel.record_step(
+                commands,
                 &self.inner.weight,
                 &state.accumulated_grad,
                 &state.exp_avg,
                 &state.exp_avg_sq,
-            ],
-            bytemuck::bytes_of(&push),
-            [div_ceil_u32(self.len(), 256), 1, 1],
-        )?; }
+                self.len(),
+                next_step,
+                config,
+                true,
+            )?;
+        } else {
+            self.inner.adamw.record_dispatch(
+                commands,
+                &[
+                    &self.inner.weight,
+                    &state.accumulated_grad,
+                    &state.exp_avg,
+                    &state.exp_avg_sq,
+                ],
+                bytemuck::bytes_of(&push),
+                [div_ceil_u32(self.len(), 256), 1, 1],
+            )?;
+        }
         let execution_mirror = self
             .inner
             .execution_mirror

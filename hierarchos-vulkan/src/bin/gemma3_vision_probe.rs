@@ -112,7 +112,10 @@ fn run() -> Result<()> {
         )?;
         if result.text.step == 1 {
             if let Some(path) = &backward_stages {
-                fs::write(path, serde_json::to_vec(&graph.debug_text_training_states()?)?)?;
+                fs::write(
+                    path,
+                    serde_json::to_vec(&graph.debug_text_training_states()?)?,
+                )?;
             }
         }
         graph.export_hf_package(&model, output.join(format!("step-{}", result.text.step)))?;

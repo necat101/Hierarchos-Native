@@ -1269,7 +1269,8 @@ impl DeepseekV41EngramRuntime {
                     let (projection, mut weights) =
                         checkpoint.load_mixed_engram_projection(layer)?;
                     if precision == DeepseekV41WeightOutput::Bf16
-                        && matches!(projection, DeepseekV41LinearWeights::Fp32 { .. }) {
+                        && matches!(projection, DeepseekV41LinearWeights::Fp32 { .. })
+                    {
                         bail!("V4.1 BF16 Engram requires a BF16/packed WKV projection");
                     }
                     if !streamed {

@@ -158,7 +158,7 @@ impl DeepseekV41AttentionProjectionAdjoints {
         self.check(right, len)?;
         let out = GpuBuffer::zeros_f32(&self.device, len)?;
         let groups = len.div_ceil(64);
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.vector.record_dispatch(
             &mut commands,
             &[left, right, &out],
@@ -194,6 +194,8 @@ impl DeepseekV41AttentionProjectionAdjoints {
             &p.wq_a,
             p.wq_a.input_precision(a.stream_precision),
         )?;
+        // Snapshot the gain: callers may overwrite the live buffer after
+        // forward, and backward must consume the value forward used.
         let q_norm = p.q_norm.duplicate_f32(c.q_lora_rank)?;
         let qr = a.norm.apply(
             &self.device,
@@ -504,7 +506,7 @@ impl DeepseekV41AttentionProjectionAdjoints {
             output_rank: c.o_lora_rank as u32,
             bf16: u32::from(p.wo_a_precision == DeepseekV41WeightOutput::Bf16),
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         a.grouped_kernel.record_dispatch(
             &mut commands,
             &[&grouped_input, &p.wo_a, &grouped],

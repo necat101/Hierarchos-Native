@@ -1,0 +1,66 @@
+
+running 1 test
+hierarchos_submission_report file=src\vulkan.rs line=5478 total=3232 per_step=461.71
+hierarchos_submission_report file=src\deepseek_v41\linear_grad.rs line=113 total=1008 per_step=144.00
+hierarchos_submission_report file=src\transformer.rs line=28060 total=363 per_step=51.86
+hierarchos_submission_report file=src\deepseek_v41\backbone.rs line=2173 total=192 per_step=27.43
+hierarchos_submission_report file=src\transformer.rs line=28255 total=104 per_step=14.86
+hierarchos_submission_report file=src\deepseek_v41\engram.rs line=545 total=64 per_step=9.14
+hierarchos_submission_report file=src\deepseek_v41\linear_grad.rs line=82 total=56 per_step=8.00
+hierarchos_submission_report file=src\deepseek_v41\linear_grad.rs line=83 total=56 per_step=8.00
+hierarchos_submission_report file=src\transformer\vision.rs line=1907 total=42 per_step=6.00
+hierarchos_submission_report file=src\transformer\vision.rs line=1909 total=42 per_step=6.00
+hierarchos_submission_report file=src\vulkan.rs line=5358 total=40 per_step=5.71
+hierarchos_submission_report file=src\deepseek_v41\model.rs line=871 total=32 per_step=4.57
+hierarchos_submission_report file=src\deepseek_v41\terminal.rs line=126 total=28 per_step=4.00
+hierarchos_submission_report file=src\transformer.rs line=85636 total=28 per_step=4.00
+hierarchos_submission_report file=src\vulkan.rs line=5422 total=26 per_step=3.71
+hierarchos_submission_report file=src\transformer\vision.rs line=1728 total=24 per_step=3.43
+hierarchos_submission_report file=src\deepseek_v41\rotary.rs line=95 total=22 per_step=3.14
+hierarchos_submission_report file=src\deepseek_v41\rotary.rs line=96 total=22 per_step=3.14
+hierarchos_submission_report file=src\training_numerics.rs line=197 total=21 per_step=3.00
+hierarchos_submission_report file=src\transformer\vision.rs line=1905 total=21 per_step=3.00
+hierarchos_submission_report file=src\transformer\deepseek_v41_image.rs line=241 total=16 per_step=2.29
+hierarchos_submission_report file=src\transformer\deepseek_v41_vision.rs line=853 total=16 per_step=2.29
+hierarchos_submission_report file=src\transformer\deepseek_v41_image.rs line=289 total=14 per_step=2.00
+hierarchos_submission_report file=src\transformer\deepseek_v41_image.rs line=309 total=14 per_step=2.00
+hierarchos_submission_report file=src\transformer\deepseek_v41_vision.rs line=1063 total=14 per_step=2.00
+hierarchos_submission_report file=src\transformer\deepseek_v41_vision.rs line=1105 total=14 per_step=2.00
+hierarchos_submission_report file=src\deepseek_v41.rs line=183 total=12 per_step=1.71
+hierarchos_submission_report file=src\deepseek_v41\backbone.rs line=2050 total=12 per_step=1.71
+hierarchos_submission_report file=src\deepseek_v41\backbone.rs line=2617 total=12 per_step=1.71
+hierarchos_submission_report file=src\deepseek_v41\backbone.rs line=2618 total=12 per_step=1.71
+hierarchos_submission_report file=src\transformer.rs line=59658 total=8 per_step=1.14
+hierarchos_submission_report file=src\transformer.rs line=59659 total=8 per_step=1.14
+hierarchos_submission_report file=src\transformer.rs line=84356 total=7 per_step=1.00
+hierarchos_submission_report file=src\transformer.rs line=76905 total=6 per_step=0.86
+hierarchos_submission_report file=src\transformer\vision.rs line=1734 total=6 per_step=0.86
+hierarchos_submission_report file=src\transformer\vision.rs line=1737 total=6 per_step=0.86
+hierarchos_submission_report file=src\transformer\vision.rs line=1740 total=6 per_step=0.86
+hierarchos_submission_report file=src\transformer\vision.rs line=1743 total=6 per_step=0.86
+hierarchos_submission_report file=src\deepseek_v41\engram.rs line=868 total=4 per_step=0.57
+hierarchos_submission_report file=src\deepseek_v41\model.rs line=129 total=4 per_step=0.57
+hierarchos_submission_report file=src\shared_lm_head.rs line=122 total=4 per_step=0.57
+hierarchos_submission_report file=src\transformer.rs line=76904 total=3 per_step=0.43
+hierarchos_submission_report file=src\transformer\vision.rs line=1447 total=3 per_step=0.43
+hierarchos_submission_report file=src\deepseek_v41\backbone.rs line=544 total=2 per_step=0.29
+hierarchos_submission_report file=src\deepseek_v41\engram.rs line=380 total=2 per_step=0.29
+hierarchos_submission_report file=src\deepseek_v41\engram.rs line=381 total=2 per_step=0.29
+hierarchos_submission_report file=src\deepseek_v41\engram.rs line=382 total=2 per_step=0.29
+hierarchos_submission_report file=src\deepseek_v41\engram.rs line=383 total=2 per_step=0.29
+hierarchos_submission_report file=src\deepseek_v41\model.rs line=893 total=2 per_step=0.29
+hierarchos_submission_report file=src\deepseek_v41\model.rs line=899 total=2 per_step=0.29
+hierarchos_submission_report file=src\deepseek_v41\model.rs line=981 total=2 per_step=0.29
+hierarchos_submission_report file=src\deepseek_v41\model.rs line=1058 total=2 per_step=0.29
+hierarchos_submission_report file=src\deepseek_v41\model.rs line=1060 total=2 per_step=0.29
+hierarchos_submission_report file=src\transformer\deepseek_v41_image.rs line=223 total=2 per_step=0.29
+hierarchos_submission_report file=src\transformer\deepseek_v41_image.rs line=224 total=2 per_step=0.29
+hierarchos_submission_report file=src\transformer\deepseek_v41_vision.rs line=406 total=2 per_step=0.29
+hierarchos_submission_report file=src\transformer\deepseek_v41_vision.rs line=422 total=2 per_step=0.29
+hierarchos_submission_report file=src\transformer\deepseek_v41_vision.rs line=453 total=2 per_step=0.29
+hierarchos_submission_report file=src\cpu_adamw.rs line=80 total=1 per_step=0.14
+hierarchos_submission_report file=src\transformer.rs line=76777 total=1 per_step=0.14
+test deepseek_v41::model::tests::training::native_vision::native_state::multimodal_training_throughput_benchmark ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1161 filtered out; finished in 5.09s
+

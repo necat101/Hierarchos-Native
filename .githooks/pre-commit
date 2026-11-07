@@ -38,4 +38,17 @@ else
 fi
 
 echo "pre-commit: one-pass workspace check (4 crates, every binary target)"
-exec "$powershell" -NoProfile -ExecutionPolicy Bypass -File "$root/check-workspace.ps1"
+"$powershell" -NoProfile -ExecutionPolicy Bypass -File "$root/check-workspace.ps1"
+
+if command -v python >/dev/null 2>&1; then
+    python_interpreter=python
+elif command -v python3 >/dev/null 2>&1; then
+    python_interpreter=python3
+else
+    echo "pre-commit: Python not found, so the RDNA3 multimodal receipt guard cannot run" >&2
+    exit 1
+fi
+
+echo "pre-commit: RDNA3 multimodal receipt guard (hashes and inventory coverage)"
+"$python_interpreter" "$root/hierarchos-vulkan/validation/check_rdna3_multimodal_receipts.py"
+"$python_interpreter" "$root/hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py"

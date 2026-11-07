@@ -1,0 +1,188 @@
+{
+  "schema": 1,
+  "pass": true,
+  "gate": {
+    "max_abs": 2e-07,
+    "rtol": 0,
+    "observed_max_abs": 0.0
+  },
+  "digests_identical": true,
+  "order": "ABBA",
+  "rounds": 4,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "binary_sha256": "5ae2f32da93a97bd4a67b66c734405145595765c248590d386bb7c5a9ba04205",
+  "results": [
+    {
+      "case": "native_vit_4x4",
+      "streamed": {
+        "round_medians_ms": [
+          305.2577,
+          309.0135,
+          315.7196,
+          322.2234
+        ],
+        "median_ms": 312.36655,
+        "submissions": [
+          241
+        ],
+        "peak_live_buffer_bytes": [
+          9092760,
+          9092760,
+          9092760,
+          9092760
+        ]
+      },
+      "resident": {
+        "round_medians_ms": [
+          250.68160000000003,
+          272.6899,
+          253.08890000000002,
+          283.55
+        ],
+        "median_ms": 262.8894,
+        "submissions": [
+          169
+        ],
+        "peak_live_buffer_bytes": [
+          9228696,
+          9228696,
+          9228696,
+          9228696
+        ]
+      },
+      "speedup": 1.1882051919932868
+    },
+    {
+      "case": "native_vit_6x4",
+      "streamed": {
+        "round_medians_ms": [
+          321.39889999999997,
+          326.67830000000004,
+          329.12820000000005,
+          316.1599
+        ],
+        "median_ms": 324.0386,
+        "submissions": [
+          241
+        ],
+        "peak_live_buffer_bytes": [
+          9141628,
+          9141628,
+          9141628,
+          9141628
+        ]
+      },
+      "resident": {
+        "round_medians_ms": [
+          269.03159999999997,
+          274.8677,
+          269.0361,
+          280.2019
+        ],
+        "median_ms": 271.9519,
+        "submissions": [
+          169
+        ],
+        "peak_live_buffer_bytes": [
+          9277564,
+          9277564,
+          9277564,
+          9277564
+        ]
+      },
+      "speedup": 1.1915290902545632
+    },
+    {
+      "case": "llama",
+      "streamed": {
+        "round_medians_ms": [
+          13.681199999999999,
+          13.3326,
+          13.4295,
+          13.435799999999999
+        ],
+        "median_ms": 13.432649999999999,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          13.089500000000001,
+          13.3854,
+          13.1068,
+          13.3128
+        ],
+        "median_ms": 13.2098,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 1.0168700510227255
+    },
+    {
+      "case": "gpt2",
+      "streamed": {
+        "round_medians_ms": [
+          10.716399999999998,
+          10.556899999999999,
+          10.7735,
+          9.8969
+        ],
+        "median_ms": 10.63665,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          10.4877,
+          10.2995,
+          10.7128,
+          12.7682
+        ],
+        "median_ms": 10.600249999999999,
+        "submissions": [
+          5
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 1.003433881276385
+    },
+    {
+      "case": "t5",
+      "streamed": {
+        "round_medians_ms": [
+          29.819200000000002,
+          29.3424,
+          33.8613,
+          29.7866
+        ],
+        "median_ms": 29.8029,
+        "submissions": [
+          7
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "resident": {
+        "round_medians_ms": [
+          30.6345,
+          29.668799999999997,
+          29.421400000000002,
+          33.8403
+        ],
+        "median_ms": 30.151649999999997,
+        "submissions": [
+          7
+        ],
+        "peak_live_buffer_bytes": []
+      },
+      "speedup": 0.9884334688151396
+    }
+  ],
+  "scope": "same binary; software FMA in both arms; residency moves expert payloads to device memory and removes the per-step expert uploads"
+}

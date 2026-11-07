@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "pass": true,
+  "target": "rdna3",
+  "absolute_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "source_head": "372407bf3ca9e7973d5a6317ae9a08b5bf080c68",
+  "worktree": true,
+  "expanded_cases": 16,
+  "retained_shared_cases": 85,
+  "native_gemma_llava_cases": 10,
+  "native_v41_tests": 30,
+  "profile_count": 44,
+  "primitive_tests": 9,
+  "shader_artifacts": 43,
+  "cpu_contract": "Windows Torch 2.6.0+cpu, SDPA, Z1 Extreme CPUID 00a70f41",
+  "adapter": {
+    "vendor": "1002",
+    "device": "15bf",
+    "driver": "00800184"
+  },
+  "oracle_archive": {
+    "path": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gpt2-shapes-avx512-oracles.zip",
+    "sha256": "a45396b752d62b01f75aa0f0cc8a83ee71640bf44a9f83b841e7476056b6ef14",
+    "bytes": 32948229
+  },
+  "limits": [
+    "eight measured GPT2 geometries; not a Cartesian shape certificate",
+    "isolated kernel timings; production-size training throughput unqualified",
+    "native V4.1 retains its frozen-language LoRA contract",
+    "no physical Gen9 execution"
+  ]
+}

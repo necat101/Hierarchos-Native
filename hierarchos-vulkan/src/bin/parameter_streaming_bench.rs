@@ -1,7 +1,9 @@
 //! Observation-only warm inference/PEFT benchmark for frozen-base streaming.
 use anyhow::{bail, Result};
-use hierarchos_vulkan::{AdamWHyperParams, VulkanDevice, VulkanTransformer,
-    VulkanTransformerConfig, VulkanTransformerLoraConfig};
+use hierarchos_vulkan::{
+    AdamWHyperParams, VulkanDevice, VulkanTransformer, VulkanTransformerConfig,
+    VulkanTransformerLoraConfig,
+};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{fs, path::PathBuf, time::Instant};
@@ -15,7 +17,10 @@ struct Fixture {
 }
 
 fn main() -> Result<()> {
-    std::thread::Builder::new().stack_size(32 * 1024 * 1024).spawn(run)?.join()
+    std::thread::Builder::new()
+        .stack_size(32 * 1024 * 1024)
+        .spawn(run)?
+        .join()
         .map_err(|_| anyhow::anyhow!("streaming benchmark worker panicked"))?
 }
 
@@ -29,7 +34,9 @@ fn run() -> Result<()> {
     let warmup: usize = args[2].to_string_lossy().parse()?;
     let iterations: usize = args[3].to_string_lossy().parse()?;
     let mode = args[4].to_string_lossy();
-    let residency = args.get(5).map(|value| value.to_string_lossy())
+    let residency = args
+        .get(5)
+        .map(|value| value.to_string_lossy())
         .unwrap_or_else(|| "streaming".into());
     if !matches!(&*residency, "resident" | "streaming") {
         bail!("residency must be resident or streaming");
@@ -42,42 +49,73 @@ fn run() -> Result<()> {
     let started = Instant::now();
     let mut graph = if residency == "resident" {
         VulkanTransformer::from_hf_package_with_config(
-            device.clone(), &model, config, fixture.batch_size, fixture.seq_len)?
+            device.clone(),
+            &model,
+            config,
+            fixture.batch_size,
+            fixture.seq_len,
+        )?
     } else {
         VulkanTransformer::from_hf_package_with_streamed_parameters(
-            device.clone(), &model, config, fixture.batch_size, fixture.seq_len)?
+            device.clone(),
+            &model,
+            config,
+            fixture.batch_size,
+            fixture.seq_len,
+        )?
     };
     let streamed_linears = graph.streamed_linear_count();
     if (residency == "resident" && streamed_linears != 0)
-        || (residency == "streaming" && streamed_linears == 0) {
+        || (residency == "streaming" && streamed_linears == 0)
+    {
         bail!("requested residency did not match the constructed graph");
     }
     if mode != "inference" {
-        let config = VulkanTransformerLoraConfig::causal_lm(2, 4, vec!["all-linear".into()], false)?;
+        let config =
+            VulkanTransformerLoraConfig::causal_lm(2, 4, vec!["all-linear".into()], false)?;
         graph.enable_lora(config, 187)?;
     }
     let construction_ms = started.elapsed().as_secs_f64() * 1000.0;
     let mut targets = fixture.input_ids.clone();
     targets.rotate_left(1);
-    let hyper = AdamWHyperParams { lr: 1e-3, beta1: 0.9, beta2: 0.999, eps: 1e-8, weight_decay: 0.01 };
+    let hyper = AdamWHyperParams {
+        lr: 1e-3,
+        beta1: 0.9,
+        beta2: 0.999,
+        eps: 1e-8,
+        weight_decay: 0.01,
+    };
     let mut digest = Sha256::new();
     let mut expected = None::<Vec<u32>>;
     let mut observe = |graph: &mut VulkanTransformer| -> Result<()> {
         if mode == "train" {
-            let metrics = graph.train_step(&fixture.input_ids, &targets, &fixture.attention_mask,
-                &fixture.attention_mask, hyper)?;
+            let metrics = graph.train_step(
+                &fixture.input_ids,
+                &targets,
+                &fixture.attention_mask,
+                &fixture.attention_mask,
+                hyper,
+            )?;
             digest.update(metrics.loss.to_bits().to_le_bytes());
         } else {
             let logits = graph.forward_logits(&fixture.input_ids, &fixture.attention_mask)?;
             let bits = logits.iter().map(|v| v.to_bits()).collect::<Vec<_>>();
             if let Some(expected) = expected.as_ref() {
-                if expected != &bits { bail!("repeated forward changed a logit bit"); }
-            } else { expected = Some(bits); }
-            for value in logits { digest.update(value.to_bits().to_le_bytes()); }
+                if expected != &bits {
+                    bail!("repeated forward changed a logit bit");
+                }
+            } else {
+                expected = Some(bits);
+            }
+            for value in logits {
+                digest.update(value.to_bits().to_le_bytes());
+            }
         }
         Ok(())
     };
-    for _ in 0..warmup { observe(&mut graph)?; }
+    for _ in 0..warmup {
+        observe(&mut graph)?;
+    }
     let before_io = graph.streamed_linear_package_io()?;
     let before_submissions = device.submission_count();
     let before_memory = device.memory_stats()?;
@@ -96,25 +134,28 @@ fn run() -> Result<()> {
     let final_logits = graph.forward_logits(&fixture.input_ids, &fixture.attention_mask)?;
     let mut sorted = samples.clone();
     sorted.sort_by(f64::total_cmp);
-    println!("{}", serde_json::json!({
-        "device": device.name(), "mode": mode, "residency": residency,
-        "vendor_id": device.vendor_id(), "device_id": device.device_id(),
-        "streamed_linears": streamed_linears,
-        "source_first_parameters": graph.parameters_streamed_during_loading(),
-        "construction_ms": construction_ms,
-        "warmup": warmup, "iterations": iterations, "samples_ms": samples,
-        "median_ms": sorted[sorted.len()/2], "sequence_sha256": format!("{:x}", digest.finalize()),
-        "logits_bits": final_logits.iter().map(|value| value.to_bits()).collect::<Vec<_>>(),
-        "logits": final_logits, "submissions": submissions,
-        "memory_before": {"bytes": before_memory.live_buffer_bytes, "buffers": before_memory.live_buffer_count,
-            "peak": before_memory.peak_live_buffer_bytes, "largest": before_memory.largest_buffer_bytes},
-        "memory_after": {"bytes": after_memory.live_buffer_bytes, "buffers": after_memory.live_buffer_count,
-            "peak": after_memory.peak_live_buffer_bytes, "largest": after_memory.largest_buffer_bytes},
-        "arena_before": {"scratch_leases": before_arena.scratch_lease_allocated,
-            "scratch_reused": before_arena.scratch_lease_reused, "commands": before_arena.command_buffer_allocated},
-        "arena_after": {"scratch_leases": after_arena.scratch_lease_allocated,
-            "scratch_reused": after_arena.scratch_lease_reused, "commands": after_arena.command_buffer_allocated},
-        "io_before": before_io, "io_after": after_io,
-    }));
+    println!(
+        "{}",
+        serde_json::json!({
+            "device": device.name(), "mode": mode, "residency": residency,
+            "vendor_id": device.vendor_id(), "device_id": device.device_id(),
+            "streamed_linears": streamed_linears,
+            "source_first_parameters": graph.parameters_streamed_during_loading(),
+            "construction_ms": construction_ms,
+            "warmup": warmup, "iterations": iterations, "samples_ms": samples,
+            "median_ms": sorted[sorted.len()/2], "sequence_sha256": format!("{:x}", digest.finalize()),
+            "logits_bits": final_logits.iter().map(|value| value.to_bits()).collect::<Vec<_>>(),
+            "logits": final_logits, "submissions": submissions,
+            "memory_before": {"bytes": before_memory.live_buffer_bytes, "buffers": before_memory.live_buffer_count,
+                "peak": before_memory.peak_live_buffer_bytes, "largest": before_memory.largest_buffer_bytes},
+            "memory_after": {"bytes": after_memory.live_buffer_bytes, "buffers": after_memory.live_buffer_count,
+                "peak": after_memory.peak_live_buffer_bytes, "largest": after_memory.largest_buffer_bytes},
+            "arena_before": {"scratch_leases": before_arena.scratch_lease_allocated,
+                "scratch_reused": before_arena.scratch_lease_reused, "commands": before_arena.command_buffer_allocated},
+            "arena_after": {"scratch_leases": after_arena.scratch_lease_allocated,
+                "scratch_reused": after_arena.scratch_lease_reused, "commands": after_arena.command_buffer_allocated},
+            "io_before": before_io, "io_after": after_io,
+        })
+    );
     Ok(())
 }

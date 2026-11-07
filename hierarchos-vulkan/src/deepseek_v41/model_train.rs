@@ -138,8 +138,11 @@ impl DeepseekV41ModelTrainer {
             head_gradient_avx2: if crate::deepseek_v41::cpu_math::active() {
                 Some(vulkan::ComputeKernel::new_with_access(
                     &device,
-                    include_bytes!(
-                        "../../shaders/transformer_deepseek_v41_head_input_grad_avx2.spv"
+                    crate::deepseek_v41::cpu_math::selected(
+                        &device,
+                        include_bytes!(
+                            "../../shaders/transformer_deepseek_v41_head_input_grad_avx2.spv"
+                        ),
                     ),
                     &[R, R, RW],
                     16,
@@ -305,6 +308,21 @@ impl DeepseekV41ModelTrainer {
         &mut self,
         batches: &[DeepseekV41TrainingBatch],
         modality: Option<&GpuBuffer>,
+        builder: Option<&mut dyn FnMut(&GpuBuffer) -> Result<GpuBuffer>>,
+    ) -> Result<(DeepseekV41ModelGradients, Option<GpuBuffer>)> {
+        // Model construction and the whole retained graph share one recording
+        // session. Component uploads publish into it, and the reverse graph's
+        // stage submissions become publication barriers, so the step pays one
+        // queue retirement instead of one per component and projection.
+        let session = self.device.begin_compute_session()?;
+        let outcome = self.gradients_impl_stages(batches, modality, builder);
+        session.finish(outcome)
+    }
+
+    fn gradients_impl_stages(
+        &mut self,
+        batches: &[DeepseekV41TrainingBatch],
+        modality: Option<&GpuBuffer>,
         mut builder: Option<&mut dyn FnMut(&GpuBuffer) -> Result<GpuBuffer>>,
     ) -> Result<(DeepseekV41ModelGradients, Option<GpuBuffer>)> {
         let capture_input = modality.is_some() || builder.is_some();
@@ -437,7 +455,7 @@ impl DeepseekV41ModelTrainer {
             position += batch.seq_len;
         }
         let joined = GpuBuffer::zeros_f32(&self.device, total_rows * t.vocab_size)?;
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         let mut offset = 0;
         for output in &logits {
             let n = output.batch_size * output.seq_len * t.vocab_size;
@@ -462,7 +480,7 @@ impl DeepseekV41ModelTrainer {
         for (collapsed, backbone, rows) in steps.into_iter().rev() {
             end -= rows;
             let grad = GpuBuffer::zeros_f32(&self.device, rows * t.vocab_size)?;
-            let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+            let mut commands = self.device.compute_batch()?;
             commands.copy_f32_range(
                 &grad_logits,
                 end * t.vocab_size,
@@ -606,7 +624,7 @@ impl DeepseekV41ModelTrainer {
             };
             let weight = GpuBuffer::from_f32(&self.device, &values)?;
             let tile = GpuBuffer::zeros_f32(&self.device, rows * count)?;
-            let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+            let mut commands = self.device.compute_batch()?;
             for row in 0..rows {
                 commands.copy_f32_range(grad, row * vocab + start, &tile, row * count, count)?;
             }

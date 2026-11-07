@@ -102,7 +102,10 @@ impl DeepseekV41EngramAdjoints {
             )?,
             gate: vulkan::ComputeKernel::new_with_access(
                 &device,
-                crate::deepseek_v41::cpu_math::selected(&device, include_bytes!("../../shaders/transformer_deepseek_v41_engram_gate_grad.spv")),
+                crate::deepseek_v41::cpu_math::selected(
+                    &device,
+                    include_bytes!("../../shaders/transformer_deepseek_v41_engram_gate_grad.spv"),
+                ),
                 &[R, R, R, R, R, W, W, W],
                 std::mem::size_of::<GatePush>() as u32,
             )?,
@@ -124,7 +127,7 @@ impl DeepseekV41EngramAdjoints {
     fn snapshot(&self, buffer: &GpuBuffer, elements: usize) -> Result<GpuBuffer> {
         self.check(buffer, elements)?;
         let copied = GpuBuffer::zeros_f32(&self.device, elements)?;
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         commands.copy_f32_range(buffer, 0, &copied, 0, elements)?;
         commands.submit()?;
         Ok(copied)
@@ -154,7 +157,7 @@ impl DeepseekV41EngramAdjoints {
         let empty = GpuBuffer::zeros_u32(&self.device, 1)?;
         let output = GpuBuffer::zeros_f32(&self.device, stream_len)?;
         let push = config.push(mask.is_some())?;
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.forward_gate.record_dispatch(
             &mut commands,
             &[
@@ -200,7 +203,7 @@ impl DeepseekV41EngramAdjoints {
         let gates = GpuBuffer::zeros_f32(&self.device, c.rows * c.hc)?;
         let empty = GpuBuffer::zeros_u32(&self.device, 1)?;
         let push = c.push(tape.mask.is_some())?;
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.gate.record_dispatch(
             &mut commands,
             &[

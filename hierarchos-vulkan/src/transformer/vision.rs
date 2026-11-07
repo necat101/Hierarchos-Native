@@ -205,10 +205,13 @@ pub(super) struct VisionKernels {
     rdna3_patch_linear: Option<vulkan::ComputeKernel>,
     rdna3_cpu_input_grad: Option<vulkan::ComputeKernel>,
     rdna3_weight_grad: Option<vulkan::ComputeKernel>,
+    rdna3_tanh_backward: Option<vulkan::ComputeKernel>,
+    rdna3_avx2_siglip_backward: Option<vulkan::ComputeKernel>,
     rdna3_avx512_gelu: Option<[vulkan::ComputeKernel; 2]>,
     rdna3_avx512_weight_grad: Option<vulkan::ComputeKernel>,
     rdna3_avx512_siglip_attention: Option<vulkan::ComputeKernel>,
     rdna3_avx512_siglip_backward: Option<vulkan::ComputeKernel>,
+    rdna3_avx512_clip_backward: Option<vulkan::ComputeKernel>,
 }
 impl VisionKernels {
     pub(super) fn new(device: &VulkanDevice) -> Result<Self> {
@@ -225,24 +228,107 @@ impl VisionKernels {
             )?))
         };
         Ok(Self {
-            rdna3_avx512_siglip_backward: if crate::vendor::rdna3_avx512_variants(device, aten_vector_width()) {
-                Some(vulkan::ComputeKernel::new(device,
-                    include_bytes!("../../shaders/image_text_eager_backward_avx512_amd_rdna3.spv"),9,36)?)
-            } else {None},
-            rdna3_avx512_siglip_attention: if crate::vendor::rdna3_avx512_variants(device, aten_vector_width()) {
-                Some(vulkan::ComputeKernel::new(device,
-                    include_bytes!("../../shaders/vision_attention_avx512_amd_rdna3.spv"),4,16)?)
-            } else { None },
-            rdna3_avx512_weight_grad: if crate::vendor::rdna3_avx512_variants(device, aten_vector_width()) {
-                Some(vulkan::ComputeKernel::new(device,
-                    include_bytes!("../../shaders/vision_weight_grad_avx512_amd_rdna3.spv"),3,12)?)
-            } else { None },
-            rdna3_avx512_gelu: if crate::vendor::rdna3_avx512_variants(device, aten_vector_width()) {
+            rdna3_avx2_siglip_backward: if crate::vendor::rdna3_frozen_avx2_variants(
+                device,
+                aten_vector_width(),
+            ) {
+                Some(vulkan::ComputeKernel::new(
+                    device,
+                    include_bytes!("../../shaders/vision_siglip_backward_avx2_amd_rdna3.spv"),
+                    9,
+                    36,
+                )?)
+            } else {
+                None
+            },
+            // This rounding repair was qualified with the frozen AVX2 image
+            // track. Preserve the native AVX512 graph's established staging.
+            rdna3_tanh_backward: if crate::vendor::rdna3_frozen_avx2_variants(
+                device,
+                aten_vector_width(),
+            ) {
+                Some(vulkan::ComputeKernel::new(
+                    device,
+                    include_bytes!("../../shaders/vision_gelu_tanh_backward_amd_rdna3.spv"),
+                    3,
+                    4,
+                )?)
+            } else {
+                None
+            },
+            rdna3_avx512_clip_backward: if crate::vendor::rdna3_avx512_variants(
+                device,
+                aten_vector_width(),
+            ) {
+                Some(vulkan::ComputeKernel::new(
+                    device,
+                    include_bytes!("../../shaders/image_text_clip_backward_avx512_amd_rdna3.spv"),
+                    9,
+                    36,
+                )?)
+            } else {
+                None
+            },
+            rdna3_avx512_siglip_backward: if crate::vendor::rdna3_avx512_variants(
+                device,
+                aten_vector_width(),
+            ) {
+                Some(vulkan::ComputeKernel::new(
+                    device,
+                    include_bytes!("../../shaders/image_text_eager_backward_avx512_amd_rdna3.spv"),
+                    9,
+                    36,
+                )?)
+            } else {
+                None
+            },
+            rdna3_avx512_siglip_attention: if crate::vendor::rdna3_avx512_variants(
+                device,
+                aten_vector_width(),
+            ) {
+                Some(vulkan::ComputeKernel::new(
+                    device,
+                    include_bytes!("../../shaders/vision_attention_avx512_amd_rdna3.spv"),
+                    4,
+                    16,
+                )?)
+            } else {
+                None
+            },
+            rdna3_avx512_weight_grad: if crate::vendor::rdna3_avx512_variants(
+                device,
+                aten_vector_width(),
+            ) {
+                Some(vulkan::ComputeKernel::new(
+                    device,
+                    include_bytes!("../../shaders/vision_weight_grad_avx512_amd_rdna3.spv"),
+                    3,
+                    12,
+                )?)
+            } else {
+                None
+            },
+            rdna3_avx512_gelu: if crate::vendor::rdna3_avx512_variants(device, aten_vector_width())
+            {
                 Some([
-                    vulkan::ComputeKernel::new(device, include_bytes!("../../shaders/image_text_gelu_avx512_amd_rdna3.spv"),2,4)?,
-                    vulkan::ComputeKernel::new(device, include_bytes!("../../shaders/image_text_gelu_backward_avx512_amd_rdna3.spv"),3,4)?,
+                    vulkan::ComputeKernel::new(
+                        device,
+                        include_bytes!("../../shaders/image_text_gelu_avx512_amd_rdna3.spv"),
+                        2,
+                        4,
+                    )?,
+                    vulkan::ComputeKernel::new(
+                        device,
+                        include_bytes!(
+                            "../../shaders/image_text_gelu_backward_avx512_amd_rdna3.spv"
+                        ),
+                        3,
+                        4,
+                    )?,
                 ])
-            } else { None },
+            } else {
+                None
+            },
             cpu_avx2_linear: vulkan::ComputeKernel::new(
                 device,
                 include_bytes!("../../shaders/vision_linear_cpu_avx2.spv"),
@@ -394,7 +480,9 @@ impl VisionKernels {
     }
 
     pub(super) fn weight_grad_kernel(&self) -> &vulkan::ComputeKernel {
-        self.rdna3_avx512_weight_grad.as_ref().or(self.rdna3_weight_grad.as_ref())
+        self.rdna3_avx512_weight_grad
+            .as_ref()
+            .or(self.rdna3_weight_grad.as_ref())
             .unwrap_or(&self.weight_grad_cpu_avx2)
     }
 
@@ -487,7 +575,10 @@ impl VisionKernels {
             ("gelu", false) => &k.gelu_erf_forward,
             ("gelu", true) => &k.gelu_erf_backward,
             ("gelu_pytorch_tanh" | "gelu_new", false) => &k.gelu_tanh_forward,
-            ("gelu_pytorch_tanh" | "gelu_new", true) => &k.gelu_tanh_backward,
+            ("gelu_pytorch_tanh" | "gelu_new", true) => self
+                .rdna3_tanh_backward
+                .as_ref()
+                .unwrap_or(&k.gelu_tanh_backward),
             ("gelu_pytorch_tanh_ha", false) => &self.tanh_high_accuracy_forward,
             ("gelu_pytorch_tanh_ha", true) => &self.tanh_high_accuracy_backward,
             _ => bail!("unsupported native vision activation {name}"),
@@ -682,6 +773,34 @@ impl ClipLayer {
         }
         Ok(stages)
     }
+
+    pub(super) fn backward_stage_dump(
+        &self,
+        rows: usize,
+        dim: usize,
+        intermediate: usize,
+    ) -> Result<Vec<(&'static str, Vec<f32>)>> {
+        let mut stages = self.stage_dump(rows, dim, intermediate)?;
+        for (name, index, len) in [
+            ("out", OUT, rows * dim),
+            ("dactivation", DACT, rows * intermediate),
+            ("dfc1", DF, rows * intermediate),
+            ("dln2", DN2, rows * dim),
+            ("dresidual1", DR, rows * dim),
+            ("dattention", DA, rows * dim),
+            ("dq", DQ, rows * dim),
+            ("dk", DK, rows * dim),
+            ("dv", DV, rows * dim),
+            ("dqi", DQI, rows * dim),
+            ("dki", DKI, rows * dim),
+            ("dvi", DVI, rows * dim),
+            ("dln1", DN1, rows * dim),
+            ("dinput", DI, rows * dim),
+        ] {
+            stages.push((name, self.tape[index].read_f32(len)?));
+        }
+        Ok(stages)
+    }
     fn linear_forward(
         &self,
         commands: &mut vulkan::ComputeBatch,
@@ -719,16 +838,28 @@ impl ClipLayer {
         self.linear_forward(commands, k, vk, &self.key, &t[N1], &t[K], rows)?;
         self.linear_forward(commands, k, vk, &self.v, &t[N1], &t[V], rows)?;
         if let Some(kernel) = vk.rdna3_avx512_siglip_attention.as_ref().filter(|_| {
-            self.cpu_reference_math && matches!(push.batch_size, 1 | 2)
+            self.cpu_reference_math
+                && matches!(push.batch_size, 1 | 2)
                 && matches!(push.query_seq_len, 4 | 5 | 16 | 17)
                 && push.key_value_seq_len == push.query_seq_len
-                && push.query_hidden_size == 16 && push.value_hidden_size == 16
-                && push.num_heads == 4 && push.num_key_value_heads == 4
+                && push.query_hidden_size == 16
+                && push.value_hidden_size == 16
+                && push.num_heads == 4
+                && push.num_key_value_heads == 4
         }) {
-            let cpu_push=[push.batch_size,push.query_seq_len,push.query_hidden_size,push.num_heads];
-            let rows=push.batch_size*push.num_heads*push.query_seq_len;
-            kernel.record_dispatch(commands,&[&t[Q],&t[K],&t[V],&t[A]],
-                bytemuck::cast_slice(&cpu_push),[rows.div_ceil(64),1,1])?;
+            let cpu_push = [
+                push.batch_size,
+                push.query_seq_len,
+                push.query_hidden_size,
+                push.num_heads,
+            ];
+            let rows = push.batch_size * push.num_heads * push.query_seq_len;
+            kernel.record_dispatch(
+                commands,
+                &[&t[Q], &t[K], &t[V], &t[A]],
+                bytemuck::cast_slice(&cpu_push),
+                [rows.div_ceil(64), 1, 1],
+            )?;
         } else if self.cpu_reference_math
             && aten_vector_width() == 8
             && matches!(push.batch_size, 1 | 2)
@@ -849,38 +980,92 @@ impl ClipLayer {
             .record_backward(commands, k, &t[R], &t[DN2], &t[M2], &t[S2], &t[DR], rows)?;
         record_add(commands, k, dy, &t[DR], &t[DR], rows * dim)?;
         self.linear_backward(commands, k, vk, &self.out, &t[A], &t[DR], &t[DA], rows)?;
-        if let Some(kernel)=vk.rdna3_avx512_siglip_backward.as_ref().filter(|_| self.cpu_reference_math
-            && matches!(push.batch_size,1|2) && push.query_seq_len==16 && push.key_value_seq_len==16
-            && push.query_hidden_size==16 && push.value_hidden_size==16 && push.num_heads==4 && push.num_key_value_heads==4) {
-            let packed=rdna3_eager_push(&push);
-            kernel.record_dispatch(commands,&[&t[Q],&t[K],&t[V],mask,mask,&t[DA],&t[DQ],&t[DK],&t[DV]],
-                bytemuck::cast_slice(&packed),[4,push.batch_size,1])?;
+        if let Some(kernel) = vk.rdna3_avx2_siglip_backward.as_ref().filter(|_| {
+            self.cpu_reference_math
+                && push.batch_size == 1
+                && push.query_seq_len == 16
+                && push.key_value_seq_len == 16
+                && push.query_hidden_size == 16
+                && push.value_hidden_size == 16
+                && push.num_heads == 4
+                && push.num_key_value_heads == 4
+        }) {
+            let packed = rdna3_eager_push(&push);
+            kernel.record_dispatch(
+                commands,
+                &[
+                    &t[Q], &t[K], &t[V], mask, mask, &t[DA], &t[DQ], &t[DK], &t[DV],
+                ],
+                bytemuck::cast_slice(&packed),
+                [4, 1, 1],
+            )?;
+        } else if let Some(kernel) = vk.rdna3_avx512_clip_backward.as_ref().filter(|_| {
+            self.cpu_reference_math
+                && k.rdna3_avx512_gpt2.is_some()
+                && matches!(push.batch_size, 1..=3)
+                && push.query_seq_len == 5
+                && push.key_value_seq_len == 5
+                && push.query_hidden_size == 16
+                && push.value_hidden_size == 16
+                && push.num_heads == 2
+                && push.num_key_value_heads == 2
+        }) {
+            let packed = rdna3_eager_push(&push);
+            kernel.record_dispatch(
+                commands,
+                &[
+                    &t[Q], &t[K], &t[V], mask, mask, &t[DA], &t[DQ], &t[DK], &t[DV],
+                ],
+                bytemuck::cast_slice(&packed),
+                [2, push.batch_size, 1],
+            )?;
+        } else if let Some(kernel) = vk.rdna3_avx512_siglip_backward.as_ref().filter(|_| {
+            self.cpu_reference_math
+                && matches!(push.batch_size, 1 | 2)
+                && push.query_seq_len == 16
+                && push.key_value_seq_len == 16
+                && push.query_hidden_size == 16
+                && push.value_hidden_size == 16
+                && push.num_heads == 4
+                && push.num_key_value_heads == 4
+        }) {
+            let packed = rdna3_eager_push(&push);
+            kernel.record_dispatch(
+                commands,
+                &[
+                    &t[Q], &t[K], &t[V], mask, mask, &t[DA], &t[DQ], &t[DK], &t[DV],
+                ],
+                bytemuck::cast_slice(&packed),
+                [4, push.batch_size, 1],
+            )?;
         } else {
-        let attention_backward = if self.cpu_reference_math
-            && aten_vector_width() == 8
-            && push.batch_size == 2
-            && push.query_seq_len == 5
-            && push.query_hidden_size == 16
-            && push.num_heads == 2
-        {
-            &vk.cpu_avx2_attention_seq5_backward
-        } else {
-            &vk.attention_backward
-        };
-        attention_backward.record_dispatch(
-            commands,
-            &[
-                &t[Q], &t[K], &t[V], mask, mask, dummy, &t[DA], &t[DQ], &t[DK], &t[DV], dummy,
-                dummy, dummy, dummy, mask,
-            ],
-            bytemuck::bytes_of(&push.as_backward_push(0, 1)),
-            [push.num_heads, push.batch_size, 1],
-        )?;
+            let attention_backward = if self.cpu_reference_math
+                && aten_vector_width() == 8
+                && push.batch_size == 2
+                && push.query_seq_len == 5
+                && push.query_hidden_size == 16
+                && push.num_heads == 2
+            {
+                &vk.cpu_avx2_attention_seq5_backward
+            } else {
+                &vk.attention_backward
+            };
+            attention_backward.record_dispatch(
+                commands,
+                &[
+                    &t[Q], &t[K], &t[V], mask, mask, dummy, &t[DA], &t[DQ], &t[DK], &t[DV], dummy,
+                    dummy, dummy, dummy, mask,
+                ],
+                bytemuck::bytes_of(&push.as_backward_push(0, 1)),
+                [push.num_heads, push.batch_size, 1],
+            )?;
         }
         self.linear_backward(commands, k, vk, &self.q, &t[N1], &t[DQ], &t[DQI], rows)?;
         self.linear_backward(commands, k, vk, &self.key, &t[N1], &t[DK], &t[DKI], rows)?;
         self.linear_backward(commands, k, vk, &self.v, &t[N1], &t[DV], &t[DVI], rows)?;
-        let (first, last) = if self.reverse_qkv_adjoint && aten_vector_width() == 8 {
+        let (first, last) = if self.reverse_qkv_adjoint
+            && (aten_vector_width() == 8 || k.rdna3_avx512_gpt2.is_some())
+        {
             (&t[DVI], &t[DQI])
         } else {
             (&t[DQI], &t[DVI])
@@ -1503,7 +1688,8 @@ impl VulkanClipImageAdapter {
         // The width-16 RDNA3 oracle uses Transformers' Torchvision backend:
         // normalize RGB directly with FP32 mean/std multiplied by 1/factor.
         // Keep the frozen Gen9/AVX2 processor's operation order unchanged.
-        let rdna3_avx512 = crate::vendor::rdna3_avx512_cpu_contract(&self.device, aten_vector_width());
+        let rdna3_avx512 =
+            crate::vendor::rdna3_avx512_cpu_contract(&self.device, aten_vector_width());
         let inverse_factor = (1.0 / factor) as f32;
         let fused_mean = mean.map(|v| v * inverse_factor);
         let fused_std = std.map(|v| v * inverse_factor);
@@ -1656,13 +1842,17 @@ impl VulkanClipImageAdapter {
         )?;
         if self.cpu_reference_math && self.projector_activation == "gelu" {
             let len = rows * self.projector1.output_dim;
-            self.vk.rdna3_avx512_gelu.as_ref().map(|family| &family[0])
-                .unwrap_or(&self.vk.gelu_cpu_forward).record_dispatch(
-                &mut commands,
-                &[&self.projector_pre, &self.projector_act],
-                bytemuck::cast_slice(&[len as u32]),
-                [div_ceil_u32(len, 256), 1, 1],
-            )?;
+            self.vk
+                .rdna3_avx512_gelu
+                .as_ref()
+                .map(|family| &family[0])
+                .unwrap_or(&self.vk.gelu_cpu_forward)
+                .record_dispatch(
+                    &mut commands,
+                    &[&self.projector_pre, &self.projector_act],
+                    bytemuck::cast_slice(&[len as u32]),
+                    [div_ceil_u32(len, 256), 1, 1],
+                )?;
         } else {
             self.vk.activation(
                 k,
@@ -1725,17 +1915,21 @@ impl VulkanClipImageAdapter {
         )?;
         if self.cpu_reference_math && self.projector_activation == "gelu" {
             let len = feature_rows * self.projector1.output_dim;
-            self.vk.rdna3_avx512_gelu.as_ref().map(|family| &family[1])
-                .unwrap_or(&self.vk.gelu_cpu_backward).record_dispatch(
-                &mut commands,
-                &[
-                    &self.projector_pre,
-                    &self.grad_act,
-                    &self.grad_projector_pre,
-                ],
-                bytemuck::cast_slice(&[len as u32]),
-                [div_ceil_u32(len, 256), 1, 1],
-            )?;
+            self.vk
+                .rdna3_avx512_gelu
+                .as_ref()
+                .map(|family| &family[1])
+                .unwrap_or(&self.vk.gelu_cpu_backward)
+                .record_dispatch(
+                    &mut commands,
+                    &[
+                        &self.projector_pre,
+                        &self.grad_act,
+                        &self.grad_projector_pre,
+                    ],
+                    bytemuck::cast_slice(&[len as u32]),
+                    [div_ceil_u32(len, 256), 1, 1],
+                )?;
         } else {
             self.vk.activation(
                 k,

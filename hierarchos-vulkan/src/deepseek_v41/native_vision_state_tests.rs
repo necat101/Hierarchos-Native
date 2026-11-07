@@ -54,6 +54,11 @@ fn setup(
     )?;
     let adapter =
         DeepseekV41LoraAdapter::initialize(&mut package.reader()?, &[], 2, 2., false, 1793)?;
+    // Benchmark-only residency switch: the throughput run compares the default
+    // streamed experts against resident experts on the same binary. Unset
+    // everywhere else, so qualification keeps the production configuration.
+    let resident_experts = std::env::var_os("HIERARCHOS_MULTIMODAL_BENCH_RESIDENT_EXPERTS")
+        .is_some_and(|value| value != "0");
     let trainer = DeepseekV41MultimodalTrainer::new(
         device,
         &package.root,
@@ -61,6 +66,7 @@ fn setup(
         serde_json::from_value(case["hyper"].clone())?,
         DeepseekV41ModelTrainingConfig {
             batch_size: f.batch_size,
+            stream_experts: !resident_experts,
             ..Default::default()
         },
         case["image"]["n_vit_h"].as_u64().unwrap() as usize,
@@ -160,10 +166,13 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
                 digest.update(value.to_bits().to_le_bytes());
             }
         }
+        let memory = device.memory_stats()?;
         records.push(
             json!({"case":case["name"],"kind":"native_v41","samples":samples,
             "final_logits_bits":bits(&logits),"image_digest":format!("{:x}",digest.finalize()),
-            "adapter_digest":trainer.adapter()?.snapshot_digest()?}),
+            "adapter_digest":trainer.adapter()?.snapshot_digest()?,
+            "memory":{"live_buffer_bytes":memory.live_buffer_bytes,
+                "peak_live_buffer_bytes":memory.peak_live_buffer_bytes}}),
         );
     }
     for (name, folder) in [

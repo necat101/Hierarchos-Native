@@ -9,6 +9,7 @@ def main():
     p.add_argument('--fixtures',type=Path,required=True);p.add_argument('--case',required=True)
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--backward',action='store_true')
+    p.add_argument('--step',type=int,choices=[1,2],default=1)
     a=p.parse_args();folder=a.fixtures/a.case;manifest=json.loads((a.fixtures/'manifest.json').read_text())
     case=next(c for c in manifest['cases'] if c['name']==a.case)
     for name,h in {**case['files'],**manifest['oracle']['source_sha256']}.items():
@@ -18,13 +19,18 @@ def main():
     from transformers import AutoModelForCausalLM
     torch.set_num_threads(1)
     model=AutoModelForCausalLM.from_pretrained(folder/'model/text').float().train()
+    if a.step==2:
+        from safetensors.torch import load_file
+        state=load_file(str(folder/'cpu-step-1.safetensors'))
+        with torch.no_grad():
+            for name,parameter in model.named_parameters():parameter.copy_(state['text.'+name])
     f=json.loads((folder/'input.json').read_text());cpu=json.loads((folder/'cpu.json').read_text())
     shape=(f['batch_size'],f['seq_len']);ids=torch.tensor(f['input_ids']).view(shape)
     mask=torch.tensor(f['attention_mask'],dtype=torch.long).view(shape)
     image_config=json.loads((folder/'model/image/config.json').read_text())
     positions=(ids==image_config['image_token_index']).flatten().nonzero().flatten()
     embedding=model.get_input_embeddings();width=embedding.weight.shape[1]
-    projected=torch.tensor(cpu['steps'][0]['forward']['projected_features']).view(-1,width)
+    projected=torch.tensor(cpu['steps'][a.step-1]['forward']['projected_features']).view(-1,width)
     handles=[];stages={};attention_calls=[];retained={};attention_retained=[]
     original_sdpa=torch.nn.functional.scaled_dot_product_attention
     def observed_sdpa(query,key,value,*args,**kwargs):
@@ -105,14 +111,14 @@ def main():
         for key,tensor in zip(['dq','dk','dv','dy'],tensors):call[key]={'shape':list(tensor.shape),'values':tensor.grad.flatten().tolist()}
     for handle in handles:handle.remove()
     torch.nn.functional.scaled_dot_product_attention=original_sdpa
-    expected=cpu['steps'][0]['forward']['logits']
+    expected=cpu['steps'][a.step-1]['forward']['logits']
     words=lambda values:[struct.pack('<f',x) for x in values]
     different=sum(x!=y for x,y in zip(words(logits),words(expected),strict=True))
     print('CPU replay differences',different,'attention implementation',model.config._attn_implementation,flush=True)
     if different:raise ValueError('CPU diagnostic does not reproduce frozen logits')
     a.output.mkdir(parents=True,exist_ok=False)
     write_json(a.output/'cpu.json',{'stages':stages,'logits':logits,'cpu_replay_word_differences':different,
-        'attention_implementation':model.config._attn_implementation,'runner_sha256':digest(__file__),
+        'attention_implementation':model.config._attn_implementation,'step':a.step,'runner_sha256':digest(__file__),
         'fixtures_sha256':digest(a.fixtures/'manifest.json'),'attention_calls':attention_calls,'gradients':gradients,
         'parameter_gradients':{name:p.grad.detach().flatten().tolist() for name,p in model.named_parameters() if p.grad is not None}})
 

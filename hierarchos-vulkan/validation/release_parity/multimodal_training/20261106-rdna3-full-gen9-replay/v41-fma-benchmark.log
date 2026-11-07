@@ -1,0 +1,174 @@
+Starting 1-software
+1-software word exact after 9 updates
+Starting 1-hardware
+1-hardware word exact after 9 updates
+Starting 2-hardware
+2-hardware word exact after 9 updates
+Starting 2-software
+2-software word exact after 9 updates
+Starting 3-software
+3-software word exact after 9 updates
+Starting 3-hardware
+3-hardware word exact after 9 updates
+Starting 4-hardware
+4-hardware word exact after 9 updates
+Starting 4-software
+4-software word exact after 9 updates
+{
+  "schema": 1,
+  "pass": true,
+  "word_exact": true,
+  "order": "ABBA",
+  "rounds": 4,
+  "host_vector_width": 16,
+  "native_private_vector_width": 8,
+  "grouped_uploads": true,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "updates_before_digest": 9,
+  "binary_sha256": "46ad23463d1d788eadfb4b9d40ae80029dda7d016f8311cd3a47ab1cb3c0765c",
+  "runner_sha256": "c4f3dae54f03297e6e52fceff210f7acbb1eca48dd2599f25c873cfa2238394a",
+  "results": [
+    {
+      "case": "gpt2",
+      "software": {
+        "median_ms": 13.708300000000001,
+        "round_medians_ms": [
+          13.5918,
+          13.786200000000001,
+          13.7575,
+          13.6591
+        ],
+        "submissions": [
+          5
+        ]
+      },
+      "hardware": {
+        "median_ms": 13.7463,
+        "round_medians_ms": [
+          13.900300000000001,
+          13.74,
+          13.7441,
+          13.7485
+        ],
+        "submissions": [
+          5
+        ]
+      },
+      "speedup": 0.9972356197667737
+    },
+    {
+      "case": "llama",
+      "software": {
+        "median_ms": 16.49595,
+        "round_medians_ms": [
+          16.3314,
+          16.7927,
+          16.660500000000003,
+          16.305500000000002
+        ],
+        "submissions": [
+          5
+        ]
+      },
+      "hardware": {
+        "median_ms": 16.575850000000003,
+        "round_medians_ms": [
+          16.5606,
+          16.5911,
+          16.7122,
+          16.284799999999997
+        ],
+        "submissions": [
+          5
+        ]
+      },
+      "speedup": 0.9951797343725961
+    },
+    {
+      "case": "native_vit_4x4",
+      "software": {
+        "median_ms": 328.054,
+        "round_medians_ms": [
+          329.7888,
+          324.34470000000005,
+          326.3192,
+          340.8131
+        ],
+        "submissions": [
+          982
+        ]
+      },
+      "hardware": {
+        "median_ms": 329.3742,
+        "round_medians_ms": [
+          330.0671,
+          326.5542,
+          328.68129999999996,
+          331.1896
+        ],
+        "submissions": [
+          982
+        ]
+      },
+      "speedup": 0.9959917929212427
+    },
+    {
+      "case": "native_vit_6x4",
+      "software": {
+        "median_ms": 482.55449999999996,
+        "round_medians_ms": [
+          488.5454,
+          482.76149999999996,
+          479.4136,
+          482.34749999999997
+        ],
+        "submissions": [
+          982
+        ]
+      },
+      "hardware": {
+        "median_ms": 482.54994999999997,
+        "round_medians_ms": [
+          481.30249999999995,
+          484.6667,
+          478.4857,
+          483.79740000000004
+        ],
+        "submissions": [
+          982
+        ]
+      },
+      "speedup": 1.0000094290756842
+    },
+    {
+      "case": "t5",
+      "software": {
+        "median_ms": 37.90215,
+        "round_medians_ms": [
+          38.1448,
+          37.8958,
+          37.8772,
+          37.9085
+        ],
+        "submissions": [
+          7
+        ]
+      },
+      "hardware": {
+        "median_ms": 37.84925,
+        "round_medians_ms": [
+          37.6716,
+          37.7535,
+          37.945,
+          38.1981
+        ],
+        "submissions": [
+          7
+        ]
+      },
+      "speedup": 1.0013976498873822
+    }
+  ],
+  "scope": "five frozen tiny training cases; same binary, grouped uploads in both arms; no production-size claim"
+}

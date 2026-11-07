@@ -643,7 +643,7 @@ impl Join {
         if let Some(previous) = destination.as_ref() {
             let output = GpuBuffer::zeros_f32(&self.device, len)?;
             let groups = len.div_ceil(64);
-            let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+            let mut commands = self.device.compute_batch()?;
             self.kernel.record_dispatch(
                 &mut commands,
                 &[previous, &value, &output],

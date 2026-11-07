@@ -1,0 +1,8 @@
+
+running 1 test
+test deepseek_v41::compressor::tape_tests::deepseek_v41_compressor_decode_tape_snapshots_norm_gain ... batch 2 state chain: both token VJPs and four state VJPs word-exact after live gain/cache overwrite; isolated rows and overwritten slots verified
+batch 4 state chain: both token VJPs and four state VJPs word-exact after live gain/cache overwrite; isolated rows and overwritten slots verified
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1163 filtered out; finished in 0.20s
+

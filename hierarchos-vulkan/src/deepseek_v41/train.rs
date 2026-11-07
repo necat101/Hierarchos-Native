@@ -115,8 +115,8 @@ struct AdamWSlot {
     exp_avg_sq_b: Vec<f32>,
 }
 
-#[derive(Debug,Clone,Copy,Default,PartialEq,Serialize,Deserialize)]
-#[serde(rename_all="snake_case")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 enum AdamWMathPolicy {
     #[default]
     LegacyF32V1,
@@ -199,7 +199,7 @@ impl DeepseekV41AdapterTrainer {
             slots.insert(target.to_owned(), slot);
         }
         Ok(Self {
-            math_policy:AdamWMathPolicy::CpuSingleTensorV2,
+            math_policy: AdamWMathPolicy::CpuSingleTensorV2,
             template: adapter.clone(),
             source_sha256: adapter.source_sha256.clone(),
             config,
@@ -347,7 +347,9 @@ impl DeepseekV41AdapterTrainer {
                 ("exp_avg_b", &slot.exp_avg_b, vec![out, factors.rank]),
                 ("exp_avg_sq_b", &slot.exp_avg_sq_b, vec![out, factors.rank]),
             ] {
-                if values.is_empty() { continue; }
+                if values.is_empty() {
+                    continue;
+                }
                 push(format!("{target}.{label}"), values, shape)?;
             }
         }
@@ -373,7 +375,7 @@ impl DeepseekV41AdapterTrainer {
             .collect::<Result<Vec<_>>>()?;
         serialize_to_file(views, None, &directory.join(OPTIMIZER_STATE))?;
         let metadata = OptimizerMetadata {
-            math_policy:self.math_policy,
+            math_policy: self.math_policy,
             schema: OPTIMIZER_SCHEMA,
             step: self.step,
             config: self.config,
@@ -418,7 +420,7 @@ impl DeepseekV41AdapterTrainer {
             bail!("V4.1 optimizer checkpoint factors/config/state checksum mismatch");
         }
         let mut trainer = Self::new(adapter, metadata.config)?;
-        trainer.math_policy=metadata.math_policy;
+        trainer.math_policy = metadata.math_policy;
         // Keep the original adapter checksum as provenance, while the new
         // snapshot/file bindings above identify the actual resume state.
         let mut expected = metadata.targets.clone();
@@ -436,7 +438,9 @@ impl DeepseekV41AdapterTrainer {
         let bytes = fs::read(directory.join(OPTIMIZER_STATE))
             .context("V4.1 adapter optimizer state is missing")?;
         let tensors = safetensors::SafeTensors::deserialize(&bytes)?;
-        if metadata.schema < 4 && tensors.len() != trainer.slots.len() * if metadata.schema == 2 { 4 } else { 6 } {
+        if metadata.schema < 4
+            && tensors.len() != trainer.slots.len() * if metadata.schema == 2 { 4 } else { 6 }
+        {
             bail!("V4.1 optimizer checkpoint has unexpected tensors");
         }
         let read = |name: String, shape: Vec<usize>, square: bool| -> Result<Vec<f32>> {
@@ -490,11 +494,24 @@ impl DeepseekV41AdapterTrainer {
             validate_slot(target, slot, factors, metadata.step)?;
             // Old dense checkpoints may contain the zero moments for parameters
             // which never received a gradient. Validate, then retire them.
-            if slot.step_a == 0 { slot.exp_avg_a.clear(); slot.exp_avg_a.shrink_to_fit(); slot.exp_avg_sq_a.clear(); slot.exp_avg_sq_a.shrink_to_fit(); }
-            if slot.step_b == 0 { slot.exp_avg_b.clear(); slot.exp_avg_b.shrink_to_fit(); slot.exp_avg_sq_b.clear(); slot.exp_avg_sq_b.shrink_to_fit(); }
-            expected_tensors += 2 + 2*usize::from(slot.step_a > 0) + 2*usize::from(slot.step_b > 0);
+            if slot.step_a == 0 {
+                slot.exp_avg_a.clear();
+                slot.exp_avg_a.shrink_to_fit();
+                slot.exp_avg_sq_a.clear();
+                slot.exp_avg_sq_a.shrink_to_fit();
+            }
+            if slot.step_b == 0 {
+                slot.exp_avg_b.clear();
+                slot.exp_avg_b.shrink_to_fit();
+                slot.exp_avg_sq_b.clear();
+                slot.exp_avg_sq_b.shrink_to_fit();
+            }
+            expected_tensors +=
+                2 + 2 * usize::from(slot.step_a > 0) + 2 * usize::from(slot.step_b > 0);
         }
-        if metadata.schema == 4 && tensors.len() != expected_tensors { bail!("V4.1 sparse optimizer checkpoint has unexpected tensors"); }
+        if metadata.schema == 4 && tensors.len() != expected_tensors {
+            bail!("V4.1 sparse optimizer checkpoint has unexpected tensors");
+        }
         trainer.step = metadata.step;
         Ok(trainer)
     }
@@ -557,7 +574,12 @@ impl DeepseekV41AdapterTrainer {
     }
 
     pub fn allocated_moment_elements(&self) -> usize {
-        self.slots.values().map(|s|s.exp_avg_a.len()+s.exp_avg_sq_a.len()+s.exp_avg_b.len()+s.exp_avg_sq_b.len()).sum()
+        self.slots
+            .values()
+            .map(|s| {
+                s.exp_avg_a.len() + s.exp_avg_sq_a.len() + s.exp_avg_b.len() + s.exp_avg_sq_b.len()
+            })
+            .sum()
     }
 }
 
@@ -645,9 +667,9 @@ fn update(
     decay: f32,
     step_size: f32,
     bias_correction2_sqrt: f32,
-    policy:AdamWMathPolicy,
+    policy: AdamWMathPolicy,
 ) {
-    let block=2*crate::deepseek_v41::cpu_math::vector_width() as usize;
+    let block = 2 * crate::deepseek_v41::cpu_math::vector_width() as usize;
     for index in 0..param.len() {
         (param[index], exp_avg[index], exp_avg_sq[index]) = update_element(
             param[index],
@@ -659,7 +681,7 @@ fn update(
             step_size,
             bias_correction2_sqrt,
             policy,
-            index<param.len()/block*block,
+            index < param.len() / block * block,
         );
     }
 }
@@ -674,26 +696,36 @@ fn update_element(
     decay: f32,
     step_size: f32,
     bias_correction2_sqrt: f32,
-    policy:AdamWMathPolicy,
-    vector:bool,
+    policy: AdamWMathPolicy,
+    vector: bool,
 ) -> (f32, f32, f32) {
     let value = param * decay;
-    if policy==AdamWMathPolicy::LegacyF32V1 {
-        let b1=config.beta1 as f32;let b2=config.beta2 as f32;
-        let avg=avg*b1+(1.0-b1)*gradient;
-        let square=square*b2+((1.0-b2)*gradient)*gradient;
-        let denom=square.sqrt()/bias_correction2_sqrt+config.eps as f32;
-        return (value-step_size*(avg/denom),avg,square);
+    if policy == AdamWMathPolicy::LegacyF32V1 {
+        let b1 = config.beta1 as f32;
+        let b2 = config.beta2 as f32;
+        let avg = avg * b1 + (1.0 - b1) * gradient;
+        let square = square * b2 + ((1.0 - b2) * gradient) * gradient;
+        let denom = square.sqrt() / bias_correction2_sqrt + config.eps as f32;
+        return (value - step_size * (avg / denom), avg, square);
     }
-    let weight=(1.0-config.beta1) as f32;
-    let difference=gradient-avg;
-    let avg=if vector {
-        if weight.abs()<0.5 {weight.mul_add(difference,avg)} else {(weight-1.0).mul_add(difference,gradient)}
-    } else if weight.abs()<0.5 {avg+weight*difference} else {gradient-difference*(1.0-weight)};
-    let square=square*(config.beta2 as f32)+(((1.0-config.beta2) as f32)*gradient)*gradient;
-    let denom=square.sqrt()/bias_correction2_sqrt+config.eps as f32;
+    let weight = (1.0 - config.beta1) as f32;
+    let difference = gradient - avg;
+    let avg = if vector {
+        if weight.abs() < 0.5 {
+            weight.mul_add(difference, avg)
+        } else {
+            (weight - 1.0).mul_add(difference, gradient)
+        }
+    } else if weight.abs() < 0.5 {
+        avg + weight * difference
+    } else {
+        gradient - difference * (1.0 - weight)
+    };
+    let square =
+        square * (config.beta2 as f32) + (((1.0 - config.beta2) as f32) * gradient) * gradient;
+    let denom = square.sqrt() / bias_correction2_sqrt + config.eps as f32;
     // ATen addcdiv evaluates value * numerator before its division.
-    (value+((-step_size)*avg)/denom,avg,square)
+    (value + ((-step_size) * avg) / denom, avg, square)
 }
 
 fn validate_slot(

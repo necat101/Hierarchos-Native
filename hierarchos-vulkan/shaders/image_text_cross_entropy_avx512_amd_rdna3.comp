@@ -1,0 +1,143 @@
+#version 450
+
+#ifndef HIERARCHOS_LOG_SOFTMAX_GRAD
+#define HIERARCHOS_LOG_SOFTMAX_GRAD 0
+#endif
+// Number of interleaved accumulator lanes in the materialized log-softmax
+// reduction below.  ATen runs that reduction on the host's vector width, so the
+// shape is a property of the machine, not of the model or the GPU: an AVX2-only
+// host reduces 8 floats per vector and an AVX-512 host 16.  The module the
+// process dispatches is chosen to match the host (`aten_vector_width` in the
+// Rust side); 8 stays the default so the AVX2 build is unchanged.
+#ifndef HIERARCHOS_LOG_SOFTMAX_LANES
+#define HIERARCHOS_LOG_SOFTMAX_LANES 8
+#endif
+#if HIERARCHOS_LOG_SOFTMAX_GRAD
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact_hw_rdna3.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
+#endif
+
+// Positive-normal SLEEF 3.6.1 xlogf_u1, with the compensated FP32 schedule.
+#include "fp32_sleef_pow_avx512_rdna3.glsl"
+float rdna3_log(float d) {
+    precise float scaled=d*1.33333333333333333333f;
+    int e=int((floatBitsToUint(scaled)>>23u)&255u)-127;
+    precise float m=d*sleef_pow_pow2i(-e);
+    vec2 s=sleef_pow_df_mul(vec2(0.69314718246459960938f,-1.904654323148236017e-9f),float(e));
+    vec2 x=sleef_pow_df_div(sleef_pow_df_add2(-1.0f,m),sleef_pow_df_add2(1.0f,m));
+    precise float x2=x.x*x.x;
+    precise float t=0.3027294874f;
+    t=fma(t,x2,0.3996108174f);t=fma(t,x2,0.6666694880f);
+    s=sleef_pow_df_add(s,sleef_pow_df_scale(x,2.0f));
+    precise float correction=(x2*x.x)*t;
+    precise float hi=s.x+correction;
+    precise float lo=((s.x-hi)+correction)+s.y;
+    return hi+lo;
+}
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer LogitBuffer { float logits[]; };
+layout(set = 0, binding = 1, std430) readonly buffer TargetBuffer { uint targets[]; };
+layout(set = 0, binding = 2, std430) readonly buffer LossWeightBuffer { float loss_weights[]; };
+layout(set = 0, binding = 3, std430) writeonly buffer GradBuffer { float grad_logits[]; };
+layout(set = 0, binding = 4, std430) writeonly buffer LossBuffer { float row_loss[]; };
+
+layout(push_constant) uniform Push {
+    uint rows;
+    uint vocab_size;
+} pc;
+
+void main() {
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= pc.rows) {
+        return;
+    }
+    uint base = row * pc.vocab_size;
+    uint target = targets[row];
+    float row_weight = loss_weights[row];
+    if (target == 0xffffffffu || target >= pc.vocab_size || row_weight <= 0.0) {
+        for (uint v = 0; v < pc.vocab_size; ++v) {
+            grad_logits[base + v] = 0.0;
+        }
+        row_loss[row] = 0.0;
+        return;
+    }
+
+    // The authoritative weighted-objective denominator is computed on the
+    // device so gradient normalization does not depend on host arithmetic.
+    precise float weight_sum = 0.0;
+    for (uint r = 0; r < pc.rows; ++r) {
+        uint candidate_target = targets[r];
+        float candidate_weight = loss_weights[r];
+        if (candidate_target != 0xffffffffu
+            && candidate_target < pc.vocab_size
+            && candidate_weight > 0.0) {
+            weight_sum += candidate_weight;
+        }
+    }
+    if (!(weight_sum > 0.0)) {
+        for (uint v = 0; v < pc.vocab_size; ++v) {
+            grad_logits[base + v] = 0.0;
+        }
+        row_loss[row] = 0.0;
+        return;
+    }
+
+    float max_logit = logits[base];
+    for (uint v = 1; v < pc.vocab_size; ++v) {
+        max_logit = max(max_logit, logits[base + v]);
+    }
+    float exp_sum = 0.0;
+    for (uint v = 0; v < pc.vocab_size; ++v) {
+        exp_sum += exp(logits[base + v] - max_logit);
+    }
+    float inv_sum = 1.0 / exp_sum;
+    float gradient_scale = row_weight / weight_sum;
+#if HIERARCHOS_LOG_SOFTMAX_GRAD
+    gradient_scale = fp32_div(row_weight, weight_sum);
+    // PyTorch's CPU log-softmax reduces the `exp(x - max)` terms with
+    // `vec::map_reduce_all`: the accumulator is one vector of the host's ATen
+    // width, it is seeded with the first vocabulary chunk, every later chunk
+    // adds into the same lanes, and the lane totals are then folded
+    // *sequentially* into lane 0 (slow `vec_reduce_all`).  The association is
+    // load-bearing and the lane count follows the host: an 8-lane sequential
+    // fold reproduces `torch.log_softmax` bit-for-bit on an AVX2-only machine,
+    // while an AVX-512 machine reduces 16 floats per vector and a mismatched
+    // fold leaves logits adjoints one ulp away from the HF oracle and
+    // propagates past the 2e-7 saved-module gate.  Reproduce the reduction with
+    // SLEEF expf_u10, keep LogSoftmax's materialized log-probability before its
+    // backward exp, and use the correctly rounded fp32 log and division.  The
+    // scalar log remains a single rounded FP32 operation, matching the CPU
+    // kernel's staging much more closely than the algebraically collapsed
+    // softmax derivative.
+    precise float lane_sum[HIERARCHOS_LOG_SOFTMAX_LANES];
+    for (uint lane = 0u; lane < uint(HIERARCHOS_LOG_SOFTMAX_LANES); ++lane) {
+        lane_sum[lane] = 0.0;
+    }
+    for (uint v = 0; v < pc.vocab_size; ++v) {
+        precise float shifted = logits[base + v] - max_logit;
+        uint lane = v & uint(HIERARCHOS_LOG_SOFTMAX_LANES - 1);
+        lane_sum[lane] += sleef_expf_u10(shifted);
+    }
+    precise float torch_sum = lane_sum[0];
+    for (uint lane = 1u; lane < uint(HIERARCHOS_LOG_SOFTMAX_LANES); ++lane) {
+        torch_sum += lane_sum[lane];
+    }
+    precise float torch_log_sum = rdna3_log(torch_sum);
+    for (uint v = 0; v < pc.vocab_size; ++v) {
+        precise float shifted = logits[base + v] - max_logit;
+        precise float log_probability = shifted - torch_log_sum;
+        float probability = sleef_expf_u10(log_probability);
+        precise float probability_gradient = probability * gradient_scale;
+        grad_logits[base + v] = probability_gradient + (v == target ? -gradient_scale : 0.0);
+    }
+#else
+    for (uint v = 0; v < pc.vocab_size; ++v) {
+        float probability = exp(logits[base + v] - max_logit) * inv_sum;
+        grad_logits[base + v] = (probability - (v == target ? 1.0 : 0.0)) * gradient_scale;
+    }
+#endif
+    row_loss[row] = (log(exp_sum) + max_logit - logits[base + target]) * gradient_scale;
+}

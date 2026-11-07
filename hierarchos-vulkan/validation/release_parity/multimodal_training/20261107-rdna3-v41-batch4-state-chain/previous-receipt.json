@@ -1,0 +1,6 @@
+{
+  "state_chain": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261106-rdna3-v41-state-chain",
+  "state_chain_manifest_sha256": "0e588edb1dd87da059a299f0051bbc185502ced0961495366c1900ea88331a1e",
+  "batch2_snapshot": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261107-rdna3-v41-batch2-decode-snapshot",
+  "note": "The prior state-chain receipt remains sealed for its original batch-2 binary; this receipt supersedes it only as the current batch-4 evidence."
+}

@@ -474,38 +474,47 @@ fn conditional_adamw_invalid_late_parameter_and_overflow_are_atomic() -> Result<
 
 #[test]
 fn conditional_adamw_sparse_moments_allocate_on_first_parameter_gradient() -> Result<()> {
-    let root=Temp::new()?;
-    let c=fixture().units.remove(0);
-    let initial=adapter(&c,&root.0.join("source"))?;
-    let mut trainer=DeepseekV41AdapterTrainer::new(&initial,c.hyper)?;
-    assert_eq!(trainer.allocated_moment_elements(),0);
+    let root = Temp::new()?;
+    let c = fixture().units.remove(0);
+    let initial = adapter(&c, &root.0.join("source"))?;
+    let mut trainer = DeepseekV41AdapterTrainer::new(&initial, c.hyper)?;
+    assert_eq!(trainer.allocated_moment_elements(), 0);
     trainer.step_parameters(&[])?;
-    assert_eq!(trainer.allocated_moment_elements(),0);
-    let m=&c.modules[0];
-    trainer.step_parameters(&[DeepseekV41AdapterParameterGradient {target:m.target.clone(),grad_a:None,grad_b:Some(vec![0.0;m.b_bits.len()])}])?;
-    assert_eq!(trainer.parameter_step_counts(&m.target),Some((0,1)));
-    assert_eq!(trainer.allocated_moment_elements(),2*m.b_bits.len());
-    let path=root.0.join("sparse");trainer.save_checkpoint(&path)?;
-    let bytes=fs::read(path.join(OPTIMIZER_STATE))?;
-    let tensors=safetensors::SafeTensors::deserialize(&bytes)?;
-    assert_eq!(tensors.len(),2*trainer.targets().count()+2);
-    assert!(tensors.tensor(&format!("{}.exp_avg_a",m.target)).is_err());
-    let resumed=DeepseekV41AdapterTrainer::resume_from_checkpoint(&path)?;
-    assert_exact(&trainer,&resumed);
-    assert_eq!(resumed.allocated_moment_elements(),2*m.b_bits.len());
+    assert_eq!(trainer.allocated_moment_elements(), 0);
+    let m = &c.modules[0];
+    trainer.step_parameters(&[DeepseekV41AdapterParameterGradient {
+        target: m.target.clone(),
+        grad_a: None,
+        grad_b: Some(vec![0.0; m.b_bits.len()]),
+    }])?;
+    assert_eq!(trainer.parameter_step_counts(&m.target), Some((0, 1)));
+    assert_eq!(trainer.allocated_moment_elements(), 2 * m.b_bits.len());
+    let path = root.0.join("sparse");
+    trainer.save_checkpoint(&path)?;
+    let bytes = fs::read(path.join(OPTIMIZER_STATE))?;
+    let tensors = safetensors::SafeTensors::deserialize(&bytes)?;
+    assert_eq!(tensors.len(), 2 * trainer.targets().count() + 2);
+    assert!(tensors.tensor(&format!("{}.exp_avg_a", m.target)).is_err());
+    let resumed = DeepseekV41AdapterTrainer::resume_from_checkpoint(&path)?;
+    assert_exact(&trainer, &resumed);
+    assert_eq!(resumed.allocated_moment_elements(), 2 * m.b_bits.len());
     // A schema-3 checkpoint with explicit zero moments for never-used
     // parameters still resumes, then releases those redundant payloads.
-    let mut dense=DeepseekV41AdapterTrainer::new(&initial,c.hyper)?;
-    for (target,s) in &mut dense.slots {
-        let f=&dense.factors[target];
-        s.exp_avg_a=vec![0.0;f.a.len()];s.exp_avg_sq_a=s.exp_avg_a.clone();
-        s.exp_avg_b=vec![0.0;f.b.len()];s.exp_avg_sq_b=s.exp_avg_b.clone();
+    let mut dense = DeepseekV41AdapterTrainer::new(&initial, c.hyper)?;
+    for (target, s) in &mut dense.slots {
+        let f = &dense.factors[target];
+        s.exp_avg_a = vec![0.0; f.a.len()];
+        s.exp_avg_sq_a = s.exp_avg_a.clone();
+        s.exp_avg_b = vec![0.0; f.b.len()];
+        s.exp_avg_sq_b = s.exp_avg_b.clone();
     }
-    let legacy=root.0.join("legacy-3");dense.adapter()?.export(&legacy)?;dense.save(&legacy)?;
-    rewrite_state(&legacy,3,|_,_,_,_|true)?;
-    let migrated=DeepseekV41AdapterTrainer::resume_from_checkpoint(&legacy)?;
-    assert_eq!(migrated.allocated_moment_elements(),0);
-    assert_eq!(migrated.step_count(),0);
+    let legacy = root.0.join("legacy-3");
+    dense.adapter()?.export(&legacy)?;
+    dense.save(&legacy)?;
+    rewrite_state(&legacy, 3, |_, _, _, _| true)?;
+    let migrated = DeepseekV41AdapterTrainer::resume_from_checkpoint(&legacy)?;
+    assert_eq!(migrated.allocated_moment_elements(), 0);
+    assert_eq!(migrated.step_count(), 0);
     Ok(())
 }
 

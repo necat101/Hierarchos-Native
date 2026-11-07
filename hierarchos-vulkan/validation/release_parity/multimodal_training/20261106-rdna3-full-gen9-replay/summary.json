@@ -1,0 +1,115 @@
+{
+  "schema": 1,
+  "scope": "complete_green_gen9_multimodal_replay",
+  "target": "rdna3",
+  "adapter": "1002:15bf",
+  "pass": true,
+  "complete": true,
+  "absolute_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "frozen_manifest_sha256": "a9e519008e712105ceb1b135227398785617db3eb03c65e7518bb7f225966636",
+  "unchanged_frozen_files": 2748,
+  "baseline_sha256": "e20ab6b495cf1407584dcfed2778f83de1abc5518a249c049089bf60d51564f9",
+  "binary_sha256": {
+    "hierarchos_vulkan-2f708da7cb986ebb.exe": "46ad23463d1d788eadfb4b9d40ae80029dda7d016f8311cd3a47ab1cb3c0765c",
+    "image_text_pipeline_probe.exe": "70d8505dd7ac678f5437cd9873919e6f0063ae542d12cb0133ca9fd0b22164dd",
+    "gemma3_vision_probe.exe": "d0a94728f9676ed57d85fa7c4bfed73be67249aae87dc0c5df7e07c08b5bd16c",
+    "gemma4_vision_probe.exe": "f5d5bad8daa05284b5beb9e7e8da0c4e97e5eb142f0e14939056743c1eba5154",
+    "llava_pipeline_probe.exe": "f923e19a5afeda5c094d18a0bec9e52b716b0e9fc51f3bd6d9e9879fe5d91746",
+    "hierarchos-vulkan-transformer-logits.exe": "4830c9db5be9fbb158dc5a9cebdc1297196900b4214955dca259dfd2dc5b51b8"
+  },
+  "stages": {
+    "shared77": {
+      "pass": true,
+      "returncode": 0,
+      "coverage": 77
+    },
+    "seq2seq": {
+      "pass": true,
+      "returncode": 0,
+      "coverage": 6
+    },
+    "gemma4-legacy": {
+      "pass": true,
+      "returncode": 0,
+      "coverage": 1
+    },
+    "gemma4-rgb": {
+      "pass": true,
+      "returncode": 0,
+      "coverage": 1
+    },
+    "gemma3": {
+      "pass": true,
+      "returncode": 0,
+      "coverage": 4
+    },
+    "llava": {
+      "pass": true,
+      "returncode": 0,
+      "coverage": 4
+    },
+    "text166": {
+      "pass": true,
+      "returncode": 0,
+      "coverage": 166
+    },
+    "deepseek215": {
+      "pass": true,
+      "returncode": 0,
+      "coverage": 215
+    },
+    "native-v41": {
+      "pass": true,
+      "returncode": 0,
+      "coverage": 30
+    }
+  },
+  "counts": {
+    "image_cases": 93,
+    "text_runs": 166,
+    "deepseek_active": 215,
+    "deepseek_ignored": 26,
+    "native_v41_tests": 30
+  },
+  "v41_optimization": {
+    "rounds": 4,
+    "measured_steps": 7,
+    "word_exact": true,
+    "results": {
+      "gpt2": {
+        "software_ms": 13.708300000000001,
+        "hardware_fma_ms": 13.7463,
+        "ratio": 0.9972356197667737
+      },
+      "llama": {
+        "software_ms": 16.49595,
+        "hardware_fma_ms": 16.575850000000003,
+        "ratio": 0.9951797343725961
+      },
+      "native_vit_4x4": {
+        "software_ms": 328.054,
+        "hardware_fma_ms": 329.3742,
+        "ratio": 0.9959917929212427
+      },
+      "native_vit_6x4": {
+        "software_ms": 482.55449999999996,
+        "hardware_fma_ms": 482.54994999999997,
+        "ratio": 1.0000094290756842
+      },
+      "t5": {
+        "software_ms": 37.90215,
+        "hardware_fma_ms": 37.84925,
+        "ratio": 1.0013976498873822
+      }
+    },
+    "claim": "word-exact but performance-neutral on the two native geometries; no speedup claimed"
+  },
+  "limits": [
+    "frozen tiny training geometries only",
+    "no production-size throughput claim",
+    "26 DeepSeek opt-in tests ignored",
+    "no physical Gen9 execution"
+  ]
+}

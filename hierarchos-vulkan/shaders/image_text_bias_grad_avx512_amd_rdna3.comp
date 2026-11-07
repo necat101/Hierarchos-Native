@@ -1,0 +1,36 @@
+#version 450
+// ATen cascade_sum for contiguous outer reductions, Windows AVX512 profile.
+// This wheel's sum operator dispatches Vec8 even when SDPA/CE use Vec16.
+// Packs independent columns; each column preserves CPU association.
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer G {float dy[];};
+layout(set=0,binding=1,std430) writeonly buffer B {float db[];};
+layout(push_constant) uniform Push {uint rows;uint dim;} pc;
+float cascade(uint col,uint start,uint stride,uint size) {
+    uint power=max(4u,uint(findMSB(max(size,1u)-1u)+1)/4u);
+    uint step=1u<<power,mask=step-1u;
+    precise float a[4];for(uint j=0u;j<4u;++j)a[j]=0.0;
+    uint i=0u;
+    while(i+step<=size) {
+        for(uint j=0u;j<step;++j,++i)a[0]+=dy[(start+i*stride)*pc.dim+col];
+        for(uint j=1u;j<4u;++j) {
+            a[j]+=a[j-1u];a[j-1u]=0.0;
+            if((i&(mask<<(j*power)))!=0u)break;
+        }
+    }
+    for(;i<size;++i)a[0]+=dy[(start+i*stride)*pc.dim+col];
+    for(uint j=1u;j<4u;++j)a[0]+=a[j];
+    return a[0];
+}
+void main() {
+    uint col=gl_GlobalInvocationID.x;if(col>=pc.dim)return;
+    precise float sum;
+    if(col<(pc.dim/32u)*32u)sum=cascade(col,0u,1u,pc.rows);
+    else {
+        precise float a[4];uint count=pc.rows/4u;
+        for(uint j=0u;j<4u;++j)a[j]=cascade(col,j,4u,count);
+        for(uint row=count*4u;row<pc.rows;++row)a[0]+=dy[row*pc.dim+col];
+        sum=a[0]+a[1];sum+=a[2];sum+=a[3];
+    }
+    db[col]=0.0+sum;
+}

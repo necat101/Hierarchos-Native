@@ -64,6 +64,32 @@ pub(super) fn shader(device: &VulkanDevice, original: &[u8]) -> Option<&'static 
     if !AVX2.with(Cell::get) {
         return None;
     }
+    if crate::vendor::rdna3_module_enabled(device)
+        && crate::vendor::rdna3_avx512_cpu_contract(device, 16)
+        && crate::vendor::rdna3_zen4_cpu_profile()
+        && std::env::var_os("HIERARCHOS_VULKAN_RDNA3_V41").is_none_or(|v| v != "0")
+    {
+        // Native VL keeps its pinned private AVX2 reductions on the AVX512
+        // host. Only the exact-FMA implementation changes; the Gen9 table
+        // below remains the fallback, with its original artifacts and order.
+        const RDNA3: &[(&[u8], &[u8])] = &[
+            (include_bytes!("../../shaders/transformer_deepseek_v41_hc_split.spv"),
+             include_bytes!("../../shaders/transformer_deepseek_v41_hc_split_avx2_amd_rdna3.spv")),
+            (include_bytes!("../../shaders/transformer_deepseek_v41_hc_split_grad.spv"),
+             include_bytes!("../../shaders/transformer_deepseek_v41_hc_split_grad_avx2_amd_rdna3.spv")),
+            (include_bytes!("../../shaders/transformer_deepseek_v41_hc_split_grad_cached_avx2.spv"),
+             include_bytes!("../../shaders/transformer_deepseek_v41_hc_split_grad_cached_avx2_amd_rdna3.spv")),
+            (include_bytes!("../../shaders/transformer_deepseek_v41_mixed_swiglu_grad.spv"),
+             include_bytes!("../../shaders/transformer_deepseek_v41_mixed_swiglu_grad_avx2_amd_rdna3.spv")),
+            (include_bytes!("../../shaders/transformer_deepseek_v41_input_grad_avx2.spv"),
+             include_bytes!("../../shaders/transformer_deepseek_v41_input_grad_avx2_amd_rdna3.spv")),
+            (include_bytes!("../../shaders/transformer_deepseek_v41_head_input_grad_avx2.spv"),
+             include_bytes!("../../shaders/transformer_deepseek_v41_head_input_grad_avx2_amd_rdna3.spv")),
+        ];
+        if let Some((_, shader)) = RDNA3.iter().find(|(base, _)| *base == original) {
+            return Some(shader);
+        }
+    }
     const PAIRS: &[(&[u8], &[u8], &[u8])] = &[
         (
             include_bytes!("../../shaders/transformer_deepseek_v41_attention_weights.spv"),

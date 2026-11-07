@@ -1,0 +1,16 @@
+--- before/src/transformer/vision.rs
++++ after/src/transformer/vision.rs
+@@ -241,7 +241,12 @@
+             } else {
+                 None
+             },
+-            rdna3_tanh_backward: if crate::vendor::rdna3_module_enabled(device) {
++            // This rounding repair was qualified with the frozen AVX2 image
++            // track. Preserve the native AVX512 graph's established staging.
++            rdna3_tanh_backward: if crate::vendor::rdna3_frozen_avx2_variants(
++                device,
++                aten_vector_width(),
++            ) {
+                 Some(vulkan::ComputeKernel::new(
+                     device,
+                     include_bytes!("../../shaders/vision_gelu_tanh_backward_amd_rdna3.spv"),

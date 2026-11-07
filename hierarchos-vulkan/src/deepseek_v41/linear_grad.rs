@@ -113,8 +113,12 @@ impl DeepseekV41LinearGradients {
         let mut values = GpuBuffer::read_many_f32(&spans)?.into_iter();
         let mut out = Vec::with_capacity(entries.len());
         for (target, _) in entries {
-            let grad_a = values.next().context("batched adapter gradient A missing")?;
-            let grad_b = values.next().context("batched adapter gradient B missing")?;
+            let grad_a = values
+                .next()
+                .context("batched adapter gradient A missing")?;
+            let grad_b = values
+                .next()
+                .context("batched adapter gradient B missing")?;
             out.push(crate::deepseek_v41::DeepseekV41AdapterGradient {
                 target: target.clone(),
                 grad_a,
@@ -304,7 +308,7 @@ impl DeepseekV41LinearAdjoints {
         weight: &DeepseekV41ResidentLinear,
         stream: crate::deepseek_v41::DeepseekV41WeightOutput,
     ) -> Result<DeepseekV41LinearTape> {
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         commands.enable_watchdog_submission_slicing();
         let tape = self.record_forward_mixed(&mut commands, input, rows, weight, stream)?;
         commands.submit()?;
@@ -398,7 +402,7 @@ impl DeepseekV41LinearAdjoints {
             input_dim: tape.input_dim as u32,
             output_dim: tape.output_dim as u32,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         commands.enable_watchdog_submission_slicing();
         self.input_kernel(rows, tape.input_dim, tape.output_dim)
             .record_dispatch(

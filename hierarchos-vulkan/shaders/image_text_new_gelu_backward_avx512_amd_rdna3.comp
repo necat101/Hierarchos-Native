@@ -1,0 +1,46 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_tanh_mkl_zen4_rdna3.glsl"
+
+
+// Transformers NewGELUActivation is a Python expression. Its three autograd
+// branches materialize each product and accumulate cube, linear, half in that
+// order. Combining them into a derivative before multiplying dY changes FP32.
+layout(local_size_x=256) in;
+layout(set=0,binding=0,std430) readonly buffer X {float x_values[];};
+#ifdef RDNA3_NEW_GELU_FORWARD
+layout(set=0,binding=1,std430) writeonly buffer Y {float y[];};
+#else
+layout(set=0,binding=1,std430) readonly buffer DY {float dy[];};
+layout(set=0,binding=2,std430) writeonly buffer DX {float dx[];};
+#endif
+layout(push_constant) uniform P {uint len;} pc;
+void main(){
+ uint i=gl_GlobalInvocationID.x;if(i>=pc.len)return;
+ float x=x_values[i];
+ const float C=0.7978845608028654;
+ precise float x2=x*x;
+ precise float x3=x2*x;
+ precise float cubic=0.044715*x3;
+ precise float inner=x+cubic;
+ precise float u=C*inner;
+ float t=rdna3_mkl_tanh(u);
+ precise float half_x=0.5*x;
+ precise float one_t=1.0+t;
+#ifdef RDNA3_NEW_GELU_FORWARD
+ y[i]=half_x*one_t;
+#else
+ precise float grad_half=dy[i]*one_t;
+ precise float through_half=grad_half*0.5;
+ precise float grad_t=dy[i]*half_x;
+ precise float t2=t*t;
+ precise float one_minus=1.0-t2;
+ precise float grad_u=grad_t*one_minus;
+ precise float through_linear=grad_u*C;
+ precise float grad_cube=through_linear*0.044715;
+ precise float power_derivative=3.0*x2;
+ precise float through_cube=grad_cube*power_derivative;
+ precise float inner_gradient=through_cube+through_linear;
+ dx[i]=inner_gradient+through_half;
+#endif
+}

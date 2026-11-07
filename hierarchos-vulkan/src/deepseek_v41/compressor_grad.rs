@@ -370,7 +370,7 @@ impl DeepseekV41CompressorAdjoints {
         }
 
         let grad_pooled = GpuBuffer::zeros_f32(&self.device, output_len.max(1))?;
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         if pooled_rows != 0 {
             let push = NormPush {
                 rows: pooled_rows as u32,
@@ -465,7 +465,7 @@ impl DeepseekV41CompressorAdjoints {
             input_dim: p.hidden as u32,
             output_dim: p.dim as u32,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         // The native AVX2 oracle panels prefill rows as six plus a short tail,
         // just like the other frozen Linear input adjoints. Keep the historical
         // text contract on its original kernel when this scope is not selected.
@@ -616,7 +616,7 @@ impl DeepseekV41CompressorAdjoints {
         }
 
         let grad_pooled = GpuBuffer::zeros_f32(&self.device, output_len.max(1))?;
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         if groups != 0 {
             let push = NormPush {
                 rows: p.batch as u32,

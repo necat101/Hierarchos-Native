@@ -33,7 +33,12 @@ enum MoeTape {
     // MoE has no mutable state. Keep one normalized activation and recompute
     // selected expert operands when this layer is reached in reverse. Frozen
     // expert payloads and low-rank snapshots are never pinned across layers.
-    Mixed(GpuBuffer),
+    // The visited counts are the forward gate's host copy, reused by backward
+    // so the same routing metadata is not read back a second time.
+    Mixed {
+        input: GpuBuffer,
+        visited: Option<Vec<u32>>,
+    },
 }
 struct LayerTape {
     layer: usize,
@@ -173,10 +178,20 @@ impl DeepseekV41Backbone {
                 MoeExecution::Fp32(moe) => {
                     (moe.apply(&normalized, rows)?, MoeTape::Fp32(normalized))
                 }
-                MoeExecution::Mixed(moe) => (
-                    moe.apply_with_text_mask(&normalized, rows, self.vision_text_mask.as_ref())?,
-                    MoeTape::Mixed(normalized),
-                ),
+                MoeExecution::Mixed(moe) => {
+                    let (mixed, visited) = moe.apply_with_text_mask_routed(
+                        &normalized,
+                        rows,
+                        self.vision_text_mask.as_ref(),
+                    )?;
+                    (
+                        mixed,
+                        MoeTape::Mixed {
+                            input: normalized,
+                            visited: (!visited.is_empty()).then_some(visited),
+                        },
+                    )
+                }
             };
             let output =
                 self.hyper[layer].post(&mixed, &after_attention, &ffn.post, &ffn.comb, rows)?;
@@ -248,6 +263,23 @@ impl DeepseekV41Backbone {
         states: &mut [Option<(GpuBuffer, GpuBuffer)>],
         kernels: &ModelAdjoints,
     ) -> Result<(GpuBuffer, Vec<DeepseekV41AdapterGradient>)> {
+        // Retire the retained reverse graph as one queue submission. Every
+        // stage obtains its batch through `VulkanDevice::compute_batch`, so the
+        // existing per-stage `submit` calls become publication barriers inside
+        // this session instead of separate fence waits.
+        let session = self.device.begin_compute_session()?;
+        let outcome = self.backward_retained_stages(tape, upstream, reverse, states, kernels);
+        session.finish(outcome)
+    }
+
+    fn backward_retained_stages(
+        &mut self,
+        tape: BackboneStepTape,
+        upstream: &GpuBuffer,
+        reverse: &mut DeepseekV41AttentionReverseTape,
+        states: &mut [Option<(GpuBuffer, GpuBuffer)>],
+        kernels: &ModelAdjoints,
+    ) -> Result<(GpuBuffer, Vec<DeepseekV41AdapterGradient>)> {
         let rows = tape.rows;
         let n = rows * self.hc * self.hidden;
         let end = kernels.block.hc_pre(
@@ -288,12 +320,13 @@ impl DeepseekV41Backbone {
                 (MoeExecution::Fp32(moe), MoeTape::Fp32(input)) => {
                     kernels.block.moe(moe, &post.grad_x, &input, rows)?
                 }
-                (MoeExecution::Mixed(moe), MoeTape::Mixed(input)) => {
-                    let tape = kernels.moe.forward_with_text_mask(
+                (MoeExecution::Mixed(moe), MoeTape::Mixed { input, visited }) => {
+                    let tape = kernels.moe.forward_with_text_mask_visited(
                         moe,
                         &input,
                         rows,
                         tape.vision_text_mask.as_ref(),
+                        visited.as_deref(),
                     )?;
                     let grad = kernels.moe.backward(moe, &tape, &post.grad_x)?;
                     adapters.extend(grad.adapter_gradients(&format!("layers.{l}.ffn"))?);
@@ -428,10 +461,14 @@ impl DeepseekV41Backbone {
             #[cfg(test)]
             {
                 crate::deepseek_v41::training_trace::record(
-                    &format!("{}/{l}/attn_norm_upstream", tape.position), &attention, rows * self.hidden,
+                    &format!("{}/{l}/attn_norm_upstream", tape.position),
+                    &attention,
+                    rows * self.hidden,
                 );
                 crate::deepseek_v41::training_trace::record(
-                    &format!("{}/{l}/attn_norm_collapsed/grad", tape.position), &norm, rows * self.hidden,
+                    &format!("{}/{l}/attn_norm_collapsed/grad", tape.position),
+                    &norm,
+                    rows * self.hidden,
                 );
             }
             let input_collapse = kernels.block.hc_pre(

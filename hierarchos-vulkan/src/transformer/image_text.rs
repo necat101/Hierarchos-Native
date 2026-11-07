@@ -218,49 +218,191 @@ impl VulkanImageText {
             text.kernels.rdna3_avx512_wide = wide;
             if small_gemma4 {
                 text.kernels.install_rdna3_avx512_rope(&device)?;
-                text.kernels.rms_norm_input_grad = vulkan::ComputeKernel::new(&device,
-                    include_bytes!("../../shaders/image_text_pow_rms_backward_avx512_amd_rdna3.spv"),6,std::mem::size_of::<RmsNormBackwardPush>() as u32)?;
-                text.kernels.rms_norm_input_grad_residual = vulkan::ComputeKernel::new(&device,
-                    include_bytes!("../../shaders/image_text_pow_rms_residual_avx512_amd_rdna3.spv"),8,std::mem::size_of::<RmsNormBackwardPush>() as u32)?;
-                text.kernels.attention_forward = vulkan::ComputeKernel::new(&device,
-                    include_bytes!("../../shaders/image_text_attention_forward_avx512_amd_rdna3.spv"),11,std::mem::size_of::<AttentionPush>() as u32)?;
-                text.kernels.attention_backward = vulkan::ComputeKernel::new(&device,
-                    include_bytes!("../../shaders/image_text_attention_backward_avx512_amd_rdna3.spv"),15,std::mem::size_of::<AttentionBackwardPush>() as u32)?;
+                text.kernels.rms_norm_input_grad = vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!(
+                        "../../shaders/image_text_pow_rms_backward_avx512_amd_rdna3.spv"
+                    ),
+                    6,
+                    std::mem::size_of::<RmsNormBackwardPush>() as u32,
+                )?;
+                text.kernels.rms_norm_input_grad_residual = vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!(
+                        "../../shaders/image_text_pow_rms_residual_avx512_amd_rdna3.spv"
+                    ),
+                    8,
+                    std::mem::size_of::<RmsNormBackwardPush>() as u32,
+                )?;
+                text.kernels.attention_forward = vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!(
+                        "../../shaders/image_text_attention_forward_avx512_amd_rdna3.spv"
+                    ),
+                    11,
+                    std::mem::size_of::<AttentionPush>() as u32,
+                )?;
+                text.kernels.attention_backward = vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!(
+                        "../../shaders/image_text_attention_backward_avx512_amd_rdna3.spv"
+                    ),
+                    15,
+                    std::mem::size_of::<AttentionBackwardPush>() as u32,
+                )?;
             }
             text.kernels.install_rdna3_avx512_layer_norm(&device)?;
             text.kernels.rdna3_avx512_input_grad = Some(vulkan::ComputeKernel::new(
-                &device, include_bytes!("../../shaders/image_text_input_grad_avx512_amd_rdna3.spv"), 3, 12)?);
+                &device,
+                include_bytes!("../../shaders/image_text_input_grad_avx512_amd_rdna3.spv"),
+                3,
+                12,
+            )?);
             text.kernels.rdna3_avx512_rms = Some([
-                vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/image_text_rms_avx512_amd_rdna3.spv"),5,32)?,
-                vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/image_text_rms_backward_avx512_amd_rdna3.spv"),6,28)?,
-                vulkan::ComputeKernel::new(&device, include_bytes!("../../shaders/image_text_rms_residual_avx512_amd_rdna3.spv"),8,28)?,
+                vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!("../../shaders/image_text_rms_avx512_amd_rdna3.spv"),
+                    5,
+                    32,
+                )?,
+                vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!("../../shaders/image_text_rms_backward_avx512_amd_rdna3.spv"),
+                    6,
+                    28,
+                )?,
+                vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!("../../shaders/image_text_rms_residual_avx512_amd_rdna3.spv"),
+                    8,
+                    28,
+                )?,
             ]);
             if wide && text.config.architecture == VulkanTransformerArchitecture::Llama {
-                text.kernels.silu_forward = vulkan::ComputeKernel::new(&device,
-                    include_bytes!("../../shaders/image_text_silu_avx512_amd_rdna3.spv"),2,4)?;
-                text.kernels.silu_backward = vulkan::ComputeKernel::new(&device,
-                    include_bytes!("../../shaders/image_text_silu_backward_avx512_amd_rdna3.spv"),3,4)?;
-                text.kernels.rope_forward = vulkan::ComputeKernel::new(&device,
-                    include_bytes!("../../shaders/image_text_rope_forward_avx512_amd_rdna3.spv"),5,std::mem::size_of::<RopePush>() as u32)?;
-                text.kernels.rope_backward = vulkan::ComputeKernel::new(&device,
-                    include_bytes!("../../shaders/image_text_rope_backward_avx512_amd_rdna3.spv"),5,std::mem::size_of::<RopePush>() as u32)?;
+                text.kernels.silu_forward = vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!("../../shaders/image_text_silu_avx512_amd_rdna3.spv"),
+                    2,
+                    4,
+                )?;
+                text.kernels.silu_backward = vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!("../../shaders/image_text_silu_backward_avx512_amd_rdna3.spv"),
+                    3,
+                    4,
+                )?;
+                text.kernels.rope_forward = vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!("../../shaders/image_text_rope_forward_avx512_amd_rdna3.spv"),
+                    5,
+                    std::mem::size_of::<RopePush>() as u32,
+                )?;
+                text.kernels.rope_backward = vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!("../../shaders/image_text_rope_backward_avx512_amd_rdna3.spv"),
+                    5,
+                    std::mem::size_of::<RopePush>() as u32,
+                )?;
             }
             if small_gemma4 {
-                text.kernels.rdna3_avx512_sdpa = Some(vulkan::ComputeKernel::new(&device,
-                    include_bytes!("../../shaders/image_text_sdpa_avx512_amd_rdna3.spv"),11,std::mem::size_of::<AttentionPush>() as u32)?);
-                text.kernels.rdna3_avx512_sdpa_backward = Some(vulkan::ComputeKernel::new(&device,
-                    include_bytes!("../../shaders/image_text_sdpa_backward_avx512_amd_rdna3.spv"),10,32)?);
+                text.kernels.rdna3_avx512_sdpa = Some(vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!("../../shaders/image_text_sdpa_avx512_amd_rdna3.spv"),
+                    11,
+                    std::mem::size_of::<AttentionPush>() as u32,
+                )?);
+                text.kernels.rdna3_avx512_sdpa_backward = Some(vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!("../../shaders/image_text_sdpa_backward_avx512_amd_rdna3.spv"),
+                    10,
+                    32,
+                )?);
             }
             text.kernels.rdna3_short_attention = Some(vulkan::ComputeKernel::new(
                 &device,
                 if text.config.architecture == VulkanTransformerArchitecture::Gpt2 {
-                    include_bytes!("../../shaders/transformer_attention_short_cpu_reciprocal_amd_rdna3.spv")
+                    include_bytes!(
+                        "../../shaders/transformer_attention_short_cpu_reciprocal_amd_rdna3.spv"
+                    )
                 } else {
                     include_bytes!("../../shaders/transformer_attention_short_amd_rdna3.spv")
                 },
                 11,
                 std::mem::size_of::<AttentionPush>() as u32,
             )?);
+            if text.config.architecture == VulkanTransformerArchitecture::Gpt2 {
+                // The short forward kernel reconstructs softmax with SLEEF u10
+                // and separately rounded QK products. Backward must start from
+                // the identical probability seed or the first optimizer step
+                // drifts even though every forward stage is bit-exact.
+                text.kernels.rdna3_short_attention_backward = Some(vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!(
+                        "../../shaders/transformer_attention_backward_short_gpt2_amd_rdna3.spv"
+                    ),
+                    15,
+                    std::mem::size_of::<AttentionBackwardPush>() as u32,
+                )?);
+                if crate::vendor::rdna3_zen4_cpu_profile() {
+                    // CPU flash SDPA, Vec8 bias sums, MKL tanh and AdamW have
+                    // separate measured contracts on this AVX512-capable host.
+                    text.kernels.bias_grad = vulkan::ComputeKernel::new(
+                        &device,
+                        include_bytes!("../../shaders/image_text_bias_grad_avx512_amd_rdna3.spv"),
+                        2,
+                        8,
+                    )?;
+                    text.kernels.cpu_adamw = crate::cpu_adamw::CpuAdamW::new_rdna3_avx512(&device)?;
+                    text.kernels.rdna3_avx512_gpt2 = Some([
+                        vulkan::ComputeKernel::new(
+                            &device,
+                            include_bytes!("../../shaders/image_text_gpt2_avx512_amd_rdna3.spv"),
+                            6,
+                            36,
+                        )?,
+                        vulkan::ComputeKernel::new(
+                            &device,
+                            include_bytes!(
+                                "../../shaders/image_text_gpt2_backward_avx512_amd_rdna3.spv"
+                            ),
+                            10,
+                            36,
+                        )?,
+                        vulkan::ComputeKernel::new(
+                            &device,
+                            include_bytes!(
+                                "../../shaders/image_text_gpt2_packed8_avx512_amd_rdna3.spv"
+                            ),
+                            6,
+                            36,
+                        )?,
+                    ]);
+                    text.kernels.rdna3_avx512_cross_entropy = Some(vulkan::ComputeKernel::new(
+                        &device,
+                        include_bytes!(
+                            "../../shaders/image_text_cross_entropy_avx512_amd_rdna3.spv"
+                        ),
+                        5,
+                        8,
+                    )?);
+                    text.kernels.gelu_tanh_backward = vulkan::ComputeKernel::new(
+                        &device,
+                        include_bytes!(
+                            "../../shaders/image_text_new_gelu_backward_avx512_amd_rdna3.spv"
+                        ),
+                        3,
+                        4,
+                    )?;
+                    text.kernels.gelu_tanh_forward = vulkan::ComputeKernel::new(
+                        &device,
+                        include_bytes!(
+                            "../../shaders/image_text_new_gelu_forward_avx512_amd_rdna3.spv"
+                        ),
+                        2,
+                        4,
+                    )?;
+                }
+            }
         }
         let image = directory.join("image");
         let adapter: serde_json::Value =

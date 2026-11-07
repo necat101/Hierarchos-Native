@@ -1,0 +1,50 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact_hw_rdna3.glsl"
+// Frozen-head VJP: dY @ W. The AVX2 short six-row panel differs from the
+// historical serial-FMA stream. Host admission uses one vocabulary tile.
+layout(local_size_x=16,local_size_y=16) in;
+layout(set=0,binding=0,std430) readonly buffer DY {float dy[];};
+layout(set=0,binding=1,std430) readonly buffer W {float weight[];};
+layout(set=0,binding=2,std430) buffer DX {float dx[];};
+#ifdef V41_INPUT_GRAD_UNSTREAMED
+layout(push_constant) uniform P {uint rows;uint input_dim;uint output_dim;} pc;
+#else
+layout(push_constant) uniform P {uint rows;uint input_dim;uint output_dim;uint accumulate;} pc;
+#endif
+void main() {
+    uint col=gl_GlobalInvocationID.x,row=gl_GlobalInvocationID.y;
+    if(col>=pc.input_dim || row>=pc.rows) return;
+    uint tail=pc.rows%6u;
+    bool short_panel=tail>0u && tail<=3u && row>=pc.rows-tail;
+    precise float a=0.0,b=0.0;
+    if(pc.rows==1u) {
+        for(uint start=0u;start<pc.output_dim;start+=4u) {
+            precise float partial=0.0;
+            for(uint k=start;k<min(start+4u,pc.output_dim);++k)
+                partial=fp32_fma_exact(dy[k],weight[k*pc.input_dim+col],partial);
+            a+=partial;
+        }
+        dx[col]=a;
+        return;
+    }
+    for(uint k=0u;k<pc.output_dim/2u*2u;++k) {
+        float g=dy[row*pc.output_dim+k],w=weight[k*pc.input_dim+col];
+        if(short_panel || pc.input_dim<=8u) {
+            if(short_panel && tail<=2u) {precise float product=g*w;if((k&1u)==0u)a+=product;else b+=product;}
+            else {if((k&1u)==0u)a=fp32_fma_exact(g,w,a);else b=fp32_fma_exact(g,w,b);}
+        } else a=fp32_fma_exact(g,w,a);
+    }
+    precise float result=a+b;
+    // MKL folds its paired accumulators before the odd reduction epilogue.
+    if((pc.output_dim&1u)!=0u) {
+        uint k=pc.output_dim-1u;
+        float g=dy[row*pc.output_dim+k],w=weight[k*pc.input_dim+col];
+        if(short_panel && tail<=2u) {precise float product=g*w;result+=product;}
+        else result=fp32_fma_exact(g,w,result);
+    }
+#ifndef V41_INPUT_GRAD_UNSTREAMED
+    if(pc.accumulate!=0u) result=dx[row*pc.input_dim+col]+result;
+#endif
+    dx[row*pc.input_dim+col]=result;
+}

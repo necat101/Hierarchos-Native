@@ -3640,6 +3640,19 @@
       }
     },
     {
+      "artifact": "transformer_attention_backward_short_gpt2_amd_rdna3.spv",
+      "source": "transformer_attention_backward_short_gpt2_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_SHORT_GPT2"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
       "artifact": "transformer_attention_backward_cpu_reciprocal.spv",
       "source": "transformer_attention_backward.comp",
       "compiler": "glslangValidator",
@@ -7233,14 +7246,16 @@
     },
     {
       "artifact": "transformer_attention_short_cpu_reciprocal_amd_rdna3.spv",
-      "source": "transformer_attention_short_amd_rdna3.comp",
+      "source": "transformer_attention_short_cpu_reciprocal_amd_rdna3.comp",
       "compiler": "glslangValidator",
       "compiler_version": "15.3.0",
       "flags": [
         "-V",
         "-S",
         "comp",
-        "-DRDNA3_CPU_RECIPROCAL"
+        "-DRDNA3_CPU_RECIPROCAL",
+        "-DRDNA3_SLEEF_EXP",
+        "-DRDNA3_QK_MULADD"
       ],
       "target_env": "vulkan1.0"
     },
@@ -7289,6 +7304,268 @@
         "-V",
         "-S",
         "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_gpt2_avx512_amd_rdna3.spv",
+      "source": "image_text_gpt2_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_gpt2_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_gpt2_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_GPT2_BACKWARD=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_clip_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_clip_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_EAGER_BACKWARD=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_cross_entropy_avx512_amd_rdna3.spv",
+      "source": "image_text_cross_entropy_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DHIERARCHOS_LOG_SOFTMAX_GRAD=1",
+        "-DHIERARCHOS_LOG_SOFTMAX_LANES=16"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_new_gelu_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_new_gelu_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_new_gelu_forward_avx512_amd_rdna3.spv",
+      "source": "image_text_new_gelu_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_NEW_GELU_FORWARD=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_adamw_avx512_amd_rdna3.spv",
+      "source": "image_text_adamw_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "--target-env",
+        "vulkan1.1",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "image_text_bias_grad_avx512_amd_rdna3.spv",
+      "source": "image_text_bias_grad_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "rdna3_scalar_log_probe.spv",
+      "source": "rdna3_scalar_log_probe.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "image_text_gpt2_packed8_avx512_amd_rdna3.spv",
+      "source": "image_text_gpt2_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_GPT2_PACKED_FORWARD=1"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_attention_gpt2_avx2_forward_amd_rdna3.spv",
+      "source": "transformer_attention_gpt2_avx2_forward_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1",
+        "-DHIERARCHOS_CPU_ATTENTION_RECIPROCAL=1",
+        "-DHIERARCHOS_CPU_ATTENTION_SHORT_SDPA=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "transformer_attention_gpt2_avx2_backward_amd_rdna3.spv",
+      "source": "transformer_attention_gpt2_avx2_backward_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1",
+        "-DHIERARCHOS_CPU_ATTENTION_RECIPROCAL=1",
+        "-DHIERARCHOS_CPU_ATTENTION_SHORT_SDPA=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "vision_gelu_tanh_backward_amd_rdna3.spv",
+      "source": "vision_gelu_tanh_backward_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "target_env": "vulkan1.0"
+    },
+    {
+      "artifact": "transformer_deepseek_v41_hc_split_avx2_amd_rdna3.spv",
+      "source": "transformer_deepseek_v41_hc_split_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1",
+        "-DHIERARCHOS_V41_CPU_AVX2=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "transformer_deepseek_v41_hc_split_grad_avx2_amd_rdna3.spv",
+      "source": "transformer_deepseek_v41_hc_split_grad_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1",
+        "-DHIERARCHOS_V41_CPU_AVX2=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "transformer_deepseek_v41_hc_split_grad_cached_avx2_amd_rdna3.spv",
+      "source": "transformer_deepseek_v41_hc_split_grad_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1",
+        "-DHIERARCHOS_V41_CPU_AVX2=1",
+        "-DHIERARCHOS_V41_HC_CACHE=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "transformer_deepseek_v41_mixed_swiglu_grad_avx2_amd_rdna3.spv",
+      "source": "transformer_deepseek_v41_mixed_swiglu_grad_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1",
+        "-DHIERARCHOS_V41_CPU_AVX2=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "transformer_deepseek_v41_input_grad_avx2_amd_rdna3.spv",
+      "source": "transformer_deepseek_v41_head_input_grad_avx2_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1",
+        "-DHIERARCHOS_V41_CPU_AVX2=1",
+        "-DV41_INPUT_GRAD_UNSTREAMED=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "transformer_deepseek_v41_head_input_grad_avx2_amd_rdna3.spv",
+      "source": "transformer_deepseek_v41_head_input_grad_avx2_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "--target-env",
+        "vulkan1.1",
+        "-DHIERARCHOS_V41_CPU_AVX2=1"
+      ],
+      "target_env": "vulkan1.1"
+    },
+    {
+      "artifact": "vision_siglip_backward_avx2_amd_rdna3.spv",
+      "source": "vision_siglip_backward_avx2_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "compiler_version": "15.3.0",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_EAGER_BACKWARD=1"
       ],
       "target_env": "vulkan1.0"
     }

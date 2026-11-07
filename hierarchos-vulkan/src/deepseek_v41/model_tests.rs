@@ -17,12 +17,12 @@ use std::{
 mod streamed;
 #[path = "model_structure_tests.rs"]
 mod structure;
+#[path = "model_training_tests.rs"]
+mod training;
 #[path = "model_vocabulary_tests.rs"]
 mod vocabulary;
 #[path = "model_wide_tests.rs"]
 mod wide;
-#[path = "model_training_tests.rs"]
-mod training;
 
 #[derive(Deserialize)]
 struct Fixture {
@@ -367,26 +367,55 @@ fn deepseek_v41_default_package_loader_strict_all_logits() -> Result<()> {
 /// tokenizer files nor precomputed artifacts.
 #[test]
 fn deepseek_v41_application_streaming_is_explicit_and_bit_exact() -> Result<()> {
-    let source:Value=serde_json::from_str(include_str!("../../validation/fixtures/deepseek_v41_bf16_model.json"))?;
-    for f in [fixture()?,serde_json::from_value(source["cases"][0].clone())?] {
-        let package=Package::new(&f,false)?;
-        fs::write(package.root.join("engram_tokens.json"),serde_json::to_vec(&f.tokens)?)?;
-        let device=VulkanDevice::new()?;
-        let mut resident=DeepseekV41CausalLM::from_hf_package_with_lora_and_streaming(device.clone(),&package.root,f.batch_size,f.max_positions,None,false)?;
-        let mut streamed=DeepseekV41CausalLM::from_hf_package_with_lora_and_streaming(device.clone(),&package.root,f.batch_size,f.max_positions,None,true)?;
-        assert!(resident.resident_routed_expert_count()>0);
-        assert!(resident.resident_vocabulary_tensor_count()>0);
-        assert_eq!(streamed.resident_routed_expert_count(),0);
-        assert_eq!(streamed.resident_vocabulary_tensor_count(),0);
-        assert_eq!(streamed.resident_shared_expert_count(),0);
-        assert_eq!(streamed.resident_engram_table_count(),0);
-        assert_eq!(streamed.resident_projection_layer_count(),0);
+    let source: Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/deepseek_v41_bf16_model.json"
+    ))?;
+    for f in [
+        fixture()?,
+        serde_json::from_value(source["cases"][0].clone())?,
+    ] {
+        let package = Package::new(&f, false)?;
+        fs::write(
+            package.root.join("engram_tokens.json"),
+            serde_json::to_vec(&f.tokens)?,
+        )?;
+        let device = VulkanDevice::new()?;
+        let mut resident = DeepseekV41CausalLM::from_hf_package_with_lora_and_streaming(
+            device.clone(),
+            &package.root,
+            f.batch_size,
+            f.max_positions,
+            None,
+            false,
+        )?;
+        let mut streamed = DeepseekV41CausalLM::from_hf_package_with_lora_and_streaming(
+            device.clone(),
+            &package.root,
+            f.batch_size,
+            f.max_positions,
+            None,
+            true,
+        )?;
+        assert!(resident.resident_routed_expert_count() > 0);
+        assert!(resident.resident_vocabulary_tensor_count() > 0);
+        assert_eq!(streamed.resident_routed_expert_count(), 0);
+        assert_eq!(streamed.resident_vocabulary_tensor_count(), 0);
+        assert_eq!(streamed.resident_shared_expert_count(), 0);
+        assert_eq!(streamed.resident_engram_table_count(), 0);
+        assert_eq!(streamed.resident_projection_layer_count(), 0);
         for step in &f.steps {
-            let a=run(&mut resident,step)?.read_all()?;
-            let b=run(&mut streamed,step)?.read_all()?;
-            assert_eq!(a.iter().map(|v|v.to_bits()).collect::<Vec<_>>(),b.iter().map(|v|v.to_bits()).collect::<Vec<_>>());
-            let worst=b.iter().zip(&step.logits).map(|(&a,&b)|(a as f64-b as f64).abs()).fold(0.0f64,f64::max);
-            assert!(worst<2e-7,"seed={} {} drift={worst}",f.seed,step.name);
+            let a = run(&mut resident, step)?.read_all()?;
+            let b = run(&mut streamed, step)?.read_all()?;
+            assert_eq!(
+                a.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+                b.iter().map(|v| v.to_bits()).collect::<Vec<_>>()
+            );
+            let worst = b
+                .iter()
+                .zip(&step.logits)
+                .map(|(&a, &b)| (a as f64 - b as f64).abs())
+                .fold(0.0f64, f64::max);
+            assert!(worst < 2e-7, "seed={} {} drift={worst}", f.seed, step.name);
         }
         eprintln!("V4.1 explicit application residency seed {}: CPU strict logits and resident/streamed bits PASS",f.seed);
     }

@@ -572,14 +572,11 @@ impl DeepseekV41CausalLM {
                 embedding: upload.f32(
                     &checkpoint.read_tensor("embed.weight", &[t.vocab_size, t.hidden_size])?,
                 )?,
-                head: upload.f32(
-                    &checkpoint.read_tensor("head.weight", &[t.vocab_size, t.hidden_size])?,
-                )?,
+                head: upload
+                    .f32(&checkpoint.read_tensor("head.weight", &[t.vocab_size, t.hidden_size])?)?,
             }
         };
-        let norm = upload.f32(
-            &checkpoint.read_tensor("norm.weight", &[t.hidden_size])?,
-        )?;
+        let norm = upload.f32(&checkpoint.read_tensor("norm.weight", &[t.hidden_size])?)?;
         upload.finish()?;
         let lora_modules = checkpoint.lora_adapter().map_or(0, |adapter| adapter.len());
         let mut model = Self::assemble(

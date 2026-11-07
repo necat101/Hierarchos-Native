@@ -1023,7 +1023,7 @@ impl DeepseekV41BlockAdjoints {
             .then(|| {
                 vulkan::ComputeKernel::new(
                     &device,
-                    HC_SPLIT_GRAD_CACHED,
+                    crate::deepseek_v41::cpu_math::selected(&device, HC_SPLIT_GRAD_CACHED),
                     8,
                     std::mem::size_of::<HcSplitPush>() as u32,
                 )
@@ -1112,7 +1112,7 @@ impl DeepseekV41BlockAdjoints {
             hc: hc as u32,
             dim: dim as u32,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.hc_pre_input.record_dispatch(
             &mut commands,
             &[grad_output, stream, pre, &grad_stream, &grad_pre],
@@ -1179,14 +1179,13 @@ impl DeepseekV41BlockAdjoints {
         // most 20 iterations of state; the replay kernel covers the rest.
         // Under `cfg(test)` the throughput benchmark can pin the replay kernel
         // in the same binary, so both variants are measured on one build.
-        let cached_allowed =
-            !cfg!(test) || std::env::var_os("HIERARCHOS_V41_HC_REPLAY").is_none();
+        let cached_allowed = !cfg!(test) || std::env::var_os("HIERARCHOS_V41_HC_REPLAY").is_none();
         let kernel = if cached_allowed && hc <= 4 && hyper.iterations <= 20 {
             self.hc_split_cached.as_ref().unwrap_or(&self.hc_split)
         } else {
             &self.hc_split
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         kernel.record_dispatch(
             &mut commands,
             &[
@@ -1240,7 +1239,7 @@ impl DeepseekV41BlockAdjoints {
             mix_hc: mix_hc as u32,
             norm_eps: hyper.norm_eps,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.hc_mixes_input.record_dispatch(
             &mut commands,
             &[grad_mix, raw, stream, weight, &grad_stream],
@@ -1304,7 +1303,7 @@ impl DeepseekV41BlockAdjoints {
             hc: hyper.hc as u32,
             dim: hyper.hidden as u32,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.hc_post_input.record_dispatch(
             &mut commands,
             &[grad_output, x, post, comb, &grad_x, &grad_residual],
@@ -1350,7 +1349,7 @@ impl DeepseekV41BlockAdjoints {
             dim: c.hidden_size as u32,
             topk: c.activated as u32,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.combine.record_dispatch(
             &mut commands,
             &[grad_output, &grad_routed, &grad_shared],
@@ -1453,7 +1452,7 @@ impl DeepseekV41BlockAdjoints {
             weighted: 1,
             swiglu_limit: c.swiglu_limit,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.expert.record_dispatch(
             &mut commands,
             &[
@@ -1516,7 +1515,7 @@ impl DeepseekV41BlockAdjoints {
             weighted: 0,
             swiglu_limit: c.swiglu_limit,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.expert.record_dispatch(
             &mut commands,
             &[
@@ -1575,7 +1574,7 @@ impl DeepseekV41BlockAdjoints {
             norm_topk: c.norm_topk_prob as u32,
             route_scale: c.route_scale,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.gate.record_dispatch(
             &mut commands,
             &[
@@ -1635,7 +1634,7 @@ impl DeepseekV41BlockAdjoints {
             dim: c.hidden_size as u32,
             topk: c.activated as u32,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.input.record_dispatch(
             &mut commands,
             &[&grad_slots, &grad_shared, &grad_gate, &indices, &grad_x],
@@ -1669,7 +1668,9 @@ impl MixedExpert {
         upload: &mut super::upload::ParameterUploadBatch,
         weights: DeepseekV41MixedExpertWeights,
     ) -> Result<Self> {
-        if !upload.enabled() { return Self::upload(device, weights); }
+        if !upload.enabled() {
+            return Self::upload(device, weights);
+        }
         Ok(Self {
             w1: upload.linear(weights.w1)?,
             w2: upload.linear(weights.w2)?,
@@ -2102,6 +2103,19 @@ impl DeepseekV41MixedMoe {
         rows: usize,
         text_mask: Option<&GpuBuffer>,
     ) -> Result<GpuBuffer> {
+        self.apply_with_text_mask_routed(input, rows, text_mask)
+            .map(|(output, _)| output)
+    }
+
+    /// Retain the gate's live-row counts alongside the output. The retained
+    /// reverse graph can reuse them instead of reading the same counts back
+    /// from the device a second time.
+    pub(super) fn apply_with_text_mask_routed(
+        &self,
+        input: &GpuBuffer,
+        rows: usize,
+        text_mask: Option<&GpuBuffer>,
+    ) -> Result<(GpuBuffer, Vec<u32>)> {
         let c = &self.config;
         let slots = checked_size("mixed MoE slots", &[rows, c.activated])?;
         if rows == 0
@@ -2331,7 +2345,7 @@ impl DeepseekV41MixedMoe {
                 &cast_values[..4.min(cast_values.len())],
             );
         }
-        Ok(cast)
+        Ok((cast, visited))
     }
 }
 
@@ -2685,8 +2699,10 @@ impl DeepseekV41Backbone {
     pub fn layer_plan(&self) -> &[DeepseekV41LayerPlan] {
         &self.plan
     }
-    pub(super) fn has_vision_routing_bias(&self)->bool {
-        self.moe.iter().any(|m|matches!(m,MoeExecution::Mixed(m) if m.vision_gate.is_some()))
+    pub(super) fn has_vision_routing_bias(&self) -> bool {
+        self.moe
+            .iter()
+            .any(|m| matches!(m,MoeExecution::Mixed(m) if m.vision_gate.is_some()))
     }
     #[cfg(test)]
     pub(super) fn index_selection(

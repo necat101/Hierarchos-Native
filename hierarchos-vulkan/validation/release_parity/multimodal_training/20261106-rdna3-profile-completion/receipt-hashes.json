@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "files": {
+    "release_parity/multimodal_training/20261106-rdna3-profile-completion/inventory-status.json": "5514fd02ff4ae424b056cfd3c7cee878b8e12f0b1301b778615d6b7cf5330588",
+    "release_parity/multimodal_training/20261106-rdna3-profile-completion/six-profile-replay.json": "8a846f852cf66ef7789204a9b3c5d9445a169cdc7941042d6964be0a7f9a1153",
+    "release_parity/multimodal_training/20261106-rdna3-profile-completion/gpt2-wide-residual.json": "ff04bc1199158188f11ad0ca00491c5a6c8b61840d10fc3fbbdc67e52ecd6020",
+    "release_parity/multimodal_training/20261106-rdna3-profile-completion/seq2seq-six-qualification.json": "1962980f63f9a417a8edd965497abeeac0f58bd0ffe5dc3e67bd74398c943ac1",
+    "release_parity/multimodal_training/20261106-rdna3-profile-completion/kimi-three-qualification.json": "6a77524dbea8f9887a6313057eabd888d1103f9f29ad8ba7e85f6c4c53eced32",
+    "release_parity/multimodal_training/20261106-rdna3-profile-completion/v41-native-full-qualification.json": "98d62c146f4cea635702548313b0266e558a5758d048759675d7112521433000",
+    "release_parity/multimodal_training/20261106-rdna3-profile-completion/v41-shared-bridge-qualification.json": "18de418f9723fc2b872e93ef4ffb10541c8444e177fc654a28f3a17dc263dc19",
+    "release_parity/multimodal_training/20261106-rdna3-profile-completion/v41-shared-image-profile.json": "4154c76152196b72d731fdcd03478d1f0bbcfa1d03a303317339fa4595efd314",
+    "intel-handoff/multimodal-gen9-expected-values.json": "64c7f85731ccbb86799c782e422c3f3a7b2ca2894e10dc02a55f291ea86d1882",
+    "intel-handoff/multimodal-gen9-status.json": "002fea87f14758dd519cbe18c55fb080827d368357329d027b7d04e6d0f5c46c"
+  }
+}

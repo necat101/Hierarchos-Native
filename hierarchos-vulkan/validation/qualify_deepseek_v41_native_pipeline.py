@@ -49,6 +49,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--target", choices=["gen9", "rdna3", "local"], default="local")
+    parser.add_argument("--device-id", type=lambda x: int(x, 0))
     parser.add_argument("--source-manifest", type=Path,
                         help="Optional hash manifest emitted by the build; checked against this workspace")
     args = parser.parse_args()
@@ -109,10 +111,16 @@ def main():
     if any(sha(root / p) != h for p, h in oracle_hashes.items()):
         raise ValueError("Frozen CPU oracle changed during qualification")
     passed = all(j["pass"] for j in status) and joint_valid and logits_valid
+    limits = ["one complete image span per prefill", "fixed patch geometry per trainer",
+              "production geometry and BF16 training unqualified"]
+    limits.append("physical RDNA3 replay recorded on the local default Vulkan adapter"
+                  if args.target == "rdna3" else "physical RDNA3 replay pending")
     receipt = dict(schema=1, **{"pass": passed}, profile_qualified=passed,
                    architecture="deepseek_v41", contract="fp32_native_vision_frozen_language_lora",
                    cpu_math="windows_aten_intel_avx2_v1", tolerance=TOLERANCE, rtol=0,
-                   comparison="strict_less_than", expected_tests=30,
+                   comparison="strict_less_than", target=args.target, device_id=args.device_id,
+                   device_selection="local default Vulkan adapter; target supplied by the operator",
+                   expected_tests=30,
                    completed_tests=sum(j["expected_tests"] for j in status if j["pass"]),
                    native_cases=2, optimizer_updates=4, logit_values=1360,
                    max_abs_logit=max_logit if math.isfinite(max_logit) else None,
@@ -120,9 +128,7 @@ def main():
                    checkpoint_resume_export_verified=next(j["pass"] for j in status if j["name"] == "checkpoint"),
                    binary_sha256=binary_sha, oracle_sha256=oracle_hashes,
                    source_manifest_sha256=sha(output / "source-sha256.json") if sources else None,
-                   jobs=status,
-                   limits=["one complete image span per prefill", "fixed patch geometry per trainer",
-                           "production geometry and BF16 training unqualified", "physical RDNA3 replay pending"])
+                   jobs=status, limits=limits)
     (output / "qualification.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     print("Native V4.1 qualification", "PASS" if passed else "FAIL", "max_abs_logit", max_logit)
     raise SystemExit(0 if passed else 1)

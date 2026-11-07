@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "pass": true,
+  "test_binary_sha256": "e4384546d16e6bfb1c6fa97d9eb42917b68e8f157367188c2d98f15d5bf3e964",
+  "scope": "batch-2 completed/pending compressor tape state-gradient chain; restore qualified native AVX512 SigLIP dispatch",
+  "absolute_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "full_stages": 9,
+  "frozen_image_cases": 93,
+  "standalone_text_runs": 166,
+  "active_deepseek_tests": 217,
+  "enumerated_deepseek_tests": 243,
+  "ignored_deepseek_tests": 26,
+  "native_v41_tests": 30,
+  "native_v41_max_abs_logit": 0.0,
+  "native_retained_image_cases": 95,
+  "expanded_gpt2_cases": 16,
+  "gpt2_primitive_tests": 9,
+  "rdna3_extension_primitive_tests": 2,
+  "compressor_snapshot_tests": 2,
+  "source_bindings": 1531,
+  "gen9_frozen_files": 2748,
+  "protected_gen9_files": 1341,
+  "protected_gen9_recipes": 672,
+  "evidence_files": 2740,
+  "refreshed_expanded_source_bindings": 5,
+  "limits": [
+    "No physical Intel Gen9 execution",
+    "No new performance claim or production-size throughput qualification",
+    "Changes remain uncommitted"
+  ]
+}

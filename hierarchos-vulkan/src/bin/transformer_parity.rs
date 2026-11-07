@@ -3,7 +3,7 @@ use std::{fs, path::PathBuf};
 use anyhow::{bail, Context, Result};
 use hierarchos_vulkan::{
     AdamWHyperParams, VulkanDevice, VulkanTransformer, VulkanTransformerArchitecture,
-    VulkanTransformerLoraConfig, VulkanTransformerConfig,
+    VulkanTransformerConfig, VulkanTransformerLoraConfig,
 };
 use serde::{Deserialize, Serialize};
 
@@ -76,7 +76,10 @@ fn run() -> Result<()> {
     while let Some(arg) = args.next() {
         match arg.to_string_lossy().as_ref() {
             "--stream-lm-head" => stream_lm_head = true,
-            "--stream-parameters" => {stream_parameters=true;stream_lm_head=true;},
+            "--stream-parameters" => {
+                stream_parameters = true;
+                stream_lm_head = true;
+            }
             "--model" => model = Some(PathBuf::from(args.next().context("missing --model value")?)),
             "--fixture" => {
                 fixture = Some(PathBuf::from(
@@ -184,9 +187,14 @@ fn run() -> Result<()> {
         None => VulkanDevice::new()?,
     };
     let mut graph = if stream_parameters {
-        let config=VulkanTransformerConfig::from_hf_config(model.join("config.json"))?;
+        let config = VulkanTransformerConfig::from_hf_config(model.join("config.json"))?;
         VulkanTransformer::from_hf_package_with_streamed_parameters(
-            device, &model, config, fixture.batch_size, fixture.seq_len)?
+            device,
+            &model,
+            config,
+            fixture.batch_size,
+            fixture.seq_len,
+        )?
     } else if stream_lm_head {
         VulkanTransformer::from_hf_package_with_streamed_lm_head(
             device,
@@ -198,7 +206,7 @@ fn run() -> Result<()> {
         VulkanTransformer::from_hf_package(device, &model, fixture.batch_size, fixture.seq_len)?
     };
     if stream_parameters {
-        let count=graph.streamed_linear_count();
+        let count = graph.streamed_linear_count();
         eprintln!("transformer_parity: {count} native linears served from package tiles");
     }
     graph.set_dropout_seed(fixture.dropout_seed);

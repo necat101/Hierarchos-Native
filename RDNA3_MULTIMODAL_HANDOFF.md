@@ -6,8 +6,12 @@ The final source passes 95 image cases and 166 text cases. Native towers are
 preserved; other covered backbones use the authorized trainable shared image
 encoder/projector. Native V4.1 trains its ViT, aligner and delimiters with the
 established frozen-language-base LoRA contract. This handoff covers image and
-text. Audio/video, production-size throughput and physical RDNA3 qualification
-remain pending.
+text. The 2026-11-06 physical RDNA3 replay closes the six shared-profile gaps
+and adds the native V4.1 bridge. The subsequent
+[GPT2 shape expansion](hierarchos-vulkan/validation/release_parity/multimodal_training/20261106-rdna3-gpt2-shapes/README.md)
+passes all 16 masked/unmasked GPT2 cases and retains the original 44-profile
+inventory at the unchanged strict gate. Gen9 files remain read-only. Audio/video
+and production-size throughput remain pending.
 
 The branch is `codex/gen9-multimodal-training`. The GitHub prerelease
 [`gen9-multimodal-20261105`](https://github.com/necat101/Hierarchos-Native/releases/tag/gen9-multimodal-20261105)
@@ -70,7 +74,7 @@ From the repository root, run the native qualifier, then the paired throughput
 comparison with fresh output directories and no concurrent GPU jobs:
 
 ```text
-python hierarchos-vulkan/validation/qualify_deepseek_v41_native_pipeline.py --binary PATH_TO_NEW_LIBTEST_EXE --output NEW_RDNA3_NATIVE_DIRECTORY
+python hierarchos-vulkan/validation/qualify_deepseek_v41_native_pipeline.py --binary PATH_TO_NEW_LIBTEST_EXE --output NEW_RDNA3_NATIVE_DIRECTORY --target rdna3 --device-id 0x15bf
 python hierarchos-vulkan/validation/benchmark_deepseek_v41_training.py --binary PATH_TO_NEW_LIBTEST_EXE --fixtures target/multimodal-gen9 --output NEW_RDNA3_BENCHMARK_DIRECTORY --rounds 2 --steps 7
 ```
 
@@ -81,6 +85,22 @@ and 166 text cases using the qualifiers and frozen-root table in the
 Use `--target rdna3` for those matrix qualifiers, retain complete receipts and
 preserve their strict limits. A successful build or laptop receipt alone does
 not qualify the physical Ally.
+
+## RDNA3 completion receipt
+
+The physical replay now covers the six previously missing shared profiles and
+the seventh native V4.1 profile. The six shared profiles pass 9/9 cases; native
+V4.1 passes 2/2 cases and 1,360 logits. The inventory is 44/44 fully green and
+85/85 image cases pass; `rdna3_multimodal_qualified` is set. The GPT-2-wide
+forward tape is bit-exact and the backward attention seed now matches the
+forward SLEEF/muladd reconstruction, closing the former residual. The complete
+receipt, including the 30-execution native V4.1 qualifier, is in
+[`validation/release_parity/multimodal_training/20261106-rdna3-profile-completion/`](hierarchos-vulkan/validation/release_parity/multimodal_training/20261106-rdna3-profile-completion/README.md).
+The [full Gen9-green replay](hierarchos-vulkan/validation/release_parity/multimodal_training/20261106-rdna3-full-gen9-replay/README.md)
+adds the complete published matrix: 77 shared-image, 6 seq2seq, 2 Gemma4,
+4 Gemma3, 4 LLaVA, 166 text runs, 215 active DeepSeek tests and 30 native V4.1
+tests all pass on `1002:15bf` at the unchanged gate. The 2,748-file frozen
+manifest is unchanged; no physical Gen9 execution is claimed.
 
 ## Gen9 results to preserve
 
@@ -97,5 +117,45 @@ Native V4.1's upload batching reduces submissions per timed step from 1,102 to
 982. Paired same-binary ABBA measurements show 1.052x and 1.067x throughput at
 the two frozen Gen9 geometries, with identical trained digests and logit words
 after nine updates. These unoptimized libtest measurements do not predict
-production-size or RDNA3 throughput. The Ally replay should record its own
-results before selecting further optimizations.
+production-size or RDNA3 throughput. The Ally replay recorded its own results
+in the full receipt; its native hardware-FMA candidate was word-exact but
+performance-neutral, so no further optimization was selected on that basis. On the same machine, model construction and the retained V4.1 graph now share
+one compute session, component uploads publish into it, and forward routing
+counts are reused by reverse. Submissions fall from 970 to 509 per step, with
+four-round ABBA gains of 1.295x at 4x4 and 1.217x at 6x4, word-exact and with
+unchanged shared controls. Routing-count readbacks fall from 100 to 64 per
+step. The [final receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261106-rdna3-v41-final/README.md)
+binds the 30-test native qualifier (`max_abs_logit = 0.0`), the full nine-stage
+replay (2,748 frozen files unchanged), and the remaining upload/readback
+profile. A later
+[session-wide upload receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261106-rdna3-v41-uploads/README.md)
+records the next increment: uploads, metadata copies and tape snapshots record
+into the open session, and submissions fall to 241 per step at
+1.464x/1.366x, with the 30-test qualifier green. Its attention norm-gain
+sharing was later reverted because it broke the retained tape's snapshot
+contract. The
+[resident-expert measurement](hierarchos-vulkan/validation/release_parity/multimodal_training/20261106-rdna3-v41-resident-experts/README.md)
+shows the remaining routing-count reads are per-layer dependencies under
+streamed experts, and that resident experts remove 72 of 241 submissions at
+1.175x/1.125x, bit-exact with the 30-test qualifier at
+`max_abs_logit = 0.0`. Residency stays a benchmark-only switch. An
+[adapter-readback batching trial](hierarchos-vulkan/validation/release_parity/multimodal_training/20261106-rdna3-v41-adapter-read-batching/README.md)
+reduced the 1,008 adapter reads to 28 but regressed wall time at every tested
+submission cadence (best 6x4 resident 296.6 ms vs 273.4 ms), so it was reverted.
+Treat the per-group reads as pacing points, not a bandwidth bottleneck.
+The [batch-4 state-chain receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261107-rdna3-v41-batch4-state-chain/README.md)
+binds binary `2e9cfaf1...`: all nine Gen9-frozen replay stages pass,
+including 166 text runs, 217/217 active DeepSeek tests (243 enumerated, 26 original
+ignored), and 30/30 native V4.1 tests with `max_abs_logit = 0.0`. The separate
+native AVX512 track passes all 95 retained image cases and 16 expanded GPT2
+executions. The decode-tape snapshot test now covers batches 1, 2 and 4; batch-2
+and batch-4 KV/score state gradients are chained through completed and pending
+tapes, with both token gradients and all four state gradients remaining
+word-identical after live gain/cache overwrite. Every row is activated
+independently at batches 2 and 4, so no gradient may cross into another row, and
+overwritten state slots are checked. All 2,748 frozen files, 1,341 protected Gen9
+files and 672 original recipes remain unchanged. The only refreshed source
+binding is the batch-4 test; the prior
+[state-chain receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261106-rdna3-v41-state-chain/README.md)
+and [preceding batch-2 snapshot receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261107-rdna3-v41-batch2-decode-snapshot/README.md)
+remain sealed for their original binaries. No new performance claim is made.

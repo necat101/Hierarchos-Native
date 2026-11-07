@@ -657,20 +657,51 @@ pub const fn rdna3_avx512_profile_matches(
     vector_width: u32,
     windows: bool,
 ) -> bool {
-    windows && vector_width == 16 && vendor_id == PCI_VENDOR_AMD
-        && device_id == 0x15bf && driver_version == 0x00800184
+    windows
+        && vector_width == 16
+        && vendor_id == PCI_VENDOR_AMD
+        && device_id == 0x15bf
+        && driver_version == 0x00800184
 }
 
 pub fn rdna3_avx512_cpu_contract(device: &VulkanDevice, vector_width: u32) -> bool {
-    rdna3_avx512_profile_matches(device.vendor_id(), device.device_id(),
-        device.driver_version(), vector_width, cfg!(target_os = "windows"))
+    rdna3_avx512_profile_matches(
+        device.vendor_id(),
+        device.device_id(),
+        device.driver_version(),
+        vector_width,
+        cfg!(target_os = "windows"),
+    )
 }
 
 /// Additional modules require 256 invocations and the generic adjoint's bindings.
 pub fn rdna3_avx512_variants(device: &VulkanDevice, vector_width: u32) -> bool {
-    rdna3_avx512_cpu_contract(device, vector_width) && rdna3_text_variants(device)
+    rdna3_avx512_cpu_contract(device, vector_width)
+        && rdna3_text_variants(device)
         && device.supports_storage_buffer_bindings(15)
         && device.supports_compute_work_group_size([256, 1, 1])
+}
+
+/// Frozen AVX2 replay on the measured AVX512 Z1 host, independently of its
+/// native-width contract. Unknown CPUs, drivers and adapters keep prior modules.
+pub fn rdna3_frozen_avx2_variants(device: &VulkanDevice, vector_width: u32) -> bool {
+    vector_width == 8 && rdna3_avx512_variants(device, 16) && rdna3_zen4_cpu_profile()
+}
+
+/// CPU instruction seeds qualified with the Z1 Extreme Windows Torch wheel.
+/// Other AVX512 CPUs retain the established path until separately qualified.
+pub fn rdna3_zen4_cpu_profile() -> bool {
+    #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+    unsafe {
+        let vendor = std::arch::x86_64::__cpuid(0);
+        let cpu = std::arch::x86_64::__cpuid(1);
+        vendor.ebx == 0x68747541
+            && vendor.edx == 0x69746e65
+            && vendor.ecx == 0x444d4163
+            && cpu.eax == 0x00a70f41
+    }
+    #[cfg(not(all(target_arch = "x86_64", target_os = "windows")))]
+    false
 }
 
 /// Geometry gate for the RDNA3 matmul modules.

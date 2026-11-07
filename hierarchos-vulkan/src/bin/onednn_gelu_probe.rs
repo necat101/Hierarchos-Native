@@ -3,8 +3,8 @@
 #[path = "../vulkan.rs"]
 mod vulkan;
 use anyhow::{bail, Context, Result};
-use vulkan::{ComputeBatch, ComputeKernel, GpuBuffer, VulkanDevice};
 use serde::Deserialize;
+use vulkan::{ComputeBatch, ComputeKernel, GpuBuffer, VulkanDevice};
 
 #[derive(Deserialize)]
 struct Fixture {

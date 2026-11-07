@@ -261,23 +261,35 @@ impl LinearProjectionTrainer {
         self.cpu_small_row_gemm = if enabled {
             Some((
                 vulkan::ComputeKernel::new(
-                    &self.device, include_bytes!("../shaders/linear_forward_lane2.spv"), 3, 12,
+                    &self.device,
+                    include_bytes!("../shaders/linear_forward_lane2.spv"),
+                    3,
+                    12,
                 )?,
                 vulkan::ComputeKernel::new(
-                    &self.device, include_bytes!("../shaders/linear_bias_forward_lane2.spv"), 4, 12,
+                    &self.device,
+                    include_bytes!("../shaders/linear_bias_forward_lane2.spv"),
+                    4,
+                    12,
                 )?,
             ))
-        } else { None };
+        } else {
+            None
+        };
         Ok(())
     }
 
     fn record_forward(&self, batch: &mut vulkan::ComputeBatch, rows: usize) -> Result<()> {
         let push = LinearPush {
-            rows: rows as u32, input_dim: self.input_dim as u32, output_dim: self.output_dim as u32,
+            rows: rows as u32,
+            input_dim: self.input_dim as u32,
+            output_dim: self.output_dim as u32,
         };
         let grid = [div_ceil_u32(self.output_dim, 16), div_ceil_u32(rows, 16), 1];
         let cpu = self.cpu_small_row_gemm.as_ref().filter(|_| {
-            crate::transformer::aten_vector_width() == 8 && rows == 3 && self.input_dim == 8
+            crate::transformer::aten_vector_width() == 8
+                && rows == 3
+                && self.input_dim == 8
                 && matches!(self.output_dim, 8 | 16 | 32 | 64)
         });
         if let Some(bias) = &self.bias {
@@ -285,14 +297,24 @@ impl LinearProjectionTrainer {
             if let Some((_, kernel)) = cpu {
                 kernel.record_dispatch(batch, &bindings, bytemuck::bytes_of(&push), grid)
             } else {
-                self.linear_bias_forward.record_dispatch(batch, &bindings, bytemuck::bytes_of(&push), grid)
+                self.linear_bias_forward.record_dispatch(
+                    batch,
+                    &bindings,
+                    bytemuck::bytes_of(&push),
+                    grid,
+                )
             }
         } else {
             let bindings = [&self.input, &self.weight, &self.output];
             if let Some((kernel, _)) = cpu {
                 kernel.record_dispatch(batch, &bindings, bytemuck::bytes_of(&push), grid)
             } else {
-                self.linear_forward.record_dispatch(batch, &bindings, bytemuck::bytes_of(&push), grid)
+                self.linear_forward.record_dispatch(
+                    batch,
+                    &bindings,
+                    bytemuck::bytes_of(&push),
+                    grid,
+                )
             }
         }
     }

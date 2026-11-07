@@ -1,0 +1,169 @@
+Starting 1-session
+1-session word exact; submissions {'native_vit_4x4': [509], 'native_vit_6x4': [509], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting 1-baseline
+1-baseline word exact; submissions {'native_vit_4x4': [970], 'native_vit_6x4': [970], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting 2-baseline
+2-baseline word exact; submissions {'native_vit_4x4': [970], 'native_vit_6x4': [970], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting 2-session
+2-session word exact; submissions {'native_vit_4x4': [509], 'native_vit_6x4': [509], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting 3-session
+3-session word exact; submissions {'native_vit_4x4': [509], 'native_vit_6x4': [509], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting 3-baseline
+3-baseline word exact; submissions {'native_vit_4x4': [970], 'native_vit_6x4': [970], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting 4-baseline
+4-baseline word exact; submissions {'native_vit_4x4': [970], 'native_vit_6x4': [970], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting 4-session
+4-session word exact; submissions {'native_vit_4x4': [509], 'native_vit_6x4': [509], 'llama': [5], 'gpt2': [5], 't5': [7]}
+{
+  "schema": 1,
+  "pass": true,
+  "word_exact": true,
+  "order": "ABBA",
+  "rounds": 4,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "binary_sha256": "98638172d7e160046d3dfe40d3f0659c6d7076051961882259b790af44ae38dc",
+  "results": [
+    {
+      "case": "native_vit_4x4",
+      "baseline": {
+        "round_medians_ms": [
+          368.11370000000005,
+          364.1339,
+          387.6973,
+          387.5622
+        ],
+        "median_ms": 377.83795000000003,
+        "submissions": [
+          970
+        ]
+      },
+      "session": {
+        "round_medians_ms": [
+          287.5474,
+          291.7202,
+          291.9887,
+          298.01550000000003
+        ],
+        "median_ms": 291.85445,
+        "submissions": [
+          509
+        ]
+      },
+      "speedup": 1.294610892518514
+    },
+    {
+      "case": "native_vit_6x4",
+      "baseline": {
+        "round_medians_ms": [
+          533.4367,
+          537.3261,
+          535.5525,
+          528.4266
+        ],
+        "median_ms": 534.4946,
+        "submissions": [
+          970
+        ]
+      },
+      "session": {
+        "round_medians_ms": [
+          434.70349999999996,
+          444.4075,
+          434.30199999999996,
+          443.9471
+        ],
+        "median_ms": 439.32529999999997,
+        "submissions": [
+          509
+        ]
+      },
+      "speedup": 1.2166260399753897
+    },
+    {
+      "case": "llama",
+      "baseline": {
+        "round_medians_ms": [
+          17.0224,
+          16.4066,
+          17.721899999999998,
+          19.4237
+        ],
+        "median_ms": 17.372149999999998,
+        "submissions": [
+          5
+        ]
+      },
+      "session": {
+        "round_medians_ms": [
+          17.4586,
+          16.6924,
+          16.6052,
+          18.139599999999998
+        ],
+        "median_ms": 17.075499999999998,
+        "submissions": [
+          5
+        ]
+      },
+      "speedup": 1.0173728441334076
+    },
+    {
+      "case": "gpt2",
+      "baseline": {
+        "round_medians_ms": [
+          15.0269,
+          13.5355,
+          14.2723,
+          14.0754
+        ],
+        "median_ms": 14.17385,
+        "submissions": [
+          5
+        ]
+      },
+      "session": {
+        "round_medians_ms": [
+          13.9619,
+          13.4403,
+          13.7978,
+          15.4002
+        ],
+        "median_ms": 13.879850000000001,
+        "submissions": [
+          5
+        ]
+      },
+      "speedup": 1.0211817851057468
+    },
+    {
+      "case": "t5",
+      "baseline": {
+        "round_medians_ms": [
+          39.9622,
+          37.9539,
+          40.2796,
+          38.529599999999995
+        ],
+        "median_ms": 39.2459,
+        "submissions": [
+          7
+        ]
+      },
+      "session": {
+        "round_medians_ms": [
+          39.3581,
+          38.5078,
+          39.1122,
+          39.8978
+        ],
+        "median_ms": 39.235150000000004,
+        "submissions": [
+          7
+        ]
+      },
+      "speedup": 1.0002739890124033
+    }
+  ],
+  "scope": "same binary; software FMA in both arms; session changes submission granularity only"
+}

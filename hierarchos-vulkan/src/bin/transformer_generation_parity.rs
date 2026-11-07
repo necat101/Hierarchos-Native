@@ -1,7 +1,9 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::{bail, Context, Result};
-use hierarchos_vulkan::{VulkanDevice, VulkanTransformer, VulkanTransformerConfig, VulkanTransformerGenerationConfig};
+use hierarchos_vulkan::{
+    VulkanDevice, VulkanTransformer, VulkanTransformerConfig, VulkanTransformerGenerationConfig,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -101,9 +103,15 @@ fn run() -> Result<()> {
     let graph = if stream_parameters {
         let config = VulkanTransformerConfig::from_hf_config(model.join("config.json"))?;
         VulkanTransformer::from_hf_package_with_streamed_parameters(
-            device.clone(), &model, config, 1, sequence_capacity,
+            device.clone(),
+            &model,
+            config,
+            1,
+            sequence_capacity,
         )?
-    } else { VulkanTransformer::from_hf_package(device.clone(), &model, 1, sequence_capacity)? };
+    } else {
+        VulkanTransformer::from_hf_package(device.clone(), &model, 1, sequence_capacity)?
+    };
     let config = VulkanTransformerGenerationConfig {
         max_new_tokens: Some(fixture.max_new_tokens),
         max_length: None,
@@ -145,7 +153,10 @@ fn run() -> Result<()> {
         prompt_length: sequence.prompt_length,
         sequence: sequence.sequence,
         generated_ids,
-        logits_bits: logits.iter().map(|step| step.iter().map(|value| value.to_bits()).collect()).collect(),
+        logits_bits: logits
+            .iter()
+            .map(|step| step.iter().map(|value| value.to_bits()).collect())
+            .collect(),
         logits,
     };
     fs::write(&output_path, serde_json::to_vec(&report)?)?;

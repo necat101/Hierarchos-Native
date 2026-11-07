@@ -75,7 +75,12 @@ fn kernel(
 ) -> Result<vulkan::ComputeKernel> {
     let mut access = vec![vulkan::BindingAccess::ReadOnly; inputs];
     access.extend(vec![vulkan::BindingAccess::WriteOnly; outputs]);
-    vulkan::ComputeKernel::new_with_access(device, crate::deepseek_v41::gen9::shader(device, bytes), &access, push as u32)
+    vulkan::ComputeKernel::new_with_access(
+        device,
+        crate::deepseek_v41::gen9::shader(device, bytes),
+        &access,
+        push as u32,
+    )
 }
 fn product(shape: &[usize]) -> Result<usize> {
     let len = shape
@@ -104,7 +109,10 @@ impl DeepseekV41AttentionAdjoints {
             // The forward weight pass reads its own score scratch.
             weights: vulkan::ComputeKernel::new(
                 &device,
-                crate::deepseek_v41::gen9::shader(&device, include_bytes!("../../shaders/transformer_deepseek_v41_attention_weights.spv")),
+                crate::deepseek_v41::gen9::shader(
+                    &device,
+                    include_bytes!("../../shaders/transformer_deepseek_v41_attention_weights.spv"),
+                ),
                 7,
                 push as u32,
             )?,
@@ -256,7 +264,7 @@ impl DeepseekV41AttentionAdjoints {
             scale: (dim as f64).powf(-0.5) as f32,
         };
         let bytes = bytemuck::bytes_of(&push);
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.weights.record_dispatch(
             &mut commands,
             &[
@@ -351,7 +359,7 @@ impl DeepseekV41AttentionAdjoints {
             width: width as u32,
             rank: rank as u32,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.grouped_grad.record_dispatch(
             &mut commands,
             &[upstream, weight, &output],
@@ -395,7 +403,7 @@ impl DeepseekV41AttentionAdjoints {
             capacity: capacity as u32,
             dim: dim as u32,
         };
-        let mut commands = vulkan::ComputeBatch::new(&self.device)?;
+        let mut commands = self.device.compute_batch()?;
         self.cache_grad.record_dispatch(
             &mut commands,
             &[upstream, &slots_gpu, &grad_source, &grad_previous],

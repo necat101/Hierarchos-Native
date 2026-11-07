@@ -65,11 +65,38 @@ struct Push {
 pub struct CpuAdamW {
     device: VulkanDevice,
     kernel: vulkan::ComputeKernel,
+    rdna3_seeds: Option<GpuBuffer>,
 }
 impl CpuAdamW {
+    /// Qualified Windows Zen4/MKL schedule, RDNA3 only.
+    pub(crate) fn new_rdna3_avx512(device: &VulkanDevice) -> Result<Self> {
+        if !crate::vendor::rdna3_avx512_variants(device, crate::transformer::aten_vector_width())
+            || !crate::vendor::rdna3_zen4_cpu_profile()
+        {
+            bail!("RDNA3 AVX512 AdamW requires the qualified hardware profile");
+        }
+        Ok(Self {
+            device: device.clone(),
+            rdna3_seeds: Some(GpuBuffer::from_f32(
+                device,
+                &include_bytes!("../shaders/rdna3_zen4_rsqrt_seed.bin")
+                    .chunks_exact(4)
+                    .map(|b| f32::from_bits(u32::from_le_bytes(b.try_into().unwrap())))
+                    .collect::<Vec<_>>(),
+            )?),
+            kernel: vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../shaders/image_text_adamw_avx512_amd_rdna3.spv"),
+                5,
+                std::mem::size_of::<Push>() as u32,
+            )?,
+        })
+    }
+
     pub fn new(device: &VulkanDevice) -> Result<Self> {
         Ok(Self {
             device: device.clone(),
+            rdna3_seeds: None,
             kernel: vulkan::ComputeKernel::new(
                 device,
                 include_bytes!("../shaders/adamw_cpu_single_tensor.spv"),
@@ -102,7 +129,11 @@ impl CpuAdamW {
         {
             bail!("invalid CPU AdamW step or buffer geometry");
         }
-        let block = 2 * crate::transformer::aten_vector_width() as usize;
+        let block = if self.rdna3_seeds.is_some() {
+            16
+        } else {
+            2 * crate::transformer::aten_vector_width() as usize
+        };
         let push = Push {
             len: len as u32,
             vector_end: (len / block * block) as u32,
@@ -118,6 +149,14 @@ impl CpuAdamW {
                 1.
             },
         };
+        if let Some(seeds) = self.rdna3_seeds.as_ref() {
+            return self.kernel.record_dispatch(
+                commands,
+                &[parameter, gradient, moment, square, seeds],
+                bytemuck::bytes_of(&push),
+                [((len + 255) / 256) as u32, 1, 1],
+            );
+        }
         self.kernel.record_dispatch(
             commands,
             &[parameter, gradient, moment, square],

@@ -5,7 +5,7 @@
  "comparison": "strict_less_than",
  "source_receipt": "hierarchos-vulkan/validation/release_parity/gen9_architectures/20261101/qualification.json",
  "source_receipt_sha256": "606e8247883114267aa164c14aa4e690037ab032f86ff68fba3f896c4744c037",
- "scope": "44 previously green text profiles with qualified joint image training at frozen Gen9 fixture geometry; registry aliases are not additional profiles",
+ "scope": "44 previously green text profiles with qualified joint image training at frozen Gen9 fixture geometry and a 44/44 physical RDNA3 replay; registry aliases are not additional profiles",
  "profiles": [
   {
    "profile": "bart",
@@ -14,7 +14,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "full_image_training": "qualified_at_fixture_geometry",
    "image_training_receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/qualification.json",
    "image_tower": "shared_trainable_clip",
@@ -40,7 +40,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -79,7 +79,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -118,7 +118,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -157,7 +157,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -196,7 +196,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -235,7 +235,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -274,7 +274,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "siglip_image_pipeline_4_of_4_cases",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -327,7 +327,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -386,7 +386,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "gemma4_image_pipeline_2_of_2_fixed_cases",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -468,7 +468,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -507,7 +507,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -590,7 +590,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -629,7 +629,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -675,7 +675,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -704,7 +704,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -733,7 +733,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -762,7 +762,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "clip_llava_image_pipeline_4_of_4_cases",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -823,7 +823,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -918,7 +918,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -970,7 +970,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1009,7 +1009,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1048,7 +1048,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1094,7 +1094,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1133,7 +1133,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1172,7 +1172,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1211,7 +1211,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1250,7 +1250,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1289,7 +1289,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1328,7 +1328,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1374,7 +1374,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1413,7 +1413,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1459,7 +1459,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1505,7 +1505,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1544,7 +1544,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1583,7 +1583,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1622,7 +1622,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1661,7 +1661,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1700,7 +1700,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1739,7 +1739,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1778,7 +1778,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "qualification_scope": "FP32 trainable shared CLIP image tower/projector and full text parameters; two joint AdamW updates; native export/reload",
    "tested_cases": [
     {
@@ -1817,7 +1817,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "full_image_training": "qualified_at_fixture_geometry",
    "image_training_receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/qualification.json",
    "image_tower": "shared_trainable_clip",
@@ -1843,7 +1843,7 @@
    "text_logit_parity": "confirmed_below_2e-7",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "pending_or_not_defined_for_text_architecture",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "full_image_training": "qualified_at_fixture_geometry",
    "image_training_receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/qualification.json",
    "image_tower": "shared_trainable_clip",
@@ -1869,7 +1869,7 @@
    "text_logit_parity": "confirmed_below_2e-7_separate_receipt",
    "multimodal_bridge": "joint_image_training_passed",
    "native_modality_tower": "native_vit_aligner_and_delimiters_qualified",
-   "next_gate": "physical_rdna3_replay_and_broader_shapes",
+   "next_gate": "broader_shapes_and_production_geometry",
    "full_image_training": "qualified_at_fixture_geometry",
    "image_training_receipt": "release_parity/multimodal_training/20261105-gen9-v41-upload-batching/qualification.json",
    "qualification_scope": "FP32 native image tower, aligner and delimiters; frozen language base with LoRA; two joint AdamW updates; checkpoint/resume and native export/reload",
@@ -1902,8 +1902,29 @@
   "full_multimodal_inventory_qualified": true,
   "qualification_geometry": "frozen fixture geometry",
   "rdna3_multimodal_qualified": false,
+  "rdna3_fully_green_profiles": 43,
+  "rdna3_failing_profiles": [
+   "gpt2_wide"
+  ],
+  "rdna3_profile_coverage_complete": true,
   "latest_image_pipeline_receipt": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261105-gen9-v41-upload-batching/qualification.json",
   "latest_optimization_receipt": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261105-gen9-v41-upload-batching/qualification.json"
+ },
+ "rdna3_replay": {
+  "target": "rdna3",
+  "device_id": "0x15bf",
+  "receipt": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261106-rdna3-profile-completion/inventory-status.json",
+  "profiles_attempted": 44,
+  "fully_green_profiles": 44,
+  "failing_profiles": [],
+  "missing_profiles": [],
+  "image_cases_completed": 85,
+  "image_cases_passing": 85,
+  "shared_family_cases": 77,
+  "native_v41_profile_green": true,
+  "six_previous_missing_profiles_green": true,
+  "rdna3_multimodal_qualified": true,
+  "reason": "All 44 profiles and 85 image cases pass; GPT-2-wide forward is bit-exact and the backward attention seed is aligned at the unchanged strict gate"
  },
  "pending_native_image_families": [
   "Qwen2.5-VL",
@@ -1916,7 +1937,7 @@
   "registry aliases are not additional qualified architectures",
   "shared tower coverage qualifies the listed text backbone, not a separately named upstream VL model",
   "native image families listed separately retain their own qualified paths",
-  "physical RDNA3 multimodal replay pending",
+  "physical RDNA3 multimodal replay completed; all 44 profiles and 85 image cases pass at the strict gate",
   "production geometry, BF16 training and production throughput remain unqualified"
  ]
 }

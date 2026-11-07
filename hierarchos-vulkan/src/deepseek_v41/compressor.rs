@@ -18,6 +18,10 @@ pub(super) const COMPRESSOR_VECTOR_WIDTH: u32 = 16;
 mod tape;
 pub use tape::DeepseekV41CompressorTape;
 
+#[cfg(test)]
+#[path = "compressor_tape_tests.rs"]
+mod tape_tests;
+
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct LinearPush {

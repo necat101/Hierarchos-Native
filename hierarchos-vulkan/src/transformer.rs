@@ -30,20 +30,21 @@ use safetensors::{
 use serde::{Deserialize, Serialize};
 use tokenizers::Tokenizer;
 
+use crate::multimodal::{
+    DeviceMultimodalStepResult, ModalityEmbeddingInput, ModalityEmbeddingRows,
+    MultimodalTransformerStepResult, PreparedModalityRows,
+};
 use crate::training_numerics::VulkanOrderedF32SumReducer;
-use crate::multimodal::{DeviceMultimodalStepResult, ModalityEmbeddingInput, ModalityEmbeddingRows, MultimodalTransformerStepResult, PreparedModalityRows};
+pub mod deepseek_v41_vision;
 mod falcon_h1;
-mod peft_registry;
-mod peft_state;
-mod streamed_load;
 pub mod gemma3_vision;
 pub mod gemma4_vision;
-pub mod deepseek_v41_vision;
-pub mod vision;
 pub mod image_text;
+mod peft_registry;
+mod peft_state;
 mod seq2seq_training;
-use seq2seq_training::ComposedTrainingOptions;
-use streamed_load::{HostLinearPayload, upload_host_linear};
+mod streamed_load;
+pub mod vision;
 use crate::{
     hierarchos_canonical_philox_word, hierarchos_dropout_threshold, read_f32_tensor, vendor,
     vulkan,
@@ -52,6 +53,8 @@ use crate::{
     SharedLmHeadParameter, TiedTokenEmbeddingOp, VulkanDevice,
 };
 pub use peft_registry::{PeftCapability, PeftModuleClass};
+use seq2seq_training::ComposedTrainingOptions;
+use streamed_load::{upload_host_linear, HostLinearPayload};
 
 const LINEAR_FORWARD_LANE2_SPV: &[u8] = include_bytes!("../shaders/linear_forward_lane2.spv");
 const LINEAR_FORWARD_LANE4_SPV: &[u8] = include_bytes!("../shaders/linear_forward_lane4.spv");
@@ -77,7 +80,11 @@ const LAYER_NORM_WELFORD_FORWARD_SPV: &[u8] =
 const LAYER_NORM_WELFORD_SMALL_FORWARD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_layer_norm_welford_small_forward.spv");
 
-fn rdna3_gpt2_cpu_math(architecture: VulkanTransformerArchitecture, vendor: u32, device: u32) -> bool {
+fn rdna3_gpt2_cpu_math(
+    architecture: VulkanTransformerArchitecture,
+    vendor: u32,
+    device: u32,
+) -> bool {
     architecture == VulkanTransformerArchitecture::Gpt2
         && vendor::is_amd_rdna3_pci_id(vendor, device)
 }
@@ -185,7 +192,8 @@ const MINIMAX_M3_INDEX_SCORES_SPV: &[u8] =
 const MINIMAX_M3_BLOCK_MASK_SPV: &[u8] =
     include_bytes!("../shaders/transformer_minimax_m3_block_mask.spv");
 const QWEN4_QSA_MASK_SPV: &[u8] = include_bytes!("../shaders/transformer_qwen4_qsa_mask.spv");
-const QWEN4_QSA_MASK_GEN9_SPV: &[u8] = include_bytes!("../shaders/transformer_qwen4_qsa_mask_gen9.spv");
+const QWEN4_QSA_MASK_GEN9_SPV: &[u8] =
+    include_bytes!("../shaders/transformer_qwen4_qsa_mask_gen9.spv");
 const SILU_MUL_GEN9_SPV: &[u8] = include_bytes!("../shaders/silu_forward_gen9.spv");
 const QWEN4_STREAM_MEAN_SPV: &[u8] = include_bytes!("../shaders/transformer_qwen4_stream_mean.spv");
 const QWEN4_STREAM_MEAN_BACKWARD_SPV: &[u8] =
@@ -25494,32 +25502,63 @@ fn rdna3_short_attention_supported(push: &AttentionPush) -> bool {
 }
 
 fn rdna3_avx512_sdpa_supported(push: &AttentionPush) -> bool {
-    let mut plain=*push;
-    plain.unfused_qk=0;
-    plain.window_size=0;
-    push.unfused_qk==1 && push.causal==1 && push.window_size<=8
-        && push.query_seq_len==8 && push.key_value_seq_len==8
-        && push.num_heads>0 && push.query_hidden_size/push.num_heads==8
+    let mut plain = *push;
+    plain.unfused_qk = 0;
+    plain.window_size = 0;
+    push.unfused_qk == 1
+        && push.causal == 1
+        && push.window_size <= 8
+        && push.query_seq_len == 8
+        && push.key_value_seq_len == 8
+        && push.num_heads > 0
+        && push.query_hidden_size / push.num_heads == 8
         && rdna3_short_attention_supported(&plain)
 }
 
 fn rdna3_avx512_eager_supported(push: &AttentionPush) -> bool {
-    let mut plain=*push;
-    plain.query_seq_len=8;plain.key_value_seq_len=8;
-    plain.window_size=0;plain.unfused_qk=0;
+    let mut plain = *push;
+    plain.query_seq_len = 8;
+    plain.key_value_seq_len = 8;
+    plain.window_size = 0;
+    plain.unfused_qk = 0;
     let known_kv_layout = (push.num_key_value_heads == 1 && push.value_hidden_size == 8)
         || (push.num_key_value_heads == 2 && push.value_hidden_size == 16);
-    matches!(push.batch_size,1|2) && matches!(push.query_seq_len,8|10|20)
-        && push.key_value_seq_len==push.query_seq_len && push.query_hidden_size==16
-        && known_kv_layout && push.num_heads==2
-        && push.causal==1 && push.unfused_qk==1
+    matches!(push.batch_size, 1 | 2)
+        && matches!(push.query_seq_len, 8 | 10 | 20)
+        && push.key_value_seq_len == push.query_seq_len
+        && push.query_hidden_size == 16
+        && known_kv_layout
+        && push.num_heads == 2
+        && push.causal == 1
+        && push.unfused_qk == 1
         && (push.window_size == 0 || push.window_size >= push.query_seq_len)
         && rdna3_short_attention_supported(&plain)
 }
 
-fn rdna3_eager_push(push: &AttentionPush) -> [u32;9] {
-    [push.batch_size,push.query_seq_len,push.query_hidden_size,push.value_hidden_size,
-        push.num_heads,push.num_key_value_heads,push.window_size,push.scale.to_bits(),push.causal]
+fn rdna3_avx512_gpt2_supported(push: &AttentionPush) -> bool {
+    matches!(
+        (push.batch_size, push.query_seq_len, push.num_heads),
+        (1..=3, 8, 4) | (2, 6 | 10 | 16, 4) | (2, 8, 2 | 8)
+    ) && push.key_value_seq_len == push.query_seq_len
+        && push.query_hidden_size == 64
+        && push.value_hidden_size == 64
+        && push.num_key_value_heads == push.num_heads
+        && push.causal == 1
+        && rdna3_short_attention_supported(push)
+}
+
+fn rdna3_eager_push(push: &AttentionPush) -> [u32; 9] {
+    [
+        push.batch_size,
+        push.query_seq_len,
+        push.query_hidden_size,
+        push.value_hidden_size,
+        push.num_heads,
+        push.num_key_value_heads,
+        push.window_size,
+        push.scale.to_bits(),
+        push.causal,
+    ]
 }
 
 /// Dispatch the standard text attention. When the shared image-text
@@ -25533,17 +25572,59 @@ fn record_text_attention_dispatch(
     push: &AttentionPush,
     geometry: [u32; 3],
 ) -> Result<()> {
-    if let Some(family)=kernels.rdna3_avx512_eager.as_ref().filter(|_| rdna3_avx512_eager_supported(push)) {
-        let packed=rdna3_eager_push(push);
-        let rows=push.batch_size*push.num_heads*push.query_seq_len;
-        return family[0].record_dispatch(commands,&[bindings[0],bindings[1],bindings[2],bindings[3],bindings[4],bindings[6]],
-            bytemuck::cast_slice(&packed),[rows.div_ceil(64),1,1]);
+    if let Some(family) = kernels
+        .rdna3_avx512_gpt2
+        .as_ref()
+        .filter(|_| rdna3_avx512_gpt2_supported(push))
+    {
+        let packed = rdna3_eager_push(push);
+        let rows = push.batch_size * push.num_heads * push.query_seq_len;
+        let use_packed = push.batch_size == 2 && push.query_seq_len == 8 && push.num_heads == 4;
+        let (index, lanes) = if use_packed { (2, 8) } else { (0, 1) };
+        return family[index].record_dispatch(
+            commands,
+            &[
+                bindings[0],
+                bindings[1],
+                bindings[2],
+                bindings[3],
+                bindings[4],
+                bindings[6],
+            ],
+            bytemuck::cast_slice(&packed),
+            [rows.div_ceil(lanes), 1, 1],
+        );
+    }
+    if let Some(family) = kernels
+        .rdna3_avx512_eager
+        .as_ref()
+        .filter(|_| rdna3_avx512_eager_supported(push))
+    {
+        let packed = rdna3_eager_push(push);
+        let rows = push.batch_size * push.num_heads * push.query_seq_len;
+        return family[0].record_dispatch(
+            commands,
+            &[
+                bindings[0],
+                bindings[1],
+                bindings[2],
+                bindings[3],
+                bindings[4],
+                bindings[6],
+            ],
+            bytemuck::cast_slice(&packed),
+            [rows.div_ceil(64), 1, 1],
+        );
     }
     if let Some(kernel) = kernels.rdna3_avx512_sdpa.as_ref() {
         if rdna3_avx512_sdpa_supported(push) {
             let rows = push.batch_size as u64 * push.num_heads as u64 * 8;
-            return kernel.record_dispatch(commands, bindings, bytemuck::bytes_of(push),
-                [rows.div_ceil(64) as u32, 1, 1]);
+            return kernel.record_dispatch(
+                commands,
+                bindings,
+                bytemuck::bytes_of(push),
+                [rows.div_ceil(64) as u32, 1, 1],
+            );
         }
     }
     if let Some(kernel) = kernels.rdna3_short_attention.as_ref() {
@@ -25558,9 +25639,12 @@ fn record_text_attention_dispatch(
             );
         }
     }
-    kernels
-        .attention_forward
-        .record_dispatch(commands, bindings, bytemuck::bytes_of(push), geometry)
+    kernels.attention_forward.record_dispatch(
+        commands,
+        bindings,
+        bytemuck::bytes_of(push),
+        geometry,
+    )
 }
 
 #[repr(C)]
@@ -26145,7 +26229,7 @@ struct TransformerKernels {
     rdna3_avx512_rms: Option<[vulkan::ComputeKernel; 3]>,
     rdna3_avx512_sdpa: Option<vulkan::ComputeKernel>,
     rdna3_avx512_sdpa_backward: Option<vulkan::ComputeKernel>,
-    rdna3_avx512_eager: Option<[vulkan::ComputeKernel;2]>,
+    rdna3_avx512_eager: Option<[vulkan::ComputeKernel; 2]>,
     rdna3_avx512_wide: bool,
     layer_norm_cpu_input_grad: vulkan::ComputeKernel,
     layer_norm_cpu_param_grad: vulkan::ComputeKernel,
@@ -26167,6 +26251,9 @@ struct TransformerKernels {
     cpu_adamw_policy: Mutex<Option<crate::cpu_adamw::CpuAdamWHyperParams>>,
     attention_forward: vulkan::ComputeKernel,
     rdna3_short_attention: Option<vulkan::ComputeKernel>,
+    rdna3_short_attention_backward: Option<vulkan::ComputeKernel>,
+    rdna3_avx512_gpt2: Option<[vulkan::ComputeKernel; 3]>,
+    rdna3_avx512_cross_entropy: Option<vulkan::ComputeKernel>,
     attention_backward: vulkan::ComputeKernel,
     alibi_positions: vulkan::ComputeKernel,
     position_add: vulkan::ComputeKernel,
@@ -26307,47 +26394,94 @@ struct TransformerKernels {
 
 impl TransformerKernels {
     fn install_rdna3_avx512_eager(&mut self, device: &VulkanDevice) -> Result<()> {
-        if !vendor::rdna3_avx512_variants(device, aten_vector_width()) {return Ok(());}
-        self.rdna3_avx512_eager=Some([
-            vulkan::ComputeKernel::new(device,include_bytes!("../shaders/image_text_eager_avx512_amd_rdna3.spv"),6,36)?,
-            vulkan::ComputeKernel::new(device,include_bytes!("../shaders/image_text_eager_backward_avx512_amd_rdna3.spv"),9,36)?,
+        if !vendor::rdna3_avx512_variants(device, aten_vector_width()) {
+            return Ok(());
+        }
+        self.rdna3_avx512_eager = Some([
+            vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../shaders/image_text_eager_avx512_amd_rdna3.spv"),
+                6,
+                36,
+            )?,
+            vulkan::ComputeKernel::new(
+                device,
+                include_bytes!("../shaders/image_text_eager_backward_avx512_amd_rdna3.spv"),
+                9,
+                36,
+            )?,
         ]);
         Ok(())
     }
     fn install_rdna3_avx512_rope(&mut self, device: &VulkanDevice) -> Result<()> {
-        if !vendor::rdna3_avx512_variants(device, aten_vector_width()) { return Ok(()); }
-        self.rope_forward = vulkan::ComputeKernel::new(device,
-            include_bytes!("../shaders/image_text_rope_forward_avx512_amd_rdna3.spv"),5,std::mem::size_of::<RopePush>() as u32)?;
-        self.rope_backward = vulkan::ComputeKernel::new(device,
-            include_bytes!("../shaders/image_text_rope_backward_avx512_amd_rdna3.spv"),5,std::mem::size_of::<RopePush>() as u32)?;
+        if !vendor::rdna3_avx512_variants(device, aten_vector_width()) {
+            return Ok(());
+        }
+        self.rope_forward = vulkan::ComputeKernel::new(
+            device,
+            include_bytes!("../shaders/image_text_rope_forward_avx512_amd_rdna3.spv"),
+            5,
+            std::mem::size_of::<RopePush>() as u32,
+        )?;
+        self.rope_backward = vulkan::ComputeKernel::new(
+            device,
+            include_bytes!("../shaders/image_text_rope_backward_avx512_amd_rdna3.spv"),
+            5,
+            std::mem::size_of::<RopePush>() as u32,
+        )?;
         Ok(())
     }
     fn install_rdna3_avx512_layer_norm(&mut self, device: &VulkanDevice) -> Result<()> {
         if !vendor::rdna3_avx512_variants(device, aten_vector_width()) {
             return Ok(());
         }
-        let packed = std::env::var_os("HIERARCHOS_VULKAN_RDNA3_PACKED_NORMS").is_none_or(|v| v != "0");
+        let packed =
+            std::env::var_os("HIERARCHOS_VULKAN_RDNA3_PACKED_NORMS").is_none_or(|v| v != "0");
         let shader: &[u8] = if packed {
             include_bytes!("../shaders/image_text_layer_norm_avx512_amd_rdna3.spv")
         } else {
             include_bytes!("../shaders/image_text_layer_norm_serial_avx512_amd_rdna3.spv")
         };
-        self.rdna3_avx512_layer_norm = Some(vulkan::ComputeKernel::new(device,shader,6,12)?);
-        self.rdna3_avx512_layer_norm_rows = if packed {8} else {64};
-        self.layer_norm_input_grad = vulkan::ComputeKernel::new(device,
-            include_bytes!("../shaders/image_text_layer_norm_input_grad_avx512_amd_rdna3.spv"),6,8)?;
-        self.layer_norm_param_grad = vulkan::ComputeKernel::new(device,
-            include_bytes!("../shaders/image_text_layer_norm_param_grad_avx512_amd_rdna3.spv"),6,8)?;
+        self.rdna3_avx512_layer_norm = Some(vulkan::ComputeKernel::new(device, shader, 6, 12)?);
+        self.rdna3_avx512_layer_norm_rows = if packed { 8 } else { 64 };
+        self.layer_norm_input_grad = vulkan::ComputeKernel::new(
+            device,
+            include_bytes!("../shaders/image_text_layer_norm_input_grad_avx512_amd_rdna3.spv"),
+            6,
+            8,
+        )?;
+        self.layer_norm_param_grad = vulkan::ComputeKernel::new(
+            device,
+            include_bytes!("../shaders/image_text_layer_norm_param_grad_avx512_amd_rdna3.spv"),
+            6,
+            8,
+        )?;
         Ok(())
     }
     #[allow(clippy::too_many_arguments)]
-    fn try_silu_product(&self, commands: &mut vulkan::ComputeBatch, activation: &str,
-        gate: &GpuBuffer, up: &GpuBuffer, activated: &GpuBuffer, product: &GpuBuffer,
-        len: usize, training: bool) -> Result<bool> {
-        if training || activation != "silu" { return Ok(false); }
-        let Some(kernel) = self.silu_mul_forward.as_ref() else { return Ok(false); };
-        kernel.record_dispatch(commands, &[gate, activated, up, product],
-            bytemuck::bytes_of(&LenPush { len: len as u32 }), [div_ceil_u32(len, 64), 1, 1])?;
+    fn try_silu_product(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        activation: &str,
+        gate: &GpuBuffer,
+        up: &GpuBuffer,
+        activated: &GpuBuffer,
+        product: &GpuBuffer,
+        len: usize,
+        training: bool,
+    ) -> Result<bool> {
+        if training || activation != "silu" {
+            return Ok(false);
+        }
+        let Some(kernel) = self.silu_mul_forward.as_ref() else {
+            return Ok(false);
+        };
+        kernel.record_dispatch(
+            commands,
+            &[gate, activated, up, product],
+            bytemuck::bytes_of(&LenPush { len: len as u32 }),
+            [div_ceil_u32(len, 64), 1, 1],
+        )?;
         Ok(true)
     }
 
@@ -26373,7 +26507,9 @@ impl TransformerKernels {
     /// byte-identical to the module the Gen9 tuning measured while an AVX-512
     /// host reproduces its own `torch.log_softmax`.
     fn falcon_cross_entropy(&self) -> &vulkan::ComputeKernel {
-        if aten_vector_width() >= 16 {
+        if let Some(kernel) = &self.rdna3_avx512_cross_entropy {
+            kernel
+        } else if aten_vector_width() >= 16 {
             &self.falcon_cross_entropy_lanes16
         } else {
             &self.falcon_cross_entropy
@@ -26459,10 +26595,16 @@ impl TransformerKernels {
                 12,
             )?,
             layer_norm_cpu_input_grad: vulkan::ComputeKernel::new(
-                device, include_bytes!("../shaders/vision_layer_norm_input_grad_cpu_avx2.spv"), 6, 8,
+                device,
+                include_bytes!("../shaders/vision_layer_norm_input_grad_cpu_avx2.spv"),
+                6,
+                8,
             )?,
             layer_norm_cpu_param_grad: vulkan::ComputeKernel::new(
-                device, include_bytes!("../shaders/vision_layer_norm_param_grad_cpu_avx2.spv"), 6, 8,
+                device,
+                include_bytes!("../shaders/vision_layer_norm_param_grad_cpu_avx2.spv"),
+                6,
+                8,
             )?,
             cpu_layer_norm_adjoint: false,
             rdna3_avx512_layer_norm: None,
@@ -26539,6 +26681,9 @@ impl TransformerKernels {
                 std::mem::size_of::<AttentionPush>() as u32,
             )?,
             rdna3_short_attention: None,
+            rdna3_short_attention_backward: None,
+            rdna3_avx512_gpt2: None,
+            rdna3_avx512_cross_entropy: None,
             attention_backward: vulkan::ComputeKernel::new(
                 device,
                 ATTENTION_BACKWARD_SPV,
@@ -26604,10 +26749,16 @@ impl TransformerKernels {
             gelu_erf_forward: vulkan::ComputeKernel::new(device, GELU_ERF_FORWARD_SPV, 2, 4)?,
             gelu_erf_backward: vulkan::ComputeKernel::new(device, GELU_ERF_BACKWARD_SPV, 3, 4)?,
             silu_forward: vendor::silu_forward_kernel(device)?,
-            silu_mul_forward: if vulkan::is_intel_gen9_pci_id(device.vendor_id(), device.device_id())
-                && std::env::var_os("HIERARCHOS_VULKAN_GEN9_FUSED_SILU").is_none_or(|v| v != "0") {
+            silu_mul_forward: if vulkan::is_intel_gen9_pci_id(
+                device.vendor_id(),
+                device.device_id(),
+            ) && std::env::var_os("HIERARCHOS_VULKAN_GEN9_FUSED_SILU")
+                .is_none_or(|v| v != "0")
+            {
                 Some(vulkan::ComputeKernel::new(device, SILU_MUL_GEN9_SPV, 4, 4)?)
-            } else { None },
+            } else {
+                None
+            },
             silu_backward: vendor::silu_backward_kernel(device)?,
             situ_forward: vulkan::ComputeKernel::new(
                 device,
@@ -26751,9 +26902,13 @@ impl TransformerKernels {
             qwen4_qsa_mask: vulkan::ComputeKernel::new(
                 device,
                 if vulkan::is_intel_gen9_pci_id(device.vendor_id(), device.device_id())
-                    && std::env::var_os("HIERARCHOS_VULKAN_GEN9_PARALLEL_QSA").is_none_or(|v| v != "0") {
+                    && std::env::var_os("HIERARCHOS_VULKAN_GEN9_PARALLEL_QSA")
+                        .is_none_or(|v| v != "0")
+                {
                     QWEN4_QSA_MASK_GEN9_SPV
-                } else { QWEN4_QSA_MASK_SPV },
+                } else {
+                    QWEN4_QSA_MASK_SPV
+                },
                 7,
                 std::mem::size_of::<Qwen4QsaMaskPush>() as u32,
             )?,
@@ -27283,7 +27438,7 @@ struct TieredLmHead {
     flat_offset: Option<usize>,
     /// Checked element-index view (offset, output stride, input stride).
     /// Covers transposed/interleaved expert slices without resident copies.
-    affine: Option<(usize,usize,usize)>,
+    affine: Option<(usize, usize, usize)>,
     row_map: Option<Vec<usize>>,
     input_adjoint: vulkan::ComputeKernel,
     name: String,
@@ -27318,13 +27473,21 @@ impl TieredLmHead {
         expected: &[f32],
         bias: Option<Vec<f32>>,
     ) -> Result<Self> {
-        Self::adopt_matrix(device,model_dir,input_dim,vocab_size,max_rows,expected,bias,false)
+        Self::adopt_matrix(
+            device, model_dir, input_dim, vocab_size, max_rows, expected, bias, false,
+        )
     }
     fn adopt_matrix(
-        device:&VulkanDevice,model_dir:&Path,input_dim:usize,vocab_size:usize,max_rows:usize,
-        expected:&[f32],bias:Option<Vec<f32>>,allow_equal_sources:bool,
-    )->Result<Self> {
-        if max_rows == 0 || input_dim==0 || vocab_size==0 {
+        device: &VulkanDevice,
+        model_dir: &Path,
+        input_dim: usize,
+        vocab_size: usize,
+        max_rows: usize,
+        expected: &[f32],
+        bias: Option<Vec<f32>>,
+        allow_equal_sources: bool,
+    ) -> Result<Self> {
+        if max_rows == 0 || input_dim == 0 || vocab_size == 0 {
             bail!("streamed LM-head row capacity must be positive");
         }
         let len = input_dim
@@ -27352,17 +27515,22 @@ impl TieredLmHead {
                 .lock()
                 .map_err(|_| anyhow!("shared weight package lock is poisoned"))?;
             for name in package.tensor_names()? {
-                let shape=package.shape(&name)?;
+                let shape = package.shape(&name)?;
                 if shape == vec![vocab_size, input_dim] {
-                    candidate_names.push((name.clone(),false,None));
+                    candidate_names.push((name.clone(), false, None));
                 }
-                if shape == vec![input_dim,vocab_size] {
-                    candidate_names.push((name.clone(),true,None));
+                if shape == vec![input_dim, vocab_size] {
+                    candidate_names.push((name.clone(), true, None));
                 }
-                if allow_equal_sources && shape.len()>2 && shape.last()==Some(&input_dim) {
-                    let elements=shape.iter().try_fold(1usize,|n,&v|n.checked_mul(v)).context("streamed packed shape overflow")?;
+                if allow_equal_sources && shape.len() > 2 && shape.last() == Some(&input_dim) {
+                    let elements = shape
+                        .iter()
+                        .try_fold(1usize, |n, &v| n.checked_mul(v))
+                        .context("streamed packed shape overflow")?;
                     if elements.is_multiple_of(len) {
-                        for offset in (0..elements).step_by(len){candidate_names.push((name.clone(),false,Some(offset)));}
+                        for offset in (0..elements).step_by(len) {
+                            candidate_names.push((name.clone(), false, Some(offset)));
+                        }
                     }
                 }
             }
@@ -27374,160 +27542,292 @@ impl TieredLmHead {
             );
         }
         let mut adopted = None;
-        for (name,transposed,offset) in candidate_names {
+        for (name, transposed, offset) in candidate_names {
             let matches = {
                 let mut package = package
                     .lock()
                     .map_err(|_| anyhow!("shared weight package lock is poisoned"))?;
-                if let Some(offset)=offset {
-                    let mut same=true;let tile=(crate::weight_offload::DEFAULT_TILE_BYTES as usize/4).max(1);
+                if let Some(offset) = offset {
+                    let mut same = true;
+                    let tile = (crate::weight_offload::DEFAULT_TILE_BYTES as usize / 4).max(1);
                     for first in (0..len).step_by(tile) {
-                        let count=tile.min(len-first);let values=package.read_f32_elements(&name,offset+first,count)?;
-                        if values.iter().zip(&expected[first..first+count]).any(|(a,b)|a.to_bits()!=b.to_bits()){same=false;break;}
+                        let count = tile.min(len - first);
+                        let values = package.read_f32_elements(&name, offset + first, count)?;
+                        if values
+                            .iter()
+                            .zip(&expected[first..first + count])
+                            .any(|(a, b)| a.to_bits() != b.to_bits())
+                        {
+                            same = false;
+                            break;
+                        }
                     }
                     same
                 } else if transposed {
-                    package_tensor_equals_transposed(&mut package,&name,expected,input_dim,vocab_size)?
-                } else {package_tensor_equals(&mut package, &name, expected, input_dim)?}
+                    package_tensor_equals_transposed(
+                        &mut package,
+                        &name,
+                        expected,
+                        input_dim,
+                        vocab_size,
+                    )?
+                } else {
+                    package_tensor_equals(&mut package, &name, expected, input_dim)?
+                }
             };
             if !matches {
                 continue;
             }
-            if allow_equal_sources {adopted=Some((name,transposed,offset));break;}
-            if adopted.as_ref().is_some_and(|(old,_,_)|old==&name){continue;}
+            if allow_equal_sources {
+                adopted = Some((name, transposed, offset));
+                break;
+            }
+            if adopted.as_ref().is_some_and(|(old, _, _)| old == &name) {
+                continue;
+            }
             if adopted.is_some() {
                 bail!(
                     "package {} holds more than one tensor equal to the loaded LM head; refusing to guess which one to stream",
                     model_dir.display()
                 );
             }
-            adopted = Some((name,transposed,offset));
+            adopted = Some((name, transposed, offset));
         }
         if adopted.is_none() && allow_equal_sources {
-            if let Some((name,view))=Self::find_affine_source(&package,expected,input_dim,vocab_size)? {
-                let mut source=Self::allocate(device,name,input_dim,vocab_size,max_rows,package,bias)?;
-                source.affine=Some(view);return Ok(source);
+            if let Some((name, view)) =
+                Self::find_affine_source(&package, expected, input_dim, vocab_size)?
+            {
+                let mut source =
+                    Self::allocate(device, name, input_dim, vocab_size, max_rows, package, bias)?;
+                source.affine = Some(view);
+                return Ok(source);
             }
-            if let Some((name,rows))=Self::find_row_mapped_source(&package,expected,input_dim,vocab_size)? {
-                let mut source=Self::allocate(device,name,input_dim,vocab_size,max_rows,package,bias)?;
-                source.row_map=Some(rows);return Ok(source);
+            if let Some((name, rows)) =
+                Self::find_row_mapped_source(&package, expected, input_dim, vocab_size)?
+            {
+                let mut source =
+                    Self::allocate(device, name, input_dim, vocab_size, max_rows, package, bias)?;
+                source.row_map = Some(rows);
+                return Ok(source);
             }
         }
-        let Some((name,transposed,offset)) = adopted else {
+        let Some((name, transposed, offset)) = adopted else {
             bail!(
                 "no package tensor in {} reproduces the loaded LM head; refusing to stream a table that cannot be proven equal",
                 model_dir.display()
             );
         };
 
-        let mut source=Self::allocate(device, name, input_dim, vocab_size, max_rows, package, bias)?;
-        source.transposed=transposed;
-        source.flat_offset=offset;
+        let mut source =
+            Self::allocate(device, name, input_dim, vocab_size, max_rows, package, bias)?;
+        source.transposed = transposed;
+        source.flat_offset = offset;
         Ok(source)
     }
 
-    fn affine_rows(package:&mut ModelPackage,name:&str,view:(usize,usize,usize),input:usize,start:usize,count:usize)->Result<Vec<f32>> {
-        if count == 0 { return Ok(Vec::new()); }
-        let (offset,output_stride,input_stride)=view;
-        let base=offset.checked_add(start.checked_mul(output_stride).context("affine source offset overflow")?).context("affine source offset overflow")?;
-        if input_stride==1 && output_stride==input {
-            return package.read_f32_elements(name,base,count.checked_mul(input).context("affine tile overflow")?);
+    fn affine_rows(
+        package: &mut ModelPackage,
+        name: &str,
+        view: (usize, usize, usize),
+        input: usize,
+        start: usize,
+        count: usize,
+    ) -> Result<Vec<f32>> {
+        if count == 0 {
+            return Ok(Vec::new());
+        }
+        let (offset, output_stride, input_stride) = view;
+        let base = offset
+            .checked_add(
+                start
+                    .checked_mul(output_stride)
+                    .context("affine source offset overflow")?,
+            )
+            .context("affine source offset overflow")?;
+        if input_stride == 1 && output_stride == input {
+            return package.read_f32_elements(
+                name,
+                base,
+                count.checked_mul(input).context("affine tile overflow")?,
+            );
         }
         // A bounded physical slab avoids one decode/request per input column
         // for dense transposed expert blocks. Partial/interleaved slices keep
         // exact-range reads, including their non-finite-value validation scope.
         if output_stride == 1 && input_stride == count && input > 0 {
-            let slab = (input - 1).checked_mul(input_stride).and_then(|n| n.checked_add(count))
+            let slab = (input - 1)
+                .checked_mul(input_stride)
+                .and_then(|n| n.checked_add(count))
                 .context("affine slab overflow")?;
             if slab <= crate::weight_offload::DEFAULT_TILE_BYTES as usize / 4 {
                 let values = package.read_f32_elements(name, base, slab)?;
-                let mut result = vec![0.0; count.checked_mul(input).context("affine tile overflow")?];
+                let mut result =
+                    vec![0.0; count.checked_mul(input).context("affine tile overflow")?];
                 for col in 0..input {
-                    for row in 0..count { result[row * input + col] = values[col * input_stride + row]; }
+                    for row in 0..count {
+                        result[row * input + col] = values[col * input_stride + row];
+                    }
                 }
                 return Ok(result);
             }
         }
-        let span=count.saturating_sub(1).checked_mul(output_stride).and_then(|n|n.checked_add(1)).context("affine source span overflow")?;
-        let mut result=vec![0.0;count.checked_mul(input).context("affine tile overflow")?];
+        let span = count
+            .saturating_sub(1)
+            .checked_mul(output_stride)
+            .and_then(|n| n.checked_add(1))
+            .context("affine source span overflow")?;
+        let mut result = vec![0.0; count.checked_mul(input).context("affine tile overflow")?];
         for col in 0..input {
-            let at=base.checked_add(col.checked_mul(input_stride).context("affine column overflow")?).context("affine column overflow")?;
-            let values=package.read_f32_elements(name,at,span)?;
-            for row in 0..count {result[row*input+col]=values[row*output_stride];}
+            let at = base
+                .checked_add(
+                    col.checked_mul(input_stride)
+                        .context("affine column overflow")?,
+                )
+                .context("affine column overflow")?;
+            let values = package.read_f32_elements(name, at, span)?;
+            for row in 0..count {
+                result[row * input + col] = values[row * output_stride];
+            }
         }
         Ok(result)
     }
 
-    fn row_hash(row:&[f32])->u64 {
-        row.iter().fold(0xcbf29ce484222325u64,|h,v|(h^v.to_bits() as u64).wrapping_mul(0x100000001b3))
+    fn row_hash(row: &[f32]) -> u64 {
+        row.iter().fold(0xcbf29ce484222325u64, |h, v| {
+            (h ^ v.to_bits() as u64).wrapping_mul(0x100000001b3)
+        })
     }
 
     /// Prove loader row permutations/splits from exact row contents. Hashes
     /// only index candidates: each accepted row is compared bit for bit.
-    fn find_row_mapped_source(package:&Arc<Mutex<ModelPackage>>,expected:&[f32],input:usize,output:usize)->Result<Option<(String,Vec<usize>)>> {
-        let mut wanted=BTreeMap::<u64,Vec<usize>>::new();
-        for (row,values) in expected.chunks_exact(input).enumerate(){wanted.entry(Self::row_hash(values)).or_default().push(row);}
-        let mut package=package.lock().map_err(|_|anyhow!("streamed row source lock poisoned"))?;
+    fn find_row_mapped_source(
+        package: &Arc<Mutex<ModelPackage>>,
+        expected: &[f32],
+        input: usize,
+        output: usize,
+    ) -> Result<Option<(String, Vec<usize>)>> {
+        let mut wanted = BTreeMap::<u64, Vec<usize>>::new();
+        for (row, values) in expected.chunks_exact(input).enumerate() {
+            wanted.entry(Self::row_hash(values)).or_default().push(row);
+        }
+        let mut package = package
+            .lock()
+            .map_err(|_| anyhow!("streamed row source lock poisoned"))?;
         for name in package.tensor_names()? {
-            let shape=package.shape(&name)?;
-            if shape.len()<2 || shape.last()!=Some(&input) {continue;}
-            let rows=shape[..shape.len()-1].iter().try_fold(1usize,|n,&v|n.checked_mul(v)).context("row-mapped source shape overflow")?;
-            if rows<output {continue;}
-            let mut mapping=vec![usize::MAX;output];let mut missing=output;
+            let shape = package.shape(&name)?;
+            if shape.len() < 2 || shape.last() != Some(&input) {
+                continue;
+            }
+            let rows = shape[..shape.len() - 1]
+                .iter()
+                .try_fold(1usize, |n, &v| n.checked_mul(v))
+                .context("row-mapped source shape overflow")?;
+            if rows < output {
+                continue;
+            }
+            let mut mapping = vec![usize::MAX; output];
+            let mut missing = output;
             for source_row in 0..rows {
-                let values=package.read_f32_elements(&name,source_row*input,input)?;
-                if let Some(matches)=wanted.get(&Self::row_hash(&values)) {
+                let values = package.read_f32_elements(&name, source_row * input, input)?;
+                if let Some(matches) = wanted.get(&Self::row_hash(&values)) {
                     for &destination in matches {
-                        if mapping[destination]==usize::MAX && values.iter().zip(&expected[destination*input..(destination+1)*input]).all(|(a,b)|a.to_bits()==b.to_bits()) {
-                            mapping[destination]=source_row;missing-=1;
+                        if mapping[destination] == usize::MAX
+                            && values
+                                .iter()
+                                .zip(&expected[destination * input..(destination + 1) * input])
+                                .all(|(a, b)| a.to_bits() == b.to_bits())
+                        {
+                            mapping[destination] = source_row;
+                            missing -= 1;
                         }
                     }
                 }
-                if missing==0 {return Ok(Some((name,mapping)));}
+                if missing == 0 {
+                    return Ok(Some((name, mapping)));
+                }
             }
         }
         Ok(None)
     }
 
-    fn find_affine_source(package:&Arc<Mutex<ModelPackage>>,expected:&[f32],input:usize,output:usize)->Result<Option<(String,(usize,usize,usize))>> {
-        let mut package=package.lock().map_err(|_|anyhow!("streamed source package lock poisoned"))?;
+    fn find_affine_source(
+        package: &Arc<Mutex<ModelPackage>>,
+        expected: &[f32],
+        input: usize,
+        output: usize,
+    ) -> Result<Option<(String, (usize, usize, usize))>> {
+        let mut package = package
+            .lock()
+            .map_err(|_| anyhow!("streamed source package lock poisoned"))?;
         for name in package.tensor_names()? {
-            let shape=package.shape(&name)?;
-            if shape.len()<2 {continue;}
-            let rows=shape[shape.len()-2];let cols=shape[shape.len()-1];
-            let prefixes=shape[..shape.len()-2].iter().try_fold(1usize,|n,&v|n.checked_mul(v)).context("affine source shape overflow")?;
-            let matrix=rows.checked_mul(cols).context("affine source shape overflow")?;
-            let mut views=Vec::new();
+            let shape = package.shape(&name)?;
+            if shape.len() < 2 {
+                continue;
+            }
+            let rows = shape[shape.len() - 2];
+            let cols = shape[shape.len() - 1];
+            let prefixes = shape[..shape.len() - 2]
+                .iter()
+                .try_fold(1usize, |n, &v| n.checked_mul(v))
+                .context("affine source shape overflow")?;
+            let matrix = rows
+                .checked_mul(cols)
+                .context("affine source shape overflow")?;
+            let mut views = Vec::new();
             for prefix in 0..prefixes {
-                let base=prefix.checked_mul(matrix).context("affine prefix overflow")?;
-                if cols==input && rows.is_multiple_of(output) {
-                    for part in 0..rows/output {views.push((base+part*output*input,input,1));}
+                let base = prefix
+                    .checked_mul(matrix)
+                    .context("affine prefix overflow")?;
+                if cols == input && rows.is_multiple_of(output) {
+                    for part in 0..rows / output {
+                        views.push((base + part * output * input, input, 1));
+                    }
                 }
                 // DBRX stacks transposed down projections as [experts*input,
                 // output]. Each expert is a separate input-by-output block.
-                if cols==output && rows.is_multiple_of(input) {
-                    for part in 0..rows/input {views.push((base+part*input*output,1,output));}
+                if cols == output && rows.is_multiple_of(input) {
+                    for part in 0..rows / input {
+                        views.push((base + part * input * output, 1, output));
+                    }
                 }
-                if rows==input && cols.is_multiple_of(output) {
-                    let pieces=cols/output;
+                if rows == input && cols.is_multiple_of(output) {
+                    let pieces = cols / output;
                     for part in 0..pieces {
-                        views.push((base+part*output,1,cols));
-                        if pieces>1 {views.push((base+part,pieces,cols));}
+                        views.push((base + part * output, 1, cols));
+                        if pieces > 1 {
+                            views.push((base + part, pieces, cols));
+                        }
                     }
                 }
             }
             for view in views {
                 // Prove the first row before reading the rest of a candidate.
-                let first=Self::affine_rows(&mut package,&name,view,input,0,1)?;
-                if first.iter().zip(&expected[..input]).any(|(a,b)|a.to_bits()!=b.to_bits()){continue;}
-                let tile=(crate::weight_offload::DEFAULT_TILE_BYTES as usize/(4*input)).max(1);
-                let mut matches=true;
-                for start in (0..output).step_by(tile) {
-                    let count=tile.min(output-start);
-                    let values=Self::affine_rows(&mut package,&name,view,input,start,count)?;
-                    if values.iter().zip(&expected[start*input..(start+count)*input]).any(|(a,b)|a.to_bits()!=b.to_bits()){matches=false;break;}
+                let first = Self::affine_rows(&mut package, &name, view, input, 0, 1)?;
+                if first
+                    .iter()
+                    .zip(&expected[..input])
+                    .any(|(a, b)| a.to_bits() != b.to_bits())
+                {
+                    continue;
                 }
-                if matches {return Ok(Some((name,view)));}
+                let tile =
+                    (crate::weight_offload::DEFAULT_TILE_BYTES as usize / (4 * input)).max(1);
+                let mut matches = true;
+                for start in (0..output).step_by(tile) {
+                    let count = tile.min(output - start);
+                    let values = Self::affine_rows(&mut package, &name, view, input, start, count)?;
+                    if values
+                        .iter()
+                        .zip(&expected[start * input..(start + count) * input])
+                        .any(|(a, b)| a.to_bits() != b.to_bits())
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+                if matches {
+                    return Ok(Some((name, view)));
+                }
             }
         }
         Ok(None)
@@ -27576,14 +27876,18 @@ impl TieredLmHead {
         // Every buffer below is sized by the largest tile the plan can produce,
         // never by the table: a 129,280-row vocabulary costs 8,207 rows of
         // device weight and 8,207 logit columns, whatever the vocabulary size.
-        let byte_rows=(crate::weight_offload::DEFAULT_TILE_BYTES as usize/(input_dim.checked_mul(4).context("streamed row byte overflow")?)).max(32);
-        let tile_rows=(byte_rows/32*32).min(TIERED_LM_HEAD_TILE_ROWS);
+        let byte_rows = (crate::weight_offload::DEFAULT_TILE_BYTES as usize
+            / (input_dim
+                .checked_mul(4)
+                .context("streamed row byte overflow")?))
+        .max(32);
+        let tile_rows = (byte_rows / 32 * 32).min(TIERED_LM_HEAD_TILE_ROWS);
         Ok(Self {
-            device:device.clone(),
-            transposed:false,
-            flat_offset:None,
-            affine:None,
-            row_map:None,
+            device: device.clone(),
+            transposed: false,
+            flat_offset: None,
+            affine: None,
+            row_map: None,
             input_adjoint: vulkan::ComputeKernel::new(
                 device,
                 include_bytes!("../shaders/linear_input_grad_streamed.spv"),
@@ -27651,12 +27955,17 @@ impl TieredLmHead {
                 .get(start..start + count)
                 .context("streamed row-map bounds")?;
             let mut result = Vec::with_capacity(count * self.input_dim);
-            let max_rows = (crate::weight_offload::DEFAULT_TILE_BYTES as usize / 4 / self.input_dim).max(1);
+            let max_rows =
+                (crate::weight_offload::DEFAULT_TILE_BYTES as usize / 4 / self.input_dim).max(1);
             let mut first = 0;
             while first < selected.len() {
                 let mut end = first + 1;
-                while end < selected.len() && end - first < max_rows
-                    && selected[end - 1].checked_add(1) == Some(selected[end]) { end += 1; }
+                while end < selected.len()
+                    && end - first < max_rows
+                    && selected[end - 1].checked_add(1) == Some(selected[end])
+                {
+                    end += 1;
+                }
                 result.extend(package.read_f32_elements(
                     &self.name,
                     selected[first] * self.input_dim,
@@ -27679,7 +27988,14 @@ impl TieredLmHead {
         if !self.transposed {
             return package.read_f32_rows(&self.name, start, count);
         }
-        Self::affine_rows(&mut package, &self.name, (0, 1, self.vocab_size), self.input_dim, start, count)
+        Self::affine_rows(
+            &mut package,
+            &self.name,
+            (0, 1, self.vocab_size),
+            self.input_dim,
+            start,
+            count,
+        )
     }
 
     fn record_expert_projection(
@@ -27823,12 +28139,15 @@ impl TieredLmHead {
         let output_tile = output_scratch.as_ref().unwrap_or(output);
         for (start, count) in self.tile_plan() {
             let values = self.read_rows(start, count)?;
-            let upload_bytes = values.len().checked_add(if self.bias.is_some() { count } else { 0 })
+            let upload_bytes = values
+                .len()
+                .checked_add(if self.bias.is_some() { count } else { 0 })
                 .and_then(|len| len.checked_mul(std::mem::size_of::<f32>()))
                 .context("streamed projection upload size overflow")?;
             let defer_retirement = batch_small_uploads && upload_bytes <= GEN9_STREAM_BATCH_BYTES;
             if defer_retirement
-                && commands.uploaded_bytes().saturating_add(upload_bytes) > GEN9_STREAM_BATCH_BYTES {
+                && commands.uploaded_bytes().saturating_add(upload_bytes) > GEN9_STREAM_BATCH_BYTES
+            {
                 commands.submit_and_restart()?;
             }
             commands.upload_f32(&weight_tile, &values)?;
@@ -27895,7 +28214,9 @@ impl TieredLmHead {
             // independent Gen9 tiles can share one bounded upload window; the
             // batch retains their buffers and orders transfers against reads.
             // The next tile retires this window before exceeding the byte cap.
-            if !defer_retirement { commands.submit_and_restart()?; }
+            if !defer_retirement {
+                commands.submit_and_restart()?;
+            }
         }
         Ok(())
     }
@@ -27960,17 +28281,27 @@ impl TieredLmHead {
     /// when the graph never holds it, so the materialization walks the package
     /// rather than being refused.
     fn materialize(&self) -> Result<Vec<f32>> {
-        let mut values=Vec::with_capacity(self.input_dim*self.vocab_size);
-        for (start,count) in self.tile_plan(){values.extend(self.read_rows(start,count)?);}
+        let mut values = Vec::with_capacity(self.input_dim * self.vocab_size);
+        for (start, count) in self.tile_plan() {
+            values.extend(self.read_rows(start, count)?);
+        }
         Ok(values)
     }
 }
 
-fn package_tensor_equals_transposed(package:&mut ModelPackage,name:&str,expected:&[f32],input:usize,output:usize)->Result<bool> {
+fn package_tensor_equals_transposed(
+    package: &mut ModelPackage,
+    name: &str,
+    expected: &[f32],
+    input: usize,
+    output: usize,
+) -> Result<bool> {
     for col in 0..input {
-        let values=package.read_f32_rows(name,col,1)?;
+        let values = package.read_f32_rows(name, col, 1)?;
         for row in 0..output {
-            if values[row].to_bits()!=expected[row*input+col].to_bits(){return Ok(false);}
+            if values[row].to_bits() != expected[row * input + col].to_bits() {
+                return Ok(false);
+            }
         }
     }
     Ok(true)
@@ -28189,10 +28520,22 @@ impl TrainableParameter {
             .exp_avg_sq
             .as_ref()
             .context("Transformer parameter AdamW second-moment state is not allocated")?;
-        if let Some(policy) = *kernels.cpu_adamw_policy.lock()
-            .map_err(|_| anyhow!("CPU AdamW policy lock poisoned"))? {
-            return kernels.cpu_adamw.record_step(commands, &self.values, grad,
-                exp_avg, exp_avg_sq, self.len, step, policy, self.decay);
+        if let Some(policy) = *kernels
+            .cpu_adamw_policy
+            .lock()
+            .map_err(|_| anyhow!("CPU AdamW policy lock poisoned"))?
+        {
+            return kernels.cpu_adamw.record_step(
+                commands,
+                &self.values,
+                grad,
+                exp_avg,
+                exp_avg_sq,
+                self.len,
+                step,
+                policy,
+                self.decay,
+            );
         }
         let push = AdamWPush {
             len: self.len as u32,
@@ -28611,15 +28954,25 @@ fn record_linear_projection(
     let geometry = [div_ceil_u32(output_dim, 16), div_ceil_u32(rows, 16), 1];
     if let Some((forward, _)) = kernels.cpu_row_gemm.as_ref().filter(|_| {
         vision::cpu_avx2_vision_gemm(rows, input_dim, output_dim, aten_vector_width())
-            || (kernels.cpu_wide_row_gemm && aten_vector_width() == 8 && rows == 16
+            || (kernels.cpu_wide_row_gemm
+                && aten_vector_width() == 8
+                && rows == 16
                 && ((input_dim == 64
                     && matches!(output_dim, 16 | 32 | 64 | 128 | 192 | 256 | 320))
                     || (input_dim == 256 && output_dim == 64)))
     }) {
-        let cpu_push = [rows as u32, input_dim as u32, output_dim as u32, u32::from(bias.is_some())];
-        return forward.record_dispatch(commands,
+        let cpu_push = [
+            rows as u32,
+            input_dim as u32,
+            output_dim as u32,
+            u32::from(bias.is_some()),
+        ];
+        return forward.record_dispatch(
+            commands,
             &[input, weight, bias.unwrap_or(weight), output],
-            bytemuck::cast_slice(&cpu_push), geometry);
+            bytemuck::cast_slice(&cpu_push),
+            geometry,
+        );
     }
     match bias {
         Some(bias) => {
@@ -28976,9 +29329,7 @@ impl VulkanLinear {
         tiered: &Arc<TieredLmHead>,
     ) -> Result<()> {
         if training && (self.train_base || self.train_bias) {
-            bail!(
-                "streamed projection base and bias must stay frozen during adapter training"
-            );
+            bail!("streamed projection base and bias must stay frozen during adapter training");
         }
         if self.input_dim != tiered.input_dim || self.output_dim != tiered.vocab_size {
             bail!(
@@ -28992,7 +29343,11 @@ impl VulkanLinear {
         if self.has_bias != tiered.bias.is_some() {
             bail!("streamed output head bias state disagrees with the loaded projection");
         }
-        let narrow = self.output_dim == 8 || (self.lora.is_some() && aten_vector_width() >= 16 && self.output_dim < 8 && self.input_dim.is_multiple_of(4));
+        let narrow = self.output_dim == 8
+            || (self.lora.is_some()
+                && aten_vector_width() >= 16
+                && self.output_dim < 8
+                && self.input_dim.is_multiple_of(4));
         tiered.record_projection(commands, kernels, input, output, rows, false, narrow)
     }
 
@@ -29009,7 +29364,9 @@ impl VulkanLinear {
         rng_seed: u32,
         lane8_muladd_lora_a: bool,
     ) -> Result<()> {
-        if self.weight.tiered_source().is_some() && self.lora.as_ref().is_some_and(|l| l.dora.is_some()) {
+        if self.weight.tiered_source().is_some()
+            && self.lora.as_ref().is_some_and(|l| l.dora.is_some())
+        {
             bail!("DoRA requires a resident base projection until its streamed norm path is qualified");
         }
         let base_output = self
@@ -29027,19 +29384,29 @@ impl VulkanLinear {
                 && self.output_dim < 8
                 && self.input_dim.is_multiple_of(4));
         if let Some(tiered) = self.weight.tiered_source() {
-            self.record_tiered_forward(commands, kernels, input, base_output, rows, training, tiered)?;
-        } else { record_linear_projection(
-            commands,
-            kernels,
-            input,
-            &self.weight.values,
-            self.has_bias.then_some(&self.bias.values),
-            base_output,
-            rows,
-            self.input_dim,
-            self.output_dim,
-            narrow_output,
-        )?; }
+            self.record_tiered_forward(
+                commands,
+                kernels,
+                input,
+                base_output,
+                rows,
+                training,
+                tiered,
+            )?;
+        } else {
+            record_linear_projection(
+                commands,
+                kernels,
+                input,
+                &self.weight.values,
+                self.has_bias.then_some(&self.bias.values),
+                base_output,
+                rows,
+                self.input_dim,
+                self.output_dim,
+                narrow_output,
+            )?;
+        }
         if let Some(lora) = self.lora.as_ref() {
             let lora_input = if training && lora.dropout > 0.0 {
                 let ones = lora
@@ -29271,7 +29638,11 @@ impl VulkanLinear {
         rows: usize,
         unfused_lora_b: bool,
     ) -> Result<()> {
-        if self.weight.tiered_source().is_some() && (self.train_base || self.train_bias || self.lora.as_ref().is_some_and(|l|l.dora.is_some())) {
+        if self.weight.tiered_source().is_some()
+            && (self.train_base
+                || self.train_bias
+                || self.lora.as_ref().is_some_and(|l| l.dora.is_some()))
+        {
             bail!("streamed linear backward requires frozen base/bias and additive LoRA");
         }
         let push = LinearPush {
@@ -29322,11 +29693,17 @@ impl VulkanLinear {
         if let Some(tiered) = self.weight.tiered_source() {
             tiered.record_input_gradient(commands, base_grad_output, base_grad_input, rows)?;
         } else if let Some(kernel) = kernels.rdna3_avx512_input_grad.as_ref().filter(|_| {
-            rows == 16 && self.input_dim == 64 && matches!(self.output_dim, 256 | 320)
+            (rows == 16
+                || (kernels.rdna3_avx512_gpt2.is_some() && matches!(rows, 8 | 12 | 20 | 24 | 32)))
+                && self.input_dim == 64
+                && matches!(self.output_dim, 256 | 320)
         }) {
-            kernel.record_dispatch(commands,
+            kernel.record_dispatch(
+                commands,
                 &[base_grad_output, &self.weight.values, base_grad_input],
-                bytemuck::bytes_of(&push), [4, 1, 1])?;
+                bytemuck::bytes_of(&push),
+                [4, div_ceil_u32(rows, 16), 1],
+            )?;
         } else if let Some((_, gradient)) = kernels.cpu_row_gemm.as_ref().filter(|_| {
             (vision::cpu_avx2_input_gradient_gemm(
                 rows,
@@ -29336,17 +29713,31 @@ impl VulkanLinear {
             ) && matches!(rows % 6, 1..=3))
                 || (kernels.cpu_wide_row_gemm && rows == 16)
         }) {
-            let cpu_push = [rows as u32, self.output_dim as u32, self.input_dim as u32, 0];
-            gradient.record_dispatch(commands,
-                &[base_grad_output, &self.weight.values, &self.bias.values, base_grad_input],
+            let cpu_push = [
+                rows as u32,
+                self.output_dim as u32,
+                self.input_dim as u32,
+                0,
+            ];
+            gradient.record_dispatch(
+                commands,
+                &[
+                    base_grad_output,
+                    &self.weight.values,
+                    &self.bias.values,
+                    base_grad_input,
+                ],
                 bytemuck::cast_slice(&cpu_push),
-                [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1])?;
-        } else { kernels.linear_input_grad.record_dispatch(
-            commands,
-            &[base_grad_output, &self.weight.values, base_grad_input],
-            bytemuck::bytes_of(&push),
-            [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
-        )?; }
+                [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
+            )?;
+        } else {
+            kernels.linear_input_grad.record_dispatch(
+                commands,
+                &[base_grad_output, &self.weight.values, base_grad_input],
+                bytemuck::bytes_of(&push),
+                [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
+            )?;
+        }
         if let Some(lora) = self.lora.as_ref() {
             if let Some(dora) = lora.dora.as_ref() {
                 let dora_forward_push = DoraForwardPush {
@@ -29899,7 +30290,6 @@ impl VulkanLayerNorm {
         self
     }
 
-
     fn use_extra_rsqrt_refinement(mut self, enabled: bool) -> Self {
         self.extra_rsqrt_refinement = u32::from(enabled);
         self
@@ -30017,9 +30407,12 @@ impl VulkanLayerNorm {
                 unfused_products: u32::from(self.unfused_products),
                 extra_rsqrt_refinement: self.extra_rsqrt_refinement,
             };
-            let kernel = kernels.rdna3_avx512_rms.as_ref()
+            let kernel = kernels
+                .rdna3_avx512_rms
+                .as_ref()
                 .filter(|_| self.dim == 64 && !self.pow_rstd && self.extra_rsqrt_refinement == 3)
-                .map(|family| &family[0]).unwrap_or(&kernels.rms_norm_forward);
+                .map(|family| &family[0])
+                .unwrap_or(&kernels.rms_norm_forward);
             kernel.record_dispatch(
                 commands,
                 &[input, &self.weight.values, output, rstd, mean],
@@ -30032,7 +30425,9 @@ impl VulkanLayerNorm {
                 dim: self.dim as u32,
                 eps: self.eps,
             };
-            let rdna3_norm = kernels.rdna3_avx512_layer_norm.as_ref()
+            let rdna3_norm = kernels
+                .rdna3_avx512_layer_norm
+                .as_ref()
                 .filter(|_| (16..=128).contains(&self.dim) && self.dim % 16 == 0);
             let kernel = if let Some(kernel) = rdna3_norm {
                 kernel
@@ -30053,7 +30448,14 @@ impl VulkanLayerNorm {
                 ],
                 bytemuck::bytes_of(&push),
                 [
-                    div_ceil_u32(rows, if rdna3_norm.is_some() { kernels.rdna3_avx512_layer_norm_rows } else { kernels.layer_norm_rows_per_workgroup }),
+                    div_ceil_u32(
+                        rows,
+                        if rdna3_norm.is_some() {
+                            kernels.rdna3_avx512_layer_norm_rows
+                        } else {
+                            kernels.layer_norm_rows_per_workgroup
+                        },
+                    ),
                     1,
                     1,
                 ],
@@ -30160,9 +30562,12 @@ impl VulkanLayerNorm {
                 // provably reaches a scalar pow.
                 exact_pow_backward: 0,
             };
-            let kernel = kernels.rdna3_avx512_rms.as_ref()
+            let kernel = kernels
+                .rdna3_avx512_rms
+                .as_ref()
                 .filter(|_| self.dim == 64 && !self.pow_rstd && self.extra_rsqrt_refinement == 3)
-                .map(|family| &family[1]).unwrap_or(&kernels.rms_norm_input_grad);
+                .map(|family| &family[1])
+                .unwrap_or(&kernels.rms_norm_input_grad);
             kernel.record_dispatch(
                 commands,
                 &[
@@ -30181,10 +30586,18 @@ impl VulkanLayerNorm {
                 rows: rows as u32,
                 dim: self.dim as u32,
             };
-            let cpu_profile = self.cpu_welford && kernels.cpu_layer_norm_adjoint
-                && aten_vector_width() == 8;
-            let param_kernel = if cpu_profile { &kernels.layer_norm_cpu_param_grad } else { &kernels.layer_norm_param_grad };
-            let input_kernel = if cpu_profile { &kernels.layer_norm_cpu_input_grad } else { &kernels.layer_norm_input_grad };
+            let cpu_profile =
+                self.cpu_welford && kernels.cpu_layer_norm_adjoint && aten_vector_width() == 8;
+            let param_kernel = if cpu_profile {
+                &kernels.layer_norm_cpu_param_grad
+            } else {
+                &kernels.layer_norm_param_grad
+            };
+            let input_kernel = if cpu_profile {
+                &kernels.layer_norm_cpu_input_grad
+            } else {
+                &kernels.layer_norm_input_grad
+            };
             if self.trainable || self.train_bias {
                 param_kernel.record_dispatch(
                     commands,
@@ -30197,7 +30610,11 @@ impl VulkanLayerNorm {
                         self.bias.grad_target()?,
                     ],
                     bytemuck::bytes_of(&push),
-                    [div_ceil_u32(self.dim, if cpu_profile { 64 } else { 256 }), 1, 1],
+                    [
+                        div_ceil_u32(self.dim, if cpu_profile { 64 } else { 256 }),
+                        1,
+                        1,
+                    ],
                 )?;
                 if self.trainable {
                     self.weight.record_grad_accumulate(commands, kernels)?;
@@ -30332,9 +30749,12 @@ impl VulkanLayerNorm {
             // not correctly rounded real arithmetic.
             exact_pow_backward: 0,
         };
-        let kernel = kernels.rdna3_avx512_rms.as_ref()
+        let kernel = kernels
+            .rdna3_avx512_rms
+            .as_ref()
             .filter(|_| self.dim == 64 && !self.pow_rstd && self.extra_rsqrt_refinement == 3)
-            .map(|family| &family[2]).unwrap_or(&kernels.rms_norm_input_grad_residual);
+            .map(|family| &family[2])
+            .unwrap_or(&kernels.rms_norm_input_grad_residual);
         kernel.record_dispatch(
             commands,
             &[
@@ -51097,8 +51517,17 @@ impl VulkanMoe {
         } else {
             &self.up_pre
         };
-        let fused = gate.is_some() && kernels.try_silu_product(commands, activation_function,
-            &self.gate_pre, &self.up_pre, &self.activation, &self.product, rows * intermediate, training)?;
+        let fused = gate.is_some()
+            && kernels.try_silu_product(
+                commands,
+                activation_function,
+                &self.gate_pre,
+                &self.up_pre,
+                &self.activation,
+                &self.product,
+                rows * intermediate,
+                training,
+            )?;
         if !fused {
             activation.record_dispatch(
                 commands,
@@ -56272,11 +56701,7 @@ impl VulkanQwen4QsaIndexer {
                 &self.tape.sparse_mask,
             ],
             bytemuck::bytes_of(&push),
-            [
-                1,
-                div_ceil_u32(seq_len, 8),
-                batch_size as u32,
-            ],
+            [1, div_ceil_u32(seq_len, 8), batch_size as u32],
         )?;
         Ok(&self.tape.sparse_mask)
     }
@@ -58825,19 +59250,25 @@ impl VulkanTransformerLayer {
                 "q_proj",
                 host.q_proj
                     .as_ref()
-                    .context("split-QKV Transformer layer is missing q_proj")?.weight.len(),
+                    .context("split-QKV Transformer layer is missing q_proj")?
+                    .weight
+                    .len(),
             )?;
             let key_hidden = infer_linear_output(
                 "k_proj",
                 host.k_proj
                     .as_ref()
-                    .context("split-QKV Transformer layer is missing k_proj")?.weight.len(),
+                    .context("split-QKV Transformer layer is missing k_proj")?
+                    .weight
+                    .len(),
             )?;
             let value_hidden = infer_linear_output(
                 "v_proj",
                 host.v_proj
                     .as_ref()
-                    .context("split-QKV Transformer layer is missing v_proj")?.weight.len(),
+                    .context("split-QKV Transformer layer is missing v_proj")?
+                    .weight
+                    .len(),
             )?;
             let attention_hidden = infer_output_projection_input(host.c_proj.weight.len())?;
             let (num_heads, head_dim) = if config.architecture
@@ -60542,7 +60973,8 @@ impl VulkanTransformerLayer {
                                 | VulkanTransformerArchitecture::Qwen35
                                 | VulkanTransformerArchitecture::Qwen35Moe
                                 | VulkanTransformerArchitecture::Qwen4Exp
-                        ) && seq_len > 1 {
+                        ) && seq_len > 1
+                        {
                             Some(attention_mask)
                         } else {
                             None
@@ -61612,10 +62044,18 @@ impl VulkanTransformerLayer {
                         [div_ceil_u32(rows * i, 256), 1, 1],
                     )?;
                 } else {
-                    if !kernels.try_silu_product(commands, config.effective_activation_function(),
-                        &self.tape.mlp_gate_pre, &self.tape.mlp_pre, &self.tape.mlp_activation,
-                        &self.tape.mlp_product, rows * i, training)? {
-                        let gated_activation_forward = match config.effective_activation_function() {
+                    if !kernels.try_silu_product(
+                        commands,
+                        config.effective_activation_function(),
+                        &self.tape.mlp_gate_pre,
+                        &self.tape.mlp_pre,
+                        &self.tape.mlp_activation,
+                        &self.tape.mlp_product,
+                        rows * i,
+                        training,
+                    )? {
+                        let gated_activation_forward = match config.effective_activation_function()
+                        {
                             "silu" => &kernels.silu_forward,
                             "relu" => &kernels.relu_forward,
                             "relu2" => &kernels.relu2_forward,
@@ -62758,10 +63198,11 @@ impl VulkanTransformerLayer {
                         | VulkanTransformerArchitecture::Qwen2
                         | VulkanTransformerArchitecture::Gemma3
                         | VulkanTransformerArchitecture::Gemma4
-                )) || ((kernels.cpu_wide_row_gemm || kernels.rdna3_avx512_wide)
+                ))
+                || ((kernels.cpu_wide_row_gemm || kernels.rdna3_avx512_wide)
                     && config.architecture == VulkanTransformerArchitecture::Llama)
-                    || (kernels.rdna3_avx512_layer_norm.is_some()
-                        && config.architecture == VulkanTransformerArchitecture::Gemma3))
+                || (kernels.rdna3_avx512_layer_norm.is_some()
+                    && config.architecture == VulkanTransformerArchitecture::Gemma3))
                 && !config.parallel_residual
                 && !self.shared_pre_norm
                 && !cross_attention_active
@@ -63099,7 +63540,8 @@ impl VulkanTransformerLayer {
                             | VulkanTransformerArchitecture::Qwen35
                             | VulkanTransformerArchitecture::Qwen35Moe
                             | VulkanTransformerArchitecture::Qwen4Exp
-                    ) && seq_len > 1 {
+                    ) && seq_len > 1
+                    {
                         Some(attention_mask)
                     } else {
                         None
@@ -63312,32 +63754,109 @@ impl VulkanTransformerLayer {
                 // is submitted on its own; the wait between blocks preserves the order
                 // they accumulate in. A count of one leaves this a single dispatch with
                 // no extra submission, exactly as it was before the split existed.
-                if let Some(family)=kernels.rdna3_avx512_eager.as_ref()
-                    .filter(|_| key_blocks==1 && rdna3_avx512_eager_supported(&attention_push)) {
-                    let push=rdna3_eager_push(&attention_push);
-                    family[1].record_dispatch(commands,&[backward_bindings[0],backward_bindings[1],backward_bindings[2],
-                        attention_mask,attention_mask,grad_attention,backward_bindings[7],backward_bindings[8],backward_bindings[9]],
-                        bytemuck::cast_slice(&push),[num_key_value_heads as u32,batch_size as u32,1])?;
-                } else if let Some(kernel) = kernels.rdna3_avx512_sdpa_backward.as_ref()
-                    .filter(|_| key_blocks==1 && rdna3_avx512_sdpa_supported(&attention_push)) {
-                    let push=[attention_push.batch_size,8,attention_push.query_hidden_size,
-                        attention_push.value_hidden_size,attention_push.num_heads,
-                        attention_push.num_key_value_heads,attention_push.window_size,attention_push.scale.to_bits()];
-                    kernel.record_dispatch(commands,&[backward_bindings[0],backward_bindings[1],backward_bindings[2],
-                        attention_mask,attention_mask,grad_attention,&self.tape.attention,
-                        backward_bindings[7],backward_bindings[8],backward_bindings[9]],
-                        bytemuck::cast_slice(&push),[num_key_value_heads as u32,batch_size as u32,1])?;
-                } else { for key_block in 0..key_blocks {
-                    kernels.attention_backward.record_dispatch(
+                if let Some(family) = kernels
+                    .rdna3_avx512_gpt2
+                    .as_ref()
+                    .filter(|_| key_blocks == 1 && rdna3_avx512_gpt2_supported(&attention_push))
+                {
+                    let packed = rdna3_eager_push(&attention_push);
+                    family[1].record_dispatch(
+                        commands,
+                        &[
+                            backward_bindings[0],
+                            backward_bindings[1],
+                            backward_bindings[2],
+                            attention_mask,
+                            attention_mask,
+                            grad_attention,
+                            &self.tape.attention,
+                            backward_bindings[7],
+                            backward_bindings[8],
+                            backward_bindings[9],
+                        ],
+                        bytemuck::cast_slice(&packed),
+                        [num_key_value_heads as u32, batch_size as u32, 1],
+                    )?;
+                } else if let Some(family) = kernels
+                    .rdna3_avx512_eager
+                    .as_ref()
+                    .filter(|_| key_blocks == 1 && rdna3_avx512_eager_supported(&attention_push))
+                {
+                    let push = rdna3_eager_push(&attention_push);
+                    family[1].record_dispatch(
+                        commands,
+                        &[
+                            backward_bindings[0],
+                            backward_bindings[1],
+                            backward_bindings[2],
+                            attention_mask,
+                            attention_mask,
+                            grad_attention,
+                            backward_bindings[7],
+                            backward_bindings[8],
+                            backward_bindings[9],
+                        ],
+                        bytemuck::cast_slice(&push),
+                        [num_key_value_heads as u32, batch_size as u32, 1],
+                    )?;
+                } else if let Some(kernel) = kernels
+                    .rdna3_avx512_sdpa_backward
+                    .as_ref()
+                    .filter(|_| key_blocks == 1 && rdna3_avx512_sdpa_supported(&attention_push))
+                {
+                    let push = [
+                        attention_push.batch_size,
+                        8,
+                        attention_push.query_hidden_size,
+                        attention_push.value_hidden_size,
+                        attention_push.num_heads,
+                        attention_push.num_key_value_heads,
+                        attention_push.window_size,
+                        attention_push.scale.to_bits(),
+                    ];
+                    kernel.record_dispatch(
+                        commands,
+                        &[
+                            backward_bindings[0],
+                            backward_bindings[1],
+                            backward_bindings[2],
+                            attention_mask,
+                            attention_mask,
+                            grad_attention,
+                            &self.tape.attention,
+                            backward_bindings[7],
+                            backward_bindings[8],
+                            backward_bindings[9],
+                        ],
+                        bytemuck::cast_slice(&push),
+                        [num_key_value_heads as u32, batch_size as u32, 1],
+                    )?;
+                } else if let Some(kernel) = kernels
+                    .rdna3_short_attention_backward
+                    .as_ref()
+                    .filter(|_| key_blocks == 1 && rdna3_short_attention_supported(&attention_push))
+                {
+                    kernel.record_dispatch(
                         commands,
                         &backward_bindings,
-                        bytemuck::bytes_of(&attention_push.as_backward_push(key_block, key_blocks)),
+                        bytemuck::bytes_of(&attention_push.as_backward_push(0, 1)),
                         [num_key_value_heads as u32, batch_rows, 1],
                     )?;
-                    if key_block + 1 < key_blocks {
-                        commands.submit_and_restart()?;
+                } else {
+                    for key_block in 0..key_blocks {
+                        kernels.attention_backward.record_dispatch(
+                            commands,
+                            &backward_bindings,
+                            bytemuck::bytes_of(
+                                &attention_push.as_backward_push(key_block, key_blocks),
+                            ),
+                            [num_key_value_heads as u32, batch_rows, 1],
+                        )?;
+                        if key_block + 1 < key_blocks {
+                            commands.submit_and_restart()?;
+                        }
                     }
-                } }
+                }
                 if post_rope_qk_norm {
                     if let (Some(q_norm), Some(k_norm)) =
                         (self.q_norm.as_ref(), self.k_norm.as_ref())
@@ -63661,10 +64180,11 @@ impl VulkanTransformerLayer {
                     if ((kernels.cpu_wide_row_gemm || kernels.rdna3_avx512_wide)
                         && config.architecture == VulkanTransformerArchitecture::Llama)
                         || matches!(
-                        config.architecture,
-                        VulkanTransformerArchitecture::Gemma3
-                            | VulkanTransformerArchitecture::Gemma4
-                    ) {
+                            config.architecture,
+                            VulkanTransformerArchitecture::Gemma3
+                                | VulkanTransformerArchitecture::Gemma4
+                        )
+                    {
                         // Eager autograd accumulates the six ordinary-LoRA
                         // input branches in reverse projection order. The
                         // first V pair is commutative in isolation; after it,
@@ -64099,10 +64619,11 @@ impl VulkanTransformerLayer {
                     | VulkanTransformerArchitecture::Qwen2
                     | VulkanTransformerArchitecture::Gemma3
                     | VulkanTransformerArchitecture::Gemma4
-            )) || ((kernels.cpu_wide_row_gemm || kernels.rdna3_avx512_wide)
+            ))
+            || ((kernels.cpu_wide_row_gemm || kernels.rdna3_avx512_wide)
                 && config.architecture == VulkanTransformerArchitecture::Llama)
-                || (kernels.rdna3_avx512_layer_norm.is_some()
-                    && config.architecture == VulkanTransformerArchitecture::Gemma3))
+            || (kernels.rdna3_avx512_layer_norm.is_some()
+                && config.architecture == VulkanTransformerArchitecture::Gemma3))
             && !self.shared_pre_norm
             && !config.parallel_residual
             && !cross_attention_active
@@ -65506,8 +66027,17 @@ fn record_transformer_moe_expert_projection(
 ) -> Result<()> {
     if let Some((expert_counts, expert)) = routing {
         if !linear.has_bias && linear.lora.is_none() {
-            if let Some(source)=linear.weight.tiered_source() {
-                return source.record_expert_projection(commands,kernels,input,output,rows,expert_counts,expert,num_experts);
+            if let Some(source) = linear.weight.tiered_source() {
+                return source.record_expert_projection(
+                    commands,
+                    kernels,
+                    input,
+                    output,
+                    rows,
+                    expert_counts,
+                    expert,
+                    num_experts,
+                );
             }
             let push = MoeExpertForwardPush {
                 rows: rows as u32,
@@ -65942,15 +66472,18 @@ impl VulkanSeq2SeqTransformer {
     ) -> Result<Self> {
         let directory = model_dir.as_ref();
         let mut graph = Self::from_hf_package_with_batch_size(
-            device, directory, batch_size, encoder_seq_len, decoder_seq_len,
+            device,
+            directory,
+            batch_size,
+            encoder_seq_len,
+            decoder_seq_len,
         )?;
         graph.decoder.stream_lm_head_from_package(directory)?;
         for component in [&mut graph.encoder, &mut graph.decoder] {
             let before = component.device.memory_stats()?.live_buffer_bytes;
             component.stream_linear_parameters_from_package(directory)?;
-            component.streaming_retired_parameter_bytes = before.saturating_sub(
-                component.device.memory_stats()?.live_buffer_bytes,
-            );
+            component.streaming_retired_parameter_bytes =
+                before.saturating_sub(component.device.memory_stats()?.live_buffer_bytes);
         }
         Ok(graph)
     }
@@ -65961,18 +66494,24 @@ impl VulkanSeq2SeqTransformer {
     }
 
     pub fn streaming_retired_parameter_bytes(&self) -> usize {
-        self.encoder.streaming_retired_parameter_bytes() + self.decoder.streaming_retired_parameter_bytes()
+        self.encoder.streaming_retired_parameter_bytes()
+            + self.decoder.streaming_retired_parameter_bytes()
     }
 
     /// Deduplicate readers shared by the two graphs before reporting I/O.
-    pub fn streamed_linear_package_io(&mut self) -> Result<Vec<(PathBuf, crate::weight_offload::OffloadLedger)>> {
+    pub fn streamed_linear_package_io(
+        &mut self,
+    ) -> Result<Vec<(PathBuf, crate::weight_offload::OffloadLedger)>> {
         let mut seen = BTreeSet::new();
         let mut snapshots = Vec::new();
         for component in [&mut self.encoder, &mut self.decoder] {
             component.for_each_frozen_graph_linear_mut(|_, _, linear| {
                 if let Some(source) = linear.weight.tiered_source() {
                     if seen.insert(Arc::as_ptr(&source.package) as usize) {
-                        let reader = source.package.lock().map_err(|_|anyhow!("weight package lock poisoned"))?;
+                        let reader = source
+                            .package
+                            .lock()
+                            .map_err(|_| anyhow!("weight package lock poisoned"))?;
                         snapshots.push((reader.root().to_path_buf(), reader.ledger()));
                     }
                 }
@@ -66456,41 +66995,58 @@ impl VulkanTransformer {
     /// body matrices are never materialized as resident host/device parameters.
     /// Other loaders retain post-load body conversion.
     pub fn from_hf_package_with_streamed_parameters(
-        device:VulkanDevice, model_dir:impl AsRef<Path>, config:VulkanTransformerConfig,
-        batch_size:usize, seq_len:usize,
-    )->Result<Self> {
-        let directory=model_dir.as_ref();
+        device: VulkanDevice,
+        model_dir: impl AsRef<Path>,
+        config: VulkanTransformerConfig,
+        batch_size: usize,
+        seq_len: usize,
+    ) -> Result<Self> {
+        let directory = model_dir.as_ref();
         if streamed_load::supports(directory, &config)? {
             return streamed_load::build(device, directory, config, batch_size, seq_len);
         }
-        let mut graph=Self::from_hf_package_with_head_policy(device,directory,config,batch_size,seq_len,seq_len,true)?;
-        let before=graph.device.memory_stats()?.live_buffer_bytes;
+        let mut graph = Self::from_hf_package_with_head_policy(
+            device, directory, config, batch_size, seq_len, seq_len, true,
+        )?;
+        let before = graph.device.memory_stats()?.live_buffer_bytes;
         graph.stream_linear_parameters_from_package(directory)?;
-        graph.streaming_retired_parameter_bytes=before.saturating_sub(graph.device.memory_stats()?.live_buffer_bytes);
+        graph.streaming_retired_parameter_bytes =
+            before.saturating_sub(graph.device.memory_stats()?.live_buffer_bytes);
         Ok(graph)
     }
 
     /// Number of ordinary frozen projections served directly from the package.
-    pub fn streamed_linear_count(&self) -> usize { self.streamed_linears }
+    pub fn streamed_linear_count(&self) -> usize {
+        self.streamed_linears
+    }
 
     /// True only when body projections were package-backed at construction.
     /// Post-load conversion does not satisfy this stronger loading guarantee.
-    pub fn parameters_streamed_during_loading(&self) -> bool { self.source_first_parameters }
+    pub fn parameters_streamed_during_loading(&self) -> bool {
+        self.source_first_parameters
+    }
 
     /// Buffers actually retired by post-load body conversion, zero for a
     /// source-first loader which never allocated those buffers.
-    pub fn streaming_retired_parameter_bytes(&self) -> usize { self.streaming_retired_parameter_bytes }
+    pub fn streaming_retired_parameter_bytes(&self) -> usize {
+        self.streaming_retired_parameter_bytes
+    }
 
     /// Current I/O counters for the distinct package readers serving ordinary
     /// streamed linears. Capture immediately after construction to measure loading.
-    pub fn streamed_linear_package_io(&mut self) -> Result<Vec<(PathBuf, crate::weight_offload::OffloadLedger)>> {
-        let mut seen=BTreeSet::new();
-        let mut snapshots=Vec::new();
-        self.for_each_frozen_graph_linear_mut(|_,_,linear| {
-            if let Some(source)=linear.weight.tiered_source() {
+    pub fn streamed_linear_package_io(
+        &mut self,
+    ) -> Result<Vec<(PathBuf, crate::weight_offload::OffloadLedger)>> {
+        let mut seen = BTreeSet::new();
+        let mut snapshots = Vec::new();
+        self.for_each_frozen_graph_linear_mut(|_, _, linear| {
+            if let Some(source) = linear.weight.tiered_source() {
                 if seen.insert(Arc::as_ptr(&source.package) as usize) {
-                    let reader=source.package.lock().map_err(|_|anyhow!("weight package lock poisoned"))?;
-                    snapshots.push((reader.root().to_path_buf(),reader.ledger()));
+                    let reader = source
+                        .package
+                        .lock()
+                        .map_err(|_| anyhow!("weight package lock poisoned"))?;
+                    snapshots.push((reader.root().to_path_buf(), reader.ledger()));
                 }
             }
             Ok(())
@@ -66613,30 +67169,55 @@ impl VulkanTransformer {
     /// loading; it reduces execution residency, not initial host loading memory.
     /// Vocabulary tables use their separate package-backed loader. Norms and
     /// specialized packed parameter operators are outside this traversal.
-    pub fn stream_linear_parameters_from_package(&mut self, model_dir: impl AsRef<Path>) -> Result<usize> {
-        if self.streamed_linears != 0 {bail!("graph linear parameters are already streamed");}
-        if self.lora_configs.values().any(|c|c.use_dora || c.bias!="none" || c.modules_to_save.as_ref().is_some_and(|v|!v.is_empty())) {
+    pub fn stream_linear_parameters_from_package(
+        &mut self,
+        model_dir: impl AsRef<Path>,
+    ) -> Result<usize> {
+        if self.streamed_linears != 0 {
+            bail!("graph linear parameters are already streamed");
+        }
+        if self.lora_configs.values().any(|c| {
+            c.use_dora
+                || c.bias != "none"
+                || c.modules_to_save.as_ref().is_some_and(|v| !v.is_empty())
+        }) {
             bail!("streamed graph linears require additive LoRA with frozen base/bias");
         }
-        let directory=model_dir.as_ref();let device=self.device.clone();let rows=self.rows;
-        let mut plans=BTreeMap::<String,Arc<TieredLmHead>>::new();
-        self.for_each_frozen_graph_linear_mut(|key,_,linear| {
-            if linear.weight.tiered_source().is_some() || plans.contains_key(&key) {return Ok(());}
-            let expected=linear.weight.read()?;
-            let bias=linear.has_bias.then(||linear.bias.read()).transpose()?;
-            let source=TieredLmHead::adopt_matrix(&device,directory,linear.input_dim,linear.output_dim,rows,&expected,bias,true)
-                .with_context(||format!("streaming native linear {key}"))?;
-            plans.insert(key,Arc::new(source));Ok(())
+        let directory = model_dir.as_ref();
+        let device = self.device.clone();
+        let rows = self.rows;
+        let mut plans = BTreeMap::<String, Arc<TieredLmHead>>::new();
+        self.for_each_frozen_graph_linear_mut(|key, _, linear| {
+            if linear.weight.tiered_source().is_some() || plans.contains_key(&key) {
+                return Ok(());
+            }
+            let expected = linear.weight.read()?;
+            let bias = linear.has_bias.then(|| linear.bias.read()).transpose()?;
+            let source = TieredLmHead::adopt_matrix(
+                &device,
+                directory,
+                linear.input_dim,
+                linear.output_dim,
+                rows,
+                &expected,
+                bias,
+                true,
+            )
+            .with_context(|| format!("streaming native linear {key}"))?;
+            plans.insert(key, Arc::new(source));
+            Ok(())
         })?;
-        if plans.is_empty(){bail!("no ordinary native graph linears were found for streaming");}
-        self.for_each_frozen_graph_linear_mut(|key,_,linear| {
-            if let Some(source)=plans.get(&key) {
+        if plans.is_empty() {
+            bail!("no ordinary native graph linears were found for streaming");
+        }
+        self.for_each_frozen_graph_linear_mut(|key, _, linear| {
+            if let Some(source) = plans.get(&key) {
                 linear.weight.adopt_tiered_source(Arc::clone(source))?;
                 linear.freeze_base();
             }
             Ok(())
         })?;
-        self.streamed_linears=plans.len();
+        self.streamed_linears = plans.len();
         Ok(self.streamed_linears)
     }
 
@@ -68230,9 +68811,8 @@ impl VulkanTransformer {
         if config.uses_parameter_free_layer_norm() {
             final_norm.freeze();
         }
-        let repaired_gpt2 = rdna3_gpt2_cpu_math(
-            config.architecture, device.vendor_id(), device.device_id(),
-        );
+        let repaired_gpt2 =
+            rdna3_gpt2_cpu_math(config.architecture, device.vendor_id(), device.device_id());
         let cpu_welford = gpt2_welford_norm(config.architecture);
         let layer_norm_spv = if cpu_welford {
             // One chunk has the identical Welford association without a cascade
@@ -68250,7 +68830,8 @@ impl VulkanTransformer {
             &device,
             layer_norm_spv,
         )?);
-        if cpu_welford && small_welford_is_qualified(device.decision_device_name(), config.hidden_size)
+        if cpu_welford
+            && small_welford_is_qualified(device.decision_device_name(), config.hidden_size)
         {
             kernels.layer_norm_rows_per_workgroup = 8;
         }
@@ -68269,6 +68850,27 @@ impl VulkanTransformer {
             )?;
         }
         if repaired_gpt2 {
+            // The Gen9 reciprocal modules intentionally retain their own recipe.
+            // Frozen AVX2 SDPA uses scalar exp tails and normalizes E@V below
+            // eight keys. Keep that contract in separate RDNA3 artifacts.
+            if aten_vector_width() == 8 && vendor::rdna3_module_enabled(&device) {
+                kernels.attention_forward = vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!(
+                        "../shaders/transformer_attention_gpt2_avx2_forward_amd_rdna3.spv"
+                    ),
+                    11,
+                    std::mem::size_of::<AttentionPush>() as u32,
+                )?;
+                kernels.attention_backward = vulkan::ComputeKernel::new(
+                    &device,
+                    include_bytes!(
+                        "../shaders/transformer_attention_gpt2_avx2_backward_amd_rdna3.spv"
+                    ),
+                    15,
+                    std::mem::size_of::<AttentionBackwardPush>() as u32,
+                )?;
+            }
             // PyTorch's FP32 tanh dispatches through MKL VML in the CPU oracle.
             // Use a high-accuracy FP32 reconstruction on this qualified adapter;
             // the existing Gen9 and other architecture pipelines stay selected.
@@ -70115,7 +70717,8 @@ impl VulkanTransformer {
         adapter_name: &str,
         config: &VulkanTransformerLoraConfig,
     ) -> Result<()> {
-        if self.streamed_linears != 0 || self.tiered_tied_head.is_some()
+        if self.streamed_linears != 0
+            || self.tiered_tied_head.is_some()
             || self
                 .lm_head
                 .as_ref()
@@ -75703,18 +76306,46 @@ impl VulkanTransformer {
         modality_rows: ModalityEmbeddingRows<'_>,
     ) -> Result<Vec<f32>> {
         self.forward_logits_with_context_and_roc_bert_ids_and_layer_count(
-            input_ids, None, None, None, None, attention_mask, None, None,
-            self.layers.len(), false, Some(ModalityEmbeddingInput::Host(modality_rows)), None, false,
-        ).map(|(logits, _)| logits)
+            input_ids,
+            None,
+            None,
+            None,
+            None,
+            attention_mask,
+            None,
+            None,
+            self.layers.len(),
+            false,
+            Some(ModalityEmbeddingInput::Host(modality_rows)),
+            None,
+            false,
+        )
+        .map(|(logits, _)| logits)
     }
 
     fn forward_logits_with_device_modality_embeddings(
-        &self, input_ids: &[u32], attention_mask: &[f32], rows: &[usize], values: &GpuBuffer,
+        &self,
+        input_ids: &[u32],
+        attention_mask: &[f32],
+        rows: &[usize],
+        values: &GpuBuffer,
     ) -> Result<Vec<f32>> {
         self.forward_logits_with_context_and_roc_bert_ids_and_layer_count(
-            input_ids, None, None, None, None, attention_mask, None, None,
-            self.layers.len(), false, Some(ModalityEmbeddingInput::Device { rows, values }), None, false,
-        ).map(|(logits, _)| logits)
+            input_ids,
+            None,
+            None,
+            None,
+            None,
+            attention_mask,
+            None,
+            None,
+            self.layers.len(),
+            false,
+            Some(ModalityEmbeddingInput::Device { rows, values }),
+            None,
+            false,
+        )
+        .map(|(logits, _)| logits)
     }
 
     /// Hugging Face-compatible evaluation with an optional token-type stream.
@@ -75958,9 +76589,17 @@ impl VulkanTransformer {
         encoder_hidden_device: Option<&GpuBuffer>,
         encoder_only: bool,
     ) -> Result<(Vec<f32>, Vec<f32>)> {
-        let modality_rows = modality_rows.map(|input| PreparedModalityRows::from_input(
-            &self.device, input, self.rows, self.config.effective_embedding_size(), false,
-        )).transpose()?;
+        let modality_rows = modality_rows
+            .map(|input| {
+                PreparedModalityRows::from_input(
+                    &self.device,
+                    input,
+                    self.rows,
+                    self.config.effective_embedding_size(),
+                    false,
+                )
+            })
+            .transpose()?;
         if active_layer_count == 0 || active_layer_count > self.layers.len() {
             bail!(
                 "Transformer active layer count {active_layer_count} must be in 1..={} ",
@@ -75987,7 +76626,9 @@ impl VulkanTransformer {
             bail!("attention mask contains non-finite values");
         }
         let encoder_seq_len = if let Some(hidden) = encoder_hidden_device {
-            if encoder_hidden_states.is_some() { bail!("encoder context supplied twice"); }
+            if encoder_hidden_states.is_some() {
+                bail!("encoder context supplied twice");
+            }
             self.validate_device_encoder_context(hidden, encoder_attention_mask)?
         } else {
             self.validate_encoder_context(encoder_hidden_states, encoder_attention_mask)?
@@ -76082,12 +76723,21 @@ impl VulkanTransformer {
         commands.upload_u32(&self.token_ids, input_ids)?;
         commands.upload_f32(&self.attention_mask, attention_mask)?;
         if encoder_seq_len > 0 {
-            let destination = self.encoder_hidden.as_ref()
+            let destination = self
+                .encoder_hidden
+                .as_ref()
                 .context("cross-attention graph is missing encoder hidden storage")?;
             if let Some(hidden) = encoder_hidden_device {
-                commands.copy_f32(hidden, destination, self.encoder_rows * self.encoder_hidden_size)?;
+                commands.copy_f32(
+                    hidden,
+                    destination,
+                    self.encoder_rows * self.encoder_hidden_size,
+                )?;
             } else {
-                commands.upload_f32(destination, encoder_hidden_states.expect("validated encoder hidden states"))?;
+                commands.upload_f32(
+                    destination,
+                    encoder_hidden_states.expect("validated encoder hidden states"),
+                )?;
             }
             let encoder_mask = self
                 .encoder_attention_mask
@@ -76780,9 +77430,16 @@ impl VulkanTransformer {
             )?;
         } else {
             record_linear_projection(
-                &mut commands, &self.kernels, projection_input,
-                self.shared_embedding.weight_buffer()?, None, projection_logits,
-                self.rows, lm_push.input_dim as usize, lm_push.output_dim as usize, false,
+                &mut commands,
+                &self.kernels,
+                projection_input,
+                self.shared_embedding.weight_buffer()?,
+                None,
+                projection_logits,
+                self.rows,
+                lm_push.input_dim as usize,
+                lm_push.output_dim as usize,
+                false,
             )?;
             if let Some(lm_head_bias) = self.lm_head_bias.as_ref() {
                 let bias_push = BiasPush {
@@ -76855,7 +77512,9 @@ impl VulkanTransformer {
         };
         let last_hidden_state = if read_last_hidden_state {
             decoder_output.read_f32(self.rows * last_hidden_dim)?
-        } else { Vec::new() };
+        } else {
+            Vec::new()
+        };
         Ok((logits, last_hidden_state))
     }
 
@@ -83226,10 +83885,21 @@ impl VulkanTransformer {
         hyper: AdamWHyperParams,
     ) -> Result<VulkanTransformerStepResult> {
         self.train_step_with_context_and_modality_embeddings(
-            input_ids, input_shape_ids, input_pronunciation_ids, auxiliary_ids,
-            token_type_ids, targets, attention_mask, loss_weights,
-            encoder_hidden_states, encoder_attention_mask, hyper, None, ComposedTrainingOptions::default(),
-        ).map(|result| result.text)
+            input_ids,
+            input_shape_ids,
+            input_pronunciation_ids,
+            auxiliary_ids,
+            token_type_ids,
+            targets,
+            attention_mask,
+            loss_weights,
+            encoder_hidden_states,
+            encoder_attention_mask,
+            hyper,
+            None,
+            ComposedTrainingOptions::default(),
+        )
+        .map(|result| result.text)
     }
 
     /// Full-parameter training through preprojected modality embeddings. The
@@ -83246,31 +83916,75 @@ impl VulkanTransformer {
         modality_rows: ModalityEmbeddingRows<'_>,
     ) -> Result<MultimodalTransformerStepResult> {
         self.train_step_with_context_and_modality_embeddings(
-            input_ids, None, None, None, None, targets, attention_mask, loss_weights,
-            None, None, hyper, Some(ModalityEmbeddingInput::Host(modality_rows)), ComposedTrainingOptions::default(),
-        ).and_then(|result| Ok(MultimodalTransformerStepResult {
-            modality_embedding_grad: result.gradient.as_ref()
-                .map(|gradient| gradient.read_f32(modality_rows.values.len())).transpose()?.unwrap_or_default(),
-            text: result.text,
-        }))
+            input_ids,
+            None,
+            None,
+            None,
+            None,
+            targets,
+            attention_mask,
+            loss_weights,
+            None,
+            None,
+            hyper,
+            Some(ModalityEmbeddingInput::Host(modality_rows)),
+            ComposedTrainingOptions::default(),
+        )
+        .and_then(|result| {
+            Ok(MultimodalTransformerStepResult {
+                modality_embedding_grad: result
+                    .gradient
+                    .as_ref()
+                    .map(|gradient| gradient.read_f32(modality_rows.values.len()))
+                    .transpose()?
+                    .unwrap_or_default(),
+                text: result.text,
+            })
+        })
     }
 
     fn train_step_with_device_modality_embeddings(
-        &mut self, input_ids: &[u32], targets: &[u32], attention_mask: &[f32], loss_weights: &[f32],
-        hyper: AdamWHyperParams, rows: &[usize], values: &GpuBuffer,
+        &mut self,
+        input_ids: &[u32],
+        targets: &[u32],
+        attention_mask: &[f32],
+        loss_weights: &[f32],
+        hyper: AdamWHyperParams,
+        rows: &[usize],
+        values: &GpuBuffer,
     ) -> Result<DeviceMultimodalStepResult> {
         self.train_step_with_context_and_modality_embeddings(
-            input_ids, None, None, None, None, targets, attention_mask, loss_weights,
-            None, None, hyper, Some(ModalityEmbeddingInput::Device { rows, values }), ComposedTrainingOptions::default(),
+            input_ids,
+            None,
+            None,
+            None,
+            None,
+            targets,
+            attention_mask,
+            loss_weights,
+            None,
+            None,
+            hyper,
+            Some(ModalityEmbeddingInput::Device { rows, values }),
+            ComposedTrainingOptions::default(),
         )
     }
 
     /// Explicit single-tensor CPU AdamW arithmetic on Vulkan. Hyperparameters
     /// retain f64 scalar semantics; parameter/moment updates remain FP32 GPU
     /// operations. None preserves the existing optimizer implementation.
-    pub fn set_cpu_adamw_policy(&mut self, policy: Option<crate::CpuAdamWHyperParams>) -> Result<()> {
-        if let Some(policy) = policy { policy.validate()?; }
-        *self.kernels.cpu_adamw_policy.lock().map_err(|_| anyhow!("CPU AdamW policy lock poisoned"))? = policy;
+    pub fn set_cpu_adamw_policy(
+        &mut self,
+        policy: Option<crate::CpuAdamWHyperParams>,
+    ) -> Result<()> {
+        if let Some(policy) = policy {
+            policy.validate()?;
+        }
+        *self
+            .kernels
+            .cpu_adamw_policy
+            .lock()
+            .map_err(|_| anyhow!("CPU AdamW policy lock poisoned"))? = policy;
         Ok(())
     }
 
@@ -83292,26 +84006,43 @@ impl VulkanTransformer {
     ) -> Result<DeviceMultimodalStepResult> {
         // BART-layout conditional-generation checkpoints expose this as
         // final_logits_bias, an HF buffer rather than an optimizer parameter.
-        let train_lm_head_bias = !matches!(self.config.architecture,
-            VulkanTransformerArchitecture::Bart | VulkanTransformerArchitecture::MBart
-            | VulkanTransformerArchitecture::PLBart | VulkanTransformerArchitecture::Mvp
-            | VulkanTransformerArchitecture::Blenderbot | VulkanTransformerArchitecture::BlenderbotSmall
-            | VulkanTransformerArchitecture::Pegasus | VulkanTransformerArchitecture::BigBirdPegasus
-            | VulkanTransformerArchitecture::M2M100 | VulkanTransformerArchitecture::PegasusX
-            | VulkanTransformerArchitecture::Marian);
+        let train_lm_head_bias = !matches!(
+            self.config.architecture,
+            VulkanTransformerArchitecture::Bart
+                | VulkanTransformerArchitecture::MBart
+                | VulkanTransformerArchitecture::PLBart
+                | VulkanTransformerArchitecture::Mvp
+                | VulkanTransformerArchitecture::Blenderbot
+                | VulkanTransformerArchitecture::BlenderbotSmall
+                | VulkanTransformerArchitecture::Pegasus
+                | VulkanTransformerArchitecture::BigBirdPegasus
+                | VulkanTransformerArchitecture::M2M100
+                | VulkanTransformerArchitecture::PegasusX
+                | VulkanTransformerArchitecture::Marian
+        );
         if options.forward_only || options.terminal_gradient.is_some() || options.retained_forward {
-            if !matches!(self.config.architecture, VulkanTransformerArchitecture::Bart
-                | VulkanTransformerArchitecture::T5 | VulkanTransformerArchitecture::SwitchTransformers)
-                || self.causal_attention || self.lora_config.is_some() {
-                bail!("retained terminal training requires a full-parameter BART/T5/Switch encoder");
+            if !matches!(
+                self.config.architecture,
+                VulkanTransformerArchitecture::Bart
+                    | VulkanTransformerArchitecture::T5
+                    | VulkanTransformerArchitecture::SwitchTransformers
+            ) || self.causal_attention
+                || self.lora_config.is_some()
+            {
+                bail!(
+                    "retained terminal training requires a full-parameter BART/T5/Switch encoder"
+                );
             }
-            if options.forward_only && (options.retained_forward || options.terminal_gradient.is_some())
-                || options.retained_forward && options.terminal_gradient.is_none() {
+            if options.forward_only
+                && (options.retained_forward || options.terminal_gradient.is_some())
+                || options.retained_forward && options.terminal_gradient.is_none()
+            {
                 bail!("inconsistent retained encoder training options");
             }
             if let Some(gradient) = options.terminal_gradient {
                 if !gradient.belongs_to_device(&self.device)
-                    || gradient.f32_capacity() < self.rows * self.config.hidden_size {
+                    || gradient.f32_capacity() < self.rows * self.config.hidden_size
+                {
                     bail!("terminal encoder gradient has the wrong device or capacity");
                 }
             }
@@ -83319,10 +84050,19 @@ impl VulkanTransformer {
         if modality_rows.is_some() && self.lora_config.is_some() {
             bail!("modality embedding training currently requires full-parameter mode");
         }
-        let modality_rows = modality_rows.map(|input| PreparedModalityRows::from_input(
-            &self.device, input, self.rows, self.config.effective_embedding_size(), !options.forward_only,
-        )).transpose()?;
-        if self.streamed_linears != 0 || self.tiered_tied_head.is_some()
+        let modality_rows = modality_rows
+            .map(|input| {
+                PreparedModalityRows::from_input(
+                    &self.device,
+                    input,
+                    self.rows,
+                    self.config.effective_embedding_size(),
+                    !options.forward_only,
+                )
+            })
+            .transpose()?;
+        if self.streamed_linears != 0
+            || self.tiered_tied_head.is_some()
             || self
                 .lm_head
                 .as_ref()
@@ -83370,7 +84110,9 @@ impl VulkanTransformer {
             bail!("attention mask/loss weights contain non-finite values");
         }
         let encoder_seq_len = if let Some(hidden) = options.encoder_hidden_device {
-            if encoder_hidden_states.is_some() { bail!("encoder context supplied twice"); }
+            if encoder_hidden_states.is_some() {
+                bail!("encoder context supplied twice");
+            }
             self.validate_device_encoder_context(hidden, encoder_attention_mask)?
         } else {
             self.validate_encoder_context(encoder_hidden_states, encoder_attention_mask)?
@@ -83484,12 +84226,21 @@ impl VulkanTransformer {
         commands.upload_f32(&self.attention_mask, attention_mask)?;
         commands.upload_f32(&self.loss_weights, loss_weights)?;
         if encoder_seq_len > 0 {
-            let destination = self.encoder_hidden.as_ref()
+            let destination = self
+                .encoder_hidden
+                .as_ref()
                 .context("cross-attention graph is missing encoder hidden storage")?;
             if let Some(hidden) = options.encoder_hidden_device {
-                commands.copy_f32(hidden, destination, self.encoder_rows * self.encoder_hidden_size)?;
+                commands.copy_f32(
+                    hidden,
+                    destination,
+                    self.encoder_rows * self.encoder_hidden_size,
+                )?;
             } else {
-                commands.upload_f32(destination, encoder_hidden_states.expect("validated encoder hidden states"))?;
+                commands.upload_f32(
+                    destination,
+                    encoder_hidden_states.expect("validated encoder hidden states"),
+                )?;
             }
             let encoder_mask = self
                 .encoder_attention_mask
@@ -83590,7 +84341,8 @@ impl VulkanTransformer {
                 .as_ref()
                 .is_some_and(|config| !config.inference_mode);
         if !options.preserve_shared_embedding_gradient
-            && (!peft_mode || peft_saves_input_embedding || peft_trainable_tokens_active) {
+            && (!peft_mode || peft_saves_input_embedding || peft_trainable_tokens_active)
+        {
             self.shared_embedding.record_zero_grad(&mut commands)?;
         }
         if !peft_mode {
@@ -84035,11 +84787,12 @@ impl VulkanTransformer {
                 .as_ref()
                 .filter(|frontend| !frontend.concat_input)
             {
-                let base = if self.config.embedding_dropout > 0.0 && self.embedding_project.is_none() {
-                    &self.input_hidden_dropout
-                } else {
-                    &self.input_hidden
-                };
+                let base =
+                    if self.config.embedding_dropout > 0.0 && self.embedding_project.is_none() {
+                        &self.input_hidden_dropout
+                    } else {
+                        &self.input_hidden
+                    };
                 if let Some(average) = frontend.record_nonconcat_forward(
                     &mut commands,
                     &self.kernels,
@@ -84048,23 +84801,24 @@ impl VulkanTransformer {
                     input_pronunciation_ids,
                     self.rows,
                 )? {
-                    let destination =
-                        if self.config.embedding_dropout > 0.0 && self.embedding_project.is_none() {
-                            &self.input_hidden_dropout
-                        } else {
-                            &self.input_hidden
-                        };
+                    let destination = if self.config.embedding_dropout > 0.0
+                        && self.embedding_project.is_none()
+                    {
+                        &self.input_hidden_dropout
+                    } else {
+                        &self.input_hidden
+                    };
                     commands.copy_f32(average, destination, self.rows * self.config.hidden_size)?;
                 }
             }
 
             if self.config.architecture == VulkanTransformerArchitecture::Esm {
-                let source = if self.config.embedding_dropout > 0.0 && self.embedding_project.is_none()
-                {
-                    &self.input_hidden_dropout
-                } else {
-                    &self.input_hidden
-                };
+                let source =
+                    if self.config.embedding_dropout > 0.0 && self.embedding_project.is_none() {
+                        &self.input_hidden_dropout
+                    } else {
+                        &self.input_hidden
+                    };
                 record_row_scale(
                     &mut commands,
                     &self.kernels,
@@ -84075,7 +84829,6 @@ impl VulkanTransformer {
                     self.config.hidden_size,
                 )?;
             }
-
         }
         let layer0_standard_input =
             if self.config.architecture == VulkanTransformerArchitecture::Esm {
@@ -84153,7 +84906,8 @@ impl VulkanTransformer {
                         input_ids,
                         attention_mask,
                     )?;
-                    let shared_dsa_sparse_mask = self.shared_dsa_sparse_mask_for_layer(layer_index)?;
+                    let shared_dsa_sparse_mask =
+                        self.shared_dsa_sparse_mask_for_layer(layer_index)?;
                     self.layers[layer_index].record_forward_with_cross_attention(
                         &mut commands,
                         &self.kernels,
@@ -84300,14 +85054,20 @@ impl VulkanTransformer {
         if options.forward_only {
             commands.submit()?;
             return Ok(DeviceMultimodalStepResult {
-                text: VulkanTransformerStepResult { loss: 0., step: self.step, supervised_tokens: 0 },
+                text: VulkanTransformerStepResult {
+                    loss: 0.,
+                    step: self.step,
+                    supervised_tokens: 0,
+                },
                 gradient: None,
             });
         }
         if let Some(gradient) = options.terminal_gradient {
             let destination = if self.config.uses_final_norm() {
                 &self.grad_final_norm_output
-            } else { &self.grad_final_norm_input };
+            } else {
+                &self.grad_final_norm_input
+            };
             commands.copy_f32(gradient, destination, self.rows * self.config.hidden_size)?;
         } else {
             let decoder_output = if let Some(output_project) = self.output_project.as_ref() {
@@ -84370,9 +85130,16 @@ impl VulkanTransformer {
                 )?;
             } else {
                 record_linear_projection(
-                    &mut commands, &self.kernels, projection_input,
-                    self.shared_embedding.weight_buffer()?, None, projection_logits,
-                    self.rows, lm_push.input_dim as usize, lm_push.output_dim as usize, false,
+                    &mut commands,
+                    &self.kernels,
+                    projection_input,
+                    self.shared_embedding.weight_buffer()?,
+                    None,
+                    projection_logits,
+                    self.rows,
+                    lm_push.input_dim as usize,
+                    lm_push.output_dim as usize,
+                    false,
                 )?;
                 if let Some(lm_head_bias) = self.lm_head_bias.as_ref() {
                     let bias_push = BiasPush {
@@ -84462,7 +85229,15 @@ impl VulkanTransformer {
                     &self.row_loss,
                 ],
                 bytemuck::bytes_of(&ce_push),
-                [self.rows as u32, 1, 1],
+                [
+                    if self.kernels.rdna3_avx512_cross_entropy.is_some() {
+                        div_ceil_u32(self.rows, 64)
+                    } else {
+                        self.rows as u32
+                    },
+                    1,
+                    1,
+                ],
             )?;
 
             let grad_lm_logits = if let Some(cap) = self.config.final_logit_softcapping {
@@ -84526,7 +85301,8 @@ impl VulkanTransformer {
                 || self.qwen4_final_mixer.is_some()
                 || self.kimi_attn_res.is_some()
                 || self.config.uses_final_norm();
-            let grad_projection_input = if let Some(prediction_head) = self.prediction_head.as_ref() {
+            let grad_projection_input = if let Some(prediction_head) = self.prediction_head.as_ref()
+            {
                 &prediction_head.grad_output
             } else if self.output_project.is_some() {
                 &self.grad_output_project_output
@@ -84567,7 +85343,10 @@ impl VulkanTransformer {
                         )?;
                     }
                 }
-                if !peft_mode || peft_trainable_tokens_active || peft_ties_saved_embedding_to_lm_head {
+                if !peft_mode
+                    || peft_trainable_tokens_active
+                    || peft_ties_saved_embedding_to_lm_head
+                {
                     self.kernels.linear_weight_grad.record_dispatch(
                         &mut commands,
                         &[projection_input, grad_lm_logits, &self.lm_weight_grad],
@@ -85508,17 +86287,24 @@ impl VulkanTransformer {
             self.final_norm
                 .record_step(&mut commands, &self.kernels, next_step, hyper)?;
         }
-        if options.terminal_gradient.is_none() && (!peft_mode || peft_saves_lm_head || peft_bias_all) {
+        if options.terminal_gradient.is_none()
+            && (!peft_mode || peft_saves_lm_head || peft_bias_all)
+        {
             if let Some(lm_head) = self.lm_head.as_ref() {
                 lm_head.record_step(&mut commands, &self.kernels, next_step, hyper)?;
             }
         }
-        if options.terminal_gradient.is_none() && train_lm_head_bias && (!peft_mode || peft_bias_all) {
+        if options.terminal_gradient.is_none()
+            && train_lm_head_bias
+            && (!peft_mode || peft_bias_all)
+        {
             if let Some(lm_head_bias) = self.lm_head_bias.as_ref() {
                 lm_head_bias.record_step(&mut commands, &self.kernels, next_step, hyper)?;
             }
         }
-        if options.terminal_gradient.is_none() && (!peft_mode || peft_bias_all || peft_saves_prediction_head_norm) {
+        if options.terminal_gradient.is_none()
+            && (!peft_mode || peft_bias_all || peft_saves_prediction_head_norm)
+        {
             if let Some(prediction_head) = self.prediction_head.as_ref() {
                 prediction_head.record_step(&mut commands, &self.kernels, next_step, hyper)?;
             }
@@ -85543,12 +86329,20 @@ impl VulkanTransformer {
             if !options.defer_shared_embedding_step {
                 let mut tied_hyper = hyper;
                 tied_hyper.weight_decay = hyper.weight_decay;
-                let cpu_policy = *self.kernels.cpu_adamw_policy.lock()
+                let cpu_policy = *self
+                    .kernels
+                    .cpu_adamw_policy
+                    .lock()
                     .map_err(|_| anyhow!("CPU AdamW policy lock poisoned"))?;
                 let tied_step = if let Some(policy) = cpu_policy {
-                    self.shared_embedding.record_step_with_cpu_policy(&mut commands, policy, &self.kernels.cpu_adamw)?
+                    self.shared_embedding.record_step_with_cpu_policy(
+                        &mut commands,
+                        policy,
+                        &self.kernels.cpu_adamw,
+                    )?
                 } else {
-                    self.shared_embedding.record_step(&mut commands, tied_hyper)?
+                    self.shared_embedding
+                        .record_step(&mut commands, tied_hyper)?
                 };
                 if tied_step != next_step {
                     bail!(
@@ -85576,7 +86370,8 @@ impl VulkanTransformer {
             }
         }
         if options.terminal_gradient.is_none() {
-            self.loss_sum_reducer.record_sum(&mut commands, &self.row_loss, self.rows)?;
+            self.loss_sum_reducer
+                .record_sum(&mut commands, &self.row_loss, self.rows)?;
         }
         commands.submit()?;
         for (layer, active) in self.layers.iter().zip(&active_layers) {
@@ -85585,10 +86380,20 @@ impl VulkanTransformer {
             }
         }
         self.step = next_step;
-        let loss = if options.terminal_gradient.is_some() { 0. } else { self.loss_sum_reducer.read_sum()? };
+        let loss = if options.terminal_gradient.is_some() {
+            0.
+        } else {
+            self.loss_sum_reducer.read_sum()?
+        };
         Ok(DeviceMultimodalStepResult {
-            text: VulkanTransformerStepResult { loss, step: self.step, supervised_tokens },
-            gradient: modality_rows.as_ref().and_then(PreparedModalityRows::device_gradient),
+            text: VulkanTransformerStepResult {
+                loss,
+                step: self.step,
+                supervised_tokens,
+            },
+            gradient: modality_rows
+                .as_ref()
+                .and_then(PreparedModalityRows::device_gradient),
         })
     }
 
@@ -88401,7 +89206,11 @@ impl VulkanTransformer {
         if !self.config.architecture.is_t5_family() {
             bail!("T5-family parameter export requires a T5/MT5 graph");
         }
-        let stack = if self.causal_attention { "decoder" } else { "encoder" };
+        let stack = if self.causal_attention {
+            "decoder"
+        } else {
+            "encoder"
+        };
         let d = self.config.hidden_size;
         let a = self.config.query_hidden_size();
         let i = self.config.intermediate_size;
@@ -88496,7 +89305,6 @@ impl VulkanTransformer {
                     format!("{cross_attention}.o.weight"),
                     (vec![d, a], cross.out_proj.weight.read()?),
                 );
-
             } else if self.causal_attention {
                 bail!("T5 decoder layer is missing cross-attention");
             }
@@ -99321,17 +100129,42 @@ mod tests {
             // Preserve rejection of an ambiguous vocabulary source, then check
             // body/cross-attention conversion without changing the fixture.
             let error = VulkanSeq2SeqTransformer::from_hf_package_with_streamed_parameters(
-                device.clone(), &test_dir, 1, 3, 4,
-            ).err().context("ambiguous T5 head unexpectedly accepted")?;
+                device.clone(),
+                &test_dir,
+                1,
+                3,
+                4,
+            )
+            .err()
+            .context("ambiguous T5 head unexpectedly accepted")?;
             assert!(error.to_string().contains("more than one tensor equal"));
             let mut streamed = VulkanSeq2SeqTransformer::from_hf_package(device, &test_dir, 3, 4)?;
-            streamed.encoder.stream_linear_parameters_from_package(&test_dir)?;
-            streamed.decoder.stream_linear_parameters_from_package(&test_dir)?;
+            streamed
+                .encoder
+                .stream_linear_parameters_from_package(&test_dir)?;
+            streamed
+                .decoder
+                .stream_linear_parameters_from_package(&test_dir)?;
             assert_eq!(streamed.streamed_linear_count(), 22);
             assert!(!streamed.encoder().parameters_streamed_during_loading());
-            assert!(streamed.decoder.layers[0].cross_attention.as_ref().unwrap().q_proj.weight.tiered_source().is_some());
+            assert!(streamed.decoder.layers[0]
+                .cross_attention
+                .as_ref()
+                .unwrap()
+                .q_proj
+                .weight
+                .tiered_source()
+                .is_some());
             assert_eq!(streamed.streamed_linear_package_io()?.len(), 1);
-            assert_eq!(streamed.forward_logits(&source, Some(&source_mask), &decoder_ids, &decoder_mask)?, logits);
+            assert_eq!(
+                streamed.forward_logits(
+                    &source,
+                    Some(&source_mask),
+                    &decoder_ids,
+                    &decoder_mask
+                )?,
+                logits
+            );
         }
 
         fs::remove_dir_all(test_dir)?;
@@ -128596,8 +129429,8 @@ mod tests {
             .as_ref()
             .context("missing tied tier")?;
         assert_eq!(head.tile_plan(), vec![(0, 8192), (8192, 8195)]);
-        let (weight_tile,output_tile,_)=head.scratch(true)?;
-        let output_tile=output_tile.context("requested tiled output scratch")?;
+        let (weight_tile, output_tile, _) = head.scratch(true)?;
+        let output_tile = output_tile.context("requested tiled output scratch")?;
         assert_eq!(
             weight_tile.f32_capacity(),
             TIERED_LM_HEAD_MAX_TILE_ROWS * head.input_dim
@@ -128606,7 +129439,7 @@ mod tests {
             output_tile.f32_capacity(),
             TIERED_LM_HEAD_MAX_TILE_ROWS * streamed.rows
         );
-        drop((weight_tile,output_tile));
+        drop((weight_tile, output_tile));
         let before = head.package.lock().unwrap().ledger();
         assert_eq!(streamed.forward_logits(&ids, &mask)?, expected);
         let after = head.package.lock().unwrap().ledger();

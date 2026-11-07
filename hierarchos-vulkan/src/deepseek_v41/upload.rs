@@ -104,7 +104,15 @@ impl ParameterUploadBatch {
 
     fn flush(&mut self) -> Result<()> {
         if let Some(mut commands) = self.commands.take() {
-            commands.submit_and_wait()?;
+            // Inside an outer graph session the upload arena is retained by
+            // that session, and all copies recorded so far retire together.
+            // Waiting here would split the graph into one submission per
+            // component and defeat the caller's batching boundary.
+            if self.device.has_active_compute_session() {
+                commands.submit()?;
+            } else {
+                commands.submit_and_wait()?;
+            }
         }
         self.staged_bytes = 0;
         Ok(())

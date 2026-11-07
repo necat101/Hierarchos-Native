@@ -1,81 +1,676 @@
 //! Raw-word proof that the RDNA3 wave64 short-attention module is a pure
 //! scheduling change on the plain text path.
 use super::*;
+#[path = "rdna3_gpt2_bench.rs"]
+mod gpt2_bench;
+
+#[test]
+fn rdna3_siglip_avx2_backward_cpu_words() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::rdna3_frozen_avx2_variants(&device, 8) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/rdna3_siglip_avx2.json"
+    ))?;
+    for c in corpus["cases"].as_array().unwrap() {
+        let n = 256;
+        let ones = vec![1.; 16];
+        let zeros = vec![12345.; n];
+        let actual = primitive_dispatch(
+            &device,
+            include_bytes!("../../shaders/vision_siglip_backward_avx2_amd_rdna3.spv"),
+            &[
+                corpus_values(c, "q"),
+                corpus_values(c, "k"),
+                corpus_values(c, "v"),
+                ones.clone(),
+                ones,
+                corpus_values(c, "dy"),
+                zeros.clone(),
+                zeros.clone(),
+                zeros,
+            ],
+            &[1, 16, 16, 16, 4, 4, 0, 0.5f32.to_bits(), 0],
+            [4, 1, 1],
+        )?;
+        for (index, key) in [(6, "dq"), (7, "dk"), (8, "dv")] {
+            assert_words(&actual[index], &corpus_values(c, key), key);
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn rdna3_builtin_gelu_backward_cpu_words() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::rdna3_module_enabled(&device) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/rdna3_builtin_gelu.json"
+    ))?;
+    let x = corpus_values(&corpus, "x");
+    let len = x.len();
+    let actual = primitive_dispatch(
+        &device,
+        include_bytes!("../../shaders/vision_gelu_tanh_backward_amd_rdna3.spv"),
+        &[x, corpus_values(&corpus, "dy"), vec![12345.; len]],
+        &[len as u32],
+        [len.div_ceil(256) as u32, 1, 1],
+    )?;
+    assert_words(
+        &actual[2],
+        &corpus_values(&corpus, "dx"),
+        "builtin_gelu_backward",
+    );
+    Ok(())
+}
+
+#[test]
+fn rdna3_gpt2_scalar_log_cpu_words() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::rdna3_avx512_variants(&device, aten_vector_width()) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/rdna3_scalar_log.json"
+    ))?;
+    let x = corpus_values(&corpus, "x");
+    let len = x.len();
+    let actual = primitive_dispatch(
+        &device,
+        include_bytes!("../../shaders/rdna3_scalar_log_probe.spv"),
+        &[x, vec![12345.; len]],
+        &[len as u32],
+        [len.div_ceil(64) as u32, 1, 1],
+    )?;
+    assert_words(&actual[1], &corpus_values(&corpus, "y"), "scalar_log");
+    Ok(())
+}
+
+#[test]
+fn rdna3_gpt2_bias_grad_cpu_words() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::rdna3_avx512_variants(&device, aten_vector_width()) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/rdna3_bias_grad.json"
+    ))?;
+    for c in corpus["cases"].as_array().unwrap() {
+        let rows = c["rows"].as_u64().unwrap() as u32;
+        let dim = c["dim"].as_u64().unwrap() as u32;
+        let actual = primitive_dispatch(
+            &device,
+            include_bytes!("../../shaders/image_text_bias_grad_avx512_amd_rdna3.spv"),
+            &[corpus_values(c, "dy"), vec![12345.; dim as usize]],
+            &[rows, dim],
+            [dim.div_ceil(256), 1, 1],
+        )?;
+        assert_words(
+            &actual[1],
+            &corpus_values(c, "db"),
+            &format!("bias/rows={rows}/dim={dim}"),
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn rdna3_gpt2_adamw_cpu_words() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::rdna3_avx512_variants(&device, aten_vector_width()) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value =
+        serde_json::from_str(include_str!("../../validation/fixtures/rdna3_adamw.json"))?;
+    let optimizer = crate::cpu_adamw::CpuAdamW::new_rdna3_avx512(&device)?;
+    for c in corpus["cases"].as_array().unwrap() {
+        let len = c["length"].as_u64().unwrap() as usize;
+        let parameter = GpuBuffer::from_f32(&device, &corpus_values(c, "initial"))?;
+        let moment = GpuBuffer::zeros_f32(&device, len)?;
+        let square = GpuBuffer::zeros_f32(&device, len)?;
+        let hyper: crate::CpuAdamWHyperParams = serde_json::from_value(c["hyper"].clone())?;
+        for (step, s) in c["steps"].as_array().unwrap().iter().enumerate() {
+            let gradient = GpuBuffer::from_f32(&device, &corpus_values(s, "g"))?;
+            optimizer.step(
+                &parameter,
+                &gradient,
+                &moment,
+                &square,
+                len,
+                (step + 1) as u32,
+                hyper,
+                true,
+            )?;
+            for (key, buffer) in [("p", &parameter), ("m", &moment), ("v", &square)] {
+                assert_words(
+                    &buffer.read_f32(len)?,
+                    &corpus_values(s, key),
+                    &format!("adamw/n={len}/step={}/{key}", step + 1),
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn rdna3_gpt2_wide_input_grad_cpu_words() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::rdna3_avx512_variants(&device, aten_vector_width()) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/rdna3_cross_entropy.json"
+    ))?;
+    for c in corpus["gemm"].as_array().unwrap() {
+        let rows = c["rows"].as_u64().unwrap() as usize;
+        let reduction = c["reduction"].as_u64().unwrap() as u32;
+        let actual = primitive_dispatch(
+            &device,
+            include_bytes!("../../shaders/image_text_input_grad_avx512_amd_rdna3.spv"),
+            &[
+                corpus_values(c, "dy"),
+                corpus_values(c, "w"),
+                vec![12345.; rows * 64],
+            ],
+            &[rows as u32, 64, reduction],
+            [4, rows.div_ceil(16) as u32, 1],
+        )?;
+        assert_words(
+            &actual[2],
+            &corpus_values(c, "dx"),
+            &format!("wide_dx/m={rows}/k={reduction}"),
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn rdna3_gpt2_cross_entropy_cpu_words() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::rdna3_avx512_variants(&device, aten_vector_width()) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/rdna3_cross_entropy.json"
+    ))?;
+    for c in corpus["cases"].as_array().unwrap() {
+        let rows = c["rows"].as_u64().unwrap() as usize;
+        let targets = c["targets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| {
+                f32::from_bits(
+                    // Ignored CPU targets also have zero weight; keep this helper's
+                    // float transport finite while the shader still reads uint bits.
+                    if v.as_i64().unwrap() < 0 {
+                        0
+                    } else {
+                        v.as_u64().unwrap() as u32
+                    },
+                )
+            })
+            .collect();
+        let actual = primitive_dispatch(
+            &device,
+            include_bytes!("../../shaders/image_text_cross_entropy_avx512_amd_rdna3.spv"),
+            &[
+                corpus_values(c, "x"),
+                targets,
+                corpus_values(c, "weights"),
+                vec![12345.; rows * 320],
+                vec![12345.; rows],
+            ],
+            &[rows as u32, 320],
+            [rows.div_ceil(64) as u32, 1, 1],
+        )?;
+        assert_words(
+            &actual[3],
+            &corpus_values(c, "dx"),
+            &format!("cross_entropy/rows={rows}"),
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn rdna3_gpt2_new_gelu_cpu_words() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::rdna3_avx512_variants(&device, aten_vector_width()) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/rdna3_gpt2_attention.json"
+    ))?;
+    let c = &corpus["new_gelu"];
+    let x = corpus_values(c, "x");
+    let len = x.len();
+    let forward = primitive_dispatch(
+        &device,
+        include_bytes!("../../shaders/image_text_new_gelu_forward_avx512_amd_rdna3.spv"),
+        &[x.clone(), vec![12345.; len]],
+        &[len as u32],
+        [len.div_ceil(256) as u32, 1, 1],
+    )?;
+    let actual = primitive_dispatch(
+        &device,
+        include_bytes!("../../shaders/image_text_new_gelu_backward_avx512_amd_rdna3.spv"),
+        &[x, corpus_values(c, "dy"), vec![12345.; len]],
+        &[len as u32],
+        [len.div_ceil(256) as u32, 1, 1],
+    )?;
+    for (name, values) in [("y", &forward[1]), ("dx", &actual[2])] {
+        let expected = corpus_values(c, name);
+        assert_words(values, &expected, &format!("new_gelu/{name}"));
+    }
+    Ok(())
+}
+
+#[test]
+fn rdna3_gpt2_clip_backward_cpu_words() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::rdna3_avx512_variants(&device, aten_vector_width()) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/rdna3_gpt2_attention.json"
+    ))?;
+    for c in corpus["clip"].as_array().unwrap() {
+        let batch = c["batch"].as_u64().unwrap() as u32;
+        let len = (batch * 5 * 16) as usize;
+        let inputs = [
+            corpus_values(c, "q"),
+            corpus_values(c, "k"),
+            corpus_values(c, "v"),
+            vec![1.; (batch * 5) as usize],
+            vec![1.; (batch * 5) as usize],
+            corpus_values(c, "dy"),
+            vec![12345.; len],
+            vec![12345.; len],
+            vec![12345.; len],
+        ];
+        let actual = primitive_dispatch(
+            &device,
+            include_bytes!("../../shaders/image_text_clip_backward_avx512_amd_rdna3.spv"),
+            &inputs,
+            &[
+                batch,
+                5,
+                16,
+                16,
+                2,
+                2,
+                0,
+                (8f64.powf(-0.5) as f32).to_bits(),
+                0,
+            ],
+            [2, batch, 1],
+        )?;
+        for (index, name) in [(6, "dq"), (7, "dk"), (8, "dv")] {
+            assert_words(
+                &actual[index],
+                &corpus_values(c, name),
+                &format!("clip/b={batch}/{name}"),
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn rdna3_gpt2_attention_admission_excludes_unmeasured_features() {
+    let mut p = AttentionPush {
+        batch_size: 2,
+        query_seq_len: 8,
+        key_value_seq_len: 8,
+        query_hidden_size: 64,
+        value_hidden_size: 64,
+        num_heads: 4,
+        num_key_value_heads: 4,
+        scale: 0.25,
+        value_scale: 1.0,
+        causal: 1,
+        ..AttentionPush::zeroed()
+    };
+    assert!(rdna3_avx512_gpt2_supported(&p));
+    for seq in [0, 5, 12, 17] {
+        let mut rejected = p;
+        rejected.query_seq_len = seq;
+        rejected.key_value_seq_len = seq;
+        assert!(!rdna3_avx512_gpt2_supported(&rejected));
+    }
+    for feature in 0..8 {
+        let mut rejected = p;
+        match feature {
+            0 => rejected.dropout_p = 0.1,
+            1 => rejected.softcap = 1.0,
+            2 => rejected.has_sink = 1,
+            3 => rejected.has_sparse_mask = 1,
+            4 => rejected.paged_kv = 1,
+            5 => rejected.window_size = 4,
+            6 => rejected.unfused_qk = 1,
+            _ => rejected.query_position_offset = 1,
+        }
+        assert!(!rdna3_avx512_gpt2_supported(&rejected));
+    }
+    p.batch_size = 4;
+    assert!(!rdna3_avx512_gpt2_supported(&p));
+    p.batch_size = 3;
+    p.query_seq_len = 16;
+    p.key_value_seq_len = 16;
+    assert!(!rdna3_avx512_gpt2_supported(&p));
+}
+
+#[test]
+fn rdna3_gpt2_attention_cpu_words() -> Result<()> {
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::rdna3_avx512_variants(&device, aten_vector_width()) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/rdna3_gpt2_attention.json"
+    ))?;
+    let mut failures = Vec::new();
+    for c in corpus["cases"].as_array().unwrap() {
+        let batch = c["batch"].as_u64().unwrap() as u32;
+        let seq = c["seq"].as_u64().unwrap() as u32;
+        let heads = c["heads"].as_u64().unwrap() as u32;
+        let len = (batch * seq * 64) as usize;
+        let pc = [
+            batch,
+            seq,
+            64,
+            64,
+            heads,
+            heads,
+            0,
+            (c["scale"].as_f64().unwrap() as f32).to_bits(),
+            1,
+        ];
+        let inputs = [
+            corpus_values(c, "q"),
+            corpus_values(c, "k"),
+            corpus_values(c, "v"),
+            corpus_values(c, "mask"),
+            corpus_values(c, "mask"),
+        ];
+        let mut forward = inputs.to_vec();
+        forward.push(vec![12345.; len]);
+        let use_packed = batch == 2 && seq == 8 && heads == 4;
+        let shader: &[u8] = if use_packed {
+            include_bytes!("../../shaders/image_text_gpt2_packed8_avx512_amd_rdna3.spv")
+        } else {
+            include_bytes!("../../shaders/image_text_gpt2_avx512_amd_rdna3.spv")
+        };
+        let actual = primitive_dispatch(
+            &device,
+            shader,
+            &forward,
+            &pc,
+            [
+                (batch * seq * heads).div_ceil(if use_packed { 8 } else { 1 }),
+                1,
+                1,
+            ],
+        )?;
+        let mut backward = inputs.to_vec();
+        backward.push(corpus_values(c, "dy"));
+        backward.push(actual[5].clone());
+        backward.extend([vec![12345.; len], vec![12345.; len], vec![12345.; len]]);
+        let grad = primitive_dispatch(
+            &device,
+            include_bytes!("../../shaders/image_text_gpt2_backward_avx512_amd_rdna3.spv"),
+            &backward,
+            &pc,
+            [heads, batch, 1],
+        )?;
+        for (key, value) in [
+            ("o", &actual[5]),
+            ("dq", &grad[7]),
+            ("dk", &grad[8]),
+            ("dv", &grad[9]),
+        ] {
+            let expected = corpus_values(c, key);
+            let words = value
+                .iter()
+                .zip(&expected)
+                .filter(|(a, b)| a.to_bits() != b.to_bits() && !(**a == 0.0 && **b == 0.0))
+                .count();
+            let max = value
+                .iter()
+                .zip(&expected)
+                .map(|(a, b)| (a - b).abs())
+                .fold(0f32, f32::max);
+            eprintln!(
+                "gpt2 b={batch} s={seq} padded={} {key}: words={words} max={max:e}",
+                c["padded"]
+            );
+            if words != 0 {
+                failures.push(format!("b={batch} s={seq} {key}: {words} words"));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("; "));
+    Ok(())
+}
 
 fn corpus_values(case: &serde_json::Value, key: &str) -> Vec<f32> {
-    case[key].as_array().unwrap().iter()
-        .map(|v| f32::from_bits(v.as_i64().unwrap() as u32)).collect()
+    case[key]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| f32::from_bits(v.as_i64().unwrap() as u32))
+        .collect()
 }
 
 fn assert_words(actual: &[f32], expected: &[f32], label: &str) {
-    let differences = actual.iter().zip(expected)
-        .filter(|(a, b)| a.to_bits() != b.to_bits()).count();
+    let differences = actual
+        .iter()
+        .zip(expected)
+        .filter(|(a, b)| a.to_bits() != b.to_bits())
+        .count();
+    if differences != 0 {
+        for (index, (a, b)) in actual
+            .iter()
+            .zip(expected)
+            .enumerate()
+            .filter(|(_, (a, b))| a.to_bits() != b.to_bits())
+            .take(5)
+        {
+            eprintln!(
+                "{label}[{index}]: {a:e} ({:08x}) != {b:e} ({:08x})",
+                a.to_bits(),
+                b.to_bits()
+            );
+        }
+    }
     assert_eq!(actual.len(), expected.len());
-    assert_eq!(differences, 0, "{label}: {differences} differing words, max_abs={:e}",
-        actual.iter().zip(expected).map(|(a,b)| (a-b).abs()).fold(0.0f32, f32::max));
+    assert_eq!(
+        differences,
+        0,
+        "{label}: {differences} differing words, max_abs={:e}",
+        actual
+            .iter()
+            .zip(expected)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0f32, f32::max)
+    );
 }
 
-fn primitive_dispatch(device: &VulkanDevice, shader: &[u8], values: &[Vec<f32>], push: &[u32], grid: [u32;3]) -> Result<Vec<Vec<f32>>> {
-    let buffers=values.iter().map(|v| GpuBuffer::from_f32(device,v)).collect::<Result<Vec<_>>>()?;
-    let kernel=vulkan::ComputeKernel::new(device,shader,buffers.len(),(push.len()*4) as u32)?;
-    let mut commands=vulkan::ComputeBatch::new(device)?;
-    kernel.record_dispatch(&mut commands,&buffers.iter().collect::<Vec<_>>(),bytemuck::cast_slice(push),grid)?;
+fn primitive_dispatch(
+    device: &VulkanDevice,
+    shader: &[u8],
+    values: &[Vec<f32>],
+    push: &[u32],
+    grid: [u32; 3],
+) -> Result<Vec<Vec<f32>>> {
+    let buffers = values
+        .iter()
+        .map(|v| GpuBuffer::from_f32(device, v))
+        .collect::<Result<Vec<_>>>()?;
+    let kernel =
+        vulkan::ComputeKernel::new(device, shader, buffers.len(), (push.len() * 4) as u32)?;
+    let mut commands = vulkan::ComputeBatch::new(device)?;
+    kernel.record_dispatch(
+        &mut commands,
+        &buffers.iter().collect::<Vec<_>>(),
+        bytemuck::cast_slice(push),
+        grid,
+    )?;
     commands.submit()?;
-    buffers.iter().zip(values).map(|(b,v)| b.read_f32(v.len())).collect()
+    buffers
+        .iter()
+        .zip(values)
+        .map(|(b, v)| b.read_f32(v.len()))
+        .collect()
 }
 
 #[test]
 fn rdna3_avx512_gelu_rms_gemm_cpu_words() -> Result<()> {
-    let device=VulkanDevice::new()?;
-    if !crate::vendor::is_amd_rdna3(&device) {return Ok(());}
-    let corpus:serde_json::Value=serde_json::from_str(include_str!("../../validation/fixtures/rdna3_avx512_norm.json"))?;
-    let c=&corpus["gelu"];let x=corpus_values(c,"x");let len=x.len();
-    let actual=primitive_dispatch(&device,include_bytes!("../../shaders/image_text_gelu_avx512_amd_rdna3.spv"),
-        &[x.clone(),vec![12345.;len]],&[len as u32],[len.div_ceil(256) as u32,1,1])?;
-    assert_words(&actual[1],&corpus_values(c,"y"),"gelu/y");
-    let actual=primitive_dispatch(&device,include_bytes!("../../shaders/image_text_gelu_backward_avx512_amd_rdna3.spv"),
-        &[x,corpus_values(c,"dy"),vec![12345.;len]],&[len as u32],[len.div_ceil(256) as u32,1,1])?;
-    assert_words(&actual[2],&corpus_values(c,"dx"),"gelu/dx");
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::is_amd_rdna3(&device) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/rdna3_avx512_norm.json"
+    ))?;
+    let c = &corpus["gelu"];
+    let x = corpus_values(c, "x");
+    let len = x.len();
+    let actual = primitive_dispatch(
+        &device,
+        include_bytes!("../../shaders/image_text_gelu_avx512_amd_rdna3.spv"),
+        &[x.clone(), vec![12345.; len]],
+        &[len as u32],
+        [len.div_ceil(256) as u32, 1, 1],
+    )?;
+    assert_words(&actual[1], &corpus_values(c, "y"), "gelu/y");
+    let actual = primitive_dispatch(
+        &device,
+        include_bytes!("../../shaders/image_text_gelu_backward_avx512_amd_rdna3.spv"),
+        &[x, corpus_values(c, "dy"), vec![12345.; len]],
+        &[len as u32],
+        [len.div_ceil(256) as u32, 1, 1],
+    )?;
+    assert_words(&actual[2], &corpus_values(c, "dx"), "gelu/dx");
     for c in corpus["rms"].as_array().unwrap() {
-        let rows=c["rows"].as_u64().unwrap() as usize;let len=rows*64;
-        let actual=primitive_dispatch(&device,include_bytes!("../../shaders/image_text_rms_avx512_amd_rdna3.spv"),
-            &[corpus_values(c,"x"),corpus_values(c,"w"),vec![12345.;len],vec![12345.;rows],vec![12345.;rows]],
-            &[rows as u32,64,1,1e-5f32.to_bits(),0,0,1,3],[rows.div_ceil(64) as u32,1,1])?;
-        for (i,k) in [(2,"y"),(3,"rs"),(4,"ms")] {assert_words(&actual[i],&corpus_values(c,k),&format!("rms/{k}"));}
-        let actual=primitive_dispatch(&device,include_bytes!("../../shaders/image_text_rms_backward_avx512_amd_rdna3.spv"),
-            &[corpus_values(c,"dy"),corpus_values(c,"x"),corpus_values(c,"w"),corpus_values(c,"rs"),corpus_values(c,"ms"),vec![12345.;len]],
-            &[rows as u32,64,1,0,0,2,0],[rows.div_ceil(64) as u32,1,1])?;
-        assert_words(&actual[5],&corpus_values(c,"dx"),"rms/dx");
+        let rows = c["rows"].as_u64().unwrap() as usize;
+        let len = rows * 64;
+        let actual = primitive_dispatch(
+            &device,
+            include_bytes!("../../shaders/image_text_rms_avx512_amd_rdna3.spv"),
+            &[
+                corpus_values(c, "x"),
+                corpus_values(c, "w"),
+                vec![12345.; len],
+                vec![12345.; rows],
+                vec![12345.; rows],
+            ],
+            &[rows as u32, 64, 1, 1e-5f32.to_bits(), 0, 0, 1, 3],
+            [rows.div_ceil(64) as u32, 1, 1],
+        )?;
+        for (i, k) in [(2, "y"), (3, "rs"), (4, "ms")] {
+            assert_words(&actual[i], &corpus_values(c, k), &format!("rms/{k}"));
+        }
+        let actual = primitive_dispatch(
+            &device,
+            include_bytes!("../../shaders/image_text_rms_backward_avx512_amd_rdna3.spv"),
+            &[
+                corpus_values(c, "dy"),
+                corpus_values(c, "x"),
+                corpus_values(c, "w"),
+                corpus_values(c, "rs"),
+                corpus_values(c, "ms"),
+                vec![12345.; len],
+            ],
+            &[rows as u32, 64, 1, 0, 0, 2, 0],
+            [rows.div_ceil(64) as u32, 1, 1],
+        )?;
+        assert_words(&actual[5], &corpus_values(c, "dx"), "rms/dx");
     }
     for c in corpus["gemm"].as_array().unwrap() {
-        let reduction=c["reduction"].as_u64().unwrap() as u32;
-        let actual=primitive_dispatch(&device,include_bytes!("../../shaders/image_text_input_grad_avx512_amd_rdna3.spv"),
-            &[corpus_values(c,"dy"),corpus_values(c,"w"),vec![12345.;16*64]],&[16,64,reduction],[4,1,1])?;
-        assert_words(&actual[2],&corpus_values(c,"dx"),&format!("gemm/k={reduction}"));
+        let reduction = c["reduction"].as_u64().unwrap() as u32;
+        let actual = primitive_dispatch(
+            &device,
+            include_bytes!("../../shaders/image_text_input_grad_avx512_amd_rdna3.spv"),
+            &[
+                corpus_values(c, "dy"),
+                corpus_values(c, "w"),
+                vec![12345.; 16 * 64],
+            ],
+            &[16, 64, reduction],
+            [4, 1, 1],
+        )?;
+        assert_words(
+            &actual[2],
+            &corpus_values(c, "dx"),
+            &format!("gemm/k={reduction}"),
+        );
     }
     Ok(())
 }
 
 #[test]
 fn rdna3_avx512_pow_rms_cpu_words() -> Result<()> {
-    let device=VulkanDevice::new()?;
-    if !crate::vendor::is_amd_rdna3(&device) {return Ok(());}
-    let corpus:serde_json::Value=serde_json::from_str(include_str!("../../validation/fixtures/rdna3_avx512_norm.json"))?;
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::is_amd_rdna3(&device) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/rdna3_avx512_norm.json"
+    ))?;
     for c in corpus["pow_rms"].as_array().unwrap() {
-        let rows=c["rows"].as_u64().unwrap() as usize;
-        let dim=c["dim"].as_u64().unwrap() as usize;
-        for exact in [0,1] {
-            let powers=primitive_dispatch(&device,include_bytes!("../../shaders/rdna3_pow_probe.spv"),
-                &[corpus_values(c,"ms"),vec![12345.;rows]],&[rows as u32,exact],[rows.div_ceil(64) as u32,1,1])?;
-            let expected=corpus_values(c,"power");
-            eprintln!("direct pow dim={dim} exact={exact} differences={}",powers[1].iter().zip(&expected).filter(|(a,b)|a.to_bits()!=b.to_bits()).count());
-            let actual=primitive_dispatch(&device,include_bytes!("../../shaders/image_text_pow_rms_backward_avx512_amd_rdna3.spv"),
-                &[corpus_values(c,"dy"),corpus_values(c,"x"),corpus_values(c,"w"),corpus_values(c,"rs"),corpus_values(c,"ms"),vec![12345.;rows*dim]],
-                &[rows as u32,dim as u32,1,1f32.to_bits(),1,2,exact],[rows.div_ceil(64) as u32,1,1])?;
-            let expected=corpus_values(c,"dx");
-            eprintln!("pow rms rows={rows} dim={dim} exact={exact} differences={} max={:e}",
-                actual[5].iter().zip(&expected).filter(|(a,b)| a.to_bits()!=b.to_bits()).count(),
-                actual[5].iter().zip(&expected).map(|(a,b)| (a-b).abs()).fold(0f32,f32::max));
+        let rows = c["rows"].as_u64().unwrap() as usize;
+        let dim = c["dim"].as_u64().unwrap() as usize;
+        for exact in [0, 1] {
+            let powers = primitive_dispatch(
+                &device,
+                include_bytes!("../../shaders/rdna3_pow_probe.spv"),
+                &[corpus_values(c, "ms"), vec![12345.; rows]],
+                &[rows as u32, exact],
+                [rows.div_ceil(64) as u32, 1, 1],
+            )?;
+            let expected = corpus_values(c, "power");
+            eprintln!(
+                "direct pow dim={dim} exact={exact} differences={}",
+                powers[1]
+                    .iter()
+                    .zip(&expected)
+                    .filter(|(a, b)| a.to_bits() != b.to_bits())
+                    .count()
+            );
+            let actual = primitive_dispatch(
+                &device,
+                include_bytes!("../../shaders/image_text_pow_rms_backward_avx512_amd_rdna3.spv"),
+                &[
+                    corpus_values(c, "dy"),
+                    corpus_values(c, "x"),
+                    corpus_values(c, "w"),
+                    corpus_values(c, "rs"),
+                    corpus_values(c, "ms"),
+                    vec![12345.; rows * dim],
+                ],
+                &[rows as u32, dim as u32, 1, 1f32.to_bits(), 1, 2, exact],
+                [rows.div_ceil(64) as u32, 1, 1],
+            )?;
+            let expected = corpus_values(c, "dx");
+            eprintln!(
+                "pow rms rows={rows} dim={dim} exact={exact} differences={} max={:e}",
+                actual[5]
+                    .iter()
+                    .zip(&expected)
+                    .filter(|(a, b)| a.to_bits() != b.to_bits())
+                    .count(),
+                actual[5]
+                    .iter()
+                    .zip(&expected)
+                    .map(|(a, b)| (a - b).abs())
+                    .fold(0f32, f32::max)
+            );
         }
     }
     Ok(())
@@ -83,88 +678,229 @@ fn rdna3_avx512_pow_rms_cpu_words() -> Result<()> {
 
 #[test]
 fn rdna3_avx512_attention_cpu_parity() -> Result<()> {
-    let device=VulkanDevice::new()?;
-    if !crate::vendor::is_amd_rdna3(&device) {return Ok(());}
-    let corpus:serde_json::Value=serde_json::from_str(include_str!("../../validation/fixtures/rdna3_avx512_norm.json"))?;
-    let mut failures=Vec::new();
+    let device = VulkanDevice::new()?;
+    if !crate::vendor::is_amd_rdna3(&device) {
+        return Ok(());
+    }
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../validation/fixtures/rdna3_avx512_norm.json"
+    ))?;
+    let mut failures = Vec::new();
     for c in corpus["attention"].as_array().unwrap() {
-        let number=|k:&str| c[k].as_u64().unwrap() as u32;
-        let (batch,seq,heads,kv,hd)=(number("batch"),number("seq"),number("heads"),number("kvheads"),number("hd"));
-        let scale=(c["scale"].as_f64().unwrap() as f32).to_bits();
-        let geometry_push=[batch,seq,heads*hd,kv*hd,heads,kv,number("window"),scale,number("causal")];
-        let len=(batch*seq*heads*hd) as usize;
-        let inputs=[corpus_values(c,"q"),corpus_values(c,"k"),corpus_values(c,"v"),corpus_values(c,"qm"),corpus_values(c,"km")];
-        let eager=c["kind"]=="eager";
-        let forward=if eager {
-            primitive_dispatch(&device,include_bytes!("../../shaders/image_text_eager_avx512_amd_rdna3.spv"),
-                &[inputs[0].clone(),inputs[1].clone(),inputs[2].clone(),inputs[3].clone(),inputs[4].clone(),vec![12345.;len]],
-                &geometry_push,[(batch*seq*heads).div_ceil(64),1,1])?[5].clone()
+        let number = |k: &str| c[k].as_u64().unwrap() as u32;
+        let (batch, seq, heads, kv, hd) = (
+            number("batch"),
+            number("seq"),
+            number("heads"),
+            number("kvheads"),
+            number("hd"),
+        );
+        let scale = (c["scale"].as_f64().unwrap() as f32).to_bits();
+        let geometry_push = [
+            batch,
+            seq,
+            heads * hd,
+            kv * hd,
+            heads,
+            kv,
+            number("window"),
+            scale,
+            number("causal"),
+        ];
+        let len = (batch * seq * heads * hd) as usize;
+        let inputs = [
+            corpus_values(c, "q"),
+            corpus_values(c, "k"),
+            corpus_values(c, "v"),
+            corpus_values(c, "qm"),
+            corpus_values(c, "km"),
+        ];
+        let eager = c["kind"] == "eager";
+        let forward = if eager {
+            primitive_dispatch(
+                &device,
+                include_bytes!("../../shaders/image_text_eager_avx512_amd_rdna3.spv"),
+                &[
+                    inputs[0].clone(),
+                    inputs[1].clone(),
+                    inputs[2].clone(),
+                    inputs[3].clone(),
+                    inputs[4].clone(),
+                    vec![12345.; len],
+                ],
+                &geometry_push,
+                [(batch * seq * heads).div_ceil(64), 1, 1],
+            )?[5]
+                .clone()
         } else {
-            let mut packed=push(batch,seq,heads,kv,hd,1);
-            packed[7]=number("window");packed[8]=scale;packed[29]=1;
-            primitive_dispatch(&device,include_bytes!("../../shaders/image_text_sdpa_avx512_amd_rdna3.spv"),
-                &[inputs[0].clone(),inputs[1].clone(),inputs[2].clone(),inputs[3].clone(),inputs[4].clone(),vec![0.],vec![12345.;len],vec![0.],vec![0.],vec![0.],vec![0.]],
-                &packed,[(batch*seq*heads).div_ceil(64),1,1])?[6].clone()
+            let mut packed = push(batch, seq, heads, kv, hd, 1);
+            packed[7] = number("window");
+            packed[8] = scale;
+            packed[29] = 1;
+            primitive_dispatch(
+                &device,
+                include_bytes!("../../shaders/image_text_sdpa_avx512_amd_rdna3.spv"),
+                &[
+                    inputs[0].clone(),
+                    inputs[1].clone(),
+                    inputs[2].clone(),
+                    inputs[3].clone(),
+                    inputs[4].clone(),
+                    vec![0.],
+                    vec![12345.; len],
+                    vec![0.],
+                    vec![0.],
+                    vec![0.],
+                    vec![0.],
+                ],
+                &packed,
+                [(batch * seq * heads).div_ceil(64), 1, 1],
+            )?[6]
+                .clone()
         };
-        let mut values=inputs.to_vec();values.push(corpus_values(c,"dy"));
-        if !eager {values.push(forward.clone());}
-        values.extend([vec![12345.;len],vec![12345.;(batch*seq*kv*hd) as usize],vec![12345.;(batch*seq*kv*hd) as usize]]);
-        let backward=primitive_dispatch(&device,
-            if eager {include_bytes!("../../shaders/image_text_eager_backward_avx512_amd_rdna3.spv")} else {include_bytes!("../../shaders/image_text_sdpa_backward_avx512_amd_rdna3.spv")},
-            &values,if eager {&geometry_push[..]} else {&geometry_push[..8]},[kv,batch,1])?;
-        let gradient=if eager {6} else {7};
-        for (key,actual) in [("o",&forward),("dq",&backward[gradient]),("dk",&backward[gradient+1]),("dv",&backward[gradient+2])] {
-            let expected=corpus_values(c,key);
-            let max=actual.iter().zip(&expected).map(|(a,b)| (a-b).abs()).fold(0f32,f32::max);
-            let words=actual.iter().zip(&expected).filter(|(a,b)|a.to_bits()!=b.to_bits()).count();
-            eprintln!("attention {} b={batch} s={seq} hd={hd} window={} {key}: max={max:e} words={words}",c["kind"],number("window"));
-            if max>=2e-7 || actual.iter().any(|v|!v.is_finite()) {failures.push(format!("{} s={seq} hd={hd} {key}: {max:e}",c["kind"]));}
+        let mut values = inputs.to_vec();
+        values.push(corpus_values(c, "dy"));
+        if !eager {
+            values.push(forward.clone());
+        }
+        values.extend([
+            vec![12345.; len],
+            vec![12345.; (batch * seq * kv * hd) as usize],
+            vec![12345.; (batch * seq * kv * hd) as usize],
+        ]);
+        let backward = primitive_dispatch(
+            &device,
+            if eager {
+                include_bytes!("../../shaders/image_text_eager_backward_avx512_amd_rdna3.spv")
+            } else {
+                include_bytes!("../../shaders/image_text_sdpa_backward_avx512_amd_rdna3.spv")
+            },
+            &values,
+            if eager {
+                &geometry_push[..]
+            } else {
+                &geometry_push[..8]
+            },
+            [kv, batch, 1],
+        )?;
+        let gradient = if eager { 6 } else { 7 };
+        for (key, actual) in [
+            ("o", &forward),
+            ("dq", &backward[gradient]),
+            ("dk", &backward[gradient + 1]),
+            ("dv", &backward[gradient + 2]),
+        ] {
+            let expected = corpus_values(c, key);
+            let max = actual
+                .iter()
+                .zip(&expected)
+                .map(|(a, b)| (a - b).abs())
+                .fold(0f32, f32::max);
+            let words = actual
+                .iter()
+                .zip(&expected)
+                .filter(|(a, b)| a.to_bits() != b.to_bits())
+                .count();
+            eprintln!(
+                "attention {} b={batch} s={seq} hd={hd} window={} {key}: max={max:e} words={words}",
+                c["kind"],
+                number("window")
+            );
+            if max >= 2e-7 || actual.iter().any(|v| !v.is_finite()) {
+                failures.push(format!("{} s={seq} hd={hd} {key}: {max:e}", c["kind"]));
+            }
         }
     }
-    assert!(failures.is_empty(),"{}",failures.join("; "));
+    assert!(failures.is_empty(), "{}", failures.join("; "));
     Ok(())
 }
 
 #[test]
 fn rdna3_avx512_layer_norm_cpu_words() -> Result<()> {
     let device = VulkanDevice::new()?;
-    if !crate::vendor::is_amd_rdna3(&device) { return Ok(()); }
+    if !crate::vendor::is_amd_rdna3(&device) {
+        return Ok(());
+    }
     let corpus: serde_json::Value = serde_json::from_str(include_str!(
-        "../../validation/fixtures/rdna3_avx512_norm.json"))?;
+        "../../validation/fixtures/rdna3_avx512_norm.json"
+    ))?;
     assert_eq!(corpus["cpu"], "AVX512");
-    let kernel = vulkan::ComputeKernel::new(&device,
-        include_bytes!("../../shaders/image_text_layer_norm_avx512_amd_rdna3.spv"), 6, 12)?;
+    let kernel = vulkan::ComputeKernel::new(
+        &device,
+        include_bytes!("../../shaders/image_text_layer_norm_avx512_amd_rdna3.spv"),
+        6,
+        12,
+    )?;
     for case in corpus["cases"].as_array().unwrap() {
         let rows = case["rows"].as_u64().unwrap() as usize;
         let dim = case["dim"].as_u64().unwrap() as usize;
-        let inputs = ["x", "gamma", "beta"].map(|k| GpuBuffer::from_f32(&device, &corpus_values(case,k))).into_iter().collect::<Result<Vec<_>>>()?;
-        let output = GpuBuffer::from_f32(&device, &vec![12345.0; rows*dim])?;
+        let inputs = ["x", "gamma", "beta"]
+            .map(|k| GpuBuffer::from_f32(&device, &corpus_values(case, k)))
+            .into_iter()
+            .collect::<Result<Vec<_>>>()?;
+        let output = GpuBuffer::from_f32(&device, &vec![12345.0; rows * dim])?;
         let mean = GpuBuffer::from_f32(&device, &vec![12345.0; rows])?;
         let rstd = GpuBuffer::from_f32(&device, &vec![12345.0; rows])?;
-        let push = [rows as u32, dim as u32, (case["eps"].as_f64().unwrap() as f32).to_bits()];
+        let push = [
+            rows as u32,
+            dim as u32,
+            (case["eps"].as_f64().unwrap() as f32).to_bits(),
+        ];
         let mut commands = vulkan::ComputeBatch::new(&device)?;
-        kernel.record_dispatch(&mut commands, &[&inputs[0],&inputs[1],&inputs[2],&output,&mean,&rstd],
-            bytemuck::cast_slice(&push), [rows.div_ceil(8) as u32,1,1])?;
+        kernel.record_dispatch(
+            &mut commands,
+            &[&inputs[0], &inputs[1], &inputs[2], &output, &mean, &rstd],
+            bytemuck::cast_slice(&push),
+            [rows.div_ceil(8) as u32, 1, 1],
+        )?;
         commands.submit()?;
-        for (key, buffer, len) in [("mean",&mean,rows),("rstd",&rstd,rows),("y",&output,rows*dim)] {
-            assert_words(&buffer.read_f32(len)?, &corpus_values(case,key), &format!("rows={rows} dim={dim}/{key}"));
+        for (key, buffer, len) in [
+            ("mean", &mean, rows),
+            ("rstd", &rstd, rows),
+            ("y", &output, rows * dim),
+        ] {
+            assert_words(
+                &buffer.read_f32(len)?,
+                &corpus_values(case, key),
+                &format!("rows={rows} dim={dim}/{key}"),
+            );
         }
-        let dy = GpuBuffer::from_f32(&device, &corpus_values(case,"dy"))?;
-        let dx = GpuBuffer::from_f32(&device, &vec![12345.0; rows*dim])?;
+        let dy = GpuBuffer::from_f32(&device, &corpus_values(case, "dy"))?;
+        let dx = GpuBuffer::from_f32(&device, &vec![12345.0; rows * dim])?;
         let dg = GpuBuffer::from_f32(&device, &vec![12345.0; dim])?;
         let db = GpuBuffer::from_f32(&device, &vec![12345.0; dim])?;
-        let input_kernel = vulkan::ComputeKernel::new(&device,
-            include_bytes!("../../shaders/image_text_layer_norm_input_grad_avx512_amd_rdna3.spv"),6,8)?;
-        let param_kernel = vulkan::ComputeKernel::new(&device,
-            include_bytes!("../../shaders/image_text_layer_norm_param_grad_avx512_amd_rdna3.spv"),6,8)?;
+        let input_kernel = vulkan::ComputeKernel::new(
+            &device,
+            include_bytes!("../../shaders/image_text_layer_norm_input_grad_avx512_amd_rdna3.spv"),
+            6,
+            8,
+        )?;
+        let param_kernel = vulkan::ComputeKernel::new(
+            &device,
+            include_bytes!("../../shaders/image_text_layer_norm_param_grad_avx512_amd_rdna3.spv"),
+            6,
+            8,
+        )?;
         let mut commands = vulkan::ComputeBatch::new(&device)?;
-        input_kernel.record_dispatch(&mut commands, &[&dy,&inputs[0],&inputs[1],&mean,&rstd,&dx],
-            bytemuck::cast_slice(&push[..2]), [rows.div_ceil(64) as u32,1,1])?;
-        param_kernel.record_dispatch(&mut commands, &[&dy,&inputs[0],&mean,&rstd,&dg,&db],
-            bytemuck::cast_slice(&push[..2]), [dim.div_ceil(256) as u32,1,1])?;
+        input_kernel.record_dispatch(
+            &mut commands,
+            &[&dy, &inputs[0], &inputs[1], &mean, &rstd, &dx],
+            bytemuck::cast_slice(&push[..2]),
+            [rows.div_ceil(64) as u32, 1, 1],
+        )?;
+        param_kernel.record_dispatch(
+            &mut commands,
+            &[&dy, &inputs[0], &mean, &rstd, &dg, &db],
+            bytemuck::cast_slice(&push[..2]),
+            [dim.div_ceil(256) as u32, 1, 1],
+        )?;
         commands.submit()?;
-        for (key,buffer,len) in [("dx",&dx,rows*dim),("dg",&dg,dim),("db",&db,dim)] {
-            assert_words(&buffer.read_f32(len)?,&corpus_values(case,key),&format!("rows={rows} dim={dim}/{key}"));
+        for (key, buffer, len) in [("dx", &dx, rows * dim), ("dg", &dg, dim), ("db", &db, dim)] {
+            assert_words(
+                &buffer.read_f32(len)?,
+                &corpus_values(case, key),
+                &format!("rows={rows} dim={dim}/{key}"),
+            );
         }
     }
     Ok(())
@@ -173,13 +909,20 @@ fn rdna3_avx512_layer_norm_cpu_words() -> Result<()> {
 #[test]
 fn rdna3_avx512_vision_attention_projector_cpu_words() -> Result<()> {
     let device = VulkanDevice::new()?;
-    if !crate::vendor::is_amd_rdna3(&device) { return Ok(()); }
+    if !crate::vendor::is_amd_rdna3(&device) {
+        return Ok(());
+    }
     let corpus: serde_json::Value = serde_json::from_str(include_str!(
-        "../../validation/fixtures/rdna3_vision_avx512.json"))?;
+        "../../validation/fixtures/rdna3_vision_avx512.json"
+    ))?;
     for case in corpus["attention"].as_array().unwrap() {
         let number = |key: &str| case[key].as_u64().unwrap() as u32;
         let (images, seq, dim, heads) = (
-            number("images"), number("seq"), number("dim"), number("heads"));
+            number("images"),
+            number("seq"),
+            number("dim"),
+            number("heads"),
+        );
         let len = (images * seq * dim) as usize;
         let actual = primitive_dispatch(
             &device,
@@ -202,7 +945,11 @@ fn rdna3_avx512_vision_attention_projector_cpu_words() -> Result<()> {
     for case in corpus["projector_rms"].as_array().unwrap() {
         let rows = case["rows"].as_u64().unwrap() as usize;
         let dim = case["dim"].as_u64().unwrap() as usize;
-        let lanes = match rows { 16 => 4, 8 => 16, _ => panic!("unexpected projector rows {rows}") };
+        let lanes = match rows {
+            16 => 4,
+            8 => 16,
+            _ => panic!("unexpected projector rows {rows}"),
+        };
         let len = rows * dim;
         let push = [
             rows as u32,
@@ -246,14 +993,7 @@ fn values(len: usize, seed: u32) -> Vec<f32> {
         .collect()
 }
 
-fn push(
-    batch: u32,
-    seq: u32,
-    heads: u32,
-    kv_heads: u32,
-    dim: u32,
-    causal: u32,
-) -> Vec<u32> {
+fn push(batch: u32, seq: u32, heads: u32, kv_heads: u32, dim: u32, causal: u32) -> Vec<u32> {
     vec![
         batch,
         seq,
@@ -300,12 +1040,8 @@ fn run_attention(
         .iter()
         .map(|values| GpuBuffer::from_f32(device, values))
         .collect::<Result<Vec<_>>>()?;
-    let kernel = vulkan::ComputeKernel::new(
-        device,
-        shader,
-        buffers.len(),
-        (push.len() * 4) as u32,
-    )?;
+    let kernel =
+        vulkan::ComputeKernel::new(device, shader, buffers.len(), (push.len() * 4) as u32)?;
     let mut commands = vulkan::ComputeBatch::new(device)?;
     kernel.record_dispatch(
         &mut commands,
@@ -408,14 +1144,7 @@ fn rdna3_short_attention_is_word_exact_and_measured() -> Result<()> {
     let generic_elapsed = started.elapsed();
     let started = std::time::Instant::now();
     for _ in 0..200 {
-        run_attention(
-            &device,
-            short,
-            inputs.clone(),
-            &push,
-            [1, 1, 1],
-            output_len,
-        )?;
+        run_attention(&device, short, inputs.clone(), &push, [1, 1, 1], output_len)?;
     }
     let short_elapsed = started.elapsed();
     eprintln!(

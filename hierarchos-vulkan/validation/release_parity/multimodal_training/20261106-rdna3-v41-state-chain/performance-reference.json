@@ -1,0 +1,6 @@
+{
+  "path": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261107-rdna3-v41-batch2-decode-snapshot",
+  "benchmark_sha256": "f66b93312e6f597a66deed7e059de301d4f399490d9cebd788a6e519961cac45",
+  "previous_test_binary_sha256": "5ae2f32da93a97bd4a67b66c734405145595765c248590d386bb7c5a9ba04205",
+  "note": "Previous paired tiny-geometry timings retained for their original binary; no new timing claim in this correctness and coverage extension"
+}

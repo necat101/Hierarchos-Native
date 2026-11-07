@@ -10,30 +10,30 @@ import json
 import shutil
 from pathlib import Path
 
-import torch
-
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--suite', choices=['shared', 'seq2seq', 'gemma3', 'gemma4', 'llava'], default='shared')
+    parser.add_argument('--suite', choices=['shared', 'seq2seq', 'gemma3', 'gemma4', 'llava', 'deepseek_v41'], default='shared')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--profiles', nargs='+')
     parser.add_argument('--cases', nargs='+')
     args = parser.parse_args()
-    if torch.backends.cpu.get_cpu_capability() != 'AVX512':
-        raise RuntimeError('AVX-512 oracle requires native AVX512 CPU capability')
-    original_scatter = torch.Tensor.scatter
+    if args.suite != 'deepseek_v41':
+        import torch
+        if torch.backends.cpu.get_cpu_capability() != 'AVX512':
+            raise RuntimeError('AVX-512 oracle requires native AVX512 CPU capability')
+        original_scatter = torch.Tensor.scatter
 
-    def scatter(self, dim, index, *values, **kwargs):
-        if self.device.type == 'cpu' and index.dtype == torch.int32:
-            index = index.to(torch.int64)
-        return original_scatter(self, dim, index, *values, **kwargs)
+        def scatter(self, dim, index, *values, **kwargs):
+            if self.device.type == 'cpu' and index.dtype == torch.int32:
+                index = index.to(torch.int64)
+            return original_scatter(self, dim, index, *values, **kwargs)
 
-    torch.Tensor.scatter = scatter
+        torch.Tensor.scatter = scatter
     module = importlib.import_module('qualify_' + {
         'shared': 'shared_image_pipeline', 'seq2seq': 'seq2seq_image_pipeline',
         'gemma3': 'gemma3_pipeline', 'gemma4': 'gemma4_pipeline',
-        'llava': 'llava_pipeline',
+        'llava': 'llava_pipeline', 'deepseek_v41': 'deepseek_v41_shared_image',
     }[args.suite])
     module.prepare(args)
     manifest_path = args.output / 'manifest.json'

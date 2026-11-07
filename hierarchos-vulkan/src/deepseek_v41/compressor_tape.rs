@@ -65,6 +65,8 @@ impl DeepseekV41CompressorTape {
             } else {
                 None
             },
+            // Snapshot the frozen gain: retained backward must consume the
+            // value the forward used, even if the live buffer is overwritten.
             norm: p.norm_weight.duplicate_f32(c.dim)?,
         })
         .and_then(|t| {

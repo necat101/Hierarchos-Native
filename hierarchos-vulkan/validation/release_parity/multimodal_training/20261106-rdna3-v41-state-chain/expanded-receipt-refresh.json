@@ -1,0 +1,26 @@
+{
+  "path": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261106-rdna3-gpt2-shapes",
+  "receipt_manifest_sha256": "c58525695503bbdf073083f760232e969d8c28d6606b57546fb187f7afc8fbd3",
+  "refreshed_sources": {
+    "hierarchos-vulkan/src/transformer/image_text.rs": {
+      "previous": "630cfbd325db4304ae46f56e4ff98960b6bdfa4e02d8c94e944ca40fce98aa42",
+      "current": "3faa6e2dafbb77a68a415db847e11684b8f7e4b6e2562bbf02fdc98a1a8cc562"
+    },
+    "hierarchos-vulkan/src/transformer/rdna3_text_attention_tests.rs": {
+      "previous": "6c603d21ca9df41b7a68ef2b6cacc3b1fcc8c200739d529b7071988ddd453d4f",
+      "current": "1ebd4d42d68f0052b6c75c2b392f3b2782a1ffe96a4addec250d299ad5e1dfc6"
+    },
+    "hierarchos-vulkan/src/transformer/vision.rs": {
+      "previous": "a232de9b220724483432cfa61b809bcbfc31daed2a0355723cd93866509ed787",
+      "current": "f68f420ce3233aee6b20df61dd277938da92a64967e68f5240e77fa4608b8abe"
+    },
+    "hierarchos-vulkan/src/transformer.rs": {
+      "previous": "5fccf6c062baebf4660f434086efff393f75c7b37a8563aada446b6227936aa5",
+      "current": "23b56f394e97fb82407b95165aacadcd05b9a9b0b49ff35dfba11980e789629e"
+    },
+    "hierarchos-vulkan/src/vendor.rs": {
+      "previous": "4bfddd357f968eabe5a3010317b51de9084b6dbafda703a479ef6e31303957a7",
+      "current": "c5dac9fdfefb438b2549fd8949cfaf482eed44fd55464c5aa87633aa80b1999d"
+    }
+  }
+}
