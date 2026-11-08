@@ -1,0 +1,48 @@
+
+running 43 tests
+test vulkan::tests::amd_route_keys_identify_the_pci_adapter_and_driver_and_keep_intel_keys ... ok
+test vulkan::tests::batched_read_reuses_the_open_session_submission ... ok
+test vulkan::tests::cloned_device_views_synchronize_shared_queue_and_command_pool_host_access ... ok
+test vulkan::tests::completed_compute_batches_reuse_command_buffers ... ok
+test vulkan::tests::compute_pipeline_interning_distinguishes_shader_and_layout ... ok
+test vulkan::tests::compute_pipelines_share_driver_objects_and_preserve_kernel_access ... ok
+test vulkan::tests::deferred_zero_fill_does_not_pin_its_device ... ok
+test vulkan::tests::deferred_zero_fill_is_visible_to_a_host_readback ... ok
+test vulkan::tests::deferred_zero_fill_is_visible_to_the_first_dispatch ... ok
+test vulkan::tests::device_fill_f32_writes_pattern_without_upload_staging ... ok
+test vulkan::tests::device_group_transport_candidate_requires_shared_multi_device_group ... ok
+test vulkan::tests::device_update_f32_at_writes_scalar_without_upload_staging ... ok
+test vulkan::tests::gpu_job_boundary_policy_defaults_to_amd_and_scopes_the_gen9_port ... ok
+test vulkan::tests::gpu_job_boundary_policy_honors_explicit_override ... ok
+test vulkan::tests::gradient_transport_plan_keeps_staging_active_until_direct_probe_exists ... ok
+test vulkan::tests::kernel_profile_categories_keep_optimizer_mirror_costs_distinct ... ok
+test vulkan::tests::memory_pressure_bucket_is_coarse_bounded_context ... ok
+test vulkan::tests::opaque_external_memory_transport_candidate_requires_matching_uuids ... ok
+test vulkan::tests::opaque_external_transport_requires_gpu_semaphore_sync ... ok
+test vulkan::tests::overlapping_view_detection_distinguishes_overlap_from_distinct_ranges ... ok
+test vulkan::tests::pending_clear_drain_probes_only_bound_buffers ... ok
+test vulkan::tests::pooled_range_allocation_respects_alignment_and_preserves_slack ... ok
+test vulkan::tests::pooled_range_free_coalesces_adjacent_and_overlapping_ranges ... ok
+test vulkan::tests::recorded_weight_uploads_retire_together_inside_a_session ... ok
+test vulkan::tests::reflected_access_elides_shared_reads_and_orders_dependent_writes ... ok
+test vulkan::tests::scheduled_u32_uploads_preserve_bits_without_retiring_the_layer ... ok
+test vulkan::tests::scratch_slab_nonzero_offsets_bind_distinct_descriptor_ranges ... ok
+test vulkan::tests::submitted_compute_batch_keeps_copy_resources_alive_until_completion_wait ... ok
+test vulkan::tests::timeline_command_buffer_ring_reclaims_before_submission_owner_drop ... ok
+test vulkan::tests::timeline_submission_arena_defers_transient_scratch_reuse_until_epoch ... ok
+test vulkan::tests::timeline_submission_arena_detaches_local_upload_chunks_from_owner ... ok
+test vulkan::tests::timeline_submission_arena_reuses_descriptor_pool_chunks ... ok
+test vulkan::tests::timestamp_delta_handles_wrapped_queue_timestamps ... ok
+test vulkan::tests::transient_optimizer_scratch_suballocates_persistent_device_slab ... ok
+test vulkan::tests::unbound_zero_fill_is_retained_until_its_owner_binds_it ... ok
+test vulkan::tests::unreachable_pending_clear_is_pruned_without_retaining_its_device ... ok
+test vulkan::tests::watchdog_slice_budget_follows_the_measured_retirement_on_this_adapter ... ok
+test vulkan::tests::watchdog_slice_budget_is_a_measured_bound_inside_a_measured_window ... ok
+test vulkan::tests::watchdog_slice_budget_is_per_dispatch_on_amd_and_length_based_on_gen9 ... ok
+test vulkan::tests::watchdog_slice_budget_retires_on_accumulated_length ... ok
+test vulkan::tests::watchdog_slicing_is_wired_into_the_training_path_on_this_adapter ... ok
+test vulkan::tests::watchdog_submission_slicing_preserves_dependent_dispatch_results ... ok
+test vulkan::tests::zero_filled_buffer_keeps_an_overwriting_upload ... ok
+
+test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 1127 filtered out; finished in 2.09s
+

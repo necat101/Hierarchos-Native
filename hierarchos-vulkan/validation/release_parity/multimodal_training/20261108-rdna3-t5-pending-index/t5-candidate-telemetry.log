@@ -1,0 +1,60 @@
+
+running 1 test
+hierarchos_image_text_phase stage=validate ms=0.006600
+hierarchos_image_text_phase stage=image_encode ms=5.917300
+hierarchos_image_text_phase stage=encoder_forward ms=0.867100
+hierarchos_image_text_phase stage=decoder_train ms=18.254600
+hierarchos_image_text_phase stage=encoder_backward ms=5.714500
+hierarchos_image_text_phase stage=image_backward ms=4.291500
+hierarchos_image_text_phase stage=validate ms=0.002000
+hierarchos_image_text_phase stage=image_encode ms=0.788400
+hierarchos_image_text_phase stage=encoder_forward ms=0.624800
+hierarchos_image_text_phase stage=decoder_train ms=5.889600
+hierarchos_image_text_phase stage=encoder_backward ms=6.149500
+hierarchos_image_text_phase stage=image_backward ms=3.425500
+hierarchos_image_text_phase stage=validate ms=0.001900
+hierarchos_image_text_phase stage=image_encode ms=0.516200
+hierarchos_image_text_phase stage=encoder_forward ms=1.025600
+hierarchos_image_text_phase stage=decoder_train ms=5.436500
+hierarchos_image_text_phase stage=encoder_backward ms=4.535800
+hierarchos_image_text_phase stage=image_backward ms=3.183600
+hierarchos_image_text_phase stage=validate ms=0.002200
+hierarchos_image_text_phase stage=image_encode ms=0.528700
+hierarchos_image_text_phase stage=encoder_forward ms=0.492000
+hierarchos_image_text_phase stage=decoder_train ms=4.867700
+hierarchos_image_text_phase stage=encoder_backward ms=3.993900
+hierarchos_image_text_phase stage=image_backward ms=2.722800
+hierarchos_image_text_phase stage=validate ms=0.002300
+hierarchos_image_text_phase stage=image_encode ms=0.519700
+hierarchos_image_text_phase stage=encoder_forward ms=0.451600
+hierarchos_image_text_phase stage=decoder_train ms=4.302000
+hierarchos_image_text_phase stage=encoder_backward ms=3.529500
+hierarchos_image_text_phase stage=image_backward ms=1.898700
+hierarchos_image_text_phase stage=validate ms=0.002000
+hierarchos_image_text_phase stage=image_encode ms=0.754600
+hierarchos_image_text_phase stage=encoder_forward ms=0.556900
+hierarchos_image_text_phase stage=decoder_train ms=4.211800
+hierarchos_image_text_phase stage=encoder_backward ms=3.358400
+hierarchos_image_text_phase stage=image_backward ms=1.941700
+hierarchos_image_text_phase stage=validate ms=0.002200
+hierarchos_image_text_phase stage=image_encode ms=0.480200
+hierarchos_image_text_phase stage=encoder_forward ms=0.375400
+hierarchos_image_text_phase stage=decoder_train ms=3.696100
+hierarchos_image_text_phase stage=encoder_backward ms=3.624100
+hierarchos_image_text_phase stage=image_backward ms=1.640300
+hierarchos_image_text_phase stage=validate ms=0.001400
+hierarchos_image_text_phase stage=image_encode ms=0.366000
+hierarchos_image_text_phase stage=encoder_forward ms=0.353200
+hierarchos_image_text_phase stage=decoder_train ms=3.560300
+hierarchos_image_text_phase stage=encoder_backward ms=3.058200
+hierarchos_image_text_phase stage=image_backward ms=2.127900
+hierarchos_image_text_phase stage=validate ms=0.001600
+hierarchos_image_text_phase stage=image_encode ms=0.363000
+hierarchos_image_text_phase stage=encoder_forward ms=0.345500
+hierarchos_image_text_phase stage=decoder_train ms=3.320500
+hierarchos_image_text_phase stage=encoder_backward ms=2.790100
+hierarchos_image_text_phase stage=image_backward ms=1.763400
+test deepseek_v41::model::tests::training::native_vision::native_state::multimodal_training_throughput_benchmark ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1168 filtered out; finished in 9.69s
+

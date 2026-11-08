@@ -1,0 +1,79 @@
+
+running 1 test
+hierarchos_image_text_phase stage=validate ms=0.003100
+hierarchos_image_text_phase stage=image_encode ms=1.744700
+hierarchos_image_text_phase stage=encoder_forward ms=0.907100
+hierarchos_image_text_phase stage=decoder_train ms=17.897800
+hierarchos_image_text_phase stage=encoder_backward ms=5.817900
+hierarchos_image_text_phase stage=image_backward ms=3.859900
+hierarchos_image_text_phase stage=validate ms=0.001700
+hierarchos_image_text_phase stage=image_encode ms=0.714800
+hierarchos_image_text_phase stage=encoder_forward ms=0.705400
+hierarchos_image_text_phase stage=decoder_train ms=6.306400
+hierarchos_image_text_phase stage=encoder_backward ms=5.232500
+hierarchos_image_text_phase stage=image_backward ms=2.713800
+hierarchos_image_text_phase stage=validate ms=0.001900
+hierarchos_image_text_phase stage=image_encode ms=1.020100
+hierarchos_image_text_phase stage=encoder_forward ms=0.792200
+hierarchos_image_text_phase stage=decoder_train ms=6.050600
+hierarchos_image_text_phase stage=encoder_backward ms=5.538400
+hierarchos_image_text_phase stage=image_backward ms=2.566600
+hierarchos_image_text_phase stage=validate ms=0.001500
+hierarchos_image_text_phase stage=image_encode ms=0.933200
+hierarchos_image_text_phase stage=encoder_forward ms=0.733700
+hierarchos_image_text_phase stage=decoder_train ms=5.350700
+hierarchos_image_text_phase stage=encoder_backward ms=4.267400
+hierarchos_image_text_phase stage=image_backward ms=2.724100
+hierarchos_image_text_phase stage=validate ms=0.001600
+hierarchos_image_text_phase stage=image_encode ms=0.642800
+hierarchos_image_text_phase stage=encoder_forward ms=0.576400
+hierarchos_image_text_phase stage=decoder_train ms=4.651700
+hierarchos_image_text_phase stage=encoder_backward ms=3.915800
+hierarchos_image_text_phase stage=image_backward ms=2.430500
+hierarchos_image_text_phase stage=validate ms=0.002900
+hierarchos_image_text_phase stage=image_encode ms=0.775000
+hierarchos_image_text_phase stage=encoder_forward ms=0.618800
+hierarchos_image_text_phase stage=decoder_train ms=4.634800
+hierarchos_image_text_phase stage=encoder_backward ms=3.894200
+hierarchos_image_text_phase stage=image_backward ms=2.148400
+hierarchos_image_text_phase stage=validate ms=0.003000
+hierarchos_image_text_phase stage=image_encode ms=0.621000
+hierarchos_image_text_phase stage=encoder_forward ms=0.561500
+hierarchos_image_text_phase stage=decoder_train ms=4.322500
+hierarchos_image_text_phase stage=encoder_backward ms=3.632800
+hierarchos_image_text_phase stage=image_backward ms=2.152500
+hierarchos_image_text_phase stage=validate ms=0.001700
+hierarchos_image_text_phase stage=image_encode ms=1.088900
+hierarchos_image_text_phase stage=encoder_forward ms=0.575900
+hierarchos_image_text_phase stage=decoder_train ms=4.033900
+hierarchos_image_text_phase stage=encoder_backward ms=3.450700
+hierarchos_image_text_phase stage=image_backward ms=1.900500
+hierarchos_image_text_phase stage=validate ms=0.001500
+hierarchos_image_text_phase stage=image_encode ms=0.541700
+hierarchos_image_text_phase stage=encoder_forward ms=0.543900
+hierarchos_image_text_phase stage=decoder_train ms=4.207100
+hierarchos_image_text_phase stage=encoder_backward ms=3.345500
+hierarchos_image_text_phase stage=image_backward ms=1.947400
+hierarchos_submission_report file=src\transformer.rs line=28404 total=136 per_step=15.11
+hierarchos_submission_report file=src\transformer.rs line=86414 total=18 per_step=2.00
+hierarchos_submission_report file=src\transformer\vision.rs line=2057 total=18 per_step=2.00
+hierarchos_submission_report file=src\transformer\vision.rs line=2059 total=18 per_step=2.00
+hierarchos_submission_report file=src\transformer\vision.rs line=1874 total=10 per_step=1.11
+hierarchos_submission_report file=src\training_numerics.rs line=197 total=9 per_step=1.00
+hierarchos_submission_report file=src\transformer.rs line=85093 total=9 per_step=1.00
+hierarchos_submission_report file=src\transformer\vision.rs line=2055 total=9 per_step=1.00
+hierarchos_submission_report file=src\transformer.rs line=60101 total=4 per_step=0.44
+hierarchos_submission_report file=src\transformer.rs line=60102 total=4 per_step=0.44
+hierarchos_submission_report file=src\shared_lm_head.rs line=122 total=2 per_step=0.22
+hierarchos_submission_report file=src\transformer.rs line=77545 total=2 per_step=0.22
+hierarchos_submission_report file=src\transformer\vision.rs line=1880 total=2 per_step=0.22
+hierarchos_submission_report file=src\transformer\vision.rs line=1883 total=2 per_step=0.22
+hierarchos_submission_report file=src\transformer\vision.rs line=1886 total=2 per_step=0.22
+hierarchos_submission_report file=src\transformer\vision.rs line=1889 total=2 per_step=0.22
+hierarchos_submission_report file=src\transformer.rs line=77410 total=1 per_step=0.11
+hierarchos_submission_report file=src\transformer.rs line=77544 total=1 per_step=0.11
+hierarchos_submission_report file=src\transformer\vision.rs line=1588 total=1 per_step=0.11
+test deepseek_v41::model::tests::training::native_vision::native_state::multimodal_training_throughput_benchmark ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1168 filtered out; finished in 0.32s
+
