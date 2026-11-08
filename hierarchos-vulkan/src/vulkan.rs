@@ -87,17 +87,10 @@ struct DeviceInner {
     device_lost: AtomicBool,
 }
 
-/// Whether a pending fill must survive the drain that is examining it.
-///
-/// A fill is recorded only when its buffer is bound, and recorded on the thread
-/// that allocated it. It must therefore be kept while the buffer can still be
-/// bound. `sole_owner` reports that the upgraded allocation has no other strong
-/// reference, which means the pending entry is the buffer's last user: nothing
-/// can bind it later, so the fill is unreachable and may be dropped. That prune
-/// is what keeps the list bounded during a long training step.
-fn pending_clear_is_reachable(bound: bool, sole_owner: bool) -> bool {
-    bound || !sole_owner
-}
+/// Bound the weak-entry metadata independently of how often graphs drain. The
+/// normal T5 graph has hundreds of live entries and hundreds of drains per step;
+/// scanning all of them on every bind is what this threshold avoids.
+const PENDING_CLEAR_PRUNE_THRESHOLD: usize = 4096;
 
 /// One `vkCmdFillBuffer(0)` owed to a buffer before anyone reads it.
 ///
@@ -118,7 +111,27 @@ struct PendingClear {
 
 #[derive(Default)]
 struct PendingClears {
-    entries: Vec<PendingClear>,
+    /// Keyed by allocation address. A zeroed buffer has exactly one deferred
+    /// fill, so a drain only has to probe the allocations its command buffer
+    /// actually binds instead of walking every live entry in the device.
+    entries: HashMap<usize, PendingClear>,
+    enqueued: u64,
+    scans: u64,
+    scanned_entries: u64,
+    pruned: u64,
+    recorded: u64,
+    max_entries: u64,
+}
+
+impl PendingClears {
+    fn prune_unreachable(&mut self) -> u64 {
+        let before = self.entries.len();
+        self.entries
+            .retain(|_, clear| clear.allocation.strong_count() > 0);
+        let pruned = u64::try_from(before.saturating_sub(self.entries.len())).unwrap_or(u64::MAX);
+        self.pruned = self.pruned.saturating_add(pruned);
+        pruned
+    }
 }
 
 impl Drop for DeviceInner {
@@ -1962,11 +1975,19 @@ impl VulkanDevice {
             .pending_clears
             .lock()
             .map_err(|_| anyhow!("Vulkan pending-clear list was poisoned"))?;
-        pending.entries.push(PendingClear {
+        if pending.entries.len() >= PENDING_CLEAR_PRUNE_THRESHOLD {
+            pending.prune_unreachable();
+        }
+        let key = Arc::as_ptr(&buffer.allocation) as usize;
+        pending.entries.insert(key, PendingClear {
             allocation: Arc::downgrade(&buffer.allocation),
             size_bytes,
             owner: std::thread::current().id(),
         });
+        pending.enqueued = pending.enqueued.saturating_add(1);
+        pending.max_entries = pending
+            .max_entries
+            .max(u64::try_from(pending.entries.len()).unwrap_or(u64::MAX));
         self.inner
             .pending_clear_count
             .store(pending.entries.len(), Ordering::Relaxed);
@@ -1979,9 +2000,9 @@ impl VulkanDevice {
     /// Only the allocating thread's clears are consumed, and only for buffers
     /// this batch actually binds, so a concurrent graph on the same device can
     /// neither steal nor reorder another worker's fill. Entries whose buffer has
-    /// no owner left are unreachable and are dropped instead of pinning memory.
+    /// no owner left are unreachable and are pruned in bounded batches instead
+    /// of pinning memory or making every bind scan the whole pending list.
     fn drain_pending_clears(&self, batch: &mut ComputeBatch, buffers: &[&GpuBuffer]) -> Result<()> {
-        // (`pending_clear_is_reachable` decides whether an unbound fill survives.)
         if self.inner.pending_clear_count.load(Ordering::Relaxed) == 0 {
             return Ok(());
         }
@@ -1993,41 +2014,32 @@ impl VulkanDevice {
                 .pending_clears
                 .lock()
                 .map_err(|_| anyhow!("Vulkan pending-clear list was poisoned"))?;
-            let mut kept = Vec::with_capacity(pending.entries.len());
-            for clear in pending.entries.drain(..) {
-                // One atomic load replaces the per-entry `upgrade()`, which
-                // paired an increment with a decrement on every bind. The entry
-                // holds a `Weak`, so only a zero count proves no owner can bind
-                // this buffer again; every live entry must be kept for its
-                // allocating thread, and the address comparison is only exact
-                // while the allocation is alive.
-                let owners = clear.allocation.strong_count();
-                if owners == 0 {
-                    // The last user dropped the buffer before it was bound. There
-                    // is no read to protect, so the fill is unreachable.
-                    continue;
-                }
-                let key = clear.allocation.as_ptr() as usize;
-                let bound = buffers
-                    .iter()
-                    .find(|buffer| Arc::as_ptr(&buffer.allocation) as usize == key);
-                let Some(bound) = bound else {
-                    // Another worker's fill, or one whose buffer is still in use:
-                    // leave it for the thread that allocated it.
-                    kept.push(clear);
+            pending.scans = pending.scans.saturating_add(1);
+            pending.scanned_entries = pending
+                .scanned_entries
+                .saturating_add(u64::try_from(buffers.len()).unwrap_or(u64::MAX));
+            if pending.entries.len() >= PENDING_CLEAR_PRUNE_THRESHOLD {
+                pending.prune_unreachable();
+            }
+            for buffer in buffers {
+                let key = Arc::as_ptr(&buffer.allocation) as usize;
+                let Some(clear) = pending.entries.get(&key) else {
                     continue;
                 };
-                if clear.owner == current {
-                    ready.push((Arc::clone(&bound.allocation), clear.size_bytes));
-                } else {
-                    kept.push(clear);
+                if clear.owner != current {
+                    continue;
                 }
-                // Otherwise this fill is the allocation's last user: nobody can
-                // bind the buffer any more, so there is no read left to protect.
-                // Dropping it is what keeps the list bounded - retaining it would
-                // make every later drain scan entries that can never be recorded.
+                let Some(clear) = pending.entries.remove(&key) else {
+                    continue;
+                };
+                ready.push((Arc::clone(&buffer.allocation), clear.size_bytes));
             }
-            pending.entries = kept;
+            pending.recorded = pending
+                .recorded
+                .saturating_add(u64::try_from(ready.len()).unwrap_or(u64::MAX));
+            pending.max_entries = pending
+                .max_entries
+                .max(u64::try_from(pending.entries.len()).unwrap_or(u64::MAX));
             self.inner
                 .pending_clear_count
                 .store(pending.entries.len(), Ordering::Relaxed);
@@ -2038,17 +2050,35 @@ impl VulkanDevice {
         Ok(())
     }
 
+    /// Diagnostic counters for the deferred zero-fill list. These never change
+    /// fill ordering or retention; they only expose how much scanning, pruning
+    /// and recording a graph's bind pattern costs.
+    pub fn pending_clear_stats(&self) -> Result<VulkanPendingClearStats> {
+        let pending = self
+            .inner
+            .pending_clears
+            .lock()
+            .map_err(|_| anyhow!("Vulkan pending-clear list was poisoned"))?;
+        Ok(VulkanPendingClearStats {
+            pending_entries: pending.entries.len(),
+            enqueued: pending.enqueued,
+            scans: pending.scans,
+            scanned_entries: pending.scanned_entries,
+            pruned: pending.pruned,
+            recorded: pending.recorded,
+            max_entries: pending.max_entries,
+        })
+    }
+
     /// Forget a deferred zero fill for `buffer` because it is about to be
     /// overwritten in full.
     fn cancel_zero_clear(&self, buffer: &GpuBuffer) {
         let Ok(mut pending) = self.inner.pending_clears.lock() else {
             return;
         };
-        pending.entries.retain(|clear| {
-            clear.allocation.upgrade().map_or(false, |allocation| {
-                !Arc::ptr_eq(&allocation, &buffer.allocation)
-            })
-        });
+        pending
+            .entries
+            .remove(&(Arc::as_ptr(&buffer.allocation) as usize));
         self.inner
             .pending_clear_count
             .store(pending.entries.len(), Ordering::Relaxed);
@@ -2678,6 +2708,22 @@ pub struct VulkanMemoryStats {
     pub reserved_bytes: usize,
     /// Vulkan's device-wide limit for simultaneous memory allocations.
     pub max_driver_allocation_count: u32,
+    /// Suballocated storage buffers created since device construction.
+    pub buffer_allocations_total: u64,
+    /// Suballocated storage buffers released since device construction.
+    pub buffer_frees_total: u64,
+}
+
+/// Diagnostic view of the deferred zero-fill list. See [`GpuBuffer::zeros_f32`].
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct VulkanPendingClearStats {
+    pub pending_entries: usize,
+    pub enqueued: u64,
+    pub scans: u64,
+    pub scanned_entries: u64,
+    pub pruned: u64,
+    pub recorded: u64,
+    pub max_entries: u64,
 }
 
 /// Device-local telemetry for Hierarchos' timeline-epoch transient scheduler.
@@ -3158,6 +3204,8 @@ struct MemorySuballocator {
     largest_buffer_bytes: usize,
     peak_live_buffer_bytes: usize,
     reserved_bytes: usize,
+    buffer_allocations: u64,
+    buffer_frees: u64,
 }
 
 impl MemorySuballocator {
@@ -3279,6 +3327,7 @@ impl MemorySuballocator {
         }
         self.live_buffer_count = self.live_buffer_count.saturating_sub(1);
         self.live_buffer_bytes = self.live_buffer_bytes.saturating_sub(requested_bytes);
+        self.buffer_frees = self.buffer_frees.saturating_add(1);
 
         if self.blocks[index].live_allocations == 0 {
             let oversized = self.blocks[index].size_bytes > memory_block_bytes();
@@ -3307,6 +3356,7 @@ impl MemorySuballocator {
             .context("Vulkan live-buffer byte count overflow")?;
         self.largest_buffer_bytes = self.largest_buffer_bytes.max(requested_bytes);
         self.peak_live_buffer_bytes = self.peak_live_buffer_bytes.max(self.live_buffer_bytes);
+        self.buffer_allocations = self.buffer_allocations.saturating_add(1);
         Ok(())
     }
 
@@ -3319,6 +3369,8 @@ impl MemorySuballocator {
             driver_allocation_count: self.blocks.len(),
             reserved_bytes: self.reserved_bytes,
             max_driver_allocation_count,
+            buffer_allocations_total: self.buffer_allocations,
+            buffer_frees_total: self.buffer_frees,
         }
     }
 
@@ -9734,14 +9786,23 @@ mod tests {
     }
 
     #[test]
-    fn unreachable_pending_clear_is_not_retained() {
-        use super::pending_clear_is_reachable;
-        // Unbound and owned by nobody else: the fill can never be recorded.
-        assert!(!pending_clear_is_reachable(false, true));
-        // Bound fills are recorded, and a fill whose buffer still has an owner
-        // has to wait for that owner's thread.
-        assert!(pending_clear_is_reachable(true, true));
-        assert!(pending_clear_is_reachable(false, false));
+    fn unreachable_pending_clear_is_pruned_without_retaining_its_device() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        let buffer = GpuBuffer::zeros_f32(&device, 4)?;
+        assert_eq!(device.pending_clear_stats()?.pending_entries, 1);
+
+        drop(buffer);
+
+        let mut pending = device
+            .inner
+            .pending_clears
+            .lock()
+            .map_err(|_| anyhow!("Vulkan pending-clear list was poisoned"))?;
+        assert_eq!(pending.prune_unreachable(), 1);
+        assert!(pending.entries.is_empty());
+        drop(pending);
+        assert_eq!(std::sync::Arc::strong_count(&device.inner), 1);
+        Ok(())
     }
 
     #[test]
@@ -9788,6 +9849,36 @@ mod tests {
             "an unbound zero fill owned by this thread was discarded"
         );
         assert_eq!(waiting.read_f32(4)?, vec![0.0; 4]);
+        Ok(())
+    }
+
+    #[test]
+    fn pending_clear_drain_probes_only_bound_buffers() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        // Keep many live deferred fills that this batch will not bind. A linear
+        // drain inspects every one of them; the index must only probe the two
+        // buffers the copy actually binds.
+        let waiting = (0..64)
+            .map(|_| GpuBuffer::zeros_f32(&device, 4))
+            .collect::<Result<Vec<_>>>()?;
+        let source = GpuBuffer::from_f32(&device, &[1.0, 2.0, 3.0, 4.0])?;
+        let target = GpuBuffer::zeros_f32(&device, 4)?;
+        let before = device.pending_clear_stats()?;
+        let mut commands = ComputeBatch::new(&device)?;
+        commands.copy_f32_range(&source, 0, &target, 0, 4)?;
+        commands.submit()?;
+        let after = device.pending_clear_stats()?;
+        let probed = after
+            .scanned_entries
+            .saturating_sub(before.scanned_entries);
+        assert!(
+            probed < waiting.len() as u64,
+            "drain probed {probed} entries for a two-buffer copy despite {} unbound fills",
+            waiting.len()
+        );
+        assert_eq!(after.pending_entries, waiting.len());
+        assert_eq!(target.read_f32(4)?, [1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(waiting[0].read_f32(4)?, [0.0; 4]);
         Ok(())
     }
 

@@ -189,10 +189,14 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
         std::env::var_os("HIERARCHOS_MULTIMODAL_BENCH_FIXTURES")
             .context("HIERARCHOS_MULTIMODAL_BENCH_FIXTURES is required")?,
     );
+    let profile_requested = std::env::var_os("HIERARCHOS_VULKAN_PROFILE_KERNELS").is_some();
+    let profile_allowed = std::env::var_os("HIERARCHOS_MULTIMODAL_BENCH_ALLOW_PROFILE").is_some();
     assert!(
-        std::env::var_os("HIERARCHOS_VULKAN_PROFILE_KERNELS").is_none(),
-        "timestamp profiling must be disabled for throughput measurements"
+        !profile_requested || profile_allowed,
+        "timestamp profiling must be explicitly allowed for throughput measurements"
     );
+    let case_filter = std::env::var("HIERARCHOS_MULTIMODAL_BENCH_CASE").ok();
+    let telemetry = std::env::var_os("HIERARCHOS_MULTIMODAL_BENCH_TELEMETRY").is_some();
     let iterations = std::env::var("HIERARCHOS_MULTIMODAL_BENCH_STEPS")
         .ok()
         .and_then(|s| s.parse::<usize>().ok())
@@ -211,6 +215,12 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
     let mut records = Vec::new();
     for case in cpu["cases"].as_array().unwrap() {
         let case = with_batch(case, bench_batch)?;
+        if case_filter
+            .as_deref()
+            .is_some_and(|requested| case["name"] != requested)
+        {
+            continue;
+        }
         let (_package, mut trainer, batch, types, patches, start) = setup(device.clone(), &case)?;
         let mut samples = Vec::new();
         for index in 0..warmup + iterations {
@@ -251,6 +261,9 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
         ("gpt2", "shared-image-cpu-v3"),
         ("t5", "seq2seq-image-cpu-v1"),
     ] {
+        if case_filter.as_deref().is_some_and(|requested| name != requested) {
+            continue;
+        }
         let directory = fixtures.join(folder).join(name).join("unmasked");
         let f: Value = serde_json::from_slice(&fs::read(directory.join("input.json"))?)?;
         let u32s = |key: &str| {
@@ -299,8 +312,11 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
             weight_decay: f["weight_decay"].as_f64().unwrap(),
         };
         let mut samples = Vec::new();
+        let telemetry_start = telemetry.then(|| benchmark_telemetry(&device)).transpose()?;
         for index in 0..warmup + iterations {
             let before = device.submission_count();
+            let aten_calls_before = crate::transformer::aten_vector_width_call_count();
+            let telemetry_before = telemetry.then(|| benchmark_telemetry(&device)).transpose()?;
             let begin = Instant::now();
             let result = if let Some((d, m)) = &decoder {
                 graph.train_seq2seq_with_optimizer(
@@ -312,7 +328,20 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
             let ms = begin.elapsed().as_secs_f64() * 1000.;
             assert_eq!(result.text.step as usize, index + 1);
             if index >= warmup {
-                samples.push(json!({"total_ms":ms,"submissions":device.submission_count()-before}));
+                let mut sample = json!({"total_ms":ms,"submissions":device.submission_count()-before});
+                if telemetry {
+                    sample["aten_width_calls"] = json!(
+                        crate::transformer::aten_vector_width_call_count()
+                            .saturating_sub(aten_calls_before)
+                    );
+                }
+                if let Some(before) = telemetry_before {
+                    sample["telemetry"] = benchmark_telemetry_delta(
+                        &before,
+                        &benchmark_telemetry(&device)?,
+                    );
+                }
+                samples.push(sample);
             }
         }
         let output = if let Some((d, m)) = &decoder {
@@ -320,7 +349,12 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
         } else {
             graph.forward(&ids, &mask, &pixels)?
         };
-        records.push(json!({"case":name,"kind":"shared_image","samples":samples,"final_logits_bits":bits(&output.logits)}));
+        let final_telemetry = match telemetry_start.as_ref() {
+            Some(start) => benchmark_telemetry_delta(start, &benchmark_telemetry(&device)?),
+            None => Value::Null,
+        };
+        records.push(json!({"case":name,"kind":"shared_image","samples":samples,
+            "final_logits_bits":bits(&output.logits),"telemetry_total":final_telemetry}));
     }
     // Per-call-site submission accounting for the whole run. Every timed
     // iteration performs the same work, so dividing by the step count gives the
@@ -361,6 +395,50 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
         )?,
     )?;
     Ok(())
+}
+
+type BenchmarkTelemetry = (
+    crate::VulkanMemoryStats,
+    crate::VulkanSubmissionArenaStats,
+    crate::VulkanPendingClearStats,
+);
+
+fn benchmark_telemetry(device: &crate::VulkanDevice) -> Result<BenchmarkTelemetry> {
+    Ok((
+        device.memory_stats()?,
+        device.submission_arena_stats()?,
+        device.pending_clear_stats()?,
+    ))
+}
+
+fn benchmark_telemetry_delta(before: &BenchmarkTelemetry, after: &BenchmarkTelemetry) -> Value {
+    let (memory0, arena0, clears0) = before;
+    let (memory1, arena1, clears1) = after;
+    json!({
+        "buffer_allocations": memory1.buffer_allocations_total.saturating_sub(memory0.buffer_allocations_total),
+        "buffer_frees": memory1.buffer_frees_total.saturating_sub(memory0.buffer_frees_total),
+        "live_buffer_bytes": memory1.live_buffer_bytes,
+        "peak_live_buffer_bytes": memory1.peak_live_buffer_bytes,
+        "submissions_reaped": arena1.timeline_reaped_submissions.saturating_sub(arena0.timeline_reaped_submissions),
+        "retirement_latency_ns": arena1.timeline_retirement_latency_ns_total.saturating_sub(arena0.timeline_retirement_latency_ns_total),
+        "retirement_samples": arena1.timeline_retirement_latency_samples.saturating_sub(arena0.timeline_retirement_latency_samples),
+        "buffer_reuse": arena1.buffer_allocation_reused.saturating_sub(arena0.buffer_allocation_reused),
+        "scratch_allocations": arena1.scratch_slab_allocated.saturating_sub(arena0.scratch_slab_allocated),
+        "command_buffers_allocated": arena1.command_buffer_allocated.saturating_sub(arena0.command_buffer_allocated),
+        "command_buffers_reused": arena1.command_buffer_reused.saturating_sub(arena0.command_buffer_reused),
+        "descriptor_pools_allocated": arena1.descriptor_pool_allocated.saturating_sub(arena0.descriptor_pool_allocated),
+        "descriptor_pools_reused": arena1.descriptor_pool_reused.saturating_sub(arena0.descriptor_pool_reused),
+        "pending_clear_enqueued": clears1.enqueued.saturating_sub(clears0.enqueued),
+        "pending_clear_scans": clears1.scans.saturating_sub(clears0.scans),
+        "pending_clear_scanned_entries": clears1.scanned_entries.saturating_sub(clears0.scanned_entries),
+        "pending_clear_pruned": clears1.pruned.saturating_sub(clears0.pruned),
+        "pending_clear_recorded": clears1.recorded.saturating_sub(clears0.recorded),
+        "pending_clear_entries": clears1.pending_entries,
+        "pending_clear_max_entries": clears1.max_entries.max(clears0.max_entries),
+        "kernel_timestamp_samples": arena1.kernel_timestamp_profile_samples.saturating_sub(arena0.kernel_timestamp_profile_samples),
+        "kernel_timestamp_dispatches": arena1.kernel_timestamp_profile_dispatches.saturating_sub(arena0.kernel_timestamp_profile_dispatches),
+        "kernel_gpu_ns": arena1.kernel_timestamp_profile_gpu_ns_total.saturating_sub(arena0.kernel_timestamp_profile_gpu_ns_total),
+    })
 }
 
 fn equal_weights(a: &DeepseekV41MultimodalTrainer, b: &DeepseekV41MultimodalTrainer) -> Result<()> {

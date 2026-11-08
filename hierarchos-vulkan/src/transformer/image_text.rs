@@ -802,11 +802,20 @@ impl VulkanImageText {
             .decoder
             .as_mut()
             .context("image package has no decoder")?;
+        #[cfg(test)]
+        let phase_timing =
+            std::env::var_os("HIERARCHOS_IMAGE_TEXT_PHASE_TIMING").is_some();
+        #[cfg(test)]
+        let mut phase_start = phase_timing.then(std::time::Instant::now);
         let rows = self.graph.validate(input_ids, attention_mask, pixels)?;
+        #[cfg(test)]
+        training_phase_mark(&mut phase_start, "validate", phase_timing);
         self.graph.language.set_cpu_adamw_policy(Some(optimizer))?;
         decoder.set_cpu_adamw_policy(Some(optimizer))?;
         let hyper = optimizer.as_f32();
         self.graph.encode_device(pixels)?;
+        #[cfg(test)]
+        training_phase_mark(&mut phase_start, "image_encode", phase_timing);
         let tape = self.graph.language.begin_encoder_image_training(
             input_ids,
             attention_mask,
@@ -814,6 +823,8 @@ impl VulkanImageText {
             &self.graph.image.projected,
             hyper,
         )?;
+        #[cfg(test)]
+        training_phase_mark(&mut phase_start, "encoder_forward", phase_timing);
         let decoder_result = decoder.train_with_device_encoder_context(
             decoder_ids,
             decoder_mask,
@@ -823,16 +834,23 @@ impl VulkanImageText {
             attention_mask,
             hyper,
         )?;
+        #[cfg(test)]
+        training_phase_mark(&mut phase_start, "decoder_train", phase_timing);
         let mut encoder_result = self.graph.language.finish_encoder_image_training(
             tape,
             decoder.device_encoder_gradient()?,
             hyper,
         )?;
+        #[cfg(test)]
+        training_phase_mark(&mut phase_start, "encoder_backward", phase_timing);
         if encoder_result.text.step != decoder_result.text.step {
             bail!("joint encoder and decoder optimizer steps diverged");
         }
         encoder_result.text = decoder_result.text;
-        self.graph.backward_image(encoder_result, pixels, hyper)
+        let result = self.graph.backward_image(encoder_result, pixels, hyper);
+        #[cfg(test)]
+        training_phase_mark(&mut phase_start, "image_backward", phase_timing);
+        result
     }
 
     /// Export the actual trained tower/projector and the original text model
@@ -865,4 +883,18 @@ impl VulkanImageText {
         self.graph
             .export_image_parameters(&source.join("image"), &image)
     }
+}
+
+#[cfg(test)]
+fn training_phase_mark(start: &mut Option<std::time::Instant>, name: &str, enabled: bool) {
+    if !enabled {
+        return;
+    }
+    if let Some(begin) = start.as_ref() {
+        eprintln!(
+            "hierarchos_image_text_phase stage={name} ms={:.6}",
+            begin.elapsed().as_secs_f64() * 1000.0
+        );
+    }
+    *start = Some(std::time::Instant::now());
 }

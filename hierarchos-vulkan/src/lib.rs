@@ -225,7 +225,7 @@ pub use vulkan::{
     GpuBuffer, VulkanDevice, VulkanDeviceGroupInfo, VulkanExternalBufferCapabilities,
     VulkanGradientTransportBackend, VulkanGradientTransportPlan, VulkanMemoryBudget,
     VulkanMemoryHeapBudget, VulkanMemoryStats, VulkanMixedPrecisionCapabilities,
-    VulkanPhysicalDeviceInfo, VulkanSubmissionArenaStats,
+    VulkanPendingClearStats, VulkanPhysicalDeviceInfo, VulkanSubmissionArenaStats,
 };
 
 pub const HIERARCHOS_VULKAN_DISABLE_NATIVE_FP16_LM_INPUT_GRAD_ENV: &str =

@@ -26119,6 +26119,14 @@ thread_local! {
 }
 
 #[cfg(test)]
+static ATEN_VECTOR_WIDTH_CALLS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+#[cfg(test)]
+pub(crate) fn aten_vector_width_call_count() -> u64 {
+    ATEN_VECTOR_WIDTH_CALLS.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+#[cfg(test)]
 struct AtenVectorWidthOverride(Option<u32>);
 
 #[cfg(test)]
@@ -26151,6 +26159,8 @@ fn with_aten_vector_width(width: u32) -> AtenVectorWidthOverride {
 /// shipped binary runs on both kinds of machine.  The result is cached after
 /// the first call so per-dispatch callers pay nothing.
 pub fn aten_vector_width() -> u32 {
+    #[cfg(test)]
+    ATEN_VECTOR_WIDTH_CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     #[cfg(test)]
     if let Some(width) = ATEN_VECTOR_WIDTH_OVERRIDE.with(|cell| cell.get()) {
         return width;
