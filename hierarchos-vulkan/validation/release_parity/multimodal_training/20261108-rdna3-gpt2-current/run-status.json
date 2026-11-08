@@ -1,0 +1,74 @@
+[
+  {
+    "gate": "shapes",
+    "started_utc": "03:11:39",
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "gate": "shared",
+    "started_utc": "03:11:50",
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "gate": "kimi",
+    "started_utc": "03:12:25",
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "gate": "seq2seq",
+    "started_utc": "03:12:28",
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "gate": "gemma3",
+    "started_utc": "03:12:31",
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "gate": "gemma4",
+    "started_utc": "03:12:33",
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "gate": "llava",
+    "started_utc": "03:12:34",
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "gate": "v41native",
+    "started_utc": "03:12:36",
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "gate": "v41bridge",
+    "started_utc": "03:13:24",
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "gate": "provenance",
+    "started_utc": "03:13:27",
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "gate": "spirv",
+    "started_utc": "03:13:31",
+    "returncode": 0,
+    "pass": true
+  },
+  {
+    "gate": "isolation",
+    "started_utc": "03:13:32",
+    "returncode": 0,
+    "pass": true
+  }
+]
