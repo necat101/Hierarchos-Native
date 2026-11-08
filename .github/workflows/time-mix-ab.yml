@@ -112,7 +112,7 @@ jobs:
   producer-ab:
     runs-on: [self-hosted, windows, vulkan]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -356,7 +356,7 @@ jobs:
   cross-adapter-ab:
     runs-on: [self-hosted, windows, vulkan, amd]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable

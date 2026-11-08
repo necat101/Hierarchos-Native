@@ -88,18 +88,53 @@ fn runtime(f: &Fixture) -> DeepseekV41AttentionRuntimeConfig {
     }
 }
 
+/// Reserve a test-owned directory without reusing a name left by an earlier
+/// process. A reused PID plus a process-local counter is not a unique name:
+/// an interrupted run can leave its package root behind and make the next
+/// process fail with Windows error 183. The timestamp and counter make a stale
+/// name harmless; `AlreadyExists` retries only within this test prefix.
+fn reserve_test_root(prefix: &str, nonce: u128, id: u64) -> Result<PathBuf> {
+    for attempt in 0..32 {
+        let root = std::env::temp_dir().join(format!(
+            "{prefix}-{}-{id}-{nonce}-{attempt}",
+            std::process::id()
+        ));
+        match fs::create_dir(&root) {
+            Ok(()) => return Ok(root),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.into()),
+        }
+    }
+    anyhow::bail!("could not reserve a unique temporary test directory for {prefix}")
+}
+
+fn unique_test_root(prefix: &str) -> Result<PathBuf> {
+    static ID: AtomicU64 = AtomicU64::new(0);
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    reserve_test_root(prefix, nonce, ID.fetch_add(1, Ordering::Relaxed))
+}
+
+#[test]
+fn temporary_test_roots_do_not_reuse_stale_directories() -> Result<()> {
+    let stale = reserve_test_root("hierarchos-v41-stale", 7, 11)?;
+    let fresh = reserve_test_root("hierarchos-v41-stale", 7, 11)?;
+    assert_ne!(stale, fresh);
+    assert!(stale.is_dir());
+    assert!(fresh.is_dir());
+    fs::remove_dir_all(&stale)?;
+    fs::remove_dir_all(&fresh)?;
+    Ok(())
+}
+
 struct Package {
     root: PathBuf,
 }
 impl Package {
     fn new(f: &Fixture, sharded_bf16: bool) -> Result<Self> {
-        static ID: AtomicU64 = AtomicU64::new(0);
-        let root = std::env::temp_dir().join(format!(
-            "hierarchos-v41-lm-{}-{}",
-            std::process::id(),
-            ID.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&root)?;
+        let root = unique_test_root("hierarchos-v41-lm")?;
         let result = Self { root };
         fs::write(
             result.root.join("config.json"),

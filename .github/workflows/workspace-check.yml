@@ -10,7 +10,7 @@ jobs:
     # workspace from directory junctions, so the gate runs on a Windows runner.
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # The historical GPT-2 guard resolves bound bytes against committed
           # blobs; a depth-1 checkout has none, so it fails closed.
@@ -21,7 +21,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Cargo and target
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -120,3 +120,22 @@ jobs:
         run: |
           python hierarchos-vulkan/validation/check_folded_publication_profile.py
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_folded_publication_profile.py"
+
+  workflow-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Install actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=1.7.12
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/actionlint" -version
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Validate GitHub Actions workflows
+        shell: bash
+        run: actionlint -color

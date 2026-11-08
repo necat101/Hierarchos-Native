@@ -43,20 +43,33 @@ jobs:
       ROUNDS: ${{ inputs.rounds || '6' }}
       STEPS: ${{ inputs.steps || '7' }}
       RELEASE_QUALIFICATION: ${{ inputs.release_qualification || false }}
-      CANDIDATE_TARGET: ${{ runner.temp }}/rdna3-candidate-target-${{ github.run_id }}
-      BASELINE_TARGET: ${{ runner.temp }}/rdna3-baseline-target-${{ github.run_id }}
-      BENCHMARK_ROOT: hierarchos-vulkan/target/rdna3-port/ci-benchmark-${{ github.run_id }}
     steps:
       - name: Check out candidate
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: Initialize isolated run paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          # RUNNER_TEMP is supplied by the runner; normalize Windows separators
+          # before passing paths to Git Bash, Cargo and Python.
+          RUNNER_TEMP_POSIX="$(python -c 'import pathlib, sys; print(pathlib.PureWindowsPath(sys.argv[1]).as_posix())' "$RUNNER_TEMP")"
+          RUN_ROOT="$RUNNER_TEMP_POSIX/rdna3-v41-${GITHUB_RUN_ID}"
+          mkdir -p "$RUN_ROOT/benchmark/provenance"
+          printf 'CANDIDATE_TARGET=%s\nBASELINE_TARGET=%s\nBENCHMARK_ROOT=%s\nBASELINE_SRC=%s\n' \
+            "$RUN_ROOT/candidate-target" \
+            "$RUN_ROOT/baseline-target" \
+            "$RUN_ROOT/benchmark" \
+            "$RUN_ROOT/baseline-src" >> "$GITHUB_ENV"
 
       - name: Validate dedicated runner prerequisites
         shell: bash
         run: |
           set -euo pipefail
           command -v cargo
+          command -v rustc
           command -v python
           command -v sha256sum
           test -n "${RDNA3_V41_FIXTURES:?set repository variable RDNA3_V41_FIXTURES to the frozen Gen9 fixture root}"
@@ -70,9 +83,15 @@ jobs:
             *) echo "measured steps must be 7, 9, or 11" >&2; exit 2 ;;
           esac
           python - <<'PY'
-          import subprocess, sys
-          if "rustc" not in subprocess.check_output(["cargo", "--version"], text=True):
-              sys.exit("unexpected cargo version output")
+          import subprocess
+          import sys
+          for tool in ("cargo", "rustc"):
+              result = subprocess.run(
+                  [tool, "--version"], text=True, capture_output=True, check=False
+              )
+              if result.returncode != 0 or not result.stdout.strip():
+                  sys.exit(f"{tool} --version failed")
+              print(result.stdout.strip())
           PY
 
       - name: Record candidate provenance
@@ -87,6 +106,10 @@ jobs:
             echo "rustc=$(rustc -Vv | tr '\n' ';')"
             echo "python=$(python --version 2>&1)"
             echo "fixtures_root=$RDNA3_V41_FIXTURES"
+            echo "candidate_target=$CANDIDATE_TARGET"
+            echo "baseline_target=$BASELINE_TARGET"
+            echo "benchmark_root=$BENCHMARK_ROOT"
+            echo "benchmark_profile=release"
             if command -v vulkaninfo >/dev/null 2>&1; then
               vulkaninfo --summary 2>&1 || true
             else
@@ -94,40 +117,48 @@ jobs:
             fi
           } > "$BENCHMARK_ROOT/provenance/toolchain.txt"
 
-      - name: Build candidate test binary
+      - name: Build release candidate and baseline test binaries
         shell: bash
-        working-directory: hierarchos-vulkan
-        env:
-          CARGO_TARGET_DIR: ${{ env.CANDIDATE_TARGET }}
         run: |
           set -euo pipefail
-          cargo test --locked --lib --no-run
-          CANDIDATE_BIN="$(find "$CARGO_TARGET_DIR/debug/deps" -maxdepth 1 -name 'hierarchos_vulkan-*.exe' -type f -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
-          test -x "$CANDIDATE_BIN"
+          export CARGO_TARGET_DIR="$CANDIDATE_TARGET"
+          (
+            cd hierarchos-vulkan
+            cargo test --release --locked --lib --no-run --message-format=json \
+              > "$RUNNER_TEMP/candidate-build.json"
+          )
+          CANDIDATE_BIN="$(python hierarchos-vulkan/validation/cargo_test_binary.py \
+            "$RUNNER_TEMP/candidate-build.json")"
+          test -f "$CANDIDATE_BIN"
           CANDIDATE_SHA="$(sha256sum "$CANDIDATE_BIN" | cut -d' ' -f1)"
-          echo "CANDIDATE_BIN=$CANDIDATE_BIN" >> "$GITHUB_ENV"
-          echo "CANDIDATE_SHA=$CANDIDATE_SHA" >> "$GITHUB_ENV"
-          printf 'candidate_binary=%s\ncandidate_sha256=%s\n' "$CANDIDATE_BIN" "$CANDIDATE_SHA" >> "$BENCHMARK_ROOT/provenance/toolchain.txt"
-          sha256sum "$CANDIDATE_BIN"
+          {
+            echo "CANDIDATE_BIN=$CANDIDATE_BIN"
+            echo "CANDIDATE_SHA=$CANDIDATE_SHA"
+          } >> "$GITHUB_ENV"
+          printf 'candidate_binary=%s\ncandidate_sha256=%s\ncandidate_profile=release\n' \
+            "$CANDIDATE_BIN" "$CANDIDATE_SHA" >> "$BENCHMARK_ROOT/provenance/toolchain.txt"
 
-      - name: Build baseline test binary
-        shell: bash
-        working-directory: hierarchos-vulkan
-        env:
-          CARGO_TARGET_DIR: ${{ env.BASELINE_TARGET }}
-        run: |
-          set -euo pipefail
-          BASELINE_SRC="$RUNNER_TEMP/rdna3-baseline-src-${{ github.run_id }}"
+          git worktree prune
+          if [ -e "$BASELINE_SRC" ]; then
+            git worktree remove --force "$BASELINE_SRC" 2>/dev/null || rm -rf "$BASELINE_SRC"
+          fi
           git worktree add --detach "$BASELINE_SRC" "$BASELINE_REF"
-          (cd "$BASELINE_SRC/hierarchos-vulkan" && cargo test --locked --lib --no-run)
-          BASELINE_BIN="$(find "$CARGO_TARGET_DIR/debug/deps" -maxdepth 1 -name 'hierarchos_vulkan-*.exe' -type f -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
-          test -x "$BASELINE_BIN"
+          (
+            cd "$BASELINE_SRC/hierarchos-vulkan"
+            CARGO_TARGET_DIR="$BASELINE_TARGET" cargo test --release --locked --lib --no-run \
+              --message-format=json > "$RUNNER_TEMP/baseline-build.json"
+          )
+          BASELINE_BIN="$(python hierarchos-vulkan/validation/cargo_test_binary.py \
+            "$RUNNER_TEMP/baseline-build.json")"
+          test -f "$BASELINE_BIN"
           BASELINE_SHA="$(sha256sum "$BASELINE_BIN" | cut -d' ' -f1)"
-          echo "BASELINE_BIN=$BASELINE_BIN" >> "$GITHUB_ENV"
-          echo "BASELINE_SHA=$BASELINE_SHA" >> "$GITHUB_ENV"
-          echo "BASELINE_SRC=$BASELINE_SRC" >> "$GITHUB_ENV"
-          printf 'baseline_binary=%s\nbaseline_sha256=%s\n' "$BASELINE_BIN" "$BASELINE_SHA" >> "$BENCHMARK_ROOT/provenance/toolchain.txt"
-          sha256sum "$BASELINE_BIN"
+          {
+            echo "BASELINE_BIN=$BASELINE_BIN"
+            echo "BASELINE_SHA=$BASELINE_SHA"
+          } >> "$GITHUB_ENV"
+          printf 'baseline_binary=%s\nbaseline_sha256=%s\nbaseline_profile=release\n' \
+            "$BASELINE_BIN" "$BASELINE_SHA" >> "$BENCHMARK_ROOT/provenance/toolchain.txt"
+          sha256sum "$CANDIDATE_BIN" "$BASELINE_BIN"
 
       - name: Paired ABBA benchmark, batches 1/2/4
         shell: bash
@@ -167,11 +198,10 @@ jobs:
 
       - name: Upload raw benchmark evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: rdna3-v41-performance-${{ github.run_id }}
-          path: |
-            ${{ env.BENCHMARK_ROOT }}/
+          path: ${{ runner.temp }}/rdna3-v41-${{ github.run_id }}/benchmark/
           if-no-files-found: error
           retention-days: 30
 
@@ -181,5 +211,6 @@ jobs:
         run: |
           set +e
           if [ -n "${BASELINE_SRC:-}" ] && [ -d "$BASELINE_SRC" ]; then
-            git worktree remove --force "$BASELINE_SRC"
+            git worktree remove --force "$BASELINE_SRC" 2>/dev/null || rm -rf "$BASELINE_SRC"
           fi
+          git worktree prune

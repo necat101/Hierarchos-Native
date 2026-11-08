@@ -8,6 +8,12 @@ from pathlib import Path
 
 CRATE=Path(__file__).resolve().parents[1]
 BASELINE=CRATE/'validation/release_parity/multimodal_training/20261105-gen9-v41-upload-batching/deepseek-suite-qualification.json'
+# This test lives in the DeepSeek test module because it exercises that module's
+# package allocator, but it is CI infrastructure rather than a numerical case.
+# Keep it out of the 218 active/26 ignored numerical inventory.
+NON_NUMERICAL_TESTS={
+    'deepseek_v41::model::tests::temporary_test_roots_do_not_reuse_stale_directories',
+}
 def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def write(p,v):p.write_bytes((json.dumps(v,indent=2)+'\n').encode())
 def require(c,m):
@@ -29,7 +35,7 @@ def main():
     (a.output/'all-tests.log').write_text(full.stdout+full.stderr)
     (a.output/'ignored-tests.log').write_text(ignored.stdout+ignored.stderr)
     names=lambda text:set(re.findall(r'^(\S+): test$',text,re.M))
-    all_names=names(full.stdout);ignored_names=names(ignored.stdout)
+    all_names=names(full.stdout)-NON_NUMERICAL_TESTS;ignored_names=names(ignored.stdout)
     require(full.returncode==ignored.returncode==0 and len(all_names)==244,'full suite enumeration changed')
     require(ignored_names==set(json.loads(BASELINE.read_text())['ignored']),'opt-in test list changed')
     active=sorted(all_names-ignored_names);require(len(active)==218,'active test list changed')
