@@ -32,6 +32,11 @@ const SESSION_ENABLE_ENV: &str = "HIERARCHOS_VULKAN_LAYER_SESSION";
 #[path = "spirv_access.rs"]
 mod spirv_access;
 
+/// Device-local temporaries at or below this size are retained for reuse.
+const ZEROED_RECYCLE_LIMIT_BYTES: usize = 4 * 1024 * 1024;
+/// Hard cap on retained device-local bytes, so reuse cannot become a cache.
+const ZEROED_RECYCLE_POOL_BYTES: usize = 256 * 1024 * 1024;
+
 struct DeviceInner {
     _entry: Entry,
     instance: Instance,
@@ -140,6 +145,7 @@ impl Drop for DeviceInner {
                 pending_buffer_allocations,
                 reusable_descriptor_pools,
                 reusable_buffer_allocations,
+                zeroed_recycled_allocations,
             ) = self
                 .submission_resource_arena
                 .get_mut()
@@ -149,6 +155,7 @@ impl Drop for DeviceInner {
                         std::mem::take(&mut arena.in_flight_buffer_allocations),
                         std::mem::take(&mut arena.reusable_descriptor_pools),
                         std::mem::take(&mut arena.reusable_buffer_allocations),
+                        std::mem::take(&mut arena.zeroed_recycled_allocations),
                     )
                 })
                 .unwrap_or_default();
@@ -173,6 +180,9 @@ impl Drop for DeviceInner {
                 self.device.destroy_descriptor_pool(chunk.pool, None);
             }
             for allocation in reusable_buffer_allocations {
+                self.release_detached_buffer_allocation(allocation);
+            }
+            for allocation in zeroed_recycled_allocations {
                 self.release_detached_buffer_allocation(allocation);
             }
             for timeline in &mut self.submission_timelines {
@@ -231,6 +241,9 @@ struct TimelineSubmissionResourceArena {
     in_flight_scratch_leases: VecDeque<TimelineScratchLeaseRetirement>,
     reusable_descriptor_pools: Vec<DescriptorPoolArenaChunk>,
     reusable_buffer_allocations: Vec<DetachedGpuBufferAllocation>,
+    zeroed_recycled_allocations: Vec<DetachedGpuBufferAllocation>,
+    zeroed_recycled_bytes: usize,
+    zeroed_buffer_recycled: u64,
     timeline_reaped: u64,
     timeline_retirement_latency_ns_total: u64,
     timeline_retirement_latency_ns_max: u64,
@@ -678,14 +691,68 @@ impl DeviceInner {
                 .min_by_key(|(_, allocation)| allocation.size_bytes)
                 .map(|(index, _)| index)
         };
-        let index = choose(preferred_flags, &arena.reusable_buffer_allocations)
-            .or_else(|| choose(fallback_flags, &arena.reusable_buffer_allocations));
+        let device_local = !preferred_flags.contains(vk::MemoryPropertyFlags::HOST_VISIBLE);
+        let index = if device_local {
+            // Exact size only: a device-local temporary must not take a much
+            // larger cached allocation and hold it for the rest of the step.
+            let exact = |flags: vk::MemoryPropertyFlags| {
+                arena
+                    .zeroed_recycled_allocations
+                    .iter()
+                    .position(|allocation| {
+                        allocation.size_bytes == required_size_bytes
+                            && allocation.memory_flags.contains(flags)
+                    })
+            };
+            exact(preferred_flags).or_else(|| exact(fallback_flags))
+        } else {
+            choose(preferred_flags, &arena.reusable_buffer_allocations)
+                .or_else(|| choose(fallback_flags, &arena.reusable_buffer_allocations))
+        };
         let Some(index) = index else {
             return Ok(None);
         };
+        if device_local {
+            let allocation = arena.zeroed_recycled_allocations.swap_remove(index);
+            arena.zeroed_recycled_bytes = arena
+                .zeroed_recycled_bytes
+                .saturating_sub(allocation.size_bytes);
+            arena.zeroed_buffer_recycled = arena.zeroed_buffer_recycled.saturating_add(1);
+            arena.buffer_allocation_reused = arena.buffer_allocation_reused.saturating_add(1);
+            return Ok(Some(allocation));
+        }
         let allocation = arena.reusable_buffer_allocations.swap_remove(index);
         arena.buffer_allocation_reused = arena.buffer_allocation_reused.saturating_add(1);
         Ok(Some(allocation))
+    }
+
+    /// Retain a completed device-local allocation for the next zeroed request.
+    ///
+    /// Only `GpuBuffer::zeroed` draws from this list, and it re-establishes the
+    /// zero guarantee with `zero_contents` before the caller can observe the
+    /// memory, so retained bytes can never be mistaken for initialised data.
+    /// The last owner is dropped only after `bound_buffer_keepalives` retire,
+    /// so no submitted command buffer can still reference this buffer. The lock
+    /// is taken without blocking: a retirement reaped while the arena lock is
+    /// held must not re-enter it, so contention falls back to destruction.
+    fn recycle_zeroed_buffer_allocation(&self, allocation: DetachedGpuBufferAllocation) {
+        let Ok(mut arena) = self.submission_resource_arena.try_lock() else {
+            self.release_detached_buffer_allocation(allocation);
+            return;
+        };
+        if allocation.dedicated_memory
+            || allocation.size_bytes > ZEROED_RECYCLE_LIMIT_BYTES
+            || arena.zeroed_recycled_bytes.saturating_add(allocation.size_bytes)
+                > ZEROED_RECYCLE_POOL_BYTES
+        {
+            drop(arena);
+            self.release_detached_buffer_allocation(allocation);
+            return;
+        }
+        arena.zeroed_recycled_bytes = arena
+            .zeroed_recycled_bytes
+            .saturating_add(allocation.size_bytes);
+        arena.zeroed_recycled_allocations.push(allocation);
     }
 
     fn allocate_scratch_buffer(
@@ -3979,7 +4046,9 @@ impl GpuBuffer {
     /// it flushes or cancels the pending fill first.
     fn zeroed(device: &VulkanDevice, len: usize) -> Result<Self> {
         let size_bytes = len.checked_mul(4).context("buffer size overflow")?;
-        let buffer = Self::new(device, size_bytes)?;
+        let buffer = Self::new_recyclable_device_local(device, size_bytes)?;
+        // Recycled bytes are undefined, so the zero guarantee is re-established
+        // here, before any caller can observe them.
         buffer.zero_contents(size_bytes)?;
         Ok(buffer)
     }
@@ -4379,6 +4448,16 @@ impl GpuBuffer {
             device,
             size_bytes,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            vk::MemoryPropertyFlags::HOST_VISIBLE,
+            true,
+        )
+    }
+
+    fn new_recyclable_device_local(device: &VulkanDevice, size_bytes: usize) -> Result<Self> {
+        Self::new_with_memory_policy(
+            device,
+            size_bytes,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
             vk::MemoryPropertyFlags::HOST_VISIBLE,
             true,
         )
@@ -5130,6 +5209,19 @@ impl Drop for GpuBufferAllocation {
             return;
         }
         if self.recycle_on_drop {
+            if !self.memory_flags.contains(vk::MemoryPropertyFlags::HOST_VISIBLE) {
+                self.inner
+                    .recycle_zeroed_buffer_allocation(DetachedGpuBufferAllocation {
+                        buffer: self.buffer,
+                        memory: self.memory,
+                        memory_offset: self.memory_offset,
+                        allocation_span_bytes: self.allocation_span_bytes,
+                        size_bytes: self.size_bytes,
+                        memory_flags: self.memory_flags,
+                        dedicated_memory: self.dedicated_memory,
+                    });
+                return;
+            }
             let waits = self.inner.take_recyclable_buffer_timeline_uses(self.buffer);
             self.inner.retire_recyclable_buffer_after_timelines(
                 DetachedGpuBufferAllocation {
@@ -9763,6 +9855,43 @@ mod tests {
         // The weak pending entry must not keep the allocation, and through its
         // cloned device handle, the logical Vulkan device alive.
         assert_eq!(std::sync::Arc::strong_count(&device.inner), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn recycled_device_local_allocation_is_zeroed_before_reuse() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        let len = 16 * 1024;
+        let dirty = GpuBuffer::zeroed(&device, len)?;
+        dirty.write_f32(&vec![7.0f32; len])?;
+        let buffer = dirty.allocation.buffer;
+        drop(dirty);
+
+        let (retained, recycled_before) = {
+            let arena = device
+                .inner
+                .submission_resource_arena
+                .lock()
+                .map_err(|_| anyhow!("Vulkan submission-resource arena lock was poisoned"))?;
+            (
+                arena.zeroed_recycled_allocations.len(),
+                arena.zeroed_buffer_recycled,
+            )
+        };
+        assert!(retained >= 1, "device-local allocation was not retained");
+
+        // The pooled bytes still hold 7.0; the zeroed API must hide them.
+        let clean = GpuBuffer::zeroed(&device, len)?;
+        assert_eq!(clean.allocation.buffer, buffer);
+        assert_eq!(clean.read_f32(4)?, vec![0.0; 4]);
+        assert_eq!(clean.read_f32(len)?, vec![0.0; len]);
+        let recycled_after = device
+            .inner
+            .submission_resource_arena
+            .lock()
+            .map_err(|_| anyhow!("Vulkan submission-resource arena lock was poisoned"))?
+            .zeroed_buffer_recycled;
+        assert!(recycled_after > recycled_before);
         Ok(())
     }
 
