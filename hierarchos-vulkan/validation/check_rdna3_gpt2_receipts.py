@@ -89,6 +89,14 @@ def _git(*args):
     ).stdout
 
 
+def _history_available():
+    """A shallow checkout cannot answer historical questions at all."""
+    try:
+        return _git('rev-parse', '--is-shallow-repository').decode().strip() != 'true'
+    except Exception:
+        return True
+
+
 def _blob_sha256(oid):
     return hashlib.sha256(_git('cat-file', 'blob', oid)).hexdigest()
 
@@ -112,7 +120,7 @@ def _history_lookup(path, expected):
     return None
 
 
-def verify_sources(sources, current_sha256=None, history_lookup=None):
+def verify_sources(sources, current_sha256=None, history_lookup=None, history_available=None):
     """Verify every bound source as either current bytes or immutable history.
 
     A historical receipt binds the bytes that were qualified. It does not
@@ -122,6 +130,7 @@ def verify_sources(sources, current_sha256=None, history_lookup=None):
     """
     current_sha256 = current_sha256 or (lambda name: _sha256_file(ROOT / name))
     history_lookup = history_lookup or _history_lookup
+    history_available = history_available or _history_available
     current = {}
     historical = {}
     blocked = []
@@ -137,6 +146,12 @@ def verify_sources(sources, current_sha256=None, history_lookup=None):
             blocked.append(name)
         else:
             historical[name] = {'sha256': expected, 'revision': revision}
+    if blocked and not history_available():
+        require(
+            False,
+            'historical history unavailable in a shallow checkout; fetch full history '
+            '(actions/checkout with fetch-depth: 0) to verify: ' + ', '.join(blocked),
+        )
     require(not blocked, 'source bound to no verifiable revision: ' + ', '.join(blocked))
     return current, historical
 

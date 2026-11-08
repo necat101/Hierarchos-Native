@@ -11,6 +11,11 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The historical GPT-2 guard resolves bound bytes against committed
+          # blobs; a depth-1 checkout has none, so it fails closed.
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable

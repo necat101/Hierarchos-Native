@@ -131,3 +131,42 @@ class CurrentQualificationTests(unittest.TestCase):
                 self.sources, receipt_path=self.path, source_head=self.head,
                 current_sha256=lambda name: 'a' * 64,
             )
+
+
+class ShallowHistoryTests(unittest.TestCase):
+    """A shallow checkout must report missing history, not source corruption."""
+
+    def setUp(self):
+        self.sources = {'hierarchos-vulkan/src/transformer.rs': 'a' * 64}
+
+    def test_shallow_checkout_reports_missing_history(self):
+        with self.assertRaises(ValueError) as caught:
+            verify_sources(
+                self.sources,
+                current_sha256=lambda name: 'b' * 64,
+                history_lookup=lambda name, expected: None,
+                history_available=lambda: False,
+            )
+        self.assertIn('shallow', str(caught.exception))
+        self.assertIn('fetch-depth: 0', str(caught.exception))
+
+    def test_full_checkout_without_the_blob_is_a_real_failure(self):
+        with self.assertRaises(ValueError) as caught:
+            verify_sources(
+                self.sources,
+                current_sha256=lambda name: 'b' * 64,
+                history_lookup=lambda name, expected: None,
+                history_available=lambda: True,
+            )
+        self.assertIn('no verifiable revision', str(caught.exception))
+        self.assertNotIn('shallow', str(caught.exception))
+
+    def test_shallow_checkout_passes_when_every_bound_byte_still_matches(self):
+        current, historical = verify_sources(
+            self.sources,
+            current_sha256=lambda name: 'a' * 64,
+            history_lookup=lambda name, expected: None,
+            history_available=lambda: False,
+        )
+        self.assertEqual(len(current), 1)
+        self.assertEqual(historical, {})
