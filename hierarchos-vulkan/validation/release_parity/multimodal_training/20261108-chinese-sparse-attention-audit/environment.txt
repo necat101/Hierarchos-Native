@@ -1,0 +1,7 @@
+Host: Windows 11 Enterprise 10.0.26300
+Device: AMD Ryzen Z1 Extreme / AMD Radeon Graphics 1002:15bf
+Vulkan: 1.4.341, device 1.4.344; AMD proprietary 26.10.07.06 (LLPC)
+Rust: 1.93.0 (254b59607 2026-01-19)
+Python: 3.13.14
+PyTorch/Transformers: BLOCKED (WinError 126 loading torch shm.dll)
+Oracle: frozen authenticated CPU AVX2 fixtures; no candidate-generated expected values

@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "status": "NOT_COMPARABLE",
+  "production_code_changed": false,
+  "reason": "NOT_COMPARABLE",
+  "measurements": [],
+  "preserved_prior_receipt": "validation/release_parity/multimodal_training/20261108-rdna3-final-architecture-verification",
+  "note": "The five-workload ViT/Llama/GPT-2/T5 ABBA receipt is not a Chinese-model measurement and is not restated as one."
+}

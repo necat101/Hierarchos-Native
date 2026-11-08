@@ -1,0 +1,25 @@
+
+running 8 tests
+test deepseek_v41::checkpoint::payload_cache::tests::payload_cache_metadata_count_is_bounded_too ... ok
+test deepseek_v41::checkpoint::payload_identity_tests::cached_payload_still_rejects_modified_truncated_and_deleted_shards ... ok
+test deepseek_v41::checkpoint::payload_identity_tests::expert_batches_check_both_boundaries_and_preserve_cache_invalidation ... ok
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_clones_share_index_and_shard_headers ... ok
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_reads_sharded_f32_bf16_and_actual_compressor_keys ... ok
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_rejects_packed_nonfinite_and_invalid_offsets ... ok
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_rejects_shard_path_escape ... ok
+test deepseek_v41::checkpoint_tests::lora_targets_cover_only_additive_projection_boundaries ... ok
+
+successes:
+
+successes:
+    deepseek_v41::checkpoint::payload_cache::tests::payload_cache_metadata_count_is_bounded_too
+    deepseek_v41::checkpoint::payload_identity_tests::cached_payload_still_rejects_modified_truncated_and_deleted_shards
+    deepseek_v41::checkpoint::payload_identity_tests::expert_batches_check_both_boundaries_and_preserve_cache_invalidation
+    deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_clones_share_index_and_shard_headers
+    deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_reads_sharded_f32_bf16_and_actual_compressor_keys
+    deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_rejects_packed_nonfinite_and_invalid_offsets
+    deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_rejects_shard_path_escape
+    deepseek_v41::checkpoint_tests::lora_targets_cover_only_additive_projection_boundaries
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 0.29s
+

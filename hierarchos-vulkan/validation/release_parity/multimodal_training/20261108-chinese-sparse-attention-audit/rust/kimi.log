@@ -1,0 +1,48 @@
+
+running 18 tests
+test transformer::tests::kimi_k3_moonvit_vision_config_fails_closed_as_unsupported ... ok
+test transformer::tests::kimi_k3_mxfp4_compressed_tensors_package_fails_closed ... ok
+test transformer::tests::kimi_k3_package_uses_nested_text_config_and_language_model_prefixes ... ok
+test transformer::tests::kimi_k3_wrapper_resolves_nested_kimi_linear_config_without_aliasing ... ok
+test transformer::tests::kimi_linear_attention_partition_rejects_malformed_schedules ... ok
+test transformer::tests::kimi_linear_attn_res_loader_reads_canonical_tensor_names ... ok
+test transformer::tests::kimi_linear_attn_res_matches_reference_and_finite_difference ... ok
+test transformer::tests::kimi_linear_checkpoint_export_round_trips_full_mixed_graph ... ok
+test transformer::tests::kimi_linear_full_attention_loader_is_hybrid_schedule_aware_and_loads_output_gate ... ok
+test transformer::tests::kimi_linear_generation_cache_matches_mixed_full_prefix_graph ... KimiLinear prefill recurrent-state max diff layer 0: 0.0006281445
+KimiLinear prefill recurrent-state max diff layer 1: 0.0009832445
+KimiLinear prefill recurrent-state max diff layer 2: 0.001388535
+KimiLinear layer0 internal max diff position 3: conv=0 decay=0 beta=0 recurrent=0 state=0.0007162392
+KimiLinear layer0 direct replay position 3: cached_output=0 cached_state=0 full_output=0 full_state=0.0007162392
+KimiLinear layer0 monolithic replay position 3: graph_output=0 graph_state=0.0007162392 split_output=0 split_state=0
+KimiLinear layer0 prefix-input stability: conv=0 decay=0 beta=0
+KimiLinear cached/full hidden max diff position 3 layer 0: 0
+KimiLinear cached/full hidden max diff position 3 layer 1: 0
+KimiLinear cached/full hidden max diff position 3 layer 2: 0.00000000023283064
+KimiLinear cached/full hidden max diff position 3 layer 3: 0.0000000004656613
+KimiLinear layer0 internal max diff position 4: conv=0 decay=0 beta=0 recurrent=0 state=0.0005571503
+KimiLinear layer0 direct replay position 4: cached_output=0 cached_state=0 full_output=0 full_state=0.0005571503
+KimiLinear layer0 monolithic replay position 4: graph_output=0 graph_state=0.0005571503 split_output=0 split_state=0
+KimiLinear cached/full hidden max diff position 4 layer 0: 0
+KimiLinear cached/full hidden max diff position 4 layer 1: 0.000000000014551915
+KimiLinear cached/full hidden max diff position 4 layer 2: 0.0000000004656613
+KimiLinear cached/full hidden max diff position 4 layer 3: 0.0000000009313226
+KimiLinear layer0 internal max diff position 5: conv=0 decay=0 beta=0 recurrent=0 state=0.00054795854
+KimiLinear layer0 direct replay position 5: cached_output=0 cached_state=0 full_output=0 full_state=0.00054795854
+KimiLinear layer0 monolithic replay position 5: graph_output=0 graph_state=0.00054795854 split_output=0 split_state=0
+KimiLinear cached/full hidden max diff position 5 layer 0: 0
+KimiLinear cached/full hidden max diff position 5 layer 1: 0.00000000005820766
+KimiLinear cached/full hidden max diff position 5 layer 2: 0.00000000002910383
+KimiLinear cached/full hidden max diff position 5 layer 3: 0.00000000011641532
+ok
+test transformer::tests::kimi_linear_kda_projection_runs_forward_backward_and_exports_canonical_abi ... ok
+test transformer::tests::kimi_linear_latent_moe_loader_reads_canonical_block_sparse_abi ... ok
+test transformer::tests::kimi_linear_latent_moe_runs_situ_forward_and_backward_with_finite_difference ... ok
+test transformer::tests::kimi_linear_native_adamw_step_updates_kda_and_attn_res_parameters ... ok
+test transformer::tests::kimi_linear_production_attention_partition_is_exact_and_one_indexed ... ok
+test transformer::tests::kimi_linear_situ_config_preserves_non_default_and_optional_parameters ... ok
+test transformer::tests::kimi_linear_situ_vulkan_matches_reference_and_finite_difference ... ok
+test transformer::tests::qwen3_omni_and_kimi_k25_wrappers_reuse_native_text_graphs ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 1161 filtered out; finished in 1.39s
+

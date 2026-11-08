@@ -1,0 +1,10 @@
+
+running 5 tests
+test transformer::tests::ernie4_5_checkpoint_loader_preserves_projection_and_gated_mlp_biases ... ok
+test transformer::tests::ernie4_5_contract_maps_explicit_head_width_biases_gqa_and_interleaved_rope ... ok
+test transformer::tests::ernie4_5_moe_contract_maps_hybrid_schedule_shared_experts_and_corrected_router ... ok
+test transformer::tests::ernie4_5_moe_loader_reads_corrected_router_packed_experts_and_biased_shared_mlp ... ok
+test transformer::tests::ernie_contract_reuses_bert_math_and_accepts_task_type_embeddings ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 1174 filtered out; finished in 0.03s
+

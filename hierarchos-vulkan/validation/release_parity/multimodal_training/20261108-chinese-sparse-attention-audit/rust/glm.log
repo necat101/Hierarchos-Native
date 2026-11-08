@@ -1,0 +1,21 @@
+
+running 16 tests
+test transformer::tests::glm4_checkpoint_loader_maps_all_four_rmsnorms_and_fused_gate_up ... ok
+test transformer::tests::glm4_contract_adds_four_norm_residual_topology_to_glm_math ... ok
+test transformer::tests::glm4_moe_lite_constructor_defaults_and_layer_types_match_hf ... ok
+test transformer::tests::glm4_moe_lite_reuses_exact_mla_and_glm_packed_moe_contracts ... ok
+test transformer::tests::glm5_kda_recurrent_split_resume_matches_monolithic ... ok
+test transformer::tests::glm5_next_checkpoint_export_round_trips_kda_mhc_and_moe ... ok
+test transformer::tests::glm5_next_generation_kv_cache_matches_full_prefix_logits ... ok
+test transformer::tests::glm5_next_kda_recurrent_matches_hf_forward_and_backward ... ok
+test transformer::tests::glm5_next_peft_round_trips_supported_kda_and_shared_expert_linears ... ok
+test transformer::tests::glm_checkpoint_loader_splits_fused_gate_up_and_reads_qkv_biases ... ok
+test transformer::tests::glm_contract_maps_fused_gate_up_gqa_and_partial_interleaved_rope ... ok
+test transformer::tests::glm_moe_dsa_checkpoint_export_preserves_full_and_shared_indexer_schedule ... ok
+test transformer::tests::glm_moe_dsa_contract_matches_hf_indexer_schedule_and_aliases ... ok
+test transformer::tests::xglm_checkpoint_loader_synthesizes_nonpersistent_positions_and_reads_hf_weights ... ok
+test transformer::tests::xglm_contract_maps_fixed_sinusoidal_positions_dropout_and_split_qkv ... ok
+test transformer::tests::xglm_cross_attention_loader_reads_hf_encoder_attention_layout ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 1163 filtered out; finished in 1.02s
+

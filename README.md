@@ -414,6 +414,7 @@ parity and PEFT qualification are separate gates.
 | **Phase XVIII complete replay** | Two complete nine-stage runs, 9/9 each: 77/77 shared-image, 6/6 seq2seq, 4/4 Gemma3, 4/4 LLaVA, 166/166 text, 218/218 active DeepSeek (26 ignored), 30/30 native V4.1 | [Phase XVIII receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-replay-reliability/README.md) · [path repair](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-path-smoke-repair/README.md) |
 | **Current-source GPT-2** | 16/16 frozen shapes, worst `5.960464477539063e-08`; current-source guard PASS at `b173653...` | [Current qualification](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-path-smoke-repair/gpt2/current-qualification.json) |
 | **Final architecture verification** | `3f0aaf5`: 9/9 stages, 507 cases/tests, worst logit `1.7881393432617188e-07`; full Rust suite **1,139 passed / 0 failed / 40 ignored**; batch-1 5/5 positive | [Final receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-final-architecture-verification/README.md) |
+| **Chinese families and sparse attention** | `60a14d9`: 37/37 frozen Chinese cases, 218/218 DeepSeek tests, 30/30 native V4.1; worst strict logit `5.960464477539063e-08`; no production changes | [Audit receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-chinese-sparse-attention-audit/README.md) |
 | **Full Rust library (Phase XIV)** | 1,135 passed, 40 ignored, 0 failed in three parallel and one serial run | [Phase XIV receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase14-qualification/README.md) |
 
 These are retained scalable-checkpoint results. The AMD follow-up did not rerun on
@@ -421,6 +422,44 @@ physical Intel hardware. Test filters overlap, so the counts are not additive un
 test totals. The measured architecture matrix covers 26 identifiers, not the entire
 146-entry registry; all-profile CPU PEFT training and production throughput are
 outside that matrix. [Current validation scope](VALIDATION_STATUS.md).
+
+### Chinese Model Families & Sparse Attention Qualification
+
+The **2026-11-08 audit at `60a14d9`** checked the existing qualified Chinese-model
+paths without reopening the optimization campaign. The frozen shared-image
+matrix covers full-parameter image-text training; the native suites add sparse
+cache, compressor, backward and export/resume checks.
+
+| Group | Profiles | Cases | Verified sparse / state path | Worst logit |
+| --- | ---: | ---: | --- | ---: |
+| Qwen2 / Qwen2.5 | 3 | 6 | Dense/GQA control; sliding-window and tied embeddings | `5.960464477539063e-08` |
+| Qwen3-Next | 1 | 2 | Linear/full hybrid | `5.960464477539063e-08` |
+| Qwen3.5 | 4 | 8 | Full attention, Gated DeltaNet, hybrid and MoE | `5.960464477539063e-08` |
+| Qwen4 Experimental | 4 | 8 | QSA compressed-block top-k, GR/PLE caches and MoE | `4.470348358154297e-08` |
+| DeepSeek V4 | 1 | 2 | V4 text path | `5.960464477539063e-08` |
+| DeepSeek V4.1 Flash | 1 | 218 + 30 native | Compressed top-k, ring cache, compressor and backward | `0.0` logits; `1.7881393432617188e-07` compressor |
+| Kimi K2.5 / K3 | 4 | 5 | KDA, MLA and text backbone | `4.470348358154297e-08` |
+| MiniMax M2 / M3 | 3 | 6 | Lightning Indexer block selection and local blocks | `5.960464477539063e-08` |
+| **Total** | **20 shared + 1 native** | **37 shared + 248 native** | Sparse attention and sparse MoE kept as separate checks | **`5.960464477539063e-08` shared** |
+
+All 37 shared-image cases passed the strict logit gate (`max_abs < 2e-7`,
+`rtol=0`); the existing loss gate is `2e-5`, and parameter/gradient checks retain
+their canonical metrics. Qwen4 QSA uses a two-token budget with compression ratio
+2, complete-block selection and trailing visible tokens; MiniMax M3 uses a
+one-block top-k with a local block; DeepSeek V4.1 uses explicit `-1` invalid slots
+and window/compressed gathers. The first shared-image invocation used the wrong
+executable and failed before comparison; it is preserved as `attempt1`, and the
+corrected probe passed 37/37. No production source or shader was changed.
+
+Live Transformers/PyTorch generation, AdamW and roundtrip oracles are **blocked**
+because torch cannot load on this host. Other registered-only paths (GLM/GLM4-MoE,
+Hunyuan, ERNIE, LongCat, Qwen2-MoE, Qwen3/Qwen3-MoE, DeepSeek V2/V3 and Kimi K2)
+remain **registered / not fully qualified** for complete frozen-logit end-to-end
+coverage. Batch-4 sparse-specific coverage is
+not present. No new performance comparison is claimed; the established
+five-workload ViT/Llama/GPT-2/T5 receipt remains separate. See the
+[full audit receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-chinese-sparse-attention-audit/README.md)
+for logs, hashes and the verifier.
 
 ### CI and hardware status
 
@@ -610,6 +649,7 @@ strict parity results and the remaining architecture work.
 | Nine-stage replay and path repair | [Phase XVIII receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-replay-reliability/README.md) · [repair evidence](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-path-smoke-repair/README.md) |
 | Performance and full-suite history | [Phase XIV receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase14-qualification/README.md) |
 | Final architecture and session verification | [Final receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-final-architecture-verification/README.md) |
+| Chinese families and sparse attention | [Audit receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-chinese-sparse-attention-audit/README.md) |
 | Device performance and numerical routing | [Vendor tuning](hierarchos-vulkan/VENDOR_TUNING.md) · [AMD audit](AMD_REGRESSION_AUDIT.md) |
 | Original physical ROG Ally qualification | [Qualification](RDNA3_QUALIFICATION.md) · [Handoff](ROG_ALLY_HANDOFF.md) |
 | Implementation history | [DeepSeek V4.1 audit](PROGRESS_DEEPSEEK_V41_AUDIT.md) · [Kimi K3 audit](PROGRESS_K3_AUDIT.md) |

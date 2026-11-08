@@ -1,0 +1,46 @@
+
+running 41 tests
+test transformer::tests::bias_all_round_trips_dense_qwen2_qkv_biases ... ok
+test transformer::tests::dots1_contract_maps_qwen3_attention_and_deepseek_style_moe ... ok
+test transformer::tests::ministral_contract_parses_bias_free_qwen2_layout_and_layer_attention_types ... ok
+test transformer::tests::qwen2_checkpoint_loader_applies_attention_bias_only_to_qkv ... ok
+test transformer::tests::qwen2_contract_parses_gqa_and_layer_attention_types ... ok
+test transformer::tests::qwen2_moe_contract_maps_shared_expert_and_router_semantics ... ok
+test transformer::tests::qwen2_moe_loader_reads_current_hf_packed_experts_and_shared_expert ... ok
+test transformer::tests::qwen2_vl_text_contract_normalizes_nested_multimodal_config_and_mrope ... ok
+test transformer::tests::qwen3_contract_parses_standard_rope_qk_rmsnorm_and_layer_attention_types ... ok
+test transformer::tests::qwen3_moe_contract_maps_standard_sparse_topology_and_router_semantics ... ok
+test transformer::tests::qwen3_moe_loader_reads_current_hf_packed_experts_and_router ... ok
+test transformer::tests::qwen3_next_gated_delta_end_to_end_backward_matches_finite_difference ... ok
+test transformer::tests::qwen3_omni_and_kimi_k25_wrappers_reuse_native_text_graphs ... ok
+test transformer::tests::qwen3_vl_text_wrappers_normalize_to_native_qwen3_graphs ... ok
+test transformer::tests::qwen4_checkpoint_export_round_trips_file_backed_ple_hyper_connections_and_moe ... ok
+test transformer::tests::qwen4_exp_accepts_legacy_and_modern_indexer_layer_types ... ok
+test transformer::tests::qwen4_export_payload_patch_preserves_dtype_and_applies_sparse_decay ... ok
+test transformer::tests::qwen4_grouped_rms_norm_matches_reference_forward_and_backward ... ok
+test transformer::tests::qwen4_hyper_connection_loader_matches_hf_text_and_wrapper_layout ... ok
+test transformer::tests::qwen4_hyper_connection_matches_hf_forward_and_numerical_input_gradient ... ok
+test transformer::tests::qwen4_multimodal_package_uses_nested_text_config ... ok
+test transformer::tests::qwen4_peft_round_trips_deltanet_ple_and_hyper_connection_linears ... ok
+test transformer::tests::qwen4_ple_cached_ngram_rows_match_full_prefix_across_eos_boundaries ... ok
+test transformer::tests::qwen4_ple_dilated_depthwise_cached_update_matches_full_prefix ... ok
+test transformer::tests::qwen4_ple_dilated_depthwise_conv_matches_reference_forward_and_backward ... ok
+test transformer::tests::qwen4_ple_gate_matches_hf_forward_and_backward ... ok
+test transformer::tests::qwen4_ple_ngram_layout_matches_hf_hashing_and_eos_boundaries ... ok
+test transformer::tests::qwen4_ple_row_gather_matches_the_whole_tensor_decode_and_batches_by_tile ... ok
+test transformer::tests::qwen4_ple_sparse_embedding_adamw_matches_dense_touched_row_semantics ... ok
+test transformer::tests::qwen4_qsa_cached_generation_matches_full_prefix_rows ... ok
+test transformer::tests::qwen4_qsa_vulkan_matches_hf_visible_block_selection_with_left_padding ... ok
+test transformer::tests::qwen4_terminal_hyper_mixer_replaces_final_norm ... ok
+test transformer::tests::qwen4_transformer_layer_hyper_connections_match_hf_branch_boundaries ... ok
+test transformer::tests::qwen4_two_branch_injection_chain_matches_hf_forward_and_backward ... ok
+test transformer::tests::qwen_gated_delta_cached_depthwise_causal_conv_update_matches_reference ... ok
+test transformer::tests::qwen_gated_delta_depthwise_causal_conv_matches_reference ... ok
+test transformer::tests::qwen_gated_delta_packed_backward_matches_finite_difference ... ok
+test transformer::tests::qwen_gated_delta_recurrent_matches_transformers_reference ... ok
+test transformer::tests::qwen_gdn_params_kernel_applies_the_pushed_beta_scale ... ok
+test transformer::tests::qwen_hybrid_moe_checkpoint_export_round_trips_gated_delta_and_shared_experts ... ok
+test transformer::tests::qwen_hybrid_query_gate_pack_is_inverse_of_checkpoint_split ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 1138 filtered out; finished in 3.31s
+

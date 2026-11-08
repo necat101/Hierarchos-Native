@@ -1,0 +1,51 @@
+
+running 5 tests
+test deepseek_v41::attention_grad::tests::deepseek_v41_attention_adjoint_crosses_dispatch_axis_bound ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_cache_write_adjoints_cpu_pytorch_strict ... V4.1 attention adjoint cache source: 48 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache previous: 80 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache source: 112 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache previous: 48 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache source: 16 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache previous: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache source: 24 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache previous: 32 values, worst 0.00000000000000000e0 at 0
+ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_grouped_output_adjoints_cpu_pytorch_strict ... V4.1 attention adjoint grouped 1x2x16 rank 4: 32 values, worst 1.49011611938476562e-8 at 9
+V4.1 attention adjoint grouped 4x2x32 rank 16: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint grouped 2x8x64 rank 32: 1024 values, worst 1.78813934326171875e-7 at 26
+ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_rotary_adjoints_cpu_pytorch_strict ... V4.1 attention adjoint RoPE inverse=false: 144 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint RoPE inverse=true: 144 values, worst 0.00000000000000000e0 at 0
+ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_sparse_attention_adjoints_cpu_pytorch_strict ... V4.1 attention adjoint prefill-compressed Q: 48 values, worst 1.86264514923095703e-9 at 22
+V4.1 attention adjoint prefill-compressed window KV: 24 values, worst 2.98023223876953125e-8 at 2
+V4.1 attention adjoint prefill-compressed Q.K: 30 values, worst 3.72529029846191406e-9 at 28
+V4.1 attention adjoint prefill-compressed compressed KV: 16 values, worst 1.49011611938476562e-8 at 14
+V4.1 attention adjoint prefill-compressed forward: 48 values, worst 1.49011611938476562e-8 at 19
+V4.1 attention adjoint sliding-only Q: 64 values, worst 9.31322574615478516e-10 at 42
+V4.1 attention adjoint sliding-only window KV: 32 values, worst 5.96046447753906250e-8 at 4
+V4.1 attention adjoint sliding-only Q.K: 32 values, worst 1.86264514923095703e-9 at 29
+V4.1 attention adjoint sliding-only forward: 64 values, worst 1.49011611938476562e-8 at 22
+V4.1 attention adjoint batch-shared-cache Q: 192 values, worst 3.72529029846191406e-9 at 51
+V4.1 attention adjoint batch-shared-cache window KV: 128 values, worst 2.98023223876953125e-8 at 0
+V4.1 attention adjoint batch-shared-cache Q.K: 60 values, worst 2.44472175836563110e-9 at 38
+V4.1 attention adjoint batch-shared-cache compressed KV: 96 values, worst 1.49011611938476562e-8 at 24
+V4.1 attention adjoint batch-shared-cache forward: 192 values, worst 2.98023223876953125e-8 at 134
+V4.1 attention adjoint narrow-blas Q: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint narrow-blas window KV: 128 values, worst 3.72529029846191406e-9 at 109
+V4.1 attention adjoint narrow-blas Q.K: 96 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint narrow-blas compressed KV: 64 values, worst 7.45058059692382812e-9 at 21
+V4.1 attention adjoint narrow-blas forward: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint long-softmax Q: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint long-softmax window KV: 640 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint long-softmax Q.K: 184 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint long-softmax compressed KV: 128 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint long-softmax forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint released-heads-and-width Q: 65536 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint released-heads-and-width window KV: 65536 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint released-heads-and-width Q.K: 16384 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint released-heads-and-width forward: 65536 values, worst 0.00000000000000000e0 at 0
+ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 1174 filtered out; finished in 1.27s
+

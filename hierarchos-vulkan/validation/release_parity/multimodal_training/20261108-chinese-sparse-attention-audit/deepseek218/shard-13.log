@@ -1,0 +1,90 @@
+
+running 8 tests
+test deepseek_v41::model::tests::deepseek_v41_model_additional_seeds_and_top3_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_bf16_residual_hc_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_checkpoint_requires_engram_artifacts_and_exact_owned_parameters ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_exports_complete_fp32_diagnostic_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_input_rejection_preserves_state_and_partial_failure_requires_prefill ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_packed_attention_indexer_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_packed_experts_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_single_sharded_bf16_and_raw_weights_are_identical ... ok
+
+successes:
+
+---- deepseek_v41::model::tests::deepseek_v41_model_additional_seeds_and_top3_strict_all_logits stdout ----
+V4.1 strict seed 4141018, odd-prefill: 1.78813934326171875e-7
+V4.1 strict seed 4141018, group-completing-decode: 1.19209289550781250e-7
+V4.1 strict seed 4141018, incomplete-group-decode: 0.00000000000000000e0
+V4.1 strict seed 4141018, ring-wrap-decode: 0.00000000000000000e0
+V4.1 strict seed 4141018, shorter-reset: 0.00000000000000000e0
+V4.1 strict seed 4141018, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 strict seed 4141019, odd-prefill: 0.00000000000000000e0
+V4.1 strict seed 4141019, group-completing-decode: 0.00000000000000000e0
+V4.1 strict seed 4141019, incomplete-group-decode: 5.96046447753906250e-8
+V4.1 strict seed 4141019, ring-wrap-decode: 0.00000000000000000e0
+V4.1 strict seed 4141019, shorter-reset: 0.00000000000000000e0
+V4.1 strict seed 4141019, short-prefill-group-completion: 0.00000000000000000e0
+
+---- deepseek_v41::model::tests::deepseek_v41_model_bf16_residual_hc_strict_all_logits stdout ----
+V4.1 packed full logits seed 4141061, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, short-prefill-group-completion: 0.00000000000000000e0
+
+---- deepseek_v41::model::tests::deepseek_v41_model_exports_complete_fp32_diagnostic_logits stdout ----
+V4.1 full-model FP32 diagnostic odd-prefill: 160 logits, max drift 0.00000000000000000e0
+V4.1 full-model FP32 diagnostic group-completing-decode: 32 logits, max drift 0.00000000000000000e0
+V4.1 full-model FP32 diagnostic incomplete-group-decode: 32 logits, max drift 0.00000000000000000e0
+V4.1 full-model FP32 diagnostic ring-wrap-decode: 32 logits, max drift 0.00000000000000000e0
+V4.1 full-model FP32 diagnostic shorter-reset: 32 logits, max drift 0.00000000000000000e0
+V4.1 full-model FP32 diagnostic short-prefill-group-completion: 32 logits, max drift 0.00000000000000000e0
+
+---- deepseek_v41::model::tests::deepseek_v41_model_packed_attention_indexer_strict_all_logits stdout ----
+V4.1 packed full logits seed 4141051, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141051, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141051, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141051, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141051, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141051, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141052, odd-prefill: 1.19209289550781250e-7
+V4.1 packed full logits seed 4141052, group-completing-decode: 5.96046447753906250e-8
+V4.1 packed full logits seed 4141052, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141052, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141052, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141052, short-prefill-group-completion: 0.00000000000000000e0
+
+---- deepseek_v41::model::tests::deepseek_v41_model_packed_experts_strict_all_logits stdout ----
+V4.1 packed full logits seed 4141041, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, short-prefill-group-completion: 0.00000000000000000e0
+
+
+successes:
+    deepseek_v41::model::tests::deepseek_v41_model_additional_seeds_and_top3_strict_all_logits
+    deepseek_v41::model::tests::deepseek_v41_model_bf16_residual_hc_strict_all_logits
+    deepseek_v41::model::tests::deepseek_v41_model_checkpoint_requires_engram_artifacts_and_exact_owned_parameters
+    deepseek_v41::model::tests::deepseek_v41_model_exports_complete_fp32_diagnostic_logits
+    deepseek_v41::model::tests::deepseek_v41_model_input_rejection_preserves_state_and_partial_failure_requires_prefill
+    deepseek_v41::model::tests::deepseek_v41_model_packed_attention_indexer_strict_all_logits
+    deepseek_v41::model::tests::deepseek_v41_model_packed_experts_strict_all_logits
+    deepseek_v41::model::tests::deepseek_v41_model_single_sharded_bf16_and_raw_weights_are_identical
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 6.24s
+

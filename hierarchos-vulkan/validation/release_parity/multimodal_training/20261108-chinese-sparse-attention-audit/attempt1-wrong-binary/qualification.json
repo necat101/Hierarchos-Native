@@ -1,0 +1,269 @@
+{
+  "schema": 1,
+  "scope": "shared_clip_full_parameter_image_text_training",
+  "absolute_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "target": "rdna3",
+  "binary_sha256": "cc558cc72012bc5bb0362093af6f9a3b5e8bdf07fdda06be3883d24d200dad62",
+  "runner_sha256": "91de8d26f4fc3b180d2a1a54fee5130f3a487fcface38f0a3ed16e630d37ee02",
+  "fixtures_sha256": "d5e1eea4b055e147831e4ec50b381d308cbbfaa3e17675d50fe9d592600ed3f3",
+  "expected_cases": 34,
+  "completed_cases": 34,
+  "complete": true,
+  "results": [
+    {
+      "case": "qwen2/unmasked",
+      "profile": "qwen2",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen2/padded",
+      "profile": "qwen2",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen2_5_gqa/unmasked",
+      "profile": "qwen2_5_gqa",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen2_5_gqa/padded",
+      "profile": "qwen2_5_gqa",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen2_5_sliding_tied/unmasked",
+      "profile": "qwen2_5_sliding_tied",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen2_5_sliding_tied/padded",
+      "profile": "qwen2_5_sliding_tied",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "kimi_k25_text/unmasked",
+      "profile": "kimi_k25_text",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "kimi_k25_text/padded",
+      "profile": "kimi_k25_text",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "deepseek_v4/unmasked",
+      "profile": "deepseek_v4",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "deepseek_v4/padded",
+      "profile": "deepseek_v4",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen3_5_full/unmasked",
+      "profile": "qwen3_5_full",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen3_5_full/padded",
+      "profile": "qwen3_5_full",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen3_5_linear/unmasked",
+      "profile": "qwen3_5_linear",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen3_5_linear/padded",
+      "profile": "qwen3_5_linear",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen3_5_mixed/unmasked",
+      "profile": "qwen3_5_mixed",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen3_5_mixed/padded",
+      "profile": "qwen3_5_mixed",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen3_5_moe/unmasked",
+      "profile": "qwen3_5_moe",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen3_5_moe/padded",
+      "profile": "qwen3_5_moe",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen4_exp_linear/unmasked",
+      "profile": "qwen4_exp_linear",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen4_exp_linear/padded",
+      "profile": "qwen4_exp_linear",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen4_exp_qsa/unmasked",
+      "profile": "qwen4_exp_qsa",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen4_exp_qsa/padded",
+      "profile": "qwen4_exp_qsa",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen4_exp_ple/unmasked",
+      "profile": "qwen4_exp_ple",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen4_exp_ple/padded",
+      "profile": "qwen4_exp_ple",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen4_exp_mixed_ple/unmasked",
+      "profile": "qwen4_exp_mixed_ple",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen4_exp_mixed_ple/padded",
+      "profile": "qwen4_exp_mixed_ple",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "minimax_m2/unmasked",
+      "profile": "minimax_m2",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "minimax_m2/padded",
+      "profile": "minimax_m2",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "minimax_m3_dense/unmasked",
+      "profile": "minimax_m3_dense",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "minimax_m3_dense/padded",
+      "profile": "minimax_m3_dense",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "minimax_m3/unmasked",
+      "profile": "minimax_m3",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "minimax_m3/padded",
+      "profile": "minimax_m3",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen3_next/unmasked",
+      "profile": "qwen3_next",
+      "pass": false,
+      "exit_code": 101
+    },
+    {
+      "case": "qwen3_next/padded",
+      "profile": "qwen3_next",
+      "pass": false,
+      "exit_code": 101
+    }
+  ],
+  "missing_green_profiles": [
+    "bart",
+    "bert",
+    "dbrx",
+    "deepseek_v4",
+    "deepseek_v41_scalable",
+    "falcon_h1_gated_after",
+    "falcon_h1_gated_before",
+    "falcon_h1_silu",
+    "gemma3",
+    "gemma3_softcap_tied",
+    "gemma4",
+    "gpt2",
+    "gpt2_wide",
+    "gpt_oss",
+    "kimi_k25_text",
+    "kimi_k3_kda",
+    "kimi_k3_mla",
+    "kimi_k3_text",
+    "llama",
+    "llama_wide",
+    "minimax_m2",
+    "minimax_m3",
+    "minimax_m3_dense",
+    "mistral",
+    "mistral4",
+    "mixtral",
+    "phi3",
+    "phi4_multimodal_text",
+    "qwen2",
+    "qwen2_5_gqa",
+    "qwen2_5_sliding_tied",
+    "qwen3_5_full",
+    "qwen3_5_linear",
+    "qwen3_5_mixed",
+    "qwen3_5_moe",
+    "qwen3_next",
+    "qwen4_exp_linear",
+    "qwen4_exp_mixed_ple",
+    "qwen4_exp_ple",
+    "qwen4_exp_qsa",
+    "smollm3",
+    "smollm3_yarn",
+    "switch_transformers",
+    "t5"
+  ],
+  "all_green_backbones_qualified": false,
+  "pass": false,
+  "aten_vector_width": 16
+}

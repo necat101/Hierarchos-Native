@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "source_commit": "60a14d9b0bfc382722570e6632873b0a9b2234d8",
+  "source_tree_clean_at_capture": true,
+  "production_numerical_sources_changed": false,
+  "captured_utc": "2026-11-08T23:29:00.978396+00:00",
+  "source_hashes": {
+    "hierarchos-vulkan/src/lib.rs": "d5e685df6f761a35364d54264fd70e6b6480544ae9f40c3e95d991bdd2841588",
+    "hierarchos-vulkan/src/transformer.rs": "c4d801b5df1a43ad66c75ea9f90113379babc9721c7f3df332079b4b9e9c3e45",
+    "hierarchos-vulkan/src/deepseek_v41/attention.rs": "ae3fd6ac853e2f5cd78f386539451d0f5af56d6fb285e4d0a5d94a01912b5c70",
+    "hierarchos-vulkan/validation/qualify_shared_image_pipeline.py": "91de8d26f4fc3b180d2a1a54fee5130f3a487fcface38f0a3ed16e630d37ee02",
+    "hierarchos-vulkan/validation/qualify_rdna3_deepseek_suite.py": "466a414822d54d3cd9345bab1cc91a9737a2ec75402e3aab99197c30e03b3563",
+    "hierarchos-vulkan/validation/qualify_deepseek_v41_native_pipeline.py": "e9af8b0ce6337ef2d582909a95e728d9df9da00b15561d4a5614741aba664fa9"
+  },
+  "binaries": {
+    "libtest": {
+      "path": "target/debug/deps/hierarchos_vulkan-2f708da7cb986ebb.exe",
+      "sha256": "cc558cc72012bc5bb0362093af6f9a3b5e8bdf07fdda06be3883d24d200dad62"
+    },
+    "image_text_pipeline_probe": {
+      "path": "target/debug/image_text_pipeline_probe.exe",
+      "sha256": "33fa39728c9084d6c1fc6eb988e2d5fdefc98b8b17c03a8047025e4158e53dc2"
+    }
+  },
+  "frozen_shared_fixture": {
+    "path": "target/rdna3-port/gen9-frozen/target/multimodal-gen9/shared-image-cpu-v3",
+    "manifest_sha256": "a98dc5c32f4ba044b59a7a1e03fcac2b32d234ae12fde7af8ca3b1ff00cad1be",
+    "cases": 77
+  },
+  "frozen_policy": {
+    "absolute_logit_limit": 2e-07,
+    "rtol": 0,
+    "comparison": "strict_less_than",
+    "loss_absolute_limit": 2e-05
+  },
+  "oracle": {
+    "shared_image": "frozen Gen9 CPU AVX2 reference; no candidate-generated answers",
+    "native_v41": "authenticated AVX2 fixture set and native CPU branches",
+    "live_transformers": "BLOCKED: torch import fails with WinError 126 (shm.dll)"
+  }
+}

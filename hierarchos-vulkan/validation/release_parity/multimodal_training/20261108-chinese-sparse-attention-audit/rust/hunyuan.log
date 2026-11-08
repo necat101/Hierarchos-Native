@@ -1,0 +1,9 @@
+
+running 4 tests
+test transformer::tests::hunyuan_v1_dense_checkpoint_loader_reads_post_rope_qk_norms ... ok
+test transformer::tests::hunyuan_v1_dense_contract_maps_post_rope_qk_norm_and_gqa ... ok
+test transformer::tests::hunyuan_v1_moe_contract_maps_dense_attention_and_packed_moe ... ok
+test transformer::tests::hunyuan_v1_moe_loader_reads_hf_router_packed_experts_and_shared_mlp ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 1175 filtered out; finished in 0.03s
+

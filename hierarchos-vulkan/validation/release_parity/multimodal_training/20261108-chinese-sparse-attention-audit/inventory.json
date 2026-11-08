@@ -1,0 +1,237 @@
+{
+  "schema": 1,
+  "qualified": [
+    {
+      "family": "Qwen2 / Qwen2.5",
+      "profiles": [
+        "qwen2",
+        "qwen2_5_gqa",
+        "qwen2_5_sliding_tied"
+      ],
+      "native_models": [
+        "qwen2"
+      ],
+      "inference": "forward; native cache tests in shared matrix",
+      "training": "2-step full-parameter image-text training",
+      "sparse_path": "dense/GQA control; sliding-window/tied-embedding variant",
+      "oracle": "frozen shared-image CPU AVX2",
+      "cases": 6,
+      "tolerance": "logits <2e-7, rtol=0; loss <2e-5",
+      "worst_logit": 5.960464477539063e-08,
+      "verdict": "PASS"
+    },
+    {
+      "family": "Qwen3-Next",
+      "profiles": [
+        "qwen3_next"
+      ],
+      "native_models": [
+        "qwen3_next"
+      ],
+      "inference": "forward",
+      "training": "2-step full-parameter image-text training",
+      "sparse_path": "linear/full hybrid schedule",
+      "oracle": "frozen shared-image CPU AVX2",
+      "cases": 2,
+      "tolerance": "logits <2e-7, rtol=0; loss <2e-5",
+      "worst_logit": 5.960464477539063e-08,
+      "verdict": "PASS"
+    },
+    {
+      "family": "Qwen3.5",
+      "profiles": [
+        "qwen3_5_full",
+        "qwen3_5_linear",
+        "qwen3_5_mixed",
+        "qwen3_5_moe"
+      ],
+      "native_models": [
+        "qwen3_5",
+        "qwen3_5_moe"
+      ],
+      "inference": "forward; native recurrent/cache component tests",
+      "training": "2-step full-parameter image-text training",
+      "sparse_path": "full attention, Gated DeltaNet, hybrid DeltaNet/full, MoE",
+      "oracle": "frozen shared-image CPU AVX2",
+      "cases": 8,
+      "tolerance": "logits <2e-7, rtol=0; loss <2e-5",
+      "worst_logit": 5.960464477539063e-08,
+      "verdict": "PASS"
+    },
+    {
+      "family": "Qwen4 Experimental",
+      "profiles": [
+        "qwen4_exp_linear",
+        "qwen4_exp_qsa",
+        "qwen4_exp_ple",
+        "qwen4_exp_mixed_ple"
+      ],
+      "native_models": [
+        "qwen4_exp_text"
+      ],
+      "inference": "forward; QSA/PLE cached-generation component tests",
+      "training": "2-step full-parameter image-text training",
+      "sparse_path": "QSA top-k compressed blocks, trailing tokens, left padding, GR/PLE caches, MoE/shared experts",
+      "oracle": "frozen shared-image CPU AVX2; native QSA mask equality",
+      "cases": 8,
+      "tolerance": "logits <2e-7, rtol=0; loss <2e-5",
+      "worst_logit": 4.470348358154297e-08,
+      "verdict": "PASS"
+    },
+    {
+      "family": "DeepSeek V4",
+      "profiles": [
+        "deepseek_v4"
+      ],
+      "native_models": [
+        "deepseek_v4"
+      ],
+      "inference": "forward",
+      "training": "2-step full-parameter image-text training",
+      "sparse_path": "DeepSeek V4 text path; not the V4.1 compressed-memory path",
+      "oracle": "frozen shared-image CPU AVX2",
+      "cases": 2,
+      "tolerance": "logits <2e-7, rtol=0; loss <2e-5",
+      "worst_logit": 5.960464477539063e-08,
+      "verdict": "PASS"
+    },
+    {
+      "family": "DeepSeek V4.1 Flash",
+      "profiles": [
+        "deepseek_v41"
+      ],
+      "native_models": [
+        "deepseek_v41"
+      ],
+      "inference": "native causal LM; sparse prefill/decode, ring cache, invalid slots",
+      "training": "218-test native suite plus 30-test native pipeline; 2-step/LoRA/resume/export",
+      "sparse_path": "compressed top-k + sliding ring; compressor prefill/decode/backward; indexer",
+      "oracle": "authenticated frozen AVX2 fixtures",
+      "cases": 218,
+      "native_pipeline_cases": 30,
+      "tolerance": "strict 2e-7 logits; canonical component tolerances separately",
+      "worst_logit": 0.0,
+      "worst_component": 1.7881393432617188e-07,
+      "verdict": "PASS"
+    },
+    {
+      "family": "Kimi K2.5 / K3",
+      "profiles": [
+        "kimi_k25_text",
+        "kimi_k3_kda",
+        "kimi_k3_mla",
+        "kimi_k3_text"
+      ],
+      "native_models": [
+        "kimi_k25",
+        "kimi_linear"
+      ],
+      "inference": "forward; KDA/MLA native component paths",
+      "training": "2-step full-parameter image-text training",
+      "sparse_path": "KDA recurrent/linear, MLA latent attention, text K3",
+      "oracle": "frozen shared-image CPU AVX2",
+      "cases": 5,
+      "tolerance": "logits <2e-7, rtol=0; loss <2e-5",
+      "worst_logit": 4.470348358154297e-08,
+      "verdict": "PASS"
+    },
+    {
+      "family": "MiniMax M2 / M3",
+      "profiles": [
+        "minimax_m2",
+        "minimax_m3_dense",
+        "minimax_m3"
+      ],
+      "native_models": [
+        "minimax_m2",
+        "minimax_m3_vl_text"
+      ],
+      "inference": "forward; M3 sparse-cache generation component test",
+      "training": "2-step full-parameter image-text training",
+      "sparse_path": "M3 Lightning Indexer block selection/local blocks vs dense control",
+      "oracle": "frozen shared-image CPU AVX2; native cache equality",
+      "cases": 6,
+      "tolerance": "logits <2e-7, rtol=0; loss <2e-5",
+      "worst_logit": 5.960464477539063e-08,
+      "verdict": "PASS"
+    }
+  ],
+  "registered_but_not_fully_qualified": [
+    {
+      "family": "Qwen2-MoE",
+      "native_models": [
+        "qwen2_moe"
+      ],
+      "evidence": "contract/loader tests only"
+    },
+    {
+      "family": "Qwen3",
+      "native_models": [
+        "qwen3"
+      ],
+      "evidence": "contract/loader tests only"
+    },
+    {
+      "family": "Qwen3-MoE",
+      "native_models": [
+        "qwen3_moe"
+      ],
+      "evidence": "contract/loader tests only"
+    },
+    {
+      "family": "DeepSeek V2 / V3 / V3.2",
+      "native_models": [
+        "deepseek_v2",
+        "deepseek_v3",
+        "deepseek_v32"
+      ],
+      "evidence": "registered path; no complete frozen-logit audit in this pass"
+    },
+    {
+      "family": "GLM / GLM4 / GLM4-MoE",
+      "native_models": [
+        "glm",
+        "glm4",
+        "glm4_moe"
+      ],
+      "evidence": "16 matching parser/component tests; no end-to-end numerical oracle"
+    },
+    {
+      "family": "GLM5 Next",
+      "native_models": [
+        "glm5_next"
+      ],
+      "evidence": "KDA/shared-expert PEFT component tests; no complete numerical oracle"
+    },
+    {
+      "family": "Hunyuan V1 dense / MoE",
+      "native_models": [
+        "hunyuan_v1_dense",
+        "hunyuan_v1_moe"
+      ],
+      "evidence": "4 matching loader tests; no numerical oracle"
+    },
+    {
+      "family": "ERNIE 4.5 dense / MoE",
+      "native_models": [
+        "ernie4_5",
+        "ernie4_5_moe"
+      ],
+      "evidence": "5 matching contract tests; no numerical oracle"
+    },
+    {
+      "family": "LongCat Flash",
+      "native_models": [
+        "longcat_flash"
+      ],
+      "evidence": "registered parser; 0 matching tests in this pass"
+    },
+    {
+      "family": "Kimi K2",
+      "native_models": [
+        "kimi_k2"
+      ],
+      "evidence": "registered path; K2.5/K3 qualified separately"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "verdict": "PASS",
+  "source_commit": "60a14d9b0bfc382722570e6632873b0a9b2234d8",
+  "no_production_changes": true,
+  "frozen_shared_cases": 37,
+  "deepseek_active_tests": 218,
+  "native_v41_tests": 30,
+  "full_rust_suite": {
+    "passed": 1139,
+    "failed": 0,
+    "ignored": 40
+  },
+  "worst_shared_logit": 5.960464477539063e-08,
+  "worst_shared_loss": 7.152557373046875e-07,
+  "deepseek_worst_compressor": 1.7881393432617188e-07,
+  "native_v41_logit": 0.0,
+  "repairs": [],
+  "performance": "NOT_COMPARABLE"
+}

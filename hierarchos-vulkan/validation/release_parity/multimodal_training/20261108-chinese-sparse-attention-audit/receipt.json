@@ -1,0 +1,196 @@
+{
+  "schema": 1,
+  "audit": "chinese_model_families_and_sparse_attention",
+  "audit_date_utc": "2026-11-08",
+  "source_commit": "60a14d9b0bfc382722570e6632873b0a9b2234d8",
+  "source_tree_clean_at_start": true,
+  "production_changes": [],
+  "verdict": "PASS",
+  "scope": {
+    "qualified_shared_profiles": 20,
+    "frozen_shared_cases": 37,
+    "deepseek_active_tests": 218,
+    "deepseek_ignored_inventory": 26,
+    "native_v41_tests": 30,
+    "targeted_filter_executions": 149,
+    "full_rust_suite": {
+      "passed": 1139,
+      "failed": 0,
+      "ignored": 40
+    }
+  },
+  "shared_image": {
+    "pass": true,
+    "complete": true,
+    "target": "rdna3",
+    "cases": 37,
+    "checks": 6923,
+    "absolute_limit": 2e-07,
+    "rtol": 0,
+    "comparison": "strict_less_than",
+    "loss_absolute_limit": 2e-05,
+    "worst_logit": 5.960464477539063e-08,
+    "worst_loss": 7.152557373046875e-07,
+    "worst_parameter": 1.1920928955078125e-07,
+    "groups": [
+      {
+        "family": "Qwen2 / Qwen2.5 text",
+        "profiles": [
+          "qwen2",
+          "qwen2_5_gqa",
+          "qwen2_5_sliding_tied"
+        ],
+        "cases": 6,
+        "worst_logit": 5.960464477539063e-08,
+        "pass": true
+      },
+      {
+        "family": "Qwen3-Next",
+        "profiles": [
+          "qwen3_next"
+        ],
+        "cases": 2,
+        "worst_logit": 5.960464477539063e-08,
+        "pass": true
+      },
+      {
+        "family": "Qwen3.5 full / linear / hybrid / MoE",
+        "profiles": [
+          "qwen3_5_full",
+          "qwen3_5_linear",
+          "qwen3_5_mixed",
+          "qwen3_5_moe"
+        ],
+        "cases": 8,
+        "worst_logit": 5.960464477539063e-08,
+        "pass": true
+      },
+      {
+        "family": "Qwen4-Exp linear / QSA / PLE / mixed",
+        "profiles": [
+          "qwen4_exp_linear",
+          "qwen4_exp_qsa",
+          "qwen4_exp_ple",
+          "qwen4_exp_mixed_ple"
+        ],
+        "cases": 8,
+        "worst_logit": 4.470348358154297e-08,
+        "pass": true
+      },
+      {
+        "family": "DeepSeek V4",
+        "profiles": [
+          "deepseek_v4"
+        ],
+        "cases": 2,
+        "worst_logit": 5.960464477539063e-08,
+        "pass": true
+      },
+      {
+        "family": "Kimi K2.5 / K3 KDA / K3 MLA / K3 text",
+        "profiles": [
+          "kimi_k25_text",
+          "kimi_k3_kda",
+          "kimi_k3_mla",
+          "kimi_k3_text"
+        ],
+        "cases": 5,
+        "worst_logit": 4.470348358154297e-08,
+        "pass": true
+      },
+      {
+        "family": "MiniMax M2 / M3 dense / M3 sparse",
+        "profiles": [
+          "minimax_m2",
+          "minimax_m3_dense",
+          "minimax_m3"
+        ],
+        "cases": 6,
+        "worst_logit": 5.960464477539063e-08,
+        "pass": true
+      }
+    ]
+  },
+  "deepseek": {
+    "pass": true,
+    "active_tests": 218,
+    "expected_active": 218,
+    "ignored": 26,
+    "shards": 28,
+    "host_vector_width": 16,
+    "binary_sha256": "cc558cc72012bc5bb0362093af6f9a3b5e8bdf07fdda06be3883d24d200dad62",
+    "worst_sparse_attention": 7.708e-08,
+    "worst_compressor": 1.7881393432617188e-07,
+    "worst_index": 0.0,
+    "full_model_logit": 0.0
+  },
+  "native_v41": {
+    "pass": true,
+    "tests": 30,
+    "max_abs_logit": 0.0,
+    "joint_max_abs": 1.4901161193847656e-08,
+    "bit_exact": 155179,
+    "comparisons": 1866,
+    "checkpoint_resume_export_verified": true
+  },
+  "rust": {
+    "full_suite": {
+      "passed": 1139,
+      "failed": 0,
+      "ignored": 40
+    },
+    "targeted_filters": {
+      "qwen": 41,
+      "kimi": 18,
+      "minimax": 5,
+      "glm": 16,
+      "hunyuan": 4,
+      "ernie": 5,
+      "longcat": 0,
+      "deepseek_sparse_forward": 21,
+      "deepseek_sparse_backward": 5,
+      "deepseek_indexer": 6,
+      "deepseek_compressor": 9,
+      "deepseek_mixed": 19
+    },
+    "targeted_filter_executions": 149,
+    "all_targeted_exit_zero": true
+  },
+  "sparse_attention": {
+    "deepseek_v41": "window_topk=3, compressed_topk=2, ring indices, -1 invalid slots, 2-batch gather",
+    "qwen4_qsa": "token_budget=2, compress_ratio=2, complete-block top-k, trailing visible tokens, left padding",
+    "minimax_m3": "block_size=2, topk_blocks=1, local_blocks=1, native sparse indexer cache",
+    "distinct_from_moe": true,
+    "nontrivial_selection": true
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "status": "FAIL",
+      "cases": 34,
+      "exit_code": 101,
+      "root_cause": "libtest binary passed where image_text_pipeline_probe.exe was required; probe rejected the libtest --model argument before any numerical comparison",
+      "preserved_at": "attempt1-wrong-binary",
+      "counts_as_model_failure": false
+    },
+    {
+      "attempt": 2,
+      "status": "PASS",
+      "cases": 37,
+      "exit_code": 0,
+      "root_cause": "corrected canonical probe invocation"
+    }
+  ],
+  "performance": {
+    "status": "NOT_COMPARABLE",
+    "production_code_changed": false,
+    "reason": "No production source or shader changed; no trustworthy same-profile historical binary exists for Qwen/Kimi/MiniMax. Prior five-workload receipt remains a separate measurement."
+  },
+  "blocked": [
+    "Live Transformers/PyTorch generation, two-step AdamW, and roundtrip oracles: torch import fails with WinError 126 (shm.dll).",
+    "Full production-size Qwen/Kimi/MiniMax checkpoints: not present; this is tiny deterministic fixture qualification.",
+    "Batch-4 sparse-specific fixture: shared matrix is batch 2 and the focused sparse tests use batch 1/2; no batch-4 sparse fixture was run.",
+    "GLM4-MoE/Hunyuan/ERNIE/LongCat and Qwen2-MoE/Qwen3-MoE numerical end-to-end oracles: no complete frozen-logit suite in this pass.",
+    "No physical cross-vendor or Intel execution; no RDNA3 self-hosted CI runner."
+  ]
+}

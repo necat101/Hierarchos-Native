@@ -1,0 +1,15 @@
+
+running 6 tests
+test deepseek_v41::indexer_tests::deepseek_v41_candidate_source_publishes_masks_for_consumer_indexers ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_fine_indexer_owns_keys_and_returns_sorted_shared_positions ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_key_production_matches_pinned_fp32_reference ... V4.1 index keys on AMD Radeon Graphics: 608 reference values, worst absolute drift 0.000000000000e0
+ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_score_kernel_matches_host_float64_reference ... V4.1 index score diagnostic start_pos=0: worst drift 1.396984e-8
+V4.1 index score diagnostic start_pos=3: worst drift 1.396984e-8
+ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_selection_matches_pinned_reference_topk ... V4.1 index selection on AMD Radeon Graphics: 117 exact indices
+ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_selection_rejects_invalid_topk_and_shapes ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 1173 filtered out; finished in 0.53s
+

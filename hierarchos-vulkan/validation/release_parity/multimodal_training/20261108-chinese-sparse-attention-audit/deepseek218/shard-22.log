@@ -1,0 +1,51 @@
+
+running 8 tests
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_decoding_matches_independent_cpu_bit_exactly ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_engram_checkpoint_runtime_preserves_cache_and_reset ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_engram_lookup_and_residual_match_released_forward ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_kernel_rejects_foreign_buffers_and_invalid_precision_geometry ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_linear_matches_independent_cpu_blocks ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_weights_validate_geometry_and_finite_materialization ... ok
+test deepseek_v41::peft::tests::adapter_module_spellings_normalize_to_the_checkpoint_path ... ok
+test deepseek_v41::peft::tests::capability_stays_fail_closed_for_replacement_modules ... ok
+
+successes:
+
+---- deepseek_v41::packed_weights_tests::deepseek_v41_packed_decoding_matches_independent_cpu_bit_exactly stdout ----
+V4.1 packed decode: 72960 bit-exact FP32/BF16 values
+
+---- deepseek_v41::packed_weights_tests::deepseek_v41_packed_engram_lookup_and_residual_match_released_forward stdout ----
+V4.1 packed Engram: 4544 exact lookup values, 2224 residuals, worst CPU drift 2.38418579101562500e-7; packed/dense outputs bit-exact
+
+---- deepseek_v41::packed_weights_tests::deepseek_v41_packed_linear_matches_independent_cpu_blocks stdout ----
+V4.1 packed linear fp8_block32-act32-m1-n35-k64 Fp32: 0.00000000000000000e0
+V4.1 packed linear fp8_block32-act32-m1-n35-k64 Bf16: 0.00000000000000000e0
+V4.1 packed linear fp8_block32-act32-m5-n35-k96 Fp32: 0.00000000000000000e0
+V4.1 packed linear fp8_block32-act32-m5-n35-k96 Bf16: 0.00000000000000000e0
+V4.1 packed linear fp8_block128-act128-m1-n7-k256 Fp32: 0.00000000000000000e0
+V4.1 packed linear fp8_block128-act128-m1-n7-k256 Bf16: 0.00000000000000000e0
+V4.1 packed linear fp8_block128-act128-m5-n129-k256 Fp32: 0.00000000000000000e0
+V4.1 packed linear fp8_block128-act128-m5-n129-k256 Bf16: 0.00000000000000000e0
+V4.1 packed linear fp4_row32-act32-m1-n17-k96 Fp32: 0.00000000000000000e0
+V4.1 packed linear fp4_row32-act32-m1-n17-k96 Bf16: 0.00000000000000000e0
+V4.1 packed linear fp4_row32-act32-m5-n17-k160 Fp32: 0.00000000000000000e0
+V4.1 packed linear fp4_row32-act32-m5-n17-k160 Bf16: 0.00000000000000000e0
+V4.1 packed linear fp4_row32-act128-m1-n17-k256 Fp32: 0.00000000000000000e0
+V4.1 packed linear fp4_row32-act128-m1-n17-k256 Bf16: 0.00000000000000000e0
+V4.1 packed linear fp4_row32-act128-m5-n17-k256 Fp32: 0.00000000000000000e0
+V4.1 packed linear fp4_row32-act128-m5-n17-k256 Bf16: 0.00000000000000000e0
+V4.1 packed linear: 2132 values, worst drift 0.00000000000000000e0; CPU component mirror only
+
+
+successes:
+    deepseek_v41::packed_weights_tests::deepseek_v41_packed_decoding_matches_independent_cpu_bit_exactly
+    deepseek_v41::packed_weights_tests::deepseek_v41_packed_engram_checkpoint_runtime_preserves_cache_and_reset
+    deepseek_v41::packed_weights_tests::deepseek_v41_packed_engram_lookup_and_residual_match_released_forward
+    deepseek_v41::packed_weights_tests::deepseek_v41_packed_kernel_rejects_foreign_buffers_and_invalid_precision_geometry
+    deepseek_v41::packed_weights_tests::deepseek_v41_packed_linear_matches_independent_cpu_blocks
+    deepseek_v41::packed_weights_tests::deepseek_v41_packed_weights_validate_geometry_and_finite_materialization
+    deepseek_v41::peft::tests::adapter_module_spellings_normalize_to_the_checkpoint_path
+    deepseek_v41::peft::tests::capability_stays_fail_closed_for_replacement_modules
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 0.80s
+

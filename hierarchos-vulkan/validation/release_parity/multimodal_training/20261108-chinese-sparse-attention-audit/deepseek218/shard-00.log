@@ -1,0 +1,243 @@
+
+running 8 tests
+test deepseek_v41::attention::grouped_tests::deepseek_v41_bf16_grouped_decode_reduction_matches_frozen_cpu ... ok
+test deepseek_v41::attention::grouped_tests::deepseek_v41_pinned_sparse_reduction_matches_cpu_production_shapes ... ok
+test deepseek_v41::attention::projection_grad::tests::attention_projection_cache_chain_and_all_factor_vjps_match_cpu ... ok
+test deepseek_v41::attention::projection_grad::tests::attention_projection_conditional_branches_preserve_none_gradients ... ok
+test deepseek_v41::attention::projection_grad::tests::attention_projection_rejects_geometry_and_configuration_mismatch ... ok
+test deepseek_v41::attention::schedule_tests::deepseek_v41_schedule_width_attention_contractions_match_cpu_bits ... ok
+test deepseek_v41::attention::tape::tests::attention_tape_invalid_reads_and_backward_seeds_are_rejected ... ok
+test deepseek_v41::attention::tape::tests::attention_tape_overwrite_and_absent_seed_ownership_is_exact ... ok
+
+successes:
+
+---- deepseek_v41::attention::projection_grad::tests::attention_projection_cache_chain_and_all_factor_vjps_match_cpu stdout ----
+V4.1 attention projection fp32-sliding-lora step 0 query: 192 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 0 latent: 48 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 0 window: 96 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 0 sparse: 192 values, worst 5.96046447753906250e-8 at 143
+V4.1 attention projection fp32-sliding-lora step 0 output: 96 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 0 logits: 33 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 1 query: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 1 latent: 16 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 1 window: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 1 sparse: 64 values, worst 5.96046447753906250e-8 at 61
+V4.1 attention projection fp32-sliding-lora step 1 output: 32 values, worst 1.11758708953857422e-8 at 13
+V4.1 attention projection fp32-sliding-lora step 1 logits: 11 values, worst 3.84170562028884888e-9 at 3
+V4.1 attention projection fp32-sliding-lora step 2 query: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 2 latent: 16 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 2 window: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 2 sparse: 64 values, worst 1.19209289550781250e-7 at 31
+V4.1 attention projection fp32-sliding-lora step 2 output: 32 values, worst 9.31322574615478516e-9 at 20
+V4.1 attention projection fp32-sliding-lora step 2 logits: 11 values, worst 7.45058059692382812e-9 at 5
+V4.1 attention projection fp32-sliding-lora step 3 query: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 3 latent: 16 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 3 window: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 3 sparse: 64 values, worst 1.19209289550781250e-7 at 11
+V4.1 attention projection fp32-sliding-lora step 3 output: 32 values, worst 1.11758708953857422e-8 at 5
+V4.1 attention projection fp32-sliding-lora step 3 logits: 11 values, worst 3.72529029846191406e-9 at 4
+V4.1 attention projection fp32-sliding-lora step 4 query: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 4 latent: 16 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 4 window: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora step 4 sparse: 64 values, worst 7.45058059692382812e-8 at 34
+V4.1 attention projection fp32-sliding-lora step 4 output: 32 values, worst 5.58793544769287109e-9 at 17
+V4.1 attention projection fp32-sliding-lora step 4 logits: 11 values, worst 2.09547579288482666e-9 at 4
+V4.1 attention projection fp32-sliding-lora retired projection bytes 18376, frozen minimum 14336
+V4.1 attention projection fp32-sliding-lora step 4 dSparse: 64 values, worst 9.31322574615478516e-10 at 50
+V4.1 attention projection fp32-sliding-lora step 3 dSparse: 64 values, worst 9.31322574615478516e-10 at 13
+V4.1 attention projection fp32-sliding-lora step 2 dSparse: 64 values, worst 9.31322574615478516e-10 at 55
+V4.1 attention projection fp32-sliding-lora step 0 dSparse: 192 values, worst 1.86264514923095703e-9 at 94
+V4.1 attention projection fp32-sliding-lora step 4 dQuery: 64 values, worst 9.31322574615478516e-10 at 34
+V4.1 attention projection fp32-sliding-lora step 4 dWindow: 32 values, worst 2.32830643653869629e-10 at 18
+V4.1 attention projection fp32-sliding-lora step 4 dX: 32 values, worst 4.65661287307739258e-9 at 0
+V4.1 attention projection fp32-sliding-lora step 4 dLatent: 16 values, worst 9.31322574615478516e-10 at 11
+V4.1 attention projection fp32-sliding-lora step 3 dQuery: 64 values, worst 5.23868948221206665e-10 at 1
+V4.1 attention projection fp32-sliding-lora step 3 dWindow: 32 values, worst 3.49245965480804443e-10 at 29
+V4.1 attention projection fp32-sliding-lora step 3 dX: 32 values, worst 1.62981450557708740e-9 at 12
+V4.1 attention projection fp32-sliding-lora step 3 dLatent: 16 values, worst 2.18278728425502777e-10 at 4
+V4.1 attention projection fp32-sliding-lora step 2 dQuery: 64 values, worst 6.98491930961608887e-10 at 36
+V4.1 attention projection fp32-sliding-lora step 2 dWindow: 32 values, worst 6.98491930961608887e-10 at 18
+V4.1 attention projection fp32-sliding-lora step 2 dX: 32 values, worst 3.14321368932723999e-9 at 2
+V4.1 attention projection fp32-sliding-lora step 2 dLatent: 16 values, worst 3.49245965480804443e-10 at 9
+V4.1 attention projection fp32-sliding-lora step 1 dWindow: 32 values, worst 3.49245965480804443e-10 at 19
+V4.1 attention projection fp32-sliding-lora step 1 dX: 32 values, worst 2.79396772384643555e-9 at 30
+V4.1 attention projection fp32-sliding-lora step 0 dQuery: 192 values, worst 9.31322574615478516e-10 at 188
+V4.1 attention projection fp32-sliding-lora step 0 dWindow: 96 values, worst 1.39698386192321777e-9 at 30
+V4.1 attention projection fp32-sliding-lora step 0 dX: 96 values, worst 5.12227416038513184e-9 at 15
+V4.1 attention projection fp32-sliding-lora step 0 dLatent: 48 values, worst 2.32830643653869629e-10 at 26
+V4.1 attention projection fp32-sliding-lora dInitialWindow: 128 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-sliding-lora wkv dA: 128 values, worst 5.82076609134674072e-10 at 47
+V4.1 attention projection fp32-sliding-lora wkv dB: 128 values, worst 4.65661287307739258e-10 at 9
+V4.1 attention projection fp32-sliding-lora wo_b dA: 64 values, worst 9.31322574615478516e-10 at 29
+V4.1 attention projection fp32-sliding-lora wo_b dB: 128 values, worst 4.65661287307739258e-10 at 1
+V4.1 attention projection fp32-sliding-lora wq_a dA: 128 values, worst 4.65661287307739258e-10 at 11
+V4.1 attention projection fp32-sliding-lora wq_a dB: 64 values, worst 3.49245965480804443e-10 at 45
+V4.1 attention projection fp32-sliding-lora wq_b dA: 64 values, worst 1.74622982740402222e-10 at 11
+V4.1 attention projection fp32-sliding-lora wq_b dB: 256 values, worst 1.45519152283668518e-10 at 101
+V4.1 attention projection fp32-compressed-batch-rslora step 0 query: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 0 latent: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 0 window: 128 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 0 sparse: 512 values, worst 1.19209289550781250e-7 at 235
+V4.1 attention projection fp32-compressed-batch-rslora step 0 output: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 0 logits: 44 values, worst 7.45058059692382812e-9 at 4
+V4.1 attention projection fp32-compressed-batch-rslora step 1 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 1 latent: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 1 window: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 1 sparse: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 1 output: 128 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 1 logits: 22 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 2 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 2 latent: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 2 window: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 2 sparse: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 2 output: 128 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 2 logits: 22 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 3 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 3 latent: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 3 window: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 3 sparse: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 3 output: 128 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 3 logits: 22 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora retired projection bytes 35280, frozen minimum 28672
+V4.1 attention projection fp32-compressed-batch-rslora step 3 dSparse: 256 values, worst 1.86264514923095703e-9 at 107
+V4.1 attention projection fp32-compressed-batch-rslora step 2 dSparse: 256 values, worst 1.86264514923095703e-9 at 74
+V4.1 attention projection fp32-compressed-batch-rslora step 0 dSparse: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora step 3 dQuery: 256 values, worst 2.32830643653869629e-9 at 107
+V4.1 attention projection fp32-compressed-batch-rslora step 3 dWindow: 64 values, worst 4.65661287307739258e-10 at 11
+V4.1 attention projection fp32-compressed-batch-rslora step 3 dX: 128 values, worst 5.58793544769287109e-9 at 7
+V4.1 attention projection fp32-compressed-batch-rslora step 3 dLatent: 32 values, worst 9.31322574615478516e-10 at 15
+V4.1 attention projection fp32-compressed-batch-rslora step 2 dQuery: 256 values, worst 9.31322574615478516e-10 at 43
+V4.1 attention projection fp32-compressed-batch-rslora step 2 dWindow: 64 values, worst 9.31322574615478516e-10 at 6
+V4.1 attention projection fp32-compressed-batch-rslora step 2 dX: 128 values, worst 5.58793544769287109e-9 at 11
+V4.1 attention projection fp32-compressed-batch-rslora step 2 dLatent: 32 values, worst 9.31322574615478516e-10 at 4
+V4.1 attention projection fp32-compressed-batch-rslora step 1 dWindow: 64 values, worst 9.31322574615478516e-10 at 11
+V4.1 attention projection fp32-compressed-batch-rslora step 1 dX: 128 values, worst 4.19095158576965332e-9 at 36
+V4.1 attention projection fp32-compressed-batch-rslora step 0 dQuery: 512 values, worst 9.31322574615478516e-10 at 96
+V4.1 attention projection fp32-compressed-batch-rslora step 0 dWindow: 128 values, worst 3.72529029846191406e-9 at 14
+V4.1 attention projection fp32-compressed-batch-rslora step 0 dX: 256 values, worst 9.31322574615478516e-9 at 166
+V4.1 attention projection fp32-compressed-batch-rslora step 0 dLatent: 64 values, worst 8.14907252788543701e-10 at 7
+V4.1 attention projection fp32-compressed-batch-rslora dInitialWindow: 192 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora dCompressed: 192 values, worst 9.31322574615478516e-10 at 11
+V4.1 attention projection fp32-compressed-batch-rslora wkv dA: 256 values, worst 2.79396772384643555e-9 at 173
+V4.1 attention projection fp32-compressed-batch-rslora wkv dB: 128 values, worst 3.72529029846191406e-9 at 46
+V4.1 attention projection fp32-compressed-batch-rslora wo_b dA: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora wo_b dB: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp32-compressed-batch-rslora wq_a dA: 256 values, worst 6.98491930961608887e-10 at 114
+V4.1 attention projection fp32-compressed-batch-rslora wq_a dB: 64 values, worst 1.10594555735588074e-9 at 28
+V4.1 attention projection fp32-compressed-batch-rslora wq_b dA: 64 values, worst 6.98491930961608887e-10 at 22
+V4.1 attention projection fp32-compressed-batch-rslora wq_b dB: 512 values, worst 9.31322574615478516e-10 at 428
+V4.1 attention projection bf16-sliding-lora step 0 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 0 latent: 128 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 0 window: 128 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 0 sparse: 256 values, worst 1.19209289550781250e-7 at 250
+V4.1 attention projection bf16-sliding-lora step 0 output: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 0 logits: 44 values, worst 1.49011611938476562e-8 at 40
+V4.1 attention projection bf16-sliding-lora step 1 query: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 1 latent: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 1 window: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 1 sparse: 64 values, worst 5.96046447753906250e-8 at 37
+V4.1 attention projection bf16-sliding-lora step 1 output: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 1 logits: 11 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 2 query: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 2 latent: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 2 window: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 2 sparse: 64 values, worst 1.19209289550781250e-7 at 34
+V4.1 attention projection bf16-sliding-lora step 2 output: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 2 logits: 11 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora retired projection bytes 43272, frozen minimum 36864
+V4.1 attention projection bf16-sliding-lora step 2 dSparse: 64 values, worst 1.86264514923095703e-9 at 2
+V4.1 attention projection bf16-sliding-lora step 0 dSparse: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora step 2 dQuery: 64 values, worst 9.31322574615478516e-10 at 11
+V4.1 attention projection bf16-sliding-lora step 2 dWindow: 32 values, worst 9.31322574615478516e-10 at 26
+V4.1 attention projection bf16-sliding-lora step 2 dX: 64 values, worst 4.65661287307739258e-9 at 0
+V4.1 attention projection bf16-sliding-lora step 2 dLatent: 32 values, worst 9.31322574615478516e-10 at 6
+V4.1 attention projection bf16-sliding-lora step 1 dWindow: 32 values, worst 6.98491930961608887e-10 at 21
+V4.1 attention projection bf16-sliding-lora step 1 dX: 64 values, worst 3.72529029846191406e-9 at 50
+V4.1 attention projection bf16-sliding-lora step 0 dQuery: 256 values, worst 2.79396772384643555e-9 at 224
+V4.1 attention projection bf16-sliding-lora step 0 dWindow: 128 values, worst 1.86264514923095703e-9 at 9
+V4.1 attention projection bf16-sliding-lora step 0 dX: 256 values, worst 7.45058059692382812e-9 at 9
+V4.1 attention projection bf16-sliding-lora step 0 dLatent: 128 values, worst 1.33877620100975037e-9 at 127
+V4.1 attention projection bf16-sliding-lora dInitialWindow: 96 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora wkv dA: 256 values, worst 1.16415321826934814e-9 at 63
+V4.1 attention projection bf16-sliding-lora wkv dB: 128 values, worst 9.31322574615478516e-10 at 8
+V4.1 attention projection bf16-sliding-lora wo_b dA: 128 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora wo_b dB: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection bf16-sliding-lora wq_a dA: 256 values, worst 5.82076609134674072e-10 at 238
+V4.1 attention projection bf16-sliding-lora wq_a dB: 128 values, worst 6.98491930961608887e-10 at 94
+V4.1 attention projection bf16-sliding-lora wq_b dA: 128 values, worst 4.65661287307739258e-10 at 83
+V4.1 attention projection bf16-sliding-lora wq_b dB: 256 values, worst 4.65661287307739258e-10 at 55
+V4.1 attention projection fp8-compressed-rslora step 0 query: 192 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 0 latent: 96 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 0 window: 96 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 0 sparse: 192 values, worst 5.96046447753906250e-8 at 114
+V4.1 attention projection fp8-compressed-rslora step 0 output: 192 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 0 logits: 33 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 1 query: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 1 latent: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 1 window: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 1 sparse: 64 values, worst 5.96046447753906250e-8 at 24
+V4.1 attention projection fp8-compressed-rslora step 1 output: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 1 logits: 11 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 2 query: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 2 latent: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 2 window: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 2 sparse: 64 values, worst 8.94069671630859375e-8 at 5
+V4.1 attention projection fp8-compressed-rslora step 2 output: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 2 logits: 11 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 3 query: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 3 latent: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 3 window: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 3 sparse: 64 values, worst 5.96046447753906250e-8 at 30
+V4.1 attention projection fp8-compressed-rslora step 3 output: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora step 3 logits: 11 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora retired projection bytes 22808, frozen minimum 16384
+V4.1 attention projection fp8-compressed-rslora step 3 dSparse: 64 values, worst 1.86264514923095703e-9 at 13
+V4.1 attention projection fp8-compressed-rslora step 2 dSparse: 64 values, worst 9.31322574615478516e-10 at 18
+V4.1 attention projection fp8-compressed-rslora step 0 dSparse: 192 values, worst 1.86264514923095703e-9 at 140
+V4.1 attention projection fp8-compressed-rslora step 3 dQuery: 64 values, worst 6.98491930961608887e-10 at 52
+V4.1 attention projection fp8-compressed-rslora step 3 dWindow: 32 values, worst 4.65661287307739258e-10 at 5
+V4.1 attention projection fp8-compressed-rslora step 3 dX: 64 values, worst 3.72529029846191406e-9 at 18
+V4.1 attention projection fp8-compressed-rslora step 3 dLatent: 32 values, worst 9.31322574615478516e-10 at 11
+V4.1 attention projection fp8-compressed-rslora step 2 dQuery: 64 values, worst 3.78349795937538147e-10 at 49
+V4.1 attention projection fp8-compressed-rslora step 2 dWindow: 32 values, worst 3.49245965480804443e-10 at 5
+V4.1 attention projection fp8-compressed-rslora step 2 dX: 64 values, worst 1.62981450557708740e-9 at 15
+V4.1 attention projection fp8-compressed-rslora step 2 dLatent: 32 values, worst 3.49245965480804443e-10 at 21
+V4.1 attention projection fp8-compressed-rslora step 1 dWindow: 32 values, worst 3.78349795937538147e-10 at 5
+V4.1 attention projection fp8-compressed-rslora step 1 dX: 64 values, worst 2.32830643653869629e-9 at 10
+V4.1 attention projection fp8-compressed-rslora step 0 dQuery: 192 values, worst 1.39698386192321777e-9 at 139
+V4.1 attention projection fp8-compressed-rslora step 0 dWindow: 96 values, worst 2.32830643653869629e-9 at 19
+V4.1 attention projection fp8-compressed-rslora step 0 dX: 192 values, worst 7.45058059692382812e-9 at 21
+V4.1 attention projection fp8-compressed-rslora step 0 dLatent: 96 values, worst 3.49245965480804443e-10 at 69
+V4.1 attention projection fp8-compressed-rslora dInitialWindow: 128 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora dCompressed: 128 values, worst 9.31322574615478516e-10 at 15
+V4.1 attention projection fp8-compressed-rslora wkv dA: 256 values, worst 1.62981450557708740e-9 at 113
+V4.1 attention projection fp8-compressed-rslora wkv dB: 128 values, worst 3.72529029846191406e-9 at 9
+V4.1 attention projection fp8-compressed-rslora wo_b dA: 128 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora wo_b dB: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention projection fp8-compressed-rslora wq_a dA: 256 values, worst 3.72529029846191406e-9 at 87
+V4.1 attention projection fp8-compressed-rslora wq_a dB: 128 values, worst 1.49011611938476562e-8 at 45
+V4.1 attention projection fp8-compressed-rslora wq_b dA: 128 values, worst 4.65661287307739258e-10 at 7
+V4.1 attention projection fp8-compressed-rslora wq_b dB: 256 values, worst 2.32830643653869629e-10 at 44
+
+---- deepseek_v41::attention::schedule_tests::deepseek_v41_schedule_width_attention_contractions_match_cpu_bits stdout ----
+scheduled sparse weights: 0 mismatches
+scheduled sparse raw: 0 mismatches
+scheduled sparse rounded: 0 mismatches
+scheduled grouped rows 1: 0 mismatches
+scheduled grouped rows 2: 0 mismatches
+scheduled grouped rows 3: 0 mismatches
+scheduled grouped rows 4: 0 mismatches
+
+
+successes:
+    deepseek_v41::attention::grouped_tests::deepseek_v41_bf16_grouped_decode_reduction_matches_frozen_cpu
+    deepseek_v41::attention::grouped_tests::deepseek_v41_pinned_sparse_reduction_matches_cpu_production_shapes
+    deepseek_v41::attention::projection_grad::tests::attention_projection_cache_chain_and_all_factor_vjps_match_cpu
+    deepseek_v41::attention::projection_grad::tests::attention_projection_conditional_branches_preserve_none_gradients
+    deepseek_v41::attention::projection_grad::tests::attention_projection_rejects_geometry_and_configuration_mismatch
+    deepseek_v41::attention::schedule_tests::deepseek_v41_schedule_width_attention_contractions_match_cpu_bits
+    deepseek_v41::attention::tape::tests::attention_tape_invalid_reads_and_backward_seeds_are_rejected
+    deepseek_v41::attention::tape::tests::attention_tape_overwrite_and_absent_seed_ownership_is_exact
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 3.30s
+

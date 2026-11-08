@@ -1,0 +1,10 @@
+
+running 5 tests
+test transformer::tests::minimax_m2_contract_maps_oversized_qk_norm_attention_and_sigmoid_moe ... ok
+test transformer::tests::minimax_m2_generation_kv_cache_matches_full_prefix_logits ... ok
+test transformer::tests::minimax_m2_loader_reads_full_qk_norms_packed_experts_and_correction_bias ... ok
+test transformer::tests::minimax_m3_vl_text_checkpoint_export_round_trips_lightning_indexer ... ok
+test transformer::tests::minimax_m3_vl_text_generation_cache_matches_sparse_full_prefix_logits ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 1174 filtered out; finished in 0.54s
+

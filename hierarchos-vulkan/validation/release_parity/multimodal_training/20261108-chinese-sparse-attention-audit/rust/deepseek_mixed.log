@@ -1,0 +1,252 @@
+
+running 19 tests
+test deepseek_v41::mixed_linear::gradients::tests::gathered_adapter_spans_preserve_individual_words_and_order ... ok
+test deepseek_v41::mixed_linear::gradients::tests::packed_projection_tape_vjps_match_cpu_pytorch ... V4.1 projection adjoint packed fp8-block32-bf16-stream forward: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-bf16-stream dX: 256 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-fp32-stream forward: 144 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-fp32-stream dX: 192 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-wide-rows forward: 384 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-wide-rows dX: 512 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block128-bf16-stream forward: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block128-bf16-stream dX: 512 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block128-fp32-stream forward: 480 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block128-fp32-stream dX: 640 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp4-row32-bf16-stream forward: 240 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp4-row32-bf16-stream dX: 480 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp4-row32-lora-bf16 forward: 192 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp4-row32-lora-bf16 dX: 384 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp4-row32-lora-bf16 dA: 256 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp4-row32-lora-bf16 dB: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-rslora-bf16 forward: 320 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-rslora-bf16 dX: 640 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-rslora-bf16 dA: 512 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-rslora-bf16 dB: 256 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-lora-wide forward: 384 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-lora-wide dX: 512 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-lora-wide dA: 512 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-lora-wide dB: 384 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed bf16-dense-bf16-stream forward: 160 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed bf16-dense-bf16-stream dX: 320 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed bf16-dense-lora-bf16 forward: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed bf16-dense-lora-bf16 dX: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed bf16-dense-lora-bf16 dA: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed bf16-dense-lora-bf16 dB: 64 values, worst 0.00000000000000000e0
+ok
+test deepseek_v41::mixed_linear::gradients::tests::projection_checkpoints_bind_trained_factors_config_and_moments ... ok
+test deepseek_v41::mixed_linear::gradients::tests::projection_tape_lora_vjps_match_cpu_and_release_frozen_weights ... V4.1 projection adjoint single-row forward: 12 values, worst 0.00000000000000000e0
+V4.1 projection adjoint single-row dX: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint single-row dA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint single-row dB: 24 values, worst 0.00000000000000000e0
+V4.1 projection adjoint two-row-rslora forward: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint two-row-rslora dX: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint two-row-rslora dA: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint two-row-rslora dB: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint odd-rank-and-width forward: 51 values, worst 0.00000000000000000e0
+V4.1 projection adjoint odd-rank-and-width dX: 45 values, worst 1.11758708953857422e-8
+V4.1 projection adjoint odd-rank-and-width dA: 45 values, worst 3.72529029846191406e-9
+V4.1 projection adjoint odd-rank-and-width dB: 51 values, worst 1.86264514923095703e-9
+V4.1 projection adjoint odd-batch-narrow-rank-tail forward: 60 values, worst 0.00000000000000000e0
+V4.1 projection adjoint odd-batch-narrow-rank-tail dX: 80 values, worst 0.00000000000000000e0
+V4.1 projection adjoint odd-batch-narrow-rank-tail dA: 96 values, worst 0.00000000000000000e0
+V4.1 projection adjoint odd-batch-narrow-rank-tail dB: 72 values, worst 0.00000000000000000e0
+V4.1 projection adjoint matrix-rank16 forward: 384 values, worst 0.00000000000000000e0
+V4.1 projection adjoint matrix-rank16 dX: 256 values, worst 0.00000000000000000e0
+V4.1 projection adjoint matrix-rank16 dA: 1024 values, worst 0.00000000000000000e0
+V4.1 projection adjoint matrix-rank16 dB: 1536 values, worst 0.00000000000000000e0
+V4.1 projection adjoint zero-B forward: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint zero-B dX: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint zero-B dA: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint zero-B dB: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint frozen-no-adapter forward: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint frozen-no-adapter dX: 64 values, worst 0.00000000000000000e0
+ok
+test deepseek_v41::mixed_linear::gradients::tests::projection_tape_rejects_unqualified_precision_and_bad_geometry ... ok
+test deepseek_v41::mixed_linear::gradients::tests::projection_weight_gradient_cpu_output_geometry_reduction ... V4.1 dW geometry: 5051/5054 bit-exact, worst 4.65661287307739258e-10
+ok
+test deepseek_v41::mixed_linear::gradients::tests::query_projection_computed_gradients_adamw_resume_export_match_cpu ... V4.1 projection adjoint lora logits: 92 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora loss: 1 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora chained dX: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a dA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a dB: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b dA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b dB: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a A: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a B: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a mA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a vA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a mB: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a vB: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b A: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b B: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b mA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b vA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b mB: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b vB: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora updated logits: 92 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora logits: 92 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora loss: 1 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora chained dX: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a dA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a dB: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b dA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b dB: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a A: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a B: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a mA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a vA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a mB: 16 values, worst 1.45519152283668518e-11
+V4.1 projection adjoint lora layers.0.attn.wq_a vB: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b A: 32 values, worst 1.86264514923095703e-9
+V4.1 projection adjoint lora layers.0.attn.wq_b B: 64 values, worst 4.65661287307739258e-10
+V4.1 projection adjoint lora layers.0.attn.wq_b mA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b vA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b mB: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b vB: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora updated logits: 92 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora logits: 92 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora loss: 1 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora chained dX: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a dA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a dB: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b dA: 32 values, worst 1.45519152283668518e-11
+V4.1 projection adjoint lora layers.0.attn.wq_b dB: 64 values, worst 1.16415321826934814e-10
+V4.1 projection adjoint lora layers.0.attn.wq_a A: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a B: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a mA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a vA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a mB: 16 values, worst 5.82076609134674072e-11
+V4.1 projection adjoint lora layers.0.attn.wq_a vB: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b A: 32 values, worst 3.72529029846191406e-9
+V4.1 projection adjoint lora layers.0.attn.wq_b B: 64 values, worst 4.65661287307739258e-10
+V4.1 projection adjoint lora layers.0.attn.wq_b mA: 32 values, worst 1.81898940354585648e-12
+V4.1 projection adjoint lora layers.0.attn.wq_b vA: 32 values, worst 3.46944695195361419e-18
+V4.1 projection adjoint lora layers.0.attn.wq_b mB: 64 values, worst 1.45519152283668518e-11
+V4.1 projection adjoint lora layers.0.attn.wq_b vB: 64 values, worst 2.22044604925031308e-16
+V4.1 projection adjoint lora updated logits: 92 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora logits: 92 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora loss: 1 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora chained dX: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a dA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a dB: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b dA: 32 values, worst 1.45519152283668518e-11
+V4.1 projection adjoint lora layers.0.attn.wq_b dB: 64 values, worst 1.16415321826934814e-10
+V4.1 projection adjoint lora layers.0.attn.wq_a A: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a B: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a mA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a vA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_a mB: 16 values, worst 5.82076609134674072e-11
+V4.1 projection adjoint lora layers.0.attn.wq_a vB: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint lora layers.0.attn.wq_b A: 32 values, worst 3.72529029846191406e-9
+V4.1 projection adjoint lora layers.0.attn.wq_b B: 64 values, worst 4.65661287307739258e-10
+V4.1 projection adjoint lora layers.0.attn.wq_b mA: 32 values, worst 1.81898940354585648e-12
+V4.1 projection adjoint lora layers.0.attn.wq_b vA: 32 values, worst 3.46944695195361419e-18
+V4.1 projection adjoint lora layers.0.attn.wq_b mB: 64 values, worst 1.45519152283668518e-11
+V4.1 projection adjoint lora layers.0.attn.wq_b vB: 64 values, worst 2.22044604925031308e-16
+V4.1 projection adjoint lora updated logits: 92 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora logits: 92 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora loss: 1 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora chained dX: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_a dA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_a dB: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_b dA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_b dB: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_a A: 32 values, worst 9.31322574615478516e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a B: 16 values, worst 9.31322574615478516e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a mA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_a vA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_a mB: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_a vB: 16 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_b A: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_b B: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_b mA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_b vA: 32 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_b mB: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_b vB: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora updated logits: 92 values, worst 1.49011611938476562e-8
+V4.1 projection adjoint rslora logits: 92 values, worst 1.49011611938476562e-8
+V4.1 projection adjoint rslora loss: 1 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora chained dX: 64 values, worst 3.72529029846191406e-9
+V4.1 projection adjoint rslora layers.0.attn.wq_a dA: 32 values, worst 9.31322574615478516e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a dB: 16 values, worst 9.31322574615478516e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_b dA: 32 values, worst 4.65661287307739258e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_b dB: 64 values, worst 9.31322574615478516e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a A: 32 values, worst 1.86264514923095703e-9
+V4.1 projection adjoint rslora layers.0.attn.wq_a B: 16 values, worst 9.31322574615478516e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a mA: 32 values, worst 1.16415321826934814e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a vA: 32 values, worst 1.42108547152020037e-14
+V4.1 projection adjoint rslora layers.0.attn.wq_a mB: 16 values, worst 1.16415321826934814e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a vB: 16 values, worst 1.42108547152020037e-14
+V4.1 projection adjoint rslora layers.0.attn.wq_b A: 32 values, worst 3.72529029846191406e-9
+V4.1 projection adjoint rslora layers.0.attn.wq_b B: 64 values, worst 9.31322574615478516e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_b mA: 32 values, worst 5.82076609134674072e-11
+V4.1 projection adjoint rslora layers.0.attn.wq_b vA: 32 values, worst 1.77635683940025046e-15
+V4.1 projection adjoint rslora layers.0.attn.wq_b mB: 64 values, worst 1.16415321826934814e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_b vB: 64 values, worst 2.84217094304040074e-14
+V4.1 projection adjoint rslora updated logits: 92 values, worst 7.45058059692382812e-9
+V4.1 projection adjoint rslora logits: 92 values, worst 7.45058059692382812e-9
+V4.1 projection adjoint rslora loss: 1 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora chained dX: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_a dA: 32 values, worst 4.65661287307739258e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a dB: 16 values, worst 1.86264514923095703e-9
+V4.1 projection adjoint rslora layers.0.attn.wq_b dA: 32 values, worst 4.65661287307739258e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_b dB: 64 values, worst 2.32830643653869629e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a A: 32 values, worst 1.86264514923095703e-9
+V4.1 projection adjoint rslora layers.0.attn.wq_a B: 16 values, worst 9.31322574615478516e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a mA: 32 values, worst 1.16415321826934814e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a vA: 32 values, worst 2.84217094304040074e-14
+V4.1 projection adjoint rslora layers.0.attn.wq_a mB: 16 values, worst 4.65661287307739258e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a vB: 16 values, worst 2.84217094304040074e-14
+V4.1 projection adjoint rslora layers.0.attn.wq_b A: 32 values, worst 3.72529029846191406e-9
+V4.1 projection adjoint rslora layers.0.attn.wq_b B: 64 values, worst 1.86264514923095703e-9
+V4.1 projection adjoint rslora layers.0.attn.wq_b mA: 32 values, worst 5.82076609134674072e-11
+V4.1 projection adjoint rslora layers.0.attn.wq_b vA: 32 values, worst 7.10542735760100186e-15
+V4.1 projection adjoint rslora layers.0.attn.wq_b mB: 64 values, worst 1.16415321826934814e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_b vB: 64 values, worst 2.84217094304040074e-14
+V4.1 projection adjoint rslora updated logits: 92 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora logits: 92 values, worst 7.45058059692382812e-9
+V4.1 projection adjoint rslora loss: 1 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora chained dX: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint rslora layers.0.attn.wq_a dA: 32 values, worst 4.65661287307739258e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a dB: 16 values, worst 1.86264514923095703e-9
+V4.1 projection adjoint rslora layers.0.attn.wq_b dA: 32 values, worst 4.65661287307739258e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_b dB: 64 values, worst 2.32830643653869629e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a A: 32 values, worst 1.86264514923095703e-9
+V4.1 projection adjoint rslora layers.0.attn.wq_a B: 16 values, worst 9.31322574615478516e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a mA: 32 values, worst 1.16415321826934814e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a vA: 32 values, worst 2.84217094304040074e-14
+V4.1 projection adjoint rslora layers.0.attn.wq_a mB: 16 values, worst 4.65661287307739258e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_a vB: 16 values, worst 2.84217094304040074e-14
+V4.1 projection adjoint rslora layers.0.attn.wq_b A: 32 values, worst 3.72529029846191406e-9
+V4.1 projection adjoint rslora layers.0.attn.wq_b B: 64 values, worst 1.86264514923095703e-9
+V4.1 projection adjoint rslora layers.0.attn.wq_b mA: 32 values, worst 5.82076609134674072e-11
+V4.1 projection adjoint rslora layers.0.attn.wq_b vA: 32 values, worst 7.10542735760100186e-15
+V4.1 projection adjoint rslora layers.0.attn.wq_b mB: 64 values, worst 1.16415321826934814e-10
+V4.1 projection adjoint rslora layers.0.attn.wq_b vB: 64 values, worst 2.84217094304040074e-14
+V4.1 projection adjoint rslora updated logits: 92 values, worst 0.00000000000000000e0
+ok
+test deepseek_v41::mixed_linear::pair_tests::paired_preparation_preserves_projection_bits_lora_and_block_fallbacks ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_bf16_index_scores_match_cpu_bits_including_masks_and_32_heads ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_fused_expert_chain_matches_staged_grids_and_cpu_references ... V4.1 fused/staged/CPU packed-moe-0-bf16: 32 exact values
+V4.1 fused/staged/CPU packed-moe-1-bf16: 224 exact values
+V4.1 fused/staged/CPU packed-moe-2-bf16: 1088 exact values
+V4.1 fused/staged/CPU packed-moe-3-fp32: 160 exact values
+V4.1 fused/staged/CPU packed-moe-block128: 1152 exact values
+ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_attention_matches_cpu_bits_through_prefill_decode_reset ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_attention_rejects_unconverted_grouped_weights_and_invalid_storage ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_bf16_cast_matches_cpu_ties_subnormals_and_nonfinite_classes ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_engram_checkpoint_preserves_projection_storage_and_stream_policy ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_engram_matches_released_bf16_table_projection_and_residual ... V4.1 mixed Engram: 2224 bit-exact BF16 residuals, including HC=4
+ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_linear_block128_matches_pinned_cpu_reference ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_linear_matches_typed_cpu_boundaries ... V4.1 typed linear: 2087 CPU-reference output values
+ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_moe_matches_released_expert_and_moe_forward ... V4.1 mixed MoE packed-moe-0-bf16: 32 bit-exact outputs, counts [1, 1, 0, 0]
+V4.1 mixed MoE packed-moe-1-bf16: 224 bit-exact outputs, counts [6, 3, 7, 1, 4]
+V4.1 mixed MoE packed-moe-2-bf16: 1088 bit-exact outputs, counts [13, 9, 6, 13, 10]
+V4.1 mixed MoE packed-moe-3-fp32: 160 bit-exact outputs, counts [3, 2, 5]
+ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_storage_and_precision_validation ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1160 filtered out; finished in 2.91s
+
