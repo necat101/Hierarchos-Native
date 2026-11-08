@@ -1,0 +1,348 @@
+{
+  "schema": 1,
+  "pass": true,
+  "scope": "no-TLS probe c7e096d vs 42958d3; batch 1",
+  "order": "ABBA",
+  "rounds": 6,
+  "batch": 1,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "bootstrap_draws": 10000,
+  "bootstrap_seed": 20261107,
+  "cross_arm_word_exact": true,
+  "cross_arm_mismatched_cases": [],
+  "allowed_cross_arm_signature_difference": true,
+  "legacy_batch_unreported": false,
+  "devices": [
+    "AMD Radeon Graphics"
+  ],
+  "fixtures": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gen9-frozen\\target\\multimodal-gen9",
+  "baseline": {
+    "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\c7e096d.exe",
+    "sha256": "86ad8879ebffb21462e50e1e1c8f41ec7da7f52f127e89bdac44bf0d85e27e3b",
+    "env": {}
+  },
+  "candidate": {
+    "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\42958d3-notls.exe",
+    "sha256": "953018322acd3d1a676ae31965250cef9e4b1fe4a3bad96809d697e1f0247449",
+    "env": {}
+  },
+  "results": [
+    {
+      "case": "native_vit_4x4",
+      "role": "native",
+      "baseline": {
+        "round_medians_ms": [
+          249.6775,
+          256.5852,
+          250.195,
+          253.7859,
+          270.89239999999995,
+          250.0566
+        ],
+        "median_ms": 251.99045,
+        "p95_ms": 275.4977,
+        "min_ms": 242.6512,
+        "max_ms": 346.41099999999994,
+        "mad_ms": 2.1234000000000037,
+        "relative_mad": 0.008426509814161622,
+        "sample_cv": 0.06495339581746407,
+        "submissions": [
+          151
+        ],
+        "samples": 42,
+        "signature_sha256": "0f3553c77a86dcef0bc44953f7bda8e0456c174654a1e41a2a7743993a8b4d48"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          251.43489999999997,
+          255.73110000000003,
+          254.57970000000003,
+          260.40009999999995,
+          253.9522,
+          254.5692
+        ],
+        "median_ms": 254.57445,
+        "p95_ms": 270.5438,
+        "min_ms": 243.3556,
+        "max_ms": 308.1177,
+        "mad_ms": 0.8894500000000107,
+        "relative_mad": 0.0034938698679306216,
+        "sample_cv": 0.04418038083979535,
+        "submissions": [
+          151
+        ],
+        "samples": 42,
+        "signature_sha256": "0f3553c77a86dcef0bc44953f7bda8e0456c174654a1e41a2a7743993a8b4d48"
+      },
+      "speedup": 0.9898497276533447,
+      "paired_median_speedup": 0.9878936134211619,
+      "paired_round_speedups": [
+        0.9930105168375593,
+        1.003339836257694,
+        0.9827767100047645,
+        0.9745998561444487,
+        1.0667062541690915,
+        0.9822735821929754
+      ],
+      "speedup_ci95": [
+        0.978436719168712,
+        1.0350230452133928
+      ],
+      "conclusion": "inconclusive"
+    },
+    {
+      "case": "native_vit_6x4",
+      "role": "native",
+      "baseline": {
+        "round_medians_ms": [
+          264.5148,
+          268.1759,
+          267.73920000000004,
+          272.79110000000003,
+          281.1751,
+          268.2943
+        ],
+        "median_ms": 268.2351,
+        "p95_ms": 285.10200000000003,
+        "min_ms": 254.9065,
+        "max_ms": 355.6166,
+        "mad_ms": 2.108099999999979,
+        "relative_mad": 0.007859150424385097,
+        "sample_cv": 0.05647916485575591,
+        "submissions": [
+          151
+        ],
+        "samples": 42,
+        "signature_sha256": "fecf1b7622cd20f6c0fafdde1b99b639f6050a65928c70c2e6dbdafc0162d42f"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          267.8976,
+          270.0516,
+          269.5488,
+          271.2688,
+          266.1436,
+          271.7681
+        ],
+        "median_ms": 269.8002,
+        "p95_ms": 310.6030999999999,
+        "min_ms": 258.3987,
+        "max_ms": 535.2848,
+        "mad_ms": 1.6855999999999938,
+        "relative_mad": 0.0062475861767337226,
+        "sample_cv": 0.15337328201779865,
+        "submissions": [
+          151
+        ],
+        "samples": 42,
+        "signature_sha256": "fecf1b7622cd20f6c0fafdde1b99b639f6050a65928c70c2e6dbdafc0162d42f"
+      },
+      "speedup": 0.9941990406233945,
+      "paired_median_speedup": 0.9931704246184816,
+      "paired_round_speedups": [
+        0.9873727872142191,
+        0.9930542903652487,
+        0.9932865588717146,
+        1.0056117769533395,
+        1.0564789083787849,
+        0.9872177786870497
+      ],
+      "speedup_ci95": [
+        0.9872952829506344,
+        1.0310453426660622
+      ],
+      "conclusion": "inconclusive"
+    },
+    {
+      "case": "llama",
+      "role": "control",
+      "baseline": {
+        "round_medians_ms": [
+          13.0173,
+          13.2665,
+          12.5451,
+          13.3288,
+          13.449900000000001,
+          12.161999999999999
+        ],
+        "median_ms": 13.1419,
+        "p95_ms": 15.2412,
+        "min_ms": 11.4179,
+        "max_ms": 17.2807,
+        "mad_ms": 0.24745000000000061,
+        "relative_mad": 0.018829088640151016,
+        "sample_cv": 0.08599230018646778,
+        "submissions": [
+          5
+        ],
+        "samples": 42,
+        "signature_sha256": "af3c8ea6ef3afc98dd314edc0b7bf852fbd11f067814ebc76db9f5587539134a"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          13.1434,
+          13.0045,
+          13.432400000000001,
+          12.9464,
+          13.3156,
+          12.7803
+        ],
+        "median_ms": 13.07395,
+        "p95_ms": 13.8975,
+        "min_ms": 12.390099999999999,
+        "max_ms": 14.5996,
+        "mad_ms": 0.18459999999999965,
+        "relative_mad": 0.014119680739179793,
+        "sample_cv": 0.03497601731160288,
+        "submissions": [
+          5
+        ],
+        "samples": 42,
+        "signature_sha256": "af3c8ea6ef3afc98dd314edc0b7bf852fbd11f067814ebc76db9f5587539134a"
+      },
+      "speedup": 1.0051973581052398,
+      "paired_median_speedup": 1.0002458726647367,
+      "paired_round_speedups": [
+        0.9904058310634997,
+        1.0201468722365334,
+        0.9339433012715522,
+        1.0295371686337513,
+        1.010085914265974,
+        0.951620853970564
+      ],
+      "speedup_ci95": [
+        0.942782077621058,
+        1.0248420204351425
+      ],
+      "conclusion": "inconclusive"
+    },
+    {
+      "case": "gpt2",
+      "role": "control",
+      "baseline": {
+        "round_medians_ms": [
+          9.5221,
+          10.0181,
+          10.2536,
+          9.848,
+          9.8508,
+          10.3377
+        ],
+        "median_ms": 9.93445,
+        "p95_ms": 12.7065,
+        "min_ms": 9.0285,
+        "max_ms": 12.9161,
+        "mad_ms": 0.20279999999999987,
+        "relative_mad": 0.020413812541207603,
+        "sample_cv": 0.10707152570128187,
+        "submissions": [
+          5
+        ],
+        "samples": 42,
+        "signature_sha256": "08b459b3dc1fe5c16b504c916d205340ff1109ed6c971be0785220789469ba09"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          10.2486,
+          10.8746,
+          10.2762,
+          10.7401,
+          10.1218,
+          10.1497
+        ],
+        "median_ms": 10.2624,
+        "p95_ms": 12.9497,
+        "min_ms": 9.049700000000001,
+        "max_ms": 13.268,
+        "mad_ms": 0.1266499999999997,
+        "relative_mad": 0.012341167758029284,
+        "sample_cv": 0.08980770354032334,
+        "submissions": [
+          5
+        ],
+        "samples": 42,
+        "signature_sha256": "08b459b3dc1fe5c16b504c916d205340ff1109ed6c971be0785220789469ba09"
+      },
+      "speedup": 0.9680435375740568,
+      "paired_median_speedup": 0.951169187510705,
+      "paired_round_speedups": [
+        0.929112268992838,
+        0.9212384823349825,
+        0.9978007434654834,
+        0.9169374586828801,
+        0.973226106028572,
+        1.0185227149570923
+      ],
+      "speedup_ci95": [
+        0.9190879705089313,
+        1.0081617292112879
+      ],
+      "conclusion": "inconclusive"
+    },
+    {
+      "case": "t5",
+      "role": "control",
+      "baseline": {
+        "round_medians_ms": [
+          30.0187,
+          30.054199999999998,
+          29.0242,
+          32.3107,
+          30.4026,
+          29.2108
+        ],
+        "median_ms": 30.03645,
+        "p95_ms": 33.7228,
+        "min_ms": 28.2132,
+        "max_ms": 36.9137,
+        "mad_ms": 0.5959000000000003,
+        "relative_mad": 0.019839228670498688,
+        "sample_cv": 0.05887180441563302,
+        "submissions": [
+          7
+        ],
+        "samples": 42,
+        "signature_sha256": "179b3e3166e17f3dba10148f32d5fd50effd779df747b47e932b97fc78c7b950"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          30.666800000000002,
+          30.9315,
+          31.642400000000002,
+          31.167199999999998,
+          30.696,
+          31.4875
+        ],
+        "median_ms": 31.049349999999997,
+        "p95_ms": 33.2717,
+        "min_ms": 30.0014,
+        "max_ms": 33.3305,
+        "mad_ms": 0.3679499999999951,
+        "relative_mad": 0.011850489623776187,
+        "sample_cv": 0.029646986741412976,
+        "submissions": [
+          7
+        ],
+        "samples": 42,
+        "signature_sha256": "179b3e3166e17f3dba10148f32d5fd50effd779df747b47e932b97fc78c7b950"
+      },
+      "speedup": 0.9673777389864845,
+      "paired_median_speedup": 0.9752518619382002,
+      "paired_round_speedups": [
+        0.9788663962330597,
+        0.9716373276433409,
+        0.9172565924202968,
+        1.036689211735414,
+        0.9904417513682564,
+        0.9276951171099642
+      ],
+      "speedup_ci95": [
+        0.9224758547651305,
+        1.0135654815518351
+      ],
+      "conclusion": "inconclusive"
+    }
+  ],
+  "gate_failures": []
+}

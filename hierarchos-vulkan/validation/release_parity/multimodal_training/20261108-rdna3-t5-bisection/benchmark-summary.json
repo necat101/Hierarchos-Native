@@ -1,0 +1,818 @@
+{
+  "schema": 1,
+  "pass_": false,
+  "status": "REGRESSION",
+  "source_head": "89af6932ddb6e7a554d5bdce600906d3e45c395e",
+  "source_tree_clean": true,
+  "qualification": "No source fix landed. The correct weak-reference lifetime fix is preserved and the T5 regression remains a release blocker.",
+  "protocol": {
+    "order": "ABBA",
+    "rounds": 6,
+    "measured_steps": 7,
+    "warmup_steps": 2,
+    "bootstrap_draws": 10000,
+    "fixtures": "target/rdna3-port/gen9-frozen/target/multimodal-gen9",
+    "note": "Screening runs are exploratory only and are not used for the boundary conclusion."
+  },
+  "revisions": {
+    "last_good": "c7e096d",
+    "first_bad": "6140771",
+    "scan_optimized": "42958d3",
+    "recycler_base": "89af693",
+    "no_tls_probe": "42958d3 plus removal of the test-only TLS read"
+  },
+  "binaries": {
+    "historical_372407b": "7e7a713106b76f93425b0b08b0f1ef9cec053935ddfb3323874883c81e29c9ab",
+    "last_good_c7e096d": "86ad8879ebffb21462e50e1e1c8f41ec7da7f52f127e89bdac44bf0d85e27e3b",
+    "first_bad_6140771": "07890bd180a699d3bf990c0369659983e5b0e6fb820bd847e3a602b890422090",
+    "scan_optimized_42958d3": "6b62b688d7af844ee45e0239415bbb0c30ae571c102f75dfbd7d7d604be097e6",
+    "no_tls_probe": "953018322acd3d1a676ae31965250cef9e4b1fe4a3bad96809d697e1f0247449",
+    "recycler_candidate": "609931766175e922f485363ee0233739ac646a48d7ba8a2baa3f7b9c95cb0a6a"
+  },
+  "rejected": {
+    "zeroed_recycler": {
+      "patch_sha256": "4e0e2e819af51f7821bad1686b54fd0b45a55bfd6a2ab99e76927437821fc6e5",
+      "result": "T5 0.9468 [0.9336,0.9740] against 372407b; Llama 0.9724 significantly slower; ViT gains fell to 1.4212/1.2786. Reverted."
+    },
+    "aten_tls": {
+      "result": "Removing the test-only TLS read lifted T5 from 0.9554 to 0.9674, but the interval still crosses 1.0; not landed."
+    }
+  },
+  "runs": [
+    {
+      "folder": "first-bad-c7e-vs-6140771",
+      "scope": "c7e096d -> 6140771; six-round ABBA; batch 1",
+      "assessment": "first_bad_t5_0.8562",
+      "rounds": 6,
+      "order": "ABBA",
+      "measured_steps": 7,
+      "warmup_steps": 2,
+      "recorded_pass": true,
+      "word_exact": true,
+      "mismatched": [],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\c7e096d.exe",
+        "sha256": "86ad8879ebffb21462e50e1e1c8f41ec7da7f52f127e89bdac44bf0d85e27e3b"
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\6140771.exe",
+        "sha256": "07890bd180a699d3bf990c0369659983e5b0e6fb820bd847e3a602b890422090"
+      },
+      "gate_failures": [],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 246.46245000000002,
+          "candidate_median_ms": 254.05034999999998,
+          "speedup": 0.9701322985778215,
+          "speedup_ci95": [
+            0.9621779828261618,
+            0.9770325116504954
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            151
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 257.51815,
+          "candidate_median_ms": 266.6664,
+          "speedup": 0.9656940281940282,
+          "speedup_ci95": [
+            0.9591830830307244,
+            0.9752777215964427
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            151
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 12.581949999999999,
+          "candidate_median_ms": 13.69765,
+          "speedup": 0.9185480721145598,
+          "speedup_ci95": [
+            0.8895376536948982,
+            0.9282395928887119
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 9.9034,
+          "candidate_median_ms": 10.88615,
+          "speedup": 0.9097247419886736,
+          "speedup_ci95": [
+            0.8869709862090599,
+            0.9236728724588501
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 29.626649999999998,
+          "candidate_median_ms": 34.601,
+          "speedup": 0.8562368139649142,
+          "speedup_ci95": [
+            0.8426741670932778,
+            0.8709152172833616
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            7
+          ],
+          "submissions_candidate": [
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "folder": "residual-c7e-vs-42958d3",
+      "scope": "c7e096d -> 42958d3; six-round ABBA; batch 1",
+      "assessment": "residual_t5_0.9554",
+      "rounds": 6,
+      "order": "ABBA",
+      "measured_steps": 7,
+      "warmup_steps": 2,
+      "recorded_pass": true,
+      "word_exact": true,
+      "mismatched": [],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\c7e096d.exe",
+        "sha256": "86ad8879ebffb21462e50e1e1c8f41ec7da7f52f127e89bdac44bf0d85e27e3b"
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\42958d3.exe",
+        "sha256": "6b62b688d7af844ee45e0239415bbb0c30ae571c102f75dfbd7d7d604be097e6"
+      },
+      "gate_failures": [],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 251.27974999999998,
+          "candidate_median_ms": 253.68765000000002,
+          "speedup": 0.9905084066961871,
+          "speedup_ci95": [
+            0.9860926319113191,
+            0.9922012233945345
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            151
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 261.82185,
+          "candidate_median_ms": 267.6871,
+          "speedup": 0.9780891570792914,
+          "speedup_ci95": [
+            0.9432232974879409,
+            0.985648151248611
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            151
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 12.6583,
+          "candidate_median_ms": 13.43855,
+          "speedup": 0.9419394205476038,
+          "speedup_ci95": [
+            0.9218884161953553,
+            0.9885189703274806
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 9.732399999999998,
+          "candidate_median_ms": 10.1545,
+          "speedup": 0.9584322221675118,
+          "speedup_ci95": [
+            0.9014479688295625,
+            1.0032491084975887
+          ],
+          "conclusion": "inconclusive",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 29.71835,
+          "candidate_median_ms": 31.10445,
+          "speedup": 0.95543724451003,
+          "speedup_ci95": [
+            0.9100963381982968,
+            0.9678899140551827
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            7
+          ],
+          "submissions_candidate": [
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "folder": "no-tls-c7e-vs-42958d3",
+      "scope": "c7e096d -> 42958d3 without the test-only ATen-width TLS read; six-round ABBA; batch 1",
+      "assessment": "partial_recovery_t5_0.9674",
+      "rounds": 6,
+      "order": "ABBA",
+      "measured_steps": 7,
+      "warmup_steps": 2,
+      "recorded_pass": true,
+      "word_exact": true,
+      "mismatched": [],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\c7e096d.exe",
+        "sha256": "86ad8879ebffb21462e50e1e1c8f41ec7da7f52f127e89bdac44bf0d85e27e3b"
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\42958d3-notls.exe",
+        "sha256": "953018322acd3d1a676ae31965250cef9e4b1fe4a3bad96809d697e1f0247449"
+      },
+      "gate_failures": [],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 251.99045,
+          "candidate_median_ms": 254.57445,
+          "speedup": 0.9898497276533447,
+          "speedup_ci95": [
+            0.978436719168712,
+            1.0350230452133928
+          ],
+          "conclusion": "inconclusive",
+          "submissions_baseline": [
+            151
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 268.2351,
+          "candidate_median_ms": 269.8002,
+          "speedup": 0.9941990406233945,
+          "speedup_ci95": [
+            0.9872952829506344,
+            1.0310453426660622
+          ],
+          "conclusion": "inconclusive",
+          "submissions_baseline": [
+            151
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 13.1419,
+          "candidate_median_ms": 13.07395,
+          "speedup": 1.0051973581052398,
+          "speedup_ci95": [
+            0.942782077621058,
+            1.0248420204351425
+          ],
+          "conclusion": "inconclusive",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 9.93445,
+          "candidate_median_ms": 10.2624,
+          "speedup": 0.9680435375740568,
+          "speedup_ci95": [
+            0.9190879705089313,
+            1.0081617292112879
+          ],
+          "conclusion": "inconclusive",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 30.03645,
+          "candidate_median_ms": 31.049349999999997,
+          "speedup": 0.9673777389864845,
+          "speedup_ci95": [
+            0.9224758547651305,
+            1.0135654815518351
+          ],
+          "conclusion": "inconclusive",
+          "submissions_baseline": [
+            7
+          ],
+          "submissions_candidate": [
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "folder": "rejected/recycler-372407b-vs-final",
+      "scope": "372407b -> 89af693 plus the zeroed-allocation recycler; six-round ABBA; batch 1",
+      "assessment": "rejected_recycler_t5_0.9468",
+      "rounds": 6,
+      "order": "ABBA",
+      "measured_steps": 7,
+      "warmup_steps": 2,
+      "recorded_pass": false,
+      "word_exact": false,
+      "mismatched": [
+        "gpt2"
+      ],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\baseline-372407b.exe",
+        "sha256": "7e7a713106b76f93425b0b08b0f1ef9cec053935ddfb3323874883c81e29c9ab"
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\final.exe",
+        "sha256": "609931766175e922f485363ee0233739ac646a48d7ba8a2baa3f7b9c95cb0a6a"
+      },
+      "gate_failures": [
+        "llama: control regression is significant ([0.9570020149328009, 0.9955364020405801])",
+        "t5: control regression is significant ([0.9336232374534963, 0.973961436620844])"
+      ],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 430.16864999999996,
+          "candidate_median_ms": 302.68465000000003,
+          "speedup": 1.4211776183562659,
+          "speedup_ci95": [
+            1.39996747106583,
+            1.4523346413170546
+          ],
+          "conclusion": "candidate_faster",
+          "submissions_baseline": [
+            982
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 448.50104999999996,
+          "candidate_median_ms": 350.76234999999997,
+          "speedup": 1.2786464966949844,
+          "speedup_ci95": [
+            1.2591373694469752,
+            1.2945684787247198
+          ],
+          "conclusion": "candidate_faster",
+          "submissions_baseline": [
+            982
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 12.82845,
+          "candidate_median_ms": 13.19305,
+          "speedup": 0.9723642372309663,
+          "speedup_ci95": [
+            0.9570020149328009,
+            0.9955364020405801
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 11.43945,
+          "candidate_median_ms": 10.495999999999999,
+          "speedup": 1.08988662347561,
+          "speedup_ci95": [
+            1.0380067562991893,
+            1.1120632790779013
+          ],
+          "conclusion": "candidate_faster",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 29.976800000000004,
+          "candidate_median_ms": 31.66,
+          "speedup": 0.9468351231838283,
+          "speedup_ci95": [
+            0.9336232374534963,
+            0.973961436620844
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            7
+          ],
+          "submissions_candidate": [
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "folder": "screening/c7e-vs-6140771",
+      "scope": "two-round screening c7e096d -> 6140771",
+      "assessment": "screening_only",
+      "rounds": 2,
+      "order": "ABBA",
+      "measured_steps": 3,
+      "warmup_steps": 2,
+      "recorded_pass": true,
+      "word_exact": true,
+      "mismatched": [],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\c7e096d.exe",
+        "sha256": "86ad8879ebffb21462e50e1e1c8f41ec7da7f52f127e89bdac44bf0d85e27e3b"
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\6140771.exe",
+        "sha256": "07890bd180a699d3bf990c0369659983e5b0e6fb820bd847e3a602b890422090"
+      },
+      "gate_failures": [],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 243.02709999999996,
+          "candidate_median_ms": 253.73854999999998,
+          "speedup": 0.9577854843105235,
+          "speedup_ci95": [
+            0.9516754544899328,
+            0.963977482057974
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            151
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 256.05215,
+          "candidate_median_ms": 265.4674,
+          "speedup": 0.964533309928074,
+          "speedup_ci95": [
+            0.960772541420515,
+            0.9682807317308874
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            151
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 12.3865,
+          "candidate_median_ms": 13.62125,
+          "speedup": 0.9093511975773149,
+          "speedup_ci95": [
+            0.8854809305039014,
+            0.9335452160094607
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 10.5384,
+          "candidate_median_ms": 12.0291,
+          "speedup": 0.8760755168715864,
+          "speedup_ci95": [
+            0.8365100185444841,
+            0.9097103132185455
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 29.69905,
+          "candidate_median_ms": 34.5835,
+          "speedup": 0.8587635722237483,
+          "speedup_ci95": [
+            0.8536846961134817,
+            0.8638720528956298
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            7
+          ],
+          "submissions_candidate": [
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "folder": "screening/c7e-vs-4b659b3",
+      "scope": "two-round screening c7e096d -> 4b659b3",
+      "assessment": "screening_only",
+      "rounds": 2,
+      "order": "ABBA",
+      "measured_steps": 3,
+      "warmup_steps": 2,
+      "recorded_pass": true,
+      "word_exact": true,
+      "mismatched": [],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\c7e096d.exe",
+        "sha256": "86ad8879ebffb21462e50e1e1c8f41ec7da7f52f127e89bdac44bf0d85e27e3b"
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\4b659b3.exe",
+        "sha256": "6f500199a0127b43352e92db52eda80eca15967556b491ec1818a00d186f8252"
+      },
+      "gate_failures": [],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 244.82999999999998,
+          "candidate_median_ms": 253.18945000000002,
+          "speedup": 0.9669834189378742,
+          "speedup_ci95": [
+            0.948515482355287,
+            0.9859792061680435
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            151
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 262.25355,
+          "candidate_median_ms": 268.3421,
+          "speedup": 0.9773104928373147,
+          "speedup_ci95": [
+            0.975821896938171,
+            0.9787679378419092
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            151
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 12.248249999999999,
+          "candidate_median_ms": 13.664349999999999,
+          "speedup": 0.8963653594938654,
+          "speedup_ci95": [
+            0.8852358572170002,
+            0.9078396837075187
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 10.1796,
+          "candidate_median_ms": 11.09455,
+          "speedup": 0.9175315808212141,
+          "speedup_ci95": [
+            0.8554070365237607,
+            0.9806717190992857
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 29.313200000000002,
+          "candidate_median_ms": 35.2068,
+          "speedup": 0.8326005203540225,
+          "speedup_ci95": [
+            0.8068351457884879,
+            0.8592051404917644
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            7
+          ],
+          "submissions_candidate": [
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "folder": "screening/c7e-vs-42958d3",
+      "scope": "two-round screening c7e096d -> 42958d3",
+      "assessment": "screening_only",
+      "rounds": 2,
+      "order": "ABBA",
+      "measured_steps": 3,
+      "warmup_steps": 2,
+      "recorded_pass": true,
+      "word_exact": true,
+      "mismatched": [],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\c7e096d.exe",
+        "sha256": "86ad8879ebffb21462e50e1e1c8f41ec7da7f52f127e89bdac44bf0d85e27e3b"
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\bisect\\42958d3.exe",
+        "sha256": "6b62b688d7af844ee45e0239415bbb0c30ae571c102f75dfbd7d7d604be097e6"
+      },
+      "gate_failures": [],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 245.5349,
+          "candidate_median_ms": 248.5867,
+          "speedup": 0.9877233979130822,
+          "speedup_ci95": [
+            0.9794735561437625,
+            0.9960313215162444
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            151
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 258.8354,
+          "candidate_median_ms": 261.71875,
+          "speedup": 0.9889830208955224,
+          "speedup_ci95": [
+            0.9810282000889171,
+            0.9971236642684961
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            151
+          ],
+          "submissions_candidate": [
+            151
+          ]
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 12.2454,
+          "candidate_median_ms": 12.6847,
+          "speedup": 0.9653677264736258,
+          "speedup_ci95": [
+            0.9606619809889464,
+            0.9702504296981671
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 9.86035,
+          "candidate_median_ms": 9.792750000000002,
+          "speedup": 1.0069030660437568,
+          "speedup_ci95": [
+            0.9921296975540231,
+            1.0209393326894547
+          ],
+          "conclusion": "inconclusive",
+          "submissions_baseline": [
+            5
+          ],
+          "submissions_candidate": [
+            5
+          ]
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 30.11285,
+          "candidate_median_ms": 30.7468,
+          "speedup": 0.9793815941821589,
+          "speedup_ci95": [
+            0.9680269865165384,
+            0.9906449115510076
+          ],
+          "conclusion": "candidate_slower",
+          "submissions_baseline": [
+            7
+          ],
+          "submissions_candidate": [
+            7
+          ]
+        }
+      ]
+    }
+  ],
+  "findings": [
+    "The T5 regression first appears at 6140771, where a six-round comparison against c7e096d gives 0.8562 [0.8427,0.8709] and every workload is slower.",
+    "The 42958d3 pending-clear scan optimization recovers most of the broad loss but leaves T5 at 0.9554 [0.9101,0.9679] and Llama at 0.9419 against c7e096d.",
+    "Removing the test-only ATen-width TLS read from the 42958d3 tree raises T5 to 0.9674 [0.9225,1.0136] and Llama to 1.0052; the T5 interval still crosses 1.0.",
+    "Reusing dropped zeroed device-local allocations does not recover T5 (0.9468 against 372407b) and introduces a significant Llama regression, so the recycler is rejected.",
+    "T5 uses seven submissions in every revision; the regression is not extra queue submissions.",
+    "Retirement host rebuild on 42958d3 is 0.525 ms/step against 29.621 ms/step of blocking GPU wait, so host command-buffer churn is not the dominant term."
+  ],
+  "limits": [
+    "The final ~3% T5 residual is not fully attributed; the TLS probe and recycler bracket it but neither removes it.",
+    "Debug test binaries are not byte-reproducible; binary hashes and the exact run directories are recorded.",
+    "No physical Gen9 hardware or external shader oracle was available; no Gen9 claim is made.",
+    "No tolerance, fixture or historical receipt was modified."
+  ]
+}
