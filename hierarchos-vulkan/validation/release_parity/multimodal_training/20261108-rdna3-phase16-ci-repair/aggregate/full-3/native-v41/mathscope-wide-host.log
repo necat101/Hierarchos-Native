@@ -1,0 +1,10 @@
+
+running 1 test
+test deepseek_v41::cpu_math::tests::native_avx2_scope_preserves_host_dispatch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1175 filtered out; finished in 0.00s
+
+
+thread 'deepseek_v41::cpu_math::tests::native_avx2_scope_preserves_host_dispatch' (10200) panicked at src\deepseek_v41\cpu_math.rs:54:17:
+exercise scope restoration
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

@@ -1,0 +1,33 @@
+{
+  "command": "cargo test --release --offline --locked --lib --no-run --message-format=json",
+  "exit": 0,
+  "cargo_version": "cargo 1.93.0 (083ac5135 2025-12-15)",
+  "rustc_version": "rustc 1.93.0 (254b59607 2026-01-19)",
+  "target": {
+    "kind": [
+      "lib"
+    ],
+    "crate_types": [
+      "lib"
+    ],
+    "name": "hierarchos_vulkan",
+    "src_path": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\src\\lib.rs",
+    "edition": "2021",
+    "doc": true,
+    "doctest": true,
+    "test": true
+  },
+  "profile": {
+    "opt_level": "3",
+    "debuginfo": 0,
+    "debug_assertions": false,
+    "overflow_checks": false,
+    "test": true
+  },
+  "features": [
+    "default"
+  ],
+  "binary": "C:/Users/User/Downloads/Multimodal/Hierarchos-Native/target/phase16/release-target/release/deps/hierarchos_vulkan-0861896ac6f810c4.exe",
+  "binary_sha256": "ee4ae6f7fbdb711ebe4a7001147225d3f7be94de6c1ec8c5866e7dd864a65277",
+  "cargo_json_lines": 450
+}

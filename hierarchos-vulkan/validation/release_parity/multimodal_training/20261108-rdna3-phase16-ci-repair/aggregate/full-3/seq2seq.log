@@ -1,0 +1,6 @@
+PASS t5/unmasked 0 required failures
+PASS t5/padded 0 required failures
+PASS bart/unmasked 0 required failures
+PASS bart/padded 0 required failures
+PASS switch_transformers/unmasked 0 required failures
+PASS switch_transformers/padded 0 required failures

@@ -1,0 +1,8 @@
+target/phase16/ci/legacy-invalid-rdna3-performance.yml:46:29: context "runner" is not allowed here. available contexts are "github", "inputs", "matrix", "needs", "secrets", "strategy", "vars". see https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability for more details [expression]
+   |
+46 |       CANDIDATE_TARGET: ${{ runner.temp }}/rdna3-candidate-target-${{ github.run_id }}
+   |                             ^~~~~~~~~~~
+target/phase16/ci/legacy-invalid-rdna3-performance.yml:47:28: context "runner" is not allowed here. available contexts are "github", "inputs", "matrix", "needs", "secrets", "strategy", "vars". see https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability for more details [expression]
+   |
+47 |       BASELINE_TARGET: ${{ runner.temp }}/rdna3-baseline-target-${{ github.run_id }}
+   |                            ^~~~~~~~~~~

@@ -1,0 +1,185 @@
+name: RDNA3 V4.1 performance
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_ref:
+        description: Git revision of the optimization baseline
+        required: true
+        default: 722acd09626c592ead883b8c7aa652dd0d6ceeac
+      rounds:
+        description: Paired ABBA rounds (even, at least 6 for qualification)
+        required: true
+        default: "6"
+      steps:
+        description: Measured optimizer updates per case
+        required: true
+        default: "7"
+      release_qualification:
+        description: Require conclusive PASS for every workload at batches 1, 2, and 4
+        required: true
+        type: boolean
+        default: false
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rdna3-v41-performance
+  cancel-in-progress: false
+
+jobs:
+  performance:
+    # Do not add pull_request to this workflow. Self-hosted runners must never
+    # execute untrusted pull-request code.
+    runs-on: [self-hosted, Windows, X64, rdna3, vulkan]
+    timeout-minutes: 120
+    env:
+      CARGO_TERM_COLOR: never
+      RDNA3_V41_FIXTURES: ${{ vars.RDNA3_V41_FIXTURES }}
+      BASELINE_REF: ${{ inputs.baseline_ref || '722acd09626c592ead883b8c7aa652dd0d6ceeac' }}
+      ROUNDS: ${{ inputs.rounds || '6' }}
+      STEPS: ${{ inputs.steps || '7' }}
+      RELEASE_QUALIFICATION: ${{ inputs.release_qualification || false }}
+      CANDIDATE_TARGET: ${{ runner.temp }}/rdna3-candidate-target-${{ github.run_id }}
+      BASELINE_TARGET: ${{ runner.temp }}/rdna3-baseline-target-${{ github.run_id }}
+      BENCHMARK_ROOT: hierarchos-vulkan/target/rdna3-port/ci-benchmark-${{ github.run_id }}
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate dedicated runner prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v cargo
+          command -v python
+          command -v sha256sum
+          test -n "${RDNA3_V41_FIXTURES:?set repository variable RDNA3_V41_FIXTURES to the frozen Gen9 fixture root}"
+          test -d "$RDNA3_V41_FIXTURES"
+          case "$ROUNDS" in
+            6|8|10|12) ;;
+            *) echo "qualification rounds must be 6, 8, 10, or 12" >&2; exit 2 ;;
+          esac
+          case "$STEPS" in
+            7|9|11) ;;
+            *) echo "measured steps must be 7, 9, or 11" >&2; exit 2 ;;
+          esac
+          python - <<'PY'
+          import subprocess, sys
+          if "rustc" not in subprocess.check_output(["cargo", "--version"], text=True):
+              sys.exit("unexpected cargo version output")
+          PY
+
+      - name: Record candidate provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$BENCHMARK_ROOT/provenance"
+          {
+            echo "candidate_source_revision=$(git rev-parse HEAD)"
+            echo "baseline_source_revision=$(git rev-parse "$BASELINE_REF")"
+            echo "cargo=$(cargo --version)"
+            echo "rustc=$(rustc -Vv | tr '\n' ';')"
+            echo "python=$(python --version 2>&1)"
+            echo "fixtures_root=$RDNA3_V41_FIXTURES"
+            if command -v vulkaninfo >/dev/null 2>&1; then
+              vulkaninfo --summary 2>&1 || true
+            else
+              echo "vulkaninfo: unavailable"
+            fi
+          } > "$BENCHMARK_ROOT/provenance/toolchain.txt"
+
+      - name: Build candidate test binary
+        shell: bash
+        working-directory: hierarchos-vulkan
+        env:
+          CARGO_TARGET_DIR: ${{ env.CANDIDATE_TARGET }}
+        run: |
+          set -euo pipefail
+          cargo test --locked --lib --no-run
+          CANDIDATE_BIN="$(find "$CARGO_TARGET_DIR/debug/deps" -maxdepth 1 -name 'hierarchos_vulkan-*.exe' -type f -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+          test -x "$CANDIDATE_BIN"
+          CANDIDATE_SHA="$(sha256sum "$CANDIDATE_BIN" | cut -d' ' -f1)"
+          echo "CANDIDATE_BIN=$CANDIDATE_BIN" >> "$GITHUB_ENV"
+          echo "CANDIDATE_SHA=$CANDIDATE_SHA" >> "$GITHUB_ENV"
+          printf 'candidate_binary=%s\ncandidate_sha256=%s\n' "$CANDIDATE_BIN" "$CANDIDATE_SHA" >> "$BENCHMARK_ROOT/provenance/toolchain.txt"
+          sha256sum "$CANDIDATE_BIN"
+
+      - name: Build baseline test binary
+        shell: bash
+        working-directory: hierarchos-vulkan
+        env:
+          CARGO_TARGET_DIR: ${{ env.BASELINE_TARGET }}
+        run: |
+          set -euo pipefail
+          BASELINE_SRC="$RUNNER_TEMP/rdna3-baseline-src-${{ github.run_id }}"
+          git worktree add --detach "$BASELINE_SRC" "$BASELINE_REF"
+          (cd "$BASELINE_SRC/hierarchos-vulkan" && cargo test --locked --lib --no-run)
+          BASELINE_BIN="$(find "$CARGO_TARGET_DIR/debug/deps" -maxdepth 1 -name 'hierarchos_vulkan-*.exe' -type f -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+          test -x "$BASELINE_BIN"
+          BASELINE_SHA="$(sha256sum "$BASELINE_BIN" | cut -d' ' -f1)"
+          echo "BASELINE_BIN=$BASELINE_BIN" >> "$GITHUB_ENV"
+          echo "BASELINE_SHA=$BASELINE_SHA" >> "$GITHUB_ENV"
+          echo "BASELINE_SRC=$BASELINE_SRC" >> "$GITHUB_ENV"
+          printf 'baseline_binary=%s\nbaseline_sha256=%s\n' "$BASELINE_BIN" "$BASELINE_SHA" >> "$BENCHMARK_ROOT/provenance/toolchain.txt"
+          sha256sum "$BASELINE_BIN"
+
+      - name: Paired ABBA benchmark, batches 1/2/4
+        shell: bash
+        working-directory: hierarchos-vulkan
+        run: |
+          set -euo pipefail
+          mkdir -p "$BENCHMARK_ROOT"
+          for batch in 1 2 4; do
+            python validation/benchmark_rdna3_v41_paired.py \
+              --baseline-binary "$BASELINE_BIN" \
+              --candidate-binary "$CANDIDATE_BIN" \
+              --fixtures "$RDNA3_V41_FIXTURES" \
+              --output "$BENCHMARK_ROOT/b$batch" \
+              --rounds "$ROUNDS" --steps "$STEPS" --batch "$batch" \
+              --scope "CI ${GITHUB_SHA} batch ${batch} vs ${BASELINE_REF}" \
+              --forbid-control-regression
+          done
+          sha256sum "$CANDIDATE_BIN" "$BASELINE_BIN" >> "$BENCHMARK_ROOT/provenance/toolchain.txt"
+
+      - name: Performance state gate
+        shell: bash
+        working-directory: hierarchos-vulkan
+        run: |
+          set -euo pipefail
+          MODE=development
+          if [ "$RELEASE_QUALIFICATION" = "true" ]; then MODE=release; fi
+          python validation/rdna3_performance_gate.py \
+            "$BENCHMARK_ROOT/b1/benchmark.json" \
+            "$BENCHMARK_ROOT/b2/benchmark.json" \
+            "$BENCHMARK_ROOT/b4/benchmark.json" \
+            --mode "$MODE" --require-batches 1,2,4 \
+            --expected-candidate-sha "$CANDIDATE_SHA" \
+            --expected-baseline-sha "$BASELINE_SHA" \
+            --expected-fixtures "$RDNA3_V41_FIXTURES" \
+            --json "$BENCHMARK_ROOT/gate.json" \
+            --markdown "$BENCHMARK_ROOT/gate.md"
+
+      - name: Upload raw benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rdna3-v41-performance-${{ github.run_id }}
+          path: |
+            ${{ env.BENCHMARK_ROOT }}/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove baseline worktree
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [ -n "${BASELINE_SRC:-}" ] && [ -d "$BASELINE_SRC" ]; then
+            git worktree remove --force "$BASELINE_SRC"
+          fi

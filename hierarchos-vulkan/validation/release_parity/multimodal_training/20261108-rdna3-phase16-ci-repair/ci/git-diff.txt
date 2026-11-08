@@ -1,0 +1,8 @@
+A	.github/actionlint.yaml
+M	.github/workflows/rdna3-performance.yml
+M	.github/workflows/time-mix-ab.yml
+M	.github/workflows/workspace-check.yml
+M	hierarchos-vulkan/src/deepseek_v41/model_tests.rs
+A	hierarchos-vulkan/validation/cargo_test_binary.py
+M	hierarchos-vulkan/validation/qualify_rdna3_deepseek_suite.py
+git_diff_exit=0

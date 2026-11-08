@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "phase": "XVI",
+  "source_commit": "4c973dd0e2b13d28b439f644f9cb74d65dfde329",
+  "parent_commit": "da71b8894378f3096a8e82595cc2007f63dfedca",
+  "qualified_numerical_commit": "a2d68f96802f278fbf79f019d58454270989ade5",
+  "phase15_receipt": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase15-qualification",
+  "production_numerical_sources_changed": false,
+  "note": "Only cfg(test) model_tests.rs changes under src; no production math, shaders, Cargo.toml, or Cargo.lock changes.",
+  "changed_files": {
+    ".github/actionlint.yaml": "63685f4ddd9081f38e50aea90af04a714e467a3fd1493f9dfc0813a89432db74",
+    ".github/workflows/rdna3-performance.yml": "41a9f85ca32a4cefc0e76bb4bad2bb96d86113c1db8a73b56360cc9a35f2a91c",
+    ".github/workflows/time-mix-ab.yml": "ad4da14bfe9a0e0b1fde33e9d8ae24c21145c04f13a4c929af4fad93feee26c7",
+    ".github/workflows/workspace-check.yml": "ce012b653fa73fdc37119eea5b533d9f4ff5f130421ec1126fb010c4040678fd",
+    "hierarchos-vulkan/src/deepseek_v41/model_tests.rs": "23b7fd7fe3d218b7e46322ae172a871930608b378db5db93e03bb756d5aed62d",
+    "hierarchos-vulkan/validation/cargo_test_binary.py": "35f71f6cdc7cda9792c1ca6547a8f2f4e8286015300753147940ca4beee4a410",
+    "hierarchos-vulkan/validation/qualify_rdna3_deepseek_suite.py": "d450797681ad813d557a1a93820e7408bb67c2b97031ce903d83bf4281490632"
+  }
+}
