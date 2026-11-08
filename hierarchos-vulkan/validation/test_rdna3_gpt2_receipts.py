@@ -114,6 +114,36 @@ class CurrentQualificationTests(unittest.TestCase):
             verify_current(
                 self.sources, receipt_path=self.path, source_head=self.head,
                 current_sha256=lambda name: 'a' * 64,
+                is_ancestor=lambda ancestor, descendant: False,
+            )
+
+    def test_receipt_in_a_child_commit_qualifies_identical_source_bytes(self):
+        # A commit cannot contain a receipt bound to its own hash, so the
+        # receipt records the parent revision it measured.
+        self.write({'source_head': 'a' * 40, 'pass': True, 'sources': self.sources})
+        status = verify_current(
+            self.sources, receipt_path=self.path, source_head=self.head,
+            current_sha256=lambda name: 'a' * 64,
+            is_ancestor=lambda ancestor, descendant: True,
+        )
+        self.assertEqual(status, 0)
+
+    def test_child_commit_receipt_still_requires_matching_source_bytes(self):
+        self.write({'source_head': 'a' * 40, 'pass': True, 'sources': self.sources})
+        with self.assertRaises(ValueError):
+            verify_current(
+                self.sources, receipt_path=self.path, source_head=self.head,
+                current_sha256=lambda name: 'b' * 64,
+                is_ancestor=lambda ancestor, descendant: True,
+            )
+
+    def test_receipt_from_an_unrelated_revision_is_rejected(self):
+        self.write({'source_head': 'a' * 40, 'pass': True, 'sources': self.sources})
+        with self.assertRaises(ValueError):
+            verify_current(
+                self.sources, receipt_path=self.path, source_head=self.head,
+                current_sha256=lambda name: 'a' * 64,
+                is_ancestor=lambda ancestor, descendant: False,
             )
 
     def test_current_receipt_must_bind_every_source(self):

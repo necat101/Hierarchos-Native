@@ -159,12 +159,23 @@ def verify_sources(sources, current_sha256=None, history_lookup=None, history_av
 CURRENT_RECEIPT = 'current-qualification.json'
 
 
-def verify_current(sources, receipt_path=None, source_head=None, current_sha256=None):
+def _is_ancestor(ancestor, descendant):
+    return subprocess.run(
+        ['git', '-C', str(ROOT), 'merge-base', '--is-ancestor', ancestor, descendant],
+        capture_output=True,
+    ).returncode == 0
+
+
+def verify_current(sources, receipt_path=None, source_head=None, current_sha256=None, is_ancestor=None):
     """Require a fresh receipt that binds this checkout, never a historical one.
 
     Returns 0 when the current source is qualified and 3 when it is not. A
-    historical receipt cannot satisfy this: it lists the bytes of its own
-    revision, so it fails as soon as the checkout differs from it.
+    receipt may be committed in a child of the revision it measured, because a
+    commit cannot contain a receipt bound to its own hash. That is not a
+    historical substitution: every source byte the receipt binds must still
+    match this checkout, so a receipt measured before any bound source changed
+    fails closed on the hash comparisons below. Its revision must also be an
+    ancestor of this checkout, which rejects receipts from unrelated branches.
     """
     receipt_path = Path(receipt_path) if receipt_path else RECEIPTS / CURRENT_RECEIPT
     current_sha256 = current_sha256 or (lambda name: _sha256_file(ROOT / name))
@@ -174,7 +185,12 @@ def verify_current(sources, receipt_path=None, source_head=None, current_sha256=
         print(f'CURRENT SOURCE QUALIFICATION: UNQUALIFIED (no {CURRENT_RECEIPT} for {source_head[:12]})')
         return 3
     receipt = json.loads(receipt_path.read_text())
-    require(receipt.get('source_head') == source_head, 'current qualification is bound to another revision')
+    bound = receipt.get('source_head')
+    require(isinstance(bound, str) and len(bound) == 40, 'current qualification has no source revision')
+    if bound != source_head:
+        is_ancestor = is_ancestor or _is_ancestor
+        require(is_ancestor(bound, source_head),
+            'current qualification is bound to an unrelated revision')
     for name in sources:
         require(
             receipt.get('sources', {}).get(name) == current_sha256(name),
