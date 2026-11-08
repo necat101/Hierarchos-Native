@@ -1,0 +1,32 @@
+
+running 8 tests
+test deepseek_v41::peft::tests::half_decoding_matches_the_ieee_conversion ... ok
+test deepseek_v41::peft::tests::target_matching_follows_peft_suffix_semantics ... ok
+test deepseek_v41::peft::tests::unmerged_export_preserves_factors_patterns_and_rslora ... ok
+test deepseek_v41::quantization_tests::deepseek_v41_fp4_midpoints_match_cpu_for_all_positive_e4m3_scales ... ok
+test deepseek_v41::quantization_tests::deepseek_v41_quantization_matches_released_kernels_bit_exactly ... ok
+test deepseek_v41::quantization_tests::deepseek_v41_quantization_rejects_invalid_shapes_and_modes ... ok
+test deepseek_v41::rotary_tests::deepseek_v41_rotary_matches_pinned_reference ... ok
+test deepseek_v41::rotary_tests::deepseek_v41_rotary_rejects_invalid_configuration_and_positions ... ok
+
+successes:
+
+---- deepseek_v41::quantization_tests::deepseek_v41_quantization_matches_released_kernels_bit_exactly stdout ----
+V4.1 quantization on AMD Radeon Graphics: 1600 exact values across 11 cases
+
+---- deepseek_v41::rotary_tests::deepseek_v41_rotary_matches_pinned_reference stdout ----
+V4.1 rotary on AMD Radeon Graphics: 4480 applied values, worst table drift 5.960464477539e-8, worst apply drift 1.192092895508e-7
+
+
+successes:
+    deepseek_v41::peft::tests::half_decoding_matches_the_ieee_conversion
+    deepseek_v41::peft::tests::target_matching_follows_peft_suffix_semantics
+    deepseek_v41::peft::tests::unmerged_export_preserves_factors_patterns_and_rslora
+    deepseek_v41::quantization_tests::deepseek_v41_fp4_midpoints_match_cpu_for_all_positive_e4m3_scales
+    deepseek_v41::quantization_tests::deepseek_v41_quantization_matches_released_kernels_bit_exactly
+    deepseek_v41::quantization_tests::deepseek_v41_quantization_rejects_invalid_shapes_and_modes
+    deepseek_v41::rotary_tests::deepseek_v41_rotary_matches_pinned_reference
+    deepseek_v41::rotary_tests::deepseek_v41_rotary_rejects_invalid_configuration_and_positions
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1167 filtered out; finished in 0.55s
+

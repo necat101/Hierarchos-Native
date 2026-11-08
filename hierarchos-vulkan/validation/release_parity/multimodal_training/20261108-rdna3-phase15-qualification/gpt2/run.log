@@ -1,0 +1,17 @@
+PASS gpt2_b2_s8_h4/unmasked 0 required failures
+PASS gpt2_b2_s8_h4/padded 0 required failures
+PASS gpt2_b1_s8_h4/unmasked 0 required failures
+PASS gpt2_b1_s8_h4/padded 0 required failures
+PASS gpt2_b3_s8_h4/unmasked 0 required failures
+PASS gpt2_b3_s8_h4/padded 0 required failures
+PASS gpt2_b2_s6_h4/unmasked 0 required failures
+PASS gpt2_b2_s6_h4/padded 0 required failures
+PASS gpt2_b2_s10_h4/unmasked 0 required failures
+PASS gpt2_b2_s10_h4/padded 0 required failures
+PASS gpt2_b2_s16_h4/unmasked 0 required failures
+PASS gpt2_b2_s16_h4/padded 0 required failures
+PASS gpt2_b2_s8_h2/unmasked 0 required failures
+PASS gpt2_b2_s8_h2/padded 0 required failures
+PASS gpt2_b2_s8_h8/unmasked 0 required failures
+PASS gpt2_b2_s8_h8/padded 0 required failures
+GPT2_EXIT=0

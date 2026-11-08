@@ -1,0 +1,12 @@
+
+running 1 test
+test deepseek_v41::model::tests::training::native_vision::native_state::deepseek_v41_native_joint_checkpoint_resume_export_and_freshness ... FAILED
+
+failures:
+
+failures:
+    deepseek_v41::model::tests::training::native_vision::native_state::deepseek_v41_native_joint_checkpoint_resume_export_and_freshness
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1174 filtered out; finished in 0.41s
+
+Error: Cannot create a file when that file already exists. (os error 183)

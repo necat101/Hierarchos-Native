@@ -1,0 +1,21 @@
+Starting primitives
+primitives PASS
+Starting vision
+vision PASS
+Starting joint
+joint PASS
+Starting checkpoint
+checkpoint FAIL
+Starting modality
+modality PASS
+Starting text
+text PASS
+Starting mathscope
+mathscope PASS
+Starting mathscope-wide-host
+mathscope-wide-host PASS
+Starting vision-wide-host
+vision-wide-host PASS
+Starting joint-wide-host
+joint-wide-host PASS
+Native V4.1 qualification FAIL max_abs_logit 0.0

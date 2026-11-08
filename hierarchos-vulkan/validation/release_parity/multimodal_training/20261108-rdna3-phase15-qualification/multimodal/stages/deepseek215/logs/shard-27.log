@@ -1,0 +1,251 @@
+
+running 2 tests
+test transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_sdpa_matches_independent_random_cpu ... ok
+test transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_two_adamw_steps_match_frozen_cpu ... ok
+
+successes:
+
+---- transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_sdpa_matches_independent_random_cpu stdout ----
+V4.1 random SDPA 0 output: 0e0
+V4.1 random SDPA 0 dq: 0e0
+V4.1 random SDPA 0 dk: 0e0
+V4.1 random SDPA 0 dv: 0e0
+V4.1 random SDPA 1 output: 0e0
+V4.1 random SDPA 1 dq: 0e0
+V4.1 random SDPA 1 dk: 0e0
+V4.1 random SDPA 1 dv: 0e0
+V4.1 random SDPA 2 output: 0e0
+V4.1 random SDPA 2 dq: 0e0
+V4.1 random SDPA 2 dk: 0e0
+V4.1 random SDPA 2 dv: 0e0
+V4.1 random SDPA 3 output: 0e0
+V4.1 random SDPA 3 dq: 0e0
+V4.1 random SDPA 3 dk: 0e0
+V4.1 random SDPA 3 dv: 0e0
+V4.1 random SDPA 4 output: 0e0
+V4.1 random SDPA 4 dq: 0e0
+V4.1 random SDPA 4 dk: 0e0
+V4.1 random SDPA 4 dv: 0e0
+V4.1 random SDPA 5 output: 0e0
+V4.1 random SDPA 5 dq: 0e0
+V4.1 random SDPA 5 dk: 0e0
+V4.1 random SDPA 5 dv: 0e0
+V4.1 random SDPA 6 output: 0e0
+V4.1 random SDPA 6 dq: 0e0
+V4.1 random SDPA 6 dk: 0e0
+V4.1 random SDPA 6 dv: 0e0
+V4.1 random SDPA 7 output: 0e0
+V4.1 random SDPA 7 dq: 0e0
+V4.1 random SDPA 7 dk: 0e0
+V4.1 random SDPA 7 dv: 0e0
+
+---- transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_two_adamw_steps_match_frozen_cpu stdout ----
+V4.1 native vision frozen fixture f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439
+native_vit_4x4 step0 features: 0e0
+native_vit_4x4 step0 projected: 0e0
+native_vit_4x4 step0 patch gradient: 0e0
+native_vit_4x4 step0 gradient aligner.w1.bias: 0e0
+native_vit_4x4 step0 gradient aligner.w1.weight: 0e0
+native_vit_4x4 step0 gradient aligner.w2.bias: 0e0
+native_vit_4x4 step0 gradient aligner.w2.weight: 0e0
+native_vit_4x4 step0 gradient vision.blocks.0.attn.wo.bias: 0e0
+native_vit_4x4 step0 gradient vision.blocks.0.attn.wo.weight: 0e0
+native_vit_4x4 step0 gradient vision.blocks.0.attn.wqkv.bias: 0e0
+native_vit_4x4 step0 gradient vision.blocks.0.attn.wqkv.weight: 0e0
+native_vit_4x4 step0 gradient vision.blocks.0.mlp.w1.weight: 0e0
+native_vit_4x4 step0 gradient vision.blocks.0.mlp.w2.weight: 0e0
+native_vit_4x4 step0 gradient vision.blocks.0.norm1.weight: 0e0
+native_vit_4x4 step0 gradient vision.blocks.0.norm2.weight: 0e0
+native_vit_4x4 step0 gradient vision.blocks.1.attn.wo.bias: 0e0
+native_vit_4x4 step0 gradient vision.blocks.1.attn.wo.weight: 0e0
+native_vit_4x4 step0 gradient vision.blocks.1.attn.wqkv.bias: 0e0
+native_vit_4x4 step0 gradient vision.blocks.1.attn.wqkv.weight: 0e0
+native_vit_4x4 step0 gradient vision.blocks.1.mlp.w1.weight: 0e0
+native_vit_4x4 step0 gradient vision.blocks.1.mlp.w2.weight: 0e0
+native_vit_4x4 step0 gradient vision.blocks.1.norm1.weight: 0e0
+native_vit_4x4 step0 gradient vision.blocks.1.norm2.weight: 0e0
+native_vit_4x4 step0 gradient vision.norm.weight: 0e0
+native_vit_4x4 step0 gradient vision.patch_embed.proj.bias: 0e0
+native_vit_4x4 step0 gradient vision.patch_embed.proj.weight: 0e0
+native_vit_4x4 step0 updated aligner.w1.bias: 0e0
+native_vit_4x4 step0 updated aligner.w1.weight: 0e0
+native_vit_4x4 step0 updated aligner.w2.bias: 0e0
+native_vit_4x4 step0 updated aligner.w2.weight: 0e0
+native_vit_4x4 step0 updated vision.blocks.0.attn.wo.bias: 0e0
+native_vit_4x4 step0 updated vision.blocks.0.attn.wo.weight: 0e0
+native_vit_4x4 step0 updated vision.blocks.0.attn.wqkv.bias: 0e0
+native_vit_4x4 step0 updated vision.blocks.0.attn.wqkv.weight: 0e0
+native_vit_4x4 step0 updated vision.blocks.0.mlp.w1.weight: 0e0
+native_vit_4x4 step0 updated vision.blocks.0.mlp.w2.weight: 0e0
+native_vit_4x4 step0 updated vision.blocks.0.norm1.weight: 0e0
+native_vit_4x4 step0 updated vision.blocks.0.norm2.weight: 0e0
+native_vit_4x4 step0 updated vision.blocks.1.attn.wo.bias: 0e0
+native_vit_4x4 step0 updated vision.blocks.1.attn.wo.weight: 0e0
+native_vit_4x4 step0 updated vision.blocks.1.attn.wqkv.bias: 0e0
+native_vit_4x4 step0 updated vision.blocks.1.attn.wqkv.weight: 0e0
+native_vit_4x4 step0 updated vision.blocks.1.mlp.w1.weight: 0e0
+native_vit_4x4 step0 updated vision.blocks.1.mlp.w2.weight: 0e0
+native_vit_4x4 step0 updated vision.blocks.1.norm1.weight: 0e0
+native_vit_4x4 step0 updated vision.blocks.1.norm2.weight: 0e0
+native_vit_4x4 step0 updated vision.norm.weight: 0e0
+native_vit_4x4 step0 updated vision.patch_embed.proj.bias: 0e0
+native_vit_4x4 step0 updated vision.patch_embed.proj.weight: 0e0
+native_vit_4x4 step1 features: 0e0
+native_vit_4x4 step1 projected: 0e0
+native_vit_4x4 step1 patch gradient: 0e0
+native_vit_4x4 step1 gradient aligner.w1.bias: 0e0
+native_vit_4x4 step1 gradient aligner.w1.weight: 0e0
+native_vit_4x4 step1 gradient aligner.w2.bias: 0e0
+native_vit_4x4 step1 gradient aligner.w2.weight: 0e0
+native_vit_4x4 step1 gradient vision.blocks.0.attn.wo.bias: 0e0
+native_vit_4x4 step1 gradient vision.blocks.0.attn.wo.weight: 0e0
+native_vit_4x4 step1 gradient vision.blocks.0.attn.wqkv.bias: 0e0
+native_vit_4x4 step1 gradient vision.blocks.0.attn.wqkv.weight: 0e0
+native_vit_4x4 step1 gradient vision.blocks.0.mlp.w1.weight: 0e0
+native_vit_4x4 step1 gradient vision.blocks.0.mlp.w2.weight: 0e0
+native_vit_4x4 step1 gradient vision.blocks.0.norm1.weight: 0e0
+native_vit_4x4 step1 gradient vision.blocks.0.norm2.weight: 0e0
+native_vit_4x4 step1 gradient vision.blocks.1.attn.wo.bias: 0e0
+native_vit_4x4 step1 gradient vision.blocks.1.attn.wo.weight: 0e0
+native_vit_4x4 step1 gradient vision.blocks.1.attn.wqkv.bias: 0e0
+native_vit_4x4 step1 gradient vision.blocks.1.attn.wqkv.weight: 0e0
+native_vit_4x4 step1 gradient vision.blocks.1.mlp.w1.weight: 0e0
+native_vit_4x4 step1 gradient vision.blocks.1.mlp.w2.weight: 0e0
+native_vit_4x4 step1 gradient vision.blocks.1.norm1.weight: 0e0
+native_vit_4x4 step1 gradient vision.blocks.1.norm2.weight: 0e0
+native_vit_4x4 step1 gradient vision.norm.weight: 0e0
+native_vit_4x4 step1 gradient vision.patch_embed.proj.bias: 0e0
+native_vit_4x4 step1 gradient vision.patch_embed.proj.weight: 0e0
+native_vit_4x4 step1 updated aligner.w1.bias: 0e0
+native_vit_4x4 step1 updated aligner.w1.weight: 0e0
+native_vit_4x4 step1 updated aligner.w2.bias: 0e0
+native_vit_4x4 step1 updated aligner.w2.weight: 0e0
+native_vit_4x4 step1 updated vision.blocks.0.attn.wo.bias: 0e0
+native_vit_4x4 step1 updated vision.blocks.0.attn.wo.weight: 0e0
+native_vit_4x4 step1 updated vision.blocks.0.attn.wqkv.bias: 0e0
+native_vit_4x4 step1 updated vision.blocks.0.attn.wqkv.weight: 0e0
+native_vit_4x4 step1 updated vision.blocks.0.mlp.w1.weight: 0e0
+native_vit_4x4 step1 updated vision.blocks.0.mlp.w2.weight: 0e0
+native_vit_4x4 step1 updated vision.blocks.0.norm1.weight: 0e0
+native_vit_4x4 step1 updated vision.blocks.0.norm2.weight: 0e0
+native_vit_4x4 step1 updated vision.blocks.1.attn.wo.bias: 0e0
+native_vit_4x4 step1 updated vision.blocks.1.attn.wo.weight: 0e0
+native_vit_4x4 step1 updated vision.blocks.1.attn.wqkv.bias: 0e0
+native_vit_4x4 step1 updated vision.blocks.1.attn.wqkv.weight: 0e0
+native_vit_4x4 step1 updated vision.blocks.1.mlp.w1.weight: 0e0
+native_vit_4x4 step1 updated vision.blocks.1.mlp.w2.weight: 0e0
+native_vit_4x4 step1 updated vision.blocks.1.norm1.weight: 0e0
+native_vit_4x4 step1 updated vision.blocks.1.norm2.weight: 0e0
+native_vit_4x4 step1 updated vision.norm.weight: 0e0
+native_vit_4x4 step1 updated vision.patch_embed.proj.bias: 0e0
+native_vit_4x4 step1 updated vision.patch_embed.proj.weight: 0e0
+native_vit_4x4 step2 features: 0e0
+native_vit_4x4 step2 projected: 0e0
+native_vit_6x4 step0 features: 0e0
+native_vit_6x4 step0 projected: 0e0
+native_vit_6x4 step0 patch gradient: 0e0
+native_vit_6x4 step0 gradient aligner.w1.bias: 0e0
+native_vit_6x4 step0 gradient aligner.w1.weight: 0e0
+native_vit_6x4 step0 gradient aligner.w2.bias: 0e0
+native_vit_6x4 step0 gradient aligner.w2.weight: 0e0
+native_vit_6x4 step0 gradient vision.blocks.0.attn.wo.bias: 0e0
+native_vit_6x4 step0 gradient vision.blocks.0.attn.wo.weight: 0e0
+native_vit_6x4 step0 gradient vision.blocks.0.attn.wqkv.bias: 0e0
+native_vit_6x4 step0 gradient vision.blocks.0.attn.wqkv.weight: 0e0
+native_vit_6x4 step0 gradient vision.blocks.0.mlp.w1.weight: 0e0
+native_vit_6x4 step0 gradient vision.blocks.0.mlp.w2.weight: 0e0
+native_vit_6x4 step0 gradient vision.blocks.0.norm1.weight: 4.656613e-10
+native_vit_6x4 step0 gradient vision.blocks.0.norm2.weight: 2.3283064e-10
+native_vit_6x4 step0 gradient vision.blocks.1.attn.wo.bias: 0e0
+native_vit_6x4 step0 gradient vision.blocks.1.attn.wo.weight: 0e0
+native_vit_6x4 step0 gradient vision.blocks.1.attn.wqkv.bias: 0e0
+native_vit_6x4 step0 gradient vision.blocks.1.attn.wqkv.weight: 0e0
+native_vit_6x4 step0 gradient vision.blocks.1.mlp.w1.weight: 0e0
+native_vit_6x4 step0 gradient vision.blocks.1.mlp.w2.weight: 0e0
+native_vit_6x4 step0 gradient vision.blocks.1.norm1.weight: 1.1641532e-10
+native_vit_6x4 step0 gradient vision.blocks.1.norm2.weight: 4.656613e-10
+native_vit_6x4 step0 gradient vision.norm.weight: 9.313226e-10
+native_vit_6x4 step0 gradient vision.patch_embed.proj.bias: 0e0
+native_vit_6x4 step0 gradient vision.patch_embed.proj.weight: 0e0
+native_vit_6x4 step0 updated aligner.w1.bias: 0e0
+native_vit_6x4 step0 updated aligner.w1.weight: 0e0
+native_vit_6x4 step0 updated aligner.w2.bias: 0e0
+native_vit_6x4 step0 updated aligner.w2.weight: 0e0
+native_vit_6x4 step0 updated vision.blocks.0.attn.wo.bias: 0e0
+native_vit_6x4 step0 updated vision.blocks.0.attn.wo.weight: 0e0
+native_vit_6x4 step0 updated vision.blocks.0.attn.wqkv.bias: 0e0
+native_vit_6x4 step0 updated vision.blocks.0.attn.wqkv.weight: 0e0
+native_vit_6x4 step0 updated vision.blocks.0.mlp.w1.weight: 0e0
+native_vit_6x4 step0 updated vision.blocks.0.mlp.w2.weight: 0e0
+native_vit_6x4 step0 updated vision.blocks.0.norm1.weight: 0e0
+native_vit_6x4 step0 updated vision.blocks.0.norm2.weight: 0e0
+native_vit_6x4 step0 updated vision.blocks.1.attn.wo.bias: 0e0
+native_vit_6x4 step0 updated vision.blocks.1.attn.wo.weight: 0e0
+native_vit_6x4 step0 updated vision.blocks.1.attn.wqkv.bias: 0e0
+native_vit_6x4 step0 updated vision.blocks.1.attn.wqkv.weight: 0e0
+native_vit_6x4 step0 updated vision.blocks.1.mlp.w1.weight: 0e0
+native_vit_6x4 step0 updated vision.blocks.1.mlp.w2.weight: 0e0
+native_vit_6x4 step0 updated vision.blocks.1.norm1.weight: 0e0
+native_vit_6x4 step0 updated vision.blocks.1.norm2.weight: 0e0
+native_vit_6x4 step0 updated vision.norm.weight: 0e0
+native_vit_6x4 step0 updated vision.patch_embed.proj.bias: 0e0
+native_vit_6x4 step0 updated vision.patch_embed.proj.weight: 0e0
+native_vit_6x4 step1 features: 0e0
+native_vit_6x4 step1 projected: 0e0
+native_vit_6x4 step1 patch gradient: 0e0
+native_vit_6x4 step1 gradient aligner.w1.bias: 0e0
+native_vit_6x4 step1 gradient aligner.w1.weight: 0e0
+native_vit_6x4 step1 gradient aligner.w2.bias: 0e0
+native_vit_6x4 step1 gradient aligner.w2.weight: 0e0
+native_vit_6x4 step1 gradient vision.blocks.0.attn.wo.bias: 0e0
+native_vit_6x4 step1 gradient vision.blocks.0.attn.wo.weight: 0e0
+native_vit_6x4 step1 gradient vision.blocks.0.attn.wqkv.bias: 0e0
+native_vit_6x4 step1 gradient vision.blocks.0.attn.wqkv.weight: 0e0
+native_vit_6x4 step1 gradient vision.blocks.0.mlp.w1.weight: 0e0
+native_vit_6x4 step1 gradient vision.blocks.0.mlp.w2.weight: 0e0
+native_vit_6x4 step1 gradient vision.blocks.0.norm1.weight: 4.656613e-10
+native_vit_6x4 step1 gradient vision.blocks.0.norm2.weight: 2.3283064e-10
+native_vit_6x4 step1 gradient vision.blocks.1.attn.wo.bias: 0e0
+native_vit_6x4 step1 gradient vision.blocks.1.attn.wo.weight: 0e0
+native_vit_6x4 step1 gradient vision.blocks.1.attn.wqkv.bias: 0e0
+native_vit_6x4 step1 gradient vision.blocks.1.attn.wqkv.weight: 0e0
+native_vit_6x4 step1 gradient vision.blocks.1.mlp.w1.weight: 0e0
+native_vit_6x4 step1 gradient vision.blocks.1.mlp.w2.weight: 0e0
+native_vit_6x4 step1 gradient vision.blocks.1.norm1.weight: 2.3283064e-10
+native_vit_6x4 step1 gradient vision.blocks.1.norm2.weight: 2.3283064e-10
+native_vit_6x4 step1 gradient vision.norm.weight: 1.8626451e-9
+native_vit_6x4 step1 gradient vision.patch_embed.proj.bias: 0e0
+native_vit_6x4 step1 gradient vision.patch_embed.proj.weight: 0e0
+native_vit_6x4 step1 updated aligner.w1.bias: 0e0
+native_vit_6x4 step1 updated aligner.w1.weight: 0e0
+native_vit_6x4 step1 updated aligner.w2.bias: 0e0
+native_vit_6x4 step1 updated aligner.w2.weight: 0e0
+native_vit_6x4 step1 updated vision.blocks.0.attn.wo.bias: 0e0
+native_vit_6x4 step1 updated vision.blocks.0.attn.wo.weight: 0e0
+native_vit_6x4 step1 updated vision.blocks.0.attn.wqkv.bias: 0e0
+native_vit_6x4 step1 updated vision.blocks.0.attn.wqkv.weight: 0e0
+native_vit_6x4 step1 updated vision.blocks.0.mlp.w1.weight: 0e0
+native_vit_6x4 step1 updated vision.blocks.0.mlp.w2.weight: 0e0
+native_vit_6x4 step1 updated vision.blocks.0.norm1.weight: 0e0
+native_vit_6x4 step1 updated vision.blocks.0.norm2.weight: 0e0
+native_vit_6x4 step1 updated vision.blocks.1.attn.wo.bias: 0e0
+native_vit_6x4 step1 updated vision.blocks.1.attn.wo.weight: 0e0
+native_vit_6x4 step1 updated vision.blocks.1.attn.wqkv.bias: 0e0
+native_vit_6x4 step1 updated vision.blocks.1.attn.wqkv.weight: 0e0
+native_vit_6x4 step1 updated vision.blocks.1.mlp.w1.weight: 0e0
+native_vit_6x4 step1 updated vision.blocks.1.mlp.w2.weight: 0e0
+native_vit_6x4 step1 updated vision.blocks.1.norm1.weight: 0e0
+native_vit_6x4 step1 updated vision.blocks.1.norm2.weight: 0e0
+native_vit_6x4 step1 updated vision.norm.weight: 0e0
+native_vit_6x4 step1 updated vision.patch_embed.proj.bias: 0e0
+native_vit_6x4 step1 updated vision.patch_embed.proj.weight: 0e0
+native_vit_6x4 step2 features: 0e0
+native_vit_6x4 step2 projected: 0e0
+
+
+successes:
+    transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_sdpa_matches_independent_random_cpu
+    transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_two_adamw_steps_match_frozen_cpu
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1173 filtered out; finished in 0.60s
+

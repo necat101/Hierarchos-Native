@@ -1,0 +1,31 @@
+{
+  "binaries": {
+    "target/debug/deps/hierarchos_vulkan-2f708da7cb986ebb.exe": {
+      "bytes": 308532224,
+      "sha256": "0182c02030b83ef2d6ac1b0a1e5723ead8a36dbb4c4a982b577bfa21fa0bc029"
+    },
+    "target/debug/gemma3_vision_probe.exe": {
+      "bytes": 18614784,
+      "sha256": "a76791a39755b96f7e34df78315dcc9fb1b1d014444a58058a48f00aeac39d39"
+    },
+    "target/debug/gemma4_vision_probe.exe": {
+      "bytes": 18615808,
+      "sha256": "22141a8877f3cfd3e0663fad2bf1dc7a09bc78c0464d3248cdf70f121f41b4b8"
+    },
+    "target/debug/image_text_pipeline_probe.exe": {
+      "bytes": 19540480,
+      "sha256": "d5babaa3ef63f74ea9edc0a993b5b614cf29463e83ab3b41fb0dccf001682436"
+    },
+    "target/debug/llava_pipeline_probe.exe": {
+      "bytes": 17987072,
+      "sha256": "1166db47a8d19ce78173468d52b20a99151dcfaf5178e4d9fbdbcf5d99930471"
+    },
+    "target/phase14/binaries/final.exe": {
+      "bytes": 254941184,
+      "sha256": "08b377cb5aa9531fbfbafa7a70ae4f45e309f933fdc7dcd7a05c491dae2d6d61"
+    }
+  },
+  "byte_reproducible": false,
+  "profile": "debug producers; release Phase XIV performance artifact",
+  "schema": "hierarchos-rdna3-phase15-binaries-v1"
+}

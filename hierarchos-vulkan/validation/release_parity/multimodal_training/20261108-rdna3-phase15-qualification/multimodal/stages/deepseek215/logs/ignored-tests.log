@@ -1,0 +1,28 @@
+deepseek_v41::model::lora_tests::deepseek_v41_lora_production_width_strict_all_logits: test
+deepseek_v41::model::prefill_tests::deepseek_v41_four_token_prefill_strict_all_logits: test
+deepseek_v41::model::production_tests::deepseek_v41_default_package_production_width_strict_all_logits: test
+deepseek_v41::model::production_tests::deepseek_v41_production_width_vocabulary_strict_all_logits: test
+deepseek_v41::model::production_tests::deepseek_v41_streamed_all_production_width_strict_all_logits: test
+deepseek_v41::model::production_tests::deepseek_v41_streamed_block_production_width_strict_all_logits: test
+deepseek_v41::model::production_tests::deepseek_v41_streamed_production_width_strict_all_logits: test
+deepseek_v41::model::production_tests::deepseek_v41_streamed_vocabulary_production_width_strict_all_logits: test
+deepseek_v41::model::scalable_release_tests::deepseek_v41_default_package_scalable_release_strict_all_logits: test
+deepseek_v41::model::schedule_width_tests::deepseek_v41_default_package_schedule_width_strict_all_logits: test
+deepseek_v41::model::tests::structure::deepseek_v41_joint_depth_and_384_expert_strict_all_logits: test
+deepseek_v41::model::tests::structure::deepseek_v41_long_context_2048_token_strict_all_logits: test
+deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_joint_strict_all_logits: test
+deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_long_context_2048_strict_all_logits: test
+deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_joint_strict_all_logits: test
+deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_long_context_2048_strict_all_logits: test
+deepseek_v41::model::tests::structure::deepseek_v41_streamed_block_joint_strict_all_logits: test
+deepseek_v41::model::tests::structure::deepseek_v41_streamed_block_long_context_2048_strict_all_logits: test
+deepseek_v41::model::tests::structure::deepseek_v41_streamed_joint_strict_all_logits: test
+deepseek_v41::model::tests::structure::deepseek_v41_streamed_long_context_2048_strict_all_logits: test
+deepseek_v41::model::tests::structure::deepseek_v41_streamed_vocabulary_joint_strict_all_logits: test
+deepseek_v41::model::tests::structure::deepseek_v41_streamed_vocabulary_long_context_2048_strict_all_logits: test
+deepseek_v41::model::tests::training::deepseek_v41_full_model_production_ratio_cpu_training_gate: test
+deepseek_v41::model::tests::training::deepseek_v41_production_uninterrupted_training_logit_trajectory: test
+deepseek_v41::model::tests::training::native_vision::native_state::multimodal_training_throughput_benchmark: test
+deepseek_v41::tokenizer::tests::published_v4_1_tokenizer_reproduces_released_engram_metadata: test
+
+26 tests, 0 benchmarks

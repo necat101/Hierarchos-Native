@@ -1,0 +1,815 @@
+{
+  "manifest": "target\\rdna3-port\\gpt2-shader-recipes.json",
+  "compilers": {
+    "glslangValidator": [
+      {
+        "path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+        "version": "15.3.0",
+        "reported": "Glslang Version: 11:15.3.0"
+      }
+    ]
+  },
+  "status_counts": {
+    "identical": 43
+  },
+  "manifest_problems": [],
+  "notes": [],
+  "shaders": [
+    {
+      "artifact": "transformer_attention_backward_short_gpt2_amd_rdna3.spv",
+      "source": "transformer_attention_backward_short_gpt2_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_SHORT_GPT2"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "ca0e28a9105f18b67a6bc6eadd7af680baa84431b80152f21b34ef687813ee64",
+      "rebuilt_sha256": "ca0e28a9105f18b67a6bc6eadd7af680baa84431b80152f21b34ef687813ee64",
+      "status": "identical"
+    },
+    {
+      "artifact": "vision_linear_hw_fma_amd_rdna3.spv",
+      "source": "vision_linear_hw_fma_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "ad8d71fb62314c1f115443f78dfaa0904e6e96420de65a5a230e453c2d3d5d92",
+      "rebuilt_sha256": "ad8d71fb62314c1f115443f78dfaa0904e6e96420de65a5a230e453c2d3d5d92",
+      "status": "identical"
+    },
+    {
+      "artifact": "transformer_attention_short_amd_rdna3.spv",
+      "source": "transformer_attention_short_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "34f3ecf8c11f398832db7c4ecb80ff42bd5baf282d5512e1e63d0af204fb8fd4",
+      "rebuilt_sha256": "34f3ecf8c11f398832db7c4ecb80ff42bd5baf282d5512e1e63d0af204fb8fd4",
+      "status": "identical"
+    },
+    {
+      "artifact": "vision_linear_input_grad_hw_fma_amd_rdna3.spv",
+      "source": "vision_linear_hw_fma_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DVISION_TRANSPOSE_WEIGHT=1"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "b5da3ea09d5723d4e789608681a06aa2dcce909d8ffddbf345bd69f05bd952f3",
+      "rebuilt_sha256": "b5da3ea09d5723d4e789608681a06aa2dcce909d8ffddbf345bd69f05bd952f3",
+      "status": "identical"
+    },
+    {
+      "artifact": "vision_linear_weight_grad_hw_fma_amd_rdna3.spv",
+      "source": "vision_linear_weight_grad_hw_fma_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "4475c664dad7329a25bb546185065693cec9e310dfcc562a15fd23c9d15ec47f",
+      "rebuilt_sha256": "4475c664dad7329a25bb546185065693cec9e310dfcc562a15fd23c9d15ec47f",
+      "status": "identical"
+    },
+    {
+      "artifact": "vision_patch_linear_hw_fma_amd_rdna3.spv",
+      "source": "vision_patch_linear_hw_fma_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "991022c9535e8c6d133bb8376b2bdc94208674c76dbf0a5972cbfa81857ca591",
+      "rebuilt_sha256": "991022c9535e8c6d133bb8376b2bdc94208674c76dbf0a5972cbfa81857ca591",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_attention_forward_avx512_amd_rdna3.spv",
+      "source": "image_text_attention_forward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "dd29f1f47eacaa6f9c3d747e884626de1c3b9d8c9e1dfa5959ac944ee7bf4007",
+      "rebuilt_sha256": "dd29f1f47eacaa6f9c3d747e884626de1c3b9d8c9e1dfa5959ac944ee7bf4007",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_attention_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_attention_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "42e6d8694920c9791418a52b037cc82b5a57a463c9889db7afa3546dc3eac3d9",
+      "rebuilt_sha256": "42e6d8694920c9791418a52b037cc82b5a57a463c9889db7afa3546dc3eac3d9",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_eager_avx512_amd_rdna3.spv",
+      "source": "image_text_eager_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "804960c747e09906a2f557fd1825fb18b4ef1c233b5c7ef2d03166501c592696",
+      "rebuilt_sha256": "804960c747e09906a2f557fd1825fb18b4ef1c233b5c7ef2d03166501c592696",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_eager_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_eager_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_EAGER_BACKWARD"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "79a00bb47a3f5fddd482fde5dc945f4b2d72ef28339dedc5dcff6b1eabe83513",
+      "rebuilt_sha256": "79a00bb47a3f5fddd482fde5dc945f4b2d72ef28339dedc5dcff6b1eabe83513",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_gelu_avx512_amd_rdna3.spv",
+      "source": "image_text_gelu_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "80119787018b6f91b7d8859b72556b13794047223e21401931e86019f5a2a262",
+      "rebuilt_sha256": "80119787018b6f91b7d8859b72556b13794047223e21401931e86019f5a2a262",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_gelu_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_gelu_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_GELU_BACKWARD"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "9be2b32a336bddbf1366bb1cd0fa82591d61b1a1d7fee3e7a0cf0da86d7480e7",
+      "rebuilt_sha256": "9be2b32a336bddbf1366bb1cd0fa82591d61b1a1d7fee3e7a0cf0da86d7480e7",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_input_grad_avx512_amd_rdna3.spv",
+      "source": "image_text_input_grad_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "bec652a460969999ce29014a20fd112dbee5d561d83dc7552ee9f6bf24be59ba",
+      "rebuilt_sha256": "bec652a460969999ce29014a20fd112dbee5d561d83dc7552ee9f6bf24be59ba",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_layer_norm_avx512_amd_rdna3.spv",
+      "source": "image_text_layer_norm_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "0108452c2c624e07c3d8951308be49746e19afff7cf82807be32a7b1d1538db6",
+      "rebuilt_sha256": "0108452c2c624e07c3d8951308be49746e19afff7cf82807be32a7b1d1538db6",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_layer_norm_serial_avx512_amd_rdna3.spv",
+      "source": "image_text_layer_norm_serial_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "bfadc61b03c207170636c7cb033bf51b95aa424685d0a7b892b7a2a0c94e3eb0",
+      "rebuilt_sha256": "bfadc61b03c207170636c7cb033bf51b95aa424685d0a7b892b7a2a0c94e3eb0",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_layer_norm_input_grad_avx512_amd_rdna3.spv",
+      "source": "image_text_layer_norm_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "9bff6e26330a211111ea939aade00bad82d8989c6e3554c7ca853e2379632791",
+      "rebuilt_sha256": "9bff6e26330a211111ea939aade00bad82d8989c6e3554c7ca853e2379632791",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_layer_norm_param_grad_avx512_amd_rdna3.spv",
+      "source": "image_text_layer_norm_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_NORM_PARAMS"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "c827a0bdb535c2087728455ad2f3ba6358e6c4d3ccedda26d32bc92be1f2a4c6",
+      "rebuilt_sha256": "c827a0bdb535c2087728455ad2f3ba6358e6c4d3ccedda26d32bc92be1f2a4c6",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_pow_rms_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_pow_rms_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "59a377936c3f39be2c5ab95f12afcbe2d901f57a90dcedfead9e0f96f84c9be4",
+      "rebuilt_sha256": "59a377936c3f39be2c5ab95f12afcbe2d901f57a90dcedfead9e0f96f84c9be4",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_pow_rms_residual_avx512_amd_rdna3.spv",
+      "source": "image_text_pow_rms_residual_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "2f5abbb44a1dc89e370634aed86b212ef2efe60b3b8a3e3a7a1a4c6d0ed96bb5",
+      "rebuilt_sha256": "2f5abbb44a1dc89e370634aed86b212ef2efe60b3b8a3e3a7a1a4c6d0ed96bb5",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_rms_avx512_amd_rdna3.spv",
+      "source": "image_text_rms_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "d36087f942aa718e3f7e3a201e818c52f230501e1b8bd6e45101bf7e10149d16",
+      "rebuilt_sha256": "d36087f942aa718e3f7e3a201e818c52f230501e1b8bd6e45101bf7e10149d16",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_rms_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_rms_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_RMS_BACKWARD"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "a17e0800af4af0df3b83bdb5aed26ab9a3e71daf86f684ec7a59ab54f650a135",
+      "rebuilt_sha256": "a17e0800af4af0df3b83bdb5aed26ab9a3e71daf86f684ec7a59ab54f650a135",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_rms_residual_avx512_amd_rdna3.spv",
+      "source": "image_text_rms_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_RMS_BACKWARD",
+        "-DRDNA3_RMS_RESIDUAL"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "c0fd0ddbb9ed63a31046d9ec622e218c3971e111b7ed7ea13b9002be11d730ce",
+      "rebuilt_sha256": "c0fd0ddbb9ed63a31046d9ec622e218c3971e111b7ed7ea13b9002be11d730ce",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_rope_forward_avx512_amd_rdna3.spv",
+      "source": "image_text_rope_forward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "7924516b53dc52866edb86ca4def049756e2138abd0764298c9b4304ac739b30",
+      "rebuilt_sha256": "7924516b53dc52866edb86ca4def049756e2138abd0764298c9b4304ac739b30",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_rope_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_rope_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "42192b6022bbde77eee43338870ff5d0a1b88ba978f460af5182070e52719801",
+      "rebuilt_sha256": "42192b6022bbde77eee43338870ff5d0a1b88ba978f460af5182070e52719801",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_sdpa_avx512_amd_rdna3.spv",
+      "source": "image_text_sdpa_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "c6a1dab5b16828c92ef05394f6dc6e64c005487ca8d15f54280419009db15f22",
+      "rebuilt_sha256": "c6a1dab5b16828c92ef05394f6dc6e64c005487ca8d15f54280419009db15f22",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_sdpa_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_sdpa_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "acaeb2a0b0849c907a23e6e5d191e2d4188761640a18ce2639b278b7e1342ef5",
+      "rebuilt_sha256": "acaeb2a0b0849c907a23e6e5d191e2d4188761640a18ce2639b278b7e1342ef5",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_silu_avx512_amd_rdna3.spv",
+      "source": "image_text_silu_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "1c74bd615c76312f4714ca65859240048ec284f22d6c1c6a743be7380f1c46ea",
+      "rebuilt_sha256": "1c74bd615c76312f4714ca65859240048ec284f22d6c1c6a743be7380f1c46ea",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_silu_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_silu_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_SILU_BACKWARD"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "ea8e58c0ee1df0d95bebefe7fdd0fe99c2bc72c5e044dc353d77bfd68c6858ff",
+      "rebuilt_sha256": "ea8e58c0ee1df0d95bebefe7fdd0fe99c2bc72c5e044dc353d77bfd68c6858ff",
+      "status": "identical"
+    },
+    {
+      "artifact": "transformer_attention_short_cpu_reciprocal_amd_rdna3.spv",
+      "source": "transformer_attention_short_cpu_reciprocal_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_CPU_RECIPROCAL",
+        "-DRDNA3_SLEEF_EXP",
+        "-DRDNA3_QK_MULADD"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "e82401943a6f0e823908067a173b55576ffabc3ad54028c4d5ddc77a9cb140ea",
+      "rebuilt_sha256": "e82401943a6f0e823908067a173b55576ffabc3ad54028c4d5ddc77a9cb140ea",
+      "status": "identical"
+    },
+    {
+      "artifact": "vision_attention_avx512_amd_rdna3.spv",
+      "source": "vision_attention_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "21e371f314f6c1c72e9e0bf1329bb7c1fa3ca617197d4269c0a21dc750dd4bde",
+      "rebuilt_sha256": "21e371f314f6c1c72e9e0bf1329bb7c1fa3ca617197d4269c0a21dc750dd4bde",
+      "status": "identical"
+    },
+    {
+      "artifact": "vision_projector_rms_avx512_amd_rdna3.spv",
+      "source": "vision_projector_rms_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "fc2edf928d68b9b9240658e3c35c63a725cff889c4ab983b971b20ccbaf8505d",
+      "rebuilt_sha256": "fc2edf928d68b9b9240658e3c35c63a725cff889c4ab983b971b20ccbaf8505d",
+      "status": "identical"
+    },
+    {
+      "artifact": "vision_weight_grad_avx512_amd_rdna3.spv",
+      "source": "vision_weight_grad_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "b15c0799be8f2504771175af242bc96b0de245264daf9b37f45d11ea5a0ee79d",
+      "rebuilt_sha256": "b15c0799be8f2504771175af242bc96b0de245264daf9b37f45d11ea5a0ee79d",
+      "status": "identical"
+    },
+    {
+      "artifact": "rdna3_pow_probe.spv",
+      "source": "rdna3_pow_probe.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "a40dc15abddeb9056449ab41c4ac90b34eb95db9c5c8ebe76b397a25f0a70a0c",
+      "rebuilt_sha256": "a40dc15abddeb9056449ab41c4ac90b34eb95db9c5c8ebe76b397a25f0a70a0c",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_gpt2_avx512_amd_rdna3.spv",
+      "source": "image_text_gpt2_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "048b4cff230adec3d48ccbcb8e70f10134d4d55b7a9aeaf8c17e74bf7ed15fa5",
+      "rebuilt_sha256": "048b4cff230adec3d48ccbcb8e70f10134d4d55b7a9aeaf8c17e74bf7ed15fa5",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_gpt2_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_gpt2_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_GPT2_BACKWARD=1"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "0eb495de60d97101e047ee92d77d7fc9f7f9b3ec38981da164177b0a9c7685f6",
+      "rebuilt_sha256": "0eb495de60d97101e047ee92d77d7fc9f7f9b3ec38981da164177b0a9c7685f6",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_clip_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_clip_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_EAGER_BACKWARD=1"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "d34893456ea4feabf84b934472a5f567b9f2760d45d59684abded54700a0901c",
+      "rebuilt_sha256": "d34893456ea4feabf84b934472a5f567b9f2760d45d59684abded54700a0901c",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_cross_entropy_avx512_amd_rdna3.spv",
+      "source": "image_text_cross_entropy_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DHIERARCHOS_LOG_SOFTMAX_GRAD=1",
+        "-DHIERARCHOS_LOG_SOFTMAX_LANES=16"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "7bf162bf2a77c4172b7e3dd4c17806881bb7a12829d8bd7e876efe08af44e9a2",
+      "rebuilt_sha256": "7bf162bf2a77c4172b7e3dd4c17806881bb7a12829d8bd7e876efe08af44e9a2",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_new_gelu_backward_avx512_amd_rdna3.spv",
+      "source": "image_text_new_gelu_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "4f8c7d05e1699ece85c2102a911c598c3105f385dce30e14b94525d51e73a528",
+      "rebuilt_sha256": "4f8c7d05e1699ece85c2102a911c598c3105f385dce30e14b94525d51e73a528",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_new_gelu_forward_avx512_amd_rdna3.spv",
+      "source": "image_text_new_gelu_backward_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_NEW_GELU_FORWARD=1"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "b7b965b95290de3e448095223167b12688e9d954a9027356161b457a13a5e9d2",
+      "rebuilt_sha256": "b7b965b95290de3e448095223167b12688e9d954a9027356161b457a13a5e9d2",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_adamw_avx512_amd_rdna3.spv",
+      "source": "image_text_adamw_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "--target-env",
+        "vulkan1.1",
+        "-Ishaders"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "db86589d4da9cf456682c998e55d9e566cfe4efa9071705ec18bcc35c425abff",
+      "rebuilt_sha256": "db86589d4da9cf456682c998e55d9e566cfe4efa9071705ec18bcc35c425abff",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_bias_grad_avx512_amd_rdna3.spv",
+      "source": "image_text_bias_grad_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "33e1b22583ea25eb15c54250c0d32c1c9b9ca8c6913fb234f4f3aa93e99abf8d",
+      "rebuilt_sha256": "33e1b22583ea25eb15c54250c0d32c1c9b9ca8c6913fb234f4f3aa93e99abf8d",
+      "status": "identical"
+    },
+    {
+      "artifact": "rdna3_scalar_log_probe.spv",
+      "source": "rdna3_scalar_log_probe.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "04a812e4242975dffebc82d49dfa2702a18eecb406945cad609a7d09def0b333",
+      "rebuilt_sha256": "04a812e4242975dffebc82d49dfa2702a18eecb406945cad609a7d09def0b333",
+      "status": "identical"
+    },
+    {
+      "artifact": "image_text_gpt2_packed8_avx512_amd_rdna3.spv",
+      "source": "image_text_gpt2_avx512_amd_rdna3.comp",
+      "compiler": "glslangValidator",
+      "flags": [
+        "-V",
+        "-S",
+        "comp",
+        "-DRDNA3_GPT2_PACKED_FORWARD=1"
+      ],
+      "version_source": "manifest",
+      "expected_version": "15.3.0",
+      "version": "15.3.0",
+      "compiler_path": "C:\\VulkanSDK\\1.4.321.1\\Bin\\glslangValidator.EXE",
+      "compile_exit": 0,
+      "embedded_sha256": "ca245052887772b3338d2187b22ae3486aff24fbea0d6a6817480dbc88227384",
+      "rebuilt_sha256": "ca245052887772b3338d2187b22ae3486aff24fbea0d6a6817480dbc88227384",
+      "status": "identical"
+    }
+  ],
+  "pass": true
+}

@@ -1,0 +1,366 @@
+
+running 8 tests
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_rejects_unqualified_calls ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_runs_on_native_state ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_pool_simd_and_scalar_tails_match_cpu ... ok
+test deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_adjoint_rejects_unqualified_calls ... ok
+test deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_matches_cpu_pytorch ... ok
+test deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_runs_on_native_operands ... ok
+test deepseek_v41::cpu_math::tests::native_avx2_scope_preserves_host_dispatch ... ok
+test deepseek_v41::engram::gradients::tests::engram_adjoint_rejects_overflow_geometry_precision_and_foreign_buffers ... ok
+
+successes:
+
+---- deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_runs_on_native_state stdout ----
+V4.1 compressor decode adjoint ratio-2-single-completing-step native initial KV: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-completing-step native initial score: 4 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-completing-step native pos 1 projected_kv: 4 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-completing-step native pos 1 projected_gate: 4 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-completing-step native pos 1 pooled: 4 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-completing-step native pos 1 latent: 4 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-completing-step native pos 1 state KV: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-completing-step native pos 1 state score: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-completing-step native pos 1 grad_input: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-completing-step native pos 1 grad_state_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-completing-step native pos 1 grad_state_score: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native initial KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native initial score: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 1 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 1 projected_gate: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 1 pooled: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 1 latent: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 1 state KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 1 state score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 2 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 2 projected_gate: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 2 state KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 2 state score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 3 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 3 projected_gate: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 3 pooled: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 3 latent: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 3 state KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 3 state score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 3 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 3 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 3 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 2 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 2 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 2 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 1 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 1 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending native pos 1 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native initial KV: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native initial score: 0 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 2 projected_kv: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 2 projected_gate: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 2 state KV: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 2 state score: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 3 projected_kv: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 3 projected_gate: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 3 pooled: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 3 latent: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 3 state KV: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 3 state score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 4 projected_kv: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 4 projected_gate: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 4 state KV: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 4 state score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 5 projected_kv: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 5 projected_gate: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 5 pooled: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 5 latent: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 5 state KV: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 5 state score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 5 grad_input: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 5 grad_state_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 5 grad_state_score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 4 grad_input: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 4 grad_state_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 4 grad_state_score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 3 grad_input: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 3 grad_state_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 3 grad_state_score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 2 grad_input: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 2 grad_state_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending native pos 2 grad_state_score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native initial KV: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native initial score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 1 projected_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 1 projected_gate: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 1 pooled: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 1 latent: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 1 state KV: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 1 state score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 2 projected_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 2 projected_gate: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 2 state KV: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 2 state score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 3 projected_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 3 projected_gate: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 3 pooled: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 3 latent: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 3 state KV: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 3 state score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 4 projected_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 4 projected_gate: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 4 state KV: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 4 state score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 5 projected_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 5 projected_gate: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 5 pooled: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 5 latent: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 5 state KV: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 5 state score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 6 projected_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 6 projected_gate: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 6 state KV: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 6 state score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 6 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 6 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 6 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 5 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 5 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 5 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 4 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 4 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 4 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 3 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 3 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 3 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 2 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 2 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 2 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 1 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 1 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles native pos 1 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-pending-step native initial KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-pending-step native initial score: 0 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-pending-step native pos 2 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-pending-step native pos 2 projected_gate: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-pending-step native pos 2 state KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-pending-step native pos 2 state score: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-pending-step native pos 2 grad_input: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-pending-step native pos 2 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-pending-step native pos 2 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native initial KV: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native initial score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 1 projected_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 1 projected_gate: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 1 pooled: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 1 latent: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 1 state KV: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 1 state score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 2 projected_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 2 projected_gate: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 2 state KV: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 2 state score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 2 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 2 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 2 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 1 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 1 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail native pos 1 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native initial KV: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native initial score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 1 projected_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 1 projected_gate: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 1 pooled: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 1 latent: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 1 state KV: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 1 state score: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 2 projected_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 2 projected_gate: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 2 state KV: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 2 state score: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 2 grad_input: 512 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 2 grad_state_kv: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 2 grad_state_score: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 1 grad_input: 512 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 1 grad_state_kv: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden native pos 1 grad_state_score: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native initial KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native initial score: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 1 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 1 projected_gate: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 1 pooled: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 1 latent: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 1 state KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 1 state score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 2 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 2 projected_gate: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 2 state KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 2 state score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 3 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 3 projected_gate: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 3 pooled: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 3 latent: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 3 state KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 3 state score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 4 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 4 projected_gate: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 4 state KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 4 state score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 5 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 5 projected_gate: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 5 pooled: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 5 latent: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 5 state KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 5 state score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 6 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 6 projected_gate: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 6 state KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 6 state score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 7 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 7 projected_gate: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 7 pooled: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 7 latent: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 7 state KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 7 state score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 8 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 8 projected_gate: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 8 state KV: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 8 state score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 8 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 8 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 8 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 7 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 7 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 7 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 6 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 6 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 6 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 5 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 5 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 5 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 4 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 4 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 4 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 3 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 3 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 3 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 2 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 2 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 2 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 1 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 1 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain native pos 1 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps native pos 1 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps native pos 1 pooled: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps native pos 1 latent: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps native pos 2 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps native pos 2 pooled: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps native pos 2 latent: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps native pos 3 projected_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps native pos 3 pooled: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps native pos 3 latent: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps native pos 3 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps native pos 2 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps native pos 1 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-batch-two native pos 2 projected_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-batch-two native pos 2 pooled: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-batch-two native pos 2 latent: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-batch-two native pos 3 projected_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-batch-two native pos 3 pooled: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-batch-two native pos 3 latent: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-batch-two native pos 3 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-batch-two native pos 2 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode chain through the native forward: 6808 values, worst absolute drift 0.00000000000000000e0, operand drift 0.00000000000000000e0
+V4.1 compressor native forward: 8684 gated operand values
+
+---- deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_pool_simd_and_scalar_tails_match_cpu stdout ----
+V4.1 compressor decode adjoint SIMD pool channels-1 pooled: 4 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-1 grad_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-1 grad_score: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-3 pooled: 12 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-3 grad_kv: 24 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-3 grad_score: 24 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-4 pooled: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-4 grad_kv: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-4 grad_score: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-7 pooled: 28 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-7 grad_kv: 56 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-7 grad_score: 56 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-8 pooled: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-8 grad_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-8 grad_score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-15 pooled: 60 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-15 grad_kv: 120 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-15 grad_score: 120 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-16 pooled: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-16 grad_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-16 grad_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-17 pooled: 68 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-17 grad_kv: 136 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-17 grad_score: 136 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-31 pooled: 124 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-31 grad_kv: 248 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-31 grad_score: 248 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-32 pooled: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-32 grad_kv: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-32 grad_score: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-33 pooled: 132 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-33 grad_kv: 264 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-33 grad_score: 264 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-65 pooled: 260 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-65 grad_kv: 520 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint SIMD pool channels-65 grad_score: 520 values, worst 0.00000000000000000e0
+V4.1 compressor SIMD/tail pool: 4640 values
+
+---- deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_matches_cpu_pytorch stdout ----
+V4.1 compressor adjoint ratio-1-hidden-16-head-8 grad_input: 64 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-1-hidden-32-head-16 grad_input: 384 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-1-hidden-64-head-64 grad_input: 384 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-1-hidden-128-head-512 grad_input: 256 values, worst 1.19209289550781250e-7
+V4.1 compressor adjoint ratio-2-hidden-16-head-8-whole-groups grad_input: 64 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-16-head-8-whole-groups grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-16-head-8-whole-groups grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-32-head-16-state-seed grad_input: 384 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-32-head-16-state-seed grad_state_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-32-head-16-state-seed grad_state_score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-64-head-32-partial-group grad_input: 640 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-64-head-32-partial-group grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-64-head-32-partial-group grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-128-head-128-partial-no-seed grad_input: 384 values, worst 8.19563865661621094e-8
+V4.1 compressor adjoint ratio-2-hidden-128-head-128-partial-no-seed grad_state_kv: 256 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-128-head-128-partial-no-seed grad_state_score: 256 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-512-head-128-state-seed grad_input: 4096 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-512-head-128-state-seed grad_state_kv: 512 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-512-head-128-state-seed grad_state_score: 512 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-64-head-32-single-partial-token grad_input: 128 values, worst 1.78813934326171875e-7
+V4.1 compressor adjoint ratio-2-hidden-64-head-32-single-partial-token grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-64-head-32-single-partial-token grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint on AMD Radeon Graphics: 8992 frozen gradient values, worst absolute drift 1.78813934326171875e-7
+
+---- deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_runs_on_native_operands stdout ----
+V4.1 compressor adjoint ratio-1-hidden-16-head-8 native-forward grad_input: 64 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-1-hidden-32-head-16 native-forward grad_input: 384 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-1-hidden-64-head-64 native-forward grad_input: 384 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-1-hidden-128-head-512 native-forward grad_input: 256 values, worst 1.19209289550781250e-7
+V4.1 compressor adjoint ratio-2-hidden-16-head-8-whole-groups native-forward grad_input: 64 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-32-head-16-state-seed native-forward grad_input: 384 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-64-head-32-partial-group native-forward grad_input: 640 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-128-head-128-partial-no-seed native-forward grad_input: 384 values, worst 8.19563865661621094e-8
+V4.1 compressor adjoint ratio-2-hidden-512-head-128-state-seed native-forward grad_input: 4096 values, worst 0.00000000000000000e0
+V4.1 compressor adjoint ratio-2-hidden-64-head-32-single-partial-token native-forward grad_input: 128 values, worst 1.78813934326171875e-7
+V4.1 compressor adjoint through the native forward: 6784 values, worst absolute drift 1.78813934326171875e-7, operand drift 0.00000000000000000e0
+
+---- deepseek_v41::cpu_math::tests::native_avx2_scope_preserves_host_dispatch stdout ----
+
+thread 'deepseek_v41::cpu_math::tests::native_avx2_scope_preserves_host_dispatch' (1012) panicked at src\deepseek_v41\cpu_math.rs:54:17:
+exercise scope restoration
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+successes:
+    deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_rejects_unqualified_calls
+    deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_runs_on_native_state
+    deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_pool_simd_and_scalar_tails_match_cpu
+    deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_adjoint_rejects_unqualified_calls
+    deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_matches_cpu_pytorch
+    deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_runs_on_native_operands
+    deepseek_v41::cpu_math::tests::native_avx2_scope_preserves_host_dispatch
+    deepseek_v41::engram::gradients::tests::engram_adjoint_rejects_overflow_geometry_precision_and_foreign_buffers
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1167 filtered out; finished in 1.38s
+
