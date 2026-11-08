@@ -1,0 +1,9 @@
+
+running 4 tests
+test transformer::tests::mt5_checkpoint_loader_reuses_hf_t5_tensor_topology ... ok
+test transformer::tests::mt5_contract_reuses_t5_math_with_current_hf_defaults ... ok
+test transformer::tests::umt5_contract_uses_per_layer_relative_bias_t5_math_and_hf_defaults ... ok
+test transformer::tests::umt5_relative_attention_bias_loader_reads_every_decoder_layer ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 0.11s
+

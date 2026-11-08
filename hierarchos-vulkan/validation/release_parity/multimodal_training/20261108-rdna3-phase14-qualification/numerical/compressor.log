@@ -1,0 +1,23 @@
+
+running 18 tests
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_reads_sharded_f32_bf16_and_actual_compressor_keys ... ok
+test deepseek_v41::compression_tests::deepseek_v41_compressor_prefill_and_decode_match_pinned_fp32_reference ... ok
+test deepseek_v41::compression_tests::deepseek_v41_compressor_rejects_foreign_device_input_before_dispatch ... ok
+test deepseek_v41::compressor::tape_tests::deepseek_v41_compressor_decode_tape_snapshots_norm_gain ... ok
+test deepseek_v41::compressor::tape_tests::deepseek_v41_compressor_tape_snapshots_norm_gain ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_chains_state_across_steps_matching_cpu ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_rejects_unqualified_calls ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_runs_on_native_state ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_pool_simd_and_scalar_tails_match_cpu ... ok
+test deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_adjoint_rejects_unqualified_calls ... ok
+test deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_matches_cpu_pytorch ... ok
+test deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_runs_on_native_operands ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_compressor_adjoint_matches_frozen_words ... ok
+test transformer::tests::deepseek_v4_csa_overlap_compressor_matches_hf_ca_cb_forward_and_backward ... ok
+test transformer::tests::deepseek_v4_hca_compressor_keeps_batch_windows_independent ... ok
+test transformer::tests::deepseek_v4_hca_compressor_vulkan_matches_forward_and_numerical_gradients ... ok
+test transformer::tests::deepseek_v4_hca_loader_reads_persistent_compressor_parameters ... ok
+test transformer::tests::deepseek_v4_peft_dedicated_attention_and_compressors_round_trip ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 1157 filtered out; finished in 10.44s
+

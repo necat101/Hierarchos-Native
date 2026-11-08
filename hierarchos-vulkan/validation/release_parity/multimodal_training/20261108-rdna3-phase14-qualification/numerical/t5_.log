@@ -1,0 +1,11 @@
+
+running 6 tests
+test transformer::tests::mt5_checkpoint_loader_reuses_hf_t5_tensor_topology ... ok
+test transformer::tests::mt5_contract_reuses_t5_math_with_current_hf_defaults ... ok
+test transformer::tests::t5_gemma_component_loaders_seq2seq_and_export_preserve_peer_component ... ok
+test transformer::tests::t5_native_encoder_loader_and_seq2seq_facade_use_source_side_contract ... ok
+test transformer::tests::umt5_contract_uses_per_layer_relative_bias_t5_math_and_hf_defaults ... ok
+test transformer::tests::umt5_relative_attention_bias_loader_reads_every_decoder_layer ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 1169 filtered out; finished in 0.60s
+

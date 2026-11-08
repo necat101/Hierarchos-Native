@@ -1,0 +1,17 @@
+date=2026-11-08T03:28:56-05:00
+source_head=a2d68f96802f278fbf79f019d58454270989ade5
+rustc=rustc 1.93.0 (254b59607 2026-01-19) binary: rustc commit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c commit-date: 2026-01-19 host: x86_64-pc-windows-msvc release: 1.93.0 LLVM version: 21.1.8 
+cargo=cargo 1.93.0 (083ac5135 2025-12-15)
+profile=opt-level3,lto=thin,codegen-units=1,release,rustflags-empty
+features=default
+host=host: x86_64-pc-windows-msvc
+fixtures=target/rdna3-port/gen9-frozen/target/multimodal-gen9
+gpu:
+
+
+Name          : AMD Radeon Graphics
+DriverVersion : 32.0.31007.6002
+AdapterRAM    : 4293918720
+
+
+

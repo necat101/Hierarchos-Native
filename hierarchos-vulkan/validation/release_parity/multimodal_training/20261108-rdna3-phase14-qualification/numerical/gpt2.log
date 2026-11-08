@@ -1,0 +1,15 @@
+
+running 10 tests
+test transformer::image_text::rdna3_text_attention_tests::gpt2_bench::rdna3_gpt2_paired_gpu_benchmark ... ignored, requires the explicit serial-control benchmark runner
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_adamw_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_attention_admission_excludes_unmeasured_features ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_attention_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_bias_grad_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_clip_backward_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_cross_entropy_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_new_gelu_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_scalar_log_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_wide_input_grad_cpu_words ... ok
+
+test result: ok. 9 passed; 0 failed; 1 ignored; 0 measured; 1165 filtered out; finished in 1.62s
+

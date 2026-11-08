@@ -1,0 +1,11 @@
+
+running 6 tests
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_retained_chain_and_adapter_vjps_match_cpu_and_release_experts ... ok
+test deepseek_v41::engram::gradients::tests::engram_retained_lookup_projection_chain_vjps_and_weight_release_match_cpu ... ok
+test deepseek_v41::engram::gradients::tests::engram_streamed_table_is_unneeded_by_retained_backward ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_retained_training_smoke_and_forward_identity ... ok
+test vulkan::tests::unbound_zero_fill_is_retained_until_its_owner_binds_it ... ok
+test weight_offload::tests::retained_payload_handles_reopen_on_change_and_reject_missing_sources ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 1169 filtered out; finished in 10.42s
+

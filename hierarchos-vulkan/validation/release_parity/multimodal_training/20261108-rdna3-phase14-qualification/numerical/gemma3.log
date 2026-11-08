@@ -1,0 +1,8 @@
+
+running 3 tests
+test transformer::tests::gemma3_checkpoint_loader_reads_qk_norms_and_per_layer_rope ... ok
+test transformer::tests::gemma3_contract_maps_qk_rmsnorm_mixed_rope_and_sandwich_norms ... ok
+test transformer::tests::gemma3_package_maps_per_layer_rope_scaling ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 1172 filtered out; finished in 0.16s
+

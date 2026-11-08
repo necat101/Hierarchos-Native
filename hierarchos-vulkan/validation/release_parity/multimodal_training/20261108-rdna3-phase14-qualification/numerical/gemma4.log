@@ -1,0 +1,14 @@
+
+running 9 tests
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_attention_adjoint_diagnostic ... ignored, external shader diagnostic; not a production math switch
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_attention_adjoint_is_word_exact ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_attention_diagnostic ... ignored, external shader diagnostic; not a production math switch
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_attention_is_word_exact ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_axial_rope_is_word_exact ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_decoder_attention_and_adjoint_are_word_exact ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_linear_weight_gradients_are_word_exact ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_rms_contiguous_axes_are_word_exact ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_sparse_pool_is_word_exact ... ok
+
+test result: ok. 7 passed; 0 failed; 2 ignored; 0 measured; 1166 filtered out; finished in 1.70s
+

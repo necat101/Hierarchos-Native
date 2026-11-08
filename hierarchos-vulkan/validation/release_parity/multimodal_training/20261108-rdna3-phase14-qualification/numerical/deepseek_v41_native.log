@@ -1,0 +1,24 @@
+
+running 19 tests
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_compressor_adjoint_matches_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_gate_adjoints_match_released_cpu ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_grouped_adjoints_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_hc_adjoints_match_released_cpu ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_input_adjoints_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_lora_matmuls_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_sparse_adjoints_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_swiglu_adjoints_match_frozen_cpu ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_narrow_projections_match_frozen_cpu_tolerance ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_projection_panels_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_terminal_matches_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_unary_boundaries_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_cpu_state_forward_diagnostic ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_multimodal_joint_two_adamw_steps_match_frozen_cpu ... ok
+test deepseek_v41::model::tests::training::native_vision::native_state::deepseek_v41_native_joint_checkpoint_resume_export_and_freshness ... ok
+test transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_aligner_linears_match_frozen_words ... ok
+test transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_final_rms_adjoint_matches_frozen_words ... ok
+test transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_sdpa_matches_independent_random_cpu ... ok
+test transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_two_adamw_steps_match_frozen_cpu ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1156 filtered out; finished in 74.77s
+

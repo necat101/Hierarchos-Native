@@ -1,0 +1,8 @@
+
+running 3 tests
+test transformer::tests::bart_seq2seq_facade_encodes_source_ids_and_matches_explicit_context_generation ... ok
+test transformer::tests::t5_gemma_component_loaders_seq2seq_and_export_preserve_peer_component ... ok
+test transformer::tests::t5_native_encoder_loader_and_seq2seq_facade_use_source_side_contract ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 1172 filtered out; finished in 1.58s
+

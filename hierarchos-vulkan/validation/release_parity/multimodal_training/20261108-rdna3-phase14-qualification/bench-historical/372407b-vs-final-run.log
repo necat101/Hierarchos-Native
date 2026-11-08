@@ -1,0 +1,374 @@
+Starting round-1-baseline
+round-1-baseline word-consistent; submissions {'native_vit_4x4': [982], 'native_vit_6x4': [982], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-1-candidate
+round-1-candidate word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-2-candidate
+round-2-candidate word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-2-baseline
+round-2-baseline word-consistent; submissions {'native_vit_4x4': [982], 'native_vit_6x4': [982], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-3-baseline
+round-3-baseline word-consistent; submissions {'native_vit_4x4': [982], 'native_vit_6x4': [982], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-3-candidate
+round-3-candidate word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-4-candidate
+round-4-candidate word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-4-baseline
+round-4-baseline word-consistent; submissions {'native_vit_4x4': [982], 'native_vit_6x4': [982], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-5-baseline
+round-5-baseline word-consistent; submissions {'native_vit_4x4': [982], 'native_vit_6x4': [982], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-5-candidate
+round-5-candidate word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-6-candidate
+round-6-candidate word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-6-baseline
+round-6-baseline word-consistent; submissions {'native_vit_4x4': [982], 'native_vit_6x4': [982], 'llama': [5], 'gpt2': [5], 't5': [7]}
+{
+  "schema": 1,
+  "pass": true,
+  "scope": "profile-matched release 372407b vs final a2d68f9; batch 1 (legacy batch field)",
+  "order": "ABBA",
+  "rounds": 6,
+  "batch": 1,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "bootstrap_draws": 10000,
+  "bootstrap_seed": 20261107,
+  "cross_arm_word_exact": false,
+  "cross_arm_mismatched_cases": [
+    "gpt2"
+  ],
+  "allowed_cross_arm_signature_difference": true,
+  "legacy_batch_unreported": true,
+  "devices": [
+    "AMD Radeon Graphics"
+  ],
+  "fixtures": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gen9-frozen\\target\\multimodal-gen9",
+  "baseline": {
+    "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\phase14\\binaries\\372407b.exe",
+    "sha256": "981e1576415c6fc0a4e54979a8a021a462a9d97a70fb3514ca2e9e7bc88bfd51",
+    "env": {}
+  },
+  "candidate": {
+    "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\phase14\\binaries\\final.exe",
+    "sha256": "08b377cb5aa9531fbfbafa7a70ae4f45e309f933fdc7dcd7a05c491dae2d6d61",
+    "env": {}
+  },
+  "results": [
+    {
+      "case": "native_vit_4x4",
+      "role": "native",
+      "baseline": {
+        "round_medians_ms": [
+          224.36090000000002,
+          213.3468,
+          225.86840000000004,
+          243.0992,
+          229.37810000000002,
+          232.1189
+        ],
+        "median_ms": 227.62325000000004,
+        "p95_ms": 250.6436,
+        "min_ms": 192.4926,
+        "max_ms": 263.5713,
+        "mad_ms": 3.8789999999999907,
+        "relative_mad": 0.017041317176518612,
+        "sample_cv": 0.05657137722168696,
+        "submissions": [
+          982
+        ],
+        "samples": 42,
+        "signature_sha256": "0f3553c77a86dcef0bc44953f7bda8e0456c174654a1e41a2a7743993a8b4d48"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          115.05460000000001,
+          113.2351,
+          114.95500000000001,
+          113.4113,
+          127.6184,
+          128.545
+        ],
+        "median_ms": 115.00480000000002,
+        "p95_ms": 129.58089999999999,
+        "min_ms": 108.5986,
+        "max_ms": 134.3059,
+        "mad_ms": 1.6816000000000173,
+        "relative_mad": 0.014621998386154465,
+        "sample_cv": 0.059573321679708406,
+        "submissions": [
+          151
+        ],
+        "samples": 42,
+        "signature_sha256": "0f3553c77a86dcef0bc44953f7bda8e0456c174654a1e41a2a7743993a8b4d48"
+      },
+      "speedup": 1.9792499965218844,
+      "paired_median_speedup": 1.9170716718709901,
+      "paired_round_speedups": [
+        1.950038503458358,
+        1.8841048402836222,
+        1.9648418946544302,
+        2.143518326657044,
+        1.797374829961824,
+        1.8057404021937844
+      ],
+      "speedup_ci95": [
+        1.8015576160778042,
+        2.054180110655737
+      ],
+      "conclusion": "candidate_faster"
+    },
+    {
+      "case": "native_vit_6x4",
+      "role": "native",
+      "baseline": {
+        "round_medians_ms": [
+          230.1949,
+          228.89219999999997,
+          241.99650000000003,
+          239.7886,
+          237.3107,
+          242.54500000000002
+        ],
+        "median_ms": 238.54964999999999,
+        "p95_ms": 252.1311,
+        "min_ms": 221.1246,
+        "max_ms": 254.83620000000002,
+        "mad_ms": 3.7211000000000354,
+        "relative_mad": 0.015598849128472985,
+        "sample_cv": 0.03884536968809948,
+        "submissions": [
+          982
+        ],
+        "samples": 42,
+        "signature_sha256": "fecf1b7622cd20f6c0fafdde1b99b639f6050a65928c70c2e6dbdafc0162d42f"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          114.57430000000001,
+          117.3522,
+          116.0915,
+          116.67599999999999,
+          131.1914,
+          129.0438
+        ],
+        "median_ms": 117.01409999999998,
+        "p95_ms": 133.03130000000002,
+        "min_ms": 111.17920000000001,
+        "max_ms": 135.92450000000002,
+        "mad_ms": 1.6811999999999827,
+        "relative_mad": 0.0143674993013661,
+        "sample_cv": 0.06096152762295169,
+        "submissions": [
+          151
+        ],
+        "samples": 42,
+        "signature_sha256": "fecf1b7622cd20f6c0fafdde1b99b639f6050a65928c70c2e6dbdafc0162d42f"
+      },
+      "speedup": 2.0386402151535585,
+      "paired_median_speedup": 1.9798021168945117,
+      "paired_round_speedups": [
+        2.0091320653933735,
+        1.9504721683956499,
+        2.0845324593101133,
+        2.055166443827351,
+        1.8088891497460964,
+        1.8795556237494557
+      ],
+      "speedup_ci95": [
+        1.844222386747776,
+        2.0698494515687322
+      ],
+      "conclusion": "candidate_faster"
+    },
+    {
+      "case": "llama",
+      "role": "control",
+      "baseline": {
+        "round_medians_ms": [
+          7.3007,
+          6.7776,
+          6.9654,
+          8.0456,
+          8.4339,
+          8.2264
+        ],
+        "median_ms": 7.67315,
+        "p95_ms": 8.8744,
+        "min_ms": 6.132000000000001,
+        "max_ms": 9.3151,
+        "mad_ms": 0.6305000000000001,
+        "relative_mad": 0.08216964349712962,
+        "sample_cv": 0.12224903714231251,
+        "submissions": [
+          5
+        ],
+        "samples": 42,
+        "signature_sha256": "af3c8ea6ef3afc98dd314edc0b7bf852fbd11f067814ebc76db9f5587539134a"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          6.534,
+          6.0565999999999995,
+          6.9065,
+          6.4037,
+          5.948799999999999,
+          6.8911
+        ],
+        "median_ms": 6.46885,
+        "p95_ms": 8.1319,
+        "min_ms": 5.2974,
+        "max_ms": 9.0519,
+        "mad_ms": 0.4172500000000001,
+        "relative_mad": 0.06450141833556199,
+        "sample_cv": 0.13036504993087808,
+        "submissions": [
+          5
+        ],
+        "samples": 42,
+        "signature_sha256": "af3c8ea6ef3afc98dd314edc0b7bf852fbd11f067814ebc76db9f5587539134a"
+      },
+      "speedup": 1.1861691026998615,
+      "paired_median_speedup": 1.1564076821939844,
+      "paired_round_speedups": [
+        1.1173400673400673,
+        1.1190436878776873,
+        1.0085281980742777,
+        1.256398644533629,
+        1.417748117267348,
+        1.1937716765102815
+      ],
+      "speedup_ci95": [
+        1.0629341327071726,
+        1.3370733809004887
+      ],
+      "conclusion": "candidate_faster"
+    },
+    {
+      "case": "gpt2",
+      "role": "control",
+      "baseline": {
+        "round_medians_ms": [
+          5.9435,
+          5.9626,
+          5.9617,
+          5.8777,
+          5.7902,
+          6.2286
+        ],
+        "median_ms": 5.9526,
+        "p95_ms": 7.7542,
+        "min_ms": 5.4777000000000005,
+        "max_ms": 8.4122,
+        "mad_ms": 0.0424500000000001,
+        "relative_mad": 0.007131337566777559,
+        "sample_cv": 0.1235088358824215,
+        "submissions": [
+          5
+        ],
+        "samples": 42,
+        "signature_sha256": "c0376f796542803e4e392de4f0662d3a20bbab3c3003d4dee2ea2b7241fcf72f"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          3.8379,
+          3.8252,
+          3.9354999999999998,
+          3.9227000000000003,
+          4.308400000000001,
+          5.7792
+        ],
+        "median_ms": 3.9291,
+        "p95_ms": 6.3108,
+        "min_ms": 3.6994,
+        "max_ms": 6.5907,
+        "mad_ms": 0.09755000000000003,
+        "relative_mad": 0.024827568654399234,
+        "sample_cv": 0.19552489441752602,
+        "submissions": [
+          5
+        ],
+        "samples": 42,
+        "signature_sha256": "08b459b3dc1fe5c16b504c916d205340ff1109ed6c971be0785220789469ba09"
+      },
+      "speedup": 1.5150034359013516,
+      "paired_median_speedup": 1.5066166026652068,
+      "paired_round_speedups": [
+        1.5486333672060242,
+        1.5587681689846282,
+        1.5148519883115235,
+        1.49838121701889,
+        1.3439327824714509,
+        1.0777616279069766
+      ],
+      "speedup_ci95": [
+        1.2108472051892138,
+        1.553700768095326
+      ],
+      "conclusion": "candidate_faster"
+    },
+    {
+      "case": "t5",
+      "role": "control",
+      "baseline": {
+        "round_medians_ms": [
+          15.2218,
+          13.1019,
+          13.5495,
+          14.8103,
+          14.3935,
+          14.8104
+        ],
+        "median_ms": 14.6019,
+        "p95_ms": 18.1437,
+        "min_ms": 11.7154,
+        "max_ms": 19.685399999999998,
+        "mad_ms": 0.41419999999999924,
+        "relative_mad": 0.028366171525623325,
+        "sample_cv": 0.14316894950988834,
+        "submissions": [
+          7
+        ],
+        "samples": 42,
+        "signature_sha256": "179b3e3166e17f3dba10148f32d5fd50effd779df747b47e932b97fc78c7b950"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          10.6052,
+          10.3821,
+          10.7311,
+          10.4316,
+          11.7113,
+          11.3817
+        ],
+        "median_ms": 10.66815,
+        "p95_ms": 15.7473,
+        "min_ms": 8.6114,
+        "max_ms": 15.961,
+        "mad_ms": 0.2613000000000012,
+        "relative_mad": 0.024493468876984406,
+        "sample_cv": 0.19052356173057608,
+        "submissions": [
+          7
+        ],
+        "samples": 42,
+        "signature_sha256": "179b3e3166e17f3dba10148f32d5fd50effd779df747b47e932b97fc78c7b950"
+      },
+      "speedup": 1.368737784901787,
+      "paired_median_speedup": 1.281942618750028,
+      "paired_round_speedups": [
+        1.4353147512541018,
+        1.261970121651689,
+        1.262638499315075,
+        1.419753441466314,
+        1.2290266665528164,
+        1.301246738184981
+      ],
+      "speedup_ci95": [
+        1.2454983941022526,
+        1.427534096360208
+      ],
+      "conclusion": "candidate_faster"
+    }
+  ],
+  "gate_failures": []
+}
