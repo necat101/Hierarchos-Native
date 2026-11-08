@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "C:\Users\User\Downloads\Multimodal\tmp-clones\shallow\hierarchos-vulkan\validation\check_rdna3_gpt2_receipts.py", line 188, in <module>
+    if __name__=='__main__':sys.exit(main('--historical-only' in sys.argv))
+                                     ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\Downloads\Multimodal\tmp-clones\shallow\hierarchos-vulkan\validation\check_rdna3_gpt2_receipts.py", line 42, in main
+    current,historical=verify_sources(hashes['sources'])
+                       ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\Downloads\Multimodal\tmp-clones\shallow\hierarchos-vulkan\validation\check_rdna3_gpt2_receipts.py", line 150, in verify_sources
+    require(
+    ~~~~~~~^
+        False,
+        ^^^^^^
+        'historical history unavailable in a shallow checkout; fetch full history '
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        '(actions/checkout with fetch-depth: 0) to verify: ' + ', '.join(blocked),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\User\Downloads\Multimodal\tmp-clones\shallow\hierarchos-vulkan\validation\check_rdna3_gpt2_receipts.py", line 15, in require
+    if not condition:raise ValueError(message)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: historical history unavailable in a shallow checkout; fetch full history (actions/checkout with fetch-depth: 0) to verify: hierarchos-vulkan/src/transformer.rs, hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py, hierarchos-vulkan/validation/test_rdna3_gpt2_receipts.py

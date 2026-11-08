@@ -1,0 +1,4 @@
+HISTORICAL RECEIPT INTEGRITY: PASS (130 sources match this checkout, 3 verified against immutable history)
+  historical binding: hierarchos-vulkan/src/transformer.rs at 24424bf158cc
+  historical binding: hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py at 24424bf158cc
+  historical binding: hierarchos-vulkan/validation/test_rdna3_gpt2_receipts.py at 24424bf158cc

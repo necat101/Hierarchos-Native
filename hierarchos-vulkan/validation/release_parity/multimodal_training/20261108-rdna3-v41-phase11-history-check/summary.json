@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "phase": "XI",
+  "source_commit": "b96a954450593f54f32ea71dfdd56365cb9b8e29",
+  "status": "INCOMPLETE",
+  "github_history_check": {
+    "cause": "actions/checkout@v4 depth 1 exposed no historical blobs; the guard searched git rev-list --all",
+    "shallow_clone": {
+      "commits": 1,
+      "exit": 1,
+      "diagnostic": "historical history unavailable in a shallow checkout"
+    },
+    "unshallowed_clone": {
+      "exit": 0,
+      "result": "PASS"
+    },
+    "full_clone": {
+      "commits": 60,
+      "exit": 0,
+      "result": "PASS"
+    },
+    "historical_blobs_reachable": [
+      "hierarchos-vulkan/src/transformer.rs",
+      "hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py",
+      "hierarchos-vulkan/validation/test_rdna3_gpt2_receipts.py"
+    ],
+    "provenance_level": "per-source blob existence, not one coherent qualified snapshot"
+  },
+  "current_gpt2_qualification": "UNQUALIFIED",
+  "numerical_parity": "NOT_EXECUTED",
+  "performance": "NOT_MEASURED",
+  "limitations": [
+    "remote GitHub Actions execution was not confirmed from this host",
+    "frozen GPT-2 shape matrix not executed",
+    "dedicated parity harnesses and six-round performance protocol not executed"
+  ]
+}
