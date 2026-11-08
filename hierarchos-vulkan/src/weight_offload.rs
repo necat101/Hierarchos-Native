@@ -1908,16 +1908,34 @@ mod tests {
             &[("w", TensorDtype::F32, vec![rows, cols], f32_bytes(&values))],
         );
 
-        let registered = shared_packages().lock().unwrap().len();
+        let registered = shared_packages()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len();
         let first = shared_package(&path)?;
         let second = shared_package(&path)?;
         assert!(
             Arc::ptr_eq(&first, &second),
             "the registry must reuse the handle"
         );
-        // Other tests in this binary may hold their own entries, so assert the
-        // registry grew by exactly this file rather than that it is size one.
-        assert_eq!(shared_packages().lock().unwrap().len(), registered + 1);
+        // Other tests in this binary register their own packages concurrently, so
+        // the registry can only be required to have grown by at least this file.
+        // Comparing against an exact global size made this test order-dependent,
+        // and panicking while the registry guard was alive poisoned the mutex for
+        // every later test in the binary.
+        let grown = shared_packages()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len();
+        assert!(
+            grown >= registered + 1,
+            "the registry kept {grown} entries, expected at least {}",
+            registered + 1
+        );
+        assert!(
+            Arc::ptr_eq(&first, &shared_package(&path)?),
+            "later lookups must keep returning the shared handle"
+        );
 
         let gather = |handle: &Arc<Mutex<ModelPackage>>| -> Result<Vec<u8>> {
             let mut package = handle
