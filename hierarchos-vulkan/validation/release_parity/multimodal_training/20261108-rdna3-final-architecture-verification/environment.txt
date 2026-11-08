@@ -1,0 +1,95 @@
+OS
+
+Caption                         Version    BuildNumber OSArchitecture
+-------                         -------    ----------- --------------
+Microsoft Windows 11 Enterprise 10.0.26300 26300       64-bit
+
+
+CPU
+
+Name                                            NumberOfCores NumberOfLogicalProcessors
+----                                            ------------- -------------------------
+AMD Ryzen Z1 Extreme                                        8                        16
+
+
+GPU
+
+
+Name          : AMD Radeon Graphics
+DriverVersion : 32.0.31007.6002
+AdapterRAM    : 4293918720
+PNPDeviceID   : PCI\VEN_1002&DEV_15BF&SUBSYS_17F31043&REV_04\4&98C338A&0&0041
+Status        : OK
+
+
+
+RUST
+rustc 1.93.0 (254b59607 2026-01-19)
+binary: rustc
+commit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c
+commit-date: 2026-01-19
+host: x86_64-pc-windows-msvc
+release: 1.93.0
+LLVM version: 21.1.8
+cargo 1.93.0 (083ac5135 2025-12-15)
+PYTHON
+Python 3.13.14
+numpy 2.3.3
+VULKAN
+ERROR: [Loader Message] Code 0 : loader_get_json: Failed to open JSON file C:\Program Files (x86)\Epic Games\Epic Online Services\managedArtifacts\98bc04bc842e4906993fd6d6644ffb8d\EOSOverlayVkLayer-Win64.json
+WARNING: [Loader Message] Code 0 : Layer VK_LAYER_OBS_HOOK uses API version 1.3 which is older than the application specified API version of 1.4. May cause issues.
+==========
+VULKANINFO
+==========
+
+Vulkan Instance Version: 1.4.341
+
+
+Instance Extensions: count = 14
+-------------------------------
+VK_EXT_debug_report                    : extension revision 10
+VK_EXT_debug_utils                     : extension revision 2
+VK_EXT_swapchain_colorspace            : extension revision 5
+VK_KHR_device_group_creation           : extension revision 1
+VK_KHR_external_fence_capabilities     : extension revision 1
+VK_KHR_external_memory_capabilities    : extension revision 1
+VK_KHR_external_semaphore_capabilities : extension revision 1
+VK_KHR_get_physical_device_properties2 : extension revision 2
+VK_KHR_get_surface_capabilities2       : extension revision 1
+VK_KHR_portability_enumeration         : extension revision 1
+VK_KHR_surface                         : extension revision 25
+VK_KHR_surface_maintenance1            : extension revision 1
+VK_KHR_win32_surface                   : extension revision 6
+VK_LUNARG_direct_driver_loading        : extension revision 1
+
+Instance Layers: count = 13
+---------------------------
+VK_LAYER_AMD_switchable_graphics  AMD switchable graphics layer                                                                                     1.4.344  version 1
+VK_LAYER_KHRONOS_profiles         Khronos Profiles layer                                                                                            1.4.321  version 1
+VK_LAYER_KHRONOS_shader_object    Khronos Shader object layer                                                                                       1.4.321  version 1
+VK_LAYER_KHRONOS_synchronization2 Khronos Synchronization2 layer                                                                                    1.4.321  version 1
+VK_LAYER_KHRONOS_validation       Khronos Validation Layer                                                                                          1.4.321  version 1
+VK_LAYER_LUNARG_api_dump          LunarG API dump layer                                                                                             1.4.321  version 2
+VK_LAYER_LUNARG_crash_diagnostic  Crash Diagnostic Layer is a crash/hang debugging tool that helps determines GPU progress in a Vulkan application. 1.4.321  version 1
+VK_LAYER_LUNARG_gfxreconstruct    GFXReconstruct Capture Layer Version 1.0.5                                                                        1.4.321  version 4194309
+VK_LAYER_LUNARG_monitor           Execution Monitoring Layer                                                                                        1.4.321  version 1
+VK_LAYER_LUNARG_screenshot        LunarG image capture layer                                                                                        1.4.321  version 1
+VK_LAYER_OBS_HOOK                 Open Broadcaster Software hook                                                                                    1.3.216  version 1
+VK_LAYER_VALVE_steam_fossilize    Steam Pipeline Caching Layer                                                                                      1.4.303  version 1
+VK_LAYER_VALVE_steam_overlay      Steam Overlay Layer                                                                                               1.3.207  version 1
+
+Devices:
+========
+GPU0:
+	apiVersion         = 1.4.344
+	driverVersion      = 2.0.388
+	vendorID           = 0x1002
+	deviceID           = 0x15bf
+	deviceType         = PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
+	deviceName         = AMD Radeon Graphics
+	driverID           = DRIVER_ID_AMD_PROPRIETARY
+	driverName         = AMD proprietary driver
+	driverInfo         = 26.10.07.06 (LLPC)
+	conformanceVersion = 1.4.3.3
+	deviceUUID         = 00000000-0900-0000-0000-000000000000
+	driverUUID         = 414d442d-5749-4e2d-4452-560000000000

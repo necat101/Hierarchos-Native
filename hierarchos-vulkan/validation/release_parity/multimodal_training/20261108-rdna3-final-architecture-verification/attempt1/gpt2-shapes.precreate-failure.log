@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\validation\qualify_rdna3_gpt2_shapes.py", line 179, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\validation\qualify_rdna3_gpt2_shapes.py", line 176, in main
+    run(args)
+    ~~~^^^^^^
+  File "C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\validation\qualify_shared_image_pipeline.py", line 195, in run
+    out=args.output.resolve();out.mkdir(parents=True,exist_ok=False)
+                              ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileExistsError: [WinError 183] Cannot create a file when that file already exists: 'C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\final-verification-20261108\\numerical\\gpt2-shapes'

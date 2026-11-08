@@ -1,0 +1,315 @@
+
+running 8 tests
+test deepseek_v41::attention::tape::tests::attention_tape_rejects_aliases_foreign_handles_and_bad_geometry ... ok
+test deepseek_v41::attention::tape::tests::attention_tape_shared_sources_and_decode_chain_match_cpu_autograd ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_attention_adjoint_crosses_dispatch_axis_bound ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_cache_write_adjoints_cpu_pytorch_strict ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_grouped_output_adjoints_cpu_pytorch_strict ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_rotary_adjoints_cpu_pytorch_strict ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_sparse_attention_adjoints_cpu_pytorch_strict ... ok
+test deepseek_v41::attention_tests::deepseek_v41_attention_matches_the_pinned_reference_fixture ... ok
+
+successes:
+
+---- deepseek_v41::attention::tape::tests::attention_tape_shared_sources_and_decode_chain_match_cpu_autograd stdout ----
+V4.1 attention tape sliding-prefill-longer-than-ring read 0 layer 0 forward: 64 values, worst 1.49011611938476562e-8 at 9
+V4.1 attention tape sliding-prefill-longer-than-ring read 1 layer 0 forward: 384 values, worst 2.98023223876953125e-8 at 127
+V4.1 attention tape sliding-prefill-longer-than-ring read 2 layer 0 forward: 64 values, worst 1.49011611938476562e-8 at 3
+V4.1 attention tape sliding-prefill-longer-than-ring read 3 layer 0 forward: 64 values, worst 1.49011611938476562e-8 at 7
+V4.1 attention tape sliding-prefill-longer-than-ring read 4 layer 0 forward: 64 values, worst 2.98023223876953125e-8 at 2
+V4.1 attention tape sliding-prefill-longer-than-ring read 5 layer 0 forward: 64 values, worst 2.98023223876953125e-8 at 14
+V4.1 attention tape sliding-prefill-longer-than-ring read 6 layer 0 forward: 64 values, worst 2.98023223876953125e-8 at 34
+V4.1 attention tape sliding-prefill-longer-than-ring read 7 layer 0 forward: 64 values, worst 1.49011611938476562e-8 at 37
+V4.1 attention tape sliding-prefill-longer-than-ring read 8 layer 0 forward: 64 values, worst 2.98023223876953125e-8 at 2
+V4.1 attention tape sliding-prefill-longer-than-ring retained snapshot bytes 9548
+V4.1 attention tape sliding-prefill-longer-than-ring read 0 query: 64 values, worst 1.86264514923095703e-9 at 2
+V4.1 attention tape sliding-prefill-longer-than-ring read 1 query: 384 values, worst 3.72529029846191406e-9 at 130
+V4.1 attention tape sliding-prefill-longer-than-ring read 2 query: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape sliding-prefill-longer-than-ring read 4 query: 64 values, worst 1.45519152283668518e-9 at 6
+V4.1 attention tape sliding-prefill-longer-than-ring read 5 query: 64 values, worst 3.72529029846191406e-9 at 28
+V4.1 attention tape sliding-prefill-longer-than-ring read 6 query: 64 values, worst 1.86264514923095703e-9 at 2
+V4.1 attention tape sliding-prefill-longer-than-ring read 7 query: 64 values, worst 2.79396772384643555e-9 at 14
+V4.1 attention tape sliding-prefill-longer-than-ring read 8 query: 64 values, worst 2.32830643653869629e-9 at 41
+V4.1 attention tape sliding-prefill-longer-than-ring write 0 source: 192 values, worst 5.96046447753906250e-8 at 21
+V4.1 attention tape sliding-prefill-longer-than-ring write 1 source: 32 values, worst 2.98023223876953125e-8 at 9
+V4.1 attention tape sliding-prefill-longer-than-ring write 2 source: 32 values, worst 2.98023223876953125e-8 at 6
+V4.1 attention tape sliding-prefill-longer-than-ring write 3 source: 32 values, worst 2.98023223876953125e-8 at 2
+V4.1 attention tape sliding-prefill-longer-than-ring write 4 source: 32 values, worst 1.49011611938476562e-8 at 3
+V4.1 attention tape sliding-prefill-longer-than-ring write 5 source: 32 values, worst 2.98023223876953125e-8 at 6
+V4.1 attention tape sliding-prefill-longer-than-ring write 6 source: 32 values, worst 1.49011611938476562e-8 at 6
+V4.1 attention tape sliding-prefill-longer-than-ring write 7 source: 32 values, worst 7.45058059692382812e-9 at 1
+V4.1 attention tape sliding-prefill-longer-than-ring initial cache 0: 128 values, worst 1.49011611938476562e-8 at 40
+V4.1 attention tape batched-shared-ratio2 read 0 layer 0 forward: 192 values, worst 2.23517417907714844e-8 at 146
+V4.1 attention tape batched-shared-ratio2 read 1 layer 1 forward: 192 values, worst 1.49011611938476562e-8 at 0
+V4.1 attention tape batched-shared-ratio2 read 2 layer 2 forward: 192 values, worst 3.72529029846191406e-8 at 119
+V4.1 attention tape batched-shared-ratio2 read 3 layer 0 forward: 576 values, worst 2.98023223876953125e-8 at 384
+V4.1 attention tape batched-shared-ratio2 read 4 layer 1 forward: 576 values, worst 2.98023223876953125e-8 at 126
+V4.1 attention tape batched-shared-ratio2 read 5 layer 2 forward: 576 values, worst 2.98023223876953125e-8 at 526
+V4.1 attention tape batched-shared-ratio2 read 6 layer 0 forward: 192 values, worst 2.98023223876953125e-8 at 74
+V4.1 attention tape batched-shared-ratio2 read 7 layer 1 forward: 192 values, worst 2.98023223876953125e-8 at 93
+V4.1 attention tape batched-shared-ratio2 read 8 layer 2 forward: 192 values, worst 2.98023223876953125e-8 at 62
+V4.1 attention tape batched-shared-ratio2 read 9 layer 0 forward: 192 values, worst 2.98023223876953125e-8 at 104
+V4.1 attention tape batched-shared-ratio2 read 10 layer 1 forward: 192 values, worst 2.98023223876953125e-8 at 74
+V4.1 attention tape batched-shared-ratio2 read 11 layer 2 forward: 192 values, worst 2.98023223876953125e-8 at 33
+V4.1 attention tape batched-shared-ratio2 read 12 layer 0 forward: 192 values, worst 2.98023223876953125e-8 at 63
+V4.1 attention tape batched-shared-ratio2 read 13 layer 1 forward: 192 values, worst 1.49011611938476562e-8 at 23
+V4.1 attention tape batched-shared-ratio2 read 14 layer 2 forward: 192 values, worst 2.98023223876953125e-8 at 157
+V4.1 attention tape batched-shared-ratio2 read 15 layer 0 forward: 192 values, worst 2.23517417907714844e-8 at 132
+V4.1 attention tape batched-shared-ratio2 read 16 layer 1 forward: 192 values, worst 1.49011611938476562e-8 at 3
+V4.1 attention tape batched-shared-ratio2 read 17 layer 2 forward: 192 values, worst 2.98023223876953125e-8 at 157
+V4.1 attention tape batched-shared-ratio2 read 18 layer 0 forward: 192 values, worst 2.98023223876953125e-8 at 138
+V4.1 attention tape batched-shared-ratio2 read 19 layer 1 forward: 192 values, worst 2.98023223876953125e-8 at 1
+V4.1 attention tape batched-shared-ratio2 read 20 layer 2 forward: 192 values, worst 2.98023223876953125e-8 at 23
+V4.1 attention tape batched-shared-ratio2 read 21 layer 0 forward: 192 values, worst 2.98023223876953125e-8 at 16
+V4.1 attention tape batched-shared-ratio2 read 22 layer 1 forward: 192 values, worst 2.98023223876953125e-8 at 175
+V4.1 attention tape batched-shared-ratio2 read 23 layer 2 forward: 192 values, worst 2.23517417907714844e-8 at 119
+V4.1 attention tape batched-shared-ratio2 read 24 layer 0 forward: 192 values, worst 2.98023223876953125e-8 at 38
+V4.1 attention tape batched-shared-ratio2 read 25 layer 1 forward: 192 values, worst 2.98023223876953125e-8 at 27
+V4.1 attention tape batched-shared-ratio2 read 26 layer 2 forward: 192 values, worst 2.98023223876953125e-8 at 91
+V4.1 attention tape batched-shared-ratio2 read 27 layer 0 forward: 192 values, worst 2.98023223876953125e-8 at 38
+V4.1 attention tape batched-shared-ratio2 read 28 layer 1 forward: 192 values, worst 2.98023223876953125e-8 at 1
+V4.1 attention tape batched-shared-ratio2 read 29 layer 2 forward: 192 values, worst 1.49011611938476562e-8 at 5
+V4.1 attention tape batched-shared-ratio2 retained snapshot bytes 115776
+V4.1 attention tape batched-shared-ratio2 read 0 query: 192 values, worst 3.72529029846191406e-9 at 88
+V4.1 attention tape batched-shared-ratio2 read 1 query: 192 values, worst 1.86264514923095703e-9 at 177
+V4.1 attention tape batched-shared-ratio2 read 2 query: 192 values, worst 1.86264514923095703e-9 at 24
+V4.1 attention tape batched-shared-ratio2 read 3 query: 576 values, worst 5.58793544769287109e-9 at 238
+V4.1 attention tape batched-shared-ratio2 read 4 query: 576 values, worst 5.58793544769287109e-9 at 275
+V4.1 attention tape batched-shared-ratio2 read 5 query: 576 values, worst 2.79396772384643555e-9 at 261
+V4.1 attention tape batched-shared-ratio2 read 6 query: 192 values, worst 1.86264514923095703e-9 at 101
+V4.1 attention tape batched-shared-ratio2 read 7 query: 192 values, worst 1.86264514923095703e-9 at 67
+V4.1 attention tape batched-shared-ratio2 read 8 query: 192 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape batched-shared-ratio2 read 10 query: 192 values, worst 1.86264514923095703e-9 at 11
+V4.1 attention tape batched-shared-ratio2 read 11 query: 192 values, worst 1.86264514923095703e-9 at 0
+V4.1 attention tape batched-shared-ratio2 read 12 query: 192 values, worst 1.86264514923095703e-9 at 125
+V4.1 attention tape batched-shared-ratio2 read 13 query: 192 values, worst 3.72529029846191406e-9 at 162
+V4.1 attention tape batched-shared-ratio2 read 14 query: 192 values, worst 1.86264514923095703e-9 at 35
+V4.1 attention tape batched-shared-ratio2 read 15 query: 192 values, worst 1.86264514923095703e-9 at 69
+V4.1 attention tape batched-shared-ratio2 read 16 query: 192 values, worst 1.86264514923095703e-9 at 33
+V4.1 attention tape batched-shared-ratio2 read 17 query: 192 values, worst 1.39698386192321777e-9 at 155
+V4.1 attention tape batched-shared-ratio2 read 18 query: 192 values, worst 2.79396772384643555e-9 at 100
+V4.1 attention tape batched-shared-ratio2 read 19 query: 192 values, worst 1.86264514923095703e-9 at 161
+V4.1 attention tape batched-shared-ratio2 read 20 query: 192 values, worst 1.86264514923095703e-9 at 18
+V4.1 attention tape batched-shared-ratio2 read 21 query: 192 values, worst 1.86264514923095703e-9 at 98
+V4.1 attention tape batched-shared-ratio2 read 22 query: 192 values, worst 1.86264514923095703e-9 at 37
+V4.1 attention tape batched-shared-ratio2 read 23 query: 192 values, worst 1.86264514923095703e-9 at 50
+V4.1 attention tape batched-shared-ratio2 read 24 query: 192 values, worst 1.86264514923095703e-9 at 106
+V4.1 attention tape batched-shared-ratio2 read 25 query: 192 values, worst 1.86264514923095703e-9 at 75
+V4.1 attention tape batched-shared-ratio2 read 26 query: 192 values, worst 1.86264514923095703e-9 at 16
+V4.1 attention tape batched-shared-ratio2 read 27 query: 192 values, worst 1.86264514923095703e-9 at 54
+V4.1 attention tape batched-shared-ratio2 read 28 query: 192 values, worst 1.86264514923095703e-9 at 105
+V4.1 attention tape batched-shared-ratio2 read 29 query: 192 values, worst 1.86264514923095703e-9 at 100
+V4.1 attention tape batched-shared-ratio2 write 0 source: 192 values, worst 5.96046447753906250e-8 at 10
+V4.1 attention tape batched-shared-ratio2 write 1 source: 192 values, worst 1.19209289550781250e-7 at 8
+V4.1 attention tape batched-shared-ratio2 write 2 source: 192 values, worst 5.96046447753906250e-8 at 0
+V4.1 attention tape batched-shared-ratio2 write 3 source: 64 values, worst 5.96046447753906250e-8 at 37
+V4.1 attention tape batched-shared-ratio2 write 4 source: 64 values, worst 2.98023223876953125e-8 at 43
+V4.1 attention tape batched-shared-ratio2 write 5 source: 64 values, worst 3.72529029846191406e-9 at 60
+V4.1 attention tape batched-shared-ratio2 write 6 source: 64 values, worst 3.72529029846191406e-9 at 31
+V4.1 attention tape batched-shared-ratio2 write 7 source: 64 values, worst 3.72529029846191406e-9 at 22
+V4.1 attention tape batched-shared-ratio2 write 8 source: 64 values, worst 1.49011611938476562e-8 at 16
+V4.1 attention tape batched-shared-ratio2 write 9 source: 64 values, worst 7.45058059692382812e-9 at 51
+V4.1 attention tape batched-shared-ratio2 write 10 source: 64 values, worst 7.45058059692382812e-9 at 37
+V4.1 attention tape batched-shared-ratio2 write 11 source: 64 values, worst 2.98023223876953125e-8 at 18
+V4.1 attention tape batched-shared-ratio2 write 12 source: 64 values, worst 1.11758708953857422e-8 at 17
+V4.1 attention tape batched-shared-ratio2 write 13 source: 64 values, worst 7.45058059692382812e-9 at 34
+V4.1 attention tape batched-shared-ratio2 write 14 source: 64 values, worst 2.98023223876953125e-8 at 15
+V4.1 attention tape batched-shared-ratio2 write 15 source: 64 values, worst 2.98023223876953125e-8 at 2
+V4.1 attention tape batched-shared-ratio2 write 16 source: 64 values, worst 7.45058059692382812e-9 at 46
+V4.1 attention tape batched-shared-ratio2 write 17 source: 64 values, worst 7.45058059692382812e-9 at 43
+V4.1 attention tape batched-shared-ratio2 write 18 source: 64 values, worst 2.98023223876953125e-8 at 6
+V4.1 attention tape batched-shared-ratio2 write 19 source: 64 values, worst 1.49011611938476562e-8 at 24
+V4.1 attention tape batched-shared-ratio2 write 20 source: 64 values, worst 1.49011611938476562e-8 at 22
+V4.1 attention tape batched-shared-ratio2 write 21 source: 64 values, worst 1.49011611938476562e-8 at 9
+V4.1 attention tape batched-shared-ratio2 write 22 source: 64 values, worst 7.45058059692382812e-9 at 33
+V4.1 attention tape batched-shared-ratio2 write 23 source: 64 values, worst 7.45058059692382812e-9 at 28
+V4.1 attention tape batched-shared-ratio2 write 24 source: 64 values, worst 3.72529029846191406e-9 at 14
+V4.1 attention tape batched-shared-ratio2 write 25 source: 64 values, worst 7.45058059692382812e-9 at 15
+V4.1 attention tape batched-shared-ratio2 write 26 source: 64 values, worst 7.45058059692382812e-9 at 25
+V4.1 attention tape batched-shared-ratio2 write 27 source: 64 values, worst 1.49011611938476562e-8 at 8
+V4.1 attention tape batched-shared-ratio2 write 28 source: 64 values, worst 1.49011611938476562e-8 at 32
+V4.1 attention tape batched-shared-ratio2 write 29 source: 64 values, worst 1.86264514923095703e-9 at 10
+V4.1 attention tape batched-shared-ratio2 write 30 source: 64 values, worst 3.72529029846191406e-9 at 1
+V4.1 attention tape batched-shared-ratio2 write 31 source: 64 values, worst 1.86264514923095703e-9 at 50
+V4.1 attention tape batched-shared-ratio2 initial cache 0: 256 values, worst 7.45058059692382812e-9 at 39
+V4.1 attention tape batched-shared-ratio2 initial cache 1: 256 values, worst 7.45058059692382812e-9 at 69
+V4.1 attention tape batched-shared-ratio2 initial cache 2: 256 values, worst 7.45058059692382812e-9 at 18
+V4.1 attention tape batched-shared-ratio2 initial cache 3: 448 values, worst 1.49011611938476562e-8 at 112
+V4.1 attention tape two-independent-ratio1-sources read 0 layer 0 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 1 layer 1 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 2 layer 2 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 3 layer 3 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 4 layer 0 forward: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 5 layer 1 forward: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 6 layer 2 forward: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 7 layer 3 forward: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 8 layer 0 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 9 layer 1 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 10 layer 2 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 11 layer 3 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 12 layer 0 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 13 layer 1 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 14 layer 2 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 15 layer 3 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 16 layer 0 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 17 layer 1 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 18 layer 2 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 19 layer 3 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 20 layer 0 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 21 layer 1 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 22 layer 2 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 23 layer 3 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 24 layer 0 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 25 layer 1 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 26 layer 2 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 27 layer 3 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 28 layer 0 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 29 layer 1 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 30 layer 2 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 31 layer 3 forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources retained snapshot bytes 145696
+V4.1 attention tape two-independent-ratio1-sources read 0 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 1 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 2 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 3 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 4 query: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 5 query: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 6 query: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 7 query: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 8 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 9 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 10 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 11 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 13 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 14 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 15 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 16 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 17 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 18 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 19 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 20 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 21 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 22 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 23 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 24 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 25 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 26 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 27 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 28 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 29 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 30 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources read 31 query: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources write 0 source: 128 values, worst 1.49011611938476562e-8 at 65
+V4.1 attention tape two-independent-ratio1-sources write 1 source: 128 values, worst 1.49011611938476562e-8 at 65
+V4.1 attention tape two-independent-ratio1-sources write 2 source: 128 values, worst 2.98023223876953125e-8 at 7
+V4.1 attention tape two-independent-ratio1-sources write 3 source: 128 values, worst 2.98023223876953125e-8 at 10
+V4.1 attention tape two-independent-ratio1-sources write 4 source: 128 values, worst 5.96046447753906250e-8 at 90
+V4.1 attention tape two-independent-ratio1-sources write 5 source: 128 values, worst 2.98023223876953125e-8 at 49
+V4.1 attention tape two-independent-ratio1-sources write 6 source: 64 values, worst 5.96046447753906250e-8 at 28
+V4.1 attention tape two-independent-ratio1-sources write 7 source: 64 values, worst 1.49011611938476562e-8 at 41
+V4.1 attention tape two-independent-ratio1-sources write 8 source: 64 values, worst 3.72529029846191406e-9 at 45
+V4.1 attention tape two-independent-ratio1-sources write 9 source: 64 values, worst 2.98023223876953125e-8 at 33
+V4.1 attention tape two-independent-ratio1-sources write 10 source: 64 values, worst 1.49011611938476562e-8 at 44
+V4.1 attention tape two-independent-ratio1-sources write 11 source: 64 values, worst 1.49011611938476562e-8 at 14
+V4.1 attention tape two-independent-ratio1-sources write 12 source: 64 values, worst 1.49011611938476562e-8 at 7
+V4.1 attention tape two-independent-ratio1-sources write 13 source: 64 values, worst 2.98023223876953125e-8 at 63
+V4.1 attention tape two-independent-ratio1-sources write 14 source: 64 values, worst 3.72529029846191406e-9 at 37
+V4.1 attention tape two-independent-ratio1-sources write 15 source: 64 values, worst 1.49011611938476562e-8 at 40
+V4.1 attention tape two-independent-ratio1-sources write 16 source: 64 values, worst 7.45058059692382812e-9 at 46
+V4.1 attention tape two-independent-ratio1-sources write 17 source: 64 values, worst 1.49011611938476562e-8 at 24
+V4.1 attention tape two-independent-ratio1-sources write 18 source: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources write 19 source: 64 values, worst 5.96046447753906250e-8 at 32
+V4.1 attention tape two-independent-ratio1-sources write 20 source: 64 values, worst 1.49011611938476562e-8 at 23
+V4.1 attention tape two-independent-ratio1-sources write 21 source: 64 values, worst 1.49011611938476562e-8 at 9
+V4.1 attention tape two-independent-ratio1-sources write 22 source: 64 values, worst 7.45058059692382812e-9 at 4
+V4.1 attention tape two-independent-ratio1-sources write 23 source: 64 values, worst 1.49011611938476562e-8 at 41
+V4.1 attention tape two-independent-ratio1-sources write 24 source: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources write 25 source: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources write 26 source: 64 values, worst 2.98023223876953125e-8 at 51
+V4.1 attention tape two-independent-ratio1-sources write 27 source: 64 values, worst 1.49011611938476562e-8 at 13
+V4.1 attention tape two-independent-ratio1-sources write 28 source: 64 values, worst 7.45058059692382812e-9 at 19
+V4.1 attention tape two-independent-ratio1-sources write 29 source: 64 values, worst 2.98023223876953125e-8 at 4
+V4.1 attention tape two-independent-ratio1-sources write 30 source: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources write 31 source: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources write 32 source: 64 values, worst 1.49011611938476562e-8 at 58
+V4.1 attention tape two-independent-ratio1-sources write 33 source: 64 values, worst 1.49011611938476562e-8 at 40
+V4.1 attention tape two-independent-ratio1-sources write 34 source: 64 values, worst 1.49011611938476562e-8 at 19
+V4.1 attention tape two-independent-ratio1-sources write 35 source: 64 values, worst 7.45058059692382812e-9 at 6
+V4.1 attention tape two-independent-ratio1-sources write 36 source: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources write 37 source: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention tape two-independent-ratio1-sources write 38 source: 64 values, worst 3.72529029846191406e-9 at 63
+V4.1 attention tape two-independent-ratio1-sources write 39 source: 64 values, worst 3.72529029846191406e-9 at 13
+V4.1 attention tape two-independent-ratio1-sources write 40 source: 64 values, worst 9.31322574615478516e-10 at 57
+V4.1 attention tape two-independent-ratio1-sources write 41 source: 64 values, worst 3.72529029846191406e-9 at 58
+V4.1 attention tape two-independent-ratio1-sources initial cache 0: 192 values, worst 7.45058059692382812e-9 at 179
+V4.1 attention tape two-independent-ratio1-sources initial cache 1: 192 values, worst 7.45058059692382812e-9 at 96
+V4.1 attention tape two-independent-ratio1-sources initial cache 2: 192 values, worst 7.45058059692382812e-9 at 48
+V4.1 attention tape two-independent-ratio1-sources initial cache 3: 192 values, worst 1.49011611938476562e-8 at 2
+V4.1 attention tape two-independent-ratio1-sources initial cache 4: 640 values, worst 7.45058059692382812e-9 at 105
+V4.1 attention tape two-independent-ratio1-sources initial cache 5: 640 values, worst 1.49011611938476562e-8 at 297
+
+---- deepseek_v41::attention_grad::tests::deepseek_v41_cache_write_adjoints_cpu_pytorch_strict stdout ----
+V4.1 attention adjoint cache source: 48 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache previous: 80 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache source: 112 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache previous: 48 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache source: 16 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache previous: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache source: 24 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint cache previous: 32 values, worst 0.00000000000000000e0 at 0
+
+---- deepseek_v41::attention_grad::tests::deepseek_v41_grouped_output_adjoints_cpu_pytorch_strict stdout ----
+V4.1 attention adjoint grouped 1x2x16 rank 4: 32 values, worst 1.49011611938476562e-8 at 9
+V4.1 attention adjoint grouped 4x2x32 rank 16: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint grouped 2x8x64 rank 32: 1024 values, worst 1.78813934326171875e-7 at 26
+
+---- deepseek_v41::attention_grad::tests::deepseek_v41_rotary_adjoints_cpu_pytorch_strict stdout ----
+V4.1 attention adjoint RoPE inverse=false: 144 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint RoPE inverse=true: 144 values, worst 0.00000000000000000e0 at 0
+
+---- deepseek_v41::attention_grad::tests::deepseek_v41_sparse_attention_adjoints_cpu_pytorch_strict stdout ----
+V4.1 attention adjoint prefill-compressed Q: 48 values, worst 1.86264514923095703e-9 at 22
+V4.1 attention adjoint prefill-compressed window KV: 24 values, worst 2.98023223876953125e-8 at 2
+V4.1 attention adjoint prefill-compressed Q.K: 30 values, worst 3.72529029846191406e-9 at 28
+V4.1 attention adjoint prefill-compressed compressed KV: 16 values, worst 1.49011611938476562e-8 at 14
+V4.1 attention adjoint prefill-compressed forward: 48 values, worst 1.49011611938476562e-8 at 19
+V4.1 attention adjoint sliding-only Q: 64 values, worst 9.31322574615478516e-10 at 42
+V4.1 attention adjoint sliding-only window KV: 32 values, worst 5.96046447753906250e-8 at 4
+V4.1 attention adjoint sliding-only Q.K: 32 values, worst 1.86264514923095703e-9 at 29
+V4.1 attention adjoint sliding-only forward: 64 values, worst 1.49011611938476562e-8 at 22
+V4.1 attention adjoint batch-shared-cache Q: 192 values, worst 3.72529029846191406e-9 at 51
+V4.1 attention adjoint batch-shared-cache window KV: 128 values, worst 2.98023223876953125e-8 at 0
+V4.1 attention adjoint batch-shared-cache Q.K: 60 values, worst 2.44472175836563110e-9 at 38
+V4.1 attention adjoint batch-shared-cache compressed KV: 96 values, worst 1.49011611938476562e-8 at 24
+V4.1 attention adjoint batch-shared-cache forward: 192 values, worst 2.98023223876953125e-8 at 134
+V4.1 attention adjoint narrow-blas Q: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint narrow-blas window KV: 128 values, worst 3.72529029846191406e-9 at 109
+V4.1 attention adjoint narrow-blas Q.K: 96 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint narrow-blas compressed KV: 64 values, worst 7.45058059692382812e-9 at 21
+V4.1 attention adjoint narrow-blas forward: 512 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint long-softmax Q: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint long-softmax window KV: 640 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint long-softmax Q.K: 184 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint long-softmax compressed KV: 128 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint long-softmax forward: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint released-heads-and-width Q: 65536 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint released-heads-and-width window KV: 65536 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint released-heads-and-width Q.K: 16384 values, worst 0.00000000000000000e0 at 0
+V4.1 attention adjoint released-heads-and-width forward: 65536 values, worst 0.00000000000000000e0 at 0
+
+---- deepseek_v41::attention_tests::deepseek_v41_attention_matches_the_pinned_reference_fixture stdout ----
+attention fixture: 1408 values, worst drift 7.708e-8
+
+
+successes:
+    deepseek_v41::attention::tape::tests::attention_tape_rejects_aliases_foreign_handles_and_bad_geometry
+    deepseek_v41::attention::tape::tests::attention_tape_shared_sources_and_decode_chain_match_cpu_autograd
+    deepseek_v41::attention_grad::tests::deepseek_v41_attention_adjoint_crosses_dispatch_axis_bound
+    deepseek_v41::attention_grad::tests::deepseek_v41_cache_write_adjoints_cpu_pytorch_strict
+    deepseek_v41::attention_grad::tests::deepseek_v41_grouped_output_adjoints_cpu_pytorch_strict
+    deepseek_v41::attention_grad::tests::deepseek_v41_rotary_adjoints_cpu_pytorch_strict
+    deepseek_v41::attention_grad::tests::deepseek_v41_sparse_attention_adjoints_cpu_pytorch_strict
+    deepseek_v41::attention_tests::deepseek_v41_attention_matches_the_pinned_reference_fixture
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 2.25s
+

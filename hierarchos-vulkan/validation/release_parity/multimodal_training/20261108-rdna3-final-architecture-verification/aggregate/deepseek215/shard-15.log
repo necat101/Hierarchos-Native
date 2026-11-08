@@ -1,0 +1,37 @@
+
+running 8 tests
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_all_shared_payload_failure_invalidates_sequence ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_checkpoint_checks_late_expert_metadata ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_payload_errors_invalidate_sequence ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_table_metadata_is_deferred ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_table_staging_is_released_between_lookups ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_tables_match_resident_logits ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_expert_staging_is_released_between_calls ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_layer_projections_match_resident_logits ... ok
+
+successes:
+
+---- deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_table_staging_is_released_between_lookups stdout ----
+V4.1 streamed Engram lookup 0: 15180 vs 13644
+V4.1 streamed Engram lookup 1: 15180 vs 13644
+V4.1 streamed Engram lookup 2: 15180 vs 13644
+
+---- deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_tables_match_resident_logits stdout ----
+V4.1 streamed Engram tables: 320 logits bit-exact, 4596728 -> 393976 bytes
+
+---- deepseek_v41::model::tests::streamed::deepseek_v41_streamed_layer_projections_match_resident_logits stdout ----
+V4.1 streamed layer projections: 320 logits bit-exact, 4596728 -> 292956 bytes
+
+
+successes:
+    deepseek_v41::model::tests::streamed::deepseek_v41_streamed_all_shared_payload_failure_invalidates_sequence
+    deepseek_v41::model::tests::streamed::deepseek_v41_streamed_checkpoint_checks_late_expert_metadata
+    deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_payload_errors_invalidate_sequence
+    deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_table_metadata_is_deferred
+    deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_table_staging_is_released_between_lookups
+    deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_tables_match_resident_logits
+    deepseek_v41::model::tests::streamed::deepseek_v41_streamed_expert_staging_is_released_between_calls
+    deepseek_v41::model::tests::streamed::deepseek_v41_streamed_layer_projections_match_resident_logits
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 4.26s
+

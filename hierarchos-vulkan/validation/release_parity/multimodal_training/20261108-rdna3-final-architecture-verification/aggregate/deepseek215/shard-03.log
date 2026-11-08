@@ -1,0 +1,581 @@
+
+running 8 tests
+test deepseek_v41::backbone::block_grad_tests::deepseek_v41_moe_adjoints_match_the_pinned_cpu_fixture ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::fp32_moe_scalar_clamp_bounds_match_pinned_cpu_subgradient ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_adjoint_rejects_bad_geometry_config_and_foreign_buffers ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_checkpoint_streaming_backward_and_inactive_gradients_match_cpu ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_computed_conditional_adamw_resume_and_export_match_cpu ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_retained_chain_and_adapter_vjps_match_cpu_and_release_experts ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_swiglu_clamp_route_reduction_and_padding_match_cpu ... ok
+test deepseek_v41::backbone::router_width_tests::deepseek_v41_384_expert_top6_router_at_production_width_matches_cpu_bits ... ok
+
+successes:
+
+---- deepseek_v41::backbone::block_grad_tests::deepseek_v41_moe_adjoints_match_the_pinned_cpu_fixture stdout ----
+V4.1 softmax-clamped routing_weights: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 softmax-clamped combine_grad_routed: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 softmax-clamped combine_grad_shared: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 softmax-clamped expert_grad_input: worst |0.0324151 - 0.032415107| = 7.45058059692382812e-9 at 57
+V4.1 softmax-clamped expert_grad_weight: worst |-0.17012751 - -0.17012753| = 1.49011611938476562e-8 at 11
+V4.1 softmax-clamped shared_grad_x: worst |-0.048423007 - -0.048422977| = 2.98023223876953125e-8 at 10
+V4.1 softmax-clamped gate_grad_x: worst |0.022511533 - 0.02251153| = 1.86264514923095703e-9 at 25
+V4.1 softmax-clamped chained_grad_x: worst |0.06735296 - 0.06735292| = 3.72529029846191406e-8 at 24
+V4.1 softmax-clamped MoE adjoints: worst drift 3.725290298461914e-8 over 344 values
+V4.1 sigmoid-normalized routing_weights: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 sigmoid-normalized combine_grad_routed: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 sigmoid-normalized combine_grad_shared: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 sigmoid-normalized expert_grad_input: worst |0.055719327 - 0.05571935| = 2.23517417907714844e-8 at 4
+V4.1 sigmoid-normalized expert_grad_weight: worst |-0.12342139 - -0.12342143| = 3.72529029846191406e-8 at 0
+V4.1 sigmoid-normalized shared_grad_x: worst |-0.24717696 - -0.24717699| = 2.98023223876953125e-8 at 0
+V4.1 sigmoid-normalized gate_grad_x: worst |0.002830489 - 0.0028304872| = 1.86264514923095703e-9 at 6
+V4.1 sigmoid-normalized chained_grad_x: worst |0.57302105 - 0.573021| = 5.96046447753906250e-8 at 3
+V4.1 sigmoid-normalized MoE adjoints: worst drift 5.960464477539063e-8 over 344 values
+V4.1 sqrtsoftplus-released routing_weights: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 sqrtsoftplus-released combine_grad_routed: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 sqrtsoftplus-released combine_grad_shared: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 sqrtsoftplus-released expert_grad_input: worst |0.017606743 - 0.017606732| = 1.11758708953857422e-8 at 81
+V4.1 sqrtsoftplus-released expert_grad_weight: worst |0.014794116 - 0.014794115| = 9.31322574615478516e-10 at 0
+V4.1 sqrtsoftplus-released shared_grad_x: worst |0.32200903 - 0.3220091| = 5.96046447753906250e-8 at 19
+V4.1 sqrtsoftplus-released gate_grad_x: worst |-0.0015212917 - -0.001521288| = 3.72529029846191406e-9 at 21
+V4.1 sqrtsoftplus-released chained_grad_x: worst |0.16817711 - 0.16817719| = 7.45058059692382812e-8 at 19
+V4.1 sqrtsoftplus-released MoE adjoints: worst drift 7.450580596923828e-8 over 344 values
+V4.1 matrix-body routing_weights: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 matrix-body combine_grad_routed: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 matrix-body combine_grad_shared: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 matrix-body expert_grad_input: worst |0.40040404 - 0.40040398| = 5.96046447753906250e-8 at 96
+V4.1 matrix-body expert_grad_weight: worst |-0.27131376 - -0.2713138| = 2.98023223876953125e-8 at 8
+V4.1 matrix-body shared_grad_x: worst |-0.7758905 - -0.7758906| = 5.96046447753906250e-8 at 25
+V4.1 matrix-body gate_grad_x: worst |0.33912683 - 0.33912686| = 2.98023223876953125e-8 at 111
+V4.1 matrix-body chained_grad_x: worst |-0.79527885 - -0.79527897| = 1.19209289550781250e-7 at 28
+V4.1 matrix-body MoE adjoints: worst drift 1.1920928955078125e-7 over 1056 values
+V4.1 wide-router routing_weights: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 wide-router combine_grad_routed: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 wide-router combine_grad_shared: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 wide-router expert_grad_input: worst |-0.094603084 - -0.09460305| = 3.72529029846191406e-8 at 31
+V4.1 wide-router expert_grad_weight: worst |-0.18314421 - -0.1831442| = 1.49011611938476562e-8 at 3
+V4.1 wide-router shared_grad_x: worst |0.1953316 - 0.19533157| = 2.98023223876953125e-8 at 14
+V4.1 wide-router gate_grad_x: worst |0.04711942 - 0.047119424| = 3.72529029846191406e-9 at 1
+V4.1 wide-router chained_grad_x: worst |0.14354876 - 0.14354882| = 5.96046447753906250e-8 at 6
+V4.1 wide-router MoE adjoints: worst drift 5.960464477539063e-8 over 272 values
+V4.1 MoE adjoints aggregate worst drift 1.1920928955078125e-7 over 2360 values
+
+---- deepseek_v41::backbone::mixed_moe_grad::tests::fp32_moe_scalar_clamp_bounds_match_pinned_cpu_subgradient stdout ----
+V4.1 mixed MoE adjoint FP32 scalar clamp forward: 16 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint FP32 scalar clamp dX: 16 values, worst 0.00000000000000000e0
+
+---- deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_checkpoint_streaming_backward_and_inactive_gradients_match_cpu stdout ----
+V4.1 mixed MoE adjoint single-token-inactive-experts streamed shared=false forward: 32 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts dX: 32 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint single-token-inactive-experts dRoute: 1 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w1 dA: 64 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w1 dB: 64 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w1 dA: 64 values, worst 1.09139364212751389e-11
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w1 dB: 64 values, worst 5.82076609134674072e-11
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts streamed shared=true forward: 32 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts dX: 32 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint single-token-inactive-experts dRoute: 1 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w1 dA: 64 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w1 dB: 64 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w1 dA: 64 values, worst 1.09139364212751389e-11
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w1 dB: 64 values, worst 5.82076609134674072e-11
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w3 dB: 64 values, worst 0.00000000000000000e0
+
+---- deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_computed_conditional_adamw_resume_and_export_match_cpu stdout ----
+V4.1 conditional AdamW mixed step 0 output: 32 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w1 dA: 64 values, worst 1.16415321826934814e-10
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w1 dB: 64 values, worst 1.16415321826934814e-10
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w1 dA: 64 values, worst 1.09139364212751389e-11
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w1 dB: 64 values, worst 5.82076609134674072e-11
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.0.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.0.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.0.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.0.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.0.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.0.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.1.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.1.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.1.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.1.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.1.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.1.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w1 mA: 64 values, worst 1.09139364212751389e-11
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w1 vA: 64 values, worst 1.38777878078144568e-16
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w1 mB: 64 values, worst 1.45519152283668518e-11
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w1 vB: 64 values, worst 3.33066907387546962e-16
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w2 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w2 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w2 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w2 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w3 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w3 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w3 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.2.w3 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.3.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.3.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.3.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.3.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.3.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.experts.3.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w1 mA: 64 values, worst 1.36424205265939236e-12
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w1 vA: 64 values, worst 1.08420217248550443e-18
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w1 mB: 64 values, worst 7.27595761418342590e-12
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w1 vB: 64 values, worst 5.55111512312578270e-17
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w2 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w2 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w2 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w2 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w3 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w3 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w3 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 layers.0.ffn.shared_experts.w3 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 0 updated output: 32 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 output: 32 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w1 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w1 dB: 64 values, worst 1.16415321826934814e-10
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w1 dA: 64 values, worst 3.63797880709171295e-11
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w1 dB: 64 values, worst 2.91038304567337036e-11
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.0.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.0.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.0.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.0.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.0.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.0.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.1.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.1.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.1.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.1.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.1.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.1.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w1 mA: 64 values, worst 1.45519152283668518e-11
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w1 vA: 64 values, worst 1.11022302462515654e-16
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w1 mB: 64 values, worst 1.45519152283668518e-11
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w1 vB: 64 values, worst 8.88178419700125232e-16
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w2 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w2 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w2 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w2 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w3 A: 64 values, worst 3.72529029846191406e-9
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w3 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w3 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w3 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.2.w3 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.3.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.3.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.3.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.3.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.3.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.experts.3.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w1 mA: 64 values, worst 3.63797880709171295e-12
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w1 vA: 64 values, worst 4.33680868994201774e-18
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w1 mB: 64 values, worst 1.81898940354585648e-12
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w1 vB: 64 values, worst 3.46944695195361419e-18
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w2 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w2 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w2 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w2 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w3 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w3 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w3 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 layers.0.ffn.shared_experts.w3 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 1 updated output: 32 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 output: 32 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 dA: 64 values, worst 1.74622982740402222e-10
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 dB: 64 values, worst 1.16415321826934814e-10
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 dA: 64 values, worst 2.91038304567337036e-11
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 dB: 64 values, worst 5.82076609134674072e-11
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.0.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.0.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.0.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.0.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.0.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.0.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.1.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.1.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.1.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.1.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.1.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.1.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 mA: 64 values, worst 2.91038304567337036e-11
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 vA: 64 values, worst 2.77555756156289135e-16
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 mB: 64 values, worst 2.91038304567337036e-11
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 vB: 64 values, worst 8.88178419700125232e-16
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 A: 64 values, worst 3.72529029846191406e-9
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.3.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.3.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.3.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.3.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.3.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.3.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 mA: 64 values, worst 5.45696821063756943e-12
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 vA: 64 values, worst 7.80625564189563192e-18
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 mB: 64 values, worst 1.45519152283668518e-11
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 vB: 64 values, worst 5.55111512312578270e-17
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 updated output: 32 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 output: 32 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 dA: 64 values, worst 1.74622982740402222e-10
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 dB: 64 values, worst 1.16415321826934814e-10
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 dA: 64 values, worst 2.91038304567337036e-11
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 dB: 64 values, worst 5.82076609134674072e-11
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.0.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.0.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.0.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.0.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.0.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.0.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.1.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.1.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.1.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.1.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.1.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.1.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 mA: 64 values, worst 2.91038304567337036e-11
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 vA: 64 values, worst 2.77555756156289135e-16
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 mB: 64 values, worst 2.91038304567337036e-11
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w1 vB: 64 values, worst 8.88178419700125232e-16
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w2 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 A: 64 values, worst 3.72529029846191406e-9
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.2.w3 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.3.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.3.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.3.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.3.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.3.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.experts.3.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 mA: 64 values, worst 5.45696821063756943e-12
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 vA: 64 values, worst 7.80625564189563192e-18
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 mB: 64 values, worst 1.45519152283668518e-11
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w1 vB: 64 values, worst 5.55111512312578270e-17
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w2 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 A: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 B: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 mA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 vA: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 mB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 layers.0.ffn.shared_experts.w3 vB: 64 values, worst 0.00000000000000000e0
+V4.1 conditional AdamW mixed step 2 updated output: 32 values, worst 0.00000000000000000e0
+
+---- deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_retained_chain_and_adapter_vjps_match_cpu_and_release_experts stdout ----
+V4.1 mixed MoE adjoint single-token-inactive-experts forward: 32 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts route: 1 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts dX: 32 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint single-token-inactive-experts dRoute: 1 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w1 dA: 64 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w1 dB: 64 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts experts.2.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w1 dA: 64 values, worst 1.09139364212751389e-11
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w1 dB: 64 values, worst 5.82076609134674072e-11
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint single-token-inactive-experts shared_experts.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp forward: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp route: 12 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp dX: 256 values, worst 2.32830643653869629e-9
+V4.1 mixed MoE adjoint softmax-mixed-clamp dRoute: 12 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.0.w1 dA: 256 values, worst 3.45607986673712730e-11
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.0.w1 dB: 128 values, worst 2.91038304567337036e-11
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.0.w2 dA: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.0.w2 dB: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.0.w3 dA: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.0.w3 dB: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.1.w1 dA: 256 values, worst 6.98491930961608887e-10
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.1.w1 dB: 128 values, worst 2.32830643653869629e-10
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.1.w2 dA: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.1.w2 dB: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.1.w3 dA: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.1.w3 dB: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.2.w1 dA: 256 values, worst 1.45519152283668518e-11
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.2.w1 dB: 128 values, worst 1.45519152283668518e-11
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.2.w2 dA: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.2.w2 dB: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.2.w3 dA: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.2.w3 dB: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.3.w1 dA: 256 values, worst 2.32830643653869629e-10
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.3.w1 dB: 128 values, worst 2.32830643653869629e-10
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.3.w2 dA: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.3.w2 dB: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.3.w3 dA: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.3.w3 dB: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.4.w1 dA: 256 values, worst 1.45519152283668518e-11
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.4.w1 dB: 128 values, worst 2.91038304567337036e-11
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.4.w2 dA: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.4.w2 dB: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.4.w3 dA: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp experts.4.w3 dB: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp shared_experts.w1 dA: 256 values, worst 1.45519152283668518e-11
+V4.1 mixed MoE adjoint softmax-mixed-clamp shared_experts.w1 dB: 128 values, worst 2.91038304567337036e-11
+V4.1 mixed MoE adjoint softmax-mixed-clamp shared_experts.w2 dA: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp shared_experts.w2 dB: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp shared_experts.w3 dA: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint softmax-mixed-clamp shared_experts.w3 dB: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route forward: 160 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route route: 10 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route dX: 160 values, worst 1.49011611938476562e-8
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route dRoute: 10 values, worst 4.65661287307739258e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.0.w1 dA: 96 values, worst 8.73114913702011108e-11
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.0.w1 dB: 192 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.0.w2 dA: 192 values, worst 4.36557456851005554e-11
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.0.w2 dB: 96 values, worst 1.45519152283668518e-11
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.0.w3 dA: 96 values, worst 5.82076609134674072e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.0.w3 dB: 192 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.1.w1 dA: 96 values, worst 1.86264514923095703e-9
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.1.w1 dB: 192 values, worst 2.32830643653869629e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.1.w2 dA: 192 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.1.w2 dB: 96 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.1.w3 dA: 96 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.1.w3 dB: 192 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.2.w1 dA: 96 values, worst 5.82076609134674072e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.2.w1 dB: 192 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.2.w2 dA: 192 values, worst 6.98491930961608887e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.2.w2 dB: 96 values, worst 5.82076609134674072e-11
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.2.w3 dA: 96 values, worst 6.98491930961608887e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.2.w3 dB: 192 values, worst 5.82076609134674072e-11
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.3.w1 dA: 96 values, worst 1.74622982740402222e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.3.w1 dB: 192 values, worst 4.65661287307739258e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.3.w2 dA: 192 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.3.w2 dB: 96 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.3.w3 dA: 96 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.3.w3 dB: 192 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.4.w1 dA: 96 values, worst 2.32830643653869629e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.4.w1 dB: 192 values, worst 5.82076609134674072e-11
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.4.w2 dA: 192 values, worst 9.31322574615478516e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.4.w2 dB: 96 values, worst 2.32830643653869629e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.4.w3 dA: 96 values, worst 2.03726813197135925e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route experts.4.w3 dB: 192 values, worst 5.82076609134674072e-11
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route shared_experts.w1 dA: 96 values, worst 1.60071067512035370e-9
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route shared_experts.w1 dB: 192 values, worst 9.31322574615478516e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route shared_experts.w2 dA: 192 values, worst 1.45519152283668518e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route shared_experts.w2 dB: 96 values, worst 5.82076609134674072e-11
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route shared_experts.w3 dA: 96 values, worst 3.49245965480804443e-10
+V4.1 mixed MoE adjoint sigmoid-fp32-negative-route shared_experts.w3 dB: 192 values, worst 1.45519152283668518e-10
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 forward: 384 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 route: 6 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 dX: 384 values, worst 5.96046447753906250e-8
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 dRoute: 6 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.0.w1 dA: 512 values, worst 2.32830643653869629e-10
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.0.w1 dB: 512 values, worst 2.32830643653869629e-10
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.0.w2 dA: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.0.w2 dB: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.0.w3 dA: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.0.w3 dB: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.1.w1 dA: 512 values, worst 5.82076609134674072e-10
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.1.w1 dB: 512 values, worst 2.32830643653869629e-10
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.1.w2 dA: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.1.w2 dB: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.1.w3 dA: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.1.w3 dB: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.2.w1 dA: 512 values, worst 1.86264514923095703e-8
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.2.w1 dB: 512 values, worst 1.49011611938476562e-8
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.2.w2 dA: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.2.w2 dB: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.2.w3 dA: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 experts.2.w3 dB: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 shared_experts.w1 dA: 512 values, worst 3.72529029846191406e-9
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 shared_experts.w1 dB: 512 values, worst 3.72529029846191406e-9
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 shared_experts.w2 dA: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 shared_experts.w2 dB: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 shared_experts.w3 dA: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 shared_experts.w3 dB: 512 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 expert 0 down input VJP: 256 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 expert 1 down input VJP: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint sqrtsoftplus-block128 expert 2 down input VJP: 384 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route forward: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route route: 4 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route dX: 64 values, worst 5.82076609134674072e-11
+V4.1 mixed MoE adjoint zero-route dRoute: 4 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.1.w1 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.1.w1 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.1.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.1.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.1.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.1.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.2.w1 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.2.w1 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.2.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.2.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.2.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.2.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.3.w1 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.3.w1 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.3.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.3.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.3.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route experts.3.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route shared_experts.w1 dA: 64 values, worst 8.73114913702011108e-11
+V4.1 mixed MoE adjoint zero-route shared_experts.w1 dB: 64 values, worst 2.32830643653869629e-10
+V4.1 mixed MoE adjoint zero-route shared_experts.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route shared_experts.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route shared_experts.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint zero-route shared_experts.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 forward: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 route: 2 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 dX: 64 values, worst 1.86264514923095703e-9
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 dRoute: 2 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 experts.21.w1 dA: 64 values, worst 3.63797880709171295e-12
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 experts.21.w1 dB: 64 values, worst 1.45519152283668518e-11
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 experts.21.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 experts.21.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 experts.21.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 experts.21.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 experts.7.w1 dA: 64 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 experts.7.w1 dB: 64 values, worst 1.16415321826934814e-10
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 experts.7.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 experts.7.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 experts.7.w3 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 experts.7.w3 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 shared_experts.w1 dA: 64 values, worst 2.91038304567337036e-11
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 shared_experts.w1 dB: 64 values, worst 5.82076609134674072e-11
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 shared_experts.w2 dA: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 shared_experts.w2 dB: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 shared_experts.w3 dA: 64 values, worst 3.63797880709171295e-12
+V4.1 mixed MoE adjoint production-route-ratio-48-to-1 shared_experts.w3 dB: 64 values, worst 3.63797880709171295e-12
+V4.1 mixed MoE adjoint frozen-matrix-router forward: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint frozen-matrix-router route: 16 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint frozen-matrix-router dX: 128 values, worst 7.45058059692382812e-9
+V4.1 mixed MoE adjoint frozen-matrix-router dRoute: 16 values, worst 0.00000000000000000e0
+
+---- deepseek_v41::backbone::mixed_moe_grad::tests::mixed_swiglu_clamp_route_reduction_and_padding_match_cpu stdout ----
+V4.1 mixed MoE adjoint clamp-equality-and-padding dGate: 128 values, worst 1.49011611938476562e-8
+V4.1 mixed MoE adjoint clamp-equality-and-padding dUp: 128 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint clamp-equality-and-padding dRoute: 4 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint route-sum-cascade dGate: 1088 values, worst 7.45058059692382812e-9
+V4.1 mixed MoE adjoint route-sum-cascade dUp: 1088 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint route-sum-cascade dRoute: 2 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint empty-prefix dGate: 96 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint empty-prefix dUp: 96 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint empty-prefix dRoute: 3 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint shared-no-route dGate: 64 values, worst 1.86264514923095703e-9
+V4.1 mixed MoE adjoint shared-no-route dUp: 64 values, worst 0.00000000000000000e0
+V4.1 mixed MoE adjoint shared-no-route dRoute: 1 values, worst 0.00000000000000000e0
+
+
+successes:
+    deepseek_v41::backbone::block_grad_tests::deepseek_v41_moe_adjoints_match_the_pinned_cpu_fixture
+    deepseek_v41::backbone::mixed_moe_grad::tests::fp32_moe_scalar_clamp_bounds_match_pinned_cpu_subgradient
+    deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_adjoint_rejects_bad_geometry_config_and_foreign_buffers
+    deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_checkpoint_streaming_backward_and_inactive_gradients_match_cpu
+    deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_computed_conditional_adamw_resume_and_export_match_cpu
+    deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_retained_chain_and_adapter_vjps_match_cpu_and_release_experts
+    deepseek_v41::backbone::mixed_moe_grad::tests::mixed_swiglu_clamp_route_reduction_and_padding_match_cpu
+    deepseek_v41::backbone::router_width_tests::deepseek_v41_384_expert_top6_router_at_production_width_matches_cpu_bits
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 3.78s
+

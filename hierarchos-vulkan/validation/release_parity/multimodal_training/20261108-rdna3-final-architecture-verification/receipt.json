@@ -1,0 +1,449 @@
+{
+  "schema": "hierarchos-final-architecture-verification-v1",
+  "date": "2026-11-08",
+  "source_commit": "3f0aaf541a5ed26b826515ca723bf25057dcea16",
+  "parent_commit": "b173653441b321e26f66dd9293c05947d817a39b",
+  "source_tree_clean_at_capture": true,
+  "production_sources_changed": false,
+  "status": "pass",
+  "scope": "complete_gen9_multimodal_replay_plus_current_source_suite_and_paired_benchmarks",
+  "full_replay": {
+    "pass": true,
+    "complete": true,
+    "stages": [
+      {
+        "stage": "shared77",
+        "pass": true,
+        "complete": true,
+        "cases": 77,
+        "max_abs_logit": 1.4901161193847656e-07
+      },
+      {
+        "stage": "seq2seq",
+        "pass": true,
+        "complete": true,
+        "cases": 6,
+        "max_abs_logit": 8.940696716308594e-08
+      },
+      {
+        "stage": "gemma4-legacy",
+        "pass": true,
+        "complete": true,
+        "cases": 1,
+        "max_abs_logit": 1.4156103134155273e-07
+      },
+      {
+        "stage": "gemma4-rgb",
+        "pass": true,
+        "complete": true,
+        "cases": 1,
+        "max_abs_logit": 1.3783574104309082e-07
+      },
+      {
+        "stage": "gemma3",
+        "pass": true,
+        "complete": true,
+        "cases": 4,
+        "max_abs_logit": 1.7881393432617188e-07
+      },
+      {
+        "stage": "llava",
+        "pass": true,
+        "complete": true,
+        "cases": 4,
+        "max_abs_logit": 8.940696716308594e-08
+      },
+      {
+        "stage": "text166",
+        "pass": true,
+        "complete": true,
+        "cases": 166,
+        "max_abs_logit": 1.7881393432617188e-07
+      },
+      {
+        "stage": "deepseek215",
+        "pass": true,
+        "complete": true,
+        "cases": 218,
+        "max_abs_logit": null
+      },
+      {
+        "stage": "native-v41",
+        "pass": true,
+        "complete": true,
+        "cases": 30,
+        "max_abs_logit": 0.0
+      }
+    ],
+    "max_abs_logit": 1.7881393432617188e-07,
+    "total_cases": 507,
+    "zero_case_stages": []
+  },
+  "supplementary": {
+    "gpt2_shapes": {
+      "pass": true,
+      "complete": true,
+      "cases": 16,
+      "max_abs_logit": 5.960464477539063e-08,
+      "max_abs_logit_field": null,
+      "binary_sha256": "33fa39728c9084d6c1fc6eb988e2d5fdefc98b8b17c03a8047025e4158e53dc2"
+    },
+    "kimi": {
+      "pass": true,
+      "complete": true,
+      "cases": 3,
+      "max_abs_logit": 3.166496753692627e-08,
+      "max_abs_logit_field": null,
+      "binary_sha256": "33fa39728c9084d6c1fc6eb988e2d5fdefc98b8b17c03a8047025e4158e53dc2"
+    },
+    "v41_bridge": {
+      "pass": true,
+      "complete": true,
+      "cases": 2,
+      "max_abs_logit": 0.0,
+      "max_abs_logit_field": 0.0,
+      "binary_sha256": "17aa6e998ea5763e083429bed49757ac9fa86167918908d4563bdbdd119a2355"
+    }
+  },
+  "rust": {
+    "full_suite": {
+      "command": "debug test harness with default parallelism",
+      "tests_discovered": 1179,
+      "passed": 1139,
+      "failed": 0,
+      "ignored": 40,
+      "seconds": 65.37,
+      "exit": 0
+    },
+    "gpt2_primitives": {
+      "passed": 9,
+      "failed": 0,
+      "ignored": 1,
+      "filtered_out": 1169,
+      "seconds": 2.23,
+      "exit": 0
+    }
+  },
+  "benchmarks": {
+    "benchmark/b1/benchmark.json": {
+      "pass": true,
+      "scope": "final verification 3f0aaf5 vs historical 372407b; batch 1",
+      "batch": 1,
+      "rounds": 6,
+      "steps": 7,
+      "gate_failures": [],
+      "cases": {
+        "native_vit_4x4": {
+          "baseline_ms": 267.57595,
+          "candidate_ms": 132.91910000000001,
+          "baseline_updates_s": 3.737256655540231,
+          "candidate_updates_s": 7.523373239812788,
+          "speedup": 2.013073741847484,
+          "ci95": [
+            1.9921267456752,
+            2.033011103058254
+          ],
+          "conclusion": "candidate_faster",
+          "paired_median_speedup": 2.003006451922446
+        },
+        "native_vit_6x4": {
+          "baseline_ms": 268.0008,
+          "candidate_ms": 135.37470000000002,
+          "baseline_updates_s": 3.731332145277178,
+          "candidate_updates_s": 7.386904643186651,
+          "speedup": 1.979696353897737,
+          "ci95": [
+            1.9457063499241363,
+            2.0174447320467737
+          ],
+          "conclusion": "candidate_faster",
+          "paired_median_speedup": 2.003156728366746
+        },
+        "llama": {
+          "baseline_ms": 8.19295,
+          "candidate_ms": 7.20875,
+          "baseline_updates_s": 122.05615803831343,
+          "candidate_updates_s": 138.7203051846714,
+          "speedup": 1.1365285243627534,
+          "ci95": [
+            1.0788595462226107,
+            1.2449409135171696
+          ],
+          "conclusion": "candidate_faster",
+          "paired_median_speedup": 1.1428486749423707
+        },
+        "gpt2": {
+          "baseline_ms": 7.5565999999999995,
+          "candidate_ms": 4.7025500000000005,
+          "baseline_updates_s": 132.33464785750206,
+          "candidate_updates_s": 212.6505831942244,
+          "speedup": 1.606915396965476,
+          "ci95": [
+            1.4459594937239308,
+            1.8596643014625922
+          ],
+          "conclusion": "candidate_faster",
+          "paired_median_speedup": 1.6552858672463002
+        },
+        "t5": {
+          "baseline_ms": 14.82575,
+          "candidate_ms": 11.52065,
+          "baseline_updates_s": 67.4502133112996,
+          "candidate_updates_s": 86.80065794898725,
+          "speedup": 1.2868848545871978,
+          "ci95": [
+            1.1422022950211188,
+            1.3826759343338253
+          ],
+          "conclusion": "candidate_faster",
+          "paired_median_speedup": 1.2868785516944037
+        }
+      }
+    },
+    "benchmark/session-b1/benchmark.json": {
+      "pass": true,
+      "scope": "same-binary session OFF vs ON; batch 1; final verification 3f0aaf5",
+      "batch": 1,
+      "rounds": 6,
+      "steps": 7,
+      "gate_failures": [],
+      "cases": {
+        "native_vit_4x4": {
+          "baseline_ms": 259.91610000000003,
+          "candidate_ms": 134.0192,
+          "baseline_updates_s": 3.847395371044733,
+          "candidate_updates_s": 7.461617439889209,
+          "speedup": 1.939394504667988,
+          "ci95": [
+            1.91187171084413,
+            1.98027587106367
+          ],
+          "conclusion": "candidate_faster",
+          "paired_median_speedup": 1.926189026877112
+        },
+        "native_vit_6x4": {
+          "baseline_ms": 264.142,
+          "candidate_ms": 135.6838,
+          "baseline_updates_s": 3.785842463523408,
+          "candidate_updates_s": 7.370076604576228,
+          "speedup": 1.946746774485974,
+          "ci95": [
+            1.8661152159552699,
+            1.9798660394400596
+          ],
+          "conclusion": "candidate_faster",
+          "paired_median_speedup": 1.950503196260013
+        },
+        "llama": {
+          "baseline_ms": 7.062799999999999,
+          "candidate_ms": 7.281750000000001,
+          "baseline_updates_s": 141.58690604292917,
+          "candidate_updates_s": 137.3296254334466,
+          "speedup": 0.9699316785113467,
+          "ci95": [
+            0.9111306215843793,
+            1.0656130936368506
+          ],
+          "conclusion": "inconclusive",
+          "paired_median_speedup": 0.9574736345951507
+        },
+        "gpt2": {
+          "baseline_ms": 5.10365,
+          "candidate_ms": 5.09315,
+          "baseline_updates_s": 195.9382010913758,
+          "candidate_updates_s": 196.3421458233117,
+          "speedup": 1.002061592531145,
+          "ci95": [
+            0.9714575395133841,
+            1.039936838833988
+          ],
+          "conclusion": "inconclusive",
+          "paired_median_speedup": 1.0037137562832896
+        },
+        "t5": {
+          "baseline_ms": 11.98305,
+          "candidate_ms": 11.785699999999999,
+          "baseline_updates_s": 83.4512081648662,
+          "candidate_updates_s": 84.84858769525782,
+          "speedup": 1.0167448687816594,
+          "ci95": [
+            0.9443793653655218,
+            1.0666184733964892
+          ],
+          "conclusion": "inconclusive",
+          "paired_median_speedup": 1.0080142932810334
+        }
+      }
+    },
+    "benchmark/session-b2/benchmark.json": {
+      "pass": true,
+      "scope": "same-binary session OFF vs ON; batch 2; final verification 3f0aaf5",
+      "batch": 2,
+      "rounds": 6,
+      "steps": 7,
+      "gate_failures": [],
+      "cases": {
+        "native_vit_4x4": {
+          "baseline_ms": 264.32565,
+          "candidate_ms": 134.6584,
+          "baseline_updates_s": 3.7832121097593063,
+          "candidate_updates_s": 7.426198439904232,
+          "speedup": 1.962934729656672,
+          "ci95": [
+            1.9302750139936478,
+            1.9861475536606532
+          ],
+          "conclusion": "candidate_faster",
+          "paired_median_speedup": 1.954238516149854
+        },
+        "native_vit_6x4": {
+          "baseline_ms": 267.28475000000003,
+          "candidate_ms": 136.72415,
+          "baseline_updates_s": 3.7413283024938755,
+          "candidate_updates_s": 7.313996832307971,
+          "speedup": 1.9549198148242284,
+          "ci95": [
+            1.9269693525667049,
+            1.979667688470409
+          ],
+          "conclusion": "candidate_faster",
+          "paired_median_speedup": 1.9553897059670287
+        },
+        "llama": {
+          "baseline_ms": 6.7546,
+          "candidate_ms": 7.021599999999999,
+          "baseline_updates_s": 148.04725668433363,
+          "candidate_updates_s": 142.41768257946907,
+          "speedup": 0.9619744787512818,
+          "ci95": [
+            0.9083511308257914,
+            1.043895998236697
+          ],
+          "conclusion": "inconclusive",
+          "paired_median_speedup": 0.9687137550260029
+        },
+        "gpt2": {
+          "baseline_ms": 4.9735,
+          "candidate_ms": 4.79715,
+          "baseline_updates_s": 201.06564793405047,
+          "candidate_updates_s": 208.45710473927227,
+          "speedup": 1.0367614104207705,
+          "ci95": [
+            0.9862237607517695,
+            1.0651999512011652
+          ],
+          "conclusion": "inconclusive",
+          "paired_median_speedup": 1.034156572227383
+        },
+        "t5": {
+          "baseline_ms": 11.7743,
+          "candidate_ms": 11.78765,
+          "baseline_updates_s": 84.93073898235988,
+          "candidate_updates_s": 84.83455141610075,
+          "speedup": 0.9988674587385952,
+          "ci95": [
+            0.946543523539898,
+            1.0621582662767488
+          ],
+          "conclusion": "inconclusive",
+          "paired_median_speedup": 1.003374783834723
+        }
+      }
+    },
+    "benchmark/session-b4/benchmark.json": {
+      "pass": true,
+      "scope": "same-binary session OFF vs ON; batch 4; final verification 3f0aaf5",
+      "batch": 4,
+      "rounds": 6,
+      "steps": 7,
+      "gate_failures": [],
+      "cases": {
+        "native_vit_4x4": {
+          "baseline_ms": 264.14419999999996,
+          "candidate_ms": 136.8748,
+          "baseline_updates_s": 3.7858109320590807,
+          "candidate_updates_s": 7.305946748415341,
+          "speedup": 1.929823459102771,
+          "ci95": [
+            1.9019332311023174,
+            1.968113043518005
+          ],
+          "conclusion": "candidate_faster",
+          "paired_median_speedup": 1.932352232745079
+        },
+        "native_vit_6x4": {
+          "baseline_ms": 266.90970000000004,
+          "candidate_ms": 138.26425,
+          "baseline_updates_s": 3.7465854556803286,
+          "candidate_updates_s": 7.232527569491029,
+          "speedup": 1.93043176381458,
+          "ci95": [
+            1.9046425694408464,
+            1.943750499080171
+          ],
+          "conclusion": "candidate_faster",
+          "paired_median_speedup": 1.9280181569440542
+        },
+        "llama": {
+          "baseline_ms": 7.0005999999999995,
+          "candidate_ms": 6.956049999999999,
+          "baseline_updates_s": 142.8448990086564,
+          "candidate_updates_s": 143.75974870795926,
+          "speedup": 1.0064044968049397,
+          "ci95": [
+            0.915900963532364,
+            1.1123088975732176
+          ],
+          "conclusion": "inconclusive",
+          "paired_median_speedup": 0.9948316050322062
+        },
+        "gpt2": {
+          "baseline_ms": 4.8961500000000004,
+          "candidate_ms": 4.9466,
+          "baseline_updates_s": 204.24210859552912,
+          "candidate_updates_s": 202.15905874742248,
+          "speedup": 0.9898010754861926,
+          "ci95": [
+            0.9456404689367168,
+            1.0409584546255315
+          ],
+          "conclusion": "inconclusive",
+          "paired_median_speedup": 0.9816730509198008
+        },
+        "t5": {
+          "baseline_ms": 11.638549999999999,
+          "candidate_ms": 11.926549999999999,
+          "baseline_updates_s": 85.921356182686,
+          "candidate_updates_s": 83.84654405507042,
+          "speedup": 0.9758521953121397,
+          "ci95": [
+            0.8893307632384869,
+            1.0678317337837568
+          ],
+          "conclusion": "inconclusive",
+          "paired_median_speedup": 0.9601094232670225
+        }
+      }
+    }
+  },
+  "hardware": {
+    "name": "AMD Radeon Graphics",
+    "vendor_id": "0x1002",
+    "device_id": "0x15bf",
+    "driver_version": "32.0.31007.6002",
+    "adapter_ram_bytes": 4293918720,
+    "vulkan_instance": "1.4.341",
+    "vulkan_device_api": "1.4.344",
+    "vulkan_driver": "AMD proprietary driver 26.10.07.06 (LLPC)"
+  },
+  "limitations": [
+    "Session OFF/ON is positive for both native ViT workloads but inconclusive for Llama, GPT-2 and T5 at batches 1, 2 and 4; no textual session speedup is promoted.",
+    "The historical 372407b binary does not support a valid batch-2/4 baseline comparison; batch-2/4 measurements are same-binary session comparisons only.",
+    "No cross-vendor or physical Intel Gen9 execution was performed in this pass; those earlier receipts retain their own device scope.",
+    "The all-bins debug build failed in rustc with STATUS_STACK_BUFFER_OVERRUN; only the five probes, debug harness and release harness were built. This is recorded as an environment/resource limitation, not a source PASS.",
+    "Torch and Transformers are unavailable on this host; the frozen GPT-2 runner was used and its prepare phase was not rerun.",
+    "RDNA3 hardware CI has no registered self-hosted runner; this is a local source-bound qualification, not a hardware-CI PASS.",
+    "Timings are fixture-scale matched-profile measurements, not production-model throughput claims.",
+    "The first GPT-2 shapes attempt failed before execution because its output directory was pre-created; that log is retained under attempt1/ and no result from it is used."
+  ]
+}

@@ -1,0 +1,25 @@
+
+running 8 tests
+test deepseek_v41::model::tests::wide::deepseek_v41_wide_projection_panels_and_tied_topk_match_cpu ... ok
+test deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_loads_exact_owned_checkpoint_tensors ... ok
+test deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_matches_explicit_shared_layer_execution_and_reset ... ok
+test deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_rejects_invalid_calls_before_mutation_and_recovers_component_errors ... ok
+test deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_rejects_weight_ownership_and_capacity_mismatches ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_checkpoint_reads_exported_and_converted_sharded_payloads ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_checkpoint_rejects_invalid_dtype_shapes_scales_and_offsets ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_decode_tiles_large_row_tables_without_expanding_weights ... ok
+
+successes:
+
+successes:
+    deepseek_v41::model::tests::wide::deepseek_v41_wide_projection_panels_and_tied_topk_match_cpu
+    deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_loads_exact_owned_checkpoint_tensors
+    deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_matches_explicit_shared_layer_execution_and_reset
+    deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_rejects_invalid_calls_before_mutation_and_recovers_component_errors
+    deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_rejects_weight_ownership_and_capacity_mismatches
+    deepseek_v41::packed_weights_tests::deepseek_v41_packed_checkpoint_reads_exported_and_converted_sharded_payloads
+    deepseek_v41::packed_weights_tests::deepseek_v41_packed_checkpoint_rejects_invalid_dtype_shapes_scales_and_offsets
+    deepseek_v41::packed_weights_tests::deepseek_v41_packed_decode_tiles_large_row_tables_without_expanding_weights
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 3.03s
+

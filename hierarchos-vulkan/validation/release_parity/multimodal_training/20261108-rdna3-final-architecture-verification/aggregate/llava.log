@@ -1,0 +1,4 @@
+PASS clip_default_layer: 0 logit/update failures; 4 strict intermediate differences
+PASS clip_last_layer_padded: 0 logit/update failures; 6 strict intermediate differences
+PASS clip_full_tokens: 0 logit/update failures; 6 strict intermediate differences
+PASS clip_wider_grid: 0 logit/update failures; 6 strict intermediate differences

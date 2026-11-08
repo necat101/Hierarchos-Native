@@ -1,0 +1,24 @@
+captured_utc=2026-11-08T22:55:15Z
+source_head=3f0aaf541a5ed26b826515ca723bf25057dcea16
+source_branch=phase6-fix
+source_status_begin
+source_status_end
+commit=3f0aaf541a5ed26b826515ca723bf25057dcea16
+parent=b173653441b321e26f66dd9293c05947d817a39b
+tree=8e08cd241f9fade3fc3717535e0fa4f776aed1cb
+author=Makhi Burroughs <nger10449@gmail.com>
+committed=2026-11-08T16:59:55-05:00
+subject=docs: finalize production README and verified qualification status
+cargo_toml_sha256=431d2c1709e299b8afe077480df1a85e9e43abd44a333872272dec56228b51d2
+cargo_lock_sha256=802782847273b8d7d4ff34991e2a5facfbc6954fff0e416eeb9108a2426bab02
+frozen_manifest_sha256=a9e519008e712105ceb1b135227398785617db3eb03c65e7518bb7f225966636
+baseline_sha256=981e1576415c6fc0a4e54979a8a021a462a9d97a70fb3514ca2e9e7bc88bfd51
+candidate_release_path=C:/Users/User/Downloads/Multimodal/Hierarchos-Native/hierarchos-vulkan/target/release/deps/hierarchos_vulkan-0861896ac6f810c4.exe
+candidate_release_sha256=11a83692282bf3e3d4122d4b7490c85fc3c29708837ce7578a12133460b9cf7d
+debug_harness_path=C:/Users/User/Downloads/Multimodal/Hierarchos-Native/hierarchos-vulkan/target/debug/deps/hierarchos_vulkan-8b2f33e2a2428e23.exe
+debug_harness_sha256=17aa6e998ea5763e083429bed49757ac9fa86167918908d4563bdbdd119a2355
+full_replay_start=2026-11-08T22:34:25Z
+full_replay_end=2026-11-08T22:41:17Z
+full_replay_exit=0
+release_build_exit=0
+debug_build_exit=0

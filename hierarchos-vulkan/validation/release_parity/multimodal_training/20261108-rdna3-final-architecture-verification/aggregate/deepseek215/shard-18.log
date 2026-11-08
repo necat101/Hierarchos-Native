@@ -1,0 +1,64 @@
+
+running 8 tests
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_training_rejects_budget_and_changed_frozen_base ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_modality_absent_gradients_match_text_path_bits ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_matches_train_sequence_bits ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_state_matches_train_sequence ... ok
+test deepseek_v41::model::tests::training::hc_adjoint_tests::deepseek_v41_modality_hc_repeat_adjoint_matches_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_compressor_adjoint_matches_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_gate_adjoints_match_released_cpu ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_grouped_adjoints_match_frozen_words ... ok
+
+successes:
+
+---- deepseek_v41::model::tests::training::deepseek_v41_modality_absent_gradients_match_text_path_bits stdout ----
+V4.1 modality-absent path: 95 adapter modules bit-exact across both entry points
+
+---- deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_matches_train_sequence_bits stdout ----
+V4.1 split-step optimizer: 106 adapter modules bit-exact against train_sequence
+
+---- deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_state_matches_train_sequence stdout ----
+V4.1 optimizer state: 106 modules / 18416 moment values bit-exact across the split step
+
+---- deepseek_v41::model::tests::training::hc_adjoint_tests::deepseek_v41_modality_hc_repeat_adjoint_matches_frozen_words stdout ----
+V4.1 released HC-repeat adjoint: 1664 frozen CPU words exact
+
+---- deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_compressor_adjoint_matches_frozen_words stdout ----
+Native AVX2 ratio1 compressor: 12 input-adjoint cases, 2112 exact gradient words
+
+---- deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_gate_adjoints_match_released_cpu stdout ----
+V4.1 full training native-Gate-0: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-1: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-2: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-3: 32 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-4: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-5: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-6: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-7: 64 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-8: 96 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-9: 96 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-10: 96 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-11: 96 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-12: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-13: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-14: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-15: 256 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-16: 288 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-17: 288 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-18: 288 values, worst 0.00000000000000000e0 at 0
+V4.1 full training native-Gate-19: 288 values, worst 0.00000000000000000e0 at 0
+Native AVX2 Gate adjoints: {"bit_exact":2944,"comparisons":20,"max_abs":0.0,"values":2944}
+
+
+successes:
+    deepseek_v41::model::tests::training::deepseek_v41_full_model_training_rejects_budget_and_changed_frozen_base
+    deepseek_v41::model::tests::training::deepseek_v41_modality_absent_gradients_match_text_path_bits
+    deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_matches_train_sequence_bits
+    deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_state_matches_train_sequence
+    deepseek_v41::model::tests::training::hc_adjoint_tests::deepseek_v41_modality_hc_repeat_adjoint_matches_frozen_words
+    deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_compressor_adjoint_matches_frozen_words
+    deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_gate_adjoints_match_released_cpu
+    deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_grouped_adjoints_match_frozen_words
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 7.82s
+

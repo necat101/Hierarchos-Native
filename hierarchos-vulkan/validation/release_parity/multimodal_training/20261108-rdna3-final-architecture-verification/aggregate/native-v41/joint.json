@@ -1,0 +1,15 @@
+{
+  "all_comparisons": {
+    "bit_exact": 155179,
+    "comparisons": 1866,
+    "max_abs": 1.4901161193847656e-8,
+    "values": 155444
+  },
+  "completed_cases": 2,
+  "expected_cases": 2,
+  "failures": [],
+  "logit_values": 1360,
+  "optimizer_updates": 4,
+  "pass": true,
+  "scope": "joint native V4.1 image/aligner/delimiter and frozen-base LoRA training; export/reload not yet checked"
+}

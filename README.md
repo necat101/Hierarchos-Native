@@ -41,6 +41,13 @@ workspace validation at `b173653...`. The dedicated RDNA3 GitHub Actions
 hardware job remains unavailable because no self-hosted runner is registered;
 these are committed qualification results, not a hardware-CI PASS. [Replay and path-repair evidence](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-replay-reliability/README.md).
 
+**Final architecture verification (2026-11-08):** the current source
+`3f0aaf5` completed one fresh nine-stage replay (9/9 PASS, 507 cases/tests),
+the full Rust library suite (**1,139 passed, 40 ignored**), and the batch-1
+five-workload ABBA comparison (**5/5 positive**). The same-binary session study
+was positive for both ViT workloads but inconclusive for Llama, GPT-2 and T5;
+those textual session deltas are not promoted. [Sealed receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-final-architecture-verification/README.md).
+
 ---
 
 ## Quick start
@@ -406,6 +413,7 @@ parity and PEFT qualification are separate gates.
 | **Gen9 preservation in the AMD fix** | All 585 existing shader binaries unchanged; Intel pipeline-selection guard passes | [Preservation scope](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md) |
 | **Phase XVIII complete replay** | Two complete nine-stage runs, 9/9 each: 77/77 shared-image, 6/6 seq2seq, 4/4 Gemma3, 4/4 LLaVA, 166/166 text, 218/218 active DeepSeek (26 ignored), 30/30 native V4.1 | [Phase XVIII receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-replay-reliability/README.md) · [path repair](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-path-smoke-repair/README.md) |
 | **Current-source GPT-2** | 16/16 frozen shapes, worst `5.960464477539063e-08`; current-source guard PASS at `b173653...` | [Current qualification](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-path-smoke-repair/gpt2/current-qualification.json) |
+| **Final architecture verification** | `3f0aaf5`: 9/9 stages, 507 cases/tests, worst logit `1.7881393432617188e-07`; full Rust suite **1,139 passed / 0 failed / 40 ignored**; batch-1 5/5 positive | [Final receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-final-architecture-verification/README.md) |
 | **Full Rust library (Phase XIV)** | 1,135 passed, 40 ignored, 0 failed in three parallel and one serial run | [Phase XIV receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase14-qualification/README.md) |
 
 These are retained scalable-checkpoint results. The AMD follow-up did not rerun on
@@ -501,6 +509,22 @@ executable hashes for each arm; consult it for revision scope.
 
 [Phase XIV performance receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase14-qualification/README.md).
 
+### Final-source matched-profile verification
+
+The final receipt re-ran the same five canonical workloads at source `3f0aaf5`
+against the sealed `372407b` baseline (six ABBA rounds, two warmups, seven
+measured updates):
+
+| Workload | Speedup versus historical `372407b` | 95% CI |
+| --- | ---: | --- |
+| T5 | **1.2869×** | 1.1422–1.3827 |
+| Native ViT 4×4 | **2.0131×** | 1.9921–2.0330 |
+| Native ViT 6×4 | **1.9797×** | 1.9457–2.0174 |
+| Llama | **1.1365×** | 1.0789–1.2449 |
+| GPT-2 | **1.6069×** | 1.4460–1.8597 |
+
+[Final performance and session evidence](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-final-architecture-verification/README.md).
+
 <div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
 
 ---
@@ -585,6 +609,7 @@ strict parity results and the remaining architecture work.
 | Current qualification and reproduction | [Validation status](VALIDATION_STATUS.md) · [RDNA3 runbook](RDNA3_REGRESSION.md) |
 | Nine-stage replay and path repair | [Phase XVIII receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-replay-reliability/README.md) · [repair evidence](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-path-smoke-repair/README.md) |
 | Performance and full-suite history | [Phase XIV receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase14-qualification/README.md) |
+| Final architecture and session verification | [Final receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-final-architecture-verification/README.md) |
 | Device performance and numerical routing | [Vendor tuning](hierarchos-vulkan/VENDOR_TUNING.md) · [AMD audit](AMD_REGRESSION_AUDIT.md) |
 | Original physical ROG Ally qualification | [Qualification](RDNA3_QUALIFICATION.md) · [Handoff](ROG_ALLY_HANDOFF.md) |
 | Implementation history | [DeepSeek V4.1 audit](PROGRESS_DEEPSEEK_V41_AUDIT.md) · [Kimi K3 audit](PROGRESS_K3_AUDIT.md) |

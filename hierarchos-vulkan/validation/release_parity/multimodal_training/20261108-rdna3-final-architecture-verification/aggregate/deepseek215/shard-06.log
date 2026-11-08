@@ -1,0 +1,122 @@
+
+running 8 tests
+test deepseek_v41::compressed_kv_tests::deepseek_v41_compressed_kv_decode_uses_the_completed_group_position ... ok
+test deepseek_v41::compressed_kv_tests::deepseek_v41_compressed_kv_rejects_wrong_ratio_and_phase ... ok
+test deepseek_v41::compressed_kv_tests::deepseek_v41_compressed_kv_rotates_then_quantizes_without_mutating_latents ... ok
+test deepseek_v41::compression_tests::deepseek_v41_compressor_prefill_and_decode_match_pinned_fp32_reference ... ok
+test deepseek_v41::compression_tests::deepseek_v41_compressor_rejects_foreign_device_input_before_dispatch ... ok
+test deepseek_v41::compressor::tape_tests::deepseek_v41_compressor_decode_tape_snapshots_norm_gain ... ok
+test deepseek_v41::compressor::tape_tests::deepseek_v41_compressor_tape_snapshots_norm_gain ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_chains_state_across_steps_matching_cpu ... ok
+
+successes:
+
+---- deepseek_v41::compression_tests::deepseek_v41_compressor_prefill_and_decode_match_pinned_fp32_reference stdout ----
+V4.1 compressor on AMD Radeon Graphics: 9728 reference values, worst absolute drift 1.788139343262e-7
+
+---- deepseek_v41::compressor::tape_tests::deepseek_v41_compressor_decode_tape_snapshots_norm_gain stdout ----
+batch 2 state chain: both token VJPs and four state VJPs word-exact after live gain/cache overwrite; isolated rows and overwritten slots verified
+batch 4 state chain: both token VJPs and four state VJPs word-exact after live gain/cache overwrite; isolated rows and overwritten slots verified
+
+---- deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_chains_state_across_steps_matching_cpu stdout ----
+V4.1 compressor decode adjoint ratio-2-single-completing-step pos 1 grad_input: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-completing-step pos 1 grad_state_kv: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-completing-step pos 1 grad_state_score: 8 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending pos 3 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending pos 3 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending pos 3 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending pos 2 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending pos 2 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending pos 2 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending pos 1 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending pos 1 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-complete-then-pending pos 1 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending pos 5 grad_input: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending pos 5 grad_state_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending pos 5 grad_state_score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending pos 4 grad_input: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending pos 4 grad_state_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending pos 4 grad_state_score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending pos 3 grad_input: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending pos 3 grad_state_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending pos 3 grad_state_score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending pos 2 grad_input: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending pos 2 grad_state_kv: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-full-state-pending pos 2 grad_state_score: 64 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 6 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 6 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 6 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 5 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 5 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 5 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 4 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 4 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 4 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 3 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 3 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 3 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 2 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 2 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 2 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 1 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 1 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-two-cycles pos 1 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-pending-step pos 2 grad_input: 32 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-pending-step pos 2 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-single-pending-step pos 2 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail pos 2 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail pos 2 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail pos 2 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail pos 1 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail pos 1 grad_state_kv: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-unseeded-tail pos 1 grad_state_score: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden pos 2 grad_input: 512 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden pos 2 grad_state_kv: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden pos 2 grad_state_score: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden pos 1 grad_input: 512 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden pos 1 grad_state_kv: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-wide-hidden pos 1 grad_state_score: 256 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 8 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 8 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 8 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 7 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 7 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 7 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 6 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 6 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 6 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 5 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 5 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 5 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 4 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 4 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 4 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 3 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 3 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 3 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 2 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 2 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 2 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 1 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 1 grad_state_kv: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-2-long-chain pos 1 grad_state_score: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps pos 3 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps pos 2 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-three-steps pos 1 grad_input: 16 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-batch-two pos 3 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode adjoint ratio-1-batch-two pos 2 grad_input: 128 values, worst 0.00000000000000000e0
+V4.1 compressor decode chain on AMD Radeon Graphics: 6808 frozen gradient values, worst absolute drift 0.00000000000000000e0
+
+
+successes:
+    deepseek_v41::compressed_kv_tests::deepseek_v41_compressed_kv_decode_uses_the_completed_group_position
+    deepseek_v41::compressed_kv_tests::deepseek_v41_compressed_kv_rejects_wrong_ratio_and_phase
+    deepseek_v41::compressed_kv_tests::deepseek_v41_compressed_kv_rotates_then_quantizes_without_mutating_latents
+    deepseek_v41::compression_tests::deepseek_v41_compressor_prefill_and_decode_match_pinned_fp32_reference
+    deepseek_v41::compression_tests::deepseek_v41_compressor_rejects_foreign_device_input_before_dispatch
+    deepseek_v41::compressor::tape_tests::deepseek_v41_compressor_decode_tape_snapshots_norm_gain
+    deepseek_v41::compressor::tape_tests::deepseek_v41_compressor_tape_snapshots_norm_gain
+    deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_chains_state_across_steps_matching_cpu
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 1.26s
+

@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "phase": "final-architecture-verification",
+  "source_commit": "3f0aaf541a5ed26b826515ca723bf25057dcea16",
+  "parent_commit": "b173653441b321e26f66dd9293c05947d817a39b",
+  "branch": "phase6-fix",
+  "source_tree_clean_at_capture": true,
+  "production_numerical_sources_changed": false,
+  "historical_receipts_modified": false,
+  "captured_utc": "2026-11-08T22:55:15Z",
+  "frozen_manifest": {
+    "path": "target/rdna3-port/gen9-frozen/HANDOFF-MANIFEST.json",
+    "sha256": "a9e519008e712105ceb1b135227398785617db3eb03c65e7518bb7f225966636",
+    "files": 2748
+  },
+  "cargo": {
+    "Cargo.toml": "431d2c1709e299b8afe077480df1a85e9e43abd44a333872272dec56228b51d2",
+    "Cargo.lock": "802782847273b8d7d4ff34991e2a5facfbc6954fff0e416eeb9108a2426bab02"
+  },
+  "binaries": {
+    "historical_baseline": {
+      "path": "target/phase14/binaries/372407b.exe",
+      "sha256": "981e1576415c6fc0a4e54979a8a021a462a9d97a70fb3514ca2e9e7bc88bfd51"
+    },
+    "debug_harness": {
+      "path": "target/debug/deps/hierarchos_vulkan-8b2f33e2a2428e23.exe",
+      "sha256": "17aa6e998ea5763e083429bed49757ac9fa86167918908d4563bdbdd119a2355"
+    },
+    "release_candidate": {
+      "path": "target/release/deps/hierarchos_vulkan-0861896ac6f810c4.exe",
+      "sha256": "11a83692282bf3e3d4122d4b7490c85fc3c29708837ce7578a12133460b9cf7d"
+    }
+  },
+  "device": {
+    "name": "AMD Radeon Graphics",
+    "vendor_id": "0x1002",
+    "device_id": "0x15bf",
+    "driver_version": "32.0.31007.6002",
+    "adapter_ram_bytes": 4293918720,
+    "vulkan_instance": "1.4.341",
+    "vulkan_device_api": "1.4.344",
+    "vulkan_driver": "AMD proprietary driver 26.10.07.06 (LLPC)"
+  },
+  "run": {
+    "full_replay_start": "2026-11-08T22:34:25Z",
+    "full_replay_end": "2026-11-08T22:41:17Z",
+    "full_replay_exit": 0,
+    "release_build_exit": 0,
+    "debug_harness_build_exit": 0
+  }
+}

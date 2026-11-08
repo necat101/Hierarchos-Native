@@ -1,0 +1,52 @@
+
+running 8 tests
+test deepseek_v41::attention_tests::deepseek_v41_attention_wires_the_shared_index_selection_and_key_cache ... ok
+test deepseek_v41::attention_tests::deepseek_v41_sparse_attention_keeps_index_validity_at_finite_mask_extremes ... ok
+test deepseek_v41::attention_tests::deepseek_v41_sparse_attention_matches_a_float64_gather_reference ... ok
+test deepseek_v41::attention_tests::deepseek_v41_window_cache_ring_matches_the_index_order ... ok
+test deepseek_v41::attention_tests::deepseek_v41_window_indices_match_the_released_ring_rules ... ok
+test deepseek_v41::backbone::block_grad_tests::deepseek_v41_ffn_norm_adjoint_matches_the_pinned_cpu_fixture ... ok
+test deepseek_v41::backbone::block_grad_tests::deepseek_v41_hc_collapse_adjoints_match_the_pinned_cpu_fixture ... ok
+test deepseek_v41::backbone::block_grad_tests::deepseek_v41_hc_post_adjoint_matches_the_pinned_cpu_fixture ... ok
+
+successes:
+
+---- deepseek_v41::backbone::block_grad_tests::deepseek_v41_ffn_norm_adjoint_matches_the_pinned_cpu_fixture stdout ----
+V4.1 ffn_norm grad_x: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 FFN norm adjoint worst drift 0e0 over 32 values
+
+---- deepseek_v41::backbone::block_grad_tests::deepseek_v41_hc_collapse_adjoints_match_the_pinned_cpu_fixture stdout ----
+V4.1 hc_pre grad_stream: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 hc_pre grad_pre: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 hc_pre collapse adjoint: worst drift 0e0 over 108 values
+V4.1 sinkhorn-3x8 hc_split_grad_mix: worst |0.3571555 - 0.35715547| = 2.98023223876953125e-8 at 3
+V4.1 sinkhorn-3x8 hc_mixes_grad_stream: worst |-0.51120937 - -0.51120925| = 1.19209289550781250e-7 at 32
+V4.1 sinkhorn-3x8 Hyper-Connection collapse/Sinkhorn adjoints: worst drift 1.1920928955078125e-7 over 156 values
+V4.1 sinkhorn-single-iter hc_split_grad_mix: worst |0.021088868 - 0.021088904| = 3.53902578353881836e-8 at 22
+V4.1 sinkhorn-single-iter hc_mixes_grad_stream: worst |-0.22632709 - -0.22632702| = 7.45058059692382812e-8 at 1
+V4.1 sinkhorn-single-iter Hyper-Connection collapse/Sinkhorn adjoints: worst drift 7.450580596923828e-8 over 80 values
+V4.1 sinkhorn-wide-eps hc_split_grad_mix: worst |-0.12521353 - -0.12521352| = 1.49011611938476562e-8 at 0
+V4.1 sinkhorn-wide-eps hc_mixes_grad_stream: worst |-0.5255141 - -0.52551425| = 1.19209289550781250e-7 at 44
+V4.1 sinkhorn-wide-eps Hyper-Connection collapse/Sinkhorn adjoints: worst drift 1.1920928955078125e-7 over 144 values
+V4.1 HC collapse adjoints aggregate worst drift 1.1920928955078125e-7 over 488 values
+
+---- deepseek_v41::backbone::block_grad_tests::deepseek_v41_hc_post_adjoint_matches_the_pinned_cpu_fixture stdout ----
+V4.1 hc_post grad_x: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 hc_post grad_residual: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 hc_post grad_post: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 hc_post grad_comb: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 hc_post adjoint worst drift 0e0 over 132 values
+
+
+successes:
+    deepseek_v41::attention_tests::deepseek_v41_attention_wires_the_shared_index_selection_and_key_cache
+    deepseek_v41::attention_tests::deepseek_v41_sparse_attention_keeps_index_validity_at_finite_mask_extremes
+    deepseek_v41::attention_tests::deepseek_v41_sparse_attention_matches_a_float64_gather_reference
+    deepseek_v41::attention_tests::deepseek_v41_window_cache_ring_matches_the_index_order
+    deepseek_v41::attention_tests::deepseek_v41_window_indices_match_the_released_ring_rules
+    deepseek_v41::backbone::block_grad_tests::deepseek_v41_ffn_norm_adjoint_matches_the_pinned_cpu_fixture
+    deepseek_v41::backbone::block_grad_tests::deepseek_v41_hc_collapse_adjoints_match_the_pinned_cpu_fixture
+    deepseek_v41::backbone::block_grad_tests::deepseek_v41_hc_post_adjoint_matches_the_pinned_cpu_fixture
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 2.55s
+

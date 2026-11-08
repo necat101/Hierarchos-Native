@@ -1,0 +1,68 @@
+
+running 8 tests
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_payload_is_lazy_and_errors_are_propagated ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_projection_partial_upload_is_released ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_projection_payload_errors_invalidate_sequence ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_joint_cpu_fixture_remains_frozen ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_long_context_cpu_fixture_remains_frozen ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_released_depth_schedule_and_384_expert_strict_all_logits ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_depth_schedule_and_384_expert_strict_all_logits ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_depth_schedule_and_384_expert_strict_all_logits ... ok
+
+successes:
+
+---- deepseek_v41::model::tests::structure::deepseek_v41_released_depth_schedule_and_384_expert_strict_all_logits stdout ----
+V4.1 structure seed 4141101, schedule-odd-prefill: 2278 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-group-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-incomplete-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-group-decode-2: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-reset: 402 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-reset-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-odd-prefill: 2278 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-group-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-incomplete-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-group-decode-2: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-reset: 402 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-reset-decode: 134 logits, drift 0.00000000000000000e0
+
+---- deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_depth_schedule_and_384_expert_strict_all_logits stdout ----
+V4.1 structure seed 4141101, schedule-odd-prefill: 2278 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-group-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-incomplete-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-group-decode-2: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-reset: 402 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-reset-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-odd-prefill: 2278 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-group-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-incomplete-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-group-decode-2: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-reset: 402 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-reset-decode: 134 logits, drift 0.00000000000000000e0
+
+---- deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_depth_schedule_and_384_expert_strict_all_logits stdout ----
+V4.1 structure seed 4141101, schedule-odd-prefill: 2278 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-group-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-incomplete-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-group-decode-2: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-reset: 402 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141101, schedule-reset-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-odd-prefill: 2278 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-group-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-incomplete-decode: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-group-decode-2: 134 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-reset: 402 logits, drift 0.00000000000000000e0
+V4.1 structure seed 4141102, schedule-reset-decode: 134 logits, drift 0.00000000000000000e0
+
+
+successes:
+    deepseek_v41::model::tests::streamed::deepseek_v41_streamed_payload_is_lazy_and_errors_are_propagated
+    deepseek_v41::model::tests::streamed::deepseek_v41_streamed_projection_partial_upload_is_released
+    deepseek_v41::model::tests::streamed::deepseek_v41_streamed_projection_payload_errors_invalidate_sequence
+    deepseek_v41::model::tests::structure::deepseek_v41_joint_cpu_fixture_remains_frozen
+    deepseek_v41::model::tests::structure::deepseek_v41_long_context_cpu_fixture_remains_frozen
+    deepseek_v41::model::tests::structure::deepseek_v41_released_depth_schedule_and_384_expert_strict_all_logits
+    deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_depth_schedule_and_384_expert_strict_all_logits
+    deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_depth_schedule_and_384_expert_strict_all_logits
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 22.97s
+
