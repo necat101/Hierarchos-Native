@@ -31,7 +31,15 @@ PyTorch and Transformers serve as development oracles for numerical qualificatio
 **Joint image training:** all 44 previously green text profiles pass the frozen
 Gen9 FP32 image-training gate below `2e-7`, including 95 image cases and 166 text
 regressions. [Coverage, frozen oracles and Ally replay instructions](RDNA3_MULTIMODAL_HANDOFF.md).
-Physical RDNA3 multimodal qualification remains pending.
+
+**Phase XVIII replay:** two complete nine-stage producer runs exited 0 on the
+qualified source: 77/77 shared-image, 6/6 seq2seq, 4/4 Gemma3, 4/4 LLaVA,
+166/166 text, 218/218 active DeepSeek tests (26 opt-in ignored), and 30/30
+native V4.1 tests. The complete numerical receipt is sealed at `d799890...`;
+the later path-test-only repair is separately bound to `ce1757d...`, with final
+workspace validation at `b173653...`. The dedicated RDNA3 GitHub Actions
+hardware job remains unavailable because no self-hosted runner is registered;
+these are committed qualification results, not a hardware-CI PASS. [Replay and path-repair evidence](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-replay-reliability/README.md).
 
 ---
 
@@ -396,12 +404,25 @@ parity and PEFT qualification are separate gates.
 | **DeepSeek V4.1 on AMD** | 201,714 default-gate logits, worst `1.4901161193847656e-7`; 11,184 explicit package/training logits bit-exact | [V4.1 results](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md#measured-gates) |
 | **Intel HD Graphics 520 · November 1, 2026** | 166/166 forward runs, 72/72 generation requests and 269 selected native tests | [Gen9 receipt](hierarchos-vulkan/validation/GEN9_FINAL_RECEIPT.md) |
 | **Gen9 preservation in the AMD fix** | All 585 existing shader binaries unchanged; Intel pipeline-selection guard passes | [Preservation scope](hierarchos-vulkan/validation/RDNA3_GPT2_CLOSURE.md) |
+| **Phase XVIII complete replay** | Two complete nine-stage runs, 9/9 each: 77/77 shared-image, 6/6 seq2seq, 4/4 Gemma3, 4/4 LLaVA, 166/166 text, 218/218 active DeepSeek (26 ignored), 30/30 native V4.1 | [Phase XVIII receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-replay-reliability/README.md) · [path repair](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-path-smoke-repair/README.md) |
+| **Current-source GPT-2** | 16/16 frozen shapes, worst `5.960464477539063e-08`; current-source guard PASS at `b173653...` | [Current qualification](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-path-smoke-repair/gpt2/current-qualification.json) |
+| **Full Rust library (Phase XIV)** | 1,135 passed, 40 ignored, 0 failed in three parallel and one serial run | [Phase XIV receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase14-qualification/README.md) |
 
 These are retained scalable-checkpoint results. The AMD follow-up did not rerun on
 physical Intel hardware. Test filters overlap, so the counts are not additive unique
 test totals. The measured architecture matrix covers 26 identifiers, not the entire
 146-entry registry; all-profile CPU PEFT training and production throughput are
 outside that matrix. [Current validation scope](VALIDATION_STATUS.md).
+
+### CI and hardware status
+
+GitHub-hosted `workspace check` and workflow validation pass on the final
+`b173653` revision; the path-smoke repair records 5/5 locally and a successful
+remote path step. The dedicated RDNA3 performance workflow still has no
+registered self-hosted runners, so no RDNA3 hardware CI PASS is claimed.
+[Latest workspace run](https://github.com/necat101/Hierarchos-Native/actions/runs/42526469315).
+The Gen9 result above is a preserved frozen-reference run; no new physical Intel
+execution is claimed on this AMD host.
 
 <details>
 <summary><strong>Earlier two-step CPU training qualifications: fourteen architecture families</strong></summary>
@@ -462,6 +483,24 @@ throughput claims.
 [Attention-backward evidence](hierarchos-vulkan/validation/ATTENTION_BACKWARD_PERFORMANCE.md) ·
 [Vendor tuning and rejected routes](hierarchos-vulkan/VENDOR_TUNING.md).
 
+### Matched-profile Phase XIV results
+
+The retained Phase XIV receipt compares release builds from exact revisions
+with the same frozen fixtures, batch 1, six ABBA rounds and seven measured
+updates. It is a historical matched-profile result for those fixtures, not a
+guarantee for every model size or GPU. The receipt records the exact source and
+executable hashes for each arm; consult it for revision scope.
+
+| Workload | Speedup versus historical `372407b` | 95% CI |
+| --- | ---: | --- |
+| T5 | **1.3687×** | 1.2455–1.4275 |
+| Native ViT 4×4 | **1.9792×** | 1.8016–2.0542 |
+| Native ViT 6×4 | **2.0386×** | 1.8442–2.0698 |
+| Llama | **1.1862×** | 1.0629–1.3371 |
+| GPT-2 | **1.5150×** | 1.2108–1.5537 |
+
+[Phase XIV performance receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase14-qualification/README.md).
+
 <div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
 
 ---
@@ -470,7 +509,8 @@ throughput claims.
 
 | Requirement | Notes |
 | --- | --- |
-| **Rust and Cargo** | Use the checked-in manifests and lockfiles |
+| **Rust and Cargo** | Stable toolchain; qualification receipts record Rust 1.93.0. Use the checked-in manifests and lockfiles. |
+| **Operating system** | Windows is the documented qualification platform. The Rust/Vulkan source is portable to other desktop Vulkan platforms, but physical qualification is device- and revision-specific. |
 | **Vulkan loader and compute driver** | Required for GPU training and native Transformer generation |
 | **Model assets** | A supported config, tokenizer and single-file or sharded SafeTensors package; alternatively a supported Hub model ID |
 | **Python / PyTorch** | Development/reference validation only; not native runtime dependencies |
@@ -504,8 +544,17 @@ the Vulkan training companions for Hierarchos training, or set
 | **Development** | Active source development; build and qualification evidence are revision-specific |
 | **DeepSeek V4.1 Flash** | Dedicated native text implementation, scaled inference/PEFT gates, save/resume/export and opt-in parameter/MoE streaming |
 | **Latest AMD closure** | The padded GPT-2-wide gap is closed at the unchanged CPU threshold; original frozen references preserved |
+| **Phase XVIII replay** | Two complete nine-stage runs, current-source GPT-2 16/16, path-smoke repair; final GitHub workspace check PASS; no RDNA3 self-hosted runner |
 | **Intel Gen9** | Completed physical port and optimization receipt; the AMD parity repair preserves existing Gen9 shader bytes and selection |
 | **Compatibility boundaries** | Text-backbone support is not universal multimodal/task-head compatibility; formats, training modes and precision policies need their own gates |
+
+### Known limitations
+
+- Physical RDNA3 CI is unavailable until a self-hosted runner is registered; the committed RDNA3 receipts are source-bound local qualification results, not a hardware-CI pass.
+- Registry breadth is not qualification breadth: the measured matrix covers 43 scaled profiles / 26 architecture identifiers, not the full 146-entry registry or every mode and precision policy.
+- The Gen9 result is a preserved frozen-reference result; this AMD host did not perform a new physical Intel execution.
+- DeepSeek V4.1 evidence uses accepted reduced-width/scaled checkpoints; full production weights and all-profile production throughput are not claimed.
+- Performance results are matched-profile fixture measurements, not universal speedups or production-size model throughput.
 
 Use the live `architectures` command for package recognition and the linked receipts
 for numerical coverage. [Status and limitations](VALIDATION_STATUS.md) ·
@@ -534,6 +583,8 @@ strict parity results and the remaining architecture work.
 | Desktop workflows | [GUI guide](hierarchos-gui/README.md) |
 | Hierarchos coherent-v9 inference | [Pure-Rust runtime](hierarchos-inference/README.md) |
 | Current qualification and reproduction | [Validation status](VALIDATION_STATUS.md) · [RDNA3 runbook](RDNA3_REGRESSION.md) |
+| Nine-stage replay and path repair | [Phase XVIII receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-replay-reliability/README.md) · [repair evidence](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase18-path-smoke-repair/README.md) |
+| Performance and full-suite history | [Phase XIV receipt](hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase14-qualification/README.md) |
 | Device performance and numerical routing | [Vendor tuning](hierarchos-vulkan/VENDOR_TUNING.md) · [AMD audit](AMD_REGRESSION_AUDIT.md) |
 | Original physical ROG Ally qualification | [Qualification](RDNA3_QUALIFICATION.md) · [Handoff](ROG_ALLY_HANDOFF.md) |
 | Implementation history | [DeepSeek V4.1 audit](PROGRESS_DEEPSEEK_V41_AUDIT.md) · [Kimi K3 audit](PROGRESS_K3_AUDIT.md) |
