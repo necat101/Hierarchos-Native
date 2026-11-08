@@ -83,7 +83,10 @@ class CurrentQualificationTests(unittest.TestCase):
 
         self.dir = tempfile.TemporaryDirectory()
         self.path = Path(self.dir.name) / 'current-qualification.json'
-        self.sources = {'hierarchos-vulkan/src/transformer.rs': 'a' * 64}
+        self.sources = {
+            'hierarchos-vulkan/src/transformer.rs': 'a' * 64,
+            'hierarchos-vulkan/src/vulkan.rs': 'a' * 64,
+        }
         self.head = '1' * 40
 
     def tearDown(self):
@@ -153,6 +156,17 @@ class CurrentQualificationTests(unittest.TestCase):
                 self.sources, receipt_path=self.path, source_head=self.head,
                 current_sha256=lambda name: 'a' * 64,
             )
+
+    def test_current_receipt_must_bind_the_pending_clear_source(self):
+        sources = dict(self.sources)
+        sources.pop('hierarchos-vulkan/src/vulkan.rs')
+        self.write({'source_head': self.head, 'pass': True, 'sources': sources})
+        with self.assertRaises(ValueError) as caught:
+            verify_current(
+                self.sources, receipt_path=self.path, source_head=self.head,
+                current_sha256=lambda name: 'a' * 64,
+            )
+        self.assertIn('vulkan.rs', str(caught.exception))
 
     def test_failed_current_qualification_is_not_promoted(self):
         self.write({'source_head': self.head, 'pass': False, 'sources': self.sources})

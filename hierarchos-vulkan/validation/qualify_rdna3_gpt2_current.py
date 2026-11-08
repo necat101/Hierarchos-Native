@@ -150,6 +150,12 @@ def main():
         path = ROOT / name
         require(path.is_file(), 'bound source is missing: ' + name)
         sources[name] = digest(path)
+    # The pending-clear change lives here and is not part of the historical
+    # binding set; without it a receipt measured before that change could still
+    # pass every other source hash.
+    pending_clear = 'hierarchos-vulkan/src/vulkan.rs'
+    require((ROOT / pending_clear).is_file(), 'pending-clear source is missing')
+    sources[pending_clear] = digest(ROOT / pending_clear)
 
     evidence = {path.relative_to(run).as_posix(): digest(path)
                 for path in sorted(run.rglob('*'))

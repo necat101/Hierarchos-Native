@@ -7,7 +7,8 @@ import subprocess
 import sys
 
 ROOT=Path(__file__).resolve().parents[2]
-RECEIPTS=Path(__file__).parent/'release_parity/multimodal_training/20261106-rdna3-gpt2-shapes'
+VALIDATION=Path(__file__).resolve().parent
+RECEIPTS=VALIDATION/'release_parity/multimodal_training/20261106-rdna3-gpt2-shapes'
 SHAPES=[(2,8,4),(1,8,4),(3,8,4),(2,6,4),(2,10,4),(2,16,4),(2,8,2),(2,8,8)]
 COUNTS={'shapes':16,'shared':74,'kimi':3,'seq2seq':6,'gemma3':4,'gemma4':2,'llava':4}
 
@@ -31,7 +32,7 @@ def validate_qualification(q,count):
                 require(0<=check['max_abs']<2e-7,'logit gate violated')
     return rows
 
-def main(historical_only=False):
+def main(historical_only=False, current_receipt=None):
     hashes=load('receipt-hashes.json')
     required={f'{name}-qualification.json' for name in COUNTS}|{
         'cpu-manifest.json','primitives.log','shader-provenance.json','spirv-validation.json',
@@ -74,7 +75,7 @@ def main(historical_only=False):
         print(f'  historical binding: {name} at {binding["revision"][:12]}')
     if historical_only:
         return 0
-    return verify_current(hashes['sources'])
+    return verify_current(hashes['sources'], receipt_path=current_receipt)
 
 
 def _sha256_file(path):
@@ -156,7 +157,11 @@ def verify_sources(sources, current_sha256=None, history_lookup=None, history_av
     return current, historical
 
 
-CURRENT_RECEIPT = 'current-qualification.json'
+CURRENT_RECEIPT = (
+    'release_parity/multimodal_training/20261108-rdna3-phase15-qualification/'
+    'current-qualification.json'
+)
+CRITICAL_SOURCES = ('hierarchos-vulkan/src/vulkan.rs',)
 
 
 def _is_ancestor(ancestor, descendant):
@@ -177,7 +182,7 @@ def verify_current(sources, receipt_path=None, source_head=None, current_sha256=
     fails closed on the hash comparisons below. Its revision must also be an
     ancestor of this checkout, which rejects receipts from unrelated branches.
     """
-    receipt_path = Path(receipt_path) if receipt_path else RECEIPTS / CURRENT_RECEIPT
+    receipt_path = Path(receipt_path) if receipt_path else VALIDATION / CURRENT_RECEIPT
     current_sha256 = current_sha256 or (lambda name: _sha256_file(ROOT / name))
     if source_head is None:
         source_head = _git('rev-parse', 'HEAD').decode().strip()
@@ -191,7 +196,7 @@ def verify_current(sources, receipt_path=None, source_head=None, current_sha256=
         is_ancestor = is_ancestor or _is_ancestor
         require(is_ancestor(bound, source_head),
             'current qualification is bound to an unrelated revision')
-    for name in sources:
+    for name in set(sources) | set(CRITICAL_SOURCES):
         require(
             receipt.get('sources', {}).get(name) == current_sha256(name),
             'current qualification does not bind ' + name,
@@ -201,4 +206,10 @@ def verify_current(sources, receipt_path=None, source_head=None, current_sha256=
     return 0
 
 
-if __name__=='__main__':sys.exit(main('--historical-only' in sys.argv))
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--historical-only', action='store_true')
+    parser.add_argument('--current-receipt', type=Path)
+    arguments = parser.parse_args()
+    sys.exit(main(arguments.historical_only, arguments.current_receipt))
