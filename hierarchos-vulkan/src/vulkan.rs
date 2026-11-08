@@ -1995,19 +1995,31 @@ impl VulkanDevice {
                 .map_err(|_| anyhow!("Vulkan pending-clear list was poisoned"))?;
             let mut kept = Vec::with_capacity(pending.entries.len());
             for clear in pending.entries.drain(..) {
-                let Some(allocation) = clear.allocation.upgrade() else {
+                // One atomic load replaces the per-entry `upgrade()`, which
+                // paired an increment with a decrement on every bind. The entry
+                // holds a `Weak`, so only a zero count proves no owner can bind
+                // this buffer again; every live entry must be kept for its
+                // allocating thread, and the address comparison is only exact
+                // while the allocation is alive.
+                let owners = clear.allocation.strong_count();
+                if owners == 0 {
                     // The last user dropped the buffer before it was bound. There
                     // is no read to protect, so the fill is unreachable.
                     continue;
-                };
+                }
+                let key = clear.allocation.as_ptr() as usize;
                 let bound = buffers
                     .iter()
-                    .any(|buffer| Arc::ptr_eq(&buffer.allocation, &allocation));
-                if bound && clear.owner == current {
-                    ready.push((allocation, clear.size_bytes));
-                } else if pending_clear_is_reachable(bound, Arc::strong_count(&allocation) == 1) {
+                    .find(|buffer| Arc::as_ptr(&buffer.allocation) as usize == key);
+                let Some(bound) = bound else {
                     // Another worker's fill, or one whose buffer is still in use:
                     // leave it for the thread that allocated it.
+                    kept.push(clear);
+                    continue;
+                };
+                if clear.owner == current {
+                    ready.push((Arc::clone(&bound.allocation), clear.size_bytes));
+                } else {
                     kept.push(clear);
                 }
                 // Otherwise this fill is the allocation's last user: nobody can
@@ -9751,6 +9763,31 @@ mod tests {
         // The weak pending entry must not keep the allocation, and through its
         // cloned device handle, the logical Vulkan device alive.
         assert_eq!(std::sync::Arc::strong_count(&device.inner), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn unbound_zero_fill_is_retained_until_its_owner_binds_it() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        // `waiting` is zero-filled but never bound, so no batch can record its
+        // fill yet. Draining for another buffer must keep the entry: pruning a
+        // live owner's fill leaves uninitialised memory behind the read below.
+        let waiting = GpuBuffer::zeros_f32(&device, 4)?;
+        let published = GpuBuffer::from_f32(&device, &[1.0, 2.0, 3.0, 4.0])?;
+        let written = GpuBuffer::zeros_f32(&device, 4)?;
+        let mut commands = ComputeBatch::new(&device)?;
+        commands.copy_f32_range(&published, 0, &written, 0, 4)?;
+        commands.submit()?;
+        assert_eq!(written.read_f32(4)?, vec![1.0, 2.0, 3.0, 4.0]);
+        assert!(
+            device
+                .inner
+                .pending_clear_count
+                .load(std::sync::atomic::Ordering::Relaxed)
+                >= 1,
+            "an unbound zero fill owned by this thread was discarded"
+        );
+        assert_eq!(waiting.read_f32(4)?, vec![0.0; 4]);
         Ok(())
     }
 
