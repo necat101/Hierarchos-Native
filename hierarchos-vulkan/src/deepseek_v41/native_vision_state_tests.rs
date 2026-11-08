@@ -326,7 +326,12 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
     // iteration performs the same work, so dividing by the step count gives the
     // per-step cost of each site.
     if crate::vulkan::submission_report::enabled() {
-        let steps = (warmup + iterations) as u64;
+        // Every recorded case performs `warmup + iterations` timed steps, so the
+        // run total must be divided by the number of case-steps. Dividing by the
+        // per-case step count alone inflated every per-step figure by the number
+        // of cases (five), which is what made an earlier profile report more
+        // retirements per step than the step's own native submission count.
+        let steps = ((warmup + iterations) * records.len()) as u64;
         let mut report = crate::vulkan::submission_report::take();
         report.sort_by_key(|&(_, _, count)| std::cmp::Reverse(count));
         for (file, line, count) in report {
@@ -336,13 +341,16 @@ fn multimodal_training_throughput_benchmark() -> Result<()> {
             );
         }
         let mut retirements = crate::vulkan::retirement_report::take();
-        retirements.sort_by_key(|&(_, _, count, _, _)| std::cmp::Reverse(count));
-        for (file, line, count, dispatches, elapsed) in retirements {
+        retirements.sort_by_key(|&(_, _, count, _, _, _)| std::cmp::Reverse(count));
+        for (file, line, count, dispatches, elapsed, host) in retirements {
             eprintln!(
-                "hierarchos_retirement_report file={file} line={line} total={count} per_step={:.2} dispatches={dispatches} total_ms={:.3} ms_per_step={:.3}",
+                "hierarchos_retirement_report file={file} line={line} total={count} per_step={:.2} dispatches={dispatches} total_ms={:.3} ms_per_step={:.3} host_ms={:.3} host_ms_per_step={:.3} wait_ms_per_step={:.3}",
                 count as f64 / steps as f64,
                 elapsed.as_secs_f64() * 1000.0,
-                elapsed.as_secs_f64() * 1000.0 / steps as f64
+                elapsed.as_secs_f64() * 1000.0 / steps as f64,
+                host.as_secs_f64() * 1000.0,
+                host.as_secs_f64() * 1000.0 / steps as f64,
+                elapsed.saturating_sub(host).as_secs_f64() * 1000.0 / steps as f64,
             );
         }
     }

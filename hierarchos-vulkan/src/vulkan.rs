@@ -87,6 +87,18 @@ struct DeviceInner {
     device_lost: AtomicBool,
 }
 
+/// Whether a pending fill must survive the drain that is examining it.
+///
+/// A fill is recorded only when its buffer is bound, and recorded on the thread
+/// that allocated it. It must therefore be kept while the buffer can still be
+/// bound. `sole_owner` reports that the upgraded allocation has no other strong
+/// reference, which means the pending entry is the buffer's last user: nothing
+/// can bind it later, so the fill is unreachable and may be dropped. That prune
+/// is what keeps the list bounded during a long training step.
+fn pending_clear_is_reachable(bound: bool, sole_owner: bool) -> bool {
+    bound || !sole_owner
+}
+
 /// One `vkCmdFillBuffer(0)` owed to a buffer before anyone reads it.
 ///
 /// The entry holds a weak allocation, not a strong `GpuBuffer`. A strong view
@@ -1969,6 +1981,7 @@ impl VulkanDevice {
     /// neither steal nor reorder another worker's fill. Entries whose buffer has
     /// no owner left are unreachable and are dropped instead of pinning memory.
     fn drain_pending_clears(&self, batch: &mut ComputeBatch, buffers: &[&GpuBuffer]) -> Result<()> {
+        // (`pending_clear_is_reachable` decides whether an unbound fill survives.)
         if self.inner.pending_clear_count.load(Ordering::Relaxed) == 0 {
             return Ok(());
         }
@@ -1992,11 +2005,15 @@ impl VulkanDevice {
                     .any(|buffer| Arc::ptr_eq(&buffer.allocation, &allocation));
                 if bound && clear.owner == current {
                     ready.push((allocation, clear.size_bytes));
-                } else {
+                } else if pending_clear_is_reachable(bound, Arc::strong_count(&allocation) == 1) {
                     // Another worker's fill, or one whose buffer is still in use:
                     // leave it for the thread that allocated it.
                     kept.push(clear);
                 }
+                // Otherwise this fill is the allocation's last user: nobody can
+                // bind the buffer any more, so there is no read left to protect.
+                // Dropping it is what keeps the list bounded - retaining it would
+                // make every later drain scan entries that can never be recorded.
             }
             pending.entries = kept;
             self.inner
@@ -6490,6 +6507,7 @@ pub(crate) mod retirement_report {
         count: u64,
         dispatches: u64,
         elapsed: Duration,
+        host: Duration,
     }
 
     type Key = (&'static str, u32);
@@ -6507,6 +6525,7 @@ pub(crate) mod retirement_report {
         location: &'static std::panic::Location<'static>,
         elapsed: Duration,
         dispatches: usize,
+        host: Duration,
     ) {
         if !enabled() {
             return;
@@ -6516,17 +6535,34 @@ pub(crate) mod retirement_report {
             row.count += 1;
             row.dispatches += dispatches as u64;
             row.elapsed += elapsed;
+            row.host += host;
         }
     }
 
-    pub(crate) fn take() -> Vec<(&'static str, u32, u64, u64, Duration)> {
+    /// `(file, line, count, dispatches, submit_and_wait, host_rebuild)`.
+    ///
+    /// The two durations are disjoint: `host_rebuild` is the command-buffer and
+    /// upload-arena replacement the retirement performs on the CPU, while the
+    /// wait duration is the fence or timeline semaphore join. Reporting them
+    /// separately is what separates removable host churn from GPU completion a
+    /// caller genuinely depends on.
+    pub(crate) fn take() -> Vec<(&'static str, u32, u64, u64, Duration, Duration)> {
         let mut rows = match rows().lock() {
             Ok(rows) => rows,
             Err(poisoned) => poisoned.into_inner(),
         };
         let report = rows
             .iter()
-            .map(|(&(file, line), row)| (file, line, row.count, row.dispatches, row.elapsed))
+            .map(|(&(file, line), row)| {
+                (
+                    file,
+                    line,
+                    row.count,
+                    row.dispatches,
+                    row.elapsed,
+                    row.host,
+                )
+            })
             .collect();
         rows.clear();
         report
@@ -7765,17 +7801,32 @@ impl ComputeBatch {
         let budget_is_measured = watchdog_submission_slicing
             && watchdog_slice_budget_window.is_some()
             && retired_dispatches > 0;
+        #[cfg(test)]
+        let host_started = Instant::now();
         let placeholder = Self::new(&device)?;
         let current = std::mem::replace(self, placeholder);
+        #[cfg(test)]
+        let mut host_elapsed = host_started.elapsed();
         let started = Instant::now();
         let submitted = current.submit();
         let elapsed_micros = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
         submitted?;
-        #[cfg(test)]
-        retirement_report::record(caller, started.elapsed(), retired_dispatches);
         if let Some(arena) = persistent_arena {
+            #[cfg(test)]
+            let arena_started = Instant::now();
             *self = Self::new_with_persistent_upload_arena(&device, arena)?;
+            #[cfg(test)]
+            {
+                host_elapsed += arena_started.elapsed();
+            }
         }
+        #[cfg(test)]
+        retirement_report::record(
+            caller,
+            started.elapsed(),
+            retired_dispatches,
+            host_elapsed,
+        );
         retired_counts.carry_into(self);
         self.session_owned = session_owned;
         self.watchdog_submission_slicing = watchdog_submission_slicing;
@@ -9668,6 +9719,17 @@ mod tests {
             0
         );
         Ok(())
+    }
+
+    #[test]
+    fn unreachable_pending_clear_is_not_retained() {
+        use super::pending_clear_is_reachable;
+        // Unbound and owned by nobody else: the fill can never be recorded.
+        assert!(!pending_clear_is_reachable(false, true));
+        // Bound fills are recorded, and a fill whose buffer still has an owner
+        // has to wait for that owner's thread.
+        assert!(pending_clear_is_reachable(true, true));
+        assert!(pending_clear_is_reachable(false, false));
     }
 
     #[test]
