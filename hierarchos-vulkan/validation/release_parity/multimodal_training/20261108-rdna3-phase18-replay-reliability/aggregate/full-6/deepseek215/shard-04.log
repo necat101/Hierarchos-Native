@@ -1,0 +1,64 @@
+
+running 8 tests
+test deepseek_v41::backbone::routing_tests::deepseek_v41_top6_boundary_tie_matches_frozen_cpu ... ok
+test deepseek_v41::backbone::routing_tests::deepseek_v41_top6_routing_reduction_matches_frozen_cpu ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_backbone_applies_engram_before_scheduled_blocks ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_backbone_runs_the_released_block_order ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_hyper_connections_match_the_pinned_reference_fixture ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_moe_matches_the_pinned_reference_fixture ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_moe_routing_matches_the_pinned_reference_fixture ... ok
+test deepseek_v41::checkpoint::payload_cache::tests::payload_cache_bounds_lru_and_invalidates_each_shard ... ok
+
+successes:
+
+---- deepseek_v41::backbone::routing_tests::deepseek_v41_top6_routing_reduction_matches_frozen_cpu stdout ----
+4141101-schedule-odd-prefill-layer-0 raw linear mismatches 0
+4141101-schedule-odd-prefill-layer-0 normalize 0: 0 mismatches
+4141101-schedule-odd-prefill-layer-0 normalize 1: 0 mismatches
+4141101-schedule-group-decode-layer-0 raw linear mismatches 0
+4141101-schedule-group-decode-layer-0 normalize 0: 0 mismatches
+4141101-schedule-group-decode-layer-0 normalize 1: 0 mismatches
+4141101-schedule-incomplete-decode-layer-0 raw linear mismatches 0
+4141101-schedule-incomplete-decode-layer-0 normalize 0: 0 mismatches
+4141101-schedule-incomplete-decode-layer-0 normalize 1: 0 mismatches
+4141101-schedule-group-decode-2-layer-0 raw linear mismatches 0
+4141101-schedule-group-decode-2-layer-0 normalize 0: 0 mismatches
+4141101-schedule-group-decode-2-layer-0 normalize 1: 0 mismatches
+4141101-schedule-reset-layer-0 raw linear mismatches 0
+4141101-schedule-reset-layer-0 normalize 0: 0 mismatches
+4141101-schedule-reset-layer-0 normalize 1: 0 mismatches
+4141101-schedule-reset-decode-layer-0 raw linear mismatches 0
+4141101-schedule-reset-decode-layer-0 normalize 0: 0 mismatches
+4141101-schedule-reset-decode-layer-0 normalize 1: 0 mismatches
+4141101-schedule-group-decode-layer-34 raw linear mismatches 0
+4141101-schedule-group-decode-layer-34 normalize 0: 0 mismatches
+4141101-schedule-group-decode-layer-34 normalize 1: 0 mismatches
+4141102-schedule-odd-prefill-layer-0 raw linear mismatches 0
+4141102-schedule-odd-prefill-layer-0 normalize 0: 0 mismatches
+4141102-schedule-odd-prefill-layer-0 normalize 1: 0 mismatches
+4141102-schedule-group-decode-layer-0 raw linear mismatches 0
+4141102-schedule-group-decode-layer-0 normalize 0: 0 mismatches
+4141102-schedule-group-decode-layer-0 normalize 1: 0 mismatches
+
+---- deepseek_v41::backbone_tests::deepseek_v41_hyper_connections_match_the_pinned_reference_fixture stdout ----
+hyper-connection worst drift 0e0 over 544 values
+
+---- deepseek_v41::backbone_tests::deepseek_v41_moe_matches_the_pinned_reference_fixture stdout ----
+MoE worst drift 0e0 over 419 values
+
+---- deepseek_v41::backbone_tests::deepseek_v41_moe_routing_matches_the_pinned_reference_fixture stdout ----
+MoE routing worst drift 0e0 over 36 values
+
+
+successes:
+    deepseek_v41::backbone::routing_tests::deepseek_v41_top6_boundary_tie_matches_frozen_cpu
+    deepseek_v41::backbone::routing_tests::deepseek_v41_top6_routing_reduction_matches_frozen_cpu
+    deepseek_v41::backbone_tests::deepseek_v41_backbone_applies_engram_before_scheduled_blocks
+    deepseek_v41::backbone_tests::deepseek_v41_backbone_runs_the_released_block_order
+    deepseek_v41::backbone_tests::deepseek_v41_hyper_connections_match_the_pinned_reference_fixture
+    deepseek_v41::backbone_tests::deepseek_v41_moe_matches_the_pinned_reference_fixture
+    deepseek_v41::backbone_tests::deepseek_v41_moe_routing_matches_the_pinned_reference_fixture
+    deepseek_v41::checkpoint::payload_cache::tests::payload_cache_bounds_lru_and_invalidates_each_shard
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 0.89s
+

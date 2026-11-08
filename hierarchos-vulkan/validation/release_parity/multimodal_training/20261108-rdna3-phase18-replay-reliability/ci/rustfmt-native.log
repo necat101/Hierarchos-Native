@@ -1,0 +1,57 @@
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\deepseek_v41\native_vision_state_tests.rs:261:
+         ("gpt2", "shared-image-cpu-v3"),
+         ("t5", "seq2seq-image-cpu-v1"),
+     ] {
+[31m-        if case_filter.as_deref().is_some_and(|requested| name != requested) {
+[0m[32m+        if case_filter
+[0m[32m+            .as_deref()
+[0m[32m+            .is_some_and(|requested| name != requested)
+[0m[32m+        {
+[0m             continue;
+         }
+         let directory = fixtures.join(folder).join(name).join("unmasked");
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\deepseek_v41\native_vision_state_tests.rs:312:
+             weight_decay: f["weight_decay"].as_f64().unwrap(),
+         };
+         let mut samples = Vec::new();
+[31m-        let telemetry_start = telemetry.then(|| benchmark_telemetry(&device)).transpose()?;
+[0m[32m+        let telemetry_start = telemetry
+[0m[32m+            .then(|| benchmark_telemetry(&device))
+[0m[32m+            .transpose()?;
+[0m         for index in 0..warmup + iterations {
+             let before = device.submission_count();
+             let aten_calls_before = crate::transformer::aten_vector_width_call_count();
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\deepseek_v41\native_vision_state_tests.rs:319:
+[31m-            let telemetry_before = telemetry.then(|| benchmark_telemetry(&device)).transpose()?;
+[0m[32m+            let telemetry_before = telemetry
+[0m[32m+                .then(|| benchmark_telemetry(&device))
+[0m[32m+                .transpose()?;
+[0m             let begin = Instant::now();
+             let result = if let Some((d, m)) = &decoder {
+                 graph.train_seq2seq_with_optimizer(
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\deepseek_v41\native_vision_state_tests.rs:328:
+             let ms = begin.elapsed().as_secs_f64() * 1000.;
+             assert_eq!(result.text.step as usize, index + 1);
+             if index >= warmup {
+[31m-                let mut sample = json!({"total_ms":ms,"submissions":device.submission_count()-before});
+[0m[32m+                let mut sample =
+[0m[32m+                    json!({"total_ms":ms,"submissions":device.submission_count()-before});
+[0m                 if telemetry {
+[31m-                    sample["aten_width_calls"] = json!(
+[0m[31m-                        crate::transformer::aten_vector_width_call_count()
+[0m[31m-                            .saturating_sub(aten_calls_before)
+[0m[31m-                    );
+[0m[32m+                    sample["aten_width_calls"] =
+[0m[32m+                        json!(crate::transformer::aten_vector_width_call_count()
+[0m[32m+                            .saturating_sub(aten_calls_before));
+[0m                 }
+                 if let Some(before) = telemetry_before {
+[31m-                    sample["telemetry"] = benchmark_telemetry_delta(
+[0m[31m-                        &before,
+[0m[31m-                        &benchmark_telemetry(&device)?,
+[0m[31m-                    );
+[0m[32m+                    sample["telemetry"] =
+[0m[32m+                        benchmark_telemetry_delta(&before, &benchmark_telemetry(&device)?);
+[0m                 }
+                 samples.push(sample);
+             }

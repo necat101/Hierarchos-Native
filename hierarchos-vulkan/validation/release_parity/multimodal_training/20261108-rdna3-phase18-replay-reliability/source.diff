@@ -1,0 +1,367 @@
+diff --git a/.github/workflows/workspace-check.yml b/.github/workflows/workspace-check.yml
+index 2f55169..ca6ce68 100644
+--- a/.github/workflows/workspace-check.yml
++++ b/.github/workflows/workspace-check.yml
+@@ -31,6 +31,12 @@ jobs:
+           restore-keys: |
+             ${{ runner.os }}-workspace-
+ 
++      # Windows-only runtime check for the RDNA3 workflow's cygpath wiring.
++      # It creates no Cargo target and does not require a physical GPU.
++      - name: RDNA3 Windows path smoke test
++        shell: bash
++        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_rdna3_workflow_paths.py"
++
+       - name: One-pass workspace check
+         shell: pwsh
+         run: ./check-workspace.ps1
+diff --git a/hierarchos-vulkan/src/deepseek_v41/checkpoint_tests.rs b/hierarchos-vulkan/src/deepseek_v41/checkpoint_tests.rs
+index ad42119..addd60e 100644
+--- a/hierarchos-vulkan/src/deepseek_v41/checkpoint_tests.rs
++++ b/hierarchos-vulkan/src/deepseek_v41/checkpoint_tests.rs
+@@ -9,19 +9,38 @@ use std::{
+     sync::atomic::{AtomicU64, Ordering},
+ };
+ 
++/// Reserve a checkpoint package root without reusing a stale path left by an
++/// interrupted process.  The old PID + process-local counter name could repeat
++/// after a restart and fail with Windows error 183.  The timestamp and retry
++/// make an interrupted root harmless without deleting it.
++fn reserve_package_root() -> Result<PathBuf> {
++    static ID: AtomicU64 = AtomicU64::new(0);
++    let nonce = std::time::SystemTime::now()
++        .duration_since(std::time::UNIX_EPOCH)
++        .map(|duration| duration.as_nanos())
++        .unwrap_or(0);
++    let id = ID.fetch_add(1, Ordering::Relaxed);
++    for attempt in 0..32 {
++        let root = std::env::temp_dir().join(format!(
++            "hierarchos-v41-checkpoint-{}-{id}-{nonce}-{attempt}",
++            std::process::id()
++        ));
++        match fs::create_dir(&root) {
++            Ok(()) => return Ok(root),
++            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
++            Err(error) => return Err(error.into()),
++        }
++    }
++    anyhow::bail!("could not reserve a unique checkpoint test directory")
++}
++
+ struct Package {
+     root: PathBuf,
+ }
+ 
+ impl Package {
+     fn new() -> Result<Self> {
+-        static ID: AtomicU64 = AtomicU64::new(0);
+-        let root = std::env::temp_dir().join(format!(
+-            "hierarchos-v41-checkpoint-{}-{}",
+-            std::process::id(),
+-            ID.fetch_add(1, Ordering::Relaxed)
+-        ));
+-        fs::create_dir(&root)?;
++        let root = reserve_package_root()?;
+         let mut config: Value = serde_json::from_str(include_str!(
+             "../../validation/fixtures/deepseek_v41_flash_1017_config.json"
+         ))?;
+diff --git a/hierarchos-vulkan/src/deepseek_v41/model_tests.rs b/hierarchos-vulkan/src/deepseek_v41/model_tests.rs
+index 5227d1a..17cf7fd 100644
+--- a/hierarchos-vulkan/src/deepseek_v41/model_tests.rs
++++ b/hierarchos-vulkan/src/deepseek_v41/model_tests.rs
+@@ -10,7 +10,10 @@ use std::{
+     collections::BTreeMap,
+     fs,
+     path::PathBuf,
+-    sync::atomic::{AtomicU64, Ordering},
++    sync::{
++        atomic::{AtomicU64, Ordering},
++        Arc, Barrier,
++    },
+ };
+ 
+ #[path = "model_streamed_tests.rs"]
+@@ -120,15 +123,71 @@ fn unique_test_root(prefix: &str) -> Result<PathBuf> {
+ #[test]
+ fn temporary_test_roots_do_not_reuse_stale_directories() -> Result<()> {
+     let stale = reserve_test_root("hierarchos-v41-stale", 7, 11)?;
++    fs::write(stale.join("interrupted.marker"), b"stale state")?;
+     let fresh = reserve_test_root("hierarchos-v41-stale", 7, 11)?;
+     assert_ne!(stale, fresh);
+     assert!(stale.is_dir());
+     assert!(fresh.is_dir());
++    assert_eq!(fs::read(stale.join("interrupted.marker"))?, b"stale state");
+     fs::remove_dir_all(&stale)?;
+     fs::remove_dir_all(&fresh)?;
+     Ok(())
+ }
+ 
++#[test]
++fn temporary_test_roots_are_unique_under_concurrent_reservation() -> Result<()> {
++    const THREADS: usize = 8;
++    let barrier = Arc::new(Barrier::new(THREADS));
++    let handles = (0..THREADS)
++        .map(|_| {
++            let barrier = Arc::clone(&barrier);
++            std::thread::spawn(move || {
++                barrier.wait();
++                reserve_test_root("hierarchos-v41-concurrent", 17, 23)
++            })
++        })
++        .collect::<Vec<_>>();
++    let roots = handles
++        .into_iter()
++        .map(|handle| handle.join().unwrap())
++        .collect::<Result<Vec<_>>>()?;
++    assert_eq!(
++        roots
++            .iter()
++            .collect::<std::collections::BTreeSet<_>>()
++            .len(),
++        THREADS
++    );
++    for root in &roots {
++        assert!(root.is_dir());
++    }
++    for root in roots {
++        fs::remove_dir_all(root)?;
++    }
++    Ok(())
++}
++
++#[test]
++fn temporary_test_roots_support_repeated_sequential_reservation() -> Result<()> {
++    let roots = (0..8)
++        .map(|_| reserve_test_root("hierarchos-v41-sequential", 19, 29))
++        .collect::<Result<Vec<_>>>()?;
++    assert_eq!(
++        roots
++            .iter()
++            .collect::<std::collections::BTreeSet<_>>()
++            .len(),
++        roots.len()
++    );
++    for root in &roots {
++        assert!(root.is_dir());
++    }
++    for root in roots {
++        fs::remove_dir_all(root)?;
++    }
++    Ok(())
++}
++
+ struct Package {
+     root: PathBuf,
+ }
+diff --git a/hierarchos-vulkan/src/deepseek_v41/native_vision_state_tests.rs b/hierarchos-vulkan/src/deepseek_v41/native_vision_state_tests.rs
+index 2eb9b29..94e4c1e 100644
+--- a/hierarchos-vulkan/src/deepseek_v41/native_vision_state_tests.rs
++++ b/hierarchos-vulkan/src/deepseek_v41/native_vision_state_tests.rs
+@@ -576,3 +576,30 @@ fn deepseek_v41_native_joint_checkpoint_resume_export_and_freshness() -> Result<
+     eprintln!("Native V4.1 joint resume/export: two cases, exact weights/moments/continued updates/reloaded logits; stale and foreign gradients rejected");
+     Ok(())
+ }
++
++/// Cleanup is deliberately narrower than the package root: only paths owned by
++/// this test invocation are removed, and an unrelated directory in the same
++/// temporary root survives. This keeps interrupted state harmless without
++/// turning cleanup into a broad `%TEMP%` sweep.
++#[test]
++fn native_checkpoint_cleanup_is_scoped_to_test_owned_paths() -> Result<()> {
++    let package = Package::new(&fixture()?, false)?;
++    let root = package.root.clone();
++    let checkpoint = root.join("joint-step1");
++    let unrelated = root.join("unrelated-owner");
++    fs::create_dir_all(&checkpoint)?;
++    fs::create_dir_all(&unrelated)?;
++    fs::write(checkpoint.join("state.bin"), b"checkpoint")?;
++    fs::write(unrelated.join("state.bin"), b"keep")?;
++
++    drop(OwnedCheckpoints {
++        root: root.clone(),
++        paths: vec![checkpoint.clone()],
++    });
++
++    assert!(!checkpoint.exists());
++    assert!(unrelated.is_dir());
++    assert_eq!(fs::read(unrelated.join("state.bin"))?, b"keep");
++    fs::remove_dir_all(&root)?;
++    Ok(())
++}
+diff --git a/hierarchos-vulkan/validation/qualify_rdna3_deepseek_suite.py b/hierarchos-vulkan/validation/qualify_rdna3_deepseek_suite.py
+index fcab7d0..353d60a 100644
+--- a/hierarchos-vulkan/validation/qualify_rdna3_deepseek_suite.py
++++ b/hierarchos-vulkan/validation/qualify_rdna3_deepseek_suite.py
+@@ -8,11 +8,14 @@ from pathlib import Path
+ 
+ CRATE=Path(__file__).resolve().parents[1]
+ BASELINE=CRATE/'validation/release_parity/multimodal_training/20261105-gen9-v41-upload-batching/deepseek-suite-qualification.json'
+-# This test lives in the DeepSeek test module because it exercises that module's
+-# package allocator, but it is CI infrastructure rather than a numerical case.
+-# Keep it out of the 218 active/26 ignored numerical inventory.
++# These tests live in the DeepSeek test module because they exercise its
++# package allocator, but they are CI infrastructure rather than numerical cases.
++# Keep them out of the 218 active/26 ignored numerical inventory.
+ NON_NUMERICAL_TESTS={
+     'deepseek_v41::model::tests::temporary_test_roots_do_not_reuse_stale_directories',
++    'deepseek_v41::model::tests::temporary_test_roots_are_unique_under_concurrent_reservation',
++    'deepseek_v41::model::tests::temporary_test_roots_support_repeated_sequential_reservation',
++    'deepseek_v41::model::tests::training::native_vision::native_state::native_checkpoint_cleanup_is_scoped_to_test_owned_paths',
+ }
+ def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+ def write(p,v):p.write_bytes((json.dumps(v,indent=2)+'\n').encode())
+diff --git a/hierarchos-vulkan/validation/test_rdna3_workflow_paths.py b/hierarchos-vulkan/validation/test_rdna3_workflow_paths.py
+new file mode 100644
+index 0000000..b37bdc3
+--- /dev/null
++++ b/hierarchos-vulkan/validation/test_rdna3_workflow_paths.py
+@@ -0,0 +1,149 @@
++"""Regression checks for the RDNA3 workflow's isolated Windows paths.
++
++The static checks run on every platform.  The runtime check only runs on
++Windows, where Git Bash supplies ``cygpath``; it creates no Cargo target and
++does not require a GPU.
++"""
++from __future__ import annotations
++
++import json
++import os
++from pathlib import Path
++import shlex
++import shutil
++import subprocess
++import sys
++import tempfile
++import unittest
++
++ROOT = Path(__file__).resolve().parents[2]
++WORKFLOW = ROOT / ".github" / "workflows" / "rdna3-performance.yml"
++
++
++class WorkflowPathTests(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls) -> None:
++        cls.text = WORKFLOW.read_text(encoding="utf-8")
++
++    def test_uses_cygpath_and_checks_the_converted_directory(self) -> None:
++        self.assertNotIn("PureWindowsPath", self.text)
++        self.assertIn('command -v cygpath', self.text)
++        self.assertIn(
++            'RUNNER_TEMP_POSIX="$(cygpath -u "$RUNNER_TEMP")"', self.text
++        )
++        self.assertIn('test -d "$RUNNER_TEMP_POSIX"', self.text)
++
++    def test_run_root_and_build_log_root_are_initialized_before_use(self) -> None:
++        init = self.text.index('RUN_ROOT="$RUNNER_TEMP_POSIX/rdna3-v41-${GITHUB_RUN_ID}"')
++        export = self.text.index('"$RUN_ROOT/build-logs"', init)
++        candidate = self.text.index(
++            '"$BUILD_LOG_ROOT/candidate-build.json"', export
++        )
++        baseline = self.text.index(
++            '"$BUILD_LOG_ROOT/baseline-build.json"', export
++        )
++        self.assertLess(init, export)
++        self.assertLess(export, candidate)
++        self.assertLess(export, baseline)
++
++    def test_candidate_and_baseline_logs_have_distinct_names(self) -> None:
++        self.assertIn(
++            '> "$BUILD_LOG_ROOT/candidate-build.json"', self.text
++        )
++        self.assertIn(
++            '> "$BUILD_LOG_ROOT/baseline-build.json"', self.text
++        )
++        self.assertNotIn("$RUNNER_TEMP/candidate-build.json", self.text)
++        self.assertNotIn("$RUNNER_TEMP/baseline-build.json", self.text)
++
++    def test_full_history_and_nonpersistent_checkout_are_preserved(self) -> None:
++        self.assertIn("fetch-depth: 0", self.text)
++        self.assertIn("persist-credentials: false", self.text)
++
++    @unittest.skipUnless(
++        sys.platform == "win32", "cygpath and MSYS path interpretation are Windows-only"
++    )
++    def test_cygpath_build_log_paths_are_usable(self) -> None:
++        cygpath = shutil.which("cygpath")
++        if cygpath is None:
++            self.skipTest("cygpath is not on PATH")
++
++        # Use a Windows path under the workspace, like RUNNER_TEMP.  Python's
++        # default temp directory is exported by Git Bash as /tmp, which is not
++        # the C:\... path the workflow starts with.
++        smoke_parent = ROOT / "target" / "rdna3-path-smoke"
++        smoke_parent.mkdir(parents=True, exist_ok=True)
++        raw = tempfile.mkdtemp(prefix="hierarchos-path-smoke-", dir=smoke_parent)
++        try:
++            converted = subprocess.run(
++                [cygpath, "-u", raw],
++                check=True,
++                capture_output=True,
++                text=True,
++            ).stdout.strip()
++            self.assertTrue(converted.startswith("/"), converted)
++            self.assertNotEqual(converted, raw)
++            windows = subprocess.run(
++                [cygpath, "-w", converted],
++                check=True,
++                capture_output=True,
++                text=True,
++            ).stdout.strip()
++            self.assertEqual(Path(windows).resolve(), Path(raw).resolve())
++            self.assertTrue(os.path.isdir(windows), windows)
++
++            run_root = Path(windows) / f"rdna3-v41-{os.getpid()}"
++            build_logs = run_root / "build-logs"
++            build_logs.mkdir(parents=True)
++            self.assertTrue(build_logs.is_dir())
++            candidate_log = build_logs / "candidate-build.json"
++            baseline_log = build_logs / "baseline-build.json"
++            self.assertNotEqual(candidate_log, baseline_log)
++            self.assertEqual(candidate_log.parent, baseline_log.parent)
++
++            executable = run_root / "candidate-test.exe"
++            executable.write_bytes(b"")
++            candidate_log.write_text(
++                json.dumps(
++                    {
++                        "reason": "compiler-artifact",
++                        "target": {"name": "hierarchos_vulkan"},
++                        "executable": str(executable),
++                    }
++                )
++                + "\n",
++                encoding="utf-8",
++            )
++            # Git Bash converts an MSYS path argument before launching native
++            # Python, which is how the workflow's selector receives the log.
++            candidate_posix = (
++                f"{converted}/rdna3-v41-{os.getpid()}/build-logs/{candidate_log.name}"
++            )
++            script = (
++                "import pathlib,sys; from cargo_test_binary import select; "
++                "print(select(pathlib.Path(sys.argv[1]), 'hierarchos_vulkan').resolve())"
++            )
++            probe = subprocess.run(
++                [
++                    "bash",
++                    "-lc",
++                    f'python -c {shlex.quote(script)} "$1"',
++                    "bash",
++                    candidate_posix,
++                ],
++                cwd=ROOT / "hierarchos-vulkan" / "validation",
++                check=False,
++                capture_output=True,
++                text=True,
++            )
++            self.assertEqual(probe.returncode, 0, probe.stderr)
++            selected = probe.stdout.strip()
++            self.assertEqual(Path(selected).resolve(), executable.resolve())
++            baseline_log.write_text("{}\n", encoding="utf-8")
++            self.assertTrue(baseline_log.is_file())
++        finally:
++            shutil.rmtree(raw, ignore_errors=True)
++
++
++if __name__ == "__main__":
++    unittest.main()

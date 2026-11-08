@@ -1,0 +1,29 @@
+Starting shared77
+shared77 PASS 
+Starting seq2seq
+seq2seq PASS 
+Starting gemma4-legacy
+gemma4-legacy PASS 
+Starting gemma4-rgb
+gemma4-rgb PASS 
+Starting gemma3
+gemma3 PASS 
+Starting llava
+llava PASS 
+Starting text166
+text166 PASS 
+Starting deepseek215
+deepseek215 FAIL stage process failed
+Starting native-v41
+native-v41 PASS 
+Traceback (most recent call last):
+  File "C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\validation\qualify_rdna3_full_multimodal.py", line 124, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\validation\qualify_rdna3_full_multimodal.py", line 122, in main
+    check(all(r['pass'] for r in records),'full replay contains failed stages')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\validation\qualify_rdna3_full_multimodal.py", line 32, in check
+    if not condition:raise ValueError(message)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: full replay contains failed stages

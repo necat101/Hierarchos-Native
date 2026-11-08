@@ -1,0 +1,87 @@
+
+running 8 tests
+test deepseek_v41::train::conditional_tests::conditional_adamw_sparse_moments_allocate_on_first_parameter_gradient ... ok
+test deepseek_v41::train::tests::adapter_adamw_matches_the_pinned_cpu_trajectory_and_resumes ... ok
+test deepseek_v41::unary_tests::deepseek_v41_cpu_scalar_log_staging_matches_cpu ... ok
+test deepseek_v41::unary_tests::deepseek_v41_cpu_sqrt_seed_and_staging_match_cpu ... ok
+test deepseek_v41::unary_tests::deepseek_v41_unary_matches_independent_scalar_and_vector_tail_references ... ok
+test deepseek_v41::upload::tests::parameter_upload_batch_preserves_words_and_bounds_staging ... ok
+test transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_aligner_linears_match_frozen_words ... ok
+test transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_final_rms_adjoint_matches_frozen_words ... ok
+
+successes:
+
+---- deepseek_v41::train::tests::adapter_adamw_matches_the_pinned_cpu_trajectory_and_resumes stdout ----
+V4.1 adapter layers.1.attn.wq_b initial a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj initial a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_sq_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_sq_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_sq_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_sq_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_a: worst |-0.12121299 - -0.12121298| = 7.45058059692382812e-9 at 42
+V4.1 adapter layers.1.attn.wq_b exp_avg_sq_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_sq_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_sq_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_b: worst |0.103140384 - 0.10314039| = 7.45058059692382812e-9 at 2
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_sq_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_a: worst |-0.13438547 - -0.13438545| = 1.49011611938476562e-8 at 42
+V4.1 adapter layers.1.attn.wq_b exp_avg_sq_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_sq_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_sq_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_b: worst |0.16859904 - 0.16859905| = 1.49011611938476562e-8 at 2
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_sq_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_a: worst |-0.13438547 - -0.13438545| = 1.49011611938476562e-8 at 42
+V4.1 adapter layers.1.attn.wq_b exp_avg_sq_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.1.attn.wq_b exp_avg_sq_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_sq_a: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_b: worst |0.16859904 - 0.16859905| = 1.49011611938476562e-8 at 2
+V4.1 adapter layers.2.ffn.shared_experts.gate_proj exp_avg_sq_b: worst |0 - 0| = 0.00000000000000000e0 at 0
+
+---- deepseek_v41::unary_tests::deepseek_v41_unary_matches_independent_scalar_and_vector_tail_references stdout ----
+V4.1 scalar/vector unary: 13967/13967 exact values, worst 0 ULP on AMD Radeon Graphics
+
+---- transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_aligner_linears_match_frozen_words stdout ----
+V4.1 native aligner Linear: 1920 independent frozen words exact
+
+---- transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_final_rms_adjoint_matches_frozen_words stdout ----
+V4.1 final vision RMS: 640 frozen CPU words exact
+
+
+successes:
+    deepseek_v41::train::conditional_tests::conditional_adamw_sparse_moments_allocate_on_first_parameter_gradient
+    deepseek_v41::train::tests::adapter_adamw_matches_the_pinned_cpu_trajectory_and_resumes
+    deepseek_v41::unary_tests::deepseek_v41_cpu_scalar_log_staging_matches_cpu
+    deepseek_v41::unary_tests::deepseek_v41_cpu_sqrt_seed_and_staging_match_cpu
+    deepseek_v41::unary_tests::deepseek_v41_unary_matches_independent_scalar_and_vector_tail_references
+    deepseek_v41::upload::tests::parameter_upload_batch_preserves_words_and_bounds_staging
+    transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_aligner_linears_match_frozen_words
+    transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_final_rms_adjoint_matches_frozen_words
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 0.78s
+

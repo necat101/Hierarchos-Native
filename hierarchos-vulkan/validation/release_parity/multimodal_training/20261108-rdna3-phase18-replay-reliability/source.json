@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "phase": "XVIII",
+  "source_commit": "d799890861af26fa8b33f03a5c17f7a34059c6fc",
+  "parent_commit": "259ccd63da89f30212dc34ba795d6b8e950bb999",
+  "qualified_numerical_commit": "a2d68f9a46d82d23fbdeb471f3791b1ad8840d97",
+  "phase15_receipt": "validation/release_parity/multimodal_training/20261108-rdna3-phase15-qualification",
+  "phase16_receipt": "validation/release_parity/multimodal_training/20261108-rdna3-phase16-ci-repair",
+  "production_numerical_sources_changed": false,
+  "test_only_source_changes": true,
+  "historical_receipts_modified": false,
+  "test_binary": "C:/Users/User/Downloads/Multimodal/Hierarchos-Native/hierarchos-vulkan/target/debug/deps/hierarchos_vulkan-2f708da7cb986ebb.exe",
+  "test_binary_sha256": "cc558cc72012bc5bb0362093af6f9a3b5e8bdf07fdda06be3883d24d200dad62",
+  "frozen_manifest_sha256": "a9e519008e712105ceb1b135227398785617db3eb03c65e7518bb7f225966636",
+  "cargo_toml_sha256": "431d2c1709e299b8afe077480df1a85e9e43abd44a333872272dec56228b51d2",
+  "cargo_lock_sha256": "802782847273b8d7d4ff34991e2a5facfbc6954fff0e416eeb9108a2426bab02",
+  "source_diff_sha256": "417850811805b1c22d76af28ce10981386529a4e589586d212eb64a9108ebe9b",
+  "changed_files": {
+    ".github/workflows/workspace-check.yml": "82d7d1d94195d9e3a2c7ebab08f356f0f84d1e99d8b81b464b83ba141c5ea97c",
+    "hierarchos-vulkan/src/deepseek_v41/checkpoint_tests.rs": "a04c17170887b2878af43abf2fcbced702a3712155ea7699c6303c34f93994b5",
+    "hierarchos-vulkan/src/deepseek_v41/model_tests.rs": "23f27fbfb50bb8e59bf387afb735e6fac3cc62b52e41d10e41498211bb598664",
+    "hierarchos-vulkan/src/deepseek_v41/native_vision_state_tests.rs": "4c45512181b8fde9fa15a6dd657f6fe6046b350160a888eb9e69518e0b3261c9",
+    "hierarchos-vulkan/validation/qualify_rdna3_deepseek_suite.py": "466a414822d54d3cd9345bab1cc91a9737a2ec75402e3aab99197c30e03b3563",
+    "hierarchos-vulkan/validation/test_rdna3_workflow_paths.py": "08514ec219d6ce9d235d44f857c786e3f696d6f1064213c41f18b1231be3b8b0"
+  },
+  "rows": {
+    "full_5": {
+      "path": "aggregate/full-5",
+      "exit_code": 0,
+      "pass": true
+    },
+    "full_6": {
+      "path": "aggregate/full-6",
+      "exit_code": 0,
+      "pass": true
+    },
+    "full_4_failed": {
+      "path": "aggregate/full-4-failed",
+      "exit_code": 1,
+      "pass": false,
+      "diagnostic": "The initial aggregate reached 8/9 stages; the DeepSeek validator rejected the changed 248-test enumeration before stage execution. This failed run is retained and is not combined with later reruns."
+    }
+  },
+  "formatting": {
+    "cargo_fmt_check_exit": 1,
+    "cargo_fmt_check_status": "known pre-existing failure in unrelated production/test files",
+    "allocator_rustfmt_check_exit": 0,
+    "native_vision_rustfmt_check_exit": 1,
+    "native_vision_rustfmt_status": "known pre-existing formatting differences",
+    "diff_check_exit": 0
+  },
+  "hardware": {
+    "rdna3_self_hosted_runners": 0,
+    "hardware_ci_claimed": false
+  }
+}

@@ -1,0 +1,41 @@
+
+running 8 tests
+test deepseek_v41::rotary_tests::deepseek_v41_rotary_tiles_rows_past_one_dispatch_axis ... ok
+test deepseek_v41::terminal::tests::reduced_cross_entropy_and_row_mean_keep_their_distinct_cpu_folds ... ok
+test deepseek_v41::terminal::tests::terminal_adjoints_match_the_pinned_cpu_fixture ... ok
+test deepseek_v41::tests::deepseek_v41_candidate_filter_can_be_disabled ... ok
+test deepseek_v41::tests::deepseek_v41_rejects_invalid_dimensions_and_missing_fields ... ok
+test deepseek_v41::tests::deepseek_v41_rejects_invalid_sharing_schedules ... ok
+test deepseek_v41::tests::deepseek_v41_released_config_preserves_package_and_builds_sharing_plan ... ok
+test deepseek_v41::tests::deepseek_v41_released_engram_prime_ranges_match_table_rows ... ok
+
+successes:
+
+---- deepseek_v41::terminal::tests::reduced_cross_entropy_and_row_mean_keep_their_distinct_cpu_folds stdout ----
+V4.1 loss reduction original-terminal rows: 4 values, worst 0.00000000000000000e0
+V4.1 loss reduction original-terminal row mean: 1 values, worst 0.00000000000000000e0
+V4.1 loss reduction original-terminal reduced mean: 1 values, worst 0.00000000000000000e0
+V4.1 loss reduction query-step rows: 4 values, worst 0.00000000000000000e0
+V4.1 loss reduction query-step row mean: 1 values, worst 0.00000000000000000e0
+V4.1 loss reduction query-step reduced mean: 1 values, worst 0.00000000000000000e0
+
+---- deepseek_v41::terminal::tests::terminal_adjoints_match_the_pinned_cpu_fixture stdout ----
+V4.1 terminal row_loss: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 terminal grad_logits: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 terminal grad_hidden: worst |0 - 0| = 0.00000000000000000e0 at 0
+V4.1 terminal loss: native 15.312746048 CPU 15.312746048 delta 0.00000000000000000e0
+V4.1 terminal grad_x: worst |0 - 0| = 0.00000000000000000e0 at 0
+
+
+successes:
+    deepseek_v41::rotary_tests::deepseek_v41_rotary_tiles_rows_past_one_dispatch_axis
+    deepseek_v41::terminal::tests::reduced_cross_entropy_and_row_mean_keep_their_distinct_cpu_folds
+    deepseek_v41::terminal::tests::terminal_adjoints_match_the_pinned_cpu_fixture
+    deepseek_v41::tests::deepseek_v41_candidate_filter_can_be_disabled
+    deepseek_v41::tests::deepseek_v41_rejects_invalid_dimensions_and_missing_fields
+    deepseek_v41::tests::deepseek_v41_rejects_invalid_sharing_schedules
+    deepseek_v41::tests::deepseek_v41_released_config_preserves_package_and_builds_sharing_plan
+    deepseek_v41::tests::deepseek_v41_released_engram_prime_ranges_match_table_rows
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 0.38s
+

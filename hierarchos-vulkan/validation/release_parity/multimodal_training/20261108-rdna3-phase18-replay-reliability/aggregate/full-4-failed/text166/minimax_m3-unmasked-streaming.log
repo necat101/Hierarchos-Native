@@ -1,0 +1,16 @@
+variant-plan: linear-forward=amd-rdna3-lds64 linear-bias-forward=amd-rdna3-lds64 linear-residual-forward=amd-rdna3-lds64 linear3-forward=amd-rdna3-lds64 silu-forward=portable silu-backward=portable adamw=portable
+transformer_logits: constructing graph
+transformer_logits: output head served from package tiles
+transformer_logits: graph constructed; running forward
+variant-fallback: {"device":"AMD Radeon Graphics [pci=1002:15bf;driver=00800184]","family":"linear-forward","input_dim":16,"output_dim":16,"parameter_storage":"fp32-compute","reason":"unmeasured-portable","rows":6}
+variant-fallback: {"device":"AMD Radeon Graphics [pci=1002:15bf;driver=00800184]","family":"linear-forward","input_dim":16,"output_dim":16,"parameter_storage":"fp32-compute","reason":"unmeasured-portable","rows":6}
+variant-fallback: {"device":"AMD Radeon Graphics [pci=1002:15bf;driver=00800184]","family":"linear-forward","input_dim":16,"output_dim":32,"parameter_storage":"fp32-compute","reason":"unmeasured-portable","rows":6}
+variant-fallback: {"device":"AMD Radeon Graphics [pci=1002:15bf;driver=00800184]","family":"linear-forward","input_dim":16,"output_dim":32,"parameter_storage":"fp32-compute","reason":"unmeasured-portable","rows":6}
+variant-fallback: {"device":"AMD Radeon Graphics [pci=1002:15bf;driver=00800184]","family":"linear-forward","input_dim":32,"output_dim":16,"parameter_storage":"fp32-compute","reason":"unmeasured-portable","rows":6}
+variant-fallback: {"device":"AMD Radeon Graphics [pci=1002:15bf;driver=00800184]","family":"linear-forward","input_dim":16,"output_dim":16,"parameter_storage":"fp32-compute","reason":"unmeasured-portable","rows":6}
+variant-fallback: {"device":"AMD Radeon Graphics [pci=1002:15bf;driver=00800184]","family":"linear-forward","input_dim":16,"output_dim":16,"parameter_storage":"fp32-compute","reason":"unmeasured-portable","rows":6}
+variant-fallback: {"device":"AMD Radeon Graphics [pci=1002:15bf;driver=00800184]","family":"linear-forward","input_dim":16,"output_dim":3,"parameter_storage":"fp32-compute","reason":"unmeasured-portable","rows":6}
+variant-fallback: {"device":"AMD Radeon Graphics [pci=1002:15bf;driver=00800184]","family":"linear-forward","input_dim":8,"output_dim":16,"parameter_storage":"fp32-compute","reason":"unmeasured-portable","rows":6}
+variant-fallback: {"device":"AMD Radeon Graphics [pci=1002:15bf;driver=00800184]","family":"linear-forward","input_dim":16,"output_dim":32,"parameter_storage":"fp32-compute","reason":"unmeasured-portable","rows":6}
+transformer_logits: forward complete
+variant-dispatch: 

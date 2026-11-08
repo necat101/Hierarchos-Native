@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\validation\qualify_rdna3_deepseek_suite.py", line 64, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\validation\qualify_rdna3_deepseek_suite.py", line 39, in main
+    require(full.returncode==ignored.returncode==0 and len(all_names)==244,'full suite enumeration changed')
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\validation\qualify_rdna3_deepseek_suite.py", line 20, in require
+    if not c:raise ValueError(m)
+             ^^^^^^^^^^^^^^^^^^^
+ValueError: full suite enumeration changed

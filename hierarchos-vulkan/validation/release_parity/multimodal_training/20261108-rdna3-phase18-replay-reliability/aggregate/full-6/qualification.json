@@ -1,0 +1,206 @@
+{
+  "schema": 1,
+  "target": "rdna3",
+  "scope": "complete_green_gen9_multimodal_replay",
+  "absolute_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "baseline_sha256": "e20ab6b495cf1407584dcfed2778f83de1abc5518a249c049089bf60d51564f9",
+  "frozen_manifest_sha256": "a9e519008e712105ceb1b135227398785617db3eb03c65e7518bb7f225966636",
+  "unchanged_frozen_files": 2748,
+  "binary_sha256": {
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe": "cc558cc72012bc5bb0362093af6f9a3b5e8bdf07fdda06be3883d24d200dad62",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\image_text_pipeline_probe.exe": "d5babaa3ef63f74ea9edc0a993b5b614cf29463e83ab3b41fb0dccf001682436",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\gemma3_vision_probe.exe": "a76791a39755b96f7e34df78315dcc9fb1b1d014444a58058a48f00aeac39d39",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\gemma4_vision_probe.exe": "22141a8877f3cfd3e0663fad2bf1dc7a09bc78c0464d3248cdf70f121f41b4b8",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\llava_pipeline_probe.exe": "1166db47a8d19ce78173468d52b20a99151dcfaf5178e4d9fbdbcf5d99930471",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\hierarchos-vulkan-transformer-logits.exe": "76ee7c0aa54acbeb6e8829fd80e311c7e77761e87ed8e280167da3fef1d15119"
+  },
+  "oracle_cpu": "AVX2 frozen reference",
+  "deepseek_host_width": 16,
+  "stages": [
+    "shared77",
+    "seq2seq",
+    "gemma4-legacy",
+    "gemma4-rgb",
+    "gemma3",
+    "llava",
+    "text166",
+    "deepseek215",
+    "native-v41"
+  ],
+  "complete": true,
+  "pass": true,
+  "results": [
+    {
+      "stage": "shared77",
+      "command": [
+        "C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_shared_image_pipeline.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gen9-frozen\\target\\multimodal-gen9\\shared-image-cpu-v3",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\image_text_pipeline_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\phase18\\aggregate\\full-6\\shared77",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "stage": "seq2seq",
+      "command": [
+        "C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_seq2seq_image_pipeline.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gen9-frozen\\target\\multimodal-gen9\\seq2seq-image-cpu-v1",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\image_text_pipeline_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\phase18\\aggregate\\full-6\\seq2seq",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "stage": "gemma4-legacy",
+      "command": [
+        "C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_gemma4_pipeline.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gen9-frozen\\hierarchos-vulkan\\validation\\tmp-gemma4-fixtures\\gen4-cpu",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\gemma4_vision_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\phase18\\aggregate\\full-6\\gemma4-legacy",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "stage": "gemma4-rgb",
+      "command": [
+        "C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_gemma4_pipeline.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gen9-frozen\\target\\multimodal-gen9\\gemma4-rgb-cpu",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\gemma4_vision_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\phase18\\aggregate\\full-6\\gemma4-rgb",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "stage": "gemma3",
+      "command": [
+        "C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_gemma3_pipeline.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gen9-frozen\\target\\multimodal-gen9\\gemma3-cpu",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\gemma3_vision_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\phase18\\aggregate\\full-6\\gemma3",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "stage": "llava",
+      "command": [
+        "C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_llava_pipeline.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gen9-frozen\\target\\multimodal-gen9\\llava-cpu",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\llava_pipeline_probe.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\phase18\\aggregate\\full-6\\llava",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "stage": "text166",
+      "command": [
+        "C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_gen9_architectures.py",
+        "run",
+        "--fixtures",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gen9-frozen\\target\\gen9-phase3\\cpu-fixtures-reproduced",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\hierarchos-vulkan-transformer-logits.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\phase18\\aggregate\\full-6\\text166",
+        "--target",
+        "rdna3",
+        "--expected-device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "stage": "deepseek215",
+      "command": [
+        "C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_rdna3_deepseek_suite.py",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\phase18\\aggregate\\full-6\\deepseek215"
+      ],
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "stage": "native-v41",
+      "command": [
+        "C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\validation\\qualify_deepseek_v41_native_pipeline.py",
+        "--binary",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\phase18\\aggregate\\full-6\\native-v41",
+        "--target",
+        "rdna3",
+        "--device-id",
+        "0x15bf"
+      ],
+      "returncode": 0,
+      "pass": true
+    }
+  ]
+}

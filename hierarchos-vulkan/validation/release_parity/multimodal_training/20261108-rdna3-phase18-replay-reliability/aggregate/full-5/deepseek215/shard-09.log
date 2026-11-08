@@ -1,0 +1,68 @@
+
+running 8 tests
+test deepseek_v41::indexer_tests::deepseek_v41_candidate_source_publishes_masks_for_consumer_indexers ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_fine_indexer_owns_keys_and_returns_sorted_shared_positions ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_key_production_matches_pinned_fp32_reference ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_score_kernel_matches_host_float64_reference ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_selection_matches_pinned_reference_topk ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_selection_rejects_invalid_topk_and_shapes ... ok
+test deepseek_v41::mixed_linear::gradients::tests::gathered_adapter_spans_preserve_individual_words_and_order ... ok
+test deepseek_v41::mixed_linear::gradients::tests::packed_projection_tape_vjps_match_cpu_pytorch ... ok
+
+successes:
+
+---- deepseek_v41::indexer_tests::deepseek_v41_index_key_production_matches_pinned_fp32_reference stdout ----
+V4.1 index keys on AMD Radeon Graphics: 608 reference values, worst absolute drift 0.000000000000e0
+
+---- deepseek_v41::indexer_tests::deepseek_v41_index_score_kernel_matches_host_float64_reference stdout ----
+V4.1 index score diagnostic start_pos=0: worst drift 1.396984e-8
+V4.1 index score diagnostic start_pos=3: worst drift 1.396984e-8
+
+---- deepseek_v41::indexer_tests::deepseek_v41_index_selection_matches_pinned_reference_topk stdout ----
+V4.1 index selection on AMD Radeon Graphics: 117 exact indices
+
+---- deepseek_v41::mixed_linear::gradients::tests::packed_projection_tape_vjps_match_cpu_pytorch stdout ----
+V4.1 projection adjoint packed fp8-block32-bf16-stream forward: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-bf16-stream dX: 256 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-fp32-stream forward: 144 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-fp32-stream dX: 192 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-wide-rows forward: 384 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-wide-rows dX: 512 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block128-bf16-stream forward: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block128-bf16-stream dX: 512 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block128-fp32-stream forward: 480 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block128-fp32-stream dX: 640 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp4-row32-bf16-stream forward: 240 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp4-row32-bf16-stream dX: 480 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp4-row32-lora-bf16 forward: 192 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp4-row32-lora-bf16 dX: 384 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp4-row32-lora-bf16 dA: 256 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp4-row32-lora-bf16 dB: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-rslora-bf16 forward: 320 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-rslora-bf16 dX: 640 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-rslora-bf16 dA: 512 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-rslora-bf16 dB: 256 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-lora-wide forward: 384 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-lora-wide dX: 512 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-lora-wide dA: 512 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed fp8-block32-lora-wide dB: 384 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed bf16-dense-bf16-stream forward: 160 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed bf16-dense-bf16-stream dX: 320 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed bf16-dense-lora-bf16 forward: 64 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed bf16-dense-lora-bf16 dX: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed bf16-dense-lora-bf16 dA: 128 values, worst 0.00000000000000000e0
+V4.1 projection adjoint packed bf16-dense-lora-bf16 dB: 64 values, worst 0.00000000000000000e0
+
+
+successes:
+    deepseek_v41::indexer_tests::deepseek_v41_candidate_source_publishes_masks_for_consumer_indexers
+    deepseek_v41::indexer_tests::deepseek_v41_fine_indexer_owns_keys_and_returns_sorted_shared_positions
+    deepseek_v41::indexer_tests::deepseek_v41_index_key_production_matches_pinned_fp32_reference
+    deepseek_v41::indexer_tests::deepseek_v41_index_score_kernel_matches_host_float64_reference
+    deepseek_v41::indexer_tests::deepseek_v41_index_selection_matches_pinned_reference_topk
+    deepseek_v41::indexer_tests::deepseek_v41_index_selection_rejects_invalid_topk_and_shapes
+    deepseek_v41::mixed_linear::gradients::tests::gathered_adapter_spans_preserve_individual_words_and_order
+    deepseek_v41::mixed_linear::gradients::tests::packed_projection_tape_vjps_match_cpu_pytorch
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 0.76s
+

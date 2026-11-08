@@ -1,0 +1,100 @@
+
+running 8 tests
+test deepseek_v41::engram::gradients::tests::engram_normalized_gate_vjps_match_cpu_including_width5120 ... ok
+test deepseek_v41::engram::gradients::tests::engram_retained_lookup_projection_chain_vjps_and_weight_release_match_cpu ... ok
+test deepseek_v41::engram::gradients::tests::engram_streamed_table_is_unneeded_by_retained_backward ... ok
+test deepseek_v41::engram::width_tests::deepseek_v41_engram_gate_at_production_width_matches_cpu_bits ... ok
+test deepseek_v41::engram_tests::deepseek_v41_engram_gate_matches_the_pinned_reference ... ok
+test deepseek_v41::engram_tests::deepseek_v41_engram_hash_matches_the_pinned_reference ... ok
+test deepseek_v41::engram_tests::deepseek_v41_engram_layout_matches_the_pinned_reference ... ok
+test deepseek_v41::engram_tests::deepseek_v41_engram_rejects_invalid_multipliers ... ok
+
+successes:
+
+---- deepseek_v41::engram::gradients::tests::engram_normalized_gate_vjps_match_cpu_including_width5120 stdout ----
+V4.1 Engram adjoint masked-hc2 forward: 48 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint masked-hc2 dStream: 48 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint masked-hc2 dKV: 72 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint odd-width-and-epsilon forward: 85 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint odd-width-and-epsilon dStream: 85 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint odd-width-and-epsilon dKV: 170 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint all-masked forward: 512 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint all-masked dStream: 512 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint all-masked dKV: 640 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint below-sqrt-floor forward: 192 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint below-sqrt-floor dStream: 192 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint below-sqrt-floor dKV: 288 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint zero-norms forward: 128 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint zero-norms dStream: 128 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint zero-norms dKV: 160 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint clamp-boundary-signed-zero forward: 4 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint clamp-boundary-signed-zero dStream: 4 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint clamp-boundary-signed-zero dKV: 8 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint hc16-vector-sigmoid forward: 768 values, worst 5.96046447753906250e-8
+V4.1 Engram adjoint hc16-vector-sigmoid dStream: 768 values, worst 1.49011611938476562e-8
+V4.1 Engram adjoint hc16-vector-sigmoid dKV: 816 values, worst 1.19209289550781250e-7
+V4.1 Engram adjoint cascade-width544 forward: 3264 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint cascade-width544 dStream: 3264 values, worst 2.98023223876953125e-8
+V4.1 Engram adjoint cascade-width544 dKV: 4352 values, worst 7.45058059692382812e-9
+V4.1 Engram adjoint released-width5120 forward: 61440 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint released-width5120 dStream: 61440 values, worst 5.96046447753906250e-8
+V4.1 Engram adjoint released-width5120 dKV: 76800 values, worst 1.19209289550781250e-7
+
+---- deepseek_v41::engram::gradients::tests::engram_retained_lookup_projection_chain_vjps_and_weight_release_match_cpu stdout ----
+V4.1 Engram adjoint dense-frozen-invalid-hashes forward: 96 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint dense-frozen-invalid-hashes dStream: 96 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint dense-frozen-invalid-hashes dKV: 144 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint dense-frozen-invalid-hashes dEmbedded: 24 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint bf16-adapter-packed-table forward: 512 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint bf16-adapter-packed-table dStream: 512 values, worst 7.45058059692382812e-9
+V4.1 Engram adjoint bf16-adapter-packed-table dKV: 640 values, worst 1.49011611938476562e-8
+V4.1 Engram adjoint bf16-adapter-packed-table dEmbedded: 256 values, worst 2.98023223876953125e-8
+V4.1 Engram adjoint bf16-adapter-packed-table dA: 128 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint bf16-adapter-packed-table dB: 320 values, worst 4.65661287307739258e-10
+V4.1 Engram adjoint fp8-adapter-packed-table forward: 192 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-adapter-packed-table dStream: 192 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-adapter-packed-table dKV: 288 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-adapter-packed-table dEmbedded: 192 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-adapter-packed-table dA: 256 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-adapter-packed-table dB: 384 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-fp32-stream forward: 128 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-fp32-stream dStream: 128 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-fp32-stream dKV: 192 values, worst 2.91038304567337036e-11
+V4.1 Engram adjoint fp8-fp32-stream dEmbedded: 128 values, worst 2.91038304567337036e-11
+V4.1 Engram adjoint fp8-fp32-stream dA: 128 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-fp32-stream dB: 192 values, worst 9.09494701772928238e-13
+
+---- deepseek_v41::engram::gradients::tests::engram_streamed_table_is_unneeded_by_retained_backward stdout ----
+V4.1 Engram adjoint dense-frozen-invalid-hashes streamed forward: 96 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint dense-frozen-invalid-hashes dStream: 96 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint dense-frozen-invalid-hashes dKV: 144 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint dense-frozen-invalid-hashes dEmbedded: 24 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-adapter-packed-table streamed forward: 192 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-adapter-packed-table dStream: 192 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-adapter-packed-table dKV: 288 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-adapter-packed-table dEmbedded: 192 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-adapter-packed-table dA: 256 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-adapter-packed-table dB: 384 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-fp32-stream streamed forward: 128 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-fp32-stream dStream: 128 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-fp32-stream dKV: 192 values, worst 2.91038304567337036e-11
+V4.1 Engram adjoint fp8-fp32-stream dEmbedded: 128 values, worst 2.91038304567337036e-11
+V4.1 Engram adjoint fp8-fp32-stream dA: 128 values, worst 0.00000000000000000e0
+V4.1 Engram adjoint fp8-fp32-stream dB: 192 values, worst 9.09494701772928238e-13
+
+---- deepseek_v41::engram_tests::deepseek_v41_engram_gate_matches_the_pinned_reference stdout ----
+Engram gate worst drift 5.960464477539063e-8 over 448 values
+
+
+successes:
+    deepseek_v41::engram::gradients::tests::engram_normalized_gate_vjps_match_cpu_including_width5120
+    deepseek_v41::engram::gradients::tests::engram_retained_lookup_projection_chain_vjps_and_weight_release_match_cpu
+    deepseek_v41::engram::gradients::tests::engram_streamed_table_is_unneeded_by_retained_backward
+    deepseek_v41::engram::width_tests::deepseek_v41_engram_gate_at_production_width_matches_cpu_bits
+    deepseek_v41::engram_tests::deepseek_v41_engram_gate_matches_the_pinned_reference
+    deepseek_v41::engram_tests::deepseek_v41_engram_hash_matches_the_pinned_reference
+    deepseek_v41::engram_tests::deepseek_v41_engram_layout_matches_the_pinned_reference
+    deepseek_v41::engram_tests::deepseek_v41_engram_rejects_invalid_multipliers
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 1.31s
+

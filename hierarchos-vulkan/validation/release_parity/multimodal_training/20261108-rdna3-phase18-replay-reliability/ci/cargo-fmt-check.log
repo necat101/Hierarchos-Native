@@ -1,0 +1,731 @@
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:1979:
+             pending.prune_unreachable();
+         }
+         let key = Arc::as_ptr(&buffer.allocation) as usize;
+[31m-        pending.entries.insert(key, PendingClear {
+[0m[31m-            allocation: Arc::downgrade(&buffer.allocation),
+[0m[31m-            size_bytes,
+[0m[31m-            owner: std::thread::current().id(),
+[0m[31m-        });
+[0m[32m+        pending.entries.insert(
+[0m[32m+            key,
+[0m[32m+            PendingClear {
+[0m[32m+                allocation: Arc::downgrade(&buffer.allocation),
+[0m[32m+                size_bytes,
+[0m[32m+                owner: std::thread::current().id(),
+[0m[32m+            },
+[0m[32m+        );
+[0m         pending.enqueued = pending.enqueued.saturating_add(1);
+         pending.max_entries = pending
+             .max_entries
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:6628:
+         let report = rows
+             .iter()
+             .map(|(&(file, line), row)| {
+[31m-                (
+[0m[31m-                    file,
+[0m[31m-                    line,
+[0m[31m-                    row.count,
+[0m[31m-                    row.dispatches,
+[0m[31m-                    row.elapsed,
+[0m[31m-                    row.host,
+[0m[31m-                )
+[0m[32m+                (file, line, row.count, row.dispatches, row.elapsed, row.host)
+[0m             })
+             .collect();
+         rows.clear();
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:7895:
+             }
+         }
+         #[cfg(test)]
+[31m-        retirement_report::record(
+[0m[31m-            caller,
+[0m[31m-            started.elapsed(),
+[0m[31m-            retired_dispatches,
+[0m[31m-            host_elapsed,
+[0m[31m-        );
+[0m[32m+        retirement_report::record(caller, started.elapsed(), retired_dispatches, host_elapsed);
+[0m         retired_counts.carry_into(self);
+         self.session_owned = session_owned;
+         self.watchdog_submission_slicing = watchdog_submission_slicing;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9606:
+         GEN9_WATCHDOG_SLICE_MICROS, GEN9_WATCHDOG_SLICING_DEFAULT, INTEL_PCI_VENDOR_ID,
+         INTEL_WATCHDOG_PLATFORM, WATCHDOG_SLICE_DISPATCHES_ENV, WATCHDOG_SUBMISSIONS_ENV,
+     };
+[31m-    use std::sync::Arc;
+[0m     use anyhow::{anyhow, Context, Result};
+[32m+    use std::sync::Arc;
+[0m 
+     #[test]
+     fn compute_pipelines_share_driver_objects_and_preserve_kernel_access() -> Result<()> {
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9881:
+         commands.copy_f32_range(&source, 0, &second_target, 0, 4)?;
+         commands.submit()?;
+         let after = device.pending_clear_stats()?;
+[31m-        let probed = after
+[0m[31m-            .scanned_entries
+[0m[31m-            .saturating_sub(before.scanned_entries);
+[0m[32m+        let probed = after.scanned_entries.saturating_sub(before.scanned_entries);
+[0m         assert!(
+             probed < waiting.len() as u64,
+             "drain probed {probed} entries for a two-buffer copy despite {} unbound fills",
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9956:
+         let targets = (0..16)
+             .map(|_| GpuBuffer::zeros_f32(&device, 4))
+             .collect::<Result<Vec<_>>>()?;
+[31m-        assert_eq!(
+[0m[31m-            device.pending_clear_stats()?.pending_entries,
+[0m[31m-            targets.len()
+[0m[31m-        );
+[0m[32m+        assert_eq!(device.pending_clear_stats()?.pending_entries, targets.len());
+[0m         let mut commands = ComputeBatch::new(&device)?;
+         for target in &targets {
+             commands.copy_f32_range(&source, 0, target, 0, 4)?;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:1979:
+             pending.prune_unreachable();
+         }
+         let key = Arc::as_ptr(&buffer.allocation) as usize;
+[31m-        pending.entries.insert(key, PendingClear {
+[0m[31m-            allocation: Arc::downgrade(&buffer.allocation),
+[0m[31m-            size_bytes,
+[0m[31m-            owner: std::thread::current().id(),
+[0m[31m-        });
+[0m[32m+        pending.entries.insert(
+[0m[32m+            key,
+[0m[32m+            PendingClear {
+[0m[32m+                allocation: Arc::downgrade(&buffer.allocation),
+[0m[32m+                size_bytes,
+[0m[32m+                owner: std::thread::current().id(),
+[0m[32m+            },
+[0m[32m+        );
+[0m         pending.enqueued = pending.enqueued.saturating_add(1);
+         pending.max_entries = pending
+             .max_entries
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:6628:
+         let report = rows
+             .iter()
+             .map(|(&(file, line), row)| {
+[31m-                (
+[0m[31m-                    file,
+[0m[31m-                    line,
+[0m[31m-                    row.count,
+[0m[31m-                    row.dispatches,
+[0m[31m-                    row.elapsed,
+[0m[31m-                    row.host,
+[0m[31m-                )
+[0m[32m+                (file, line, row.count, row.dispatches, row.elapsed, row.host)
+[0m             })
+             .collect();
+         rows.clear();
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:7895:
+             }
+         }
+         #[cfg(test)]
+[31m-        retirement_report::record(
+[0m[31m-            caller,
+[0m[31m-            started.elapsed(),
+[0m[31m-            retired_dispatches,
+[0m[31m-            host_elapsed,
+[0m[31m-        );
+[0m[32m+        retirement_report::record(caller, started.elapsed(), retired_dispatches, host_elapsed);
+[0m         retired_counts.carry_into(self);
+         self.session_owned = session_owned;
+         self.watchdog_submission_slicing = watchdog_submission_slicing;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9606:
+         GEN9_WATCHDOG_SLICE_MICROS, GEN9_WATCHDOG_SLICING_DEFAULT, INTEL_PCI_VENDOR_ID,
+         INTEL_WATCHDOG_PLATFORM, WATCHDOG_SLICE_DISPATCHES_ENV, WATCHDOG_SUBMISSIONS_ENV,
+     };
+[31m-    use std::sync::Arc;
+[0m     use anyhow::{anyhow, Context, Result};
+[32m+    use std::sync::Arc;
+[0m 
+     #[test]
+     fn compute_pipelines_share_driver_objects_and_preserve_kernel_access() -> Result<()> {
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9881:
+         commands.copy_f32_range(&source, 0, &second_target, 0, 4)?;
+         commands.submit()?;
+         let after = device.pending_clear_stats()?;
+[31m-        let probed = after
+[0m[31m-            .scanned_entries
+[0m[31m-            .saturating_sub(before.scanned_entries);
+[0m[32m+        let probed = after.scanned_entries.saturating_sub(before.scanned_entries);
+[0m         assert!(
+             probed < waiting.len() as u64,
+             "drain probed {probed} entries for a two-buffer copy despite {} unbound fills",
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9956:
+         let targets = (0..16)
+             .map(|_| GpuBuffer::zeros_f32(&device, 4))
+             .collect::<Result<Vec<_>>>()?;
+[31m-        assert_eq!(
+[0m[31m-            device.pending_clear_stats()?.pending_entries,
+[0m[31m-            targets.len()
+[0m[31m-        );
+[0m[32m+        assert_eq!(device.pending_clear_stats()?.pending_entries, targets.len());
+[0m         let mut commands = ComputeBatch::new(&device)?;
+         for target in &targets {
+             commands.copy_f32_range(&source, 0, target, 0, 4)?;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:1979:
+             pending.prune_unreachable();
+         }
+         let key = Arc::as_ptr(&buffer.allocation) as usize;
+[31m-        pending.entries.insert(key, PendingClear {
+[0m[31m-            allocation: Arc::downgrade(&buffer.allocation),
+[0m[31m-            size_bytes,
+[0m[31m-            owner: std::thread::current().id(),
+[0m[31m-        });
+[0m[32m+        pending.entries.insert(
+[0m[32m+            key,
+[0m[32m+            PendingClear {
+[0m[32m+                allocation: Arc::downgrade(&buffer.allocation),
+[0m[32m+                size_bytes,
+[0m[32m+                owner: std::thread::current().id(),
+[0m[32m+            },
+[0m[32m+        );
+[0m         pending.enqueued = pending.enqueued.saturating_add(1);
+         pending.max_entries = pending
+             .max_entries
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:6628:
+         let report = rows
+             .iter()
+             .map(|(&(file, line), row)| {
+[31m-                (
+[0m[31m-                    file,
+[0m[31m-                    line,
+[0m[31m-                    row.count,
+[0m[31m-                    row.dispatches,
+[0m[31m-                    row.elapsed,
+[0m[31m-                    row.host,
+[0m[31m-                )
+[0m[32m+                (file, line, row.count, row.dispatches, row.elapsed, row.host)
+[0m             })
+             .collect();
+         rows.clear();
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:7895:
+             }
+         }
+         #[cfg(test)]
+[31m-        retirement_report::record(
+[0m[31m-            caller,
+[0m[31m-            started.elapsed(),
+[0m[31m-            retired_dispatches,
+[0m[31m-            host_elapsed,
+[0m[31m-        );
+[0m[32m+        retirement_report::record(caller, started.elapsed(), retired_dispatches, host_elapsed);
+[0m         retired_counts.carry_into(self);
+         self.session_owned = session_owned;
+         self.watchdog_submission_slicing = watchdog_submission_slicing;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9606:
+         GEN9_WATCHDOG_SLICE_MICROS, GEN9_WATCHDOG_SLICING_DEFAULT, INTEL_PCI_VENDOR_ID,
+         INTEL_WATCHDOG_PLATFORM, WATCHDOG_SLICE_DISPATCHES_ENV, WATCHDOG_SUBMISSIONS_ENV,
+     };
+[31m-    use std::sync::Arc;
+[0m     use anyhow::{anyhow, Context, Result};
+[32m+    use std::sync::Arc;
+[0m 
+     #[test]
+     fn compute_pipelines_share_driver_objects_and_preserve_kernel_access() -> Result<()> {
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9881:
+         commands.copy_f32_range(&source, 0, &second_target, 0, 4)?;
+         commands.submit()?;
+         let after = device.pending_clear_stats()?;
+[31m-        let probed = after
+[0m[31m-            .scanned_entries
+[0m[31m-            .saturating_sub(before.scanned_entries);
+[0m[32m+        let probed = after.scanned_entries.saturating_sub(before.scanned_entries);
+[0m         assert!(
+             probed < waiting.len() as u64,
+             "drain probed {probed} entries for a two-buffer copy despite {} unbound fills",
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9956:
+         let targets = (0..16)
+             .map(|_| GpuBuffer::zeros_f32(&device, 4))
+             .collect::<Result<Vec<_>>>()?;
+[31m-        assert_eq!(
+[0m[31m-            device.pending_clear_stats()?.pending_entries,
+[0m[31m-            targets.len()
+[0m[31m-        );
+[0m[32m+        assert_eq!(device.pending_clear_stats()?.pending_entries, targets.len());
+[0m         let mut commands = ComputeBatch::new(&device)?;
+         for target in &targets {
+             commands.copy_f32_range(&source, 0, target, 0, 4)?;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:1979:
+             pending.prune_unreachable();
+         }
+         let key = Arc::as_ptr(&buffer.allocation) as usize;
+[31m-        pending.entries.insert(key, PendingClear {
+[0m[31m-            allocation: Arc::downgrade(&buffer.allocation),
+[0m[31m-            size_bytes,
+[0m[31m-            owner: std::thread::current().id(),
+[0m[31m-        });
+[0m[32m+        pending.entries.insert(
+[0m[32m+            key,
+[0m[32m+            PendingClear {
+[0m[32m+                allocation: Arc::downgrade(&buffer.allocation),
+[0m[32m+                size_bytes,
+[0m[32m+                owner: std::thread::current().id(),
+[0m[32m+            },
+[0m[32m+        );
+[0m         pending.enqueued = pending.enqueued.saturating_add(1);
+         pending.max_entries = pending
+             .max_entries
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:6628:
+         let report = rows
+             .iter()
+             .map(|(&(file, line), row)| {
+[31m-                (
+[0m[31m-                    file,
+[0m[31m-                    line,
+[0m[31m-                    row.count,
+[0m[31m-                    row.dispatches,
+[0m[31m-                    row.elapsed,
+[0m[31m-                    row.host,
+[0m[31m-                )
+[0m[32m+                (file, line, row.count, row.dispatches, row.elapsed, row.host)
+[0m             })
+             .collect();
+         rows.clear();
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:7895:
+             }
+         }
+         #[cfg(test)]
+[31m-        retirement_report::record(
+[0m[31m-            caller,
+[0m[31m-            started.elapsed(),
+[0m[31m-            retired_dispatches,
+[0m[31m-            host_elapsed,
+[0m[31m-        );
+[0m[32m+        retirement_report::record(caller, started.elapsed(), retired_dispatches, host_elapsed);
+[0m         retired_counts.carry_into(self);
+         self.session_owned = session_owned;
+         self.watchdog_submission_slicing = watchdog_submission_slicing;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9606:
+         GEN9_WATCHDOG_SLICE_MICROS, GEN9_WATCHDOG_SLICING_DEFAULT, INTEL_PCI_VENDOR_ID,
+         INTEL_WATCHDOG_PLATFORM, WATCHDOG_SLICE_DISPATCHES_ENV, WATCHDOG_SUBMISSIONS_ENV,
+     };
+[31m-    use std::sync::Arc;
+[0m     use anyhow::{anyhow, Context, Result};
+[32m+    use std::sync::Arc;
+[0m 
+     #[test]
+     fn compute_pipelines_share_driver_objects_and_preserve_kernel_access() -> Result<()> {
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9881:
+         commands.copy_f32_range(&source, 0, &second_target, 0, 4)?;
+         commands.submit()?;
+         let after = device.pending_clear_stats()?;
+[31m-        let probed = after
+[0m[31m-            .scanned_entries
+[0m[31m-            .saturating_sub(before.scanned_entries);
+[0m[32m+        let probed = after.scanned_entries.saturating_sub(before.scanned_entries);
+[0m         assert!(
+             probed < waiting.len() as u64,
+             "drain probed {probed} entries for a two-buffer copy despite {} unbound fills",
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9956:
+         let targets = (0..16)
+             .map(|_| GpuBuffer::zeros_f32(&device, 4))
+             .collect::<Result<Vec<_>>>()?;
+[31m-        assert_eq!(
+[0m[31m-            device.pending_clear_stats()?.pending_entries,
+[0m[31m-            targets.len()
+[0m[31m-        );
+[0m[32m+        assert_eq!(device.pending_clear_stats()?.pending_entries, targets.len());
+[0m         let mut commands = ComputeBatch::new(&device)?;
+         for target in &targets {
+             commands.copy_f32_range(&source, 0, target, 0, 4)?;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:1979:
+             pending.prune_unreachable();
+         }
+         let key = Arc::as_ptr(&buffer.allocation) as usize;
+[31m-        pending.entries.insert(key, PendingClear {
+[0m[31m-            allocation: Arc::downgrade(&buffer.allocation),
+[0m[31m-            size_bytes,
+[0m[31m-            owner: std::thread::current().id(),
+[0m[31m-        });
+[0m[32m+        pending.entries.insert(
+[0m[32m+            key,
+[0m[32m+            PendingClear {
+[0m[32m+                allocation: Arc::downgrade(&buffer.allocation),
+[0m[32m+                size_bytes,
+[0m[32m+                owner: std::thread::current().id(),
+[0m[32m+            },
+[0m[32m+        );
+[0m         pending.enqueued = pending.enqueued.saturating_add(1);
+         pending.max_entries = pending
+             .max_entries
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:6628:
+         let report = rows
+             .iter()
+             .map(|(&(file, line), row)| {
+[31m-                (
+[0m[31m-                    file,
+[0m[31m-                    line,
+[0m[31m-                    row.count,
+[0m[31m-                    row.dispatches,
+[0m[31m-                    row.elapsed,
+[0m[31m-                    row.host,
+[0m[31m-                )
+[0m[32m+                (file, line, row.count, row.dispatches, row.elapsed, row.host)
+[0m             })
+             .collect();
+         rows.clear();
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:7895:
+             }
+         }
+         #[cfg(test)]
+[31m-        retirement_report::record(
+[0m[31m-            caller,
+[0m[31m-            started.elapsed(),
+[0m[31m-            retired_dispatches,
+[0m[31m-            host_elapsed,
+[0m[31m-        );
+[0m[32m+        retirement_report::record(caller, started.elapsed(), retired_dispatches, host_elapsed);
+[0m         retired_counts.carry_into(self);
+         self.session_owned = session_owned;
+         self.watchdog_submission_slicing = watchdog_submission_slicing;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9606:
+         GEN9_WATCHDOG_SLICE_MICROS, GEN9_WATCHDOG_SLICING_DEFAULT, INTEL_PCI_VENDOR_ID,
+         INTEL_WATCHDOG_PLATFORM, WATCHDOG_SLICE_DISPATCHES_ENV, WATCHDOG_SUBMISSIONS_ENV,
+     };
+[31m-    use std::sync::Arc;
+[0m     use anyhow::{anyhow, Context, Result};
+[32m+    use std::sync::Arc;
+[0m 
+     #[test]
+     fn compute_pipelines_share_driver_objects_and_preserve_kernel_access() -> Result<()> {
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9881:
+         commands.copy_f32_range(&source, 0, &second_target, 0, 4)?;
+         commands.submit()?;
+         let after = device.pending_clear_stats()?;
+[31m-        let probed = after
+[0m[31m-            .scanned_entries
+[0m[31m-            .saturating_sub(before.scanned_entries);
+[0m[32m+        let probed = after.scanned_entries.saturating_sub(before.scanned_entries);
+[0m         assert!(
+             probed < waiting.len() as u64,
+             "drain probed {probed} entries for a two-buffer copy despite {} unbound fills",
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9956:
+         let targets = (0..16)
+             .map(|_| GpuBuffer::zeros_f32(&device, 4))
+             .collect::<Result<Vec<_>>>()?;
+[31m-        assert_eq!(
+[0m[31m-            device.pending_clear_stats()?.pending_entries,
+[0m[31m-            targets.len()
+[0m[31m-        );
+[0m[32m+        assert_eq!(device.pending_clear_stats()?.pending_entries, targets.len());
+[0m         let mut commands = ComputeBatch::new(&device)?;
+         for target in &targets {
+             commands.copy_f32_range(&source, 0, target, 0, 4)?;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:1979:
+             pending.prune_unreachable();
+         }
+         let key = Arc::as_ptr(&buffer.allocation) as usize;
+[31m-        pending.entries.insert(key, PendingClear {
+[0m[31m-            allocation: Arc::downgrade(&buffer.allocation),
+[0m[31m-            size_bytes,
+[0m[31m-            owner: std::thread::current().id(),
+[0m[31m-        });
+[0m[32m+        pending.entries.insert(
+[0m[32m+            key,
+[0m[32m+            PendingClear {
+[0m[32m+                allocation: Arc::downgrade(&buffer.allocation),
+[0m[32m+                size_bytes,
+[0m[32m+                owner: std::thread::current().id(),
+[0m[32m+            },
+[0m[32m+        );
+[0m         pending.enqueued = pending.enqueued.saturating_add(1);
+         pending.max_entries = pending
+             .max_entries
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:6628:
+         let report = rows
+             .iter()
+             .map(|(&(file, line), row)| {
+[31m-                (
+[0m[31m-                    file,
+[0m[31m-                    line,
+[0m[31m-                    row.count,
+[0m[31m-                    row.dispatches,
+[0m[31m-                    row.elapsed,
+[0m[31m-                    row.host,
+[0m[31m-                )
+[0m[32m+                (file, line, row.count, row.dispatches, row.elapsed, row.host)
+[0m             })
+             .collect();
+         rows.clear();
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:7895:
+             }
+         }
+         #[cfg(test)]
+[31m-        retirement_report::record(
+[0m[31m-            caller,
+[0m[31m-            started.elapsed(),
+[0m[31m-            retired_dispatches,
+[0m[31m-            host_elapsed,
+[0m[31m-        );
+[0m[32m+        retirement_report::record(caller, started.elapsed(), retired_dispatches, host_elapsed);
+[0m         retired_counts.carry_into(self);
+         self.session_owned = session_owned;
+         self.watchdog_submission_slicing = watchdog_submission_slicing;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9606:
+         GEN9_WATCHDOG_SLICE_MICROS, GEN9_WATCHDOG_SLICING_DEFAULT, INTEL_PCI_VENDOR_ID,
+         INTEL_WATCHDOG_PLATFORM, WATCHDOG_SLICE_DISPATCHES_ENV, WATCHDOG_SUBMISSIONS_ENV,
+     };
+[31m-    use std::sync::Arc;
+[0m     use anyhow::{anyhow, Context, Result};
+[32m+    use std::sync::Arc;
+[0m 
+     #[test]
+     fn compute_pipelines_share_driver_objects_and_preserve_kernel_access() -> Result<()> {
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9881:
+         commands.copy_f32_range(&source, 0, &second_target, 0, 4)?;
+         commands.submit()?;
+         let after = device.pending_clear_stats()?;
+[31m-        let probed = after
+[0m[31m-            .scanned_entries
+[0m[31m-            .saturating_sub(before.scanned_entries);
+[0m[32m+        let probed = after.scanned_entries.saturating_sub(before.scanned_entries);
+[0m         assert!(
+             probed < waiting.len() as u64,
+             "drain probed {probed} entries for a two-buffer copy despite {} unbound fills",
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9956:
+         let targets = (0..16)
+             .map(|_| GpuBuffer::zeros_f32(&device, 4))
+             .collect::<Result<Vec<_>>>()?;
+[31m-        assert_eq!(
+[0m[31m-            device.pending_clear_stats()?.pending_entries,
+[0m[31m-            targets.len()
+[0m[31m-        );
+[0m[32m+        assert_eq!(device.pending_clear_stats()?.pending_entries, targets.len());
+[0m         let mut commands = ComputeBatch::new(&device)?;
+         for target in &targets {
+             commands.copy_f32_range(&source, 0, target, 0, 4)?;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\deepseek_v41\native_vision_state_tests.rs:261:
+         ("gpt2", "shared-image-cpu-v3"),
+         ("t5", "seq2seq-image-cpu-v1"),
+     ] {
+[31m-        if case_filter.as_deref().is_some_and(|requested| name != requested) {
+[0m[32m+        if case_filter
+[0m[32m+            .as_deref()
+[0m[32m+            .is_some_and(|requested| name != requested)
+[0m[32m+        {
+[0m             continue;
+         }
+         let directory = fixtures.join(folder).join(name).join("unmasked");
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\deepseek_v41\native_vision_state_tests.rs:312:
+             weight_decay: f["weight_decay"].as_f64().unwrap(),
+         };
+         let mut samples = Vec::new();
+[31m-        let telemetry_start = telemetry.then(|| benchmark_telemetry(&device)).transpose()?;
+[0m[32m+        let telemetry_start = telemetry
+[0m[32m+            .then(|| benchmark_telemetry(&device))
+[0m[32m+            .transpose()?;
+[0m         for index in 0..warmup + iterations {
+             let before = device.submission_count();
+             let aten_calls_before = crate::transformer::aten_vector_width_call_count();
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\deepseek_v41\native_vision_state_tests.rs:319:
+[31m-            let telemetry_before = telemetry.then(|| benchmark_telemetry(&device)).transpose()?;
+[0m[32m+            let telemetry_before = telemetry
+[0m[32m+                .then(|| benchmark_telemetry(&device))
+[0m[32m+                .transpose()?;
+[0m             let begin = Instant::now();
+             let result = if let Some((d, m)) = &decoder {
+                 graph.train_seq2seq_with_optimizer(
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\deepseek_v41\native_vision_state_tests.rs:328:
+             let ms = begin.elapsed().as_secs_f64() * 1000.;
+             assert_eq!(result.text.step as usize, index + 1);
+             if index >= warmup {
+[31m-                let mut sample = json!({"total_ms":ms,"submissions":device.submission_count()-before});
+[0m[32m+                let mut sample =
+[0m[32m+                    json!({"total_ms":ms,"submissions":device.submission_count()-before});
+[0m                 if telemetry {
+[31m-                    sample["aten_width_calls"] = json!(
+[0m[31m-                        crate::transformer::aten_vector_width_call_count()
+[0m[31m-                            .saturating_sub(aten_calls_before)
+[0m[31m-                    );
+[0m[32m+                    sample["aten_width_calls"] =
+[0m[32m+                        json!(crate::transformer::aten_vector_width_call_count()
+[0m[32m+                            .saturating_sub(aten_calls_before));
+[0m                 }
+                 if let Some(before) = telemetry_before {
+[31m-                    sample["telemetry"] = benchmark_telemetry_delta(
+[0m[31m-                        &before,
+[0m[31m-                        &benchmark_telemetry(&device)?,
+[0m[31m-                    );
+[0m[32m+                    sample["telemetry"] =
+[0m[32m+                        benchmark_telemetry_delta(&before, &benchmark_telemetry(&device)?);
+[0m                 }
+                 samples.push(sample);
+             }
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\transformer\image_text.rs:803:
+             .as_mut()
+             .context("image package has no decoder")?;
+         #[cfg(test)]
+[31m-        let phase_timing =
+[0m[31m-            std::env::var_os("HIERARCHOS_IMAGE_TEXT_PHASE_TIMING").is_some();
+[0m[32m+        let phase_timing = std::env::var_os("HIERARCHOS_IMAGE_TEXT_PHASE_TIMING").is_some();
+[0m         #[cfg(test)]
+         let mut phase_start = phase_timing.then(std::time::Instant::now);
+         let rows = self.graph.validate(input_ids, attention_mask, pixels)?;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:1979:
+             pending.prune_unreachable();
+         }
+         let key = Arc::as_ptr(&buffer.allocation) as usize;
+[31m-        pending.entries.insert(key, PendingClear {
+[0m[31m-            allocation: Arc::downgrade(&buffer.allocation),
+[0m[31m-            size_bytes,
+[0m[31m-            owner: std::thread::current().id(),
+[0m[31m-        });
+[0m[32m+        pending.entries.insert(
+[0m[32m+            key,
+[0m[32m+            PendingClear {
+[0m[32m+                allocation: Arc::downgrade(&buffer.allocation),
+[0m[32m+                size_bytes,
+[0m[32m+                owner: std::thread::current().id(),
+[0m[32m+            },
+[0m[32m+        );
+[0m         pending.enqueued = pending.enqueued.saturating_add(1);
+         pending.max_entries = pending
+             .max_entries
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:6628:
+         let report = rows
+             .iter()
+             .map(|(&(file, line), row)| {
+[31m-                (
+[0m[31m-                    file,
+[0m[31m-                    line,
+[0m[31m-                    row.count,
+[0m[31m-                    row.dispatches,
+[0m[31m-                    row.elapsed,
+[0m[31m-                    row.host,
+[0m[31m-                )
+[0m[32m+                (file, line, row.count, row.dispatches, row.elapsed, row.host)
+[0m             })
+             .collect();
+         rows.clear();
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:7895:
+             }
+         }
+         #[cfg(test)]
+[31m-        retirement_report::record(
+[0m[31m-            caller,
+[0m[31m-            started.elapsed(),
+[0m[31m-            retired_dispatches,
+[0m[31m-            host_elapsed,
+[0m[31m-        );
+[0m[32m+        retirement_report::record(caller, started.elapsed(), retired_dispatches, host_elapsed);
+[0m         retired_counts.carry_into(self);
+         self.session_owned = session_owned;
+         self.watchdog_submission_slicing = watchdog_submission_slicing;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9606:
+         GEN9_WATCHDOG_SLICE_MICROS, GEN9_WATCHDOG_SLICING_DEFAULT, INTEL_PCI_VENDOR_ID,
+         INTEL_WATCHDOG_PLATFORM, WATCHDOG_SLICE_DISPATCHES_ENV, WATCHDOG_SUBMISSIONS_ENV,
+     };
+[31m-    use std::sync::Arc;
+[0m     use anyhow::{anyhow, Context, Result};
+[32m+    use std::sync::Arc;
+[0m 
+     #[test]
+     fn compute_pipelines_share_driver_objects_and_preserve_kernel_access() -> Result<()> {
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9881:
+         commands.copy_f32_range(&source, 0, &second_target, 0, 4)?;
+         commands.submit()?;
+         let after = device.pending_clear_stats()?;
+[31m-        let probed = after
+[0m[31m-            .scanned_entries
+[0m[31m-            .saturating_sub(before.scanned_entries);
+[0m[32m+        let probed = after.scanned_entries.saturating_sub(before.scanned_entries);
+[0m         assert!(
+             probed < waiting.len() as u64,
+             "drain probed {probed} entries for a two-buffer copy despite {} unbound fills",
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9956:
+         let targets = (0..16)
+             .map(|_| GpuBuffer::zeros_f32(&device, 4))
+             .collect::<Result<Vec<_>>>()?;
+[31m-        assert_eq!(
+[0m[31m-            device.pending_clear_stats()?.pending_entries,
+[0m[31m-            targets.len()
+[0m[31m-        );
+[0m[32m+        assert_eq!(device.pending_clear_stats()?.pending_entries, targets.len());
+[0m         let mut commands = ComputeBatch::new(&device)?;
+         for target in &targets {
+             commands.copy_f32_range(&source, 0, target, 0, 4)?;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:1979:
+             pending.prune_unreachable();
+         }
+         let key = Arc::as_ptr(&buffer.allocation) as usize;
+[31m-        pending.entries.insert(key, PendingClear {
+[0m[31m-            allocation: Arc::downgrade(&buffer.allocation),
+[0m[31m-            size_bytes,
+[0m[31m-            owner: std::thread::current().id(),
+[0m[31m-        });
+[0m[32m+        pending.entries.insert(
+[0m[32m+            key,
+[0m[32m+            PendingClear {
+[0m[32m+                allocation: Arc::downgrade(&buffer.allocation),
+[0m[32m+                size_bytes,
+[0m[32m+                owner: std::thread::current().id(),
+[0m[32m+            },
+[0m[32m+        );
+[0m         pending.enqueued = pending.enqueued.saturating_add(1);
+         pending.max_entries = pending
+             .max_entries
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:6628:
+         let report = rows
+             .iter()
+             .map(|(&(file, line), row)| {
+[31m-                (
+[0m[31m-                    file,
+[0m[31m-                    line,
+[0m[31m-                    row.count,
+[0m[31m-                    row.dispatches,
+[0m[31m-                    row.elapsed,
+[0m[31m-                    row.host,
+[0m[31m-                )
+[0m[32m+                (file, line, row.count, row.dispatches, row.elapsed, row.host)
+[0m             })
+             .collect();
+         rows.clear();
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:7895:
+             }
+         }
+         #[cfg(test)]
+[31m-        retirement_report::record(
+[0m[31m-            caller,
+[0m[31m-            started.elapsed(),
+[0m[31m-            retired_dispatches,
+[0m[31m-            host_elapsed,
+[0m[31m-        );
+[0m[32m+        retirement_report::record(caller, started.elapsed(), retired_dispatches, host_elapsed);
+[0m         retired_counts.carry_into(self);
+         self.session_owned = session_owned;
+         self.watchdog_submission_slicing = watchdog_submission_slicing;
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9606:
+         GEN9_WATCHDOG_SLICE_MICROS, GEN9_WATCHDOG_SLICING_DEFAULT, INTEL_PCI_VENDOR_ID,
+         INTEL_WATCHDOG_PLATFORM, WATCHDOG_SLICE_DISPATCHES_ENV, WATCHDOG_SUBMISSIONS_ENV,
+     };
+[31m-    use std::sync::Arc;
+[0m     use anyhow::{anyhow, Context, Result};
+[32m+    use std::sync::Arc;
+[0m 
+     #[test]
+     fn compute_pipelines_share_driver_objects_and_preserve_kernel_access() -> Result<()> {
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9881:
+         commands.copy_f32_range(&source, 0, &second_target, 0, 4)?;
+         commands.submit()?;
+         let after = device.pending_clear_stats()?;
+[31m-        let probed = after
+[0m[31m-            .scanned_entries
+[0m[31m-            .saturating_sub(before.scanned_entries);
+[0m[32m+        let probed = after.scanned_entries.saturating_sub(before.scanned_entries);
+[0m         assert!(
+             probed < waiting.len() as u64,
+             "drain probed {probed} entries for a two-buffer copy despite {} unbound fills",
+Diff in \\?\C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\src\vulkan.rs:9956:
+         let targets = (0..16)
+             .map(|_| GpuBuffer::zeros_f32(&device, 4))
+             .collect::<Result<Vec<_>>>()?;
+[31m-        assert_eq!(
+[0m[31m-            device.pending_clear_stats()?.pending_entries,
+[0m[31m-            targets.len()
+[0m[31m-        );
+[0m[32m+        assert_eq!(device.pending_clear_stats()?.pending_entries, targets.len());
+[0m         let mut commands = ComputeBatch::new(&device)?;
+         for target in &targets {
+             commands.copy_f32_range(&source, 0, target, 0, 4)?;

@@ -1,0 +1,38 @@
+
+running 8 tests
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_attention_matches_cpu_bits_through_prefill_decode_reset ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_attention_rejects_unconverted_grouped_weights_and_invalid_storage ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_bf16_cast_matches_cpu_ties_subnormals_and_nonfinite_classes ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_engram_checkpoint_preserves_projection_storage_and_stream_policy ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_engram_matches_released_bf16_table_projection_and_residual ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_linear_block128_matches_pinned_cpu_reference ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_linear_matches_typed_cpu_boundaries ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_moe_matches_released_expert_and_moe_forward ... ok
+
+successes:
+
+---- deepseek_v41::mixed_tests::deepseek_v41_mixed_engram_matches_released_bf16_table_projection_and_residual stdout ----
+V4.1 mixed Engram: 2224 bit-exact BF16 residuals, including HC=4
+
+---- deepseek_v41::mixed_tests::deepseek_v41_mixed_linear_matches_typed_cpu_boundaries stdout ----
+V4.1 typed linear: 2087 CPU-reference output values
+
+---- deepseek_v41::mixed_tests::deepseek_v41_mixed_moe_matches_released_expert_and_moe_forward stdout ----
+V4.1 mixed MoE packed-moe-0-bf16: 32 bit-exact outputs, counts [1, 1, 0, 0]
+V4.1 mixed MoE packed-moe-1-bf16: 224 bit-exact outputs, counts [6, 3, 7, 1, 4]
+V4.1 mixed MoE packed-moe-2-bf16: 1088 bit-exact outputs, counts [13, 9, 6, 13, 10]
+V4.1 mixed MoE packed-moe-3-fp32: 160 bit-exact outputs, counts [3, 2, 5]
+
+
+successes:
+    deepseek_v41::mixed_tests::deepseek_v41_mixed_attention_matches_cpu_bits_through_prefill_decode_reset
+    deepseek_v41::mixed_tests::deepseek_v41_mixed_attention_rejects_unconverted_grouped_weights_and_invalid_storage
+    deepseek_v41::mixed_tests::deepseek_v41_mixed_bf16_cast_matches_cpu_ties_subnormals_and_nonfinite_classes
+    deepseek_v41::mixed_tests::deepseek_v41_mixed_engram_checkpoint_preserves_projection_storage_and_stream_policy
+    deepseek_v41::mixed_tests::deepseek_v41_mixed_engram_matches_released_bf16_table_projection_and_residual
+    deepseek_v41::mixed_tests::deepseek_v41_mixed_linear_block128_matches_pinned_cpu_reference
+    deepseek_v41::mixed_tests::deepseek_v41_mixed_linear_matches_typed_cpu_boundaries
+    deepseek_v41::mixed_tests::deepseek_v41_mixed_moe_matches_released_expert_and_moe_forward
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 1.11s
+

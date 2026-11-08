@@ -1,0 +1,30 @@
+
+running 8 tests
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_storage_and_precision_validation ... ok
+test deepseek_v41::model::scalable_release_tests::deepseek_v41_scalable_release_preserves_production_feature_contract ... ok
+test deepseek_v41::model::schedule_width_tests::deepseek_v41_schedule_width_frozen_fixture_contract ... ok
+test deepseek_v41::model::tests::deepseek_v41_application_streaming_is_explicit_and_bit_exact ... ok
+test deepseek_v41::model::tests::deepseek_v41_bf16_checkpoint_rejects_incomplete_precision_contracts ... ok
+test deepseek_v41::model::tests::deepseek_v41_default_loader_requires_engram_metadata ... ok
+test deepseek_v41::model::tests::deepseek_v41_default_package_loader_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_legacy_backbone_weights_still_promote_dense_bf16 ... ok
+
+successes:
+
+---- deepseek_v41::model::tests::deepseek_v41_application_streaming_is_explicit_and_bit_exact stdout ----
+V4.1 explicit application residency seed 4141017: CPU strict logits and resident/streamed bits PASS
+V4.1 explicit application residency seed 4141061: CPU strict logits and resident/streamed bits PASS
+
+
+successes:
+    deepseek_v41::mixed_tests::deepseek_v41_mixed_storage_and_precision_validation
+    deepseek_v41::model::scalable_release_tests::deepseek_v41_scalable_release_preserves_production_feature_contract
+    deepseek_v41::model::schedule_width_tests::deepseek_v41_schedule_width_frozen_fixture_contract
+    deepseek_v41::model::tests::deepseek_v41_application_streaming_is_explicit_and_bit_exact
+    deepseek_v41::model::tests::deepseek_v41_bf16_checkpoint_rejects_incomplete_precision_contracts
+    deepseek_v41::model::tests::deepseek_v41_default_loader_requires_engram_metadata
+    deepseek_v41::model::tests::deepseek_v41_default_package_loader_strict_all_logits
+    deepseek_v41::model::tests::deepseek_v41_legacy_backbone_weights_still_promote_dense_bf16
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 4.54s
+

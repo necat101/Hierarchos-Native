@@ -1,0 +1,156 @@
+
+running 8 tests
+test deepseek_v41::model::tests::deepseek_v41_model_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_package_generation_matches_manual_steps ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_all_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_all_tables_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_block_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_vocabulary_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_all_checks_shared_metadata_and_storage ... ok
+
+successes:
+
+---- deepseek_v41::model::tests::deepseek_v41_streamed_all_hybrid_and_bf16_strict_all_logits stdout ----
+V4.1 packed full logits seed 4141041, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, short-prefill-group-completion: 0.00000000000000000e0
+
+---- deepseek_v41::model::tests::deepseek_v41_streamed_all_tables_hybrid_and_bf16_strict_all_logits stdout ----
+V4.1 packed full logits seed 4141041, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, short-prefill-group-completion: 0.00000000000000000e0
+
+---- deepseek_v41::model::tests::deepseek_v41_streamed_block_hybrid_and_bf16_strict_all_logits stdout ----
+V4.1 packed full logits seed 4141041, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, short-prefill-group-completion: 0.00000000000000000e0
+
+---- deepseek_v41::model::tests::deepseek_v41_streamed_hybrid_and_bf16_strict_all_logits stdout ----
+V4.1 packed full logits seed 4141041, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, short-prefill-group-completion: 0.00000000000000000e0
+
+---- deepseek_v41::model::tests::deepseek_v41_streamed_vocabulary_hybrid_and_bf16_strict_all_logits stdout ----
+V4.1 packed full logits seed 4141041, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141041, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141042, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141061, short-prefill-group-completion: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, odd-prefill: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, group-completing-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, incomplete-group-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, ring-wrap-decode: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, shorter-reset: 0.00000000000000000e0
+V4.1 packed full logits seed 4141062, short-prefill-group-completion: 0.00000000000000000e0
+
+
+successes:
+    deepseek_v41::model::tests::deepseek_v41_model_strict_all_logits
+    deepseek_v41::model::tests::deepseek_v41_package_generation_matches_manual_steps
+    deepseek_v41::model::tests::deepseek_v41_streamed_all_hybrid_and_bf16_strict_all_logits
+    deepseek_v41::model::tests::deepseek_v41_streamed_all_tables_hybrid_and_bf16_strict_all_logits
+    deepseek_v41::model::tests::deepseek_v41_streamed_block_hybrid_and_bf16_strict_all_logits
+    deepseek_v41::model::tests::deepseek_v41_streamed_hybrid_and_bf16_strict_all_logits
+    deepseek_v41::model::tests::deepseek_v41_streamed_vocabulary_hybrid_and_bf16_strict_all_logits
+    deepseek_v41::model::tests::streamed::deepseek_v41_streamed_all_checks_shared_metadata_and_storage
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1171 filtered out; finished in 16.17s
+
