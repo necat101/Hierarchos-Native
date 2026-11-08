@@ -1,0 +1,237 @@
+{
+  "schema": 1,
+  "kind": "rdna3_v41_phase5_crash_fix_and_attribution",
+  "source_commit": "4b659b3d681f6248f01750d32c497dcef32e98c5",
+  "prior_source_commit": "07c6c65ef93c894bf1e9575d85f77f400e37808e",
+  "crash_fix_commit": "614077150996556bc930f6cfa9c40db3302611fd",
+  "measured_binary": {
+    "path": "target/rdna3-port/final-phase5-bddd6568.exe",
+    "build_path": "target/debug/deps/hierarchos_vulkan-2f708da7cb986ebb.exe",
+    "sha256": "bddd65686955d13365fbb4cced95eb4591d0eca097d84277fc509046a3bcf4ad",
+    "profile": "debug test profile",
+    "provenance_note": "Built from the committed bytes of 4b659b3. A later rebuild of the same source produced 5a9b4d08e619a995343761d29bb9d8e125a6cadb5de00b38ce9a76b35b9efa1e, so this incremental debug build is not byte-reproducible; the measured artifact is preserved at the path above and every result in this receipt refers to that hash."
+  },
+  "device": "AMD Radeon Graphics (1002:15bf, 26.10.07.06 LLPC)",
+  "fixtures": "target/rdna3-port/gen9-frozen/target/multimodal-gen9",
+  "acceptance": {
+    "max_abs": 2e-7,
+    "rtol": 0,
+    "comparison": "strict_less_than",
+    "changed": false
+  },
+  "crash": {
+    "status": "REPRODUCED_AND_FIXED",
+    "symptom": "Windows fail-fast 0xc0000409 while entering rwkv_optimizer::tests::loss_unscale_and_adamw_share_one_command_stream in suite order",
+    "phase4_evidence": "crash/phase4-full-lib-0xc0000409.log",
+    "root_cause": "DeviceInner.pending_clears held PendingClear { buffer: GpuBuffer } strongly, so DeviceInner -> GpuBufferAllocation -> DeviceInner formed a reference cycle. Every zeroed intermediate dropped without being bound pinned its logical Vulkan device, and the suite exhausted driver resources. The named RWKV test was the victim of the exhaustion, not its cause.",
+    "fix": [
+      "PendingClear stores Weak<GpuBufferAllocation>; an unreachable fill disappears with its last user.",
+      "An unbound fill whose allocation has no other owner is pruned at drain time (pending_clear_is_reachable), keeping the list bounded."
+    ],
+    "regression_tests": [
+      "vulkan::tests::deferred_zero_fill_does_not_pin_its_device",
+      "vulkan::tests::unreachable_pending_clear_is_not_retained"
+    ],
+    "stability_runs": {
+      "binary_sha256": "bddd65686955d13365fbb4cced95eb4591d0eca097d84277fc509046a3bcf4ad",
+      "test_inventory": 1168,
+      "default_parallel": [
+        {"run": 1, "passed": 1128, "failed": 0, "ignored": 40, "seconds": 71.21, "exit_code": 0, "log": "stability/default-r1.log"},
+        {"run": 2, "passed": 1128, "failed": 0, "ignored": 40, "seconds": 65.80, "exit_code": 0, "log": "stability/default-r2.log"},
+        {"run": 3, "passed": 1128, "failed": 0, "ignored": 40, "seconds": 65.42, "exit_code": 0, "log": "stability/default-r3.log"}
+      ],
+      "serial": {"passed": 1128, "failed": 0, "ignored": 40, "seconds": 386.20, "exit_code": 0, "log": "stability/serial.log"}
+    }
+  },
+  "retirement_profile": {
+    "warmup_steps": 2,
+    "measured_steps": 3,
+    "batch": 1,
+    "cases": 5,
+    "case_steps": 25,
+    "units": "per case-step",
+    "native_submissions_per_step": 151,
+    "call_sites": [
+      {
+        "file": "src/vulkan.rs",
+        "site": "ComputeBatch::submit_and_restart",
+        "total": 1216,
+        "per_step": 48.64,
+        "dispatches": 17534,
+        "total_ms": 710.425,
+        "ms_per_step": 28.417,
+        "host_rebuild_ms_per_step": 0.329,
+        "gpu_wait_ms_per_step": 28.088
+      },
+      {
+        "file": "src/deepseek_v41/linear_grad.rs",
+        "site": "in-session read_many_f32",
+        "total": 180,
+        "per_step": 7.20,
+        "dispatches": 5090,
+        "total_ms": 205.128,
+        "ms_per_step": 8.205,
+        "host_rebuild_ms_per_step": 0.053,
+        "gpu_wait_ms_per_step": 8.152
+      }
+    ],
+    "correction": "Phase IV reported 243.20 retirements/step and 142.107 ms/step for submit_and_restart. That divided a five-case run total by one case's step count, which is internally impossible next to the same step's 151 native submissions. The corrected per-case-step values are 48.64 and 28.42 ms; the readback site scales the same way (36.0 -> 7.20, 39.446 -> 7.89 ms).",
+    "interpretation": "97.3% of the retirement cost is the fence/timeline wait for GPU work the following stage consumes. Host command-buffer rebuild is 0.329 ms per case-step (1.2%), so host-side coalescing cannot move step latency; only a dependency-level submission change could, and the previously measured streamed-wait intervals produced no gain."
+  },
+  "optimizations": [
+    {
+      "name": "deferred zero-fill ownership and pruning",
+      "status": "ADOPTED",
+      "effect": "removes the suite-order device leak (0xc0000409) and keeps the pending-fill list bounded",
+      "measured_effect": "not a latency optimization; the pre-prune retention bug was measured separately and the control regression persisted after pruning, so pruning is not credited with a speedup"
+    },
+    {
+      "name": "retirement attribution (case-step denominator, host/wait split)",
+      "status": "ADOPTED",
+      "effect": "measurement correctness: removes a 5x per-step inflation and separates removable host churn from required GPU completion"
+    }
+  ],
+  "rejected": {
+    "aten_vector_width override removal": {
+      "probe_binary": "temporary build of source 4b659b3 with the cfg(test) width override disabled",
+      "control_median_ms": {"llama": 16.715, "gpt2": 13.339, "t5": 41.947},
+      "adopted_binary_control_median_ms": {"llama": 16.071, "gpt2": 12.942, "t5": 39.888},
+      "reason": "no improvement; the width-probe TLS read is not the cause of the control regression",
+      "evidence": "rejected/tls-probe-b1.json"
+    },
+    "pending-clear retention as control-regression cause": {
+      "reason": "after restoring the pruning rule the control regression persisted unchanged, so the mechanism was rejected even though pruning was kept for boundedness",
+      "evidence": "rejected/pre-prune-b1.json"
+    },
+    "streamed expert wait intervals 2 and 4": {
+      "status": "REJECTED_PHASE_IV",
+      "reason": "0.9966x / 1.0201x with overlapping intervals and growing live staging"
+    }
+  },
+  "comparisons": {
+    "protocol": "4-round ABBA, 7 measured optimizer steps, 2 warmups, batch 1, paired bootstrap 10000 draws, seed 20261107, software FMA in both arms, HIERARCHOS_ATEN_VECTOR_WIDTH=16, HIERARCHOS_VULKAN_RDNA3_V41=0",
+    "historical_372407b": {
+      "baseline_sha256": "7e7a713106b76f93425b0b08b0f1ef9cec053935ddfb3323874883c81e29c9ab",
+      "candidate_sha256": "bddd65686955d13365fbb4cced95eb4591d0eca097d84277fc509046a3bcf4ad",
+      "legacy_batch_unreported": true,
+      "cross_arm_word_exact": false,
+      "mismatched_cases": ["gpt2"],
+      "allowed_cross_arm_signature_difference": true,
+      "cases": {
+        "native_vit_4x4": {"paired_median_speedup": 1.4907, "ci95": [1.4539, 1.4993], "conclusion": "candidate_faster"},
+        "native_vit_6x4": {"paired_median_speedup": 1.4569, "ci95": [1.4416, 1.4849], "conclusion": "candidate_faster"},
+        "llama": {"paired_median_speedup": 0.8290, "ci95": [0.8055, 0.8440], "conclusion": "candidate_slower"},
+        "gpt2": {"paired_median_speedup": 0.9156, "ci95": [0.8880, 0.9199], "conclusion": "candidate_slower"},
+        "t5": {"paired_median_speedup": 0.8222, "ci95": [0.7963, 0.8408], "conclusion": "candidate_slower"}
+      }
+    },
+    "prior_722acd0": {
+      "baseline_sha256": "7afa0d985a5304f9383b47d4deaf6119c982d50ab0ccee75db3715e60ab41642",
+      "cases": {
+        "native_vit_4x4": {"paired_median_speedup": 0.9989, "ci95": [0.9907, 1.0036], "conclusion": "inconclusive"},
+        "native_vit_6x4": {"paired_median_speedup": 0.9805, "ci95": [0.9632, 1.0011], "conclusion": "inconclusive"},
+        "llama": {"paired_median_speedup": 0.8358, "ci95": [0.8224, 0.8496], "conclusion": "candidate_slower"},
+        "gpt2": {"paired_median_speedup": 0.8307, "ci95": [0.8265, 0.8727], "conclusion": "candidate_slower"},
+        "t5": {"paired_median_speedup": 0.8393, "ci95": [0.8276, 0.8469], "conclusion": "candidate_slower"}
+      }
+    },
+    "predecessor_61591bc": {
+      "baseline_sha256": "9cc5a6504a2e74eb8cfbdce2b00e2d9419598ce3d364c6b45de4e780438a6c32",
+      "cases": {
+        "native_vit_4x4": {"paired_median_speedup": 0.9695, "ci95": [0.9651, 0.9706], "conclusion": "candidate_slower"},
+        "native_vit_6x4": {"paired_median_speedup": 0.9628, "ci95": [0.9488, 0.9639], "conclusion": "candidate_slower"},
+        "llama": {"paired_median_speedup": 0.8298, "ci95": [0.8214, 0.9085], "conclusion": "candidate_slower"},
+        "gpt2": {"paired_median_speedup": 0.8501, "ci95": [0.8368, 0.9216], "conclusion": "candidate_slower"},
+        "t5": {"paired_median_speedup": 0.8323, "ci95": [0.7950, 0.8440], "conclusion": "candidate_slower"}
+      }
+    },
+    "phase4_c7e096d": {
+      "baseline_sha256": "f1f597c7a87d73676e7f418eb27bc6435d0cee56f870280223a857e0286ab265",
+      "legacy_batch_unreported": false,
+      "cases": {
+        "native_vit_4x4": {"paired_median_speedup": 0.9676, "ci95": [0.9479, 0.9954], "conclusion": "candidate_slower"},
+        "native_vit_6x4": {"paired_median_speedup": 0.9662, "ci95": [0.9406, 0.9857], "conclusion": "candidate_slower"},
+        "llama": {"paired_median_speedup": 0.8271, "ci95": [0.8024, 0.8538], "conclusion": "candidate_slower"},
+        "gpt2": {"paired_median_speedup": 0.8258, "ci95": [0.8161, 0.8509], "conclusion": "candidate_slower"},
+        "t5": {"paired_median_speedup": 0.8334, "ci95": [0.8264, 0.8508], "conclusion": "candidate_slower"}
+      }
+    },
+    "session_ablation": {
+      "binary_sha256": "bddd65686955d13365fbb4cced95eb4591d0eca097d84277fc509046a3bcf4ad",
+      "word_exact": true,
+      "native_vit_4x4": {"off_ms": 357.02, "on_ms": 233.23, "speedup": 1.5307},
+      "native_vit_6x4": {"off_ms": 443.00, "on_ms": 299.44, "speedup": 1.4794},
+      "llama": {"off_ms": 16.06, "on_ms": 16.22, "speedup": 0.9901},
+      "gpt2": {"off_ms": 13.13, "on_ms": 13.25, "speedup": 0.9915},
+      "t5": {"off_ms": 40.45, "on_ms": 40.79, "speedup": 0.9915}
+    }
+  },
+  "batch_matrix": {
+    "note": "Native V4.1 rows expand real batch*seq_len geometry. Control fixtures pin batch 1, so their batch-2/4 rows are the same single-sample workload and are reported as effective_batch 1, not as native batching.",
+    "batch_1": {
+      "native_vit_4x4": {"median_ms": 231.458, "samples_per_second": 4.320, "submissions": 151, "peak_live_buffer_bytes": 9094168},
+      "native_vit_6x4": {"median_ms": 295.487, "samples_per_second": 3.384, "submissions": 151, "peak_live_buffer_bytes": 9143036},
+      "llama": {"median_ms": 16.071}, "gpt2": {"median_ms": 12.942}, "t5": {"median_ms": 39.888}
+    },
+    "batch_2": {
+      "native_vit_4x4": {"median_ms": 234.694, "samples_per_second": 8.522, "throughput_scaling": 1.9727, "submissions": 151, "peak_live_buffer_bytes": 9348088},
+      "native_vit_6x4": {"median_ms": 293.849, "samples_per_second": 6.806, "throughput_scaling": 2.0112, "submissions": 151, "peak_live_buffer_bytes": 9428516},
+      "llama": {"median_ms": 16.352, "effective_batch": 1}, "gpt2": {"median_ms": 13.131, "effective_batch": 1}, "t5": {"median_ms": 40.971, "effective_batch": 1}
+    },
+    "batch_4": {
+      "native_vit_4x4": {"median_ms": 238.379, "samples_per_second": 16.780, "throughput_scaling": 3.8843, "submissions": 151, "peak_live_buffer_bytes": 9855928},
+      "native_vit_6x4": {"median_ms": 288.674, "samples_per_second": 13.856, "throughput_scaling": 4.0946, "submissions": 151, "peak_live_buffer_bytes": 9999476},
+      "llama": {"median_ms": 16.520, "effective_batch": 1}, "gpt2": {"median_ms": 13.138, "effective_batch": 1}, "t5": {"median_ms": 40.140, "effective_batch": 1}
+    },
+    "outliers_retained": [
+      "batch 1 ViT 6x4 max 349.43 ms against a 295.487 ms median",
+      "batch 2 ViT 4x4 max 350.44 ms against a 234.694 ms median",
+      "batch 4 ViT 4x4 max 284.54 ms against a 238.379 ms median"
+    ]
+  },
+  "correctness": {
+    "full_lib_suite": {"status": "PASS", "passed": 1128, "failed": 0, "ignored": 40, "runs": "3 default-parallel + 1 serial", "binary_sha256": "bddd65686955d13365fbb4cced95eb4591d0eca097d84277fc509046a3bcf4ad"},
+    "rwkv_optimizer_module": "PASS (22/22)",
+    "previously_failing_test": "PASS 5/5 consecutive isolated runs",
+    "targeted": "gate/targeted.log",
+    "compressor_parity": {"status": "PASS", "acceptance": "max_abs < 2e-7, rtol = 0"},
+    "gpt2_module": "PASS (59 passed)",
+    "receipt_guards": {
+      "multimodal_receipts": "PASS",
+      "training_stack_receipt": "PASS",
+      "gpt2_receipt": "FAIL",
+      "gpt2_receipt_reason": "receipt-hashes.json binds the whole of hierarchos-vulkan/src/transformer.rs; the Phase V test-only width-override pin changed that file after the GPT-2 qualification, so the guard fails closed. The sealed receipt was not edited and no new GPT-2 qualification was fabricated.",
+      "gpt2_receipt_evidence": "gate/gpt2-receipt-guard-direct.log",
+      "gpt2_negative_control_tests": "PASS (3 tests; they exercise the guard's acceptance function on synthetic receipts and do not re-establish the sealed source binding)",
+      "gpt2_negative_control_evidence": "gate/gpt2-negative-control-tests.log"
+    },
+    "performance_gate_unit_tests": {"status": "PASS", "count": 10},
+    "deepseek_v41_native_30_case_track": "NOT_RERUN (covered only by the full suite)",
+    "native_avx512_multimodal_python_suites": "NOT_RERUN",
+    "compressor_matrix_python_suites": "NOT_RERUN",
+    "nine_stage_gen9_replay": "NOT_RUN",
+    "physical_gen9": "NOT_RUN",
+    "shader_oracle": "NOT_RUN"
+  },
+  "gate": {
+    "development_comparison_state": "REGRESSION",
+    "release_qualified": false,
+    "release_blockers": [
+      "control workloads (llama, gpt2, t5) regress 17-18% against every baseline, including 372407b, 722acd0, 61591bc and c7e096d, with 95% intervals entirely below 1.0",
+      "native ViT regresses 3.2-3.8% against 61591bc and c7e096d",
+      "GPT-2 receipt guard fails closed on the Phase V source binding",
+      "no physical Gen9 execution and no shader-oracle checkout",
+      "workflow has never executed: no registered [self-hosted, Windows, X64, rdna3, vulkan] runner"
+    ],
+    "workflow_yaml": "PASS",
+    "workflow_executed_in_github_actions": false
+  },
+  "limitations": [
+    "Control regression is measured and unresolved; the probe that removed the width-override TLS read did not improve it.",
+    "Incremental debug builds are not byte-reproducible: rebuilding 4b659b3 produced 5a9b4d08 while the measured artifact is bddd6568.",
+    "Control batch-2/4 rows are batch-1 work with the batch switch ignored; no control multi-batch claim is made.",
+    "The historical arms are preserved artifacts; their batch field predates the field and is marked legacy.",
+    "Cross-arm GPT-2 words differ against 372407b under the known ULP exception; no tolerance was widened.",
+    "The broad Python multimodal suites were not rerun; only the performance-gate unit tests and receipt guards were executed."
+  ]
+}

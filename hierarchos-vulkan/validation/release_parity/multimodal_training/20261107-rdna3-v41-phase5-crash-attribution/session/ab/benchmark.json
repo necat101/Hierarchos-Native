@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "pass": true,
+  "word_exact": true,
+  "order": "ABBA",
+  "rounds": 4,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "binary_sha256": "bddd65686955d13365fbb4cced95eb4591d0eca097d84277fc509046a3bcf4ad",
+  "results": [
+    {
+      "case": "native_vit_4x4",
+      "baseline": {
+        "round_medians_ms": [
+          357.5944,
+          352.2251,
+          360.05699999999996,
+          356.4463
+        ],
+        "median_ms": 357.02035,
+        "submissions": [
+          952
+        ]
+      },
+      "session": {
+        "round_medians_ms": [
+          231.6375,
+          232.4944,
+          234.4704,
+          233.9709
+        ],
+        "median_ms": 233.23265,
+        "submissions": [
+          151
+        ]
+      },
+      "speedup": 1.530747731932043
+    },
+    {
+      "case": "native_vit_6x4",
+      "baseline": {
+        "round_medians_ms": [
+          441.7457,
+          440.93080000000003,
+          455.52740000000006,
+          444.24890000000005
+        ],
+        "median_ms": 442.9973,
+        "submissions": [
+          952
+        ]
+      },
+      "session": {
+        "round_medians_ms": [
+          300.17929999999996,
+          304.9933,
+          298.7069,
+          297.00630000000007
+        ],
+        "median_ms": 299.44309999999996,
+        "submissions": [
+          151
+        ]
+      },
+      "speedup": 1.479403933501891
+    },
+    {
+      "case": "llama",
+      "baseline": {
+        "round_medians_ms": [
+          16.179,
+          15.9103,
+          16.066,
+          16.054599999999997
+        ],
+        "median_ms": 16.060299999999998,
+        "submissions": [
+          5
+        ]
+      },
+      "session": {
+        "round_medians_ms": [
+          16.4838,
+          15.958199999999998,
+          15.766599999999999,
+          16.586199999999998
+        ],
+        "median_ms": 16.220999999999997,
+        "submissions": [
+          5
+        ]
+      },
+      "speedup": 0.9900930892053512
+    },
+    {
+      "case": "gpt2",
+      "baseline": {
+        "round_medians_ms": [
+          13.1501,
+          15.4778,
+          13.118599999999999,
+          13.0976
+        ],
+        "median_ms": 13.13435,
+        "submissions": [
+          5
+        ]
+      },
+      "session": {
+        "round_medians_ms": [
+          13.238299999999999,
+          13.2172,
+          13.2546,
+          13.3796
+        ],
+        "median_ms": 13.24645,
+        "submissions": [
+          5
+        ]
+      },
+      "speedup": 0.9915373552914177
+    },
+    {
+      "case": "t5",
+      "baseline": {
+        "round_medians_ms": [
+          40.5134,
+          40.897000000000006,
+          40.3808,
+          39.982299999999995
+        ],
+        "median_ms": 40.4471,
+        "submissions": [
+          7
+        ]
+      },
+      "session": {
+        "round_medians_ms": [
+          40.106,
+          41.1443,
+          40.4415,
+          41.5007
+        ],
+        "median_ms": 40.7929,
+        "submissions": [
+          7
+        ]
+      },
+      "speedup": 0.9915230346457348
+    }
+  ],
+  "scope": "same binary; software FMA in both arms; session changes submission granularity only"
+}

@@ -1,0 +1,15 @@
+captured_at_utc=2026-11-08T00:18:55Z
+host_os=MINGW64_NT-10.0-26300 3.6.10-5a1665c8.x86_64 x86_64
+cpu=AMD Ryzen Z1 Extreme
+gpu=AMD Radeon Graphics (1002:15bf, driver 26.10.07.06 LLPC, Vulkan 1.4.344)
+rustc=rustc 1.93.0 (254b59607 2026-01-19)
+cargo=cargo 1.93.0 (083ac5135 2025-12-15)
+python=Python 3.13.14
+source_commit=4b659b3d681f6248f01750d32c497dcef32e98c5
+measured_binary_sha256=bddd65686955d13365fbb4cced95eb4591d0eca097d84277fc509046a3bcf4ad
+prior_source_commit=07c6c65ef93c894bf1e9575d85f77f400e37808e
+phase4_binary_sha256=f1f597c7a87d73676e7f418eb27bc6435d0cee56f870280223a857e0286ab265
+historical_372407b_sha256=7e7a713106b76f93425b0b08b0f1ef9cec053935ddfb3323874883c81e29c9ab
+prior_722acd0_sha256=7afa0d985a5304f9383b47d4deaf6119c982d50ab0ccee75db3715e60ab41642
+predecessor_61591bc_sha256=9cc5a6504a2e74eb8cfbdce2b00e2d9419598ce3d364c6b45de4e780438a6c32
+fixtures=target/rdna3-port/gen9-frozen/target/multimodal-gen9

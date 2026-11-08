@@ -1,0 +1,334 @@
+Starting round-1-baseline
+round-1-baseline word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-1-candidate
+round-1-candidate word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-2-candidate
+round-2-candidate word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-2-baseline
+round-2-baseline word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-3-baseline
+round-3-baseline word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-3-candidate
+round-3-candidate word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-4-candidate
+round-4-candidate word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+Starting round-4-baseline
+round-4-baseline word-consistent; submissions {'native_vit_4x4': [151], 'native_vit_6x4': [151], 'llama': [5], 'gpt2': [5], 't5': [7]}
+{
+  "schema": 1,
+  "pass": true,
+  "scope": "phase5 abba-61591bc",
+  "order": "ABBA",
+  "rounds": 4,
+  "batch": 1,
+  "measured_steps": 7,
+  "warmup_steps": 2,
+  "bootstrap_draws": 10000,
+  "bootstrap_seed": 20261107,
+  "cross_arm_word_exact": true,
+  "cross_arm_mismatched_cases": [],
+  "allowed_cross_arm_signature_difference": true,
+  "legacy_batch_unreported": true,
+  "devices": [
+    "AMD Radeon Graphics"
+  ],
+  "fixtures": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\gen9-frozen\\target\\multimodal-gen9",
+  "baseline": {
+    "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\optimized-session-read-9cc5.exe",
+    "sha256": "9cc5a6504a2e74eb8cfbdce2b00e2d9419598ce3d364c6b45de4e780438a6c32",
+    "env": {}
+  },
+  "candidate": {
+    "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe",
+    "sha256": "bddd65686955d13365fbb4cced95eb4591d0eca097d84277fc509046a3bcf4ad",
+    "env": {}
+  },
+  "results": [
+    {
+      "case": "native_vit_4x4",
+      "role": "native",
+      "baseline": {
+        "round_medians_ms": [
+          226.7776,
+          226.1586,
+          224.12589999999997,
+          226.7815
+        ],
+        "median_ms": 226.4681,
+        "p95_ms": 245.4488,
+        "min_ms": 218.5306,
+        "max_ms": 252.1793,
+        "mad_ms": 0.3114500000000078,
+        "relative_mad": 0.0013752488761110627,
+        "sample_cv": 0.030386852169821628,
+        "submissions": [
+          151
+        ],
+        "samples": 28,
+        "signature_sha256": "0f3553c77a86dcef0bc44953f7bda8e0456c174654a1e41a2a7743993a8b4d48"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          233.79070000000002,
+          233.01030000000003,
+          232.2318,
+          234.05790000000002
+        ],
+        "median_ms": 233.40050000000002,
+        "p95_ms": 276.7467,
+        "min_ms": 227.4728,
+        "max_ms": 311.574,
+        "mad_ms": 0.5237999999999943,
+        "relative_mad": 0.0022442111306530802,
+        "sample_cv": 0.07126069700613062,
+        "submissions": [
+          151
+        ],
+        "samples": 28,
+        "signature_sha256": "0f3553c77a86dcef0bc44953f7bda8e0456c174654a1e41a2a7743993a8b4d48"
+      },
+      "speedup": 0.970298264142536,
+      "paired_median_speedup": 0.969457311010956,
+      "paired_round_speedups": [
+        0.9700026562219968,
+        0.9705948621155372,
+        0.9650956501219901,
+        0.9689119657999152
+      ],
+      "speedup_ci95": [
+        0.9650956501219901,
+        0.9705948621155372
+      ],
+      "conclusion": "candidate_slower"
+    },
+    {
+      "case": "native_vit_6x4",
+      "role": "native",
+      "baseline": {
+        "round_medians_ms": [
+          286.5695,
+          283.6506,
+          287.2244,
+          287.70980000000003
+        ],
+        "median_ms": 286.89695,
+        "p95_ms": 359.15250000000003,
+        "min_ms": 282.1532,
+        "max_ms": 359.54420000000005,
+        "mad_ms": 0.5701500000000124,
+        "relative_mad": 0.0019872989238819455,
+        "sample_cv": 0.06718094373811634,
+        "submissions": [
+          151
+        ],
+        "samples": 28,
+        "signature_sha256": "fecf1b7622cd20f6c0fafdde1b99b639f6050a65928c70c2e6dbdafc0162d42f"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          297.3162,
+          294.6446,
+          302.7214,
+          298.7767
+        ],
+        "median_ms": 298.04645,
+        "p95_ms": 334.4749,
+        "min_ms": 292.74709999999993,
+        "max_ms": 353.8026,
+        "mad_ms": 2.06604999999999,
+        "relative_mad": 0.0069319731874007895,
+        "sample_cv": 0.043375370732733176,
+        "submissions": [
+          151
+        ],
+        "samples": 28,
+        "signature_sha256": "fecf1b7622cd20f6c0fafdde1b99b639f6050a65928c70c2e6dbdafc0162d42f"
+      },
+      "speedup": 0.9625914014409499,
+      "paired_median_speedup": 0.9628232723467279,
+      "paired_round_speedups": [
+        0.9638543072997705,
+        0.9626872510135939,
+        0.9488077156091376,
+        0.962959293679862
+      ],
+      "speedup_ci95": [
+        0.9488077156091376,
+        0.9638543072997705
+      ],
+      "conclusion": "candidate_slower"
+    },
+    {
+      "case": "llama",
+      "role": "control",
+      "baseline": {
+        "round_medians_ms": [
+          14.720699999999999,
+          13.260299999999999,
+          13.287,
+          13.3503
+        ],
+        "median_ms": 13.318650000000002,
+        "p95_ms": 18.1174,
+        "min_ms": 12.8569,
+        "max_ms": 18.4082,
+        "mad_ms": 0.045000000000001705,
+        "relative_mad": 0.003378720816299077,
+        "sample_cv": 0.11208851495486177,
+        "submissions": [
+          5
+        ],
+        "samples": 28,
+        "signature_sha256": "af3c8ea6ef3afc98dd314edc0b7bf852fbd11f067814ebc76db9f5587539134a"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          16.2038,
+          16.0461,
+          15.9469,
+          16.2528
+        ],
+        "median_ms": 16.12495,
+        "p95_ms": 16.532700000000002,
+        "min_ms": 15.6478,
+        "max_ms": 17.0551,
+        "mad_ms": 0.1033500000000025,
+        "relative_mad": 0.006409322199448836,
+        "sample_cv": 0.01844002392157766,
+        "submissions": [
+          5
+        ],
+        "samples": 28,
+        "signature_sha256": "af3c8ea6ef3afc98dd314edc0b7bf852fbd11f067814ebc76db9f5587539134a"
+      },
+      "speedup": 0.8259653518305485,
+      "paired_median_speedup": 0.829795205906422,
+      "paired_round_speedups": [
+        0.9084720867944555,
+        0.8263877203806532,
+        0.8332026914321906,
+        0.8214153868871825
+      ],
+      "speedup_ci95": [
+        0.8214153868871825,
+        0.9084720867944555
+      ],
+      "conclusion": "candidate_slower"
+    },
+    {
+      "case": "gpt2",
+      "role": "control",
+      "baseline": {
+        "round_medians_ms": [
+          14.0182,
+          11.1075,
+          11.0861,
+          11.2227
+        ],
+        "median_ms": 11.165099999999999,
+        "p95_ms": 15.2862,
+        "min_ms": 10.6204,
+        "max_ms": 16.1578,
+        "mad_ms": 0.0682999999999998,
+        "relative_mad": 0.00611727615516205,
+        "sample_cv": 0.12494478534133577,
+        "submissions": [
+          5
+        ],
+        "samples": 28,
+        "signature_sha256": "08b459b3dc1fe5c16b504c916d205340ff1109ed6c971be0785220789469ba09"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          15.2099,
+          13.0379,
+          13.248700000000001,
+          13.2313
+        ],
+        "median_ms": 13.24,
+        "p95_ms": 17.0524,
+        "min_ms": 12.824300000000001,
+        "max_ms": 17.203500000000002,
+        "mad_ms": 0.10540000000000038,
+        "relative_mad": 0.00796072507552873,
+        "sample_cv": 0.09874230278024695,
+        "submissions": [
+          5
+        ],
+        "samples": 28,
+        "signature_sha256": "08b459b3dc1fe5c16b504c916d205340ff1109ed6c971be0785220789469ba09"
+      },
+      "speedup": 0.8432854984894259,
+      "paired_median_speedup": 0.8500663226413152,
+      "paired_round_speedups": [
+        0.9216497149882643,
+        0.8519393460603317,
+        0.8367688905326559,
+        0.8481932992222987
+      ],
+      "speedup_ci95": [
+        0.8367688905326559,
+        0.9216497149882643
+      ],
+      "conclusion": "candidate_slower"
+    },
+    {
+      "case": "t5",
+      "role": "control",
+      "baseline": {
+        "round_medians_ms": [
+          33.588100000000004,
+          33.452000000000005,
+          32.8487,
+          33.9275
+        ],
+        "median_ms": 33.520050000000005,
+        "p95_ms": 35.725,
+        "min_ms": 32.2398,
+        "max_ms": 36.4353,
+        "mad_ms": 0.23774999999999835,
+        "relative_mad": 0.007092769849686928,
+        "sample_cv": 0.026525807463555488,
+        "submissions": [
+          7
+        ],
+        "samples": 28,
+        "signature_sha256": "179b3e3166e17f3dba10148f32d5fd50effd779df747b47e932b97fc78c7b950"
+      },
+      "candidate": {
+        "round_medians_ms": [
+          39.9053,
+          40.6546,
+          41.3171,
+          40.1989
+        ],
+        "median_ms": 40.42675,
+        "p95_ms": 41.8375,
+        "min_ms": 39.413,
+        "max_ms": 43.5864,
+        "mad_ms": 0.3746500000000026,
+        "relative_mad": 0.009267378653985359,
+        "sample_cv": 0.021354099861548882,
+        "submissions": [
+          7
+        ],
+        "samples": 28,
+        "signature_sha256": "179b3e3166e17f3dba10148f32d5fd50effd779df747b47e932b97fc78c7b950"
+      },
+      "speedup": 0.8291552004551443,
+      "paired_median_speedup": 0.8322647649148429,
+      "paired_round_speedups": [
+        0.8416952134177668,
+        0.8228343164119191,
+        0.7950388580031028,
+        0.8439907559659593
+      ],
+      "speedup_ci95": [
+        0.7950388580031028,
+        0.8439907559659593
+      ],
+      "conclusion": "candidate_slower"
+    }
+  ],
+  "gate_failures": []
+}

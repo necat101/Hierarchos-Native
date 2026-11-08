@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\validation\check_rdna3_gpt2_receipts.py", line 73, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\validation\check_rdna3_gpt2_receipts.py", line 41, in main
+    require(hashlib.sha256((ROOT/name).read_bytes()).hexdigest()==expected,'source changed since qualification: '+name)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\validation\check_rdna3_gpt2_receipts.py", line 13, in require
+    if not condition:raise ValueError(message)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: source changed since qualification: hierarchos-vulkan/src/transformer.rs
+guard_exit=1

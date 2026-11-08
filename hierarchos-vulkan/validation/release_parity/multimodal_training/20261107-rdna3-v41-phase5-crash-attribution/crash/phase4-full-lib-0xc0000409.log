@@ -1,0 +1,747 @@
+warning: unused variable: `push`
+   --> src\deepseek_v41\mixed_moe_grad.rs:322:13
+    |
+322 |         let push = gate_push(c, rows);
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `push`
+    --> src\deepseek_v41\backbone.rs:2136:13
+     |
+2136 |         let push = MoeGatePush {
+     |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+
+warning: variable does not need to be mutable
+     --> src\full_training_graph.rs:20140:21
+      |
+20140 |                 let mut readback = GpuBuffer::uninitialized_host_f32(&source.device, len)?;
+      |                     ----^^^^^^^^
+      |                     |
+      |                     help: remove this `mut`
+      |
+      = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unreachable pattern
+    --> src\transformer\peft_state.rs:1344:21
+     |
+1344 |                     _ => {}
+     |                     ^ no value can reach this
+     |
+note: multiple earlier patterns match some of the same values
+    --> src\transformer\peft_state.rs:1344:21
+     |
+1298 |                       VulkanQwenGatedDeltaProjection::Qwen3Next { qkvz, ba, .. } => {
+     |                       ---------------------------------------------------------- matches some of the same values
+...
+1303 |                       VulkanQwenGatedDeltaProjection::Qwen35 { qkv, z, b, a } => {
+     |                       ------------------------------------------------------- matches some of the same values
+...
+1308 | /                     VulkanQwenGatedDeltaProjection::OlmoHybrid {
+1309 | |                         q, k, v, z, b, a, ..
+1310 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1315 | /                     VulkanQwenGatedDeltaProjection::Glm5 {
+1316 | |                         q,
+1317 | |                         k,
+1318 | |                         v,
+...    |
+1324 | |                         ..
+1325 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1344 |                       _ => {}
+     |                       ^ ...and 1 other patterns collectively make this unreachable
+     = note: `#[warn(unreachable_patterns)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+     --> src\transformer.rs:11735:13
+      |
+11735 |         let mut config = Self {
+      |             ----^^^^^^
+      |             |
+      |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src\gpt2_cpu_math_tests.rs:59:13
+   |
+59 |         let mut resident = VulkanTransformer::from_hf_package_with_config(
+   |             ----^^^^^^^^
+   |             |
+   |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src\gpt2_cpu_math_tests.rs:66:13
+   |
+66 |         let mut streamed = VulkanTransformer::from_hf_package_with_streamed_parameters(
+   |             ----^^^^^^^^
+   |             |
+   |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src\vulkan.rs:7877:9
+     |
+7877 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src\vulkan.rs:8037:9
+     |
+8037 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: type `deepseek_v41::checkpoint::payload_cache::Key` is more private than the item `deepseek_v41::checkpoint::payload_cache::PayloadCache::get`
+  --> src\deepseek_v41\checkpoint_cache.rs:75:5
+   |
+75 |     pub fn get(&mut self, key: &Key) -> Option<Arc<Vec<u8>>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `deepseek_v41::checkpoint::payload_cache::PayloadCache::get` is reachable at visibility `pub(in crate::deepseek_v41)`
+   |
+note: but type `deepseek_v41::checkpoint::payload_cache::Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+  --> src\deepseek_v41\checkpoint_cache.rs:31:1
+   |
+31 | pub(super) struct Key {
+   | ^^^^^^^^^^^^^^^^^^^^^
+   = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `deepseek_v41::checkpoint::payload_cache::Key` is more private than the item `deepseek_v41::checkpoint::payload_cache::PayloadCache::insert`
+   --> src\deepseek_v41\checkpoint_cache.rs:103:5
+    |
+103 |     pub fn insert(&mut self, key: Key, bytes: &[u8]) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `deepseek_v41::checkpoint::payload_cache::PayloadCache::insert` is reachable at visibility `pub(in crate::deepseek_v41)`
+    |
+note: but type `deepseek_v41::checkpoint::payload_cache::Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+   --> src\deepseek_v41\checkpoint_cache.rs:31:1
+    |
+ 31 | pub(super) struct Key {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer`
+    --> src\deepseek_v41\mixed_linear.rs:337:5
+     |
+ 337 | /     pub fn record_cast_buffer(
+ 338 | |         &self,
+ 339 | |         commands: &mut vulkan::ComputeBatch,
+ 340 | |         input: &GpuBuffer,
+ 341 | |         elements: usize,
+ 342 | |         precision: DeepseekV41WeightOutput,
+ 343 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5187:1
+     |
+5187 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_apply`
+    --> src\deepseek_v41\mixed_linear.rs:397:5
+     |
+ 397 | /     pub fn record_apply(
+ 398 | |         &self,
+ 399 | |         commands: &mut vulkan::ComputeBatch,
+ 400 | |         input: &GpuBuffer,
+...    |
+ 403 | |         precision: DeepseekV41WeightOutput,
+ 404 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_apply` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5187:1
+     |
+5187 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeSession` is more private than the item `BatchHandle::Session::session`
+    --> src\vulkan.rs:5316:9
+     |
+5316 |         session: *mut ComputeSession,
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `BatchHandle::Session::session` is reachable at visibility `pub(crate)`
+     |
+note: but type `ComputeSession` is only usable at visibility `pub(self)`
+    --> src\vulkan.rs:5290:1
+     |
+5290 | struct ComputeSession {
+     | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled` is never used
+    --> src\lib.rs:3247:19
+     |
+1110 | impl HierarchosOutNormHeadTrainer {
+     | --------------------------------- method in this implementation
+...
+3247 |     pub(crate) fn record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled(
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `apply` is never used
+    --> src\deepseek_v41\backbone.rs:2393:8
+     |
+2392 | impl MoeExecution {
+     | ----------------- method in this implementation
+2393 |     fn apply(&self, input: &GpuBuffer, rows: usize) -> Result<GpuBuffer> {
+     |        ^^^^^
+
+warning: field `directory` is never read
+  --> src\deepseek_v41\model_train.rs:81:5
+   |
+78 | pub struct DeepseekV41ModelTrainer {
+   |            ----------------------- field in this struct
+...
+81 |     directory: PathBuf,
+   |     ^^^^^^^^^
+
+warning: field `hidden_bits` is never read
+  --> src\deepseek_v41\terminal_tests.rs:27:5
+   |
+14 | struct Fixture {
+   |        ------- field in this struct
+...
+27 |     hidden_bits: Vec<u32>,
+   |     ^^^^^^^^^^^
+
+warning: field `alpha` is never read
+   --> src\deepseek_v41\train.rs:103:5
+    |
+101 | struct TrainableFactors {
+    |        ---------------- field in this struct
+102 |     rank: usize,
+103 |     alpha: f64,
+    |     ^^^^^
+    |
+    = note: `TrainableFactors` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `record_prepared_full_model_optimizer_step` and `finish_prepared_full_model_accumulation_wavefront` are never used
+     --> src\full_training_graph.rs:22904:8
+      |
+ 8187 | impl HierarchosTrainingGraph {
+      | ---------------------------- methods in this implementation
+...
+22904 |     fn record_prepared_full_model_optimizer_step(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+23391 |     fn finish_prepared_full_model_accumulation_wavefront(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `release_training_state` is never used
+   --> src\shared_lm_head.rs:456:19
+    |
+ 99 | impl SharedLmHeadParameter {
+    | -------------------------- method in this implementation
+...
+456 |     pub(crate) fn release_training_state(&self) -> Result<()> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_forward` is never used
+     --> src\transformer.rs:28083:8
+      |
+27456 | impl TieredLmHead {
+      | ----------------- method in this implementation
+...
+28083 |     fn record_forward(
+      |        ^^^^^^^^^^^^^^
+
+warning: function `decode_transformer_float_tensor` is never used
+     --> src\transformer.rs:36328:4
+      |
+36328 | fn decode_transformer_float_tensor(name: &str, tensor: TensorView<'_>) -> Result<HostFloatTensor> {
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `load_gpt2_weights` is never used
+     --> src\transformer.rs:40535:4
+      |
+40535 | fn load_gpt2_weights(
+      |    ^^^^^^^^^^^^^^^^^
+
+warning: field `grad_attention_gate_values` is never read
+     --> src\transformer.rs:49152:5
+      |
+49082 | struct TransformerLayerTape {
+      |        -------------------- field in this struct
+...
+49152 |     grad_attention_gate_values: GpuBuffer,
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `key_hidden_size` is never used
+     --> src\transformer.rs:55529:8
+      |
+55374 | impl VulkanMlaAttention {
+      | ----------------------- method in this implementation
+...
+55529 |     fn key_hidden_size(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^
+
+warning: field `eps` is never read
+   --> src\transformer\gemma4_vision.rs:904:5
+    |
+886 | pub struct VulkanGemma4Vision {
+    |            ------------------ field in this struct
+...
+904 |     eps: f32,
+    |     ^^^
+
+warning: fields `physical_device` and `physical_device_index` are never read
+  --> src\vulkan.rs:38:5
+   |
+35 | struct DeviceInner {
+   |        ----------- fields in this struct
+...
+38 |     physical_device: vk::PhysicalDevice,
+   |     ^^^^^^^^^^^^^^^
+...
+72 |     physical_device_index: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: `hierarchos-vulkan` (lib test) generated 28 warnings (run `cargo fix --lib -p hierarchos-vulkan --tests` to apply 8 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.95s
+     Running unittests src\lib.rs (target\debug\deps\hierarchos_vulkan-2f708da7cb986ebb.exe)
+
+running 1166 tests
+test bench_ab::tests::agreement_gate_rejects_out_of_tolerance_tensors ... ok
+test bench_ab::tests::four_leg_sampling_rotates_every_leg_through_every_position ... ok
+test bench_ab::tests::median_handles_both_parities ... ok
+test bench_ab::tests::promotion_predicate_rejects_a_wrong_default ... ok
+test bench_ab::tests::rank_two_arms_must_actually_differ ... ok
+test bench_ab::tests::rank_two_default_follows_the_record_and_otherwise_keeps_the_fusion ... ok
+test bench_ab::tests::recorded_decision_overrides_the_gate_proxy ... ok
+test bench_ab::tests::rotated_order_covers_every_leg_every_position ... ok
+test bench_ab::tests::sampling_rotates_and_returns_last_results ... ok
+test bench_ab::tests::separated_legs_need_two_labels ... ok
+test checkpoint::tests::adamw_v1_reader_maps_historical_global_step_to_every_slot ... ok
+test checkpoint::tests::adamw_v2_reader_preserves_slot_steps_with_unknown_legacy_decay_topology ... ok
+test checkpoint::tests::adamw_v3_roundtrip_preserves_slot_steps_and_decay_topology ... ok
+test checkpoint::tests::binary16_widening_agrees_with_the_weight_offload_copy ... ok
+test checkpoint::tests::fp32_replacement_promotes_trainable_mixed_source_and_preserves_other_dtype ... ok
+test checkpoint::tests::model_tensor_reader_promotes_f16_and_bf16_to_fp32 ... ok
+test checkpoint::tests::pending_gradient_roundtrip_preserves_registry_order_and_values ... ok
+test checkpoint::tests::portable_ltm_geometry_rejects_batch_isolated_pytorch_state ... ok
+test checkpoint::tests::portable_master_validator_rejects_low_precision_optimizer_slot ... ok
+test checkpoint::tests::portable_running_carrier_encoder_roundtrips_python_abi ... ok
+test checkpoint::tests::portable_running_carrier_reader_decodes_python_cached_rosa_layout ... ok
+test control::tests::auxiliary_source_scale_accepts_zero_gradient_mask ... ok
+test control::tests::finite_clamp_matches_pytorch_boundaries_and_preserves_nonfinite_branch ... ok
+test control::tests::hard_act_rowwise_depth_backward_matches_prefix_reference_at_deeper_horizon ... ok
+test control::tests::hard_act_zero_source_mask_produces_zero_gradients ... ok
+test coverage_record::tests::a_carried_claim_must_be_in_the_record ... ok
+test coverage_record::tests::a_case_that_compares_less_than_it_did_fails ... ok
+test coverage_record::tests::a_clean_merge_has_nothing_to_refuse ... ok
+test coverage_record::tests::a_device_with_no_recorded_coverage_fails ... ok
+test coverage_record::tests::a_duplicated_entry_is_rejected_rather_than_audited ... ok
+test coverage_record::tests::a_golden_case_that_stops_being_measured_fails ... ok
+test coverage_record::tests::a_newly_exercised_invocation_is_a_note ... ok
+test coverage_record::tests::a_record_round_trips_through_disk ... ok
+test coverage_record::tests::a_recorded_missing_dispatch_that_vanishes_also_fails ... ok
+test coverage_record::tests::a_recorded_rejection_that_is_neither_measured_nor_carried_fails ... ok
+test coverage_record::tests::a_rejection_carried_past_its_canary_is_clean ... ok
+test coverage_record::tests::a_rejection_this_run_confirmed_is_clean ... ok
+test coverage_record::tests::a_verified_invocation_missing_from_the_record_is_a_note ... ok
+test coverage_record::tests::an_arm_that_became_unavailable_where_it_ran_fails_with_that_reason ... ok
+test coverage_record::tests::an_arm_that_stops_running_fails ... ok
+test coverage_record::tests::an_invocation_that_stops_being_exercised_fails ... ok
+test coverage_record::tests::an_unrecorded_device_fails_rather_than_defaulting ... ok
+test coverage_record::tests::bootstrap_creates_only_the_entries_that_are_missing ... ok
+test coverage_record::tests::bootstrap_prints_the_diff_it_wrote ... ok
+test coverage_record::tests::bootstrap_with_nothing_missing_writes_nothing ... ok
+test coverage_record::tests::both_records_refuse_a_loss_in_the_same_words ... ok
+test coverage_record::tests::carrying_a_case_the_record_verified_fails ... ok
+test coverage_record::tests::grown_coverage_is_a_note ... ok
+test coverage_record::tests::recording_a_shrunken_entry_is_reported_before_it_is_applied ... ok
+test coverage_record::tests::recording_merges_this_device_and_lists_its_invocations ... ok
+test coverage_record::tests::the_recorded_coverage_reproducing_is_clean ... ok
+test decision_records::tests::a_chain_policy_reads_the_measurement_it_is_entitled_to ... ok
+test decision_records::tests::a_folded_entry_is_loadable_and_selectable ... ok
+test decision_records::tests::a_projection_route_is_rejected_by_a_chain_record ... ok
+test decision_records::tests::a_route_outside_the_kind_vocabulary_is_rejected ... ok
+test decision_records::tests::a_route_that_is_not_the_fastest_candidate_is_rejected ... ok
+test decision_records::tests::a_route_with_no_timing_of_its_own_is_rejected ... ok
+test decision_records::tests::a_scoped_withhold_must_name_a_route_the_policy_has ... ok
+test decision_records::tests::a_withheld_route_must_match_its_measured_decision ... ok
+test decision_records::tests::every_producer_record_shares_one_loader_and_one_band_rule ... ok
+test decision_records::tests::every_record_accepts_a_policy_scope ... ok
+test decision_records::tests::key_state_forward_record_loads_into_its_own_consumer ... ok
+test decision_records::tests::key_state_record_names_the_route_that_won_each_geometry ... ok
+test decision_records::tests::lookup_is_exact_on_device_and_geometry ... ok
+test decision_records::tests::low_rank_forward_record_loads_into_its_own_consumer ... ok
+test decision_records::tests::policy_scoped_entries_override_only_their_own_policy ... ok
+test decision_records::tests::rank_two_rule_keeps_the_fusion_unless_measured_or_forced ... ok
+test decision_records::tests::record_parses_and_is_non_empty ... ok
+test decision_records::tests::rule_prefers_the_record_over_the_gate ... ok
+test decision_records::tests::tbptt_chain_records_name_packed_or_legacy_per_geometry ... ok
+test decision_records::tests::the_backward_fusion_record_measures_the_folded_rung_without_adopting_it ... ok
+test decision_records::tests::the_fp16_route_reads_its_own_entries_and_the_dense_route_does_not ... ok
+test decision_records::tests::the_low_rank_record_mixes_candidate_sets_by_geometry ... ok
+test decision_records::tests::wrong_kind_is_rejected ... ok
+test deepseek_v41::attention::grouped_tests::deepseek_v41_bf16_grouped_decode_reduction_matches_frozen_cpu ... ok
+test deepseek_v41::attention::grouped_tests::deepseek_v41_pinned_sparse_reduction_matches_cpu_production_shapes ... ok
+test deepseek_v41::attention::projection_grad::tests::attention_projection_cache_chain_and_all_factor_vjps_match_cpu ... ok
+test deepseek_v41::attention::projection_grad::tests::attention_projection_conditional_branches_preserve_none_gradients ... ok
+test deepseek_v41::attention::projection_grad::tests::attention_projection_rejects_geometry_and_configuration_mismatch ... ok
+test deepseek_v41::attention::schedule_tests::deepseek_v41_schedule_width_attention_contractions_match_cpu_bits ... ok
+test deepseek_v41::attention::tape::tests::attention_tape_invalid_reads_and_backward_seeds_are_rejected ... ok
+test deepseek_v41::attention::tape::tests::attention_tape_overwrite_and_absent_seed_ownership_is_exact ... ok
+test deepseek_v41::attention::tape::tests::attention_tape_rejects_aliases_foreign_handles_and_bad_geometry ... ok
+test deepseek_v41::attention::tape::tests::attention_tape_shared_sources_and_decode_chain_match_cpu_autograd ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_attention_adjoint_crosses_dispatch_axis_bound ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_cache_write_adjoints_cpu_pytorch_strict ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_grouped_output_adjoints_cpu_pytorch_strict ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_rotary_adjoints_cpu_pytorch_strict ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_sparse_attention_adjoints_cpu_pytorch_strict ... ok
+test deepseek_v41::attention_tests::deepseek_v41_attention_matches_the_pinned_reference_fixture ... ok
+test deepseek_v41::attention_tests::deepseek_v41_attention_wires_the_shared_index_selection_and_key_cache ... ok
+test deepseek_v41::attention_tests::deepseek_v41_sparse_attention_keeps_index_validity_at_finite_mask_extremes ... ok
+test deepseek_v41::attention_tests::deepseek_v41_sparse_attention_matches_a_float64_gather_reference ... ok
+test deepseek_v41::attention_tests::deepseek_v41_window_cache_ring_matches_the_index_order ... ok
+test deepseek_v41::attention_tests::deepseek_v41_window_indices_match_the_released_ring_rules ... ok
+test deepseek_v41::backbone::block_grad_tests::deepseek_v41_ffn_norm_adjoint_matches_the_pinned_cpu_fixture ... ok
+test deepseek_v41::backbone::block_grad_tests::deepseek_v41_hc_collapse_adjoints_match_the_pinned_cpu_fixture ... ok
+test deepseek_v41::backbone::block_grad_tests::deepseek_v41_hc_post_adjoint_matches_the_pinned_cpu_fixture ... ok
+test deepseek_v41::backbone::block_grad_tests::deepseek_v41_moe_adjoints_match_the_pinned_cpu_fixture ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::fp32_moe_scalar_clamp_bounds_match_pinned_cpu_subgradient ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_adjoint_rejects_bad_geometry_config_and_foreign_buffers ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_checkpoint_streaming_backward_and_inactive_gradients_match_cpu ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_computed_conditional_adamw_resume_and_export_match_cpu ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_retained_chain_and_adapter_vjps_match_cpu_and_release_experts ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_swiglu_clamp_route_reduction_and_padding_match_cpu ... ok
+test deepseek_v41::backbone::router_width_tests::deepseek_v41_384_expert_top6_router_at_production_width_matches_cpu_bits ... ok
+test deepseek_v41::backbone::routing_tests::deepseek_v41_top6_boundary_tie_matches_frozen_cpu ... ok
+test deepseek_v41::backbone::routing_tests::deepseek_v41_top6_routing_reduction_matches_frozen_cpu ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_backbone_applies_engram_before_scheduled_blocks ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_backbone_runs_the_released_block_order ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_hyper_connections_match_the_pinned_reference_fixture ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_moe_matches_the_pinned_reference_fixture ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_moe_routing_matches_the_pinned_reference_fixture ... ok
+test deepseek_v41::checkpoint::payload_cache::tests::payload_cache_bounds_lru_and_invalidates_each_shard ... ok
+test deepseek_v41::checkpoint::payload_cache::tests::payload_cache_metadata_count_is_bounded_too ... ok
+test deepseek_v41::checkpoint::payload_identity_tests::cached_payload_still_rejects_modified_truncated_and_deleted_shards ... ok
+test deepseek_v41::checkpoint::payload_identity_tests::expert_batches_check_both_boundaries_and_preserve_cache_invalidation ... ok
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_clones_share_index_and_shard_headers ... ok
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_reads_sharded_f32_bf16_and_actual_compressor_keys ... ok
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_rejects_packed_nonfinite_and_invalid_offsets ... ok
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_rejects_shard_path_escape ... ok
+test deepseek_v41::checkpoint_tests::lora_targets_cover_only_additive_projection_boundaries ... ok
+test deepseek_v41::compressed_kv_tests::deepseek_v41_compressed_kv_decode_uses_the_completed_group_position ... ok
+test deepseek_v41::compressed_kv_tests::deepseek_v41_compressed_kv_rejects_wrong_ratio_and_phase ... ok
+test deepseek_v41::compressed_kv_tests::deepseek_v41_compressed_kv_rotates_then_quantizes_without_mutating_latents ... ok
+test deepseek_v41::compression_tests::deepseek_v41_compressor_prefill_and_decode_match_pinned_fp32_reference ... ok
+test deepseek_v41::compression_tests::deepseek_v41_compressor_rejects_foreign_device_input_before_dispatch ... ok
+test deepseek_v41::compressor::tape_tests::deepseek_v41_compressor_decode_tape_snapshots_norm_gain ... ok
+test deepseek_v41::compressor::tape_tests::deepseek_v41_compressor_tape_snapshots_norm_gain ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_chains_state_across_steps_matching_cpu ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_rejects_unqualified_calls ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_runs_on_native_state ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_pool_simd_and_scalar_tails_match_cpu ... ok
+test deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_adjoint_rejects_unqualified_calls ... ok
+test deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_matches_cpu_pytorch ... ok
+test deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_runs_on_native_operands ... ok
+test deepseek_v41::cpu_math::tests::native_avx2_scope_preserves_host_dispatch ... ok
+test deepseek_v41::engram::gradients::tests::engram_adjoint_rejects_overflow_geometry_precision_and_foreign_buffers ... ok
+test deepseek_v41::engram::gradients::tests::engram_normalized_gate_vjps_match_cpu_including_width5120 ... ok
+test deepseek_v41::engram::gradients::tests::engram_retained_lookup_projection_chain_vjps_and_weight_release_match_cpu ... ok
+test deepseek_v41::engram::gradients::tests::engram_streamed_table_is_unneeded_by_retained_backward ... ok
+test deepseek_v41::engram::width_tests::deepseek_v41_engram_gate_at_production_width_matches_cpu_bits ... ok
+test deepseek_v41::engram_tests::deepseek_v41_engram_gate_matches_the_pinned_reference ... ok
+test deepseek_v41::engram_tests::deepseek_v41_engram_hash_matches_the_pinned_reference ... ok
+test deepseek_v41::engram_tests::deepseek_v41_engram_layout_matches_the_pinned_reference ... ok
+test deepseek_v41::engram_tests::deepseek_v41_engram_rejects_invalid_multipliers ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_candidate_source_publishes_masks_for_consumer_indexers ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_fine_indexer_owns_keys_and_returns_sorted_shared_positions ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_key_production_matches_pinned_fp32_reference ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_score_kernel_matches_host_float64_reference ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_selection_matches_pinned_reference_topk ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_selection_rejects_invalid_topk_and_shapes ... ok
+test deepseek_v41::mixed_linear::gradients::tests::gathered_adapter_spans_preserve_individual_words_and_order ... ok
+test deepseek_v41::mixed_linear::gradients::tests::packed_projection_tape_vjps_match_cpu_pytorch ... ok
+test deepseek_v41::mixed_linear::gradients::tests::projection_checkpoints_bind_trained_factors_config_and_moments ... ok
+test deepseek_v41::mixed_linear::gradients::tests::projection_tape_lora_vjps_match_cpu_and_release_frozen_weights ... ok
+test deepseek_v41::mixed_linear::gradients::tests::projection_tape_rejects_unqualified_precision_and_bad_geometry ... ok
+test deepseek_v41::mixed_linear::gradients::tests::projection_weight_gradient_cpu_output_geometry_reduction ... ok
+test deepseek_v41::mixed_linear::gradients::tests::query_projection_computed_gradients_adamw_resume_export_match_cpu ... ok
+test deepseek_v41::mixed_linear::pair_tests::paired_preparation_preserves_projection_bits_lora_and_block_fallbacks ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_bf16_index_scores_match_cpu_bits_including_masks_and_32_heads ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_fused_expert_chain_matches_staged_grids_and_cpu_references ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_attention_matches_cpu_bits_through_prefill_decode_reset ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_attention_rejects_unconverted_grouped_weights_and_invalid_storage ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_bf16_cast_matches_cpu_ties_subnormals_and_nonfinite_classes ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_engram_checkpoint_preserves_projection_storage_and_stream_policy ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_engram_matches_released_bf16_table_projection_and_residual ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_linear_block128_matches_pinned_cpu_reference ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_linear_matches_typed_cpu_boundaries ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_moe_matches_released_expert_and_moe_forward ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_storage_and_precision_validation ... ok
+test deepseek_v41::model::lora_tests::deepseek_v41_lora_production_width_strict_all_logits ... ignored, production-width PEFT package (~247 MB, two model loads); run explicitly
+test deepseek_v41::model::prefill_tests::deepseek_v41_four_token_prefill_strict_all_logits ... ignored, production-width four-token prefill (~241 MB package); run explicitly
+test deepseek_v41::model::production_tests::deepseek_v41_default_package_production_width_strict_all_logits ... ignored, production-width default package (~4.6 GB); run with --ignored
+test deepseek_v41::model::production_tests::deepseek_v41_production_width_vocabulary_strict_all_logits ... ignored, production-width package (~7.8 GB); run with --ignored
+test deepseek_v41::model::production_tests::deepseek_v41_streamed_all_production_width_strict_all_logits ... ignored, production-width all-expert streamed package (~4.6 GB); run explicitly
+test deepseek_v41::model::production_tests::deepseek_v41_streamed_block_production_width_strict_all_logits ... ignored, production-width streamed block package (~4.6 GB); run explicitly
+test deepseek_v41::model::production_tests::deepseek_v41_streamed_production_width_strict_all_logits ... ignored, production-width streamed package (~4.6 GB); run explicitly
+test deepseek_v41::model::production_tests::deepseek_v41_streamed_vocabulary_production_width_strict_all_logits ... ignored, production-width streamed vocabulary package (~4.6 GB); run explicitly
+test deepseek_v41::model::scalable_release_tests::deepseek_v41_default_package_scalable_release_strict_all_logits ... ignored, scalable 40-layer/384-expert release gate; run explicitly before a kernel port
+test deepseek_v41::model::scalable_release_tests::deepseek_v41_scalable_release_preserves_production_feature_contract ... ok
+test deepseek_v41::model::schedule_width_tests::deepseek_v41_default_package_schedule_width_strict_all_logits ... ignored, production-width sparse/Engram/top-6 package; run with --ignored
+test deepseek_v41::model::schedule_width_tests::deepseek_v41_schedule_width_frozen_fixture_contract ... ok
+test deepseek_v41::model::tests::deepseek_v41_application_streaming_is_explicit_and_bit_exact ... ok
+test deepseek_v41::model::tests::deepseek_v41_bf16_checkpoint_rejects_incomplete_precision_contracts ... ok
+test deepseek_v41::model::tests::deepseek_v41_default_loader_requires_engram_metadata ... ok
+test deepseek_v41::model::tests::deepseek_v41_default_package_loader_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_legacy_backbone_weights_still_promote_dense_bf16 ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_additional_seeds_and_top3_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_bf16_residual_hc_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_checkpoint_requires_engram_artifacts_and_exact_owned_parameters ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_exports_complete_fp32_diagnostic_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_input_rejection_preserves_state_and_partial_failure_requires_prefill ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_packed_attention_indexer_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_packed_experts_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_single_sharded_bf16_and_raw_weights_are_identical ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_package_generation_matches_manual_steps ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_all_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_all_tables_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_block_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_vocabulary_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_all_checks_shared_metadata_and_storage ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_all_shared_payload_failure_invalidates_sequence ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_checkpoint_checks_late_expert_metadata ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_payload_errors_invalidate_sequence ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_table_metadata_is_deferred ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_table_staging_is_released_between_lookups ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_tables_match_resident_logits ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_expert_staging_is_released_between_calls ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_layer_projections_match_resident_logits ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_payload_is_lazy_and_errors_are_propagated ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_projection_partial_upload_is_released ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_projection_payload_errors_invalidate_sequence ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_joint_cpu_fixture_remains_frozen ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_joint_depth_and_384_expert_strict_all_logits ... ignored, joint 40-layer/384-expert resident graph; run explicitly on the local Vulkan device
+test deepseek_v41::model::tests::structure::deepseek_v41_long_context_2048_token_strict_all_logits ... ignored, 40-layer/384-expert 2,048-token YaRN graph; run explicitly on the local Vulkan device
+test deepseek_v41::model::tests::structure::deepseek_v41_long_context_cpu_fixture_remains_frozen ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_released_depth_schedule_and_384_expert_strict_all_logits ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_depth_schedule_and_384_expert_strict_all_logits ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_joint_strict_all_logits ... ignored, 40-layer/384-expert all-expert streamed graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_long_context_2048_strict_all_logits ... ignored, 40-layer/384-expert all-expert streamed 2,048-token graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_depth_schedule_and_384_expert_strict_all_logits ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_joint_strict_all_logits ... ignored, joint 40-layer/384-expert streamed experts and tables; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_long_context_2048_strict_all_logits ... ignored, 40-layer/384-expert streamed experts and tables 2,048-token graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_projections_structure_strict_all_logits ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_block_joint_strict_all_logits ... ignored, 40-layer/384-expert streamed projections joint graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_block_long_context_2048_strict_all_logits ... ignored, 40-layer/384-expert streamed projections 2,048-token graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_depth_schedule_and_384_expert_strict_all_logits ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_joint_strict_all_logits ... ignored, 40-layer/384-expert streamed checkpoint graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_long_context_2048_strict_all_logits ... ignored, 40-layer/384-expert streamed 2,048-token graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_vocabulary_joint_strict_all_logits ... ignored, 40-layer/384-expert streamed vocabulary joint graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_vocabulary_long_context_2048_strict_all_logits ... ignored, 40-layer/384-expert streamed vocabulary 2,048-token graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_vocabulary_structure_strict_all_logits ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_bf16_cpu_autograd_adamw_resume_and_export_gate ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_cpu_autograd_adamw_resume_and_export_gate ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_packed_cpu_autograd_adamw_resume_and_export_gate ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_production_ratio_cpu_training_gate ... ignored, six-layer/384-expert production-ratio training gate; run in a fresh process to bound this machine's commit peak
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_retained_training_smoke_and_forward_identity ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_streamed_training_matches_resident_dense_and_packed ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_training_rejects_budget_and_changed_frozen_base ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_modality_absent_gradients_match_text_path_bits ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_matches_train_sequence_bits ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_state_matches_train_sequence ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_production_uninterrupted_training_logit_trajectory ... ignored, six-layer/384-expert uninterrupted CPU logit trajectory; run in its own process on this machine
+test deepseek_v41::model::tests::training::hc_adjoint_tests::deepseek_v41_modality_hc_repeat_adjoint_matches_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_compressor_adjoint_matches_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_gate_adjoints_match_released_cpu ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_grouped_adjoints_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_hc_adjoints_match_released_cpu ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_input_adjoints_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_lora_matmuls_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_sparse_adjoints_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_swiglu_adjoints_match_frozen_cpu ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_narrow_projections_match_frozen_cpu_tolerance ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_projection_panels_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_terminal_matches_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_unary_boundaries_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_cpu_state_forward_diagnostic ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_multimodal_joint_two_adamw_steps_match_frozen_cpu ... ok
+test deepseek_v41::model::tests::training::native_vision::native_state::deepseek_v41_native_joint_checkpoint_resume_export_and_freshness ... ok
+test deepseek_v41::model::tests::training::native_vision::native_state::multimodal_training_throughput_benchmark ... ignored, explicit multimodal throughput benchmark; requires frozen shared fixtures
+test deepseek_v41::model::tests::vocabulary::deepseek_v41_streamed_vocabulary_buffers_are_released_after_each_operation ... ok
+test deepseek_v41::model::tests::vocabulary::deepseek_v41_streamed_vocabulary_payload_errors_invalidate_sequence ... ok
+test deepseek_v41::model::tests::vocabulary::deepseek_v41_streamed_vocabulary_preflights_both_headers ... ok
+test deepseek_v41::model::tests::wide::deepseek_v41_model_wider_yarn_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::wide::deepseek_v41_wide_projection_panels_and_tied_topk_match_cpu ... ok
+test deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_loads_exact_owned_checkpoint_tensors ... ok
+test deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_matches_explicit_shared_layer_execution_and_reset ... ok
+test deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_rejects_invalid_calls_before_mutation_and_recovers_component_errors ... ok
+test deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_rejects_weight_ownership_and_capacity_mismatches ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_checkpoint_reads_exported_and_converted_sharded_payloads ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_checkpoint_rejects_invalid_dtype_shapes_scales_and_offsets ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_decode_tiles_large_row_tables_without_expanding_weights ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_decoding_matches_independent_cpu_bit_exactly ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_engram_checkpoint_runtime_preserves_cache_and_reset ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_engram_lookup_and_residual_match_released_forward ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_kernel_rejects_foreign_buffers_and_invalid_precision_geometry ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_linear_matches_independent_cpu_blocks ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_weights_validate_geometry_and_finite_materialization ... ok
+test deepseek_v41::peft::tests::adapter_module_spellings_normalize_to_the_checkpoint_path ... ok
+test deepseek_v41::peft::tests::capability_stays_fail_closed_for_replacement_modules ... ok
+test deepseek_v41::peft::tests::half_decoding_matches_the_ieee_conversion ... ok
+test deepseek_v41::peft::tests::target_matching_follows_peft_suffix_semantics ... ok
+test deepseek_v41::peft::tests::unmerged_export_preserves_factors_patterns_and_rslora ... ok
+test deepseek_v41::quantization_tests::deepseek_v41_fp4_midpoints_match_cpu_for_all_positive_e4m3_scales ... ok
+test deepseek_v41::quantization_tests::deepseek_v41_quantization_matches_released_kernels_bit_exactly ... ok
+test deepseek_v41::quantization_tests::deepseek_v41_quantization_rejects_invalid_shapes_and_modes ... ok
+test deepseek_v41::rotary_tests::deepseek_v41_rotary_matches_pinned_reference ... ok
+test deepseek_v41::rotary_tests::deepseek_v41_rotary_rejects_invalid_configuration_and_positions ... ok
+test deepseek_v41::rotary_tests::deepseek_v41_rotary_tiles_rows_past_one_dispatch_axis ... ok
+test deepseek_v41::terminal::tests::reduced_cross_entropy_and_row_mean_keep_their_distinct_cpu_folds ... ok
+test deepseek_v41::terminal::tests::terminal_adjoints_match_the_pinned_cpu_fixture ... ok
+test deepseek_v41::tests::deepseek_v41_candidate_filter_can_be_disabled ... ok
+test deepseek_v41::tests::deepseek_v41_rejects_invalid_dimensions_and_missing_fields ... ok
+test deepseek_v41::tests::deepseek_v41_rejects_invalid_sharing_schedules ... ok
+test deepseek_v41::tests::deepseek_v41_released_config_preserves_package_and_builds_sharing_plan ... ok
+test deepseek_v41::tests::deepseek_v41_released_engram_prime_ranges_match_table_rows ... ok
+test deepseek_v41::tests::deepseek_v41_standalone_text_is_distinct_and_executor_fails_closed ... ok
+test deepseek_v41::tests::deepseek_v41_vulkan_candidates_match_pinned_reference ... ok
+test deepseek_v41::tokenizer::tests::numpy_engram_hash_multipliers_match_frozen_reference ... ok
+test deepseek_v41::tokenizer::tests::published_v4_1_tokenizer_reproduces_released_engram_metadata ... ignored, requires the published V4.1 tokenizer.json via V41_TOKENIZER
+test deepseek_v41::tokenizer::tests::tokenizer_derives_fixture_engram_map_and_multipliers ... ok
+test deepseek_v41::train::conditional_tests::conditional_adamw_checkpoint_resume_and_export_preserve_factor_clocks ... ok
+test deepseek_v41::train::conditional_tests::conditional_adamw_counter_checkpoint_rejects_invalid_payloads_and_migrates_v2 ... ok
+test deepseek_v41::train::conditional_tests::conditional_adamw_invalid_late_parameter_and_overflow_are_atomic ... ok
+test deepseek_v41::train::conditional_tests::conditional_adamw_none_zero_and_independent_factor_steps_match_cpu ... ok
+test deepseek_v41::train::conditional_tests::conditional_adamw_sparse_moments_allocate_on_first_parameter_gradient ... ok
+test deepseek_v41::train::tests::adapter_adamw_matches_the_pinned_cpu_trajectory_and_resumes ... ok
+test deepseek_v41::unary_tests::deepseek_v41_cpu_scalar_log_staging_matches_cpu ... ok
+test deepseek_v41::unary_tests::deepseek_v41_cpu_sqrt_seed_and_staging_match_cpu ... ok
+test deepseek_v41::unary_tests::deepseek_v41_unary_matches_independent_scalar_and_vector_tail_references ... ok
+test deepseek_v41::upload::tests::parameter_upload_batch_preserves_words_and_bounds_staging ... ok
+test distributed::tcp::tests::tcp_preserves_fp32_bits_tails_and_control_messages ... ok
+test distributed::tcp::tests::tcp_rejects_invalid_and_truncated_frames ... ok
+test distributed::tcp::tests::tcp_rejects_invalid_capacity_before_connecting ... ok
+test distributed::tcp::tests::tcp_simultaneous_large_exchange_makes_progress ... ok
+test full_training_graph::architecture_config_json_roundtrip_tests::checkpoint_config_edits_preserve_python_contract_number_lexemes ... ok
+test full_training_graph::hierarchos_causal_lm_tests::hierarchos_causal_lm_architecture_contract ... ok
+test full_training_graph::hierarchos_causal_lm_tests::hierarchos_causal_lm_continuation_matches_cpu_across_manager_and_rosa_boundaries ... ok
+test full_training_graph::hierarchos_causal_lm_tests::hierarchos_causal_lm_dense_sparse_objective_equivalence ... ok
+test full_training_graph::hierarchos_causal_lm_tests::hierarchos_causal_lm_vendor_kernels_match_portable ... ok
+test full_training_graph::hierarchos_causal_lm_tests::hierarchos_causal_lm_weighted_language_metric_matches_cpu ... ok
+test full_training_graph::hierarchos_causal_lm_tests::network_tcp_gradient_merge_matches_existing_transport_and_reload_logits ... ok
+test full_training_graph::ltm_alignment_controller_tests::controller_microbatch_rows_track_closing_observation_separately ... ok
+test full_training_graph::ltm_alignment_controller_tests::empty_window_advances_bookkeeping_without_quality_score ... ok
+test full_training_graph::ltm_alignment_controller_tests::stride_and_readiness_match_pytorch_controller_semantics ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::budgeted_outer_update_mode_maps_across_planner_chunks ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::device_auxiliary_mask_factorization_preserves_exact_row_sources ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::labeled_sequence_backward_caps_are_derived_per_pytorch_tbptt_chunk ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::labeled_sequence_objective_matches_pytorch_backward_cap_policy ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::pending_gradient_transport_source_is_send_and_sync_without_training_graph_sync ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::pytorch_tbptt_weighting_rejects_zero_real_token_microbatch ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::raw_chunk_weighting_matches_sampled_pytorch_denominators ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::replica_transport_source_is_send_and_sync_without_training_graph_sync ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::sequence_scalar_minimum_backward_gate_matches_pytorch_tie_semantics ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::uneven_microbatches_match_pytorch_weighted_token_auxiliary_math ... ok
+test full_training_graph::token_tape_branch_selector_tests::branch_only_candidate_freezes_sibling_tape_and_numerics ... ok
+test full_training_graph::token_tape_branch_selector_tests::branch_selector_bootstraps_unmeasured_then_uses_normalized_ucb_pressure ... ok
+test full_training_graph::token_tape_branch_selector_tests::segment_schedule_factor_candidates_collapse_cartesian_duplicates ... ok
+test full_training_graph::token_tape_branch_selector_tests::segment_schedule_selector_uses_marginal_pressure_and_rotates_exact_ties ... ok
+test full_training_graph::token_tape_branch_selector_tests::tape_geometry_selector_isolates_microbatch_and_stride_coordinates ... ok
+test full_training_graph::token_tape_online_probe_tests::host_jitter_without_gpu_slowdown_is_not_marked_as_throttling ... ok
+test full_training_graph::token_tape_online_probe_tests::sustained_probe_excludes_warmup_and_reports_steady_state_statistics ... ok
+test full_training_graph::training_session_tests::backend_neutral_stream_and_rng_session_needs_no_python_rng_blob ... ok
+test full_training_graph::training_session_tests::canonical_counter_policy_is_self_contained ... ok
+test full_training_graph::training_session_tests::dynamic_loss_scaler_exposes_exact_native_backward_source_scale ... ok
+test full_training_graph::training_session_tests::dynamic_loss_scaler_skips_overflow_and_grows_on_interval ... ok
+test full_training_graph::training_session_tests::gradient_clip_coefficient_clips_huge_finite_norms_without_overflow ... ok
+test full_training_graph::training_session_tests::gradient_clip_coefficient_rejects_nonfinite_norms ... ok
+test full_training_graph::training_session_tests::native_epoch_shuffle_cursor_owns_next_batch_and_rolls_epoch ... ok
+test full_training_graph::training_session_tests::native_length_grouped_cursor_matches_python_vectors ... ok
+test full_training_graph::training_session_tests::native_training_session_accepts_post_horizon_lambda_lr_counter ... ok
+test full_training_graph::training_session_tests::native_training_session_json_round_trip_preserves_live_lr_state ... ok
+test full_training_graph::training_session_tests::native_training_session_rejects_main_schedule_without_group_lrs ... ok
+test full_training_graph::training_session_tests::persisted_mid_epoch_session_requires_recurrent_host_replay ... ok
+test full_training_graph::training_session_tests::portable_fisher_yates_has_stable_cross_language_vector ... ok
+test full_training_graph::training_session_tests::portable_v6_checkpoint_rejects_backend_scaled_pending_gradient_domain ... ok
+test full_training_graph::training_session_tests::replay_rejects_native_session_cursor_drift ... ok
+test full_training_graph::training_session_tests::zero_gradient_clip_limit_disables_magnitude_clipping_but_keeps_checks ... ok
+test full_training_graph::training_working_set_plan_tests::full_graph_scratch_reuses_repeated_reverse_subphases ... ok
+test full_training_graph::training_working_set_plan_tests::phase_live_bytes_do_not_confuse_reserved_arena_with_active_slots ... ok
+test full_training_graph::training_working_set_plan_tests::projected_transport_width_recompiles_the_same_lifetime_graph ... ok
+test full_training_graph::training_working_set_plan_tests::repeated_interval_overlap_tracks_noncontiguous_worker_uses ... ok
+test full_training_graph::training_working_set_plan_tests::smaller_replica_can_reject_wide_transport_before_graph_allocation ... ok
+test full_training_graph::training_working_set_plan_tests::tape_budget_accounts_for_compiled_graph_peak_without_double_counting ... ok
+test full_training_graph::training_working_set_plan_tests::topology_aware_transport_residency_tracks_each_replica_physical_memory ... ok
+test full_training_graph::training_working_set_plan_tests::topology_aware_transport_residency_tracks_primary_physical_memory ... ok
+test full_training_graph::wide_head_wave32_geometry_tests::fusion_geometry_cross_is_gated_and_requires_both_geometry_arms ... ok
+test full_training_graph::wide_head_wave32_geometry_tests::joint_pair_probe_is_gated_by_wave32_head64_and_compiled_availability ... ok
+test full_training_graph::wide_head_wave32_geometry_tests::paired_geometry_fusion_probe_grows_linearly_with_tower_neighbors ... ok
+test full_training_graph::wide_head_wave32_geometry_tests::wave32_head64_adds_dual_pair_wg128_against_wg64_baseline ... ok
+test full_training_graph::wide_head_wave32_geometry_tests::wave32_head64_factorizes_fusion_depth_under_paired_workgroup_geometry ... ok
+test full_training_graph::wide_head_wave32_geometry_tests::wave32_head64_mixed_baseline_probes_both_symmetric_pair_regimes ... ok
+test hierarchos_ce_mask_tests::hierarchos_ce_retains_loss_under_large_common_logit_offsets ... ok
+test hierarchos_ce_mask_tests::hierarchos_ce_zero_sources_do_not_poison_streaming_adjoints ... ok
+test hierarchos_ce_mask_tests::hierarchos_ce_zero_sources_do_not_poison_tape_adjoints ... ok
+test kernel_golden_coverage::tests::the_coverage_flags_resolve_their_defaults ... ok
+test kernel_golden_coverage::tests::the_coverage_key_is_the_goldens_name ... ok
+test lm_execution::tests::lm_autotune_applies_margin_to_the_combined_backward_plan ... ok
+test lm_execution::tests::lm_autotune_requires_two_percent_margin_over_portable_baseline ... ok
+test lm_execution::tests::lm_weight_grad_candidates_follow_workgroup_capabilities ... ok
+test lm_execution::tests::native_fp16_reuse_arms_match_shared_memory_envelope ... ok
+test lm_execution::tests::native_fp16_reuse_candidates_respect_device_shared_memory ... ok
+test lm_execution::tests::native_fp16_reuse_candidates_stop_after_covering_context_width ... ok
+test lm_execution::tests::rows16_cross_row_arms_are_offered_and_cache_admission_requires_the_arm ... ok
+test lora::tests::native_lora_hf_merge_unmerge_preserves_base_and_untouched_tensors ... ok
+test lora::tests::native_lora_merge_applies_b_times_a_and_saved_ltm ... ok
+test lora::tests::native_lora_merge_rejects_unbound_base ... ok
+test lora::tests::native_lora_merge_supports_bias_all_and_generic_modules_to_save ... ok
+test lora::tests::native_lora_merge_supports_dora_magnitude_vectors ... ok
+test lora::tests::native_lora_merge_supports_lora_b_bias ... ok
+test lora::tests::native_lora_merge_supports_lora_only_bias_and_null_modules_to_save ... ok
+test lora::tests::native_lora_merge_supports_packed_target_parameters_and_current_task_types ... ok
+test lora::tests::native_lora_merge_supports_trainable_token_indices_and_corda_metadata ... ok
+test lora::tests::native_lora_merge_supports_trainable_token_module_map_and_default_key ... ok
+test lora::tests::standalone_lora_config_accepts_peft_regex_module_selectors ... ok
+test lora::tests::standalone_lora_config_rejects_topology_mutating_layer_replication ... ok
+test mixed_precision::tests::bf16_storage_roundtrip_preserves_fp32_master ... ok
+test mixed_precision::tests::fp16_storage_roundtrip_preserves_fp32_master ... ok
+test mixed_precision::tests::fp16_storage_uses_ieee_round_to_nearest_even ... ok
+test mixed_precision::tests::mirror_readback_reuses_timeline_arena_scratch ... ok
+test multimodal::tests::modality_rows_reject_ambiguous_or_invalid_layouts ... ok
+test multimodal::tests::modality_scatter_and_adjoint_preserve_order_and_text_rows ... ok
+test rwkv_channel_mix::tests::fused_channel_mix_full_forward_matches_legacy_four_dispatch_chain ... ok
+test rwkv_channel_mix::tests::fused_channel_mix_producer_matches_legacy_three_dispatch_chain ... ok
+test rwkv_channel_mix::tests::fused_external_norm_gradient_matches_zero_external_reference ... ok
+test rwkv_channel_mix::tests::fused_layer_norm_backward_matches_legacy_nonzero_external_chain ... ok
+test rwkv_low_rank::tests::a_contended_sweep_keeps_the_default_and_says_so ... ok
+test rwkv_low_rank::tests::a_lead_that_loses_a_round_keeps_the_default ... ok
+test rwkv_low_rank::tests::a_quiet_sweep_still_decides_and_records_its_spread ... ok
+test rwkv_low_rank::tests::a_unanimous_win_displaces_the_structural_default ... ok
+test rwkv_low_rank::tests::ally_f32_topology_admission_rejects_weak_wins_and_preserves_other_profiles ... ok
+test rwkv_low_rank::tests::column_slices_grid_carries_rows_in_the_second_dimension ... ok
+test rwkv_low_rank::tests::column_slices_is_never_dispatched_with_a_row_per_workgroup_grid ... ok
+test rwkv_low_rank::tests::every_fp16_variant_has_a_distinct_override_value_and_label ... ok
+test rwkv_low_rank::tests::fan_in_fusion_preserves_materialized_fp32_rounding ... ok
+test rwkv_low_rank::tests::fan_in_reference_profile_is_adapter_driver_and_geometry_scoped ... ok
+test rwkv_low_rank::tests::no_measured_rounds_keeps_the_default ... ok
+test rwkv_low_rank::tests::row_per_workgroup_topologies_keep_one_grid_dimension ... ok
+test rwkv_low_rank::tests::split_rounds_leave_the_default ... ok
+test rwkv_low_rank::tests::the_override_vocabulary_is_the_union_of_both_families ... ok
+test rwkv_low_rank::tests::the_verdict_is_order_independent_and_withholds_unmeasured_rounds ... ok
+test rwkv_optimizer::tests::adamw_predeclared_wavefront_queues_multiple_bounded_runs ... ok
+test rwkv_optimizer::tests::adamw_range_wavefront_matches_full_tensor_update ... ok
+test rwkv_optimizer::tests::canonical_gradient_shard_accumulation_reuses_transient_arena_buffers ... ok
+test rwkv_optimizer::tests::clipped_grad_scaler_keeps_scale_and_adam_clocks_device_resident_across_windows ... ok
+test rwkv_optimizer::tests::device_grad_scaler_gates_adamw_without_host_branch ... ok
+test rwkv_optimizer::tests::device_grad_scaler_gates_predeclared_adamw_wavefront_and_releases_generation ... ok
+test rwkv_optimizer::tests::device_grad_scaler_gates_prepared_clipped_adamw_without_double_unscale ... ok
+test rwkv_optimizer::tests::device_norm_clip_scale_and_adamw_match_host_reference ... ok
+test rwkv_optimizer::tests::eight_way_accumulation_matches_four_way_and_scalar_at_group_edges ... ok
+test rwkv_optimizer::tests::fp16_storage_mirror_refreshes_in_same_adamw_command_stream ... ok
+test rwkv_optimizer::tests::inactive_gradient_override_is_accepted_and_remains_frozen ... ok
+test rwkv_optimizer::tests::inactive_slot_preserves_parameter_moments_and_adam_clock ... ok
+test rwkv_optimizer::tests::indexed_device_gradient_scale_combines_control_word_and_normalization ... ok
+test rwkv_optimizer::tests::loss_unscale_and_adamw_share_one_command_stream ... error: test failed, to rerun pass `--lib`
+
+Caused by:
+  process didn't exit successfully: `C:\Users\User\Downloads\Multimodal\Hierarchos-Native\hierarchos-vulkan\target\debug\deps\hierarchos_vulkan-2f708da7cb986ebb.exe --test-threads=1` (exit code: 0xc0000409, STATUS_STACK_BUFFER_OVERRUN)
+note: test exited abnormally; to see the full output pass --no-capture to the harness.
+exit=127
