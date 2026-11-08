@@ -10,7 +10,10 @@ use std::{
     collections::BTreeMap,
     fs,
     path::PathBuf,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Barrier,
+    },
 };
 
 #[path = "model_streamed_tests.rs"]
@@ -120,12 +123,68 @@ fn unique_test_root(prefix: &str) -> Result<PathBuf> {
 #[test]
 fn temporary_test_roots_do_not_reuse_stale_directories() -> Result<()> {
     let stale = reserve_test_root("hierarchos-v41-stale", 7, 11)?;
+    fs::write(stale.join("interrupted.marker"), b"stale state")?;
     let fresh = reserve_test_root("hierarchos-v41-stale", 7, 11)?;
     assert_ne!(stale, fresh);
     assert!(stale.is_dir());
     assert!(fresh.is_dir());
+    assert_eq!(fs::read(stale.join("interrupted.marker"))?, b"stale state");
     fs::remove_dir_all(&stale)?;
     fs::remove_dir_all(&fresh)?;
+    Ok(())
+}
+
+#[test]
+fn temporary_test_roots_are_unique_under_concurrent_reservation() -> Result<()> {
+    const THREADS: usize = 8;
+    let barrier = Arc::new(Barrier::new(THREADS));
+    let handles = (0..THREADS)
+        .map(|_| {
+            let barrier = Arc::clone(&barrier);
+            std::thread::spawn(move || {
+                barrier.wait();
+                reserve_test_root("hierarchos-v41-concurrent", 17, 23)
+            })
+        })
+        .collect::<Vec<_>>();
+    let roots = handles
+        .into_iter()
+        .map(|handle| handle.join().unwrap())
+        .collect::<Result<Vec<_>>>()?;
+    assert_eq!(
+        roots
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        THREADS
+    );
+    for root in &roots {
+        assert!(root.is_dir());
+    }
+    for root in roots {
+        fs::remove_dir_all(root)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn temporary_test_roots_support_repeated_sequential_reservation() -> Result<()> {
+    let roots = (0..8)
+        .map(|_| reserve_test_root("hierarchos-v41-sequential", 19, 29))
+        .collect::<Result<Vec<_>>>()?;
+    assert_eq!(
+        roots
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        roots.len()
+    );
+    for root in &roots {
+        assert!(root.is_dir());
+    }
+    for root in roots {
+        fs::remove_dir_all(root)?;
+    }
     Ok(())
 }
 

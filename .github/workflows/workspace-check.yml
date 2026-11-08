@@ -31,6 +31,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-workspace-
 
+      # Windows-only runtime check for the RDNA3 workflow's cygpath wiring.
+      # It creates no Cargo target and does not require a physical GPU.
+      - name: RDNA3 Windows path smoke test
+        shell: bash
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_rdna3_workflow_paths.py"
+
       - name: One-pass workspace check
         shell: pwsh
         run: ./check-workspace.ps1

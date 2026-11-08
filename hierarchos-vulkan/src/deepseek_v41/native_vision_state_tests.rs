@@ -576,3 +576,30 @@ fn deepseek_v41_native_joint_checkpoint_resume_export_and_freshness() -> Result<
     eprintln!("Native V4.1 joint resume/export: two cases, exact weights/moments/continued updates/reloaded logits; stale and foreign gradients rejected");
     Ok(())
 }
+
+/// Cleanup is deliberately narrower than the package root: only paths owned by
+/// this test invocation are removed, and an unrelated directory in the same
+/// temporary root survives. This keeps interrupted state harmless without
+/// turning cleanup into a broad `%TEMP%` sweep.
+#[test]
+fn native_checkpoint_cleanup_is_scoped_to_test_owned_paths() -> Result<()> {
+    let package = Package::new(&fixture()?, false)?;
+    let root = package.root.clone();
+    let checkpoint = root.join("joint-step1");
+    let unrelated = root.join("unrelated-owner");
+    fs::create_dir_all(&checkpoint)?;
+    fs::create_dir_all(&unrelated)?;
+    fs::write(checkpoint.join("state.bin"), b"checkpoint")?;
+    fs::write(unrelated.join("state.bin"), b"keep")?;
+
+    drop(OwnedCheckpoints {
+        root: root.clone(),
+        paths: vec![checkpoint.clone()],
+    });
+
+    assert!(!checkpoint.exists());
+    assert!(unrelated.is_dir());
+    assert_eq!(fs::read(unrelated.join("state.bin"))?, b"keep");
+    fs::remove_dir_all(&root)?;
+    Ok(())
+}

@@ -8,11 +8,14 @@ from pathlib import Path
 
 CRATE=Path(__file__).resolve().parents[1]
 BASELINE=CRATE/'validation/release_parity/multimodal_training/20261105-gen9-v41-upload-batching/deepseek-suite-qualification.json'
-# This test lives in the DeepSeek test module because it exercises that module's
-# package allocator, but it is CI infrastructure rather than a numerical case.
-# Keep it out of the 218 active/26 ignored numerical inventory.
+# These tests live in the DeepSeek test module because they exercise its
+# package allocator, but they are CI infrastructure rather than numerical cases.
+# Keep them out of the 218 active/26 ignored numerical inventory.
 NON_NUMERICAL_TESTS={
     'deepseek_v41::model::tests::temporary_test_roots_do_not_reuse_stale_directories',
+    'deepseek_v41::model::tests::temporary_test_roots_are_unique_under_concurrent_reservation',
+    'deepseek_v41::model::tests::temporary_test_roots_support_repeated_sequential_reservation',
+    'deepseek_v41::model::tests::training::native_vision::native_state::native_checkpoint_cleanup_is_scoped_to_test_owned_paths',
 }
 def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def write(p,v):p.write_bytes((json.dumps(v,indent=2)+'\n').encode())

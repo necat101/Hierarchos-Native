@@ -9,19 +9,38 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+/// Reserve a checkpoint package root without reusing a stale path left by an
+/// interrupted process.  The old PID + process-local counter name could repeat
+/// after a restart and fail with Windows error 183.  The timestamp and retry
+/// make an interrupted root harmless without deleting it.
+fn reserve_package_root() -> Result<PathBuf> {
+    static ID: AtomicU64 = AtomicU64::new(0);
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let id = ID.fetch_add(1, Ordering::Relaxed);
+    for attempt in 0..32 {
+        let root = std::env::temp_dir().join(format!(
+            "hierarchos-v41-checkpoint-{}-{id}-{nonce}-{attempt}",
+            std::process::id()
+        ));
+        match fs::create_dir(&root) {
+            Ok(()) => return Ok(root),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.into()),
+        }
+    }
+    anyhow::bail!("could not reserve a unique checkpoint test directory")
+}
+
 struct Package {
     root: PathBuf,
 }
 
 impl Package {
     fn new() -> Result<Self> {
-        static ID: AtomicU64 = AtomicU64::new(0);
-        let root = std::env::temp_dir().join(format!(
-            "hierarchos-v41-checkpoint-{}-{}",
-            std::process::id(),
-            ID.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&root)?;
+        let root = reserve_package_root()?;
         let mut config: Value = serde_json::from_str(include_str!(
             "../../validation/fixtures/deepseek_v41_flash_1017_config.json"
         ))?;
