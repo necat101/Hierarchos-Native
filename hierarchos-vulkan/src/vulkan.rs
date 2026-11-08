@@ -2026,6 +2026,16 @@ impl VulkanDevice {
                 let Some(clear) = pending.entries.get(&key) else {
                     continue;
                 };
+                // The key is an address. If the allocation that enqueued this
+                // clear has expired, the address may already belong to a new,
+                // unrelated allocation. A zero strong count proves the weak
+                // entry cannot refer to the live buffer at this key, so drop it
+                // instead of scheduling its fill against the new object.
+                if clear.allocation.strong_count() == 0 {
+                    pending.entries.remove(&key);
+                    pending.pruned = pending.pruned.saturating_add(1);
+                    continue;
+                }
                 if clear.owner != current {
                     continue;
                 }
@@ -9596,6 +9606,7 @@ mod tests {
         GEN9_WATCHDOG_SLICE_MICROS, GEN9_WATCHDOG_SLICING_DEFAULT, INTEL_PCI_VENDOR_ID,
         INTEL_WATCHDOG_PLATFORM, WATCHDOG_SLICE_DISPATCHES_ENV, WATCHDOG_SUBMISSIONS_ENV,
     };
+    use std::sync::Arc;
     use anyhow::{anyhow, Context, Result};
 
     #[test]
@@ -9856,16 +9867,18 @@ mod tests {
     fn pending_clear_drain_probes_only_bound_buffers() -> Result<()> {
         let device = VulkanDevice::new()?;
         // Keep many live deferred fills that this batch will not bind. A linear
-        // drain inspects every one of them; the index must only probe the two
-        // buffers the copy actually binds.
+        // drain inspects every one of them; the index must only probe the
+        // buffers the copies actually bind.
         let waiting = (0..64)
             .map(|_| GpuBuffer::zeros_f32(&device, 4))
             .collect::<Result<Vec<_>>>()?;
         let source = GpuBuffer::from_f32(&device, &[1.0, 2.0, 3.0, 4.0])?;
         let target = GpuBuffer::zeros_f32(&device, 4)?;
+        let second_target = GpuBuffer::zeros_f32(&device, 4)?;
         let before = device.pending_clear_stats()?;
         let mut commands = ComputeBatch::new(&device)?;
         commands.copy_f32_range(&source, 0, &target, 0, 4)?;
+        commands.copy_f32_range(&source, 0, &second_target, 0, 4)?;
         commands.submit()?;
         let after = device.pending_clear_stats()?;
         let probed = after
@@ -9878,7 +9891,155 @@ mod tests {
         );
         assert_eq!(after.pending_entries, waiting.len());
         assert_eq!(target.read_f32(4)?, [1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(second_target.read_f32(4)?, [1.0, 2.0, 3.0, 4.0]);
         assert_eq!(waiting[0].read_f32(4)?, [0.0; 4]);
+        Ok(())
+    }
+
+    #[test]
+    fn stale_pending_clear_cannot_fill_an_address_reused_allocation() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        let expired = GpuBuffer::zeros_f32(&device, 4)?;
+        let expired_key = Arc::as_ptr(&expired.allocation) as usize;
+        drop(expired);
+
+        // Move the now-dead weak entry onto a live allocation's key to model
+        // the allocator handing the same address to an unrelated buffer. The
+        // live contents must survive: the stale clear must be pruned, not
+        // recorded against the new allocation.
+        let live = GpuBuffer::from_f32(&device, &[1.0, 2.0, 3.0, 4.0])?;
+        let live_key = Arc::as_ptr(&live.allocation) as usize;
+        {
+            let mut pending = device
+                .inner
+                .pending_clears
+                .lock()
+                .map_err(|_| anyhow!("Vulkan pending-clear list was poisoned"))?;
+            let stale = pending
+                .entries
+                .remove(&expired_key)
+                .context("expired pending clear disappeared")?;
+            assert_eq!(stale.allocation.strong_count(), 0);
+            pending.entries.insert(live_key, stale);
+        }
+        let readback = GpuBuffer::uninitialized_host_f32(&device, 4)?;
+        let mut commands = ComputeBatch::new(&device)?;
+        commands.copy_f32_range(&live, 0, &readback, 0, 4)?;
+        commands.submit()?;
+        assert_eq!(readback.read_f32(4)?, [1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(device.pending_clear_stats()?.pending_entries, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn abandoned_pending_clears_are_reclaimed_without_retaining_the_device() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        for _ in 0..128 {
+            drop(GpuBuffer::zeros_f32(&device, 4)?);
+        }
+        let mut pending = device
+            .inner
+            .pending_clears
+            .lock()
+            .map_err(|_| anyhow!("Vulkan pending-clear list was poisoned"))?;
+        assert_eq!(pending.prune_unreachable(), 128);
+        assert!(pending.entries.is_empty());
+        drop(pending);
+        assert_eq!(Arc::strong_count(&device.inner), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn pending_clears_are_applied_once_per_allocation_without_cross_talk() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        let source = GpuBuffer::from_f32(&device, &[1.5, -2.0, 3.25, 4.0])?;
+        let targets = (0..16)
+            .map(|_| GpuBuffer::zeros_f32(&device, 4))
+            .collect::<Result<Vec<_>>>()?;
+        assert_eq!(
+            device.pending_clear_stats()?.pending_entries,
+            targets.len()
+        );
+        let mut commands = ComputeBatch::new(&device)?;
+        for target in &targets {
+            commands.copy_f32_range(&source, 0, target, 0, 4)?;
+        }
+        commands.submit()?;
+        for target in &targets {
+            assert_eq!(target.read_f32(4)?, [1.5, -2.0, 3.25, 4.0]);
+        }
+        let stats = device.pending_clear_stats()?;
+        assert_eq!(stats.pending_entries, 0);
+        assert!(stats.recorded >= targets.len() as u64);
+        Ok(())
+    }
+
+    #[test]
+    fn bounded_pruning_reclaims_abandoned_entries_at_the_threshold() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        let abandoned = GpuBuffer::new(&device, 16)?;
+        let weak = Arc::downgrade(&abandoned.allocation);
+        drop(abandoned);
+        let threshold = super::PENDING_CLEAR_PRUNE_THRESHOLD;
+        {
+            let mut pending = device
+                .inner
+                .pending_clears
+                .lock()
+                .map_err(|_| anyhow!("Vulkan pending-clear list was poisoned"))?;
+            let owner = std::thread::current().id();
+            for index in 0..=threshold {
+                pending.entries.insert(
+                    usize::MAX - index,
+                    super::PendingClear {
+                        allocation: weak.clone(),
+                        size_bytes: 16,
+                        owner,
+                    },
+                );
+            }
+            pending.pruned = 0;
+        }
+        // Allocating one more fill crosses the threshold, so the insertion path
+        // must reclaim every dead entry before it records the new one.
+        let live = GpuBuffer::zeros_f32(&device, 4)?;
+        let stats = device.pending_clear_stats()?;
+        assert!(
+            stats.pruned >= threshold as u64,
+            "threshold prune reclaimed only {} entries",
+            stats.pruned
+        );
+        assert_eq!(stats.pending_entries, 1);
+        assert_eq!(live.read_f32(4)?, [0.0; 4]);
+        Ok(())
+    }
+
+    #[test]
+    fn pending_clear_is_consumed_only_by_its_allocating_thread() -> Result<()> {
+        let device = VulkanDevice::new()?;
+        let zeroed = GpuBuffer::zeros_f32(&device, 4)?;
+        assert_eq!(device.pending_clear_stats()?.pending_entries, 1);
+        std::thread::scope(|scope| -> Result<()> {
+            let device = device.clone();
+            let zeroed = zeroed.clone();
+            scope
+                .spawn(move || -> Result<()> {
+                    // A non-owner bind must not consume the fill: it belongs to
+                    // the allocating thread, and only that thread may order it
+                    // against its own writes.
+                    let other = GpuBuffer::zeros_f32(&device, 4)?;
+                    let mut commands = ComputeBatch::new(&device)?;
+                    commands.copy_f32_range(&other, 0, &zeroed, 0, 4)?;
+                    commands.submit()?;
+                    assert_eq!(device.pending_clear_stats()?.pending_entries, 1);
+                    Ok(())
+                })
+                .join()
+                .map_err(|_| anyhow!("pending-clear owner test thread panicked"))??;
+            Ok(())
+        })?;
+        assert_eq!(zeroed.read_f32(4)?, [0.0; 4]);
+        assert_eq!(device.pending_clear_stats()?.pending_entries, 0);
         Ok(())
     }
 
