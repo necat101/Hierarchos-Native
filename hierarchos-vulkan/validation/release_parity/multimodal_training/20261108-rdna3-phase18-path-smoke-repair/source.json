@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "phase": "XVIII-path-smoke-repair",
+  "source_commit": "ce1757d3c2e362d811f32f9467ff065fb7dcf0b8",
+  "parent_commit": "58ab4fbc7374bc44c64bc65e183155f277db9ea6",
+  "main_numerical_receipt": {
+    "path": "validation/release_parity/multimodal_training/20261108-rdna3-phase18-replay-reliability",
+    "source_commit": "d799890861af26fa8b33f03a5c17f7a34059c6fc",
+    "evidence_commit": "58ab4fbc7374bc44c64bc65e183155f277db9ea6"
+  },
+  "numerical_source_changed": false,
+  "test_only_source_changes": true,
+  "test_binary_sha256": "cc558cc72012bc5bb0362093af6f9a3b5e8bdf07fdda06be3883d24d200dad62",
+  "changed_files": {
+    "hierarchos-vulkan/validation/test_rdna3_workflow_paths.py": "dc9c3fc716a6cf617289fc3bd90f0f683911bd0f44abe60041feac7c921f58e4"
+  },
+  "source_diff_sha256": "af418c3b9803fc1d7eabcb6dbe1fece785ea9811564c36b4fff33edf8358b2de",
+  "path_smoke": {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p test_rdna3_workflow_paths.py -v",
+    "tests": 5,
+    "exit_code": 0,
+    "local_log_sha256": "1ac3da1bafdab68aa1db4f0af9ecbe5a937d55ad0fc2f70ea03753b1410cca1a"
+  },
+  "current_source": {
+    "source_head": "ce1757d3c2e362d811f32f9467ff065fb7dcf0b8",
+    "pass": true,
+    "shapes": 16,
+    "worst_logit": 5.960464477539063e-08
+  },
+  "remote": {
+    "initial_run": {
+      "id": 42525900516,
+      "url": "https://github.com/necat101/Hierarchos-Native/actions/runs/42525900516",
+      "workflow_validation": "success",
+      "workspace_check": "failure",
+      "failed_step": "RDNA3 Windows path smoke test",
+      "failure": "bare bash -lc probe returned 1 with empty stderr on the hosted Windows runner"
+    },
+    "repair_run": {
+      "id": 42526223339,
+      "url": "https://github.com/necat101/Hierarchos-Native/actions/runs/42526223339",
+      "workflow_validation": "success",
+      "path_smoke_step": "success",
+      "workspace_check_at_seal": "in_progress",
+      "workspace_check_pass_claimed": false
+    }
+  },
+  "hardware": {
+    "rdna3_self_hosted_runners": 0,
+    "hardware_ci_claimed": false
+  }
+}

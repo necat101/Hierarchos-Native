@@ -1,0 +1,75 @@
+diff --git a/hierarchos-vulkan/validation/test_rdna3_workflow_paths.py b/hierarchos-vulkan/validation/test_rdna3_workflow_paths.py
+index b37bdc3..2e7f1d8 100644
+--- a/hierarchos-vulkan/validation/test_rdna3_workflow_paths.py
++++ b/hierarchos-vulkan/validation/test_rdna3_workflow_paths.py
+@@ -20,6 +20,21 @@ ROOT = Path(__file__).resolve().parents[2]
+ WORKFLOW = ROOT / ".github" / "workflows" / "rdna3-performance.yml"
+ 
+ 
++def git_bash() -> str | None:
++    """Prefer the bundled Git Bash, not a WSL or unrelated bash wrapper."""
++    candidates: list[Path] = []
++    program_files = os.environ.get("ProgramFiles")
++    if program_files:
++        candidates.append(Path(program_files) / "Git" / "bin" / "bash.exe")
++    discovered = shutil.which("bash")
++    if discovered:
++        candidates.append(Path(discovered))
++    for candidate in candidates:
++        if candidate.is_file() and "system32" not in str(candidate).lower():
++            return str(candidate)
++    return None
++
++
+ class WorkflowPathTests(unittest.TestCase):
+     @classmethod
+     def setUpClass(cls) -> None:
+@@ -65,8 +80,9 @@ class WorkflowPathTests(unittest.TestCase):
+     )
+     def test_cygpath_build_log_paths_are_usable(self) -> None:
+         cygpath = shutil.which("cygpath")
+-        if cygpath is None:
+-            self.skipTest("cygpath is not on PATH")
++        bash = git_bash()
++        if cygpath is None or bash is None:
++            self.skipTest("Git Bash and cygpath are required")
+ 
+         # Use a Windows path under the workspace, like RUNNER_TEMP.  Python's
+         # default temp directory is exported by Git Bash as /tmp, which is not
+@@ -123,11 +139,19 @@ class WorkflowPathTests(unittest.TestCase):
+                 "import pathlib,sys; from cargo_test_binary import select; "
+                 "print(select(pathlib.Path(sys.argv[1]), 'hierarchos_vulkan').resolve())"
+             )
++            python_posix = subprocess.run(
++                [cygpath, "-u", sys.executable],
++                check=True,
++                capture_output=True,
++                text=True,
++            ).stdout.strip()
+             probe = subprocess.run(
+                 [
+-                    "bash",
+-                    "-lc",
+-                    f'python -c {shlex.quote(script)} "$1"',
++                    bash,
++                    "--noprofile",
++                    "--norc",
++                    "-c",
++                    f'{shlex.quote(python_posix)} -c {shlex.quote(script)} "$1"',
+                     "bash",
+                     candidate_posix,
+                 ],
+@@ -136,7 +160,12 @@ class WorkflowPathTests(unittest.TestCase):
+                 capture_output=True,
+                 text=True,
+             )
+-            self.assertEqual(probe.returncode, 0, probe.stderr)
++            self.assertEqual(
++                probe.returncode,
++                0,
++                f"bash={bash!r} python={python_posix!r} "
++                f"stdout={probe.stdout!r} stderr={probe.stderr!r}",
++            )
+             selected = probe.stdout.strip()
+             self.assertEqual(Path(selected).resolve(), executable.resolve())
+             baseline_log.write_text("{}\n", encoding="utf-8")

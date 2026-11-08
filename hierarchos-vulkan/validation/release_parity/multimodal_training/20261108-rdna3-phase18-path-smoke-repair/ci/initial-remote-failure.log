@@ -1,0 +1,22 @@
+workspace-check	RDNA3 Windows path smoke test	﻿2026-11-08T21:36:05.7940709Z ##[group]Run python -m unittest discover -s hierarchos-vulkan/validation -p "test_rdna3_workflow_paths.py"
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:05.7941404Z ^[[36;1mpython -m unittest discover -s hierarchos-vulkan/validation -p "test_rdna3_workflow_paths.py"^[[0m
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:05.7951614Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:05.7951915Z env:
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:05.7952086Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:05.7952456Z   CARGO_INCREMENTAL: 0
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:05.7952627Z   CARGO_TERM_COLOR: always
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:05.7952794Z ##[endgroup]
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1179040Z .F...
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1179447Z ======================================================================
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1180092Z FAIL: test_cygpath_build_log_paths_are_usable (test_rdna3_workflow_paths.WorkflowPathTests.test_cygpath_build_log_paths_are_usable)
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1180583Z ----------------------------------------------------------------------
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1180959Z Traceback (most recent call last):
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1181483Z   File "D:\a\Hierarchos-Native\Hierarchos-Native\hierarchos-vulkan\validation\test_rdna3_workflow_paths.py", line 139, in test_cygpath_build_log_paths_are_usable
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1182053Z     self.assertEqual(probe.returncode, 0, probe.stderr)
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1182295Z AssertionError: 1 != 0 : 
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1182416Z 
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1182531Z ----------------------------------------------------------------------
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1182799Z Ran 5 tests in 0.101s
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1182909Z 
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1182973Z FAILED (failures=1)
+workspace-check	RDNA3 Windows path smoke test	2026-11-08T21:36:07.1325277Z ##[error]Process completed with exit code 1.
