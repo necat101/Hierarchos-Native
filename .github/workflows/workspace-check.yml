@@ -35,7 +35,12 @@ jobs:
       - name: RDNA3 multimodal receipt guard
         run: python hierarchos-vulkan/validation/check_rdna3_multimodal_receipts.py
 
-      - name: Expanded RDNA3 GPT2 receipt guard
+      - name: Expanded RDNA3 GPT2 receipt guard (historical integrity)
+        run: python hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py --historical-only
+
+      # A historical receipt binds its own revision, so it can never qualify a
+      # different checkout. Current source needs a receipt bound to this HEAD.
+      - name: Current-source RDNA3 GPT2 qualification
         run: python hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py
 
       - name: Expanded RDNA3 GPT2 receipt negative controls
