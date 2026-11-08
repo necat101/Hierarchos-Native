@@ -1,0 +1,816 @@
+{
+  "schema": 1,
+  "pass": false,
+  "status": "REGRESSION",
+  "source_head": "3806c8c764b447dce03ce6f2636c3b6cc789b33d",
+  "target": "rdna3",
+  "adapter": {
+    "vendor": "1002",
+    "device": "15bf",
+    "driver": "32.0.31007.6002"
+  },
+  "protocol": {
+    "order": "ABBA",
+    "rounds": 6,
+    "measured_steps": 7,
+    "warmup_steps": 2,
+    "bootstrap_draws": 10000,
+    "fixtures": "target/rdna3-port/gen9-frozen/target/multimodal-gen9",
+    "note": "Every run is a separate six-round paired comparison; no samples were merged across runs."
+  },
+  "binaries": {
+    "historical_372407b": "7e7a713106b76f93425b0b08b0f1ef9cec053935ddfb3323874883c81e29c9ab",
+    "optimized_c7e096d": "86ad8879ebffb21462e50e1e1c8f41ec7da7f52f127e89bdac44bf0d85e27e3b",
+    "pre_pool_42958d3": "6b62b688d7af844ee45e0239415bbb0c30ae571c102f75dfbd7d7d604be097e6",
+    "current_3806c8c": "cfae56cf9cb63aa207381fa13002bf62470154f654a4548ac0a7263d45bd081d"
+  },
+  "runs": [
+    {
+      "folder": "historical-372407b-vs-current-b1",
+      "scope": "historical 372407b vs current 3806c8c; batch 1",
+      "batch": 1,
+      "rounds": 6,
+      "pass_": false,
+      "word_exact": false,
+      "mismatched": [
+        "gpt2"
+      ],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\baseline-372407b.exe",
+        "sha256": "7e7a713106b76f93425b0b08b0f1ef9cec053935ddfb3323874883c81e29c9ab",
+        "env": {}
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe",
+        "sha256": "cfae56cf9cb63aa207381fa13002bf62470154f654a4548ac0a7263d45bd081d",
+        "env": {}
+      },
+      "gate_failures": [
+        "t5: control regression is significant ([0.9320048262368863, 0.9538170447002303])"
+      ],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 338.5311,
+          "candidate_median_ms": 224.7548,
+          "speedup": 1.5062241162368946,
+          "speedup_ci95": [
+            1.48666775293617,
+            1.5132990522890348
+          ],
+          "conclusion": "candidate_faster",
+          "baseline_relative_mad": 0.0047304368786205584,
+          "candidate_relative_mad": 0.0017147575936086348,
+          "submissions": {
+            "baseline": [
+              982
+            ],
+            "candidate": [
+              151
+            ]
+          }
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 418.2925,
+          "candidate_median_ms": 288.8121,
+          "speedup": 1.4483205516666373,
+          "speedup_ci95": [
+            1.4300938497150932,
+            1.5110611900409454
+          ],
+          "conclusion": "candidate_faster",
+          "baseline_relative_mad": 0.0016735896531733963,
+          "candidate_relative_mad": 0.0070660128159450485,
+          "submissions": {
+            "baseline": [
+              982
+            ],
+            "candidate": [
+              151
+            ]
+          }
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 12.7378,
+          "candidate_median_ms": 13.30745,
+          "speedup": 0.9571931512047763,
+          "speedup_ci95": [
+            0.9462769267972124,
+            1.0252446682670169
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.011748496600668897,
+          "candidate_relative_mad": 0.001228635087864323,
+          "submissions": {
+            "baseline": [
+              5
+            ],
+            "candidate": [
+              5
+            ]
+          }
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 11.61775,
+          "candidate_median_ms": 10.8356,
+          "speedup": 1.0721833585588245,
+          "speedup_ci95": [
+            1.0461557990129675,
+            1.222063852799543
+          ],
+          "conclusion": "candidate_faster",
+          "baseline_relative_mad": 0.020619310968130543,
+          "candidate_relative_mad": 0.003931485104655044,
+          "submissions": {
+            "baseline": [
+              5
+            ],
+            "candidate": [
+              5
+            ]
+          }
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 31.274300000000004,
+          "candidate_median_ms": 33.08475,
+          "speedup": 0.9452784137706951,
+          "speedup_ci95": [
+            0.9320048262368863,
+            0.9538170447002303
+          ],
+          "conclusion": "candidate_slower",
+          "baseline_relative_mad": 0.004551660628695139,
+          "candidate_relative_mad": 0.0035167259840257845,
+          "submissions": {
+            "baseline": [
+              7
+            ],
+            "candidate": [
+              7
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "folder": "historical-372407b-vs-c7e096d-b1",
+      "scope": "historical 372407b vs c7e096d; batch 1",
+      "batch": 1,
+      "rounds": 6,
+      "pass_": true,
+      "word_exact": false,
+      "mismatched": [
+        "gpt2"
+      ],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\rdna3-port\\baseline-372407b.exe",
+        "sha256": "7e7a713106b76f93425b0b08b0f1ef9cec053935ddfb3323874883c81e29c9ab",
+        "env": {}
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-c7e096d\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-7b5919172ac33c5a.exe",
+        "sha256": "86ad8879ebffb21462e50e1e1c8f41ec7da7f52f127e89bdac44bf0d85e27e3b",
+        "env": {}
+      },
+      "gate_failures": [],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 333.53049999999996,
+          "candidate_median_ms": 220.83440000000002,
+          "speedup": 1.5103194973246918,
+          "speedup_ci95": [
+            1.3465511655919973,
+            1.520242335798088
+          ],
+          "conclusion": "candidate_faster",
+          "baseline_relative_mad": 0.0043868551751640155,
+          "candidate_relative_mad": 0.0009679198530663907,
+          "submissions": {
+            "baseline": [
+              982
+            ],
+            "candidate": [
+              151
+            ]
+          }
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 416.39405,
+          "candidate_median_ms": 280.59645,
+          "speedup": 1.483960506271551,
+          "speedup_ci95": [
+            1.4720766794470133,
+            1.5609813293361792
+          ],
+          "conclusion": "candidate_faster",
+          "baseline_relative_mad": 0.00875841045279113,
+          "candidate_relative_mad": 0.0040121676521566755,
+          "submissions": {
+            "baseline": [
+              982
+            ],
+            "candidate": [
+              151
+            ]
+          }
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 12.82395,
+          "candidate_median_ms": 12.773299999999999,
+          "speedup": 1.0039653026234412,
+          "speedup_ci95": [
+            0.9939436005555027,
+            1.1511367545606737
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.011817731666140262,
+          "candidate_relative_mad": 0.004771672159895899,
+          "submissions": {
+            "baseline": [
+              5
+            ],
+            "candidate": [
+              5
+            ]
+          }
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 11.505099999999999,
+          "candidate_median_ms": 10.317499999999999,
+          "speedup": 1.115105403440756,
+          "speedup_ci95": [
+            1.1070414407782974,
+            1.1425158733616567
+          ],
+          "conclusion": "candidate_faster",
+          "baseline_relative_mad": 0.0075227507800888225,
+          "candidate_relative_mad": 0.005854131330264245,
+          "submissions": {
+            "baseline": [
+              5
+            ],
+            "candidate": [
+              5
+            ]
+          }
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 30.9743,
+          "candidate_median_ms": 31.04305,
+          "speedup": 0.9977853335931874,
+          "speedup_ci95": [
+            0.9897170601608117,
+            1.002004389788762
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.0013656482955224458,
+          "candidate_relative_mad": 0.004582346129004742,
+          "submissions": {
+            "baseline": [
+              7
+            ],
+            "candidate": [
+              7
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "folder": "pre-pool-42958d3-vs-current-b1",
+      "scope": "pre-buffer-pool 42958d3 vs current 3806c8c; batch 1",
+      "batch": 1,
+      "rounds": 6,
+      "pass_": true,
+      "word_exact": true,
+      "mismatched": [],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-42958d3\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-9d2a403ec72c6a12.exe",
+        "sha256": "6b62b688d7af844ee45e0239415bbb0c30ae571c102f75dfbd7d7d604be097e6",
+        "env": {}
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe",
+        "sha256": "cfae56cf9cb63aa207381fa13002bf62470154f654a4548ac0a7263d45bd081d",
+        "env": {}
+      },
+      "gate_failures": [],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 226.16755,
+          "candidate_median_ms": 224.23675,
+          "speedup": 1.0086105422059497,
+          "speedup_ci95": [
+            1.0001635281397177,
+            1.1186235153381987
+          ],
+          "conclusion": "candidate_faster",
+          "baseline_relative_mad": 0.0031978504431780467,
+          "candidate_relative_mad": 0.0017450306428362671,
+          "submissions": {
+            "baseline": [
+              151
+            ],
+            "candidate": [
+              151
+            ]
+          }
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 291.0899,
+          "candidate_median_ms": 289.2287,
+          "speedup": 1.0064350460379623,
+          "speedup_ci95": [
+            1.002038386351866,
+            1.007322984002164
+          ],
+          "conclusion": "candidate_faster",
+          "baseline_relative_mad": 0.002376241841438077,
+          "candidate_relative_mad": 0.0016096258773766485,
+          "submissions": {
+            "baseline": [
+              151
+            ],
+            "candidate": [
+              151
+            ]
+          }
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 13.63895,
+          "candidate_median_ms": 13.48985,
+          "speedup": 1.011052754478367,
+          "speedup_ci95": [
+            0.9955122504224003,
+            1.0406977418275591
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.005520952859274319,
+          "candidate_relative_mad": 0.005448540940040113,
+          "submissions": {
+            "baseline": [
+              5
+            ],
+            "candidate": [
+              5
+            ]
+          }
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 10.98555,
+          "candidate_median_ms": 10.94,
+          "speedup": 1.0041636197440584,
+          "speedup_ci95": [
+            0.9894248333338265,
+            1.0203903007603343
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.0028264401873368825,
+          "candidate_relative_mad": 0.00900822669104192,
+          "submissions": {
+            "baseline": [
+              5
+            ],
+            "candidate": [
+              5
+            ]
+          }
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 33.319199999999995,
+          "candidate_median_ms": 33.31255,
+          "speedup": 1.0001996244658542,
+          "speedup_ci95": [
+            0.9839936542544725,
+            1.0099500121016565
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.00534526639295063,
+          "candidate_relative_mad": 0.002476544125262088,
+          "submissions": {
+            "baseline": [
+              7
+            ],
+            "candidate": [
+              7
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "folder": "pre-pool-42958d3-vs-current-b2",
+      "scope": "pre-buffer-pool 42958d3 vs current 3806c8c; batch 2",
+      "batch": 2,
+      "rounds": 6,
+      "pass_": true,
+      "word_exact": true,
+      "mismatched": [],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-42958d3\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-9d2a403ec72c6a12.exe",
+        "sha256": "6b62b688d7af844ee45e0239415bbb0c30ae571c102f75dfbd7d7d604be097e6",
+        "env": {}
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe",
+        "sha256": "cfae56cf9cb63aa207381fa13002bf62470154f654a4548ac0a7263d45bd081d",
+        "env": {}
+      },
+      "gate_failures": [],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 222.401,
+          "candidate_median_ms": 220.50025,
+          "speedup": 1.0086201716324585,
+          "speedup_ci95": [
+            0.9954593515201516,
+            1.0207098225868392
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.0013504885319760007,
+          "candidate_relative_mad": 0.0058519208028108335,
+          "submissions": {
+            "baseline": [
+              151
+            ],
+            "candidate": [
+              151
+            ]
+          }
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 291.2515,
+          "candidate_median_ms": 290.5101,
+          "speedup": 1.0025520627337914,
+          "speedup_ci95": [
+            0.9921474634371681,
+            1.0067589053085289
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.006188981000956108,
+          "candidate_relative_mad": 0.003056692349078415,
+          "submissions": {
+            "baseline": [
+              151
+            ],
+            "candidate": [
+              151
+            ]
+          }
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 13.6708,
+          "candidate_median_ms": 13.441099999999999,
+          "speedup": 1.0170893751255479,
+          "speedup_ci95": [
+            0.9807171039167955,
+            1.1320258001538743
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.004323082774965615,
+          "candidate_relative_mad": 0.005565020720030337,
+          "submissions": {
+            "baseline": [
+              5
+            ],
+            "candidate": [
+              5
+            ]
+          }
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 11.0165,
+          "candidate_median_ms": 11.023,
+          "speedup": 0.9994103238682756,
+          "speedup_ci95": [
+            0.9366007732357748,
+            1.078723973600404
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.01178686515681018,
+          "candidate_relative_mad": 0.006137167740179583,
+          "submissions": {
+            "baseline": [
+              5
+            ],
+            "candidate": [
+              5
+            ]
+          }
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 33.339349999999996,
+          "candidate_median_ms": 33.188199999999995,
+          "speedup": 1.0045543295508645,
+          "speedup_ci95": [
+            0.9051936212063976,
+            1.0077827973086175
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.003047449935286612,
+          "candidate_relative_mad": 0.004311773461651833,
+          "submissions": {
+            "baseline": [
+              7
+            ],
+            "candidate": [
+              7
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "folder": "pre-pool-42958d3-vs-current-b4",
+      "scope": "pre-buffer-pool 42958d3 vs current 3806c8c; batch 4",
+      "batch": 4,
+      "rounds": 6,
+      "pass_": true,
+      "word_exact": true,
+      "mismatched": [],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-42958d3\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-9d2a403ec72c6a12.exe",
+        "sha256": "6b62b688d7af844ee45e0239415bbb0c30ae571c102f75dfbd7d7d604be097e6",
+        "env": {}
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe",
+        "sha256": "cfae56cf9cb63aa207381fa13002bf62470154f654a4548ac0a7263d45bd081d",
+        "env": {}
+      },
+      "gate_failures": [],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 230.01914999999997,
+          "candidate_median_ms": 226.0863,
+          "speedup": 1.017395348590339,
+          "speedup_ci95": [
+            0.964764116486859,
+            1.023534674913362
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.02538027812032163,
+          "candidate_relative_mad": 0.01717795372828873,
+          "submissions": {
+            "baseline": [
+              151
+            ],
+            "candidate": [
+              151
+            ]
+          }
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 291.67140000000006,
+          "candidate_median_ms": 277.67835,
+          "speedup": 1.0503930176767473,
+          "speedup_ci95": [
+            0.9608307616865326,
+            1.0716150191053555
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.014485136355501397,
+          "candidate_relative_mad": 0.010744265802501466,
+          "submissions": {
+            "baseline": [
+              151
+            ],
+            "candidate": [
+              151
+            ]
+          }
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 13.45025,
+          "candidate_median_ms": 13.2529,
+          "speedup": 1.014891080442771,
+          "speedup_ci95": [
+            0.9085812224308412,
+            1.0279794966977656
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.014903068716194933,
+          "candidate_relative_mad": 0.004670675852077697,
+          "submissions": {
+            "baseline": [
+              5
+            ],
+            "candidate": [
+              5
+            ]
+          }
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 11.409749999999999,
+          "candidate_median_ms": 10.84685,
+          "speedup": 1.0518952506949022,
+          "speedup_ci95": [
+            0.8370546207504934,
+            1.0956300558967558
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.042419860207278864,
+          "candidate_relative_mad": 0.03217523981616777,
+          "submissions": {
+            "baseline": [
+              5
+            ],
+            "candidate": [
+              5
+            ]
+          }
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 33.16995,
+          "candidate_median_ms": 33.0704,
+          "speedup": 1.0030102448110698,
+          "speedup_ci95": [
+            0.8883572115019649,
+            1.0551548489786566
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.01591802218574349,
+          "candidate_relative_mad": 0.04655069185737101,
+          "submissions": {
+            "baseline": [
+              7
+            ],
+            "candidate": [
+              7
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "folder": "session-off-vs-on-current-b1",
+      "scope": "current 3806c8c; session OFF vs ON; batch 1",
+      "batch": 1,
+      "rounds": 6,
+      "pass_": false,
+      "word_exact": true,
+      "mismatched": [],
+      "baseline": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe",
+        "sha256": "cfae56cf9cb63aa207381fa13002bf62470154f654a4548ac0a7263d45bd081d",
+        "env": {
+          "HIERARCHOS_VULKAN_LAYER_SESSION": "0"
+        }
+      },
+      "candidate": {
+        "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native\\hierarchos-vulkan\\target\\debug\\deps\\hierarchos_vulkan-2f708da7cb986ebb.exe",
+        "sha256": "cfae56cf9cb63aa207381fa13002bf62470154f654a4548ac0a7263d45bd081d",
+        "env": {}
+      },
+      "gate_failures": [
+        "t5: control regression is significant ([0.9373802137292158, 0.9982390825067963])"
+      ],
+      "results": [
+        {
+          "case": "native_vit_4x4",
+          "baseline_median_ms": 336.4446,
+          "candidate_median_ms": 224.4065,
+          "speedup": 1.4992640587505264,
+          "speedup_ci95": [
+            1.49102254533224,
+            1.6509514760688784
+          ],
+          "conclusion": "candidate_faster",
+          "baseline_relative_mad": 0.001468146613142205,
+          "candidate_relative_mad": 0.004578298756943315,
+          "submissions": {
+            "baseline": [
+              952
+            ],
+            "candidate": [
+              151
+            ]
+          }
+        },
+        {
+          "case": "native_vit_6x4",
+          "baseline_median_ms": 423.3632,
+          "candidate_median_ms": 290.8458,
+          "speedup": 1.4556276899993055,
+          "speedup_ci95": [
+            1.4490873690387498,
+            1.467514897775076
+          ],
+          "conclusion": "candidate_faster",
+          "baseline_relative_mad": 0.001255541341335312,
+          "candidate_relative_mad": 0.0031377451556805222,
+          "submissions": {
+            "baseline": [
+              952
+            ],
+            "candidate": [
+              151
+            ]
+          }
+        },
+        {
+          "case": "llama",
+          "baseline_median_ms": 13.512149999999998,
+          "candidate_median_ms": 13.4454,
+          "speedup": 1.0049645231826498,
+          "speedup_ci95": [
+            0.990207889554103,
+            1.0531023338376948
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.005284133169036799,
+          "candidate_relative_mad": 0.008356017671471297,
+          "submissions": {
+            "baseline": [
+              5
+            ],
+            "candidate": [
+              5
+            ]
+          }
+        },
+        {
+          "case": "gpt2",
+          "baseline_median_ms": 10.8047,
+          "candidate_median_ms": 10.94625,
+          "speedup": 0.9870686308096381,
+          "speedup_ci95": [
+            0.9634197132724959,
+            1.0026653819306972
+          ],
+          "conclusion": "inconclusive",
+          "baseline_relative_mad": 0.0019112053088008666,
+          "candidate_relative_mad": 0.0059929199497544714,
+          "submissions": {
+            "baseline": [
+              5
+            ],
+            "candidate": [
+              5
+            ]
+          }
+        },
+        {
+          "case": "t5",
+          "baseline_median_ms": 32.87065,
+          "candidate_median_ms": 33.307,
+          "speedup": 0.9868991503287596,
+          "speedup_ci95": [
+            0.9373802137292158,
+            0.9982390825067963
+          ],
+          "conclusion": "candidate_slower",
+          "baseline_relative_mad": 0.006089018622996633,
+          "candidate_relative_mad": 0.006960999189359637,
+          "submissions": {
+            "baseline": [
+              7
+            ],
+            "candidate": [
+              7
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "findings": [
+    "Native ViT gains over 372407b remain: 1.506x and 1.448x at batch 1, with intervals above 1.0.",
+    "GPT-2 over 372407b is 1.072x (CI 1.046..1.222) with the documented one-to-two-ULP cross-arm signature difference.",
+    "Llama over 372407b is 0.957x with an interval crossing 1.0: inconclusive, not a proven regression.",
+    "T5 over 372407b is 0.945x (CI 0.932..0.954): a significant control regression; the strict gate fails.",
+    "The T5 regression is absent in 372407b vs c7e096d (0.998) and in 42958d3 vs current (1.0002), so it entered between c7e096d and 42958d3.",
+    "The lifetime fix lineage (42958d3) and current are performance-neutral across batches 1, 2 and 4; the pool revert added no measurable cost.",
+    "Session ON vs OFF preserves 1.499x/1.456x native ViT gains; T5 is 0.987x (CI 0.937..0.998), a marginal but significant session cost.",
+    "Batch-2 and batch-4 pre-pool/current comparisons are word-exact and inconclusive for every case."
+  ],
+  "limits": [
+    "No production-size model throughput is claimed.",
+    "The T5 regression is localized to a four-commit window, not bisected to one commit.",
+    "The historical comparison uses --allow-cross-arm-signature-difference for the documented GPT-2 ULP difference."
+  ]
+}
