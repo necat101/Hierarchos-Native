@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "receipts": {
+    "gpt2-primitives.log": "a55b3360b8a53db02faa4e5542409e1a26234cbf71aad039447b9e2a597aa882",
+    "suite-parallel-1.log": "fc0438275773aae9a882ec4052ee2fca04e5cc91624a69a3c968ca320a863a68",
+    "suite-parallel-2.log": "7e79fabe4e1518fa7ad00f1a5a53cdf9d6a3e4b6dff6cfc1a22162b74bf4b358",
+    "suite-parallel-3.log": "8e43023076963d79da07015c39cb37f5024655a9d306e29ed9f682ca18ee233b",
+    "suite-serial.log": "be2a6a3ecbff7b8c8dd50526e31fa425e4783542737f08d4dd72925e69be7a9d",
+    "summary.json": "088c0722f836614b4ff8aceb1c1257e65a933816ddbe82939a44f09628aa0d6d"
+  }
+}

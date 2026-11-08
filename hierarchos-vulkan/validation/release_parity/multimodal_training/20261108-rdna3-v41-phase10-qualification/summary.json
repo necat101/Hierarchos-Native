@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "phase": "X",
+  "source_commit": "72f67eabb491f392a99a406293513e9ed47fa89e",
+  "binary_sha256": "cfae56cf9cb63aa207381fa13002bf62470154f654a4548ac0a7263d45bd081d",
+  "rustc": "1.93.0 (254b59607 2026-01-19)",
+  "status": "INCOMPLETE",
+  "correctness": {
+    "suite_parallel": [
+      {
+        "passed": 1129,
+        "failed": 0,
+        "ignored": 40
+      },
+      {
+        "passed": 1129,
+        "failed": 0,
+        "ignored": 40
+      },
+      {
+        "passed": 1129,
+        "failed": 0,
+        "ignored": 40
+      }
+    ],
+    "suite_serial": {
+      "passed": 1129,
+      "failed": 0,
+      "ignored": 40
+    },
+    "gpt2_primitives": {
+      "passed": 9,
+      "failed": 0,
+      "ignored": 1
+    }
+  },
+  "gpt2": {
+    "historical_receipt_integrity": "PASS",
+    "current_source_qualification": "UNQUALIFIED",
+    "reason": "no frozen shape matrix was executed for this revision; the primitive suite is not a substitute"
+  },
+  "performance": {
+    "state": "NOT_MEASURED",
+    "reason": "no paired ABBA was run in this pass"
+  },
+  "limitations": [
+    "test-only isolation fix; shipped behaviour unchanged",
+    "current-source GPT-2 shape qualification not executed",
+    "no release-grade performance protocol (6 paired ABBA rounds) executed",
+    "no Vulkan validation-layer run",
+    "no native batch-1/2/4 or session ablation"
+  ]
+}
