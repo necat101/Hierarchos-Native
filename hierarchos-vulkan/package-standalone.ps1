@@ -96,6 +96,11 @@ $decisionRecords | Copy-Item -Destination $validationDestination
 Copy-Item -LiteralPath (Join-Path $validationSource "attention_kernel_cache_check.rs") -Destination $validationDestination
 
 Copy-Item -LiteralPath (Join-Path $templateRoot "Cargo.toml") -Destination $outputRoot
+$standaloneLock = Join-Path $templateRoot "Cargo.lock"
+if (-not (Test-Path -LiteralPath $standaloneLock -PathType Leaf)) {
+    throw "Missing standalone Cargo.lock: $standaloneLock"
+}
+Copy-Item -LiteralPath $standaloneLock -Destination $outputRoot
 Copy-Item -LiteralPath (Join-Path $templateRoot "README.md") -Destination $outputRoot
 Copy-Item -LiteralPath (Join-Path $templateRoot "LICENSE") -Destination $outputRoot
 Copy-Item -LiteralPath (Join-Path $templateRoot "RELEASE_NOTES.md") -Destination $outputRoot
@@ -111,16 +116,16 @@ Copy-Item -LiteralPath $licensesSource -Destination $outputRoot -Recurse
 if (-not $SkipBuild) {
     Push-Location $outputRoot
     try {
-        Invoke-CargoChecked -CargoArgs @("build", "--release", "-p", "hierarchos-native-cli", "--bin", "hierarchos-native-cli")
+        Invoke-CargoChecked -CargoArgs @("build", "--release", "--locked", "-p", "hierarchos-native-cli", "--bin", "hierarchos-native-cli")
         Invoke-CargoChecked -CargoArgs @(
-            "build", "--release", "-p", "hierarchos-vulkan",
+            "build", "--release", "--locked", "-p", "hierarchos-vulkan",
             "--bin", "hierarchos-vulkan-train",
             "--bin", "hierarchos-vulkan-devices",
             "--bin", "hierarchos-vulkan-transformer-train",
             "--bin", "hierarchos-vulkan-transformer-logits"
         )
-        Invoke-CargoChecked -CargoArgs @("build", "--release", "-p", "hierarchos-inference", "--bin", "hierarchos-infer")
-        Invoke-CargoChecked -CargoArgs @("build", "--release", "-p", "hierarchos-gui", "--bin", "hierarchos-native")
+        Invoke-CargoChecked -CargoArgs @("build", "--release", "--locked", "-p", "hierarchos-inference", "--bin", "hierarchos-infer")
+        Invoke-CargoChecked -CargoArgs @("build", "--release", "--locked", "-p", "hierarchos-gui", "--bin", "hierarchos-native")
     } finally {
         Pop-Location
     }
