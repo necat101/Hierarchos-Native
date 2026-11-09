@@ -1,66 +1,80 @@
-# RDNA3 mixed-WMMA paired optimizer-step benchmark: 2026-11-09
+# RDNA3 mixed-WMMA performance investigation: 2026-11-09
 
-**Verdict: INCONCLUSIVE. No end-to-end speedup is claimed.**
+**Verdict: mixed WMMA is a statistically significant regression for LoRA and
+statistically indistinguishable from FP32 for full fine-tuning. It should stay
+off by default, and it is not an accelerator on this workload.**
 
-This is the first whole-optimizer-step measurement taken *after* the versioned
-FP16 mirror cache landed. The earlier `1.087×` figure predates the cache and is
-not restated as a result here.
+## Paired optimizer-step results (5 ABBA rounds, warmups excluded, all runs exit 0)
 
-## Method
+Per-step latency is `(t48 - t4) / 44`, which cancels fixed startup but not thermal drift.
 
-Same fixture and inputs for both arms (Llama dense 1024, 16.78M parameters,
-LoRA rank 8, batch 8, sequence 64, lr 1e-2, seed 7). Five paired ABBA rounds,
-two warmups excluded, every run exited 0:
+| Workload | FP32 median ms/step | mixed median ms/step | FP32 / mixed | 95% CI |
+| --- | ---: | ---: | ---: | --- |
+| Full fine-tuning | 689.16 | 712.52 | **0.9954x** | 0.9123-1.086 |
+| LoRA rank 8 (frozen base) | 629.64 | 705.52 | **0.9051x** | 0.8542-0.9591 |
 
-`off 4, mixed 4, mixed 48, off 48` per round. Per-step latency is estimated as
-`(t48 − t4) / 44`, which cancels fixed startup cost but not thermal drift.
-Timer is process wall clock. Binary:
+The LoRA interval lies entirely below 1.0: mixed precision costs about 9.5% per
+step on this workload. The full-fine-tuning interval straddles 1.0 and is
+**INCONCLUSIVE**. The earlier `1.087x` figure predates the mirror cache and is
+not reproduced by either workload.
 
-`target/release/hierarchos-vulkan-transformer-train.exe`
-SHA-256 recorded in `benchmark.json`.
+The previous benchmark was labelled LoRA but ran with no `--lora-rank`, so it was
+full fine-tuning; its 720 `weight_grad` dispatches are correct for that mode. The
+trainer now prints `WMMA mode: training=... weight_grad_consistent=...` so the
+mode cannot be misread from dispatch counts again.
 
-## Results
+## Why: the step is attention, not GEMM
 
-| Round | FP32 ms/step | mixed ms/step | FP32 / mixed |
-| ---: | ---: | ---: | ---: |
-| 1 | 678.43 | 625.98 | 1.0838 |
-| 2 | 683.25 | 719.05 | 0.9502 |
-| 3 | 689.16 | 712.52 | 0.9672 |
-| 4 | 690.70 | 651.05 | 1.0609 |
-| 5 | 690.86 | 747.14 | 0.9247 |
+Per-step GPU attribution (medians of 12 profiled optimizer steps,
+`HIERARCHOS_VULKAN_PROFILE_KERNELS=1`):
 
-| Measure | FP32 | mixed |
+| Arm | GPU dispatch sum ms | Wall step ms | Non-dispatch ms | GPU share |
+| --- | ---: | ---: | ---: | ---: |
+| `fp32-lora` | 608.9 | 629.6 | 20.7 | 96.7% |
+| `mixed-lora` | 558.7 | 705.5 | 146.8 | 79.2% |
+| `fp32-full` | 651.9 | 689.2 | 37.3 | 94.6% |
+| `mixed-full` | 576.5 | 712.5 | 136.0 | 80.9% |
+
+Top kernels, FP32 full fine-tuning (sum of the measured step, not a normalised
+share):
+
+| Kernel | ms/step | Share |
 | --- | ---: | ---: |
-| Median ms/step | 689.16 | 712.52 |
-| Min / max | 678.43 / 690.86 | 625.98 / 747.14 |
+| `transformer_attention_backward` | 472.4 | 73.4% |
+| `transformer_attention_forward` | 53.2 | 8.3% |
+| `linear_weight_grad` | 40.3 | 6.3% |
+| `linear_input_grad` | 34.1 | 5.3% |
+| `linear_forward` | 33.8 | 5.2% |
+| `adamw` | 4.4 | 0.7% |
+| `transformer_rms_norm_param_grad` | 1.8 | 0.3% |
+| `transformer_rms_norm_forward` | 1.6 | 0.2% |
 
-Geometric mean ratio **0.9954×**, 95% CI **0.9123–1.0860** (t, df = 4). The
-interval contains 1.0, so the two arms are not distinguishable at this sample
-size. Note the dispersion: the FP32 arm is stable within 1.8%, while the mixed
-arm ranges over 19%. That spread, not a code difference, drives the interval.
+`transformer_attention_backward` alone is **472 ms of a
+689 ms step**. Both attention kernels run
+`local_size_x = 1`: one invocation per (batch, KV head) executes every query and
+key serially, so a 12-CU part runs ~32 single-thread workgroups. All projections
+together are about 115 ms, so no projection optimisation can recover the step.
 
-## Telemetry from the mixed arm
+That is also why mixed precision cannot win here. In LoRA the WMMA path replaces
+~115 ms of projection work with ~43 ms of `wmma_gemm_f16_f32acc`, yet the step
+gets **slower**: the GPU dispatch sum falls while wall time rises, which places
+the loss in submission, barrier and host scheduling around the extra WMMA
+dispatches, not in the kernels.
 
-Per 48-step run: `cooperative_dispatches=2160` (forward 720, weight_grad 720,
-input_grad 720; 15 projections per step), `shape_fallbacks=0`,
-`weight_conversions=720`, `fp32_bytes_read=3019898880`, `mirror_reuses=720`.
-One conversion per parameter per step with one reuse, i.e. the cache halves
-conversions relative to the pre-cache path, but that saving is small next to
-the per-step GPU work.
+## What was not done
+
+A parallel attention backward kernel is the single change that would move this
+step by hundreds of milliseconds, and it is a kernel project in its own right -
+it has to reproduce the scalar kernel's reduction order to keep the qualified
+FP32 gates, or be qualified as a separate numerically distinct path. It was not
+attempted here rather than risk the numerical contract. The existing parallel
+`transformer_attention_short_amd_rdna3` kernel is gated at `seq <= 16` and has no
+backward counterpart, so it cannot serve a 64-token step.
 
 ## Limitations
 
-- Process wall clock, not GPU timestamps; no GPU temperature, clock or power
-  telemetry was captured on this host.
-- The per-step estimator removes startup cost but inherits thermal drift; the
-  19% mixed spread is consistent with throttling on a handheld APU.
-- Five rounds only.
-- No FP16-storage-without-cooperative-matrices arm exists for this workload,
-  so the requested three-way comparison is two arms.
-
-## What this means
-
-Mixed WMMA is numerically qualified and functionally correct on this path, but
-it is **not** shown to be faster end-to-end. Claiming a speedup would contradict
-this measurement. The prior `1.087×` figure should be treated as unreproduced
-on this session and superseded by this INCONCLUSIVE result.
+- Process wall clock plus GPU timestamps; no GPU temperature, clock or power
+  telemetry is available on this host.
+- Five paired rounds. The LoRA CI is tight enough to exclude parity; the full-FT
+  CI is not.
+- Profiling runs are separate from the timed runs, as they must be.

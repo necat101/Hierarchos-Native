@@ -1226,6 +1226,22 @@ fn main() -> Result<()> {
                 conversions.weight_bytes,
                 conversions.mirror_reuses
             );
+            // Dispatch counts alone cannot tell a LoRA run from full fine-tuning:
+            // both report forward and input-gradient work, and only the weight
+            // gradient distinguishes a trainable base. State the mode beside the
+            // counts and whether the counts agree with it, so a mismatched
+            // benchmark arm is visible in its own log instead of being inferred
+            // from an earlier run.
+            let training_mode = if peft { "lora" } else { "full-finetune" };
+            let weight_grad_expected = !peft;
+            eprintln!(
+                "WMMA mode: training={} lora_rank={:?} weight_grad_expected={} \
+                 weight_grad_consistent={}",
+                training_mode,
+                args.lora_rank,
+                weight_grad_expected,
+                (phases[1] > 0) == weight_grad_expected
+            );
         }
     }
     println!("{}", serde_json::to_string_pretty(&report)?);

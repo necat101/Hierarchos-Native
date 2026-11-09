@@ -549,3 +549,51 @@ weight_grad 720, input_grad 720; 15 projections per step), `shape_fallbacks=0`,
 `weight_conversions=720`, `fp32_bytes_read=3019898880`, `mirror_reuses=720`.
 The cache halves conversions, but that saving is small beside the per-step GPU
 work. Full data: `hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-wmma-benchmark/`.
+
+## Performance investigation: the step is attention, not GEMM (2026-11-09)
+
+The `0.9954x` step result is now explained rather than merely reported. Per-step
+GPU attribution over twelve profiled optimizer steps
+(`HIERARCHOS_VULKAN_PROFILE_KERNELS=1`):
+
+| Kernel | ms/step | Share of dispatched GPU time |
+| --- | ---: | ---: |
+| `transformer_attention_backward` | 472.4 | 73.4% |
+| `transformer_attention_forward` | 53.2 | 8.3% |
+| `linear_weight_grad` | 40.3 | 6.3% |
+| `linear_input_grad` | 34.1 | 5.3% |
+| `linear_forward` | 33.8 | 5.2% |
+| `adamw` | 4.4 | 0.7% |
+| `transformer_rms_norm_param_grad` | 1.8 | 0.3% |
+| `transformer_rms_norm_forward` | 1.6 | 0.2% |
+
+`transformer_attention_backward` is 472 ms of a
+689 ms step. It and the forward kernel are declared
+`local_size_x = 1`, so one invocation per (batch, KV head) runs every query and
+key serially. All projections together are about 115 ms. No amount of WMMA
+tiling can move a step whose dominant kernel leaves 63 of 64 lanes idle.
+
+Measured against both workloads, with 5 paired ABBA rounds:
+
+| Workload | FP32 median | mixed median | ratio | 95% CI |
+| --- | ---: | ---: | ---: | --- |
+| Full fine-tuning | 689.16 ms | 712.52 ms | 0.9954x | 0.9123-1.086 |
+| LoRA rank 8 | 629.64 ms | 705.52 ms | **0.9051x** | 0.8542-0.9591 |
+
+LoRA is a **regression**: the interval is entirely below 1.0. Full fine-tuning is
+inconclusive. In LoRA the WMMA path cuts projection work from ~115 ms to ~43 ms
+of `wmma_gemm_f16_f32acc`, yet the step slows down - GPU dispatch time falls
+while wall time rises, so the cost is in submission and scheduling around the
+extra dispatches.
+
+The earlier benchmark was described as LoRA but ran without `--lora-rank`, so it
+measured full fine-tuning; that is where its 720 weight-gradient dispatches came
+from. The trainer now prints `WMMA mode: training=... weight_grad_consistent=...`
+beside the counts so this cannot be misread again.
+
+Mixed precision therefore remains off by default, and this measurement does not
+support enabling it. A parallel attention backward kernel is the change that
+would actually move the step, and it needs its own numerical qualification.
+
+Evidence: `hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-wmma-benchmark/`
+(`benchmark.json` for both workloads, `profiling.json` for kernel attribution).

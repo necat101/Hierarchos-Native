@@ -2,7 +2,7 @@
   "schema": 1,
   "kind": "paired_abba_optimizer_step_latency",
   "target": "rdna3",
-  "scope": "llama_dense_1024_fixture_lora_rank8_mirror_cache",
+  "scope": "llama_dense_1024_fixture_mirror_cache_two_workloads",
   "binary_sha256": "a16d94f94c79cd0cbf653503f31b5c4f93cd0851c30547c8a8249b081fe191fa",
   "order": "ABBA per round: off4, mixed4, mixed48, off48",
   "rounds": 5,
@@ -149,5 +149,173 @@
     "no GPU temperature or clock telemetry captured",
     "per-step estimate cancels fixed startup but not thermal drift",
     "five paired rounds; interval is a t(4) fit"
-  ]
+  ],
+  "workloads": {
+    "full_finetune": {
+      "description": "no adapter, all base projections trainable",
+      "rounds": 5,
+      "warmup": [
+        {
+          "arm": "off",
+          "steps": 2,
+          "ms": 2121
+        },
+        {
+          "arm": "mixed",
+          "steps": 2,
+          "ms": 1977
+        }
+      ],
+      "cases": [
+        {
+          "round": 1,
+          "off_ms_per_step": 678.43,
+          "mixed_ms_per_step": 625.98,
+          "speedup_vs_fp32": 1.0838,
+          "off_4": 3315,
+          "off_48": 33166,
+          "mixed_4": 3113,
+          "mixed_48": 30656
+        },
+        {
+          "round": 2,
+          "off_ms_per_step": 683.25,
+          "mixed_ms_per_step": 719.05,
+          "speedup_vs_fp32": 0.9502,
+          "off_4": 3497,
+          "off_48": 33560,
+          "mixed_4": 3176,
+          "mixed_48": 34814
+        },
+        {
+          "round": 3,
+          "off_ms_per_step": 689.16,
+          "mixed_ms_per_step": 712.52,
+          "speedup_vs_fp32": 0.9672,
+          "off_4": 3486,
+          "off_48": 33809,
+          "mixed_4": 3587,
+          "mixed_48": 34938
+        },
+        {
+          "round": 4,
+          "off_ms_per_step": 690.7,
+          "mixed_ms_per_step": 651.05,
+          "speedup_vs_fp32": 1.0609,
+          "off_4": 3537,
+          "off_48": 33928,
+          "mixed_4": 3452,
+          "mixed_48": 32098
+        },
+        {
+          "round": 5,
+          "off_ms_per_step": 690.86,
+          "mixed_ms_per_step": 747.14,
+          "speedup_vs_fp32": 0.9247,
+          "off_4": 3545,
+          "off_48": 33943,
+          "mixed_4": 3425,
+          "mixed_48": 36299
+        }
+      ],
+      "ratio_geometric_mean": 0.9954,
+      "ratio_geometric_ci95": [
+        0.9123,
+        1.086
+      ],
+      "off_ms_per_step": {
+        "median": 689.16,
+        "min": 678.43,
+        "max": 690.86
+      },
+      "mixed_ms_per_step": {
+        "median": 712.52,
+        "min": 625.98,
+        "max": 747.14
+      }
+    },
+    "lora_rank8": {
+      "description": "--lora-rank 8 --lora-alpha 16, frozen base",
+      "rounds": 5,
+      "warmup": [
+        {
+          "arm": "off",
+          "steps": 2,
+          "ms": 1569
+        },
+        {
+          "arm": "mixed",
+          "steps": 2,
+          "ms": 1526
+        }
+      ],
+      "cases": [
+        {
+          "round": 1,
+          "off_ms_per_step": 627.3,
+          "mixed_ms_per_step": 638.82,
+          "speedup_vs_fp32": 0.982,
+          "off_4": 2740,
+          "off_48": 30341,
+          "mixed_4": 2631,
+          "mixed_48": 30739
+        },
+        {
+          "round": 2,
+          "off_ms_per_step": 629.02,
+          "mixed_ms_per_step": 705.52,
+          "speedup_vs_fp32": 0.8916,
+          "off_4": 2876,
+          "off_48": 30553,
+          "mixed_4": 2972,
+          "mixed_48": 34015
+        },
+        {
+          "round": 3,
+          "off_ms_per_step": 630.8,
+          "mixed_ms_per_step": 701.27,
+          "speedup_vs_fp32": 0.8995,
+          "off_4": 2902,
+          "off_48": 30657,
+          "mixed_4": 2921,
+          "mixed_48": 33777
+        },
+        {
+          "round": 4,
+          "off_ms_per_step": 629.64,
+          "mixed_ms_per_step": 716.23,
+          "speedup_vs_fp32": 0.8791,
+          "off_4": 3057,
+          "off_48": 30761,
+          "mixed_4": 2861,
+          "mixed_48": 34375
+        },
+        {
+          "round": 5,
+          "off_ms_per_step": 634.23,
+          "mixed_ms_per_step": 722.7,
+          "speedup_vs_fp32": 0.8776,
+          "off_4": 2928,
+          "off_48": 30834,
+          "mixed_4": 3133,
+          "mixed_48": 34932
+        }
+      ],
+      "ratio_geometric_mean": 0.9051,
+      "ratio_geometric_ci95": [
+        0.8542,
+        0.9591
+      ],
+      "off_ms_per_step": {
+        "median": 629.64,
+        "min": 627.3,
+        "max": 634.23
+      },
+      "mixed_ms_per_step": {
+        "median": 705.52,
+        "min": 638.82,
+        "max": 722.7
+      }
+    }
+  }
 }
