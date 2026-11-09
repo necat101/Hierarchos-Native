@@ -619,3 +619,43 @@ mixed arm was 44.7 ms *faster*, the opposite sign of the 48-step paired result
 (0.9051x). The 48-step protocol governs the headline because it measures steady
 state; whatever accumulates across steps in the mixed arm is now the only
 remaining performance lead.
+
+## Two-pass attention backward: implemented, and why it is not wired (2026-11-09)
+
+Two new kernels are in `shaders/`:
+
+| File | Geometry | Work per invocation |
+| --- | --- | --- |
+| `transformer_attention_backward_query_rdna3.comp` | `local_size_x = 64`, one lane per (batch, head, query) | one query row's whole key loop; owns dQ |
+| `transformer_attention_backward_key_rdna3.comp` | `local_size_x = 64`, one lane per (batch, KV head, key) | reduction of dK and dV over mapped query heads and queries |
+
+Both compile clean with the pinned `glslc` (shaderc v2023.8), and together they
+replace 32 single-lane invocations with 4,096 query-row lanes plus 2,048 key
+lanes on the benchmark geometry. dQ stays row-owned and dK/dV stay key-owned,
+with the probability and dS that pass 1 computes handed to pass 2 through a
+scratch pair, so each gradient element keeps its original operand sequence and
+summation order.
+
+They are **not wired into the training graph**, and the reason is measured, not
+hypothetical: this fixture is Llama, and this branch puts Llama on
+`unfused_qk = 9`, not the plain mode 0 the pair reproduces. Mode 9 is not a
+cosmetic variant. Its adjoint keeps *two different* softmax-dot values - the
+primary pass accumulates plain `softmax_dot` for dQ, while the per-key adjoint
+that produces dK and dV reduces a `precise` `kv_softmax_dot` - and it accumulates
+the K/V adds through `precise` qualifiers, per head, before summing heads. A pair
+built on one dot value and plain adds would return gradients that differ in the
+last bits, which is exactly the class of change the frozen FP32 gates exist to
+catch.
+
+A gate that admits only mode 0 was added together with the wiring and both were
+reverted after the diagnostic run, so the branch still ships the qualified scalar
+path and an intact source-bound receipt. The adapter digests from that run were
+identical on both arms - because both arms ran the scalar kernel - so they are
+*not* evidence of equivalence, and are not recorded as such.
+
+Wiring the pair needs, in order: the precise QK path, `sleef_expf_u10_fused`,
+`fp32_div` for the reciprocal, two dot variants (plain for dQ, precise for the
+key adjoint), precise K/V adds with the per-head-then-sum nesting, and only then
+the correctness harness in `validation/two_pass_backward_equivalence.sh`, whose
+adapter comparison is only meaningful once the dispatch evidence shows both new
+kernels ran.

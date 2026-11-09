@@ -1,0 +1,196 @@
+#version 450
+
+// Two-pass scaled-dot-product attention backward, pass 1: query-owned.
+//
+// The generic kernel launches one invocation per (batch, KV head) with a single
+// lane, so a 12-CU part runs about 32 single-thread workgroups and leaves every
+// other lane idle. This pass gives one lane to each
+// (batch, query head, query position) row instead -- the same ownership the
+// forward kernel uses -- and keeps the row's key loop exactly as the generic
+// kernel runs it: same order, same arithmetic, same exp and reciprocal.
+//
+// dQ is owned by the row and is computed here directly. dK and dV reduce over
+// queries, which no single row owns, so this pass writes the two per-element
+// values that pass 2 needs (the normalised probability and dS) to scratch and
+// pass 2 performs the reduction in the original order.
+//
+// Only the plain fused path is admitted: no sink, no relative bias, no ALiBi, no
+// window, no sparse mask, no dropout, no softcap, no compressed or paged KV,
+// value_scale == 1, query_position_offset == 0, causal in {0, 1} and
+// query head dim == value head dim. The host checks every one of those.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+// The host admits only head dimensions up to this bound, which keeps the
+// per-lane dQ accumulator a fixed-size private array.
+const uint MAX_HEAD_DIM = 128u;
+
+layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
+layout(set = 0, binding = 1, std430) readonly buffer KBuffer { float k_values[]; };
+layout(set = 0, binding = 2, std430) readonly buffer VBuffer { float v_values[]; };
+layout(set = 0, binding = 3, std430) readonly buffer QueryMaskBuffer { float query_mask[]; };
+layout(set = 0, binding = 4, std430) readonly buffer KeyMaskBuffer { float key_mask[]; };
+layout(set = 0, binding = 5, std430) readonly buffer GradOutputBuffer { float grad_output[]; };
+layout(set = 0, binding = 6, std430) buffer GradQBuffer { float grad_q[]; };
+layout(set = 0, binding = 7, std430) buffer ProbabilityBuffer { float scratch_probability[]; };
+layout(set = 0, binding = 8, std430) buffer DsBuffer { float scratch_ds[]; };
+
+layout(push_constant) uniform Push {
+    uint batch_size;
+    uint query_seq_len;
+    uint key_value_seq_len;
+    uint query_hidden_size;
+    uint value_hidden_size;
+    uint num_heads;
+    uint num_key_value_heads;
+    uint window_size;
+    float scale;
+    float value_scale;
+    float softcap;
+    uint alibi_mode;
+    float alibi_bias_max;
+    float dropout_p;
+    uint rng_step;
+    uint rng_site;
+    uint rng_seed;
+    uint has_sink;
+    uint causal;
+    uint relative_bias_mode;
+    uint relative_bias_num_buckets;
+    uint relative_bias_max_distance;
+    uint query_position_offset;
+    uint has_sparse_mask;
+    uint compressed_key_count;
+    uint compressed_key_rate;
+    uint paged_kv;
+    uint kv_page_size;
+    uint kv_page_table_stride;
+    uint unfused_qk;
+} pc;
+
+uint qk_head_dim;
+uint key_hidden_size;
+uint queries_per_kv;
+uint value_head_dim;
+uint output_hidden_size;
+
+// The generic kernel's plain-path score, unchanged: hardware fma over the head
+// dimension, then the scale.
+float score(uint b, uint head, uint query, uint kv_head, uint key) {
+    uint q_base = (b * pc.query_seq_len + query) * pc.query_hidden_size + head * qk_head_dim;
+    uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size + kv_head * qk_head_dim;
+    float value = 0.0;
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        value = fma(q_values[q_base + d], k_values[k_base + d], value);
+    }
+    return value * pc.scale;
+}
+
+// The plain-path value projection of the backward pass, unchanged.
+float value_dot(uint b, uint query, uint head, uint kv_head, uint key) {
+    uint query_row = b * pc.query_seq_len + query;
+    uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+    uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
+        + kv_head * value_head_dim;
+    float value = 0.0;
+    for (uint d = 0; d < value_head_dim; ++d) {
+        value = fma(grad_output[grad_out_base + d], v_values[v_base + d] * pc.value_scale, value);
+    }
+    return value;
+}
+
+bool key_visible(uint b, uint key) {
+    return key_mask[b * pc.key_value_seq_len + key] > 0.0;
+}
+
+void main() {
+    uint rows = pc.batch_size * pc.num_heads * pc.query_seq_len;
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= rows) return;
+
+    qk_head_dim = pc.query_hidden_size / pc.num_heads;
+    value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
+    if (qk_head_dim > MAX_HEAD_DIM || value_head_dim > MAX_HEAD_DIM) return;
+
+    queries_per_kv = pc.num_heads / pc.num_key_value_heads;
+    key_hidden_size = qk_head_dim * pc.num_key_value_heads;
+    output_hidden_size = value_head_dim * pc.num_heads;
+
+    uint query = row % pc.query_seq_len;
+    uint rest = row / pc.query_seq_len;
+    uint head = rest % pc.num_heads;
+    uint b = rest / pc.num_heads;
+    uint kv_head = head / queries_per_kv;
+
+    uint query_row = b * pc.query_seq_len + query;
+    uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+    uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+    uint scratch_base = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
+        + query * pc.key_value_seq_len;
+
+    // The generic kernel owns the whole row and zeroes it before accumulating.
+    // A row this pass owns is zeroed the same way, including the rows it then
+    // skips, so a padded query leaves zeros rather than the previous step's
+    // gradient.
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        grad_q[q_base + d] = 0.0;
+    }
+
+    if (pc.causal != 2u && query_mask[query_row] <= 0.0) return;
+
+    // A causal local row ends at the query position; query_position_offset is
+    // zero for every admitted geometry.
+    uint last_key = pc.key_value_seq_len - 1u;
+    if (pc.causal != 0u) {
+        last_key = min(query, pc.key_value_seq_len - 1u);
+    }
+
+    bool found = false;
+    float max_score = -3.402823466e+38;
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (!key_visible(b, key)) continue;
+        float s = score(b, head, query, kv_head, key);
+        max_score = found ? max(max_score, s) : s;
+        found = true;
+    }
+    if (!found) return;
+
+    float exp_sum = 0.0;
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (!key_visible(b, key)) continue;
+        exp_sum += exp(score(b, head, query, kv_head, key) - max_score);
+    }
+    float inv_sum = 1.0 / exp_sum;
+
+    // softmax_dot reduces over keys in ascending order, exactly as the generic
+    // kernel does.
+    float softmax_dot = 0.0;
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (!key_visible(b, key)) continue;
+        float p = exp(score(b, head, query, kv_head, key) - max_score) * inv_sum;
+        float dp = value_dot(b, query, head, kv_head, key);
+        softmax_dot += p * dp;
+    }
+
+    float dq[MAX_HEAD_DIM];
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        dq[d] = 0.0;
+    }
+
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (!key_visible(b, key)) continue;
+        float p = exp(score(b, head, query, kv_head, key) - max_score) * inv_sum;
+        float dp = value_dot(b, query, head, kv_head, key);
+        float ds = p * (dp - softmax_dot);
+        uint slot = scratch_base + key;
+        scratch_probability[slot] = p;
+        scratch_ds[slot] = ds;
+        uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size + kv_head * qk_head_dim;
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            dq[d] += pc.scale * ds * k_values[k_base + d];
+        }
+    }
+
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        grad_q[q_base + d] = dq[d];
+    }
+}
