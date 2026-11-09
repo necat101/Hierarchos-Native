@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "kind": "paired_abba_optimizer_step_latency",
+  "target": "rdna3",
+  "scope": "llama_dense_1024_fixture_lora_rank8_mirror_cache",
+  "binary_sha256": "a16d94f94c79cd0cbf653503f31b5c4f93cd0851c30547c8a8249b081fe191fa",
+  "order": "ABBA per round: off4, mixed4, mixed48, off48",
+  "rounds": 5,
+  "steps": [
+    4,
+    48
+  ],
+  "warmup": [
+    {
+      "arm": "off",
+      "steps": 2,
+      "ms": 2121
+    },
+    {
+      "arm": "mixed",
+      "steps": 2,
+      "ms": 1977
+    }
+  ],
+  "timer": "process wall clock; per-step = (t48 - t4) / 44",
+  "cases": [
+    {
+      "round": 1,
+      "off_4": 3315,
+      "off_48": 33166,
+      "mixed_4": 3113,
+      "mixed_48": 30656,
+      "off_ms_per_step": 678.43,
+      "mixed_ms_per_step": 625.98,
+      "speedup_vs_fp32": 1.0838
+    },
+    {
+      "round": 2,
+      "off_4": 3497,
+      "off_48": 33560,
+      "mixed_4": 3176,
+      "mixed_48": 34814,
+      "off_ms_per_step": 683.25,
+      "mixed_ms_per_step": 719.05,
+      "speedup_vs_fp32": 0.9502
+    },
+    {
+      "round": 3,
+      "off_4": 3486,
+      "off_48": 33809,
+      "mixed_4": 3587,
+      "mixed_48": 34938,
+      "off_ms_per_step": 689.16,
+      "mixed_ms_per_step": 712.52,
+      "speedup_vs_fp32": 0.9672
+    },
+    {
+      "round": 4,
+      "off_4": 3537,
+      "off_48": 33928,
+      "mixed_4": 3452,
+      "mixed_48": 32098,
+      "off_ms_per_step": 690.7,
+      "mixed_ms_per_step": 651.05,
+      "speedup_vs_fp32": 1.0609
+    },
+    {
+      "round": 5,
+      "off_4": 3545,
+      "off_48": 33943,
+      "mixed_4": 3425,
+      "mixed_48": 36299,
+      "off_ms_per_step": 690.86,
+      "mixed_ms_per_step": 747.14,
+      "speedup_vs_fp32": 0.9247
+    }
+  ],
+  "ratio_geometric_mean": 0.9954,
+  "ratio_geometric_ci95": [
+    0.9123,
+    1.086
+  ],
+  "off_ms_per_step": {
+    "median": 689.16,
+    "min": 678.43,
+    "max": 690.86
+  },
+  "mixed_ms_per_step": {
+    "median": 712.52,
+    "min": 625.98,
+    "max": 747.14
+  },
+  "mixed_evidence": {
+    "log-1-mixed-48.txt": {
+      "evidence": "WMMA evidence: requested=mixed cooperative_dispatches=2160 shape_fallbacks=0 (forward=720 weight_grad=720 input_grad=720)",
+      "mirrors": "WMMA mirrors: weight_conversions=720 fp32_bytes_read=3019898880 mirror_reuses=720",
+      "dispatches": "2160",
+      "conversions": "720",
+      "reuses": "720"
+    },
+    "log-2-mixed-48.txt": {
+      "evidence": "WMMA evidence: requested=mixed cooperative_dispatches=2160 shape_fallbacks=0 (forward=720 weight_grad=720 input_grad=720)",
+      "mirrors": "WMMA mirrors: weight_conversions=720 fp32_bytes_read=3019898880 mirror_reuses=720",
+      "dispatches": "2160",
+      "conversions": "720",
+      "reuses": "720"
+    },
+    "log-3-mixed-48.txt": {
+      "evidence": "WMMA evidence: requested=mixed cooperative_dispatches=2160 shape_fallbacks=0 (forward=720 weight_grad=720 input_grad=720)",
+      "mirrors": "WMMA mirrors: weight_conversions=720 fp32_bytes_read=3019898880 mirror_reuses=720",
+      "dispatches": "2160",
+      "conversions": "720",
+      "reuses": "720"
+    },
+    "log-4-mixed-48.txt": {
+      "evidence": "WMMA evidence: requested=mixed cooperative_dispatches=2160 shape_fallbacks=0 (forward=720 weight_grad=720 input_grad=720)",
+      "mirrors": "WMMA mirrors: weight_conversions=720 fp32_bytes_read=3019898880 mirror_reuses=720",
+      "dispatches": "2160",
+      "conversions": "720",
+      "reuses": "720"
+    },
+    "log-5-mixed-48.txt": {
+      "evidence": "WMMA evidence: requested=mixed cooperative_dispatches=2160 shape_fallbacks=0 (forward=720 weight_grad=720 input_grad=720)",
+      "mirrors": "WMMA mirrors: weight_conversions=720 fp32_bytes_read=3019898880 mirror_reuses=720",
+      "dispatches": "2160",
+      "conversions": "720",
+      "reuses": "720"
+    }
+  },
+  "off_evidence": {
+    "log-1-off-48.txt": {
+      "evidence": null
+    },
+    "log-2-off-48.txt": {
+      "evidence": null
+    },
+    "log-3-off-48.txt": {
+      "evidence": null
+    },
+    "log-4-off-48.txt": {
+      "evidence": null
+    },
+    "log-5-off-48.txt": {
+      "evidence": null
+    }
+  },
+  "limitations": [
+    "process wall clock, not GPU timestamps",
+    "no GPU temperature or clock telemetry captured",
+    "per-step estimate cancels fixed startup but not thermal drift",
+    "five paired rounds; interval is a t(4) fit"
+  ]
+}
