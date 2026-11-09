@@ -12,6 +12,9 @@ use std::{
 use eframe::egui;
 mod multimodal_ui;
 mod process_tree;
+mod wmma_mode;
+
+use wmma_mode::WmmaModeChoice;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Workflow {
@@ -129,6 +132,7 @@ struct NativeApp {
     device_index: String,
     lora_rank: String,
     stream_parameters: bool,
+    wmma_mode: WmmaModeChoice,
     assistant_recovery: bool,
     prompt: String,
     max_new_tokens: String,
@@ -180,6 +184,7 @@ impl Default for NativeApp {
             device_index: String::new(),
             lora_rank: "8".to_owned(),
             stream_parameters: false,
+            wmma_mode: WmmaModeChoice::Off,
             assistant_recovery: false,
             prompt: String::new(),
             max_new_tokens: "256".to_owned(),
@@ -329,6 +334,21 @@ impl NativeApp {
         }
         if self.mode == Workflow::TransformerFinetune && self.stream_parameters {
             args.push("--stream-parameters".to_owned());
+        }
+        if matches!(
+            self.mode,
+            Workflow::TransformerTrain
+                | Workflow::TransformerFinetune
+                | Workflow::TransformerFullFinetune
+        ) {
+            if !self.wmma_mode.available_for_training() {
+                return Err(format!(
+                    "{} is unavailable for Transformer training: {}",
+                    self.wmma_mode.label(),
+                    self.wmma_mode.unavailable_reason()
+                ));
+            }
+            args.extend(["--wmma-mode".to_owned(), self.wmma_mode.flag().to_owned()]);
         }
         if self.mode == Workflow::HierarchosTrain && self.assistant_recovery {
             args.push("--assistant-recovery".to_owned());
@@ -638,6 +658,40 @@ impl eframe::App for NativeApp {
             if matches!(self.mode,Workflow::TransformerFinetune|Workflow::TransformerGenerate) {
                 ui.checkbox(&mut self.stream_parameters,"Stream frozen parameters and MoE experts from disk")
                     .on_hover_text("Opt-in package-backed inference and LoRA training. Reduces execution residency; generic models may still load resident weights initially.");
+            }
+
+            if matches!(
+                self.mode,
+                Workflow::TransformerTrain
+                    | Workflow::TransformerFinetune
+                    | Workflow::TransformerFullFinetune
+            ) {
+                ui.horizontal(|ui| {
+                    ui.label("WMMA precision");
+                    egui::ComboBox::from_id_salt("wmma-mode")
+                        .selected_text(self.wmma_mode.label())
+                        .show_ui(ui, |ui| {
+                            for choice in WmmaModeChoice::ALL {
+                                if choice.available_for_training() {
+                                    ui.selectable_value(
+                                        &mut self.wmma_mode,
+                                        choice,
+                                        choice.label(),
+                                    );
+                                } else {
+                                    ui.add_enabled(
+                                        false,
+                                        egui::Button::new(format!(
+                                            "{} - unavailable",
+                                            choice.label()
+                                        )),
+                                    )
+                                    .on_disabled_hover_text(choice.unavailable_reason());
+                                }
+                            }
+                        });
+                });
+                ui.label(egui::RichText::new(self.wmma_mode.note()).small().weak());
             }
 
             if self.mode.is_training() {

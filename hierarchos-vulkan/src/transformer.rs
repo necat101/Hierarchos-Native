@@ -7,7 +7,7 @@
 //! recorded into Vulkan command buffers.
 
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     fs::{self, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
     path::{Component, Path, PathBuf},
@@ -35,6 +35,8 @@ use crate::multimodal::{
     MultimodalTransformerStepResult, PreparedModalityRows,
 };
 use crate::training_numerics::VulkanOrderedF32SumReducer;
+use crate::wmma::WmmaMode;
+use crate::wmma_linear::LinearWmma;
 pub mod deepseek_v41_vision;
 mod falcon_h1;
 pub mod gemma3_vision;
@@ -26231,6 +26233,13 @@ struct TransformerKernels {
     /// vendor and shared-memory class at construction. `None` means no boundary has
     /// been measured for that class, so nothing is refused.
     attention_backward_work_budget: Option<u64>,
+    /// Opt-in cooperative-matrix policy for the resident dense projections.
+    /// `Off` keeps every dispatch on the qualified FP32 path.
+    wmma_mode: WmmaMode,
+    /// Executors keyed by `(rows, input_dim, output_dim)`; layers with identical
+    /// geometry share one set of FP16 mirrors because command recording is
+    /// sequential. Built lazily, so an `Off` run allocates nothing.
+    wmma_linears: Mutex<HashMap<(usize, usize, usize), Arc<LinearWmma>>>,
     /// Geometry-gated vendor slot: the shared transformer matmul runs at every
     /// row count (prefill and single-row cached decode), so the module is
     /// chosen per dispatch rather than at construction.
@@ -26564,13 +26573,65 @@ impl TransformerKernels {
         }
     }
 
+    /// Lazily build the shared WMMA executor for one projection geometry.
+    ///
+    /// The executor owns the FP16 mirrors, so layers of the same geometry reuse
+    /// one allocation set; command recording is sequential, so a shared mirror
+    /// is never live in two dispatches at once.
+    fn wmma_linear(
+        &self,
+        rows: usize,
+        input_dim: usize,
+        output_dim: usize,
+    ) -> Result<Option<Arc<LinearWmma>>> {
+        if !self.wmma_mode.requested() {
+            return Ok(None);
+        }
+        let key = (rows, input_dim, output_dim);
+        let mut executors = self
+            .wmma_linears
+            .lock()
+            .map_err(|_| anyhow!("WMMA linear executor cache is poisoned"))?;
+        if let Some(existing) = executors.get(&key) {
+            return Ok(Some(Arc::clone(existing)));
+        }
+        let executor = Arc::new(LinearWmma::new(
+            &self.peft_kernel_device,
+            self.wmma_mode,
+            rows,
+            input_dim,
+            output_dim,
+        )?);
+        executors.insert(key, Arc::clone(&executor));
+        Ok(Some(executor))
+    }
+
     fn new(device: &VulkanDevice) -> Result<Self> {
         Self::new_with_layer_norm(device, LAYER_NORM_FORWARD_SPV)
     }
 
     fn new_with_layer_norm(device: &VulkanDevice, layer_norm_spv: &[u8]) -> Result<Self> {
+        let wmma_mode = WmmaMode::from_env()?;
+        if matches!(wmma_mode, WmmaMode::FullFp16) {
+            bail!(
+                "--wmma-mode full-fp16 is not available for this graph: its GEMMs accumulate in \
+                 FP16 and the graph has no in-graph widening store, so the low-precision result \
+                 cannot reach the FP32 masters; use off or mixed"
+            );
+        }
+        if wmma_mode.requested() {
+            let capabilities = device.wmma_capabilities();
+            capabilities.require(wmma_mode)?;
+            eprintln!(
+                "WMMA: {} selected for dense Transformer projections ({})",
+                wmma_mode.label(),
+                capabilities.diagnostics()
+            );
+        }
         Ok(Self {
             attention_backward_work_budget: vendor::attention_backward_work_budget(device),
+            wmma_mode,
+            wmma_linears: Mutex::new(HashMap::new()),
             linear_forward: vendor::VendorMatmulKernel::new(
                 device,
                 vendor::VendorKernelFamily::LinearForward,
@@ -28984,6 +29045,27 @@ fn record_linear_projection(
     if input_dim == 0 || output_dim == 0 || rows == 0 {
         bail!("linear dispatch requires positive rows and dimensions");
     }
+    // Opt-in cooperative-matrix execution. `output` is the same FP32 buffer the
+    // qualified kernel writes, so a later bias add, residual or checkpoint copy
+    // sees the layout it already expects. Shapes outside the tile contract keep
+    // their own kernel and are counted as fallbacks.
+    if let Some(executor) = kernels.wmma_linear(rows, input_dim, output_dim)? {
+        if executor.record_forward(commands, input, weight, output, rows)? {
+            if let Some(bias) = bias {
+                let bias_push = BiasPush {
+                    rows: rows as u32,
+                    dim: output_dim as u32,
+                };
+                kernels.bias_add.record_dispatch(
+                    commands,
+                    &[output, bias],
+                    bytemuck::bytes_of(&bias_push),
+                    [div_ceil_u32(rows * output_dim, 256), 1, 1],
+                )?;
+            }
+            return Ok(());
+        }
+    }
     let push = LinearPush {
         rows: rows as u32,
         input_dim: input_dim as u32,
@@ -29711,16 +29793,28 @@ impl VulkanLinear {
             grad_output
         };
         if self.train_base {
-            kernels.linear_weight_grad.record_dispatch(
-                commands,
-                &[input, base_grad_output, self.weight.grad_target()?],
-                bytemuck::bytes_of(&push),
-                [
-                    div_ceil_u32(self.input_dim, 16),
-                    div_ceil_u32(self.output_dim, 16),
-                    1,
-                ],
-            )?;
+            let via_wmma = match kernels.wmma_linear(rows, self.input_dim, self.output_dim)? {
+                Some(executor) => executor.record_weight_grad(
+                    commands,
+                    base_grad_output,
+                    input,
+                    self.weight.grad_target()?,
+                    rows,
+                )?,
+                None => false,
+            };
+            if !via_wmma {
+                kernels.linear_weight_grad.record_dispatch(
+                    commands,
+                    &[input, base_grad_output, self.weight.grad_target()?],
+                    bytemuck::bytes_of(&push),
+                    [
+                        div_ceil_u32(self.input_dim, 16),
+                        div_ceil_u32(self.output_dim, 16),
+                        1,
+                    ],
+                )?;
+            }
             self.weight.record_grad_accumulate(commands, kernels)?;
         }
         let base_grad_input = self
@@ -29769,12 +29863,24 @@ impl VulkanLinear {
                 [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
             )?;
         } else {
-            kernels.linear_input_grad.record_dispatch(
-                commands,
-                &[base_grad_output, &self.weight.values, base_grad_input],
-                bytemuck::bytes_of(&push),
-                [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
-            )?;
+            let via_wmma = match kernels.wmma_linear(rows, self.input_dim, self.output_dim)? {
+                Some(executor) => executor.record_input_grad(
+                    commands,
+                    base_grad_output,
+                    &self.weight.values,
+                    base_grad_input,
+                    rows,
+                )?,
+                None => false,
+            };
+            if !via_wmma {
+                kernels.linear_input_grad.record_dispatch(
+                    commands,
+                    &[base_grad_output, &self.weight.values, base_grad_input],
+                    bytemuck::bytes_of(&push),
+                    [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
+                )?;
+            }
         }
         if let Some(lora) = self.lora.as_ref() {
             if let Some(dora) = lora.dora.as_ref() {

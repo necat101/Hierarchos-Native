@@ -1363,6 +1363,19 @@ impl VulkanDevice {
         Self::new_selected_with_wmma(None, mode)
     }
 
+    /// Open a device for a training graph that may execute WMMA.
+    ///
+    /// The cooperative-matrix extension, the Vulkan memory model and the
+    /// half-precision storage features are requested only when `mode` asks for
+    /// them, so an `Off` training run opens exactly the device it opened before
+    /// this option existed.
+    pub fn new_with_wmma(
+        requested_physical_device_index: Option<usize>,
+        mode: crate::wmma::WmmaMode,
+    ) -> Result<Self> {
+        Self::new_selected_with_wmma(requested_physical_device_index, mode)
+    }
+
     /// Create a logical device on an explicitly addressed Vulkan physical
     /// device. This is the addressing primitive used by multi-device training:
     /// replicas can bind to deterministic adapters instead of all selecting the

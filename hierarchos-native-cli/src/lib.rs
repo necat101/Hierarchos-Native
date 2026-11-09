@@ -1841,8 +1841,30 @@ fn validate_modules_to_save_qualification(
     Ok(())
 }
 
-fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<u8, String> {
-    let mut model_path: Option<PathBuf> = None;
+/// Validate `--wmma-mode` for the Transformer trainer.
+///
+/// `full-fp16` is refused here rather than forwarded: the graph's GEMMs would
+/// accumulate in FP16 with no in-graph widening store, so the low-precision
+/// result could not reach the FP32 masters. Reporting the refusal at argument
+/// time keeps an unqualified precision path from ever being selected.
+fn parse_transformer_wmma_mode(value: &str) -> Result<&'static str, String> {
+    match value {
+        "off" => Ok("off"),
+        "mixed" => Ok("mixed"),
+        "full-fp16" | "full_fp16" => Err(
+            "--wmma-mode full-fp16 is not available for transformer training: the graph's GEMMs \
+             would accumulate in FP16 with no in-graph widening store, so the result could not \
+             reach the FP32 masters; use off or mixed"
+                .to_string(),
+        ),
+        other => Err(format!(
+            "invalid --wmma-mode {other:?}; expected off, mixed, or full-fp16 \
+             (full-fp16 is rejected for Transformer training)"
+        )),
+    }
+}
+
+fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<u8, String> {    let mut model_path: Option<PathBuf> = None;
     let mut hf_model: Option<String> = None;
     let mut hf_model_revision = "main".to_owned();
     let mut tokenizer_path: Option<PathBuf> = None;
@@ -2025,6 +2047,14 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
             }
             "--save-lora-training" => {
                 save_lora_training = Some(PathBuf::from(required(&mut argv, &key)?))
+            }
+            "--wmma-mode" | "--wmma_mode" => {
+                let mode = parse_transformer_wmma_mode(&required_string(&mut argv, &key)?)?;
+                // The trainer is a child process and inherits this environment,
+                // so the mode reaches the same device-selection site the
+                // standalone Vulkan binaries use.
+                std::env::set_var("HIERARCHOS_WMMA_MODE", mode);
+                eprintln!("WMMA: dense Transformer projections will request {mode}");
             }
             "--seed" => seed = parse_required(&mut argv, &key)?,
             "--disable-transformer-dropout" | "--disable_transformer_dropout" => {
@@ -6372,6 +6402,39 @@ mod tests {
             let error = run_transformer_training("transformer-finetune", args.into_iter().map(OsString::from).collect()).unwrap_err();
             assert!(error.contains(expected), "{error}");
         }
+    }
+
+    #[test]
+    fn transformer_wmma_mode_rejects_unqualified_paths_before_io() {
+        assert_eq!(parse_transformer_wmma_mode("off").unwrap(), "off");
+        assert_eq!(parse_transformer_wmma_mode("mixed").unwrap(), "mixed");
+        let error = parse_transformer_wmma_mode("full-fp16").unwrap_err();
+        assert!(error.contains("accumulate in FP16"), "{error}");
+        let error = parse_transformer_wmma_mode("turbo").unwrap_err();
+        assert!(error.contains("invalid --wmma-mode"), "{error}");
+        for mode in ["transformer-train", "transformer-finetune"] {
+            let args = vec!["--wmma-mode", "full-fp16"]
+                .into_iter()
+                .map(OsString::from)
+                .collect();
+            let error = run_transformer_training(mode, args).unwrap_err();
+            assert!(error.contains("full-fp16"), "{mode}: {error}");
+        }
+    }
+
+    #[test]
+    fn transformer_wmma_mode_reaches_the_trainer_environment() {
+        let args = vec!["--wmma-mode", "mixed"]
+            .into_iter()
+            .map(OsString::from)
+            .collect();
+        // Parsing stops at the missing model path, but the mode is applied
+        // before that, which is the contract under test.
+        let _ = run_transformer_training("transformer-train", args);
+        assert_eq!(
+            std::env::var("HIERARCHOS_WMMA_MODE").ok().as_deref(),
+            Some("mixed")
+        );
     }
 
     #[test]

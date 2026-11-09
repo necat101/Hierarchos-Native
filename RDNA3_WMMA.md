@@ -287,3 +287,69 @@ cargo build --release --manifest-path hierarchos-vulkan/Cargo.toml `
 | `full-fp16` at K ≥ 64 wide-magnitude fixtures | **unqualified** (exceeds 5e-2 drift target) |
 | Transformer graph training/fine-tuning/LoRA/streamed paths | not wired; no WMMA claim |
 | Actual RDNA3 SASS WMMA mnemonics | not observable with available tooling |
+
+## Transformer graph integration (2026-11-09)
+
+### Wired execution routes
+
+The resident dense projection is the single choke point of the Transformer
+graph, so the mixed arm is wired there and every attention/MLP projection that
+uses it inherits the dispatch:
+
+| Route | Implementation | Phases |
+|---|---|---|
+| Dense linear forward | `record_linear_projection` tries `LinearWmma::record_forward` before the qualified kernel | forward |
+| Weight gradient | `VulkanLinear::record_backward_impl` tries `record_weight_grad` before `linear_weight_grad` | weight-grad |
+| Input gradient | same function tries `record_input_grad` in the generic branch | input-grad |
+
+Bias-bearing projections (GPT-2, Qwen2 QKV) are covered: the GEMM runs
+unbiased and `bias_add` applies the bias afterwards, which is the same
+two-dispatch order the tied LM head already used.
+
+Executors are keyed by `(rows, input_dim, output_dim)` and shared inside
+`TransformerKernels`, so layers of identical geometry reuse one set of FP16
+mirrors and an `off` run allocates nothing. Mirrors are refreshed from the FP32
+masters on every dispatch, so a checkpoint, AdamW update or weight swap can
+never leave a stale FP16 copy feeding the graph.
+
+### Refusals (explicit, not silent)
+
+* `full-fp16` is rejected for every Transformer workflow. The arm accumulates in
+  FP16 and the graph has no in-graph widening store, so a low-precision result
+  could not reach the FP32 masters. The CLI refuses the flag before any I/O and
+  the graph refuses the mode again during construction. The GUI lists the option
+  disabled with the reason.
+* A device without a qualifying cooperative-matrix tile fails construction with
+  the capability diagnostic instead of falling back silently.
+* Rows that cannot fill a cooperative tile (single-row cached decode, tiny
+  batches) keep their tuned FP32 kernel and increment the shape-fallback
+  counter; a requested-but-not-dispatched run is therefore visible in the
+  receipt.
+
+### Verification performed
+
+| Check | Result |
+|---|---|
+| `cargo test --lib wmma` (primitive, unchanged) | 8 passed |
+| `cargo test --lib wmma_linear` (graph entry points, real device) | 3 passed |
+| `cargo test --lib transformer_wmma` (CLI contract) | 2 passed |
+| `check-workspace.ps1` (the CI gate) | exit 0 |
+| `cargo check` lib/bins, CLI, GUI | exit 0 |
+
+`wmma_linear`'s three-phase test records forward, weight-gradient and
+input-gradient through the same functions the graph calls and compares each
+against a host FP32 reference under the mixed gates (2e-2 max, 3e-3 RMS). It is
+the regression test for the transposed operand layouts, because a wrongly
+transposed dispatch still produces finite, plausible numbers.
+
+### Not qualified (do not read as support)
+
+* Whole-model logit drift, loss trajectory, multi-step convergence, checkpoint
+  resume, LoRA adapter training and end-to-end step time are **not** measured.
+  The only cached checkpoint on this machine (`hf-internal-testing/tiny-random-gpt2`)
+  has no weights and widths far below the cooperative tile contract, and the
+  local Llama fixture is `hidden_size = 16`; both fall back on every projection.
+* Attention SDPA, MoE expert projections, DeepSeek V4.1 / Qwen hybrid graphs,
+  LoRA A/B projections and the streamed/tiered parameter paths are **not** wired.
+* No claim of a training-step speedup is made from the GEMM microbenchmarks in
+  the section above.

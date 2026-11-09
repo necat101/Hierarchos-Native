@@ -27,6 +27,7 @@ mod lm_execution;
 mod lora;
 mod mixed_precision;
 pub mod wmma;
+pub mod wmma_linear;
 pub mod multimodal;
 mod projection;
 mod projection_graph;

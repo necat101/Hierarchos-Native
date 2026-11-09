@@ -11,6 +11,11 @@
 mod kernel_golden;
 #[path = "../src/vulkan.rs"]
 mod vulkan;
+// `vulkan.rs` names its cooperative-matrix capability types through
+// `crate::wmma`, so a harness that compiles it standalone needs that module in
+// the same crate root.
+#[path = "../src/wmma.rs"]
+mod wmma;
 use anyhow::{bail, Result};
 use kernel_golden::{coverage_args, Golden};
 use std::path::Path;
