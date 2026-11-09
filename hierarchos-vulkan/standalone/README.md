@@ -18,11 +18,11 @@ LICENSE
 THIRD_PARTY_NOTICES.md
 licenses/                  # bundled third-party license texts
 RELEASE_NOTES.md
-CLEAN_MACHINE_TEST.md
+CLEAN_MACHINE_TEST.md      # measured acceptance results and BLOCKED checks
 BUILD_INFO.txt             # source commit, toolchain and binary hashes
 README.md
-README_ARCHITECTURES.md     # generated native Transformer support inventory
-bin/                       # populated by package-standalone.ps1 unless -SkipBuild
+README_ARCHITECTURES.md    # generated native Transformer support inventory
+bin/                       # exactly seven release executables
 crates/
   hierarchos-inference/
   hierarchos-vulkan/
@@ -37,10 +37,43 @@ reports the same live registry from the built backend.
 
 ## Requirements
 
-- Rust/Cargo compatible with the workspace lockfile.
+- Windows 11 x64 for the documented binary package.
+- **Microsoft Visual C++ 2015–2022 Redistributable (x64).** The executables
+  import `VCRUNTIME140.dll`; the runtime is not bundled.
 - A Vulkan 1.x loader and a compute-capable Vulkan device for GPU training.
+- Rust/Cargo 1.93.0-compatible toolchain only when rebuilding from source.
 - No Python, PyTorch, CUDA toolkit, or local Transformers checkout is required
-  to build or run the native backend.
+  to build or run the native backend. No administrator rights are required for
+  normal operation.
+
+## First-run checks
+
+```powershell
+.\bin\hierarchos-native-cli.exe doctor
+.\bin\hierarchos-native-cli.exe devices
+.\bin\hierarchos-native-cli.exe architectures
+.\bin\hierarchos-native-cli.exe infer --model-path .\model --prompt "Hello" --max-new-tokens 64
+```
+
+`doctor` checks Vulkan device visibility and the companion Hierarchos training
+executable. It reports a missing companion as `not found`; the command currently
+exits 0, so read the diagnostic rather than relying only on the exit status.
+The Transformer training and generation paths are linked into
+`hierarchos-native-cli` itself. `hierarchos-native.exe` exposes the same common
+training and inference workflows through the desktop GUI.
+
+The packager copies release executables into `bin/` and removes its Cargo
+`target/` tree by default so the distributable does not retain compiler
+intermediates. The archive includes `LICENSE`, `THIRD_PARTY_NOTICES.md`, and
+`licenses/`; no model weights are bundled. Downloaded models are cached in the
+per-user platform cache at runtime, not in the installation directory. The
+default is `%LOCALAPPDATA%\Hierarchos\hf-cache`; override it with
+`HIERARCHOS_HF_CACHE` or `--hf-cache-dir`.
+
+For the measured acceptance results, supported and blocked checks, and
+limitations, read `CLEAN_MACHINE_TEST.md`. The packaged binaries were built
+from source `e8fc472b5a64cce89a028a5e17652d148be71f1b` with the checked-in
+standalone lockfile and `--locked`.
 
 ## Build from source
 
@@ -54,31 +87,8 @@ cargo build --release --locked -p hierarchos-gui --bin hierarchos-native
 The Vulkan crate embeds its checked-in SPIR-V shader binaries at compile time;
 shader compilers are not required for an ordinary release build.
 
-## First-run checks
-
-```powershell
-.\bin\hierarchos-native-cli.exe doctor
-.\bin\hierarchos-native-cli.exe architectures
-.\bin\hierarchos-native-cli.exe infer --model-path .\model --prompt "Hello" --max-new-tokens 64
-```
-
-On non-Windows platforms, omit the `.exe` suffix. `doctor` checks Vulkan device
-visibility and the companion Hierarchos training executable. The Transformer
-training and generation paths are linked into `hierarchos-native-cli` itself.
-`hierarchos-native.exe` exposes the same common training and inference workflows
-through the desktop GUI. The low-level Transformer trainer/logits binaries are
-also shipped for embedding, debugging, and backend integration use cases.
-
-The packager copies release executables into `bin/` and removes its Cargo
-`target/` tree by default so the distributable does not retain gigabytes of
-compiler intermediates. Pass `-KeepBuildArtifacts` only when those intermediates
-are intentionally needed for development. The archive includes `LICENSE`,
-`THIRD_PARTY_NOTICES.md`, and `licenses/`; no model weights are bundled.
-Downloaded models are cached in the per-user platform cache at runtime, not in
-the installation directory.
-
 For training examples and Hugging Face package/dataset support, see
-`crates/hierarchos-native-cli/README.md`. Unsupported model types and unsupported
+`crates/hierarchos-native-cli/README.md`. Unsupported model types, packages, and
 non-text towers fail closed instead of being silently approximated.
 
 ## Development reference tests

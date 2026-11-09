@@ -596,6 +596,26 @@ Use `-SkipBuild` for a source-only bundle. Keep the GUI and CLI together, and in
 the Vulkan training companions for Hierarchos training, or set
 `HIERARCHOS_VULKAN_BIN_DIR`. [Distribution layout](hierarchos-vulkan/standalone/README.md).
 
+### Windows x64 Release Candidate 1
+
+The Windows x64 RC1 package was built from
+`e8fc472b5a64cce89a028a5e17652d148be71f1b` and contains seven executables,
+source, shaders, notices, licenses, and the checked-in standalone lockfile.
+The measured results and BLOCKED checks are in
+[the acceptance report](hierarchos-vulkan/standalone/CLEAN_MACHINE_TEST.md).
+
+- Archive: `Hierarchos-Native-Windows-x64-RC1.zip`
+- SHA-256: `1d0bff4e48205f866474ed510ee03832a61e95703e39d3d2d004997ca59e64be`
+- Runtime requirements: Windows 11 x64, a Vulkan 1.x compute driver, and the
+  Microsoft Visual C++ 2015–2022 Redistributable (x64) for `VCRUNTIME140.dll`;
+  Rust and Python are not runtime requirements.
+- Verified: CLI startup, Vulkan discovery, 146/83/229 architecture registry,
+  local and Hub inference, one-step Vulkan training with checkpoint reload,
+  and relocation to a path with spaces.
+- BLOCKED: independent clean-machine execution, a second physical GPU, physical
+  network isolation, and automated GUI button activation. The GUI window itself
+  launched and closed cleanly.
+
 <div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
 
 ---

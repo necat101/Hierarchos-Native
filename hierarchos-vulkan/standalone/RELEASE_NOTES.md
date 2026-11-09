@@ -2,9 +2,9 @@
 
 This package is a portable source-and-binary distribution of the Hierarchos
 native Rust/Vulkan runtime. The binaries are self-contained apart from the
-operating system and the installed Vulkan loader/compute driver. Python,
-PyTorch, CUDA, a Transformers checkout, the Vulkan SDK, and a shader compiler
-are not runtime dependencies.
+operating system, the Vulkan loader/compute driver, and the Microsoft Visual
+C++ runtime. Python, PyTorch, CUDA, a Transformers checkout, the Vulkan SDK, and
+a shader compiler are not runtime dependencies.
 
 ## Included executables
 
@@ -22,9 +22,11 @@ also discovers the Vulkan companion binaries in the same directory.
 ## Requirements
 
 - Windows 11 x64 (Windows 10 x64 should work but is not the acceptance target).
+- **Microsoft Visual C++ 2015–2022 Redistributable (x64).** The executables
+  import `VCRUNTIME140.dll` and the Universal C Runtime; these DLLs are not
+  bundled. Install the x64 redistributable if the runtime is absent.
 - A Vulkan 1.x loader and a Vulkan compute-capable GPU driver.
-- Enough RAM and disk for the selected model. The bundled `hf-internal-testing`
-  smoke fixture is tiny; production models are much larger.
+- Enough RAM and disk for the selected model. No model weights are bundled.
 - No administrator rights are required for normal operation. Downloaded model
   data is cached under `%LOCALAPPDATA%\Hierarchos\hf-cache` by default.
 
@@ -54,14 +56,27 @@ Launch the desktop frontend:
 .\bin\hierarchos-native.exe
 ```
 
+## Verification status
+
+The developer-host acceptance run passed CLI startup, Vulkan discovery, the
+architecture registry, online and local inference, a one-step Vulkan training
+run with checkpoint reload, relocation to a path with spaces, and negative
+model/tokenizer/config/download diagnostics. The GUI opened and closed cleanly;
+its “Check backend” control was not activated by the automated harness.
+
+The independent clean-machine, second-GPU, and physical-network-isolation checks
+are **BLOCKED**; see `CLEAN_MACHINE_TEST.md`. The package was not code-signed.
+No numerical algorithms, tolerances, checkpoint formats, or shaders were changed
+for this packaging release.
+
 ## License and notices
 
 Hierarchos Native is MIT licensed; see `LICENSE`. Third-party components and
 reference-derived shader code retain their own terms in
 `THIRD_PARTY_NOTICES.md` and `licenses/`. No model weights are bundled.
 
-## Verification status
+## Provenance
 
-`BUILD_INFO.txt` records the exact source commit, build profile, Rust/Cargo
-versions, and binary SHA-256 values for this package. See
-`CLEAN_MACHINE_TEST.md` for the release acceptance results and limitations.
+`BUILD_INFO.txt` records the binary build source, toolchain, profile, and
+SHA-256 values for all seven executables. `SHA256SUMS.txt` beside the archive
+records the archive checksum and integrity test.
