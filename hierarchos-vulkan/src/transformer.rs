@@ -125,6 +125,12 @@ const VECTOR_ADD_SPV: &[u8] = include_bytes!("../shaders/vector_add.spv");
 const ATTENTION_FORWARD_SPV: &[u8] = include_bytes!("../shaders/transformer_attention_forward.spv");
 const ATTENTION_BACKWARD_SPV: &[u8] =
     include_bytes!("../shaders/transformer_attention_backward.spv");
+/// Pass 1 of the query/key two-pass backward: one lane per query row.
+const ATTENTION_BACKWARD_QUERY_PARALLEL_SPV: &[u8] =
+    include_bytes!("../shaders/transformer_attention_backward_query_rdna3.spv");
+/// Pass 2: one lane per key, reducing dK and dV over queries.
+const ATTENTION_BACKWARD_KEY_PARALLEL_SPV: &[u8] =
+    include_bytes!("../shaders/transformer_attention_backward_key_rdna3.spv");
 const ALIBI_POSITIONS_SPV: &[u8] = include_bytes!("../shaders/transformer_alibi_positions.spv");
 const POSITION_ADD_SPV: &[u8] = include_bytes!("../shaders/transformer_position_add.spv");
 const POSITION_GRAD_SPV: &[u8] = include_bytes!("../shaders/transformer_position_grad.spv");
@@ -25503,6 +25509,93 @@ fn rdna3_short_attention_supported(push: &AttentionPush) -> bool {
         && push.value_scale == 1.0
 }
 
+/// Whether the opt-in two-pass attention backward is switched on.
+///
+/// Off by default: the scalar kernel stays the qualified path until the two-pass
+/// pair has its own numerical evidence. Read once so a dispatch never consults
+/// the environment.
+fn two_pass_attention_enabled() -> bool {
+    use std::sync::OnceLock;
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        std::env::var("HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS")
+            .map(|value| value == "1")
+            .unwrap_or(false)
+    })
+}
+
+/// Allocate the two-pass scratch for a layer, or nothing when the switch is off.
+///
+/// Sized from `rows * query_hidden`, an upper bound for every geometry the
+/// dispatcher admits (it additionally requires `seq <= head_dim`). A geometry
+/// outside that bound keeps the scalar kernel rather than growing the buffer on
+/// the hot path.
+fn two_pass_attention_scratch(
+    device: &VulkanDevice,
+    rows: usize,
+    query_hidden: usize,
+) -> Result<Option<TwoPassAttentionScratch>> {
+    if !two_pass_attention_enabled() {
+        return Ok(None);
+    }
+    let capacity = rows
+        .checked_mul(query_hidden)
+        .ok_or_else(|| anyhow::anyhow!("two-pass attention scratch size overflow"))?;
+    Ok(Some(TwoPassAttentionScratch {
+        probability: GpuBuffer::zeros_f32(device, capacity)?,
+        ds: GpuBuffer::zeros_f32(device, capacity)?,
+        capacity,
+    }))
+}
+
+/// Whether the two-pass pair reproduces this geometry exactly.
+///
+/// Covers the plain fused path (mode 0) and Llama's materialised-SLEEF adjoint
+/// (mode 9), both of which the pair implements. Everything else keeps the scalar
+/// kernel: a shared score parameter or a non-plain softmax would need reductions
+/// this pair does not implement, and an unsupported ordering can only be a
+/// silent numerical change.
+fn two_pass_attention_supported(push: &AttentionPush, capacity: usize) -> bool {
+    if push.batch_size == 0
+        || push.query_seq_len == 0
+        || push.key_value_seq_len == 0
+        || push.num_heads == 0
+        || push.num_key_value_heads == 0
+        || push.num_heads % push.num_key_value_heads != 0
+        || push.query_hidden_size % push.num_heads != 0
+        || push.value_hidden_size % push.num_key_value_heads != 0
+    {
+        return false;
+    }
+    let head_dim = push.query_hidden_size / push.num_heads;
+    let value_head_dim = push.value_hidden_size / push.num_key_value_heads;
+    let elements = push.batch_size as usize
+        * push.num_heads as usize
+        * push.query_seq_len as usize
+        * push.key_value_seq_len as usize;
+    // One query head per KV head keeps pass 2's per-head accumulator identical
+    // to the generic adjoint's shared accumulator; a grouped geometry would need
+    // the head nesting measured on its own before it can be claimed.
+    push.num_heads == push.num_key_value_heads
+        && matches!(push.unfused_qk, 0 | 9)
+        && head_dim == value_head_dim
+        && head_dim <= 128
+        && push.key_value_seq_len as usize <= head_dim as usize
+        && elements <= capacity
+        && push.window_size == 0
+        && push.softcap == 0.0
+        && push.alibi_mode == 0
+        && push.relative_bias_mode == 0
+        && push.dropout_p == 0.0
+        && push.has_sink == 0
+        && push.causal <= 1
+        && push.query_position_offset == 0
+        && push.has_sparse_mask == 0
+        && push.compressed_key_count == 0
+        && push.paged_kv == 0
+        && push.value_scale == 1.0
+}
+
 fn rdna3_avx512_sdpa_supported(push: &AttentionPush) -> bool {
     let mut plain = *push;
     plain.unfused_qk = 0;
@@ -26303,6 +26396,9 @@ struct TransformerKernels {
     attention_forward: vulkan::ComputeKernel,
     rdna3_short_attention: Option<vulkan::ComputeKernel>,
     rdna3_short_attention_backward: Option<vulkan::ComputeKernel>,
+    /// The opt-in two-pass backward: [query-parallel, key-parallel]. Loaded only
+    /// when the switch is set, so a default run creates no extra pipeline.
+    rdna3_two_pass_attention_backward: Option<[vulkan::ComputeKernel; 2]>,
     rdna3_avx512_gpt2: Option<[vulkan::ComputeKernel; 3]>,
     rdna3_avx512_cross_entropy: Option<vulkan::ComputeKernel>,
     attention_backward: vulkan::ComputeKernel,
@@ -26799,6 +26895,24 @@ impl TransformerKernels {
             )?,
             rdna3_short_attention: None,
             rdna3_short_attention_backward: None,
+            rdna3_two_pass_attention_backward: if two_pass_attention_enabled() {
+                Some([
+                    vulkan::ComputeKernel::new(
+                        device,
+                        ATTENTION_BACKWARD_QUERY_PARALLEL_SPV,
+                        9,
+                        std::mem::size_of::<AttentionPush>() as u32,
+                    )?,
+                    vulkan::ComputeKernel::new(
+                        device,
+                        ATTENTION_BACKWARD_KEY_PARALLEL_SPV,
+                        8,
+                        std::mem::size_of::<AttentionPush>() as u32,
+                    )?,
+                ])
+            } else {
+                None
+            },
             rdna3_avx512_gpt2: None,
             rdna3_avx512_cross_entropy: None,
             attention_backward: vulkan::ComputeKernel::new(
@@ -59224,6 +59338,18 @@ struct VulkanTransformerLayer {
     base_frozen_for_peft: bool,
     cross_attention: Option<VulkanCrossAttention>,
     tape: TransformerLayerTape,
+    /// Scratch shared by both passes of the opt-in two-pass attention backward.
+    /// Allocated once per layer when the switch is set and reused by every step
+    /// that fits, so the hot path never allocates.
+    two_pass_attention_scratch: Option<TwoPassAttentionScratch>,
+}
+
+/// The per-element quantities pass 1 hands to pass 2 for one attention call.
+/// `capacity` is in floats and bounds both buffers.
+struct TwoPassAttentionScratch {
+    probability: GpuBuffer,
+    ds: GpuBuffer,
+    capacity: usize,
 }
 
 impl VulkanTransformerLayer {
@@ -60240,6 +60366,7 @@ impl VulkanTransformerLayer {
                 value_hidden,
                 attention_hidden,
             )?,
+            two_pass_attention_scratch: two_pass_attention_scratch(device, rows, q)?,
         };
         if config.uses_parameter_free_layer_norm() {
             layer.ln1.freeze();
@@ -60444,6 +60571,11 @@ impl VulkanTransformerLayer {
                 self.key_hidden_size,
                 self.value_hidden_size,
                 self.attention_hidden_size,
+            )?,
+            two_pass_attention_scratch: two_pass_attention_scratch(
+                device,
+                rows,
+                self.query_hidden_size,
             )?,
         })
     }
@@ -63916,7 +64048,91 @@ impl VulkanTransformerLayer {
                 // is submitted on its own; the wait between blocks preserves the order
                 // they accumulate in. A count of one leaves this a single dispatch with
                 // no extra submission, exactly as it was before the split existed.
-                if let Some(family) = kernels
+                // The two-pass pair is opt-in and geometry-gated: pass 1 owns one
+                // query row per lane, pass 2 owns one key per lane, and every
+                // geometry either pass cannot reproduce keeps the scalar kernel.
+                let two_pass = if key_blocks == 1 && two_pass_attention_enabled() {
+                    let pair = kernels.rdna3_two_pass_attention_backward.as_ref();
+                    let scratch = self.two_pass_attention_scratch.as_ref();
+                    let supported = scratch
+                        .map(|scratch| {
+                            two_pass_attention_supported(&attention_push, scratch.capacity)
+                        })
+                        .unwrap_or(false);
+                    // One line per process, only under the opt-in switch: a silent
+                    // fallback would look exactly like a qualified run.
+                    {
+                        use std::sync::atomic::{AtomicBool, Ordering};
+                        static REPORTED: AtomicBool = AtomicBool::new(false);
+                        if !REPORTED.swap(true, Ordering::Relaxed) {
+                            eprintln!(
+                                "two-pass backward: kernels={} scratch={} supported={} \
+                                 key_blocks={} causal={} unfused_qk={} head_dim={} kv_seq={} \
+                                 value_scale={} bias={} sparse={} compressed={} paged={} offset={}",
+                                pair.is_some(),
+                                scratch.is_some(),
+                                supported,
+                                key_blocks,
+                                attention_push.causal,
+                                attention_push.unfused_qk,
+                                attention_push.query_hidden_size
+                                    / attention_push.num_heads.max(1),
+                                attention_push.key_value_seq_len,
+                                attention_push.value_scale,
+                                attention_push.relative_bias_mode,
+                                attention_push.has_sparse_mask,
+                                attention_push.compressed_key_count,
+                                attention_push.paged_kv,
+                                attention_push.query_position_offset,
+                            );
+                        }
+                    }
+                    match (pair, scratch) {
+                        (Some(pair), Some(scratch)) if supported => Some((pair, scratch)),
+                        _ => None,
+                    }
+                } else {
+                    None
+                };
+                if let Some((two_pass_kernels, two_pass_scratch)) = two_pass {
+                    let query_rows = attention_push.batch_size
+                        * attention_push.num_heads
+                        * attention_push.query_seq_len;
+                    let key_rows = attention_push.batch_size
+                        * attention_push.num_key_value_heads
+                        * attention_push.key_value_seq_len;
+                    two_pass_kernels[0].record_dispatch(
+                        commands,
+                        &[
+                            backward_bindings[0],
+                            backward_bindings[1],
+                            backward_bindings[2],
+                            attention_mask,
+                            attention_mask,
+                            backward_bindings[6],
+                            backward_bindings[7],
+                            &two_pass_scratch.probability,
+                            &two_pass_scratch.ds,
+                        ],
+                        bytemuck::bytes_of(&attention_push),
+                        [(query_rows + 63) / 64, 1, 1],
+                    )?;
+                    two_pass_kernels[1].record_dispatch(
+                        commands,
+                        &[
+                            backward_bindings[0],
+                            backward_bindings[6],
+                            &two_pass_scratch.probability,
+                            &two_pass_scratch.ds,
+                            backward_bindings[8],
+                            backward_bindings[9],
+                            attention_mask,
+                            attention_mask,
+                        ],
+                        bytemuck::bytes_of(&attention_push),
+                        [(key_rows + 63) / 64, 1, 1],
+                    )?;
+                } else if let Some(family) = kernels
                     .rdna3_avx512_gpt2
                     .as_ref()
                     .filter(|_| key_blocks == 1 && rdna3_avx512_gpt2_supported(&attention_push))

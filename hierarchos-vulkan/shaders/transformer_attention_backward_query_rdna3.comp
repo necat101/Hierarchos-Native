@@ -1,27 +1,34 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
+#include "fp32_sleef_exp.glsl"
 
 // Two-pass scaled-dot-product attention backward, pass 1: query-owned.
 //
 // The generic kernel launches one invocation per (batch, KV head) with a single
-// lane, so a 12-CU part runs about 32 single-thread workgroups and leaves every
-// other lane idle. This pass gives one lane to each
-// (batch, query head, query position) row instead -- the same ownership the
-// forward kernel uses -- and keeps the row's key loop exactly as the generic
-// kernel runs it: same order, same arithmetic, same exp and reciprocal.
+// lane, so only a few dozen single-thread workgroups run at once. This pass gives
+// one lane to each (batch, query head, query position) row instead, and keeps the
+// row's key loop exactly as the generic kernel runs it.
 //
-// dQ is owned by the row and is computed here directly. dK and dV reduce over
-// queries, which no single row owns, so this pass writes the two per-element
-// values that pass 2 needs (the normalised probability and dS) to scratch and
-// pass 2 performs the reduction in the original order.
+// dQ is row-owned and is computed here. dK and dV reduce over queries, which no
+// single row owns, so this pass writes the two per-element values pass 2 needs to
+// scratch: the normalised probability and the adjoint's dS.
 //
-// Only the plain fused path is admitted: no sink, no relative bias, no ALiBi, no
-// window, no sparse mask, no dropout, no softcap, no compressed or paged KV,
-// value_scale == 1, query_position_offset == 0, causal in {0, 1} and
-// query head dim == value head dim. The host checks every one of those.
+// Two arithmetic modes are reproduced, both from the generic kernel's own text:
+//
+//   unfused_qk == 0  hardware fma for QK and P@V, hardware exp, plain reciprocal.
+//   unfused_qk == 9  separately materialised products under `precise`, the SLEEF
+//                    u10 exp, and the correctly rounded FP32 divide.
+//
+// Mode 9 keeps TWO softmax-dot values, and they are not interchangeable: the
+// primary loop accumulates a plain `softmax_dot` that dQ uses, while the per-key
+// adjoint accumulates a `precise` `kv_softmax_dot` that dK and dV use. This pass
+// computes both and writes the derivative built from the second one.
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
-// The host admits only head dimensions up to this bound, which keeps the
-// per-lane dQ accumulator a fixed-size private array.
+// Only geometries with a head dimension up to this bound are admitted, which
+// keeps the dQ accumulator a fixed-size private array.
 const uint MAX_HEAD_DIM = 128u;
 
 layout(set = 0, binding = 0, std430) readonly buffer QBuffer { float q_values[]; };
@@ -69,15 +76,21 @@ layout(push_constant) uniform Push {
 
 uint qk_head_dim;
 uint key_hidden_size;
-uint queries_per_kv;
 uint value_head_dim;
 uint output_hidden_size;
 
-// The generic kernel's plain-path score, unchanged: hardware fma over the head
-// dimension, then the scale.
-float score(uint b, uint head, uint query, uint kv_head, uint key) {
-    uint q_base = (b * pc.query_seq_len + query) * pc.query_hidden_size + head * qk_head_dim;
-    uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size + kv_head * qk_head_dim;
+// Mode 9 QK: the generic kernel materialises each product under `precise`
+// before adding it, so no fma contraction is allowed here either.
+precise float mode9_score(uint q_base, uint k_base) {
+    precise float value = 0.0;
+    for (uint d = 0; d < qk_head_dim; ++d) {
+        precise float product = q_values[q_base + d] * k_values[k_base + d];
+        value += product;
+    }
+    return value * pc.scale;
+}
+
+float plain_score(uint q_base, uint k_base) {
     float value = 0.0;
     for (uint d = 0; d < qk_head_dim; ++d) {
         value = fma(q_values[q_base + d], k_values[k_base + d], value);
@@ -85,17 +98,45 @@ float score(uint b, uint head, uint query, uint kv_head, uint key) {
     return value * pc.scale;
 }
 
-// The plain-path value projection of the backward pass, unchanged.
-float value_dot(uint b, uint query, uint head, uint kv_head, uint key) {
-    uint query_row = b * pc.query_seq_len + query;
-    uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
-    uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
-        + kv_head * value_head_dim;
+float score(uint q_base, uint k_base) {
+    return pc.unfused_qk == 9u ? mode9_score(q_base, k_base)
+                               : plain_score(q_base, k_base);
+}
+
+// Mode 9 value projection of the backward pass: same materialised products.
+precise float mode9_value_dot(uint v_base, uint grad_out_base) {
+    precise float value = 0.0;
+    for (uint d = 0; d < value_head_dim; ++d) {
+        precise float scaled_value = v_values[v_base + d] * pc.value_scale;
+        precise float product = grad_output[grad_out_base + d] * scaled_value;
+        value += product;
+    }
+    return value;
+}
+
+float plain_value_dot(uint v_base, uint grad_out_base) {
     float value = 0.0;
     for (uint d = 0; d < value_head_dim; ++d) {
         value = fma(grad_output[grad_out_base + d], v_values[v_base + d] * pc.value_scale, value);
     }
     return value;
+}
+
+float value_dot(uint v_base, uint grad_out_base) {
+    return pc.unfused_qk == 9u ? mode9_value_dot(v_base, grad_out_base)
+                               : plain_value_dot(v_base, grad_out_base);
+}
+
+// The generic kernel's attention_exp: SLEEF u10 for mode 9, hardware exp
+// otherwise. causal == 2 is never admitted by the host, so its SLEEF arm is not
+// reachable here.
+float attention_exp(float value) {
+    return pc.unfused_qk == 9u ? sleef_expf_u10_fused(value) : exp(value);
+}
+
+// The generic kernel's attention_reciprocal for the admitted modes.
+float attention_reciprocal(float value) {
+    return pc.unfused_qk == 9u ? fp32_div(1.0, value) : (1.0 / value);
 }
 
 bool key_visible(uint b, uint key) {
@@ -111,9 +152,9 @@ void main() {
     value_head_dim = pc.value_hidden_size / pc.num_key_value_heads;
     if (qk_head_dim > MAX_HEAD_DIM || value_head_dim > MAX_HEAD_DIM) return;
 
-    queries_per_kv = pc.num_heads / pc.num_key_value_heads;
     key_hidden_size = qk_head_dim * pc.num_key_value_heads;
     output_hidden_size = value_head_dim * pc.num_heads;
+    uint queries_per_kv = pc.num_heads / pc.num_key_value_heads;
 
     uint query = row % pc.query_seq_len;
     uint rest = row / pc.query_seq_len;
@@ -127,48 +168,93 @@ void main() {
     uint scratch_base = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
         + query * pc.key_value_seq_len;
 
-    // The generic kernel owns the whole row and zeroes it before accumulating.
-    // A row this pass owns is zeroed the same way, including the rows it then
-    // skips, so a padded query leaves zeros rather than the previous step's
-    // gradient.
+    // The generic kernel owns the whole row and zeroes it before accumulating,
+    // including the rows it subsequently skips.
     for (uint d = 0; d < qk_head_dim; ++d) {
         grad_q[q_base + d] = 0.0;
     }
 
-    if (pc.causal != 2u && query_mask[query_row] <= 0.0) return;
-
-    // A causal local row ends at the query position; query_position_offset is
-    // zero for every admitted geometry.
     uint last_key = pc.key_value_seq_len - 1u;
     if (pc.causal != 0u) {
-        last_key = min(query, pc.key_value_seq_len - 1u);
+        uint absolute_query = pc.query_position_offset + query;
+        last_key = min(absolute_query, pc.key_value_seq_len - 1u);
     }
 
+    if (query_mask[query_row] <= 0.0) {
+        // A row with no visible key contributes nothing: the generic kernel
+        // leaves its dQ zeroed, stores no statistics, and its adjoint skips it.
+        // The scratch is cleared so pass 2 adds exact zeros rather than a
+        // previous step's values.
+        for (uint key = 0u; key <= last_key; ++key) {
+            uint slot = scratch_base + key;
+            scratch_probability[slot] = 0.0;
+            scratch_ds[slot] = 0.0;
+        }
+        return;
+    }
+
+    bool any_visible = false;
+    for (uint key = 0u; key <= last_key; ++key) {
+        if (key_visible(b, key)) { any_visible = true; break; }
+    }
+    if (!any_visible) {
+        for (uint key = 0u; key <= last_key; ++key) {
+            uint slot = scratch_base + key;
+            scratch_probability[slot] = 0.0;
+            scratch_ds[slot] = 0.0;
+        }
+        return;
+    }
+
+    // Row maximum, over the same visible keys and in the same order.
     bool found = false;
     float max_score = -3.402823466e+38;
     for (uint key = 0u; key <= last_key; ++key) {
         if (!key_visible(b, key)) continue;
-        float s = score(b, head, query, kv_head, key);
+        float s = score(q_base, (b * pc.key_value_seq_len + key) * key_hidden_size
+            + kv_head * qk_head_dim);
         max_score = found ? max(max_score, s) : s;
         found = true;
     }
-    if (!found) return;
 
+    // The normaliser. Mode 9 accumulates the exponentials under `precise`, as the
+    // generic kernel does; the plain path does not.
     float exp_sum = 0.0;
-    for (uint key = 0u; key <= last_key; ++key) {
-        if (!key_visible(b, key)) continue;
-        exp_sum += exp(score(b, head, query, kv_head, key) - max_score);
+    if (pc.unfused_qk == 9u) {
+        precise float precise_exp_sum = 0.0;
+        for (uint key = 0u; key <= last_key; ++key) {
+            if (!key_visible(b, key)) continue;
+            float s = score(q_base, (b * pc.key_value_seq_len + key) * key_hidden_size
+                + kv_head * qk_head_dim);
+            precise_exp_sum += attention_exp(s - max_score);
+        }
+        exp_sum = precise_exp_sum;
+    } else {
+        for (uint key = 0u; key <= last_key; ++key) {
+            if (!key_visible(b, key)) continue;
+            float s = score(q_base, (b * pc.key_value_seq_len + key) * key_hidden_size
+                + kv_head * qk_head_dim);
+            exp_sum += attention_exp(s - max_score);
+        }
     }
-    float inv_sum = 1.0 / exp_sum;
+    float inv_sum = attention_reciprocal(exp_sum);
 
-    // softmax_dot reduces over keys in ascending order, exactly as the generic
-    // kernel does.
+    // Two dots, deliberately not merged:
+    //   plain  softmax_dot    -> dQ, exactly as the primary loop sums it
+    //   precise kv_softmax_dot -> dK and dV, exactly as the per-key adjoint sums it
     float softmax_dot = 0.0;
+    precise float kv_softmax_dot = 0.0;
     for (uint key = 0u; key <= last_key; ++key) {
         if (!key_visible(b, key)) continue;
-        float p = exp(score(b, head, query, kv_head, key) - max_score) * inv_sum;
-        float dp = value_dot(b, query, head, kv_head, key);
+        uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size
+            + kv_head * qk_head_dim;
+        uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
+            + kv_head * value_head_dim;
+        float p = attention_exp(score(q_base, k_base) - max_score) * inv_sum;
+        float dp = value_dot(v_base, grad_out_base);
         softmax_dot += p * dp;
+        precise float weighted_dp = p * dp;
+        kv_softmax_dot += weighted_dp;
     }
 
     float dq[MAX_HEAD_DIM];
@@ -178,15 +264,28 @@ void main() {
 
     for (uint key = 0u; key <= last_key; ++key) {
         if (!key_visible(b, key)) continue;
-        float p = exp(score(b, head, query, kv_head, key) - max_score) * inv_sum;
-        float dp = value_dot(b, query, head, kv_head, key);
-        float ds = p * (dp - softmax_dot);
+        uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size
+            + kv_head * qk_head_dim;
+        uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
+            + kv_head * value_head_dim;
+        float s = score(q_base, k_base);
+        float p = attention_exp(s - max_score) * inv_sum;
+        float dp = value_dot(v_base, grad_out_base);
+        float ds_q = p * (dp - softmax_dot);
         uint slot = scratch_base + key;
         scratch_probability[slot] = p;
-        scratch_ds[slot] = ds;
-        uint k_base = (b * pc.key_value_seq_len + key) * key_hidden_size + kv_head * qk_head_dim;
-        for (uint d = 0; d < qk_head_dim; ++d) {
-            dq[d] += pc.scale * ds * k_values[k_base + d];
+        scratch_ds[slot] = p * (dp - kv_softmax_dot);
+        if (pc.unfused_qk == 9u) {
+            precise float score_scale = pc.scale * 1.0;
+            score_scale = score_scale * ds_q;
+            for (uint d = 0; d < qk_head_dim; ++d) {
+                precise float contribution = score_scale * k_values[k_base + d];
+                dq[d] += contribution;
+            }
+        } else {
+            for (uint d = 0; d < qk_head_dim; ++d) {
+                dq[d] += pc.scale * ds_q * k_values[k_base + d];
+            }
         }
     }
 

@@ -3640,6 +3640,34 @@
       }
     },
     {
+      "artifact": "transformer_attention_backward_key_rdna3.spv",
+      "source": "transformer_attention_backward_key_rdna3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-fshader-stage=compute",
+        "--target-env=vulkan1.2",
+        "--target-spv=spv1.4",
+        "-O",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.2"
+    },
+    {
+      "artifact": "transformer_attention_backward_query_rdna3.spv",
+      "source": "transformer_attention_backward_query_rdna3.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-fshader-stage=compute",
+        "--target-env=vulkan1.2",
+        "--target-spv=spv1.4",
+        "-O",
+        "-Ishaders"
+      ],
+      "target_env": "vulkan1.2"
+    },
+    {
       "artifact": "transformer_attention_backward_short_gpt2_amd_rdna3.spv",
       "source": "transformer_attention_backward_short_gpt2_amd_rdna3.comp",
       "compiler": "glslangValidator",

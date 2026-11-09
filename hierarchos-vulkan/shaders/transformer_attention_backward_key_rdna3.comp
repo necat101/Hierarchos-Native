@@ -1,14 +1,20 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "fp32_fma_exact.glsl"
+#include "fp32_sqrt_recip.glsl"
 
 // Two-pass scaled-dot-product attention backward, pass 2: key-owned.
 //
-// One lane owns one (batch, KV head, key position) and reduces dK and dV over
-// the mapped query heads and the query positions. The loops reproduce the
-// generic kernel's nesting exactly -- query heads ascending, then queries
-// ascending -- so each gradient element is the same sequence of additions on the
-// same operands. The normalised probability and dS that pass 1 computed are read
-// back from scratch; both are exact FP32 values the generic kernel would have
-// held in a register, so writing and reloading them changes no bits.
+// One lane owns one (batch, KV head, key) and reduces dK and dV over the mapped
+// query heads and the query positions, reproducing the generic kernel's per-key
+// adjoint: query positions ascending inside each head, each head reduced into its
+// own accumulator, and the completed head accumulators combined in head order.
+//
+// The probability and the adjoint's dS come from pass 1. Both are exact FP32
+// values the generic kernel would have recomputed on the fly, so carrying them
+// through memory changes no bits -- provided the operand sequence is unchanged,
+// which is why every accumulation below is `precise` in mode 9 and the head
+// nesting is kept rather than flattened into head -> query.
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 const uint MAX_HEAD_DIM = 128u;
@@ -77,6 +83,20 @@ void main() {
     uint v_base = (b * pc.key_value_seq_len + key) * pc.value_hidden_size
         + kv_head * value_head_dim;
 
+    // The generic kernel leaves an invisible key zeroed and contributes nothing
+    // to it, so it is written as zero here rather than left stale.
+    if (key_mask[b * pc.key_value_seq_len + key] <= 0.0) {
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            grad_k[k_base + d] = 0.0;
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            grad_v[v_base + d] = 0.0;
+        }
+        return;
+    }
+
+    // The completed gradient: shared accumulator plus the finished head, exactly
+    // the order the generic adjoint writes it in.
     float dk[MAX_HEAD_DIM];
     float dv[MAX_HEAD_DIM];
     for (uint d = 0; d < qk_head_dim; ++d) {
@@ -86,30 +106,60 @@ void main() {
         dv[d] = 0.0;
     }
 
-    // An invisible key contributes nothing and the generic kernel leaves it
-    // zeroed, so it must be written as zero rather than left stale.
-    if (key_mask[b * pc.key_value_seq_len + key] > 0.0) {
-        uint first_head = kv_head * queries_per_kv;
-        for (uint head = first_head; head < first_head + queries_per_kv; ++head) {
-            for (uint query = 0u; query < pc.query_seq_len; ++query) {
-                uint query_row = b * pc.query_seq_len + query;
-                if (pc.causal != 2u && query_mask[query_row] <= 0.0) continue;
-                // A causal row ends at the query position. This is the generic
-                // kernel's last_key = min(query, kv - 1) seen from the key side.
-                if (pc.causal != 0u && key > query) continue;
-                uint slot = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
-                    + query * pc.key_value_seq_len + key;
-                float p = scratch_probability[slot];
-                float ds = scratch_ds[slot];
-                uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
-                for (uint d = 0; d < value_head_dim; ++d) {
-                    dv[d] += p * grad_output[grad_out_base + d];
-                }
-                uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+    uint first_head = kv_head * queries_per_kv;
+    for (uint head = first_head; head < first_head + queries_per_kv; ++head) {
+        float head_k[MAX_HEAD_DIM];
+        float head_v[MAX_HEAD_DIM];
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            head_k[d] = 0.0;
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            head_v[d] = 0.0;
+        }
+        for (uint query = 0u; query < pc.query_seq_len; ++query) {
+            uint query_row = b * pc.query_seq_len + query;
+            if (query_mask[query_row] <= 0.0) continue;
+            // The generic row's key range ends at the query position when causal;
+            // this is the same condition seen from the key side.
+            if (pc.causal != 0u) {
+                uint absolute_query = pc.query_position_offset + query;
+                if (key > absolute_query) continue;
+            }
+            uint slot = (b * pc.num_heads + head) * pc.query_seq_len * pc.key_value_seq_len
+                + query * pc.key_value_seq_len + key;
+            float p = scratch_probability[slot];
+            float ds = scratch_ds[slot];
+            uint grad_out_base = query_row * output_hidden_size + head * value_head_dim;
+            uint q_base = query_row * pc.query_hidden_size + head * qk_head_dim;
+            if (pc.unfused_qk == 9u) {
+                precise float score_scale = pc.scale * 1.0;
+                score_scale = score_scale * ds;
                 for (uint d = 0; d < qk_head_dim; ++d) {
-                    dk[d] += pc.scale * ds * q_values[q_base + d];
+                    precise float contribution = score_scale * q_values[q_base + d];
+                    precise float next_k = head_k[d] + contribution;
+                    head_k[d] = next_k;
+                }
+                for (uint d = 0; d < value_head_dim; ++d) {
+                    precise float weighted_p = p * 1.0;
+                    precise float product = weighted_p * grad_output[grad_out_base + d];
+                    product = product * 1.0;
+                    precise float next_v = head_v[d] + product;
+                    head_v[d] = next_v;
+                }
+            } else {
+                for (uint d = 0; d < qk_head_dim; ++d) {
+                    head_k[d] += pc.scale * ds * q_values[q_base + d];
+                }
+                for (uint d = 0; d < value_head_dim; ++d) {
+                    head_v[d] += p * grad_output[grad_out_base + d];
                 }
             }
+        }
+        for (uint d = 0; d < qk_head_dim; ++d) {
+            dk[d] = dk[d] + head_k[d];
+        }
+        for (uint d = 0; d < value_head_dim; ++d) {
+            dv[d] = dv[d] + head_v[d];
         }
     }
 

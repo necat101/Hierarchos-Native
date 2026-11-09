@@ -659,3 +659,33 @@ key adjoint), precise K/V adds with the per-head-then-sum nesting, and only then
 the correctness harness in `validation/two_pass_backward_equivalence.sh`, whose
 adapter comparison is only meaningful once the dispatch evidence shows both new
 kernels ran.
+
+## Two-pass attention backward (Llama mode 9), measured
+
+`HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=1` replaces the scalar Llama attention
+backward with two owned passes: a query pass that writes softmax and `dS`
+scratch, and a key/value pass that reduces it. The default stays scalar; the
+pair is gated to `unfused_qk` 0/9 with `num_heads == num_key_value_heads`.
+
+Geometry: batch 8, sequence 64, 8 heads / 8 KV heads, head_dim 128, 2 layers.
+Scratch: `rows * query_hidden` floats per layer (8 * 64 * 1024 * 4 B = 2 MiB).
+
+Kernel time per step, 12 profiled steps after warmup:
+
+| kernel | dispatches/step | ms/step |
+| --- | --- | --- |
+| `transformer_attention_backward` (scalar) | 2 | 446.5 - 463.3 |
+| `transformer_attention_backward_query_rdna3` | 2 | 34.3 - 37.2 |
+| `transformer_attention_backward_key_rdna3` | 2 | 23.6 - 24.6 |
+
+Whole optimizer step, 26 steps per arm, three ABBA rounds:
+
+| arm | ms/step | median |
+| --- | --- | --- |
+| scalar | 621.8, 628.7, 631.8, 633.0, 632.7, 636.1 | 632.2 |
+| two-pass | 217.6, 218.5, 219.8, 219.7, 221.7, 220.1 | 219.8 |
+
+2.88x on the whole optimizer step and 7.4x on attention backward alone. The
+exported adapter after two LoRA steps is bit-identical between arms
+(`b3da10f2ca2b889e595f868131dfb99ddf5d1a5740d67cc489f7fedb9550a2d4`), and the
+candidate arm dispatches the scalar backward zero times.
