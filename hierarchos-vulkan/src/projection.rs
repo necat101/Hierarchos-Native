@@ -4,7 +4,8 @@ use anyhow::{bail, Context, Result};
 use bytemuck::{Pod, Zeroable};
 
 use crate::{
-    read_f32_tensor, replace_f32_tensors, vendor, vulkan, AdamWHyperParams, GpuBuffer, VulkanDevice,
+    read_f32_tensor, replace_f32_tensors, vendor, vulkan, wmma, AdamWHyperParams, GpuBuffer,
+    VulkanDevice,
 };
 
 const LINEAR_WEIGHT_GRAD_SPV: &[u8] = include_bytes!("../shaders/linear_weight_grad.spv");
@@ -80,6 +81,50 @@ pub struct LinearProjectionTrainer {
     adamw: vulkan::ComputeKernel,
     cpu_adamw: crate::cpu_adamw::CpuAdamW,
     cpu_small_row_gemm: Option<(vulkan::ComputeKernel, vulkan::ComputeKernel)>,
+    wmma: Option<ProjectionWmma>,
+}
+
+/// Opt-in cooperative-matrix execution for one projection.
+///
+/// The canonical FP32 master parameter, its AdamW moments and the checkpoint
+/// layout are untouched: `weight_f16` is an execution-only mirror refreshed from
+/// the master after every optimizer step, exactly like the existing
+/// `VulkanFp32MasterParameterMirror` contract. Forward, weight-gradient and
+/// input-gradient GEMMs share it, so one projection step costs one mirror
+/// refresh rather than one conversion per GEMM.
+struct ProjectionWmma {
+    gemm: wmma::WmmaGemm,
+    weight_f16: GpuBuffer,
+    input_f16: GpuBuffer,
+    grad_output_f16: GpuBuffer,
+}
+
+impl ProjectionWmma {
+    fn new(
+        device: &VulkanDevice,
+        mode: wmma::WmmaMode,
+        input_len: usize,
+        output_len: usize,
+        weight_len: usize,
+    ) -> Result<Self> {
+        Ok(Self {
+            gemm: wmma::WmmaGemm::new(device, mode)?,
+            weight_f16: wmma::WmmaGemm::new_half_buffer(device, weight_len)?,
+            input_f16: wmma::WmmaGemm::new_half_buffer(device, input_len)?,
+            grad_output_f16: wmma::WmmaGemm::new_half_buffer(device, output_len)?,
+        })
+    }
+
+    /// Refresh the FP16 execution mirror from the FP32 master inside `batch`.
+    fn record_refresh_weight(
+        &self,
+        batch: &mut vulkan::ComputeBatch,
+        master: &GpuBuffer,
+        weight_len: usize,
+    ) -> Result<()> {
+        self.gemm
+            .record_conversion(batch, master, &self.weight_f16, weight_len)
+    }
 }
 
 impl LinearProjectionTrainer {
@@ -147,6 +192,20 @@ impl LinearProjectionTrainer {
             .map(|_| GpuBuffer::zeros_f32(&device, output_dim))
             .transpose()?;
 
+        // The policy is opt-in through HIERARCHOS_WMMA_MODE (set by
+        // `--wmma-mode`). When it is off, or when this projection carries a bias
+        // the fused FP32 kernel handles, the existing arithmetic is unchanged.
+        let wmma_execution = match wmma::WmmaMode::from_env()? {
+            wmma::WmmaMode::Off => None,
+            mode => Some(ProjectionWmma::new(
+                &device,
+                mode,
+                input_len,
+                output_len,
+                weight_len,
+            )?),
+        };
+
         Ok(Self {
             linear_forward: vendor::VendorMatmulKernel::new_with_access(
                 &device,
@@ -190,6 +249,7 @@ impl LinearProjectionTrainer {
             adamw: vendor::adamw_kernel(&device)?,
             cpu_adamw: crate::cpu_adamw::CpuAdamW::new(&device)?,
             cpu_small_row_gemm: None,
+            wmma: wmma_execution,
             weight: GpuBuffer::from_f32(&device, weight)?,
             bias: bias_buffer,
             input: GpuBuffer::zeros_f32(&device, input_len)?,
@@ -280,6 +340,41 @@ impl LinearProjectionTrainer {
     }
 
     fn record_forward(&self, batch: &mut vulkan::ComputeBatch, rows: usize) -> Result<()> {
+        // A fused-bias projection keeps its existing kernel: the WMMA GEMM emits
+        // the unbiased product only, and silently dropping the bias would change
+        // the model. The fallback is counted so profiling shows it.
+        if let Some(execution) = &self.wmma {
+            if self.bias.is_none() {
+                if let Some(arm) =
+                    execution
+                        .gemm
+                        .select_arm(rows, self.output_dim, self.input_dim)
+                {
+                    execution.gemm.record_conversion(
+                        batch,
+                        &self.input,
+                        &execution.input_f16,
+                        rows * self.input_dim,
+                    )?;
+                    execution.gemm.record_gemm(
+                        batch,
+                        arm,
+                        &execution.input_f16,
+                        &execution.weight_f16,
+                        &self.output,
+                        rows,
+                        self.output_dim,
+                        self.input_dim,
+                        wmma::GemmLayout {
+                            transposed_a: false,
+                            transposed_b: true,
+                        },
+                    )?;
+                    return Ok(());
+                }
+            }
+            execution.gemm.note_shape_fallback();
+        }
         let push = LinearPush {
             rows: rows as u32,
             input_dim: self.input_dim as u32,
@@ -429,22 +524,85 @@ impl LinearProjectionTrainer {
             )?;
         }
 
-        self.linear_weight_grad.record_dispatch(
-            &mut batch,
-            &[&self.input, &self.grad_output, &self.grad_weight],
-            bytemuck::bytes_of(&linear_push),
-            [
-                div_ceil_u32(self.input_dim, 16),
-                div_ceil_u32(self.output_dim, 16),
-                1,
-            ],
-        )?;
-        self.linear_input_grad.record_dispatch(
-            &mut batch,
-            &[&self.grad_output, &self.weight, &self.grad_input],
-            bytemuck::bytes_of(&linear_push),
-            [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
-        )?;
+        // Weight gradient: dW[out, in] = sum_batch grad_out[batch, out] * x[batch, in].
+        // As a GEMM this is rows=out, columns=in, reduction=batch with A stored
+        // [batch, out] (transposed) and B stored [batch, in] (not transposed).
+        let wmma_grads = self.wmma.as_ref().filter(|_| self.bias.is_none());
+        if let Some(execution) = wmma_grads {
+            execution.gemm.record_conversion(
+                &mut batch,
+                &self.grad_output,
+                &execution.grad_output_f16,
+                rows * self.output_dim,
+            )?;
+        }
+        let mut weight_grad_done = false;
+        if let Some(execution) = wmma_grads {
+            if let Some(arm) = execution
+                .gemm
+                .select_arm(self.output_dim, self.input_dim, rows)
+            {
+                execution.gemm.record_gemm(
+                    &mut batch,
+                    arm,
+                    &execution.grad_output_f16,
+                    &execution.input_f16,
+                    &self.grad_weight,
+                    self.output_dim,
+                    self.input_dim,
+                    rows,
+                    wmma::GemmLayout {
+                        transposed_a: true,
+                        transposed_b: false,
+                    },
+                )?;
+                weight_grad_done = true;
+            } else {
+                execution.gemm.note_shape_fallback();
+            }
+        }
+        if !weight_grad_done {
+            self.linear_weight_grad.record_dispatch(
+                &mut batch,
+                &[&self.input, &self.grad_output, &self.grad_weight],
+                bytemuck::bytes_of(&linear_push),
+                [
+                    div_ceil_u32(self.input_dim, 16),
+                    div_ceil_u32(self.output_dim, 16),
+                    1,
+                ],
+            )?;
+        }
+        let mut input_grad_done = false;
+        if let Some(execution) = wmma_grads {
+            if let Some(arm) = execution
+                .gemm
+                .select_arm(rows, self.input_dim, self.output_dim)
+            {
+                execution.gemm.record_gemm(
+                    &mut batch,
+                    arm,
+                    &execution.grad_output_f16,
+                    &execution.weight_f16,
+                    &self.grad_input,
+                    rows,
+                    self.input_dim,
+                    self.output_dim,
+                    wmma::GemmLayout::default(),
+                )?;
+                input_grad_done = true;
+            } else {
+                execution.gemm.note_shape_fallback();
+            }
+        }
+        if !input_grad_done {
+            self.linear_input_grad.record_dispatch(
+                &mut batch,
+                &[&self.grad_output, &self.weight, &self.grad_input],
+                bytemuck::bytes_of(&linear_push),
+                [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
+            )?;
+        }
 
         let next_step = self.step.checked_add(1).context("AdamW step overflow")?;
         let weight_adam = AdamWPush {
@@ -517,6 +675,16 @@ impl LinearProjectionTrainer {
                 )?;
             }
         }
+        // The FP32 master was just updated in this command buffer; refresh the
+        // FP16 execution mirror behind it so the next step's GEMMs read the new
+        // parameters without a separate submission or a second mirror.
+        if let Some(execution) = &self.wmma {
+            execution.record_refresh_weight(
+                &mut batch,
+                &self.weight,
+                self.output_dim * self.input_dim,
+            )?;
+        }
         batch.readback_f32(&self.output, &self.output_readback, rows * self.output_dim)?;
         batch.readback_f32(
             &self.grad_input,
@@ -546,6 +714,21 @@ impl LinearProjectionTrainer {
 
     pub fn device_name(&self) -> &str {
         self.device.name()
+    }
+
+    /// Cooperative-matrix (WMMA) dispatch accounting for this projection, or
+    /// `None` when the policy is off. Shape/fused-bias fallbacks are counted so a
+    /// profiler can see where the WMMA path did not apply.
+    pub fn wmma_dispatch_counts(&self) -> Option<wmma::WmmaDispatchCounts> {
+        self.wmma.as_ref().map(|execution| execution.gemm.dispatch_counts())
+    }
+
+    /// Which WMMA policy this projection negotiated.
+    pub fn wmma_mode(&self) -> wmma::WmmaMode {
+        self.wmma
+            .as_ref()
+            .map(|execution| execution.gemm.mode())
+            .unwrap_or(wmma::WmmaMode::Off)
     }
 
     pub fn export_model_package(

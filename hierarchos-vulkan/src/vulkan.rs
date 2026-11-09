@@ -77,6 +77,7 @@ struct DeviceInner {
     opaque_external_transport_enabled: bool,
     required_subgroup_size: Option<u32>,
     mixed_precision_capabilities: VulkanMixedPrecisionCapabilities,
+    wmma_capabilities: crate::wmma::VulkanWmmaCapabilities,
     /// Buffers zeroed on the host but not yet cleared on the device. See
     /// [`GpuBuffer::zeros_f32`]: clearing is folded into the next command buffer
     /// that binds the buffer, so a fresh intermediate no longer costs a queue
@@ -1353,6 +1354,15 @@ impl VulkanDevice {
         Self::new_selected(None)
     }
 
+    /// Create a logical device for an explicit cooperative-matrix policy.
+    ///
+    /// `off` behaves like [`Self::new`] except that it ignores
+    /// `HIERARCHOS_WMMA_MODE`, so a harness can pin the policy regardless of the
+    /// surrounding process environment.
+    pub fn new_for_wmma(mode: crate::wmma::WmmaMode) -> Result<Self> {
+        Self::new_selected_with_wmma(None, mode)
+    }
+
     /// Create a logical device on an explicitly addressed Vulkan physical
     /// device. This is the addressing primitive used by multi-device training:
     /// replicas can bind to deterministic adapters instead of all selecting the
@@ -1590,6 +1600,12 @@ impl VulkanDevice {
                 device_group_timeline_semaphore_enabled: timeline_semaphore_enabled,
                 opaque_external_transport_enabled: false,
                 required_subgroup_size: None,
+                // A device group does not negotiate cooperative matrices: the
+                // feature is per physical device, and every replica must satisfy
+                // the contract on its own. Reporting `off` here makes an
+                // explicit WMMA request fail at the per-device boundary instead
+                // of implying that one member's matrix cores cover the group.
+                wmma_capabilities: Default::default(),
                 // Device-group enablement is correctness-first for this tranche.
                 // Optional FP16 features remain disabled until we intersect the
                 // feature/extension sets of every physical member explicitly.
@@ -1668,6 +1684,14 @@ impl VulkanDevice {
     }
 
     fn new_selected(requested_physical_device_index: Option<usize>) -> Result<Self> {
+        let wmma_mode = crate::wmma::WmmaMode::from_env()?;
+        Self::new_selected_with_wmma(requested_physical_device_index, wmma_mode)
+    }
+
+    fn new_selected_with_wmma(
+        requested_physical_device_index: Option<usize>,
+        wmma_mode: crate::wmma::WmmaMode,
+    ) -> Result<Self> {
         let required_subgroup_size = match std::env::var_os(
             "HIERARCHOS_VULKAN_REQUIRED_SUBGROUP_SIZE",
         ) {
@@ -1729,6 +1753,10 @@ impl VulkanDevice {
         };
         let timeline_semaphore_extension_supported = has_extension(vk::KHR_TIMELINE_SEMAPHORE_NAME);
         let shader_float16_extension_supported = has_extension(vk::KHR_SHADER_FLOAT16_INT8_NAME);
+        let cooperative_matrix_extension_exposed =
+            has_extension(vk::KHR_COOPERATIVE_MATRIX_NAME);
+        let subgroup_size_control_extension_exposed =
+            has_extension(vk::EXT_SUBGROUP_SIZE_CONTROL_NAME);
         let shader_bfloat16_extension_exposed =
             extension_properties.iter().any(|extension| unsafe {
                 CStr::from_ptr(extension.extension_name.as_ptr()).to_bytes()
@@ -1747,6 +1775,9 @@ impl VulkanDevice {
         let mut storage16_support = vk::PhysicalDevice16BitStorageFeatures::default();
         let mut shader_float16_support = vk::PhysicalDeviceShaderFloat16Int8Features::default();
         let mut timeline_semaphore_support = vk::PhysicalDeviceTimelineSemaphoreFeatures::default();
+        let mut cooperative_matrix_support =
+            vk::PhysicalDeviceCooperativeMatrixFeaturesKHR::default();
+        let mut memory_model_support = vk::PhysicalDeviceVulkanMemoryModelFeatures::default();
         let mut mixed_precision_features =
             vk::PhysicalDeviceFeatures2::default().push_next(&mut storage16_support);
         if shader_float16_extension_supported {
@@ -1757,6 +1788,15 @@ impl VulkanDevice {
             mixed_precision_features =
                 mixed_precision_features.push_next(&mut timeline_semaphore_support);
         }
+        // The cooperative-matrix feature is only queried when the driver exposes
+        // the extension; chaining the struct for an absent extension is not a
+        // valid query. The Vulkan memory model is a promoted Vulkan 1.2 feature,
+        // so it is always queryable on this device's 1.4 implementation.
+        if cooperative_matrix_extension_exposed {
+            mixed_precision_features =
+                mixed_precision_features.push_next(&mut cooperative_matrix_support);
+        }
+        mixed_precision_features = mixed_precision_features.push_next(&mut memory_model_support);
         unsafe {
             instance.get_physical_device_features2(physical_device, &mut mixed_precision_features)
         };
@@ -1772,12 +1812,91 @@ impl VulkanDevice {
             shader_bfloat16_extension_exposed,
         };
 
+        // --- Opt-in cooperative-matrix (RDNA3 WMMA) contract ---------------
+        //
+        // With `--wmma-mode off` (the default) nothing below enables an
+        // extension or a feature, and no WMMA pipeline is ever created. An
+        // explicit request this adapter cannot satisfy fails here with the
+        // probed reason instead of silently running a fallback.
+        let cooperative_matrix_feature_supported = cooperative_matrix_extension_exposed
+            && cooperative_matrix_support.cooperative_matrix != vk::FALSE;
+        let memory_model_supported = memory_model_support.vulkan_memory_model != vk::FALSE;
+        let cooperative_matrix_tiles = if cooperative_matrix_feature_supported {
+            crate::wmma::probe_cooperative_matrix_tiles(&entry, &instance, physical_device)
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        let (wmma_mixed_tile, wmma_full_tile) =
+            crate::wmma::select_tiles(&cooperative_matrix_tiles);
+        let mut device_subgroup_properties = vk::PhysicalDeviceSubgroupProperties::default();
+        let mut device_subgroup_query =
+            vk::PhysicalDeviceProperties2::default().push_next(&mut device_subgroup_properties);
+        unsafe {
+            instance.get_physical_device_properties2(physical_device, &mut device_subgroup_query)
+        };
+        let wmma_subgroup_supported = if subgroup_size_control_extension_exposed {
+            let mut control_features =
+                vk::PhysicalDeviceSubgroupSizeControlFeatures::default();
+            let mut features_query =
+                vk::PhysicalDeviceFeatures2::default().push_next(&mut control_features);
+            unsafe {
+                instance.get_physical_device_features2(physical_device, &mut features_query)
+            };
+            let mut control_properties =
+                vk::PhysicalDeviceSubgroupSizeControlProperties::default();
+            let mut properties_query =
+                vk::PhysicalDeviceProperties2::default().push_next(&mut control_properties);
+            unsafe {
+                instance.get_physical_device_properties2(physical_device, &mut properties_query)
+            };
+            control_features.subgroup_size_control != vk::FALSE
+                && control_properties
+                    .required_subgroup_size_stages
+                    .contains(vk::ShaderStageFlags::COMPUTE)
+                && crate::wmma::WMMA_SUBGROUP_SIZE >= control_properties.min_subgroup_size
+                && crate::wmma::WMMA_SUBGROUP_SIZE <= control_properties.max_subgroup_size
+        } else {
+            false
+        };
+        let wmma_enabled = wmma_mode.requested()
+            && cooperative_matrix_feature_supported
+            && memory_model_supported
+            && wmma_subgroup_supported
+            && storage_buffer_16_bit_access_enabled
+            && shader_float16_enabled;
+        let wmma_capabilities = crate::wmma::VulkanWmmaCapabilities {
+            extension_exposed: cooperative_matrix_extension_exposed,
+            feature_supported: cooperative_matrix_feature_supported,
+            memory_model_supported,
+            subgroup_size_control_supported: wmma_subgroup_supported,
+            storage_16bit: storage_buffer_16_bit_access_enabled,
+            shader_float16: shader_float16_enabled,
+            subgroup_size: device_subgroup_properties.subgroup_size,
+            enabled: wmma_enabled,
+            mixed_tile: wmma_mixed_tile,
+            full_fp16_tile: wmma_full_tile,
+            configuration_count: cooperative_matrix_tiles.len() as u32,
+        };
+        if wmma_mode.requested() && !wmma_capabilities.supports_mode(wmma_mode) {
+            unsafe { instance.destroy_instance(None) };
+            bail!(
+                "--wmma-mode {} cannot run on Vulkan device {name:?}: {}\n{}",
+                wmma_mode.label(),
+                wmma_capabilities.unavailable_reason(wmma_mode),
+                wmma_capabilities.diagnostics()
+            );
+        }
+
         let mut enabled_extension_names = Vec::new();
         if timeline_semaphore_enabled {
             enabled_extension_names.push(vk::KHR_TIMELINE_SEMAPHORE_NAME.as_ptr());
         }
         if shader_float16_enabled {
             enabled_extension_names.push(vk::KHR_SHADER_FLOAT16_INT8_NAME.as_ptr());
+        }
+        if wmma_enabled {
+            enabled_extension_names.push(vk::KHR_COOPERATIVE_MATRIX_NAME.as_ptr());
         }
         if opaque_external_transport_enabled {
             #[cfg(target_os = "windows")]
@@ -1837,6 +1956,20 @@ impl VulkanDevice {
             subgroup_size_control_enable = vk::PhysicalDeviceSubgroupSizeControlFeatures::default()
                 .subgroup_size_control(true);
         }
+        if wmma_enabled && required_subgroup_size.is_none() {
+            // WMMA needs a 32-wide compute subgroup while this device defaults
+            // to 64. Per-pipeline requirements are the only correct scope: a
+            // device-wide override would change every other kernel's geometry.
+            enabled_extension_names.push(vk::EXT_SUBGROUP_SIZE_CONTROL_NAME.as_ptr());
+            subgroup_size_control_enable =
+                vk::PhysicalDeviceSubgroupSizeControlFeatures::default()
+                    .subgroup_size_control(true);
+        }
+        let mut cooperative_matrix_enable =
+            vk::PhysicalDeviceCooperativeMatrixFeaturesKHR::default()
+                .cooperative_matrix(wmma_enabled);
+        let mut memory_model_enable = vk::PhysicalDeviceVulkanMemoryModelFeatures::default()
+            .vulkan_memory_model(wmma_enabled);
         let mut storage16_enable = vk::PhysicalDevice16BitStorageFeatures::default()
             .storage_buffer16_bit_access(storage_buffer_16_bit_access_enabled);
         let mut shader_float16_enable = vk::PhysicalDeviceShaderFloat16Int8Features::default()
@@ -1859,8 +1992,13 @@ impl VulkanDevice {
         if shader_float16_enabled {
             device_info = device_info.push_next(&mut shader_float16_enable);
         }
-        if required_subgroup_size.is_some() {
+        if required_subgroup_size.is_some() || (wmma_enabled && required_subgroup_size.is_none()) {
             device_info = device_info.push_next(&mut subgroup_size_control_enable);
+        }
+        if wmma_enabled {
+            device_info = device_info
+                .push_next(&mut memory_model_enable)
+                .push_next(&mut cooperative_matrix_enable);
         }
         let device = match unsafe { instance.create_device(physical_device, &device_info, None) } {
             Ok(device) => device,
@@ -1936,6 +2074,7 @@ impl VulkanDevice {
             opaque_external_transport_enabled,
             required_subgroup_size,
             mixed_precision_capabilities,
+            wmma_capabilities,
             device_lost: AtomicBool::new(false),
         });
         Ok(Self {
@@ -2406,6 +2545,15 @@ impl VulkanDevice {
 
     pub fn mixed_precision_capabilities(&self) -> VulkanMixedPrecisionCapabilities {
         self.inner.mixed_precision_capabilities
+    }
+
+    /// What this logical device negotiated for cooperative-matrix (WMMA) GEMM.
+    ///
+    /// `enabled` is only true when the policy asked for WMMA and every required
+    /// feature was actually switched on, so a caller can never mistake an
+    /// unsupported adapter for a hardware matrix-multiply path.
+    pub fn wmma_capabilities(&self) -> crate::wmma::VulkanWmmaCapabilities {
+        self.inner.wmma_capabilities
     }
 
     pub(crate) fn supports_compute_subgroup_arithmetic(&self) -> bool {
@@ -6427,6 +6575,10 @@ struct LayoutInterner {
 struct ComputePipelineSignature {
     shader: u64,
     layout: PipelineLayoutSignature,
+    /// Forced subgroup width for this pipeline, 0 when the device default (or
+    /// device-wide override) applies. Part of the identity so a WMMA pipeline
+    /// compiled for wave32 is never handed to a caller that wanted the default.
+    subgroup: u32,
 }
 
 /// Layers and graphs on the same logical device often instantiate identical
@@ -9205,6 +9357,31 @@ impl ComputeKernel {
         binding_accesses: &[BindingAccess],
         push_constant_size: u32,
     ) -> Result<Self> {
+        Self::new_with_access_and_subgroup(
+            device,
+            spirv,
+            binding_accesses,
+            push_constant_size,
+            None,
+        )
+    }
+
+    /// As [`Self::new_with_access`], with an optional per-pipeline subgroup
+    /// width.
+    ///
+    /// Cooperative-matrix shaders must execute on a 32-wide subgroup on RDNA3,
+    /// while this adapter reports 64 by default. The requirement is attached to
+    /// the pipeline (VK_EXT_subgroup_size_control) rather than to the device, so
+    /// no existing kernel changes its geometry. An explicit requirement wins
+    /// over the device-wide `HIERARCHOS_VULKAN_REQUIRED_SUBGROUP_SIZE` override.
+    pub(crate) fn new_with_access_and_subgroup(
+        device: &VulkanDevice,
+        spirv: &[u8],
+        binding_accesses: &[BindingAccess],
+        push_constant_size: u32,
+        required_subgroup_size: Option<u32>,
+    ) -> Result<Self> {
+        let effective_subgroup_size = required_subgroup_size.or(device.inner.required_subgroup_size);
         let binding_count = binding_accesses.len();
         if binding_count == 0 {
             bail!("compute kernel requires at least one storage buffer binding");
@@ -9228,6 +9405,7 @@ impl ComputeKernel {
         let pipeline_signature = ComputePipelineSignature {
             shader: shader_signature,
             layout: pipeline_layout_signature,
+            subgroup: effective_subgroup_size.unwrap_or(0),
         };
         // Keep lookup and creation under one lock so concurrent graph builders
         // cannot compile the same pipeline twice. Subgroup requirements are
@@ -9267,12 +9445,12 @@ impl ComputeKernel {
         let entry_name = CString::new("main")?;
         let mut required_subgroup_size_info =
             vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo::default()
-                .required_subgroup_size(device.inner.required_subgroup_size.unwrap_or_default());
+                .required_subgroup_size(effective_subgroup_size.unwrap_or_default());
         let mut stage = vk::PipelineShaderStageCreateInfo::default()
             .stage(vk::ShaderStageFlags::COMPUTE)
             .module(shader_module)
             .name(&entry_name);
-        if device.inner.required_subgroup_size.is_some() {
+        if effective_subgroup_size.is_some() {
             stage = stage.push_next(&mut required_subgroup_size_info);
         }
         let pipeline_info = [vk::ComputePipelineCreateInfo::default()

@@ -1,0 +1,160 @@
+#version 450
+
+// RDNA3 hardware-WMMA GEMM, mixed-precision arm.
+//
+//   C[m, n] = op(A)[m, k] * op(B)[k, n]      (FP16 operands, FP32 accumulation)
+//
+// This module exists only for adapters that expose
+// VK_KHR_cooperative_matrix with a 16x16x16 f16/f16 -> f32 configuration and
+// that accept a 32-wide compute subgroup for this pipeline. The host rejects
+// every other adapter before the pipeline is created, so an unsupported device
+// can never silently run this file (see `src/wmma.rs`).
+//
+// Contract:
+//   * A and B are native `float16_t` storage buffers, C is FP32.
+//   * `flags` bit 0 = A is stored transposed (A^T, i.e. a[k * lda + m]);
+//     bit 1 = B is stored transposed (B^T, i.e. b[n * ldb + k]).
+//   * One workgroup is one 32-wide subgroup and computes a 32x32 output tile as
+//     four 16x16 cooperative matrix tiles. Operand fragments are staged through
+//     workgroup memory, which is what lets the kernel accept arbitrary leading
+//     dimensions, arbitrary (unaligned) shapes and partial 16x16x16 tiles: every
+//     staged element outside the logical matrix is zero, so the padded fragment
+//     contributes nothing to the accumulation.
+//   * Fragment staging order matters. A is staged row-major [m][k] and B is
+//     staged row-major [k][n]; both are then loaded as row-major cooperative
+//     fragments. Staging B as [n][k] would have loaded a transposed operand and
+//     silently computed A * B^T for square tiles, so the two index expressions
+//     below are deliberately different.
+
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_memory_scope_semantics : require
+#extension GL_KHR_cooperative_matrix : require
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#extension GL_EXT_shader_16bit_storage : require
+
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer ABuffer { float16_t a[]; };
+layout(set = 0, binding = 1, std430) readonly buffer BBuffer { float16_t b[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer CBuffer { float c[]; };
+
+layout(push_constant) uniform Push {
+    uint m;
+    uint n;
+    uint k;
+    uint lda;
+    uint ldb;
+    uint ldc;
+    uint flags;
+    uint reserved;
+} pc;
+
+// Two A tiles (rows [m0, m0+32)) and two B tiles (columns [n0, n0+32)) per
+// 16-wide K slice. 16*16 halves each, so 1 KiB per pair.
+shared float16_t a_tile[2][256];
+shared float16_t b_tile[2][256];
+// Reused staging for the f32 accumulator store; written and consumed one
+// 16x16 tile at a time.
+shared float c_tile[256];
+
+void main() {
+    uint lane = gl_SubgroupInvocationID;
+    uint lanes = gl_SubgroupSize;
+    uint m0 = gl_WorkGroupID.y * 32u;
+    uint n0 = gl_WorkGroupID.x * 32u;
+    bool trans_a = (pc.flags & 1u) != 0u;
+    bool trans_b = (pc.flags & 2u) != 0u;
+
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> a_frag0;
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> a_frag1;
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseB> b_frag0;
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseB> b_frag1;
+
+    coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> acc00 =
+        coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(0.0);
+    coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> acc01 =
+        coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(0.0);
+    coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> acc10 =
+        coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(0.0);
+    coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> acc11 =
+        coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(0.0);
+
+    for (uint k0 = 0u; k0 < pc.k; k0 += 16u) {
+        for (uint i = lane; i < 512u; i += lanes) {
+            uint tile = i >> 8u;
+            uint element = i & 255u;
+            uint row = element >> 4u;
+            uint col = element & 15u;
+
+            // A: row-major [m][k].
+            uint gm = m0 + tile * 16u + row;
+            uint gka = k0 + col;
+            float16_t va = float16_t(0.0);
+            if (gm < pc.m && gka < pc.k) {
+                va = trans_a ? a[gka * pc.lda + gm] : a[gm * pc.lda + gka];
+            }
+            a_tile[tile][element] = va;
+
+            // B: row-major [k][n]. Note row -> k and col -> n, unlike A.
+            uint gkb = k0 + row;
+            uint gn = n0 + tile * 16u + col;
+            float16_t vb = float16_t(0.0);
+            if (gn < pc.n && gkb < pc.k) {
+                vb = trans_b ? b[gn * pc.ldb + gkb] : b[gkb * pc.ldb + gn];
+            }
+            b_tile[tile][element] = vb;
+        }
+        barrier();
+
+        coopMatLoad(a_frag0, a_tile[0], 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+        coopMatLoad(a_frag1, a_tile[1], 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+        coopMatLoad(b_frag0, b_tile[0], 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+        coopMatLoad(b_frag1, b_tile[1], 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+
+        acc00 = coopMatMulAdd(a_frag0, b_frag0, acc00);
+        acc01 = coopMatMulAdd(a_frag0, b_frag1, acc01);
+        acc10 = coopMatMulAdd(a_frag1, b_frag0, acc10);
+        acc11 = coopMatMulAdd(a_frag1, b_frag1, acc11);
+        barrier();
+    }
+
+    // Tile 0: rows [m0, m0+16), columns [n0, n0+16).
+    coopMatStore(acc00, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+    barrier();
+    for (uint e = lane; e < 256u; e += lanes) {
+        uint gm = m0 + (e >> 4u);
+        uint gn = n0 + (e & 15u);
+        if (gm < pc.m && gn < pc.n) c[gm * pc.ldc + gn] = c_tile[e];
+    }
+    barrier();
+
+    // Tile 1: rows [m0, m0+16), columns [n0+16, n0+32).
+    coopMatStore(acc01, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+    barrier();
+    for (uint e = lane; e < 256u; e += lanes) {
+        uint gm = m0 + (e >> 4u);
+        uint gn = n0 + 16u + (e & 15u);
+        if (gm < pc.m && gn < pc.n) c[gm * pc.ldc + gn] = c_tile[e];
+    }
+    barrier();
+
+    // Tile 2: rows [m0+16, m0+32), columns [n0, n0+16).
+    coopMatStore(acc10, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+    barrier();
+    for (uint e = lane; e < 256u; e += lanes) {
+        uint gm = m0 + 16u + (e >> 4u);
+        uint gn = n0 + (e & 15u);
+        if (gm < pc.m && gn < pc.n) c[gm * pc.ldc + gn] = c_tile[e];
+    }
+    barrier();
+
+    // Tile 3: rows [m0+16, m0+32), columns [n0+16, n0+32).
+    coopMatStore(acc11, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+    barrier();
+    for (uint e = lane; e < 256u; e += lanes) {
+        uint gm = m0 + 16u + (e >> 4u);
+        uint gn = n0 + 16u + (e & 15u);
+        if (gm < pc.m && gn < pc.n) c[gm * pc.ldc + gn] = c_tile[e];
+    }
+    barrier();
+}

@@ -1069,6 +1069,26 @@ fn run_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<u8, String> 
                 trainer_args.push(OsString::from("--precision"));
                 trainer_args.push(OsString::from("fp32"));
             }
+            "--wmma-mode" | "--wmma_mode" => {
+                let value = required_string(&mut argv, &key)?;
+                let mode = match value.trim().to_ascii_lowercase().as_str() {
+                    "off" => "off",
+                    "mixed" | "mock-amp" => "mixed",
+                    "full-fp16" | "full_fp16" | "fullfp16" => "full-fp16",
+                    other => {
+                        return Err(format!(
+                            "unsupported --wmma-mode {other:?}; expected off, mixed, or full-fp16"
+                        ));
+                    }
+                };
+                // WMMA is orthogonal to --amp/--precision. The Vulkan trainers
+                // own device creation and report the negotiated cooperative-
+                // matrix contract, so the policy travels in the environment that
+                // every child process inherits. An unsupported explicit request
+                // makes that child fail with the probed reason instead of
+                // silently running the FP32 path.
+                std::env::set_var("HIERARCHOS_WMMA_MODE", mode);
+            }
             "--accumulation-normalization" => {
                 let value = required_string(&mut argv, &key)?;
                 if value != "weighted-token" {

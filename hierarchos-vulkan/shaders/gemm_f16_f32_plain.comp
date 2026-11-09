@@ -1,0 +1,56 @@
+#version 450
+
+// FP16-storage GEMM without cooperative matrices.
+//
+//   C[m, n] = op(A)[m, k] * op(B)[k, n]
+//
+// Operands are native `float16_t` storage, accumulation is FP32 per output
+// element in a serial k-order. This is deliberately *not* a WMMA path: it is
+// the control arm that isolates the effect of hardware matrix instructions, and
+// it is also the shape-specific fallback for tile geometries where the 16x16x16
+// cooperative-matrix kernel loses (small K, very few rows, or a workgroup count
+// too small to fill the device).
+//
+// One invocation owns one output element, so no workgroup ordering, barrier or
+// tile padding is involved and every `m x n` shape is legal.
+//
+// Contract:
+//   * `flags` bit 0 = A is stored transposed (A^T, i.e. a[k * lda + m]);
+//     bit 1 = B is stored transposed (B^T, i.e. b[n * ldb + k]).
+
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#extension GL_EXT_shader_16bit_storage : require
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer ABuffer { float16_t a[]; };
+layout(set = 0, binding = 1, std430) readonly buffer BBuffer { float16_t b[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer CBuffer { float c[]; };
+
+layout(push_constant) uniform Push {
+    uint m;
+    uint n;
+    uint k;
+    uint lda;
+    uint ldb;
+    uint ldc;
+    uint flags;
+    uint reserved;
+} pc;
+
+void main() {
+    uint col = gl_GlobalInvocationID.x;
+    uint row = gl_GlobalInvocationID.y;
+    if (row >= pc.m || col >= pc.n) {
+        return;
+    }
+    bool trans_a = (pc.flags & 1u) != 0u;
+    bool trans_b = (pc.flags & 2u) != 0u;
+    float acc = 0.0;
+    for (uint t = 0u; t < pc.k; t += 1u) {
+        float16_t va = trans_a ? a[t * pc.lda + row] : a[row * pc.lda + t];
+        float16_t vb = trans_b ? b[col * pc.ldb + t] : b[t * pc.ldb + col];
+        acc = fma(float(va), float(vb), acc);
+    }
+    c[row * pc.ldc + col] = acc;
+}

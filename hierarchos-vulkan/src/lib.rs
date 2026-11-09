@@ -26,6 +26,7 @@ mod kernel_golden_coverage;
 mod lm_execution;
 mod lora;
 mod mixed_precision;
+pub mod wmma;
 pub mod multimodal;
 mod projection;
 mod projection_graph;
@@ -162,6 +163,10 @@ pub use lora::{
     HIERARCHOS_LORA_ADAPTER_MANIFEST_FILENAME, HIERARCHOS_LORA_ADAPTER_WEIGHTS_FILENAME,
 };
 pub use mixed_precision::{VulkanFp32MasterParameterMirror, VulkanParameterStorageFormat};
+pub use wmma::{
+    GemmLayout, LogitAgreement, OracleAccumulation, VulkanWmmaCapabilities, WmmaDispatchCounts,
+    WmmaDrift, WmmaGemm, WmmaGemmArm, WmmaMode, WmmaTile,
+};
 pub use projection::{LinearProjectionTrainer, ProjectionStepResult};
 pub use rwkv_adapter_channel_mix::{RwkvAdapterChannelMixOp, RwkvAdapterChannelMixResult};
 pub use rwkv_cell::{RwkvCellSliceOp, RwkvCellSliceResult, RwkvPackedCellOp, RwkvPackedCellResult};

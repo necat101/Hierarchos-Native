@@ -1,0 +1,28 @@
+#version 450
+
+// FP32 -> native FP16 storage conversion.
+//
+// The existing `fp32_to_fp16_packed` module packs two halves per `uint` word for
+// Vulkan 1.1 storage. Cooperative-matrix consumers need a real `float16_t`
+// array (their loads are typed and stride-sensitive), so this module writes the
+// same IEEE round-to-nearest-even conversion into a native 16-bit buffer.
+// Rounding is performed by the 16-bit conversion itself, which the driver
+// implements as `v_cvt_f16_f32`.
+
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#extension GL_EXT_shader_16bit_storage : require
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer InputBuffer { float values[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer OutputBuffer { float16_t halves[]; };
+
+layout(push_constant) uniform Push { uint len; } pc;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= pc.len) {
+        return;
+    }
+    halves[index] = float16_t(values[index]);
+}
