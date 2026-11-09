@@ -5,7 +5,11 @@ param(
 
     [switch]$SkipBuild,
 
-    [switch]$KeepBuildArtifacts
+    [switch]$KeepBuildArtifacts,
+
+    [switch]$StaticCrt,
+
+    [switch]$SkipDependencyScan
 )
 
 $ErrorActionPreference = "Stop"
@@ -118,6 +122,29 @@ if (-not (Test-Path -LiteralPath $licensesSource -PathType Container)) {
 }
 Copy-Item -LiteralPath $licensesSource -Destination $outputRoot -Recurse
 
+$originalRustFlags = $env:RUSTFLAGS
+$originalEncodedRustFlags = $env:CARGO_ENCODED_RUSTFLAGS
+$crtMode = if ($StaticCrt) { "static (+crt-static)" } else { "dynamic (/MD)" }
+$effectiveBuildFlags = $env:RUSTFLAGS
+$dependencyStatus = "not run"
+try {
+if ($StaticCrt) {
+    Remove-Item Env:CARGO_ENCODED_RUSTFLAGS -ErrorAction SilentlyContinue
+    $portableFlags = @(
+        "-C", "target-feature=+crt-static",
+        "--remap-path-prefix=$outputRoot=hierarchos-native",
+        "--remap-path-prefix=$env:USERPROFILE\.cargo=cargo",
+        "--remap-path-prefix=$env:USERPROFILE\.rustup=rustup"
+    )
+    if ($env:CARGO_HOME) {
+        $portableFlags += "--remap-path-prefix=$($env:CARGO_HOME)=cargo"
+    }
+    if ($env:RUSTUP_HOME) {
+        $portableFlags += "--remap-path-prefix=$($env:RUSTUP_HOME)=rustup"
+    }
+    $env:CARGO_ENCODED_RUSTFLAGS = $portableFlags -join [char]0x1f
+    $effectiveBuildFlags = $portableFlags -join " "
+}
 if (-not $SkipBuild) {
     Push-Location $outputRoot
     try {
@@ -154,6 +181,19 @@ if (-not $SkipBuild) {
         Copy-Item -LiteralPath $built -Destination $binDir
     }
 
+    if (-not $SkipDependencyScan) {
+        $dependencyScript = Join-Path $scriptRoot "verify-portable-dependencies.ps1"
+        if (-not (Test-Path -LiteralPath $dependencyScript -PathType Leaf)) {
+            throw "Missing portable dependency verifier: $dependencyScript"
+        }
+        $dependencyReport = Join-Path $outputRoot "DEPENDENCIES.txt"
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $dependencyScript -BinDirectory $binDir -ReportPath $dependencyReport -ExpectedExecutableCount 7
+        if ($LASTEXITCODE -ne 0) {
+            throw "Portable dependency scan failed; see $dependencyReport"
+        }
+        $dependencyStatus = "PASS (DEPENDENCIES.txt)"
+    }
+
     if (-not $KeepBuildArtifacts) {
         $targetDir = Join-Path $outputRoot "target"
         if (Test-Path -LiteralPath $targetDir -PathType Container) {
@@ -167,6 +207,18 @@ if (-not $SkipBuild) {
         }
     }
 }
+} finally {
+    if ($null -eq $originalEncodedRustFlags) {
+        Remove-Item Env:CARGO_ENCODED_RUSTFLAGS -ErrorAction SilentlyContinue
+    } else {
+        $env:CARGO_ENCODED_RUSTFLAGS = $originalEncodedRustFlags
+    }
+    if ($null -eq $originalRustFlags) {
+        Remove-Item Env:RUSTFLAGS -ErrorAction SilentlyContinue
+    } else {
+        $env:RUSTFLAGS = $originalRustFlags
+    }
+}
 
 $sourceCommit = (& git -C $repoRoot rev-parse HEAD 2>$null)
 if ($LASTEXITCODE -ne 0 -or -not $sourceCommit) {
@@ -177,6 +229,12 @@ $sourceState = if ($sourceStatus.Count -eq 0) { "clean" } else { "dirty" }
 $buildTimestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 $cargoVersion = (& cargo --version 2>&1 | Out-String).Trim()
 $rustcVersion = (& rustc --version 2>&1 | Out-String).Trim()
+$binDir = Join-Path $outputRoot "bin"
+$lockHash = if (Test-Path -LiteralPath (Join-Path $outputRoot "Cargo.lock") -PathType Leaf) {
+    (Get-FileHash -LiteralPath (Join-Path $outputRoot "Cargo.lock") -Algorithm SHA256).Hash.ToLowerInvariant()
+} else {
+    "missing"
+}
 $buildLines = @(
     "Hierarchos Native Windows x64 release candidate",
     "Source commit: $sourceCommit",
@@ -184,10 +242,13 @@ $buildLines = @(
     "Build timestamp (UTC): $buildTimestamp",
     "Target: x86_64-pc-windows-msvc",
     "Profile: release (opt-level=3, thin LTO, codegen-units=1)",
+    "CRT linkage: $crtMode",
+    "Effective build flags: $effectiveBuildFlags",
+    "Cargo.lock SHA-256: $lockHash",
+    "Portable dependency scan: $dependencyStatus",
     "$cargoVersion",
     "$rustcVersion"
 )
-$binDir = Join-Path $outputRoot "bin"
 if (Test-Path -LiteralPath $binDir -PathType Container) {
     $buildLines += "Binaries:"
     foreach ($binary in @(Get-ChildItem -LiteralPath $binDir -File | Sort-Object Name)) {

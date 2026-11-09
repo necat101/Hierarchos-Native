@@ -585,16 +585,45 @@ Availability on a Vulkan device is separate from recorded numerical qualificatio
 
 ### Portable standalone bundle
 
-Stage all four native crates and the user-facing binaries into one Windows bundle:
+Build the runtime-only Windows x64 package with the static MSVC C runtime:
 
 ```powershell
 .\hierarchos-vulkan\package-standalone.ps1 `
-  -OutDir C:\path\to\hierarchos-native-backend
+  -OutDir C:\path\to\hierarchos-rc2-stage `
+  -StaticCrt
 ```
 
-Use `-SkipBuild` for a source-only bundle. Keep the GUI and CLI together, and include
-the Vulkan training companions for Hierarchos training, or set
-`HIERARCHOS_VULKAN_BIN_DIR`. [Distribution layout](hierarchos-vulkan/standalone/README.md).
+The packager uses the checked-in standalone lockfile, builds exactly seven release
+executables, verifies their PE import closure, and writes `BUILD_INFO.txt` and
+`DEPENDENCIES.txt`. Use `-SkipBuild` for source-only staging. Keep the GUI, CLI,
+and Vulkan companions together; `HIERARCHOS_VULKAN_BIN_DIR` can override companion
+discovery. [Distribution layout](hierarchos-vulkan/standalone/README.md).
+
+### Windows x64 Portable Release Candidate 2
+
+RC2 is the runtime-only, static-CRT Windows x64 package. It is built from
+`164711020d9fe9f229756f0ff58d8160ba9c580a` and contains the seven release
+executables, notices, licenses, `BUILD_INFO.txt`, and `DEPENDENCIES.txt`; source
+remains in this repository.
+
+- Archive: `Hierarchos-Native-Windows-x64-Portable-RC2.zip`
+- SHA-256: `1d436df2da0472145389d9784a91704b1efc0f34496d1a83c1de15349b4d2b30`
+- Runtime requirements: Windows 11 x64 and a Vulkan 1.x compute driver for GPU
+  operations. **No Microsoft Visual C++ Redistributable installation is
+  required**; all seven executables are statically linked against the MSVC C
+  runtime. Rust, Cargo, Python, PyTorch, Visual Studio, and administrator rights
+  are not runtime requirements.
+- Verified locally from the extracted archive: seven-executable PE import
+  closure, CLI help, `doctor`, Vulkan device inventory, the architecture
+  registry, local and fresh-cache Hub inference, one-step Vulkan training,
+  checkpoint reload, relocation, missing-resource diagnostics, a write-denied
+  installation copy, and GUI launch/close.
+- BLOCKED: independent clean-machine execution, a second physical CPU/GPU,
+  physical network isolation, different-drive relocation, code signing, and
+  automated GUI “Check backend” activation. The GUI window launches and closes;
+  the same backend check passes through the CLI.
+
+See the [RC2 acceptance report](hierarchos-vulkan/standalone/CLEAN_MACHINE_TEST.md).
 
 ### Windows x64 Release Candidate 1
 
