@@ -353,3 +353,93 @@ transposed dispatch still produces finite, plausible numbers.
   LoRA A/B projections and the streamed/tiered parameter paths are **not** wired.
 * No claim of a training-step speedup is made from the GEMM microbenchmarks in
   the section above.
+
+## Eligible-geometry training evidence (2026-11-09)
+
+The frozen GPT-2 matrix and the local Llama package are `hidden_size = 16/32`,
+far below the cooperative tile contract, so nothing in them dispatches. A
+deterministic fixture with real projection widths was generated instead:
+
+```
+python validation/make_wmma_fixture.py --output target/wmma-fixture \
+  --hidden 1024 --layers 2 --vocab 1024 --seq-len 64 --batch-size 8 --sequences 32
+```
+
+16,782,336 parameters (67.1 MB), 14 dense projections, 1024 columns each, 512
+rows per step. Weights and dataset are scratch artifacts, not committed.
+
+### Logits: FP32 vs mixed (same weights, same fixture)
+
+| Measure | Value |
+| --- | --- |
+| Logit values compared | 524,288 (512 rows x 1024 vocab) |
+| Max absolute drift | `2.56264e-3` (gate `2e-2`) |
+| RMS drift | `5.02520e-4` (gate `3e-3`) |
+| Softmax max absolute divergence | `1.97416e-8` |
+| Top-1 agreement | 100% |
+| Top-5 overlap | 99.92% |
+| Finite / logit max magnitude | yes / `3.018` |
+
+### Real optimizer steps
+
+| Run | Steps | Loss first -> final | Cooperative dispatches | Fallbacks |
+| --- | --- | --- | --- | --- |
+| Full FT, `off` | 20 | 7.1135 -> 5.6597 | 0 | 0 |
+| Full FT, `mixed` | 20 | 7.1135 -> 5.6593 | **180** (fwd 60 / wgrad 60 / igrad 60) | 0 |
+| LoRA r=8, `off`, lr 1e-2 | 60 | 7.1135 -> 7.05874 | 0 | 0 |
+| LoRA r=8, `mixed`, lr 1e-2 | 60 | 7.1135 -> 7.05889 | **120** (fwd 60 / igrad 60 / wgrad 0) | 0 |
+
+The LoRA weight-gradient count is zero by construction: the base projection is
+frozen, so only forward and input-gradient run through it, and the adapter
+matrices (`r = 8` columns) are below the tile contract and keep their kernels.
+That is the correct accounting, not a silent fallback: fallbacks are counted
+separately and none occurred.
+
+### End-to-end step time (ABBA, release, 512 rows/step)
+
+Same checkpoint, seed, optimizer and data; 4-step and 48-step runs per arm, so
+the fixed load/export cost cancels. Three alternating rounds:
+
+| Arm | 4-step | 48-step | Per-step (derived) |
+| --- | ---: | ---: | ---: |
+| `off` | 3.27 / 3.41 / 3.41 s | 32.10 / 32.62 / 32.59 s | ~0.62 s |
+| `mixed` | 3.10 / 3.11 / 3.21 s | 29.43 / 29.98 / 36.86 s | ~0.56 s |
+
+Median-of-rounds ratio: **1.087x** whole-optimizer-step. The third mixed round
+(36.86 s) is an outlier under a full disk and is not excluded from the table;
+even so the median ratio stays under 1.1x. This is one two-layer model on an
+integrated GPU, not a general training-speedup claim, and it is far from the
+1.8-2.3x GEMM-only numbers above.
+
+### Resume and disk
+
+Continuing from the exported mixed package (`--model <package>`) loads the
+trained weights and starts at loss `4.08` on the first batch, i.e. below the
+`5.66` reached before export. Weight-level resume works; the transformer trainer
+has no exact optimizer-state resume flag, so scheduler/scaler state is not
+restored and no exact-resume claim is made.
+
+That verification run then failed with `os error 112` ("not enough space on the
+disk"): the machine's system volume is at 100% with ~1.4 GB free after deleting
+the 1.4 GB of run packages. The failure is environmental, not numerical, and it
+is recorded here because it also blocks the receipt regeneration below.
+
+## CI status: qualification receipt NOT regenerated
+
+`check_rdna3_gpt2_receipts.py` requires
+`release_parity/multimodal_training/20261108-rdna3-phase15-qualification/current-qualification.json`
+to bind every source byte of the checkout, including
+`hierarchos-vulkan/src/transformer.rs`. This change edits that file, so the
+step `Current-source RDNA3 GPT2 qualification` fails with
+`ValueError: current qualification does not bind hierarchos-vulkan/src/transformer.rs`.
+
+Regenerating it needs the full Phase XV chain (four debug probes, the frozen
+shape matrix, six retained multimodal gates, 30 V4.1 native tests, the bridge,
+shader provenance, SPIR-V validation and the 1,341-file isolation check) run
+from a clean worktree. That chain was **not** completed here: with the system
+volume at 100% the debug `libtest` binary alone (308 MB) plus the probe builds
+and producer outputs could not be staged reliably. The historical receipt is
+untouched, no hash was substituted and no gate was relaxed; the check therefore
+fails closed, which is the intended behaviour for an unqualified revision.
+
+`check-workspace.ps1` (the `One-pass workspace check` step) passes: exit 0.

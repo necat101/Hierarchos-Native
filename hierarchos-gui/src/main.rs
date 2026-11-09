@@ -1111,6 +1111,46 @@ mod tests {
         assert!(!args.iter().any(|a| a == "--full-finetune"));
     }
 
+    #[test]
+    fn wmma_precision_is_explicit_in_training_commands() {
+        let mut app = NativeApp::default();
+        app.mode = Workflow::TransformerTrain;
+        app.hf_model = true;
+        app.model = "owner/model".to_owned();
+        app.hf_dataset = true;
+        app.dataset = "owner/dataset".to_owned();
+        app.output = "trained-wmma".to_owned();
+
+        // Off stays the default, and the command states it instead of relying
+        // on the trainer's environment.
+        let args = app.build_args().unwrap();
+        let index = args
+            .iter()
+            .position(|argument| argument == "--wmma-mode")
+            .expect("--wmma-mode must be explicit");
+        assert_eq!(args[index + 1], "off");
+
+        app.wmma_mode = WmmaModeChoice::Mixed;
+        let args = app.build_args().unwrap();
+        let index = args
+            .iter()
+            .position(|argument| argument == "--wmma-mode")
+            .unwrap();
+        assert_eq!(args[index + 1], "mixed");
+
+        // The experimental mode is listed in the panel but refused here rather
+        // than being silently dropped from the command.
+        app.wmma_mode = WmmaModeChoice::FullFp16;
+        let error = app.build_args().unwrap_err();
+        assert!(error.contains("unavailable for Transformer training"), "{error}");
+
+        // Generation keeps its own command surface.
+        app.mode = Workflow::TransformerGenerate;
+        app.prompt = "hello".to_owned();
+        let args = app.build_args().unwrap();
+        assert!(!args.iter().any(|argument| argument == "--wmma-mode"));
+    }
+
     // Exercises the same argument builder and native child process as Start,
     // using a deterministic local checkpoint produced by verify_falcon_h1.py.
     #[test]

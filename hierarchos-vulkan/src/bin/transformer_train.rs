@@ -1145,6 +1145,24 @@ fn main() -> Result<()> {
         peft,
         output: args.output.display().to_string(),
     };
+    // A requested mode with zero cooperative dispatches is not an accelerated
+    // run: report the recorded counts so a fallback-only run is visible.
+    if let Ok(mode) = hierarchos_vulkan::wmma::WmmaMode::from_env() {
+        if mode.requested() {
+            let counts = hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
+            let phases = hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
+            eprintln!(
+                "WMMA evidence: requested={} cooperative_dispatches={} shape_fallbacks={} \
+                 (forward={} weight_grad={} input_grad={})",
+                mode.label(),
+                counts.cooperative,
+                counts.shape_fallbacks,
+                phases[0],
+                phases[1],
+                phases[2]
+            );
+        }
+    }
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
 }
