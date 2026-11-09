@@ -116,8 +116,8 @@ def main() -> int:
             failures.append(f'{name}: spirv-val exit {run.returncode}')
 
     report = dict(
-        pass_=not failures,
         passed=not failures,
+        **{'pass': not failures},
         validator=dict(path=str(validator),
                        version=version.stdout.strip().splitlines()[0] if version.stdout.strip() else '',
                        inventory='sealed Phase XV 43-artifact set'),
