@@ -3,7 +3,7 @@
   "pass": true,
   "target": "rdna3",
   "scope": "gpt2_frozen_shape_matrix_and_retained_parity",
-  "source_head": "a26ce0441fe88910dad43085fd68e7edabef78f6",
+  "source_head": "8bb86ea9e3c7b558bbf8dc7e8f865984118b4e11",
   "worktree": true,
   "absolute_limit": 2e-07,
   "rtol": 0,
@@ -14,55 +14,55 @@
     "driver": "32.0.31007.6002"
   },
   "binaries": {
-    "image_text_pipeline_probe": "d5babaa3ef63f74ea9edc0a993b5b614cf29463e83ab3b41fb0dccf001682436",
-    "gemma3_vision_probe": "a76791a39755b96f7e34df78315dcc9fb1b1d014444a58058a48f00aeac39d39",
-    "gemma4_vision_probe": "22141a8877f3cfd3e0663fad2bf1dc7a09bc78c0464d3248cdf70f121f41b4b8",
-    "llava_pipeline_probe": "1166db47a8d19ce78173468d52b20a99151dcfaf5178e4d9fbdbcf5d99930471",
-    "libtest": "0182c02030b83ef2d6ac1b0a1e5723ead8a36dbb4c4a982b577bfa21fa0bc029"
+    "image_text_pipeline_probe": "915deda92b42b66cb95afd50b42fc6bd25d7ae39ce1a4d66cadde1adda868643",
+    "gemma3_vision_probe": "425034ec481e241533b73fd59786f1744190ab06c5c1ffb815fac547e8f1816f",
+    "gemma4_vision_probe": "f12b22c7087c396330d5987e9b9c70f4bfca8316b7991e62bd03910ca41433c4",
+    "llava_pipeline_probe": "193f98ae541afb2abe9f3b7465aad9ba38488219458070387aa2daa3e783f3cf",
+    "libtest": "3a672f1cd7f2ccbf1e9a1edfafdc9fb6997531e911b6b9f491026302c5192615"
   },
   "producer_sha256": "e9d9830b0ccb108abdc7f00e7ed8e206db8992354fe63938557374dbfd72aec9",
   "cpu_fixtures_sha256": "709427881624237c05dccf1e9bdd7593285819304af7d3778b885bc206fbad0c",
   "shapes": {
     "cases": 16,
     "worst_logit": 5.960464477539063e-08,
-    "binary_sha256": "d5babaa3ef63f74ea9edc0a993b5b614cf29463e83ab3b41fb0dccf001682436",
+    "binary_sha256": "915deda92b42b66cb95afd50b42fc6bd25d7ae39ce1a4d66cadde1adda868643",
     "fixtures_sha256": "709427881624237c05dccf1e9bdd7593285819304af7d3778b885bc206fbad0c"
   },
   "retained": {
     "shared": {
       "cases": 74,
       "pass_": true,
-      "qualification_sha256": "ad9576ef765ff22c0c855c061cc49fc25807e8f9d598936906e275ff7dddfb70",
+      "qualification_sha256": "51fe8a98ffa8bd472dbf25dc4ac77b88d405f6b5d7251e3d2ee0bf0769d2e8a8",
       "worst_logit": 1.4901161193847656e-07
     },
     "kimi": {
       "cases": 3,
       "pass_": true,
-      "qualification_sha256": "c5579ebaee6ca2c2938954eff72771d850e2252420e254b25921a198d127a1f1",
+      "qualification_sha256": "1aa4d728bb2776ed0ba041ed0d5f881b0e5b0b14296be47d815cd15563a03bde",
       "worst_logit": 2.9802322387695312e-08
     },
     "seq2seq": {
       "cases": 6,
       "pass_": true,
-      "qualification_sha256": "b1180a1e5a0203e3a1bf705a3c1aedb84ee7c161bfd2024216985838fd870b37",
+      "qualification_sha256": "ff081ce0b99a59842c2c8434279f44cb091fd320baeb8dcd37b9c890f5c6d850",
       "worst_logit": 8.940696716308594e-08
     },
     "gemma3": {
       "cases": 4,
       "pass_": true,
-      "qualification_sha256": "04bb56ca6e43170dcc5372ce5f3694f29cea855574e4f640fa7a292357d61255",
+      "qualification_sha256": "f0569648c8b7a01991ba1e6029e3183220ebeee6221788793657240319076e7e",
       "worst_logit": 1.7881393432617188e-07
     },
     "gemma4": {
       "cases": 2,
       "pass_": true,
-      "qualification_sha256": "c3de2ca5409edc0e998424537454edb51b31263943dd63f8f26ea0c8861c87a8",
-      "worst_logit": 1.6391277313232422e-07
+      "qualification_sha256": "6fe472f324016a661d82364e3aead8ca162a946f6b41f774ec489389d2d44a04",
+      "worst_logit": 1.4156103134155273e-07
     },
     "llava": {
       "cases": 4,
       "pass_": true,
-      "qualification_sha256": "94e6c5549e72210a777a927d480fcf142b9e94399de4fd348aa58c6966e7e4b1",
+      "qualification_sha256": "d95b65f24a7942991b8bfbf71cb0a895b3e6509c28818196bd50ff6b5bd6383b",
       "worst_logit": 8.940696716308594e-08
     }
   },
@@ -70,17 +70,17 @@
     "passed": 9,
     "failed": 0,
     "ignored": 1,
-    "log_sha256": "e1f61b8a58e4bc9932482c11ce8a3f99f40754dba4d32c275b427ec16129cfe9"
+    "log_sha256": "2d77c1b39e0a4cc99d7597d961bf1b05c4aea25763d3011759515c2becd70fa4"
   },
   "v41": {
     "native": {
       "tests": 30,
       "max_abs_logit": 0.0,
-      "receipt_sha256": "c5705e483b4b6426c6a22a80bcaf642be2f14c7094b37593d216241f2ccfbed2"
+      "receipt_sha256": "8153949809ad7d12bae50f3b089a89854de67f76f4faf4b686d03dab016de192"
     },
     "bridge": {
       "cases": 2,
-      "receipt_sha256": "aca2a55d01c9c2a97e2210418043e26f6d054e4fa3efd1b46cfb22036e59dae3"
+      "receipt_sha256": "2304785506fe6d5df318e937b0024a2a8a96d2ad5cec8f3865a8b83c6bc5858e"
     }
   },
   "provenance": {
@@ -92,7 +92,7 @@
   },
   "spirv": {
     "artifacts": 43,
-    "receipt_sha256": "c595d96bccd55052b74e367add143b6038ab1f772fc42fcc3bd84a2163f9f702"
+    "receipt_sha256": "fbfe7fb07dd3647b024b47f84a07f53cae6a72611589d578d4964162a30de2df"
   },
   "isolation": {
     "files_checked": 1341,
@@ -195,7 +195,7 @@
     "hierarchos-vulkan/shaders/vision_weight_grad_avx512_amd_rdna3.comp": "c4acc4d9779cf3b04ab77537c2e39fd7bb4b851429a3a92759537bc45218ec07",
     "hierarchos-vulkan/shaders/vision_weight_grad_avx512_amd_rdna3.spv": "b15c0799be8f2504771175af242bc96b0de245264daf9b37f45d11ea5a0ee79d",
     "hierarchos-vulkan/src/cpu_adamw.rs": "e65c77466f48d2bd4e8d1432d61def5fd60c9a92d2b99abac966533f2dee22ab",
-    "hierarchos-vulkan/src/transformer.rs": "c4d801b5df1a43ad66c75ea9f90113379babc9721c7f3df332079b4b9e9c3e45",
+    "hierarchos-vulkan/src/transformer.rs": "9f2637f00154c909c0effbc2f6a766517871366f7b64cc18fd703e5800468101",
     "hierarchos-vulkan/src/transformer/image_text.rs": "6e16169a7a8a651af4f3b0bea175dc4c64193f33b9df8bfc56ff5783ade60d5d",
     "hierarchos-vulkan/src/transformer/rdna3_gpt2_bench.rs": "79cf38dcc52bcdb0274dad402bd39ca76bc9db76f0286e2b4559c94f151e1c2d",
     "hierarchos-vulkan/src/transformer/rdna3_text_attention_tests.rs": "1ebd4d42d68f0052b6c75c2b392f3b2782a1ffe96a4addec250d299ad5e1dfc6",
@@ -233,23 +233,23 @@
     "hierarchos-vulkan/validation/qualify_shared_image_pipeline.py": "91de8d26f4fc3b180d2a1a54fee5130f3a487fcface38f0a3ed16e630d37ee02",
     "hierarchos-vulkan/validation/test_rdna3_gpt2_receipts.py": "cc5916b4a28f672f5b0a06923d75259c59fde520eb3454335f94805ebd81e48e",
     "hierarchos-vulkan/validation/training_shader_manifest.json": "3b64752b9bdaccc7c4ccfdfbd225b49bb7fee8f3a01990d6047d46186bf30526",
-    "hierarchos-vulkan/src/vulkan.rs": "6cda1026f6d949b7e8a6736113ef2f1e120e3f98a54fd0e6adb25d7005853381"
+    "hierarchos-vulkan/src/vulkan.rs": "e692b44687c0416936e5374343deb56680cca8412f38eda2a5f051680fed13be"
   },
   "evidence": {
-    "gemma3/qualification.json": "04bb56ca6e43170dcc5372ce5f3694f29cea855574e4f640fa7a292357d61255",
-    "gemma4/qualification.json": "c3de2ca5409edc0e998424537454edb51b31263943dd63f8f26ea0c8861c87a8",
+    "gemma3/qualification.json": "f0569648c8b7a01991ba1e6029e3183220ebeee6221788793657240319076e7e",
+    "gemma4/qualification.json": "6fe472f324016a661d82364e3aead8ca162a946f6b41f774ec489389d2d44a04",
     "isolation.json": "016f296429644ccdfd8050ad3d2428dc758b55ab3632c626d312afb3d3b3b489",
-    "kimi/qualification.json": "c5579ebaee6ca2c2938954eff72771d850e2252420e254b25921a198d127a1f1",
-    "llava/qualification.json": "94e6c5549e72210a777a927d480fcf142b9e94399de4fd348aa58c6966e7e4b1",
-    "primitives.log": "e1f61b8a58e4bc9932482c11ce8a3f99f40754dba4d32c275b427ec16129cfe9",
+    "kimi/qualification.json": "1aa4d728bb2776ed0ba041ed0d5f881b0e5b0b14296be47d815cd15563a03bde",
+    "llava/qualification.json": "d95b65f24a7942991b8bfbf71cb0a895b3e6509c28818196bd50ff6b5bd6383b",
+    "primitives.log": "2d77c1b39e0a4cc99d7597d961bf1b05c4aea25763d3011759515c2becd70fa4",
     "provenance.json": "2864eef817f5624eeaaa4daf149dade72fceee61b662e45ed99daa629b27851f",
-    "seq2seq/qualification.json": "b1180a1e5a0203e3a1bf705a3c1aedb84ee7c161bfd2024216985838fd870b37",
-    "shapes/qualification.json": "cbb8c323bb8b5263639843c1e8d96eddc0cee5fa7fc7ca06caca393fa0aa7c7e",
-    "shared/qualification.json": "ad9576ef765ff22c0c855c061cc49fc25807e8f9d598936906e275ff7dddfb70",
-    "spirv.json": "c595d96bccd55052b74e367add143b6038ab1f772fc42fcc3bd84a2163f9f702",
-    "v41bridge/qualification.json": "aca2a55d01c9c2a97e2210418043e26f6d054e4fa3efd1b46cfb22036e59dae3",
-    "v41native/primitives.log": "1fa670fa1341d543b56269e55b9f52b8b5f000377d9e04f8d676fe27d6cc7271",
-    "v41native/qualification.json": "c5705e483b4b6426c6a22a80bcaf642be2f14c7094b37593d216241f2ccfbed2"
+    "seq2seq/qualification.json": "ff081ce0b99a59842c2c8434279f44cb091fd320baeb8dcd37b9c890f5c6d850",
+    "shapes/qualification.json": "f8831a5eb82099e7c35a7fad7617334592a3785788cf8cee9929aa965f602170",
+    "shared/qualification.json": "51fe8a98ffa8bd472dbf25dc4ac77b88d405f6b5d7251e3d2ee0bf0769d2e8a8",
+    "spirv.json": "fbfe7fb07dd3647b024b47f84a07f53cae6a72611589d578d4964162a30de2df",
+    "v41bridge/qualification.json": "2304785506fe6d5df318e937b0024a2a8a96d2ad5cec8f3865a8b83c6bc5858e",
+    "v41native/primitives.log": "9364d3f7ce9c4daea91ade5e9e1684d5d9835d7ca983bb823c24be2b226bb3d5",
+    "v41native/qualification.json": "8153949809ad7d12bae50f3b089a89854de67f76f4faf4b686d03dab016de192"
   },
   "limits": [
     "eight measured GPT2 geometries; not a Cartesian shape certificate",
