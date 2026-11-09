@@ -1705,7 +1705,7 @@ fn resolve_hf_cache_root(explicit: Option<&Path>) -> Result<PathBuf, String> {
     let path = explicit
         .map(Path::to_path_buf)
         .or_else(|| env::var_os("HIERARCHOS_HF_CACHE").map(PathBuf::from))
-        .unwrap_or_else(|| repo_root().join(".hierarchos-hf-cache"));
+        .unwrap_or_else(default_hf_cache_root);
     fs::create_dir_all(&path).map_err(|error| {
         format!(
             "could not create Hugging Face cache {}: {error}",
@@ -1713,6 +1713,29 @@ fn resolve_hf_cache_root(explicit: Option<&Path>) -> Result<PathBuf, String> {
         )
     })?;
     Ok(path)
+}
+
+fn default_hf_cache_root() -> PathBuf {
+    // Installed applications must not need write access beside their binaries.
+    // Keep the per-user cache in the platform's normal writable location; an
+    // explicit --hf-cache-dir or HIERARCHOS_HF_CACHE still takes precedence.
+    if let Some(local_app_data) = env::var_os("LOCALAPPDATA") {
+        return PathBuf::from(local_app_data)
+            .join("Hierarchos")
+            .join("hf-cache");
+    }
+    if let Some(cache_home) = env::var_os("XDG_CACHE_HOME") {
+        return PathBuf::from(cache_home)
+            .join("hierarchos")
+            .join("hf-cache");
+    }
+    if let Some(home) = env::var_os("HOME") {
+        return PathBuf::from(home)
+            .join(".cache")
+            .join("hierarchos")
+            .join("hf-cache");
+    }
+    PathBuf::from(".hierarchos-hf-cache")
 }
 
 #[derive(Debug)]

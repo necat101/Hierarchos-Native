@@ -75,14 +75,38 @@ New-Item -ItemType Directory -Path $crateRoot | Out-Null
 Copy-NativeCrate -Name "hierarchos-inference"
 Copy-NativeCrate -Name "hierarchos-vulkan" `
     -ExtraFiles @("build.rs", "rdma_bindings.rs", "rdma_shim.c", "COMPATIBILITY.md", "README_ARCHITECTURES.md") `
-    -ExtraDirectories @("shaders", "cases", "validation")
+    -ExtraDirectories @("shaders", "cases")
 Copy-NativeCrate -Name "hierarchos-native-cli"
 Copy-NativeCrate -Name "hierarchos-gui"
+
+# The crate manifest retains its standalone shader harness target. Keep that
+# source plus the small decision records compiled into the release binary, but
+# do not ship the 361 MiB release-evidence tree or development fixture corpus.
+$validationSource = Join-Path $scriptRoot "validation"
+$validationDestination = Join-Path (Join-Path $crateRoot "hierarchos-vulkan") "validation"
+if (-not (Test-Path -LiteralPath $validationSource -PathType Container)) {
+    throw "Missing validation source directory: $validationSource"
+}
+New-Item -ItemType Directory -Path $validationDestination | Out-Null
+$decisionRecords = @(Get-ChildItem -LiteralPath $validationSource -Filter "*.json" -File)
+if ($decisionRecords.Count -eq 0) {
+    throw "No runtime validation decision records found in $validationSource"
+}
+$decisionRecords | Copy-Item -Destination $validationDestination
+Copy-Item -LiteralPath (Join-Path $validationSource "attention_kernel_cache_check.rs") -Destination $validationDestination
 
 Copy-Item -LiteralPath (Join-Path $templateRoot "Cargo.toml") -Destination $outputRoot
 Copy-Item -LiteralPath (Join-Path $templateRoot "README.md") -Destination $outputRoot
 Copy-Item -LiteralPath (Join-Path $templateRoot "LICENSE") -Destination $outputRoot
+Copy-Item -LiteralPath (Join-Path $templateRoot "RELEASE_NOTES.md") -Destination $outputRoot
+Copy-Item -LiteralPath (Join-Path $templateRoot "CLEAN_MACHINE_TEST.md") -Destination $outputRoot
 Copy-Item -LiteralPath (Join-Path $scriptRoot "README_ARCHITECTURES.md") -Destination $outputRoot
+Copy-Item -LiteralPath (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md") -Destination $outputRoot
+$licensesSource = Join-Path $repoRoot "licenses"
+if (-not (Test-Path -LiteralPath $licensesSource -PathType Container)) {
+    throw "Missing bundled third-party licenses: $licensesSource"
+}
+Copy-Item -LiteralPath $licensesSource -Destination $outputRoot -Recurse
 
 if (-not $SkipBuild) {
     Push-Location $outputRoot
@@ -134,6 +158,39 @@ if (-not $SkipBuild) {
     }
 }
 
+$sourceCommit = (& git -C $repoRoot rev-parse HEAD 2>$null)
+if ($LASTEXITCODE -ne 0 -or -not $sourceCommit) {
+    $sourceCommit = "unknown"
+}
+$sourceStatus = @(& git -C $repoRoot status --porcelain 2>$null)
+$sourceState = if ($sourceStatus.Count -eq 0) { "clean" } else { "dirty" }
+$buildTimestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+$cargoVersion = (& cargo --version 2>&1 | Out-String).Trim()
+$rustcVersion = (& rustc --version 2>&1 | Out-String).Trim()
+$buildLines = @(
+    "Hierarchos Native Windows x64 release candidate",
+    "Source commit: $sourceCommit",
+    "Source state at packaging: $sourceState",
+    "Build timestamp (UTC): $buildTimestamp",
+    "Target: x86_64-pc-windows-msvc",
+    "Profile: release (opt-level=3, thin LTO, codegen-units=1)",
+    "$cargoVersion",
+    "$rustcVersion"
+)
+$binDir = Join-Path $outputRoot "bin"
+if (Test-Path -LiteralPath $binDir -PathType Container) {
+    $buildLines += "Binaries:"
+    foreach ($binary in @(Get-ChildItem -LiteralPath $binDir -File | Sort-Object Name)) {
+        $hash = (Get-FileHash -LiteralPath $binary.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        $buildLines += "  $($binary.Name)  sha256=$hash"
+    }
+}
+[System.IO.File]::WriteAllLines(
+    (Join-Path $outputRoot "BUILD_INFO.txt"),
+    $buildLines,
+    (New-Object System.Text.UTF8Encoding($false))
+)
+
 Write-Host "Standalone Hierarchos backend staged at $outputRoot"
 if ($SkipBuild) {
     Write-Host "Source-only package created (-SkipBuild)."
@@ -143,3 +200,4 @@ if ($SkipBuild) {
         Write-Host "Standalone Cargo target artifacts were removed after packaging."
     }
 }
+Write-Host "Build provenance: $(Join-Path $outputRoot 'BUILD_INFO.txt')"

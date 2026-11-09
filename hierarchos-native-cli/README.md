@@ -373,7 +373,9 @@ is not an existing local path:
 ```
 
 `--hf-cache-dir DIR` relocates the native cache; otherwise it uses
-`.hierarchos-hf-cache` beside the repository. `HF_TOKEN` or
+`%LOCALAPPDATA%\Hierarchos\hf-cache` on Windows (or the platform cache
+directory on Unix), keeping downloaded model data out of the installation
+directory. `HF_TOKEN` or
 `HUGGING_FACE_HUB_TOKEN` is attached as a bearer token for private/gated repos.
 Revisions can be pinned independently with `--hf-model-revision`,
 `--hf-tokenizer-revision`, and `--hf-dataset-revision`.
