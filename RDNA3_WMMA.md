@@ -497,15 +497,55 @@ distinguishes exact resume from the earlier weights-only continuation.
 
 ### Rebinding the current-source receipt
 
-The receipt chain was re-run on commit `979aa02`. These gates regenerated and
-passed on the changed source: shape matrix 16/16, Kimi 3/3, native V4.1 30/30,
-V4.1 bridge 2/2, shader provenance 43/43 identical, upstream isolation 1,341
-files / 672 recipes unchanged, and the nine GPT-2 primitive gates.
+The receipt chain was re-run on this source and **closed**. Every gate below was
+produced fresh in one run directory; none was reused from the sealed receipt.
 
-It is still **not** complete: `shared` ran 77 cases instead of the required 74,
-the `seq2seq`/`gemma3`/`gemma4`/`llava` producer needs a fresh output directory
-and was still running, and no SPIR-V `spirv.json` producer has been identified
-in this tree. Because the receipt requires all gates together, no
-`current-qualification.json` was written, `hierarchos-vulkan/src/vulkan.rs`
-remains unbound, and CI step `Current-source RDNA3 GPT2 qualification` still
-fails closed. No hash was substituted and no gate was relaxed.
+| Gate | Result |
+| --- | --- |
+| GPT-2 frozen shapes | 16/16, worst logit `5.96e-08` |
+| Canonical shared image | **74/74** (37 profiles) |
+| Kimi K3, qualified separately | **3/3** |
+| Seq2seq / Gemma3 / Gemma4 / LLaVA | 6/6, 4/4, 2/2, 4/4 |
+| GPT-2 primitives | 9 passed, 0 failed, 1 ignored |
+| Native V4.1 / bridge | 30/30 (`max_abs_logit 0.0`) / 2/2 |
+| Shader provenance | 43/43 byte-identical rebuilds |
+| SPIR-V validation | 43/43 accepted by `spirv-val` v2025.3 |
+| Isolation | 1,341 files, 672 recipes unchanged |
+
+`current-qualification.json` binds 134 sources, including `transformer.rs` and
+`vulkan.rs`. `check_rdna3_gpt2_receipts.py` reports
+`CURRENT SOURCE QUALIFICATION: PASS`, its negative-control unit tests are OK,
+and the sealed receipt's own `verify.py` prints `PASS: 134 sources, 16 GPT-2
+shapes, 74 shared cases, 218 DeepSeek tests, 30 V4.1 tests, 43 shaders`.
+
+Two things had to be built to close it honestly. The canonical shared matrix is
+the 77-case inventory minus the three single-case `kimi_k3_*` profiles -
+`kimi_k25_text` is a different retained backbone and stays - giving 37 profiles
+and exactly 74 cases. And no producer emitted the 43 per-artifact SPIR-V
+records in the required schema, so `validation/emit_spirv_gate.py` was added:
+it fixes the inventory from the sealed gate, requires each committed `.spv` to
+match its sealed digest, runs the real `spirv-val` per artifact, and marks an
+artifact passed only on a zero exit.
+
+### Post-cache end-to-end benchmark: inconclusive
+
+Five paired ABBA rounds of complete optimizer steps (LoRA rank 8, batch 8,
+sequence 64) on the mirror-cache build:
+
+| Measure | FP32 | mixed |
+| --- | ---: | ---: |
+| Median ms/step | 689.16 | 712.52 |
+| Min / max | 678.43 / 690.86 | 625.98 / 747.14 |
+
+Geometric mean ratio **0.9954x**, 95% CI **0.9123-1.0860**. The interval
+contains 1.0, and the mixed arm's 19% spread against FP32's 1.8% points at
+throttling rather than a code difference. Mixed WMMA is numerically qualified
+and functionally correct on this path, but **not** shown to be faster end to
+end. The earlier `1.087x` figure predates the mirror cache and is superseded by
+this inconclusive result, not restated.
+
+Per 48-step mixed run: `cooperative_dispatches=2160` (forward 720,
+weight_grad 720, input_grad 720; 15 projections per step), `shape_fallbacks=0`,
+`weight_conversions=720`, `fp32_bytes_read=3019898880`, `mirror_reuses=720`.
+The cache halves conversions, but that saving is small beside the per-step GPU
+work. Full data: `hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-wmma-benchmark/`.
