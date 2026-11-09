@@ -1,0 +1,20 @@
+HOST step=1 wall_ms=646.986 submit_calls=1 submit_ms=11.791 wait_ms=633.838
+{"device":"AMD Radeon Graphics","epoch":1,"epoch_batch":1,"event":"train_step","loss":7.113462924957275,"peft":true,"step":1,"supervised_tokens":504}
+HOST step=2 wall_ms=573.834 submit_calls=1 submit_ms=0.071 wait_ms=573.308
+{
+  "backend": "rust-native-vulkan-transformer",
+  "device": "AMD Radeon Graphics",
+  "architecture": "llama",
+  "model_source": "target/wmma-fixture/model",
+  "dataset_source": "target/wmma-fixture/dataset.jsonl",
+  "batch_size": 8,
+  "seq_len": 64,
+  "encoder_seq_len": null,
+  "epochs_requested": 4,
+  "optimizer_steps": 2,
+  "training_sequences": 32,
+  "supervised_tokens": 1008,
+  "final_loss": 7.119541,
+  "peft": true,
+  "output": "C:/Users/User/AppData/Local/Temp/hb/host-1794259664/out-off-2"
+}

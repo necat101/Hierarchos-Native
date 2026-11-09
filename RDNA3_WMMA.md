@@ -597,3 +597,25 @@ would actually move the step, and it needs its own numerical qualification.
 
 Evidence: `hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-wmma-benchmark/`
 (`benchmark.json` for both workloads, `profiling.json` for kernel attribution).
+
+## Track A: the mixed-arm overhead was a measurement artifact (2026-11-09)
+
+Instrumenting host submission time in the trainer, alongside the GPU timestamp
+profiler and in the same run, contradicts the previous report's attribution:
+
+| Arm | wall ms | submissions/step | host submit ms | fence wait ms | residual ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| FP32 | 608.61 | 1.0 | 0.07 | 608.14 | 0.40 |
+| mixed | 563.90 | 1.0 | 0.07 | 563.31 | 0.53 |
+
+The step is a single queue submission in both modes, the host contributes 0.07 ms
+of submit time, and 99.9% of the step is spent blocked in the fence wait. The
+"137-147 ms outside dispatched GPU work" figure came from subtracting one run's
+instrumented GPU sum from another run's wall clock; within a run the submission
+span and the wall clock agree to 0.03 ms. There is no host overhead to eliminate.
+
+One discrepancy remains open and is recorded as such: in this 12-step pair the
+mixed arm was 44.7 ms *faster*, the opposite sign of the 48-step paired result
+(0.9051x). The 48-step protocol governs the headline because it measures steady
+state; whatever accumulates across steps in the mixed arm is now the only
+remaining performance lead.

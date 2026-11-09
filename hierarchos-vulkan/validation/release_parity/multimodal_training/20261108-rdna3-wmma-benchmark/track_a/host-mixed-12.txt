@@ -1,0 +1,38 @@
+WMMA: mixed selected for dense Transformer projections (cooperative matrix: extension_exposed=true feature_supported=true memory_model=true subgroup_size_control=true enabled=true
+  storage_16bit=true shader_float16=true driver_subgroup_size=64 configurations=11
+  mixed (f16xf16+fp32) tile: 16x16x16 A=f16 B=f16 C=f32 scope=subgroup
+  full-fp16 (f16xf16+f16) tile: 16x16x16 A=f16 B=f16 C=f16 scope=subgroup
+)
+HOST step=1 wall_ms=639.025 submit_calls=1 submit_ms=10.835 wait_ms=626.576
+{"device":"AMD Radeon Graphics","epoch":1,"epoch_batch":1,"event":"train_step","loss":7.113452434539795,"peft":true,"step":1,"supervised_tokens":504}
+HOST step=2 wall_ms=557.538 submit_calls=1 submit_ms=0.081 wait_ms=556.857
+HOST step=3 wall_ms=564.953 submit_calls=1 submit_ms=0.059 wait_ms=564.345
+HOST step=4 wall_ms=562.852 submit_calls=1 submit_ms=0.069 wait_ms=562.273
+HOST step=5 wall_ms=553.184 submit_calls=1 submit_ms=0.077 wait_ms=552.462
+HOST step=6 wall_ms=570.038 submit_calls=1 submit_ms=0.086 wait_ms=569.297
+HOST step=7 wall_ms=567.972 submit_calls=1 submit_ms=0.054 wait_ms=567.433
+HOST step=8 wall_ms=554.788 submit_calls=1 submit_ms=0.066 wait_ms=554.250
+HOST step=9 wall_ms=561.836 submit_calls=1 submit_ms=0.058 wait_ms=561.272
+HOST step=10 wall_ms=559.931 submit_calls=1 submit_ms=0.078 wait_ms=559.327
+HOST step=11 wall_ms=571.594 submit_calls=1 submit_ms=0.066 wait_ms=570.980
+HOST step=12 wall_ms=568.662 submit_calls=1 submit_ms=0.116 wait_ms=567.741
+WMMA evidence: requested=mixed cooperative_dispatches=360 shape_fallbacks=0 (forward=180 weight_grad=0 input_grad=180)
+WMMA mirrors: weight_conversions=180 fp32_bytes_read=754974720 mirror_reuses=180
+WMMA mode: training=lora lora_rank=Some(8) weight_grad_expected=false weight_grad_consistent=true
+{
+  "backend": "rust-native-vulkan-transformer",
+  "device": "AMD Radeon Graphics",
+  "architecture": "llama",
+  "model_source": "target/wmma-fixture/model",
+  "dataset_source": "target/wmma-fixture/dataset.jsonl",
+  "batch_size": 8,
+  "seq_len": 64,
+  "encoder_seq_len": null,
+  "epochs_requested": 4,
+  "optimizer_steps": 12,
+  "training_sequences": 32,
+  "supervised_tokens": 6048,
+  "final_loss": 6.298382,
+  "peft": true,
+  "output": "C:/Users/User/AppData/Local/Temp/hb/host-1794259664/out-mixed-12"
+}

@@ -1,0 +1,28 @@
+WMMA: mixed selected for dense Transformer projections (cooperative matrix: extension_exposed=true feature_supported=true memory_model=true subgroup_size_control=true enabled=true
+  storage_16bit=true shader_float16=true driver_subgroup_size=64 configurations=11
+  mixed (f16xf16+fp32) tile: 16x16x16 A=f16 B=f16 C=f32 scope=subgroup
+  full-fp16 (f16xf16+f16) tile: 16x16x16 A=f16 B=f16 C=f16 scope=subgroup
+)
+HOST step=1 wall_ms=626.191 submit_calls=1 submit_ms=10.957 wait_ms=613.567
+{"device":"AMD Radeon Graphics","epoch":1,"epoch_batch":1,"event":"train_step","loss":7.113452434539795,"peft":true,"step":1,"supervised_tokens":504}
+HOST step=2 wall_ms=549.615 submit_calls=1 submit_ms=0.070 wait_ms=549.035
+WMMA evidence: requested=mixed cooperative_dispatches=60 shape_fallbacks=0 (forward=30 weight_grad=0 input_grad=30)
+WMMA mirrors: weight_conversions=30 fp32_bytes_read=125829120 mirror_reuses=30
+WMMA mode: training=lora lora_rank=Some(8) weight_grad_expected=false weight_grad_consistent=true
+{
+  "backend": "rust-native-vulkan-transformer",
+  "device": "AMD Radeon Graphics",
+  "architecture": "llama",
+  "model_source": "target/wmma-fixture/model",
+  "dataset_source": "target/wmma-fixture/dataset.jsonl",
+  "batch_size": 8,
+  "seq_len": 64,
+  "encoder_seq_len": null,
+  "epochs_requested": 4,
+  "optimizer_steps": 2,
+  "training_sequences": 32,
+  "supervised_tokens": 1008,
+  "final_loss": 7.119506,
+  "peft": true,
+  "output": "C:/Users/User/AppData/Local/Temp/hb/host-1794259664/out-mixed-2"
+}

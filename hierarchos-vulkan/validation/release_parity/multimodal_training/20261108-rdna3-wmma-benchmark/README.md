@@ -78,3 +78,13 @@ backward counterpart, so it cannot serve a 64-token step.
 - Five paired rounds. The LoRA CI is tight enough to exclude parity; the full-FT
   CI is not.
 - Profiling runs are separate from the timed runs, as they must be.
+
+## Track A: the non-dispatch gap was a measurement artifact
+
+Keying host timing to the actual submissions showed the step is **one queue
+submission** in both modes, with 0.07 ms of host submit time and 99.9% of the
+step spent blocked in the fence wait. The previously reported 137-147 ms of
+"non-dispatch" time came from subtracting an instrumented run's GPU sum from a
+different run's wall clock; in a single run the submission span (563.9 ms) and
+the wall clock (563.90 ms) agree to 0.03 ms. There is no host submission overhead
+to remove. Details and the raw logs: `track_a/`.
