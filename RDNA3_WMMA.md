@@ -443,3 +443,69 @@ untouched, no hash was substituted and no gate was relaxed; the check therefore
 fails closed, which is the intended behaviour for an unqualified revision.
 
 `check-workspace.ps1` (the `One-pass workspace check` step) passes: exit 0.
+
+## Mirror reuse and exact resume (2026-11-09)
+
+Two remaining correctness/overhead gaps are closed and measured.
+
+### FP16 weight mirrors are versioned, not rebuilt twice per step
+
+A projection executes twice per optimizer step - forward and input gradient -
+and both read the same FP32 master. The mirror is now keyed by
+`(allocation, length, epoch)`, where the allocation is the master `GpuBuffer`'s
+identity and the epoch advances only when a submitted optimizer step or a
+weight load rewrites the masters. Two layers that merely share a geometry can
+never read each other's mirror, and a skipped or accumulated step cannot expose
+a stale one.
+
+Measured on the 16.78M-parameter fixture (14 projections + tied head, mixed,
+LoRA rank 8):
+
+| Steps | Cooperative dispatches | Weight conversions | FP32 bytes read | Mirror reuses |
+| ---: | ---: | ---: | ---: | ---: |
+| 12 | 360 (fwd 180 / igrad 180) | 180 | 754,974,720 | 180 |
+| 8 | 240 (fwd 120 / igrad 120) | 120 | 503,316,480 | 120 |
+| 4 (resumed) | 120 (fwd 60 / igrad 60) | 60 | 251,658,240 | 60 |
+
+Every second read is a reuse, i.e. one conversion per parameter per step
+instead of two. The counts are printed by the trainer next to the dispatch
+receipt, so a cache that never hits is visible as `mirror_reuses=0`.
+
+Adversarial coverage in `wmma_linear::tests`:
+`weight_mirror_is_reused_within_an_epoch_and_refreshed_after_a_step` proves the
+reuse, proves an epoch change forces a conversion, proves the byte accounting,
+and dispatches a *different* parameter of identical geometry to show a sibling
+cannot read the first parameter's mirror.
+
+### Exact training resume for LoRA is bit-identical
+
+`--save-training-state DIR` writes the existing native PEFT checkpoint (adapter
+weights and config, both AdamW moments, optimizer step, dropout seed) and
+`--resume-training-state DIR` loads the adapter, restores the moments, step and
+seed, and continues. Full-parameter exact state is refused with a explicit
+diagnostic because no generic base-parameter enumerator exists.
+
+Parity run (same seed, data order, batch 8, seq 64, lr 1e-2, rank 8):
+
+| Run | Steps | Adapter SHA-256 | Max parameter difference |
+| --- | ---: | --- | ---: |
+| Uninterrupted | 12 | `43dccbdb79f6ba7ae1ab030a33b7a18db54f65e04a8c1171f3e4649d3d570f9e` | - |
+| Save at 8, resume for 4 | 12 | `43dccbdb79f6ba7ae1ab030a33b7a18db54f65e04a8c1171f3e4649d3d570f9e` | `0` |
+
+The resumed adapter is byte-identical to the uninterrupted one, which is what
+distinguishes exact resume from the earlier weights-only continuation.
+
+### Rebinding the current-source receipt
+
+The receipt chain was re-run on commit `979aa02`. These gates regenerated and
+passed on the changed source: shape matrix 16/16, Kimi 3/3, native V4.1 30/30,
+V4.1 bridge 2/2, shader provenance 43/43 identical, upstream isolation 1,341
+files / 672 recipes unchanged, and the nine GPT-2 primitive gates.
+
+It is still **not** complete: `shared` ran 77 cases instead of the required 74,
+the `seq2seq`/`gemma3`/`gemma4`/`llava` producer needs a fresh output directory
+and was still running, and no SPIR-V `spirv.json` producer has been identified
+in this tree. Because the receipt requires all gates together, no
+`current-qualification.json` was written, `hierarchos-vulkan/src/vulkan.rs`
+remains unbound, and CI step `Current-source RDNA3 GPT2 qualification` still
+fails closed. No hash was substituted and no gate was relaxed.
