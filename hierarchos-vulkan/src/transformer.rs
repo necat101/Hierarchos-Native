@@ -135148,7 +135148,8 @@ mod tests {
             let query_mask = GpuBuffer::from_f32(&device, &query_mask_values)?;
             let key_mask = GpuBuffer::from_f32(&device, &key_mask_values)?;
             let dummy = GpuBuffer::from_f32(&device, &[0.0_f32])?;
-            let sentinel = vec![f32::from_bits(0x7fc0_0001); (batch * heads * hidden) as usize];
+            let sentinel_value = -98_765.432_1_f32;
+            let sentinel = vec![sentinel_value; (batch * heads * hidden) as usize];
             let scalar_q = GpuBuffer::from_f32(&device, &sentinel)?;
             let scalar_k = GpuBuffer::from_f32(&device, &sentinel)?;
             let scalar_v = GpuBuffer::from_f32(&device, &sentinel)?;
@@ -135208,11 +135209,13 @@ mod tests {
                     &dummy,
                 ],
                 bytemuck::bytes_of(&push.as_backward_push(0, 1)),
-                [1, 1, 1],
+                // The scalar kernel owns one (batch, KV head) per workgroup, so
+                // its grid has to cover the whole case or one head runs alone.
+                [heads as u32, batch as u32, 1],
             )?;
             scalar_commands.submit()?;
             let capacity = (batch * heads * seq * head_dim) as usize;
-            let scratch_sentinel = vec![f32::from_bits(0x7fc0_0002); capacity];
+            let scratch_sentinel = vec![sentinel_value; capacity];
             let probability = GpuBuffer::from_f32(&device, &scratch_sentinel)?;
             let ds = GpuBuffer::from_f32(&device, &scratch_sentinel)?;
             let mut parallel_commands = vulkan::ComputeBatch::new(&device)?;
@@ -135268,13 +135271,21 @@ mod tests {
                     parallel_v.read_f32(count)?,
                 ),
             ] {
+                // A sentinel left in either arm means that arm never wrote the
+                // element; the scalar control's own coverage is checked too, so
+                // a too-small grid cannot pass by comparing unwritten memory.
+                let unwritten = expected
+                    .iter()
+                    .chain(actual.iter())
+                    .filter(|value| **value == sentinel_value)
+                    .count();
                 let (equal, report) = gradient_report(name, &expected, &actual);
                 eprintln!(
                     "[{label}] batch={batch} heads={heads} seq={seq} head_dim={head_dim} \
-                     causal={causal} masked={masked} {report} {}",
-                    if equal { "PASS" } else { "FAIL" }
+                     causal={causal} masked={masked} unwritten={unwritten} {report} {}",
+                    if equal && unwritten == 0 { "PASS" } else { "FAIL" }
                 );
-                if !equal {
+                if !equal || unwritten != 0 {
                     case_failed += 1;
                 }
             }
