@@ -205,3 +205,25 @@ python validation/release_parity/multimodal_training/\
   this receipt.
 - Binaries are not byte-reproducible; evidence is bound by SHA-256, not by
   rebuild identity.
+
+## Current-source rebind (2026-11-09)
+
+The receipt was regenerated for the mixed-WMMA mirror-cache and exact-resume
+work. Every gate below was re-executed on the bound source; no historical
+artifact was reused as fresh evidence.
+
+| Gate | Result |
+| --- | --- |
+| GPT-2 frozen shapes | 16/16, worst logit `5.96e-08` |
+| Canonical shared image | **74/74**, 37 profiles |
+| Kimi K3 | **3/3** |
+| Seq2seq / Gemma3 / Gemma4 / LLaVA | 6/6, 4/4, 2/2, 4/4 |
+| GPT-2 primitives | 9 passed, 0 failed, 1 ignored |
+| Native V4.1 / bridge | 30/30 (`max_abs_logit 0.0`) / 2/2 |
+| Shader provenance | 43/43 byte-identical rebuilds |
+| SPIR-V validation | **43/43** accepted by `spirv-val` v2025.3 |
+| Isolation | 1,341 files, 672 recipes unchanged |
+
+`emit_spirv_gate.py` was added because no existing producer emitted the
+artifact-level records this receipt requires; it validates the committed bytes
+with the real validator instead of restating the sealed result.
