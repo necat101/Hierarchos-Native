@@ -26240,6 +26240,10 @@ struct TransformerKernels {
     /// geometry share one set of FP16 mirrors because command recording is
     /// sequential. Built lazily, so an `Off` run allocates nothing.
     wmma_linears: Mutex<HashMap<(usize, usize, usize), Arc<LinearWmma>>>,
+    /// Version of the FP32 masters the cached FP16 mirrors were built from.
+    /// Advanced after every submitted optimizer step and every load that
+    /// rewrites a trainable tensor, never on a skipped or accumulated step.
+    wmma_epoch: std::sync::Arc<std::sync::atomic::AtomicU64>,
     /// Geometry-gated vendor slot: the shared transformer matmul runs at every
     /// row count (prefill and single-row cached decode), so the module is
     /// chosen per dispatch rather than at construction.
@@ -26595,15 +26599,28 @@ impl TransformerKernels {
         if let Some(existing) = executors.get(&key) {
             return Ok(Some(Arc::clone(existing)));
         }
-        let executor = Arc::new(LinearWmma::new(
+        let executor = Arc::new(LinearWmma::new_with_epoch(
             &self.peft_kernel_device,
             self.wmma_mode,
             rows,
             input_dim,
             output_dim,
+            Arc::clone(&self.wmma_epoch),
         )?);
         executors.insert(key, Arc::clone(&executor));
         Ok(Some(executor))
+    }
+
+    /// Publish the master-weight version the graph is about to train.
+    fn set_wmma_epoch(&self, epoch: u64) {
+        self.wmma_epoch
+            .store(epoch, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Invalidate every cached FP16 weight mirror.
+    fn bump_wmma_epoch(&self) {
+        self.wmma_epoch
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 
     fn new(device: &VulkanDevice) -> Result<Self> {
@@ -26632,6 +26649,7 @@ impl TransformerKernels {
             attention_backward_work_budget: vendor::attention_backward_work_budget(device),
             wmma_mode,
             wmma_linears: Mutex::new(HashMap::new()),
+            wmma_epoch: Arc::new(std::sync::atomic::AtomicU64::new(1)),
             linear_forward: vendor::VendorMatmulKernel::new(
                 device,
                 vendor::VendorKernelFamily::LinearForward,
@@ -84217,6 +84235,10 @@ impl VulkanTransformer {
             }
         }
         hyper.validate()?;
+        // Masters change only in a submitted optimizer step or a load, so a
+        // step sees one stable weight version: the forward and the input
+        // gradient share a mirror, and the next step refreshes it.
+        self.kernels.set_wmma_epoch(self.step as u64);
         if input_ids.len() != self.rows
             || targets.len() != self.rows
             || attention_mask.len() != self.rows

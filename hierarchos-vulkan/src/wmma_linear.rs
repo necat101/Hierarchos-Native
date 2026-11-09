@@ -11,8 +11,31 @@
 //! path, and fabricating one would silently change what the graph computes.
 //! [`LinearWmma::new`] therefore refuses the full arm, and callers keep the
 //! qualified FP32 kernels for that mode.
+//!
+//! # Weight mirrors
+//!
+//! A projection is executed twice per optimizer step - once for the forward
+//! pass and once for the input gradient - and both read the same master weight.
+//! The FP32 master is authoritative, so the FP16 mirror is only an executor
+//! input, and it may be reused for as long as the master has not changed.
+//!
+//! Reuse is keyed by `(allocation, length, epoch)`:
+//!
+//! * `allocation` is the identity of the master `GpuBuffer`'s allocation, so
+//!   two layers that merely share a *geometry* never read each other's mirror
+//!   (the executor itself is shared per geometry, the mirrors are not);
+//! * `epoch` is a graph-wide counter the training step advances only after a
+//!   successful optimizer submission, so a lazy AdamW step, a skipped step or
+//!   an accumulated micro-batch can never expose a stale mirror;
+//! * a checkpoint, adapter or token-table load bumps the same counter, so
+//!   reloaded weights are re-converted before their first dispatch.
+//!
+//! The counters in [`linear_wmma_conversion_stats`] make the effect auditable:
+//! a cache that never hits is visible as `reuses == 0`, and one that serves a
+//! stale mirror shows up as a numerical mismatch in the graph's own gates.
 
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
 
@@ -23,6 +46,34 @@ static FORWARD_DISPATCHES: AtomicU64 = AtomicU64::new(0);
 static WEIGHT_GRAD_DISPATCHES: AtomicU64 = AtomicU64::new(0);
 static INPUT_GRAD_DISPATCHES: AtomicU64 = AtomicU64::new(0);
 static SHAPE_FALLBACKS: AtomicU64 = AtomicU64::new(0);
+static WEIGHT_CONVERSIONS: AtomicU64 = AtomicU64::new(0);
+static WEIGHT_CONVERSION_BYTES: AtomicU64 = AtomicU64::new(0);
+static WEIGHT_MIRROR_REUSES: AtomicU64 = AtomicU64::new(0);
+
+/// Mirror slots one executor may hold before the stalest is evicted.
+///
+/// A geometry is shared by every projection of that shape, and the widest real
+/// graph uses a handful, so this bounds memory without thrashing.
+const MAX_WEIGHT_MIRRORS: usize = 32;
+
+/// Process-wide FP32->FP16 mirror traffic recorded by the graph.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LinearWmmaConversionStats {
+    /// Weight mirrors rewritten from their FP32 master.
+    pub weight_conversions: u64,
+    /// FP32 bytes read by those conversions.
+    pub weight_bytes: u64,
+    /// Weight dispatches that reused a mirror without converting.
+    pub mirror_reuses: u64,
+}
+
+pub fn linear_wmma_conversion_stats() -> LinearWmmaConversionStats {
+    LinearWmmaConversionStats {
+        weight_conversions: WEIGHT_CONVERSIONS.load(Ordering::Relaxed),
+        weight_bytes: WEIGHT_CONVERSION_BYTES.load(Ordering::Relaxed),
+        mirror_reuses: WEIGHT_MIRROR_REUSES.load(Ordering::Relaxed),
+    }
+}
 
 /// Process-wide cooperative dispatches recorded by the Transformer graph.
 ///
@@ -48,29 +99,62 @@ pub fn linear_wmma_phase_counts() -> [usize; 3] {
     ]
 }
 
+/// One FP16 copy of one FP32 master weight.
+struct WeightMirror {
+    allocation: usize,
+    len: usize,
+    /// `u64::MAX` marks a mirror that has never been filled.
+    epoch: u64,
+    buffer: GpuBuffer,
+}
+
 /// One resident projection's WMMA execution state.
 pub struct LinearWmma {
     gemm: WmmaGemm,
+    device: VulkanDevice,
     rows: usize,
     input_dim: usize,
     output_dim: usize,
     input_f16: GpuBuffer,
-    weight_f16: GpuBuffer,
     grad_output_f16: GpuBuffer,
+    epoch: Arc<AtomicU64>,
+    mirrors: Mutex<Vec<WeightMirror>>,
 }
 
 impl LinearWmma {
     /// Build the executor for one projection.
     ///
-    /// The FP16 mirrors are allocated once at the projection's construction
-    /// geometry, so the training loop never allocates on the hot path. `Off`
-    /// callers must not construct this at all.
+    /// The activation mirrors are allocated once at the projection's
+    /// construction geometry, so the training loop never allocates on the hot
+    /// path. `Off` callers must not construct this at all.
     pub fn new(
         device: &VulkanDevice,
         mode: WmmaMode,
         rows: usize,
         input_dim: usize,
         output_dim: usize,
+    ) -> Result<Self> {
+        Self::new_with_epoch(
+            device,
+            mode,
+            rows,
+            input_dim,
+            output_dim,
+            Arc::new(AtomicU64::new(0)),
+        )
+    }
+
+    /// Build the executor against a graph-owned weight epoch.
+    ///
+    /// The caller must advance `epoch` after every write to a master weight
+    /// that a dispatch could observe.
+    pub fn new_with_epoch(
+        device: &VulkanDevice,
+        mode: WmmaMode,
+        rows: usize,
+        input_dim: usize,
+        output_dim: usize,
+        epoch: Arc<AtomicU64>,
     ) -> Result<Self> {
         match mode {
             WmmaMode::Off => anyhow::bail!("a WMMA linear executor requires an active WMMA mode"),
@@ -86,12 +170,14 @@ impl LinearWmma {
         let gemm = WmmaGemm::new(device, mode).context("create WMMA GEMM for a dense projection")?;
         Ok(Self {
             gemm,
+            device: device.clone(),
             rows,
             input_dim,
             output_dim,
             input_f16: WmmaGemm::new_half_buffer(device, rows * input_dim)?,
-            weight_f16: WmmaGemm::new_half_buffer(device, output_dim * input_dim)?,
             grad_output_f16: WmmaGemm::new_half_buffer(device, rows * output_dim)?,
+            epoch,
+            mirrors: Mutex::new(Vec::new()),
         })
     }
 
@@ -114,6 +200,62 @@ impl LinearWmma {
         false
     }
 
+    /// Record the weight mirror for `weight` if this epoch needs one, then run
+    /// `dispatch` against it while the mirror slot is held.
+    ///
+    /// The slot is held across `dispatch` because the mirror is only guaranteed
+    /// live while the recording is sequential, which is the graph's contract.
+    fn with_weight_mirror<R>(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        weight: &GpuBuffer,
+        len: usize,
+        dispatch: impl FnOnce(&mut vulkan::ComputeBatch, &GpuBuffer) -> Result<R>,
+    ) -> Result<R> {
+        let epoch = self.epoch.load(Ordering::Relaxed);
+        let allocation = weight.allocation_id();
+        let mut mirrors = self
+            .mirrors
+            .lock()
+            .map_err(|_| anyhow::anyhow!("WMMA weight-mirror cache is poisoned"))?;
+        let index = match mirrors
+            .iter()
+            .position(|mirror| mirror.allocation == allocation && mirror.len == len)
+        {
+            Some(index) => index,
+            None => {
+                if mirrors.len() >= MAX_WEIGHT_MIRRORS {
+                    // Evict the mirror that was refreshed longest ago: it is the
+                    // least likely to be reused inside the current step.
+                    let stalest = mirrors
+                        .iter()
+                        .enumerate()
+                        .min_by_key(|(_, mirror)| mirror.epoch)
+                        .map(|(index, _)| index)
+                        .unwrap_or(0);
+                    mirrors.remove(stalest);
+                }
+                mirrors.push(WeightMirror {
+                    allocation,
+                    len,
+                    epoch: u64::MAX,
+                    buffer: WmmaGemm::new_half_buffer(&self.device, len)?,
+                });
+                mirrors.len() - 1
+            }
+        };
+        if mirrors[index].epoch != epoch {
+            self.gemm
+                .record_conversion(commands, weight, &mirrors[index].buffer, len)?;
+            mirrors[index].epoch = epoch;
+            WEIGHT_CONVERSIONS.fetch_add(1, Ordering::Relaxed);
+            WEIGHT_CONVERSION_BYTES.fetch_add(len as u64 * 4, Ordering::Relaxed);
+        } else {
+            WEIGHT_MIRROR_REUSES.fetch_add(1, Ordering::Relaxed);
+        }
+        dispatch(commands, &mirrors[index].buffer)
+    }
+
     /// Record `output = input · weightᵀ` in mixed WMMA.
     ///
     /// Returns `false` when the shape is outside the cooperative contract, in
@@ -131,24 +273,25 @@ impl LinearWmma {
         }
         self.gemm
             .record_conversion(commands, input, &self.input_f16, rows * self.input_dim)?;
-        self.gemm.record_conversion(
+        self.with_weight_mirror(
             commands,
             weight,
-            &self.weight_f16,
             self.output_dim * self.input_dim,
-        )?;
-        self.gemm.record_gemm(
-            commands,
-            WmmaGemmArm::MixedFp32Accumulate,
-            &self.input_f16,
-            &self.weight_f16,
-            output,
-            rows,
-            self.output_dim,
-            self.input_dim,
-            GemmLayout {
-                transposed_a: false,
-                transposed_b: true,
+            |commands, mirror| {
+                self.gemm.record_gemm(
+                    commands,
+                    WmmaGemmArm::MixedFp32Accumulate,
+                    &self.input_f16,
+                    mirror,
+                    output,
+                    rows,
+                    self.output_dim,
+                    self.input_dim,
+                    GemmLayout {
+                        transposed_a: false,
+                        transposed_b: true,
+                    },
+                )
             },
         )?;
         FORWARD_DISPATCHES.fetch_add(1, Ordering::Relaxed);
@@ -214,24 +357,25 @@ impl LinearWmma {
             &self.grad_output_f16,
             rows * self.output_dim,
         )?;
-        self.gemm.record_conversion(
+        self.with_weight_mirror(
             commands,
             weight,
-            &self.weight_f16,
             self.output_dim * self.input_dim,
-        )?;
-        self.gemm.record_gemm(
-            commands,
-            WmmaGemmArm::MixedFp32Accumulate,
-            &self.grad_output_f16,
-            &self.weight_f16,
-            grad_input,
-            rows,
-            self.input_dim,
-            self.output_dim,
-            GemmLayout {
-                transposed_a: false,
-                transposed_b: false,
+            |commands, mirror| {
+                self.gemm.record_gemm(
+                    commands,
+                    WmmaGemmArm::MixedFp32Accumulate,
+                    &self.grad_output_f16,
+                    mirror,
+                    grad_input,
+                    rows,
+                    self.input_dim,
+                    self.output_dim,
+                    GemmLayout {
+                        transposed_a: false,
+                        transposed_b: false,
+                    },
+                )
             },
         )?;
         INPUT_GRAD_DISPATCHES.fetch_add(1, Ordering::Relaxed);
@@ -258,6 +402,20 @@ mod tests {
                 ((state >> 33) as f32 / (1u64 << 31) as f32) - 0.5
             })
             .collect()
+    }
+
+    fn matrix_reference(input: &[f32], weight: &[f32]) -> Vec<f32> {
+        let mut reference = vec![0.0f32; ROWS * N];
+        for m in 0..ROWS {
+            for n in 0..N {
+                let mut acc = 0.0f32;
+                for k in 0..K {
+                    acc += input[m * K + k] * weight[n * K + k];
+                }
+                reference[m * N + n] = acc;
+            }
+        }
+        reference
     }
 
     /// The three GEMMs the Transformer records per training step, exercised
@@ -292,16 +450,7 @@ mod tests {
         batch.submit().unwrap();
         let forward = host.read_f32(ROWS * N).unwrap();
 
-        let mut reference = vec![0.0f32; ROWS * N];
-        for m in 0..ROWS {
-            for n in 0..N {
-                let mut acc = 0.0f32;
-                for k in 0..K {
-                    acc += input[m * K + k] * weight[n * K + k];
-                }
-                reference[m * N + n] = acc;
-            }
-        }
+        let reference = matrix_reference(&input, &weight);
         let forward_drift = crate::wmma::drift(&reference, &forward).unwrap();
         assert!(forward_drift.all_finite(), "forward produced non-finite values");
         assert!(
@@ -375,6 +524,91 @@ mod tests {
         let phases = linear_wmma_phase_counts();
         assert!(phases[0] >= 1 && phases[1] >= 1 && phases[2] >= 1, "phases {phases:?}");
         assert!(linear_wmma_dispatch_counts().cooperative >= 3);
+    }
+
+    /// Forward and input-gradient both read the master weight, so within one
+    /// epoch the second dispatch must reuse the mirror instead of converting
+    /// again - and after an optimizer step it must convert, because the master
+    /// bytes changed.
+    #[test]
+    fn weight_mirror_is_reused_within_an_epoch_and_refreshed_after_a_step() {
+        let Ok(device) = VulkanDevice::new_for_wmma(WmmaMode::Mixed) else {
+            eprintln!("skipping: no cooperative-matrix capable device");
+            return;
+        };
+        let epoch = Arc::new(AtomicU64::new(7));
+        let executor =
+            LinearWmma::new_with_epoch(&device, WmmaMode::Mixed, ROWS, K, N, Arc::clone(&epoch))
+                .expect("build mixed linear executor");
+        let input = fill(ROWS * K, 11);
+        let weight = fill(N * K, 12);
+        let grad_out = fill(ROWS * N, 13);
+        let input_buf = GpuBuffer::from_f32(&device, &input).unwrap();
+        let weight_buf = GpuBuffer::from_f32(&device, &weight).unwrap();
+        let grad_out_buf = GpuBuffer::from_f32(&device, &grad_out).unwrap();
+        let output = GpuBuffer::zeros_f32(&device, ROWS * N).unwrap();
+        let grad_input = GpuBuffer::zeros_f32(&device, ROWS * K).unwrap();
+        let host = GpuBuffer::transient_host_f32(&device, ROWS * N).unwrap();
+
+        let before = linear_wmma_conversion_stats();
+        let mut batch = vulkan::ComputeBatch::new(&device).unwrap();
+        assert!(executor
+            .record_forward(&mut batch, &input_buf, &weight_buf, &output, ROWS)
+            .unwrap());
+        assert!(executor
+            .record_input_grad(&mut batch, &grad_out_buf, &weight_buf, &grad_input, ROWS)
+            .unwrap());
+        batch.readback_f32(&output, &host, ROWS * N).unwrap();
+        batch.submit().unwrap();
+        let after_step = linear_wmma_conversion_stats();
+        assert_eq!(
+            after_step.weight_conversions - before.weight_conversions,
+            1,
+            "one master weight must be converted once per epoch"
+        );
+        assert!(
+            after_step.mirror_reuses > before.mirror_reuses,
+            "the input gradient must reuse the forward's mirror"
+        );
+
+        // The epoch advances after an optimizer submission; the same master
+        // buffer now needs a fresh mirror even though its identity is unchanged.
+        epoch.fetch_add(1, Ordering::Relaxed);
+        let mut batch = vulkan::ComputeBatch::new(&device).unwrap();
+        assert!(executor
+            .record_forward(&mut batch, &input_buf, &weight_buf, &output, ROWS)
+            .unwrap());
+        batch.submit().unwrap();
+        let after_update = linear_wmma_conversion_stats();
+        assert_eq!(
+            after_update.weight_conversions - after_step.weight_conversions,
+            1,
+            "an epoch change must invalidate the mirror"
+        );
+        assert_eq!(
+            after_update.weight_bytes - before.weight_bytes,
+            (N * K * 4) as u64 * 2,
+            "each conversion must account for the FP32 master bytes read"
+        );
+
+        // A different parameter with the same geometry must never read this
+        // mirror: the key is the allocation, not the shape.
+        let other = fill(N * K, 14);
+        let other_buf = GpuBuffer::from_f32(&device, &other).unwrap();
+        let mut batch = vulkan::ComputeBatch::new(&device).unwrap();
+        assert!(executor
+            .record_forward(&mut batch, &input_buf, &other_buf, &output, ROWS)
+            .unwrap());
+        batch.readback_f32(&output, &host, ROWS * N).unwrap();
+        batch.submit().unwrap();
+        let mixed = host.read_f32(ROWS * N).unwrap();
+        let expected = matrix_reference(&input, &other);
+        let drift = crate::wmma::drift(&expected, &mixed).unwrap();
+        assert!(
+            drift.max_abs <= MIXED_VS_FP32_MAX_ABS,
+            "a sibling parameter read a stale mirror: max_abs {}",
+            drift.max_abs
+        );
     }
 
     #[test]

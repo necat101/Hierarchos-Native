@@ -44,6 +44,8 @@ struct Args {
     lora_alpha: Option<usize>,
     lora_targets: Vec<String>,
     lora_adapter: Option<PathBuf>,
+    save_training_state: Option<PathBuf>,
+    resume_training_state: Option<PathBuf>,
     stream_lm_head: bool,
 }
 
@@ -116,6 +118,8 @@ Training options:\n\
   --epochs N                    Number of deterministic dataset passes (default: 1)\n\
   --max-steps N                 Optional optimizer-step cap\n\
   --learning-rate F             AdamW learning rate (default: 5e-5)\n\
+  --save-training-state DIR     Write an exact PEFT checkpoint (adapter, AdamW moments, step, RNG)\n\
+  --resume-training-state DIR   Restore that checkpoint and continue exactly where it stopped\n\
   --beta1 F                     AdamW beta1 (default: 0.9)\n\
   --beta2 F                     AdamW beta2 (default: 0.999)\n\
   --eps F                       AdamW epsilon (default: 1e-8)\n\
@@ -171,6 +175,8 @@ fn parse_args() -> Result<Args> {
         lora_alpha: None,
         lora_targets: Vec::new(),
         lora_adapter: None,
+        save_training_state: None,
+        resume_training_state: None,
         stream_lm_head: false,
     };
     let mut args = std::env::args_os().skip(1);
@@ -295,6 +301,18 @@ fn parse_args() -> Result<Args> {
                 parsed.lora_adapter =
                     Some(PathBuf::from(required_arg(&mut args, "--lora-adapter")?))
             }
+            "--save-training-state" => {
+                parsed.save_training_state = Some(PathBuf::from(required_arg(
+                    &mut args,
+                    "--save-training-state",
+                )?))
+            }
+            "--resume-training-state" => {
+                parsed.resume_training_state = Some(PathBuf::from(required_arg(
+                    &mut args,
+                    "--resume-training-state",
+                )?))
+            }
             "-h" | "--help" => {
                 println!("{}", usage());
                 std::process::exit(0);
@@ -327,6 +345,16 @@ fn validate_args(args: &Args) -> Result<()> {
     }
     if args.lora_adapter.is_some() && args.lora_rank.is_some() {
         bail!("--lora-adapter and --lora-rank are mutually exclusive");
+    }
+    if (args.save_training_state.is_some() || args.resume_training_state.is_some())
+        && args.lora_rank.is_none()
+        && args.lora_adapter.is_none()
+        && args.resume_training_state.is_none()
+    {
+        bail!(
+            "--save-training-state and --resume-training-state require a LoRA/PEFT run: \
+             full-parameter exact state is not implemented"
+        );
     }
     if !args.learning_rate.is_finite() || args.learning_rate < 0.0 {
         bail!("--learning-rate must be finite and non-negative");
@@ -1034,7 +1062,15 @@ fn main() -> Result<()> {
         }
     }
 
-    if let Some(adapter) = args.lora_adapter.as_deref() {
+    if let Some(state) = args.resume_training_state.as_deref() {
+        // An exact checkpoint carries its own adapter weights and adapter
+        // config; loading them first is what lets the moment restore verify the
+        // parameter identity it is about to restore into.
+        let restored = graph
+            .load_lora_adapter_for_training(state)
+            .with_context(|| format!("loading resumed adapter from {}", state.display()))?;
+        eprintln!("exact resume: {restored} adapter tensors loaded from checkpoint");
+    } else if let Some(adapter) = args.lora_adapter.as_deref() {
         graph.load_lora_adapter_for_training(adapter)?;
     } else if let Some(rank) = args.lora_rank {
         let alpha = args.lora_alpha.unwrap_or(rank.saturating_mul(2));
@@ -1055,13 +1091,27 @@ fn main() -> Result<()> {
         )?;
     }
     let peft = graph.lora_config().is_some();
-    let hyper = AdamWHyperParams {
+    let mut hyper = AdamWHyperParams {
         lr: args.learning_rate,
         beta1: args.beta1,
         beta2: args.beta2,
         eps: args.eps,
         weight_decay: args.weight_decay,
     };
+    if let Some(state) = args.resume_training_state.as_deref() {
+        hyper = graph.load_lora_optimizer_state(state).with_context(|| {
+            format!(
+                "restoring exact training state from {} (needs the same adapter, base \
+                 fingerprint and batch geometry)",
+                state.display()
+            )
+        })?;
+        eprintln!(
+            "exact resume: adapter weights, AdamW moments, optimizer step and dropout seed \
+             restored from {}",
+            state.display()
+        );
+    }
 
     let batches_per_epoch = sequences.len() / args.batch_size;
     if batches_per_epoch == 0 {
@@ -1123,6 +1173,14 @@ fn main() -> Result<()> {
     }
     let final_loss = final_loss.context("training produced no optimizer steps")?;
 
+    if let Some(state) = args.save_training_state.as_deref() {
+        graph
+            .save_lora_training_checkpoint(state, hyper)
+            .with_context(|| {
+                format!("writing exact training state to {}", state.display())
+            })?;
+    }
+
     if peft {
         graph.export_lora_adapter(&args.output)?;
     } else {
@@ -1160,6 +1218,13 @@ fn main() -> Result<()> {
                 phases[0],
                 phases[1],
                 phases[2]
+            );
+            let conversions = hierarchos_vulkan::wmma_linear::linear_wmma_conversion_stats();
+            eprintln!(
+                "WMMA mirrors: weight_conversions={} fp32_bytes_read={} mirror_reuses={}",
+                conversions.weight_conversions,
+                conversions.weight_bytes,
+                conversions.mirror_reuses
             );
         }
     }

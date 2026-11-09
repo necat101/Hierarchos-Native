@@ -3777,6 +3777,16 @@ impl GpuBuffer {
         self.allocation.size_bytes
     }
 
+    /// Stable identity of this buffer's allocation.
+    ///
+    /// Two views of the same parameter - including clones handed to different
+    /// graph branches - share this value, while unrelated buffers never do.
+    /// Execution-mirror caches key on it so a cached copy can only ever be
+    /// reused for the exact parameter it was made from.
+    pub(crate) fn allocation_id(&self) -> usize {
+        Arc::as_ptr(&self.allocation) as usize
+    }
+
     pub(crate) fn belongs_to_device(&self, device: &VulkanDevice) -> bool {
         Arc::ptr_eq(&self.allocation.inner, &device.inner)
     }
