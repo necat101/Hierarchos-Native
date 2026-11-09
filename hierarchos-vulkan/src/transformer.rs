@@ -134985,6 +134985,305 @@ mod tests {
     /// bit-identical to the single dispatch for the block count that site puts in the
     /// grid to be safe. The grid is set directly here so the split is driven whatever
     /// the geometry, while the site only splits the shapes that already stream.
+    /// Monotonic integer image of an f32, so two bit patterns can be measured in
+    /// ULPs instead of by decimal subtraction.
+    fn ulp_order(value: f32) -> i64 {
+        let bits = value.to_bits() as i32;
+        if bits < 0 {
+            0x8000_0000_i64 - bits as i64
+        } else {
+            bits as i64
+        }
+    }
+
+    /// Compare one gradient tensor element by element and describe the first
+    /// divergence in full. Returns the report and whether every element matched
+    /// bit for bit.
+    fn gradient_report(name: &str, expected: &[f32], actual: &[f32]) -> (bool, String) {
+        assert_eq!(expected.len(), actual.len(), "{name} length mismatch");
+        let mut equal = 0usize;
+        let mut max_abs = 0.0_f32;
+        let mut max_rel = 0.0_f32;
+        let mut max_ulp = 0i64;
+        let mut square_sum = 0.0_f64;
+        let mut first: Option<(usize, f32, f32)> = None;
+        let mut expected_nan = 0usize;
+        let mut actual_nan = 0usize;
+        let mut expected_inf = 0usize;
+        let mut actual_inf = 0usize;
+        for (index, (&expected_value, &actual_value)) in expected.iter().zip(actual).enumerate() {
+            if expected_value.is_nan() {
+                expected_nan += 1;
+            }
+            if actual_value.is_nan() {
+                actual_nan += 1;
+            }
+            if expected_value.is_infinite() {
+                expected_inf += 1;
+            }
+            if actual_value.is_infinite() {
+                actual_inf += 1;
+            }
+            if expected_value.to_bits() == actual_value.to_bits() {
+                equal += 1;
+            } else if first.is_none() {
+                first = Some((index, expected_value, actual_value));
+            }
+            let difference = (expected_value - actual_value).abs();
+            if difference.is_finite() {
+                max_abs = max_abs.max(difference);
+                square_sum += f64::from(difference) * f64::from(difference);
+            }
+            let scale = expected_value.abs().max(actual_value.abs());
+            if scale > 0.0 && difference.is_finite() {
+                max_rel = max_rel.max(difference / scale);
+            }
+            let ulp = (ulp_order(expected_value) - ulp_order(actual_value)).abs();
+            max_ulp = max_ulp.max(ulp);
+        }
+        let rms = (square_sum / expected.len().max(1) as f64).sqrt();
+        let mut report = format!(
+            "{name}: elements={} bitwise_equal={} max_abs={:.3e} max_rel={:.3e} rms={:.3e} \
+             max_ulp={} nan(expected/actual)={}/{} inf={}/{}",
+            expected.len(),
+            equal,
+            max_abs,
+            max_rel,
+            rms,
+            max_ulp,
+            expected_nan,
+            actual_nan,
+            expected_inf,
+            actual_inf,
+        );
+        match first {
+            None => report.push_str(" first_divergence=none"),
+            Some((index, expected_value, actual_value)) => report.push_str(&format!(
+                " first_divergence=index {} expected=0x{:08x} ({:e}) actual=0x{:08x} ({:e}) ulp={}",
+                index,
+                expected_value.to_bits(),
+                expected_value,
+                actual_value.to_bits(),
+                actual_value,
+                (ulp_order(expected_value) - ulp_order(actual_value)).abs(),
+            )),
+        }
+        (equal == expected.len(), report)
+    }
+
+    /// Deterministic input bytes for the direct comparison: two runs of the same
+    /// case must see identical operands, and no value may be a sentinel by
+    /// accident.
+    fn comparison_values(salt: u32, count: usize) -> Vec<f32> {
+        let mut state = 0x9e37_79b9_u32 ^ salt.wrapping_mul(0x85eb_ca6b);
+        (0..count)
+            .map(|_| {
+                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let unit = (state >> 8) as f32 / 16_777_216.0;
+                unit * 2.0 - 1.0
+            })
+            .collect()
+    }
+
+    /// Direct dQ/dK/dV comparison between the scalar mode-9 backward and the
+    /// two-pass pair, both driven through their production kernels, descriptor
+    /// bindings and push-constant layouts on the same device.
+    ///
+    /// The adapters agreed after two LoRA steps, but that only observes the
+    /// composition; this reads the gradient tensors themselves. Outputs start as
+    /// NaN so an element the kernel never writes cannot pass as a zero.
+    #[test]
+    fn two_pass_attention_backward_matches_scalar_gradients() -> Result<()> {
+        let Ok(device) = VulkanDevice::new() else {
+            return Ok(());
+        };
+        let kernels = TransformerKernels::new(&device)?;
+        let Some(two_pass) = kernels.rdna3_two_pass_attention_backward.as_ref() else {
+            eprintln!(
+                "two-pass backward not loaded; run with \
+                 HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS=1 to compare gradients"
+            );
+            return Ok(());
+        };
+        let cases: [(&str, u32, u32, u32, u32, u32, bool); 4] = [
+            ("fixture-causal", 8, 8, 64, 128, 1, false),
+            ("fixture-full", 8, 8, 64, 128, 0, false),
+            ("padded-causal", 2, 2, 16, 64, 1, true),
+            ("small-causal", 1, 1, 4, 4, 1, false),
+        ];
+        let mut failures = 0usize;
+        for (label, batch, heads, seq, head_dim, causal, masked) in cases {
+            let hidden = seq * head_dim;
+            let rows = batch * heads * seq;
+            let key_rows = batch * heads * seq;
+            let query = GpuBuffer::from_f32(
+                &device,
+                &comparison_values(1, (batch * heads * hidden) as usize),
+            )?;
+            let key = GpuBuffer::from_f32(
+                &device,
+                &comparison_values(2, (batch * heads * hidden) as usize),
+            )?;
+            let value = GpuBuffer::from_f32(
+                &device,
+                &comparison_values(3, (batch * heads * hidden) as usize),
+            )?;
+            let grad_output = GpuBuffer::from_f32(
+                &device,
+                &comparison_values(4, (batch * heads * hidden) as usize),
+            )?;
+            let mut query_mask_values = vec![1.0_f32; (batch * seq) as usize];
+            let mut key_mask_values = vec![1.0_f32; (batch * seq) as usize];
+            if masked {
+                for index in (0..query_mask_values.len()).step_by(5) {
+                    query_mask_values[index] = 0.0;
+                }
+                let padded = seq / 4;
+                for b in 0..batch as usize {
+                    for key_index in (seq - padded) as usize..seq as usize {
+                        key_mask_values[b * seq as usize + key_index] = 0.0;
+                    }
+                }
+            }
+            let query_mask = GpuBuffer::from_f32(&device, &query_mask_values)?;
+            let key_mask = GpuBuffer::from_f32(&device, &key_mask_values)?;
+            let dummy = GpuBuffer::from_f32(&device, &[0.0_f32])?;
+            let sentinel = vec![f32::from_bits(0x7fc0_0001); (batch * heads * hidden) as usize];
+            let scalar_q = GpuBuffer::from_f32(&device, &sentinel)?;
+            let scalar_k = GpuBuffer::from_f32(&device, &sentinel)?;
+            let scalar_v = GpuBuffer::from_f32(&device, &sentinel)?;
+            let parallel_q = GpuBuffer::from_f32(&device, &sentinel)?;
+            let parallel_k = GpuBuffer::from_f32(&device, &sentinel)?;
+            let parallel_v = GpuBuffer::from_f32(&device, &sentinel)?;
+            let push = AttentionPush {
+                batch_size: batch,
+                query_seq_len: seq,
+                key_value_seq_len: seq,
+                query_hidden_size: heads * head_dim,
+                value_hidden_size: heads * head_dim,
+                num_heads: heads,
+                num_key_value_heads: heads,
+                window_size: 0,
+                scale: 1.0 / (head_dim as f32).sqrt(),
+                value_scale: 1.0,
+                softcap: 0.0,
+                alibi_mode: 0,
+                alibi_bias_max: 0.0,
+                dropout_p: 0.0,
+                rng_step: 0,
+                rng_site: 0,
+                rng_seed: 0,
+                has_sink: 0,
+                causal,
+                relative_bias_mode: 0,
+                relative_bias_num_buckets: 0,
+                relative_bias_max_distance: 0,
+                query_position_offset: 0,
+                has_sparse_mask: 0,
+                compressed_key_count: 0,
+                compressed_key_rate: 0,
+                paged_kv: 0,
+                kv_page_size: 1,
+                kv_page_table_stride: 1,
+                unfused_qk: 9,
+            };
+            let mut scalar_commands = vulkan::ComputeBatch::new(&device)?;
+            kernels.attention_backward.record_dispatch(
+                &mut scalar_commands,
+                &[
+                    &query,
+                    &key,
+                    &value,
+                    &query_mask,
+                    &key_mask,
+                    &dummy,
+                    &grad_output,
+                    &scalar_q,
+                    &scalar_k,
+                    &scalar_v,
+                    &dummy,
+                    &dummy,
+                    &dummy,
+                    &dummy,
+                    &dummy,
+                ],
+                bytemuck::bytes_of(&push.as_backward_push(0, 1)),
+                [1, 1, 1],
+            )?;
+            scalar_commands.submit()?;
+            let capacity = (batch * heads * seq * head_dim) as usize;
+            let scratch_sentinel = vec![f32::from_bits(0x7fc0_0002); capacity];
+            let probability = GpuBuffer::from_f32(&device, &scratch_sentinel)?;
+            let ds = GpuBuffer::from_f32(&device, &scratch_sentinel)?;
+            let mut parallel_commands = vulkan::ComputeBatch::new(&device)?;
+            two_pass[0].record_dispatch(
+                &mut parallel_commands,
+                &[
+                    &query,
+                    &key,
+                    &value,
+                    &query_mask,
+                    &key_mask,
+                    &grad_output,
+                    &parallel_q,
+                    &probability,
+                    &ds,
+                ],
+                bytemuck::bytes_of(&push),
+                [(rows + 63) / 64, 1, 1],
+            )?;
+            two_pass[1].record_dispatch(
+                &mut parallel_commands,
+                &[
+                    &query,
+                    &grad_output,
+                    &probability,
+                    &ds,
+                    &parallel_k,
+                    &parallel_v,
+                    &key_mask,
+                    &query_mask,
+                ],
+                bytemuck::bytes_of(&push),
+                [(key_rows + 63) / 64, 1, 1],
+            )?;
+            parallel_commands.submit()?;
+
+            let count = (batch * heads * hidden) as usize;
+            let mut case_failed = 0usize;
+            for (name, expected, actual) in [
+                (
+                    "grad_q",
+                    scalar_q.read_f32(count)?,
+                    parallel_q.read_f32(count)?,
+                ),
+                (
+                    "grad_k",
+                    scalar_k.read_f32(count)?,
+                    parallel_k.read_f32(count)?,
+                ),
+                (
+                    "grad_v",
+                    scalar_v.read_f32(count)?,
+                    parallel_v.read_f32(count)?,
+                ),
+            ] {
+                let (equal, report) = gradient_report(name, &expected, &actual);
+                eprintln!(
+                    "[{label}] batch={batch} heads={heads} seq={seq} head_dim={head_dim} \
+                     causal={causal} masked={masked} {report} {}",
+                    if equal { "PASS" } else { "FAIL" }
+                );
+                if !equal {
+                    case_failed += 1;
+                }
+            }
+            failures += case_failed;
+        }
+        assert_eq!(failures, 0, "two-pass gradients diverge from the scalar path");
+        Ok(())
+    }
+
     #[test]
     fn attention_backward_key_range_split_is_bit_exact() -> Result<()> {
         let Ok(device) = VulkanDevice::new() else {
