@@ -88,11 +88,16 @@ if (-not (Test-Path -LiteralPath $validationSource -PathType Container)) {
     throw "Missing validation source directory: $validationSource"
 }
 New-Item -ItemType Directory -Path $validationDestination | Out-Null
-$decisionRecords = @(Get-ChildItem -LiteralPath $validationSource -Filter "*.json" -File)
+$decisionRecords = @(
+    & git -C $repoRoot ls-files -- "hierarchos-vulkan/validation" |
+        Where-Object { $_ -match '^hierarchos-vulkan/validation/[^/]+\.json$' }
+)
 if ($decisionRecords.Count -eq 0) {
-    throw "No runtime validation decision records found in $validationSource"
+    throw "No tracked runtime validation decision records found in $validationSource"
 }
-$decisionRecords | Copy-Item -Destination $validationDestination
+foreach ($record in $decisionRecords) {
+    Copy-Item -LiteralPath (Join-Path $repoRoot $record) -Destination $validationDestination
+}
 Copy-Item -LiteralPath (Join-Path $validationSource "attention_kernel_cache_check.rs") -Destination $validationDestination
 
 Copy-Item -LiteralPath (Join-Path $templateRoot "Cargo.toml") -Destination $outputRoot
