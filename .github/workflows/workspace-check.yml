@@ -93,6 +93,14 @@ jobs:
           python hierarchos-vulkan/validation/check_heldout_phase17.py
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_heldout_phase17.py"
 
+      # Re-derives the matched FP32/mixed trajectories from the committed
+      # per-step records, re-sums every evaluation loss, and cross-binds the
+      # same-weight forward comparisons to the checkpoints that produced them.
+      - name: Phase XVIII mixed-WMMA drift investigation
+        run: |
+          python hierarchos-vulkan/validation/check_wmma_drift.py
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_wmma_drift.py"
+
       # The measured route tables are checked in, so the cheapest guard against a
       # stale one is a CPU-side comparison of each receipt with the record it was
       # written into. The checker covers every producer with a route record -- the
