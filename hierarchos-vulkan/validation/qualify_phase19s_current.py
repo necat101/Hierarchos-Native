@@ -124,6 +124,14 @@ def main() -> int:
             "step-100 in-process evaluation differs from a fresh process")
 
     source_files = dict(attention["sources"])
+    # Sub-receipts bind crate-relative source paths; fold them into the
+    # repository-relative Phase XIX-S manifest so the tracer, mirror-epoch
+    # logic, trainers and harnesses are all covered by one verifier.
+    for sub in (training, stability, heldout, drift, activation):
+        for name in (sub.get("source_files") or {}):
+            repository_name = name if (ROOT / name).is_file() else "hierarchos-vulkan/" + name
+            require((ROOT / repository_name).is_file(), "missing sub-receipt source " + name)
+            source_files[repository_name] = digest(ROOT / repository_name)
     for name in EXTRA_SOURCES:
         path = ROOT / name
         require(path.is_file(), "missing Phase XIX-S source " + name)
