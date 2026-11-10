@@ -50,12 +50,24 @@ jobs:
         run: python hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py --historical-only
 
       # A historical receipt binds its own revision, so it can never qualify a
-      # different checkout. Current source needs a receipt bound to this HEAD.
+      # different checkout. Current source needs a receipt bound to this HEAD:
+      # the Phase XV families check re-verifies the historical bindings, and the
+      # Phase XVI checker re-derives the two-pass gradient and dispatch evidence
+      # from the logs the receipt ships and re-verifies the 45-artifact gate.
+      # Both are required; a stale receipt fails closed rather than reaching for
+      # the sealed Phase XV one.
       - name: Current-source RDNA3 GPT2 qualification
-        run: python hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py
+        run: |
+          python hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py
+          python hierarchos-vulkan/validation/check_phase16_receipts.py
 
       - name: Expanded RDNA3 GPT2 receipt negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_rdna3_gpt2_receipts.py"
+
+      # Every rejection the Phase XVI contract depends on, exercised against a
+      # receipt that genuinely passes before the mutation is applied.
+      - name: Phase XVI qualification negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase16_receipts.py"
 
       # The measured route tables are checked in, so the cheapest guard against a
       # stale one is a CPU-side comparison of each receipt with the record it was

@@ -157,8 +157,12 @@ def verify_sources(sources, current_sha256=None, history_lookup=None, history_av
     return current, historical
 
 
+# Phase XV stays sealed history; current source is qualified by the Phase XVI
+# receipt, which binds the same source set plus the two-pass implementation and
+# its own evidence. Pointing this at the Phase XV receipt would silently
+# qualify changed production code with stale evidence.
 CURRENT_RECEIPT = (
-    'release_parity/multimodal_training/20261108-rdna3-phase15-qualification/'
+    'release_parity/multimodal_training/20261109-rdna3-phase16-attention-backward-qualification/'
     'current-qualification.json'
 )
 CRITICAL_SOURCES = ('hierarchos-vulkan/src/vulkan.rs',)
@@ -202,6 +206,13 @@ def verify_current(sources, receipt_path=None, source_head=None, current_sha256=
             'current qualification does not bind ' + name,
         )
     require(receipt.get('pass') is True, 'current qualification did not pass')
+    if receipt.get('schema') == 2:
+        # The Phase XVI scope adds the two-pass implementation, the 45-artifact
+        # inventory and the gradient evidence; verify all of it here rather
+        # than trusting a top-level PASS flag.
+        from check_phase16_receipts import verify_receipt
+        verify_receipt(receipt, receipt_path.parent, source_head=source_head,
+                       current_sha256=current_sha256, ancestor_check=is_ancestor)
     print(f'CURRENT SOURCE QUALIFICATION: PASS ({source_head[:12]})')
     return 0
 
