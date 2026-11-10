@@ -52,3 +52,5 @@ jobs:
           trap 'git worktree remove --force "$worktree"' EXIT
           cd "$worktree/hierarchos-vulkan"
           python -m unittest discover -s validation -p "test_activation_phase19r.py"
+      - name: Verify retained Phase XIX-U historical audit
+        run: python hierarchos-vulkan/validation/check_phase19u_audit.py

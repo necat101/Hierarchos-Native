@@ -1,0 +1,234 @@
+{
+  "schema": "hierarchos.phase19u.historical-audit.v1",
+  "generated_at": "2026-11-10T23:37:02+00:00",
+  "qualification_scope": "historical_only",
+  "not_current_qualification": true,
+  "environment": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "machine": "AMD64",
+    "python": "3.13.14",
+    "note": "Disposable detached Git worktrees on the local Windows development machine."
+  },
+  "current_qualification": {
+    "numerical_source_revision": "60063fd3b0a3a963b05e7d5c472cf9b27a4a1cab",
+    "phase19t_policy_revision": "dac3534c47f6330c65274f3a9495ab2aab303e1f",
+    "phase19t_overlay_path": "hierarchos-vulkan/validation/phase19t-policy-overlay.json",
+    "phase19t_overlay_sha256": "3cfcae03b7197caf28b08fd29396e62e5f143238f7a215ae74bd5de73186af01",
+    "authority": "Frozen Phase XIX-S current-source numerical receipt; historical tests do not replace it."
+  },
+  "runs": [
+    {
+      "id": "phase16-training",
+      "receipt_revision": "b34e51d062f5b9667770af57fdca408eab560b47",
+      "source_revision": "8a12af2d907cec715675c70399d8e3afe70b404c",
+      "test_source": "hierarchos-vulkan/validation/test_training_phase16.py",
+      "test_sha256": "2aa9590dbec6d9034eef17ac45ff3cbc45aa820ad28aa6be953a3784344fc9a7",
+      "receipt_path": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261110-phase16-training-qualification/current-qualification.json",
+      "receipt_sha256": "9a4044fcc4f1e22e8778ed947653f54f3985a01f2bf80a8c5cf3084fcb122268",
+      "exit_code": 1,
+      "counts": {
+        "total": 25,
+        "passed": 24,
+        "failed": 0,
+        "errors": 1,
+        "skipped": 0,
+        "blocked": 0
+      },
+      "missing_artifacts": [
+        "states/F/u/hierarchos_adapter_optimizer.safetensors"
+      ],
+      "log": {
+        "path": "hierarchos-vulkan/validation/historical_audit/logs/training.log",
+        "sha256": "1e1bec4d6449381f20a1ead83b41900f634631c0e0acb3fd9dc598b8c54c9278"
+      },
+      "current_source_controls": [
+        "hierarchos-vulkan/validation/check_phase19t_current.py",
+        "hierarchos-vulkan/validation/test_phase19t_current.py"
+      ],
+      "scope": "historical_only",
+      "recovery": {
+        "status": "passed",
+        "exit_code": 0,
+        "counts": {
+          "total": 25,
+          "passed": 25,
+          "failed": 0,
+          "errors": 0,
+          "skipped": 0,
+          "blocked": 0
+        },
+        "log": {
+          "path": "hierarchos-vulkan/validation/historical_audit/logs/training-recovered.log",
+          "sha256": "e8153f2dad640aa18d8eeb40bc256a2c1205ac16fa38fc45bf847edd37dc6b54"
+        },
+        "recovered_artifacts": [
+          {
+            "target": "states/F/u/hierarchos_adapter_optimizer.safetensors",
+            "source_commit": "f6024ee0c61d60d293d029b02e204d4a6b96a794",
+            "source_path": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261110-phase16-training-qualification/evidence/states/F/u/hierarchos_adapter_optimizer.safetensors",
+            "stored_path": "hierarchos-vulkan/validation/historical_audit/recovered/training/states/F/u/hierarchos_adapter_optimizer.safetensors",
+            "git_blob": "2fe0bd4cc7bc14ed87b10e42f94ab3d8cb6385f3",
+            "sha256": "075e6e1f0a3c2f35a09352e32633d0ef3570041574e0c9cd2109db8f1f91188e",
+            "receipt_expected_sha256": "075e6e1f0a3c2f35a09352e32633d0ef3570041574e0c9cd2109db8f1f91188e",
+            "size": 264056
+          }
+        ],
+        "provenance": "Exact historical receipt bytes recovered from an unreachable repository commit; no Phase XIX-S artifact was substituted."
+      }
+    },
+    {
+      "id": "phase16-stability",
+      "receipt_revision": "3fb0639ff47117a27949616f0dbfeee2f29080e3",
+      "source_revision": "21027bf9699757859e7f2a9c07c437402d5aa2ae",
+      "test_source": "hierarchos-vulkan/validation/test_training_stability.py",
+      "test_sha256": "b864c20379a5cea0cf003ac773e33af91a806bbc2c6729603611da29403082af",
+      "receipt_path": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261110-phase16-training-stability/current-qualification.json",
+      "receipt_sha256": "246b1d837466930d92f21c30ec855de75c00f44ef9899d55a618be9e2378a330",
+      "exit_code": 1,
+      "counts": {
+        "total": 31,
+        "passed": 29,
+        "failed": 0,
+        "errors": 2,
+        "skipped": 0,
+        "blocked": 0
+      },
+      "missing_artifacts": [
+        "adapter-E-u.safetensors",
+        "states/F/u/hierarchos_adapter_optimizer.safetensors"
+      ],
+      "log": {
+        "path": "hierarchos-vulkan/validation/historical_audit/logs/stability.log",
+        "sha256": "41d135d08578737b6dae6a60af44cb3e01a408274dd122f051295dea86cbc18f"
+      },
+      "current_source_controls": [
+        "hierarchos-vulkan/validation/check_phase19t_current.py",
+        "hierarchos-vulkan/validation/test_phase19t_current.py"
+      ],
+      "scope": "historical_only",
+      "recovery": {
+        "status": "passed",
+        "exit_code": 0,
+        "counts": {
+          "total": 31,
+          "passed": 31,
+          "failed": 0,
+          "errors": 0,
+          "skipped": 0,
+          "blocked": 0
+        },
+        "log": {
+          "path": "hierarchos-vulkan/validation/historical_audit/logs/stability-recovered.log",
+          "sha256": "343f1c2bba4a27eae21d9d178682be7b1d7fa81710b8dae258e093234a0cc1cd"
+        },
+        "recovered_artifacts": [
+          {
+            "target": "adapter-E-u.safetensors",
+            "source_commit": "830c0089eef189da9e20065ce0d1597e2719c121",
+            "source_path": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261110-phase16-training-stability/evidence/adapter-E-u.safetensors",
+            "stored_path": "hierarchos-vulkan/validation/historical_audit/recovered/stability/adapter-E-u.safetensors",
+            "git_blob": "0d770f4896a956ee0e4309ed56d9840d18e6ba86",
+            "sha256": "cff27588f3e15e32435992e36e649787ee0bdaefe135161c2182928880ebd2ce",
+            "receipt_expected_sha256": "cff27588f3e15e32435992e36e649787ee0bdaefe135161c2182928880ebd2ce",
+            "size": 131688
+          },
+          {
+            "target": "states/F/u/hierarchos_adapter_optimizer.safetensors",
+            "source_commit": "830c0089eef189da9e20065ce0d1597e2719c121",
+            "source_path": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261110-phase16-training-stability/evidence/states/F/u/hierarchos_adapter_optimizer.safetensors",
+            "stored_path": "hierarchos-vulkan/validation/historical_audit/recovered/stability/states/F/u/hierarchos_adapter_optimizer.safetensors",
+            "git_blob": "02105125bda6f91ec42255152a40208f2120d1f7",
+            "sha256": "575810a7aa43b3165451867671786896fbda45840fb650846e3850fbc4abf45d",
+            "receipt_expected_sha256": "575810a7aa43b3165451867671786896fbda45840fb650846e3850fbc4abf45d",
+            "size": 264056
+          }
+        ],
+        "provenance": "Exact historical receipt bytes recovered from an unreachable repository commit; no Phase XIX-S artifact was substituted."
+      }
+    },
+    {
+      "id": "phase17-heldout",
+      "receipt_revision": "27f853fb477d6904183a91f77f5dabc7e7d4d3ed",
+      "source_revision": "5cd0c0c6eb7f9a8d0c9ef0bdc214186a8df76fb6",
+      "test_source": "hierarchos-vulkan/validation/test_heldout_phase17.py",
+      "test_sha256": "fe3b6ae259059ea795c7a26132b70989d4bce84d4dede26eec1991eb057f119e",
+      "receipt_path": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261110-phase17-heldout-generalization/current-qualification.json",
+      "receipt_sha256": "d445e9eafae275ab1f7fee54a635954aba3b7dc7b23c4a9dccef470751724e6f",
+      "exit_code": 0,
+      "counts": {
+        "total": 22,
+        "passed": 22,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "blocked": 0
+      },
+      "missing_artifacts": [],
+      "log": {
+        "path": "hierarchos-vulkan/validation/historical_audit/logs/heldout.log",
+        "sha256": "fb1d3e011d4a6204e2b1a14559acce4707a94495f7283a8a1d143a444a844b63"
+      },
+      "current_source_controls": [
+        "hierarchos-vulkan/validation/check_phase19t_current.py",
+        "hierarchos-vulkan/validation/test_phase19t_current.py"
+      ],
+      "scope": "historical_only"
+    },
+    {
+      "id": "phase18-wmma-drift",
+      "receipt_revision": "1e77b401489c7c59a95661461fbaaf5a91f3b77c",
+      "source_revision": "87a0095b83012f3b5fc3efa1085447516c45b4a7",
+      "test_source": "hierarchos-vulkan/validation/test_wmma_drift.py",
+      "test_sha256": "d9cb4ec5f09815167f897da8201c196222f25bce00e7db046aef2e8e60eeaf6d",
+      "receipt_path": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261110-phase18-wmma-drift/current-qualification.json",
+      "receipt_sha256": "dfd5d0a287c84ee4fa24042aa2b4299ecb6083000397e18621a5aec63f11092e",
+      "exit_code": 0,
+      "counts": {
+        "total": 26,
+        "passed": 26,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "blocked": 0
+      },
+      "missing_artifacts": [],
+      "log": {
+        "path": "hierarchos-vulkan/validation/historical_audit/logs/drift.log",
+        "sha256": "8383e86a0e3ef7498e323b6d7fdc07667913ddb7c89e8a564e30d8dd20691839"
+      },
+      "current_source_controls": [
+        "hierarchos-vulkan/validation/check_phase19s_current.py",
+        "hierarchos-vulkan/validation/test_phase19t_current.py"
+      ],
+      "scope": "historical_only"
+    },
+    {
+      "id": "phase19r-activation",
+      "receipt_revision": "e69f7f978101f29e8ad6e09b0a88ce5fb1b767ad",
+      "source_revision": "3ac63b4d6315f1940688765c17c3e0751567c0ce",
+      "test_source": "hierarchos-vulkan/validation/test_activation_phase19r.py",
+      "test_sha256": "45e2fd2bf9179319b205325fd9a504d846e6eeadfbb4e5281a79570dc8aa18a2",
+      "receipt_path": "hierarchos-vulkan/validation/release_parity/multimodal_training/20261110-phase19r-activation/current-qualification.json",
+      "receipt_sha256": "d9889f71342f87be3c028348ab8203689c849acc9cfd3a4fe139dd73134108c6",
+      "exit_code": 0,
+      "counts": {
+        "total": 22,
+        "passed": 21,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 1,
+        "blocked": 0
+      },
+      "missing_artifacts": [],
+      "log": {
+        "path": "hierarchos-vulkan/validation/historical_audit/logs/activation.log",
+        "sha256": "e5513a8d6d37551fd1a5fdd87b39a1c9639fce16c31b7a9a3938de9dde16d521"
+      },
+      "current_source_controls": [
+        "hierarchos-vulkan/validation/check_activation_phase19r.py",
+        "hierarchos-vulkan/validation/test_activation_phase19s_current.py"
+      ],
+      "scope": "historical_only"
+    }
+  ]
+}

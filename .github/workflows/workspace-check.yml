@@ -65,6 +65,12 @@ jobs:
       - name: Phase XIX-T isolated negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19t_current.py"
 
+      - name: Phase XIX-U historical audit
+        run: python hierarchos-vulkan/validation/check_phase19u_audit.py
+
+      - name: Phase XIX-U audit negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19u_audit.py"
+
       - name: Expanded RDNA3 GPT2 receipt negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_rdna3_gpt2_receipts.py"
 
