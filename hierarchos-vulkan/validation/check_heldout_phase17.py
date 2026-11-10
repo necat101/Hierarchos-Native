@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import json
 import math
+import re
 import shutil
 import subprocess
 import sys
@@ -103,6 +104,12 @@ def verify(receipt_dir: Path, crate: Path | None = None) -> dict:
         require(path.is_file(), f"missing bound source {relative}")
         require(q.sha256_file(path) == expected, f"bound source changed: {relative}")
     require("src/bin/held_out_eval.rs" in receipt["source_files"], "harness binding missing")
+
+    # The digest's shape is verifiable on any checkout; only the byte
+    # comparison needs the built harness. CI has no binary, so a malformed
+    # digest must still be rejected there.
+    require(re.fullmatch(r"[0-9a-f]{64}", str(receipt["binaries"]["held_out_eval"])) is not None,
+            "held-out harness binary hash is not a SHA-256 digest")
 
     binary = crate / "target/release/held_out_eval.exe"
     if binary.is_file():
