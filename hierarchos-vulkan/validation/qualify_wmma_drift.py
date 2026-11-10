@@ -530,7 +530,7 @@ def main() -> int:
             run["label"]: next(
                 evaluation["cross_entropy"]
                 for evaluation in run["data"]["evaluations"]
-                if evaluation["partition"] == "test"
+                if evaluation["partition"] == "test" and evaluation["after_step"] == STEPS
             )
             for run in runs
         },
@@ -553,12 +553,12 @@ def main() -> int:
         off_test = next(
             evaluation["cross_entropy"]
             for evaluation in off["data"]["evaluations"]
-            if evaluation["partition"] == "test"
+            if evaluation["partition"] == "test" and evaluation["after_step"] == STEPS
         )
         mixed_test = next(
             evaluation["cross_entropy"]
             for evaluation in mixed["data"]["evaluations"]
-            if evaluation["partition"] == "test"
+            if evaluation["partition"] == "test" and evaluation["after_step"] == STEPS
         )
         pairs[str(order)] = {
             "validation_off": off_validation,

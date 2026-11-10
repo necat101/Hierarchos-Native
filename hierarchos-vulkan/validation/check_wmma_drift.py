@@ -344,8 +344,14 @@ def verify(receipt_path: Path = DEFAULT_RECEIPT, crate: Path = CRATE) -> dict:
             e["cross_entropy"] for e in mixed["evaluations"]
             if e["partition"] == "validation" and e["after_step"] == q.STEPS
         )
-        off_test = next(e["cross_entropy"] for e in off["evaluations"] if e["partition"] == "test")
-        mixed_test = next(e["cross_entropy"] for e in mixed["evaluations"] if e["partition"] == "test")
+        off_test = next(
+            e["cross_entropy"] for e in off["evaluations"]
+            if e["partition"] == "test" and e["after_step"] == q.STEPS
+        )
+        mixed_test = next(
+            e["cross_entropy"] for e in mixed["evaluations"]
+            if e["partition"] == "test" and e["after_step"] == q.STEPS
+        )
         recomputed_pairs[str(offset)] = {
             "validation_off": off_validation,
             "validation_mixed": mixed_validation,

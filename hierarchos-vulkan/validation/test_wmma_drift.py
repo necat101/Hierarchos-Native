@@ -148,16 +148,17 @@ class DriftControls(unittest.TestCase):
     def test_forward_comparison_does_not_match_training(self) -> None:
         comparison = self.receipt["observations"]["forward_comparisons"]["step-100"]
         comparison["cross_entropy_off"] += 0.01
+        comparison["cross_entropy_delta"] -= 0.01
         self.expect("does not match the trained weights")
 
     def test_altered_update_statistic(self) -> None:
-        divergence = self.receipt["observations"]["step_1_update"]["divergence"]
+        divergence = self.receipt["analysis"]["step_1_update"]["divergence"]
         group = next(iter(divergence))
         divergence[group]["cosine"] = 1.5
         self.expect("invalid cosine")
 
     def test_missing_parameter_coverage(self) -> None:
-        divergence = self.receipt["observations"]["step_1_update"]["divergence"]
+        divergence = self.receipt["analysis"]["step_1_update"]["divergence"]
         group = next(iter(divergence))
         divergence[group]["count"] -= 1
         self.expect("does not cover every parameter")
