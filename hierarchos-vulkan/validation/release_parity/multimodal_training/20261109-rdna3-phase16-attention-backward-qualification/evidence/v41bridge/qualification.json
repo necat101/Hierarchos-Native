@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "scope": "shared_inventory_native_deepseek_v41_image_training",
+  "profile": "deepseek_v41_scalable",
+  "architecture": "deepseek_v41",
+  "bridge": "native_v41_vision_trainer",
+  "target": "rdna3",
+  "device_id": 5567,
+  "device_selection": "local default Vulkan adapter; target supplied by the operator",
+  "absolute_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "expected_cases": 2,
+  "completed_cases": 2,
+  "complete": true,
+  "pass": true,
+  "profile_qualified": true,
+  "results": [
+    {
+      "case": "native_vit_4x4",
+      "profile": "deepseek_v41_scalable",
+      "pass": true,
+      "checks": [
+        {
+          "metric": "native_vit_4x4/0/inference-logits",
+          "values": 128,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "native_vit_4x4/0/training-logits",
+          "values": 128,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "native_vit_4x4/1/inference-logits",
+          "values": 128,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "native_vit_4x4/1/training-logits",
+          "values": 128,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "native_vit_4x4/2/inference-logits",
+          "values": 128,
+          "max_abs": 0.0,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "case": "native_vit_6x4",
+      "profile": "deepseek_v41_scalable",
+      "pass": true,
+      "checks": [
+        {
+          "metric": "native_vit_6x4/0/inference-logits",
+          "values": 144,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "native_vit_6x4/0/training-logits",
+          "values": 144,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "native_vit_6x4/1/inference-logits",
+          "values": 144,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "native_vit_6x4/1/training-logits",
+          "values": 144,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "native_vit_6x4/2/inference-logits",
+          "values": 144,
+          "max_abs": 0.0,
+          "pass": true
+        }
+      ]
+    }
+  ],
+  "native_cases": 2,
+  "optimizer_updates": 4,
+  "logit_values": 1360,
+  "max_abs_logit": 0.0,
+  "joint_comparisons": {
+    "bit_exact": 155179,
+    "comparisons": 1866,
+    "max_abs": 1.4901161193847656e-08,
+    "values": 155444
+  },
+  "native_joint_pass": true,
+  "native_joint_sha256": "b323ac77191b789f68dee870579fb3312d313a4632db99ba7470ec6a13dca4d7",
+  "fixture_manifest_sha256": "4154c76152196b72d731fdcd03478d1f0bbcfa1d03a303317339fa4595efd314",
+  "source_fixture": "hierarchos-vulkan/validation/fixtures/deepseek_v41_native_pipeline_avx2.json",
+  "source_fixture_sha256": "9f5592989820c1567caf3fd4ca6b5354f7bb8e78dfb6b38f1ebb43b9b4cc403b",
+  "binary_sha256": "57423144123128aab1b3b272b85ace29e5ab76821ae55d25136d56aaa18cd4a8",
+  "runner_sha256": "392f466b07926a07ccfeb2d1742096b360ce3ea3ab5d9e28eb1d6744cdb661df",
+  "aten_vector_width": 8,
+  "limits": [
+    "one complete image span per prefill",
+    "fixed native patch geometry per trainer",
+    "production geometry and BF16 training unqualified",
+    "physical RDNA3 replay recorded on the local default Vulkan adapter"
+  ]
+}

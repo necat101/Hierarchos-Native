@@ -1,0 +1,874 @@
+{
+  "schema": 1,
+  "scope": "raw_rgb_gemma4_vision_embedder_full_parameter_training",
+  "absolute_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "expected_cases": 1,
+  "completed_cases": 1,
+  "complete": true,
+  "target": "rdna3",
+  "aten_vector_width": 8,
+  "results": [
+    {
+      "case": "gemma4_rgb8",
+      "device": "AMD Radeon Graphics",
+      "pass": true,
+      "checks": [
+        {
+          "metric": "RGB patchification",
+          "values": 432,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "patch positions",
+          "values": 72,
+          "max_abs": 0,
+          "pass": true
+        },
+        {
+          "metric": "alternate/logits",
+          "values": 512,
+          "max_abs": 6.705522537231445e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-1/logits",
+          "values": 512,
+          "max_abs": 5.21540641784668e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-1/loss",
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/lm_head.weight",
+          "values": 1024,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.embed_vision.embedding_projection.weight",
+          "values": 256,
+          "max_abs": 1.862645149230957e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.embed_tokens.weight",
+          "values": 1024,
+          "max_abs": 9.313225746154785e-10,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.input_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.mlp.down_proj.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.mlp.gate_proj.weight",
+          "values": 512,
+          "max_abs": 4.6566128730773926e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.mlp.up_proj.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.post_attention_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.post_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.pre_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.self_attn.k_norm.weight",
+          "values": 8,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.self_attn.k_proj.weight",
+          "values": 256,
+          "max_abs": 1.0244548320770264e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.self_attn.o_proj.weight",
+          "values": 256,
+          "max_abs": 5.681067705154419e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.self_attn.q_norm.weight",
+          "values": 8,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.self_attn.q_proj.weight",
+          "values": 256,
+          "max_abs": 9.313225746154785e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.0.self_attn.v_proj.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.input_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.mlp.down_proj.weight",
+          "values": 512,
+          "max_abs": 6.51925802230835e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.mlp.gate_proj.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.mlp.up_proj.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.post_attention_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.post_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.pre_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.self_attn.k_norm.weight",
+          "values": 8,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.self_attn.k_proj.weight",
+          "values": 256,
+          "max_abs": 4.6566128730773926e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.self_attn.o_proj.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.self_attn.q_norm.weight",
+          "values": 8,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.self_attn.q_proj.weight",
+          "values": 256,
+          "max_abs": 1.5599653124809265e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.layers.1.self_attn.v_proj.weight",
+          "values": 256,
+          "max_abs": 6.51925802230835e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.language_model.norm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.input_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.mlp.down_proj.linear.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.mlp.gate_proj.linear.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.mlp.up_proj.linear.weight",
+          "values": 512,
+          "max_abs": 1.862645149230957e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.post_attention_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.post_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.pre_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.self_attn.k_norm.weight",
+          "values": 4,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.self_attn.k_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.self_attn.o_proj.linear.weight",
+          "values": 256,
+          "max_abs": 1.862645149230957e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.self_attn.q_norm.weight",
+          "values": 4,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.self_attn.q_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.0.self_attn.v_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.input_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.mlp.down_proj.linear.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.mlp.gate_proj.linear.weight",
+          "values": 512,
+          "max_abs": 5.587935447692871e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.mlp.up_proj.linear.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.post_attention_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.post_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.pre_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.self_attn.k_norm.weight",
+          "values": 4,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.self_attn.k_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.self_attn.o_proj.linear.weight",
+          "values": 256,
+          "max_abs": 9.313225746154785e-10,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.self_attn.q_norm.weight",
+          "values": 4,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.self_attn.q_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.encoder.layers.1.self_attn.v_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.patch_embedder.input_proj.weight",
+          "values": 192,
+          "max_abs": 1.862645149230957e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-1/parameter/model.vision_tower.patch_embedder.position_embedding_table",
+          "values": 512,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/logits",
+          "values": 512,
+          "max_abs": 1.3783574104309082e-07,
+          "pass": true
+        },
+        {
+          "metric": "step-2/loss",
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/lm_head.weight",
+          "values": 1024,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.embed_vision.embedding_projection.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.embed_tokens.weight",
+          "values": 1024,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.input_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.mlp.down_proj.weight",
+          "values": 512,
+          "max_abs": 4.190951585769653e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.mlp.gate_proj.weight",
+          "values": 512,
+          "max_abs": 7.450580596923828e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.mlp.up_proj.weight",
+          "values": 512,
+          "max_abs": 9.313225746154785e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.post_attention_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.post_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.pre_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.self_attn.k_norm.weight",
+          "values": 8,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.self_attn.k_proj.weight",
+          "values": 256,
+          "max_abs": 1.1641532182693481e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.self_attn.o_proj.weight",
+          "values": 256,
+          "max_abs": 6.332993507385254e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.self_attn.q_norm.weight",
+          "values": 8,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.self_attn.q_proj.weight",
+          "values": 256,
+          "max_abs": 1.4901161193847656e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.0.self_attn.v_proj.weight",
+          "values": 256,
+          "max_abs": 1.30385160446167e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.input_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.mlp.down_proj.weight",
+          "values": 512,
+          "max_abs": 1.1175870895385742e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.mlp.gate_proj.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.mlp.up_proj.weight",
+          "values": 512,
+          "max_abs": 7.450580596923828e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.post_attention_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.post_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.pre_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.self_attn.k_norm.weight",
+          "values": 8,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.self_attn.k_proj.weight",
+          "values": 256,
+          "max_abs": 7.450580596923828e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.self_attn.o_proj.weight",
+          "values": 256,
+          "max_abs": 7.450580596923828e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.self_attn.q_norm.weight",
+          "values": 8,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.self_attn.q_proj.weight",
+          "values": 256,
+          "max_abs": 1.6763806343078613e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.layers.1.self_attn.v_proj.weight",
+          "values": 256,
+          "max_abs": 7.450580596923828e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.language_model.norm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.input_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.mlp.down_proj.linear.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.mlp.gate_proj.linear.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.mlp.up_proj.linear.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.post_attention_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.post_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.pre_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.self_attn.k_norm.weight",
+          "values": 4,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.self_attn.k_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.self_attn.o_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.self_attn.q_norm.weight",
+          "values": 4,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.self_attn.q_proj.linear.weight",
+          "values": 256,
+          "max_abs": 7.450580596923828e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.0.self_attn.v_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.input_layernorm.weight",
+          "values": 16,
+          "max_abs": 5.960464477539063e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.mlp.down_proj.linear.weight",
+          "values": 512,
+          "max_abs": 7.450580596923828e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.mlp.gate_proj.linear.weight",
+          "values": 512,
+          "max_abs": 7.450580596923828e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.mlp.up_proj.linear.weight",
+          "values": 512,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.post_attention_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.post_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.pre_feedforward_layernorm.weight",
+          "values": 16,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.self_attn.k_norm.weight",
+          "values": 4,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.self_attn.k_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.self_attn.o_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.self_attn.q_norm.weight",
+          "values": 4,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.self_attn.q_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.encoder.layers.1.self_attn.v_proj.linear.weight",
+          "values": 256,
+          "max_abs": 3.725290298461914e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.patch_embedder.input_proj.weight",
+          "values": 192,
+          "max_abs": 1.862645149230957e-09,
+          "pass": true
+        },
+        {
+          "metric": "step-2/parameter/model.vision_tower.patch_embedder.position_embedding_table",
+          "values": 512,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "final/logits",
+          "values": 512,
+          "max_abs": 1.341104507446289e-07,
+          "pass": true
+        },
+        {
+          "metric": "vision tower parameters updated",
+          "max_abs_change": 0.001974201761186123,
+          "pass": true
+        },
+        {
+          "metric": "vision embedder parameters updated",
+          "max_abs_change": 0.001956244930624962,
+          "pass": true
+        },
+        {
+          "metric": "language backbone parameters updated",
+          "max_abs_change": 0.001993054524064064,
+          "pass": true
+        },
+        {
+          "metric": "loss reaches image patches",
+          "max_abs_gradient": 0.00014379865024238825,
+          "pass": true
+        },
+        {
+          "metric": "native export/reload",
+          "word_differences": 0,
+          "pass": true
+        },
+        {
+          "metric": "image affects visible text logits",
+          "max_abs_change": 0.001385476440191269,
+          "pass": true
+        }
+      ],
+      "strict_intermediate_diagnostics": [
+        {
+          "metric": "alternate/vision_features",
+          "values": 64,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "alternate/projected_features",
+          "values": 64,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/vision_features",
+          "values": 64,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/projected_features",
+          "values": 64,
+          "max_abs": 0.0,
+          "pass": true
+        },
+        {
+          "metric": "step-1/patch_gradient",
+          "values": 432,
+          "max_abs": 3.54702933691442e-11,
+          "pass": true
+        },
+        {
+          "metric": "step-1/projected_gradient",
+          "values": 64,
+          "max_abs": 4.470348358154297e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-2/vision_features",
+          "values": 64,
+          "max_abs": 1.9073486328125e-06,
+          "pass": false
+        },
+        {
+          "metric": "step-2/projected_features",
+          "values": 64,
+          "max_abs": 2.9802322387695312e-08,
+          "pass": true
+        },
+        {
+          "metric": "step-2/patch_gradient",
+          "values": 432,
+          "max_abs": 8.003553375601768e-11,
+          "pass": true
+        },
+        {
+          "metric": "step-2/projected_gradient",
+          "values": 64,
+          "max_abs": 1.3387762010097504e-07,
+          "pass": true
+        },
+        {
+          "metric": "final/vision_features",
+          "values": 64,
+          "max_abs": 5.7220458984375e-06,
+          "pass": false
+        },
+        {
+          "metric": "final/projected_features",
+          "values": 64,
+          "max_abs": 5.960464477539063e-08,
+          "pass": true
+        }
+      ]
+    }
+  ],
+  "pass": true,
+  "fixtures_sha256": "35e0b416b71ff9c629d1f34855517b8d35efafae43078a7362e2293612894c28",
+  "binary_sha256": "bbb28174cc6ecaf022247bcc7c5f3e40d06ea82ba59359d12a09ce732b59763c",
+  "runner_sha256": "7a7b2d6aa80850fe4e84dda1e2f233df8086278a79f8c73663a2b4895760fe90",
+  "pixel_input_domains": {
+    "gemma4_rgb8": "rescaled_rgb8"
+  }
+}

@@ -1,0 +1,23 @@
+RUN=/tmp/hb/two-pass-1794271321
+=== negative controls ===
+negative controls: 11/11 detected
+=== training arms ===
+scalar 2 0
+twopass 2 0
+=== dispatch counts (profile lines) ===
+scalar arm : scalar=2 query=0 key=0
+twopass arm: scalar=0 query=2 key=2
+two-pass backward: kernels=true scratch=true supported=true key_blocks=1 causal=1 unfused_qk=9 head_dim=128 kv_seq=64 value_scale=1 bias=0 sparse=0 compressed=0 paged=0 offset=0
+=== fingerprints ===
+binary b0f370160f7f9d2037f82c28c08e3b56027b20ef973baeae97af5a0164bbce30
+shaders/transformer_attention_backward_query_rdna3.spv 615c27dc3787cb7f0bb53aec2da16d906e1405e37a27b6ef0d8780d57bc0b108
+shaders/transformer_attention_backward_key_rdna3.spv 5f69d500fa703549bda2175e0dc566481bc646125038ff952860a3bb7da983a7
+shaders/transformer_attention_backward_query_rdna3.comp 8502451cf76ff164f34161e2ff3821e85e01554b0dfef729a479c93b161f39dd
+shaders/transformer_attention_backward_key_rdna3.comp af89d64c7cb8241f790eb0a494209fb9c9c8f5f239ae281a6812c6b4ce97b4a0
+shaders/transformer_attention_backward.comp 3c8e6267e320c1f187175209e8a42e6a2658494c6bb3762b1e009cb8b7810a34
+=== adapter digests ===
+scalar  adapter_config.json 1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696
+scalar  adapter_model.safetensors b3da10f2ca2b889e595f868131dfb99ddf5d1a5740d67cc489f7fedb9550a2d4
+twopass adapter_config.json 1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696
+twopass adapter_model.safetensors b3da10f2ca2b889e595f868131dfb99ddf5d1a5740d67cc489f7fedb9550a2d4
+=== PASS: both passes dispatched and every adapter file is bit-identical
