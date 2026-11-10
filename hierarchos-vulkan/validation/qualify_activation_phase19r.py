@@ -300,7 +300,8 @@ def main() -> int:
     evidence = []
     for name, path in CHECKPOINTS.items():
         evidence.append({"name": f"weights-{name}", "sha256": sha256_file(path / "model.safetensors")})
-    for (name, mode), report in traces.items():
+    for key, report in traces.items():
+        name, mode = key.split("|")
         evidence.append({"name": f"trace-{name}-{mode}",
                          "sha256": sha256_file(WORK / "traces" / f"{name}-{mode}" / "trace.json")})
     for key, report in cells.items():
