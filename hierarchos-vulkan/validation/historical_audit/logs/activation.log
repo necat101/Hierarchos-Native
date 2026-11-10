@@ -1,0 +1,27 @@
+test_changed_binary (test_activation_phase19r.ActivationXIXRControls.test_changed_binary) ... skipped 'probe binary is not checked out'
+test_changed_partition (test_activation_phase19r.ActivationXIXRControls.test_changed_partition) ... ok
+test_changed_tracer (test_activation_phase19r.ActivationXIXRControls.test_changed_tracer) ... ok
+test_changed_transformer (test_activation_phase19r.ActivationXIXRControls.test_changed_transformer) ... ok
+test_checkpoint_identity (test_activation_phase19r.ActivationXIXRControls.test_checkpoint_identity) ... ok
+test_decomposition (test_activation_phase19r.ActivationXIXRControls.test_decomposition) ... ok
+test_duplicate_tensor (test_activation_phase19r.ActivationXIXRControls.test_duplicate_tensor) ... ok
+test_forged_statistics (test_activation_phase19r.ActivationXIXRControls.test_forged_statistics) ... ok
+test_fp32_dispatched (test_activation_phase19r.ActivationXIXRControls.test_fp32_dispatched) ... ok
+test_historical_receipt_presented_as_current (test_activation_phase19r.ActivationXIXRControls.test_historical_receipt_presented_as_current) ... ok
+test_incomplete_matrix (test_activation_phase19r.ActivationXIXRControls.test_incomplete_matrix) ... ok
+test_mislabeled_precision (test_activation_phase19r.ActivationXIXRControls.test_mislabeled_precision) ... ok
+test_missing_dispatch (test_activation_phase19r.ActivationXIXRControls.test_missing_dispatch) ... ok
+test_missing_receipt (test_activation_phase19r.ActivationXIXRControls.test_missing_receipt) ... ok
+test_missing_tensor (test_activation_phase19r.ActivationXIXRControls.test_missing_tensor) ... ok
+test_post_fix_still_wrong (test_activation_phase19r.ActivationXIXRControls.test_post_fix_still_wrong) ... ok
+test_raw_provenance_missing (test_activation_phase19r.ActivationXIXRControls.test_raw_provenance_missing) ... ok
+test_step100_gap_missing (test_activation_phase19r.ActivationXIXRControls.test_step100_gap_missing) ... ok
+test_tampered_trace_digest (test_activation_phase19r.ActivationXIXRControls.test_tampered_trace_digest) ... ok
+test_tensor_order (test_activation_phase19r.ActivationXIXRControls.test_tensor_order) ... ok
+test_unrelated_revision (test_activation_phase19r.ActivationXIXRControls.test_unrelated_revision) ... ok
+test_wrong_shape (test_activation_phase19r.ActivationXIXRControls.test_wrong_shape) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 8.432s
+
+OK (skipped=1)

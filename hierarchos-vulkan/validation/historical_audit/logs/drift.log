@@ -1,0 +1,31 @@
+test_altered_update_statistic (test_wmma_drift.DriftControls.test_altered_update_statistic) ... ok
+test_changed_model_identity (test_wmma_drift.DriftControls.test_changed_model_identity) ... ok
+test_changed_partition_file (test_wmma_drift.DriftControls.test_changed_partition_file) ... ok
+test_claimed_confidence_interval (test_wmma_drift.DriftControls.test_claimed_confidence_interval) ... ok
+test_duplicate_run (test_wmma_drift.DriftControls.test_duplicate_run) ... ok
+test_evaluation_advanced_the_optimizer (test_wmma_drift.DriftControls.test_evaluation_advanced_the_optimizer) ... ok
+test_evaluation_dispatched_a_gradient (test_wmma_drift.DriftControls.test_evaluation_dispatched_a_gradient) ... ok
+test_forged_numerical_pass (test_wmma_drift.DriftControls.test_forged_numerical_pass) ... ok
+test_forward_comparison_did_not_dispatch (test_wmma_drift.DriftControls.test_forward_comparison_did_not_dispatch) ... ok
+test_forward_comparison_does_not_match_training (test_wmma_drift.DriftControls.test_forward_comparison_does_not_match_training) ... ok
+test_forward_comparison_weight_mismatch (test_wmma_drift.DriftControls.test_forward_comparison_weight_mismatch) ... ok
+test_incorrect_wmma_mode (test_wmma_drift.DriftControls.test_incorrect_wmma_mode) ... ok
+test_invalid_source_ancestry (test_wmma_drift.DriftControls.test_invalid_source_ancestry) ... ok
+test_mismatched_initial_weights (test_wmma_drift.DriftControls.test_mismatched_initial_weights) ... ok
+test_mismatched_training_batch (test_wmma_drift.DriftControls.test_mismatched_training_batch) ... ok
+test_missing_cooperative_dispatch (test_wmma_drift.DriftControls.test_missing_cooperative_dispatch) ... ok
+test_missing_evaluation (test_wmma_drift.DriftControls.test_missing_evaluation) ... ok
+test_missing_evidence_artifact (test_wmma_drift.DriftControls.test_missing_evidence_artifact) ... ok
+test_missing_parameter_coverage (test_wmma_drift.DriftControls.test_missing_parameter_coverage) ... ok
+test_no_weight_mirror_conversion (test_wmma_drift.DriftControls.test_no_weight_mirror_conversion) ... ok
+test_scalar_fallback_mislabeled_mixed (test_wmma_drift.DriftControls.test_scalar_fallback_mislabeled_mixed) ... ok
+test_tampered_step_loss (test_wmma_drift.DriftControls.test_tampered_step_loss) ... ok
+test_tampered_test_loss (test_wmma_drift.DriftControls.test_tampered_test_loss) ... ok
+test_tampered_validation_loss (test_wmma_drift.DriftControls.test_tampered_validation_loss) ... ok
+test_wrong_optimizer_configuration (test_wmma_drift.DriftControls.test_wrong_optimizer_configuration) ... ok
+test_wrong_order_statistic (test_wmma_drift.DriftControls.test_wrong_order_statistic) ... ok
+
+----------------------------------------------------------------------
+Ran 26 tests in 10.444s
+
+OK

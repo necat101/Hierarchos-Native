@@ -1,0 +1,27 @@
+test_altered_dataset_hash (test_heldout_phase17.HeldOutControls.test_altered_dataset_hash) ... ok
+test_changed_fixture_bytes (test_heldout_phase17.HeldOutControls.test_changed_fixture_bytes) ... ok
+test_changed_tokenizer_identity (test_heldout_phase17.HeldOutControls.test_changed_tokenizer_identity) ... ok
+test_duplicate_training_example_in_test (test_heldout_phase17.HeldOutControls.test_duplicate_training_example_in_test) ... ok
+test_duplicate_training_example_in_validation (test_heldout_phase17.HeldOutControls.test_duplicate_training_example_in_validation) ... ok
+test_evaluation_advancing_optimizer_steps (test_heldout_phase17.HeldOutControls.test_evaluation_advancing_optimizer_steps) ... ok
+test_evaluation_modifying_parameters (test_heldout_phase17.HeldOutControls.test_evaluation_modifying_parameters) ... ok
+test_forged_valid_token_count (test_heldout_phase17.HeldOutControls.test_forged_valid_token_count) ... ok
+test_incorrect_split_identifier (test_heldout_phase17.HeldOutControls.test_incorrect_split_identifier) ... ok
+test_invalid_binary_hash (test_heldout_phase17.HeldOutControls.test_invalid_binary_hash) ... ok
+test_missing_evaluation_output (test_heldout_phase17.HeldOutControls.test_missing_evaluation_output) ... ok
+test_missing_evidence_artifact (test_heldout_phase17.HeldOutControls.test_missing_evidence_artifact) ... ok
+test_missing_execution_arm (test_heldout_phase17.HeldOutControls.test_missing_execution_arm) ... ok
+test_overlapping_source_windows_across_partitions (test_heldout_phase17.HeldOutControls.test_overlapping_source_windows_across_partitions) ... ok
+test_padding_included_in_loss (test_heldout_phase17.HeldOutControls.test_padding_included_in_loss) ... ok
+test_scalar_fallback_mislabeled_as_two_pass (test_heldout_phase17.HeldOutControls.test_scalar_fallback_mislabeled_as_two_pass) ... ok
+test_tampered_dispatch_profile (test_heldout_phase17.HeldOutControls.test_tampered_dispatch_profile) ... ok
+test_tampered_test_loss (test_heldout_phase17.HeldOutControls.test_tampered_test_loss) ... ok
+test_tampered_validation_loss (test_heldout_phase17.HeldOutControls.test_tampered_validation_loss) ... ok
+test_unrelated_source_revision (test_heldout_phase17.HeldOutControls.test_unrelated_source_revision) ... ok
+test_validation_only_result_presented_as_test (test_heldout_phase17.HeldOutControls.test_validation_only_result_presented_as_test) ... ok
+test_wrong_causal_target_alignment (test_heldout_phase17.HeldOutControls.test_wrong_causal_target_alignment) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 12.034s
+
+OK
