@@ -127,7 +127,8 @@ def main() -> int:
             "trace op list contains duplicates")
 
     runs = document["trace_runs"]
-    require(len(runs) == 8, "expected eight trace runs")
+    require(len(runs) == 2 * len(document["checkpoints"]),
+            "trace-run count does not match the checkpoint set")
     for key, run in runs.items():
         name, mode = key.split("|")
         require(run["precision"] == ("fp32" if mode == "off" else "mixed"),
@@ -148,7 +149,7 @@ def main() -> int:
     comparisons = document["comparisons"]
     require(set(comparisons) == set(document["checkpoints"]),
             "comparison set does not match checkpoints")
-    require(len(comparisons) == 4, "expected four checkpoint comparisons")
+    require(len(comparisons) == len(checkpoints), "checkpoint comparison count changed")
     for name, comparison in comparisons.items():
         check_comparison(name, comparison)
         run_mixed = runs[f"{name}|mixed"]
