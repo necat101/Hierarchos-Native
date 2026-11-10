@@ -218,7 +218,7 @@ def main() -> int:
     observed = cells["step1-mixed|mixed"] - cells["step1-fp32|off"]
     arithmetic = sum(cells[f"{name}|mixed"] - cells[f"{name}|off"]
                      for name in ("initial", "step1-fp32", "step1-mixed")) / 3.0
-    effect = sum(cells[f"step1-mixed|{mode}"] - cells[f"initial|{mode}"]
+    effect = sum(cells[f"step1-mixed|{mode}"] - cells[f"step1-fp32|{mode}"]
                  for mode in ("off", "mixed")) / 2.0
     interaction = observed - arithmetic - effect
     require(abs(matrix["observed_gap"] - observed) <= 1e-9, "observed gap does not close")
@@ -236,13 +236,17 @@ def main() -> int:
             "the pre-fix evaluation does not reproduce the Phase XVIII step-one loss")
     require(anomaly["pre_fix_in_process_step1"] - anomaly["fresh_step1_mixed"] > 0.2,
             "the recorded evaluation lag is not large enough to explain the Phase XVIII gap")
-    require(abs(anomaly["fresh_step1_mixed"] - anomaly["fresh_step1_fp32"]) <= 1e-3,
-            "fresh step-one mixed and FP32 evaluations do not agree")
-    require(anomaly["step100_fresh_mixed"] - anomaly["step100_fresh_fp32"] > 0.05,
+    require(abs(anomaly["fresh_step1_mixed"] - anomaly["fresh_step1_mixed_weights_off"]) <= 1e-3,
+            "step-one arithmetic comparison does not agree at fixed weights")
+    require(abs(anomaly["fresh_step1_mixed"] - anomaly["fresh_step1_fp32arm"]) <= 1e-3,
+            "fresh step-one mixed and FP32 arms do not agree")
+    require(anomaly["step100_fresh_mixed"] - anomaly["step100_fresh_fp32arm"] > 0.05,
             "the step-100 drift is not reproduced by fresh evaluation")
+    require(abs(anomaly["step100_fresh_mixed"] - anomaly["step100_fresh_mixed_weights_off"]) <= 1e-3,
+            "step-100 arithmetic comparison does not agree at fixed weights")
     require(abs(anomaly["step100_in_process_mixed"] - anomaly["step100_fresh_mixed"]) <= 5e-3,
             "step-100 in-process evaluation differs from the exported weights")
-    require(anomaly["step100_fresh_mixed"] > anomaly["step100_fresh_fp32"],
+    require(anomaly["step100_fresh_mixed"] > anomaly["step100_fresh_fp32arm"],
             "the step-100 mixed arm is not worse than FP32")
 
     evidence_dir = receipt / "evidence"

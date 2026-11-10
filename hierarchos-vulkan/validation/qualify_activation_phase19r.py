@@ -248,7 +248,7 @@ def main() -> int:
     observed = ce["step1-mixed|mixed"] - ce["step1-fp32|off"]
     arithmetic = sum(ce[f"{name}|mixed"] - ce[f"{name}|off"]
                      for name in CELLS) / 3.0
-    weights = sum(ce[f"step1-mixed|{mode}"] - ce[f"initial|{mode}"]
+    weights = sum(ce[f"step1-mixed|{mode}"] - ce[f"step1-fp32|{mode}"]
                   for mode in ("off", "mixed")) / 2.0
     interaction = observed - arithmetic - weights
     matrix = {
@@ -265,9 +265,11 @@ def main() -> int:
 
     pre = load(WORK / "repro-mixed.json")
     post = load(WORK / "fixed-mixed.json")
+    off1 = load(WORK / "off-1.json")
     fresh_step1 = {mode: load(WORK / f"fresh-step1-{mode}" / "eval.json")
                    for mode in ("off", "mixed")}
     mixed100 = load(WORK / "mixed-100.json")
+    fresh100_fp32arm = load(WORK / "fresh100-fp32arm" / "eval.json")
     fresh100 = {mode: load(WORK / f"fresh-step100-{mode}" / "eval.json")
                 for mode in ("off", "mixed")}
 
@@ -281,10 +283,13 @@ def main() -> int:
         "pre_fix_in_process_step1": evaluation(pre, 1),
         "post_fix_in_process_step1": evaluation(post, 1),
         "fresh_step1_mixed": fresh_step1["mixed"]["cross_entropy"],
-        "fresh_step1_fp32": fresh_step1["off"]["cross_entropy"],
+        "fresh_step1_mixed_weights_off": fresh_step1["off"]["cross_entropy"],
+        "fresh_step1_fp32arm": next(e["cross_entropy"] for e in off1["evaluations"]
+                                    if e["partition"] == "validation" and e["after_step"] == 1),
         "step100_in_process_mixed": evaluation(mixed100, 100),
         "step100_fresh_mixed": fresh100["mixed"]["cross_entropy"],
-        "step100_fresh_fp32": fresh100["off"]["cross_entropy"],
+        "step100_fresh_mixed_weights_off": fresh100["off"]["cross_entropy"],
+        "step100_fresh_fp32arm": fresh100_fp32arm["cross_entropy"],
         "cause": ("the in-process evaluation after step 1 read FP16 projection "
                   "mirrors converted from pre-step masters; LayerNorm and embedding "
                   "masters were current, so the loss landed between the initial and "
