@@ -286,6 +286,10 @@ def verify(receipt_dir: Path, crate: Path | None = None) -> dict:
                      adapter=evidence / "states" / arm_id / "u")
         r = load_run(evidence, f"resume-{arm_id}-r", p.ARMS[arm_id], total - split, split,
                      adapter=evidence / "states" / arm_id / "r", profile=True)
+        r2 = load_run(evidence, f"resume-{arm_id}-r-save", p.ARMS[arm_id], total - split, split,
+                      adapter=evidence / "states" / arm_id / "r")
+        q.check_run(u)
+        q.check_run(r2)
         check_optim(u, selected, total, 0)
         check_optim(r, selected, total - split, split)
         require(r["report"]["parameter_frozen"] is True, f"resume {arm_id} base moved")
@@ -306,6 +310,12 @@ def verify(receipt_dir: Path, crate: Path | None = None) -> dict:
                     f"resume {arm_id} uninterrupted {name} claim")
             require(entry["checkpoint_sha256"][name]["resumed"] == rh,
                     f"resume {arm_id} resumed {name} claim")
+        for label in ("u", "r"):
+            copy = evidence / f"adapter-{arm_id}-{label}.safetensors"
+            state = evidence / "states" / arm_id / label / "adapter_model.safetensors"
+            require(copy.is_file() and state.is_file(), f"resume {arm_id} adapter copy {label}")
+            require(q.sha256_file(copy) == q.sha256_file(state),
+                    f"resume {arm_id} adapter copy changed {label}")
         require(entry["checkpoint_bytes_equal"] is True, f"resume {arm_id} bytes claim")
         resumed_dispatch = q.check_run(r)["dispatch"]
         require(entry["dispatch"] == resumed_dispatch, f"resume {arm_id} dispatch")
