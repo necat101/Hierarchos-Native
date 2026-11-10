@@ -32,11 +32,10 @@ BIN = CRATE / "target/release/training-stability.exe"
 TRAINER = q.TRAINER
 MODEL = q.MODEL
 DATASET = q.DATASET
-RECEIPT_DIR = (
-    CRATE
-    / "validation/release_parity/multimodal_training"
-    / "20261110-phase16-training-stability"
-)
+RECEIPT_DIR = Path(os.environ.get(
+    "HIERARCHOS_RECEIPT_DIR",
+    CRATE / "validation/release_parity/multimodal_training" / "20261110-phase16-training-stability",
+))
 PHASE16_RECEIPT = q.PHASE16_RECEIPT
 SCHEMA = 2
 KIND = "phase16-training-stability"

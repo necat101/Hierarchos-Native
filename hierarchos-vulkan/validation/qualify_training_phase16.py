@@ -31,11 +31,10 @@ BIN = CRATE / "target/release/hierarchos-vulkan-training-qualification.exe"
 TRAINER = CRATE / "target/release/hierarchos-vulkan-transformer-train.exe"
 MODEL = CRATE / "target/wmma-fixture/model"
 DATASET = CRATE / "target/wmma-fixture/dataset.jsonl"
-RECEIPT_DIR = (
-    CRATE
-    / "validation/release_parity/multimodal_training"
-    / "20261110-phase16-training-qualification"
-)
+RECEIPT_DIR = Path(os.environ.get(
+    "HIERARCHOS_RECEIPT_DIR",
+    CRATE / "validation/release_parity/multimodal_training" / "20261110-phase16-training-qualification",
+))
 PHASE16_RECEIPT = (
     CRATE
     / "validation/release_parity/multimodal_training"

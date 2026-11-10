@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import math
 import shutil
 import subprocess
@@ -46,11 +47,10 @@ STABILITY_RECEIPT = (
     / "validation/release_parity/multimodal_training"
     / "20261110-phase16-training-stability/current-qualification.json"
 )
-RECEIPT_DIR = (
-    CRATE
-    / "validation/release_parity/multimodal_training"
-    / "20261110-phase17-heldout-generalization"
-)
+RECEIPT_DIR = Path(os.environ.get(
+    "HIERARCHOS_RECEIPT_DIR",
+    CRATE / "validation/release_parity/multimodal_training" / "20261110-phase17-heldout-generalization",
+))
 SCHEMA = 1
 KIND = "phase17-heldout-generalization"
 EXPECTED_PARAMETERS = q.EXPECTED_PARAMETERS
