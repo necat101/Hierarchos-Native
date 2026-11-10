@@ -129,11 +129,13 @@ def verify(receipt_path: Path = DEFAULT_RECEIPT, crate: Path = CRATE) -> dict:
             "split manifest changed")
     streams = {}
     counts = {}
+    windows_by_partition = {}
     for name in ("train", "validation", "test"):
         path = q.FIXTURE / f"{name}.jsonl"
         require(fixture["partitions"][name]["sha256"] == q.sha256_file(path),
                 f"{name} partition file changed")
         windows = build_windows(partition_rows(path), q.SEQ)
+        windows_by_partition[name] = windows
         streams[name] = stream_digest(windows)
         counts[name] = {
             "documents": len(partition_rows(path)),
@@ -165,7 +167,15 @@ def verify(receipt_path: Path = DEFAULT_RECEIPT, crate: Path = CRATE) -> dict:
         require(run["parameter_elements"] == elements, "parameter count differs across runs")
         require(run["optimizer_step"] == q.STEPS, f"{run['label']}: optimizer step is not final")
         require(run["dropout_seed"] == q.SEED, f"{run['label']}: dropout seed changed")
-        for partition in ("train", "validation", "test"):
+        # The harness rotates the deterministic training order by the declared
+        # offset, and binds the rotated stream. Re-derive that rotation so the
+        # digest proves the order is the one the run claims.
+        training_windows = windows_by_partition["train"]
+        shift = run["order_offset"] % len(training_windows)
+        rotated = training_windows[shift:] + training_windows[:shift]
+        require(run["partition_stream_sha256"]["train"] == stream_digest(rotated),
+                f"{run['label']}: train stream digest changed")
+        for partition in ("validation", "test"):
             require(run["partition_stream_sha256"][partition] == streams[partition],
                     f"{run['label']}: {partition} stream digest changed")
         records = run["records"]
@@ -238,7 +248,8 @@ def verify(receipt_path: Path = DEFAULT_RECEIPT, crate: Path = CRATE) -> dict:
                 require(evaluation["wmma_forward_delta"] == 0,
                         f"{run['label']}: FP32 evaluation dispatched cooperative kernels")
 
-    analysis = receipt["observations"]
+    observations = receipt["observations"]
+    analysis = receipt["analysis"]
     step_one = analysis["step_1_update"]
     for side in ("off", "mixed"):
         require(sum(entry["count"] for entry in step_one[side].values()) == elements,
@@ -262,10 +273,10 @@ def verify(receipt_path: Path = DEFAULT_RECEIPT, crate: Path = CRATE) -> dict:
                 f"step-{step} weight divergence does not cover every parameter")
         require(any(entry["rms"] > 0.0 for entry in table.values()),
                 f"step-{step} reports no weight divergence")
-    require(analysis["first_divergence"]["step"] == 1,
+    require(observations["first_divergence"]["step"] == 1,
             "the first bitwise loss divergence is not step 1")
 
-    comparisons = analysis["forward_comparisons"]
+    comparisons = observations["forward_comparisons"]
     require(set(comparisons) == {"step-0", "step-10", "step-100"},
             "same-weight forward checkpoints changed")
     windows = counts["validation"]["windows"]

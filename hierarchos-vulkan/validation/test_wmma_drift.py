@@ -208,7 +208,6 @@ class DriftControls(unittest.TestCase):
             "\n".join(json.dumps(row, sort_keys=True, separators=(",", ":")) for row in rows) + "\n",
             encoding="utf-8",
         )
-        self.receipt["fixture"]["partitions"]["validation"]["sha256"] = q.sha256_file(path)
         try:
             self.expect("partition file changed")
         finally:

@@ -652,6 +652,7 @@ def main() -> int:
             }
             for run in runs
         ],
+        "analysis": analysis,
         "observations": observations,
         "order_analysis": order_summary,
         "limitations": [
