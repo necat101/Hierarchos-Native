@@ -41,6 +41,7 @@ EXTRA_SOURCES = (
     "hierarchos-vulkan/validation/check_activation_phase19r.py",
     "hierarchos-vulkan/validation/test_activation_phase19r.py",
     "hierarchos-vulkan/validation/qualify_wmma_drift.py",
+    "hierarchos-vulkan/validation/verify_rdna3_multimodal_isolation.py",
 )
 
 

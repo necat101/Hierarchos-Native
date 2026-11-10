@@ -56,10 +56,11 @@ jobs:
       # from the logs the receipt ships and re-verifies the 45-artifact gate.
       # Both are required; a stale receipt fails closed rather than reaching for
       # the sealed Phase XV one.
-      - name: Current-source RDNA3 GPT2 qualification
-        run: |
-          python hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py
-          python hierarchos-vulkan/validation/check_phase16_receipts.py
+      - name: Phase XIX-S current-source instrumented qualification
+        run: python hierarchos-vulkan/validation/check_phase19s_current.py
+
+      - name: Phase XIX-S current-source negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19s_current.py"
 
       - name: Expanded RDNA3 GPT2 receipt negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_rdna3_gpt2_receipts.py"
@@ -69,37 +70,7 @@ jobs:
       - name: Phase XVI qualification negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase16_receipts.py"
 
-      # Sustained training, not a single gradient: the checker reconstructs all
-      # eight arms, the exact-resume pairs and the ABBA performance data from the
-      # shipped per-step reports and profiles instead of trusting a pass flag.
-      - name: Phase XVI training qualification
-        run: |
-          python hierarchos-vulkan/validation/check_training_phase16.py
-          python -m unittest discover -s hierarchos-vulkan/validation -p "test_training_phase16.py"
 
-      # Sustained full-FT convergence with a justified LR, per-step AdamW
-      # telemetry, failed-candidate evidence and the corrected controls.
-      - name: Phase XVI training stability qualification
-        run: |
-          python hierarchos-vulkan/validation/check_training_stability.py
-          python -m unittest discover -s hierarchos-vulkan/validation -p "test_training_stability.py"
-
-      # Held-out, not training-loss, evidence: the checker re-derives the
-      # document-level split from its committed generator, replays every arm's
-      # per-step report and every forward-only evaluation, and requires the
-      # read-only, dispatch and leakage controls to hold.
-      - name: Phase XVII held-out generalization qualification
-        run: |
-          python hierarchos-vulkan/validation/check_heldout_phase17.py
-          python -m unittest discover -s hierarchos-vulkan/validation -p "test_heldout_phase17.py"
-
-      # Re-derives the matched FP32/mixed trajectories from the committed
-      # per-step records, re-sums every evaluation loss, and cross-binds the
-      # same-weight forward comparisons to the checkpoints that produced them.
-      - name: Phase XVIII mixed-WMMA drift investigation
-        run: |
-          python hierarchos-vulkan/validation/check_wmma_drift.py
-          python -m unittest discover -s hierarchos-vulkan/validation -p "test_wmma_drift.py"
 
       # The measured route tables are checked in, so the cheapest guard against a
       # stale one is a CPU-side comparison of each receipt with the record it was
