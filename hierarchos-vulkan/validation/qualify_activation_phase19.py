@@ -298,7 +298,8 @@ def main() -> int:
                          "sha256": sha256_file(WORK / "traces" / f"{name}-{mode}" / "trace.json")})
     for key, value in cells.items():
         path = WORK / "eval" / key.replace("|", "-") / "eval.json"
-        evidence.append({"name": f"eval-{key}", "path": str(path), "sha256": sha256_file(path)})
+        evidence.append({"name": f"eval-{key.replace('|', '-')}", "path": str(path),
+                         "sha256": sha256_file(path)})
 
     receipt = {
         "phase": "XIX",
