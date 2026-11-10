@@ -85,7 +85,7 @@ def git(*args: str) -> str:
     ).stdout.strip()
 
 
-def run(command: list[str], env: dict[str, str], log: Path, label: str) -> None:
+def invoke(command: list[str], env: dict[str, str], log: Path, label: str) -> None:
     started = time.perf_counter()
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("w", encoding="utf-8") as handle:
@@ -372,7 +372,30 @@ def main() -> int:
     print(f"work={work}", flush=True)
 
     runs: list[dict] = []
-    if not args.skip_gpu:
+    if args.skip_gpu:
+        for order in ORDERS:
+            for mode in MODES:
+                label = f"order-{order}-{mode}"
+                report = work / f"{label}.json"
+                log = work / f"{label}.log"
+                if not report.is_file():
+                    raise SystemExit(f"--skip-gpu requires an existing report: {report}")
+                record = json.loads(report.read_text(encoding="utf-8"))
+                runs.append(
+                    {
+                        "label": label,
+                        "order_offset": order,
+                        "mode": mode,
+                        "report": report,
+                        "log": log,
+                        "data": record,
+                        "sha256": sha256_file(report),
+                        "dumps": record["dumps"],
+                        "exports": record["exports"],
+                        "forward": [],
+                    }
+                )
+    else:
         for order in ORDERS:
             for mode in MODES:
                 label = f"order-{order}-{mode}"
@@ -402,7 +425,7 @@ def main() -> int:
                         "--export-at", ",".join(str(step) for step in EXPORT_AT),
                         "--export-root", str(work / "exports"),
                     ]
-                run(command, drift_env(mode), log, label)
+                invoke(command, drift_env(mode), log, label)
                 record = json.loads(report.read_text(encoding="utf-8"))
                 runs.append(
                     {
@@ -435,6 +458,9 @@ def main() -> int:
             for mode in MODES:
                 binary_path = work / "forward" / f"{key}-{mode}.bin"
                 sidecar = binary_path.with_suffix(".json")
+                if binary_path.is_file() and sidecar.is_file():
+                    summaries[mode] = (binary_path, json.loads(sidecar.read_text(encoding="utf-8")))
+                    continue
                 command = [
                     str(BINARY),
                     "--model", str(directory),
@@ -442,7 +468,7 @@ def main() -> int:
                     "--dump-logits", str(binary_path),
                     "--report", str(work / "forward" / "unused.json"),
                 ]
-                run(command, drift_env(mode), work / "forward" / f"{key}-{mode}.log", f"forward-{key}-{mode}")
+                invoke(command, drift_env(mode), work / "forward" / f"{key}-{mode}.log", f"forward-{key}-{mode}")
                 summaries[mode] = (binary_path, json.loads(sidecar.read_text(encoding="utf-8")))
             comparison = compare_logits(
                 summaries["off"][0], summaries["mixed"][0], summaries["off"][1], summaries["mixed"][1]
@@ -609,13 +635,18 @@ def main() -> int:
 
     evidence_dir = work / "evidence"
     evidence_dir.mkdir(parents=True, exist_ok=True)
-    for run in runs:
-        shutil.copy2(run["report"], evidence_dir / f"{run['label']}.json")
-        shutil.copy2(run["log"], evidence_dir / f"{run['label']}.log")
+    for record_run in runs:
+        shutil.copy2(record_run["report"], evidence_dir / f"{record_run['label']}.json")
+        shutil.copy2(record_run["log"], evidence_dir / f"{record_run['label']}.log")
     for path in (work / "forward").glob("*.json"):
         shutil.copy2(path, evidence_dir / f"forward-{path.name}")
     write_json(work / "analysis.json", analysis)
     shutil.copy2(work / "analysis.json", evidence_dir / "analysis.json")
+    receipt["evidence"] = {
+        path.name: sha256_file(path)
+        for path in sorted(evidence_dir.iterdir())
+        if path.is_file()
+    }
     write_json(work / "receipt.json", receipt)
     print(f"receipt={work / 'receipt.json'}", flush=True)
     print(
