@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "kind": "phase17-heldout-generalization",
-  "generated_at": "2026-11-10T04:53:33.960126+00:00",
-  "source_revision": "2b31fa848d2309bb9d1a16ec64ae9a093eda6663",
+  "generated_at": "2026-11-10T04:58:16.507747+00:00",
+  "source_revision": "5cd0c0c6eb7f9a8d0c9ef0bdc214186a8df76fb6",
   "source_clean": true,
   "device": "AMD Radeon Graphics",
   "protocol": {
@@ -1936,8 +1936,8 @@
     "validation/make_phase17_fixture.py": "b75ef41df7e584314cc853f6a0becd3ab6265f862404ac8df7a8d6a6d58d807f",
     "validation/audit_phase16_dataset.py": "9aa56597be816c2f79df69cf05c4cf130376fb2fd4bce64daef465699cfdcc3d",
     "validation/qualify_heldout_phase17.py": "de899853b78106b1f9799741916c5c7eb8ed81a67934158cf370e967295b8ab1",
-    "validation/check_heldout_phase17.py": "5a1b7ebdb037e512596d80612666e490c48c6df0888da2105396921273fe03da",
-    "validation/test_heldout_phase17.py": "6f47bb5b02e1e2cca3891e2090ee29f928422c6ca2b45e710dc3bd9a8700f852"
+    "validation/check_heldout_phase17.py": "91fa68dbee113d4f6f03d6f21ec5fb8f4aa47430c9a2b197095400fc9436ecaf",
+    "validation/test_heldout_phase17.py": "fe3b6ae259059ea795c7a26132b70989d4bce84d4dede26eec1991eb057f119e"
   },
   "evidence": {
     "arm-A.err.txt": "8db98da9625c3f629c1b94021cd14d67b9c62e0c8d35bc0b6263fa89e58945ef",

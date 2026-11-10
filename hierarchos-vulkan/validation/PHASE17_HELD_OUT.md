@@ -7,7 +7,7 @@ forward-only evaluation path over the real Vulkan graph, and a source-bound
 receipt that reports validation and untouched-test loss rather than training
 loss.
 
-- Source revision: `2b31fa848d23` (clean tree). The harness source and binary are
+- Source revision: `5cd0c0c6eb7f` (clean tree). The harness source and binary are
   unchanged from `247dd56`; the later commits only fixed receipt assembly and
   control ordering, and the bound binary hash is the same one the evidence was
   produced with.
