@@ -32,9 +32,10 @@ BIN = CRATE / "target/release"
 PROBE = BIN / "activation_probe.exe"
 WORK = Path(os.environ.get("HIERARCHOS_PHASE19R_WORK", CRATE / "target/phase19r"))
 EXPORTS = WORK / "exports"
-RECEIPT = (
-    CRATE / "validation/release_parity/multimodal_training/20261110-phase19r-activation"
-)
+RECEIPT = Path(os.environ.get(
+    "HIERARCHOS_RECEIPT_DIR",
+    CRATE / "validation/release_parity/multimodal_training/20261110-phase19r-activation",
+))
 FIXTURE = CRATE / "validation/fixtures/phase17"
 MODEL = Path(os.environ.get("HIERARCHOS_MODEL", CRATE / "target/wmma-fixture/model"))
 

@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -19,7 +20,7 @@ from pathlib import Path
 CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 FIXTURE = CRATE / "validation/fixtures/phase17"
-DEFAULT = CRATE / "validation/release_parity/multimodal_training/20261110-phase19r-activation"
+DEFAULT = Path(os.environ.get("HIERARCHOS_ACTIVATION_RECEIPT", CRATE / "validation/release_parity/multimodal_training/20261110-phase19r-activation"))
 LAYERS = 2
 PER_LAYER = [
     "pre_attention_norm", "q_proj", "k_proj", "v_proj", "attention_context",

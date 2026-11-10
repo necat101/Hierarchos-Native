@@ -34,11 +34,10 @@ CRATE = Path(__file__).resolve().parent.parent
 MODEL = CRATE / "target/wmma-fixture/model"
 FIXTURE = CRATE / "validation/fixtures/phase17"
 BINARY = CRATE / "target/release/wmma_drift.exe"
-RECEIPT_ROOT = (
-    CRATE
-    / "validation/release_parity/multimodal_training"
-    / "20261110-phase18-wmma-drift"
-)
+RECEIPT_ROOT = Path(os.environ.get(
+    "HIERARCHOS_RECEIPT_DIR",
+    CRATE / "validation/release_parity/multimodal_training" / "20261110-phase18-wmma-drift",
+))
 
 SCHEMA = 1
 KIND = "phase18-wmma-drift-investigation"
