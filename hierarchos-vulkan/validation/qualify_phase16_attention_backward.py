@@ -34,7 +34,8 @@ from emit_two_pass_evidence import parse as parse_two_pass
 
 EVIDENCE_FILES = (
     "shapes/qualification.json", "shared/qualification.json", "kimi/qualification.json",
-    "seq2seq/qualification.json", "gemma3/qualification.json", "gemma4/qualification.json",
+    "seq2seq/qualification.json", "gemma3/qualification.json",
+    "gemma4-legacy/qualification.json", "gemma4-rgb/qualification.json",
     "llava/qualification.json", "primitives.log", "v41native/qualification.json",
     "v41bridge/qualification.json", "isolation.json", "phase16-spirv.json",
 )
@@ -171,6 +172,27 @@ def main():
 
     retained = {}
     for name in GATES:
+        if name == "gemma4":
+            # The two gemma4 cases are separate genuine runs (one per pixel
+            # domain) with their own binaries and fixtures. Combining them is
+            # two bound receipts, never a synthesized third result.
+            domains = {domain: load(run / domain / "qualification.json")
+                       for domain in ("gemma4-legacy", "gemma4-rgb")}
+            domain_rows = {domain: validate_qualification(payload, 1)
+                           for domain, payload in domains.items()}
+            for domain, payload in domains.items():
+                require(payload["binary_sha256"] == binaries["gemma4_vision_probe"],
+                        f"{domain} binary differs from the built probe")
+            require(len({row["case"] for rows in domain_rows.values() for row in rows}) == 2,
+                    "gemma4 domains do not cover two distinct cases")
+            retained[name] = dict(cases=2, pass_=True,
+                                  qualification_sha256=digest(run / "gemma4-legacy" /
+                                                              "qualification.json"),
+                                  worst_logit=max(worst_logit(rows)
+                                                  for rows in domain_rows.values()),
+                                  receipts={domain: digest(run / domain / "qualification.json")
+                                            for domain in domains})
+            continue
         payload = load(run / name / "qualification.json")
         gate_rows = validate_qualification(payload, COUNTS[name])
         expected_binary = binaries[

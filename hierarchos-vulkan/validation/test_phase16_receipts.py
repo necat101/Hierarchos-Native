@@ -82,6 +82,44 @@ def shader_sections():
     )
 
 
+FAMILY_COUNTS = {"shapes": 16, "shared": 74, "kimi": 3, "seq2seq": 6,
+                 "gemma3": 4, "llava": 4, "gemma4-legacy": 1, "gemma4-rgb": 1}
+
+
+def family(count, prefix="case"):
+    return dict(target="rdna3", complete=True, **{"pass": True}, rtol=0,
+                comparison="strict_less_than", absolute_limit=LIMIT,
+                expected_cases=count, completed_cases=count,
+                results=[dict(case=f"{prefix}-{index}", **{"pass": True},
+                              checks=[dict(metric="final/logits", max_abs=5.96e-08,
+                                           **{"pass": True})])
+                         for index in range(count)])
+
+
+def _evidence_payload(name: str) -> str:
+    if name == "two-pass/test.log":
+        return test_log()
+    if name == "two-pass/harness.log":
+        return harness_log()
+    if name == "primitives.log":
+        body = "\n".join(f"test rdna3_gpt2_{index} ... ok" for index in range(9))
+        return body + "\ntest result: ok. 9 passed; 0 failed; 1 ignored\n"
+    if name == "isolation.json":
+        return json.dumps(dict(unchanged=True, files_checked=1341,
+                               existing_recipes=672, failures=[]))
+    if name == "v41native/qualification.json":
+        return json.dumps(dict(**{"pass": True}, expected_tests=30, completed_tests=30,
+                               jobs=[dict(**{"pass": True})], max_abs_logit=0.0,
+                               binary_sha256="a" * 64))
+    if name == "v41bridge/qualification.json":
+        return json.dumps(dict(**{"pass": True}, expected_cases=2, completed_cases=2,
+                               binary_sha256="a" * 64))
+    if name.endswith("qualification.json"):
+        domain = name.split("/")[0]
+        return json.dumps(family(FAMILY_COUNTS[domain], domain))
+    return "{}\n"
+
+
 def build(directory: Path):
     """Write a genuinely passing receipt plus the evidence it ships."""
     from emit_two_pass_evidence import parse
@@ -90,12 +128,7 @@ def build(directory: Path):
     for name in REQUIRED_EVIDENCE:
         path = evidence_dir / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        if name.endswith("test.log"):
-            path.write_text(test_log())
-        elif name.endswith("harness.log"):
-            path.write_text(harness_log())
-        else:
-            path.write_text("{}\n")
+        path.write_text(_evidence_payload(name))
     evidence = {name: digest(evidence_dir / name) for name in REQUIRED_EVIDENCE}
     gradient = parse(evidence_dir / "two-pass/test.log", evidence_dir / "two-pass/harness.log")
     backward = dict(

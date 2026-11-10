@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -69,7 +70,8 @@ REQUIRED_KEYS = (
 )
 REQUIRED_EVIDENCE = (
     "shapes/qualification.json", "shared/qualification.json", "kimi/qualification.json",
-    "seq2seq/qualification.json", "gemma3/qualification.json", "gemma4/qualification.json",
+    "seq2seq/qualification.json", "gemma3/qualification.json",
+    "gemma4-legacy/qualification.json", "gemma4-rgb/qualification.json",
     "llava/qualification.json", "primitives.log", "v41native/qualification.json",
     "v41bridge/qualification.json", "isolation.json", "phase16-spirv.json",
     "two-pass/test.log", "two-pass/harness.log",
@@ -99,6 +101,50 @@ def is_ancestor(ancestor, descendant):
 
 def _current_sha256(name):
     return digest(ROOT / name)
+
+
+def _worst_logit(rows) -> float:
+    values = [check["max_abs"] for row in rows for check in row["checks"]
+              if "logits" in check.get("metric", "") and "max_abs" in check]
+    require(values, "family evidence has no logit comparisons")
+    return max(values)
+
+
+def _verify_numerical_evidence(receipt_dir: Path) -> None:
+    """Re-derive every retained numerical family from the shipped receipts."""
+    from check_rdna3_gpt2_receipts import validate_qualification
+
+    for name, count in (("shapes", 16), ("shared", 74), ("kimi", 3), ("seq2seq", 6),
+                        ("gemma3", 4), ("llava", 4)):
+        payload = json.loads((receipt_dir / "evidence" / name / "qualification.json").read_text())
+        rows = validate_qualification(payload, count)
+        require(_worst_logit(rows) < LIMIT, f"{name} evidence violates the logit gate")
+    domains = [json.loads((receipt_dir / "evidence" / domain / "qualification.json").read_text())
+               for domain in ("gemma4-legacy", "gemma4-rgb")]
+    rows = [row for payload in domains for row in validate_qualification(payload, 1)]
+    require(len({row["case"] for row in rows}) == 2,
+            "gemma4 domains do not cover two distinct cases")
+    require(_worst_logit(rows) < LIMIT, "gemma4 evidence violates the logit gate")
+    native = json.loads((receipt_dir / "evidence" / "v41native" / "qualification.json").read_text())
+    require(native.get("pass") is True and native.get("expected_tests") == 30
+            and native.get("completed_tests") == 30,
+            "V4.1 native evidence is incomplete")
+    require(all(job.get("pass") for job in native.get("jobs", [])),
+            "V4.1 native evidence reports a failing job")
+    require(native.get("max_abs_logit", 1.0) < LIMIT,
+            "V4.1 native evidence violates the logit gate")
+    bridge = json.loads((receipt_dir / "evidence" / "v41bridge" / "qualification.json").read_text())
+    require(bridge.get("pass") is True and bridge.get("expected_cases") == 2
+            and bridge.get("completed_cases") == 2, "V4.1 bridge evidence is incomplete")
+    isolation = json.loads((receipt_dir / "evidence" / "isolation.json").read_text())
+    require(isolation.get("unchanged") is True and isolation.get("files_checked") == 1341
+            and isolation.get("existing_recipes") == 672 and isolation.get("failures") == [],
+            "isolation evidence changed")
+    primitives = (receipt_dir / "evidence" / "primitives.log").read_text()
+    require(re.search(r"test result: ok\. 9 passed; 0 failed;", primitives),
+            "primitive evidence is incomplete")
+    require(len(re.findall(r"^test .*rdna3_gpt2_.* \.\.\. ok$", primitives, re.M)) == 9,
+            "primitive evidence coverage changed")
 
 
 def _rederive(receipt_dir: Path) -> dict:
@@ -253,6 +299,7 @@ def verify_receipt(receipt, receipt_dir, *, source_head, current_sha256=None,
         require(path.is_file(), "phase16 evidence file is missing: " + name)
         require(digest(path) == expected, "phase16 evidence file changed: " + name)
 
+    _verify_numerical_evidence(receipt_dir)
     if rederive:
         derived = _rederive(receipt_dir)
         for key, value in derived.items():
