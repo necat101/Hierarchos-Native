@@ -59,8 +59,11 @@ jobs:
       - name: Phase XIX-S current-source instrumented qualification
         run: python hierarchos-vulkan/validation/check_phase19s_current.py
 
-      - name: Phase XIX-S current-source negative controls
-        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19s_current.py"
+      - name: Phase XIX-T policy overlay
+        run: python hierarchos-vulkan/validation/check_phase19t_current.py
+
+      - name: Phase XIX-T isolated negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19t_current.py"
 
       - name: Expanded RDNA3 GPT2 receipt negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_rdna3_gpt2_receipts.py"

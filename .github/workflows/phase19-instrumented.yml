@@ -23,3 +23,32 @@ jobs:
         run: python hierarchos-vulkan/validation/check_activation_phase19r.py
       - name: Phase XIX-S activation negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_activation_phase19s_current.py"
+
+  historical:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Phase XVIII sealed controls at receipt revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          worktree="$RUNNER_TEMP/phase18-receipt"
+          git worktree add --detach "$worktree" 1e77b401489c7c59a95661461fbaaf5a91f3b77c
+          trap 'git worktree remove --force "$worktree"' EXIT
+          cd "$worktree/hierarchos-vulkan"
+          python validation/test_wmma_drift.py
+      - name: Phase XIX-R sealed controls at receipt revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          worktree="$RUNNER_TEMP/phase19r-receipt"
+          git worktree add --detach "$worktree" e69f7f978101f29e8ad6e09b0a88ce5fb1b767ad
+          trap 'git worktree remove --force "$worktree"' EXIT
+          cd "$worktree/hierarchos-vulkan"
+          python -m unittest discover -s validation -p "test_activation_phase19r.py"
