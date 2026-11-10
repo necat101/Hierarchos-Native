@@ -647,6 +647,7 @@ def main() -> int:
         "validation/qualify_training_stability.py",
         "validation/check_training_stability.py",
         "validation/test_training_stability.py",
+        "validation/assemble_training_stability.py",
     ]
     bindings = {}
     for relative in source_files:
@@ -732,7 +733,7 @@ def main() -> int:
             evidence_files[str(path.relative_to(evidence)).replace("\\", "/")] = q.sha256_file(path)
     receipt["evidence"] = evidence_files
     work_receipt = work / "current-qualification.json"
-    work_receipt.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    work_receipt.write_text(json.dumps(receipt, indent=2, default=str) + "\n", encoding="utf-8")
     print(f"receipt={work_receipt}")
     print(f"evidence_files={len(evidence_files)}")
     if args.install:

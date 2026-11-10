@@ -204,10 +204,11 @@ class StabilityControls(unittest.TestCase):
         self.reject(self.load(), refresh=True)
 
     def test_lora_labeled_full_finetune(self) -> None:
-        report = self.arm("E")
+        path = self.evidence / "resume-E-u.json"
+        report = json.loads(path.read_text(encoding="utf-8"))
         report["mode"] = "full-finetune"
         report["lora"] = False
-        self.save_arm("E", report)
+        path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         self.reject(self.load(), refresh=True)
 
     def test_failed_subprocess_returncode(self) -> None:
