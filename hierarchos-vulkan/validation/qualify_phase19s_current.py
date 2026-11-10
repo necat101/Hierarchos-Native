@@ -206,7 +206,10 @@ def main() -> int:
             "stability_arms": stability["arms"],
             "heldout_arms": heldout["arms"],
             "drift_runs": drift["runs"],
-            "activation_tensors": activation["protocol"]["trace_ops"],
+            "activation_tensors": [
+                f"{tensor['layer']}:{tensor['operation']}"
+                for tensor in activation["comparisons"]["step1-mixed"]["tensors"]
+            ],
         },
         "evidence": evidence,
         "generated_at": datetime.now(timezone.utc).isoformat(),
