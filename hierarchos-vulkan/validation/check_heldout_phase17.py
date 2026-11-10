@@ -249,6 +249,8 @@ def verify(receipt_dir: Path, crate: Path | None = None) -> dict:
 
         evaluations = {e["tag"]: e for e in report["evaluations"]}
         for tag in ("test@0", "test@final"):
+            require(tag in evaluations,
+                    f"arm {arm_id} missing evaluation output for the test partition")
             require(evaluations[tag]["partition"] == "test",
                     f"arm {arm_id} presents a validation-only result as test evidence")
         expected_validation = {f"validation@{step}" for step in p.SCHEDULE}

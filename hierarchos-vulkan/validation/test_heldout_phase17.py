@@ -126,13 +126,13 @@ class HeldOutControls(unittest.TestCase):
     def test_padding_included_in_loss(self) -> None:
         manifest = self.receipt["fixture"]["manifest"]["partitions"]["validation"]
         padded = manifest["windows"] * self.receipt["fixture"]["manifest"]["seq_len"]
-        manifest["valid_target_tokens"] = padded
+        # Claim the padded geometry as supervised work while leaving the
+        # committed manifest untouched, so the padding rule is what rejects it.
         self.edit_evidence(
             "arm-A.json",
             lambda data: data["evaluations"][0].__setitem__("valid_target_tokens", padded),
         )
-        self.write_receipt()
-        self.expect("padding as supervised loss")
+        self.expect("padding excluded")
 
     def test_wrong_causal_target_alignment(self) -> None:
         self.edit_evidence(
