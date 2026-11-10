@@ -1,0 +1,25 @@
+{
+  "alpha_pattern": {},
+  "bias": "none",
+  "ensure_weight_tying": false,
+  "exclude_modules": null,
+  "fan_in_fan_out": false,
+  "inference_mode": true,
+  "init_lora_weights": true,
+  "layer_replication": null,
+  "layers_pattern": null,
+  "layers_to_transform": null,
+  "lora_alpha": 16,
+  "lora_bias": false,
+  "lora_dropout": 0.0,
+  "peft_type": "LORA",
+  "r": 8,
+  "rank_pattern": {},
+  "target_modules": [
+    "q_proj"
+  ],
+  "target_parameters": null,
+  "task_type": "CAUSAL_LM",
+  "use_dora": false,
+  "use_rslora": false
+}
