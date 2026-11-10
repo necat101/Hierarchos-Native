@@ -418,7 +418,7 @@ def main() -> int:
         raise SystemExit(f"missing model fixture {MODEL}")
 
     revision = git("rev-parse", "HEAD")
-    dirty = git("status", "--porcelain")
+    dirty = git("status", "--porcelain", "--untracked-files=no")
     if dirty and not args.reuse_work:
         raise SystemExit(
             "the producer requires a clean tracked tree so the receipt binds committed source:\n" + dirty
