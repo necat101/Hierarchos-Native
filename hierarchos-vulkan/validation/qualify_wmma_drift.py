@@ -618,6 +618,7 @@ def main() -> int:
             "dump_steps": list(DUMP_AT),
             "export_steps": list(EXPORT_AT),
             "parameter_snapshot_is_resume_checkpoint": False,
+            "model_vocab": int(json.loads((MODEL / "config.json").read_text(encoding="utf-8"))["vocab_size"]),
         },
         "runs": [
             {

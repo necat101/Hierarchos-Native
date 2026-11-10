@@ -195,8 +195,10 @@ class DriftControls(unittest.TestCase):
         self.expect("missing evidence artifact")
 
     def test_changed_model_identity(self) -> None:
-        self.receipt["fixture"]["model_config_sha256"] = "0" * 64
-        self.expect("model config changed")
+        # Bind to the committed Phase XVII receipt, which is present on CI as
+        # well as locally; the model package itself is a target/ fixture.
+        self.receipt["fixture"]["phase17_receipt_sha256"] = "0" * 64
+        self.expect("Phase XVII receipt changed")
 
     def test_changed_partition_file(self) -> None:
         fixture_dir = q.FIXTURE
