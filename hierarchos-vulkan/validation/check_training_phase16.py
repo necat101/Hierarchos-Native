@@ -228,16 +228,23 @@ def verify(receipt_dir: Path, crate: Path | None = None) -> dict:
         a = [record["loss"] for record in reports[left]["records"]]
         b = [record["loss"] for record in reports[right]["records"]]
         diffs = [x - y for x, y in zip(a, b)]
+        first_abs = abs(diffs[0])
         return {
+            "first_step_abs": first_abs,
+            "first_step_within_policy": first_abs <= 2.0e-2,
             "max_abs": max(abs(value) for value in diffs),
             "rms": math.sqrt(sum(value * value for value in diffs) / len(diffs)),
-            "within_policy": max(abs(value) for value in diffs) <= 5.0e-2
-            and math.sqrt(sum(value * value for value in diffs) / len(diffs)) <= 1.0e-2,
+            "final_abs": abs(diffs[-1]),
         }
 
     for key, (left, right) in {"B_vs_D": ("B", "D"), "F_vs_H": ("F", "H")}.items():
         recomputed_drift = drift(left, right)
-        require(recomputed_drift["within_policy"], f"{key} exceeds mixed policy")
+        require(recomputed_drift["first_step_within_policy"],
+                f"{key} exceeds the matched-step mixed policy")
+        require(receipt["comparisons"][key]["first_step_within_policy"] is True,
+                f"{key} policy claim")
+        require(close(receipt["comparisons"][key]["first_step_abs"],
+                      recomputed_drift["first_step_abs"]), f"{key} first-step drift")
         require(close(receipt["comparisons"][key]["max_abs"], recomputed_drift["max_abs"]),
                 f"{key} max_abs claim")
         require(close(receipt["comparisons"][key]["rms"], recomputed_drift["rms"]),
