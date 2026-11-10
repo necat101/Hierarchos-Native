@@ -309,10 +309,17 @@ def verify(receipt_dir: Path, crate: Path | None = None) -> dict:
         require(entry["checkpoint_bytes_equal"] is True, f"resume {arm_id} bytes claim")
         resumed_dispatch = q.check_run(r)["dispatch"]
         require(entry["dispatch"] == resumed_dispatch, f"resume {arm_id} dispatch")
-        require(resumed_dispatch and resumed_dispatch["scalar"] == 0
-                and resumed_dispatch["query"] == (total - split) * 2
-                and resumed_dispatch["key"] == (total - split) * 2,
-                f"resume {arm_id} two-pass dispatch")
+        require(resumed_dispatch is not None, f"resume {arm_id} missing dispatch")
+        if p.ARMS[arm_id]["backward"] == "scalar":
+            require(resumed_dispatch["scalar"] == (total - split) * 2
+                    and resumed_dispatch["query"] == 0
+                    and resumed_dispatch["key"] == 0,
+                    f"resume {arm_id} scalar dispatch")
+        else:
+            require(resumed_dispatch["scalar"] == 0
+                    and resumed_dispatch["query"] == (total - split) * 2
+                    and resumed_dispatch["key"] == (total - split) * 2,
+                    f"resume {arm_id} two-pass dispatch")
 
     # --- reuse/geometry checks ---------------------------------------------
     for arm_id in ("A", "B"):
