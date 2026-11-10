@@ -114,7 +114,7 @@ def verify(path: Path = RECEIPT, crate: Path = CRATE, binary_root: Path | None =
     training = verify_training(resolved["training"].parent, crate)
     stability = verify_stability(resolved["stability"].parent, crate)
     heldout = verify_heldout(resolved["heldout"].parent, crate)
-    drift = verify_drift(resolved["drift"], crate)
+    drift = verify_drift(resolved["drift"], crate, epoch_reuse=True)
 
     activation = subprocess.run(
         [sys.executable, str(crate / "validation/check_activation_phase19r.py")],

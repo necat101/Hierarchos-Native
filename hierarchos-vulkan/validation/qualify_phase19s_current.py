@@ -97,7 +97,9 @@ def main() -> int:
     training = verify_training(SUBDIRS["training"], CRATE)
     stability = verify_stability(SUBDIRS["stability"], CRATE)
     heldout = verify_heldout(SUBDIRS["heldout"], CRATE)
-    drift = verify_drift(SUBDIRS["drift"] / "current-qualification.json", CRATE)
+    drift = verify_drift(
+        SUBDIRS["drift"] / "current-qualification.json", CRATE, epoch_reuse=True
+    )
 
     activation_path = SUBDIRS["activation"] / "current-qualification.json"
     require(activation_path.is_file(), f"missing {relative(activation_path)}")

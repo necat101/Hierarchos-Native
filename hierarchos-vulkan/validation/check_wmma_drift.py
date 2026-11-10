@@ -81,7 +81,12 @@ def loss_bits_value(bits: int) -> float:
     return struct.unpack("<f", struct.pack("<I", bits))[0]
 
 
-def verify(receipt_path: Path = DEFAULT_RECEIPT, crate: Path = CRATE) -> dict:
+def verify(
+    receipt_path: Path = DEFAULT_RECEIPT,
+    crate: Path = CRATE,
+    *,
+    epoch_reuse: bool = False,
+) -> dict:
     receipt = load_json(receipt_path)
     require(receipt.get("schema") == SCHEMA, "unexpected receipt schema")
     require(receipt.get("kind") == KIND, "unexpected receipt kind")
@@ -185,6 +190,7 @@ def verify(receipt_path: Path = DEFAULT_RECEIPT, crate: Path = CRATE) -> dict:
         records = run["records"]
         require(len(records) == q.STEPS, f"{run['label']}: step count changed")
         mixed = run["mode"] == "mixed"
+        evaluated_after = {evaluation["after_step"] for evaluation in run["evaluations"]}
         for index, record in enumerate(records):
             require(record["global_step"] == index, f"{run['label']}: step index changed")
             require(record["optimizer_step"] == index + 1, f"{run['label']}: optimizer step changed")
@@ -202,8 +208,26 @@ def verify(receipt_path: Path = DEFAULT_RECEIPT, crate: Path = CRATE) -> dict:
                         f"{run['label']}: mixed arm did not dispatch every forward projection")
                 require(record["wmma_shape_fallbacks"] == 0,
                         f"{run['label']}: mixed arm fell back on a shape")
-                require(record["weight_conversions"] > 0,
-                        f"{run['label']}: no weight-mirror conversion occurred")
+                conversions = record["weight_conversions"]
+                reuses = record["mirror_reuses"]
+                if epoch_reuse:
+                    # The epoch-aware producer refreshes the mirror for an
+                    # evaluation between steps, so the following training step
+                    # can legitimately reuse it. Every step must still account
+                    # for the 15 forward and 15 input-gradient mirror uses, and
+                    # a reuse is only valid immediately after an evaluation.
+                    require(reuses >= PER_STEP_PHASES,
+                            f"{run['label']}: mixed arm skipped a mirror reuse")
+                    require(conversions + reuses == 2 * PER_STEP_PHASES,
+                            f"{run['label']}: mixed arm did not account for every mirror use")
+                    require(conversions in (0, PER_STEP_PHASES),
+                            f"{run['label']}: mixed arm converted the mirror more than once per step")
+                    if conversions == 0:
+                        require(index > 0 and index in evaluated_after,
+                                f"{run['label']}: step {index} reused a mirror without a preceding evaluation")
+                else:
+                    require(conversions > 0,
+                            f"{run['label']}: no weight-mirror conversion occurred")
             else:
                 require(
                     record["wmma_forward"] == 0
@@ -211,6 +235,9 @@ def verify(receipt_path: Path = DEFAULT_RECEIPT, crate: Path = CRATE) -> dict:
                     and record["wmma_input_grad"] == 0,
                     f"{run['label']}: FP32 arm dispatched cooperative kernels",
                 )
+        if mixed and epoch_reuse:
+            require(sum(record["weight_conversions"] for record in records) > 0,
+                    f"{run['label']}: no weight-mirror conversion occurred in the run")
         require(sum(record["wmma_shape_fallbacks"] for record in records) == 0,
                 f"{run['label']}: shape fallbacks recorded")
 
