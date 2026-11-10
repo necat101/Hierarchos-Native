@@ -38,7 +38,8 @@ class ActivationControls(unittest.TestCase):
         self.assertIn(fragment, result.stdout + result.stderr)
 
     def test_changed_weights_identity(self):
-        self.receipt["checkpoints"]["initial"]["weights_sha256"] = "0" * 64
+        self.receipt["checkpoints"]["step1-fp32"]["weights_sha256"] = \
+            self.receipt["checkpoints"]["initial"]["weights_sha256"]
         self.expect("step-1 FP32 arm did not update")
 
     def test_mislabeled_mode(self):
@@ -56,7 +57,7 @@ class ActivationControls(unittest.TestCase):
     def test_tensor_order(self):
         tensors = self.receipt["comparisons"]["initial"]["tensors"]
         tensors[0], tensors[1] = tensors[1], tensors[0]
-        self.expect("first divergence does not match")
+        self.expect("trace tensor order changed")
 
     def test_missing_tensor(self):
         self.receipt["comparisons"]["initial"]["tensors"].pop()
@@ -65,10 +66,11 @@ class ActivationControls(unittest.TestCase):
     def test_changed_shape(self):
         tensor = self.receipt["comparisons"]["initial"]["tensors"][0]
         tensor["shape"] = [8, 63, tensor["shape"][2]]
-        self.expect("tensor shape changed")
+        self.expect("trace tensor order changed")
 
     def test_tampered_tensor_digest(self):
-        evidence = self.receipt["evidence"][0]
+        evidence = next(item for item in self.receipt["evidence"]
+                        if item["name"] == "trace-initial-off")
         path = self.dir / "evidence" / f"{evidence['name']}.json"
         value = json.loads(path.read_text())
         value["tensors"][0]["sha256"] = "0" * 64
@@ -94,10 +96,8 @@ class ActivationControls(unittest.TestCase):
         self.expect("decomposition residual is nonzero")
 
     def test_step1_arms_swapped(self):
-        first = self.receipt["checkpoints"]["step1-fp32"]["weights_sha256"]
-        second = self.receipt["checkpoints"]["step1-mixed"]["weights_sha256"]
-        self.receipt["checkpoints"]["step1-fp32"]["weights_sha256"] = second
-        self.receipt["checkpoints"]["step1-mixed"]["weights_sha256"] = first
+        self.receipt["checkpoints"]["step1-mixed"]["weights_sha256"] = \
+            self.receipt["checkpoints"]["step1-fp32"]["weights_sha256"]
         self.expect("step-1 arms swapped")
 
     def test_missing_evidence(self):
