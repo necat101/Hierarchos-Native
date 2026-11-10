@@ -190,7 +190,7 @@ def main() -> int:
     try:
         document = verify(args.receipt, binary_root=args.binary_root)
     except KeyError as error:
-        print(f"PHASE XIX-S CURRENT SOURCE: FAIL (missing required sub-receipt evidence: {error})")
+        print(f"PHASE XIX-S CURRENT SOURCE: FAIL (missing training arm or required sub-receipt evidence: {error})")
         return 1
     except (ValueError, FileNotFoundError) as error:
         print(f"PHASE XIX-S CURRENT SOURCE: FAIL ({error})")
