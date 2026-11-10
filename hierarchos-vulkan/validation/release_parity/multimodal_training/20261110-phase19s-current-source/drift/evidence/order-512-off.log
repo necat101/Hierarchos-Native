@@ -1,0 +1,2 @@
+two-pass backward: kernels=true scratch=true supported=true key_blocks=1 causal=1 unfused_qk=9 head_dim=128 kv_seq=64 value_scale=1 bias=0 sparse=0 compressed=0 paged=0 offset=0
+{"final_test":3.0306028425015485,"final_validation":2.9749427658525467,"mode":"off","order_offset":512,"parameter_elements":16782336,"steps":100,"total_wall_ms":26194.664699999994}

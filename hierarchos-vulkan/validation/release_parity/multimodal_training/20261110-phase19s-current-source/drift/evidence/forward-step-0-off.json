@@ -1,0 +1,15 @@
+{
+  "model": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\wmma-fixture\\model",
+  "mode": "off",
+  "partition": "validation",
+  "windows": 288,
+  "seq": 64,
+  "vocab": 1024,
+  "logit_elements": 18874368,
+  "valid_target_tokens": 17080,
+  "cross_entropy": 7.119862882201544,
+  "parameter_digest": "daaa3852a49494874b6f6d9e4ffd6db50690cc9afed422a6b1c4d4f062aa5a4d",
+  "wmma_forward_dispatches": 0,
+  "wmma_shape_fallbacks": 0,
+  "elapsed_ms": 4750.6905
+}
