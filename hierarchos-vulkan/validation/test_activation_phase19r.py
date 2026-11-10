@@ -134,7 +134,7 @@ class ActivationXIXRControls(unittest.TestCase):
 
     def test_step100_gap_missing(self):
         self.receipt["anomaly"]["step100_fresh_mixed"] = \
-            self.receipt["anomaly"]["step100_fresh_fp32"]
+            self.receipt["anomaly"]["step100_fresh_fp32arm"]
         self.expect("step-100 drift is not reproduced")
 
 

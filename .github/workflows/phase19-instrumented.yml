@@ -1,0 +1,23 @@
+name: phase19 instrumented qualification
+
+on:
+  push:
+    branches: [codex/rdna3-phase19-instrumented]
+  pull_request:
+    branches: [codex/rdna3-phase19-instrumented]
+
+jobs:
+  activation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Phase XIX-R activation receipt
+        run: python hierarchos-vulkan/validation/check_activation_phase19r.py
+      - name: Phase XIX-R negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_activation_phase19r.py"
