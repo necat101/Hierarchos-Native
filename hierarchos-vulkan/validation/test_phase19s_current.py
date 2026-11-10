@@ -100,7 +100,7 @@ class PhaseXIXSControls(unittest.TestCase):
             document = copy.deepcopy(self.document)
             document["mirror_epoch"]["post_fix_in_process_step1"] = 7.060197
             RECEIPT.write_text(json.dumps(document), encoding="utf-8")
-            self.expect("mirror")
+            self.expect("post-fix")
         finally:
             RECEIPT.write_bytes(original)
 
@@ -163,7 +163,7 @@ class PhaseXIXSControls(unittest.TestCase):
             top["subreceipts"]["training"]["sha256"] = digest(training)
             top["evidence"][key] = digest(training)
             RECEIPT.write_text(json.dumps(top), encoding="utf-8")
-            self.expect("optimizer")
+            self.expect("record count")
         finally:
             training.write_bytes(original_training)
             RECEIPT.write_bytes(original_top)
