@@ -26,8 +26,8 @@ import subprocess
 from pathlib import Path
 
 from check_phase16_receipts import (
-    COUNTS, ENVIRONMENT, EXTRA_SOURCES, GATES, LIMIT, PHASE16_ARTIFACTS, ROOT, SCOPE,
-    SEALED_GATE, SHADERS,
+    COUNTS, CRATE, ENVIRONMENT, EXTRA_SOURCES, GATES, LIMIT, PHASE16_ARTIFACTS, ROOT,
+    SCOPE, SEALED_GATE, SHADERS,
 )
 from check_rdna3_gpt2_receipts import RECEIPTS, SHAPES, validate_qualification
 from emit_two_pass_evidence import parse as parse_two_pass
@@ -135,13 +135,13 @@ def main():
                         "current-qualification.json")
     parser.add_argument("--cpu-fixtures", type=Path, required=True)
     parser.add_argument("--image-binary", type=Path,
-                        default=ROOT / "target/debug/image_text_pipeline_probe.exe")
+                        default=CRATE / "target/debug/image_text_pipeline_probe.exe")
     parser.add_argument("--gemma3-binary", type=Path,
-                        default=ROOT / "target/debug/gemma3_vision_probe.exe")
+                        default=CRATE / "target/debug/gemma3_vision_probe.exe")
     parser.add_argument("--gemma4-binary", type=Path,
-                        default=ROOT / "target/debug/gemma4_vision_probe.exe")
+                        default=CRATE / "target/debug/gemma4_vision_probe.exe")
     parser.add_argument("--llava-binary", type=Path,
-                        default=ROOT / "target/debug/llava_pipeline_probe.exe")
+                        default=CRATE / "target/debug/llava_pipeline_probe.exe")
     parser.add_argument("--libtest-binary", type=Path, required=True)
     args = parser.parse_args()
 
