@@ -78,7 +78,9 @@ def verify_shaders(run: Path) -> dict:
     require(gate.get("pass") is True, "Phase XVI shader gate did not pass")
     require(gate.get("sealed_scope") == 43 and gate.get("counts", {}).get("total") == 45,
             "Phase XVI shader gate is not 43 sealed + 2 new artifacts")
-    require(gate.get("status_counts") == {"identical": 45} and gate.get("failures") == [],
+    counts = gate.get("status_counts") or {}
+    require(counts.get("identical") == 45 and counts.get("failed", 0) == 0
+            and gate.get("failures") == [],
             "Phase XVI shader gate reports a failed artifact")
     rows = gate["artifacts"]
     sealed_rows = [row for row in rows if row.get("origin") == "sealed"]
