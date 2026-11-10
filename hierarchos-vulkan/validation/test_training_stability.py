@@ -107,7 +107,21 @@ class StabilityControls(unittest.TestCase):
         self.reject(receipt)
 
     def test_changed_dataset_hash(self) -> None:
+        # The real 65 MB fixture is ignored and may be absent in CI. Point the
+        # receipt at a present temporary fixture, then mutate its dataset hash
+        # so this control exercises the binding in every checkout.
         receipt = self.load()
+        fake = self.temp / "fixture-dataset"
+        model = fake / "model"
+        model.mkdir(parents=True)
+        (model / "config.json").write_text("{}", encoding="utf-8")
+        (model / "model.safetensors").write_bytes(b"weights")
+        dataset = fake / "dataset.jsonl"
+        dataset.write_text("{}\n", encoding="utf-8")
+        receipt["fixture"]["model"] = str(model)
+        receipt["fixture"]["dataset"] = str(dataset)
+        receipt["fixture"]["model_config_sha256"] = q.sha256_file(model / "config.json")
+        receipt["fixture"]["model_weights_sha256"] = q.sha256_file(model / "model.safetensors")
         receipt["fixture"]["dataset_sha256"] = "2" * 64
         self.reject(receipt)
 
