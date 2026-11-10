@@ -1,0 +1,2 @@
+exit=1
+Error: --save-training-state and --resume-training-state require a LoRA/PEFT run: full-parameter exact state is not implemented
