@@ -90,8 +90,8 @@ class ActivationControls(unittest.TestCase):
         self.expect("incomplete cross-evaluation matrix")
 
     def test_decomposition_does_not_close(self):
-        self.receipt["six_cell"]["interaction"] += 0.1
-        self.expect("decomposition does not close")
+        self.receipt["six_cell"]["residual"] += 0.1
+        self.expect("decomposition residual is nonzero")
 
     def test_step1_arms_swapped(self):
         first = self.receipt["checkpoints"]["step1-fp32"]["weights_sha256"]

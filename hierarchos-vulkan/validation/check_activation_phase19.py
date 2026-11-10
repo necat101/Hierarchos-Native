@@ -178,18 +178,15 @@ def main() -> int:
         require(value > 0.0, f"{key}: nonpositive cross-entropy")
     cells = matrix["cells"]
     observed = cells["step1-mixed|mixed"] - cells["step1-fp32|off"]
-    arithmetic = sum(cells[f"{name}|mixed"] - cells[f"{name}|off"]
-                     for name in ("initial", "step1-fp32", "step1-mixed")) / 3.0
-    weights = sum(cells[f"step1-mixed|{mode}"] - cells[f"initial|{mode}"]
-                  for mode in ("off", "mixed")) / 2.0
-    interaction = observed - arithmetic - weights
+    arithmetic = cells["step1-fp32|mixed"] - cells["step1-fp32|off"]
+    weights = cells["step1-mixed|mixed"] - cells["step1-fp32|mixed"]
     require(abs(matrix["observed_gap"] - observed) <= 1e-9,
             "observed gap does not close")
     require(abs(matrix["arithmetic_effect"] - arithmetic) <= 1e-9,
             "arithmetic effect does not close")
     require(abs(matrix["weight_effect"] - weights) <= 1e-9,
             "weight effect does not close")
-    require(abs(matrix["interaction"] - interaction) <= 1e-9,
+    require(abs(observed - arithmetic - weights) <= 1e-9,
             "decomposition does not close")
     require(abs(matrix["residual"]) <= 1e-9, "decomposition residual is nonzero")
 

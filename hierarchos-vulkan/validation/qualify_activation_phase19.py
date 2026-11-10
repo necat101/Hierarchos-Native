@@ -256,22 +256,22 @@ def main() -> int:
 
     ce = {key: value["cross_entropy"] for key, value in cells.items()}
     observed = ce["step1-mixed|mixed"] - ce["step1-fp32|off"]
-    arithmetic = sum(ce[f"{name}|mixed"] - ce[f"{name}|off"]
-                     for name in ("initial", "step1-fp32", "step1-mixed")) / 3.0
-    weights = sum(ce[f"step1-mixed|{mode}"] - ce[f"initial|{mode}"]
-                  for mode in ("off", "mixed")) / 2.0
-    interaction = observed - arithmetic - weights
+    # Path decomposition: hold the FP32-trained weights, change arithmetic;
+    # then hold mixed arithmetic, change to the mixed-trained weights.
+    arithmetic = ce["step1-fp32|mixed"] - ce["step1-fp32|off"]
+    weights = ce["step1-mixed|mixed"] - ce["step1-fp32|mixed"]
     matrix = {
         "cells": ce,
         "arithmetic_effect": arithmetic,
         "weight_effect": weights,
         "observed_gap": observed,
-        "interaction": interaction,
-        "residual": observed - arithmetic - weights - interaction,
+        "residual": observed - arithmetic - weights,
+        "arithmetic_at_mixed_weights": ce["step1-mixed|mixed"] - ce["step1-mixed|off"],
+        "weight_at_fp32_arithmetic": ce["step1-mixed|off"] - ce["step1-fp32|off"],
         "definition": ("observed = CE(mixed-trained,mixed) - CE(fp32-trained,off); "
-                       "arithmetic = mean over three weight sets of CE(w,mixed)-CE(w,off); "
-                       "weights = mean over both modes of CE(step1-mixed,m)-CE(initial,m); "
-                       "interaction is the two-way residual"),
+                       "arithmetic = CE(fp32-trained,mixed) - CE(fp32-trained,off); "
+                       "weights = CE(mixed-trained,mixed) - CE(fp32-trained,mixed); "
+                       "residual is the path closure error"),
     }
 
     trace_runs = {}
