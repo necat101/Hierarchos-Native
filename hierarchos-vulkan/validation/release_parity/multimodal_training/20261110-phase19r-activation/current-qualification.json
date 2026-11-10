@@ -2,7 +2,7 @@
   "phase": "XIX-R",
   "kind": "phase19r-instrumented-activation",
   "status": "PASS",
-  "source_revision": "8d95005df8c9d38b1935bc3abbab764b3392712b",
+  "source_revision": "3ac63b4d6315f1940688765c17c3e0751567c0ce",
   "source_clean": true,
   "source_files": {
     "src/activation_trace.rs": "012cddd0b25581bba15a6cb9decd35a00203ea6fb99ec1902ec41ef9aba67af3",
@@ -13,7 +13,7 @@
     "src/wmma_linear.rs": "f93016184750dcd7128ab242c2ad797cd547052f118d9c839faf72ae7edd2faf",
     "validation/qualify_activation_phase19r.py": "7ff1ea75e783e500abe0e258ca1dc989c8e088225dad6d217ef5eadf19f8f6e0",
     "validation/check_activation_phase19r.py": "fa99c1fa0e7cc4bcbbfd9d3f3630ba351c4e3ee7dab2cc44f9be588dd9fe4eb0",
-    "validation/test_activation_phase19r.py": "7ea0facf69e17a8ea69d8bd3f825a670d157d1587c1f73e67c3d9d823528c068"
+    "validation/test_activation_phase19r.py": "45e2fd2bf9179319b205325fd9a504d846e6eeadfbb4e5281a79570dc8aa18a2"
   },
   "binaries": {
     "activation_probe": "acb2bbf65fc2259985076cacd79b01899595d9e70075dbbce846c12eb133f139",
