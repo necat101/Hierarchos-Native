@@ -100,7 +100,7 @@ class PhaseXIXSControls(unittest.TestCase):
             document = copy.deepcopy(self.document)
             document["mirror_epoch"]["post_fix_in_process_step1"] = 7.060197
             RECEIPT.write_text(json.dumps(document), encoding="utf-8")
-            self.expect("post-fix")
+            self.expect("mirror evidence disagrees")
         finally:
             RECEIPT.write_bytes(original)
 
