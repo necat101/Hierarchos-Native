@@ -77,6 +77,13 @@ jobs:
           python hierarchos-vulkan/validation/check_training_phase16.py
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_training_phase16.py"
 
+      # Sustained full-FT convergence with a justified LR, per-step AdamW
+      # telemetry, failed-candidate evidence and the corrected controls.
+      - name: Phase XVI training stability qualification
+        run: |
+          python hierarchos-vulkan/validation/check_training_stability.py
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_training_stability.py"
+
       # The measured route tables are checked in, so the cheapest guard against a
       # stale one is a CPU-side comparison of each receipt with the record it was
       # written into. The checker covers every producer with a route record -- the
