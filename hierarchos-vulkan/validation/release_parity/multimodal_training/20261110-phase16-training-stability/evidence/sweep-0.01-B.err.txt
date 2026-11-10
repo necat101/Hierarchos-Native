@@ -1,0 +1,2 @@
+QUAL_CONFIG mode=full-finetune precision=off two_pass=true batch=8 seq=64 steps=100 start_step=0 lr=0.01 seed=7 device=AMD Radeon Graphics
+two-pass backward: kernels=true scratch=true supported=true key_blocks=1 causal=1 unfused_qk=9 head_dim=128 kv_seq=64 value_scale=1 bias=0 sparse=0 compressed=0 paged=0 offset=0

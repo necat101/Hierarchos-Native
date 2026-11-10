@@ -529,3 +529,16 @@ count is sound only when the widest block it leaves behind fits the streamed bou
 a count that cannot reach that must be the cap with the guard refusing the geometry.
 Both arms are asserted, so a future policy crediting blocks for a shape no submission
 can run fails the test instead of reaching the driver.
+
+## Full-FT training stability and current-source receipt
+
+The Phase XVI stability extension selects AdamW LR `1e-3` by a predeclared
+stable-late-window rule, runs all four full-FT arms for 100 steps, preserves
+exact LoRA resume and records real per-step optimizer telemetry. FP32 A/B and
+mixed C/D are bitwise identical within each pair; the fresh paired benchmark
+measures a 2.440× / 2.436× two-pass speedup. The 45-artifact shader gate and the
+preserved Phase XVI current-source checker both pass.
+
+See [PHASE16_TRAINING_STABILITY.md](PHASE16_TRAINING_STABILITY.md) and the
+receipt at
+`release_parity/multimodal_training/20261110-phase16-training-stability/`.
