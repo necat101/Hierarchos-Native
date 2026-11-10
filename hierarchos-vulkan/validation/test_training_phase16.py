@@ -98,7 +98,7 @@ class TrainingQualificationControls(unittest.TestCase):
 
     def test_changed_harness_binding(self) -> None:
         receipt = self.load()
-        receipt["source_files"]["src/bin/training_qualification.rs"] = "4" * 64
+        receipt["source_files"]["src/bin/hierarchos-vulkan-training-qualification.rs"] = "4" * 64
         self.reject(receipt)
 
     # --- matrix and dispatch --------------------------------------------------

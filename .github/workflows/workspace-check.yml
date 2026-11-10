@@ -69,6 +69,14 @@ jobs:
       - name: Phase XVI qualification negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase16_receipts.py"
 
+      # Sustained training, not a single gradient: the checker reconstructs all
+      # eight arms, the exact-resume pairs and the ABBA performance data from the
+      # shipped per-step reports and profiles instead of trusting a pass flag.
+      - name: Phase XVI training qualification
+        run: |
+          python hierarchos-vulkan/validation/check_training_phase16.py
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_training_phase16.py"
+
       # The measured route tables are checked in, so the cheapest guard against a
       # stale one is a CPU-side comparison of each receipt with the record it was
       # written into. The checker covers every producer with a route record -- the

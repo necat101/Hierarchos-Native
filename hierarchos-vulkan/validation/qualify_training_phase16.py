@@ -727,7 +727,7 @@ def main() -> int:
         "src/wmma.rs",
         "src/transformer/peft_state.rs",
         "src/lib.rs",
-        "src/bin/training_qualification.rs",
+        "src/bin/hierarchos-vulkan-training-qualification.rs",
         "src/bin/transformer_train.rs",
         "Cargo.toml",
         "shaders/transformer_attention_backward.spv",
