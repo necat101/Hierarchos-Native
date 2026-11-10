@@ -107,6 +107,10 @@ def main() -> int:
     require(ancestry.returncode == 0, "source revision is not an ancestor of HEAD")
 
     for item in document["evidence"]:
+        # Weight-package bytes stay in target/; CI can verify only the
+        # compact trace/evaluation evidence that was committed.
+        if item["name"].startswith("weights-"):
+            continue
         path = receipt / "evidence" / f"{item['name']}.json"
         require(path.is_file(), f"missing evidence file {item['name']}")
         require(sha256(path) == item["sha256"], f"evidence digest changed: {item['name']}")

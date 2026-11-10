@@ -370,7 +370,7 @@ def main() -> int:
               f"peak={peak['layer']}/{peak['operation']} {peak['normalized_rms']:.3e}")
     print("six_cell=" + json.dumps(ce, sort_keys=True))
     print(f"observed={observed:.6f} arithmetic={arithmetic:.6f} weights={weights:.6f} "
-          f"interaction={interaction:.6f}")
+          f"residual={matrix['residual']:.3e}")
     return 0
 
 
