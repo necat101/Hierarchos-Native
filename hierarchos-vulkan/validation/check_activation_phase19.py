@@ -149,7 +149,7 @@ def main() -> int:
     comparisons = document["comparisons"]
     require(set(comparisons) == set(document["checkpoints"]),
             "comparison set does not match checkpoints")
-    require(len(comparisons) == len(checkpoints), "checkpoint comparison count changed")
+    require(len(comparisons) == len(document["checkpoints"]), "checkpoint comparison count changed")
     for name, comparison in comparisons.items():
         check_comparison(name, comparison)
         run_mixed = runs[f"{name}|mixed"]
