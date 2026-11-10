@@ -1,0 +1,16 @@
+{
+  "phase18_claim": 7.06019704940392,
+  "phase18_fp32_step1": 6.7578439142979185,
+  "pre_fix_in_process_step1": 7.06019704940392,
+  "post_fix_in_process_step1": 6.757522781543543,
+  "fresh_step1_mixed": 6.757522781543548,
+  "fresh_step1_mixed_weights_off": 6.7575398218461595,
+  "fresh_step1_fp32arm": 6.7578439142979185,
+  "step100_in_process_mixed": 2.9262053213391686,
+  "step100_fresh_mixed": 2.9275678407436314,
+  "step100_fresh_mixed_weights_off": 2.92756263602981,
+  "step100_fresh_fp32arm": 2.8319610488830245,
+  "cause": "the in-process evaluation after step 1 read FP16 projection mirrors converted from pre-step masters; LayerNorm and embedding masters were current, so the loss landed between the initial and updated checkpoints",
+  "fix": "publish the master epoch after the submitted optimizer step (VulkanTransformer::train_step), so a between-step evaluation converts its mirrors from the post-step masters",
+  "conclusion": "the +0.302353 step-one gap was an evaluation-lag artifact; the step-100 mixed/FP32 gap is reproduced by fresh-process evaluation of the exported weights and remains a real drift"
+}
