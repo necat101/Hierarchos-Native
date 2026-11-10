@@ -7,7 +7,10 @@ forward-only evaluation path over the real Vulkan graph, and a source-bound
 receipt that reports validation and untouched-test loss rather than training
 loss.
 
-- Source revision: `7e5f4aed936a05e2e18e87087f875c0391aab884` (clean tree).
+- Source revision: `2b31fa848d23` (clean tree). The harness source and binary are
+  unchanged from `247dd56`; the later commits only fixed receipt assembly and
+  control ordering, and the bound binary hash is the same one the evidence was
+  produced with.
 - Harness: `src/bin/held_out_eval.rs`.
 - Receipt: `validation/release_parity/multimodal_training/20261110-phase17-heldout-generalization/`.
 - Device: AMD Radeon Graphics (Ryzen Z1 Extreme, `1002:15bf`).
