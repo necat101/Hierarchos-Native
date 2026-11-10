@@ -50,11 +50,14 @@ class HeldOutControls(unittest.TestCase):
         self.receipt_path.write_text(json.dumps(self.receipt, indent=2) + "\n", encoding="utf-8")
 
     def edit_evidence(self, name: str, mutate) -> None:
+        """Forge a hash-consistent mutation so the semantic rule is what rejects it."""
         path = self.root / "evidence" / name
         self.evidence_backups.setdefault(path, path.read_bytes())
         data = json.loads(path.read_text(encoding="utf-8"))
         mutate(data)
         path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        self.receipt["evidence"][name] = checker.q.sha256_file(path)
+        self.write_receipt()
 
     def expect(self, fragment: str) -> None:
         with self.assertRaises(checker.QualificationError) as context:
@@ -134,13 +137,13 @@ class HeldOutControls(unittest.TestCase):
 
     def test_changed_fixture_bytes(self) -> None:
         fixture_dir = p.CRATE / self.receipt["fixture"]["directory"]
-        path = fixture_dir / "vocab.json"
+        path = fixture_dir / "corpus.jsonl"
         backup = path.read_bytes()
-        data = json.loads(backup)
-        data["vocabulary"][0] = "tampered"
-        path.write_text(json.dumps(data, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+        # corpus.jsonl feeds neither the leakage nor the window checks, so this
+        # control isolates generator reproducibility from those rules.
+        path.write_bytes(backup + b"{\"tampered\":true}\n")
         try:
-            self.receipt["fixture"]["files"]["vocab.json"] = checker.q.sha256_file(path)
+            self.receipt["fixture"]["files"]["corpus.jsonl"] = checker.q.sha256_file(path)
             self.write_receipt()
             self.expect("not reproducible")
         finally:
@@ -213,6 +216,8 @@ class HeldOutControls(unittest.TestCase):
             ) + "\n",
             encoding="utf-8",
         )
+        self.receipt["evidence"]["arm-B.err.txt"] = checker.q.sha256_file(path)
+        self.write_receipt()
         self.expect("dispatch does not match the declared two-pass route")
 
     def test_invalid_binary_hash(self) -> None:
