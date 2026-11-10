@@ -132,7 +132,7 @@ def main():
     parser.add_argument("--run", type=Path, required=True,
                         help="directory holding shapes/, shared/, ... and two-pass/")
     parser.add_argument("--output", type=Path,
-                        default=ROOT / "validation/release_parity/multimodal_training/"
+                        default=CRATE / "validation/release_parity/multimodal_training/"
                         "20261109-rdna3-phase16-attention-backward-qualification/"
                         "current-qualification.json")
     parser.add_argument("--cpu-fixtures", type=Path, required=True)
