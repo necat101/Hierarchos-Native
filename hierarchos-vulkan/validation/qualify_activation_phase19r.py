@@ -30,7 +30,7 @@ CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 BIN = CRATE / "target/release"
 PROBE = BIN / "activation_probe.exe"
-WORK = CRATE / "target/phase19r"
+WORK = Path(os.environ.get("HIERARCHOS_PHASE19R_WORK", CRATE / "target/phase19r"))
 EXPORTS = WORK / "exports"
 RECEIPT = (
     CRATE / "validation/release_parity/multimodal_training/20261110-phase19r-activation"
