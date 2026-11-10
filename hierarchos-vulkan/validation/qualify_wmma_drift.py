@@ -288,6 +288,65 @@ def validate_fixture() -> dict:
     return {"manifest_sha256": sha256_file(FIXTURE / "split_manifest.json"), "partitions": phases}
 
 
+def build_forward_comparisons(work: Path, runs: list[dict]) -> None:
+    """Dump exact logits for every checkpoint under both execution modes.
+
+    This runs after the GPU sweep and is idempotent: existing sidecars are
+    reused, so a receipt can be reassembled without touching the device.
+    """
+    checkpoint_dirs = {
+        "step-0": {
+            "directory": MODEL,
+            "run": "order-0-off",
+            "digest": runs[0]["data"]["parameter_start_digest"],
+        }
+    }
+    for run_record in runs:
+        if run_record["order_offset"] != 0:
+            continue
+        for export in run_record["exports"]:
+            key = f"step-{export['step']}"
+            if key in checkpoint_dirs:
+                continue
+            checkpoint_dirs[key] = {
+                "directory": Path(export["directory"]),
+                "run": run_record["label"],
+                "digest": export["parameter_digest"],
+            }
+    for key, checkpoint in sorted(checkpoint_dirs.items()):
+        directory = checkpoint["directory"]
+        summaries = {}
+        for mode in MODES:
+            binary_path = work / "forward" / f"{key}-{mode}.bin"
+            sidecar = binary_path.with_suffix(".json")
+            if binary_path.is_file() and sidecar.is_file():
+                summaries[mode] = (binary_path, json.loads(sidecar.read_text(encoding="utf-8")))
+                continue
+            command = [
+                str(BINARY),
+                "--model", str(directory),
+                "--validation", str(FIXTURE / "validation.jsonl"),
+                "--dump-logits", str(binary_path),
+                "--report", str(work / "forward" / "unused.json"),
+            ]
+            invoke(command, drift_env(mode), work / "forward" / f"{key}-{mode}.log", f"forward-{key}-{mode}")
+            summaries[mode] = (binary_path, json.loads(sidecar.read_text(encoding="utf-8")))
+        comparison = compare_logits(
+            summaries["off"][0], summaries["mixed"][0], summaries["off"][1], summaries["mixed"][1]
+        )
+        comparison["checkpoint"] = key
+        comparison["directory"] = str(directory)
+        comparison["source_run"] = checkpoint["run"]
+        comparison["source_parameter_digest"] = checkpoint["digest"]
+        comparison["off_parameter_digest"] = summaries["off"][1]["parameter_digest"]
+        comparison["mixed_parameter_digest"] = summaries["mixed"][1]["parameter_digest"]
+        comparison["off_logits_sha256"] = sha256_file(summaries["off"][0])
+        comparison["mixed_logits_sha256"] = sha256_file(summaries["mixed"][0])
+        for run_record in runs:
+            if run_record["order_offset"] == 0:
+                run_record["forward"].append(comparison)
+
+
 def analyze(work: Path, runs: list[dict]) -> dict:
     mode_runs = {
         mode: next(run for run in runs if run["label"] == f"order-0-{mode}")
@@ -446,61 +505,13 @@ def main() -> int:
                     }
                 )
 
-        # Same-weight forward comparisons: dump exact logits from the initial
-        # checkpoint and from each weights-only export, once per precision mode.
-        checkpoint_dirs = {
-            "step-0": {
-                "directory": MODEL,
-                "run": "order-0-off",
-                "digest": runs[0]["data"]["parameter_start_digest"],
-            }
-        }
-        for run_record in runs:
-            if run_record["order_offset"] != 0:
-                continue
-            for export in run_record["exports"]:
-                key = f"step-{export['step']}"
-                if key in checkpoint_dirs:
-                    continue
-                checkpoint_dirs[key] = {
-                    "directory": Path(export["directory"]),
-                    "run": run_record["label"],
-                    "digest": export["parameter_digest"],
-                }
-        for key, checkpoint in sorted(checkpoint_dirs.items()):
-            directory = checkpoint["directory"]
-            summaries = {}
-            for mode in MODES:
-                binary_path = work / "forward" / f"{key}-{mode}.bin"
-                sidecar = binary_path.with_suffix(".json")
-                if binary_path.is_file() and sidecar.is_file():
-                    summaries[mode] = (binary_path, json.loads(sidecar.read_text(encoding="utf-8")))
-                    continue
-                command = [
-                    str(BINARY),
-                    "--model", str(directory),
-                    "--validation", str(FIXTURE / "validation.jsonl"),
-                    "--dump-logits", str(binary_path),
-                    "--report", str(work / "forward" / "unused.json"),
-                ]
-                invoke(command, drift_env(mode), work / "forward" / f"{key}-{mode}.log", f"forward-{key}-{mode}")
-                summaries[mode] = (binary_path, json.loads(sidecar.read_text(encoding="utf-8")))
-            comparison = compare_logits(
-                summaries["off"][0], summaries["mixed"][0], summaries["off"][1], summaries["mixed"][1]
-            )
-            comparison["checkpoint"] = key
-            comparison["directory"] = str(directory)
-            comparison["source_run"] = checkpoint["run"]
-            comparison["source_parameter_digest"] = checkpoint["digest"]
-            comparison["off_parameter_digest"] = summaries["off"][1]["parameter_digest"]
-            comparison["mixed_parameter_digest"] = summaries["mixed"][1]["parameter_digest"]
-            comparison["off_logits_sha256"] = sha256_file(summaries["off"][0])
-            comparison["mixed_logits_sha256"] = sha256_file(summaries["mixed"][0])
-            for run_record in runs:
-                if run_record["order_offset"] == 0:
-                    run_record["forward"].append(comparison)
+    build_forward_comparisons(work, runs)
 
     analysis = analyze(work, runs)
+    mode_runs = {
+        mode: next(run for run in runs if run["label"] == f"order-0-{mode}")
+        for mode in MODES
+    }
     observations = {
         "one_step_parameter_divergence": analysis["step_1_weight_divergence"],
         "step_1_update_divergence": analysis["step_1_update"]["divergence"],
