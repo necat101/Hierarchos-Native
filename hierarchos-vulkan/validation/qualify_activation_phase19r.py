@@ -305,7 +305,7 @@ def main() -> int:
         evidence.append({"name": f"trace-{name}-{mode}",
                          "sha256": sha256_file(WORK / "traces" / f"{name}-{mode}" / "trace.json")})
     for key, report in cells.items():
-        evidence.append({"name": f"eval-{key}",
+        evidence.append({"name": f"eval-{key.replace('|', '-')}",
                          "sha256": sha256_file(WORK / "eval" / key.replace("|", "-") / "eval.json")})
     evidence.append({"name": "anomaly", "sha256": ""})
     for name, value in (("phase18", None),):
