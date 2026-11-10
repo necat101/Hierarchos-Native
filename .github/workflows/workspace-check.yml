@@ -84,6 +84,15 @@ jobs:
           python hierarchos-vulkan/validation/check_training_stability.py
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_training_stability.py"
 
+      # Held-out, not training-loss, evidence: the checker re-derives the
+      # document-level split from its committed generator, replays every arm's
+      # per-step report and every forward-only evaluation, and requires the
+      # read-only, dispatch and leakage controls to hold.
+      - name: Phase XVII held-out generalization qualification
+        run: |
+          python hierarchos-vulkan/validation/check_heldout_phase17.py
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_heldout_phase17.py"
+
       # The measured route tables are checked in, so the cheapest guard against a
       # stale one is a CPU-side comparison of each receipt with the record it was
       # written into. The checker covers every producer with a route record -- the

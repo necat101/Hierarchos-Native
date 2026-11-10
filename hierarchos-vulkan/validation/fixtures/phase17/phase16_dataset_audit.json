@@ -1,0 +1,52 @@
+{
+  "arithmetic_progression_offsets": {
+    "distinct_offset_sets": 2,
+    "sample": [
+      [
+        7,
+        15
+      ],
+      [
+        7,
+        15
+      ],
+      [
+        7,
+        15
+      ],
+      [
+        7
+      ]
+    ]
+  },
+  "bytes": 10627,
+  "dataset": "phase16_dataset.jsonl",
+  "exact_duplicates": 0,
+  "examples": 32,
+  "independent_source_documents": 1,
+  "loss_mask": "every real position supervised; padded positions carry target u32::MAX and weight 0",
+  "near_duplicate_examples": [],
+  "near_duplicate_pairs": 0,
+  "padding": "none at fixture level; the training harness pads short rows with PAD and masks them",
+  "schedule_reuse": {
+    "batch_size": 8,
+    "distinct_examples": 32,
+    "mean_reuse_per_example": 25.0,
+    "repeats_within_run": true,
+    "sample_draws": 800,
+    "steps": 100
+  },
+  "sequence_lengths": [
+    64
+  ],
+  "sequence_packing": "one contiguous window of 64 tokens per row",
+  "sha256": "0c5d3e907ff5158d819fbca3cd67a81f0d35578a7dfe596237879683a086af9c",
+  "split_verdict": {
+    "can_support_held_out_split": false,
+    "reason": "the corpus is one generator family of 32 modular arithmetic progressions; every row is a cyclic shift of the same progression, so any partition leaks the held-out distribution and the 100-step schedule reuses each example 25.0x on average",
+    "recommendation": "keep this fixture frozen for Phase XVI numerical and dispatch qualification; run Phase XVII held-out evaluation on the separate document-level fixture in validation/fixtures/phase17"
+  },
+  "tokenization": "pretokenized integer ids; no tokenizer is consulted",
+  "tokens": 2048,
+  "unique_examples": 32
+}
