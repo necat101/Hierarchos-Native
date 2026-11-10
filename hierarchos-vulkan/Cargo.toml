@@ -51,6 +51,10 @@ name = "hierarchos-vulkan-optimizer-inspect"
 path = "src/bin/optimizer_inspect.rs"
 
 [[bin]]
+name = "hierarchos-vulkan-training-qualification"
+path = "src/bin/training_qualification.rs"
+
+[[bin]]
 name = "hierarchos-vulkan-out-norm-step"
 path = "src/bin/out_norm_step.rs"
 
