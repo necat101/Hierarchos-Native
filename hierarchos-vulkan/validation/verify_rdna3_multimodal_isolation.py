@@ -21,12 +21,25 @@ def main():
     paths = git('ls-tree', '-r', '--name-only', commit, '--',
         'hierarchos-vulkan/shaders', 'hierarchos-vulkan/validation/fixtures').decode().splitlines()
     failures = []
+    # Ask Git for all committed object IDs and all working-tree object IDs in
+    # two batched calls. Per-file `git rev-parse` on Windows spawns thousands
+    # of processes and can stall; the batched forms produce identical IDs and
+    # still use Git's clean filter, so CRLF checkout conversion is handled.
+    tree = git('ls-tree', '-r', commit, '--',
+        'hierarchos-vulkan/shaders', 'hierarchos-vulkan/validation/fixtures').decode()
+    expected_by_name = {}
+    for line in tree.splitlines():
+        metadata, name = line.split('\t', 1)
+        expected_by_name[name] = metadata.split()[2]
+    existing = [name for name in paths if (ROOT / name).is_file()]
+    hashed = subprocess.run(
+        ['git', '-C', str(ROOT), 'hash-object', '--stdin-paths'],
+        input='\n'.join(existing), capture_output=True, text=True, check=True,
+    ).stdout.splitlines()
+    actual_by_name = dict(zip(existing, hashed))
     for name in paths:
-        path = ROOT / name
-        # Git blobs are LF-normalized for text. Compare through Git's normal
-        # clean filter so checkout CRLF conversion cannot masquerade as edits.
-        expected = git('rev-parse', commit + ':' + name).decode().strip()
-        actual = git('hash-object', '--path=' + name, str(path)).decode().strip() if path.is_file() else None
+        expected = expected_by_name.get(name)
+        actual = actual_by_name.get(name)
         if actual != expected:
             failures.append(name)
     name = 'hierarchos-vulkan/validation/training_shader_manifest.json'
