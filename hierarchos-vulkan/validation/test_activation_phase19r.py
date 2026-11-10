@@ -56,6 +56,8 @@ class ActivationXIXRControls(unittest.TestCase):
         self.receipt["source_files"]["src/activation_trace.rs"] = "0" * 64
         self.expect("bound source changed: src/activation_trace.rs")
 
+    @unittest.skipUnless((CRATE / "target/release/activation_probe.exe").is_file(),
+                         "probe binary is not checked out")
     def test_changed_binary(self):
         self.receipt["binaries"]["activation_probe"] = "0" * 64
         self.expect("binary hash changed: activation_probe")
