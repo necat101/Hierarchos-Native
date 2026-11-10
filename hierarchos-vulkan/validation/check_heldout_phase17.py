@@ -144,6 +144,15 @@ def verify(receipt_dir: Path, crate: Path | None = None) -> dict:
 
     # --- leakage ------------------------------------------------------------
     partitions = manifest["partitions"]
+    # Cross-partition identity is checked before manifest/file consistency so a
+    # duplicated document is rejected as duplicate leakage, not as a bookkeeping
+    # mismatch.
+    train_docs = set(partitions["train"]["documents_list"])
+    validation_docs = set(partitions["validation"]["documents_list"])
+    test_docs = set(partitions["test"]["documents_list"])
+    require(not train_docs & validation_docs, "duplicate documents across partitions: train/validation")
+    require(not train_docs & test_docs, "duplicate documents across partitions: train/test")
+    require(not validation_docs & test_docs, "duplicate documents across partitions: validation/test")
     for name in ("train", "validation", "test"):
         documents = [
             json.loads(line)["document_id"]
@@ -154,12 +163,6 @@ def verify(receipt_dir: Path, crate: Path | None = None) -> dict:
                 f"{name} document count changed")
         require(set(documents) == set(partitions[name]["documents_list"]),
                 f"{name} document identities changed")
-    train_docs = set(partitions["train"]["documents_list"])
-    validation_docs = set(partitions["validation"]["documents_list"])
-    test_docs = set(partitions["test"]["documents_list"])
-    require(not train_docs & validation_docs, "duplicate documents across partitions: train/validation")
-    require(not train_docs & test_docs, "duplicate documents across partitions: train/test")
-    require(not validation_docs & test_docs, "duplicate documents across partitions: validation/test")
 
     def grams(name: str) -> set[str]:
         values = set()
@@ -199,10 +202,10 @@ def verify(receipt_dir: Path, crate: Path | None = None) -> dict:
         recomputed = p.derive_windows(fixture_dir / f"{name}.jsonl", manifest["seq_len"])
         require(len(recomputed) == expected["windows"], f"{name} window count changed")
         require(sum(window["valid_tokens"] for window in recomputed)
-                == expected["valid_target_tokens"], f"{name} valid target token count changed")
-        require(sum(window["valid_tokens"] for window in recomputed)
                 < expected["windows"] * manifest["seq_len"],
                 f"{name} reports padding as supervised loss")
+        require(sum(window["valid_tokens"] for window in recomputed)
+                == expected["valid_target_tokens"], f"{name} valid target token count changed")
 
     # --- evidence map -------------------------------------------------------
     recorded = receipt.get("evidence", {})
@@ -245,6 +248,9 @@ def verify(receipt_dir: Path, crate: Path | None = None) -> dict:
                 f"arm {arm_id} precision label")
 
         evaluations = {e["tag"]: e for e in report["evaluations"]}
+        for tag in ("test@0", "test@final"):
+            require(evaluations[tag]["partition"] == "test",
+                    f"arm {arm_id} presents a validation-only result as test evidence")
         expected_validation = {f"validation@{step}" for step in p.SCHEDULE}
         require({name for name in evaluations if name.startswith("validation@")}
                 == expected_validation, f"arm {arm_id} validation schedule")

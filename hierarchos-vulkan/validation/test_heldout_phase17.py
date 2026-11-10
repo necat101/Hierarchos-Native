@@ -85,9 +85,15 @@ class HeldOutControls(unittest.TestCase):
         )
         path = fixture_dir / "validation.jsonl"
         backup = path.read_bytes()
-        rows = [line for line in backup.decode("utf-8").splitlines() if line.strip()]
-        rows[0] = train_row
-        path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+        rows = [json.loads(line) for line in backup.decode("utf-8").splitlines() if line.strip()]
+        # Keep the held-out document's identity and only reuse a training
+        # document's tokens, so the overlap rule is what rejects the receipt.
+        rows[0]["input_ids"] = json.loads(train_row)["input_ids"]
+        path.write_text(
+            "\n".join(json.dumps(row, sort_keys=True, separators=(",", ":")) for row in rows)
+            + "\n",
+            encoding="utf-8",
+        )
         try:
             self.receipt["fixture"]["files"]["validation.jsonl"] = checker.q.sha256_file(path)
             self.write_receipt()
