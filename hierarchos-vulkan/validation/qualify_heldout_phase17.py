@@ -65,6 +65,8 @@ ARMS = {
     "C": dict(precision="mixed", wmma="mixed", backward="scalar", two_pass="0"),
     "D": dict(precision="mixed", wmma="mixed", backward="twopass", two_pass="1"),
 }
+_REUSE_WORK = False
+
 CONTROL_ARMS = ("A", "D")
 CONTROL_STEPS = 20
 CONTROL_EVAL_AT = 10
@@ -135,6 +137,27 @@ def run_arm(
     report_path = reports / f"{tag}.json"
     stdout_path = logs / f"{tag}.out.txt"
     stderr_path = logs / f"{tag}.err.txt"
+    if _REUSE_WORK and report_path.is_file() and stderr_path.is_file():
+        # Reassembly mode: the GPU evidence already exists in this work
+        # directory, so re-read it instead of rerunning the workloads.
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        stderr_text = stderr_path.read_text(encoding="utf-8", errors="replace")
+        return {
+            "tag": tag,
+            "arm": arm,
+            "report": report,
+            "report_path": report_path,
+            "stderr_path": stderr_path,
+            "returncode": 0,
+            "process_ms": 0.0,
+            "blocks": q.parse_profile(stderr_text) if profile else [],
+            "seed": seed,
+            "order_offset": order_offset,
+            "expected_steps": steps,
+            "expected_schedule": schedule,
+            "eval_at": eval_at,
+            "final_test": final_test,
+        }
     cmd = [
         str(BIN),
         "--model", str(MODEL),
@@ -408,7 +431,10 @@ def main() -> int:
     parser.add_argument("--install", action="store_true")
     parser.add_argument("--skip-replication", action="store_true")
     parser.add_argument("--allow-dirty", action="store_true")
+    parser.add_argument("--reuse-work", action="store_true")
     args = parser.parse_args()
+    global _REUSE_WORK
+    _REUSE_WORK = args.reuse_work
 
     if not BIN.is_file():
         print(f"missing {BIN}; run cargo build --release --bin held_out_eval", file=sys.stderr)
@@ -642,7 +668,7 @@ def main() -> int:
             "phase16_audit": json.loads(AUDIT.read_text(encoding="utf-8")),
             "phase16_dataset_sha256": q.sha256_file(PHASE16_DATASET_COPY),
             "phase16_receipt_dataset_sha256": json.loads(
-                PHASE16_RECEIPT.read_text(encoding="utf-8")
+                STABILITY_RECEIPT.read_text(encoding="utf-8")
             )["fixture"]["dataset_sha256"],
             "model": {
                 "path": str(MODEL.relative_to(CRATE)).replace("\\", "/"),
