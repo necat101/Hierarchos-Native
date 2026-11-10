@@ -92,7 +92,7 @@ class ActivationXIXRControls(unittest.TestCase):
 
     def test_wrong_shape(self):
         tensor = self.receipt["comparisons"]["initial"]["tensors"][1]
-        tensor["shape"] = [8, 63, tensor["shape"][2]]
+        tensor["shape"] = [8, 64, tensor["shape"][2] + 1]
         self.expect("element count does not match shape")
 
     def test_tampered_trace_digest(self):
