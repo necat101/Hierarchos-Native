@@ -6,6 +6,9 @@
 //! primitives, checkpoint conventions, and FP32-master training foundation.
 
 mod adapter;
+/// Opt-in, observation-only activation tracing for the resident Transformer
+/// graph. Disabled unless `HIERARCHOS_ACTIVATION_TRACE=1`.
+pub mod activation_trace;
 /// Shared three-leg A/B harness for the measurement receipts; see the module
 /// docs for the pattern and its fail-closed guarantees.
 pub mod bench_ab;

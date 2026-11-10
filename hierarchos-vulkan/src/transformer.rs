@@ -61169,6 +61169,14 @@ impl VulkanTransformerLayer {
             )?;
             &self.tape.ln1
         };
+        crate::activation_trace::tap(
+            commands,
+            attention_input,
+            rows * d,
+            self.layer_index as usize,
+            "pre_attention_norm",
+            [batch_size, seq_len, d],
+        )?;
         let attention_input = if let Some(mamba) = self.falcon_h1.as_ref() {
             let state = self_attention_cache
                 .map(|(cache, _, _)| {
@@ -61430,6 +61438,30 @@ impl VulkanTransformerLayer {
                         [div_ceil_u32(q, 16), div_ceil_u32(rows, 16), 1],
                     )?;
                 }
+                crate::activation_trace::tap(
+                    commands,
+                    &self.tape.q,
+                    rows * q,
+                    self.layer_index as usize,
+                    "q_proj",
+                    [batch_size, seq_len, q],
+                )?;
+                crate::activation_trace::tap(
+                    commands,
+                    &self.tape.k,
+                    rows * key_hidden,
+                    self.layer_index as usize,
+                    "k_proj",
+                    [batch_size, seq_len, key_hidden],
+                )?;
+                crate::activation_trace::tap(
+                    commands,
+                    &self.tape.v,
+                    rows * value_hidden,
+                    self.layer_index as usize,
+                    "v_proj",
+                    [batch_size, seq_len, value_hidden],
+                )?;
                 let post_rope_qk_norm = config.architecture.uses_post_rope_qk_norm();
                 let q_norm_rows = if config.architecture.uses_full_projection_qk_norm() {
                     rows
@@ -61880,6 +61912,14 @@ impl VulkanTransformerLayer {
                     [seq_len as u32, self.num_heads as u32, batch_size as u32],
                 )?;
             }
+            crate::activation_trace::tap(
+                commands,
+                &self.tape.attention,
+                rows * attention_hidden,
+                self.layer_index as usize,
+                "attention_context",
+                [batch_size, seq_len, attention_hidden],
+            )?;
             let attention_output = if let Some(attention_gate) = self.attention_gate.as_ref() {
                 record_transformer_linear_forward(
                     attention_gate,
@@ -61950,6 +61990,14 @@ impl VulkanTransformerLayer {
                 training,
                 rng_step,
                 rng_seed,
+            )?;
+            crate::activation_trace::tap(
+                commands,
+                &self.tape.attention_projection,
+                rows * d,
+                self.layer_index as usize,
+                "attention_output_projection",
+                [batch_size, seq_len, d],
             )?;
             &self.tape.attention_projection
         };
@@ -62086,6 +62134,14 @@ impl VulkanTransformerLayer {
             }
             None
         };
+        crate::activation_trace::tap(
+            commands,
+            &self.tape.residual1,
+            rows * d,
+            self.layer_index as usize,
+            "attention_residual",
+            [batch_size, seq_len, d],
+        )?;
         if post_residual_norm && qwen4_hyper_after_attention.is_none() {
             self.ln1.record_forward(
                 commands,
@@ -62208,6 +62264,14 @@ impl VulkanTransformerLayer {
             )?;
             &self.tape.ln2
         };
+        crate::activation_trace::tap(
+            commands,
+            mlp_norm,
+            rows * d,
+            self.layer_index as usize,
+            "pre_mlp_norm",
+            [batch_size, seq_len, d],
+        )?;
         if let Some(shortcut_moe) = self.shortcut_moe.as_ref() {
             let shortcut_output = self
                 .shortcut_moe_output
@@ -62276,6 +62340,14 @@ impl VulkanTransformerLayer {
                 training,
                 rng_step,
                 rng_seed,
+            )?;
+            crate::activation_trace::tap(
+                commands,
+                &self.tape.mlp_pre,
+                rows * i,
+                self.layer_index as usize,
+                "mlp_gate_up_projection",
+                [batch_size, seq_len, i],
             )?;
             let activation_push = LenPush {
                 len: (rows * i) as u32,
@@ -62403,6 +62475,14 @@ impl VulkanTransformerLayer {
                 }
                 &self.tape.mlp_activation
             };
+            crate::activation_trace::tap(
+                commands,
+                mlp_input,
+                rows * i,
+                self.layer_index as usize,
+                "mlp_activation",
+                [batch_size, seq_len, i],
+            )?;
             let mlp_input = if config.activation_dropout > 0.0 {
                 record_transformer_dropout(
                     commands,
@@ -62470,6 +62550,14 @@ impl VulkanTransformerLayer {
                 )?;
             }
         }
+        crate::activation_trace::tap(
+            commands,
+            &self.tape.mlp_output,
+            rows * d,
+            self.layer_index as usize,
+            "mlp_output",
+            [batch_size, seq_len, d],
+        )?;
         if let Some(mamba) = self.falcon_h1.as_ref() {
             falcon_h1::scale(
                 commands,
@@ -62573,7 +62661,7 @@ impl VulkanTransformerLayer {
                 rows * d,
                 config.residual_multiplier,
             )?;
-            return self.ln2.record_forward(
+            self.ln2.record_forward(
                 commands,
                 kernels,
                 &self.tape.post_mlp_norm,
@@ -62581,7 +62669,16 @@ impl VulkanTransformerLayer {
                 &self.tape.ln2_mean,
                 &self.tape.ln2_rstd,
                 rows,
-            );
+            )?;
+            crate::activation_trace::tap(
+                commands,
+                &self.tape.output,
+                rows * d,
+                self.layer_index as usize,
+                "layer_output",
+                [batch_size, seq_len, d],
+            )?;
+            return Ok(());
         }
         let mlp_residual_input = if config.residual_connection_post_layernorm {
             mlp_norm
@@ -62596,7 +62693,16 @@ impl VulkanTransformerLayer {
             &self.tape.output,
             rows * d,
             config.residual_multiplier,
-        )
+        )?;
+        crate::activation_trace::tap(
+            commands,
+            &self.tape.output,
+            rows * d,
+            self.layer_index as usize,
+            "layer_output",
+            [batch_size, seq_len, d],
+        )?;
+        Ok(())
     }
 
     fn record_backward(
@@ -77096,6 +77202,7 @@ impl VulkanTransformer {
         eval_config.embedding_dropout = 0.0;
         let embedding_size = eval_config.effective_embedding_size();
 
+        crate::activation_trace::begin(&self.device);
         let mut commands = vulkan::ComputeBatch::new(&self.device)?;
         commands.enable_watchdog_submission_slicing();
         commands.upload_u32(&self.token_ids, input_ids)?;
@@ -77613,6 +77720,14 @@ impl VulkanTransformer {
             None
         };
 
+        crate::activation_trace::tap(
+            &mut commands,
+            &self.input_hidden,
+            self.rows * eval_config.hidden_size,
+            0,
+            "token_embedding",
+            [self.batch_size, self.seq_len, eval_config.hidden_size],
+        )?;
         for layer_index in 0..active_layer_count {
             let input = if layer_index == 0 {
                 if let Some(hyper) = deepseek_v4_initial_input {
@@ -77750,6 +77865,14 @@ impl VulkanTransformer {
             commands.submit()?;
             return Ok((Vec::new(), Vec::new()));
         }
+        crate::activation_trace::tap(
+            &mut commands,
+            terminal_hidden,
+            self.rows * eval_config.hidden_size,
+            0,
+            "final_norm",
+            [self.batch_size, self.seq_len, eval_config.hidden_size],
+        )?;
         let decoder_output = if let Some(output_project) = self.output_project.as_ref() {
             output_project.record_forward(
                 &mut commands,
@@ -77881,7 +78004,16 @@ impl VulkanTransformer {
                 [div_ceil_u32(self.rows * eval_config.vocab_size, 256), 1, 1],
             )?;
         }
+        crate::activation_trace::tap(
+            &mut commands,
+            &self.logits,
+            self.rows * eval_config.vocab_size,
+            0,
+            "logits",
+            [self.batch_size, self.seq_len, eval_config.vocab_size],
+        )?;
         commands.submit()?;
+        crate::activation_trace::finish(&self.device)?;
         let logits = self.logits.read_f32(self.rows * eval_config.vocab_size)?;
         let last_hidden_dim = if self.output_project.is_some() {
             eval_config.effective_embedding_size()
