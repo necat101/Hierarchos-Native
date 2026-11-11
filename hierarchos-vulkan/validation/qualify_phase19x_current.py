@@ -210,7 +210,7 @@ def main() -> int:
                 "max_ulp": attention["attention_backward"]["max_ulp"],
             },
             "training_arms": training["arms"],
-            "resume_arms": len(training["resume_arms"]),
+            "resume_arms": len(training["resume"]),
             "stability_arms": stability["arms"],
             "heldout_arms": heldout["arms"],
             "drift_runs": drift["runs"],
