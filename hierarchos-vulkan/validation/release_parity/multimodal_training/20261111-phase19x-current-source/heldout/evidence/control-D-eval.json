@@ -1,0 +1,2462 @@
+{
+  "mode": "training",
+  "device": "AMD Radeon Graphics",
+  "model": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\wmma-fixture\\model",
+  "train_partition": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\fixtures\\phase17\\train.jsonl",
+  "validation_partition": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\fixtures\\phase17\\validation.jsonl",
+  "test_partition": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\fixtures\\phase17\\test.jsonl",
+  "batch": 8,
+  "seq": 64,
+  "steps": 20,
+  "seed": 7,
+  "precision_requested": "mixed",
+  "two_pass_requested": true,
+  "lr": 0.001,
+  "beta1": 0.9,
+  "beta2": 0.999,
+  "eps": 1e-8,
+  "weight_decay": 0.0,
+  "schedule": [],
+  "parameter_elements": 16782336,
+  "train_windows": 2304,
+  "validation_windows": 288,
+  "test_windows": 288,
+  "partition_stream_sha256": {
+    "test": "84439553d1040b74dd7c85ab53319500fa3ad3d03fdd7ce8600a0fc682506b82",
+    "train": "dedaf1b1b8f3b6bc017deab96e13a782b53e3558bb59dd5f13c47c25cb08dc2e",
+    "validation": "9854425aaf8422b6d0cc7f75b7aa4909e10a1aa1e79cf9660e123adb63eaba82"
+  },
+  "parameter_start_digest": "daaa3852a49494874b6f6d9e4ffd6db50690cc9afed422a6b1c4d4f062aa5a4d",
+  "parameter_end_digest": "c66bf765b58d38459052edfb0e36fd7549e935d1927a6fd7b511567e1975e2d8",
+  "parameter_nonfinite": 0,
+  "optimizer_step": 20,
+  "dropout_seed": 7,
+  "all_losses_finite": true,
+  "records": [
+    {
+      "global_step": 0,
+      "optimizer_step": 1,
+      "loss": 7.148527,
+      "loss_bits": 1088733372,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "1c8b4f191a7933b05fe7dccecfdd7dc1878c10c99907be9338df8e31382dec11",
+      "step_ms": 254.29459999999997,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 1,
+      "optimizer_step": 2,
+      "loss": 7.038417,
+      "loss_bits": 1088502454,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "66824242658b1e88d13bb3a28c9c5bbb30879ac53e5cc1d59833554819c34a26",
+      "step_ms": 228.6395,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 2,
+      "optimizer_step": 3,
+      "loss": 6.598278,
+      "loss_bits": 1087579416,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "dcc15239e1435120800b718041c9615de7fb4eab67e3194ac06cc5d3198685b2",
+      "step_ms": 236.0271,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 3,
+      "optimizer_step": 4,
+      "loss": 6.296502,
+      "loss_bits": 1086946546,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "b0fb4b0f3b5f295a4aeb9fa15a814cfe2444744db8080a65a0369fa764c56cbb",
+      "step_ms": 228.19819999999999,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 4,
+      "optimizer_step": 5,
+      "loss": 6.498619,
+      "loss_bits": 1087370416,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "76b56adb055be5811c1acc83141239f3f5bd6fe6dc43b9ed1527c4189531010a",
+      "step_ms": 236.1249,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 5,
+      "optimizer_step": 6,
+      "loss": 6.0692825,
+      "loss_bits": 1086470032,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "19e8175b56881cd3c7f9b09498d7709550028848461d7e7559444638d3fe4936",
+      "step_ms": 228.00390000000002,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 6,
+      "optimizer_step": 7,
+      "loss": 5.484806,
+      "loss_bits": 1085244296,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "90f81b1fc5c65a58061abb44e9b9de3a51e86fd3348e24450b713165344da118",
+      "step_ms": 235.6001,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 7,
+      "optimizer_step": 8,
+      "loss": 5.7622643,
+      "loss_bits": 1085826168,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "71a5fcf12f749ce63c8b5fa20ab51844f79befb3819b6c6d9445eb19c95c2ba9",
+      "step_ms": 229.51340000000002,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 8,
+      "optimizer_step": 9,
+      "loss": 5.37766,
+      "loss_bits": 1085019594,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "1b2f53bff03ec0d124f3636def9dd8e68c45c60d08f560ad0757ee19a194809c",
+      "step_ms": 228.6017,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 9,
+      "optimizer_step": 10,
+      "loss": 9.878075,
+      "loss_bits": 1092488344,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "6fc920301e301a6f4fb2b0d5ce1bf61efd786d3476682928686f265489ca1d53",
+      "step_ms": 241.6603,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 10,
+      "optimizer_step": 11,
+      "loss": 5.105163,
+      "loss_bits": 1084448127,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "887e28dfe8ad1a34ddc895449385e084849c4eb97bfc0cec969c498b7a2edf78",
+      "step_ms": 228.31380000000001,
+      "wmma_forward": 555,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 585,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 11,
+      "optimizer_step": 12,
+      "loss": 4.7208686,
+      "loss_bits": 1083642203,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "9adb793d73b7437afee44094ba2ad23e427d59a1a86491febfbaa60b1c41b19e",
+      "step_ms": 228.1935,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 12,
+      "optimizer_step": 13,
+      "loss": 5.6857433,
+      "loss_bits": 1085665692,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "c22e196c33338218b8e4bb451afdff20baf6722e40935fcd1e1914b7b11b6203",
+      "step_ms": 235.5359,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 13,
+      "optimizer_step": 14,
+      "loss": 5.403394,
+      "loss_bits": 1085073563,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "8d9d0acfb0b2df0e0cf5420cee27469cb6de6984956ddd6b8c8697bf087b4d2b",
+      "step_ms": 227.82350000000002,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 14,
+      "optimizer_step": 15,
+      "loss": 5.2193274,
+      "loss_bits": 1084687547,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "aa33bc576174be9428726341847de384fed3f5fa7d9f43a93ff8f29ef7daf601",
+      "step_ms": 228.1696,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 15,
+      "optimizer_step": 16,
+      "loss": 5.3811436,
+      "loss_bits": 1085026900,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "8844e9e93efe3fcb9dab98aa616112abf1b12f4fb346c4804684a1dcb52faea2",
+      "step_ms": 228.14010000000002,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 16,
+      "optimizer_step": 17,
+      "loss": 4.856133,
+      "loss_bits": 1083925873,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "048e2e22b4f5faa70de92fd0f671d7315f84b8386f29cb7a3e5f4c76de82fe74",
+      "step_ms": 235.0318,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 17,
+      "optimizer_step": 18,
+      "loss": 4.5442843,
+      "loss_bits": 1083271879,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "69f05c0c298f1841e3f84c7777bd5193671859343a03991b4126af3a25820f44",
+      "step_ms": 235.1319,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 18,
+      "optimizer_step": 19,
+      "loss": 4.31167,
+      "loss_bits": 1082784051,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "dcd4d2a0bddf6f973cd393039b910ee8fbcc819277679069af31b99a629de4bf",
+      "step_ms": 241.07039999999998,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    },
+    {
+      "global_step": 19,
+      "optimizer_step": 20,
+      "loss": 4.1948705,
+      "loss_bits": 1082539105,
+      "loss_finite": true,
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "eps": 1e-8,
+      "weight_decay": 0.0,
+      "param_digest": "c66bf765b58d38459052edfb0e36fd7549e935d1927a6fd7b511567e1975e2d8",
+      "step_ms": 235.4783,
+      "wmma_forward": 15,
+      "wmma_weight_grad": 15,
+      "wmma_input_grad": 15,
+      "wmma_cooperative": 45,
+      "wmma_shape_fallbacks": 0
+    }
+  ],
+  "evaluations": [
+    {
+      "tag": "validation@10",
+      "partition": "validation",
+      "after_step": 10,
+      "examples": 288,
+      "valid_target_tokens": 17080,
+      "cross_entropy": 5.696395197749321,
+      "perplexity": 297.79198258724983,
+      "per_example": [
+        {
+          "document_id": "doc-0098-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 447.11179916075736,
+          "cross_entropy": 6.9861217
+        },
+        {
+          "document_id": "doc-0098-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 478.87877486645044,
+          "cross_entropy": 7.482481
+        },
+        {
+          "document_id": "doc-0098-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 454.1812107296431,
+          "cross_entropy": 7.0965815
+        },
+        {
+          "document_id": "doc-0098-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 435.6733644511093,
+          "cross_entropy": 6.8073964
+        },
+        {
+          "document_id": "doc-0098-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 474.1985572507876,
+          "cross_entropy": 7.4093523
+        },
+        {
+          "document_id": "doc-0098-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 446.71284573193014,
+          "cross_entropy": 6.9798884
+        },
+        {
+          "document_id": "doc-0098-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 423.45291641235724,
+          "cross_entropy": 6.6164517
+        },
+        {
+          "document_id": "doc-0098-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 448.31899827404374,
+          "cross_entropy": 7.0049844
+        },
+        {
+          "document_id": "doc-0098-log",
+          "family": "log",
+          "valid_tokens": 8,
+          "loss_sum": 63.83583105085239,
+          "cross_entropy": 7.979479
+        },
+        {
+          "document_id": "doc-0100-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 293.95093529610995,
+          "cross_entropy": 4.5929832
+        },
+        {
+          "document_id": "doc-0100-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 280.63025312149756,
+          "cross_entropy": 4.3848476
+        },
+        {
+          "document_id": "doc-0100-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 296.67070132541977,
+          "cross_entropy": 4.63548
+        },
+        {
+          "document_id": "doc-0100-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 292.98316993230645,
+          "cross_entropy": 4.5778623
+        },
+        {
+          "document_id": "doc-0100-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 291.493884515554,
+          "cross_entropy": 4.554592
+        },
+        {
+          "document_id": "doc-0100-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 293.1393748782383,
+          "cross_entropy": 4.5803027
+        },
+        {
+          "document_id": "doc-0100-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 287.4473746927051,
+          "cross_entropy": 4.4913654
+        },
+        {
+          "document_id": "doc-0100-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 308.07721549937725,
+          "cross_entropy": 4.8137064
+        },
+        {
+          "document_id": "doc-0100-schedule",
+          "family": "schedule",
+          "valid_tokens": 48,
+          "loss_sum": 216.6712926825649,
+          "cross_entropy": 4.513985
+        },
+        {
+          "document_id": "doc-0095-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 489.04990551526134,
+          "cross_entropy": 7.6414046
+        },
+        {
+          "document_id": "doc-0095-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 477.33181601405636,
+          "cross_entropy": 7.4583097
+        },
+        {
+          "document_id": "doc-0095-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 513.4934023360827,
+          "cross_entropy": 8.0233345
+        },
+        {
+          "document_id": "doc-0095-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 434.8523819744972,
+          "cross_entropy": 6.7945685
+        },
+        {
+          "document_id": "doc-0095-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 474.89289211665084,
+          "cross_entropy": 7.4202013
+        },
+        {
+          "document_id": "doc-0095-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 508.08468554333234,
+          "cross_entropy": 7.938823
+        },
+        {
+          "document_id": "doc-0095-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 433.3992834771452,
+          "cross_entropy": 6.771864
+        },
+        {
+          "document_id": "doc-0095-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 456.4785857479056,
+          "cross_entropy": 7.1324778
+        },
+        {
+          "document_id": "doc-0095-log",
+          "family": "log",
+          "valid_tokens": 8,
+          "loss_sum": 53.50265578008843,
+          "cross_entropy": 6.687832
+        },
+        {
+          "document_id": "doc-0280-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 299.82399950873514,
+          "cross_entropy": 4.68475
+        },
+        {
+          "document_id": "doc-0280-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 297.53930854507405,
+          "cross_entropy": 4.6490517
+        },
+        {
+          "document_id": "doc-0280-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 292.9853002533593,
+          "cross_entropy": 4.577895
+        },
+        {
+          "document_id": "doc-0280-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 286.857818459392,
+          "cross_entropy": 4.4821534
+        },
+        {
+          "document_id": "doc-0280-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 287.0972434861057,
+          "cross_entropy": 4.485894
+        },
+        {
+          "document_id": "doc-0280-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 284.10551985028746,
+          "cross_entropy": 4.439149
+        },
+        {
+          "document_id": "doc-0280-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 284.60822359249994,
+          "cross_entropy": 4.4470034
+        },
+        {
+          "document_id": "doc-0280-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 293.52159301921085,
+          "cross_entropy": 4.586275
+        },
+        {
+          "document_id": "doc-0280-schedule",
+          "family": "schedule",
+          "valid_tokens": 48,
+          "loss_sum": 220.71843570507085,
+          "cross_entropy": 4.598301
+        },
+        {
+          "document_id": "doc-0057-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 320.51697606314934,
+          "cross_entropy": 5.0080776
+        },
+        {
+          "document_id": "doc-0057-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 325.268145389802,
+          "cross_entropy": 5.082315
+        },
+        {
+          "document_id": "doc-0057-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 319.0758346750624,
+          "cross_entropy": 4.98556
+        },
+        {
+          "document_id": "doc-0057-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 320.1184927680096,
+          "cross_entropy": 5.0018516
+        },
+        {
+          "document_id": "doc-0057-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 323.9399011868686,
+          "cross_entropy": 5.061561
+        },
+        {
+          "document_id": "doc-0057-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 316.23235690259276,
+          "cross_entropy": 4.9411306
+        },
+        {
+          "document_id": "doc-0057-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 342.75653974146206,
+          "cross_entropy": 5.355571
+        },
+        {
+          "document_id": "doc-0057-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 326.8832556720334,
+          "cross_entropy": 5.107551
+        },
+        {
+          "document_id": "doc-0057-catalog",
+          "family": "catalog",
+          "valid_tokens": 8,
+          "loss_sum": 36.56537068057495,
+          "cross_entropy": 4.5706716
+        },
+        {
+          "document_id": "doc-0269-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 499.6107089708654,
+          "cross_entropy": 7.8064175
+        },
+        {
+          "document_id": "doc-0269-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 483.17239955674654,
+          "cross_entropy": 7.5495687
+        },
+        {
+          "document_id": "doc-0269-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 482.7806884117008,
+          "cross_entropy": 7.5434484
+        },
+        {
+          "document_id": "doc-0269-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 435.94038446762033,
+          "cross_entropy": 6.8115687
+        },
+        {
+          "document_id": "doc-0269-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 468.553012739164,
+          "cross_entropy": 7.321141
+        },
+        {
+          "document_id": "doc-0269-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 445.5478225452948,
+          "cross_entropy": 6.9616847
+        },
+        {
+          "document_id": "doc-0269-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 415.82437421946645,
+          "cross_entropy": 6.497256
+        },
+        {
+          "document_id": "doc-0269-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 429.1174913462476,
+          "cross_entropy": 6.704961
+        },
+        {
+          "document_id": "doc-0269-log",
+          "family": "log",
+          "valid_tokens": 8,
+          "loss_sum": 53.36254271471307,
+          "cross_entropy": 6.6703176
+        },
+        {
+          "document_id": "doc-0198-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 324.19080865403566,
+          "cross_entropy": 5.065481
+        },
+        {
+          "document_id": "doc-0198-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 328.1183570417472,
+          "cross_entropy": 5.126849
+        },
+        {
+          "document_id": "doc-0198-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 330.0112209752119,
+          "cross_entropy": 5.1564255
+        },
+        {
+          "document_id": "doc-0198-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 328.5454523370366,
+          "cross_entropy": 5.1335225
+        },
+        {
+          "document_id": "doc-0198-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 326.9825770479348,
+          "cross_entropy": 5.1091027
+        },
+        {
+          "document_id": "doc-0198-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 311.3324648066857,
+          "cross_entropy": 4.8645697
+        },
+        {
+          "document_id": "doc-0198-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 313.8628610630346,
+          "cross_entropy": 4.904107
+        },
+        {
+          "document_id": "doc-0198-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 318.7587925499413,
+          "cross_entropy": 4.980606
+        },
+        {
+          "document_id": "doc-0198-catalog",
+          "family": "catalog",
+          "valid_tokens": 8,
+          "loss_sum": 38.025820224183526,
+          "cross_entropy": 4.7532277
+        },
+        {
+          "document_id": "doc-0313-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 296.876622874628,
+          "cross_entropy": 4.638697
+        },
+        {
+          "document_id": "doc-0313-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 295.7310326480779,
+          "cross_entropy": 4.620797
+        },
+        {
+          "document_id": "doc-0313-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 284.2960273842134,
+          "cross_entropy": 4.4421253
+        },
+        {
+          "document_id": "doc-0313-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 296.87358059323367,
+          "cross_entropy": 4.6386495
+        },
+        {
+          "document_id": "doc-0313-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 298.30313796409166,
+          "cross_entropy": 4.6609864
+        },
+        {
+          "document_id": "doc-0313-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 291.87490946256895,
+          "cross_entropy": 4.5605454
+        },
+        {
+          "document_id": "doc-0313-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 295.1287978041659,
+          "cross_entropy": 4.6113873
+        },
+        {
+          "document_id": "doc-0313-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 286.88459473806273,
+          "cross_entropy": 4.4825716
+        },
+        {
+          "document_id": "doc-0313-schedule",
+          "family": "schedule",
+          "valid_tokens": 48,
+          "loss_sum": 208.76554064396282,
+          "cross_entropy": 4.3492823
+        },
+        {
+          "document_id": "doc-0212-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 505.0243592893799,
+          "cross_entropy": 7.8910055
+        },
+        {
+          "document_id": "doc-0212-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 480.5313643216569,
+          "cross_entropy": 7.5083027
+        },
+        {
+          "document_id": "doc-0212-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 489.5540899104202,
+          "cross_entropy": 7.6492825
+        },
+        {
+          "document_id": "doc-0212-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 442.6840939322048,
+          "cross_entropy": 6.916939
+        },
+        {
+          "document_id": "doc-0212-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 448.84953564175447,
+          "cross_entropy": 7.013274
+        },
+        {
+          "document_id": "doc-0212-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 470.9306698526595,
+          "cross_entropy": 7.3582916
+        },
+        {
+          "document_id": "doc-0212-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 432.85844649280165,
+          "cross_entropy": 6.7634134
+        },
+        {
+          "document_id": "doc-0212-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 481.52585751590215,
+          "cross_entropy": 7.5238414
+        },
+        {
+          "document_id": "doc-0212-log",
+          "family": "log",
+          "valid_tokens": 8,
+          "loss_sum": 63.938957756441766,
+          "cross_entropy": 7.9923697
+        },
+        {
+          "document_id": "doc-0143-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 507.4953186880214,
+          "cross_entropy": 7.9296145
+        },
+        {
+          "document_id": "doc-0143-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 477.50320320669294,
+          "cross_entropy": 7.4609876
+        },
+        {
+          "document_id": "doc-0143-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 529.5738002196431,
+          "cross_entropy": 8.2745905
+        },
+        {
+          "document_id": "doc-0143-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 441.4626567547262,
+          "cross_entropy": 6.897854
+        },
+        {
+          "document_id": "doc-0143-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 510.2640443730973,
+          "cross_entropy": 7.9728756
+        },
+        {
+          "document_id": "doc-0143-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 442.1867594652276,
+          "cross_entropy": 6.9091682
+        },
+        {
+          "document_id": "doc-0143-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 421.10723291134315,
+          "cross_entropy": 6.5798006
+        },
+        {
+          "document_id": "doc-0143-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 486.8976912217917,
+          "cross_entropy": 7.6077766
+        },
+        {
+          "document_id": "doc-0143-log",
+          "family": "log",
+          "valid_tokens": 8,
+          "loss_sum": 51.31659091591581,
+          "cross_entropy": 6.4145737
+        },
+        {
+          "document_id": "doc-0076-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 307.44007699823595,
+          "cross_entropy": 4.803751
+        },
+        {
+          "document_id": "doc-0076-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 291.2392972754183,
+          "cross_entropy": 4.550614
+        },
+        {
+          "document_id": "doc-0076-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 300.1294305379526,
+          "cross_entropy": 4.6895223
+        },
+        {
+          "document_id": "doc-0076-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 282.2345446935221,
+          "cross_entropy": 4.409915
+        },
+        {
+          "document_id": "doc-0076-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 289.6746609230745,
+          "cross_entropy": 4.5261664
+        },
+        {
+          "document_id": "doc-0076-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 290.50416779494196,
+          "cross_entropy": 4.539128
+        },
+        {
+          "document_id": "doc-0076-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 297.6541057573011,
+          "cross_entropy": 4.6508455
+        },
+        {
+          "document_id": "doc-0076-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 289.3462558159781,
+          "cross_entropy": 4.521035
+        },
+        {
+          "document_id": "doc-0076-schedule",
+          "family": "schedule",
+          "valid_tokens": 48,
+          "loss_sum": 220.68366511496393,
+          "cross_entropy": 4.597576
+        },
+        {
+          "document_id": "doc-0240-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 331.65321652998824,
+          "cross_entropy": 5.1820817
+        },
+        {
+          "document_id": "doc-0240-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 317.36799562824615,
+          "cross_entropy": 4.9588747
+        },
+        {
+          "document_id": "doc-0240-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 320.86276556785685,
+          "cross_entropy": 5.0134807
+        },
+        {
+          "document_id": "doc-0240-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 318.333103294477,
+          "cross_entropy": 4.9739547
+        },
+        {
+          "document_id": "doc-0240-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 329.2862896357899,
+          "cross_entropy": 5.145098
+        },
+        {
+          "document_id": "doc-0240-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 315.3843964457887,
+          "cross_entropy": 4.9278812
+        },
+        {
+          "document_id": "doc-0240-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 324.50679172439726,
+          "cross_entropy": 5.070419
+        },
+        {
+          "document_id": "doc-0240-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 331.47400428521496,
+          "cross_entropy": 5.179281
+        },
+        {
+          "document_id": "doc-0240-catalog",
+          "family": "catalog",
+          "valid_tokens": 8,
+          "loss_sum": 36.92137975956044,
+          "cross_entropy": 4.6151724
+        },
+        {
+          "document_id": "doc-0103-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 296.1657945763796,
+          "cross_entropy": 4.6275907
+        },
+        {
+          "document_id": "doc-0103-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 294.5336010743807,
+          "cross_entropy": 4.6020875
+        },
+        {
+          "document_id": "doc-0103-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 296.15361748509804,
+          "cross_entropy": 4.6274004
+        },
+        {
+          "document_id": "doc-0103-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 293.04476085918895,
+          "cross_entropy": 4.5788245
+        },
+        {
+          "document_id": "doc-0103-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 281.7339741814084,
+          "cross_entropy": 4.4020934
+        },
+        {
+          "document_id": "doc-0103-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 288.8878598771693,
+          "cross_entropy": 4.5138726
+        },
+        {
+          "document_id": "doc-0103-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 291.2579262410357,
+          "cross_entropy": 4.550905
+        },
+        {
+          "document_id": "doc-0103-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 292.75003211686936,
+          "cross_entropy": 4.574219
+        },
+        {
+          "document_id": "doc-0103-schedule",
+          "family": "schedule",
+          "valid_tokens": 48,
+          "loss_sum": 208.59642589153324,
+          "cross_entropy": 4.345759
+        },
+        {
+          "document_id": "doc-0078-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 321.87094892746615,
+          "cross_entropy": 5.0292335
+        },
+        {
+          "document_id": "doc-0078-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 320.63545780330446,
+          "cross_entropy": 5.009929
+        },
+        {
+          "document_id": "doc-0078-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 312.20316796862954,
+          "cross_entropy": 4.8781743
+        },
+        {
+          "document_id": "doc-0078-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 328.0355763166805,
+          "cross_entropy": 5.125556
+        },
+        {
+          "document_id": "doc-0078-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 323.70211748100576,
+          "cross_entropy": 5.0578456
+        },
+        {
+          "document_id": "doc-0078-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 319.3008020971298,
+          "cross_entropy": 4.989075
+        },
+        {
+          "document_id": "doc-0078-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 324.80821193085194,
+          "cross_entropy": 5.075128
+        },
+        {
+          "document_id": "doc-0078-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 324.103872567313,
+          "cross_entropy": 5.064123
+        },
+        {
+          "document_id": "doc-0078-catalog",
+          "family": "catalog",
+          "valid_tokens": 8,
+          "loss_sum": 37.67893858698949,
+          "cross_entropy": 4.7098675
+        },
+        {
+          "document_id": "doc-0039-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 328.5339142652356,
+          "cross_entropy": 5.1333423
+        },
+        {
+          "document_id": "doc-0039-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 333.04738666935964,
+          "cross_entropy": 5.2038655
+        },
+        {
+          "document_id": "doc-0039-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 321.5870893436422,
+          "cross_entropy": 5.0247984
+        },
+        {
+          "document_id": "doc-0039-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 319.2623990643706,
+          "cross_entropy": 4.988475
+        },
+        {
+          "document_id": "doc-0039-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 322.5387502936453,
+          "cross_entropy": 5.039668
+        },
+        {
+          "document_id": "doc-0039-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 314.5851976254733,
+          "cross_entropy": 4.915394
+        },
+        {
+          "document_id": "doc-0039-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 316.2544135893502,
+          "cross_entropy": 4.9414754
+        },
+        {
+          "document_id": "doc-0039-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 319.4748554925996,
+          "cross_entropy": 4.9917946
+        },
+        {
+          "document_id": "doc-0039-catalog",
+          "family": "catalog",
+          "valid_tokens": 8,
+          "loss_sum": 38.61130881369901,
+          "cross_entropy": 4.8264136
+        },
+        {
+          "document_id": "doc-0185-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 513.0944673661277,
+          "cross_entropy": 8.017101
+        },
+        {
+          "document_id": "doc-0185-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 467.37744744842655,
+          "cross_entropy": 7.3027725
+        },
+        {
+          "document_id": "doc-0185-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 526.5062250304438,
+          "cross_entropy": 8.22666
+        },
+        {
+          "document_id": "doc-0185-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 447.42850426769076,
+          "cross_entropy": 6.9910703
+        },
+        {
+          "document_id": "doc-0185-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 455.83312528245153,
+          "cross_entropy": 7.1223927
+        },
+        {
+          "document_id": "doc-0185-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 463.5351011277786,
+          "cross_entropy": 7.242736
+        },
+        {
+          "document_id": "doc-0185-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 424.4169864579547,
+          "cross_entropy": 6.6315155
+        },
+        {
+          "document_id": "doc-0185-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 434.1788622793156,
+          "cross_entropy": 6.7840447
+        },
+        {
+          "document_id": "doc-0185-log",
+          "family": "log",
+          "valid_tokens": 8,
+          "loss_sum": 58.75731439513682,
+          "cross_entropy": 7.344664
+        },
+        {
+          "document_id": "doc-0256-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 293.28224516516894,
+          "cross_entropy": 4.5825353
+        },
+        {
+          "document_id": "doc-0256-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 287.7120309041033,
+          "cross_entropy": 4.4955006
+        },
+        {
+          "document_id": "doc-0256-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 296.34657180975233,
+          "cross_entropy": 4.630415
+        },
+        {
+          "document_id": "doc-0256-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 290.7404319545237,
+          "cross_entropy": 4.542819
+        },
+        {
+          "document_id": "doc-0256-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 291.15274599135637,
+          "cross_entropy": 4.5492616
+        },
+        {
+          "document_id": "doc-0256-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 288.52100786495623,
+          "cross_entropy": 4.5081406
+        },
+        {
+          "document_id": "doc-0256-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 294.426278459213,
+          "cross_entropy": 4.6004105
+        },
+        {
+          "document_id": "doc-0256-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 305.34519594778675,
+          "cross_entropy": 4.7710185
+        },
+        {
+          "document_id": "doc-0256-schedule",
+          "family": "schedule",
+          "valid_tokens": 48,
+          "loss_sum": 222.6896611276453,
+          "cross_entropy": 4.639368
+        },
+        {
+          "document_id": "doc-0122-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 492.3347152182244,
+          "cross_entropy": 7.69273
+        },
+        {
+          "document_id": "doc-0122-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 486.38597658294105,
+          "cross_entropy": 7.599781
+        },
+        {
+          "document_id": "doc-0122-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 541.4102186165507,
+          "cross_entropy": 8.459535
+        },
+        {
+          "document_id": "doc-0122-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 437.5273747584823,
+          "cross_entropy": 6.836365
+        },
+        {
+          "document_id": "doc-0122-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 451.6870478536564,
+          "cross_entropy": 7.05761
+        },
+        {
+          "document_id": "doc-0122-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 490.74203716997573,
+          "cross_entropy": 7.6678443
+        },
+        {
+          "document_id": "doc-0122-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 431.4415709981914,
+          "cross_entropy": 6.7412744
+        },
+        {
+          "document_id": "doc-0122-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 451.7168468764828,
+          "cross_entropy": 7.058076
+        },
+        {
+          "document_id": "doc-0122-log",
+          "family": "log",
+          "valid_tokens": 8,
+          "loss_sum": 59.34311696065137,
+          "cross_entropy": 7.4178896
+        },
+        {
+          "document_id": "doc-0116-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 476.02824562288976,
+          "cross_entropy": 7.4379416
+        },
+        {
+          "document_id": "doc-0116-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 485.2690529936379,
+          "cross_entropy": 7.582329
+        },
+        {
+          "document_id": "doc-0116-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 508.01932954968805,
+          "cross_entropy": 7.937802
+        },
+        {
+          "document_id": "doc-0116-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 428.66006833819586,
+          "cross_entropy": 6.6978135
+        },
+        {
+          "document_id": "doc-0116-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 407.71614492976056,
+          "cross_entropy": 6.370565
+        },
+        {
+          "document_id": "doc-0116-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 491.29697072854776,
+          "cross_entropy": 7.676515
+        },
+        {
+          "document_id": "doc-0116-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 445.04307840873713,
+          "cross_entropy": 6.9537983
+        },
+        {
+          "document_id": "doc-0116-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 471.54505812230536,
+          "cross_entropy": 7.3678913
+        },
+        {
+          "document_id": "doc-0116-log",
+          "family": "log",
+          "valid_tokens": 8,
+          "loss_sum": 49.96897738369907,
+          "cross_entropy": 6.2461224
+        },
+        {
+          "document_id": "doc-0194-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 479.88799641030295,
+          "cross_entropy": 7.49825
+        },
+        {
+          "document_id": "doc-0194-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 482.91631342563636,
+          "cross_entropy": 7.5455675
+        },
+        {
+          "document_id": "doc-0194-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 535.8191714483271,
+          "cross_entropy": 8.372174
+        },
+        {
+          "document_id": "doc-0194-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 428.2304061199595,
+          "cross_entropy": 6.6911
+        },
+        {
+          "document_id": "doc-0194-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 477.0962950376603,
+          "cross_entropy": 7.4546294
+        },
+        {
+          "document_id": "doc-0194-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 420.6197090485156,
+          "cross_entropy": 6.572183
+        },
+        {
+          "document_id": "doc-0194-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 429.54375099135535,
+          "cross_entropy": 6.7116213
+        },
+        {
+          "document_id": "doc-0194-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 470.5843824632963,
+          "cross_entropy": 7.352881
+        },
+        {
+          "document_id": "doc-0194-log",
+          "family": "log",
+          "valid_tokens": 8,
+          "loss_sum": 54.795144696321245,
+          "cross_entropy": 6.849393
+        },
+        {
+          "document_id": "doc-0043-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 311.0940723072921,
+          "cross_entropy": 4.860845
+        },
+        {
+          "document_id": "doc-0043-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 286.1540802568953,
+          "cross_entropy": 4.4711576
+        },
+        {
+          "document_id": "doc-0043-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 300.2042316719126,
+          "cross_entropy": 4.690691
+        },
+        {
+          "document_id": "doc-0043-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 285.7397751606348,
+          "cross_entropy": 4.464684
+        },
+        {
+          "document_id": "doc-0043-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 299.90767419328665,
+          "cross_entropy": 4.6860576
+        },
+        {
+          "document_id": "doc-0043-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 290.42810821843625,
+          "cross_entropy": 4.537939
+        },
+        {
+          "document_id": "doc-0043-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 288.3315415193033,
+          "cross_entropy": 4.5051804
+        },
+        {
+          "document_id": "doc-0043-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 297.97448952488594,
+          "cross_entropy": 4.6558514
+        },
+        {
+          "document_id": "doc-0043-schedule",
+          "family": "schedule",
+          "valid_tokens": 48,
+          "loss_sum": 222.0433132088084,
+          "cross_entropy": 4.625902
+        },
+        {
+          "document_id": "doc-0070-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 298.4503788113198,
+          "cross_entropy": 4.663287
+        },
+        {
+          "document_id": "doc-0070-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 296.2947761364525,
+          "cross_entropy": 4.629606
+        },
+        {
+          "document_id": "doc-0070-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 303.6803330346091,
+          "cross_entropy": 4.745005
+        },
+        {
+          "document_id": "doc-0070-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 301.5319005007317,
+          "cross_entropy": 4.711436
+        },
+        {
+          "document_id": "doc-0070-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 279.8095690777026,
+          "cross_entropy": 4.3720245
+        },
+        {
+          "document_id": "doc-0070-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 289.5570670776146,
+          "cross_entropy": 4.524329
+        },
+        {
+          "document_id": "doc-0070-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 286.9331821145483,
+          "cross_entropy": 4.483331
+        },
+        {
+          "document_id": "doc-0070-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 296.0497753077295,
+          "cross_entropy": 4.6257777
+        },
+        {
+          "document_id": "doc-0070-schedule",
+          "family": "schedule",
+          "valid_tokens": 48,
+          "loss_sum": 219.36189895237592,
+          "cross_entropy": 4.5700397
+        },
+        {
+          "document_id": "doc-0065-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 486.94899812650294,
+          "cross_entropy": 7.608578
+        },
+        {
+          "document_id": "doc-0065-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 477.40307607944374,
+          "cross_entropy": 7.459423
+        },
+        {
+          "document_id": "doc-0065-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 497.4942816333721,
+          "cross_entropy": 7.7733483
+        },
+        {
+          "document_id": "doc-0065-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 441.97643471773915,
+          "cross_entropy": 6.905882
+        },
+        {
+          "document_id": "doc-0065-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 474.06874191180464,
+          "cross_entropy": 7.4073243
+        },
+        {
+          "document_id": "doc-0065-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 494.86584071084116,
+          "cross_entropy": 7.732279
+        },
+        {
+          "document_id": "doc-0065-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 418.07011855265915,
+          "cross_entropy": 6.532346
+        },
+        {
+          "document_id": "doc-0065-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 515.0364701210815,
+          "cross_entropy": 8.047445
+        },
+        {
+          "document_id": "doc-0065-log",
+          "family": "log",
+          "valid_tokens": 8,
+          "loss_sum": 52.375881157986726,
+          "cross_entropy": 6.546985
+        },
+        {
+          "document_id": "doc-0285-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 317.48185588136505,
+          "cross_entropy": 4.960654
+        },
+        {
+          "document_id": "doc-0285-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 325.44784982628454,
+          "cross_entropy": 5.0851226
+        },
+        {
+          "document_id": "doc-0285-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 315.11658364565307,
+          "cross_entropy": 4.9236965
+        },
+        {
+          "document_id": "doc-0285-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 320.99054696616156,
+          "cross_entropy": 5.015477
+        },
+        {
+          "document_id": "doc-0285-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 322.4842285031822,
+          "cross_entropy": 5.038816
+        },
+        {
+          "document_id": "doc-0285-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 317.4691071698727,
+          "cross_entropy": 4.960455
+        },
+        {
+          "document_id": "doc-0285-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 317.39445344822,
+          "cross_entropy": 4.959288
+        },
+        {
+          "document_id": "doc-0285-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 320.3000783830356,
+          "cross_entropy": 5.0046887
+        },
+        {
+          "document_id": "doc-0285-catalog",
+          "family": "catalog",
+          "valid_tokens": 8,
+          "loss_sum": 44.591904922421875,
+          "cross_entropy": 5.573988
+        },
+        {
+          "document_id": "doc-0124-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 283.99349753492544,
+          "cross_entropy": 4.4373984
+        },
+        {
+          "document_id": "doc-0124-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 294.75534309739635,
+          "cross_entropy": 4.605552
+        },
+        {
+          "document_id": "doc-0124-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 295.3515443907706,
+          "cross_entropy": 4.6148677
+        },
+        {
+          "document_id": "doc-0124-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 295.23605130513056,
+          "cross_entropy": 4.6130633
+        },
+        {
+          "document_id": "doc-0124-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 294.3527389512991,
+          "cross_entropy": 4.5992618
+        },
+        {
+          "document_id": "doc-0124-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 287.0162373172249,
+          "cross_entropy": 4.4846287
+        },
+        {
+          "document_id": "doc-0124-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 283.0250124748247,
+          "cross_entropy": 4.422266
+        },
+        {
+          "document_id": "doc-0124-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 297.80905616389924,
+          "cross_entropy": 4.6532664
+        },
+        {
+          "document_id": "doc-0124-schedule",
+          "family": "schedule",
+          "valid_tokens": 48,
+          "loss_sum": 216.71815515152096,
+          "cross_entropy": 4.5149617
+        },
+        {
+          "document_id": "doc-0048-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 325.6799126879581,
+          "cross_entropy": 5.0887485
+        },
+        {
+          "document_id": "doc-0048-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 324.91887460454086,
+          "cross_entropy": 5.0768576
+        },
+        {
+          "document_id": "doc-0048-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 327.5526182725224,
+          "cross_entropy": 5.1180096
+        },
+        {
+          "document_id": "doc-0048-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 323.7270688301403,
+          "cross_entropy": 5.0582356
+        },
+        {
+          "document_id": "doc-0048-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 326.0311301792491,
+          "cross_entropy": 5.0942364
+        },
+        {
+          "document_id": "doc-0048-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 311.04505311157936,
+          "cross_entropy": 4.860079
+        },
+        {
+          "document_id": "doc-0048-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 310.55376186401224,
+          "cross_entropy": 4.8524027
+        },
+        {
+          "document_id": "doc-0048-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 329.94985821013483,
+          "cross_entropy": 5.1554666
+        },
+        {
+          "document_id": "doc-0048-catalog",
+          "family": "catalog",
+          "valid_tokens": 8,
+          "loss_sum": 39.71342186067683,
+          "cross_entropy": 4.9641776
+        },
+        {
+          "document_id": "doc-0119-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 485.1834147883748,
+          "cross_entropy": 7.580991
+        },
+        {
+          "document_id": "doc-0119-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 476.30433161890966,
+          "cross_entropy": 7.442255
+        },
+        {
+          "document_id": "doc-0119-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 497.52812936108563,
+          "cross_entropy": 7.773877
+        },
+        {
+          "document_id": "doc-0119-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 435.84452028481564,
+          "cross_entropy": 6.8100705
+        },
+        {
+          "document_id": "doc-0119-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 502.96651050714917,
+          "cross_entropy": 7.858852
+        },
+        {
+          "document_id": "doc-0119-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 451.0663917774867,
+          "cross_entropy": 7.0479126
+        },
+        {
+          "document_id": "doc-0119-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 426.59869105021994,
+          "cross_entropy": 6.6656046
+        },
+        {
+          "document_id": "doc-0119-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 477.0188381561994,
+          "cross_entropy": 7.453419
+        },
+        {
+          "document_id": "doc-0119-log",
+          "family": "log",
+          "valid_tokens": 8,
+          "loss_sum": 50.11355896026113,
+          "cross_entropy": 6.264195
+        },
+        {
+          "document_id": "doc-0300-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 314.50662082541504,
+          "cross_entropy": 4.914166
+        },
+        {
+          "document_id": "doc-0300-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 321.3749553054247,
+          "cross_entropy": 5.021484
+        },
+        {
+          "document_id": "doc-0300-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 315.2692258313799,
+          "cross_entropy": 4.9260817
+        },
+        {
+          "document_id": "doc-0300-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 319.2934839060634,
+          "cross_entropy": 4.9889607
+        },
+        {
+          "document_id": "doc-0300-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 315.99768408520805,
+          "cross_entropy": 4.9374638
+        },
+        {
+          "document_id": "doc-0300-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 323.8132213887818,
+          "cross_entropy": 5.0595818
+        },
+        {
+          "document_id": "doc-0300-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 325.7638236301342,
+          "cross_entropy": 5.0900598
+        },
+        {
+          "document_id": "doc-0300-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 330.6321166546836,
+          "cross_entropy": 5.1661267
+        },
+        {
+          "document_id": "doc-0300-catalog",
+          "family": "catalog",
+          "valid_tokens": 8,
+          "loss_sum": 37.897120546908766,
+          "cross_entropy": 4.73714
+        },
+        {
+          "document_id": "doc-0027-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 322.4428342019206,
+          "cross_entropy": 5.0381694
+        },
+        {
+          "document_id": "doc-0027-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 320.9050961915399,
+          "cross_entropy": 5.014142
+        },
+        {
+          "document_id": "doc-0027-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 323.5407834429934,
+          "cross_entropy": 5.0553246
+        },
+        {
+          "document_id": "doc-0027-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 319.6376883249181,
+          "cross_entropy": 4.994339
+        },
+        {
+          "document_id": "doc-0027-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 319.59887421933655,
+          "cross_entropy": 4.9937325
+        },
+        {
+          "document_id": "doc-0027-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 307.7526336690909,
+          "cross_entropy": 4.8086348
+        },
+        {
+          "document_id": "doc-0027-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 321.599508302547,
+          "cross_entropy": 5.0249925
+        },
+        {
+          "document_id": "doc-0027-catalog",
+          "family": "catalog",
+          "valid_tokens": 64,
+          "loss_sum": 319.99775119810494,
+          "cross_entropy": 4.9999647
+        },
+        {
+          "document_id": "doc-0027-catalog",
+          "family": "catalog",
+          "valid_tokens": 8,
+          "loss_sum": 39.708926880799766,
+          "cross_entropy": 4.963616
+        },
+        {
+          "document_id": "doc-0250-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 288.7891029341707,
+          "cross_entropy": 4.5123296
+        },
+        {
+          "document_id": "doc-0250-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 291.718636798769,
+          "cross_entropy": 4.5581036
+        },
+        {
+          "document_id": "doc-0250-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 298.09813873006647,
+          "cross_entropy": 4.6577835
+        },
+        {
+          "document_id": "doc-0250-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 288.449615680088,
+          "cross_entropy": 4.5070252
+        },
+        {
+          "document_id": "doc-0250-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 286.92160008077707,
+          "cross_entropy": 4.48315
+        },
+        {
+          "document_id": "doc-0250-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 293.6285719442187,
+          "cross_entropy": 4.5879464
+        },
+        {
+          "document_id": "doc-0250-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 286.483599237388,
+          "cross_entropy": 4.4763064
+        },
+        {
+          "document_id": "doc-0250-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 288.04898150570546,
+          "cross_entropy": 4.5007653
+        },
+        {
+          "document_id": "doc-0250-schedule",
+          "family": "schedule",
+          "valid_tokens": 48,
+          "loss_sum": 216.72660447711002,
+          "cross_entropy": 4.5151377
+        },
+        {
+          "document_id": "doc-0050-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 486.78515932581416,
+          "cross_entropy": 7.606018
+        },
+        {
+          "document_id": "doc-0050-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 481.8524708199719,
+          "cross_entropy": 7.528945
+        },
+        {
+          "document_id": "doc-0050-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 515.2046391313418,
+          "cross_entropy": 8.050073
+        },
+        {
+          "document_id": "doc-0050-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 435.0529548897478,
+          "cross_entropy": 6.7977023
+        },
+        {
+          "document_id": "doc-0050-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 465.2714646100746,
+          "cross_entropy": 7.2698665
+        },
+        {
+          "document_id": "doc-0050-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 521.5739561413569,
+          "cross_entropy": 8.149593
+        },
+        {
+          "document_id": "doc-0050-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 432.72421656955515,
+          "cross_entropy": 6.761316
+        },
+        {
+          "document_id": "doc-0050-log",
+          "family": "log",
+          "valid_tokens": 64,
+          "loss_sum": 466.98874607648173,
+          "cross_entropy": 7.296699
+        },
+        {
+          "document_id": "doc-0050-log",
+          "family": "log",
+          "valid_tokens": 8,
+          "loss_sum": 55.86944699897241,
+          "cross_entropy": 6.9836807
+        },
+        {
+          "document_id": "doc-0319-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 310.6207251558674,
+          "cross_entropy": 4.853449
+        },
+        {
+          "document_id": "doc-0319-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 292.72140184958255,
+          "cross_entropy": 4.573772
+        },
+        {
+          "document_id": "doc-0319-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 297.80719118215245,
+          "cross_entropy": 4.6532373
+        },
+        {
+          "document_id": "doc-0319-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 292.8951291906953,
+          "cross_entropy": 4.5764866
+        },
+        {
+          "document_id": "doc-0319-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 289.1649606548131,
+          "cross_entropy": 4.5182023
+        },
+        {
+          "document_id": "doc-0319-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 295.2282497046716,
+          "cross_entropy": 4.6129413
+        },
+        {
+          "document_id": "doc-0319-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 274.1415154904847,
+          "cross_entropy": 4.283461
+        },
+        {
+          "document_id": "doc-0319-schedule",
+          "family": "schedule",
+          "valid_tokens": 64,
+          "loss_sum": 303.1611949745244,
+          "cross_entropy": 4.7368937
+        },
+        {
+          "document_id": "doc-0319-schedule",
+          "family": "schedule",
+          "valid_tokens": 48,
+          "loss_sum": 219.32014076756718,
+          "cross_entropy": 4.5691695
+        }
+      ],
+      "nonfinite_logits": 0,
+      "nonfinite_examples": 0,
+      "eval_ms": 3181.094,
+      "parameter_digest_before": "6fc920301e301a6f4fb2b0d5ce1bf61efd786d3476682928686f265489ca1d53",
+      "parameter_digest_after": "6fc920301e301a6f4fb2b0d5ce1bf61efd786d3476682928686f265489ca1d53",
+      "optimizer_state_digest_before": "23266036bfe6de4e2cb3a606a6edefc1f6d6104f6f1280a3d40090f1b304fe6e",
+      "optimizer_state_digest_after": "23266036bfe6de4e2cb3a606a6edefc1f6d6104f6f1280a3d40090f1b304fe6e",
+      "optimizer_step_before": 10,
+      "optimizer_step_after": 10,
+      "dropout_seed_before": 7,
+      "dropout_seed_after": 7,
+      "parameter_elements": 16782336,
+      "wmma_forward_delta": 540,
+      "wmma_weight_grad_delta": 0,
+      "wmma_input_grad_delta": 0
+    }
+  ],
+  "total_wall_ms": 4669.5525
+}

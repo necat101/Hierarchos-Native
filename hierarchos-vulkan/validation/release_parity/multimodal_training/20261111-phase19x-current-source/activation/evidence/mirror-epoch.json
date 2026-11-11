@@ -1,0 +1,15 @@
+{
+  "post_fix_in_process_step1": 6.757522781543543,
+  "fresh_step1_mixed": 6.757522781543548,
+  "fresh_step1_mixed_weights_off": 6.7575398218461595,
+  "fresh_step1_fp32arm": 6.757843914297926,
+  "step100_in_process_mixed": 2.927567840743625,
+  "step100_fresh_mixed": 2.9275678407436314,
+  "step100_fresh_mixed_weights_off": 2.92756263602981,
+  "step100_fresh_fp32arm": 2.8319610488830245,
+  "historical_pre_fix": {
+    "value": 7.06019704940392,
+    "source": "Phase XIX-R sealed receipt, not rerun on this source"
+  },
+  "conclusion": "the current source publishes the post-step mirror epoch; between-step evaluation agrees with fresh evaluation of the exported weights, while the step-100 mixed/FP32 drift remains real"
+}
