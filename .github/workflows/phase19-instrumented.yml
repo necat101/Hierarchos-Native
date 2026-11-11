@@ -26,8 +26,6 @@ jobs:
 
   historical:
     runs-on: ubuntu-latest
-    env:
-      PHASE19U_CI_OUT: ${{ runner.temp }}/phase19u-ci
     steps:
       - uses: actions/checkout@v5
         with:
@@ -44,12 +42,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python hierarchos-vulkan/validation/run_phase19u_historical_ci.py --output-dir "$PHASE19U_CI_OUT"
+          output="$RUNNER_TEMP/phase19u-ci"
+          python hierarchos-vulkan/validation/run_phase19u_historical_ci.py --output-dir "$output"
       - name: Validate structured historical CI report
         shell: bash
         run: |
           set -euo pipefail
-          python hierarchos-vulkan/validation/run_phase19u_historical_ci.py --check-report "$PHASE19U_CI_OUT/phase19u-historical-ci-results.json"
+          output="$RUNNER_TEMP/phase19u-ci"
+          python hierarchos-vulkan/validation/run_phase19u_historical_ci.py --check-report "$output/phase19u-historical-ci-results.json"
       - name: Upload historical CI evidence
         if: always()
         uses: actions/upload-artifact@v4
