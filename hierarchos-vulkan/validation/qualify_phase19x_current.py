@@ -195,9 +195,9 @@ def main() -> int:
         "shaders": {
             "inventory": attention["shaders"]["inventory"],
             "status_counts": attention["shaders"]["status_counts"],
-            "historical_artifacts": attention["shaders"]["historical"]["artifacts"],
-            "phase16_artifacts": attention["shaders"]["phase16"]["artifacts"],
-            "sealed_gate_sha256": attention["shaders"]["historical"]["sealed_gate_sha256"],
+            "historical_artifacts": attention["shaders"]["historical_artifacts"],
+            "phase16_artifacts": attention["shaders"]["phase16_artifacts"],
+            "sealed_gate_sha256": attention["shaders"]["sealed_gate_sha256"],
         },
         "mirror_epoch": mirror_epoch,
         "counts": {
