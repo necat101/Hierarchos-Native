@@ -815,14 +815,16 @@ def validate(matrix: dict, registry: dict | None = None) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--forward", type=Path, required=True)
+    parser.add_argument("--forward", type=Path)
     parser.add_argument("--historical", type=Path, default=DEFAULT_HISTORICAL)
     parser.add_argument("--peft", type=Path, default=DEFAULT_PEFT)
-    parser.add_argument("--generation", type=Path, required=True)
+    parser.add_argument("--generation", type=Path)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--validate", action="store_true")
     parser.add_argument("--check", action="store_true", help="validate the committed matrix without rebuilding it")
     args = parser.parse_args()
+    if not args.check and (args.forward is None or args.generation is None):
+        parser.error("--forward and --generation are required unless --check is used")
     if args.check:
         matrix = read_json(args.output)
         validate(matrix)
