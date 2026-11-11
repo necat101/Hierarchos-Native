@@ -1,0 +1,32 @@
+name: phase19w architecture compatibility
+
+on:
+  push:
+    branches: [codex/rdna3-phase19-instrumented]
+  pull_request:
+    branches: [codex/rdna3-phase19-instrumented]
+
+jobs:
+  compatibility:
+    # This gate validates the committed registry, matrix and retained evidence.
+    # Physical RDNA3/Gen9 GPU execution is a separate qualification, not a CI
+    # workload and is never claimed by this CPU-only job.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Generated architecture inventory is current
+        run: python hierarchos-vulkan/validation/generate_supported_architectures.py --check
+      - name: Registry is exactly 146 canonical plus 83 aliases
+        run: python hierarchos-vulkan/validation/phase19w_registry.py
+      - name: Compatibility matrix and negative controls
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19w_compatibility.py" -v
+      - name: Validate committed source-bound matrix
+        run: python hierarchos-vulkan/validation/phase19w_matrix.py --check

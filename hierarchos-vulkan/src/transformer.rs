@@ -103,6 +103,18 @@ fn gpt2_attention_reciprocal(architecture: VulkanTransformerArchitecture) -> boo
     architecture == VulkanTransformerArchitecture::Gpt2
 }
 
+/// Opt-in for the later AVX2-shaped GPT-2 attention module.
+///
+/// The Phase XIX-W replay found that its automatic selection changes the
+/// padded `gpt2_wide` result by one strict-gate ULP. The historical reciprocal
+/// module remains the default; the newer module is selected only when an
+/// operator asks for it explicitly.
+fn gpt2_avx2_attention_enabled(device: &VulkanDevice) -> bool {
+    std::env::var_os("HIERARCHOS_VULKAN_RDNA3_GPT2").is_some_and(|value| value == "1")
+        && aten_vector_width() == 8
+        && vendor::rdna3_module_enabled(device)
+}
+
 fn small_welford_is_qualified(device: &str, dim: usize) -> bool {
     device == "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]" && (1..=128).contains(&dim)
 }
@@ -69337,7 +69349,7 @@ impl VulkanTransformer {
             // The Gen9 reciprocal modules intentionally retain their own recipe.
             // Frozen AVX2 SDPA uses scalar exp tails and normalizes E@V below
             // eight keys. Keep that contract in separate RDNA3 artifacts.
-            if aten_vector_width() == 8 && vendor::rdna3_module_enabled(&device) {
+            if gpt2_avx2_attention_enabled(&device) {
                 kernels.attention_forward = vulkan::ComputeKernel::new(
                     &device,
                     include_bytes!(
