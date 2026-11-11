@@ -172,6 +172,12 @@ def source_contract() -> dict:
 def _validate_source_contract(contract: dict) -> None:
     expected = source_contract()
     for name, value in expected.items():
+        if name == "revision":
+            # A committed matrix cannot contain the hash of the commit that
+            # first adds it (the commit hash is computed after its tree). The
+            # file hashes below bind the exact qualified source; the revision
+            # remains provenance only.
+            continue
         if contract.get(name) != value:
             raise ValueError(f"matrix source contract changed: {name}")
 
