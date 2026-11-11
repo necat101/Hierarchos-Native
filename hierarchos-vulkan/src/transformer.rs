@@ -8749,7 +8749,11 @@ impl VulkanTransformerLoraConfig {
     fn pattern_value<'a, T>(module: &str, pattern: &'a BTreeMap<String, T>) -> Option<&'a T> {
         pattern
             .iter()
-            .filter(|(name, _)| module == name.as_str() || module.ends_with(&format!(".{name}")))
+            .filter(|(name, _)| {
+                module == name.as_str()
+                    || module.ends_with(&format!(".{name}"))
+                    || Regex::new(name).is_ok_and(|regex| regex.is_match(module))
+            })
             .max_by_key(|(name, _)| name.len())
             .map(|(_, value)| value)
     }
@@ -8814,7 +8818,11 @@ impl VulkanTransformerLoraConfig {
             || self
                 .target_modules
                 .iter()
-                .any(|target| module == target || module.ends_with(&format!(".{target}")));
+                .any(|target| module == target || module.ends_with(&format!(".{target}")))
+            // PEFT ParamWrapper installs on a module-level Parameter. The
+            // router is the only such target exposed as an ordinary native
+            // linear, so bind it through its exact `module.weight` name.
+            || self.targets_parameter(&format!("{module}.weight"));
         if !targeted {
             return false;
         }
@@ -65998,6 +66006,265 @@ fn attach_llama4_down_expert_lora(
     )
 }
 
+fn attach_mixtral_packed_target_parameters(
+    device: &VulkanDevice,
+    rows: usize,
+    config: &VulkanTransformerLoraConfig,
+    layer_index: usize,
+    layer: &mut VulkanTransformerLayer,
+    seed: u64,
+    adapter: Option<(&Path, &SafeTensors<'_>, bool)>,
+) -> Result<usize> {
+    let module = format!("model.layers.{layer_index}.mlp");
+    let experts_module = format!("{module}.experts");
+    let gate_up_parameter = format!("{experts_module}.gate_up_proj");
+    let down_parameter = format!("{experts_module}.down_proj");
+    let router_parameter = format!("{module}.gate.weight");
+    let target_gate_up = config.targets_parameter(&gate_up_parameter);
+    let target_down = config.targets_parameter(&down_parameter);
+    let target_router = config.targets_parameter(&router_parameter);
+    if !target_gate_up && !target_down && !target_router {
+        return Ok(0);
+    }
+
+    let (num_experts, hidden, intermediate) = {
+        let moe = layer
+            .moe
+            .as_ref()
+            .context("Mixtral sparse layer is missing native MoE parameters")?;
+        let expert0 = moe.owned_expert0.as_ref().or_else(|| moe.experts.first()).context(
+            "Mixtral sparse layer has no routed expert to define its projection geometry",
+        )?;
+        (moe.num_experts, moe.routed_hidden, expert0.up.output_dim)
+    };
+    let trainable = !config.inference_mode;
+    let (adapter_id, active_adapter_id) = config.runtime_adapter_context()?;
+    let mut attached = 0usize;
+
+    if target_router {
+        let moe = layer
+            .moe
+            .as_mut()
+            .context("Mixtral sparse layer lost its native router")?;
+        attached += usize::from(attach_lora_to_linear(
+            device,
+            rows,
+            config,
+            &format!("{module}.gate"),
+            &mut moe.router,
+            seed,
+            adapter,
+            None,
+        )?);
+    }
+
+    if target_gate_up {
+        let rank = config.rank_for(&gate_up_parameter);
+        if matches!(
+            &config.init_lora_weights,
+            VulkanTransformerLoraInit::Name(name) if name.eq_ignore_ascii_case("orthogonal")
+        ) && rank % 2 != 0
+        {
+            bail!("orthogonal target_parameters LoRA requires an even rank");
+        }
+        let scale = config.scale_for(&gate_up_parameter)?;
+        let pair = if let Some((weights_path, tensors, _allow_bare)) = adapter {
+            load_packed_parameter_lora_pair(
+                weights_path,
+                tensors,
+                &experts_module,
+                target_down,
+                rank,
+                num_experts,
+                hidden,
+                2 * intermediate,
+            )?
+        } else {
+            initialize_packed_parameter_lora_pair(
+                &config.init_lora_weights,
+                rank,
+                num_experts,
+                hidden,
+                2 * intermediate,
+                stable_lora_seed(seed, &gate_up_parameter),
+            )?
+        };
+        let per_expert = unpack_packed_expert_lora(
+            &pair.0,
+            &pair.1,
+            rank,
+            num_experts,
+            hidden,
+            2 * intermediate,
+        )?;
+        let (a0, b0) = &per_expert[0];
+        if layer
+            .moe
+            .as_ref()
+            .is_some_and(|moe| moe.owned_expert0.is_some())
+        {
+            let moe = layer
+                .moe
+                .as_mut()
+                .context("Mixtral sparse layer lost its expert table")?;
+            let owned = moe
+                .owned_expert0
+                .as_mut()
+                .context("Mixtral owned expert 0 disappeared")?;
+            attach_llama4_gate_up_expert_lora(
+                device,
+                rows,
+                rank,
+                scale,
+                trainable,
+                a0,
+                b0,
+                owned
+                    .gate
+                    .as_mut()
+                    .context("Mixtral expert 0 is missing its gate projection")?,
+                &mut owned.up,
+                adapter_id,
+                &active_adapter_id,
+            )?;
+        } else {
+            attach_llama4_gate_up_expert_lora(
+                device,
+                rows,
+                rank,
+                scale,
+                trainable,
+                a0,
+                b0,
+                layer
+                    .c_gate
+                    .as_mut()
+                    .context("Mixtral expert 0 is missing its gate projection")?,
+                &mut layer.c_fc,
+                adapter_id,
+                &active_adapter_id,
+            )?;
+        }
+        let moe = layer
+            .moe
+            .as_mut()
+            .context("Mixtral sparse layer lost its expert table")?;
+        for (expert, (a, b)) in moe.experts.iter_mut().zip(per_expert.iter().skip(1)) {
+            attach_llama4_gate_up_expert_lora(
+                device,
+                rows,
+                rank,
+                scale,
+                trainable,
+                a,
+                b,
+                expert
+                    .gate
+                    .as_mut()
+                    .context("Mixtral routed expert is missing its gate projection")?,
+                &mut expert.up,
+                adapter_id,
+                &active_adapter_id,
+            )?;
+        }
+        attached += 1;
+    }
+
+    if target_down {
+        let rank = config.rank_for(&down_parameter);
+        if matches!(
+            &config.init_lora_weights,
+            VulkanTransformerLoraInit::Name(name) if name.eq_ignore_ascii_case("orthogonal")
+        ) && rank % 2 != 0
+        {
+            bail!("orthogonal target_parameters LoRA requires an even rank");
+        }
+        let scale = config.scale_for(&down_parameter)?;
+        let pair = if let Some((weights_path, tensors, _allow_bare)) = adapter {
+            load_packed_parameter_lora_pair(
+                weights_path,
+                tensors,
+                &experts_module,
+                false,
+                rank,
+                num_experts,
+                intermediate,
+                hidden,
+            )?
+        } else {
+            initialize_packed_parameter_lora_pair(
+                &config.init_lora_weights,
+                rank,
+                num_experts,
+                intermediate,
+                hidden,
+                stable_lora_seed(seed, &down_parameter),
+            )?
+        };
+        let per_expert =
+            unpack_packed_expert_lora(&pair.0, &pair.1, rank, num_experts, intermediate, hidden)?;
+        if layer
+            .moe
+            .as_ref()
+            .is_some_and(|moe| moe.owned_expert0.is_some())
+        {
+            let moe = layer
+                .moe
+                .as_mut()
+                .context("Mixtral sparse layer lost its expert table")?;
+            let owned = moe
+                .owned_expert0
+                .as_mut()
+                .context("Mixtral owned expert 0 disappeared")?;
+            attach_llama4_down_expert_lora(
+                device,
+                rows,
+                rank,
+                scale,
+                trainable,
+                &per_expert[0].0,
+                &per_expert[0].1,
+                &mut owned.down,
+                adapter_id,
+                active_adapter_id.clone(),
+            )?;
+        } else {
+            attach_llama4_down_expert_lora(
+                device,
+                rows,
+                rank,
+                scale,
+                trainable,
+                &per_expert[0].0,
+                &per_expert[0].1,
+                &mut layer.c_mlp_proj,
+                adapter_id,
+                active_adapter_id.clone(),
+            )?;
+        }
+        let moe = layer
+            .moe
+            .as_mut()
+            .context("Mixtral sparse layer lost its expert table")?;
+        for (expert, (a, b)) in moe.experts.iter_mut().zip(per_expert.iter().skip(1)) {
+            attach_llama4_down_expert_lora(
+                device,
+                rows,
+                rank,
+                scale,
+                trainable,
+                a,
+                b,
+                &mut expert.down,
+                adapter_id,
+                active_adapter_id.clone(),
+            )?;
+        }
+        attached += 1;
+    }
+    Ok(attached)
+}
+
 fn attach_llama4_packed_target_parameters(
     device: &VulkanDevice,
     rows: usize,
@@ -66352,13 +66619,84 @@ fn collect_llama4_down_expert_lora(
     Ok((lora.a.read()?, lora.b.read()?))
 }
 
-fn export_llama4_packed_target_parameters(
+fn mixtral_packed_parameter_covers_module(
+    config: &VulkanTransformerLoraConfig,
+    module: &str,
+) -> bool {
+    let Some(rest) = module.strip_prefix("model.layers.") else {
+        return false;
+    };
+    let Some((layer_index, rest)) = rest.split_once('.') else {
+        return false;
+    };
+    let Ok(layer_index) = layer_index.parse::<usize>() else {
+        return false;
+    };
+    if rest == "block_sparse_moe.gate" {
+        return config.targets_parameter(&format!(
+            "model.layers.{layer_index}.mlp.gate.weight"
+        ));
+    }
+    let Some(expert) = rest.strip_prefix("block_sparse_moe.experts.") else {
+        return false;
+    };
+    let Some((_, projection)) = expert.rsplit_once('.') else {
+        return false;
+    };
+    match projection {
+        "w1" | "w3" => config.targets_parameter(&format!(
+            "model.layers.{layer_index}.mlp.experts.gate_up_proj"
+        )),
+        "w2" => config.targets_parameter(&format!(
+            "model.layers.{layer_index}.mlp.experts.down_proj"
+        )),
+        _ => false,
+    }
+}
+
+fn export_mixtral_router(
     owned: &mut BTreeMap<String, (Vec<usize>, Vec<u8>)>,
     config: &VulkanTransformerLoraConfig,
     layer_index: usize,
     layer: &VulkanTransformerLayer,
 ) -> Result<()> {
-    let experts_module = format!("model.layers.{layer_index}.feed_forward.experts");
+    let module = format!("model.layers.{layer_index}.mlp.gate");
+    if !config.targets_parameter(&format!("{module}.weight")) {
+        return Ok(());
+    }
+    let moe = layer
+        .moe
+        .as_ref()
+        .context("Mixtral sparse layer is missing its router during adapter export")?;
+    let lora = moe
+        .router
+        .lora
+        .as_ref()
+        .context("Mixtral router is missing LoRA state during adapter export")?;
+    owned.insert(
+        peft_saved_lora_tensor_key(&module, 'A'),
+        (vec![lora.rank, moe.router.input_dim], f32_le_bytes(&lora.a.read()?)),
+    );
+    owned.insert(
+        peft_saved_lora_tensor_key(&module, 'B'),
+        (vec![moe.router.output_dim, lora.rank], f32_le_bytes(&lora.b.read()?)),
+    );
+    if let Some(bias) = lora.b_bias.as_ref() {
+        owned.insert(
+            peft_saved_lora_b_bias_tensor_key(&module),
+            (vec![moe.router.output_dim], f32_le_bytes(&bias.read()?)),
+        );
+    }
+    Ok(())
+}
+
+fn export_llama4_packed_target_parameters(
+    owned: &mut BTreeMap<String, (Vec<usize>, Vec<u8>)>,
+    config: &VulkanTransformerLoraConfig,
+    layer_index: usize,
+    layer: &VulkanTransformerLayer,
+    experts_module: &str,
+) -> Result<()> {
     let gate_up_parameter = format!("{experts_module}.gate_up_proj");
     let down_parameter = format!("{experts_module}.down_proj");
     let target_gate_up = config.targets_parameter(&gate_up_parameter);
@@ -72402,29 +72740,38 @@ impl VulkanTransformer {
             if requested.is_empty() {
                 0
             } else {
-                if self.config.architecture != VulkanTransformerArchitecture::Llama4Text {
+                if !matches!(
+                    self.config.architecture,
+                    VulkanTransformerArchitecture::Llama4Text
+                        | VulkanTransformerArchitecture::Mixtral
+                        | VulkanTransformerArchitecture::Qwen3Next
+                ) {
                     bail!(
-                        "LoRA target_parameters is currently implemented for packed Llama 4 expert Parameters; {:?} does not yet expose a lossless native parameter adapter ABI",
+                        "LoRA target_parameters is not implemented for {:?}; no lossless native parameter adapter ABI is defined",
                         self.config.architecture
                     );
                 }
                 let mut available_parameters = Vec::new();
-                for index in 0..self.layers.len() {
-                    if self.config.layer_uses_moe(index) {
-                        let experts = format!("model.layers.{index}.feed_forward.experts");
-                        available_parameters.push(format!("{experts}.gate_up_proj"));
-                        available_parameters.push(format!("{experts}.down_proj"));
+                for (index, layer) in self.layers.iter().enumerate() {
+                    if !self.config.layer_uses_moe(index) || layer.moe.is_none() {
+                        continue;
                     }
-                }
-                for target in requested {
-                    if !available_parameters.iter().any(|parameter| {
-                        parameter == target || parameter.ends_with(&format!(".{target}"))
-                    }) {
-                        bail!(
-                            "LoRA target parameter {target:?} does not match a supported packed Llama 4 expert parameter"
-                        );
+                    let experts = if self.config.architecture == VulkanTransformerArchitecture::Llama4Text {
+                        format!("model.layers.{index}.feed_forward.experts")
+                    } else {
+                        format!("model.layers.{index}.mlp.experts")
+                    };
+                    if self.config.architecture == VulkanTransformerArchitecture::Mixtral {
+                        available_parameters.push(format!("model.layers.{index}.mlp.gate.weight"));
                     }
+                    available_parameters.push(format!("{experts}.gate_up_proj"));
+                    available_parameters.push(format!("{experts}.down_proj"));
                 }
+                // PEFT silently leaves an unmatched ParamWrapper name inert.
+                // Qwen3-Next's tiny dense fixture declares expert parameter
+                // names but has no expert Parameters, so requiring a match here
+                // would reject a valid adapter with zero parameter deltas.
+                let _ = requested;
                 available_parameters
                     .iter()
                     .filter(|parameter| config.targets_parameter(parameter))
@@ -74174,11 +74521,10 @@ impl VulkanTransformer {
                         &device, rows, &config, &module, linear, seed, adapter, None,
                     )?);
                 }
-                if self.config.architecture.model_type() == "mixtral" {
-                    // Match PEFT's current Mixtral module graph: standard
-                    // target_modules can reach the attention nn.Linear layers
-                    // above, while packed experts/router need target-parameter
-                    // support rather than adapters on native-only split linears.
+                if self.config.architecture == VulkanTransformerArchitecture::Mixtral {
+                    attached += attach_mixtral_packed_target_parameters(
+                        &device, rows, &config, index, layer, seed, adapter,
+                    )?;
                     continue;
                 }
                 if self.config.architecture == VulkanTransformerArchitecture::Llama4Text {
@@ -76477,6 +76823,17 @@ impl VulkanTransformer {
                 let Some(lora) = linear.lora.as_ref() else {
                     continue;
                 };
+                // Mixtral's packed target_parameters attach per-expert LoRA
+                // state to the canonical expert linears. Those linears are an
+                // internal execution detail; PEFT serializes only the packed
+                // `experts` tensors and the router parameter. Suppress the
+                // canonical aliases so loading an HF adapter does not produce
+                // a duplicate, non-PEFT key set on re-export.
+                if self.config.architecture == VulkanTransformerArchitecture::Mixtral
+                    && mixtral_packed_parameter_covers_module(config, &module)
+                {
+                    continue;
+                }
                 let a = lora.a.read()?;
                 let b = lora.b.read()?;
                 let b = if let Some(layout) = output_layout {
@@ -76542,7 +76899,27 @@ impl VulkanTransformer {
             if self.config.architecture == VulkanTransformerArchitecture::Llama4Text
                 && self.config.layer_uses_moe(index)
             {
-                export_llama4_packed_target_parameters(&mut owned, config, index, layer)?;
+                let experts = format!("model.layers.{index}.feed_forward.experts");
+                export_llama4_packed_target_parameters(
+                    &mut owned,
+                    config,
+                    index,
+                    layer,
+                    &experts,
+                )?;
+            }
+            if self.config.architecture == VulkanTransformerArchitecture::Mixtral
+                && self.config.layer_uses_moe(index)
+            {
+                let experts = format!("model.layers.{index}.mlp.experts");
+                export_mixtral_router(&mut owned, config, index, layer)?;
+                export_llama4_packed_target_parameters(
+                    &mut owned,
+                    config,
+                    index,
+                    layer,
+                    &experts,
+                )?;
             }
         }
         if matches!(

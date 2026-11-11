@@ -65,6 +65,7 @@ fn run() -> Result<()> {
     let mut lora_rank = None;
     let mut lora_alpha = None;
     let mut lora_targets = Vec::new();
+    let mut lora_parameter_targets = Vec::new();
     let mut lora_adapter = None;
     let mut resume_lora = None;
     let mut training_checkpoint = None;
@@ -134,6 +135,12 @@ fn run() -> Result<()> {
             "--lora-target" => lora_targets.push(
                 args.next()
                     .context("missing --lora-target value")?
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+            "--lora-parameter-target" => lora_parameter_targets.push(
+                args.next()
+                    .context("missing --lora-parameter-target value")?
                     .to_string_lossy()
                     .into_owned(),
             ),
@@ -238,10 +245,17 @@ fn run() -> Result<()> {
                 | VulkanTransformerArchitecture::Gpt2
                 | VulkanTransformerArchitecture::GptSw3
         );
-        graph.enable_lora(
-            VulkanTransformerLoraConfig::causal_lm(rank, alpha, targets, fan_in_fan_out)?,
-            seed,
+        let mut config = VulkanTransformerLoraConfig::causal_lm(
+            rank,
+            alpha,
+            targets,
+            fan_in_fan_out,
         )?;
+        if !lora_parameter_targets.is_empty() {
+            config.target_parameters = Some(lora_parameter_targets);
+            config.validate()?;
+        }
+        graph.enable_lora(config, seed)?;
     }
     let peft = graph.lora_config().is_some();
     let requested_hyper = AdamWHyperParams {

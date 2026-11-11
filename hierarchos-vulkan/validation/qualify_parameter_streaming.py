@@ -52,7 +52,7 @@ def main():
     out.mkdir(parents=True,exist_ok=False)
     (out/'bin').mkdir()
     binaries={}
-    for stem in ['hierarchos-vulkan-transformer-logits','transformer_parity']:
+    for stem in ['hierarchos-vulkan-transformer-logits','transformer_parity','peft_checkpoint']:
         name=stem+('.exe' if os.name=='nt' else '')
         source=ROOT/'hierarchos-vulkan/target/debug'/name
         destination=out/'bin'/name

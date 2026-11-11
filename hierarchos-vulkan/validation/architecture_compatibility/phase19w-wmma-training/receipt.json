@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "status": "pass",
+  "scope": "real RDNA3 Vulkan WMMA LoRA training path, two optimizer steps, eligible 1024-wide projections",
+  "device": "AMD Radeon Graphics (RDNA3, vendor 0x1002 device 0x15bf)",
+  "trainer_binary": "hierarchos-vulkan/target/release/hierarchos-vulkan-transformer-train.exe",
+  "trainer_sha256": "26428a0e5a07a4e502b0a754b56d265a0465ca80f9246e4ec717d87caa612808",
+  "source_sha256": {
+    "hierarchos-vulkan/src/wmma.rs": "9da469aeabba752d023a5991dfc5bb05fd53bfab5369d5b5b593682397bfc315",
+    "hierarchos-vulkan/src/wmma_linear.rs": "f93016184750dcd7128ab242c2ad797cd547052f118d9c839faf72ae7edd2faf",
+    "hierarchos-vulkan/src/bin/transformer_train.rs": "d1527ab47cd08ada9761403b7664ab2df0ea147cd057354a69c6d62d86cb65f2"
+  },
+  "fixture": {
+    "generator": "hierarchos-vulkan/validation/make_wmma_fixture.py",
+    "hidden_size": 1024,
+    "layers": 2,
+    "vocab_size": 1024,
+    "seq_len": 64,
+    "batch_size": 8,
+    "optimizer_steps": 2,
+    "projections_per_step": 14,
+    "parameters": 16782336,
+    "model_sha256": "841390b8f44d25f3d35d0ad97277e9fa806ebb62a43f848784c54b5759bf6927"
+  },
+  "runs": {
+    "off": {
+      "exit_code": 0,
+      "steps": [
+        [
+          1,
+          7.113462924957275
+        ],
+        [
+          2,
+          7.11323356628418
+        ]
+      ],
+      "final_loss": 7.11323356628418,
+      "requested": "off"
+    },
+    "mixed": {
+      "exit_code": 0,
+      "steps": [
+        [
+          1,
+          7.113452434539795
+        ],
+        [
+          2,
+          7.113208293914795
+        ]
+      ],
+      "final_loss": 7.113208293914795,
+      "requested": "mixed",
+      "cooperative_dispatches": 60,
+      "shape_fallbacks": 0,
+      "forward": 30,
+      "weight_grad": 0,
+      "input_grad": 30,
+      "weight_conversions": 30,
+      "fp32_bytes_read": 125829120,
+      "mirror_reuses": 30,
+      "weight_grad_consistent": true
+    }
+  },
+  "loss_delta_abs": 2.5272369384765625e-05,
+  "criteria": {
+    "both_runs_exit_zero": true,
+    "two_optimizer_steps_each": true,
+    "mixed_dispatched": true,
+    "zero_shape_fallbacks": true,
+    "lora_weight_grad_accounting_consistent": true,
+    "finite_losses": true
+  },
+  "logs": {
+    "off": "hierarchos-vulkan/validation/architecture_compatibility/phase19w-wmma-training/off.log",
+    "mixed": "hierarchos-vulkan/validation/architecture_compatibility/phase19w-wmma-training/mixed.log"
+  },
+  "log_sha256": {
+    "off": "4b4c39d5fbcc2eb1d8d65190512f853eabf2e85a69be059545235319c0b3c918",
+    "mixed": "455668136e87de3adbd0f179cdbbedaeddb5495d0245e1f47e2ce475d136dcf9"
+  },
+  "not_claimed": [
+    "training throughput/speedup",
+    "bitwise or pointwise loss parity between FP32 and mixed WMMA"
+  ]
+}

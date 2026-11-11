@@ -234,12 +234,19 @@ impl VulkanTransformer {
         if !self.lora_adapters_enabled || config.inference_mode {
             bail!("optimizer checkpoint requires an enabled, trainable LoRA adapter");
         }
+        let unsupported_packed_adapters = config
+            .target_parameters
+            .as_ref()
+            .is_some_and(|v| !v.is_empty())
+            && self.config.architecture == VulkanTransformerArchitecture::Llama4Text
+            && self.layers.iter().any(|layer| {
+                layer.moe.as_ref().is_some_and(|moe| {
+                    moe.owned_expert0.is_some() || !moe.experts.is_empty()
+                })
+            });
         if !config.bias.eq_ignore_ascii_case("none")
             || config.trainable_token_indices.is_some()
-            || config
-                .target_parameters
-                .as_ref()
-                .is_some_and(|v| !v.is_empty())
+            || unsupported_packed_adapters
             || config.layer_replication.is_some()
         {
             bail!("optimizer checkpoint for bias, tokens, packed parameters or replicated layers is not implemented");
@@ -267,6 +274,43 @@ impl VulkanTransformer {
                     }
                     if let Some(dora) = &lora.dora {
                         parameters.insert(format!("{name}.lora_magnitude_vector"), &dora.magnitude);
+                    }
+                }
+            }
+            if self.config.architecture == VulkanTransformerArchitecture::Mixtral {
+                if let Some(moe) = self.layers[index].moe.as_ref() {
+                    let mut moe_linears = vec![(
+                        format!("model.layers.{index}.mlp.gate"),
+                        &moe.router,
+                    )];
+                    if let Some(owned) = moe.owned_expert0.as_ref() {
+                        let prefix = format!("model.layers.{index}.mlp.experts.0");
+                        if let Some(gate) = owned.gate.as_ref() {
+                            moe_linears.push((format!("{prefix}.gate"), gate));
+                        }
+                        moe_linears.push((format!("{prefix}.up"), &owned.up));
+                        moe_linears.push((format!("{prefix}.down"), &owned.down));
+                    }
+                    for (expert_index, expert) in moe.experts.iter().enumerate() {
+                        let prefix = format!(
+                            "model.layers.{index}.mlp.experts.{}",
+                            expert_index + 1
+                        );
+                        if let Some(gate) = expert.gate.as_ref() {
+                            moe_linears.push((format!("{prefix}.gate"), gate));
+                        }
+                        moe_linears.push((format!("{prefix}.up"), &expert.up));
+                        moe_linears.push((format!("{prefix}.down"), &expert.down));
+                    }
+                    for (name, linear) in moe_linears {
+                        if let Some(lora) = linear.lora.as_ref() {
+                            if !lora.trainable {
+                                bail!("adapter module {name} is not trainable");
+                            }
+                            for (suffix, parameter) in [("lora_A", &lora.a), ("lora_B", &lora.b)] {
+                                parameters.insert(format!("{name}.{suffix}.weight"), parameter);
+                            }
+                        }
                     }
                 }
             }
@@ -448,6 +492,146 @@ impl VulkanTransformer {
                 format!("base_model.model.{}", name.replace(".saved.", ".")),
                 values,
             );
+        }
+        if self.config.architecture == VulkanTransformerArchitecture::Mixtral {
+            let rank_grad = |name: &str, expected: usize| -> Result<Vec<f32>> {
+                let parameter = parameters
+                    .get(name)
+                    .with_context(|| format!("missing Mixtral gradient parameter {name}"))?;
+                let values = parameter.grad_buffer()?.read_f32(parameter.len)?;
+                if values.len() != expected {
+                    bail!(
+                        "Mixtral gradient {name} has {} values; expected {expected}",
+                        values.len()
+                    );
+                }
+                Ok(values)
+            };
+            for index in 0..self.layers.len() {
+                let Some(moe) = self.layers[index].moe.as_ref() else {
+                    continue;
+                };
+                let experts_module = format!("model.layers.{index}.mlp.experts");
+                let router_module = format!("model.layers.{index}.mlp.gate");
+                let gate_up_parameter = format!("{experts_module}.gate_up_proj");
+                let down_parameter = format!("{experts_module}.down_proj");
+                let target_gate_up = config.targets_parameter(&gate_up_parameter);
+                let target_down = config.targets_parameter(&down_parameter);
+                if !target_gate_up && !target_down {
+                    continue;
+                }
+                let first = format!("model.layers.{index}.block_sparse_moe.experts.0");
+                let (hidden, intermediate) = *saved_shapes
+                    .get(&format!("{first}.w2"))
+                    .context("Mixtral optimizer graph is missing expert down projection")?;
+                let (gate_out, gate_in) = *saved_shapes
+                    .get(&format!("{first}.w1"))
+                    .context("Mixtral optimizer graph is missing expert gate projection")?;
+                if gate_out != intermediate || gate_in != hidden {
+                    bail!("Mixtral expert gradient geometry is not gate/down transposable");
+                }
+                if target_gate_up {
+                    let rank = config.rank_for(&gate_up_parameter);
+                    let mut experts = Vec::with_capacity(moe.num_experts);
+                    for expert in 0..moe.num_experts {
+                        let prefix = format!("model.layers.{index}.block_sparse_moe.experts.{expert}");
+                        let gate_a = rank_grad(&format!("{prefix}.w1.lora_A.weight"), rank * hidden)?;
+                        let up_a = rank_grad(&format!("{prefix}.w3.lora_A.weight"), rank * hidden)?;
+                        if gate_a != up_a {
+                            bail!("Mixtral packed gate/up LoRA-A gradients diverged");
+                        }
+                        let mut gate_up_b = rank_grad(
+                            &format!("{prefix}.w1.lora_B.weight"),
+                            intermediate * rank,
+                        )?;
+                        gate_up_b.extend(rank_grad(
+                            &format!("{prefix}.w3.lora_B.weight"),
+                            intermediate * rank,
+                        )?);
+                        experts.push((gate_a, gate_up_b));
+                    }
+                    let (a, b) = pack_expert_lora(
+                        &experts,
+                        rank,
+                        hidden,
+                        2 * intermediate,
+                    )?;
+                    let nested = target_down;
+                    result.insert(
+                        peft_parameter_lora_tensor_key(&experts_module, nested, 'A'),
+                        a,
+                    );
+                    result.insert(
+                        peft_parameter_lora_tensor_key(&experts_module, nested, 'B'),
+                        b,
+                    );
+                }
+                if target_down {
+                    let rank = config.rank_for(&down_parameter);
+                    let mut experts = Vec::with_capacity(moe.num_experts);
+                    for expert in 0..moe.num_experts {
+                        let prefix = format!("model.layers.{index}.block_sparse_moe.experts.{expert}");
+                        experts.push((
+                            rank_grad(&format!("{prefix}.w2.lora_A.weight"), rank * intermediate)?,
+                            rank_grad(&format!("{prefix}.w2.lora_B.weight"), hidden * rank)?,
+                        ));
+                    }
+                    let (a, b) = pack_expert_lora(
+                        &experts,
+                        rank,
+                        intermediate,
+                        hidden,
+                    )?;
+                    result.insert(
+                        peft_parameter_lora_tensor_key(&experts_module, false, 'A'),
+                        a,
+                    );
+                    result.insert(
+                        peft_parameter_lora_tensor_key(&experts_module, false, 'B'),
+                        b,
+                    );
+                }
+                if config.targets_parameter(&format!("{router_module}.weight")) {
+                    let a = rank_grad(
+                        &format!("{router_module}.lora_A.weight"),
+                        config.r * hidden,
+                    )?;
+                    let b = rank_grad(
+                        &format!("{router_module}.lora_B.weight"),
+                        moe.num_experts * config.r,
+                    )?;
+                    result.insert(peft_saved_lora_tensor_key(&router_module, 'A'), a);
+                    result.insert(peft_saved_lora_tensor_key(&router_module, 'B'), b);
+                    result.remove(&peft_saved_lora_tensor_key(
+                        &format!("model.layers.{index}.block_sparse_moe.gate"),
+                        'A',
+                    ));
+                    result.remove(&peft_saved_lora_tensor_key(
+                        &format!("model.layers.{index}.block_sparse_moe.gate"),
+                        'B',
+                    ));
+                }
+                for expert in 0..moe.num_experts {
+                    for projection in ["w1", "w2", "w3"] {
+                        for side in ['A', 'B'] {
+                            result.remove(&peft_saved_lora_tensor_key(
+                                &format!(
+                                    "model.layers.{index}.block_sparse_moe.experts.{expert}.{projection}"
+                                ),
+                                side,
+                            ));
+                        }
+                    }
+                    for projection in ["gate", "up", "down"] {
+                        for side in ['A', 'B'] {
+                            result.remove(&peft_saved_lora_tensor_key(
+                                &format!("model.layers.{index}.mlp.experts.{expert}.{projection}"),
+                                side,
+                            ));
+                        }
+                    }
+                }
+            }
         }
         if let Some(module) = &self.lora_saved_embedding_module {
             let len = self.shared_embedding.context_dim() * self.shared_embedding.vocab_size();

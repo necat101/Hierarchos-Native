@@ -60,8 +60,20 @@ def local_transformers_provenance():
     expected = (TRANSFORMERS_ROOT / "src" / "transformers").resolve()
     if not source.is_relative_to(expected):
         raise RuntimeError(f"Transformers oracle must load from {expected}, got {source}")
+    try:
+        revision = subprocess.check_output(
+            ["git", "-C", str(TRANSFORMERS_ROOT), "rev-parse", "HEAD"], text=True
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        revision = "unavailable"
+    patches = {}
+    patch_dir = ROOT / "validation/reference_patches"
+    if patch_dir.is_dir():
+        patches = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                   for p in sorted(patch_dir.glob("*.patch"))}
     return {"transformers_root": str(TRANSFORMERS_ROOT),
-            "transformers_source": str(source), "transformers_version": transformers.__version__}
+            "transformers_source": str(source), "transformers_version": transformers.__version__,
+            "transformers_revision": revision, "local_reference_patches": patches}
 
 
 def _run(args: list[str], *, cwd: Path = ROOT) -> None:
@@ -218,8 +230,31 @@ def _native_lifecycle_targets(targets):
     lifecycle leg, spell out the same canonical linear subset so the exported
     adapter can be loaded back by both native Vulkan and HF PEFT.
     """
-    if not isinstance(targets, str) or targets == "all-linear":
-        return [targets] if isinstance(targets, str) else list(targets)
+    if not isinstance(targets, str):
+        return list(targets)
+    saved = ADAPTER_DIR / "adapter_config.json"
+    if saved.is_file():
+        modules = json.loads(saved.read_text(encoding="utf-8")).get("target_modules")
+        if isinstance(modules, list) and modules and all(isinstance(module, str) for module in modules):
+            # PEFT resolves `all-linear` (and architecture defaults) before
+            # saving. Reuse that exact resolved set so the native-created leg
+            # targets the same modules as the HF-created leg. A raw all-linear
+            # expansion also sees native-only dense MLP nodes which PEFT does
+            # not target in packed architectures such as Qwen3-Next.
+            return modules
+    if targets == "all-linear":
+        base, _ = _reference_model()
+        names = [name for name, module in base.named_modules()
+                 if isinstance(module, torch.nn.Linear)
+                 and name.rsplit('.', 1)[-1] != 'lm_head']
+        # transformer_parity selects modules by suffix, matching PEFT's
+        # target_modules semantics. Full dotted names here would be embedded
+        # verbatim in the exported adapter config and prevent native reload
+        # from finding the corresponding linears.
+        leaves = sorted({name.rsplit('.', 1)[-1] for name in names})
+        if not leaves:
+            raise RuntimeError("all-linear PEFT regex selected no HF linear modules")
+        return leaves
     if FAMILY == "deepseek_v4":
         return ["q_a_proj", "q_b_proj", "kv_proj", "o_b_proj"]
     if FAMILY in {"phi4_multimodal_text", "phi3"}:
@@ -242,10 +277,18 @@ def _verify_lifecycle(binary, training_binary, input_ids, attention_mask, target
 
     if os.environ.get("HIERARCHOS_PEFT_USE_PREBUILT") != "1":
         _run(["cargo", "build", "--bin", "peft_checkpoint", "-j", "1"])
-    checkpoint = ROOT / "target" / "debug" / ("peft_checkpoint.exe" if os.name == "nt" else "peft_checkpoint")
+    checkpoint = Path(os.environ.get("HIERARCHOS_PEFT_BIN_DIR") or ROOT / "target" / "debug") / (
+        "peft_checkpoint.exe" if os.name == "nt" else "peft_checkpoint"
+    )
     native_created = FIXTURE_ROOT / "native-created"
     target_args = [arg for target in _native_lifecycle_targets(targets)
                    for arg in ["--lora-target", target]]
+    parameter_targets = []
+    saved_config = ADAPTER_DIR / "adapter_config.json"
+    if FAMILY == "mixtral" and saved_config.is_file():
+        parameter_targets = json.loads(saved_config.read_text(encoding="utf-8")).get("target_parameters") or []
+    target_args += [arg for target in parameter_targets
+                    for arg in ["--lora-parameter-target", target]]
     _run([str(training_binary), "--model", str(BASE_DIR), "--fixture", str(TRAINING_JSON),
           "--output", str(native_created), "--lora-rank", "2", "--lora-alpha", "4",
           *target_args, "--steps", "1"])
@@ -373,6 +416,7 @@ def main() -> None:
         from kimi_k3_reference import find_kimi_k3_remote_source
         remote=find_kimi_k3_remote_source()
         if remote is None:raise RuntimeError('missing pinned Kimi K3 reference source; set HIERARCHOS_KIMI_K3_REMOTE_DIR')
+        oracle_provenance['custom_reference_revision']='c5d1dd4'
         oracle_provenance['custom_reference_source']={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(remote.glob('*.py'))}
     from peft import LoraConfig, get_peft_model
     from safetensors.torch import load_file

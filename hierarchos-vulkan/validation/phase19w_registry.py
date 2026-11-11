@@ -13,6 +13,98 @@ CANONICAL_COUNT = 146
 ALIAS_COUNT = 83
 TOTAL_COUNT = 229
 
+# Aliases whose Rust constructor resolves through a composite or a differently
+# named text graph. A composite is deliberately recorded as
+# ``nested_text_config``: its text backbone is selected from the nested config
+# at load time, so assigning one fixed canonical graph would overstate support.
+# Known text backbones are made explicit; this is a resolution claim, not a
+# multimodal-pipeline or numerical-parity claim.
+ALIAS_TARGET_OVERRIDES = {
+    "encoder-decoder": "nested_text_config",
+    "t5gemma": "t5_gemma_module",
+    "code_llama": "llama",
+    "mllama_text_model": "llama",
+    "mllama": "llama",
+    "llama4": "llama4_text",
+    "emu3": "emu3_text_model",
+    "aria": "aria_text",
+    "fuyu": "persimmon",
+    "mistral3": "mistral",
+    "qwen2_vl_text": "qwen2",
+    "qwen2_5_vl_text": "qwen2",
+    "qwen2_vl": "qwen2",
+    "qwen2_5_vl": "qwen2",
+    "qwen2_5_omni_text": "qwen2",
+    "qwen3_vl_text": "qwen3",
+    "qwen3_vl": "qwen3",
+    "qwen3_vl_moe_text": "qwen3_moe",
+    "qwen3_vl_moe": "qwen3_moe",
+    "qwen3_omni_moe_text": "qwen3_moe",
+    "qwen3_omni_moe_thinker": "qwen3_moe",
+    "qwen3_omni_moe": "qwen3_moe",
+    "qwen3_5": "qwen3_5_text",
+    "qwen3_5_moe": "qwen3_5_moe_text",
+    "qwen4_exp": "qwen4_exp_text",
+    "phi4_multimodal": "phi3",
+    "glm4v_text": "glm4",
+    "glm4v": "glm4",
+    "glm4v_moe_text": "glm4_moe",
+    "glm4v_moe": "glm4_moe",
+    "glm46v": "glm4",
+    "glm_ocr_text": "glm4",
+    "glm_ocr": "glm4",
+    "glm4_moe_lite": "glm4_moe",
+    "glm5_next": "glm5_next_text",
+    "deepseek_v32": "deepseek_v3",
+    "kimi_k2": "deepseek_v3",
+    "kimi_k25": "deepseek_v3",
+    "kimi_k3": "nested_text_config",
+    "glm_moe_dsa": "glm4_moe",
+    "hunyuan_vl_text": "hunyuan_v1_dense",
+    "hunyuan_vl": "hunyuan_v1_dense",
+    "gemma3": "gemma3_text",
+    "gemma4": "gemma4_text",
+    "exaone4_5_text": "exaone4",
+    "exaone4_5": "exaone4",
+    "cohere_compass": "cohere_compass_text",
+    "cohere2_vision": "cohere2",
+    "cosmos3_omni": "nested_text_config",
+    "got_ocr2": "nested_text_config",
+    "aya_vision": "nested_text_config",
+    "llava": "nested_text_config",
+    "llava_next": "nested_text_config",
+    "llava_next_video": "nested_text_config",
+    "llava_onevision": "nested_text_config",
+    "video_llava": "nested_text_config",
+    "video_llama_3": "nested_text_config",
+    "vipllava": "nested_text_config",
+    "idefics2": "nested_text_config",
+    "idefics3": "nested_text_config",
+    "smolvlm": "nested_text_config",
+    "qwen2_audio": "nested_text_config",
+    "voxtral": "nested_text_config",
+    "fast_vlm": "nested_text_config",
+    "internvl": "nested_text_config",
+    "janus": "nested_text_config",
+    "ovis2": "nested_text_config",
+    "paligemma": "nested_text_config",
+    "deepseek_vl": "nested_text_config",
+    "deepseek_vl_hybrid": "nested_text_config",
+    "paddleocr_vl_text": "nested_text_config",
+    "paddleocr_vl": "nested_text_config",
+    "audioflamingo3": "nested_text_config",
+    "qwen3_asr": "nested_text_config",
+    "granite_speech": "nested_text_config",
+    "granite_speech_plus": "nested_text_config",
+    "granite4_vision_text": "granite",
+    "granite4_vision": "granite",
+    "glmasr": "nested_text_config",
+    "musicflamingo": "nested_text_config",
+    "vibevoice_asr": "nested_text_config",
+    "modernvbert": "modernbert",
+    "minimax_m3_vl": "minimax_m3_vl_text",
+}
+
 
 def digest(path: Path) -> str:
     hash_value = hashlib.sha256()
@@ -171,19 +263,23 @@ def parse_registry(source_path: Path = TRANSFORMER_RS) -> dict:
                     break
             alias_targets[alias] = target
         index = max(end, index + 1)
-    # Composite wrappers select their graph from a nested text_config at load
-    # time. Keep that distinction explicit instead of pretending one fixed
-    # graph is the alias target. ModernVBERT normalizes to ModernBERT after
-    # rebasing its `model.text_model` namespace.
-    nested = {"encoder-decoder", "kimi_k3"}
-    for alias in nested:
-        alias_targets.setdefault(alias, "nested_text_config")
+    # Use one audited target for every alias. The Rust constructors remain
+    # recorded separately so the matrix can prove that the alias route exists
+    # even when its graph is selected from a nested text config.
+    for alias in aliases:
+        if alias not in ALIAS_TARGET_OVERRIDES:
+            raise ValueError(f"alias has no audited target: {alias}")
+        alias_targets[alias] = ALIAS_TARGET_OVERRIDES[alias]
         alias_constructors.setdefault(alias, [])
-    alias_targets.setdefault("modernvbert", "modernbert")
-    alias_constructors.setdefault("modernvbert", [])
+    if set(ALIAS_TARGET_OVERRIDES) != alias_set:
+        extra = sorted(set(ALIAS_TARGET_OVERRIDES) - alias_set)
+        raise ValueError(f"audited alias target has no Rust route: {extra}")
     missing = sorted(alias_set - set(alias_targets))
     if missing:
         raise ValueError(f"aliases absent from from_hf_value: {missing}")
+    for alias, target in alias_targets.items():
+        if target != "nested_text_config" and target not in canonical_set:
+            raise ValueError(f"alias {alias} targets a non-canonical graph: {target}")
     return {
         "canonical": canonical,
         "aliases": aliases,

@@ -270,7 +270,7 @@ fn apply_lora_safetensors(
                 pair.module_name
             );
         }
-        let parameter_target = resolve_target_parameter(pair, &config, &base_tensors)
+        let parameter_target = resolve_target_parameter(pair, &config, &base_tensors, &adapter_tensors)
             .with_context(|| {
                 format!(
                     "resolving PEFT target for adapter pair {:?}",
@@ -306,15 +306,16 @@ fn apply_lora_safetensors(
         let b_values = decode_float_tensor(&pair.b_key, &b)?;
         let mut merged = decode_float_tensor(&target_name, &base)?;
 
-        if parameter_target.is_some() {
+        if parameter_target.is_some() && base_shape.len() == 3 {
             if base_shape.len() != 3 {
                 bail!(
                     "PEFT target_parameters tensor {target_name:?} must be rank-3 for packed expert merge; got {base_shape:?}"
                 );
             }
             let num_experts = base_shape[0];
-            let in_dim = base_shape[1];
-            let out_dim = base_shape[2];
+            // HF Mixtral stores routed expert parameters as [out, in].
+            let out_dim = base_shape[1];
+            let in_dim = base_shape[2];
             let expanded_rank = expected_rank
                 .checked_mul(num_experts)
                 .context("packed target_parameters rank overflow")?;
@@ -1233,7 +1234,9 @@ fn pattern_value<'a, T>(module_name: &str, pattern: &'a BTreeMap<String, T>) -> 
     pattern
         .iter()
         .filter(|(name, _)| {
-            module_name == name.as_str() || module_name.ends_with(&format!(".{name}"))
+            module_name == name.as_str()
+                || module_name.ends_with(&format!(".{name}"))
+                || Regex::new(name).is_ok_and(|regex| regex.is_match(module_name))
         })
         .max_by_key(|(name, _)| name.len())
         .map(|(_, value)| value)
@@ -1243,6 +1246,7 @@ fn resolve_target_parameter(
     pair: &AdapterPair,
     config: &LoraAdapterConfig,
     base_tensors: &SafeTensors<'_>,
+    adapter_tensors: &SafeTensors<'_>,
 ) -> Result<Option<String>> {
     let linear_target = format!("{}.weight", pair.module_name);
     if !pair.nested_parameter_wrapper
@@ -1301,8 +1305,36 @@ fn resolve_target_parameter(
             pair.module_name
         );
     }
+    if candidates.len() == 1 {
+        return Ok(candidates.pop());
+    }
+    let a_shape = adapter_tensors.tensor(&pair.a_key)?.shape().to_vec();
+    let b_shape = adapter_tensors.tensor(&pair.b_key)?.shape().to_vec();
+    let geometric_matches = candidates
+        .iter()
+        .filter(|name| {
+            let Ok(base) = base_tensors.tensor(name) else {
+                return false;
+            };
+            let shape = base.shape();
+            if shape.len() != 3 || a_shape.len() != 2 || b_shape.len() != 2 {
+                return false;
+            }
+            let num_experts = shape[0];
+            let out_dim = shape[1];
+            let in_dim = shape[2];
+            a_shape[1] == in_dim
+                && b_shape[0] == out_dim
+                && a_shape[0] == b_shape[1]
+                && num_experts > 0
+                && a_shape[0] % num_experts == 0
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    if geometric_matches.len() == 1 {
+        return Ok(geometric_matches.into_iter().next());
+    }
     let selected = match candidates.as_slice() {
-        [only] => only,
         [inner, _outer] if pair.nested_parameter_wrapper => inner,
         [_inner, outer] => outer,
         _ => unreachable!("candidate cardinality validated above"),
@@ -1357,20 +1389,18 @@ fn add_packed_parameter_lora_delta(
         );
     }
 
-    // PEFT ParamWrapper stores a 3-D base Parameter as [expert, in, out],
+    // HF Mixtral stores packed expert bases as [expert, out, in],
     // LoRA-A as [expert * rank, in], and LoRA-B as [out, rank * expert].
-    // This is the flattened form of PEFT 0.18's einsum
-    // `o r e, e r i -> e i o`.
     for expert in 0..num_experts {
-        for input in 0..in_dim {
-            for output in 0..out_dim {
+        for output in 0..out_dim {
+            for input in 0..in_dim {
                 let mut sum = 0.0f32;
                 for adapter_rank in 0..rank {
                     let a_index = (expert * rank + adapter_rank) * in_dim + input;
                     let b_index = output * expanded_rank + adapter_rank * num_experts + expert;
                     sum = b[b_index].mul_add(a[a_index], sum);
                 }
-                let base_index = (expert * in_dim + input) * out_dim + output;
+                let base_index = (expert * out_dim + output) * in_dim + input;
                 base[base_index] = scale.mul_add(sum, base[base_index]);
                 if !base[base_index].is_finite() {
                     bail!("packed target_parameters merge produced a non-finite model weight");

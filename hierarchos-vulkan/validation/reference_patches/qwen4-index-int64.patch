@@ -1,0 +1,13 @@
+diff --git a/src/transformers/models/qwen4_exp/modeling_qwen4_exp.py b/src/transformers/models/qwen4_exp/modeling_qwen4_exp.py
+index fd20748bb9..a8fcc5c037 100644
+--- a/src/transformers/models/qwen4_exp/modeling_qwen4_exp.py
++++ b/src/transformers/models/qwen4_exp/modeling_qwen4_exp.py
+@@ -761,7 +761,7 @@ class Qwen4ExpTextQSAIndexer(nn.Module):
+             (*selected_token_indices.shape[:-1], kv_length + 1), device=attention_mask.device, dtype=torch.bool
+         )
+         # We absorb all the -1 by scaterring them to the last index that we will drop
+-        scatter_indices = torch.where(selected_token_indices >= 0, selected_token_indices, kv_length)
++        scatter_indices = torch.where(selected_token_indices >= 0, selected_token_indices, kv_length).to(torch.int64)
+         selected_token_mask = selected_token_mask.scatter(-1, scatter_indices, True)[..., :kv_length].unsqueeze(1)
+         # if using eager, convert to float mask
+         if attention_mask.is_floating_point():
