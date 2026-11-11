@@ -234,8 +234,9 @@ def main() -> int:
 
     revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
                               text=True, check=True).stdout.strip()
-    clean = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT, capture_output=True,
-                           text=True, check=True).stdout.strip() == ""
+    clean = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"],
+                           cwd=ROOT, capture_output=True, text=True,
+                           check=True).stdout.strip() == ""
 
     traces = {}
     comparisons = {}
