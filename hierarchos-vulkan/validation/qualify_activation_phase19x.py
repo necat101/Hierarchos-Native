@@ -338,13 +338,14 @@ def main() -> int:
     for key, report in cells.items():
         evidence.append({"name": f"eval-{key.replace('|', '-')}",
                          "sha256": sha256_file(WORK / "eval" / key.replace("|", "-") / "eval.json")})
-    for name, report in (("fresh-step1-mixed", fresh_step1_mixed),
-                         ("fresh-step1-mixed-off", fresh_step1_mixed_off),
-                         ("fresh-step1-fp32arm", fresh_step1_fp32arm),
-                         ("fresh-step100-mixed", fresh100_mixed),
-                         ("fresh-step100-mixed-off", fresh100_mixed_off),
-                         ("fresh-step100-fp32arm", fresh100_fp32arm)):
-        evidence.append({"name": name, "sha256": sha256_file(WORK / "eval" / name / "eval.json")})
+    for name, mode, report in (("fresh-step1-mixed", "mixed", fresh_step1_mixed),
+                               ("fresh-step1-mixed-off", "off", fresh_step1_mixed_off),
+                               ("fresh-step1-fp32arm", "off", fresh_step1_fp32arm),
+                               ("fresh-step100-mixed", "mixed", fresh100_mixed),
+                               ("fresh-step100-mixed-off", "off", fresh100_mixed_off),
+                               ("fresh-step100-fp32arm", "off", fresh100_fp32arm)):
+        evidence.append({"name": name,
+                         "sha256": sha256_file(WORK / "eval" / f"{name}-{mode}" / "eval.json")})
     write(WORK / "mirror-epoch.json", mirror_epoch)
     evidence.append({"name": "mirror-epoch", "sha256": sha256_file(WORK / "mirror-epoch.json")})
     document = {
