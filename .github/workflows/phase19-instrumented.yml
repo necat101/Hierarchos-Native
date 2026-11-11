@@ -26,6 +26,8 @@ jobs:
 
   historical:
     runs-on: ubuntu-latest
+    env:
+      PHASE19U_CI_OUT: ${{ runner.temp }}/phase19u-ci
     steps:
       - uses: actions/checkout@v5
         with:
@@ -34,23 +36,27 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Phase XVIII sealed controls at receipt revision
-        shell: bash
-        run: |
-          set -euo pipefail
-          worktree="$RUNNER_TEMP/phase18-receipt"
-          git worktree add --detach "$worktree" 1e77b401489c7c59a95661461fbaaf5a91f3b77c
-          trap 'git worktree remove --force "$worktree"' EXIT
-          cd "$worktree/hierarchos-vulkan"
-          python validation/test_wmma_drift.py
-      - name: Phase XIX-R sealed controls at receipt revision
-        shell: bash
-        run: |
-          set -euo pipefail
-          worktree="$RUNNER_TEMP/phase19r-receipt"
-          git worktree add --detach "$worktree" e69f7f978101f29e8ad6e09b0a88ce5fb1b767ad
-          trap 'git worktree remove --force "$worktree"' EXIT
-          cd "$worktree/hierarchos-vulkan"
-          python -m unittest discover -s validation -p "test_activation_phase19r.py"
       - name: Verify retained Phase XIX-U historical audit
         run: python hierarchos-vulkan/validation/check_phase19u_audit.py
+      - name: Phase XIX-V historical runner negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19u_ci_runner.py" -v
+      - name: Reproduce all five historical suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          python hierarchos-vulkan/validation/run_phase19u_historical_ci.py --output-dir "$PHASE19U_CI_OUT"
+      - name: Validate structured historical CI report
+        shell: bash
+        run: |
+          set -euo pipefail
+          python hierarchos-vulkan/validation/run_phase19u_historical_ci.py --check-report "$PHASE19U_CI_OUT/phase19u-historical-ci-results.json"
+      - name: Upload historical CI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase19u-historical-ci
+          path: ${{ runner.temp }}/phase19u-ci
+          retention-days: 14
+      - name: Prune historical worktrees
+        if: always()
+        run: git worktree prune

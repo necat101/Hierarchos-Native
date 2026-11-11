@@ -106,3 +106,29 @@ Historical tests are never treated as current-source passes.
 
 `test_phase19u_audit.py` rejects changed source identities, receipts, test
 hashes, log hashes, counts, recovered bytes and missing recovery records.
+
+## Phase XIX-V CI Reproduction
+
+Phase XIX-V adds `run_phase19u_historical_ci.py`, which replays all five
+historical suites at their exact receipt revisions in disposable detached
+worktrees. It runs each suite once without recovery bytes and, for the two
+Phase XVI receipts, once with the exact retained recovery artifacts. The
+original runs and recovery runs are separate entries in a new CI report.
+
+The runner parses `unittest` totals and requires the documented error test
+identities and missing-artifact messages. A generic exit code 1, import error,
+truncated summary, unexpected assertion failure or changed skip is rejected.
+The activation suite must retain its documented `test_changed_binary` skip
+when the executable is absent.
+
+CI report artifact name: `phase19u-historical-ci`
+
+Report file: `phase19u-historical-ci-results.json`
+
+Retention: 14 days. The report and CI logs are uploaded by the historical job
+and are not committed to the repository; the retained Phase XIX-U Windows
+logs remain immutable.
+
+The runner is covered by `test_phase19u_ci_runner.py`, including wrong
+revision, wrong test identity, truncated output, import error, unexpected
+skip, wrong artifact, recovery error and scope controls.
