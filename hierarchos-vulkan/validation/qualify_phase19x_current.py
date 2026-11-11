@@ -148,6 +148,26 @@ def main() -> int:
         "hierarchos-vulkan/validation/qualify_heldout_phase17.py",
     ):
         source_files[name] = digest(ROOT / name)
+    # The narrow attention receipt binds only the files exercised by its
+    # two-pass case set. Bind the whole crate source tree and the preserved
+    # shader/validation inventory as well, recomputing every digest from the
+    # current checkout. The historical manifest contributes paths only.
+    historical_manifest = (
+        ROOT / "hierarchos-vulkan/validation/release_parity/multimodal_training"
+        / "20261110-phase19s-current-source/current-qualification.json"
+    )
+    require(historical_manifest.is_file(), "missing historical source inventory")
+    historical_sources = load(historical_manifest).get("source_files") or {}
+    require(len(historical_sources) >= 140, "historical source inventory is incomplete")
+    for name in historical_sources:
+        path = ROOT / name
+        require(path.is_file(), "missing historical-inventory source " + name)
+        source_files[name] = digest(path)
+    for name in git("ls-files", "hierarchos-vulkan/src").splitlines():
+        path = ROOT / name
+        require(path.is_file(), "missing tracked crate source " + name)
+        source_files[name] = digest(path)
+    require(len(source_files) >= 140, "current source binding is incomplete")
     require("hierarchos-vulkan/src/transformer.rs" in source_files,
             "instrumented transformer is not bound")
 
