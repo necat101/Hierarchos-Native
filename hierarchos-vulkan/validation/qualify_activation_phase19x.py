@@ -338,6 +338,14 @@ def main() -> int:
     for key, report in cells.items():
         evidence.append({"name": f"eval-{key.replace('|', '-')}",
                          "sha256": sha256_file(WORK / "eval" / key.replace("|", "-") / "eval.json")})
+    fresh_modes = {
+        "fresh-step1-mixed": "mixed",
+        "fresh-step1-mixed-off": "off",
+        "fresh-step1-fp32arm": "off",
+        "fresh-step100-mixed": "mixed",
+        "fresh-step100-mixed-off": "off",
+        "fresh-step100-fp32arm": "off",
+    }
     for name, mode, report in (("fresh-step1-mixed", "mixed", fresh_step1_mixed),
                                ("fresh-step1-mixed-off", "off", fresh_step1_mixed_off),
                                ("fresh-step1-fp32arm", "off", fresh_step1_fp32arm),
@@ -412,7 +420,7 @@ def main() -> int:
             elif item["name"].startswith("eval-"):
                 source = WORK / "eval" / item["name"][5:] / "eval.json"
             elif item["name"].startswith("fresh-"):
-                source = WORK / "eval" / item["name"] / "eval.json"
+                source = WORK / "eval" / f"{item['name']}-{fresh_modes[item['name']]}" / "eval.json"
             elif item["name"] == "mirror-epoch":
                 source = WORK / "mirror-epoch.json"
             shutil.copy2(source, RECEIPT / "evidence" / f"{item['name']}.json")
