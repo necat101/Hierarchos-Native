@@ -125,10 +125,14 @@ def main() -> int:
     require(abs(mirror_epoch["step100_in_process_mixed"] - mirror_epoch["step100_fresh_mixed"]) <= 5e-3,
             "step-100 in-process evaluation differs from a fresh process")
 
-    source_files = dict(attention["sources"])
-    # Sub-receipts bind crate-relative source paths; fold them into the
-    # repository-relative Phase XIX-X manifest so the tracer, mirror-epoch
+    source_files = {}
+    # Attention binds crate-relative paths; normalize every sub-receipt into
+    # the repository-relative Phase XIX-X manifest so the tracer, mirror-epoch
     # logic, trainers and harnesses are all covered by one verifier.
+    for name, expected in attention["source_files"].items():
+        repository_name = name if (ROOT / name).is_file() else "hierarchos-vulkan/" + name
+        require((ROOT / repository_name).is_file(), "missing attention source " + name)
+        source_files[repository_name] = expected
     for sub in (training, stability, heldout, drift, activation):
         for name in (sub.get("source_files") or {}):
             repository_name = name if (ROOT / name).is_file() else "hierarchos-vulkan/" + name
