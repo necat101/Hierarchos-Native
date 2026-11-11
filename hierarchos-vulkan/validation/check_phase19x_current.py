@@ -83,7 +83,7 @@ def verify(path: Path = RECEIPT, crate: Path = CRATE, binary_root: Path | None =
     binaries = document.get("binaries") or {}
     for name in ("image_text_pipeline_probe", "gemma3_vision_probe", "gemma4_vision_probe",
                  "llava_pipeline_probe", "activation_probe", "wmma_drift", "training_harness",
-                 "trainer", "stability_harness", "held_out_eval", "libtest"):
+                 "trainer", "stability_harness", "held_out_eval"):
         require(SHA256.fullmatch(str(binaries.get(name))) is not None,
                 "missing or malformed binary binding: " + name)
     root = Path(binary_root) if binary_root else crate / "target/release"
@@ -102,15 +102,14 @@ def verify(path: Path = RECEIPT, crate: Path = CRATE, binary_root: Path | None =
         require(digest(candidate) == entry["sha256"], f"sub-receipt changed: {name}")
         resolved[name] = candidate
 
-    from check_phase16_receipts import verify_receipt
+    from check_attention_phase19x import verify as verify_attention
     from check_training_phase16 import verify as verify_training
     from check_training_stability import verify as verify_stability
     from check_heldout_phase17 import verify as verify_heldout
     from check_wmma_drift import verify as verify_drift
 
     head = git("rev-parse", "HEAD")
-    verify_receipt(load(resolved["attention"]), resolved["attention"].parent,
-                   source_head=head)
+    verify_attention(resolved["attention"], crate)
     training = verify_training(resolved["training"].parent, crate)
     stability = verify_stability(resolved["stability"].parent, crate)
     heldout = verify_heldout(resolved["heldout"].parent, crate)
@@ -128,11 +127,10 @@ def verify(path: Path = RECEIPT, crate: Path = CRATE, binary_root: Path | None =
     activation_doc = load(resolved["activation"])
 
     counts = document.get("counts") or {}
-    require(counts["shapes"] == 16, "GPT-2 shape coverage changed")
-    for name, expected in (("shared", 74), ("kimi", 3), ("seq2seq", 6),
-                           ("gemma3", 4), ("llava", 4)):
-        require(counts["retained"][name]["cases"] == expected,
-                f"retained family {name} coverage changed")
+    historical = counts.get("historical_attention") or {}
+    require(historical.get("shapes") == 16, "historical GPT-2 shape coverage changed")
+    require(sum((historical.get("retained") or {}).values()) == 93,
+            "historical retained-family coverage changed")
     backward = counts["attention_backward"]
     require(backward["cases"] == 4 and backward["comparisons"] == 12,
             "attention-backward coverage changed")

@@ -83,7 +83,7 @@ def main() -> int:
     require(not dirty or args.allow_dirty,
             "tracked worktree must be clean before assembly:\n" + dirty)
 
-    from check_phase16_receipts import verify_receipt
+    from check_attention_phase19x import verify as verify_attention
     from check_training_phase16 import verify as verify_training
     from check_training_stability import verify as verify_stability
     from check_heldout_phase17 import verify as verify_heldout
@@ -92,7 +92,7 @@ def main() -> int:
     attention_path = SUBDIRS["attention"] / "current-qualification.json"
     require(attention_path.is_file(), f"missing {relative(attention_path)}")
     attention = load(attention_path)
-    verify_receipt(attention, SUBDIRS["attention"], source_head=revision)
+    verify_attention(attention_path, CRATE)
 
     training = verify_training(SUBDIRS["training"], CRATE)
     stability = verify_stability(SUBDIRS["stability"], CRATE)
@@ -147,16 +147,22 @@ def main() -> int:
     require("hierarchos-vulkan/src/transformer.rs" in source_files,
             "instrumented transformer is not bound")
 
-    binaries = dict(attention["binaries"])
-    binaries.update({
-        "activation_probe": digest(CRATE / "target/release/activation_probe.exe"),
-        "wmma_drift": digest(CRATE / "target/release/wmma_drift.exe"),
-        "training_harness": digest(
-            CRATE / "target/release/hierarchos-vulkan-training-qualification.exe"),
-        "trainer": digest(CRATE / "target/release/hierarchos-vulkan-transformer-train.exe"),
-        "stability_harness": digest(CRATE / "target/release/training-stability.exe"),
-        "held_out_eval": digest(CRATE / "target/release/held_out_eval.exe"),
-    })
+    binaries = {}
+    for name, filename in {
+        "image_text_pipeline_probe": "image_text_pipeline_probe.exe",
+        "gemma3_vision_probe": "gemma3_vision_probe.exe",
+        "gemma4_vision_probe": "gemma4_vision_probe.exe",
+        "llava_pipeline_probe": "llava_pipeline_probe.exe",
+        "activation_probe": "activation_probe.exe",
+        "wmma_drift": "wmma_drift.exe",
+        "training_harness": "hierarchos-vulkan-training-qualification.exe",
+        "trainer": "hierarchos-vulkan-transformer-train.exe",
+        "stability_harness": "training-stability.exe",
+        "held_out_eval": "held_out_eval.exe",
+    }.items():
+        path = CRATE / "target/release" / filename
+        require(path.is_file(), "missing current binary " + filename)
+        binaries[name] = digest(path)
 
     subreceipts = {}
     for name, directory in SUBDIRS.items():
@@ -191,8 +197,10 @@ def main() -> int:
         },
         "mirror_epoch": mirror_epoch,
         "counts": {
-            "shapes": attention["shapes"]["cases"],
-            "retained": attention["retained"],
+            "historical_attention": {
+                "shapes": attention["historical_phase16"]["shapes"],
+                "retained": attention["historical_phase16"]["retained"],
+            },
             "attention_backward": {
                 "cases": attention["attention_backward"]["cases"],
                 "comparisons": attention["attention_backward"]["comparisons"],
@@ -217,6 +225,7 @@ def main() -> int:
             "Raw RDNA3 captures and parameter dumps stay under target/ and are bound by hash, not committed.",
             "CPU CI re-verifies committed evidence; it does not rerun the GPU matrix.",
             "Historical Phase XV-XIX receipts are preserved unchanged and are not current-source evidence.",
+            "The Phase XVI 16-shape and retained-family attention evidence is historical; Phase XIX-X reruns only the four-case, twelve-tensor two-pass backward.",
             "The Phase XIX-R pre-fix mirror lag is historical; Phase XIX-X reruns the post-fix agreement and long-run drift.",
             "Full-parameter exact resume remains unsupported; only LoRA resume is qualified.",
         ],

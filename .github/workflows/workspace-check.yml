@@ -62,6 +62,12 @@ jobs:
       - name: Phase XIX-X current-source negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19x_current.py"
 
+      - name: Phase XIX-X attention receipt
+        run: python hierarchos-vulkan/validation/check_attention_phase19x.py
+
+      - name: Phase XIX-X attention negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_attention_phase19x.py"
+
       - name: Phase XIX-T policy overlay
         run: python hierarchos-vulkan/validation/check_phase19t_current.py
 
