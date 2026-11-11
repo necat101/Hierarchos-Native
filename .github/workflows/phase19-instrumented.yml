@@ -25,7 +25,10 @@ jobs:
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_activation_phase19s_current.py"
 
   historical:
-    runs-on: ubuntu-latest
+    # These suites were sealed on Windows. The held-out fixture generator uses
+    # platform-native newlines while the committed vocab.json is CRLF, so Linux
+    # correctly fails its byte-reproduction check. Preserve the sealed test.
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
         with:

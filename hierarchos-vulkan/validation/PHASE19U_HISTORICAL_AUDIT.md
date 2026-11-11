@@ -121,6 +121,12 @@ truncated summary, unexpected assertion failure or changed skip is rejected.
 The activation suite must retain its documented `test_changed_binary` skip
 when the executable is absent.
 
+The historical job runs on `windows-latest`. This matches the sealed execution
+environment: the Phase XVII `vocab.json` is CRLF, while its historical
+generator uses platform-native newlines. Linux correctly rejects the
+regenerated LF fixture; Windows reproduces the committed bytes without
+modifying the historical test.
+
 CI report artifact name: `phase19u-historical-ci`
 
 Report file: `phase19u-historical-ci-results.json`
