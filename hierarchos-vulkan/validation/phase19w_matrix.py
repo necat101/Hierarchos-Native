@@ -410,7 +410,7 @@ def _evidence_entry(path: Path | None) -> list[dict]:
     path = Path(path)
     if not path.is_file():
         raise ValueError(f"missing evidence file: {path}")
-    result.append({"path": str(path.relative_to(ROOT)), "sha256": sha(path)})
+    result.append({"path": path.relative_to(ROOT).as_posix(), "sha256": sha(path)})
     return result
 
 
@@ -806,7 +806,9 @@ def validate(matrix: dict, registry: dict | None = None) -> None:
     if summary.get("historical_regressions"):
         raise ValueError("summary reports historical regressions")
     for evidence in matrix.get("evidence", []):
-        path = ROOT / evidence["path"]
+        # Matrices built on Windows before the POSIX-path fix stored native
+        # separators. Normalize those without changing which file is bound.
+        path = ROOT / Path(str(evidence["path"]).replace("\\", "/"))
         if not path.is_file() or sha(path) != evidence["sha256"]:
             raise ValueError(f"missing or altered evidence: {evidence['path']}")
 
