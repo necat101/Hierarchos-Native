@@ -56,8 +56,11 @@ jobs:
       # from the logs the receipt ships and re-verifies the 45-artifact gate.
       # Both are required; a stale receipt fails closed rather than reaching for
       # the sealed Phase XV one.
-      - name: Phase XIX-S current-source instrumented qualification
-        run: python hierarchos-vulkan/validation/check_phase19s_current.py
+      - name: Phase XIX-X current-source instrumented qualification
+        run: python hierarchos-vulkan/validation/check_phase19x_current.py
+
+      - name: Phase XIX-X current-source negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19x_current.py"
 
       - name: Phase XIX-T policy overlay
         run: python hierarchos-vulkan/validation/check_phase19t_current.py
