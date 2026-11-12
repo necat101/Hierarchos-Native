@@ -65,8 +65,10 @@ jobs:
       - name: Phase XIX-X attention receipt
         run: python hierarchos-vulkan/validation/check_attention_phase19x.py
 
+      # CI does not build the release trainer; the portable variant keeps all
+      # eight controls and tests the binding-format guard when that binary is absent.
       - name: Phase XIX-X attention negative controls
-        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_attention_phase19x.py"
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_attention_phase19x_ci.py"
 
       - name: Phase XIX-T policy overlay
         run: python hierarchos-vulkan/validation/check_phase19t_current.py
