@@ -30,9 +30,10 @@ Native DeepSeek V4.1 has a separate trainer and currently has no WMMA vision
 integration. Its mixed choice is disabled in the GUI and refused at runtime.
 Full FP16 accumulation remains unavailable for these training graphs.
 
-Vision training writes the requested policy and actual forward, weight-gradient,
+Transformer and vision training write the requested policy and actual forward, weight-gradient,
 input-gradient, fallback, and cooperative-dispatch counts into
-`training_report.json`. A mixed request with zero cooperative dispatches is not
+`training_report.json`. Transformer reports also retain per-epoch loss and the
+starting/final optimizer step. A mixed request with zero cooperative dispatches is not
 evidence of acceleration.
 
 ## Image master-weight freshness
@@ -53,7 +54,9 @@ trainer with their committed Cargo lockfiles. Run the GUI and CLI unit suites.
 CLIP + Llama fixture with two AdamW updates in each mode, observes all three
 WMMA phases, checks image/text updates and export/reload freshness, compares
 precision-specific outputs and gradients, and launches the native vision CLI
-with an opposing inherited precision policy. Generated weights belong under
+with an opposing inherited precision policy. It also checks full and LoRA text
+training through the AMP aliases. The opt-in desktop worker test exercises the
+actual Start action for all four supported training workflows. Generated weights belong under
 `target/`. The script records a scoped result, source hashes, binary hashes,
 device identity, commands, and independent CPU-reference diagnostics.
 

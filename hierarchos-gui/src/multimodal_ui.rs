@@ -226,30 +226,30 @@ mod tests {
         app.learning_rate = ".001".into();
         for (mode, name) in [(Workflow::VisionTrain, "vision"), (Workflow::TransformerTrain, "full"),
             (Workflow::TransformerFullFinetune, "full-finetune"), (Workflow::TransformerFinetune, "lora")] {
-        app.mode = mode;
-        app.model = root.join(if mode == Workflow::VisionTrain { "model" } else { "model/text" }).display().to_string();
-        app.output = root.join(format!("gui-mixed-{name}")).display().to_string();
-        app.start();
-        assert!(app.child.is_some(), "{}", app.status);
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
-        while app.child.is_some() {
-            app.drain_output();
-            if std::time::Instant::now() > deadline {
-                app.stop();
-                panic!("mixed vision worker timed out: {}", app.log);
+            app.mode = mode;
+            app.model = root.join(if mode == Workflow::VisionTrain { "model" } else { "model/text" }).display().to_string();
+            app.output = root.join(format!("gui-mixed-{name}")).display().to_string();
+            app.start();
+            assert!(app.child.is_some(), "{}", app.status);
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+            while app.child.is_some() {
+                app.drain_output();
+                if std::time::Instant::now() > deadline {
+                    app.stop();
+                    panic!("mixed vision worker timed out: {}", app.log);
+                }
+                thread::sleep(std::time::Duration::from_millis(20));
             }
-            thread::sleep(std::time::Duration::from_millis(20));
-        }
-        assert_eq!(app.status, "Finished successfully", "{}", app.log);
-        let report: serde_json::Value = serde_json::from_slice(
-            &std::fs::read(Path::new(&app.output).join("training_report.json")).unwrap()
-        ).unwrap();
-        assert_eq!(report["steps"], 2);
-        assert_eq!(report["precision"]["requested"], "mixed");
-        for phase in ["cooperative_dispatches", "forward", "input_grad"] {
-            assert!(report["precision"][phase].as_u64().unwrap() > 0, "{phase}: {report}");
-        }
-        assert_eq!(report["precision"]["weight_grad"].as_u64().unwrap() > 0, mode != Workflow::TransformerFinetune);
+            assert_eq!(app.status, "Finished successfully", "{}", app.log);
+            let report: serde_json::Value = serde_json::from_slice(
+                &std::fs::read(Path::new(&app.output).join("training_report.json")).unwrap()
+            ).unwrap();
+            assert_eq!(report["steps"], 2);
+            assert_eq!(report["precision"]["requested"], "mixed");
+            for phase in ["cooperative_dispatches", "forward", "input_grad"] {
+                assert!(report["precision"][phase].as_u64().unwrap() > 0, "{phase}: {report}");
+            }
+            assert_eq!(report["precision"]["weight_grad"].as_u64().unwrap() > 0, mode != Workflow::TransformerFinetune);
         }
     }
 
