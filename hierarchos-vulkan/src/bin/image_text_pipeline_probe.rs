@@ -87,6 +87,8 @@ fn run() -> Result<()> {
     let mut output = None;
     let mut stages = None;
     let mut gradients = None;
+    let mut loss_scale = None;
+    let mut loss_scaler_state = None;
     let mut args = std::env::args_os().skip(1);
     while let Some(arg) = args.next() {
         let value = PathBuf::from(args.next().context("missing argument value")?);
@@ -96,6 +98,8 @@ fn run() -> Result<()> {
             Some("--output") => output = Some(value),
             Some("--stages") => stages = Some(value),
             Some("--gradients") => gradients = Some(value),
+            Some("--loss-scale") => loss_scale = Some(value.to_string_lossy().parse::<f32>()?),
+            Some("--loss-scaler-state") => loss_scaler_state = Some(value),
             _ => bail!("unknown argument {arg:?}"),
         }
     }
@@ -109,6 +113,7 @@ fn run() -> Result<()> {
     let device = VulkanDevice::new()?;
     let phases_before = hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
     let accumulation_before = hierarchos_vulkan::wmma_linear::linear_wmma_precision_counts();
+    let reduction_before=hierarchos_vulkan::wmma_linear::full_fp16_reduction_fallbacks();
     let counts_before = hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
     let mut graph = VulkanImageText::from_hf_package(
         device.clone(),
@@ -117,6 +122,12 @@ fn run() -> Result<()> {
         f.seq_len,
         f.image_count,
     )?;
+    if let Some(scale)=loss_scale {
+        graph.set_loss_scaler(Some(hierarchos_vulkan::TransformerLossScaleState{scale,..Default::default()}))?;
+    }
+    if let Some(path)=loss_scaler_state {
+        graph.set_loss_scaler(Some(serde_json::from_slice(&fs::read(path)?)?))?;
+    }
     let pixels = graph.preprocess_rgb8(&f.rgb)?;
     if let Some(path) = gradients {
         let value = graph.debug_train_stages(
@@ -159,11 +170,11 @@ fn run() -> Result<()> {
         weight_decay: f.weight_decay,
     };
     let mut steps = Vec::new();
-    for _ in 0..f.steps {
+    for attempt in 0..f.steps {
         let forward = f.forward(&graph, &pixels)?;
         let result = f.train(&mut graph, &pixels, hyper)?;
-        graph.export_hf_package(&model, output.join(format!("step-{}", result.text.step)))?;
-        steps.push(serde_json::json!({"forward":forward,"training":result}));
+        graph.export_hf_package(&model, output.join(format!("step-{}", attempt+1)))?;
+        steps.push(serde_json::json!({"attempt":attempt+1,"forward":forward,"training":result}));
     }
     let final_output = f.forward(&graph, &pixels)?;
     let reloaded = VulkanImageText::from_hf_package(
@@ -189,7 +200,11 @@ fn run() -> Result<()> {
                 "requested": hierarchos_vulkan::wmma::WmmaMode::from_env()?.label(),
                 "mixed_fp32_accumulation":accumulation[0]-accumulation_before[0],
                 "full_fp16_accumulation":accumulation[1]-accumulation_before[1],
-                "master_weights":"fp32","optimizer_state":"fp32","automatic_loss_scaling":false,
+                "full_fp16_max_reduction":hierarchos_vulkan::wmma_linear::FULL_FP16_MAX_REDUCTION,
+                "full_fp16_reduction_fallbacks":hierarchos_vulkan::wmma_linear::full_fp16_reduction_fallbacks()-reduction_before,
+                "master_weights":"fp32","optimizer_state":"fp32",
+                "automatic_loss_scaling":graph.loss_scaler_state()?.is_some(),
+                "loss_scaler":graph.loss_scaler_state()?,
                 "cooperative_dispatches": counts.cooperative - counts_before.cooperative,
                 "forward": phases[0] - phases_before[0],
                 "weight_grad": phases[1] - phases_before[1],

@@ -19,6 +19,11 @@ def main():
         a=a.reshape(k,m).T if sample['trans_a'] else a.reshape(m,k)
         b=b.reshape(n,k).T if sample['trans_b'] else b.reshape(k,n)
         actual=np.asarray(sample['actual'],dtype=np.float32).reshape(m,n)
+        original_a=np.asarray(sample['a'],dtype=np.float64)
+        original_b=np.asarray(sample['b'],dtype=np.float64)
+        original_a=original_a.reshape(k,m).T if sample['trans_a'] else original_a.reshape(m,k)
+        original_b=original_b.reshape(n,k).T if sample['trans_b'] else original_b.reshape(k,n)
+        independent_fp32=(original_a@original_b).astype(np.float32).astype(np.float64)
         models={}
         # A dot2 with a binary16 destination rounds the exact two products plus
         # incoming half accumulator once. FP32 staging can double-round ties.
@@ -31,6 +36,11 @@ def main():
         d=actual.astype(np.float64)-acc
         models['exact_dot2_rne']=dict(max_abs=float(np.max(np.abs(d))),
             rms=float(np.sqrt(np.mean(d*d))),different=int(np.count_nonzero(actual!=acc)))
+        cpu_drift=acc-independent_fp32
+        hardware_drift=actual.astype(np.float64)-independent_fp32
+        drift=dict(independent_cpu_dot2_vs_fp32=dict(max_abs=float(abs(cpu_drift).max()),rms=float(np.sqrt(np.mean(cpu_drift*cpu_drift)))),
+                   observed_hardware_vs_fp32=dict(max_abs=float(abs(hardware_drift).max()),rms=float(np.sqrt(np.mean(hardware_drift*hardware_drift)))),
+                   original_limits=dict(max_abs=.05,rms=.01))
         for product_half in (False,True):
             for group in (1,2,4,8,16):
                 for include_c in ('last','first'):
@@ -48,6 +58,7 @@ def main():
                         different=int(np.count_nonzero(actual.view(np.int32)!=acc.view(np.int32))))
         row={key:sample[key] for key in ('m','n','k','trans_a','trans_b')}
         row['models']=models;results.append(row)
+        row['fp32_drift']=drift
         best=sorted(models,key=lambda key:models[key]['rms'])[:3]
         print(row['m'],row['n'],row['k'],row['trans_a'],row['trans_b'],[(key,models[key]) for key in best],flush=True)
     with args.output.open('x') as output:json.dump(dict(numpy=np.__version__,results=results),output,indent=2)

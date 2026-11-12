@@ -21,9 +21,12 @@ scaling. The loss adjoint is scaled on the GPU; all optimizer parameters are
 queued, unscaled and scanned before one device overflow decision gates every
 AdamW update. Overflow preserves parameters, moments and optimizer counters.
 Growth/backoff and skipped-step state survive exact LoRA checkpoints, which
-also bind the precision mode. Complex adapters and composed image/encoder
-transactions retain their existing unscaled FP32 gradients. Their optimizers
-need a joint overflow boundary before automatic scaling can be admitted.
+also bind the precision mode. Shared CLIP/LLaVA GPT2/Llama image transactions
+use one joint finite scan and optimizer decision across language and image
+parameters. Other encoder/vision families and complex adapters retain their
+existing unscaled FP32 gradients. Complete equal-weight accumulation windows
+are available for deterministic standalone scaled training; partial windows
+cannot be checkpointed or restored.
 This capability scope is not complete PyTorch autocast/GradScaler equivalence.
 See the [PyTorch AMP documentation](https://docs.pytorch.org/docs/stable/amp.html).
 FP16 conversion can still lose very small gradient operands or overflow very
@@ -37,9 +40,11 @@ Native DeepSeek V4.1 retains its separate trainer. Eligible native vision
 projections now execute Mixed WMMA forward, dW and dX. Language LoRA, short
 aligner/patch operations and architecture-specific arithmetic retain FP32.
 The GUI and CLI accept Mixed for this route; native resume binds its precision.
-Full FP16 has a real backend training path with GPU widening to FP32 buffers,
-but the general GUI/CLI choice remains gated by incomplete model qualification
-and wide-projection drift. See [precision completion](RDNA3_PRECISION_COMPLETION.md).
+Full FP16 has a real backend training path with GPU widening to FP32 buffers.
+The GUI/CLI admit only the qualified Llama64/shared CLIP64 profile and matching
+adapter/driver, after **Check backend**. Wide-reduction drift remains visible;
+reductions above 64 use the explicit FP32 route. See the exact admission and
+numerical scope in [precision completion](RDNA3_PRECISION_COMPLETION.md).
 
 Transformer and vision training write the requested policy and actual forward, weight-gradient,
 input-gradient, fallback, and cooperative-dispatch counts into

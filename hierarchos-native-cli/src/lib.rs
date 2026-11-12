@@ -30,6 +30,7 @@ use tokenizers::Tokenizer;
 
 mod deepseek_v41_training;
 mod vision;
+mod precision;
 mod image_generation;
 
 const TOKENIZER_ASSETS: &[&str] = &[
@@ -151,6 +152,7 @@ fn run() -> Result<u8, String> {
         "benchmark" => run_benchmark(argv),
         "devices" => run_devices(argv),
         "doctor" => run_doctor(argv),
+        "precision-info" => precision::info(argv),
         "architectures" | "models" => run_architectures(argv),
         "pull" => run_hf_pull(argv),
         "quantize" => {
@@ -1849,11 +1851,7 @@ fn parse_transformer_wmma_mode(value: &str) -> Result<&'static str, String> {
     match hierarchos_vulkan::wmma::WmmaMode::parse(value).map_err(|error| format!("invalid --wmma-mode: {error}"))? {
         hierarchos_vulkan::wmma::WmmaMode::Off => Ok("off"),
         hierarchos_vulkan::wmma::WmmaMode::Mixed => Ok("mixed"),
-        hierarchos_vulkan::wmma::WmmaMode::FullFp16 => Err(
-            "--wmma-mode full-fp16 is not available for general transformer training: wide \
-             projections exceed the FP32 drift policy and model qualification is incomplete; use off or mixed"
-                .to_string(),
-        ),
+        hierarchos_vulkan::wmma::WmmaMode::FullFp16 => Ok("full-fp16"),
     }
 }
 
@@ -1903,6 +1901,7 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     let mut lora_use_rslora = false;
     let mut lora_adapter_path: Option<PathBuf> = None;
     let mut resume_lora_training: Option<PathBuf> = None;
+    let mut gradient_accumulation_steps: Option<u32> = None;
     let mut save_lora_training: Option<PathBuf> = None;
     let mut seed = 42u64;
     let mut disable_transformer_dropout = false;
@@ -1939,9 +1938,10 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         }
         match key.as_str() {
             "--stream-parameters" => stream_parameters = true,
+            "--gradient-accumulation-steps"=>gradient_accumulation_steps=Some(parse_required(&mut argv,&key)?),
             "-h" | "--help" => {
                 println!(
-                    "hierarchos-native-cli {mode} (--model-path DIR | --hf-model OWNER/REPO) (--train DATA.jsonl | --hf-dataset OWNER/REPO) --out-dir OUT [--batch-size N] [--seq-len N] [--epochs N] [--lr F] [--device-index N] [--seed N] [--peft] [--architecture MODEL_TYPE] [--adapter-name NAME] [--peft-resume DIR] [--save-lora-training DIR] [--full-finetune | --lora-rank N] [--lora-alpha N] [--lora-dropout F] [--lora-bias none|lora_only|all] [--lora-target-module NAME ...] [--lora-modules-to-save NAME ...] [--lora-use-dora] [--lora-use-rslora] [--lora-adapter-path DIR] [--disable-transformer-dropout] [--wmma-mode off|mixed | --amp | --no-amp]\n\nPrecision: mixed (also --amp) uses FP16 operands with FP32 accumulation for eligible matrix operations, retaining FP32 master weights, AdamW, normalization, softmax and loss. Other operations use FP32. Automatic loss scaling is enabled for standalone GPT2/Llama full training and ordinary LoRA. Other training families retain their existing unscaled FP32 gradients.\n\ntransformer-train updates all parameters. transformer-finetune defaults to LoRA; --full-finetune instead updates every parameter and exports a complete checkpoint (including Falcon H1/H1R). Full fine-tuning cannot be combined with adapter options. PEFT runs save adapter weights plus AdamW/RNG training state to OUT/training-state by default; use --peft-resume DIR for exact continuation or --save-lora-training DIR to choose another checkpoint directory.\n\nThe model math, stochastic dropout, loss, backpropagation and AdamW step execute in Vulkan. Hugging Face model/dataset/tokenizer I/O, Parquet-to-JSONL conversion, and tokenization execute in Rust; Python and PyTorch are not launched. Supported checkpoint dropout probabilities are honored natively using reproducible counter-based RNG derived from --seed. --disable-transformer-dropout remains an explicit ablation/debug override that zeroes recognized dropout fields for this run and records those zero values on full-model export. Pretokenized cross-attention decoder rows may provide encoder_hidden_states (flat or nested [encoder_sequence, hidden]) and optional encoder_attention_mask; encoder geometry must remain fixed across the dataset."
+                    "hierarchos-native-cli {mode} (--model-path DIR | --hf-model OWNER/REPO) (--train DATA.jsonl | --hf-dataset OWNER/REPO) --out-dir OUT [--batch-size N] [--seq-len N] [--epochs N] [--lr F] [--device-index N] [--seed N] [--peft] [--architecture MODEL_TYPE] [--adapter-name NAME] [--peft-resume DIR] [--save-lora-training DIR] [--full-finetune | --lora-rank N] [--lora-alpha N] [--lora-dropout F] [--lora-bias none|lora_only|all] [--lora-target-module NAME ...] [--lora-modules-to-save NAME ...] [--lora-use-dora] [--lora-use-rslora] [--lora-adapter-path DIR] [--disable-transformer-dropout] [--wmma-mode off|mixed|full-fp16 | --amp | --no-amp] [--gradient-accumulation-steps N]\n\nPrecision: mixed (also --amp) uses FP16 operands with FP32 accumulation for eligible matrix operations, retaining FP32 master weights, AdamW, normalization, softmax and loss. Other operations use FP32. Automatic loss scaling is enabled for standalone GPT2/Llama full training and ordinary LoRA. Other training families retain their existing unscaled FP32 gradients. Full FP16 uses genuine FP16 matrix accumulation, widened to FP32, only for the qualified Llama64 profile and adapter/driver; use precision-info. Reductions above 64 retain FP32. Complete equal-weight microbatch accumulation windows are supported for deterministic scaled training; checkpoint/resume requires a completed window.\n\ntransformer-train updates all parameters. transformer-finetune defaults to LoRA; --full-finetune instead updates every parameter and exports a complete checkpoint (including Falcon H1/H1R). Full fine-tuning cannot be combined with adapter options. PEFT runs save adapter weights plus AdamW/RNG training state to OUT/training-state by default; use --peft-resume DIR for exact continuation or --save-lora-training DIR to choose another checkpoint directory.\n\nThe model math, stochastic dropout, loss, backpropagation and AdamW step execute in Vulkan. Hugging Face model/dataset/tokenizer I/O, Parquet-to-JSONL conversion, and tokenization execute in Rust; Python and PyTorch are not launched. Supported checkpoint dropout probabilities are honored natively using reproducible counter-based RNG derived from --seed. --disable-transformer-dropout remains an explicit ablation/debug override that zeroes recognized dropout fields for this run and records those zero values on full-model export. Pretokenized cross-attention decoder rows may provide encoder_hidden_states (flat or nested [encoder_sequence, hidden]) and optional encoder_attention_mask; encoder geometry must remain fixed across the dataset."
                 );
                 return Ok(0);
             }
@@ -2190,7 +2190,15 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         model_path.expect("validated model path")
     };
     let package_value: Value = serde_json::from_slice(&fs::read(model_dir.join("config.json")).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
+    let _full_oracle_width=precision::FullOracleWidth::enter()?;
+    if hierarchos_vulkan::wmma::WmmaMode::from_env().map_err(|e|e.to_string())? == hierarchos_vulkan::wmma::WmmaMode::FullFp16 {
+        hierarchos_vulkan::precision_policy::check_full_fp16_text_profile(&package_value,batch_size,
+            seq_len.ok_or("Full FP16 requires an explicit --seq-len for its qualified profile")?)?;
+    }
     if matches!(package_value.get("model_type").and_then(Value::as_str),Some("deepseek_v41"|"deepseek_v41_text")) {
+        if gradient_accumulation_steps.is_some_and(|n|n!=1) {
+            return Err("native V4.1 gradient accumulation uses its separate trainer contract".into());
+        }
         if !uses_peft || full_finetune { return Err("DeepSeek V4.1 training uses a frozen base with native LoRA; use transformer-finetune or --peft".into()); }
         if lora_merge || lora_use_dora || lora_bias != "none" || lora_dropout != 0.0 || !lora_modules_to_save.is_empty() || peft_config_path.is_some() || peft_parameter_percent.is_some() || lora_target_regex.is_some() || lora_layers.is_some() || !lora_layers_pattern.is_empty() || !lora_exclude_modules.is_empty() || lora_rank_pattern.is_some() || lora_alpha_pattern.is_some() {
             return Err("DeepSeek V4.1 native training supports additive zero-dropout LoRA/rsLoRA with suffix targets, or a validated existing adapter; the requested configuration needs a separate qualification gate".into());
@@ -2368,6 +2376,9 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         None => VulkanDevice::new(),
     }
     .map_err(|error| format!("Vulkan device initialization failed: {error:#}"))?;
+    if hierarchos_vulkan::wmma::WmmaMode::from_env().map_err(|e|e.to_string())? == hierarchos_vulkan::wmma::WmmaMode::FullFp16 {
+        precision::require_full_device(&device)?;
+    }
     if stream_parameters && encoder_seq_len.is_some() {
         return Err("--stream-parameters has not been qualified for cross-attention training".into());
     }
@@ -2501,6 +2512,11 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         }
     }
 
+    if hierarchos_vulkan::wmma::WmmaMode::from_env().map_err(|e|e.to_string())? == hierarchos_vulkan::wmma::WmmaMode::FullFp16
+        && graph.lora_config().is_some_and(|c|c.use_dora || c.use_rslora || c.lora_dropout!=0.0 || c.bias!="none"
+            || c.modules_to_save.as_ref().is_some_and(|v|!v.is_empty()) || c.target_parameters.as_ref().is_some_and(|v|!v.is_empty())) {
+        return Err("Full FP16 currently qualifies ordinary LoRA without dropout, bias variants, saved modules or packed parameters.".into());
+    }
     if encoder_seq_len.is_none() && graph.supports_loss_scaler().map_err(|e|e.to_string())? {
         graph.set_loss_scaler(Some(Default::default())).map_err(|e|format!("could not initialize loss scaler: {e:#}"))?;
     }
@@ -2522,7 +2538,15 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         );
     }
     let phases_before = hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
+    if let Some(steps)=gradient_accumulation_steps {
+        if resume_lora_training.is_some() && graph.loss_scaler_state().map_err(|e|e.to_string())?.is_some_and(|s|s.accumulation_steps!=steps) {
+            return Err("gradient accumulation policy must match the exact checkpoint".into());
+        }
+        graph.set_gradient_accumulation_steps(steps).map_err(|e|e.to_string())?;
+    }
     let counts_before = hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
+    let accumulation_before=hierarchos_vulkan::wmma_linear::linear_wmma_precision_counts();
+    let reduction_before=hierarchos_vulkan::wmma_linear::full_fp16_reduction_fallbacks();
     let starting_step = graph.step();
     let mut epoch_results = Vec::new();
     let mut total_steps = 0usize;
@@ -2544,6 +2568,9 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         );
     }
 
+    if graph.loss_scaler_state().map_err(|e|e.to_string())?.is_some_and(|s|s.pending_microbatches!=0) {
+        return Err("training ended inside a gradient accumulation window; use a complete number of microbatches".into());
+    }
     if let Some(checkpoint) = save_lora_training.as_deref() {
         graph
             .save_lora_training_checkpoint(checkpoint, hyper)
@@ -2573,12 +2600,18 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
     }
     let phases = hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
     let counts = hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
+    let accumulation=hierarchos_vulkan::wmma_linear::linear_wmma_precision_counts();
     let precision = json!({
         "requested":hierarchos_vulkan::wmma::WmmaMode::from_env().map_err(|e| e.to_string())?.label(),
         "cooperative_dispatches":counts.cooperative - counts_before.cooperative,
         "shape_fallbacks":counts.shape_fallbacks - counts_before.shape_fallbacks,
         "forward":phases[0] - phases_before[0],"weight_grad":phases[1] - phases_before[1],
         "input_grad":phases[2] - phases_before[2],
+        "mixed_fp32_accumulation":accumulation[0]-accumulation_before[0],
+        "full_fp16_accumulation":accumulation[1]-accumulation_before[1],
+        "full_fp16_max_reduction":hierarchos_vulkan::wmma_linear::FULL_FP16_MAX_REDUCTION,
+        "cpu_arithmetic_vector_width":hierarchos_vulkan::aten_vector_width(),
+        "full_fp16_reduction_fallbacks":hierarchos_vulkan::wmma_linear::full_fp16_reduction_fallbacks()-reduction_before,
         "master_weights":"fp32","optimizer_state":"fp32",
         "automatic_loss_scaling":graph.loss_scaler_state().map_err(|e|e.to_string())?.is_some(),
         "loss_scaler":graph.loss_scaler_state().map_err(|e|e.to_string())?
@@ -6390,6 +6423,7 @@ fn forward_value(
 
 #[cfg(test)]
 mod tests {
+    static WMMA_ENV_LOCK:std::sync::Mutex<()>=std::sync::Mutex::new(());
     use super::*;
 
     #[test]
@@ -6432,13 +6466,14 @@ mod tests {
     }
 
     #[test]
-    fn transformer_wmma_mode_rejects_unqualified_paths_before_io() {
+    fn transformer_precision_parser_defers_full_profile_admission_until_model_is_known() {
+        let _lock=WMMA_ENV_LOCK.lock().unwrap();
+        let previous=std::env::var_os("HIERARCHOS_WMMA_MODE");
         assert_eq!(parse_transformer_wmma_mode("off").unwrap(), "off");
         assert_eq!(parse_transformer_wmma_mode("mixed").unwrap(), "mixed");
         assert_eq!(parse_transformer_wmma_mode("amp").unwrap(), "mixed");
         assert_eq!(parse_transformer_wmma_mode("fp32").unwrap(), "off");
-        let error = parse_transformer_wmma_mode("full-fp16").unwrap_err();
-        assert!(error.contains("accumulate in FP16"), "{error}");
+        assert_eq!(parse_transformer_wmma_mode("full-fp16").unwrap(), "full-fp16");
         let error = parse_transformer_wmma_mode("turbo").unwrap_err();
         assert!(error.contains("invalid --wmma-mode"), "{error}");
         for mode in ["transformer-train", "transformer-finetune"] {
@@ -6447,12 +6482,15 @@ mod tests {
                 .map(OsString::from)
                 .collect();
             let error = run_transformer_training(mode, args).unwrap_err();
-            assert!(error.contains("full-fp16"), "{mode}: {error}");
+            assert!(error.contains("model-path") || error.contains("hf-model"), "{mode}: {error}");
         }
+        if let Some(value)=previous {std::env::set_var("HIERARCHOS_WMMA_MODE",value);}
+        else {std::env::remove_var("HIERARCHOS_WMMA_MODE");}
     }
 
     #[test]
     fn transformer_wmma_mode_reaches_the_trainer_environment() {
+        let _lock=WMMA_ENV_LOCK.lock().unwrap();
         let previous = std::env::var_os("HIERARCHOS_WMMA_MODE");
         let args = vec!["--wmma-mode", "mixed"]
             .into_iter()

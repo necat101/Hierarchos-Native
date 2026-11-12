@@ -53,6 +53,7 @@ mod tied_embedding;
 mod token_frontend;
 mod training_numerics;
 mod transformer;
+pub mod precision_policy;
 pub use transformer::deepseek_v41_vision::{
     DeepseekV41VisionConfig, DeepseekV41VisionTensor, VulkanDeepseekV41Image,
     VulkanDeepseekV41Vision,
@@ -216,6 +217,7 @@ pub use token_frontend::{
 };
 pub use training_numerics::VulkanGradientNonfiniteDetector;
 pub use transformer::{
+    aten_vector_width,
     TransformerLossScaleState,
     PeftCapability, PeftModuleClass, VulkanSeq2SeqTransformer, VulkanTransformer,
     VulkanTransformerArchitecture, VulkanTransformerConfig, VulkanTransformerGenerationAttention,

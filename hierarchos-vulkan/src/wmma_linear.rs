@@ -51,6 +51,16 @@ static WEIGHT_CONVERSION_BYTES: AtomicU64 = AtomicU64::new(0);
 static WEIGHT_MIRROR_REUSES: AtomicU64 = AtomicU64::new(0);
 static MIXED_DISPATCHES: AtomicU64 = AtomicU64::new(0);
 static FULL_FP16_DISPATCHES: AtomicU64 = AtomicU64::new(0);
+static FULL_FP16_REDUCTION_FALLBACKS: AtomicU64 = AtomicU64::new(0);
+
+/// Full FP16 graph policy bounds the number of dot2 rounding stages. Raw
+/// primitive qualification remains unrestricted and preserves its failing
+/// long-reduction evidence. Longer graph reductions retain their FP32 kernel.
+pub use crate::precision_policy::FULL_FP16_MAX_REDUCTION;
+
+pub fn full_fp16_reduction_fallbacks() -> u64 {
+    FULL_FP16_REDUCTION_FALLBACKS.load(Ordering::Relaxed)
+}
 
 /// Distinguish hardware accumulator types, not merely a requested mode label.
 pub fn linear_wmma_precision_counts() -> [u64; 2] {
@@ -204,7 +214,11 @@ impl LinearWmma {
         }
     }
 
-    fn admits(&self, rows: usize) -> bool {
+    fn admits(&self, rows: usize, reduction: usize) -> bool {
+        if self.gemm.mode() == WmmaMode::FullFp16 && reduction > FULL_FP16_MAX_REDUCTION {
+            FULL_FP16_REDUCTION_FALLBACKS.fetch_add(1, Ordering::Relaxed);
+            return false;
+        }
         rows == self.rows
             && wmma::wmma_shape_eligible(rows, self.output_dim, self.input_dim)
             && self
@@ -287,7 +301,7 @@ impl LinearWmma {
         output: &GpuBuffer,
         rows: usize,
     ) -> Result<bool> {
-        if !self.admits(rows) {
+        if !self.admits(rows, self.input_dim) {
             return Ok(self.note_fallback());
         }
         self.gemm
@@ -330,7 +344,7 @@ impl LinearWmma {
         grad_weight: &GpuBuffer,
         rows: usize,
     ) -> Result<bool> {
-        if !self.admits(rows) {
+        if !self.admits(rows, rows) {
             return Ok(self.note_fallback());
         }
         self.gemm.record_conversion(
@@ -369,7 +383,7 @@ impl LinearWmma {
         grad_input: &GpuBuffer,
         rows: usize,
     ) -> Result<bool> {
-        if !self.admits(rows) {
+        if !self.admits(rows, self.output_dim) {
             return Ok(self.note_fallback());
         }
         self.gemm.record_conversion(
@@ -654,6 +668,9 @@ mod tests {
 
     #[test]
     fn full_fp16_graph_widens_accumulators_in_all_three_phases() {
+        const ROWS:usize=64;
+        const K:usize=64;
+        const N:usize=64;
         let Ok(device) = VulkanDevice::new_for_wmma(WmmaMode::FullFp16) else {
             eprintln!("skipping: no cooperative-matrix capable device");
             return;
@@ -671,11 +688,20 @@ mod tests {
         assert!(executor.record_weight_grad(&mut commands,&grad,&input,&dw,ROWS).unwrap());
         assert!(executor.record_input_grad(&mut commands,&grad,&weight,&dx,ROWS).unwrap());
         commands.submit().unwrap();
-        assert!(output.read_f32(ROWS*N).unwrap().iter().all(|&x|x==1.0));
-        assert!(dw.read_f32(N*K).unwrap().iter().all(|&x|x==1.0/16.0));
-        assert!(dx.read_f32(ROWS*K).unwrap().iter().all(|&x|x==0.5));
+        assert!(output.read_f32(ROWS*N).unwrap().iter().all(|&x|x==1.0/16.0));
+        assert!(dw.read_f32(N*K).unwrap().iter().all(|&x|x==1.0/8.0));
+        assert!(dx.read_f32(ROWS*K).unwrap().iter().all(|&x|x==1.0/32.0));
         let after = linear_wmma_precision_counts();
         assert_eq!(after[0],before[0],"full mode must not dispatch mixed accumulation");
         assert_eq!(after[1]-before[1],3);
+        let long=LinearWmma::new(&device,WmmaMode::FullFp16,ROWS,128,N).unwrap();
+        let x=GpuBuffer::zeros_f32(&device,ROWS*128).unwrap();
+        let w=GpuBuffer::zeros_f32(&device,N*128).unwrap();
+        let previous=full_fp16_reduction_fallbacks();
+        let mut commands=vulkan::ComputeBatch::new(&device).unwrap();
+        assert!(!long.record_forward(&mut commands,&x,&w,&output,ROWS).unwrap(),
+            "long reductions must retain the caller's FP32 kernel");
+        assert_eq!(full_fp16_reduction_fallbacks(),previous+1);
+        assert_eq!(linear_wmma_precision_counts(),after,"range fallback must never dispatch Mixed");
     }
 }

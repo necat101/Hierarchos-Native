@@ -224,6 +224,10 @@ def run(args):
         raise ValueError("empty residency coverage")
     root = args.fixtures.resolve()
     manifest = json.loads((root / "manifest.json").read_text())
+    # CPU-shaped arithmetic must follow the immutable oracle's ISA, rather
+    # than the machine executing this GPU replay. The frozen AVX2 fixture can
+    # also be replayed on a host whose default vector width is AVX-512.
+    oracle_width = {"AVX2": "8", "AVX512": "16"}.get(str(manifest.get("oracle", {}).get("cpu", "")).upper())
     if (manifest.get("absolute_limit"), manifest.get("rtol"), manifest.get("comparison")) != (LIMIT, 0, "strict_less_than"):
         raise ValueError("fixture acceptance policy differs")
     for name, expected_hash in manifest["oracle"].get("source_files_sha256", {}).items():
@@ -263,6 +267,9 @@ def run(args):
                       "command": command, "pass": False}
             try:
                 environment = dict(os.environ, HIERARCHOS_VULKAN_VARIANT_TRACE="1")
+                if oracle_width is not None:
+                    environment["HIERARCHOS_ATEN_VECTOR_WIDTH"] = oracle_width
+                    record["oracle_vector_width"] = int(oracle_width)
                 completed = subprocess.run(command, capture_output=True, text=True,
                                            timeout=args.timeout, env=environment)
                 (out / (label + ".log")).write_text(completed.stdout + completed.stderr)

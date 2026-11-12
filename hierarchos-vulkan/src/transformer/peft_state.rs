@@ -780,6 +780,9 @@ impl VulkanTransformer {
         hyper: AdamWHyperParams,
     ) -> Result<()> {
         let output = output.as_ref();
+        if self.loss_scaler_state()?.is_some_and(|s|s.pending_microbatches!=0) {
+            bail!("finish the gradient accumulation window before saving an exact checkpoint");
+        }
         validate_optimizer_hyper([
             hyper.lr,
             hyper.beta1,

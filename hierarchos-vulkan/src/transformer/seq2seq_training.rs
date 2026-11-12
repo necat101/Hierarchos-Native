@@ -9,6 +9,7 @@ pub(super) struct ComposedTrainingOptions<'a> {
     pub(super) retained_forward: bool,
     pub(super) defer_shared_embedding_step: bool,
     pub(super) preserve_shared_embedding_gradient: bool,
+    pub(super) defer_amp_step: bool,
 }
 
 pub(super) struct EncoderTrainingTape {

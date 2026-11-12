@@ -2,6 +2,11 @@ use super::*;
 
 impl NativeApp {
     pub(super) fn backend_check_args(&self)->Vec<String> {
+        if self.mode==Workflow::VisionTrain || self.mode.is_transformer()&&self.mode.is_training() {
+            let mut args=vec!["precision-info".into()];
+            if !self.device_index.trim().is_empty() {args.extend(["--device-index".into(),self.device_index.trim().into()]);}
+            return args;
+        }
         if self.mode!=Workflow::ImageGenerate{return vec!["doctor".into()];}
         let mut args=vec!["image-engine-info".into()];if !self.image_engine.trim().is_empty(){args.extend(["--engine".into(),self.image_engine.trim().into()]);}args
     }
@@ -177,7 +182,7 @@ mod tests {
                 assert!(args.windows(2).any(|a| a == ["--wmma-mode", flag]), "{kind}: {args:?}");
             }
             app.wmma_mode = WmmaModeChoice::FullFp16;
-            assert!(app.build_args().unwrap_err().contains("unavailable"));
+            assert!(app.build_args().unwrap_err().contains("qualified"));
             app.mode = Workflow::VisionGenerate;
             assert!(!app.build_args().unwrap().iter().any(|a| a == "--wmma-mode"));
         }
@@ -213,11 +218,41 @@ mod tests {
         std::fs::write(Path::new(&app.output).join("weights"),b"existing").unwrap();assert!(app.build_args().is_err());
     }
     #[test]
+    fn full_precision_admission_binds_package_geometry_backend_and_adapter() {
+        let f=Fixture::new("llama");
+        let config=serde_json::json!({"model_type":"llama","hidden_size":64,"intermediate_size":64,"vocab_size":64,
+            "num_hidden_layers":1,"num_attention_heads":8,"num_key_value_heads":8});
+        std::fs::write(f.0.join("model/config.json"),serde_json::to_vec(&config).unwrap()).unwrap();
+        let mut app=f.app(Workflow::TransformerTrain);app.wmma_mode=WmmaModeChoice::FullFp16;
+        app.batch_size="2".into();app.seq_len="24".into();
+        assert!(app.build_args().unwrap_err().contains("Check backend"));
+        app.full_fp16_device=Some((app.cli_path.clone(),app.device_index.clone(),false));
+        assert!(app.build_args().unwrap_err().contains("adapter/driver"));
+        app.full_fp16_device=Some((app.cli_path.clone(),app.device_index.clone(),true));
+        assert!(app.build_args().unwrap().windows(2).any(|a|a==["--wmma-mode","full-fp16"]));
+        app.device_index="1".into();assert!(app.build_args().unwrap_err().contains("Check backend"));
+        app.device_index.clear();app.cli_path.push_str("-other");
+        assert!(app.build_args().unwrap_err().contains("Check backend"));
+        app.full_fp16_device=Some((app.cli_path.clone(),app.device_index.clone(),true));
+        app.batch_size="1".into();assert!(app.build_args().unwrap_err().contains("33–64"));
+        app.batch_size="2".into();let mut wide=config;wide["hidden_size"]=128.into();
+        std::fs::write(f.0.join("model/config.json"),serde_json::to_vec(&wide).unwrap()).unwrap();
+        assert!(app.build_args().unwrap_err().contains("64-wide"));
+    }
+    #[test]
     #[ignore = "requires HIERARCHOS_MIXED_GUI_FIXTURE, HIERARCHOS_NATIVE_CLI and a cooperative-matrix GPU"]
     fn mixed_training_start_executes_cooperative_workers() {
+        precision_training_workers(WmmaModeChoice::Mixed);
+    }
+    #[test]
+    #[ignore = "requires HIERARCHOS_MIXED_GUI_FIXTURE with the qualified 64-wide profile, HIERARCHOS_NATIVE_CLI and matching GPU/driver"]
+    fn full_fp16_training_start_executes_qualified_workers() {
+        precision_training_workers(WmmaModeChoice::FullFp16);
+    }
+    fn precision_training_workers(precision:WmmaModeChoice) {
         let root = PathBuf::from(env::var_os("HIERARCHOS_MIXED_GUI_FIXTURE").expect("eligible fixture root"));
         let mut app = NativeApp::default();
-        app.wmma_mode = WmmaModeChoice::Mixed;
+        app.wmma_mode = precision;
         app.cli_path = env::var("HIERARCHOS_NATIVE_CLI").expect("fresh native CLI");
         app.dataset = root.join("dataset.jsonl").display().to_string();
         app.epochs = "2".into();
@@ -228,7 +263,10 @@ mod tests {
             (Workflow::TransformerFullFinetune, "full-finetune"), (Workflow::TransformerFinetune, "lora")] {
             app.mode = mode;
             app.model = root.join(if mode == Workflow::VisionTrain { "model" } else { "model/text" }).display().to_string();
-            app.output = root.join(format!("gui-mixed-{name}")).display().to_string();
+            let prefix=env::var("HIERARCHOS_GUI_SMOKE_PREFIX").unwrap_or_else(|_|"gui-precision".into());
+            app.output = root.join(format!("{prefix}-{}-{name}",precision.flag())).display().to_string();
+            app.run_utility_args(&app.backend_check_args());
+            if precision==WmmaModeChoice::FullFp16 {assert!(app.full_fp16_unavailable_reason().is_none(),"{}",app.log);}
             app.start();
             assert!(app.child.is_some(), "{}", app.status);
             let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
@@ -245,11 +283,15 @@ mod tests {
                 &std::fs::read(Path::new(&app.output).join("training_report.json")).unwrap()
             ).unwrap();
             assert_eq!(report["steps"], 2);
-            assert_eq!(report["precision"]["requested"], "mixed");
+            assert_eq!(report["precision"]["requested"], precision.flag());
+            assert_eq!(report["optimizer_updates"],2);
+            assert_eq!(report["precision"]["automatic_loss_scaling"],true);
             for phase in ["cooperative_dispatches", "forward", "input_grad"] {
                 assert!(report["precision"][phase].as_u64().unwrap() > 0, "{phase}: {report}");
             }
             assert_eq!(report["precision"]["weight_grad"].as_u64().unwrap() > 0, mode != Workflow::TransformerFinetune);
+            let (wanted,other)=if precision==WmmaModeChoice::Mixed {("mixed_fp32_accumulation","full_fp16_accumulation")}else{("full_fp16_accumulation","mixed_fp32_accumulation")};
+            assert!(report["precision"][wanted].as_u64().unwrap()>0);assert_eq!(report["precision"][other],0);
         }
     }
 

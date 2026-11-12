@@ -1,11 +1,8 @@
 //! WMMA precision choice shown by the Transformer training panel.
 //!
 //! The desktop control's job is to make the capability boundary visible, not to
-//! imply that every listed mode runs. `FullFp16` is listed because it exists as
-//! an experimental device capability. The backend now widens FP16 results on
-//! the GPU, but wide-projection drift and end-to-end release qualification
-//! still prevent general admission. The panel renders it disabled and
-//! [`WmmaModeChoice::unavailable_reason`] explains why.
+//! imply that every listed mode runs. Full FP16 additionally requires the
+//! shared package profile and an adapter/driver preflight in NativeApp.
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum WmmaModeChoice {
@@ -21,7 +18,7 @@ impl WmmaModeChoice {
         match self {
             Self::Off => "FP32 (reference)",
             Self::Mixed => "Mixed WMMA + FP32 (AMP-style)",
-            Self::FullFp16 => "WMMA Full FP16 (Experimental)",
+            Self::FullFp16 => "WMMA Full FP16 (qualified profiles)",
         }
     }
 
@@ -36,7 +33,7 @@ impl WmmaModeChoice {
 
     /// Whether this training graph can execute the mode.
     pub fn available_for_training(self) -> bool {
-        !matches!(self, Self::FullFp16)
+        true
     }
 
     pub fn unavailable_reason(self) -> &'static str {
@@ -50,9 +47,9 @@ impl WmmaModeChoice {
                  use FP32 kernels. Requires a compatible cooperative-matrix GPU."
             }
             Self::FullFp16 => {
-                "Unavailable: Full FP16 accumulation exceeds the accepted FP32 drift on wide \
-                 projections. The GPU widening and optimizer path exists, but end-to-end model \
-                 qualification is incomplete."
+                "Requires a qualified local Llama64 or shared CLIP64/Llama64 package and the \
+                 qualified adapter/driver. Eligible reductions up to 64 use genuine FP16 \
+                 accumulation, widened on the GPU. Other operations and optimizer state use FP32."
             }
         }
     }
@@ -65,11 +62,13 @@ impl WmmaModeChoice {
                 "AMP-style mixed precision: eligible matrix operations use FP16 inputs with FP32 \
                  accumulation; master weights and AdamW stay FP32. Other operations stay FP32. \
                  Automatic loss scaling is available for standalone GPT2/Llama full training and \
-                 ordinary LoRA; composed vision training currently retains unscaled FP32 gradients."
+                 ordinary LoRA and shared CLIP/LLaVA GPT2/Llama image transactions. Other \
+                 architecture-specific trainers retain their existing FP32 gradient policy."
             }
             Self::FullFp16 => {
-                "Full FP16 graph training is experimental; numerical release qualification is \
-                 incomplete, so this general training control remains disabled."
+                "Scoped Full FP16 matrix accumulation with FP32 masters and AdamW, GPU loss \
+                 scaling and overflow skipping. Local model geometry and adapter/driver must \
+                 pass Check backend. Wider reductions retain FP32; other profiles are unavailable."
             }
         }
     }

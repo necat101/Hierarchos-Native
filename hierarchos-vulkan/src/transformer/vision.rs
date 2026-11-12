@@ -1242,7 +1242,18 @@ impl VulkanLlava {
     ) -> Result<LlavaTrainResult> {
         optimizer.validate()?;
         let hyper = optimizer.as_f32();
-        self.language.set_cpu_adamw_policy(Some(optimizer))?;
+        let amp=self.language.kernels.wmma_mode.requested() && matches!(
+            self.language.config.architecture,VulkanTransformerArchitecture::Gpt2 | VulkanTransformerArchitecture::Llama);
+        if amp {
+            // A shared image transaction queues both optimizers behind one
+            // device overflow decision. FP32 keeps its CPU arithmetic policy.
+            self.language.set_cpu_adamw_policy(None)?;
+            if self.language.loss_scaler_state()?.is_none() {
+                self.language.set_loss_scaler(Some(Default::default()))?;
+            }
+        } else {
+            self.language.set_cpu_adamw_policy(Some(optimizer))?;
+        }
         hyper.validate()?;
         let rows = self.validate(input_ids, attention_mask, pixel_values)?;
         if targets.len() != input_ids.len()
@@ -1268,7 +1279,7 @@ impl VulkanLlava {
     }
     pub(super) fn backward_image(
         &mut self,
-        result: DeviceMultimodalStepResult,
+        mut result: DeviceMultimodalStepResult,
         pixels: &[f32],
         hyper: AdamWHyperParams,
     ) -> Result<LlavaTrainResult> {
@@ -1283,6 +1294,13 @@ impl VulkanLlava {
             &self.language.kernels,
             hyper,
         )?;
+        if self.language.loss_scaler_state()?.is_some() {
+            if self.language.kernels.amp_finish(result.text.step)? {
+                self.language.step=result.text.step;
+                self.language.kernels.bump_wmma_epoch();
+            }
+            result.text.step=self.language.step;
+        }
         Ok(LlavaTrainResult {
             text: result.text,
             pixel_gradient: gradients.pixel_gradient,
@@ -1297,6 +1315,16 @@ impl VulkanLlava {
         self.language
             .export_hf_package(source.as_ref(), destination.as_ref())?;
         self.export_image_parameters(source.as_ref(), destination.as_ref())
+    }
+    pub fn loss_scaler_state(&self) -> Result<Option<TransformerLossScaleState>> {
+        self.language.loss_scaler_state()
+    }
+    pub fn set_loss_scaler(&mut self,state:Option<TransformerLossScaleState>) -> Result<()> {
+        if state.is_some_and(|s|s.accumulation_steps!=1) {
+            bail!("image microbatch accumulation is not yet qualified");
+        }
+        self.language.set_cpu_adamw_policy(None)?;
+        self.language.set_loss_scaler(state)
     }
     pub(super) fn debug_image_training_stages(&self) -> Result<serde_json::Value> {
         self.image.debug_image_training_stages()
@@ -2052,8 +2080,13 @@ impl VulkanClipImageAdapter {
         self.patch.record_step(&mut commands, k, step, hyper)?;
         self.cls.record_step(&mut commands, k, step, hyper)?;
         self.position.record_step(&mut commands, k, step, hyper)?;
+        k.amp_unscale_output(&mut commands,&self.grad_pixels,pixel_values.len())?;
+        k.amp_unscale_output(&mut commands,projected_gradient,feature_rows*self.projector2.output_dim)?;
+        k.amp_resolve(&mut commands,step,hyper)?;
         commands.submit()?;
-        k.bump_wmma_epoch();
+        if k.loss_scaler.lock().map_err(|_|anyhow!("loss scaler lock poisoned"))?.is_none() {
+            k.bump_wmma_epoch();
+        }
         Ok(ClipAdapterGradients {
             pixel_gradient: self.grad_pixels.read_f32(pixel_values.len())?,
             projected_gradient: projected_gradient

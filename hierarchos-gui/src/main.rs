@@ -13,6 +13,8 @@ use eframe::egui;
 mod multimodal_ui;
 mod process_tree;
 mod wmma_mode;
+#[path = "../../hierarchos-vulkan/src/precision_policy.rs"]
+mod precision_policy;
 
 use wmma_mode::WmmaModeChoice;
 
@@ -165,6 +167,7 @@ struct NativeApp {
     preview: Option<egui::TextureHandle>,
     preview_error: String,
     process_tree: Option<process_tree::ProcessTree>,
+    full_fp16_device: Option<(String,String,bool)>,
 }
 
 impl Default for NativeApp {
@@ -185,6 +188,7 @@ impl Default for NativeApp {
             lora_rank: "8".to_owned(),
             stream_parameters: false,
             wmma_mode: WmmaModeChoice::Off,
+            full_fp16_device: None,
             assistant_recovery: false,
             prompt: String::new(),
             max_new_tokens: "256".to_owned(),
@@ -357,11 +361,15 @@ impl NativeApp {
                 self.wmma_mode.unavailable_reason()
             ));
         }
+        if self.wmma_mode==WmmaModeChoice::FullFp16 {
+            if let Some(reason)=self.full_fp16_unavailable_reason() {return Err(reason);}
+        }
         args.extend(["--wmma-mode".to_owned(), self.wmma_mode.flag().to_owned()]);
         Ok(())
     }
 
     fn wmma_form(&mut self, ui: &mut egui::Ui, mixed_unavailable: Option<&str>) {
+        let full_reason=self.full_fp16_unavailable_reason();
         ui.horizontal(|ui| {
             ui.label("Training precision");
             egui::ComboBox::from_id_salt("wmma-mode")
@@ -372,6 +380,8 @@ impl NativeApp {
                             Some(choice.unavailable_reason())
                         } else if choice == WmmaModeChoice::Mixed {
                             mixed_unavailable
+                        } else if choice==WmmaModeChoice::FullFp16 {
+                            full_reason.as_deref()
                         } else {
                             None
                         };
@@ -388,6 +398,20 @@ impl NativeApp {
         ui.label(egui::RichText::new(self.wmma_mode.note()).small().weak());
         if let Some(reason) = mixed_unavailable {
             ui.small(reason);
+        }
+    }
+
+    fn full_fp16_unavailable_reason(&self)->Option<String> {
+        if self.hf_model {return Some("Full FP16 requires a downloaded local package whose qualified profile can be checked.".into());}
+        let batch=self.batch_size.trim().parse::<usize>().unwrap_or(0);
+        let seq=self.seq_len.trim().parse::<usize>().unwrap_or(0);
+        if let Err(error)=precision_policy::check_full_fp16_package(Path::new(self.model.trim()),batch,seq,self.mode==Workflow::VisionTrain) {
+            return Some(error);
+        }
+        match &self.full_fp16_device {
+            Some((cli,index,true)) if cli==self.cli_path.trim() && index==self.device_index.trim()=>None,
+            Some((cli,index,false)) if cli==self.cli_path.trim() && index==self.device_index.trim()=>Some("The selected adapter/driver has no matching Full FP16 numerical qualification.".into()),
+            _=>Some("Use Check backend to validate Full FP16 on the selected adapter.".into()),
         }
     }
 
@@ -601,6 +625,11 @@ impl NativeApp {
         #[cfg(windows)] {use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
         match command.output() {
             Ok(output) => {
+                if subcommand=="precision-info" {
+                    let qualified=output.status.success() && serde_json::from_slice::<serde_json::Value>(&output.stdout).ok()
+                        .is_some_and(|v|v["kind"]=="precision-capabilities" && v["full_fp16_supported"]==true && v["full_fp16_qualified"]==true);
+                    self.full_fp16_device=Some((cli.to_owned(),self.device_index.trim().to_owned(),qualified));
+                }
                 self.log.clear();
                 self.log.push_str(&String::from_utf8_lossy(&output.stdout));
                 self.log.push_str(&String::from_utf8_lossy(&output.stderr));
@@ -610,7 +639,8 @@ impl NativeApp {
                     format!("{subcommand} exited with {}", output.status)
                 };
             }
-            Err(error) => self.status = format!("Could not run {subcommand}: {error}"),
+            Err(error) => {if subcommand=="precision-info"{self.full_fp16_device=None;}
+                self.status = format!("Could not run {subcommand}: {error}");},
         }
     }
 }
@@ -1148,11 +1178,10 @@ mod tests {
             assert_eq!(args[index + 1], "mixed");
         }
 
-        // The experimental mode is listed in the panel but refused here rather
-        // than being silently dropped from the command.
+        // Full FP16 requires a local qualified package and device preflight.
         app.wmma_mode = WmmaModeChoice::FullFp16;
         let error = app.build_args().unwrap_err();
-        assert!(error.contains("unavailable for Transformer training"), "{error}");
+        assert!(error.contains("local package"), "{error}");
 
         // Generation keeps its own command surface.
         app.mode = Workflow::TransformerGenerate;

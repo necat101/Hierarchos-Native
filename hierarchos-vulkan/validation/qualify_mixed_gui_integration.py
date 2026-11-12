@@ -38,7 +38,7 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def prepare(folder, transformers):
+def prepare(folder, transformers, hidden_size=128, vocab_size=32):
     sys.path.insert(0, str(transformers / "src"))
     import numpy as np
     import torch
@@ -48,20 +48,20 @@ def prepare(folder, transformers):
 
     torch.set_num_threads(1)
     torch.manual_seed(20261112)
-    config = LlamaConfig(vocab_size=32, hidden_size=128, intermediate_size=128,
+    config = LlamaConfig(vocab_size=vocab_size, hidden_size=hidden_size, intermediate_size=hidden_size,
                         num_hidden_layers=1, num_attention_heads=8, num_key_value_heads=8,
-                        head_dim=16, max_position_embeddings=64, attention_dropout=0.,
+                        head_dim=hidden_size // 8, max_position_embeddings=64, attention_dropout=0.,
                         tie_word_embeddings=False, use_cache=False,
                         attn_implementation="eager")
     text = LlamaForCausalLM(config).float().train()
-    clip_config = CLIPVisionConfig(hidden_size=128, intermediate_size=128,
+    clip_config = CLIPVisionConfig(hidden_size=hidden_size, intermediate_size=hidden_size,
                                   num_hidden_layers=1, num_attention_heads=8,
                                   image_size=16, patch_size=4, hidden_act="quick_gelu",
                                   attention_dropout=0.)
     tower = CLIPVisionModel(clip_config).float().train()
     tower.set_attn_implementation("eager")
-    projector = torch.nn.Sequential(torch.nn.Linear(128, 128), torch.nn.GELU(),
-                                    torch.nn.Linear(128, 128))
+    projector = torch.nn.Sequential(torch.nn.Linear(hidden_size, hidden_size), torch.nn.GELU(),
+                                    torch.nn.Linear(hidden_size, hidden_size))
     with torch.no_grad():
         for parameter in projector.parameters():
             parameter.mul_(.15)
@@ -103,13 +103,13 @@ def prepare(folder, transformers):
     holder = {}
 
     def replace_rows(module, inputs, output):
-        return output.reshape(-1, 128).index_copy(0, positions, holder["projected"]).reshape_as(output)
+        return output.reshape(-1, hidden_size).index_copy(0, positions, holder["projected"]).reshape_as(output)
 
     hook = text.get_input_embeddings().register_forward_hook(replace_rows)
 
     def forward():
         vision = tower(pixels, output_hidden_states=True).hidden_states[-1][:, 1:, :]
-        holder["projected"] = projector(vision.reshape(-1, 128))
+        holder["projected"] = projector(vision.reshape(-1, hidden_size))
         return text(ids, attention_mask=torch.ones_like(ids)).logits
 
     optimizer = torch.optim.AdamW([*text.parameters(), *parameters.values()],
@@ -121,7 +121,7 @@ def prepare(folder, transformers):
         pixels.grad = None
         logits = forward()
         holder["projected"].retain_grad()
-        losses = torch.nn.functional.cross_entropy(logits.reshape(-1, 32), targets.flatten(), reduction="none")
+        losses = torch.nn.functional.cross_entropy(logits.reshape(-1, vocab_size), targets.flatten(), reduction="none")
         loss = (losses * weights.flatten()).sum() / weights.sum()
         loss.backward()
         steps.append(dict(logits=logits.detach().flatten().tolist(), loss=loss.item(),

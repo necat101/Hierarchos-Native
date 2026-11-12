@@ -13,6 +13,13 @@ pub struct TransformerLossScaleState {
     pub growth_interval: u64,
     pub growth_tracker: u64,
     pub skipped_steps: u64,
+    #[serde(default = "one_microbatch")]
+    pub accumulation_steps: u32,
+    #[serde(default)]
+    pub pending_microbatches: u32,
+}
+fn one_microbatch() -> u32 {
+    1
 }
 
 impl Default for TransformerLossScaleState {
@@ -24,6 +31,8 @@ impl Default for TransformerLossScaleState {
             growth_interval: 2000,
             growth_tracker: 0,
             skipped_steps: 0,
+            accumulation_steps: 1,
+            pending_microbatches: 0,
         }
     }
 }
@@ -41,6 +50,8 @@ impl TransformerLossScaleState {
             || self.scale.recip() <= 0.0
             || !(self.scale * self.growth_factor).is_finite()
             || self.scale * self.backoff_factor <= 0.0
+            || !(1..=1024).contains(&self.accumulation_steps)
+            || self.pending_microbatches >= self.accumulation_steps
         {
             bail!("invalid Transformer loss scaler state");
         }
@@ -65,12 +76,17 @@ struct Parameter {
 }
 
 pub(super) struct LossScaler {
+    device: VulkanDevice,
     state: TransformerLossScaleState,
     controller: VulkanDynamicLossScaleController,
     detector: VulkanGradientNonfiniteDetector,
     adamw: vulkan::ComputeKernel,
     parameters: Vec<Parameter>,
     shared: Vec<SharedLmHeadParameter>,
+    finite_checks: Vec<(GpuBuffer, usize)>,
+    accumulated: BTreeMap<usize, GpuBuffer>,
+    active_parameters: BTreeSet<usize>,
+    pending_update: bool,
 }
 
 #[repr(C)]
@@ -143,12 +159,58 @@ impl VulkanTransformer {
             .as_ref()
             .map(|s| s.state))
     }
+
+    /// Average complete, equal-weight microbatches before one optimizer update.
+    /// Dropout is excluded until separate microbatch RNG addressing is qualified.
+    pub fn set_gradient_accumulation_steps(&mut self, steps: u32) -> Result<()> {
+        if !(1..=1024).contains(&steps) {
+            bail!("gradient accumulation steps must be in 1..=1024");
+        }
+        if steps > 1
+            && (self.config.attention_dropout != 0.0
+                || self.config.attention_output_dropout != 0.0
+                || self.config.mlp_output_dropout != 0.0
+                || self.config.activation_dropout != 0.0
+                || self.config.embedding_dropout != 0.0
+                || self.layerdrop != 0.0
+                || self
+                    .lora_config
+                    .as_ref()
+                    .is_some_and(|c| c.lora_dropout != 0.0))
+        {
+            bail!(
+                "precision gradient accumulation currently requires zero model and adapter dropout"
+            );
+        }
+        let mut guard = self
+            .kernels
+            .loss_scaler
+            .lock()
+            .map_err(|_| anyhow!("loss scaler lock poisoned"))?;
+        let Some(s) = guard.as_mut() else {
+            if steps == 1 {
+                return Ok(());
+            }
+            bail!("gradient accumulation requires an enabled WMMA loss scaler");
+        };
+        if s.state.pending_microbatches != 0 {
+            bail!("cannot change accumulation policy inside an unfinished window");
+        }
+        s.state.accumulation_steps = steps;
+        s.accumulated.clear();
+        s.active_parameters.clear();
+        Ok(())
+    }
 }
 
 impl LossScaler {
     fn new(device: &VulkanDevice, state: TransformerLossScaleState) -> Result<Self> {
         state.seed()?;
+        if state.pending_microbatches != 0 {
+            bail!("cannot restore an unfinished accumulation window without its gradients");
+        }
         Ok(Self {
+            device: device.clone(),
             state,
             controller: VulkanDynamicLossScaleController::new(device)?,
             detector: VulkanGradientNonfiniteDetector::new(device.clone())?,
@@ -160,6 +222,10 @@ impl LossScaler {
             )?,
             parameters: Vec::new(),
             shared: Vec::new(),
+            finite_checks: Vec::new(),
+            accumulated: BTreeMap::new(),
+            active_parameters: BTreeSet::new(),
+            pending_update: false,
         })
     }
 }
@@ -174,6 +240,8 @@ impl TransformerKernels {
         {
             s.parameters.clear();
             s.shared.clear();
+            s.finite_checks.clear();
+            s.pending_update = false;
         }
         Ok(())
     }
@@ -256,6 +324,18 @@ impl TransformerKernels {
         Ok(())
     }
 
+    pub(super) fn amp_watch_finite(&self, buffer: &GpuBuffer, len: usize) -> Result<()> {
+        if let Some(s) = self
+            .loss_scaler
+            .lock()
+            .map_err(|_| anyhow!("loss scaler lock poisoned"))?
+            .as_mut()
+        {
+            s.finite_checks.push((buffer.clone(), len));
+        }
+        Ok(())
+    }
+
     pub(super) fn amp_resolve(
         &self,
         commands: &mut vulkan::ComputeBatch,
@@ -269,6 +349,20 @@ impl TransformerKernels {
         let Some(s) = guard.as_mut() else {
             return Ok(());
         };
+        if s.parameters.is_empty() {
+            bail!("AMP optimizer has no parameters");
+        }
+        if s.state.accumulation_steps > 1 {
+            let keys = s
+                .parameters
+                .iter()
+                .map(|p| p.values.allocation_id())
+                .collect::<BTreeSet<_>>();
+            if s.state.pending_microbatches > 0 && keys != s.active_parameters {
+                bail!("trainable parameters changed inside a gradient accumulation window");
+            }
+            s.active_parameters = keys;
+        }
         // Materialize unscaled FP32 gradients before the finite scan. This also
         // detects reciprocal overflow when a backed-off scale is below one,
         // and preserves the public gradient inspection ABI.
@@ -283,11 +377,42 @@ impl TransformerKernels {
                 [div_ceil_u32(p.len, 256), 1, 1],
             )?;
         }
-        let gradients = s
+        if s.state.accumulation_steps > 1 {
+            for p in &s.parameters {
+                let key = p.values.allocation_id();
+                if !s.accumulated.contains_key(&key) {
+                    s.accumulated
+                        .insert(key, GpuBuffer::zeros_f32(&s.device, p.len)?);
+                }
+                let accumulated = &s.accumulated[&key];
+                record_add(commands, self, &p.grad, accumulated, accumulated, p.len)?;
+            }
+            s.state.pending_microbatches += 1;
+            if s.state.pending_microbatches < s.state.accumulation_steps {
+                s.pending_update = true;
+                return Ok(());
+            }
+            for p in &s.parameters {
+                let accumulated = &s.accumulated[&p.values.allocation_id()];
+                self.scale_copy.record_dispatch(
+                    commands,
+                    &[accumulated, &p.grad],
+                    bytemuck::bytes_of(&ScalePush {
+                        len: p.len as u32,
+                        scale: 1.0 / s.state.accumulation_steps as f32,
+                    }),
+                    [div_ceil_u32(p.len, 256), 1, 1],
+                )?;
+                commands.fill_zero_f32(accumulated, p.len)?;
+            }
+            s.state.pending_microbatches = 0;
+        }
+        let mut gradients = s
             .parameters
             .iter()
             .map(|p| (&p.grad, p.len))
             .collect::<Vec<_>>();
+        gradients.extend(s.finite_checks.iter().map(|(buffer, len)| (buffer, *len)));
         if gradients.is_empty() {
             bail!("AMP optimizer has no parameters");
         }
@@ -323,6 +448,30 @@ impl TransformerKernels {
         s.controller.record_readback(commands)
     }
 
+    pub(super) fn amp_unscale_output(
+        &self,
+        commands: &mut vulkan::ComputeBatch,
+        buffer: &GpuBuffer,
+        len: usize,
+    ) -> Result<()> {
+        let guard = self
+            .loss_scaler
+            .lock()
+            .map_err(|_| anyhow!("loss scaler lock poisoned"))?;
+        if let Some(s) = guard.as_ref() {
+            self.scale_copy.record_dispatch(
+                commands,
+                &[buffer, buffer],
+                bytemuck::bytes_of(&ScalePush {
+                    len: len as u32,
+                    scale: s.state.scale.recip(),
+                }),
+                [div_ceil_u32(len, 256), 1, 1],
+            )?;
+        }
+        Ok(())
+    }
+
     pub(super) fn amp_finish(&self, step: u32) -> Result<bool> {
         let mut guard = self
             .loss_scaler
@@ -331,6 +480,12 @@ impl TransformerKernels {
         let Some(s) = guard.as_mut() else {
             return Ok(true);
         };
+        if s.pending_update {
+            s.parameters.clear();
+            s.shared.clear();
+            s.finite_checks.clear();
+            return Ok(false);
+        }
         let decision = s.controller.read_decision()?;
         s.state.scale = decision.scale_after;
         s.state.growth_tracker = decision.growth_tracker;
@@ -343,6 +498,8 @@ impl TransformerKernels {
         }
         s.parameters.clear();
         s.shared.clear();
+        s.finite_checks.clear();
+        s.active_parameters.clear();
         Ok(decision.should_step)
     }
 }
@@ -350,6 +507,85 @@ impl TransformerKernels {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn complete_microbatch_windows_match_independent_average_updates_and_skip_overflow(
+    ) -> Result<()> {
+        let _env = crate::test_support::env_lock();
+        let device = VulkanDevice::new()?;
+        let kernels = TransformerKernels::new(&device)?;
+        let reference = TransformerKernels::new(&device)?;
+        let state = TransformerLossScaleState {
+            scale: 8.0,
+            accumulation_steps: 2,
+            ..Default::default()
+        };
+        *kernels.loss_scaler.lock().unwrap() = Some(LossScaler::new(&device, state)?);
+        let p = TrainableParameter::new(&device, &[1.0], true)?;
+        let expected = TrainableParameter::new(&device, &[1.0], true)?;
+        let hyper = AdamWHyperParams {
+            lr: 0.01,
+            beta1: 0.9,
+            beta2: 0.999,
+            eps: 0.001,
+            weight_decay: 0.1,
+        };
+        let mut successful_step = 0;
+        for (window, values) in [[2.0f32, 6.0], [f32::INFINITY, 1.0], [1.0, 3.0]]
+            .into_iter()
+            .enumerate()
+        {
+            let next_step = successful_step + 1;
+            for (micro, value) in values.into_iter().enumerate() {
+                let before = p.read()?;
+                kernels.amp_begin()?;
+                let mut commands = vulkan::ComputeBatch::new(&device)?;
+                commands.upload_u32(p.grad_buffer()?, &[value.to_bits()])?;
+                kernels.amp_scale_seed(&mut commands, p.grad_buffer()?, 1)?;
+                p.record_step(&mut commands, &kernels, next_step, hyper)?;
+                kernels.amp_resolve(&mut commands, next_step, hyper)?;
+                commands.submit()?;
+                let stepped = kernels.amp_finish(next_step)?;
+                assert_eq!(stepped, micro == 1 && window != 1);
+                if !stepped {
+                    assert_eq!(p.read()?, before);
+                }
+                if micro == 0 {
+                    let pending = kernels.loss_scaler.lock().unwrap().as_ref().unwrap().state;
+                    assert_eq!(pending.pending_microbatches, 1);
+                    assert!(
+                        LossScaler::new(&device, pending).is_err(),
+                        "partial gradients are required for partial resume"
+                    );
+                }
+            }
+            if window != 1 {
+                successful_step += 1;
+                // Analytic averages are 4 and 2; reference performs one ordinary
+                // AdamW update, independent of the accumulation implementation.
+                expected
+                    .grad_buffer()?
+                    .write_f32(&[if window == 0 { 4.0 } else { 2.0 }])?;
+                let mut commands = vulkan::ComputeBatch::new(&device)?;
+                expected.record_step(&mut commands, &reference, successful_step, hyper)?;
+                commands.submit()?;
+            }
+            assert_eq!(p.read()?, expected.read()?);
+            assert_eq!(
+                p.exp_avg.as_ref().unwrap().read_f32(1)?,
+                expected.exp_avg.as_ref().unwrap().read_f32(1)?
+            );
+            assert_eq!(
+                p.exp_avg_sq.as_ref().unwrap().read_f32(1)?,
+                expected.exp_avg_sq.as_ref().unwrap().read_f32(1)?
+            );
+        }
+        let state = kernels.loss_scaler.lock().unwrap().as_ref().unwrap().state;
+        assert_eq!(state.pending_microbatches, 0);
+        assert_eq!(state.growth_tracker, 1);
+        assert_eq!(state.skipped_steps, 1);
+        assert_eq!(state.scale, 4.0);
+        Ok(())
+    }
     #[test]
     fn global_overflow_skips_parameters_moments_and_shared_step_and_resumes_scale() -> Result<()> {
         let _env = crate::test_support::env_lock();

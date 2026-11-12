@@ -9,7 +9,9 @@ pub(super) enum Runtime {
 impl Runtime {
     pub fn new(p:&Package,picture:&Picture,o:&Options)->anyhow::Result<Self> {
         let wmma=hierarchos_vulkan::wmma::WmmaMode::from_env()?;
-        anyhow::ensure!(wmma!=hierarchos_vulkan::wmma::WmmaMode::FullFp16,"full-FP16 is unavailable for vision graphs; use --wmma-mode off or mixed");
+        if wmma==hierarchos_vulkan::wmma::WmmaMode::FullFp16 {
+            hierarchos_vulkan::precision_policy::check_full_fp16_package(&p.root,o.batch,o.seq,true).map_err(anyhow::Error::msg)?;
+        }
         anyhow::ensure!(p.kind==Kind::V41||(!o.stream&&o.state.is_none()&&o.resume.is_none()&&o.adapter.is_none()),"native state, resume, adapter and frozen-parameter streaming options currently apply only to native DeepSeek V4.1; select an exported image package for other families");
         if matches!(p.kind,Kind::Gemma4|Kind::V41){anyhow::ensure!(o.batch==1,"this native image backend currently requires batch size 1 (one complete image per trainer step)");}
         if let Some(state)=o.resume.as_ref().or(o.state.as_ref()) {
@@ -23,6 +25,9 @@ impl Runtime {
             }
         }
         let device=if let Some(index)=o.device{VulkanDevice::new_with_index(index)?}else{VulkanDevice::new()?};
+        if wmma==hierarchos_vulkan::wmma::WmmaMode::FullFp16 {
+            crate::precision::require_full_device(&device).map_err(anyhow::Error::msg)?;
+        }
         eprintln!("Vision backend: {:?}; device: {}; precision: {}",p.kind,device.name(),wmma.description());
         let d=device;
         Ok(match p.kind {
@@ -88,5 +93,8 @@ impl Runtime {
     }
     pub fn checkpoint(&self,path:&Path)->anyhow::Result<()> {
         match self {Self::V41(g)=>g.save_checkpoint(path),_=>anyhow::bail!("optimizer resume checkpoints are available for native V4.1; other image families export trained model weights")}
+    }
+    pub fn loss_scaler_state(&self)->anyhow::Result<Option<hierarchos_vulkan::TransformerLossScaleState>> {
+        match self {Self::Shared(g)=>g.loss_scaler_state(),Self::Llava(g)=>g.loss_scaler_state(),_=>Ok(None)}
     }
 }

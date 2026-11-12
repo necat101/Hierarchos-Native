@@ -84861,7 +84861,8 @@ impl VulkanTransformer {
             None,
             hyper,
             Some(ModalityEmbeddingInput::Device { rows, values }),
-            ComposedTrainingOptions::default(),
+            ComposedTrainingOptions { defer_amp_step:self.loss_scaler_state()?.is_some(),
+                ..Default::default() },
         )
     }
 
@@ -84902,11 +84903,15 @@ impl VulkanTransformer {
         modality_rows: Option<ModalityEmbeddingInput<'_>>,
         options: ComposedTrainingOptions<'_>,
     ) -> Result<DeviceMultimodalStepResult> {
-        if self.loss_scaler_state()?.is_some() && (!self.supports_loss_scaler()? || modality_rows.is_some()
+        if self.loss_scaler_state()?.is_some() && (!self.supports_loss_scaler()?
+            || (modality_rows.is_some() && !options.defer_amp_step)
             || encoder_hidden_states.is_some() || options.forward_only
             || options.terminal_gradient.is_some() || options.retained_forward
             || options.defer_shared_embedding_step) {
             bail!("automatic loss scaling requires a standalone training transaction");
+        }
+        if options.defer_amp_step && (self.loss_scaler_state()?.is_none() || modality_rows.is_none()) {
+            bail!("deferred AMP requires the retained image training transaction");
         }
         self.kernels.amp_begin()?;
         // BART-layout conditional-generation checkpoints expose this as
@@ -86147,6 +86152,7 @@ impl VulkanTransformer {
 
             self.kernels.amp_scale_seed(&mut commands, &self.grad_logits,
                 self.rows * self.config.vocab_size)?;
+            self.kernels.amp_watch_finite(&self.row_loss,self.rows)?;
             let grad_lm_logits = if let Some(cap) = self.config.final_logit_softcapping {
                 let raw_logits = self
                     .raw_logits
@@ -87278,7 +87284,9 @@ impl VulkanTransformer {
                 );
             }
         }
-        self.kernels.amp_resolve(&mut commands, next_step, hyper)?;
+        if !options.defer_amp_step {
+            self.kernels.amp_resolve(&mut commands, next_step, hyper)?;
+        }
         if options.terminal_gradient.is_none() {
             self.loss_sum_reducer
                 .record_sum(&mut commands, &self.row_loss, self.rows)?;
@@ -87289,7 +87297,7 @@ impl VulkanTransformer {
                 layer.finish_qwen4_ple_sparse_embedding_step(next_step, hyper)?;
             }
         }
-        let did_step = self.kernels.amp_finish(next_step)?;
+        let did_step = !options.defer_amp_step && self.kernels.amp_finish(next_step)?;
         if did_step { self.step = next_step; }
         // The submitted optimizer step replaced every FP32 master, so the FP16
         // mirrors converted for this step's forward/backward are now stale.
@@ -87301,10 +87309,13 @@ impl VulkanTransformer {
         } else {
             self.loss_sum_reducer.read_sum()?
         };
+        if self.loss_scaler_state()?.is_some() && !loss.is_finite() {
+            bail!("nonfinite forward loss in the precision-scaled training graph; the optimizer transaction is not qualified to continue");
+        }
         Ok(DeviceMultimodalStepResult {
             text: VulkanTransformerStepResult {
                 loss,
-                step: self.step,
+                step: if options.defer_amp_step { next_step } else { self.step },
                 supervised_tokens,
             },
             gradient: modality_rows

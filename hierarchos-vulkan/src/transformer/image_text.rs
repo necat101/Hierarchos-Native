@@ -786,6 +786,17 @@ impl VulkanImageText {
         )
     }
 
+    pub fn loss_scaler_state(&self) -> Result<Option<TransformerLossScaleState>> {
+        self.graph.loss_scaler_state()
+    }
+
+    pub fn set_loss_scaler(&mut self,state:Option<TransformerLossScaleState>) -> Result<()> {
+        if self.decoder.is_some() {
+            bail!("automatic image loss scaling is not qualified for encoder/decoder transactions");
+        }
+        self.graph.set_loss_scaler(state)
+    }
+
     pub fn train_seq2seq_with_optimizer(
         &mut self,
         input_ids: &[u32],

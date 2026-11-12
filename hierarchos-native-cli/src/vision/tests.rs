@@ -45,7 +45,8 @@ fn vision_precision_accepts_amp_aliases_without_touching_the_process_policy() {
     }
     assert_eq!(parse(args(&["--model-path", "model", "--amp"])).unwrap().wmma, Some("mixed"));
     assert_eq!(parse(args(&["--model-path", "model", "--amp", "--no-amp"])).unwrap().wmma, Some("off"));
-    for flag in ["full-fp16", "fp16", "invalid"] {
+    assert_eq!(parse(args(&["--model-path", "model", "--wmma-mode", "full-fp16"])).unwrap().wmma,Some("full-fp16"));
+    for flag in ["invalid", "turbo"] {
         assert!(parse(args(&["--model-path", "model", "--wmma-mode", flag])).is_err());
     }
 }

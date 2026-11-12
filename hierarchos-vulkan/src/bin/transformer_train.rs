@@ -47,6 +47,7 @@ struct Args {
     save_training_state: Option<PathBuf>,
     resume_training_state: Option<PathBuf>,
     stream_lm_head: bool,
+    gradient_accumulation_steps: Option<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -178,6 +179,7 @@ fn parse_args() -> Result<Args> {
         save_training_state: None,
         resume_training_state: None,
         stream_lm_head: false,
+        gradient_accumulation_steps: None,
     };
     let mut args = std::env::args_os().skip(1);
     while let Some(raw) = args.next() {
@@ -243,6 +245,9 @@ fn parse_args() -> Result<Args> {
                     required_arg(&mut args, "--max-steps")?,
                     "--max-steps",
                 )?)
+            }
+            "--gradient-accumulation-steps" => {
+                parsed.gradient_accumulation_steps=Some(parse_num(required_arg(&mut args,"--gradient-accumulation-steps")?,"--gradient-accumulation-steps")?);
             }
             "--learning-rate" => {
                 parsed.learning_rate = parse_num(
@@ -1116,6 +1121,12 @@ fn main() -> Result<()> {
         );
     }
 
+    if let Some(steps)=args.gradient_accumulation_steps {
+        if args.resume_training_state.is_some() && graph.loss_scaler_state()?.is_some_and(|s|s.accumulation_steps!=steps) {
+            bail!("gradient accumulation policy must match the exact checkpoint");
+        }
+        graph.set_gradient_accumulation_steps(steps)?;
+    }
     let batches_per_epoch = sequences.len() / args.batch_size;
     if batches_per_epoch == 0 {
         bail!("dataset does not contain a complete training batch");
@@ -1176,6 +1187,9 @@ fn main() -> Result<()> {
         }
     }
     let final_loss = final_loss.context("training produced no optimizer steps")?;
+    if graph.loss_scaler_state()?.is_some_and(|s|s.pending_microbatches!=0) {
+        bail!("training ended inside a gradient accumulation window; use a complete number of microbatches");
+    }
 
     if let Some(state) = args.save_training_state.as_deref() {
         graph
@@ -1260,7 +1274,12 @@ fn main() -> Result<()> {
         "phases":hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts(),
         "master_weights":"fp32","optimizer_state":"fp32",
         "automatic_loss_scaling":graph.loss_scaler_state()?.is_some()});
-    fs::write(args.output.join("training_report.json"),serde_json::to_vec_pretty(&report)?)?;
+    report["precision"]["full_fp16_max_reduction"]=serde_json::json!(hierarchos_vulkan::wmma_linear::FULL_FP16_MAX_REDUCTION);
+    report["precision"]["full_fp16_reduction_fallbacks"]=serde_json::json!(hierarchos_vulkan::wmma_linear::full_fp16_reduction_fallbacks());
+    // The file is portable relative to its export directory. Keep run-specific
+    // absolute output paths in stdout so equivalent model exports stay stable.
+    let mut stored_report=report.clone();stored_report["output"]=serde_json::json!(".");
+    fs::write(args.output.join("training_report.json"),serde_json::to_vec_pretty(&stored_report)?)?;
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
 }

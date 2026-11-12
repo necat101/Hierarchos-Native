@@ -45,7 +45,7 @@ fn parse(mut argv:VecDeque<OsString>)->AResult<Options> {
 }
 pub(super) fn run(mode:&str,argv:VecDeque<OsString>)->Result<u8,String> {
     if argv.iter().any(|a|a=="--help"||a=="-h") {
-        println!("Native vision commands:\n  vision-train --model-path PACKAGE --train DATA.jsonl --out-dir NEW_DIR [--batch-size 1 --max-length 512 --epochs 1 --lr 5e-5]\n  vision-generate --model-path PACKAGE --image IMAGE.png --prompt TEXT [--max-new-tokens 128 --max-length 512]\n  vision-info --model-path PACKAGE\n\nSupports hierarchos_image_text (including BART/T5/Switch), native LLaVA, Gemma3, Gemma4 and DeepSeek V4.1. Images must match the fixed native processor dimensions; no implicit resize/crop. JSONL uses image + prompt/completion or explicit input_ids/targets/loss_weights. Paths are relative to the JSONL file.\nShared/native full-parameter image training uses the existing GPU AdamW pipeline. Native V4.1 trains image parameters plus language LoRA; --lora-rank, --adapter-path, --resume, --native-state and --stream-parameters configure that path. Its output contains native image/language export and optimizer checkpoint. Other backends export a complete image model package.\nTraining precision: --wmma-mode off|mixed (or --amp/--no-amp). Mixed uses FP16 operands and FP32 accumulation for eligible Transformer/vision matrix operations; other operations, master weights and AdamW remain FP32. Vision loss scaling is not implemented. Native DeepSeek V4.1 accelerates eligible native vision projections; its language LoRA and short vision operations retain FP32. Requested and actual WMMA dispatches are recorded in training_report.json.\nOptional: --tokenizer-path, --device-index, --beta1, --beta2, --eps, --weight-decay, --seed. Vision generation supports --do-sample/--no-do-sample, --temperature, --top-k, --top-p and --out-dir. It generates text from an image; text-to-image uses image-generate.");return Ok(0);
+        println!("Native vision commands:\n  vision-train --model-path PACKAGE --train DATA.jsonl --out-dir NEW_DIR [--batch-size 1 --max-length 512 --epochs 1 --lr 5e-5]\n  vision-generate --model-path PACKAGE --image IMAGE.png --prompt TEXT [--max-new-tokens 128 --max-length 512]\n  vision-info --model-path PACKAGE\n\nSupports hierarchos_image_text (including BART/T5/Switch), native LLaVA, Gemma3, Gemma4 and DeepSeek V4.1. Images must match the fixed native processor dimensions; no implicit resize/crop. JSONL uses image + prompt/completion or explicit input_ids/targets/loss_weights. Paths are relative to the JSONL file.\nShared/native full-parameter image training uses the existing GPU AdamW pipeline. Native V4.1 trains image parameters plus language LoRA; --lora-rank, --adapter-path, --resume, --native-state and --stream-parameters configure that path. Its output contains native image/language export and optimizer checkpoint. Other backends export a complete image model package.\nTraining precision: --wmma-mode off|mixed|full-fp16 (or --amp/--no-amp). Mixed uses FP16 operands and FP32 accumulation for eligible Transformer/vision matrix operations; other operations, master weights and AdamW remain FP32. Shared CLIP/LLaVA GPT2/Llama image transactions use joint GPU loss scaling and global optimizer skipping. Other families retain unscaled FP32 gradients. Full FP16 is restricted to the qualified shared CLIP64/Llama64 package and adapter/driver, with reductions above 64 retained in FP32; use precision-info. Native DeepSeek V4.1 accelerates eligible native vision projections; its language LoRA and short vision operations retain FP32. Requested and actual WMMA dispatches are recorded in training_report.json.\nOptional: --tokenizer-path, --device-index, --beta1, --beta2, --eps, --weight-decay, --seed. Vision generation supports --do-sample/--no-do-sample, --temperature, --top-k, --top-p and --out-dir. It generates text from an image; text-to-image uses image-generate.");return Ok(0);
     }
     execute(mode,parse(argv).map_err(|e|format!("{e:#}"))?).map(|_|0).map_err(|e|format!("native vision failed: {e:#}"))
 }
@@ -60,6 +60,7 @@ fn execute(mode:&str,o:Options)->AResult<()> {
     // This command runs in its own CLI process. Set the policy before both
     // device creation and TransformerKernels construction read it.
     if let Some(wmma) = o.wmma { env::set_var("HIERARCHOS_WMMA_MODE", wmma); }
+    let _full_oracle_width=crate::precision::FullOracleWidth::enter().map_err(anyhow::Error::msg)?;
     let p=Package::open(&o.model)?;
     if mode=="vision-info" {println!("{}",serde_json::to_string_pretty(&json!({"backend":format!("{:?}",p.kind),"encoder_decoder":p.seq2seq,"vocab_size":p.vocab,"image_token_id":p.image_token,"vision_config":p.config["vision_config"],"image_generation":false}))?);return Ok(());}
     let t=tokenizer(&p,&o)?;
@@ -76,7 +77,10 @@ fn train(p:&Package,t:Option<&Tokenizer>,o:&Options)->AResult<()> {
     let shape=(first.picture.width,first.picture.height);
     let phases_before=hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
     let counts_before=hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
+    let accumulation_before=hierarchos_vulkan::wmma_linear::linear_wmma_precision_counts();
+    let reduction_before=hierarchos_vulkan::wmma_linear::full_fp16_reduction_fallbacks();
     let mut runtime=Runtime::new(p,&first.picture,o)?;
+    let skipped_before=runtime.loss_scaler_state()?.map_or(0,|s|s.skipped_steps);
     fs::create_dir_all(output)?;
     let mut step=0usize;let mut loss=0.;let mut seen=0usize;
     for epoch in 0..o.epochs {
@@ -99,15 +103,23 @@ fn train(p:&Package,t:Option<&Tokenizer>,o:&Options)->AResult<()> {
     }
     let phases=hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
     let counts=hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
+    let accumulation=hierarchos_vulkan::wmma_linear::linear_wmma_precision_counts();
     let precision=json!({
         "requested":hierarchos_vulkan::wmma::WmmaMode::from_env()?.label(),
         "cooperative_dispatches":counts.cooperative-counts_before.cooperative,
         "shape_fallbacks":counts.shape_fallbacks-counts_before.shape_fallbacks,
         "forward":phases[0]-phases_before[0],"weight_grad":phases[1]-phases_before[1],"input_grad":phases[2]-phases_before[2],
-        "master_weights":"fp32","optimizer_state":"fp32","automatic_loss_scaling":false
+        "mixed_fp32_accumulation":accumulation[0]-accumulation_before[0],"full_fp16_accumulation":accumulation[1]-accumulation_before[1],
+        "full_fp16_max_reduction":hierarchos_vulkan::wmma_linear::FULL_FP16_MAX_REDUCTION,
+        "cpu_arithmetic_vector_width":hierarchos_vulkan::aten_vector_width(),
+        "full_fp16_reduction_fallbacks":hierarchos_vulkan::wmma_linear::full_fp16_reduction_fallbacks()-reduction_before,
+        "master_weights":"fp32","optimizer_state":"fp32",
+        "automatic_loss_scaling":runtime.loss_scaler_state()?.is_some(),"loss_scaler":runtime.loss_scaler_state()?
     });
     eprintln!("WMMA evidence: {precision}");
-    fs::write(output.join("training_report.json"),serde_json::to_vec_pretty(&json!({"backend":"native-vulkan","kind":format!("{:?}",p.kind),"steps":step,"examples":seen,"final_loss":loss,"model":model,"base_model":p.root,"image_width":shape.0,"image_height":shape.1,"batch_size":o.batch,"seq_len":o.seq,"optimizer_resume":p.kind==Kind::V41,"precision":precision}))?)?;
+    let skipped=runtime.loss_scaler_state()?.map_or(0,|s|s.skipped_steps)-skipped_before;
+    anyhow::ensure!(skipped<=step as u64,"optimizer skip count exceeds attempted updates");
+    fs::write(output.join("training_report.json"),serde_json::to_vec_pretty(&json!({"backend":"native-vulkan","kind":format!("{:?}",p.kind),"steps":step,"attempted_optimizer_windows":step,"optimizer_updates":step as u64-skipped,"examples":seen,"final_loss":loss,"model":model,"base_model":p.root,"image_width":shape.0,"image_height":shape.1,"batch_size":o.batch,"seq_len":o.seq,"optimizer_resume":p.kind==Kind::V41,"precision":precision}))?)?;
     println!("Vision training complete: {}",model.display());Ok(())
 }
 fn generate(p:&Package,t:Option<&Tokenizer>,o:&Options)->AResult<()> {
