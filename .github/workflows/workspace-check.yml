@@ -70,12 +70,6 @@ jobs:
       - name: Phase XIX-X attention negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_attention_phase19x_ci.py"
 
-      - name: Phase XIX-T policy overlay
-        run: python hierarchos-vulkan/validation/check_phase19t_current.py
-
-      - name: Phase XIX-T isolated negative controls
-        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19t_current.py"
-
       - name: Phase XIX-U historical audit
         run: python hierarchos-vulkan/validation/check_phase19u_audit.py
 
@@ -161,6 +155,26 @@ jobs:
         run: |
           python hierarchos-vulkan/validation/check_folded_publication_profile.py
           python -m unittest discover -s hierarchos-vulkan/validation -p "test_folded_publication_profile.py"
+
+  # Phase XIX-T is sealed to numerical source 60063fd and policy revision
+  # dac3534. Its exact source/evidence manifest cannot validate a later
+  # Phase XIX-X source tree. Run the sealed policy in its own checkout; the
+  # current-tree qualification remains the separate Phase XIX-X job above.
+  phase19t-historical:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: dac3534c47f6330c65274f3a9495ab2aab303e1f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Phase XIX-T sealed policy overlay
+        run: python hierarchos-vulkan/validation/check_phase19t_current.py
+      - name: Phase XIX-T sealed negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19t_current.py" -v
 
   workflow-validation:
     runs-on: ubuntu-latest
