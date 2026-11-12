@@ -204,9 +204,14 @@ def validate(document: dict, receipt_dir: Path, crate: Path = CRATE,
                 require(check.get("pass") is True,
                         f"{label} check failed: {row.get('case')}/{check.get('metric')}")
                 value = check.get("max_abs")
-                if value is not None:
+                metric = check.get("metric", "")
+                if value is not None and (metric.endswith("/logits")
+                                          or "/parameter/" in metric):
                     require(float(value) < LIMIT,
-                            f"{label} threshold violated: {row.get('case')}/{check.get('metric')}")
+                            f"{label} threshold violated: {row.get('case')}/{metric}")
+                if value is not None and metric.endswith("/loss"):
+                    require(float(value) < 2e-5,
+                            f"{label} loss threshold violated: {row.get('case')}/{metric}")
 
     shapes = document.get("shapes") or {}
     require(shapes.get("cases") == 16 and shapes.get("expected_cases") == 16,
@@ -348,8 +353,11 @@ def run_negative_controls(document: dict, receipt_dir: Path, crate: Path = CRATE
     reject("missing expanded case", lambda d: d["shapes"]["results"].pop())
     reject("duplicate shared case", lambda d: d["retained"]["shared_current"]["results"].append(
         copy.deepcopy(d["retained"]["shared_current"]["results"][0])))
-    reject("strict threshold violation", lambda d: d["shapes"]["results"][0]["checks"][0].__setitem__(
-        "max_abs", LIMIT))
+    def violate_logit(d):
+        row = d["shapes"]["results"][0]
+        next(check for check in row["checks"]
+             if check.get("metric", "").endswith("/logits"))["max_abs"] = LIMIT
+    reject("strict threshold violation", violate_logit)
     reject("failed check", lambda d: d["retained"]["shared_current"]["results"][0]["checks"][0].__setitem__(
         "pass", False))
     reject("incomplete 93 accounting", lambda d: d["retained"]["coverage"].__setitem__(
