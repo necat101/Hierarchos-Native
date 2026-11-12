@@ -206,6 +206,7 @@ def run(args):
             source = load_file(str(args.output / f"model/{component}/model.safetensors"))
             trained = load_file(str(destination / f"step-2/{component}/model.safetensors"))
             require(source.keys() == trained.keys(), "export changed parameter inventory")
+            require(all(tensor.dtype.name == "float32" for tensor in trained.values()), "master checkpoint narrowed from FP32")
             changed = [name for name in source if (source[name] != trained[name]).any()]
             require(changed, f"no {component} parameters updated")
             if component == "image":
@@ -280,6 +281,7 @@ def run(args):
                     weight_grad=weight_grad, input_grad=input_grad, shape_fallbacks=fallbacks)
             export = destination / ("model.safetensors" if family == "full" else "adapter_model.safetensors")
             require(export.is_file(), "text trained checkpoint was not exported")
+            require(all(tensor.dtype.name == "float32" for tensor in load_file(str(export)).values()), "text checkpoint narrowed from FP32")
             text_runs[(family, mode)] = [row["loss"] for row in steps]
         checks[f"text_{family}_loss_comparison"] = metric(text_runs[(family, "off")], text_runs[(family, "mixed")], MIXED_MAX, MIXED_RMS)
     require(all(digest(binaries[name]) == sha for name, sha in binary_hashes.items()), "binary changed during execution")
