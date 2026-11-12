@@ -13,10 +13,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import subprocess
 import sys
+import re
 
 ROOT = Path(__file__).resolve().parents[2]
 FP32_LIMIT = 2e-7
@@ -167,7 +169,8 @@ def run(args):
                       for path in args.output.rglob("*") if path.is_file()}
     cpu = json.loads((args.output / "cpu.json").read_text())
     reports, checks, commands = {}, {}, []
-    binaries = {"probe": args.probe.resolve(), "cli": args.cli.resolve()}
+    binaries = {"probe": args.probe.resolve(), "cli": args.cli.resolve(),
+                "trainer": args.cli.resolve().parent / "hierarchos-vulkan-transformer-train.exe"}
     binary_hashes = {name: digest(path) for name, path in binaries.items()}
     for mode in ("off", "mixed"):
         env = {**os.environ, "HIERARCHOS_WMMA_MODE": mode}
@@ -228,11 +231,53 @@ def run(args):
         for key in ("pixel_gradient", "projected_gradient"):
             checks[f"mixed_{key}_{index+1}"] = metric(reports["off"]["steps"][index]["training"][key],
                 reports["mixed"]["steps"][index]["training"][key], MIXED_MAX, MIXED_RMS)
+    text_runs = {}
+    for family in ("full", "lora"):
+        for mode in ("off", "mixed"):
+            destination = args.output / f"text-{family}-{mode}"
+            command = [str(binaries["cli"]), "transformer-train" if family == "full" else "transformer-finetune",
+                       "--model-path", str(args.output / "model/text"),
+                       "--train", str(args.output / "dataset.jsonl"), "--out-dir", str(destination),
+                       "--amp" if mode == "mixed" else "--no-amp", "--batch-size", "2",
+                       "--max-length", "24", "--epochs", "2", "--lr", ".001", "--eps", ".001",
+                       "--weight-decay", "0", "--seed", "1234"]
+            if family == "lora":
+                command += ["--lora-rank", "8"]
+            result = subprocess.run(command, env={**os.environ,
+                "HIERARCHOS_WMMA_MODE": "off" if mode == "mixed" else "mixed",
+                "HIERARCHOS_VULKAN_BIN_DIR": str(binaries["trainer"].parent)}, capture_output=True, text=True)
+            log = result.stdout + result.stderr
+            (args.output / f"text-{family}-{mode}.log").write_text(log, encoding="utf-8")
+            commands.append(dict(command=command, returncode=result.returncode))
+            require(result.returncode == 0, f"text {family}/{mode} failed: {log[-1000:]}")
+            steps = []
+            for line in log.splitlines():
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(row, dict) and row.get("event") == "train_step":
+                    steps.append(row)
+            require(len(steps) == 2 and [row["step"] for row in steps] == [1, 2], "text optimizer steps missing")
+            require(all(math.isfinite(row["loss"]) for row in steps), "non-finite text training loss")
+            require(steps[1]["loss"] < steps[0]["loss"], "text loss did not reduce")
+            if mode == "mixed":
+                match = re.search(r"cooperative_dispatches=(\d+) shape_fallbacks=(\d+) \(forward=(\d+) weight_grad=(\d+) input_grad=(\d+)\)", log)
+                require(match is not None, "missing text WMMA dispatch evidence")
+                cooperative, fallbacks, forward, weight_grad, input_grad = map(int, match.groups())
+                require(cooperative > 0 and forward > 0 and input_grad > 0, "missing text cooperative phases")
+                require((weight_grad > 0) == (family == "full"), "incorrect full/LoRA base-weight gradient dispatch")
+                checks[f"text_{family}_dispatch"] = dict(cooperative=cooperative, forward=forward,
+                    weight_grad=weight_grad, input_grad=input_grad, shape_fallbacks=fallbacks)
+            export = destination / ("model.safetensors" if family == "full" else "adapter_model.safetensors")
+            require(export.is_file(), "text trained checkpoint was not exported")
+            text_runs[(family, mode)] = [row["loss"] for row in steps]
+        checks[f"text_{family}_loss_comparison"] = metric(text_runs[(family, "off")], text_runs[(family, "mixed")], MIXED_MAX, MIXED_RMS)
     require(all(digest(binaries[name]) == sha for name, sha in binary_hashes.items()), "binary changed during execution")
     require(all(digest(ROOT / name) == sha for name, sha in source_hashes.items()), "source changed during execution")
     require(all(digest(args.output / name) == sha for name, sha in fixture_hashes.items()), "fixture/oracle changed during execution")
     write(args.output / "qualification.json", dict(
-        schema=1, status="PASS_SCOPED", scope="eligible shared CLIP + Llama two-step mixed/FP32 GUI command integration",
+        schema=1, status="PASS_SCOPED", scope="eligible shared CLIP + Llama full/LoRA two-step mixed/FP32 GUI command integration",
         source_revision=subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip(),
         dirty=subprocess.check_output(["git", "-C", str(ROOT), "status", "--porcelain"], text=True).splitlines(),
         source_sha256=source_hashes, binary_sha256=binary_hashes, fixture_sha256=fixture_hashes,
