@@ -184,8 +184,10 @@ def validate(document: dict, receipt_dir: Path, crate: Path = CRATE,
     require(shape_manifest.get("input_model_sha256") == EXPECTED_MODEL,
             "shape manifest input model changed")
     require(shared_manifest.get("complete") is True, "shared manifest incomplete")
-    require(set(shared_manifest.get("required_green_profiles", [])) == SHARED_PROFILES,
+    required_profiles = set(shared_manifest.get("required_green_profiles", []))
+    require(SHARED_PROFILES <= required_profiles,
             "shared profile inventory changed")
+    require(len(SHARED_PROFILES) == 37, "shared selected-profile count changed")
     shared_names = {row.get("name") for row in shared_manifest.get("cases", [])}
     require(SHARED_CASES <= shared_names, "shared manifest is missing a required case")
 

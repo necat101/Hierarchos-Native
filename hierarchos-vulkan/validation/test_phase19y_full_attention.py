@@ -6,7 +6,7 @@ import copy
 import unittest
 
 from check_phase19y_full_attention import (
-    RECEIPT, load, run_negative_controls, validate,
+    CRATE, RECEIPT, load, run_negative_controls, validate,
 )
 
 
@@ -15,7 +15,7 @@ class FullAttentionNegativeControls(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.document = load(RECEIPT)
-        cls.binary_root = RECEIPT.parents[2] / "target/debug"
+        cls.binary_root = CRATE / "target/debug"
 
     def test_positive_receipt_validates(self):
         validate(self.document, RECEIPT.parent, binary_root=self.binary_root)
