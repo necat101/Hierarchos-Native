@@ -28,6 +28,8 @@ def main() -> None:
     parser.add_argument("--fixture", type=Path, required=True)
     parser.add_argument("--stages", type=Path, required=True)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--standalone", action="store_true",
+                        help="Read the standalone GPT2 logits harness tape and model")
     parser.add_argument("--attention", choices=["sdpa", "eager"], default="sdpa",
                         help="Actual CPU oracle backend; the retained GPT-2-wide oracle uses SDPA")
     args = parser.parse_args()
@@ -38,12 +40,12 @@ def main() -> None:
     torch.set_num_threads(1)
     torch.set_grad_enabled(False)
 
-    text = args.model / "text"
+    text = args.model if args.standalone else args.model / "text"
     config = json.loads((text / "config.json").read_text())
     weights = load_file(str(text / "model.safetensors"))
     fixture = json.loads(args.fixture.read_text())
     stages_document = json.loads(args.stages.read_text())
-    tape = stages_document["stages"]
+    tape = stages_document if args.standalone else stages_document["stages"]
 
     batch = fixture["batch_size"]
     seq = fixture["seq_len"]
@@ -105,12 +107,11 @@ def main() -> None:
     # The composed `lookup` replaces image-token rows with projected vision
     # features, so validate the text rows only. A failure here means the tape,
     # weight layout or row order is wrong and later comparisons are meaningless.
-    image_token = json.loads((args.model / "image" / "config.json").read_text())[
-        "image_token_index"
-    ]
-    text_rows = (ids != image_token).flatten()
-    lookup_native = stage("lookup")
+    image_token = None if args.standalone else json.loads(
+        (args.model / "image" / "config.json").read_text())["image_token_index"]
+    text_rows = torch.ones(rows, dtype=torch.bool) if args.standalone else (ids != image_token).flatten()
     lookup_reference = weight("transformer.wte.weight")[ids].reshape(rows, dim)
+    lookup_native = lookup_reference if args.standalone else stage("lookup")
     lookup = record("lookup/text_rows", lookup_native, lookup_reference, text_rows)
     if not lookup["exact"]:
         raise SystemExit(
@@ -148,14 +149,23 @@ def main() -> None:
     input_native = stage("input").reshape(rows, dim)
     for index in range(config["n_layer"]):
         prefix = f"layer_{index}"
+        if args.standalone:
+            tape[f"{prefix}/n1"] = tape[f"{prefix}/ln1"]
+            tape[f"{prefix}/n3"] = tape[f"{prefix}/ln2"]
+            tape[f"{prefix}/a"] = tape[f"{prefix}/attention"]
+            tape[f"{prefix}/r"] = tape[f"{prefix}/residual"]
+            tape[f"{prefix}/qkv"] = torch.cat([
+                stage(f"{prefix}/{name}").reshape(rows,dim) for name in ('q','k','v')
+            ],dim=1).flatten().tolist()
         if index:
             input_native = stage(f"layer_{index - 1}/out").reshape(rows, dim)
         n1_native = stage(f"{prefix}/n1").reshape(rows, dim)
         qkv_native = stage(f"{prefix}/qkv").reshape(rows, 3 * dim)
 
         n1, mean, rstd = layer_norm(input_native, index, "ln_1")
-        record(f"{prefix}/n1/mean", stage(f"{prefix}/n1/mean"), mean)
-        record(f"{prefix}/n1/rstd", stage(f"{prefix}/n1/rstd"), rstd)
+        if not args.standalone:
+            record(f"{prefix}/n1/mean", stage(f"{prefix}/n1/mean"), mean)
+            record(f"{prefix}/n1/rstd", stage(f"{prefix}/n1/rstd"), rstd)
         record(f"{prefix}/n1", n1_native, n1)
 
         qkv = torch.addmm(
@@ -187,8 +197,9 @@ def main() -> None:
 
         n3_native = stage(f"{prefix}/n3").reshape(rows, dim)
         n3, mean, rstd = layer_norm(residual_native, index, "ln_2")
-        record(f"{prefix}/n3/mean", stage(f"{prefix}/n3/mean"), mean)
-        record(f"{prefix}/n3/rstd", stage(f"{prefix}/n3/rstd"), rstd)
+        if not args.standalone:
+            record(f"{prefix}/n3/mean", stage(f"{prefix}/n3/mean"), mean)
+            record(f"{prefix}/n3/rstd", stage(f"{prefix}/n3/rstd"), rstd)
         record(f"{prefix}/n3", n3_native, n3)
 
         up = torch.addmm(
@@ -229,7 +240,8 @@ def main() -> None:
         eps,
     )
     record("final_norm", final_native, final_norm)
-    logits = torch.nn.functional.linear(final_native, weight("lm_head.weight"))
+    logits = torch.nn.functional.linear(final_native, weight(
+        "lm_head.weight" if "lm_head.weight" in weights else "transformer.wte.weight"))
     record(
         "logits",
         torch.tensor(stages_document["logits"], dtype=torch.float32),

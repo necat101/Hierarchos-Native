@@ -116,6 +116,10 @@ struct LoraOptimizerMetadata {
     adapter_sha256: String,
     adapter_config: serde_json::Value,
     hyper: [f32; 5],
+    #[serde(default)]
+    loss_scaler: Option<TransformerLossScaleState>,
+    #[serde(default)]
+    wmma_mode: Option<String>,
 }
 
 fn validate_optimizer_hyper(hyper: [f32; 5]) -> Result<()> {
@@ -832,6 +836,8 @@ impl VulkanTransformer {
             let state = LoraOptimizerMetadata {
                 version: 1,
                 step: self.step,
+                loss_scaler: self.loss_scaler_state()?,
+                wmma_mode: Some(self.kernels.wmma_mode.label().into()),
                 embedding_step: self
                     .lora_saved_embedding_module
                     .as_ref()
@@ -936,6 +942,9 @@ impl VulkanTransformer {
             .context("missing LoRA optimizer metadata")?;
         let state: LoraOptimizerMetadata = serde_json::from_str(metadata)?;
         validate_optimizer_hyper(state.hyper)?;
+        if state.wmma_mode.as_deref().is_some_and(|mode|mode!=self.kernels.wmma_mode.label()) {
+            bail!("LoRA optimizer checkpoint precision mode mismatch");
+        }
         if state.version != 1
             || state.batch_size != self.batch_size
             || state.seq_len != self.seq_len
@@ -1024,6 +1033,8 @@ impl VulkanTransformer {
         if !identity? {
             bail!("loaded LoRA parameters do not match the optimizer checkpoint");
         }
+        // Validate/restore precision state before mutating any optimizer buffer.
+        self.set_loss_scaler(state.loss_scaler)?;
         for (buffer, values) in pending {
             buffer.write_f32(&values)?;
         }
@@ -1032,6 +1043,7 @@ impl VulkanTransformer {
         }
         self.step = state.step;
         self.dropout_seed = state.dropout_seed;
+        self.kernels.bump_wmma_epoch();
         let [lr, beta1, beta2, eps, weight_decay] = state.hyper;
         Ok(AdamWHyperParams {
             lr,

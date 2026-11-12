@@ -5,12 +5,12 @@
 //! the three GEMMs of a training step (forward, weight gradient, input
 //! gradient) through the same [`WmmaGemm`] the qualification harness exercises.
 //!
-//! Only the mixed arm (FP16 inputs, FP32 accumulation) is admitted here. The
-//! full-FP16 arm accumulates in FP16, so its result must be widened by a host
-//! read-back or by a dedicated store kernel; neither exists on the in-graph
-//! path, and fabricating one would silently change what the graph computes.
-//! [`LinearWmma::new`] therefore refuses the full arm, and callers keep the
-//! qualified FP32 kernels for that mode.
+//! Mixed and full-FP16 select distinct cooperative kernels. The full kernel
+//! stores its FP16 accumulator through shared FP16 storage and explicitly
+//! widens each element into the graph's FP32 output buffer on the GPU. Master
+//! weights, gradients, and optimizer state therefore retain their FP32 ABI.
+//! Full-FP16 accumulation has a separate numerical qualification policy; graph
+//! integration alone does not admit it in the desktop GUI.
 //!
 //! # Weight mirrors
 //!
@@ -49,6 +49,13 @@ static SHAPE_FALLBACKS: AtomicU64 = AtomicU64::new(0);
 static WEIGHT_CONVERSIONS: AtomicU64 = AtomicU64::new(0);
 static WEIGHT_CONVERSION_BYTES: AtomicU64 = AtomicU64::new(0);
 static WEIGHT_MIRROR_REUSES: AtomicU64 = AtomicU64::new(0);
+static MIXED_DISPATCHES: AtomicU64 = AtomicU64::new(0);
+static FULL_FP16_DISPATCHES: AtomicU64 = AtomicU64::new(0);
+
+/// Distinguish hardware accumulator types, not merely a requested mode label.
+pub fn linear_wmma_precision_counts() -> [u64; 2] {
+    [MIXED_DISPATCHES.load(Ordering::Relaxed), FULL_FP16_DISPATCHES.load(Ordering::Relaxed)]
+}
 
 /// Mirror slots one executor may hold before the stalest is evicted.
 ///
@@ -158,11 +165,7 @@ impl LinearWmma {
     ) -> Result<Self> {
         match mode {
             WmmaMode::Off => anyhow::bail!("a WMMA linear executor requires an active WMMA mode"),
-            WmmaMode::FullFp16 => anyhow::bail!(
-                "full-FP16 accumulation has no in-graph FP32 output path; \
-                 Transformer graphs admit only mixed WMMA"
-            ),
-            WmmaMode::Mixed => {}
+            WmmaMode::Mixed | WmmaMode::FullFp16 => {}
         }
         if rows == 0 || input_dim == 0 || output_dim == 0 {
             anyhow::bail!("WMMA linear executor requires positive geometry");
@@ -183,6 +186,22 @@ impl LinearWmma {
 
     pub fn mode(&self) -> WmmaMode {
         self.gemm.mode()
+    }
+
+    fn arm(&self) -> WmmaGemmArm {
+        match self.mode() {
+            WmmaMode::Mixed => WmmaGemmArm::MixedFp32Accumulate,
+            WmmaMode::FullFp16 => WmmaGemmArm::FullFp16Accumulate,
+            WmmaMode::Off => unreachable!("inactive executor cannot be constructed"),
+        }
+    }
+
+    fn count_precision(&self) {
+        match self.mode() {
+            WmmaMode::Mixed => { MIXED_DISPATCHES.fetch_add(1, Ordering::Relaxed); }
+            WmmaMode::FullFp16 => { FULL_FP16_DISPATCHES.fetch_add(1, Ordering::Relaxed); }
+            WmmaMode::Off => unreachable!(),
+        }
     }
 
     fn admits(&self, rows: usize) -> bool {
@@ -280,7 +299,7 @@ impl LinearWmma {
             |commands, mirror| {
                 self.gemm.record_gemm(
                     commands,
-                    WmmaGemmArm::MixedFp32Accumulate,
+                    self.arm(),
                     &self.input_f16,
                     mirror,
                     output,
@@ -295,6 +314,7 @@ impl LinearWmma {
             },
         )?;
         FORWARD_DISPATCHES.fetch_add(1, Ordering::Relaxed);
+        self.count_precision();
         Ok(true)
     }
 
@@ -323,7 +343,7 @@ impl LinearWmma {
             .record_conversion(commands, input, &self.input_f16, rows * self.input_dim)?;
         self.gemm.record_gemm(
             commands,
-            WmmaGemmArm::MixedFp32Accumulate,
+            self.arm(),
             &self.grad_output_f16,
             &self.input_f16,
             grad_weight,
@@ -336,6 +356,7 @@ impl LinearWmma {
             },
         )?;
         WEIGHT_GRAD_DISPATCHES.fetch_add(1, Ordering::Relaxed);
+        self.count_precision();
         Ok(true)
     }
 
@@ -364,7 +385,7 @@ impl LinearWmma {
             |commands, mirror| {
                 self.gemm.record_gemm(
                     commands,
-                    WmmaGemmArm::MixedFp32Accumulate,
+                    self.arm(),
                     &self.grad_output_f16,
                     mirror,
                     grad_input,
@@ -379,6 +400,7 @@ impl LinearWmma {
             },
         )?;
         INPUT_GRAD_DISPATCHES.fetch_add(1, Ordering::Relaxed);
+        self.count_precision();
         Ok(true)
     }
 }
@@ -631,15 +653,29 @@ mod tests {
     }
 
     #[test]
-    fn full_fp16_is_refused_for_the_graph() {
-        let Ok(device) = VulkanDevice::new_for_wmma(WmmaMode::Mixed) else {
+    fn full_fp16_graph_widens_accumulators_in_all_three_phases() {
+        let Ok(device) = VulkanDevice::new_for_wmma(WmmaMode::FullFp16) else {
             eprintln!("skipping: no cooperative-matrix capable device");
             return;
         };
-        let error = match LinearWmma::new(&device, WmmaMode::FullFp16, ROWS, K, N) {
-            Ok(_) => panic!("full-FP16 must be refused for the graph"),
-            Err(error) => error,
-        };
-        assert!(error.to_string().contains("no in-graph FP32 output path"), "{error}");
+        let executor = LinearWmma::new(&device, WmmaMode::FullFp16, ROWS, K, N).unwrap();
+        let input = GpuBuffer::from_f32(&device, &vec![1.0/16.0; ROWS*K]).unwrap();
+        let weight = GpuBuffer::from_f32(&device, &vec![1.0/64.0; N*K]).unwrap();
+        let grad = GpuBuffer::from_f32(&device, &vec![1.0/32.0; ROWS*N]).unwrap();
+        let output = GpuBuffer::zeros_f32(&device, ROWS*N).unwrap();
+        let dw = GpuBuffer::zeros_f32(&device, N*K).unwrap();
+        let dx = GpuBuffer::zeros_f32(&device, ROWS*K).unwrap();
+        let before = linear_wmma_precision_counts();
+        let mut commands = vulkan::ComputeBatch::new(&device).unwrap();
+        assert!(executor.record_forward(&mut commands,&input,&weight,&output,ROWS).unwrap());
+        assert!(executor.record_weight_grad(&mut commands,&grad,&input,&dw,ROWS).unwrap());
+        assert!(executor.record_input_grad(&mut commands,&grad,&weight,&dx,ROWS).unwrap());
+        commands.submit().unwrap();
+        assert!(output.read_f32(ROWS*N).unwrap().iter().all(|&x|x==1.0));
+        assert!(dw.read_f32(N*K).unwrap().iter().all(|&x|x==1.0/16.0));
+        assert!(dx.read_f32(ROWS*K).unwrap().iter().all(|&x|x==0.5));
+        let after = linear_wmma_precision_counts();
+        assert_eq!(after[0],before[0],"full mode must not dispatch mixed accumulation");
+        assert_eq!(after[1]-before[1],3);
     }
 }

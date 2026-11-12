@@ -58,6 +58,10 @@ impl DeepseekV41VisionConfig {
 }
 
 impl VulkanDeepseekV41Image {
+    pub fn precision_mode(&self) -> &'static str {
+        self.vision.kernels.wmma_mode.label()
+    }
+
     pub fn from_checkpoint(
         device: VulkanDevice,
         checkpoint: &mut crate::deepseek_v41::DeepseekV41Checkpoint,

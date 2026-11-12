@@ -143,6 +143,9 @@ fn run() -> Result<()> {
     let mut mode = WmmaMode::from_env()?;
     let mut seed = 0x5EED_1234u32;
     let mut json = false;
+    let mut dump = None;
+    let mut samples = Vec::new();
+    let mut full_accumulation = OracleAccumulation::Fp16TileK;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--wmma-mode" => {
@@ -154,6 +157,13 @@ fn run() -> Result<()> {
                 seed = value.parse().context("--seed must be an integer")?;
             }
             "--json" => json = true,
+            "--full-oracle" => full_accumulation = match args.next().as_deref() {
+                Some("tile16") => OracleAccumulation::Fp16TileK,
+                Some("rdna3-dot2") => OracleAccumulation::Fp16Dot2,
+                _ => bail!("--full-oracle requires tile16 or rdna3-dot2"),
+            },
+            "--dump-operands" => dump = Some(std::path::PathBuf::from(
+                args.next().context("--dump-operands requires a new output path")?)),
             "--help" | "-h" => {
                 println!("{}", usage());
                 return Ok(());
@@ -197,7 +207,7 @@ fn run() -> Result<()> {
             columns,
             reduction,
             GemmLayout::default(),
-            OracleAccumulation::Fp16TileK,
+            full_accumulation,
         )?;
         let full_match_limit = f16_matched_limit(&full_oracle);
 
@@ -256,6 +266,10 @@ fn run() -> Result<()> {
                     reduction,
                     GemmLayout::default(),
                 )?;
+                if dump.is_some() {
+                    samples.push(serde_json::json!({"m":rows,"n":columns,"k":reduction,
+                        "trans_a":false,"trans_b":false,"a":a,"b":b,"actual":observed}));
+                }
                 let mut vs_fp32 = main_gate(
                     &format!("{fixture} wmma-full-fp16 vs FP32"),
                     &fp32,
@@ -312,13 +326,18 @@ fn run() -> Result<()> {
                 let (arm, accumulation) = match mode {
                     WmmaMode::Mixed => (WmmaGemmArm::MixedFp32Accumulate, OracleAccumulation::Fp32),
                     WmmaMode::FullFp16 => {
-                        (WmmaGemmArm::FullFp16Accumulate, OracleAccumulation::Fp16TileK)
+                        (WmmaGemmArm::FullFp16Accumulate, full_accumulation)
                     }
                     WmmaMode::Off => unreachable!(),
                 };
                 let oracle =
                     oracle_gemm(&a, &b, rows, columns, reduction, layout, accumulation)?;
                 let observed = gemm.matmul(arm, &a, &b, rows, columns, reduction, layout)?;
+                if dump.is_some() {
+                    samples.push(serde_json::json!({"m":rows,"n":columns,"k":reduction,
+                        "trans_a":layout.transposed_a,"trans_b":layout.transposed_b,
+                        "a":a,"b":b,"actual":observed}));
+                }
                 layout_gates.push(main_gate(
                     &format!(
                         "{fixture} trans_a={} trans_b={} vs oracle",
@@ -355,6 +374,11 @@ fn run() -> Result<()> {
                 layout_gates.push(vs_fp32);
             }
         }
+    }
+
+    if let Some(path) = dump {
+        let file = std::fs::OpenOptions::new().write(true).create_new(true).open(path)?;
+        serde_json::to_writer(file, &samples)?;
     }
 
     // Plain FP16-storage control: the same operand precision without matrix
@@ -419,9 +443,10 @@ fn run() -> Result<()> {
             })
             .collect();
         println!(
-            "{{\n  \"device\": {:?},\n  \"mode\": {:?},\n  \"capabilities\": {{\"mixed_supported\": {}, \"full_fp16_supported\": {}, \"subgroup_size\": {}, \"driver_default_subgroup_size\": {}}},\n  \"dispatch_counts\": {{\"cooperative\": {}, \"plain_f16\": {}, \"shape_fallbacks\": {}}},\n  \"gates\": {}, \"failed\": {},\n  \"results\": [\n{}\n  ]\n}}",
+            "{{\n  \"device\": {:?},\n  \"mode\": {:?},\n  \"full_oracle\": {:?},\n  \"capabilities\": {{\"mixed_supported\": {}, \"full_fp16_supported\": {}, \"subgroup_size\": {}, \"driver_default_subgroup_size\": {}}},\n  \"dispatch_counts\": {{\"cooperative\": {}, \"plain_f16\": {}, \"shape_fallbacks\": {}}},\n  \"gates\": {}, \"failed\": {},\n  \"results\": [\n{}\n  ]\n}}",
             device.name(),
             mode.label(),
+            if full_accumulation == OracleAccumulation::Fp16Dot2 {"rdna3-dot2"} else {"tile16"},
             capabilities.mixed_supported(),
             capabilities.full_fp16_supported(),
             hierarchos_vulkan::wmma::WMMA_SUBGROUP_SIZE,

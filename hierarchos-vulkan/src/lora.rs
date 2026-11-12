@@ -78,6 +78,10 @@ struct LoraAdapterConfig {
     lora_bias: bool,
     #[serde(default)]
     target_parameters: Option<Vec<String>>,
+    /// Optional native interoperability metadata for square packed parameters,
+    /// whose orientation cannot be inferred from A/B dimensions.
+    #[serde(default)]
+    target_parameter_layouts: BTreeMap<String, PackedParameterLayout>,
     #[serde(default)]
     trainable_token_indices: Option<serde_json::Value>,
     #[serde(default)]
@@ -270,7 +274,7 @@ fn apply_lora_safetensors(
                 pair.module_name
             );
         }
-        let parameter_target = resolve_target_parameter(pair, &config, &base_tensors, &adapter_tensors)
+        let parameter_target = resolve_target_parameter(pair, &config, &base_tensors)
             .with_context(|| {
                 format!(
                     "resolving PEFT target for adapter pair {:?}",
@@ -307,15 +311,14 @@ fn apply_lora_safetensors(
         let mut merged = decode_float_tensor(&target_name, &base)?;
 
         if parameter_target.is_some() && base_shape.len() == 3 {
-            if base_shape.len() != 3 {
-                bail!(
-                    "PEFT target_parameters tensor {target_name:?} must be rank-3 for packed expert merge; got {base_shape:?}"
-                );
-            }
             let num_experts = base_shape[0];
-            // HF Mixtral stores routed expert parameters as [out, in].
-            let out_dim = base_shape[1];
-            let in_dim = base_shape[2];
+            let in_dim = a_shape[1];
+            let out_dim = b_shape[0];
+            let layout = packed_parameter_layout(&base_shape, in_dim, out_dim,
+                config.target_parameter_layouts.get(&target_name)
+                    .or_else(|| config.target_parameter_layouts.get(pattern_name))
+                    .or_else(|| config.target_parameter_layouts.get(target_name.rsplit('.').next().unwrap_or(&target_name)))
+                    .copied())?;
             let expanded_rank = expected_rank
                 .checked_mul(num_experts)
                 .context("packed target_parameters rank overflow")?;
@@ -333,6 +336,7 @@ fn apply_lora_safetensors(
                 out_dim,
                 expected_rank,
                 scale,
+                layout,
             )?;
         } else {
             let rank = a_shape[0];
@@ -1246,7 +1250,6 @@ fn resolve_target_parameter(
     pair: &AdapterPair,
     config: &LoraAdapterConfig,
     base_tensors: &SafeTensors<'_>,
-    adapter_tensors: &SafeTensors<'_>,
 ) -> Result<Option<String>> {
     let linear_target = format!("{}.weight", pair.module_name);
     if !pair.nested_parameter_wrapper
@@ -1308,32 +1311,10 @@ fn resolve_target_parameter(
     if candidates.len() == 1 {
         return Ok(candidates.pop());
     }
-    let a_shape = adapter_tensors.tensor(&pair.a_key)?.shape().to_vec();
-    let b_shape = adapter_tensors.tensor(&pair.b_key)?.shape().to_vec();
-    let geometric_matches = candidates
-        .iter()
-        .filter(|name| {
-            let Ok(base) = base_tensors.tensor(name) else {
-                return false;
-            };
-            let shape = base.shape();
-            if shape.len() != 3 || a_shape.len() != 2 || b_shape.len() != 2 {
-                return false;
-            }
-            let num_experts = shape[0];
-            let out_dim = shape[1];
-            let in_dim = shape[2];
-            a_shape[1] == in_dim
-                && b_shape[0] == out_dim
-                && a_shape[0] == b_shape[1]
-                && num_experts > 0
-                && a_shape[0] % num_experts == 0
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    if geometric_matches.len() == 1 {
-        return Ok(geometric_matches.into_iter().next());
-    }
+    // PEFT wraps target_parameters in declaration order: the first parameter
+    // is the inner base_layer wrapper, the second the outer wrapper. Shape
+    // compatibility cannot identify a parameter: opposite packed orientations
+    // can make the *other* parameter look like a unique geometric match.
     let selected = match candidates.as_slice() {
         [inner, _outer] if pair.nested_parameter_wrapper => inner,
         [_inner, outer] => outer,
@@ -1357,6 +1338,29 @@ fn lora_scale(alpha: f64, rank: usize, use_rslora: bool, target: &str) -> Result
     Ok(scale)
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum PackedParameterLayout { ExpertInOut, ExpertOutIn }
+
+fn packed_parameter_layout(shape: &[usize], input: usize, output: usize,
+    explicit: Option<PackedParameterLayout>) -> Result<PackedParameterLayout> {
+    use PackedParameterLayout::*;
+    let matches = |layout| shape.len() == 3 && shape[0] > 0 && match layout {
+        ExpertInOut => shape[1] == input && shape[2] == output,
+        ExpertOutIn => shape[1] == output && shape[2] == input,
+    };
+    if let Some(layout) = explicit {
+        if !matches(layout) { bail!("explicit packed parameter layout {layout:?} disagrees with shape {shape:?}, input={input}, output={output}"); }
+        return Ok(layout);
+    }
+    match (matches(ExpertInOut), matches(ExpertOutIn)) {
+        (true, false) => Ok(ExpertInOut),
+        (false, true) => Ok(ExpertOutIn),
+        (true, true) => bail!("square packed parameter {shape:?} has ambiguous orientation; specify target_parameter_layouts as expert_in_out or expert_out_in"),
+        _ => bail!("packed parameter shape {shape:?} is incompatible with input={input}, output={output}"),
+    }
+}
+
 fn add_packed_parameter_lora_delta(
     base: &mut [f32],
     a: &[f32],
@@ -1366,6 +1370,7 @@ fn add_packed_parameter_lora_delta(
     out_dim: usize,
     rank: usize,
     scale: f32,
+    layout: PackedParameterLayout,
 ) -> Result<()> {
     let expanded_rank = rank
         .checked_mul(num_experts)
@@ -1389,8 +1394,8 @@ fn add_packed_parameter_lora_delta(
         );
     }
 
-    // HF Mixtral stores packed expert bases as [expert, out, in],
-    // LoRA-A as [expert * rank, in], and LoRA-B as [out, rank * expert].
+    // PEFT supports both expert/in/out and expert/out/in base storage.
+    // A is [expert * rank, in]; B interleaves experts as [out, rank, expert].
     for expert in 0..num_experts {
         for output in 0..out_dim {
             for input in 0..in_dim {
@@ -1400,7 +1405,10 @@ fn add_packed_parameter_lora_delta(
                     let b_index = output * expanded_rank + adapter_rank * num_experts + expert;
                     sum = b[b_index].mul_add(a[a_index], sum);
                 }
-                let base_index = (expert * out_dim + output) * in_dim + input;
+                let base_index = match layout {
+                    PackedParameterLayout::ExpertOutIn => (expert * out_dim + output) * in_dim + input,
+                    PackedParameterLayout::ExpertInOut => (expert * in_dim + input) * out_dim + output,
+                };
                 base[base_index] = scale.mul_add(sum, base[base_index]);
                 if !base[base_index].is_finite() {
                     bail!("packed target_parameters merge produced a non-finite model weight");
@@ -2380,4 +2388,5 @@ mod tests {
         fs::remove_dir_all(root)?;
         Ok(())
     }
+    include!("lora_packed_tests.rs");
 }

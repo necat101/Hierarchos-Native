@@ -267,6 +267,9 @@ impl VulkanDeepseekV41Vision {
             }
         }
         let mut k = Box::new(TransformerKernels::new(&device)?);
+        if k.wmma_mode == WmmaMode::FullFp16 {
+            bail!("native DeepSeek V4.1 Full FP16 accumulation has no end-to-end numerical qualification");
+        }
         if aten_vector_width() == 8 {
             k.bias_grad = vulkan::ComputeKernel::new(
                 &device,
@@ -555,6 +558,13 @@ impl VulkanDeepseekV41Vision {
         y: &GpuBuffer,
         rows: usize,
     ) -> Result<()> {
+        // Keep the released native geometry/layout. Eligible projections use
+        // the same graph executor as their dW/dX; the short aligner and patch
+        // routes retain their architecture-specific FP32 arithmetic.
+        if self.kernels.wmma_mode == WmmaMode::Mixed
+            && crate::wmma::wmma_shape_eligible(rows,l.output_dim,l.input_dim) {
+            return l.record_forward(b,&self.kernels,x,y,rows);
+        }
         if aten_vector_width() == 8 && rows == 1 {
             return self.gemv.record_dispatch(
                 b,
@@ -1104,6 +1114,7 @@ impl VulkanDeepseekV41Vision {
         }
         b.submit()?;
         self.step = step;
+        self.kernels.bump_wmma_epoch();
         self.tape_state.set(0);
         Ok(())
     }

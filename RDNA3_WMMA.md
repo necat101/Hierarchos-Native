@@ -1,5 +1,11 @@
 # Opt-in RDNA3 WMMA (cooperative matrix) GEMM
 
+Current engineering status (2026-11-12): see
+[precision completion](RDNA3_PRECISION_COMPLETION.md) and
+[desktop integration](RDNA3_MIXED_GUI.md). The dated measurements below remain
+historical records; later work adds real Full FP16 graph widening/training,
+scoped automatic loss scaling, and native V4.1 Mixed vision integration.
+
 Status: **opt-in, experimental, default off.** The FP32 Vulkan path is unchanged
 and no existing shader, tolerance, golden reference or checkpoint format was
 modified. No published release (`v0.1.0-rc2` or any other tag) is touched.

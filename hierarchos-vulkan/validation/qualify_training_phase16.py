@@ -855,7 +855,7 @@ def main() -> int:
 
     if args.install:
         if RECEIPT_DIR.exists():
-            shutil.rmtree(RECEIPT_DIR)
+            raise SystemExit(f"refusing to overwrite existing receipt {RECEIPT_DIR}")
         RECEIPT_DIR.mkdir(parents=True)
         shutil.copytree(evidence_dir, RECEIPT_DIR / "evidence")
         shutil.copy2(work / "current-qualification.json", RECEIPT_DIR / "current-qualification.json")

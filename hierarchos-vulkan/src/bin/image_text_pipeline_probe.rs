@@ -108,6 +108,7 @@ fn run() -> Result<()> {
     f.decoder_inputs()?;
     let device = VulkanDevice::new()?;
     let phases_before = hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
+    let accumulation_before = hierarchos_vulkan::wmma_linear::linear_wmma_precision_counts();
     let counts_before = hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
     let mut graph = VulkanImageText::from_hf_package(
         device.clone(),
@@ -175,6 +176,7 @@ fn run() -> Result<()> {
     let reload_pixels = reloaded.preprocess_rgb8(&f.rgb)?;
     let reload_output = f.forward(&reloaded, &reload_pixels)?;
     let phases = hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
+    let accumulation = hierarchos_vulkan::wmma_linear::linear_wmma_precision_counts();
     let counts = hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
     fs::write(
         output.join("report.json"),
@@ -185,6 +187,9 @@ fn run() -> Result<()> {
             "elapsed_seconds":started.elapsed().as_secs_f64(),
             "precision": {
                 "requested": hierarchos_vulkan::wmma::WmmaMode::from_env()?.label(),
+                "mixed_fp32_accumulation":accumulation[0]-accumulation_before[0],
+                "full_fp16_accumulation":accumulation[1]-accumulation_before[1],
+                "master_weights":"fp32","optimizer_state":"fp32","automatic_loss_scaling":false,
                 "cooperative_dispatches": counts.cooperative - counts_before.cooperative,
                 "forward": phases[0] - phases_before[0],
                 "weight_grad": phases[1] - phases_before[1],

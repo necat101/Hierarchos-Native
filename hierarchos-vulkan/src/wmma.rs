@@ -13,7 +13,7 @@
 //! * [`WmmaMode::FullFp16`] — FP16 operands and FP16 accumulation where the
 //!   driver genuinely advertises an `f16 x f16 -> f16` cooperative configuration.
 //!   FP32 masters and optimizer state are still retained. This arm is
-//!   experimental: FP16 accumulation saturates at 65504 and loses mantissa bits.
+//!   experimental: FP16 accumulation can overflow to infinity and loses mantissa bits.
 //!
 //! Nothing here is inferred from the adapter's vendor or name. The device must
 //! expose `VK_KHR_cooperative_matrix`, the `cooperativeMatrix` feature, the
@@ -984,22 +984,24 @@ pub fn f16_ulp(value: f32) -> f32 {
     ulp.max(2f32.powi(-24))
 }
 
-/// Accmulation policy of a matched-oracle GEMM.
+/// Accumulation model used by a qualification receipt.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OracleAccumulation {
     /// FP32 accumulator (the `mixed` contract).
     Fp32,
-    /// FP16 accumulator with one rounding per 16-wide reduction tile: the
+    /// Historical model with one rounding per 16-wide reduction tile: the
     /// intra-tile dot product is summed in FP32 and the accumulator is rounded
-    /// to binary16 once per `k0` step. This mirrors a 16x16x16 cooperative
-    /// matrix multiply that keeps an FP16 accumulator fragment, which is the
-    /// `full-fp16` contract.
-    ///
-    /// A naive "round after every multiply-add" model is measurably wrong for
-    /// this hardware: it produced disagreements of several binary16 ULPs that
-    /// grew with K, while the tile-rounded model agrees to a couple of ULPs.
-    /// The receipt reports that comparison rather than assuming either one.
+    /// to binary16 once per `k0` step. Retained so the original 37-gate
+    /// qualification, including its failures, remains reproducible. A matrix
+    /// instruction's K dimension alone does not specify its rounding cadence.
     Fp16TileK,
+    /// RDNA3 dot2 model: two FP16 products plus the incoming FP16 accumulator,
+    /// rounded to binary16 after each pair. AMD's RDNA3 ISA section 7.9 states
+    /// that WMMA internally uses DOT instructions. Independent cadence sweeps
+    /// match this model within the original two-ULP bound on every fixture;
+    /// the historical tile16 model does not. Internal hardware order remains
+    /// implementation dependent, so this is not a bitwise emulation claim.
+    Fp16Dot2,
 }
 
 /// Matched mixed-precision reference for `C = op(A) * op(B)`.
@@ -1047,10 +1049,11 @@ pub fn oracle_gemm(
                 };
                 match accumulation {
                     OracleAccumulation::Fp32 => acc = (av * bv) + acc,
-                    OracleAccumulation::Fp16TileK => partial = (av * bv) + partial,
+                    OracleAccumulation::Fp16TileK | OracleAccumulation::Fp16Dot2 => partial = (av * bv) + partial,
                 }
-                if accumulation == OracleAccumulation::Fp16TileK
-                    && (t + 1) % WMMA_TILE_K as usize == 0
+                let cadence = if accumulation == OracleAccumulation::Fp16Dot2 {2} else {WMMA_TILE_K as usize};
+                if accumulation != OracleAccumulation::Fp32
+                    && (t + 1) % cadence == 0
                 {
                     acc = round_to_f16(acc + partial);
                     partial = 0.0;

@@ -23,7 +23,7 @@ CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 RECEIPT = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261111-phase19x-current-source"
+    / "20261112-unified-release/phase19x"
 )
 SUBDIRS = {
     "attention": RECEIPT / "attention",
@@ -76,6 +76,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args()
+    require(not (RECEIPT / "current-qualification.json").exists(), "refusing to overwrite a receipt")
 
     revision = git("rev-parse", "HEAD")
     require(len(revision) == 40, "cannot resolve the tested revision")

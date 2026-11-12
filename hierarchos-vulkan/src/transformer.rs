@@ -47,6 +47,9 @@ mod peft_state;
 mod seq2seq_training;
 mod streamed_load;
 pub mod vision;
+mod gpt2_trace;
+mod amp;
+pub use amp::TransformerLossScaleState;
 use crate::{
     hierarchos_canonical_philox_word, hierarchos_dropout_threshold, read_f32_tensor, vendor,
     vulkan,
@@ -103,14 +106,13 @@ fn gpt2_attention_reciprocal(architecture: VulkanTransformerArchitecture) -> boo
     architecture == VulkanTransformerArchitecture::Gpt2
 }
 
-/// Opt-in for the later AVX2-shaped GPT-2 attention module.
-///
-/// The Phase XIX-W replay found that its automatic selection changes the
-/// padded `gpt2_wide` result by one strict-gate ULP. The historical reciprocal
-/// module remains the default; the newer module is selected only when an
-/// operator asks for it explicitly.
+/// Match the AVX2 CPU SDPA operation order on the qualified RDNA3 route.
+/// Below eight keys CPU SDPA forms E@V before normalization and uses scalar
+/// exponential tails. Normalizing each probability first introduces the first
+/// divergence in GPT-2 and pushes the padded frozen logits beyond 2e-7.
+/// Other devices and oracle vector widths retain their existing modules.
 fn gpt2_avx2_attention_enabled(device: &VulkanDevice) -> bool {
-    std::env::var_os("HIERARCHOS_VULKAN_RDNA3_GPT2").is_some_and(|value| value == "1")
+    std::env::var_os("HIERARCHOS_VULKAN_RDNA3_GPT2").is_none_or(|value| value != "0")
         && aten_vector_width() == 8
         && vendor::rdna3_module_enabled(device)
 }
@@ -26357,6 +26359,7 @@ struct TransformerKernels {
     /// Advanced after every submitted optimizer step and every load that
     /// rewrites a trainable tensor, never on a skipped or accumulated step.
     wmma_epoch: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    loss_scaler: Mutex<Option<amp::LossScaler>>,
     /// Geometry-gated vendor slot: the shared transformer matmul runs at every
     /// row count (prefill and single-row cached decode), so the module is
     /// chosen per dispatch rather than at construction.
@@ -26741,13 +26744,6 @@ impl TransformerKernels {
 
     fn new_with_layer_norm(device: &VulkanDevice, layer_norm_spv: &[u8]) -> Result<Self> {
         let wmma_mode = WmmaMode::from_env()?;
-        if matches!(wmma_mode, WmmaMode::FullFp16) {
-            bail!(
-                "--wmma-mode full-fp16 is not available for this graph: its GEMMs accumulate in \
-                 FP16 and the graph has no in-graph widening store, so the low-precision result \
-                 cannot reach the FP32 masters; use off or mixed"
-            );
-        }
         if wmma_mode.requested() {
             let capabilities = device.wmma_capabilities();
             capabilities.require(wmma_mode)?;
@@ -26762,6 +26758,7 @@ impl TransformerKernels {
             wmma_mode,
             wmma_linears: Mutex::new(HashMap::new()),
             wmma_epoch: Arc::new(std::sync::atomic::AtomicU64::new(1)),
+            loss_scaler: Mutex::new(None),
             linear_forward: vendor::VendorMatmulKernel::new(
                 device,
                 vendor::VendorKernelFamily::LinearForward,
@@ -28756,6 +28753,9 @@ impl TrainableParameter {
         hyper: AdamWHyperParams,
     ) -> Result<()> {
         if !self.step_owner {
+            return Ok(());
+        }
+        if kernels.amp_queue(self)? {
             return Ok(());
         }
         let grad = self.grad_buffer()?;
@@ -84874,6 +84874,9 @@ impl VulkanTransformer {
     ) -> Result<()> {
         if let Some(policy) = policy {
             policy.validate()?;
+            if self.loss_scaler_state()?.is_some() {
+                bail!("CPU AdamW arithmetic policy is not qualified with automatic loss scaling");
+            }
         }
         *self
             .kernels
@@ -84899,6 +84902,13 @@ impl VulkanTransformer {
         modality_rows: Option<ModalityEmbeddingInput<'_>>,
         options: ComposedTrainingOptions<'_>,
     ) -> Result<DeviceMultimodalStepResult> {
+        if self.loss_scaler_state()?.is_some() && (!self.supports_loss_scaler()? || modality_rows.is_some()
+            || encoder_hidden_states.is_some() || options.forward_only
+            || options.terminal_gradient.is_some() || options.retained_forward
+            || options.defer_shared_embedding_step) {
+            bail!("automatic loss scaling requires a standalone training transaction");
+        }
+        self.kernels.amp_begin()?;
         // BART-layout conditional-generation checkpoints expose this as
         // final_logits_bias, an HF buffer rather than an optimizer parameter.
         let train_lm_head_bias = !matches!(
@@ -86135,6 +86145,8 @@ impl VulkanTransformer {
                 ],
             )?;
 
+            self.kernels.amp_scale_seed(&mut commands, &self.grad_logits,
+                self.rows * self.config.vocab_size)?;
             let grad_lm_logits = if let Some(cap) = self.config.final_logit_softcapping {
                 let raw_logits = self
                     .raw_logits
@@ -87229,7 +87241,9 @@ impl VulkanTransformer {
                     .cpu_adamw_policy
                     .lock()
                     .map_err(|_| anyhow!("CPU AdamW policy lock poisoned"))?;
-                let tied_step = if let Some(policy) = cpu_policy {
+                let tied_step = if self.kernels.amp_queue_shared(&self.shared_embedding)? {
+                    next_step
+                } else if let Some(policy) = cpu_policy {
                     self.shared_embedding.record_step_with_cpu_policy(
                         &mut commands,
                         policy,
@@ -87264,6 +87278,7 @@ impl VulkanTransformer {
                 );
             }
         }
+        self.kernels.amp_resolve(&mut commands, next_step, hyper)?;
         if options.terminal_gradient.is_none() {
             self.loss_sum_reducer
                 .record_sum(&mut commands, &self.row_loss, self.rows)?;
@@ -87274,12 +87289,13 @@ impl VulkanTransformer {
                 layer.finish_qwen4_ple_sparse_embedding_step(next_step, hyper)?;
             }
         }
-        self.step = next_step;
+        let did_step = self.kernels.amp_finish(next_step)?;
+        if did_step { self.step = next_step; }
         // The submitted optimizer step replaced every FP32 master, so the FP16
         // mirrors converted for this step's forward/backward are now stale.
         // Publish a new version before any between-step evaluation or image
         // backward pass. Never reuse an epoch derived from optimizer counters.
-        self.kernels.bump_wmma_epoch();
+        if did_step { self.kernels.bump_wmma_epoch(); }
         let loss = if options.terminal_gradient.is_some() {
             0.
         } else {

@@ -16,8 +16,15 @@ Vulkan kernels. Master parameters, gradient buffers, AdamW state, normalization,
 softmax, and loss remain FP32. The selected GPU must expose the required
 cooperative-matrix features; an unsupported device request is diagnosed.
 
-This is an AMP-style operation policy, **without automatic loss scaling**.
-It is not equivalent to the combination of PyTorch autocast and GradScaler.
+Standalone GPT2/Llama full training and ordinary LoRA now use automatic loss
+scaling. The loss adjoint is scaled on the GPU; all optimizer parameters are
+queued, unscaled and scanned before one device overflow decision gates every
+AdamW update. Overflow preserves parameters, moments and optimizer counters.
+Growth/backoff and skipped-step state survive exact LoRA checkpoints, which
+also bind the precision mode. Complex adapters and composed image/encoder
+transactions retain their existing unscaled FP32 gradients. Their optimizers
+need a joint overflow boundary before automatic scaling can be admitted.
+This capability scope is not complete PyTorch autocast/GradScaler equivalence.
 See the [PyTorch AMP documentation](https://docs.pytorch.org/docs/stable/amp.html).
 FP16 conversion can still lose very small gradient operands or overflow very
 large operands. Production-size convergence is not established by the small
@@ -26,9 +33,13 @@ integration fixture.
 Shared CLIP compositions, LLaVA, Gemma3, and Gemma4 use the common Transformer
 projection infrastructure. Their mixed graphs can contain FP32 vision or
 language operations; selecting mixed does not imply every operation is WMMA.
-Native DeepSeek V4.1 has a separate trainer and currently has no WMMA vision
-integration. Its mixed choice is disabled in the GUI and refused at runtime.
-Full FP16 accumulation remains unavailable for these training graphs.
+Native DeepSeek V4.1 retains its separate trainer. Eligible native vision
+projections now execute Mixed WMMA forward, dW and dX. Language LoRA, short
+aligner/patch operations and architecture-specific arithmetic retain FP32.
+The GUI and CLI accept Mixed for this route; native resume binds its precision.
+Full FP16 has a real backend training path with GPU widening to FP32 buffers,
+but the general GUI/CLI choice remains gated by incomplete model qualification
+and wide-projection drift. See [precision completion](RDNA3_PRECISION_COMPLETION.md).
 
 Transformer and vision training write the requested policy and actual forward, weight-gradient,
 input-gradient, fallback, and cooperative-dispatch counts into
@@ -42,7 +53,7 @@ The image tower and projector share projection executors with the language
 graph, but submit their AdamW updates separately. Cache versions must therefore
 advance after each submitted image update as well as each language update.
 Versions now advance monotonically, independently of language optimizer-step
-numbers. CLIP/LLaVA/shared, Gemma3, and Gemma4 image optimizers invalidate the
+numbers. CLIP/LLaVA/shared, Gemma3, Gemma4, and native V4.1 image optimizers invalidate the
 cached FP16 mirrors after submitting their updates. FP32 computation is
 unchanged by these cache-version changes.
 

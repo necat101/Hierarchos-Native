@@ -23,11 +23,11 @@ from check_phase19y_full_attention import (
 
 RECEIPT = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261112-phase19y-full-attention"
+    / "20261112-unified-release/phase19y"
 )
 PHASE19X = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261111-phase19x-current-source" / "attention" / "current-qualification.json"
+    / "20261112-unified-release/phase19x" / "attention" / "current-qualification.json"
 )
 PHASE16 = (
     CRATE / "validation/release_parity/multimodal_training"
@@ -339,8 +339,8 @@ def main() -> int:
     output = args.output.resolve()
     if args.dry_run:
         output = CRATE / "target/phase19y/receipt.json"
-    if output.exists() and output.is_dir():
-        shutil.rmtree(output)
+    if output.exists():
+        raise SystemExit(f"refusing to overwrite existing receipt {output}")
     output.mkdir(parents=True)
     archive_record = {"sha256": SHAPE_ARCHIVE_SHA, "bytes": SHAPE_ARCHIVE_BYTES,
                       "path": str(args.shape_archive.resolve())}

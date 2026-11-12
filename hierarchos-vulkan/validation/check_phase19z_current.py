@@ -23,7 +23,7 @@ CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 RECEIPT = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261112-phase19z-current-source/current-qualification.json"
+    / "20261112-unified-release/phase19z/current-qualification.json"
 )
 SHADER = "hierarchos-vulkan/shaders/transformer_attention_forward_cpu_reciprocal.spv"
 SHADER_SHA256 = "f8439dc2a5e94dd39d6e9bf3d537d87b9c25c734e0b216627ba7bafe57dd3226"
@@ -200,7 +200,7 @@ def verify(
     require(float(counts.get("selected_lr", 0.0)) == 0.001,
             "selected learning rate is not 0.001")
     packed = receipt.get("packed_cell") or {}
-    require(packed.get("path") == "validation/release_parity/multimodal_training/20261112-phase19z-current-source/packed-cell/status.json",
+    require(packed.get("path") == "validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/status.json",
             "packed-cell status path changed")
     packed_path = crate / packed["path"]
     require(packed_path.is_file(), "missing packed-cell status")
@@ -234,11 +234,11 @@ def verify(
         from check_heldout_phase17 import verify as verify_heldout
         from check_wmma_drift import verify as verify_drift
 
-        verify_training(crate / "validation/release_parity/multimodal_training/20261112-phase19z-current-source/training", crate)
-        verify_stability(crate / "validation/release_parity/multimodal_training/20261112-phase19z-current-source/stability", crate)
-        verify_heldout(crate / "validation/release_parity/multimodal_training/20261112-phase19z-current-source/heldout", crate)
+        verify_training(crate / "validation/release_parity/multimodal_training/20261112-unified-release/phase19z/training", crate)
+        verify_stability(crate / "validation/release_parity/multimodal_training/20261112-unified-release/phase19z/stability", crate)
+        verify_heldout(crate / "validation/release_parity/multimodal_training/20261112-unified-release/phase19z/heldout", crate)
         verify_drift(
-            crate / "validation/release_parity/multimodal_training/20261112-phase19z-current-source/drift/current-qualification.json",
+            crate / "validation/release_parity/multimodal_training/20261112-unified-release/phase19z/drift/current-qualification.json",
             crate, epoch_reuse=True,
         )
         activation = subprocess.run(
@@ -247,7 +247,7 @@ def verify(
             env={
                 **os.environ,
                 "HIERARCHOS_ACTIVATION_RECEIPT": str(
-                    crate / "validation/release_parity/multimodal_training/20261112-phase19z-current-source/activation"
+                    crate / "validation/release_parity/multimodal_training/20261112-unified-release/phase19z/activation"
                 ),
             },
             capture_output=True, text=True,

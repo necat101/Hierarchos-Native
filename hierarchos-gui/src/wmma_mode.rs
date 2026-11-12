@@ -2,9 +2,9 @@
 //!
 //! The desktop control's job is to make the capability boundary visible, not to
 //! imply that every listed mode runs. `FullFp16` is listed because it exists as
-//! an experimental device capability, but Transformer training refuses it: the
-//! graph accumulates in FP16 without an in-graph widening store, so the result
-//! could not reach the FP32 masters. The panel renders it disabled and
+//! an experimental device capability. The backend now widens FP16 results on
+//! the GPU, but wide-projection drift and end-to-end release qualification
+//! still prevent general admission. The panel renders it disabled and
 //! [`WmmaModeChoice::unavailable_reason`] explains why.
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -50,9 +50,9 @@ impl WmmaModeChoice {
                  use FP32 kernels. Requires a compatible cooperative-matrix GPU."
             }
             Self::FullFp16 => {
-                "Unavailable for Transformer training: the graph's GEMMs accumulate in FP16 with no \
-                 in-graph widening store, so the result could not reach the FP32 masters. The \
-                 primitive-level full-FP16 arm also fails 9 of 37 gates at K >= 64."
+                "Unavailable: Full FP16 accumulation exceeds the accepted FP32 drift on wide \
+                 projections. The GPU widening and optimizer path exists, but end-to-end model \
+                 qualification is incomplete."
             }
         }
     }
@@ -64,11 +64,12 @@ impl WmmaModeChoice {
             Self::Mixed => {
                 "AMP-style mixed precision: eligible matrix operations use FP16 inputs with FP32 \
                  accumulation; master weights and AdamW stay FP32. Other operations stay FP32. \
-                 Automatic loss scaling is not implemented."
+                 Automatic loss scaling is available for standalone GPT2/Llama full training and \
+                 ordinary LoRA; composed vision training currently retains unscaled FP32 gradients."
             }
             Self::FullFp16 => {
-                "Full FP16 is experimental and not admitted for Transformer training; it remains a \
-                 primitive-level probe only."
+                "Full FP16 graph training is experimental; numerical release qualification is \
+                 incomplete, so this general training control remains disabled."
             }
         }
     }

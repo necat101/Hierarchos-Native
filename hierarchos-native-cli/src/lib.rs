@@ -1843,18 +1843,15 @@ fn validate_modules_to_save_qualification(
 
 /// Validate `--wmma-mode` for the Transformer trainer.
 ///
-/// `full-fp16` is refused here rather than forwarded: the graph's GEMMs would
-/// accumulate in FP16 with no in-graph widening store, so the low-precision
-/// result could not reach the FP32 masters. Reporting the refusal at argument
-/// time keeps an unqualified precision path from ever being selected.
+/// GPU widening and optimizer integration exist, but wide-projection drift and
+/// model qualification still gate general Full FP16 admission.
 fn parse_transformer_wmma_mode(value: &str) -> Result<&'static str, String> {
     match hierarchos_vulkan::wmma::WmmaMode::parse(value).map_err(|error| format!("invalid --wmma-mode: {error}"))? {
         hierarchos_vulkan::wmma::WmmaMode::Off => Ok("off"),
         hierarchos_vulkan::wmma::WmmaMode::Mixed => Ok("mixed"),
         hierarchos_vulkan::wmma::WmmaMode::FullFp16 => Err(
-            "--wmma-mode full-fp16 is not available for transformer training: the graph's GEMMs \
-             would accumulate in FP16 with no in-graph widening store, so the result could not \
-             reach the FP32 masters; use off or mixed"
+            "--wmma-mode full-fp16 is not available for general transformer training: wide \
+             projections exceed the FP32 drift policy and model qualification is incomplete; use off or mixed"
                 .to_string(),
         ),
     }
@@ -1944,7 +1941,7 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
             "--stream-parameters" => stream_parameters = true,
             "-h" | "--help" => {
                 println!(
-                    "hierarchos-native-cli {mode} (--model-path DIR | --hf-model OWNER/REPO) (--train DATA.jsonl | --hf-dataset OWNER/REPO) --out-dir OUT [--batch-size N] [--seq-len N] [--epochs N] [--lr F] [--device-index N] [--seed N] [--peft] [--architecture MODEL_TYPE] [--adapter-name NAME] [--peft-resume DIR] [--save-lora-training DIR] [--full-finetune | --lora-rank N] [--lora-alpha N] [--lora-dropout F] [--lora-bias none|lora_only|all] [--lora-target-module NAME ...] [--lora-modules-to-save NAME ...] [--lora-use-dora] [--lora-use-rslora] [--lora-adapter-path DIR] [--disable-transformer-dropout] [--wmma-mode off|mixed | --amp | --no-amp]\n\nPrecision: mixed (also --amp) uses FP16 operands with FP32 accumulation for eligible matrix operations, retaining FP32 master weights, AdamW, normalization, softmax and loss. Other operations use FP32. Automatic loss scaling is not implemented.\n\ntransformer-train updates all parameters. transformer-finetune defaults to LoRA; --full-finetune instead updates every parameter and exports a complete checkpoint (including Falcon H1/H1R). Full fine-tuning cannot be combined with adapter options. PEFT runs save adapter weights plus AdamW/RNG training state to OUT/training-state by default; use --peft-resume DIR for exact continuation or --save-lora-training DIR to choose another checkpoint directory.\n\nThe model math, stochastic dropout, loss, backpropagation and AdamW step execute in Vulkan. Hugging Face model/dataset/tokenizer I/O, Parquet-to-JSONL conversion, and tokenization execute in Rust; Python and PyTorch are not launched. Supported checkpoint dropout probabilities are honored natively using reproducible counter-based RNG derived from --seed. --disable-transformer-dropout remains an explicit ablation/debug override that zeroes recognized dropout fields for this run and records those zero values on full-model export. Pretokenized cross-attention decoder rows may provide encoder_hidden_states (flat or nested [encoder_sequence, hidden]) and optional encoder_attention_mask; encoder geometry must remain fixed across the dataset."
+                    "hierarchos-native-cli {mode} (--model-path DIR | --hf-model OWNER/REPO) (--train DATA.jsonl | --hf-dataset OWNER/REPO) --out-dir OUT [--batch-size N] [--seq-len N] [--epochs N] [--lr F] [--device-index N] [--seed N] [--peft] [--architecture MODEL_TYPE] [--adapter-name NAME] [--peft-resume DIR] [--save-lora-training DIR] [--full-finetune | --lora-rank N] [--lora-alpha N] [--lora-dropout F] [--lora-bias none|lora_only|all] [--lora-target-module NAME ...] [--lora-modules-to-save NAME ...] [--lora-use-dora] [--lora-use-rslora] [--lora-adapter-path DIR] [--disable-transformer-dropout] [--wmma-mode off|mixed | --amp | --no-amp]\n\nPrecision: mixed (also --amp) uses FP16 operands with FP32 accumulation for eligible matrix operations, retaining FP32 master weights, AdamW, normalization, softmax and loss. Other operations use FP32. Automatic loss scaling is enabled for standalone GPT2/Llama full training and ordinary LoRA. Other training families retain their existing unscaled FP32 gradients.\n\ntransformer-train updates all parameters. transformer-finetune defaults to LoRA; --full-finetune instead updates every parameter and exports a complete checkpoint (including Falcon H1/H1R). Full fine-tuning cannot be combined with adapter options. PEFT runs save adapter weights plus AdamW/RNG training state to OUT/training-state by default; use --peft-resume DIR for exact continuation or --save-lora-training DIR to choose another checkpoint directory.\n\nThe model math, stochastic dropout, loss, backpropagation and AdamW step execute in Vulkan. Hugging Face model/dataset/tokenizer I/O, Parquet-to-JSONL conversion, and tokenization execute in Rust; Python and PyTorch are not launched. Supported checkpoint dropout probabilities are honored natively using reproducible counter-based RNG derived from --seed. --disable-transformer-dropout remains an explicit ablation/debug override that zeroes recognized dropout fields for this run and records those zero values on full-model export. Pretokenized cross-attention decoder rows may provide encoder_hidden_states (flat or nested [encoder_sequence, hidden]) and optional encoder_attention_mask; encoder geometry must remain fixed across the dataset."
                 );
                 return Ok(0);
             }
@@ -2504,6 +2501,9 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         }
     }
 
+    if encoder_seq_len.is_none() && graph.supports_loss_scaler().map_err(|e|e.to_string())? {
+        graph.set_loss_scaler(Some(Default::default())).map_err(|e|format!("could not initialize loss scaler: {e:#}"))?;
+    }
     let mut hyper = AdamWHyperParams {
         lr:lr as f32,
         beta1:beta1 as f32,
@@ -2579,11 +2579,14 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
         "shape_fallbacks":counts.shape_fallbacks - counts_before.shape_fallbacks,
         "forward":phases[0] - phases_before[0],"weight_grad":phases[1] - phases_before[1],
         "input_grad":phases[2] - phases_before[2],
-        "master_weights":"fp32","optimizer_state":"fp32","automatic_loss_scaling":false
+        "master_weights":"fp32","optimizer_state":"fp32",
+        "automatic_loss_scaling":graph.loss_scaler_state().map_err(|e|e.to_string())?.is_some(),
+        "loss_scaler":graph.loss_scaler_state().map_err(|e|e.to_string())?
     });
     let report = json!({"backend":"native-vulkan","device":graph.device_name(),
         "training_mode":if uses_peft {"lora"} else {"full"},"steps":total_steps,
         "starting_step":starting_step,"optimizer_step":graph.step(),"epochs":epoch_results,
+        "optimizer_updates":graph.step()-starting_step,"attempted_optimizer_windows":total_steps,
         "precision":precision});
     fs::write(output_dir.join("training_report.json"), serde_json::to_vec_pretty(&report)
         .map_err(|e| format!("could not encode training report: {e}"))?)

@@ -14,7 +14,10 @@ struct JointState {
     step: u64,
     hyper: DeepseekV41AdamWConfig,
     options: DeepseekV41ModelTrainingConfig,
+    #[serde(default = "reference_precision")]
+    wmma_mode: String,
 }
+fn reference_precision() -> String { "off".into() }
 fn image_hash(path: &Path) -> Result<String> {
     let mut file = fs::File::open(path)?;
     let mut digest = Sha256::new();
@@ -83,6 +86,7 @@ impl DeepseekV41MultimodalTrainer {
                 step: if optimizer { self.optimizer_step() } else { 0 },
                 hyper: self.hyper,
                 options: self.language.options.clone(),
+                wmma_mode: self.image.precision_mode().into(),
             };
             let mut file = fs::OpenOptions::new()
                 .create_new(true)
@@ -135,6 +139,9 @@ impl DeepseekV41MultimodalTrainer {
         let _math = crate::deepseek_v41::cpu_math::avx2();
         let metadata: JointState =
             serde_json::from_slice(&fs::read(directory.join(METADATA_FILE))?)?;
+        if optimizer && metadata.wmma_mode != crate::wmma::WmmaMode::from_env()?.label() {
+            bail!("native multimodal checkpoint precision mode mismatch");
+        }
         if metadata.schema != 1
             || metadata.kind != (if optimizer { "training" } else { "export" })
             || metadata.math != MATH

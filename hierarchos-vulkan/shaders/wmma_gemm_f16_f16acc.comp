@@ -7,7 +7,7 @@
 // Identical blocking, staging and masking to `wmma_gemm_f16_f32acc.comp`; the
 // only difference is that the accumulator fragment itself is `float16_t`, so the
 // driver may emit the FP16-accumulating cooperative-matrix form. Accumulation
-// therefore loses mantissa bits and saturates at 65504: this module is only
+// therefore loses mantissa bits and can overflow to infinity: this module is only
 // reachable from `--wmma-mode full-fp16`, whose documentation states the
 // limitation. The host stores FP32 master parameters and computes
 // normalization, softmax and loss reductions in FP32 regardless of this arm.

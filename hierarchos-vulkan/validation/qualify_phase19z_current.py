@@ -25,7 +25,7 @@ CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 RECEIPT = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261112-phase19z-current-source"
+    / "20261112-unified-release/phase19z"
 )
 SUBDIRS = {
     "training": RECEIPT / "training",
@@ -36,7 +36,7 @@ SUBDIRS = {
 }
 ATTENTION = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261112-phase19y-full-attention/current-qualification.json"
+    / "20261112-unified-release/phase19y/current-qualification.json"
 )
 ORACLE_REPORT = RECEIPT / "oracle-verification.json"
 SHADER = "hierarchos-vulkan/shaders/transformer_attention_forward_cpu_reciprocal.spv"
@@ -104,9 +104,13 @@ def relative(path: Path) -> str:
 
 
 def main() -> int:
+    global ATTENTION
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--attention-receipt", type=Path, default=ATTENTION)
     parser.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args()
+    ATTENTION = args.attention_receipt.resolve()
+    require(not (RECEIPT / "current-qualification.json").exists(), "refusing to overwrite a receipt")
 
     revision = git("rev-parse", "HEAD")
     require(len(revision) == 40, "cannot resolve the tested revision")
@@ -139,7 +143,8 @@ def main() -> int:
     activation = load(SUBDIRS["activation"] / "current-qualification.json")
 
     attention_check = subprocess.run(
-        [sys.executable, str(CRATE / "validation/check_phase19y_full_attention.py")],
+        [sys.executable, str(CRATE / "validation/check_phase19y_full_attention.py"),
+         "--receipt", str(ATTENTION)],
         cwd=CRATE, capture_output=True, text=True,
     )
     require(attention_check.returncode == 0,
@@ -207,15 +212,8 @@ def main() -> int:
         require(path.is_file(), f"missing sub-receipt {relative(path)}")
         subreceipts[name] = {"path": relative(path), "sha256": digest(path)}
 
-    # Copy the verifier report into the versioned evidence tree if it is still
-    # in the scratch target directory. This is a copy, never a fabricated result.
-    source_report = CRATE / "target/phase19z/oracle-verify.json"
-    if not ORACLE_REPORT.is_file() or (
-        source_report.is_file() and ORACLE_REPORT.read_bytes() != source_report.read_bytes()
-    ):
-        require(source_report.is_file(), "missing scratch oracle report")
-        RECEIPT.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_report, ORACLE_REPORT)
+    # The independently executed verifier report was required above. Never
+    # replace it with a report from an unrelated scratch run during assembly.
 
     evidence = {}
     for path in sorted(RECEIPT.rglob("*")):

@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "shaders": [
+    {
+      "artifact": "fp32_to_fp16_native.spv",
+      "source": "fp32_to_fp16_native.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-fshader-stage=compute",
+        "--target-env=vulkan1.2",
+        "--target-spv=spv1.4",
+        "-O"
+      ],
+      "target_env": "vulkan1.2"
+    },
+    {
+      "artifact": "gemm_f16_f32_plain.spv",
+      "source": "gemm_f16_f32_plain.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-fshader-stage=compute",
+        "--target-env=vulkan1.2",
+        "--target-spv=spv1.4",
+        "-O"
+      ],
+      "target_env": "vulkan1.2"
+    },
+    {
+      "artifact": "wmma_gemm_f16_f32acc.spv",
+      "source": "wmma_gemm_f16_f32acc.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-fshader-stage=compute",
+        "--target-env=vulkan1.2",
+        "--target-spv=spv1.4",
+        "-O"
+      ],
+      "target_env": "vulkan1.2"
+    },
+    {
+      "artifact": "wmma_gemm_f16_f16acc.spv",
+      "source": "wmma_gemm_f16_f16acc.comp",
+      "compiler": "glslc",
+      "compiler_version": "2023.8",
+      "flags": [
+        "-fshader-stage=compute",
+        "--target-env=vulkan1.2",
+        "--target-spv=spv1.4",
+        "-O"
+      ],
+      "target_env": "vulkan1.2"
+    }
+  ]
+}

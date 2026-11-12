@@ -23,7 +23,7 @@ CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 RECEIPT = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261111-phase19x-current-source" / "attention"
+    / "20261112-unified-release/phase19x" / "attention"
 )
 OLD = (
     CRATE / "validation/release_parity/multimodal_training"
@@ -175,7 +175,7 @@ def main() -> int:
     }
     if args.install:
         if RECEIPT.exists():
-            shutil.rmtree(RECEIPT)
+            raise SystemExit(f"refusing to overwrite existing receipt {RECEIPT}")
         RECEIPT.mkdir(parents=True)
         (RECEIPT / "current-qualification.json").write_text(
             json.dumps(document, indent=2) + "\n", encoding="utf-8")

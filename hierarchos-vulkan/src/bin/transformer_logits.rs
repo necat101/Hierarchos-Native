@@ -62,6 +62,7 @@ fn run() -> Result<()> {
     let mut output = None;
     let mut export_model = None;
     let mut debug_first_layer_output = None;
+    let mut debug_forward_stages = None;
     let mut lora_adapter = None;
     let mut named_lora_adapters = Vec::new();
     let mut selected_adapter = None;
@@ -93,6 +94,9 @@ fn run() -> Result<()> {
                     args.next()
                         .context("missing --debug-first-layer-output value")?,
                 ))
+            }
+            "--debug-forward-stages" => {
+                debug_forward_stages = Some(PathBuf::from(args.next().context("missing --debug-forward-stages value")?));
             }
             "--lora-adapter" => {
                 lora_adapter = Some(PathBuf::from(
@@ -327,6 +331,9 @@ fn run() -> Result<()> {
                 trace_path,
                 serde_json::to_vec(&graph.debug_first_layer_norm_states()?)?,
             )?;
+        }
+        if let Some(trace_path) = debug_forward_stages.as_deref() {
+            fs::write(trace_path, serde_json::to_vec(&graph.debug_gpt2_forward_states()?)?)?;
         }
         if let Some(trace_path) = std::env::var_os("HIERARCHOS_FALCON_H1_TRACE") {
             fs::write(

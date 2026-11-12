@@ -16,7 +16,7 @@ CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 RECEIPT = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261111-phase19x-current-source" / "current-qualification.json"
+    / "20261112-unified-release/phase19x" / "current-qualification.json"
 )
 SHA256 = re.compile(r"[0-9a-f]{64}")
 HEX40 = re.compile(r"[0-9a-f]{40}")

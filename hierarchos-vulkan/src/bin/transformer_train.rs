@@ -1091,6 +1091,9 @@ fn main() -> Result<()> {
         )?;
     }
     let peft = graph.lora_config().is_some();
+    if encoder_seq_len.is_none() && graph.supports_loss_scaler()? {
+        graph.set_loss_scaler(Some(Default::default()))?;
+    }
     let mut hyper = AdamWHyperParams {
         lr: args.learning_rate,
         beta1: args.beta1,
@@ -1118,6 +1121,7 @@ fn main() -> Result<()> {
         bail!("dataset does not contain a complete training batch");
     }
     let mut optimizer_steps = 0usize;
+    let starting_optimizer_step = graph.step();
     let mut supervised_tokens = 0usize;
     let mut final_loss = None;
     'epochs: for epoch in 0..args.epochs {
@@ -1244,6 +1248,19 @@ fn main() -> Result<()> {
             );
         }
     }
+    let mut report=serde_json::to_value(report)?;
+    report["attempted_optimizer_windows"]=serde_json::json!(optimizer_steps);
+    report["optimizer_steps"]=serde_json::json!(graph.step()-starting_optimizer_step);
+    report["optimizer_step"]=serde_json::json!(graph.step());
+    report["starting_optimizer_step"]=serde_json::json!(starting_optimizer_step);
+    report["loss_scaler"]=serde_json::to_value(graph.loss_scaler_state()?)?;
+    report["precision"]=serde_json::json!({
+        "requested":hierarchos_vulkan::wmma::WmmaMode::from_env()?.label(),
+        "accumulation_dispatches":hierarchos_vulkan::wmma_linear::linear_wmma_precision_counts(),
+        "phases":hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts(),
+        "master_weights":"fp32","optimizer_state":"fp32",
+        "automatic_loss_scaling":graph.loss_scaler_state()?.is_some()});
+    fs::write(args.output.join("training_report.json"),serde_json::to_vec_pretty(&report)?)?;
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
 }

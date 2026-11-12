@@ -10,7 +10,6 @@ impl Runtime {
     pub fn new(p:&Package,picture:&Picture,o:&Options)->anyhow::Result<Self> {
         let wmma=hierarchos_vulkan::wmma::WmmaMode::from_env()?;
         anyhow::ensure!(wmma!=hierarchos_vulkan::wmma::WmmaMode::FullFp16,"full-FP16 is unavailable for vision graphs; use --wmma-mode off or mixed");
-        anyhow::ensure!(p.kind!=Kind::V41||!wmma.requested(),"native DeepSeek V4.1 vision uses FP32 kernels and has no WMMA training integration; use --wmma-mode off");
         anyhow::ensure!(p.kind==Kind::V41||(!o.stream&&o.state.is_none()&&o.resume.is_none()&&o.adapter.is_none()),"native state, resume, adapter and frozen-parameter streaming options currently apply only to native DeepSeek V4.1; select an exported image package for other families");
         if matches!(p.kind,Kind::Gemma4|Kind::V41){anyhow::ensure!(o.batch==1,"this native image backend currently requires batch size 1 (one complete image per trainer step)");}
         if let Some(state)=o.resume.as_ref().or(o.state.as_ref()) {

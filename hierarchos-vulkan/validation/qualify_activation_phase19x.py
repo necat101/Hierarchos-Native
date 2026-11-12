@@ -36,7 +36,7 @@ EXPORTS = WORK / "exports"
 DRIFT_WORK = Path(os.environ.get("HIERARCHOS_DRIFT_WORK", CRATE / "target/phase19x/drift"))
 RECEIPT = Path(os.environ.get(
     "HIERARCHOS_RECEIPT_DIR",
-    CRATE / "validation/release_parity/multimodal_training/20261111-phase19x-current-source/activation",
+    CRATE / "validation/release_parity/multimodal_training/20261112-unified-release/phase19x/activation",
 ))
 FIXTURE = CRATE / "validation/fixtures/phase17"
 MODEL = Path(os.environ.get("HIERARCHOS_MODEL", CRATE / "target/wmma-fixture/model"))
@@ -408,7 +408,7 @@ def main() -> int:
 
     if args.install:
         if RECEIPT.exists():
-            shutil.rmtree(RECEIPT)
+            raise SystemExit(f"refusing to overwrite existing receipt {RECEIPT}")
         (RECEIPT / "evidence").mkdir(parents=True)
         shutil.copy2(WORK / "receipt.json", RECEIPT / "current-qualification.json")
         for item in evidence:

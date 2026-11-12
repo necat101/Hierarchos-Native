@@ -53,9 +53,6 @@ impl NativeApp {
         let config:serde_json::Value=std::fs::read(Path::new(model).join("config.json")).ok().and_then(|b|serde_json::from_slice(&b).ok()).ok_or("Choose a vision package with a valid config.json.")?;
         let native=config["model_type"].as_str()==Some("deepseek_v41");
         if self.mode == Workflow::VisionTrain {
-            if native && self.wmma_mode == WmmaModeChoice::Mixed {
-                return Err("Native DeepSeek V4.1 image training currently uses FP32 kernels. Choose FP32 training precision.".into());
-            }
             self.push_wmma_args(&mut args)?;
         }
         if !matches!(config["model_type"].as_str(),Some("hierarchos_image_text"|"llava"|"gemma3"|"gemma4"|"deepseek_v41")){return Err("Select a native vision model or composed hierarchos_image_text package; ordinary text packages need an image tower/projector first.".into());}
@@ -102,7 +99,10 @@ impl NativeApp {
             let native = std::fs::read(Path::new(self.model.trim()).join("config.json"))
                 .ok().and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
                 .is_some_and(|config| config["model_type"] == "deepseek_v41");
-            self.wmma_form(ui, native.then_some("Native DeepSeek V4.1 image training currently supports FP32 precision only."));
+            self.wmma_form(ui, None);
+            if native && self.wmma_mode == WmmaModeChoice::Mixed {
+                ui.label("Native V4.1: eligible vision projections use WMMA; language LoRA and short vision operations use FP32.");
+            }
         }else{
             path_row(ui,"Input image",&mut self.vision_image,true,FileChoice::File);
             let path=self.vision_image.clone();self.image_preview(ui,&path);
@@ -185,7 +185,7 @@ mod tests {
         let mut app = fixture.app(Workflow::VisionTrain);
         assert!(app.build_args().unwrap().windows(2).any(|a| a == ["--wmma-mode", "off"]));
         app.wmma_mode = WmmaModeChoice::Mixed;
-        assert!(app.build_args().unwrap_err().contains("currently uses FP32"));
+        assert!(app.build_args().unwrap().windows(2).any(|a| a == ["--wmma-mode", "mixed"]));
     }
 
     #[test]
