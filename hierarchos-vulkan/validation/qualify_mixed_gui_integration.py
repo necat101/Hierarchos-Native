@@ -161,7 +161,9 @@ def run(args):
     from safetensors.numpy import load_file
     args.output.mkdir(parents=True, exist_ok=False)
     paths = subprocess.check_output(["git", "-C", str(ROOT), "ls-files", "hierarchos-vulkan/src", "hierarchos-vulkan/shaders",
-                                    "hierarchos-native-cli/src", "hierarchos-gui/src"], text=True).splitlines()
+                                    "hierarchos-native-cli/src", "hierarchos-gui/src", "hierarchos-inference/src",
+                                    "hierarchos-vulkan/Cargo.*", "hierarchos-native-cli/Cargo.*",
+                                    "hierarchos-gui/Cargo.*", "hierarchos-inference/Cargo.*"], text=True).splitlines()
     paths.append(str(Path(__file__).relative_to(ROOT)).replace("\\", "/"))
     source_hashes = {name: digest(ROOT / name) for name in paths}
     prepare(args.output, args.transformers)
@@ -225,6 +227,12 @@ def run(args):
         require(training["steps"] == 2 and training["precision"]["requested"] == mode, "CLI precision/step mismatch")
         require((training["precision"]["cooperative_dispatches"] > 0) == (mode == "mixed"), "CLI dispatch mismatch")
         checks[mode]["cli_precision"] = training["precision"]
+        for component in ("image", "text"):
+            direct = load_file(str(destination / f"step-2/{component}/model.safetensors"))
+            launched = load_file(str(args.output / f"cli-{mode}/model/{component}/model.safetensors"))
+            require(direct.keys() == launched.keys(), "CLI/probe parameter inventory mismatch")
+            checks[mode][f"cli_{component}_parameter_max_abs"] = max(
+                metric(direct[name], launched[name], FP32_LIMIT)["max_abs"] for name in direct)
     for index in range(2):
         checks[f"mixed_step_{index+1}"] = metric(reports["off"]["steps"][index]["forward"]["logits"],
                                                  reports["mixed"]["steps"][index]["forward"]["logits"], MIXED_MAX, MIXED_RMS)
@@ -259,6 +267,7 @@ def run(args):
                 if isinstance(row, dict) and row.get("event") == "train_step":
                     steps.append(row)
             require(len(steps) == 2 and [row["step"] for row in steps] == [1, 2], "text optimizer steps missing")
+            require(all(row["device"] == reports["mixed"]["device"] for row in steps), "text used a different device")
             require(all(math.isfinite(row["loss"]) for row in steps), "non-finite text training loss")
             require(steps[1]["loss"] < steps[0]["loss"], "text loss did not reduce")
             if mode == "mixed":
