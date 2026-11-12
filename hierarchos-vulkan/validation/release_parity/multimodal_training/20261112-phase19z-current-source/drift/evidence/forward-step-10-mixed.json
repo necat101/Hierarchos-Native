@@ -1,0 +1,15 @@
+{
+  "model": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\phase19z\\drift\\exports\\step-0010-off",
+  "mode": "mixed",
+  "partition": "validation",
+  "windows": 288,
+  "seq": 64,
+  "vocab": 1024,
+  "logit_elements": 18874368,
+  "valid_target_tokens": 17080,
+  "cross_entropy": 5.700128024633199,
+  "parameter_digest": "7756a3b52ee39cba10f40dca590a010bb426b7f509573706c45b3d9d234c6bcd",
+  "wmma_forward_dispatches": 540,
+  "wmma_shape_fallbacks": 0,
+  "elapsed_ms": 4081.4341
+}

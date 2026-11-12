@@ -1,0 +1,7 @@
+low-rank-forward: batch  1: fallback     fused   1.714 ms  staged   1.644 ms
+low-rank-forward: batch  4: fallback     fused   3.046 ms  staged   2.776 ms
+low-rank-forward: batch  8: fallback     fused   3.382 ms  staged   3.235 ms
+low-rank-forward: batch 16: fallback     fused   8.551 ms  staged   8.425 ms
+low-rank-forward: batch 32: fallback     fused  14.631 ms  staged  14.524 ms
+PASS: low-rank-forward covers batch 1, 4, 8, 16, 32 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184]; this adapter has no recorded route, so the fallback decides it
+PASS: 1 receipt(s) re-checked against the record(s) they consume: low-rank-forward

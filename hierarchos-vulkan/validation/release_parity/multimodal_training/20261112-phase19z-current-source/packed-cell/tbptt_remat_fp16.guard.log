@@ -1,0 +1,7 @@
+tbptt-packed-rematerialization-fp16: batch  1: legacy  packed   7.432 ms  legacy   7.293 ms
+tbptt-packed-rematerialization-fp16: batch  4: legacy  packed   9.236 ms  legacy   8.805 ms
+tbptt-packed-rematerialization-fp16: batch  8: legacy  packed  11.712 ms  legacy  11.041 ms
+tbptt-packed-rematerialization-fp16: batch 16: legacy  packed  18.660 ms  legacy  16.115 ms
+tbptt-packed-rematerialization-fp16: batch 32: legacy  packed  31.143 ms  legacy  24.872 ms
+PASS: tbptt-packed-rematerialization-fp16 is measured across batch 1, 4, 8, 16, 32 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184], and its record follows it
+PASS: 1 receipt(s) re-checked against the record(s) they consume: tbptt-packed-rematerialization-fp16

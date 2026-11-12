@@ -1,0 +1,17 @@
+tbptt_forward EXIT=0
+tbptt_forward GUARD_EXIT=1
+tbptt_remat EXIT=0
+tbptt_remat GUARD_EXIT=1
+tbptt_forward_fp16 EXIT=0
+tbptt_forward_fp16 GUARD_EXIT=1
+tbptt_remat_fp16 EXIT=0
+tbptt_remat_fp16 GUARD_EXIT=0
+tbptt_backward EXIT=0
+tbptt_backward GUARD_EXIT=0
+tbptt_backward_fp16 EXIT=0
+tbptt_backward_fp16 GUARD_EXIT=0
+tbptt_time_mix EXIT=0
+tbptt_time_mix GUARD_EXIT=1
+composition EXIT=0
+composition GUARD_EXIT=0
+key_state_profile EXIT=0

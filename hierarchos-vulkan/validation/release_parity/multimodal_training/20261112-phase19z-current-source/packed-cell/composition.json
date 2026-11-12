@@ -1,0 +1,133 @@
+{
+  "result": "pass",
+  "width": 128,
+  "head_size": 16,
+  "batch": 8,
+  "steps": 3,
+  "comparisons": 15,
+  "worst_max_abs": 0.0,
+  "atol": 0.0001,
+  "rtol": 1e-05,
+  "time_mix_forward_fusion": "disabled",
+  "channel_mix_forward_fusion": "disabled",
+  "performance_admission": "explicit raw-module qualification override; shipping routes use amd_matmul_decisions.json",
+  "expected_vendor": "auto",
+  "qualified_vendor": "amd",
+  "vendor_variants": {
+    "linear-forward": "amd-rdna3-lds64",
+    "linear-residual-forward": "amd-rdna3-lds64",
+    "linear3-forward": "amd-rdna3-lds64"
+  },
+  "vendor_plan": "linear-forward=amd-rdna3-lds64 linear-bias-forward=amd-rdna3-lds64 linear-residual-forward=amd-rdna3-lds64 linear3-forward=amd-rdna3-lds64 silu-forward=portable silu-backward=portable adamw=portable",
+  "vendor_dispatch": "linear-forward=1 linear-residual-forward=1 linear3-forward=1",
+  "portable_dispatch": "",
+  "negative_control": "rejected",
+  "negative_control_detail": "negative control cell output: |vulkan-cpu| 1.587200000e-04 exceeds atol 1.000e-04 + rtol 1.000e-05*scale (bound 1.038858550e-04) at index 0; vulkan=0.38842678 cpu=0.3885855",
+  "rows": [
+    {
+      "label": "step 0 output",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 0 packed_new_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 0 grad_x",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 0 grad_packed_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 0 token_feature_grad",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 output",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 packed_new_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 grad_x",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 grad_packed_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 token_feature_grad",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 output",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 packed_new_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 grad_x",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 grad_packed_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 token_feature_grad",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "kind": "phase19z-packed-cell-amd-local",
+  "status": "PARTIAL",
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "adapter": "amd-rdna3-lds64",
+  "torch": "2.6.0+cpu (isolated target/phase19z/torch-cpu)",
+  "workflow": ".github/workflows/time-mix-ab.yml",
+  "workflow_sweep": "batch 1,4,8,16,32; iterations/warmup/repetitions exactly as cross-adapter-ab",
+  "ci": {
+    "run": "https://github.com/necat101/Hierarchos-Native/actions/runs/43130590148",
+    "status": "queued",
+    "runner_labels": [
+      "self-hosted",
+      "windows",
+      "vulkan",
+      "amd"
+    ],
+    "note": "queued is not PASS"
+  },
+  "results": {
+    "time-mix-projection": {
+      "bench": 0,
+      "guard": 1,
+      "failure": "exact-parity guard: worst |diff| 1.144e-05 at batch 1"
+    },
+    "channel-mix": {
+      "bench": 1,
+      "guard": null,
+      "failure": "benchmark stopped at batch 32: default built fused but compiled decision record names composed"
+    },
+    "low-rank-forward": {
+      "bench": 0,
+      "guard": 0
+    },
+    "low-rank-forward-fp16": {
+      "bench": 0,
+      "guard": 0
+    },
+    "key-state-forward": {
+      "bench": 0,
+      "guard": 1,
+      "failure": "exact-parity guard: worst |diff| 7.451e-09 at batch 1"
+    },
+    "tbptt-packed-forward": {
+      "bench": 0,
+      "guard": 1,
+      "failure": "default recorded legacy, expected packed at batch 8"
+    },
+    "tbptt-packed-rematerialization": {
+      "bench": 0,
+      "guard": 1,
+      "failure": "default recorded packed, expected legacy at batch 1"
+    },
+    "tbptt-packed-forward-fp16": {
+      "bench": 0,
+      "guard": 1,
+      "failure": "record names legacy; packed measured ahead by 3.3%, outside 2% band"
+    },
+    "tbptt-packed-rematerialization-fp16": {
+      "bench": 0,
+      "guard": 0
+    },
+    "tbptt-backward-fusion": {
+      "bench": 0,
+      "guard": 0
+    },
+    "tbptt-backward-fusion-fp16": {
+      "bench": 0,
+      "guard": 0
+    },
+    "tbptt-time-mix": {
+      "bench": 0,
+      "guard": 1,
+      "failure": "default built packed chain but record names legacy"
+    },
+    "packed-cell-composition": {
+      "bench": 0,
+      "guard": 0
+    },
+    "key-state-forward-profile": {
+      "bench": 0,
+      "guard": null
+    }
+  },
+  "passes": [
+    "low-rank-forward",
+    "low-rank-forward-fp16",
+    "tbptt-packed-rematerialization-fp16",
+    "tbptt-backward-fusion",
+    "tbptt-backward-fusion-fp16",
+    "packed-cell-composition"
+  ],
+  "failures": [
+    "time-mix-projection",
+    "channel-mix",
+    "key-state-forward",
+    "tbptt-packed-forward",
+    "tbptt-packed-rematerialization",
+    "tbptt-packed-forward-fp16",
+    "tbptt-time-mix"
+  ],
+  "windows_fixture_workaround": "The tracked verify_rwkv_packed_cell_composition.py was temporarily changed to materialize safetensors tensors before rewriting the same mmap-backed path (Windows error 1224). The original bytes were restored (sha256 c81da46499dc685cf6124cd7b7ba80818eb825d5020dcf15a0cd9ff42a5dbae8) before this receipt; only measurements are claimed.",
+  "notes": [
+    "Receipts were recorded under target/phase19z/packed-cell and copied here; historical validation receipts were not overwritten.",
+    "Six producers pass both measurement and route guard; seven fail closed and are not counted as passing.",
+    "The queued GitHub job remains queued because no self-hosted Windows Vulkan AMD runner is registered."
+  ]
+}

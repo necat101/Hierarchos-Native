@@ -1,0 +1,1 @@
+FAIL: tbptt-packed-rematerialization: batch 1: the default was recorded as 'packed', expected 'legacy'; the receipt and the record were not measured together

@@ -1,0 +1,100 @@
+=== tbptt_forward ===
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "chain": "forward",
+  "median_packed_over_legacy": 1.0007326942611166
+}
+tbptt_forward EXIT=0
+=== tbptt_forward guard ===
+FAIL: tbptt-packed-forward: batch 8: the default was recorded as 'legacy', expected 'packed'; the receipt and the record were not measured together
+tbptt_forward GUARD_EXIT=1
+=== tbptt_remat ===
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "chain": "remat",
+  "median_packed_over_legacy": 1.0735335116214235
+}
+tbptt_remat EXIT=0
+=== tbptt_remat guard ===
+FAIL: tbptt-packed-rematerialization: batch 1: the default was recorded as 'packed', expected 'legacy'; the receipt and the record were not measured together
+tbptt_remat GUARD_EXIT=1
+=== tbptt_forward_fp16 ===
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "chain": "forward",
+  "median_packed_over_legacy": 0.9879670702873681
+}
+tbptt_forward_fp16 EXIT=0
+=== tbptt_forward_fp16 guard ===
+FAIL: tbptt-packed-forward-fp16: batch 1: the record names 'legacy', but this receipt measures 'packed' ahead by 3.3%, outside the 2% noise band; the record is stale
+tbptt_forward_fp16 GUARD_EXIT=1
+=== tbptt_remat_fp16 ===
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "chain": "remat",
+  "median_packed_over_legacy": 1.0607361518675507
+}
+tbptt_remat_fp16 EXIT=0
+=== tbptt_remat_fp16 guard ===
+tbptt-packed-rematerialization-fp16: batch  1: legacy  packed   7.432 ms  legacy   7.293 ms
+tbptt-packed-rematerialization-fp16: batch  4: legacy  packed   9.236 ms  legacy   8.805 ms
+tbptt-packed-rematerialization-fp16: batch  8: legacy  packed  11.712 ms  legacy  11.041 ms
+tbptt-packed-rematerialization-fp16: batch 16: legacy  packed  18.660 ms  legacy  16.115 ms
+tbptt-packed-rematerialization-fp16: batch 32: legacy  packed  31.143 ms  legacy  24.872 ms
+PASS: tbptt-packed-rematerialization-fp16 is measured across batch 1, 4, 8, 16, 32 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184], and its record follows it
+PASS: 1 receipt(s) re-checked against the record(s) they consume: tbptt-packed-rematerialization-fp16
+tbptt_remat_fp16 GUARD_EXIT=0
+=== tbptt_backward ===
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "chain": "backward",
+  "median_fused_over_staged": 0.9963321003388145
+}
+tbptt_backward EXIT=0
+=== tbptt_backward guard ===
+tbptt-backward-fusion: batch  1: folded  fused   7.222 ms  staged   7.260 ms  folded   7.001 ms
+tbptt-backward-fusion: batch  4: staged  fused   9.090 ms  staged   9.024 ms  folded   9.022 ms
+tbptt-backward-fusion: batch  8: folded  fused  11.219 ms  staged  11.260 ms  folded  11.049 ms
+tbptt-backward-fusion: batch 16: folded  fused  16.895 ms  staged  16.837 ms  folded  16.508 ms
+tbptt-backward-fusion: batch 32: fused   fused  24.659 ms  staged  24.915 ms  folded  24.518 ms
+PASS: tbptt-backward-fusion covers batch 1, 4, 8, 16, 32 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184]; this adapter has no recorded route, so the structural default decides it
+PASS: 1 receipt(s) re-checked against the record(s) they consume: tbptt-backward-fusion
+tbptt_backward GUARD_EXIT=0
+=== tbptt_backward_fp16 ===
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "chain": "backward",
+  "median_fused_over_staged": 1.003505246320069
+}
+tbptt_backward_fp16 EXIT=0
+=== tbptt_backward_fp16 guard ===
+tbptt-backward-fusion-fp16: batch  1: folded  fused   7.321 ms  staged   7.269 ms  folded   6.975 ms
+tbptt-backward-fusion-fp16: batch  4: folded  fused   8.689 ms  staged   8.658 ms  folded   8.442 ms
+tbptt-backward-fusion-fp16: batch  8: folded  fused  11.164 ms  staged  11.135 ms  folded  10.990 ms
+tbptt-backward-fusion-fp16: batch 16: folded  fused  17.017 ms  staged  16.824 ms  folded  16.655 ms
+tbptt-backward-fusion-fp16: batch 32: fused   fused  24.966 ms  staged  25.168 ms  folded  24.796 ms
+PASS: tbptt-backward-fusion-fp16 is measured across batch 1, 4, 8, 16, 32 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184], and its record follows it
+PASS: 1 receipt(s) re-checked against the record(s) they consume: tbptt-backward-fusion-fp16
+tbptt_backward_fp16 GUARD_EXIT=0
+=== tbptt_time_mix ===
+  "linear3_variant": "amd-rdna3-lds64",
+  "winner": "mixed",
+  "median_composed_over_fused": 0.9973399540065895
+}
+tbptt_time_mix EXIT=0
+=== tbptt_time_mix guard ===
+FAIL: tbptt-time-mix: batch 1: the TBPTT default built the packed rwkv-tbptt-packed-forward chain, but the record names legacy; re-record the receipt after the route moved
+tbptt_time_mix GUARD_EXIT=1
+=== composition ===
+      "rtol": 1e-05
+    }
+  ]
+}
+composition EXIT=0
+=== composition guard ===
+packed-cell-composition: rwkv-time-mix-projection: batch  8 has no amd entry; the vendor gate decides
+packed-cell-composition: rwkv-channel-mix-forward: batch  8 has no amd entry; the vendor gate decides
+PASS: packed-cell-composition qualifies the staged route at width 128 batch 8 for amd, and its records agree
+PASS: 1 receipt(s) re-checked against the record(s) they consume: packed-cell-composition
+composition GUARD_EXIT=0
+=== key_state_profile ===
+batch  1: wide 10.940 us (85.5 ns/row, 64/64 lanes), narrow 11.960 us (93.4 ns/row, 16/64 state lanes), chain transform 9.000 us + state 11.760 us = 20.760 us (state share 56.6%), wide over chain state 0.930x (+-0.820 us), wide/narrow 0.9147
+batch  8: wide 12.300 us (12.0 ns/row, 64/64 lanes), narrow 12.400 us (12.1 ns/row, 16/64 state lanes), chain transform 14.320 us + state 15.120 us = 29.440 us (state share 51.4%), wide over chain state 0.813x (+-2.820 us), wide/narrow 0.9919
+batch 16: wide 14.880 us (7.3 ns/row, 64/64 lanes), narrow 16.960 us (8.3 ns/row, 16/64 state lanes), chain transform 14.520 us + state 21.120 us = 35.640 us (state share 59.3%), wide over chain state 0.705x (+-6.240 us), wide/narrow 0.8774
+batch 32: wide 20.160 us (4.9 ns/row, 64/64 lanes), narrow 29.320 us (7.2 ns/row, 16/64 state lanes), chain transform 15.240 us + state 42.120 us = 57.360 us (state share 73.4%), wide over chain state 0.479x (+-21.960 us), wide/narrow 0.6876
+key_state_profile EXIT=0
+DONE

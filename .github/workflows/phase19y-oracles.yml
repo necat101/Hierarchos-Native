@@ -1,0 +1,51 @@
+name: phase19y oracle bytes
+
+on:
+  push:
+    branches: [codex/rdna3-phase19-instrumented]
+  pull_request:
+    branches: [codex/rdna3-phase19-instrumented]
+
+jobs:
+  verify-oracles:
+    # CPU-only byte verification. The archives are immutable release assets,
+    # not Actions artifacts, so a checkout can always retrieve the same bytes.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download immutable CPU oracle archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/oracle-assets"
+          base="https://github.com/necat101/Hierarchos-Native/releases/download/phase19y-oracles-20261112"
+          curl --fail --location --silent --show-error \
+            "$base/gpt2-shapes-avx512-oracles.zip" \
+            -o "$RUNNER_TEMP/oracle-assets/gpt2-shapes-avx512-oracles.zip"
+          curl --fail --location --silent --show-error \
+            "$base/shared-image-cpu-v3.zip" \
+            -o "$RUNNER_TEMP/oracle-assets/shared-image-cpu-v3.zip"
+      - name: Verify archive hashes, extraction and every fixture byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          python hierarchos-vulkan/validation/verify_phase19y_oracles.py \
+            --shape-archive "$RUNNER_TEMP/oracle-assets/gpt2-shapes-avx512-oracles.zip" \
+            --shared-archive "$RUNNER_TEMP/oracle-assets/shared-image-cpu-v3.zip" \
+            --work "$RUNNER_TEMP/oracle-trees" \
+            --report "$RUNNER_TEMP/oracle-verification.json"
+      - name: Oracle archive negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_verify_phase19y_oracles.py" -v
+      - name: Upload oracle verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase19y-oracle-verification
+          path: ${{ runner.temp }}/oracle-verification.json
+          retention-days: 14

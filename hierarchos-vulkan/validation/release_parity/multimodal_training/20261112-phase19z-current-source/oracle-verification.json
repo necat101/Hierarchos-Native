@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "status": "PASS",
+  "shape": {
+    "archive_sha256": "a45396b752d62b01f75aa0f0cc8a83ee71640bf44a9f83b841e7476056b6ef14",
+    "archive_bytes": 32948229,
+    "entries": 363,
+    "cases": 16,
+    "case_files": 176,
+    "oracle_source_files": 186,
+    "total_files": 363
+  },
+  "shared": {
+    "archive_sha256": "8a85120ef2a27f9567788c39f4668c6dc52c808e8cae2c179ad8093119d0a95c",
+    "archive_bytes": 26077578,
+    "entries": 1119,
+    "cases": 77,
+    "case_files": 842,
+    "oracle_source_files": 276,
+    "total_files": 1119
+  },
+  "checker": "PHASE XIX-Y FULL ATTENTION: PASS (d2f17a3c4b17, 16/16 shapes, 74/74 shared, 93 retained entries accounted)"
+}

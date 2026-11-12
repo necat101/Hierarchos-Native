@@ -1,0 +1,133 @@
+{
+  "schema": 1,
+  "kind": "rwkv-key-state-forward-profile",
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "head_size": 16,
+  "width": 128,
+  "runs": 5,
+  "timestamp_source": "Vulkan timestamp queries per dispatch, read by the scheduler's kernel profile (`HIERARCHOS_VULKAN_PROFILE_KERNELS=1`); one dispatch per leg, so each number is the GPU time of that kernel, not host wait time",
+  "lane_accounting": {
+    "wide": {
+      "workgroup": 64,
+      "transform_lanes": 64,
+      "state_lanes": 64
+    },
+    "narrow": {
+      "workgroup": 64,
+      "transform_lanes": 1,
+      "state_lanes": 16
+    },
+    "chain": {
+      "workgroup": 64,
+      "transform_lanes": 64,
+      "state_lanes": 64
+    },
+    "_heads_per_group": {
+      "workgroup": 4
+    }
+  },
+  "attribution": {
+    "fused_excess_through_batch_16_us": -2.8200000000000003,
+    "largest_excess_batch": 1,
+    "largest_excess_us": -0.8200000000000021,
+    "note": "The chain's state kernel and the fused kernel advance the same rows with the same 64-lane occupancy, so the fused stage minus the chain state phase is what the fusion costs on top of the row work: its transform phase and its single launch. Flat through batch 16 and a jump at a larger batch would put the remaining time in the state phase's schedule, not in the transform."
+  },
+  "batches": [
+    {
+      "batch": 1,
+      "rows": 128,
+      "head_size": 16,
+      "wide_fused_us": 10.939999999999998,
+      "narrow_fused_us": 11.96,
+      "chain_transform_us": 9.0,
+      "chain_state_us": 11.76,
+      "chain_total_us": 20.759999999999998,
+      "chain_state_share": 0.5664739884393064,
+      "wide_us_per_row": 0.08546874999999998,
+      "narrow_us_per_row": 0.0934375,
+      "chain_state_us_per_row": 0.091875,
+      "chain_transform_us_per_row": 0.0703125,
+      "wide_over_narrow": 0.9147157190635449,
+      "wide_over_chain_state_us": 0.9302721088435373,
+      "wide_excess_over_chain_state_us": -0.8200000000000021,
+      "wide_excess_us_per_row": -0.006406250000000016,
+      "wide_fused_lanes": 64,
+      "narrow_state_lanes": 16,
+      "narrow_transform_lanes": 1,
+      "chain_state_lanes": 64,
+      "samples_per_shader": 90
+    },
+    {
+      "batch": 8,
+      "rows": 1024,
+      "head_size": 16,
+      "wide_fused_us": 12.299999999999999,
+      "narrow_fused_us": 12.4,
+      "chain_transform_us": 14.32,
+      "chain_state_us": 15.12,
+      "chain_total_us": 29.439999999999998,
+      "chain_state_share": 0.5135869565217391,
+      "wide_us_per_row": 0.012011718749999999,
+      "narrow_us_per_row": 0.012109375,
+      "chain_state_us_per_row": 0.014765625,
+      "chain_transform_us_per_row": 0.013984375,
+      "wide_over_narrow": 0.9919354838709676,
+      "wide_over_chain_state_us": 0.8134920634920635,
+      "wide_excess_over_chain_state_us": -2.8200000000000003,
+      "wide_excess_us_per_row": -0.0027539062500000003,
+      "wide_fused_lanes": 64,
+      "narrow_state_lanes": 16,
+      "narrow_transform_lanes": 1,
+      "chain_state_lanes": 64,
+      "samples_per_shader": 90
+    },
+    {
+      "batch": 16,
+      "rows": 2048,
+      "head_size": 16,
+      "wide_fused_us": 14.88,
+      "narrow_fused_us": 16.96,
+      "chain_transform_us": 14.52,
+      "chain_state_us": 21.12,
+      "chain_total_us": 35.64,
+      "chain_state_share": 0.5925925925925926,
+      "wide_us_per_row": 0.007265625,
+      "narrow_us_per_row": 0.00828125,
+      "chain_state_us_per_row": 0.0103125,
+      "chain_transform_us_per_row": 0.00708984375,
+      "wide_over_narrow": 0.8773584905660378,
+      "wide_over_chain_state_us": 0.7045454545454546,
+      "wide_excess_over_chain_state_us": -6.24,
+      "wide_excess_us_per_row": -0.003046875,
+      "wide_fused_lanes": 64,
+      "narrow_state_lanes": 16,
+      "narrow_transform_lanes": 1,
+      "chain_state_lanes": 64,
+      "samples_per_shader": 90
+    },
+    {
+      "batch": 32,
+      "rows": 4096,
+      "head_size": 16,
+      "wide_fused_us": 20.16,
+      "narrow_fused_us": 29.32,
+      "chain_transform_us": 15.24,
+      "chain_state_us": 42.12,
+      "chain_total_us": 57.36,
+      "chain_state_share": 0.7343096234309623,
+      "wide_us_per_row": 0.004921875,
+      "narrow_us_per_row": 0.007158203125,
+      "chain_state_us_per_row": 0.010283203125,
+      "chain_transform_us_per_row": 0.003720703125,
+      "wide_over_narrow": 0.6875852660300137,
+      "wide_over_chain_state_us": 0.47863247863247865,
+      "wide_excess_over_chain_state_us": -21.959999999999997,
+      "wide_excess_us_per_row": -0.005361328124999999,
+      "wide_fused_lanes": 64,
+      "narrow_state_lanes": 16,
+      "narrow_transform_lanes": 1,
+      "chain_state_lanes": 64,
+      "samples_per_shader": 90
+    }
+  ]
+}

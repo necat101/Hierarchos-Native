@@ -1,0 +1,7 @@
+tbptt-backward-fusion: batch  1: folded  fused   7.222 ms  staged   7.260 ms  folded   7.001 ms
+tbptt-backward-fusion: batch  4: staged  fused   9.090 ms  staged   9.024 ms  folded   9.022 ms
+tbptt-backward-fusion: batch  8: folded  fused  11.219 ms  staged  11.260 ms  folded  11.049 ms
+tbptt-backward-fusion: batch 16: folded  fused  16.895 ms  staged  16.837 ms  folded  16.508 ms
+tbptt-backward-fusion: batch 32: fused   fused  24.659 ms  staged  24.915 ms  folded  24.518 ms
+PASS: tbptt-backward-fusion covers batch 1, 4, 8, 16, 32 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184]; this adapter has no recorded route, so the structural default decides it
+PASS: 1 receipt(s) re-checked against the record(s) they consume: tbptt-backward-fusion
