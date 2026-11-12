@@ -2046,9 +2046,8 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
             }
             "--wmma-mode" | "--wmma_mode" => {
                 let mode = parse_transformer_wmma_mode(&required_string(&mut argv, &key)?)?;
-                // The trainer is a child process and inherits this environment,
-                // so the mode reaches the same device-selection site the
-                // standalone Vulkan binaries use.
+                // Both the in-process graph and device construction read this
+                // policy, just as the standalone Vulkan trainer does.
                 std::env::set_var("HIERARCHOS_WMMA_MODE", mode);
                 eprintln!("WMMA: dense Transformer projections will request {mode}");
             }
@@ -2522,6 +2521,10 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
             hyper
         );
     }
+    let phases_before = hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
+    let counts_before = hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
+    let starting_step = graph.step();
+    let mut epoch_results = Vec::new();
     let mut total_steps = 0usize;
     for epoch in 0..epochs {
         let (steps, mean_loss) =
@@ -2530,6 +2533,8 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
             return Err("Transformer dataset produced no supervised training batches".to_owned());
         }
         total_steps += steps;
+        epoch_results.push(json!({"epoch":epoch + 1,"steps":steps,
+            "optimizer_step":graph.step(),"mean_loss":mean_loss}));
         eprintln!(
             "Transformer epoch {}/{}: steps={} mean_loss={:.6}",
             epoch + 1,
@@ -2566,6 +2571,24 @@ fn run_transformer_training(mode: &str, mut argv: VecDeque<OsString>) -> Result<
                 .map_err(|error| format!("could not write {}: {error}", config_path.display()))?;
         }
     }
+    let phases = hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
+    let counts = hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
+    let precision = json!({
+        "requested":hierarchos_vulkan::wmma::WmmaMode::from_env().map_err(|e| e.to_string())?.label(),
+        "cooperative_dispatches":counts.cooperative - counts_before.cooperative,
+        "shape_fallbacks":counts.shape_fallbacks - counts_before.shape_fallbacks,
+        "forward":phases[0] - phases_before[0],"weight_grad":phases[1] - phases_before[1],
+        "input_grad":phases[2] - phases_before[2],
+        "master_weights":"fp32","optimizer_state":"fp32","automatic_loss_scaling":false
+    });
+    let report = json!({"backend":"native-vulkan","device":graph.device_name(),
+        "training_mode":if uses_peft {"lora"} else {"full"},"steps":total_steps,
+        "starting_step":starting_step,"optimizer_step":graph.step(),"epochs":epoch_results,
+        "precision":precision});
+    fs::write(output_dir.join("training_report.json"), serde_json::to_vec_pretty(&report)
+        .map_err(|e| format!("could not encode training report: {e}"))?)
+        .map_err(|e| format!("could not write training report: {e}"))?;
+    eprintln!("WMMA evidence: {precision}");
     eprintln!(
         "native Transformer training complete: backend=Vulkan device={} steps={} output={}",
         graph.device_name(),

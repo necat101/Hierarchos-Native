@@ -214,19 +214,21 @@ mod tests {
     }
     #[test]
     #[ignore = "requires HIERARCHOS_MIXED_GUI_FIXTURE, HIERARCHOS_NATIVE_CLI and a cooperative-matrix GPU"]
-    fn mixed_vision_start_executes_cooperative_training_worker() {
+    fn mixed_training_start_executes_cooperative_workers() {
         let root = PathBuf::from(env::var_os("HIERARCHOS_MIXED_GUI_FIXTURE").expect("eligible fixture root"));
         let mut app = NativeApp::default();
-        app.mode = Workflow::VisionTrain;
         app.wmma_mode = WmmaModeChoice::Mixed;
         app.cli_path = env::var("HIERARCHOS_NATIVE_CLI").expect("fresh native CLI");
-        app.model = root.join("model").display().to_string();
         app.dataset = root.join("dataset.jsonl").display().to_string();
-        app.output = root.join("gui-mixed").display().to_string();
         app.epochs = "2".into();
         app.batch_size = "2".into();
         app.seq_len = "24".into();
         app.learning_rate = ".001".into();
+        for (mode, name) in [(Workflow::VisionTrain, "vision"), (Workflow::TransformerTrain, "full"),
+            (Workflow::TransformerFullFinetune, "full-finetune"), (Workflow::TransformerFinetune, "lora")] {
+        app.mode = mode;
+        app.model = root.join(if mode == Workflow::VisionTrain { "model" } else { "model/text" }).display().to_string();
+        app.output = root.join(format!("gui-mixed-{name}")).display().to_string();
         app.start();
         assert!(app.child.is_some(), "{}", app.status);
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
@@ -244,8 +246,10 @@ mod tests {
         ).unwrap();
         assert_eq!(report["steps"], 2);
         assert_eq!(report["precision"]["requested"], "mixed");
-        for phase in ["cooperative_dispatches", "forward", "weight_grad", "input_grad"] {
+        for phase in ["cooperative_dispatches", "forward", "input_grad"] {
             assert!(report["precision"][phase].as_u64().unwrap() > 0, "{phase}: {report}");
+        }
+        assert_eq!(report["precision"]["weight_grad"].as_u64().unwrap() > 0, mode != Workflow::TransformerFinetune);
         }
     }
 
