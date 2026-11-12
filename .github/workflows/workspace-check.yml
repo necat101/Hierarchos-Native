@@ -165,7 +165,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: dac3534c47f6330c65274f3a9495ab2aab303e1f
+          ref: 09400b810a6b996a8886a1733f9c65fb03aed0f4
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v5
