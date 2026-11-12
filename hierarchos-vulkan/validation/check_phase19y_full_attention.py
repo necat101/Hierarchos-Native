@@ -309,6 +309,10 @@ def validate(document: dict, receipt_dir: Path, crate: Path = CRATE,
             "Phase XIX-W retained compatibility coverage changed")
     require(SHA256.fullmatch(str(compatibility.get("matrix_sha256"))) is not None,
             "Phase XIX-W matrix is not bound")
+    matrix_path = receipt_dir / "compatibility/phase19w-matrix.json"
+    require(matrix_path.is_file(), "missing Phase XIX-W matrix evidence")
+    require(digest(matrix_path) == compatibility["matrix_sha256"],
+            "Phase XIX-W matrix bytes changed")
 
     controls = document.get("negative_controls") or {}
     if require_controls:
