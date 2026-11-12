@@ -8215,15 +8215,19 @@ impl RwkvTimeMixCoreOp {
         } else {
             self.recorded_full_forward_route(batch)
         };
+        // A recorded `staged` verdict measured this graph, so it may build the
+        // portable `linear3-forward` composition where the vendor module did not
+        // win its geometry. The gate alone decides every unrecorded geometry.
+        let vendor_ready = crate::vendor::unmeasured_composition_is_qualified(
+            self.device.vendor_id(),
+        ) && self.linear3_forward.selects_variant_for(
+            batch as u32,
+            self.width as u32,
+            self.width as u32,
+        );
         crate::decision_records::prefers_composition(
             self.forward_fusion_forced,
-            (crate::vendor::unmeasured_composition_is_qualified(self.device.vendor_id())
-                || measured.is_some())
-                && self.linear3_forward.selects_variant_for(
-                    batch as u32,
-                    self.width as u32,
-                    self.width as u32,
-                ),
+            measured.is_some() || vendor_ready,
             measured,
         )
     }

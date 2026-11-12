@@ -48,7 +48,6 @@ import tempfile
 from pathlib import Path
 
 import torch
-from safetensors.torch import load_file, save_file
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import verify_rwkv_cpu_bridge as bridge  # noqa: E402  (shared fixture builder)
@@ -76,13 +75,17 @@ def write_package(directory: Path) -> None:
     """
     bridge.write_package(directory)
     generator = torch.Generator().manual_seed(0x48494554)
-    tensors = load_file(directory / "model.safetensors")
     width = bridge.WIDTH
-    tensors[f"{bridge.ADAPTER_PREFIX}.up.weight"] = bridge.tensor(
-        (4 * width, bridge.ADAPTER_RANK), generator=generator
-    )
-    tensors[f"{bridge.ADAPTER_PREFIX}.bias"] = bridge.tensor((4 * width,), generator=generator)
-    save_file({name: value.contiguous() for name, value in tensors.items()}, directory / "model.safetensors")
+
+    def add_live_adapter(tensors: dict[str, torch.Tensor]) -> None:
+        tensors[f"{bridge.ADAPTER_PREFIX}.up.weight"] = bridge.tensor(
+            (4 * width, bridge.ADAPTER_RANK), generator=generator
+        )
+        tensors[f"{bridge.ADAPTER_PREFIX}.bias"] = bridge.tensor(
+            (4 * width,), generator=generator
+        )
+
+    bridge.rewrite_safetensors_atomic(directory / "model.safetensors", add_live_adapter)
 
 
 def make_inputs(batch: int = BATCH) -> dict:

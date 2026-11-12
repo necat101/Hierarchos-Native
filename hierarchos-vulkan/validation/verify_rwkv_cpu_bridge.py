@@ -37,6 +37,7 @@ coverage it never had.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -45,7 +46,8 @@ import tempfile
 from pathlib import Path
 
 import torch
-from safetensors.torch import save_file
+from safetensors import safe_open
+from safetensors.torch import load_file, save_file
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -107,6 +109,74 @@ def tensor(shape: tuple[int, ...], *, generator) -> torch.Tensor:
     return torch.randn(shape, generator=generator, dtype=torch.float32) * 0.1
 
 
+def save_safetensors_atomic(tensors: dict[str, torch.Tensor], destination: Path) -> str:
+    """Write `tensors` without replacing a file another mapping still owns.
+
+    Windows rejects an in-place Safetensors rewrite with error 1224 while any
+    tensor from the original file is still backed by its mmap. The package
+    generators therefore materialize every tensor first, write a sibling
+    temporary file, verify that file with a closed mapping, and only then
+    atomically replace the destination. The destination is never truncated on a
+    failed write, and a failed verification leaves the old file untouched.
+
+    Returns the SHA-256 of the final file. The caller owns `tensors`; passing
+    values loaded from `destination` is safe only after they have been cloned
+    into owned memory (see :func:`rewrite_safetensors_atomic`).
+    """
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    owned = {
+        name: value.detach().to(device="cpu").contiguous().clone()
+        for name, value in tensors.items()
+    }
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+    )
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        save_file(owned, temporary)
+        # Verify through `safe_open`'s context manager so the temporary mapping
+        # is closed before the replace. A bare `load_file` can keep the mapping
+        # alive on Windows and make the rename fail with the same error 1224.
+        with safe_open(temporary, framework="pt", device="cpu") as check:
+            if set(check.keys()) != set(owned):
+                raise RuntimeError(
+                    f"Safetensors key set changed while writing {destination}"
+                )
+            for name, expected in owned.items():
+                actual = check.get_tensor(name)
+                if actual.shape != expected.shape or not torch.equal(actual, expected):
+                    raise RuntimeError(
+                        f"Safetensors tensor {name!r} changed while writing {destination}"
+                    )
+        os.replace(temporary, destination)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+    return hashlib.sha256(destination.read_bytes()).hexdigest()
+
+
+def rewrite_safetensors_atomic(destination: Path, mutate) -> str:
+    """Load, materialize, mutate and atomically replace a Safetensors package.
+
+    Keeping this recipe in one place is what prevents Windows error 1224: the
+    loaded tensors are cloned out of the mmap and the mapping is released before
+    the caller mutates or saves anything.
+    """
+    destination = Path(destination)
+    loaded = load_file(destination)
+    tensors = {
+        name: value.detach().to(device="cpu").contiguous().clone()
+        for name, value in loaded.items()
+    }
+    # Dropping the last reference to `loaded` releases the source mmap on
+    # Windows. The clones above are independent allocations.
+    del loaded
+    mutate(tensors)
+    return save_safetensors_atomic(tensors, destination)
+
+
 def write_package(directory: Path) -> None:
     """Write the tensors both loaders read, with the shared naming/layout."""
     generator = torch.Generator().manual_seed(0x48494552)
@@ -161,7 +231,7 @@ def write_package(directory: Path) -> None:
     tensors[f"{ADAPTER_PREFIX}.up.weight"] = torch.zeros((4 * width, ADAPTER_RANK), dtype=torch.float32)
     tensors[f"{ADAPTER_PREFIX}.bias"] = torch.ones((4 * width,), dtype=torch.float32)
     directory.mkdir(parents=True, exist_ok=True)
-    save_file({name: value.contiguous() for name, value in tensors.items()}, directory / "model.safetensors")
+    save_safetensors_atomic(tensors, directory / "model.safetensors")
 
 
 def make_inputs() -> dict[str, object]:

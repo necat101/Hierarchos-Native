@@ -83,7 +83,13 @@ def measured_chain_entries(
     return [
         entry
         for entry in guard.chain_entries(record, receipt)
-        if guard.canonical_policy(entry.get("parameter_storage")) == policy
+        if (
+            guard.canonical_policy(entry.get("parameter_storage")) == policy
+            or (
+                guard.canonical_policy(entry.get("parameter_storage")) is None
+                and policy == "fp32"
+            )
+        )
     ]
 
 
@@ -376,6 +382,35 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
+    def test_fp32_scoped_entries_are_visible_to_default_receipts(self) -> None:
+        """A default receipt looks up the canonical `fp32` scope, not `None`.
+
+        The runtime's default policy is literally `fp32`; treating it as a
+        policy-less receipt made every AMD entry invisible to this guard and
+        turned a following default into an apparent route mismatch.
+        """
+        producer = guard.PRODUCERS_BY_NAME["time-mix-projection"]
+        entry = {
+            "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+            "width": 128,
+            "batch": 1,
+            "route": "fused",
+            "parameter_storage": "fp32",
+            "candidates": {"fused": 1.0, "staged": 1.1},
+        }
+        record = {"decisions": [entry], "withheld": []}
+        receipt = {
+            "device": entry["device"],
+            "width": 128,
+            "parameter_storage": None,
+            "batches": [{"batch": 1}],
+        }
+        lookup, _ = guard.entries_for(producer, record, receipt)
+        self.assertIs(lookup.get(1), entry)
+        receipt["parameter_storage"] = "fp16-storage"
+        lookup, _ = guard.entries_for(producer, record, receipt)
+        self.assertNotIn(1, lookup)
+
     def test_the_fp16_receipt_must_measure_the_fp16_policy(self) -> None:
         producer = guard.PRODUCERS_BY_NAME["low-rank-forward-fp16"]
         receipt, record = load(producer)
@@ -485,9 +520,9 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         # Corrupt the receipt's own adapter, even when another adapter has the
         # same batch earlier in the merged record.
         entry = entries_by_batch(producer, receipt, record)[0][16]
-        entry["route"] = "fused"
-        entry["candidates"]["fused"] = entry["candidates"]["staged"] * 0.90
-        self.assert_rejected(producer, receipt, record, "the record names")
+        entry["route"] = "staged" if entry["route"] == "fused" else "fused"
+        entry["candidates"][entry["route"]] = min(entry["candidates"].values()) * 0.90
+        self.assert_rejected(producer, receipt, record, "the default built")
 
     def test_composition_ignores_verdicts_at_batches_it_did_not_run(self) -> None:
         receipt = json.loads(guard.PACKED_COMPOSITION.receipt.read_text(encoding="utf-8"))

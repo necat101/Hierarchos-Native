@@ -10,11 +10,11 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 1,
-      "route": "wide-fused",
+      "route": "narrow-fused",
       "candidates": {
-        "wide-fused": 0.020828,
-        "narrow-fused": 0.022777,
-        "staged": 0.034407
+        "wide-fused": 0.026277,
+        "narrow-fused": 0.023077,
+        "staged": 0.034486
       },
       "probe": "key-state-forward",
       "source": "measured",
@@ -25,11 +25,11 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 4,
-      "route": "wide-fused",
+      "route": "narrow-fused",
       "candidates": {
-        "wide-fused": 0.027322,
-        "narrow-fused": 0.028444,
-        "staged": 0.042042
+        "wide-fused": 0.031866,
+        "narrow-fused": 0.027994,
+        "staged": 0.041682
       },
       "probe": "key-state-forward",
       "source": "measured",
@@ -40,11 +40,11 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 8,
-      "route": "wide-fused",
+      "route": "narrow-fused",
       "candidates": {
-        "wide-fused": 0.033438,
-        "narrow-fused": 0.034424,
-        "staged": 0.053512
+        "wide-fused": 0.039928,
+        "narrow-fused": 0.034236,
+        "staged": 0.052752
       },
       "probe": "key-state-forward",
       "source": "measured",
@@ -55,11 +55,11 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 16,
-      "route": "wide-fused",
+      "route": "narrow-fused",
       "candidates": {
-        "wide-fused": 0.044826,
-        "narrow-fused": 0.05065,
-        "staged": 0.068223
+        "wide-fused": 0.057951,
+        "narrow-fused": 0.048817,
+        "staged": 0.071933
       },
       "probe": "key-state-forward",
       "source": "measured",
@@ -70,11 +70,11 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 32,
-      "route": "wide-fused",
+      "route": "narrow-fused",
       "candidates": {
-        "wide-fused": 0.083139,
-        "narrow-fused": 0.090514,
-        "staged": 0.123265
+        "wide-fused": 0.104244,
+        "narrow-fused": 0.087915,
+        "staged": 0.118709
       },
       "probe": "key-state-forward",
       "source": "measured",

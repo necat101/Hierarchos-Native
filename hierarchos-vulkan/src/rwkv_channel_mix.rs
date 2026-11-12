@@ -664,15 +664,23 @@ impl RwkvChannelMixOp {
         } else {
             self.recorded_full_forward_route(batch)
         };
+        // A recorded `staged` verdict is a measurement of this complete graph,
+        // including the portable `linear-residual-forward` fallback where the
+        // AMD/Intel module did not win its geometry. Requiring the vendor gate
+        // here as well would make the record unadoptable on exactly the portable
+        // geometries it measured, which is how the RDNA3 batch-32 `staged` entry
+        // was left unbuilt against the compiled record. The gate still decides
+        // every unrecorded geometry.
+        let vendor_ready = crate::vendor::unmeasured_composition_is_qualified(
+            self.device.vendor_id(),
+        ) && self.linear_residual_forward.selects_variant_for(
+            batch as u32,
+            self.hidden_width as u32,
+            self.width as u32,
+        );
         crate::decision_records::prefers_composition(
             self.forward_fusion_forced,
-            (crate::vendor::unmeasured_composition_is_qualified(self.device.vendor_id())
-                || measured.is_some())
-                && self.linear_residual_forward.selects_variant_for(
-                    batch as u32,
-                    self.hidden_width as u32,
-                    self.width as u32,
-                ),
+            measured.is_some() || vendor_ready,
             measured,
         )
     }

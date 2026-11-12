@@ -765,10 +765,8 @@ def entries_for(
         if normalized(entry["device"]) != device or entry["width"] != width:
             continue
         scope = canonical_policy(entry.get("parameter_storage"))
-        if producer.policy is None:
-            if scope is not None:
-                continue
-        elif scope is not None and scope != producer.policy:
+        policy = receipt_policy(receipt)
+        if scope is not None and scope != policy:
             continue
         applicable.append(entry)
     lookup: dict[int, dict] = {}
@@ -788,7 +786,7 @@ def entries_for(
             )
         # The scoped verdict is what the op reads; the shared one is only the
         # fallback, so a scoped entry shadows it.
-        if scope == producer.policy and scopes[batch] is None:
+        if scope == receipt_policy(receipt) and scopes[batch] is None:
             lookup[batch] = entry
             scopes[batch] = scope
     held = withheld_for(producer, record, receipt)
@@ -813,10 +811,7 @@ def withheld_for(producer: Producer, record: dict, receipt: dict) -> dict[int, d
         if normalized(entry["device"]) != device or entry["width"] != width:
             continue
         scope = canonical_policy(entry.get("parameter_storage"))
-        if producer.policy is None:
-            if scope is not None:
-                continue
-        elif scope is not None and scope != producer.policy:
+        if scope is not None and scope != receipt_policy(receipt):
             continue
         held[entry["batch"]] = entry
     return held
@@ -941,6 +936,7 @@ def check_entries(
     applicable: list[dict],
     withheld: dict[int, dict],
     margin: float,
+    policy: str,
 ) -> None:
     measured = {row["batch"] for row in rows}
     # A consumer reads a producer's record, which covers that producer's full
@@ -968,7 +964,10 @@ def check_entries(
                 "route was never measured"
             )
         scope = canonical_policy(entry.get("parameter_storage"))
-        if producer.policy is None or scope == producer.policy:
+        # A scoped receipt may read a shared fallback measured by the dense
+        # driver; that is its provenance, not a mismatch. The default `fp32`
+        # receipt owns the shared entry and must check its driver.
+        if scope == policy or (scope is None and policy == "fp32"):
             driver = entry.get("measured_by", record.get("measured_by"))
             if driver != producer.measured_by:
                 raise Problem(
@@ -1188,15 +1187,21 @@ def check_row(
                 f"batch {batch}: the receipt was measured against route {recorded_route!r} but "
                 f"the record now names {entry['route']!r}; rebuild and re-record the receipt"
             )
-        measured_winner = winner(timings, producer.route_order)
-        if measured_winner != entry["route"]:
-            drift = band(timings[measured_winner], timings[entry["route"]])
-            if drift > margin:
-                raise Problem(
-                    f"batch {batch}: the record names {entry['route']!r}, but this receipt "
-                    f"measures {measured_winner!r} ahead by {drift:.1%}, outside the "
-                    f"{margin:.0%} noise band; the record is stale"
-                )
+        # A consumer measures a different workload from the producer whose
+        # record it reads (the TBPTT receipt times a whole window, not one
+        # projection), so its medians cannot declare that producer record stale.
+        # The default-route check below still proves it dispatched the recorded
+        # graph; only the cross-workload timing comparison is inapplicable.
+        if not producer.consumer:
+            measured_winner = winner(timings, producer.route_order)
+            if measured_winner != entry["route"]:
+                drift = band(timings[measured_winner], timings[entry["route"]])
+                if drift > margin:
+                    raise Problem(
+                        f"batch {batch}: the record names {entry['route']!r}, but this receipt "
+                        f"measures {measured_winner!r} ahead by {drift:.1%}, outside the "
+                        f"{margin:.0%} noise band; the record is stale"
+                    )
     elif default_checked and not producer.consumer and not withheld:
         # This adapter has decisions elsewhere, so a geometry outside the band
         # with no entry is a measured crossover the record has not absorbed. The
@@ -1228,6 +1233,10 @@ def check_row(
 
     if entry is not None:
         expected = "composed" if entry["route"] == "staged" else row["fused_label"]
+    elif withheld:
+        # The runtime skips a withheld verdict even where the vendor gate would
+        # otherwise compose, so the structural graph is what it must build.
+        expected = row["fused_label"]
     elif producer.fallback == "vendor":
         expected = "composed" if row.get(producer.vendor_flag or "") else row["fused_label"]
     else:
@@ -1274,6 +1283,7 @@ def check_consumer_chain_routes(producer: Producer, receipt: dict) -> None:
     """
     device = normalized(receipt["device"])
     width = receipt["width"]
+    policy = receipt_policy(receipt)
     for record_path, kind, default, field in producer.chains:
         if not record_path.exists():
             raise Problem(f"missing {record_path}; the chain route record is not optional")
@@ -1283,11 +1293,16 @@ def check_consumer_chain_routes(producer: Producer, receipt: dict) -> None:
                 f"{record_path.name} is {record.get('kind')!r} schema "
                 f"{record.get('schema')!r}, expected {kind!r} schema 2"
             )
-        entries = {
-            entry["batch"]: entry
-            for entry in record["decisions"]
-            if normalized(entry["device"]) == device and entry["width"] == width
-        }
+        entries: dict[int, dict] = {}
+        for entry in record["decisions"]:
+            if normalized(entry["device"]) != device or entry["width"] != width:
+                continue
+            scope = canonical_policy(entry.get("parameter_storage"))
+            if scope is not None and scope != policy:
+                continue
+            batch = entry["batch"]
+            if batch not in entries or scope == policy:
+                entries[batch] = entry
         for row in receipt["batches"]:
             batch = row["batch"]
             if field not in row:
@@ -1323,7 +1338,9 @@ def check_producer(
     lookup, applicable = entries_for(producer, record, receipt)
     withheld = withheld_for(producer, record, receipt)
     check_sweep(rows, sweep)
-    check_entries(producer, record, rows, lookup, applicable, withheld, margin)
+    check_entries(
+        producer, record, rows, lookup, applicable, withheld, margin, receipt_policy(receipt)
+    )
     if producer.consumer and producer.chains:
         check_consumer_chain_routes(producer, receipt)
     default_checked = bool(applicable)
@@ -1353,15 +1370,19 @@ def check_producer(
     return report
 
 
-def receipt_policy(receipt: dict) -> str | None:
-    """The parameter-storage policy a chain receipt measured under.
+def receipt_policy(receipt: dict) -> str:
+    """The parameter-storage policy the runtime actually looks up.
 
-    `fp32` and an absent field are the same unscoped default; only a scoped
-    receipt names a storage policy.
+    `fp32` is not the same lookup as a policy-less record entry: the runtime
+    calls `route_scoped(..., "fp32")` for the default storage policy, so an
+    explicit `parameter_storage: "fp32"` entry is the scoped winner while a
+    policy-less entry is its fallback. Treating `fp32` as `None` here made the
+    guard skip every AMD entry and expect the structural default instead of the
+    measured route.
     """
     policy = receipt.get("parameter_storage")
-    if policy in (None, "", "fp32"):
-        return None
+    if policy in (None, ""):
+        return "fp32"
     return canonical_policy(policy)
 
 
@@ -1381,9 +1402,7 @@ def chain_entries(record: dict, receipt: dict) -> list[dict]:
         if normalized(entry["device"]) != device or entry["width"] != width:
             continue
         scope = canonical_policy(entry.get("parameter_storage"))
-        if policy is None and scope is not None:
-            continue
-        if policy is not None and scope is not None and scope != policy:
+        if scope is not None and scope != policy:
             continue
         entries.append(entry)
     return entries
@@ -1402,10 +1421,9 @@ def chain_lookup(record: dict, receipt: dict, applicable: list[dict]) -> dict[in
         if canonical_policy(entry.get("parameter_storage")) is None
     }
     lookup = dict(shared)
-    if policy is not None:
-        for entry in applicable:
-            if canonical_policy(entry.get("parameter_storage")) == policy:
-                lookup[entry["batch"]] = entry
+    for entry in applicable:
+        if canonical_policy(entry.get("parameter_storage")) == policy:
+            lookup[entry["batch"]] = entry
     for batch in chain_withheld_batches(record, receipt):
         lookup.pop(batch, None)
     return lookup
@@ -1421,10 +1439,7 @@ def chain_withheld_batches(record: dict, receipt: dict) -> set[int]:
         if normalized(entry["device"]) != device or entry["width"] != width:
             continue
         scope = canonical_policy(entry.get("parameter_storage"))
-        if policy is None:
-            if scope is None:
-                held.add(entry["batch"])
-        elif scope == policy:
+        if scope is None or scope == policy:
             held.add(entry["batch"])
     return held
 
@@ -1708,7 +1723,13 @@ def check_chain_producer(
     measured_entries = [
         entry
         for entry in applicable
-        if canonical_policy(entry.get("parameter_storage")) == policy
+        if (
+            canonical_policy(entry.get("parameter_storage")) == policy
+            or (
+                canonical_policy(entry.get("parameter_storage")) is None
+                and policy == "fp32"
+            )
+        )
     ]
     stray = sorted({entry["batch"] for entry in measured_entries} - measured)
     if stray:

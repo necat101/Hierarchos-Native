@@ -1,0 +1,6 @@
+tbptt-time-mix: batch  1: fused        fused   7.535 ms  staged   7.840 ms
+tbptt-time-mix: batch  4: fused        fused   9.302 ms  staged   9.666 ms
+tbptt-time-mix: batch  8: withheld     fused  10.652 ms  staged  10.848 ms
+tbptt-time-mix: batch 16: fused        fused  15.502 ms  staged  15.976 ms
+PASS: tbptt-time-mix is measured across batch 1, 4, 8, 16 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184], and its record follows it; 2 geometry(ies) are measured but withheld from the runtime because their graphs are not bit-identical
+PASS: 1 receipt(s) re-checked against the record(s) they consume: tbptt-time-mix

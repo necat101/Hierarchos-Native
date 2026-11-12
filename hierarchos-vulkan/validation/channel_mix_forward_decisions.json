@@ -12,8 +12,8 @@
       "batch": 1,
       "route": "fused",
       "candidates": {
-        "fused": 1.096,
-        "staged": 1.1317
+        "fused": 1.17875,
+        "staged": 1.2276
       },
       "probe": "linear_residual-forward",
       "source": "measured",
@@ -26,8 +26,8 @@
       "batch": 4,
       "route": "fused",
       "candidates": {
-        "fused": 2.3578,
-        "staged": 2.48545
+        "fused": 2.9349,
+        "staged": 2.98465
       },
       "probe": "linear_residual-forward",
       "source": "measured",
@@ -38,10 +38,10 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 8,
-      "route": "fused",
+      "route": "staged",
       "candidates": {
-        "fused": 3.4492,
-        "staged": 3.5362
+        "fused": 4.3942,
+        "staged": 4.28325
       },
       "probe": "linear_residual-forward",
       "source": "measured",
@@ -52,10 +52,10 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 16,
-      "route": "fused",
+      "route": "staged",
       "candidates": {
-        "fused": 5.42185,
-        "staged": 5.44205
+        "fused": 8.2174,
+        "staged": 7.90635
       },
       "probe": "linear_residual-forward",
       "source": "measured",
@@ -66,10 +66,10 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 32,
-      "route": "staged",
+      "route": "fused",
       "candidates": {
-        "fused": 12.01145,
-        "staged": 10.77075
+        "fused": 13.82035,
+        "staged": 14.0049
       },
       "probe": "linear_residual-forward",
       "source": "measured",

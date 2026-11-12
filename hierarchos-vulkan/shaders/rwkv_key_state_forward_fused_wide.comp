@@ -30,17 +30,15 @@
 // so the graphs stay bit-identical and this remains a scheduling change, not a
 // numerics one.
 //
-// *Staged state operands.* The row loop's operands depend only on the channel:
-// `decay` is exp(-exp(w)), `context` is kk * a, and the receptance is r. The row
-// loop used to re-evaluate all three for every row, which is head_size times the
-// transcendentals and three more global reads per row than the row work needs.
-// It was invisible while the launch dominated, and then it was the whole gap at
-// batch 32: with 64 workgroups resident the redundant exponentials and loads set
-// the throughput, and the kernel lost 19% to the chain. The transform phase
-// already visits every channel, so it publishes the three operands through shared
-// memory and the row loop reads only the state row, its own value and shared
-// memory. Same expressions, same order, evaluated once -- the wide-vs-narrow
-// comparison stays exactly zero.
+// *Staged state operands.* The transform phase publishes the normalized key for
+// the `sa` reduction through shared memory; the state phase's other operands
+// (`decay`, `context`, `scaled_k`, receptance and value) are read from their
+// global buffers after a `memoryBarrierBuffer`. Staging those operands through
+// shared memory changed the driver's product contraction on RDNA3 and moved
+// `new_state` by one FP32 ulp against the two-dispatch chain, so this kernel
+// keeps the global reads for the exact-parity contract. The buffer barrier is
+// required because the transform phase wrote `kk` and `scaled_k` in this same
+// dispatch.
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
@@ -52,8 +50,8 @@ layout(set = 0, binding = 4, std430) readonly buffer StateBuffer { float state_v
 layout(set = 0, binding = 5, std430) readonly buffer ReceptanceBuffer { float r[]; };
 layout(set = 0, binding = 6, std430) readonly buffer ValueBuffer { float v[]; };
 layout(set = 0, binding = 7, std430) readonly buffer DecayLogBuffer { float w[]; };
-layout(set = 0, binding = 8, std430) writeonly buffer ScaledKeyBuffer { float scaled_k[]; };
-layout(set = 0, binding = 9, std430) writeonly buffer NormalizedKeyBuffer { float kk[]; };
+layout(set = 0, binding = 8, std430) buffer ScaledKeyBuffer { float scaled_k[]; };
+layout(set = 0, binding = 9, std430) buffer NormalizedKeyBuffer { float kk[]; };
 layout(set = 0, binding = 10, std430) writeonly buffer NewStateBuffer { float new_state[]; };
 layout(set = 0, binding = 11, std430) writeonly buffer TimeMixBuffer { float tmix[]; };
 layout(set = 0, binding = 12, std430) writeonly buffer SavedSaBuffer { float saved_sa[]; };
@@ -67,20 +65,15 @@ layout(push_constant) uniform Push {
 // One slot per head the group covers; slot_count * head_size <= 64 because
 // slot_count is 64 / head_size. head_size is <= 64 wherever this kernel is
 // built, which is what keeps every row lane inside a workgroup.
-shared float scaled_k_shared[64];
 shared float kk_shared[64];
 // One normalization constant per head slot, published by that slot's first row
 // lane. Keeping it out of every lane's registers is what lets the elementwise
 // pass below run on all 64 lanes without each of them re-reading the head.
 shared float denom_shared[64];
-// The state phase's per-channel operands, staged once by the transform phase.
-// `decay` is exp(-exp(w)) and `context` is kk * a; both depend only on the
-// channel, yet the row loop would recompute them head_size times per head --
-// 16x the transcendentals and three more global reads per row than the row work
-// needs. Staging them here is the same products in the same order, just once.
-shared float decay_shared[64];
-shared float context_shared[64];
-shared float receptance_shared[64];
+// `kk_shared` is the only state operand staged through shared memory: the `sa`
+// reduction below reads it after the transform phase. The other per-channel
+// state operands are read from their global buffers (see the header) so the
+// driver contracts them exactly as the two-dispatch chain does.
 
 void main() {
     uint heads = pc.width / pc.head_size;
@@ -136,21 +129,11 @@ void main() {
         float scaled = raw * scale;
         kk[index] = normalized;
         scaled_k[index] = scaled;
-        uint shared_index = slot * pc.head_size + row;
-        kk_shared[shared_index] = normalized;
-        scaled_k_shared[shared_index] = scaled;
-        // Same expressions the row loop used to evaluate per row, evaluated once
-        // per channel and published. `bounded_w` keeps the guest-value handling
-        // exactly as it was, so the staged decay is bit-identical.
-        float bounded_w = (isnan(w[index]) || isinf(w[index]))
-            ? w[index]
-            : clamp(w[index], -60.0, 30.0);
-        decay_shared[shared_index] = exp(-exp(bounded_w));
-        context_shared[shared_index] = normalized * a[index];
-        receptance_shared[shared_index] = r[index];
+        kk_shared[slot * pc.head_size + row] = normalized;
     }
 
     memoryBarrierShared();
+    memoryBarrierBuffer();
     barrier();
 
     if (!lane_active) {
@@ -176,11 +159,17 @@ void main() {
     float value_row = v[base + row];
     for (uint col = 0; col < pc.head_size; ++col) {
         uint matrix_index = matrix_row_base + col;
-        float updated = state_values[matrix_index] * decay_shared[shared_base + col]
-            + sa * context_shared[shared_base + col]
-            + value_row * scaled_k_shared[shared_base + col];
+        uint channel_col = base + col;
+        float bounded_w = (isnan(w[channel_col]) || isinf(w[channel_col]))
+            ? w[channel_col]
+            : clamp(w[channel_col], -60.0, 30.0);
+        float decay = exp(-exp(bounded_w));
+        float b = kk[channel_col] * a[channel_col];
+        float updated = state_values[matrix_index] * decay
+            + sa * b
+            + value_row * scaled_k[channel_col];
         new_state[matrix_index] = updated;
-        row_tmix = fma(updated, receptance_shared[shared_base + col], row_tmix);
+        row_tmix = fma(updated, r[channel_col], row_tmix);
     }
     tmix[linear_row] = row_tmix;
 }

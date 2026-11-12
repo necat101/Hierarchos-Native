@@ -1,0 +1,29 @@
+{
+  "source_revision": "b03bf0919ea0b3bfb4fcbc6964674131bbc4464d",
+  "source_files": {
+    "shaders/rwkv_key_state_forward_fused_wide.comp": "009a28a53528988cc935cc6f0325f7d6c7ac8a6d5d09cc1ebf7480d4bc7f5833",
+    "shaders/rwkv_key_state_forward_fused_wide.spv": "8aab7de3744660928ea49c0f012bbadfe86816ae30ac2ccaa7dc38322781942e",
+    "src/rwkv_channel_mix.rs": "cfafe8289852fbf09250ba271f649f08c3d689a8590a8d23ea645c68fa327357",
+    "src/rwkv_time_mix_core.rs": "3d93df7068396d686bb0266a270c78a402c68dcd543267cdc591f1be1ed5ac35",
+    "validation/check_measured_producer_routes.py": "7ae47e36d8352fcb569ff81c36fc4acda9b5471b3827cb1392ce2c50ca0144e9",
+    "validation/channel_mix_forward_decisions.json": "9ce359a2623d3ffcc5d6dbc22b518666e83629670621ef301483895d671a1e87",
+    "validation/key_state_forward_decisions.json": "3c1a4e35fe9d4dad4dcd888192ceaf57da58074c12b40a9bbffefbb08b836e24",
+    "validation/tbptt_packed_forward_decisions.json": "c55f367358a675f96b21eede610392a9252c41b2bf065f7b0b08881c73af7ba5",
+    "validation/tbptt_packed_rematerialization_decisions.json": "509dedfb01fd6dbf2bf63d7c098c42d9cfcde9e30e9901bd60c90a09c360dcd3",
+    "validation/verify_rwkv_cpu_bridge.py": "1e50f58afcab17f3f17a6b90bcf62550a1f71b927938ca250ef57f8c97d3f9b3",
+    "validation/verify_rwkv_packed_cell_composition.py": "bcbba40328ba66abad5bffa29934131ab838ddc63da97f210ecfddb3206dee9f",
+    "validation/test_measured_producer_routes.py": "22a5ca2bd801d8b18ab900a23f8d3b2855b556f418fcd13f362b3ceafddb58f5",
+    "validation/test_safetensors_atomic_replace.py": "55de757422afb17658b1165a4daf85c784f9b7157a98f09fb19ce4112f10fa84"
+  },
+  "shaders": {
+    "rwkv_key_state_forward_fused_wide.spv": "8aab7de3744660928ea49c0f012bbadfe86816ae30ac2ccaa7dc38322781942e"
+  },
+  "binaries": {
+    "key_state_forward_bench": "07368a77a88a94cf2f6733b1eaae78ba0e1f2e9cfcf9b0aa19f85ba7e8576c74",
+    "time_mix_bench": "67c5d52ffaf9903cc1edecf6f1ceff38a7c6244608f68686daa0873bdeae5816",
+    "channel_mix_bench": "58079f3cb73804b531131703ff7c6783aacdf59255799e045fe5b47077ebe43a",
+    "tbptt_bench": "285b659dfd0a2e70aa981266d7f885add6d40f1f0ad66338f3b22b7a835aa6e8",
+    "tbptt_time_mix_bench": "a906691f1d1f2b2dc630ea0604eb06ed290f754e0e63089803f2ecedbd883bee"
+  },
+  "baseline_sha256": "bad4795ba44d8ff17b31c9f06bf29c5de5a0073362f2d0e2a202043ca138bde8"
+}

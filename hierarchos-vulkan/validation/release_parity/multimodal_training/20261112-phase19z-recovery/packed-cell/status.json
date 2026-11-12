@@ -1,0 +1,991 @@
+{
+  "schema": 1,
+  "kind": "phase19z-packed-cell-recovery-amd-local",
+  "status": "PASS",
+  "generated_utc": "2026-11-12T06:52:16+00:00",
+  "source_revision": "b03bf0919ea0b3bfb4fcbc6964674131bbc4464d",
+  "source_clean": false,
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "adapter": "amd-rdna3-lds64",
+  "workflow_sweep": "batch 1,4,8,16,32; workflow settings unless a route is marked with its stabilized sample count",
+  "baseline": {
+    "receipt": "validation/release_parity/multimodal_training/20261112-phase19z-current-source/packed-cell/status.json",
+    "sha256": "bad4795ba44d8ff17b31c9f06bf29c5de5a0073362f2d0e2a202043ca138bde8",
+    "status": "PARTIAL",
+    "preserved": true
+  },
+  "source_files": {
+    "shaders/rwkv_key_state_forward_fused_wide.comp": "009a28a53528988cc935cc6f0325f7d6c7ac8a6d5d09cc1ebf7480d4bc7f5833",
+    "shaders/rwkv_key_state_forward_fused_wide.spv": "8aab7de3744660928ea49c0f012bbadfe86816ae30ac2ccaa7dc38322781942e",
+    "src/rwkv_channel_mix.rs": "cfafe8289852fbf09250ba271f649f08c3d689a8590a8d23ea645c68fa327357",
+    "src/rwkv_time_mix_core.rs": "3d93df7068396d686bb0266a270c78a402c68dcd543267cdc591f1be1ed5ac35",
+    "validation/check_measured_producer_routes.py": "7ae47e36d8352fcb569ff81c36fc4acda9b5471b3827cb1392ce2c50ca0144e9",
+    "validation/channel_mix_forward_decisions.json": "9ce359a2623d3ffcc5d6dbc22b518666e83629670621ef301483895d671a1e87",
+    "validation/key_state_forward_decisions.json": "3c1a4e35fe9d4dad4dcd888192ceaf57da58074c12b40a9bbffefbb08b836e24",
+    "validation/tbptt_packed_forward_decisions.json": "c55f367358a675f96b21eede610392a9252c41b2bf065f7b0b08881c73af7ba5",
+    "validation/tbptt_packed_rematerialization_decisions.json": "509dedfb01fd6dbf2bf63d7c098c42d9cfcde9e30e9901bd60c90a09c360dcd3",
+    "validation/verify_rwkv_cpu_bridge.py": "1e50f58afcab17f3f17a6b90bcf62550a1f71b927938ca250ef57f8c97d3f9b3",
+    "validation/verify_rwkv_packed_cell_composition.py": "bcbba40328ba66abad5bffa29934131ab838ddc63da97f210ecfddb3206dee9f",
+    "validation/test_measured_producer_routes.py": "22a5ca2bd801d8b18ab900a23f8d3b2855b556f418fcd13f362b3ceafddb58f5",
+    "validation/test_safetensors_atomic_replace.py": "55de757422afb17658b1165a4daf85c784f9b7157a98f09fb19ce4112f10fa84"
+  },
+  "shaders": {
+    "rwkv_key_state_forward_fused_wide.spv": "8aab7de3744660928ea49c0f012bbadfe86816ae30ac2ccaa7dc38322781942e"
+  },
+  "binaries": {
+    "key_state_forward_bench": "07368a77a88a94cf2f6733b1eaae78ba0e1f2e9cfcf9b0aa19f85ba7e8576c74",
+    "time_mix_bench": "67c5d52ffaf9903cc1edecf6f1ceff38a7c6244608f68686daa0873bdeae5816",
+    "channel_mix_bench": "58079f3cb73804b531131703ff7c6783aacdf59255799e045fe5b47077ebe43a",
+    "tbptt_bench": "285b659dfd0a2e70aa981266d7f885add6d40f1f0ad66338f3b22b7a835aa6e8",
+    "tbptt_time_mix_bench": "a906691f1d1f2b2dc630ea0604eb06ed290f754e0e63089803f2ecedbd883bee"
+  },
+  "routes": {
+    "time-mix-projection": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "parameter_storage": null,
+      "numerical_worst_max_abs": 0.0,
+      "batches": [
+        {
+          "batch": 1,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "fused",
+          "fused_ms": 1.27515,
+          "composed_ms": 1.2852000000000001,
+          "default_ms": 1.2662,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.0078814257146218,
+          "default_over_fused": 0.9929812178959339,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 4,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "fused",
+          "fused_ms": 2.7424999999999997,
+          "composed_ms": 2.7461,
+          "default_ms": 2.5045,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.001312670920693,
+          "default_over_fused": 0.913217866909754,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 8,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 4.25095,
+          "composed_ms": 4.31035,
+          "default_ms": 3.9555,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.01397334713417,
+          "default_over_fused": 0.9304978887072302,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 16,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "fused",
+          "fused_ms": 7.480500000000001,
+          "composed_ms": 7.513249999999999,
+          "default_ms": 7.5119,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.004378049595615,
+          "default_over_fused": 1.004197580375643,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 32,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 13.35755,
+          "composed_ms": 13.1008,
+          "default_ms": 13.41015,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 0.9807786607573994,
+          "default_over_fused": 1.003937847883781,
+          "selected_route": "fused"
+        }
+      ]
+    },
+    "channel-mix": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "parameter_storage": null,
+      "numerical_worst_max_abs": 0.0,
+      "batches": [
+        {
+          "batch": 1,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "fused",
+          "fused_ms": 1.7077,
+          "composed_ms": 1.82335,
+          "default_ms": 1.72065,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.0677226679159104,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 4,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "fused",
+          "fused_ms": 2.60915,
+          "composed_ms": 2.78405,
+          "default_ms": 2.858,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.067033325029224,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 8,
+          "worst_max_abs": 0.0,
+          "default_label": "composed",
+          "expected_default_label": "composed",
+          "recorded_route": "staged",
+          "fused_ms": 3.5716,
+          "composed_ms": 3.53945,
+          "default_ms": 3.5256,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 0.9909984320752604,
+          "selected_route": "composed"
+        },
+        {
+          "batch": 16,
+          "worst_max_abs": 0.0,
+          "default_label": "composed",
+          "expected_default_label": "composed",
+          "recorded_route": "staged",
+          "fused_ms": 7.951549999999999,
+          "composed_ms": 7.7705,
+          "default_ms": 7.826700000000001,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 0.9772308543617283,
+          "selected_route": "composed"
+        },
+        {
+          "batch": 32,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "fused",
+          "fused_ms": 14.1946,
+          "composed_ms": 14.230599999999999,
+          "default_ms": 14.18215,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.0025361757287983,
+          "selected_route": "fused"
+        }
+      ]
+    },
+    "low-rank-forward": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "parameter_storage": null,
+      "numerical_worst_max_abs": 1.2874603271484375e-05,
+      "batches": [
+        {
+          "batch": 1,
+          "worst_max_abs": 1.1444091796875e-05,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 1.3899,
+          "composed_ms": 1.38895,
+          "default_ms": 1.4342,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 0.9993164975897546,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 4,
+          "worst_max_abs": 9.059906005859375e-06,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 2.8598,
+          "composed_ms": 2.5885,
+          "default_ms": 2.88375,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 0.9051332260997272,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 8,
+          "worst_max_abs": 1.2874603271484375e-05,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 4.24545,
+          "composed_ms": 4.2499,
+          "default_ms": 4.2028,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.00104818099377,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 16,
+          "worst_max_abs": 9.5367431640625e-06,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 8.39405,
+          "composed_ms": 8.182,
+          "default_ms": 8.432749999999999,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 0.9747380585057274,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 32,
+          "worst_max_abs": 9.5367431640625e-06,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "fused",
+          "fused_ms": 14.3753,
+          "composed_ms": 14.696850000000001,
+          "default_ms": 14.955850000000002,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.0223682288369635,
+          "selected_route": "fused"
+        }
+      ]
+    },
+    "low-rank-forward-fp16": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "parameter_storage": "fp16-storage",
+      "numerical_worst_max_abs": 2.384185791015625e-07,
+      "batches": [
+        {
+          "batch": 1,
+          "worst_max_abs": 2.384185791015625e-07,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 1.4699,
+          "composed_ms": 1.4011,
+          "default_ms": 1.4666000000000001,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 0.9531940948363834,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 4,
+          "worst_max_abs": 2.384185791015625e-07,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 1.5156,
+          "composed_ms": 1.4864,
+          "default_ms": 1.53145,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 0.980733702823964,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 8,
+          "worst_max_abs": 2.384185791015625e-07,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 1.5391,
+          "composed_ms": 1.3967,
+          "default_ms": 1.51585,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 0.9074783964654669,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 16,
+          "worst_max_abs": 2.384185791015625e-07,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 1.6694,
+          "composed_ms": 1.54065,
+          "default_ms": 1.68215,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 0.9228764825685876,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 32,
+          "worst_max_abs": 2.384185791015625e-07,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 1.95805,
+          "composed_ms": 1.7620999999999998,
+          "default_ms": 1.947,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 0.8999259467327186,
+          "selected_route": "fused"
+        }
+      ]
+    },
+    "key-state-forward": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "parameter_storage": null,
+      "numerical_worst_max_abs": 0.0,
+      "batches": [
+        {
+          "batch": 1,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "narrow-fused",
+          "default_arm": "key-state-forward-fused",
+          "narrow_ms": 0.023024999999999997,
+          "fused_ms": 0.026357,
+          "composed_ms": 0.03548,
+          "default_ms": 0.023316,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.3461319573547825,
+          "narrow_over_fused": 0.8735819706339871,
+          "default_over_fused": 0.8846226808817392,
+          "selected_route": "narrow-fused"
+        },
+        {
+          "batch": 4,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "narrow-fused",
+          "default_arm": "key-state-forward-fused",
+          "narrow_ms": 0.028283999999999997,
+          "fused_ms": 0.032023,
+          "composed_ms": 0.041975,
+          "default_ms": 0.028639,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.3107766292976921,
+          "narrow_over_fused": 0.8832401711270024,
+          "default_over_fused": 0.8943259532211223,
+          "selected_route": "narrow-fused"
+        },
+        {
+          "batch": 8,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "narrow-fused",
+          "default_arm": "key-state-forward-fused",
+          "narrow_ms": 0.034272,
+          "fused_ms": 0.038022,
+          "composed_ms": 0.051043000000000005,
+          "default_ms": 0.035337,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.3424596286360528,
+          "narrow_over_fused": 0.9013728893798327,
+          "default_over_fused": 0.9293829887959603,
+          "selected_route": "narrow-fused"
+        },
+        {
+          "batch": 16,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "narrow-fused",
+          "default_arm": "key-state-forward-fused",
+          "narrow_ms": 0.050789,
+          "fused_ms": 0.058446,
+          "composed_ms": 0.07193300000000001,
+          "default_ms": 0.051487,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.2307600177942033,
+          "narrow_over_fused": 0.8689901789686206,
+          "default_over_fused": 0.8809328268829347,
+          "selected_route": "narrow-fused"
+        },
+        {
+          "batch": 32,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "narrow-fused",
+          "default_arm": "key-state-forward-fused",
+          "narrow_ms": 0.087083,
+          "fused_ms": 0.10582599999999999,
+          "composed_ms": 0.119179,
+          "default_ms": 0.087005,
+          "fused_label": "fused",
+          "composed_label": "composed",
+          "composed_over_fused": 1.1261788218396236,
+          "narrow_over_fused": 0.8228885151097084,
+          "default_over_fused": 0.8221514561638917,
+          "selected_route": "narrow-fused"
+        }
+      ]
+    },
+    "tbptt-packed-forward": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "parameter_storage": "fp32",
+      "numerical_worst_max_abs": 0.0,
+      "batches": [
+        {
+          "batch": 1,
+          "worst_max_abs": 0.0,
+          "default_label": "legacy",
+          "expected_default_label": "legacy",
+          "recorded_route": "legacy",
+          "default_ms": 7.30495,
+          "packed_ms": 7.2123,
+          "legacy_ms": 7.20305,
+          "packed_over_legacy": 1.0012841782300552,
+          "selected_route": "legacy"
+        },
+        {
+          "batch": 4,
+          "worst_max_abs": 0.0,
+          "default_label": "packed",
+          "expected_default_label": "packed",
+          "recorded_route": null,
+          "default_ms": 9.095749999999999,
+          "packed_ms": 9.2375,
+          "legacy_ms": 9.2497,
+          "packed_over_legacy": 0.998681038303945,
+          "selected_route": "packed"
+        },
+        {
+          "batch": 8,
+          "worst_max_abs": 0.0,
+          "default_label": "packed",
+          "expected_default_label": "packed",
+          "recorded_route": null,
+          "default_ms": 12.7246,
+          "packed_ms": 12.71875,
+          "legacy_ms": 12.589849999999998,
+          "packed_over_legacy": 1.0102384063352623,
+          "selected_route": "packed"
+        },
+        {
+          "batch": 16,
+          "worst_max_abs": 0.0,
+          "default_label": "packed",
+          "expected_default_label": "packed",
+          "recorded_route": null,
+          "default_ms": 16.83185,
+          "packed_ms": 17.2534,
+          "legacy_ms": 17.05,
+          "packed_over_legacy": 1.0119296187683284,
+          "selected_route": "packed"
+        },
+        {
+          "batch": 32,
+          "worst_max_abs": 0.0,
+          "default_label": "packed",
+          "expected_default_label": "packed",
+          "recorded_route": "packed",
+          "default_ms": 24.00355,
+          "packed_ms": 24.5915,
+          "legacy_ms": 24.878149999999998,
+          "packed_over_legacy": 0.9884778409970195,
+          "selected_route": "packed"
+        }
+      ]
+    },
+    "tbptt-packed-rematerialization": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "parameter_storage": "fp32",
+      "numerical_worst_max_abs": 0.0,
+      "batches": [
+        {
+          "batch": 1,
+          "worst_max_abs": 0.0,
+          "default_label": "legacy",
+          "expected_default_label": "legacy",
+          "recorded_route": "legacy",
+          "default_ms": 7.2241,
+          "packed_ms": 7.22445,
+          "legacy_ms": 7.19965,
+          "packed_over_legacy": 1.0034446118908558,
+          "selected_route": "legacy"
+        },
+        {
+          "batch": 4,
+          "worst_max_abs": 0.0,
+          "default_label": "legacy",
+          "expected_default_label": "legacy",
+          "recorded_route": "legacy",
+          "default_ms": 9.0745,
+          "packed_ms": 9.1106,
+          "legacy_ms": 8.76305,
+          "packed_over_legacy": 1.039660848677116,
+          "selected_route": "legacy"
+        },
+        {
+          "batch": 8,
+          "worst_max_abs": 0.0,
+          "default_label": "legacy",
+          "expected_default_label": "legacy",
+          "recorded_route": "legacy",
+          "default_ms": 11.29065,
+          "packed_ms": 11.9998,
+          "legacy_ms": 11.230550000000001,
+          "packed_over_legacy": 1.0684962000970566,
+          "selected_route": "legacy"
+        },
+        {
+          "batch": 16,
+          "worst_max_abs": 0.0,
+          "default_label": "legacy",
+          "expected_default_label": "legacy",
+          "recorded_route": "legacy",
+          "default_ms": 19.387,
+          "packed_ms": 28.732,
+          "legacy_ms": 19.2984,
+          "packed_over_legacy": 1.488828089375285,
+          "selected_route": "legacy"
+        },
+        {
+          "batch": 32,
+          "worst_max_abs": 0.0,
+          "default_label": "legacy",
+          "expected_default_label": "legacy",
+          "recorded_route": "legacy",
+          "default_ms": 24.7009,
+          "packed_ms": 31.24585,
+          "legacy_ms": 24.904249999999998,
+          "packed_over_legacy": 1.2546392683979644,
+          "selected_route": "legacy"
+        }
+      ]
+    },
+    "tbptt-packed-forward-fp16": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "parameter_storage": "fp16-storage",
+      "numerical_worst_max_abs": 0.0,
+      "batches": [
+        {
+          "batch": 1,
+          "worst_max_abs": 0.0,
+          "default_label": "packed",
+          "expected_default_label": "packed",
+          "recorded_route": "packed",
+          "default_ms": 7.0268,
+          "packed_ms": 7.17185,
+          "legacy_ms": 7.21655,
+          "packed_over_legacy": 0.9938059044834443,
+          "selected_route": "packed"
+        },
+        {
+          "batch": 4,
+          "worst_max_abs": 0.0,
+          "default_label": "packed",
+          "expected_default_label": "packed",
+          "recorded_route": "packed",
+          "default_ms": 8.15095,
+          "packed_ms": 8.250050000000002,
+          "legacy_ms": 8.28515,
+          "packed_over_legacy": 0.995763504583502,
+          "selected_route": "packed"
+        },
+        {
+          "batch": 8,
+          "worst_max_abs": 0.0,
+          "default_label": "packed",
+          "expected_default_label": "packed",
+          "recorded_route": null,
+          "default_ms": 11.46995,
+          "packed_ms": 11.5592,
+          "legacy_ms": 11.441600000000001,
+          "packed_over_legacy": 1.0102782827576562,
+          "selected_route": "packed"
+        },
+        {
+          "batch": 16,
+          "worst_max_abs": 0.0,
+          "default_label": "packed",
+          "expected_default_label": "packed",
+          "recorded_route": null,
+          "default_ms": 16.8883,
+          "packed_ms": 17.29855,
+          "legacy_ms": 17.05685,
+          "packed_over_legacy": 1.014170260042153,
+          "selected_route": "packed"
+        },
+        {
+          "batch": 32,
+          "worst_max_abs": 0.0,
+          "default_label": "packed",
+          "expected_default_label": "packed",
+          "recorded_route": "packed",
+          "default_ms": 25.0937,
+          "packed_ms": 24.917749999999998,
+          "legacy_ms": 25.3754,
+          "packed_over_legacy": 0.9819648163181663,
+          "selected_route": "packed"
+        }
+      ]
+    },
+    "tbptt-packed-rematerialization-fp16": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "parameter_storage": "fp16-storage",
+      "numerical_worst_max_abs": 0.0,
+      "batches": [
+        {
+          "batch": 1,
+          "worst_max_abs": 0.0,
+          "default_label": "legacy",
+          "expected_default_label": "legacy",
+          "recorded_route": "legacy",
+          "default_ms": 7.3725000000000005,
+          "packed_ms": 7.22145,
+          "legacy_ms": 7.18395,
+          "packed_over_legacy": 1.005219969515378,
+          "selected_route": "legacy"
+        },
+        {
+          "batch": 4,
+          "worst_max_abs": 0.0,
+          "default_label": "legacy",
+          "expected_default_label": "legacy",
+          "recorded_route": "legacy",
+          "default_ms": 8.4762,
+          "packed_ms": 8.7442,
+          "legacy_ms": 8.4709,
+          "packed_over_legacy": 1.0322633958611245,
+          "selected_route": "legacy"
+        },
+        {
+          "batch": 8,
+          "worst_max_abs": 0.0,
+          "default_label": "legacy",
+          "expected_default_label": "legacy",
+          "recorded_route": "legacy",
+          "default_ms": 11.2395,
+          "packed_ms": 11.988949999999999,
+          "legacy_ms": 11.22575,
+          "packed_over_legacy": 1.067986548782932,
+          "selected_route": "legacy"
+        },
+        {
+          "batch": 16,
+          "worst_max_abs": 0.0,
+          "default_label": "legacy",
+          "expected_default_label": "legacy",
+          "recorded_route": "legacy",
+          "default_ms": 16.17045,
+          "packed_ms": 18.7743,
+          "legacy_ms": 16.28115,
+          "packed_over_legacy": 1.1531310748933583,
+          "selected_route": "legacy"
+        },
+        {
+          "batch": 32,
+          "worst_max_abs": 0.0,
+          "default_label": "legacy",
+          "expected_default_label": "legacy",
+          "recorded_route": "legacy",
+          "default_ms": 24.1999,
+          "packed_ms": 31.290650000000007,
+          "legacy_ms": 25.09705,
+          "packed_over_legacy": 1.2467859768379155,
+          "selected_route": "legacy"
+        }
+      ]
+    },
+    "tbptt-backward-fusion": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "parameter_storage": "fp32",
+      "numerical_worst_max_abs": 0.0,
+      "batches": [
+        {
+          "batch": 1,
+          "worst_max_abs": 0.0,
+          "default_label": "folded",
+          "expected_default_label": "folded",
+          "recorded_route": "folded",
+          "fused_ms": 7.37545,
+          "default_ms": 7.30155,
+          "fused_label": "fused",
+          "selected_route": "folded"
+        },
+        {
+          "batch": 4,
+          "worst_max_abs": 0.0,
+          "default_label": "staged",
+          "expected_default_label": "staged",
+          "recorded_route": "staged",
+          "fused_ms": 9.028300000000002,
+          "default_ms": 9.2411,
+          "fused_label": "fused",
+          "selected_route": "staged"
+        },
+        {
+          "batch": 8,
+          "worst_max_abs": 0.0,
+          "default_label": "folded",
+          "expected_default_label": "folded",
+          "recorded_route": "folded",
+          "fused_ms": 11.4967,
+          "default_ms": 11.45815,
+          "fused_label": "fused",
+          "selected_route": "folded"
+        },
+        {
+          "batch": 16,
+          "worst_max_abs": 0.0,
+          "default_label": "folded",
+          "expected_default_label": "folded",
+          "recorded_route": "folded",
+          "fused_ms": 16.739800000000002,
+          "default_ms": 16.48135,
+          "fused_label": "fused",
+          "selected_route": "folded"
+        },
+        {
+          "batch": 32,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": "fused",
+          "fused_ms": 24.589199999999998,
+          "default_ms": 24.10845,
+          "fused_label": "fused",
+          "selected_route": "fused"
+        }
+      ]
+    },
+    "tbptt-backward-fusion-fp16": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "parameter_storage": "fp16-storage",
+      "numerical_worst_max_abs": 0.0,
+      "batches": [
+        {
+          "batch": 1,
+          "worst_max_abs": 0.0,
+          "default_label": "folded",
+          "expected_default_label": "folded",
+          "recorded_route": null,
+          "fused_ms": 7.51055,
+          "default_ms": 7.453899999999999,
+          "fused_label": "fused",
+          "selected_route": "folded"
+        },
+        {
+          "batch": 4,
+          "worst_max_abs": 0.0,
+          "default_label": "folded",
+          "expected_default_label": "folded",
+          "recorded_route": "folded",
+          "fused_ms": 8.9538,
+          "default_ms": 8.94265,
+          "fused_label": "fused",
+          "selected_route": "folded"
+        },
+        {
+          "batch": 8,
+          "worst_max_abs": 0.0,
+          "default_label": "folded",
+          "expected_default_label": "folded",
+          "recorded_route": "folded",
+          "fused_ms": 11.26815,
+          "default_ms": 11.280149999999999,
+          "fused_label": "fused",
+          "selected_route": "folded"
+        },
+        {
+          "batch": 16,
+          "worst_max_abs": 0.0,
+          "default_label": "folded",
+          "expected_default_label": "folded",
+          "recorded_route": "folded",
+          "fused_ms": 16.9937,
+          "default_ms": 16.707549999999998,
+          "fused_label": "fused",
+          "selected_route": "folded"
+        },
+        {
+          "batch": 32,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 24.9162,
+          "default_ms": 24.332,
+          "fused_label": "fused",
+          "selected_route": "fused"
+        }
+      ]
+    },
+    "tbptt-time-mix": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "parameter_storage": null,
+      "numerical_worst_max_abs": 0.0,
+      "batches": [
+        {
+          "batch": 1,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 7.53505,
+          "composed_ms": 7.839700000000001,
+          "default_ms": 7.6318,
+          "default_over_fused": 1.0128399944260489,
+          "composed_over_fused": 1.0404310522159774,
+          "fused_ms_per_step": 0.94188125,
+          "composed_ms_per_step": 0.9799625000000001,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 4,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 9.3016,
+          "composed_ms": 9.666350000000001,
+          "default_ms": 9.5997,
+          "default_over_fused": 1.0320482497634815,
+          "composed_over_fused": 1.039213683667326,
+          "fused_ms_per_step": 1.1627,
+          "composed_ms_per_step": 1.2082937500000002,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 8,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 10.6517,
+          "composed_ms": 10.84785,
+          "default_ms": 10.45975,
+          "default_over_fused": 0.9819794023489208,
+          "composed_over_fused": 1.0184149009078363,
+          "fused_ms_per_step": 1.3314625,
+          "composed_ms_per_step": 1.35598125,
+          "selected_route": "fused"
+        },
+        {
+          "batch": 16,
+          "worst_max_abs": 0.0,
+          "default_label": "fused",
+          "expected_default_label": "fused",
+          "recorded_route": null,
+          "fused_ms": 15.5019,
+          "composed_ms": 15.976399999999998,
+          "default_ms": 15.6141,
+          "default_over_fused": 1.0072378224604728,
+          "composed_over_fused": 1.0306091511363122,
+          "fused_ms_per_step": 1.9377375,
+          "composed_ms_per_step": 1.9970499999999998,
+          "selected_route": "fused"
+        }
+      ]
+    },
+    "packed-cell-composition": {
+      "bench_exit": 0,
+      "guard_exit": 0,
+      "result": "pass",
+      "numerical_worst_max_abs": 0.0,
+      "qualified_vendor": "amd",
+      "vendor_dispatch": "linear-forward=1 linear-residual-forward=1 linear3-forward=1",
+      "portable_dispatch": "",
+      "expected_vendor": "auto",
+      "batch": 8,
+      "width": 128
+    }
+  },
+  "summary": {
+    "applicable_routes": 13,
+    "passing": 13,
+    "failing": 0
+  },
+  "negative_controls": {
+    "producer_route_guard_tests": {
+      "command": "python -m unittest validation.test_measured_producer_routes",
+      "tests": 51,
+      "result": "PASS"
+    },
+    "safetensors_atomic_replace_tests": {
+      "command": "python -m unittest validation.test_safetensors_atomic_replace",
+      "tests": 2,
+      "result": "PASS"
+    },
+    "route_receipt_tests": {
+      "command": "python -m unittest validation.test_rwkv_*_receipt ...",
+      "tests": 82,
+      "result": "PASS (10 skipped)"
+    }
+  },
+  "source_bound_qualification": {
+    "status": "FAIL",
+    "reason": "bound source changed: hierarchos-vulkan/shaders/rwkv_key_state_forward_fused_wide.comp; Phase XIX-Z training/stability/heldout/drift/activation receipts were not regenerated in this recovery window",
+    "receipt_preserved": true
+  },
+  "shader_provenance": {
+    "status": "FAIL",
+    "reason": "verify_training_shaders.py cannot reproduce the committed training shader inventory with the installed glslang/glslc versions (15.3.0 vs recorded 16.6.0; glslc 2025.3 vs recorded 2023.8); unrelated to the recovery shader, which reproduces byte-for-byte with the installed glslc"
+  },
+  "ci": {
+    "run": "https://github.com/necat101/Hierarchos-Native/actions/runs/43130590148",
+    "status": "QUEUED/BLOCKED",
+    "reason": "self-hosted Windows Vulkan AMD runner not registered; no CI success claimed"
+  },
+  "limitations": [
+    "Local AMD RDNA3 only; GitHub-hosted and self-hosted CI were not executed.",
+    "The batch-1 TBPTT packed-forward crossover is not stable outside the 2% band across paired runs; its current record follows the latest controlled 100-sample measurement."
+  ],
+  "scope": "packed-cell measurement and route-guard qualification only (13 routes); not a source-bound Phase XIX-Z training qualification",
+  "status_note": "All 13 applicable packed-cell routes were re-measured on local AMD RDNA3 and their guards exit 0. Full Phase XIX-Z current-source qualification remains FAIL because the wide shader source changed and the training/stability/heldout/drift/activation receipts were not regenerated."
+}
