@@ -341,19 +341,54 @@ impl NativeApp {
                 | Workflow::TransformerFinetune
                 | Workflow::TransformerFullFinetune
         ) {
-            if !self.wmma_mode.available_for_training() {
-                return Err(format!(
-                    "{} is unavailable for Transformer training: {}",
-                    self.wmma_mode.label(),
-                    self.wmma_mode.unavailable_reason()
-                ));
-            }
-            args.extend(["--wmma-mode".to_owned(), self.wmma_mode.flag().to_owned()]);
+            self.push_wmma_args(&mut args)?;
         }
         if self.mode == Workflow::HierarchosTrain && self.assistant_recovery {
             args.push("--assistant-recovery".to_owned());
         }
         Ok(args)
+    }
+
+    fn push_wmma_args(&self, args: &mut Vec<String>) -> Result<(), String> {
+        if !self.wmma_mode.available_for_training() {
+            return Err(format!(
+                "{} is unavailable for Transformer training and image training: {}",
+                self.wmma_mode.label(),
+                self.wmma_mode.unavailable_reason()
+            ));
+        }
+        args.extend(["--wmma-mode".to_owned(), self.wmma_mode.flag().to_owned()]);
+        Ok(())
+    }
+
+    fn wmma_form(&mut self, ui: &mut egui::Ui, mixed_unavailable: Option<&str>) {
+        ui.horizontal(|ui| {
+            ui.label("Training precision");
+            egui::ComboBox::from_id_salt("wmma-mode")
+                .selected_text(self.wmma_mode.label())
+                .show_ui(ui, |ui| {
+                    for choice in WmmaModeChoice::ALL {
+                        let reason = if !choice.available_for_training() {
+                            Some(choice.unavailable_reason())
+                        } else if choice == WmmaModeChoice::Mixed {
+                            mixed_unavailable
+                        } else {
+                            None
+                        };
+                        if let Some(reason) = reason {
+                            ui.add_enabled(false, egui::Button::new(choice.label()))
+                                .on_disabled_hover_text(reason);
+                        } else {
+                            ui.selectable_value(&mut self.wmma_mode, choice, choice.label())
+                                .on_hover_text(choice.unavailable_reason());
+                        }
+                    }
+                });
+        });
+        ui.label(egui::RichText::new(self.wmma_mode.note()).small().weak());
+        if let Some(reason) = mixed_unavailable {
+            ui.small(reason);
+        }
     }
 
     fn build_inference_args(&self) -> Result<Vec<String>, String> {
@@ -666,32 +701,7 @@ impl eframe::App for NativeApp {
                     | Workflow::TransformerFinetune
                     | Workflow::TransformerFullFinetune
             ) {
-                ui.horizontal(|ui| {
-                    ui.label("WMMA precision");
-                    egui::ComboBox::from_id_salt("wmma-mode")
-                        .selected_text(self.wmma_mode.label())
-                        .show_ui(ui, |ui| {
-                            for choice in WmmaModeChoice::ALL {
-                                if choice.available_for_training() {
-                                    ui.selectable_value(
-                                        &mut self.wmma_mode,
-                                        choice,
-                                        choice.label(),
-                                    );
-                                } else {
-                                    ui.add_enabled(
-                                        false,
-                                        egui::Button::new(format!(
-                                            "{} - unavailable",
-                                            choice.label()
-                                        )),
-                                    )
-                                    .on_disabled_hover_text(choice.unavailable_reason());
-                                }
-                            }
-                        });
-                });
-                ui.label(egui::RichText::new(self.wmma_mode.note()).small().weak());
+                self.wmma_form(ui, None);
             }
 
             if self.mode.is_training() {
@@ -1131,12 +1141,12 @@ mod tests {
         assert_eq!(args[index + 1], "off");
 
         app.wmma_mode = WmmaModeChoice::Mixed;
-        let args = app.build_args().unwrap();
-        let index = args
-            .iter()
-            .position(|argument| argument == "--wmma-mode")
-            .unwrap();
-        assert_eq!(args[index + 1], "mixed");
+        for mode in [Workflow::TransformerTrain, Workflow::TransformerFinetune, Workflow::TransformerFullFinetune] {
+            app.mode = mode;
+            let args = app.build_args().unwrap();
+            let index = args.iter().position(|argument| argument == "--wmma-mode").unwrap();
+            assert_eq!(args[index + 1], "mixed");
+        }
 
         // The experimental mode is listed in the panel but refused here rather
         // than being silently dropped from the command.

@@ -2053,6 +2053,7 @@ impl VulkanClipImageAdapter {
         self.cls.record_step(&mut commands, k, step, hyper)?;
         self.position.record_step(&mut commands, k, step, hyper)?;
         commands.submit()?;
+        k.bump_wmma_epoch();
         Ok(ClipAdapterGradients {
             pixel_gradient: self.grad_pixels.read_f32(pixel_values.len())?,
             projected_gradient: projected_gradient

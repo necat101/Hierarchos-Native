@@ -19,8 +19,8 @@ impl WmmaModeChoice {
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::Off => "WMMA Off (FP32)",
-            Self::Mixed => "WMMA Mixed (FP16 inputs, FP32 accumulate)",
+            Self::Off => "FP32 (reference)",
+            Self::Mixed => "Mixed WMMA + FP32 (AMP-style)",
             Self::FullFp16 => "WMMA Full FP16 (Experimental)",
         }
     }
@@ -42,13 +42,12 @@ impl WmmaModeChoice {
     pub fn unavailable_reason(self) -> &'static str {
         match self {
             Self::Off => {
-                "Default. Every projection uses the qualified FP32 kernels; no cooperative-matrix \
-                 extension is requested from the device."
+                "Default. Uses FP32 kernels without requesting hardware matrix acceleration."
             }
             Self::Mixed => {
-                "Requires VK_KHR_cooperative_matrix with a 16x16x16 f16/f16->f32 subgroup tile. \
-                 Distances and logits stay FP32; only GEMM operands narrow to FP16, so logit drift \
-                 is bounded by the mixed qualification gate (2e-2 max, 3e-3 RMS)."
+                "Eligible matrix operations use FP16 operands and FP32 accumulation. Master weights, \
+                 gradients, AdamW state, normalization, softmax and loss stay FP32. Other operations \
+                 use FP32 kernels. Requires a compatible cooperative-matrix GPU."
             }
             Self::FullFp16 => {
                 "Unavailable for Transformer training: the graph's GEMMs accumulate in FP16 with no \
@@ -61,10 +60,11 @@ impl WmmaModeChoice {
     /// Short line shown under the control.
     pub fn note(self) -> &'static str {
         match self {
-            Self::Off => "FP32 reference path — the default and the baseline every gate is measured against.",
+            Self::Off => "FP32 reference path. All training operations use FP32.",
             Self::Mixed => {
-                "Mixed: hardware matrix cores for eligible dense projections; small shapes keep their \
-                 tuned FP32 kernels."
+                "AMP-style mixed precision: eligible matrix operations use FP16 inputs with FP32 \
+                 accumulation; master weights and AdamW stay FP32. Other operations stay FP32. \
+                 Automatic loss scaling is not implemented."
             }
             Self::FullFp16 => {
                 "Full FP16 is experimental and not admitted for Transformer training; it remains a \

@@ -1066,6 +1066,7 @@ impl VulkanGemma3Vision {
         self.patch.record_step(&mut commands, k, step, hyper)?;
         self.position.record_step(&mut commands, k, step, hyper)?;
         commands.submit()?;
+        k.bump_wmma_epoch();
         Ok(Gemma3TrainResult {
             text: result.text,
             pixel_gradient: self.grad_pixels.read_f32(pixel_values.len())?,

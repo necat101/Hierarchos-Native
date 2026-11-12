@@ -38,6 +38,19 @@ fn vision_options_reject_mismatched_and_invalid_controls() {
     assert_eq!(o.image.unwrap(),PathBuf::from("image with spaces.png"));assert_eq!(o.device,Some(1));assert!(!o.sample);
 }
 #[test]
+fn vision_precision_accepts_amp_aliases_without_touching_the_process_policy() {
+    let args=|v:&[&str]|v.iter().map(OsString::from).collect();
+    for flag in ["mixed", "amp", "mock-amp", " MIXED "] {
+        assert_eq!(parse(args(&["--model-path", "model", "--wmma-mode", flag])).unwrap().wmma, Some("mixed"));
+    }
+    assert_eq!(parse(args(&["--model-path", "model", "--amp"])).unwrap().wmma, Some("mixed"));
+    assert_eq!(parse(args(&["--model-path", "model", "--amp", "--no-amp"])).unwrap().wmma, Some("off"));
+    for flag in ["full-fp16", "fp16", "invalid"] {
+        assert!(parse(args(&["--model-path", "model", "--wmma-mode", flag])).is_err());
+    }
+}
+
+#[test]
 fn shifted_text_target_after_an_image_row_remains_supervised() {
     let directory=env::temp_dir().join(format!("hierarchos-vision-label-{}-{}",std::process::id(),SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
     fs::create_dir(&directory).unwrap();

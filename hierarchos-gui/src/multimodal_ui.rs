@@ -52,6 +52,12 @@ impl NativeApp {
         }
         let config:serde_json::Value=std::fs::read(Path::new(model).join("config.json")).ok().and_then(|b|serde_json::from_slice(&b).ok()).ok_or("Choose a vision package with a valid config.json.")?;
         let native=config["model_type"].as_str()==Some("deepseek_v41");
+        if self.mode == Workflow::VisionTrain {
+            if native && self.wmma_mode == WmmaModeChoice::Mixed {
+                return Err("Native DeepSeek V4.1 image training currently uses FP32 kernels. Choose FP32 training precision.".into());
+            }
+            self.push_wmma_args(&mut args)?;
+        }
         if !matches!(config["model_type"].as_str(),Some("hierarchos_image_text"|"llava"|"gemma3"|"gemma4"|"deepseek_v41")){return Err("Select a native vision model or composed hierarchos_image_text package; ordinary text packages need an image tower/projector first.".into());}
         if native {
             if self.mode==Workflow::VisionTrain {if self.batch_size.trim()!="1"{return Err("Native V4.1 image training currently requires batch size 1.".into());}push_positive(&mut args,"--lora-rank",&self.lora_rank)?;}
@@ -93,6 +99,10 @@ impl NativeApp {
                     ui.label(a);ui.text_edit_singleline(b);ui.label(c);ui.text_edit_singleline(d);ui.end_row();
                 }
             });
+            let native = std::fs::read(Path::new(self.model.trim()).join("config.json"))
+                .ok().and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+                .is_some_and(|config| config["model_type"] == "deepseek_v41");
+            self.wmma_form(ui, native.then_some("Native DeepSeek V4.1 image training currently supports FP32 precision only."));
         }else{
             path_row(ui,"Input image",&mut self.vision_image,true,FileChoice::File);
             let path=self.vision_image.clone();self.image_preview(ui,&path);
@@ -156,6 +166,29 @@ mod tests {
         assert!(args.windows(2).any(|a|a[0]=="--train"&&a[1]==app.dataset));assert!(!args.iter().any(|a|a=="--full-finetune"));
     }
     #[test]
+    fn vision_precision_reaches_each_supported_backend_and_rejects_unimplemented_modes() {
+        for kind in ["hierarchos_image_text", "llava", "gemma3", "gemma4"] {
+            let fixture = Fixture::new(kind);
+            let mut app = fixture.app(Workflow::VisionTrain);
+            for (choice, flag) in [(WmmaModeChoice::Off, "off"), (WmmaModeChoice::Mixed, "mixed")] {
+                app.wmma_mode = choice;
+                let args = app.build_args().unwrap();
+                assert_eq!(args.iter().filter(|a| *a == "--wmma-mode").count(), 1);
+                assert!(args.windows(2).any(|a| a == ["--wmma-mode", flag]), "{kind}: {args:?}");
+            }
+            app.wmma_mode = WmmaModeChoice::FullFp16;
+            assert!(app.build_args().unwrap_err().contains("unavailable"));
+            app.mode = Workflow::VisionGenerate;
+            assert!(!app.build_args().unwrap().iter().any(|a| a == "--wmma-mode"));
+        }
+        let fixture = Fixture::new("deepseek_v41");
+        let mut app = fixture.app(Workflow::VisionTrain);
+        assert!(app.build_args().unwrap().windows(2).any(|a| a == ["--wmma-mode", "off"]));
+        app.wmma_mode = WmmaModeChoice::Mixed;
+        assert!(app.build_args().unwrap_err().contains("currently uses FP32"));
+    }
+
+    #[test]
     fn text_to_image_uses_image_model_file_output_and_generation_controls() {
         let f=Fixture::new("llava");let mut app=f.app(Workflow::ImageGenerate);
         app.model=f.0.join("checkpoint.gguf").display().to_string();app.output=f.0.join("generated.png").display().to_string();app.image_negative="blur".into();
@@ -179,6 +212,43 @@ mod tests {
         std::fs::create_dir(&app.output).unwrap();assert!(app.build_args().is_ok());
         std::fs::write(Path::new(&app.output).join("weights"),b"existing").unwrap();assert!(app.build_args().is_err());
     }
+    #[test]
+    #[ignore = "requires HIERARCHOS_MIXED_GUI_FIXTURE, HIERARCHOS_NATIVE_CLI and a cooperative-matrix GPU"]
+    fn mixed_vision_start_executes_cooperative_training_worker() {
+        let root = PathBuf::from(env::var_os("HIERARCHOS_MIXED_GUI_FIXTURE").expect("eligible fixture root"));
+        let mut app = NativeApp::default();
+        app.mode = Workflow::VisionTrain;
+        app.wmma_mode = WmmaModeChoice::Mixed;
+        app.cli_path = env::var("HIERARCHOS_NATIVE_CLI").expect("fresh native CLI");
+        app.model = root.join("model").display().to_string();
+        app.dataset = root.join("dataset.jsonl").display().to_string();
+        app.output = root.join("gui-mixed").display().to_string();
+        app.epochs = "2".into();
+        app.batch_size = "2".into();
+        app.seq_len = "24".into();
+        app.learning_rate = ".001".into();
+        app.start();
+        assert!(app.child.is_some(), "{}", app.status);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+        while app.child.is_some() {
+            app.drain_output();
+            if std::time::Instant::now() > deadline {
+                app.stop();
+                panic!("mixed vision worker timed out: {}", app.log);
+            }
+            thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert_eq!(app.status, "Finished successfully", "{}", app.log);
+        let report: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(Path::new(&app.output).join("training_report.json")).unwrap()
+        ).unwrap();
+        assert_eq!(report["steps"], 2);
+        assert_eq!(report["precision"]["requested"], "mixed");
+        for phase in ["cooperative_dispatches", "forward", "weight_grad", "input_grad"] {
+            assert!(report["precision"][phase].as_u64().unwrap() > 0, "{phase}: {report}");
+        }
+    }
+
     #[test]
     #[ignore = "requires HIERARCHOS_MULTIMODAL_GUI_SMOKE manifest and local Vulkan image models"]
     fn multimodal_start_runs_native_vision_and_image_generation_workers() {

@@ -26727,13 +26727,9 @@ impl TransformerKernels {
         Ok(Some(executor))
     }
 
-    /// Publish the master-weight version the graph is about to train.
-    fn set_wmma_epoch(&self, epoch: u64) {
-        self.wmma_epoch
-            .store(epoch, std::sync::atomic::Ordering::Relaxed);
-    }
-
-    /// Invalidate every cached FP16 weight mirror.
+    /// Invalidate every cached FP16 weight mirror after a submitted master write.
+    /// This version is independent of the language optimizer step: an image
+    /// tower can update separately while sharing these projection executors.
     fn bump_wmma_epoch(&self) {
         self.wmma_epoch
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -84972,10 +84968,6 @@ impl VulkanTransformer {
             }
         }
         hyper.validate()?;
-        // Masters change only in a submitted optimizer step or a load, so a
-        // step sees one stable weight version: the forward and the input
-        // gradient share a mirror, and the next step refreshes it.
-        self.kernels.set_wmma_epoch(self.step as u64);
         if input_ids.len() != self.rows
             || targets.len() != self.rows
             || attention_mask.len() != self.rows
@@ -87285,9 +87277,9 @@ impl VulkanTransformer {
         self.step = next_step;
         // The submitted optimizer step replaced every FP32 master, so the FP16
         // mirrors converted for this step's forward/backward are now stale.
-        // Publish the new version before any between-step evaluation runs;
-        // the next training step sets the same epoch and reuses these mirrors.
-        self.kernels.set_wmma_epoch(next_step as u64);
+        // Publish a new version before any between-step evaluation or image
+        // backward pass. Never reuse an epoch derived from optimizer counters.
+        self.kernels.bump_wmma_epoch();
         let loss = if options.terminal_gradient.is_some() {
             0.
         } else {

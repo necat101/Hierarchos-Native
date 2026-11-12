@@ -107,6 +107,8 @@ fn run() -> Result<()> {
     }
     f.decoder_inputs()?;
     let device = VulkanDevice::new()?;
+    let phases_before = hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
+    let counts_before = hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
     let mut graph = VulkanImageText::from_hf_package(
         device.clone(),
         &model,
@@ -172,6 +174,8 @@ fn run() -> Result<()> {
     )?;
     let reload_pixels = reloaded.preprocess_rgb8(&f.rgb)?;
     let reload_output = f.forward(&reloaded, &reload_pixels)?;
+    let phases = hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
+    let counts = hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
     fs::write(
         output.join("report.json"),
         serde_json::to_vec_pretty(&serde_json::json!({
@@ -179,6 +183,14 @@ fn run() -> Result<()> {
             "architecture":graph.config().architecture.model_type(),
             "device":device.name(),"vendor_id":device.vendor_id(),"device_id":device.device_id(),
             "elapsed_seconds":started.elapsed().as_secs_f64(),
+            "precision": {
+                "requested": hierarchos_vulkan::wmma::WmmaMode::from_env()?.label(),
+                "cooperative_dispatches": counts.cooperative - counts_before.cooperative,
+                "forward": phases[0] - phases_before[0],
+                "weight_grad": phases[1] - phases_before[1],
+                "input_grad": phases[2] - phases_before[2],
+                "shape_fallbacks": counts.shape_fallbacks - counts_before.shape_fallbacks,
+            },
             "pixels":pixels,"alternate":alternate,"steps":steps,"final":final_output,"reload":reload_output,
         }))?,
     )?;

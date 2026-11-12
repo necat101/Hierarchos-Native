@@ -14,13 +14,14 @@ struct Options {
     prompt:String,prompt_ids:Option<Vec<u32>>,batch:usize,seq:usize,epochs:usize,device:Option<usize>,
     hyper:CpuAdamWHyperParams,rank:usize,alpha:Option<f64>,seed:u64,stream:bool,state:Option<PathBuf>,resume:Option<PathBuf>,adapter:Option<PathBuf>,
     max_new:usize,sample:bool,temperature:f32,top_k:usize,top_p:f32,
+    wmma:Option<&'static str>,
 }
 fn parse(mut argv:VecDeque<OsString>)->AResult<Options> {
     let mut o=Options{model:PathBuf::new(),train:None,image:None,output:None,tokenizer:None,prompt:String::new(),prompt_ids:None,
         batch:1,seq:512,epochs:1,device:None,hyper:CpuAdamWHyperParams{lr:5e-5,beta1:0.9,beta2:0.999,eps:1e-8,weight_decay:0.01},
-        rank:8,alpha:None,seed:0,stream:false,state:None,resume:None,adapter:None,max_new:128,sample:false,temperature:0.7,top_k:50,top_p:0.9};
+        rank:8,alpha:None,seed:0,stream:false,state:None,resume:None,adapter:None,max_new:128,sample:false,temperature:0.7,top_k:50,top_p:0.9,wmma:None};
     while let Some(key)=argv.pop_front(){let key=key.to_str().context("non-UTF8 argument")?;
-        match key {"--stream-parameters"=>{o.stream=true;continue;},"--do-sample"=>{o.sample=true;continue;},"--no-do-sample"=>{o.sample=false;continue;},_=>{}}
+        match key {"--stream-parameters"=>{o.stream=true;continue;},"--do-sample"=>{o.sample=true;continue;},"--no-do-sample"=>{o.sample=false;continue;},"--amp"=>{o.wmma=Some("mixed");continue;},"--no-amp"=>{o.wmma=Some("off");continue;},_=>{}}
         let value=argv.pop_front().with_context(||format!("missing value for {key}"))?;let s=value.to_str().context("non-UTF8 value")?;
         match key {
             "--model-path"=>o.model=PathBuf::from(&value),"--train"=>o.train=Some(PathBuf::from(&value)),"--image"=>o.image=Some(PathBuf::from(&value)),
@@ -30,6 +31,7 @@ fn parse(mut argv:VecDeque<OsString>)->AResult<Options> {
             "--lr"=>o.hyper.lr=s.parse()?,"--beta1"=>o.hyper.beta1=s.parse()?,"--beta2"=>o.hyper.beta2=s.parse()?,"--eps"=>o.hyper.eps=s.parse()?,"--weight-decay"=>o.hyper.weight_decay=s.parse()?,
             "--lora-rank"=>o.rank=s.parse()?,"--lora-alpha"=>o.alpha=Some(s.parse()?),"--seed"=>o.seed=s.parse()?,"--native-state"=>o.state=Some(PathBuf::from(&value)),"--resume"=>o.resume=Some(PathBuf::from(&value)),"--adapter-path"=>o.adapter=Some(PathBuf::from(&value)),
             "--max-new-tokens"=>o.max_new=s.parse()?,"--temperature"=>o.temperature=s.parse()?,"--top-k"=>o.top_k=s.parse()?,"--top-p"=>o.top_p=s.parse()?,
+            "--wmma-mode"|"--wmma_mode"=>o.wmma=Some(parse_transformer_wmma_mode(s).map_err(anyhow::Error::msg)?),
             _=>anyhow::bail!("unsupported vision argument {key}; use --help"),
         }
     }
@@ -43,7 +45,7 @@ fn parse(mut argv:VecDeque<OsString>)->AResult<Options> {
 }
 pub(super) fn run(mode:&str,argv:VecDeque<OsString>)->Result<u8,String> {
     if argv.iter().any(|a|a=="--help"||a=="-h") {
-        println!("Native vision commands:\n  vision-train --model-path PACKAGE --train DATA.jsonl --out-dir NEW_DIR [--batch-size 1 --max-length 512 --epochs 1 --lr 5e-5]\n  vision-generate --model-path PACKAGE --image IMAGE.png --prompt TEXT [--max-new-tokens 128 --max-length 512]\n  vision-info --model-path PACKAGE\n\nSupports hierarchos_image_text (including BART/T5/Switch), native LLaVA, Gemma3, Gemma4 and DeepSeek V4.1. Images must match the fixed native processor dimensions; no implicit resize/crop. JSONL uses image + prompt/completion or explicit input_ids/targets/loss_weights. Paths are relative to the JSONL file.\nShared/native full-parameter image training uses the existing GPU AdamW pipeline. Native V4.1 trains image parameters plus language LoRA; --lora-rank, --adapter-path, --resume, --native-state and --stream-parameters configure that path. Its output contains native image/language export and optimizer checkpoint. Other backends export a complete image model package.\nOptional: --tokenizer-path, --device-index, --beta1, --beta2, --eps, --weight-decay, --seed. Vision generation supports --do-sample/--no-do-sample, --temperature, --top-k, --top-p and --out-dir. It generates text from an image; text-to-image uses image-generate.");return Ok(0);
+        println!("Native vision commands:\n  vision-train --model-path PACKAGE --train DATA.jsonl --out-dir NEW_DIR [--batch-size 1 --max-length 512 --epochs 1 --lr 5e-5]\n  vision-generate --model-path PACKAGE --image IMAGE.png --prompt TEXT [--max-new-tokens 128 --max-length 512]\n  vision-info --model-path PACKAGE\n\nSupports hierarchos_image_text (including BART/T5/Switch), native LLaVA, Gemma3, Gemma4 and DeepSeek V4.1. Images must match the fixed native processor dimensions; no implicit resize/crop. JSONL uses image + prompt/completion or explicit input_ids/targets/loss_weights. Paths are relative to the JSONL file.\nShared/native full-parameter image training uses the existing GPU AdamW pipeline. Native V4.1 trains image parameters plus language LoRA; --lora-rank, --adapter-path, --resume, --native-state and --stream-parameters configure that path. Its output contains native image/language export and optimizer checkpoint. Other backends export a complete image model package.\nTraining precision: --wmma-mode off|mixed (or --amp/--no-amp). Mixed uses FP16 operands and FP32 accumulation for eligible Transformer/vision matrix operations; other operations, master weights and AdamW remain FP32. Automatic loss scaling is not implemented. Native DeepSeek V4.1 vision currently supports off only. Requested and actual WMMA dispatches are recorded in training_report.json.\nOptional: --tokenizer-path, --device-index, --beta1, --beta2, --eps, --weight-decay, --seed. Vision generation supports --do-sample/--no-do-sample, --temperature, --top-k, --top-p and --out-dir. It generates text from an image; text-to-image uses image-generate.");return Ok(0);
     }
     execute(mode,parse(argv).map_err(|e|format!("{e:#}"))?).map(|_|0).map_err(|e|format!("native vision failed: {e:#}"))
 }
@@ -55,6 +57,9 @@ fn tokenizer(p:&Package,o:&Options)->AResult<Option<Tokenizer>> {
     anyhow::ensure!(t.get_vocab(true).values().all(|&id|(id as usize)<p.vocab),"tokenizer IDs exceed image model vocabulary");Ok(Some(t))
 }
 fn execute(mode:&str,o:Options)->AResult<()> {
+    // This command runs in its own CLI process. Set the policy before both
+    // device creation and TransformerKernels construction read it.
+    if let Some(wmma) = o.wmma { env::set_var("HIERARCHOS_WMMA_MODE", wmma); }
     let p=Package::open(&o.model)?;
     if mode=="vision-info" {println!("{}",serde_json::to_string_pretty(&json!({"backend":format!("{:?}",p.kind),"encoder_decoder":p.seq2seq,"vocab_size":p.vocab,"image_token_id":p.image_token,"vision_config":p.config["vision_config"],"image_generation":false}))?);return Ok(());}
     let t=tokenizer(&p,&o)?;
@@ -69,6 +74,8 @@ fn train(p:&Package,t:Option<&Tokenizer>,o:&Options)->AResult<()> {
     let first=BufReader::new(File::open(dataset)?).lines().find_map(|line|match line {Ok(s)if s.trim().is_empty()=>None,x=>Some(x)}).context("dataset is empty")??;
     let first=Sample::from_record(&serde_json::from_str(&first)?,base,p,t,o.seq)?;
     let shape=(first.picture.width,first.picture.height);
+    let phases_before=hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
+    let counts_before=hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
     let mut runtime=Runtime::new(p,&first.picture,o)?;
     fs::create_dir_all(output)?;
     let mut step=0usize;let mut loss=0.;let mut seen=0usize;
@@ -90,7 +97,17 @@ fn train(p:&Package,t:Option<&Tokenizer>,o:&Options)->AResult<()> {
     if let Some(source)=o.tokenizer.as_ref().cloned().or_else(||t.map(|_|p.tokenizer_source())) {
         super::install_local_tokenizer_assets(&source,&model).map_err(anyhow::Error::msg)?;
     }
-    fs::write(output.join("training_report.json"),serde_json::to_vec_pretty(&json!({"backend":"native-vulkan","kind":format!("{:?}",p.kind),"steps":step,"examples":seen,"final_loss":loss,"model":model,"base_model":p.root,"image_width":shape.0,"image_height":shape.1,"batch_size":o.batch,"seq_len":o.seq,"optimizer_resume":p.kind==Kind::V41}))?)?;
+    let phases=hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts();
+    let counts=hierarchos_vulkan::wmma_linear::linear_wmma_dispatch_counts();
+    let precision=json!({
+        "requested":hierarchos_vulkan::wmma::WmmaMode::from_env()?.label(),
+        "cooperative_dispatches":counts.cooperative-counts_before.cooperative,
+        "shape_fallbacks":counts.shape_fallbacks-counts_before.shape_fallbacks,
+        "forward":phases[0]-phases_before[0],"weight_grad":phases[1]-phases_before[1],"input_grad":phases[2]-phases_before[2],
+        "master_weights":"fp32","optimizer_state":"fp32","automatic_loss_scaling":false
+    });
+    eprintln!("WMMA evidence: {precision}");
+    fs::write(output.join("training_report.json"),serde_json::to_vec_pretty(&json!({"backend":"native-vulkan","kind":format!("{:?}",p.kind),"steps":step,"examples":seen,"final_loss":loss,"model":model,"base_model":p.root,"image_width":shape.0,"image_height":shape.1,"batch_size":o.batch,"seq_len":o.seq,"optimizer_resume":p.kind==Kind::V41,"precision":precision}))?)?;
     println!("Vision training complete: {}",model.display());Ok(())
 }
 fn generate(p:&Package,t:Option<&Tokenizer>,o:&Options)->AResult<()> {

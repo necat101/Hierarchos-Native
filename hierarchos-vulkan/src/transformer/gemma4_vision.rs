@@ -1903,6 +1903,7 @@ impl VulkanGemma4Vision {
         self.patch.record_step(&mut commands, k, step, hyper)?;
         self.position.record_step(&mut commands, k, step, hyper)?;
         commands.submit()?;
+        k.bump_wmma_epoch();
         Ok(Gemma4TrainResult {
             text: result.text,
             patch_gradient: self.grad_patches.read_f32(self.rows * self.patch_dim)?,
