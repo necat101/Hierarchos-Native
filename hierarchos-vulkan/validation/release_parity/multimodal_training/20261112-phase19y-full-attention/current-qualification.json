@@ -5,7 +5,7 @@
   "pass": true,
   "target": "rdna3",
   "scope": "phase19y_full_attention_current_source",
-  "source_revision": "235e9563df024add5e41c18a57b5a92345e05eac",
+  "source_revision": "d2f17a3c4b17d9c7109acd444e9a6e56789d47fb",
   "source_clean": true,
   "source_files": {
     "hierarchos-vulkan/shaders/ONEDNN-LICENSE.txt": "e9fc874fc09801b9acf3411ba72394098473704d832d713404b6c4861a086318",
@@ -1551,9 +1551,9 @@
     "hierarchos-vulkan/src/welford_small_tests.rs": "d693c9646be8fc55db0d93526277796ddb448045e69a231eb2c1484b9840c3c7",
     "hierarchos-vulkan/src/wmma.rs": "9da469aeabba752d023a5991dfc5bb05fd53bfab5369d5b5b593682397bfc315",
     "hierarchos-vulkan/src/wmma_linear.rs": "f93016184750dcd7128ab242c2ad797cd547052f118d9c839faf72ae7edd2faf",
-    "hierarchos-vulkan/validation/qualify_phase19y_full_attention.py": "c506de9894146879c99f467b0a62f32ade36585646d36a56874f534476a31487",
-    "hierarchos-vulkan/validation/check_phase19y_full_attention.py": "8e1eefc08eca17b4ef88e3d1c8cc932b77cdeb84d55f804249cf364e65185768",
-    "hierarchos-vulkan/validation/test_phase19y_full_attention.py": "a7e538364d01f45df12a331fe4d9d740b9e00803566c3473d45b06937fabe8d2",
+    "hierarchos-vulkan/validation/qualify_phase19y_full_attention.py": "65202cd2c3088defcc9295d59dc350fe6596fdf54b57482b121d0e3f4ba36bb6",
+    "hierarchos-vulkan/validation/check_phase19y_full_attention.py": "a2688f1f44fd6531462b129b88affc45ca1c566a20078081bfcaa965deeb9d87",
+    "hierarchos-vulkan/validation/test_phase19y_full_attention.py": "00c7e8b229a42a9943497becee3d9f3272d544ae2eb78dd36dca2e0dbe204125",
     "hierarchos-vulkan/validation/qualify_rdna3_gpt2_shapes.py": "9c681a429e6d538fb3444619094a89be55385c697799d9b46e4c73db2466cd33",
     "hierarchos-vulkan/validation/qualify_shared_image_pipeline.py": "91de8d26f4fc3b180d2a1a54fee5130f3a487fcface38f0a3ed16e630d37ee02",
     "hierarchos-vulkan/validation/qualify_multimodal_training.py": "1051ecb415a4c7e511d7b8022f7d68b075f45c3807b627681c02eeced592f6ea",
@@ -1606,6 +1606,11 @@
       "selected_cases": 74,
       "selected_profiles": 37
     }
+  },
+  "fixture_bytes": {
+    "verified": true,
+    "shape_files": 176,
+    "shared_files": 842
   },
   "shapes": {
     "cases": 16,
@@ -98027,8 +98032,8 @@
     "status": "PASS"
   },
   "negative_controls": {
-    "total": 19,
-    "detected": 19,
+    "total": 20,
+    "detected": 20,
     "controls": [
       {
         "name": "stale source binding",
@@ -98064,6 +98069,10 @@
       },
       {
         "name": "wrong archive provenance",
+        "rejected": true
+      },
+      {
+        "name": "fixture bytes not verified",
         "rejected": true
       },
       {
