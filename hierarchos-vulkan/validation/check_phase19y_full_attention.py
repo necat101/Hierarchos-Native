@@ -88,6 +88,20 @@ def max_logit(rows):
     return max(values) if values else None
 
 
+def verify_fixture_tree(root: Path, manifest: dict, label: str) -> int:
+    """Re-hash every fixture named by a manifest, rejecting missing or altered bytes."""
+    require(root.is_dir(), f"missing {label} fixture directory: {root}")
+    checked = 0
+    for row in manifest.get("cases", []):
+        for relative, expected in (row.get("files") or {}).items():
+            path = root / relative
+            require(path.is_file(), f"missing {label} fixture {relative}")
+            require(digest(path) == expected, f"altered {label} fixture {relative}")
+            checked += 1
+    require(checked > 0, f"{label} fixture manifest names no files")
+    return checked
+
+
 def validate(document: dict, receipt_dir: Path, crate: Path = CRATE,
              binary_root: Path | None = None, shape_fixtures: Path | None = None,
              shared_fixtures: Path | None = None,
@@ -184,6 +198,21 @@ def validate(document: dict, receipt_dir: Path, crate: Path = CRATE,
     require(shape_manifest.get("input_model_sha256") == EXPECTED_MODEL,
             "shape manifest input model changed")
     require(shared_manifest.get("complete") is True, "shared manifest incomplete")
+    fixture_bytes = document.get("fixture_bytes") or {}
+    require(fixture_bytes.get("verified") is True,
+            "fixture bytes were not verified during generation")
+    shape_file_count = sum(len(row.get("files") or {}) for row in shape_manifest["cases"])
+    shared_file_count = sum(len(row.get("files") or {}) for row in shared_manifest["cases"])
+    require(fixture_bytes.get("shape_files") == shape_file_count,
+            "shape fixture file count changed")
+    require(fixture_bytes.get("shared_files") == shared_file_count,
+            "shared fixture file count changed")
+    if shape_fixtures is not None:
+        require(verify_fixture_tree(shape_fixtures, shape_manifest, "shape") == shape_file_count,
+                "shape fixture byte count changed")
+    if shared_fixtures is not None:
+        require(verify_fixture_tree(shared_fixtures, shared_manifest, "shared") == shared_file_count,
+                "shared fixture byte count changed")
     required_profiles = set(shared_manifest.get("required_green_profiles", []))
     require(SHARED_PROFILES <= required_profiles,
             "shared profile inventory changed")
@@ -354,6 +383,8 @@ def run_negative_controls(document: dict, receipt_dir: Path, crate: Path = CRATE
         "manifest_sha256", "0" * 64))
     reject("wrong archive provenance", lambda d: d["fixtures"]["shapes"].__setitem__(
         "archive_sha256", "0" * 64))
+    reject("fixture bytes not verified", lambda d: d["fixture_bytes"].__setitem__(
+        "verified", False))
     reject("missing expanded case", lambda d: d["shapes"]["results"].pop())
     reject("duplicate shared case", lambda d: d["retained"]["shared_current"]["results"].append(
         copy.deepcopy(d["retained"]["shared_current"]["results"][0])))

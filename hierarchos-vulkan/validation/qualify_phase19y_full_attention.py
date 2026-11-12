@@ -18,7 +18,7 @@ from pathlib import Path
 from check_phase19y_full_attention import (
     CRATE, EXPECTED_MODEL, LIMIT, ROOT, SHAPE_ARCHIVE_BYTES, SHAPE_ARCHIVE_SHA,
     SHAPE_MANIFEST_SHA, SHARED_MANIFEST_SHA, max_logit, run_negative_controls,
-    validate,
+    validate, verify_fixture_tree,
 )
 
 RECEIPT = (
@@ -145,6 +145,8 @@ def main() -> int:
             "shape fixture input model changed")
     require(shared_manifest.get("complete") is True,
             "shared fixture manifest is incomplete")
+    shape_files = verify_fixture_tree(args.shape_fixtures, shape_manifest, "shape")
+    shared_files = verify_fixture_tree(args.shared_fixtures, shared_manifest, "shared")
     require(digest(args.shape_archive) == SHAPE_ARCHIVE_SHA
             and args.shape_archive.stat().st_size == SHAPE_ARCHIVE_BYTES,
             "recovered shape archive provenance changed")
@@ -232,6 +234,11 @@ def main() -> int:
                 "selected_cases": 74,
                 "selected_profiles": 37,
             },
+        },
+        "fixture_bytes": {
+            "verified": True,
+            "shape_files": shape_files,
+            "shared_files": shared_files,
         },
         "shapes": {
             "cases": 16,
