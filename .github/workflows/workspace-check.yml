@@ -70,6 +70,15 @@ jobs:
       - name: Phase XIX-X attention negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_attention_phase19x_ci.py"
 
+      # The narrow Phase XIX-X receipt stays historical. This separate gate
+      # binds the AVX-512 oracle manifests, 16 expanded shapes, 74 shared
+      # retained cases and the 93-entry accounting to the current source.
+      - name: Phase XIX-Y full-attention receipt
+        run: python hierarchos-vulkan/validation/check_phase19y_full_attention.py
+
+      - name: Phase XIX-Y full-attention negative controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19y_full_attention.py"
+
       - name: Phase XIX-U historical audit
         run: python hierarchos-vulkan/validation/check_phase19u_audit.py
 
