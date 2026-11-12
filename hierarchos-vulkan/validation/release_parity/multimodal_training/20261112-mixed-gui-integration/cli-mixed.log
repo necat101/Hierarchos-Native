@@ -1,0 +1,10 @@
+Vision training complete: C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\target\mixed-gui-qualified-final\cli-mixed\model
+Vision backend: Shared; device: AMD Radeon Graphics; precision: FP16 GEMM operands with FP32 accumulation; FP32 masters, FP32 optimizer state, FP32 norm/softmax/loss
+WMMA: mixed selected for dense Transformer projections (cooperative matrix: extension_exposed=true feature_supported=true memory_model=true subgroup_size_control=true enabled=true
+  storage_16bit=true shader_float16=true driver_subgroup_size=64 configurations=11
+  mixed (f16xf16+fp32) tile: 16x16x16 A=f16 B=f16 C=f32 scope=subgroup
+  full-fp16 (f16xf16+f16) tile: 16x16x16 A=f16 B=f16 C=f16 scope=subgroup
+)
+{"epoch":1,"examples":2,"loss":3.550234317779541,"step":1}
+{"epoch":2,"examples":4,"loss":2.9416656494140625,"step":2}
+WMMA evidence: {"automatic_loss_scaling":false,"cooperative_dispatches":94,"forward":30,"input_grad":32,"master_weights":"fp32","optimizer_state":"fp32","requested":"mixed","shape_fallbacks":6,"weight_grad":32}

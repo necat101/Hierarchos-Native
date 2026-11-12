@@ -1,0 +1,33 @@
+{
+  "backend": "native-vulkan",
+  "device": "AMD Radeon Graphics",
+  "epochs": [
+    {
+      "epoch": 1,
+      "mean_loss": 3.5383059978485107,
+      "optimizer_step": 1,
+      "steps": 1
+    },
+    {
+      "epoch": 2,
+      "mean_loss": 3.538243055343628,
+      "optimizer_step": 2,
+      "steps": 1
+    }
+  ],
+  "optimizer_step": 2,
+  "precision": {
+    "automatic_loss_scaling": false,
+    "cooperative_dispatches": 0,
+    "forward": 0,
+    "input_grad": 0,
+    "master_weights": "fp32",
+    "optimizer_state": "fp32",
+    "requested": "off",
+    "shape_fallbacks": 0,
+    "weight_grad": 0
+  },
+  "starting_step": 0,
+  "steps": 2,
+  "training_mode": "lora"
+}

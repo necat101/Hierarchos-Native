@@ -1,0 +1,5 @@
+Vision training complete: C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\target\mixed-gui-qualified-final\cli-off\model
+Vision backend: Shared; device: AMD Radeon Graphics; precision: FP32 GEMM, FP32 parameters, FP32 optimizer state; no cooperative-matrix feature requested
+{"epoch":1,"examples":2,"loss":3.550250768661499,"step":1}
+{"epoch":2,"examples":4,"loss":2.9416615962982178,"step":2}
+WMMA evidence: {"automatic_loss_scaling":false,"cooperative_dispatches":0,"forward":0,"input_grad":0,"master_weights":"fp32","optimizer_state":"fp32","requested":"off","shape_fallbacks":0,"weight_grad":0}

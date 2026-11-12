@@ -1,0 +1,26 @@
+   Compiling hierarchos-gui v0.1.0 (C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-gui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.68s
+     Running unittests src\main.rs (hierarchos-gui\target\debug\deps\hierarchos_native-739c975641cac9fc.exe)
+
+running 18 tests
+test multimodal_ui::tests::mixed_training_start_executes_cooperative_workers ... ignored, requires HIERARCHOS_MIXED_GUI_FIXTURE, HIERARCHOS_NATIVE_CLI and a cooperative-matrix GPU
+test multimodal_ui::tests::multimodal_start_runs_native_vision_and_image_generation_workers ... ignored, requires HIERARCHOS_MULTIMODAL_GUI_SMOKE manifest and local Vulkan image models
+test tests::falcon_h1_native_training_finetuning_and_generation ... ignored, requires FALCON_H1_SMOKE_ROOT and HIERARCHOS_NATIVE_CLI
+test tests::hierarchos_inference_refuses_remote_model_ids ... ok
+test tests::transformer_generation_continuous_batching_rejects_nonpaged_cache_modes ... ok
+test tests::parameter_streaming_is_opt_in_for_generation_and_peft_only ... ok
+test tests::transformer_generation_cache_selector_can_force_contiguous_or_disable_cache ... ok
+test tests::full_parameter_finetune_is_distinct_from_lora ... ok
+test tests::inference_requires_prompt_and_probability_is_bounded ... ok
+test tests::transformer_hf_inference_builds_generation_command ... ok
+test tests::transformer_generation_continuous_batching_is_explicit_and_repeats_prompts ... ok
+test tests::wmma_precision_is_explicit_in_training_commands ... ok
+test multimodal_ui::tests::text_to_image_uses_image_model_file_output_and_generation_controls ... ok
+test multimodal_ui::tests::vision_workflows_build_real_image_commands_without_text_cache_flags ... ok
+test multimodal_ui::tests::vision_training_preserves_existing_output_and_accepts_empty_destination ... ok
+test multimodal_ui::tests::native_image_state_is_not_silently_sent_to_other_architectures ... ok
+test multimodal_ui::tests::vision_precision_reaches_each_supported_backend_and_rejects_unimplemented_modes ... ok
+test process_tree::tests::closing_worker_job_terminates_its_process ... ok
+
+test result: ok. 15 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.08s
+

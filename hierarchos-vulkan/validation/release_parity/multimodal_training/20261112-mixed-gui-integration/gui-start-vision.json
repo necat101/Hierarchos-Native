@@ -1,0 +1,25 @@
+{
+  "backend": "native-vulkan",
+  "base_model": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\mixed-gui-qualified-final\\model",
+  "batch_size": 2,
+  "examples": 4,
+  "final_loss": 2.929335355758667,
+  "image_height": 16,
+  "image_width": 16,
+  "kind": "Shared",
+  "model": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\mixed-gui-qualified-final\\gui-mixed-vision\\model",
+  "optimizer_resume": false,
+  "precision": {
+    "automatic_loss_scaling": false,
+    "cooperative_dispatches": 94,
+    "forward": 30,
+    "input_grad": 32,
+    "master_weights": "fp32",
+    "optimizer_state": "fp32",
+    "requested": "mixed",
+    "shape_fallbacks": 6,
+    "weight_grad": 32
+  },
+  "seq_len": 24,
+  "steps": 2
+}

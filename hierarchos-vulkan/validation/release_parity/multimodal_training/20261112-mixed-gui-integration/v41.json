@@ -1,0 +1,183 @@
+{
+  "schema": 1,
+  "pass": true,
+  "profile_qualified": true,
+  "architecture": "deepseek_v41",
+  "contract": "fp32_native_vision_frozen_language_lora",
+  "cpu_math": "windows_aten_intel_avx2_v1",
+  "tolerance": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "target": "rdna3",
+  "device_id": 5567,
+  "device_selection": "local default Vulkan adapter; target supplied by the operator",
+  "expected_tests": 30,
+  "completed_tests": 30,
+  "native_cases": 2,
+  "optimizer_updates": 4,
+  "logit_values": 1360,
+  "max_abs_logit": 0.0,
+  "joint_comparisons": {
+    "bit_exact": 155179,
+    "comparisons": 1866,
+    "max_abs": 1.4901161193847656e-08,
+    "values": 155444
+  },
+  "checkpoint_resume_export_verified": true,
+  "binary_sha256": "a650106774204d89ce13047c4374080308bed47fb782830176e44a6bc8d5ca4d",
+  "oracle_sha256": {
+    "hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_native_pipeline_avx2.json": "9f5592989820c1567caf3fd4ca6b5354f7bb8e78dfb6b38f1ebb43b9b4cc403b",
+    "hierarchos-vulkan\\validation\\fixtures\\deepseek_v41_native_vision_avx2.json": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\attention.json": "0ec6389d249d019c5937141a6f6b105fd6280c7cb4bf05e7553ce33cdab364ce",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_aligner_linear.json": "f4cbcf68a9940213982bcf42a92e64ce109cfbe815fd94fb5add97e81afe8d2c",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_backward_avx2.json": "a67d71118eb14abba4ce5dcf9905a85a48c45112ce3023ab2b548e8d050100aa",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_compressor_avx2.json": "6968719fd8bc8e7daab0ef55178ca60c9a04aa2b4817ca26588e551cd2db769a",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_compressor_operands_avx2.json": "1e1b0015b08f77650b489cdf2a26bd95ad1547f6497dce4edbbbffd5c227a85f",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_gate_backward_avx2.json": "4dac62d5b3a015dbf9124b2cb0987d4713d875d5142300f965dbd432e647d70b",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_grouped_avx2.json": "c3d1106cf549751e78a890447ab352e64f5915ae374cc32c2994183d68e6b119",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_grouped_backward_avx2.json": "755cfb5adb50e727f94a256727a32c0fad223975bb494d6f81f6081fbf888779",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_hc_adjoint.json": "afe782a47ac9d781be69ea13349c2011af6e733f349fb97e111e1469a00298ac",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_hc_backward_avx2.json": "c332c3e7ec76ebc997f0f4d5a8631376e8b7acc0c95c9bffbf7ae70245609d06",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_language_linear.json": "062d0c3cad26665f7a750b215f6114778111e1eeb02e71c476a6b5a85a72667d",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_lora_matmul_avx2.json": "8d001be791b31b1a2fa34752c358f229a3e5bed31e11ea7424fa9d32165fb25a",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_narrow_avx2.json": "06a6bb787d7faf97a2a172135ebb18169be8c4f5cec7a7d2df300d6fa8ac316a",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_native_terminal.json": "3191595dbd4be397e1fea0f2476634e676afd92fb087b7f0e7a00a3558866cfd",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_rms.json": "a994f828919639f776fb5069cbc68c636d04e93b76ca79eda56966c68400ff89",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_sdpa.json": "2c3eb0bb951cfd1a9a3f8023248d019aa39b56e06f9edb5681ae5da93a8211ae",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_sparse_backward_avx2.json": "5a75bfb5fb6fb62510f30125f59cf8c3ca88c604fccd6d45cb661963b7f74bfb",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_sqrt_avx2.json": "e6ce075bc6240376c918953441ec8f2a2fabf3d699aec431063571dd557495d0",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\deepseek_v41_unary_avx2.json": "ad1a798fbe1dda879509e2bb41936858cbdf4d9cef94cc1e38354fa6c50032cc",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\fixture.json": "3a88289d8af3fb628cb735ca3b6889e01ed82a1ced38b018b444ddc35ae6017f",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\gelu.json": "a85d6ce5f0588d1327f14fae675f96ed4e1c71edd4735a18c792582ca63edb8a",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\input-gradient-wide.json": "57f0ec22b6471a1f79653199e7d596caa622f48c7b84ae21dfec7f4c7be9ac14",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\input-gradient.json": "2a8ffe83acaabb6445600b75cf020757590e5be57262b36bfd1dc20d0a10205a",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\norm-backward.json": "b0fbc784dde48ccdc069d4f71eba662f10415d3031a5d078d01f9b2cd515648d",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\onednn_gelu.json": "b06af3324061285e28151bbecde75dc150f1be994f2f68489726a6c283689c3c",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\patch.json": "27dcb7d7c87d4627378dc9d1ed00990da51a3f3f40d080ea42e34f28a1c14ff2",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\projector-norm.json": "7170f2a1a75d55e7d1c695989116f52669399615c48f24c403656d9f183bf0b8",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\shared_patch.json": "5a6914e6c0a16c9d60f040f6e294203e3fb484029a566b2fca1faabd3cc0698e",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\shared_text_norm.json": "b9cf177e825d0c2ad3830b6f68f33f526650a6f4a1b2fd6b0f777c800277286a",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\shared_text_sdpa.json": "fdb71103a5548df29146148deaccf2821c51c0c51045b3e169c0e392b36fa63e",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\shared_training.json": "b099d6e1124fa1284990dce01925fe3ef2970cf3cfec739deb53aaa0ae3b2d53",
+    "hierarchos-vulkan\\validation\\fixtures\\vision_avx2_row_tail\\text-attention.json": "3d6d6178726f0eec4d8ecf5e2f2763ae3b30087046c9cbc7940aa901ff7b6638"
+  },
+  "source_manifest_sha256": null,
+  "jobs": [
+    {
+      "name": "primitives",
+      "tests": [
+        "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_compressor_adjoint_matches_frozen_words",
+        "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_gate_adjoints_match_released_cpu",
+        "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_grouped_adjoints_match_frozen_words",
+        "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_hc_adjoints_match_released_cpu",
+        "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_input_adjoints_match_frozen_words",
+        "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_lora_matmuls_match_frozen_words",
+        "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_sparse_adjoints_match_frozen_words",
+        "deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_swiglu_adjoints_match_frozen_cpu",
+        "deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_narrow_projections_match_frozen_cpu_tolerance",
+        "deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_projection_panels_match_frozen_words",
+        "deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_terminal_matches_frozen_words",
+        "deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_unary_boundaries_match_frozen_words"
+      ],
+      "expected_tests": 12,
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "name": "vision",
+      "tests": [
+        "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_aligner_linears_match_frozen_words",
+        "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_final_rms_adjoint_matches_frozen_words",
+        "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_sdpa_matches_independent_random_cpu",
+        "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_two_adamw_steps_match_frozen_cpu"
+      ],
+      "expected_tests": 4,
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "name": "joint",
+      "tests": [
+        "deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_multimodal_joint_two_adamw_steps_match_frozen_cpu"
+      ],
+      "expected_tests": 1,
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "name": "checkpoint",
+      "tests": [
+        "deepseek_v41::model::tests::training::native_vision::native_state::deepseek_v41_native_joint_checkpoint_resume_export_and_freshness"
+      ],
+      "expected_tests": 1,
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "name": "modality",
+      "tests": [
+        "deepseek_v41::model::tests::training::deepseek_v41_modality_absent_gradients_match_text_path_bits",
+        "deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_matches_train_sequence_bits",
+        "deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_state_matches_train_sequence",
+        "deepseek_v41::model::tests::training::hc_adjoint_tests::deepseek_v41_modality_hc_repeat_adjoint_matches_frozen_words"
+      ],
+      "expected_tests": 4,
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "name": "text",
+      "tests": [
+        "deepseek_v41::model::tests::training::deepseek_v41_full_model_cpu_autograd_adamw_resume_and_export_gate"
+      ],
+      "expected_tests": 1,
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "name": "mathscope",
+      "tests": [
+        "deepseek_v41::cpu_math::tests::native_avx2_scope_preserves_host_dispatch"
+      ],
+      "expected_tests": 1,
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "name": "mathscope-wide-host",
+      "tests": [
+        "deepseek_v41::cpu_math::tests::native_avx2_scope_preserves_host_dispatch"
+      ],
+      "expected_tests": 1,
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "name": "vision-wide-host",
+      "tests": [
+        "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_aligner_linears_match_frozen_words",
+        "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_final_rms_adjoint_matches_frozen_words",
+        "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_sdpa_matches_independent_random_cpu",
+        "transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_two_adamw_steps_match_frozen_cpu"
+      ],
+      "expected_tests": 4,
+      "returncode": 0,
+      "pass": true
+    },
+    {
+      "name": "joint-wide-host",
+      "tests": [
+        "deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_multimodal_joint_two_adamw_steps_match_frozen_cpu"
+      ],
+      "expected_tests": 1,
+      "returncode": 0,
+      "pass": true
+    }
+  ],
+  "limits": [
+    "one complete image span per prefill",
+    "fixed patch geometry per trainer",
+    "production geometry and BF16 training unqualified",
+    "physical RDNA3 replay recorded on the local default Vulkan adapter"
+  ]
+}

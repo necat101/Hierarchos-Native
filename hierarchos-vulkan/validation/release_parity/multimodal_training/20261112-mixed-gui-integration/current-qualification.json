@@ -1,0 +1,383 @@
+{
+  "schema": 1,
+  "status": "INCOMPLETE",
+  "scope": "Mixed desktop precision integration and current-source FP32 image replay; not full unified release qualification",
+  "tested_source_revision": "fabbd2f6f2e9d154ea709b0e0e81e3644022af4f",
+  "origin_main": "ead6cd3fa5f8943e478dcd0aec27e6014f62d1d5",
+  "origin_wmma_before": "a2d90ffb8970184afeff4e34b3a20559ea97ebba",
+  "merge_base": "ead6cd3fa5f8943e478dcd0aec27e6014f62d1d5",
+  "protected_historical": "0483bcab17c0ad01872afb8bd5aa8bdc90e6b657",
+  "created_utc": "2026-11-12T09:11:24.085452+00:00",
+  "source_files_verified": 1577,
+  "source_manifest": "mixed-qualification.json",
+  "executable_sha256": {
+    "hierarchos-native.exe": "300305a66a57ddecf194cb38837c469058c676a3e4065c0b222d956c15db2978",
+    "hierarchos-native-cli.exe": "2566b6d68cf997b6f853044ec10ed6e25fbdb407a5dc49e26e68b08cae664ce4",
+    "image_text_pipeline_probe.exe": "641338ea7c2f11e2e79b2971208af6c8cc2e7b70ce4ed3464734c3984dd9725d",
+    "hierarchos-vulkan-transformer-logits.exe": "d42600124ee23234e251d62962609f85fba41691b2ae5cb3b775f9ba11a1adde",
+    "hierarchos-vulkan-transformer-train.exe": "df17453cd1842668d73e7021323d43062cf1b1aa97501e69371fb85d868034f0",
+    "gemma3_vision_probe.exe": "44f4bbb6f7b81cae706514e4e705e09cc18085701e0ded6084f77a8394f17139",
+    "gemma4_vision_probe.exe": "925318b737ea5244f3673d4753667c12326fedf5edc189f61dfd26bd4312799d",
+    "llava_pipeline_probe.exe": "925582c51e54cc2e111003425e9b3d9b3952f2994dfe078d46470920162dd5f1"
+  },
+  "environment": {
+    "os": "Windows-11-10.0.26300-SP0",
+    "rustc": "rustc 1.93.0 (254b59607 2026-01-19)",
+    "device": "AMD Radeon Graphics",
+    "vendor_id": 4098,
+    "device_id": 5567,
+    "driver_version": "32.0.31007.6002"
+  },
+  "frozen_oracle_manifest_sha256": "a9e519008e712105ceb1b135227398785617db3eb03c65e7518bb7f225966636",
+  "frozen_oracle_files_verified": 2748,
+  "frozen_oracle_errors": [],
+  "fp32_image_cases": 93,
+  "fp32_images": {
+    "shared77": {
+      "cases": 77,
+      "status": "PASS",
+      "receipt_sha256": "668e30ce484a10d4f6e0e388a356c8cd626e57880c1d08a2e27acf16ea5bf791",
+      "binary_sha256": "641338ea7c2f11e2e79b2971208af6c8cc2e7b70ce4ed3464734c3984dd9725d",
+      "receipt_path": "shared77.json.gz"
+    },
+    "seq2seq": {
+      "cases": 6,
+      "status": "PASS",
+      "receipt_sha256": "969b1c7681ec346721966f4c56cb606dedae64d7305adc791fb3e53271222c4a",
+      "binary_sha256": "641338ea7c2f11e2e79b2971208af6c8cc2e7b70ce4ed3464734c3984dd9725d",
+      "receipt_path": "seq2seq.json"
+    },
+    "llava": {
+      "cases": 4,
+      "status": "PASS",
+      "receipt_sha256": "21cc848a7b47cd045e2813b2eb648251d09b4194be601e277d301a29454bc467",
+      "binary_sha256": "925582c51e54cc2e111003425e9b3d9b3952f2994dfe078d46470920162dd5f1",
+      "receipt_path": "llava.json"
+    },
+    "gemma3": {
+      "cases": 4,
+      "status": "PASS",
+      "receipt_sha256": "ee226a0d2f6eada807810776389a28d37e8f66f6be9ff1e2e96c97c72e4373d9",
+      "binary_sha256": "44f4bbb6f7b81cae706514e4e705e09cc18085701e0ded6084f77a8394f17139",
+      "receipt_path": "gemma3.json"
+    },
+    "gemma4-legacy": {
+      "cases": 1,
+      "status": "PASS",
+      "receipt_sha256": "4f67ba0d7039d9e38404c79447fc38bec8105e59669caff6776fdaa3f7f8ecbc",
+      "binary_sha256": "925318b737ea5244f3673d4753667c12326fedf5edc189f61dfd26bd4312799d",
+      "receipt_path": "gemma4-legacy.json"
+    },
+    "gemma4-rgb": {
+      "cases": 1,
+      "status": "PASS",
+      "receipt_sha256": "4fda08544ca12a64a92cf1c6b597ca1e2a2c5aba0bfc75cf9aec19a8e34fb725",
+      "binary_sha256": "925318b737ea5244f3673d4753667c12326fedf5edc189f61dfd26bd4312799d",
+      "receipt_path": "gemma4-rgb.json"
+    }
+  },
+  "native_v41": {
+    "executions": 30,
+    "status": "PASS",
+    "overlaps_library_suite": true
+  },
+  "text": {
+    "executed": 166,
+    "passed": 164,
+    "failed": [
+      {
+        "family": "gpt2_wide",
+        "case": "padded",
+        "mode": "resident",
+        "max_abs": 2.086162567138672e-07
+      },
+      {
+        "family": "gpt2_wide",
+        "case": "padded",
+        "mode": "streaming",
+        "max_abs": 2.086162567138672e-07
+      }
+    ]
+  },
+  "rust_library": {
+    "executed": 1152,
+    "passed": 1150,
+    "failed": 2,
+    "ignored": 40,
+    "enumerated": 1192,
+    "unexecuted_active": 0,
+    "failures": [
+      "lora::tests::native_lora_merge_supports_packed_target_parameters_and_current_task_types",
+      "transformer::gpt2_cpu_math_tests::gpt2_wide_frozen_cpu_logits_resident_and_streamed"
+    ]
+  },
+  "cli_tests": {
+    "passed": 50,
+    "failed": 0,
+    "ignored": 0
+  },
+  "gui_unit_tests": {
+    "passed": 15,
+    "failed": 0,
+    "ignored": 3
+  },
+  "gui_hardware_test": {
+    "passed": 1,
+    "workers": 4,
+    "remaining_opt_in_tests_unexecuted": 2
+  },
+  "shader_provenance": {
+    "status": "PASS",
+    "identical": 727
+  },
+  "mixed_gui": {
+    "status": "PASS_SCOPED",
+    "checks": {
+      "off": {
+        "reload_logits": {
+          "max_abs": 0.0,
+          "rms": 0.0
+        },
+        "reload_vision_features": {
+          "max_abs": 0.0,
+          "rms": 0.0
+        },
+        "reload_projected_features": {
+          "max_abs": 0.0,
+          "rms": 0.0
+        },
+        "cpu_step_1": {
+          "max_abs": 3.5762786865234375e-07,
+          "rms": 6.943846010781802e-08,
+          "strict_limit": 2e-07,
+          "comparison": "strict_less_than",
+          "within_strict_limit": false,
+          "qualified": false
+        },
+        "cpu_pixel_gradient_1": {
+          "max_abs": 3.7834979593753815e-10,
+          "rms": 9.19619718491606e-11,
+          "strict_limit": 2e-07,
+          "comparison": "strict_less_than",
+          "within_strict_limit": true,
+          "qualified": false
+        },
+        "cpu_projected_gradient_1": {
+          "max_abs": 3.3527612686157227e-08,
+          "rms": 8.225847388557877e-09,
+          "strict_limit": 2e-07,
+          "comparison": "strict_less_than",
+          "within_strict_limit": true,
+          "qualified": false
+        },
+        "cpu_step_2": {
+          "max_abs": 3.5762786865234375e-07,
+          "rms": 8.763129112568866e-08,
+          "strict_limit": 2e-07,
+          "comparison": "strict_less_than",
+          "within_strict_limit": false,
+          "qualified": false
+        },
+        "cpu_pixel_gradient_2": {
+          "max_abs": 1.8917489796876907e-10,
+          "rms": 3.821144533283345e-11,
+          "strict_limit": 2e-07,
+          "comparison": "strict_less_than",
+          "within_strict_limit": true,
+          "qualified": false
+        },
+        "cpu_projected_gradient_2": {
+          "max_abs": 1.6763806343078613e-08,
+          "rms": 4.3173397867786386e-09,
+          "strict_limit": 2e-07,
+          "comparison": "strict_less_than",
+          "within_strict_limit": true,
+          "qualified": false
+        },
+        "cpu_final": {
+          "max_abs": 4.172325134277344e-07,
+          "rms": 9.392534407480284e-08,
+          "strict_limit": 2e-07,
+          "comparison": "strict_less_than",
+          "within_strict_limit": false,
+          "qualified": false
+        },
+        "image_changed_parameters": 25,
+        "text_changed_parameters": 12,
+        "cli_precision": {
+          "automatic_loss_scaling": false,
+          "cooperative_dispatches": 0,
+          "forward": 0,
+          "input_grad": 0,
+          "master_weights": "fp32",
+          "optimizer_state": "fp32",
+          "requested": "off",
+          "shape_fallbacks": 0,
+          "weight_grad": 0
+        },
+        "cli_image_parameter_max_abs": 0.0,
+        "cli_text_parameter_max_abs": 0.0
+      },
+      "mixed": {
+        "reload_logits": {
+          "max_abs": 0.0,
+          "rms": 0.0
+        },
+        "reload_vision_features": {
+          "max_abs": 0.0,
+          "rms": 0.0
+        },
+        "reload_projected_features": {
+          "max_abs": 0.0,
+          "rms": 0.0
+        },
+        "image_changed_parameters": 25,
+        "text_changed_parameters": 12,
+        "cli_precision": {
+          "automatic_loss_scaling": false,
+          "cooperative_dispatches": 94,
+          "forward": 30,
+          "input_grad": 32,
+          "master_weights": "fp32",
+          "optimizer_state": "fp32",
+          "requested": "mixed",
+          "shape_fallbacks": 6,
+          "weight_grad": 32
+        },
+        "cli_image_parameter_max_abs": 0.0,
+        "cli_text_parameter_max_abs": 0.0
+      },
+      "mixed_step_1": {
+        "max_abs": 0.0002486594021320343,
+        "rms": 7.885108549773181e-05
+      },
+      "mixed_pixel_gradient_1": {
+        "max_abs": 3.8629514165222645e-07,
+        "rms": 1.1026957394877847e-07
+      },
+      "mixed_projected_gradient_1": {
+        "max_abs": 4.0220096707344055e-05,
+        "rms": 1.0110659120439495e-05
+      },
+      "mixed_step_2": {
+        "max_abs": 0.00019848346710205078,
+        "rms": 6.282901689521737e-05
+      },
+      "mixed_pixel_gradient_2": {
+        "max_abs": 2.3552934180770535e-07,
+        "rms": 6.376267751935933e-08
+      },
+      "mixed_projected_gradient_2": {
+        "max_abs": 1.7292331904172897e-05,
+        "rms": 4.540817079238967e-06
+      },
+      "text_full_dispatch": {
+        "automatic_loss_scaling": false,
+        "cooperative_dispatches": 42,
+        "forward": 14,
+        "input_grad": 14,
+        "master_weights": "fp32",
+        "optimizer_state": "fp32",
+        "requested": "mixed",
+        "shape_fallbacks": 6,
+        "weight_grad": 14
+      },
+      "text_full_loss_comparison": {
+        "max_abs": 2.8848648071289062e-05,
+        "rms": 2.711952386990901e-05
+      },
+      "text_lora_dispatch": {
+        "automatic_loss_scaling": false,
+        "cooperative_dispatches": 28,
+        "forward": 14,
+        "input_grad": 14,
+        "master_weights": "fp32",
+        "optimizer_state": "fp32",
+        "requested": "mixed",
+        "shape_fallbacks": 4,
+        "weight_grad": 0
+      },
+      "text_lora_loss_comparison": {
+        "max_abs": 2.574920654296875e-05,
+        "rms": 2.4813865339770676e-05
+      }
+    },
+    "scope": "eligible shared CLIP + Llama full/LoRA two-step mixed/FP32 GUI command integration"
+  },
+  "gate_status": {
+    "original_main_fp32_multimodal": "INCOMPLETE",
+    "wmma_and_packed_cell": "INCOMPLETE",
+    "combined_release": "INCOMPLETE"
+  },
+  "remaining": [
+    "Padded GPT-2 strict FP32 oracle comparison fails in resident and streaming modes",
+    "Packed target-parameter LoRA merge unit test fails",
+    "Additional 128-wide CPU diagnostics exceed 2e-7 and remain unqualified",
+    "Phase XIX-Z source-bound receipt remains stale at packed-cell shader",
+    "13 packed-cell benchmark/guard pairs not replayed in this run",
+    "Long stability/held-out/drift/activation requalification not performed",
+    "Immutable main baseline execution not performed",
+    "Mixed native Gemma/LLaVA architecture matrix not fully qualified",
+    "Native DeepSeek V4.1 WMMA is unimplemented",
+    "Automatic loss scaling is unimplemented",
+    "Clean-machine Windows packaging not tested",
+    "CI pending publication"
+  ],
+  "evidence_sha256": {
+    "cli-mixed.log": "a7edb6973b32381ecdac45baf9ee679ab574dfd99e53542d797338f6e41d7bdf",
+    "cli-off.log": "d897d28ddf4091eaff5c11e9ef0006021c6ecaf55226d6ad4352180e0608718e",
+    "cli-tests.log": "3c7c95ee0e4541ff29136ea98010e86d7601ac2ae89494a469c8eaae14d31318",
+    "gemma3.json": "ee226a0d2f6eada807810776389a28d37e8f66f6be9ff1e2e96c97c72e4373d9",
+    "gemma4-legacy.json": "4f67ba0d7039d9e38404c79447fc38bec8105e59669caff6776fdaa3f7f8ecbc",
+    "gemma4-rgb.json": "4fda08544ca12a64a92cf1c6b597ca1e2a2c5aba0bfc75cf9aec19a8e34fb725",
+    "gui-start-full-finetune.json": "d3e6449315540aedb390b3fe0a8fd48f29174efebc54b717fdc75c4be85ebab3",
+    "gui-start-full.json": "d3e6449315540aedb390b3fe0a8fd48f29174efebc54b717fdc75c4be85ebab3",
+    "gui-start-lora.json": "1a4ac17982bfc4907544f969200c6f6ab3cb8e8f5f3a4829ddb219231114a864",
+    "gui-start-vision.json": "fdc5e302bc76c337a88b7f073f082f77a55049e84e5f4089ad6a20a23bb637b2",
+    "gui-tests.log": "136cc1feb3a54a54e80b126f9e32be32ab2d847691f36b0c8cfea1e4bbbb3c4b",
+    "gui-worker.log": "2a9fcdd1bbfb006160b8be59c1c4c4f6863606ec1c45cd3b52ad8ff0fe8beae7",
+    "image-controls.log": "1cf689a3adf4dd206c3015f0846669cb396ec38ec5438d7df103c1ee7af87f93",
+    "llava.json": "21cc848a7b47cd045e2813b2eb648251d09b4194be601e277d301a29454bc467",
+    "mixed-cli-mixed-training_report.json": "6bcdd4b81e011ea13aefbc5ba6644e263ff8376cfaaa40f2c70e8b7feade147c",
+    "mixed-cli-off-training_report.json": "93d846bb4aa2b523266f8502bdeef6814b0d34d3f274d3bae189ec86c486adaf",
+    "mixed-cpu.json": "ef2ac2995a01c0c4231598758605f69ffa1943bc2f88d6f8cd2dfed0495e2142",
+    "mixed-mixed-report.json.gz": "4743792d24635404107b59412374cf219e08cb5af085639c00a208b5bb874d9b",
+    "mixed-off-report.json.gz": "ae5505ff239d560fc1ecdeeca30465ad5fcacc59864129ec05f3ea5ee36acc5d",
+    "mixed-qualification.json": "d5bed4aa078d42eb7fb383213b7055d3436956d54cee192839f7b5520ce3f4c9",
+    "mixed-text-full-mixed-training_report.json": "a013affd7596a3bb4e57ab096833d1036492c533bb48c39228c8c522c411a0eb",
+    "mixed-text-full-off-training_report.json": "947d296195b0c1b12877e81690c2f53edaac384e382efd8717f59403ea97e452",
+    "mixed-text-lora-mixed-training_report.json": "1f802b38409766548a18faad8ac9e59c6b60a09a34b8560dbbd96e2e6cb1858c",
+    "mixed-text-lora-off-training_report.json": "84c0f4482edfeb65d4b2f92deaf9f29143e4c1dfd3c7a4fb4b36d307f80beeef",
+    "mixed.log": "c266fb61b0bfe5da49949cdffd9738ff0ecbeecfb9000a45e83612e4542692f9",
+    "off.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "phase19z.log": "11852769055172c781d12c0821e3e3ca95ab8b8ad3e353b1564c59e9c730bc79",
+    "rust-tests.log": "de086fe788215ea06ee9596906b572f33fd1f65aa086efa4dd24898edde2bafd",
+    "seq2seq.json": "969b1c7681ec346721966f4c56cb606dedae64d7305adc791fb3e53271222c4a",
+    "shader-provenance.json": "e76a0cf363fcf023ed9a1a756201a5459eedf8eb04a78f1f3f610914bac1ccee",
+    "shared77.json.gz": "001adb8ecbae1226439bc136213caaea3126419a3801ba5c5e6956e5c8307747",
+    "text-full-mixed.log": "d8df8adbc15ad8b2ad787ce162cde2f2eb40403237870d69854442858f9c683c",
+    "text-full-off.log": "bc40727d6976b7555a3b98981966344cfee7621847b4e29a3028c22b05f059d7",
+    "text-lora-mixed.log": "5083b3c202a9f08f10aa79ec5b67b0a2af568b1f461418cc9f48a0d1d82a43ba",
+    "text-lora-off.log": "1a17a5b3da4e1b1a301950f0bcea0be9c988276877e5ff2e696b97b0e62185c1",
+    "text166.json": "473f8968773bfdec66cc75397196b399f5fd99a3c61daac6a7d3194869c47499",
+    "training-controls.log": "6bfcb971259f4f8a74a730e0b358d7595ecc0d8a957d51b105dcb08a351ef976",
+    "v41.json": "7484524ffd0c43c50a11e1ed40c60a120553d467e7b30471cb5f04b1e8079e9d"
+  },
+  "compressed_artifacts": {
+    "mixed-mixed-report.json.gz": {
+      "uncompressed_sha256": "25dcf15775f5d106743ef03925744663141e5b02aa5d1d3e4cd94bf32cee7f41",
+      "uncompressed_bytes": 3033549,
+      "encoding": "gzip"
+    },
+    "mixed-off-report.json.gz": {
+      "uncompressed_sha256": "1ba5d7e84ea568851854672d13d8eb498b88525b33c16a81d2da2615f7f72619",
+      "uncompressed_bytes": 3033545,
+      "encoding": "gzip"
+    },
+    "shared77.json.gz": {
+      "uncompressed_sha256": "668e30ce484a10d4f6e0e388a356c8cd626e57880c1d08a2e27acf16ea5bf791",
+      "uncompressed_bytes": 2951129,
+      "encoding": "gzip"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+WMMA: dense Transformer projections will request mixed
+WMMA: mixed selected for dense Transformer projections (cooperative matrix: extension_exposed=true feature_supported=true memory_model=true subgroup_size_control=true enabled=true
+  storage_16bit=true shader_float16=true driver_subgroup_size=64 configurations=11
+  mixed (f16xf16+fp32) tile: 16x16x16 A=f16 B=f16 C=f32 scope=subgroup
+  full-fp16 (f16xf16+f16) tile: 16x16x16 A=f16 B=f16 C=f16 scope=subgroup
+)
+Transformer epoch 1/2: steps=1 mean_loss=3.538331
+Transformer epoch 2/2: steps=1 mean_loss=2.988810
+WMMA evidence: {"automatic_loss_scaling":false,"cooperative_dispatches":42,"forward":14,"input_grad":14,"master_weights":"fp32","optimizer_state":"fp32","requested":"mixed","shape_fallbacks":6,"weight_grad":14}
+native Transformer training complete: backend=Vulkan device=AMD Radeon Graphics steps=2 output=C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\target\mixed-gui-qualified-final\text-full-mixed

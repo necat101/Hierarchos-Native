@@ -1,0 +1,625 @@
+warning: unused variable: `push`
+   --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\deepseek_v41\mixed_moe_grad.rs:322:13
+    |
+322 |         let push = gate_push(c, rows);
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `push`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\deepseek_v41\backbone.rs:2136:13
+     |
+2136 |         let push = MoeGatePush {
+     |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+
+warning: variable does not need to be mutable
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\full_training_graph.rs:20140:21
+      |
+20140 |                 let mut readback = GpuBuffer::uninitialized_host_f32(&source.device, len)?;
+      |                     ----^^^^^^^^
+      |                     |
+      |                     help: remove this `mut`
+      |
+      = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unreachable pattern
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer\peft_state.rs:1528:21
+     |
+1528 |                     _ => {}
+     |                     ^ no value can reach this
+     |
+note: multiple earlier patterns match some of the same values
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer\peft_state.rs:1528:21
+     |
+1482 |                       VulkanQwenGatedDeltaProjection::Qwen3Next { qkvz, ba, .. } => {
+     |                       ---------------------------------------------------------- matches some of the same values
+...
+1487 |                       VulkanQwenGatedDeltaProjection::Qwen35 { qkv, z, b, a } => {
+     |                       ------------------------------------------------------- matches some of the same values
+...
+1492 | /                     VulkanQwenGatedDeltaProjection::OlmoHybrid {
+1493 | |                         q, k, v, z, b, a, ..
+1494 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1499 | /                     VulkanQwenGatedDeltaProjection::Glm5 {
+1500 | |                         q,
+1501 | |                         k,
+1502 | |                         v,
+...    |
+1508 | |                         ..
+1509 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1528 |                       _ => {}
+     |                       ^ ...and 1 other patterns collectively make this unreachable
+     = note: `#[warn(unreachable_patterns)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:11763:13
+      |
+11763 |         let mut config = Self {
+      |             ----^^^^^^
+      |             |
+      |             help: remove this `mut`
+
+warning: unused variable: `layer_index`
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:66692:5
+      |
+66692 |     layer_index: usize,
+      |     ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_layer_index`
+
+warning: variable does not need to be mutable
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:8189:9
+     |
+8189 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:8349:9
+     |
+8349 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: type `ComputeBatch` is more private than the item `tap`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\activation_trace.rs:112:1
+     |
+ 112 | / pub fn tap(
+ 113 | |     commands: &mut ComputeBatch,
+ 114 | |     buffer: &GpuBuffer,
+ 115 | |     len: usize,
+...    |
+ 118 | |     shape: [usize; 3],
+ 119 | | ) -> Result<()> {
+     | |_______________^ function `tap` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `Key` is more private than the item `PayloadCache::get`
+  --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\deepseek_v41\checkpoint_cache.rs:75:5
+   |
+75 |     pub fn get(&mut self, key: &Key) -> Option<Arc<Vec<u8>>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `PayloadCache::get` is reachable at visibility `pub(in crate::deepseek_v41)`
+   |
+note: but type `Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+  --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\deepseek_v41\checkpoint_cache.rs:31:1
+   |
+31 | pub(super) struct Key {
+   | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `Key` is more private than the item `PayloadCache::insert`
+   --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\deepseek_v41\checkpoint_cache.rs:103:5
+    |
+103 |     pub fn insert(&mut self, key: Key, bytes: &[u8]) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `PayloadCache::insert` is reachable at visibility `pub(in crate::deepseek_v41)`
+    |
+note: but type `Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+   --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\deepseek_v41\checkpoint_cache.rs:31:1
+    |
+ 31 | pub(super) struct Key {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\deepseek_v41\mixed_linear.rs:337:5
+     |
+ 337 | /     pub fn record_cast_buffer(
+ 338 | |         &self,
+ 339 | |         commands: &mut vulkan::ComputeBatch,
+ 340 | |         input: &GpuBuffer,
+ 341 | |         elements: usize,
+ 342 | |         precision: DeepseekV41WeightOutput,
+ 343 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_apply`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\deepseek_v41\mixed_linear.rs:397:5
+     |
+ 397 | /     pub fn record_apply(
+ 398 | |         &self,
+ 399 | |         commands: &mut vulkan::ComputeBatch,
+ 400 | |         input: &GpuBuffer,
+...    |
+ 403 | |         precision: DeepseekV41WeightOutput,
+ 404 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_apply` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `WmmaGemm::record_conversion`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\wmma.rs:649:5
+     |
+ 649 | /     pub fn record_conversion(
+ 650 | |         &self,
+ 651 | |         batch: &mut vulkan::ComputeBatch,
+ 652 | |         source_f32: &GpuBuffer,
+ 653 | |         destination_f16: &GpuBuffer,
+ 654 | |         len: usize,
+ 655 | |     ) -> Result<()> {
+     | |___________________^ method `WmmaGemm::record_conversion` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `WmmaGemm::record_gemm`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\wmma.rs:671:5
+     |
+ 671 | /     pub fn record_gemm(
+ 672 | |         &self,
+ 673 | |         batch: &mut vulkan::ComputeBatch,
+ 674 | |         arm: WmmaGemmArm,
+...    |
+ 681 | |         layout: GemmLayout,
+ 682 | |     ) -> Result<()> {
+     | |___________________^ method `WmmaGemm::record_gemm` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `LinearWmma::record_forward`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\wmma_linear.rs:263:5
+     |
+ 263 | /     pub fn record_forward(
+ 264 | |         &self,
+ 265 | |         commands: &mut vulkan::ComputeBatch,
+ 266 | |         input: &GpuBuffer,
+...    |
+ 269 | |         rows: usize,
+ 270 | |     ) -> Result<bool> {
+     | |_____________________^ method `LinearWmma::record_forward` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `LinearWmma::record_weight_grad`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\wmma_linear.rs:305:5
+     |
+ 305 | /     pub fn record_weight_grad(
+ 306 | |         &self,
+ 307 | |         commands: &mut vulkan::ComputeBatch,
+ 308 | |         grad_output: &GpuBuffer,
+...    |
+ 311 | |         rows: usize,
+ 312 | |     ) -> Result<bool> {
+     | |_____________________^ method `LinearWmma::record_weight_grad` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `LinearWmma::record_input_grad`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\wmma_linear.rs:343:5
+     |
+ 343 | /     pub fn record_input_grad(
+ 344 | |         &self,
+ 345 | |         commands: &mut vulkan::ComputeBatch,
+ 346 | |         grad_output: &GpuBuffer,
+...    |
+ 349 | |         rows: usize,
+ 350 | |     ) -> Result<bool> {
+     | |_____________________^ method `LinearWmma::record_input_grad` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeSession` is more private than the item `BatchHandle::Session::session`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:5588:9
+     |
+5588 |         session: *mut ComputeSession,
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `BatchHandle::Session::session` is reachable at visibility `pub(crate)`
+     |
+note: but type `ComputeSession` is only usable at visibility `pub(self)`
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:5562:1
+     |
+5562 | struct ComputeSession {
+     | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled` is never used
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\lib.rs:3258:19
+     |
+1121 | impl HierarchosOutNormHeadTrainer {
+     | --------------------------------- method in this implementation
+...
+3258 |     pub(crate) fn record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled(
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `apply` is never used
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\deepseek_v41\backbone.rs:2392:8
+     |
+2391 | impl MoeExecution {
+     | ----------------- method in this implementation
+2392 |     fn apply(&self, input: &GpuBuffer, rows: usize) -> Result<GpuBuffer> {
+     |        ^^^^^
+
+warning: field `directory` is never read
+  --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\deepseek_v41\model_train.rs:81:5
+   |
+78 | pub struct DeepseekV41ModelTrainer {
+   |            ----------------------- field in this struct
+...
+81 |     directory: PathBuf,
+   |     ^^^^^^^^^
+
+warning: field `alpha` is never read
+   --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\deepseek_v41\train.rs:103:5
+    |
+101 | struct TrainableFactors {
+    |        ---------------- field in this struct
+102 |     rank: usize,
+103 |     alpha: f64,
+    |     ^^^^^
+    |
+    = note: `TrainableFactors` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `record_prepared_full_model_optimizer_step` and `finish_prepared_full_model_accumulation_wavefront` are never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\full_training_graph.rs:22904:8
+      |
+ 8187 | impl HierarchosTrainingGraph {
+      | ---------------------------- methods in this implementation
+...
+22904 |     fn record_prepared_full_model_optimizer_step(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+23391 |     fn finish_prepared_full_model_accumulation_wavefront(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `gradient` is never used
+   --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\multimodal.rs:210:19
+    |
+ 78 | impl<'a> PreparedModalityRows<'a> {
+    | --------------------------------- method in this implementation
+...
+210 |     pub(crate) fn gradient(&self) -> Result<Vec<f32>> {
+    |                   ^^^^^^^^
+
+warning: methods `release_training_state` and `training_state_bytes` are never used
+   --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\shared_lm_head.rs:456:19
+    |
+ 99 | impl SharedLmHeadParameter {
+    | -------------------------- methods in this implementation
+...
+456 |     pub(crate) fn release_training_state(&self) -> Result<()> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+465 |     pub(crate) fn training_state_bytes(&self) -> Result<usize> {
+    |                   ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `generation_sample_token` is never used
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:4023:4
+     |
+4023 | fn generation_sample_token(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `uses_alibi_attention` and `uses_mask_relative_alibi_positions` are never used
+    --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:7456:8
+     |
+6070 | impl VulkanTransformerArchitecture {
+     | ---------------------------------- methods in this implementation
+...
+7456 |     fn uses_alibi_attention(self) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^
+...
+7460 |     fn uses_mask_relative_alibi_positions(self) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `gated_delta_recurrent` is never read
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:26491:5
+      |
+26344 | struct TransformerKernels {
+      |        ------------------ field in this struct
+...
+26491 |     gated_delta_recurrent: vulkan::ComputeKernel,
+      |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: trait `OptionalGpuBufferExt` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:27624:7
+      |
+27624 | trait OptionalGpuBufferExt {
+      |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TIERED_LM_HEAD_MAX_TILE_ROWS` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:27659:7
+      |
+27659 | const TIERED_LM_HEAD_MAX_TILE_ROWS: usize =
+      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_forward` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:28330:8
+      |
+27703 | impl TieredLmHead {
+      | ----------------- method in this implementation
+...
+28330 |     fn record_forward(
+      |        ^^^^^^^^^^^^^^
+
+warning: method `training_state_bytes` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:28697:8
+      |
+28587 | impl TrainableParameter {
+      | ----------------------- method in this implementation
+...
+28697 |     fn training_state_bytes(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: method `as_mut` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:29043:8
+      |
+29034 | impl VulkanLoraBank {
+      | ------------------- method in this implementation
+...
+29043 |     fn as_mut(&mut self) -> Option<&mut VulkanLora> {
+      |        ^^^^^^
+
+warning: method `enable_lora` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:29431:8
+      |
+29303 | impl VulkanLinear {
+      | ----------------- method in this implementation
+...
+29431 |     fn enable_lora(
+      |        ^^^^^^^^^^^
+
+warning: field `num_hidden_layers` is never read
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:33902:5
+      |
+33901 | struct AlbertTopology {
+      |        -------------- field in this struct
+33902 |     num_hidden_layers: usize,
+      |     ^^^^^^^^^^^^^^^^^
+      |
+      = note: `AlbertTopology` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: function `decode_transformer_float_tensor` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:36620:4
+      |
+36620 | fn decode_transformer_float_tensor(name: &str, tensor: TensorView<'_>) -> Result<HostFloatTensor> {
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `load_gpt2_weights` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:40827:4
+      |
+40827 | fn load_gpt2_weights(
+      |    ^^^^^^^^^^^^^^^^^
+
+warning: function `load_llama_weights` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:44551:4
+      |
+44551 | fn load_llama_weights(
+      |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `load_deepseek_v4_hca_compressors` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:47074:4
+      |
+47074 | fn load_deepseek_v4_hca_compressors(
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `grad_attention_gate_values` is never read
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:49444:5
+      |
+49374 | struct TransformerLayerTape {
+      |        -------------------- field in this struct
+...
+49444 |     grad_attention_gate_values: GpuBuffer,
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `input_dim` and `output_dim` are never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:54417:8
+      |
+54356 | impl VulkanDeepseekV4GroupedLinear {
+      | ---------------------------------- methods in this implementation
+...
+54417 |     fn input_dim(&self) -> usize {
+      |        ^^^^^^^^^
+...
+54421 |     fn output_dim(&self) -> usize {
+      |        ^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:54684:8
+      |
+54582 | impl VulkanDeepseekV4CsaOverlapCompressor {
+      | ----------------------------------------- method in this implementation
+...
+54684 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:55320:8
+      |
+55275 | impl VulkanDeepseekV4CsaCompressor {
+      | ---------------------------------- method in this implementation
+...
+55320 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:55505:8
+      |
+55404 | impl VulkanDeepseekV4HcaCompressor {
+      | ---------------------------------- method in this implementation
+...
+55505 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `key_hidden_size` is never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:55821:8
+      |
+55666 | impl VulkanMlaAttention {
+      | ----------------------- method in this implementation
+...
+55821 |     fn key_hidden_size(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^
+
+warning: methods `record_forward` and `record_backward` are never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:60969:8
+      |
+59371 | impl VulkanTransformerLayer {
+      | --------------------------- methods in this implementation
+...
+60969 |     fn record_forward(
+      |        ^^^^^^^^^^^^^^
+...
+62724 |     fn record_backward(
+      |        ^^^^^^^^^^^^^^^
+
+warning: methods `generation_last_logits_with_layer_count`, `generation_prefill_kv_cache`, `generate_beam_ids_with_context`, `generate_beam_ids_with_kv_cache`, and `generate_beam_ids_full_prefix_with_context` are never used
+     --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer.rs:80206:8
+      |
+67695 | impl VulkanTransformer {
+      | ---------------------- methods in this implementation
+...
+80206 |     fn generation_last_logits_with_layer_count(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+80643 |     fn generation_prefill_kv_cache(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+83004 |     fn generate_beam_ids_with_context(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+83644 |     fn generate_beam_ids_with_kv_cache(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+83778 |     fn generate_beam_ids_full_prefix_with_context(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `eps` is never read
+   --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\transformer\gemma4_vision.rs:904:5
+    |
+886 | pub struct VulkanGemma4Vision {
+    |            ------------------ field in this struct
+...
+904 |     eps: f32,
+    |     ^^^
+
+warning: function `rdna3_vision_capability` is never used
+   --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vendor.rs:631:14
+    |
+631 | pub const fn rdna3_vision_capability(vendor_id: u32, device_id: u32) -> bool {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `physical_device` and `physical_device_index` are never read
+  --> C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\src\vulkan.rs:38:5
+   |
+35 | struct DeviceInner {
+   |        ----------- fields in this struct
+...
+38 |     physical_device: vk::PhysicalDevice,
+   |     ^^^^^^^^^^^^^^^
+...
+72 |     physical_device_index: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: `hierarchos-vulkan` (lib) generated 51 warnings (run `cargo fix --lib -p hierarchos-vulkan` to apply 7 suggestions)
+   Compiling hierarchos-native-cli v0.1.0 (C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-native-cli)
+    Finished `release` profile [optimized] target(s) in 5m 20s
+     Running unittests src\lib.rs (hierarchos-vulkan\target\release\deps\hierarchos_native_cli-a2e912338276c5dc.exe)
+
+running 50 tests
+test image_generation::tests::image_engine_arguments_preserve_prompts_and_force_vulkan ... ok
+test tests::contract_staging_updates_nested_and_flat_configs_without_mutating_source ... ok
+test tests::deepseek_v41_generation_context_is_bounded_by_native_runtime ... ok
+test tests::failed_ckpt_to_inference_does_not_publish_partial_output ... ok
+test tests::full_finetune_rejects_adapter_options_before_io ... ok
+test tests::hugging_face_dataset_split_matching_covers_single_sharded_jsonl_and_parquet ... ok
+test tests::hugging_face_repo_and_file_validation_is_fail_closed ... ok
+test tests::hugging_face_url_components_are_encoded_without_flattening_file_paths ... ok
+test tests::local_tokenizer_assets_are_installed_into_output_and_checkpoints ... ok
+test tests::modules_to_save_requires_its_separate_registry_gate ... ok
+test tests::native_causal_tokenization_and_chat_share_eos_resolution ... ok
+test tests::native_causal_tokenization_appends_eos_once_and_preserves_bos ... ok
+test tests::native_causal_tokenization_keeps_prompt_open_before_answer ... ok
+test tests::native_causal_tokenization_preserves_literal_prompt_eos ... ok
+test tests::native_causal_tokenization_response_eos_is_not_answer_content ... ok
+test tests::native_cli_training_defaults_match_root_cli_contract ... ok
+test tests::native_eos_probability_stop_uses_raw_softmax_and_generated_token_gate ... ok
+test tests::native_uncertainty_stop_is_fail_closed_for_active_nonfinite_logits ... ok
+test tests::native_uncertainty_stop_matches_root_cli_guard_geometry ... ok
+test tests::package_vocab_size_accepts_native_config_contract ... ok
+test tests::parameter_streaming_generation_cli_requires_explicit_flag ... ok
+test tests::parquet_dataset_is_materialized_as_jsonl_without_python ... ok
+test tests::peft_cli_rejects_ambiguous_configs_and_invalid_budgets_before_io ... ok
+test tests::plain_text_row_produces_supervised_ids ... ok
+test tests::platform_executable_matches_host ... ok
+test tests::response_boundary_weight_never_boosts_eos ... ok
+test tests::response_preserving_truncation_keeps_prompt_suffix_and_minimum_answer ... ok
+test tests::root_text_schema_detection_covers_content_and_question_answer ... ok
+test tests::transformer_chunking_attaches_cross_attention_encoder_context ... ok
+test tests::transformer_chunking_builds_shifted_causal_targets_and_padding ... ok
+test tests::transformer_dropout_override_is_explicit_and_covers_nested_mpt_field ... ok
+test tests::transformer_encoder_context_rejects_hidden_width_mismatch ... ok
+test tests::transformer_generate_cli_accepts_named_peft_adapter ... ok
+test tests::transformer_generate_cli_continuous_batching_fails_closed_on_cache_conflicts ... ok
+test tests::transformer_generate_cli_continuous_batching_is_opt_in_and_implies_paged_cache ... ok
+test tests::transformer_generate_cli_exposes_hf_generation_overrides ... ok
+test tests::transformer_generate_cli_rejects_adapter_name_without_adapter ... ok
+test tests::transformer_generate_routes_deepseek_v41_through_the_dedicated_loader ... ok
+test tests::transformer_generation_config_overlay_is_last_write_wins ... ok
+test tests::transformer_package_metadata_cannot_implicitly_enable_paged_serving ... ok
+test tests::transformer_peft_mode_includes_implicit_finetune_and_resume ... ok
+test tests::transformer_safetensors_index_collects_unique_safe_shards ... ok
+test tests::transformer_wmma_mode_reaches_the_trainer_environment ... ok
+test tests::transformer_wmma_mode_rejects_unqualified_paths_before_io ... ok
+test vision::tests::native_spans_and_padding_keep_image_identity ... ok
+test vision::tests::partial_batches_do_not_train_repeated_padding_examples ... ok
+test vision::tests::released_v41_rgb_patch_order_and_bfloat_boundary ... ok
+test vision::tests::shifted_text_target_after_an_image_row_remains_supervised ... ok
+test vision::tests::vision_options_reject_mismatched_and_invalid_controls ... ok
+test vision::tests::vision_precision_accepts_amp_aliases_without_touching_the_process_policy ... ok
+
+test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+

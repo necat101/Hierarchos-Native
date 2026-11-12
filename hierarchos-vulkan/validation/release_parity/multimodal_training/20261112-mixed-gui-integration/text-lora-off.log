@@ -1,0 +1,7 @@
+WMMA: dense Transformer projections will request off
+Vulkan PEFT: attached 1 LoRA module(s); base Llama parameters are frozen
+Vulkan PEFT: trainable_parameters=2048
+Transformer epoch 1/2: steps=1 mean_loss=3.538306
+Transformer epoch 2/2: steps=1 mean_loss=3.538243
+WMMA evidence: {"automatic_loss_scaling":false,"cooperative_dispatches":0,"forward":0,"input_grad":0,"master_weights":"fp32","optimizer_state":"fp32","requested":"off","shape_fallbacks":0,"weight_grad":0}
+native Transformer training complete: backend=Vulkan device=AMD Radeon Graphics steps=2 output=C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\target\mixed-gui-qualified-final\text-lora-off
