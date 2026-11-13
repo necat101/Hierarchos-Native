@@ -6,7 +6,7 @@
   "rtol": 0,
   "comparison": "strict_less_than",
   "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
-  "binary_sha256": "4088ea3766a85c120ffcff77312c90176a2edb925c89374a23c9bcbee1a7f917",
+  "binary_sha256": "0b7942e0073b4e4ac5d4254c51377d48e07a6819e8000c7aed08e7742f3cc61c",
   "manifest_sha256": "5b04c85ca50c1a5e56542b761195bb6e3c3b25f2bd36132eb401298eb0abdaa4",
   "records": [
     {
@@ -20,7 +20,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt2\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\gpt2-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\gpt2-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -80,7 +80,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 1.0603587000077823
+      "elapsed_seconds": 0.1443266999995103
     },
     {
       "family": "gpt2",
@@ -93,7 +93,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt2\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\gpt2-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\gpt2-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -155,7 +155,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15846560000500176
+      "elapsed_seconds": 0.12576399999670684
     },
     {
       "family": "gpt2",
@@ -168,7 +168,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt2\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\gpt2-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\gpt2-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -228,7 +228,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.1378283000085503
+      "elapsed_seconds": 0.11949500000628177
     },
     {
       "family": "gpt2",
@@ -241,7 +241,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt2\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\gpt2-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\gpt2-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -303,7 +303,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14334510000480805
+      "elapsed_seconds": 0.13105080000241287
     },
     {
       "family": "llama",
@@ -316,7 +316,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\llama\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\llama-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\llama-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -376,7 +376,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.1276649999927031
+      "elapsed_seconds": 0.1413211000035517
     },
     {
       "family": "llama",
@@ -389,7 +389,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\llama\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\llama-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\llama-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -451,7 +451,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1360553999984404
+      "elapsed_seconds": 0.13674130001163576
     },
     {
       "family": "llama",
@@ -464,7 +464,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\llama\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\llama-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\llama-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -524,7 +524,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.1412797000084538
+      "elapsed_seconds": 0.13926389999687672
     },
     {
       "family": "llama",
@@ -537,7 +537,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\llama\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\llama-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\llama-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -599,7 +599,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.13744059999589808
+      "elapsed_seconds": 0.15886479998880532
     },
     {
       "family": "mistral",
@@ -612,7 +612,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mistral\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\mistral-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\mistral-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -672,7 +672,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.13749350000580307
+      "elapsed_seconds": 0.1434886000060942
     },
     {
       "family": "mistral",
@@ -685,7 +685,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mistral\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\mistral-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\mistral-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -747,7 +747,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.13872170000104234
+      "elapsed_seconds": 0.1560276999953203
     },
     {
       "family": "mistral",
@@ -760,7 +760,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mistral\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\mistral-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\mistral-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -820,7 +820,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.1368914000049699
+      "elapsed_seconds": 0.13780450000194833
     },
     {
       "family": "mistral",
@@ -833,7 +833,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mistral\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\mistral-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\mistral-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -895,7 +895,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14411910000490025
+      "elapsed_seconds": 0.1490157999942312
     },
     {
       "family": "mixtral",
@@ -908,7 +908,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mixtral\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\mixtral-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\mixtral-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -968,7 +968,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.13436869998986367
+      "elapsed_seconds": 0.14225119999900926
     },
     {
       "family": "mixtral",
@@ -981,7 +981,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mixtral\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\mixtral-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\mixtral-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -1043,7 +1043,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.154292200008058
+      "elapsed_seconds": 0.16532179999921937
     },
     {
       "family": "mixtral",
@@ -1056,7 +1056,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mixtral\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\mixtral-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\mixtral-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -1116,7 +1116,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.14259050000691786
+      "elapsed_seconds": 0.1503491000039503
     },
     {
       "family": "mixtral",
@@ -1129,7 +1129,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mixtral\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\mixtral-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\mixtral-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -1191,7 +1191,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1719816999975592
+      "elapsed_seconds": 0.16475169999466743
     },
     {
       "family": "qwen2",
@@ -1204,7 +1204,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen2-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen2-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -1264,7 +1264,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.16175970000040252
+      "elapsed_seconds": 0.14049330000125337
     },
     {
       "family": "qwen2",
@@ -1277,7 +1277,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen2-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen2-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -1339,7 +1339,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.13563659999636002
+      "elapsed_seconds": 0.1538701000099536
     },
     {
       "family": "qwen2",
@@ -1352,7 +1352,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen2-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen2-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -1412,7 +1412,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.13735170000290964
+      "elapsed_seconds": 0.14414370000304189
     },
     {
       "family": "qwen2",
@@ -1425,7 +1425,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen2-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen2-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -1487,7 +1487,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1427010000043083
+      "elapsed_seconds": 0.14758699999947567
     },
     {
       "family": "qwen3_next",
@@ -1500,7 +1500,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_next\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_next-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_next-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -1560,7 +1560,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.13272140000481158
+      "elapsed_seconds": 0.14377870000316761
     },
     {
       "family": "qwen3_next",
@@ -1573,7 +1573,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_next\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_next-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_next-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -1635,7 +1635,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15684199999668635
+      "elapsed_seconds": 0.15900869999313727
     },
     {
       "family": "qwen3_next",
@@ -1648,7 +1648,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_next\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_next-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_next-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -1708,7 +1708,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.1419799999857787
+      "elapsed_seconds": 0.1406148999958532
     },
     {
       "family": "qwen3_next",
@@ -1721,7 +1721,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_next\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_next-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_next-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -1783,7 +1783,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15345709999382962
+      "elapsed_seconds": 0.1572236000065459
     },
     {
       "family": "gpt_oss",
@@ -1796,7 +1796,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt_oss\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\gpt_oss-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\gpt_oss-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -1856,7 +1856,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.1376942000060808
+      "elapsed_seconds": 0.14507790000061505
     },
     {
       "family": "gpt_oss",
@@ -1869,7 +1869,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt_oss\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\gpt_oss-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\gpt_oss-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -1931,7 +1931,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1721292000001995
+      "elapsed_seconds": 0.17910539999138564
     },
     {
       "family": "gpt_oss",
@@ -1944,7 +1944,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt_oss\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\gpt_oss-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\gpt_oss-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -2004,7 +2004,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.14307649999682326
+      "elapsed_seconds": 0.14585249999072403
     },
     {
       "family": "gpt_oss",
@@ -2017,7 +2017,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt_oss\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\gpt_oss-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\gpt_oss-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -2079,7 +2079,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.17549979999603238
+      "elapsed_seconds": 0.1848589000001084
     },
     {
       "family": "smollm3",
@@ -2092,7 +2092,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\smollm3\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\smollm3-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\smollm3-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -2152,7 +2152,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.13720979999925476
+      "elapsed_seconds": 0.14929970000230242
     },
     {
       "family": "smollm3",
@@ -2165,7 +2165,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\smollm3\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\smollm3-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\smollm3-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -2227,7 +2227,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1700260000070557
+      "elapsed_seconds": 0.17947270000877324
     },
     {
       "family": "smollm3",
@@ -2240,7 +2240,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\smollm3\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\smollm3-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\smollm3-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -2300,7 +2300,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.13927470000635367
+      "elapsed_seconds": 0.14450619999843184
     },
     {
       "family": "smollm3",
@@ -2313,7 +2313,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\smollm3\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\smollm3-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\smollm3-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -2375,7 +2375,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16091960000630934
+      "elapsed_seconds": 0.1748135999951046
     },
     {
       "family": "qwen2_5_gqa",
@@ -2388,7 +2388,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_gqa\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen2_5_gqa-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen2_5_gqa-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -2448,7 +2448,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.13148789999831934
+      "elapsed_seconds": 0.13225260000035632
     },
     {
       "family": "qwen2_5_gqa",
@@ -2461,7 +2461,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_gqa\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen2_5_gqa-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen2_5_gqa-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -2523,7 +2523,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15047860000049695
+      "elapsed_seconds": 0.15101689999573864
     },
     {
       "family": "qwen2_5_gqa",
@@ -2536,7 +2536,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_gqa\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen2_5_gqa-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen2_5_gqa-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -2596,7 +2596,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.14649819998885505
+      "elapsed_seconds": 0.1359563000005437
     },
     {
       "family": "qwen2_5_gqa",
@@ -2609,7 +2609,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_gqa\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen2_5_gqa-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen2_5_gqa-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -2671,7 +2671,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.17153099999995902
+      "elapsed_seconds": 0.1480229999870062
     },
     {
       "family": "qwen2_5_sliding_tied",
@@ -2684,7 +2684,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_sliding_tied\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen2_5_sliding_tied-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen2_5_sliding_tied-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -2744,7 +2744,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.14199429999280255
+      "elapsed_seconds": 0.14806969999335706
     },
     {
       "family": "qwen2_5_sliding_tied",
@@ -2757,7 +2757,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_sliding_tied\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen2_5_sliding_tied-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen2_5_sliding_tied-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -2819,7 +2819,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16691650000575464
+      "elapsed_seconds": 0.16317139999591745
     },
     {
       "family": "qwen2_5_sliding_tied",
@@ -2832,7 +2832,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_sliding_tied\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen2_5_sliding_tied-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen2_5_sliding_tied-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -2892,7 +2892,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.13646880000305828
+      "elapsed_seconds": 0.14898679999168962
     },
     {
       "family": "qwen2_5_sliding_tied",
@@ -2905,7 +2905,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_sliding_tied\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen2_5_sliding_tied-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen2_5_sliding_tied-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -2967,7 +2967,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15704780000669416
+      "elapsed_seconds": 0.1701172999892151
     },
     {
       "family": "qwen3_5_full",
@@ -2980,7 +2980,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_full\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_full-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_full-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -3040,7 +3040,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.12256850000994746
+      "elapsed_seconds": 0.1375592999975197
     },
     {
       "family": "qwen3_5_full",
@@ -3053,7 +3053,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_full\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_full-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_full-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -3115,7 +3115,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.13480649999110028
+      "elapsed_seconds": 0.1500777999899583
     },
     {
       "family": "qwen3_5_full",
@@ -3128,7 +3128,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_full\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_full-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_full-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -3188,7 +3188,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.14156639999418985
+      "elapsed_seconds": 0.13827239999955054
     },
     {
       "family": "qwen3_5_full",
@@ -3201,7 +3201,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_full\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_full-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_full-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -3263,7 +3263,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.157106600003317
+      "elapsed_seconds": 0.14356940001016483
     },
     {
       "family": "qwen3_5_linear",
@@ -3276,7 +3276,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_linear\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_linear-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_linear-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -3336,7 +3336,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.12320300001010764
+      "elapsed_seconds": 0.1373989999992773
     },
     {
       "family": "qwen3_5_linear",
@@ -3349,7 +3349,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_linear\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_linear-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_linear-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -3411,7 +3411,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.13236920000053942
+      "elapsed_seconds": 0.1373029999958817
     },
     {
       "family": "qwen3_5_linear",
@@ -3424,7 +3424,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_linear\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_linear-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_linear-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -3484,7 +3484,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.1292836999928113
+      "elapsed_seconds": 0.13876849999360275
     },
     {
       "family": "qwen3_5_linear",
@@ -3497,7 +3497,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_linear\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_linear-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_linear-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -3559,7 +3559,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16006709999055602
+      "elapsed_seconds": 0.14226019999478012
     },
     {
       "family": "qwen3_5_mixed",
@@ -3572,7 +3572,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_mixed\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_mixed-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_mixed-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -3632,7 +3632,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.15341939999780152
+      "elapsed_seconds": 0.15053830000397284
     },
     {
       "family": "qwen3_5_mixed",
@@ -3645,7 +3645,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_mixed\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_mixed-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_mixed-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -3707,7 +3707,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.19756789998791646
+      "elapsed_seconds": 0.19233180000446737
     },
     {
       "family": "qwen3_5_mixed",
@@ -3720,7 +3720,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_mixed\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_mixed-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_mixed-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -3780,7 +3780,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.14393630000995472
+      "elapsed_seconds": 0.14927069999976084
     },
     {
       "family": "qwen3_5_mixed",
@@ -3793,7 +3793,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_mixed\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_mixed-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_mixed-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -3855,7 +3855,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.18158959998982027
+      "elapsed_seconds": 0.18363769999996293
     },
     {
       "family": "qwen3_5_moe",
@@ -3868,7 +3868,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_moe\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_moe-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_moe-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -3928,7 +3928,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.15175710000039544
+      "elapsed_seconds": 0.15173320000758395
     },
     {
       "family": "qwen3_5_moe",
@@ -3941,7 +3941,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_moe\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_moe-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_moe-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -4003,7 +4003,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.18134319999080617
+      "elapsed_seconds": 0.18903959999443032
     },
     {
       "family": "qwen3_5_moe",
@@ -4016,7 +4016,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_moe\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_moe-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_moe-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -4076,7 +4076,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.14549280000210274
+      "elapsed_seconds": 0.15670170000521466
     },
     {
       "family": "qwen3_5_moe",
@@ -4089,7 +4089,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_moe\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen3_5_moe-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen3_5_moe-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -4151,7 +4151,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.18402300000889227
+      "elapsed_seconds": 0.20966169999155682
     },
     {
       "family": "qwen4_exp_linear",
@@ -4164,7 +4164,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_linear\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_linear-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_linear-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -4224,7 +4224,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.13678049998998176
+      "elapsed_seconds": 0.14699360000668094
     },
     {
       "family": "qwen4_exp_linear",
@@ -4237,7 +4237,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_linear\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_linear-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_linear-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -4299,7 +4299,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15237900000647642
+      "elapsed_seconds": 0.1888187000004109
     },
     {
       "family": "qwen4_exp_linear",
@@ -4312,7 +4312,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_linear\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_linear-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_linear-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -4372,7 +4372,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.13864570000441745
+      "elapsed_seconds": 0.1440102000051411
     },
     {
       "family": "qwen4_exp_linear",
@@ -4385,7 +4385,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_linear\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_linear-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_linear-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -4447,7 +4447,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15976949999458157
+      "elapsed_seconds": 0.17333910000161268
     },
     {
       "family": "qwen4_exp_qsa",
@@ -4460,7 +4460,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_qsa\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_qsa-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_qsa-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -4520,7 +4520,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.13804350000282284
+      "elapsed_seconds": 0.15697160000854637
     },
     {
       "family": "qwen4_exp_qsa",
@@ -4533,7 +4533,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_qsa\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_qsa-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_qsa-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -4595,7 +4595,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16466270000091754
+      "elapsed_seconds": 0.18647040000359993
     },
     {
       "family": "qwen4_exp_qsa",
@@ -4608,7 +4608,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_qsa\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_qsa-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_qsa-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -4668,7 +4668,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.14676679999683984
+      "elapsed_seconds": 0.155996800007415
     },
     {
       "family": "qwen4_exp_qsa",
@@ -4681,7 +4681,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_qsa\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_qsa-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_qsa-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -4743,7 +4743,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16983659999095835
+      "elapsed_seconds": 0.18071890001010615
     },
     {
       "family": "qwen4_exp_ple",
@@ -4756,7 +4756,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_ple\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_ple-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_ple-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -4816,7 +4816,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.13599889999022707
+      "elapsed_seconds": 0.15130660000431817
     },
     {
       "family": "qwen4_exp_ple",
@@ -4829,7 +4829,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_ple\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_ple-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_ple-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -4891,7 +4891,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16272409999510273
+      "elapsed_seconds": 0.1822968999913428
     },
     {
       "family": "qwen4_exp_ple",
@@ -4904,7 +4904,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_ple\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_ple-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_ple-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -4964,7 +4964,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.14314699999522418
+      "elapsed_seconds": 0.15553419999196194
     },
     {
       "family": "qwen4_exp_ple",
@@ -4977,7 +4977,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_ple\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_ple-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_ple-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -5039,7 +5039,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16593370000191499
+      "elapsed_seconds": 0.17997120000654832
     },
     {
       "family": "qwen4_exp_mixed_ple",
@@ -5052,7 +5052,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_mixed_ple\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_mixed_ple-full-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_mixed_ple-full-resident.json",
         "--use-cache",
         "false"
       ],
@@ -5112,7 +5112,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.15215349999198224
+      "elapsed_seconds": 0.185267599998042
     },
     {
       "family": "qwen4_exp_mixed_ple",
@@ -5125,7 +5125,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_mixed_ple\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_mixed_ple-full-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_mixed_ple-full-streaming.json",
         "--use-cache",
         "false",
         "--stream-parameters"
@@ -5187,7 +5187,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.20996410000952892
+      "elapsed_seconds": 0.2235515999927884
     },
     {
       "family": "qwen4_exp_mixed_ple",
@@ -5200,7 +5200,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_mixed_ple\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_mixed_ple-cache-resident.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_mixed_ple-cache-resident.json",
         "--use-cache",
         "true"
       ],
@@ -5260,7 +5260,7 @@
       "device": "AMD Radeon Graphics",
       "vendor_id": 4098,
       "device_id": 5567,
-      "elapsed_seconds": 0.15991760000179056
+      "elapsed_seconds": 0.17797460001020227
     },
     {
       "family": "qwen4_exp_mixed_ple",
@@ -5273,7 +5273,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_mixed_ple\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-91dda25\\qwen4_exp_mixed_ple-cache-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-generation-final\\qwen4_exp_mixed_ple-cache-streaming.json",
         "--use-cache",
         "true",
         "--stream-parameters"
@@ -5335,7 +5335,7 @@
       "vendor_id": 4098,
       "device_id": 5567,
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.20770980000088457
+      "elapsed_seconds": 0.21858760000031907
     }
   ]
 }
