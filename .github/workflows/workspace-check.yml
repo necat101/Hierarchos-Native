@@ -88,6 +88,12 @@ jobs:
       - name: Phase XIX-Z current-source negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19z_current.py"
 
+      - name: Unified FP32 Mixed and scoped Full FP16 release
+        run: python hierarchos-vulkan/validation/check_unified_release.py
+
+      - name: Unified release fault injection
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_unified_release.py"
+
       - name: Phase XIX-U historical audit
         run: python hierarchos-vulkan/validation/check_phase19u_audit.py
 
