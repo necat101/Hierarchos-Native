@@ -274,7 +274,13 @@ fn apply_lora_safetensors(
                 pair.module_name
             );
         }
-        let parameter_target = resolve_target_parameter(pair, &config, &base_tensors)
+        let parameter_target = resolve_target_parameter(
+            pair,
+            &config,
+            &base_tensors,
+            a_shape[1],
+            b_shape[0],
+        )
             .with_context(|| {
                 format!(
                     "resolving PEFT target for adapter pair {:?}",
@@ -1250,6 +1256,8 @@ fn resolve_target_parameter(
     pair: &AdapterPair,
     config: &LoraAdapterConfig,
     base_tensors: &SafeTensors<'_>,
+    input_dim: usize,
+    output_dim: usize,
 ) -> Result<Option<String>> {
     let linear_target = format!("{}.weight", pair.module_name);
     if !pair.nested_parameter_wrapper
@@ -1311,10 +1319,31 @@ fn resolve_target_parameter(
     if candidates.len() == 1 {
         return Ok(candidates.pop());
     }
+    // A PEFT config may list target_parameters in a sorted order that is not
+    // the wrapper nesting order. Prefer the candidate whose packed geometry
+    // uniquely accepts this adapter pair's A/B dimensions; the two tensors can
+    // share one module (for example Mixtral gate_up_proj and down_proj). Only
+    // fall back to declaration order when both or neither candidate matches.
+    if candidates.len() == 2 {
+        let matching = candidates
+            .iter()
+            .filter(|name| {
+                base_tensors
+                    .tensor(name)
+                    .ok()
+                    .is_some_and(|tensor| {
+                        packed_parameter_layout(tensor.shape(), input_dim, output_dim, None)
+                            .is_ok()
+                    })
+            })
+            .collect::<Vec<_>>();
+        if let [unique] = matching.as_slice() {
+            return Ok(Some((*unique).clone()));
+        }
+    }
     // PEFT wraps target_parameters in declaration order: the first parameter
-    // is the inner base_layer wrapper, the second the outer wrapper. Shape
-    // compatibility cannot identify a parameter: opposite packed orientations
-    // can make the *other* parameter look like a unique geometric match.
+    // is the inner base_layer wrapper, the second the outer wrapper. This is
+    // retained only when the packed geometry did not identify one candidate.
     let selected = match candidates.as_slice() {
         [inner, _outer] if pair.nested_parameter_wrapper => inner,
         [_inner, outer] => outer,

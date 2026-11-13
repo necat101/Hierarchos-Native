@@ -1,4 +1,72 @@
 #[test]
+fn packed_target_parameters_use_geometry_when_config_order_is_sorted() -> Result<()> {
+    let root = temp_dir("packed-target-order");
+    fs::create_dir_all(root.join("adapter"))?;
+    let base = vec![
+        ("layer.experts.down_proj", vec![2, 16, 32], vec![0.0; 2 * 16 * 32]),
+        (
+            "layer.experts.gate_up_proj",
+            vec![2, 64, 16],
+            vec![0.0; 2 * 64 * 16],
+        ),
+    ];
+    let base_file = root.join("base.safetensors");
+    write_tensors(&base_file, &base)?;
+    // The base_layer wrapper belongs to gate_up_proj, but target_parameters is
+    // sorted with down_proj first. Geometry must win over declaration order.
+    let adapter = vec![
+        (
+            "base_model.model.layer.experts.base_layer.lora_A.weight",
+            vec![8, 16],
+            vec![0.0; 8 * 16],
+        ),
+        (
+            "base_model.model.layer.experts.base_layer.lora_B.weight",
+            vec![64, 8],
+            vec![0.0; 64 * 8],
+        ),
+        (
+            "base_model.model.layer.experts.lora_A.weight",
+            vec![4, 32],
+            vec![0.0; 4 * 32],
+        ),
+        (
+            "base_model.model.layer.experts.lora_B.weight",
+            vec![16, 4],
+            vec![0.0; 16 * 4],
+        ),
+    ];
+    write_tensors(
+        &root.join("adapter/adapter_model.safetensors"),
+        &adapter,
+    )?;
+    fs::write(
+        root.join("adapter/adapter_config.json"),
+        serde_json::to_vec(&json!({
+            "peft_type": "LORA",
+            "task_type": "FEATURE_EXTRACTION",
+            "r": 2,
+            "lora_alpha": 4,
+            "rank_pattern": {"gate_up_proj": 4},
+            "alpha_pattern": {"gate_up_proj": 8},
+            "target_modules": null,
+            "target_parameters": ["down_proj", "gate_up_proj"],
+            "bias": "none"
+        }))?,
+    )?;
+    let merged = root.join("merged.safetensors");
+    merge_peft_lora_safetensors(&base_file, &root.join("adapter"), &merged)?;
+    assert_eq!(
+        crate::checkpoint::read_f32_tensor(&merged, "layer.experts.down_proj")?
+            .1
+            .len(),
+        2 * 16 * 32
+    );
+    fs::remove_dir_all(root)?;
+    Ok(())
+}
+
+#[test]
 fn packed_parameter_layouts_match_independent_einsum_and_reverse_with_offsets() -> Result<()> {
     let oracle: serde_json::Value = serde_json::from_slice(include_bytes!(
         "../validation/fixtures/packed_lora_layouts.json"

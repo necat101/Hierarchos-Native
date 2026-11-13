@@ -6,7 +6,7 @@
   "rtol": 0,
   "comparison": "strict_less_than",
   "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
-  "binary_sha256": "f12ee32605759923fd37e2f6258630d9559b0d54947138a04b9ed02deb2c6d6a",
+  "binary_sha256": "ad27e69fd1a8e0567dda51042a9cc4edaeffdad9f214ab95e0cff110fd326d1d",
   "manifest_sha256": "289ede6881a381f9b4777afeb8dcedf7ec69e24d1b80ecc1106c0000eabb9577",
   "fixture_root": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward",
   "modes": [
@@ -25,9 +25,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gpt2\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gpt2-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gpt2-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -51,7 +52,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.3581415999797173
+      "elapsed_seconds": 0.5302387999981875
     },
     {
       "family": "gpt2",
@@ -64,10 +65,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gpt2\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gpt2-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gpt2-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -92,7 +94,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14611819997662678
+      "elapsed_seconds": 0.1447498000052292
     },
     {
       "family": "gpt2",
@@ -105,9 +107,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gpt2\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gpt2-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gpt2-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -131,7 +134,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13102749997051433
+      "elapsed_seconds": 0.13550970000505913
     },
     {
       "family": "gpt2",
@@ -144,10 +147,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gpt2\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gpt2-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gpt2-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -172,7 +176,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14522589999251068
+      "elapsed_seconds": 0.1440654999896651
     },
     {
       "family": "llama",
@@ -185,9 +189,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\llama\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\llama-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\llama-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -211,7 +216,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1314418000401929
+      "elapsed_seconds": 0.1346138999942923
     },
     {
       "family": "llama",
@@ -224,10 +229,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\llama\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\llama-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\llama-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -252,7 +258,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1412832000060007
+      "elapsed_seconds": 0.14000299999315757
     },
     {
       "family": "llama",
@@ -265,9 +271,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\llama\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\llama-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\llama-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -291,7 +298,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13377909996779636
+      "elapsed_seconds": 0.13340550000430085
     },
     {
       "family": "llama",
@@ -304,10 +311,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\llama\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\llama-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\llama-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -332,7 +340,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1369700999930501
+      "elapsed_seconds": 0.14480220001132693
     },
     {
       "family": "smollm3",
@@ -345,15 +353,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\smollm3\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\smollm3-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\smollm3-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 3.725290298461914e-08,
-      "worst_index": 174,
-      "word_differences": 150,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 50,
+      "word_differences": 116,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "smollm3",
@@ -371,7 +380,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13590819999808446
+      "elapsed_seconds": 0.14790820000052918
     },
     {
       "family": "smollm3",
@@ -384,16 +393,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\smollm3\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\smollm3-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\smollm3-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 3.725290298461914e-08,
-      "worst_index": 174,
-      "word_differences": 150,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 50,
+      "word_differences": 116,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "smollm3",
@@ -412,7 +422,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.17370400001527742
+      "elapsed_seconds": 0.17068389999622013
     },
     {
       "family": "smollm3",
@@ -425,15 +435,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\smollm3\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\smollm3-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\smollm3-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 8.940696716308594e-08,
-      "worst_index": 297,
-      "word_differences": 225,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 353,
+      "word_differences": 162,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "smollm3",
@@ -451,7 +462,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13707339996472
+      "elapsed_seconds": 0.14966709999134764
     },
     {
       "family": "smollm3",
@@ -464,16 +475,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\smollm3\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\smollm3-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\smollm3-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 8.940696716308594e-08,
-      "worst_index": 297,
-      "word_differences": 225,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 353,
+      "word_differences": 162,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "smollm3",
@@ -492,7 +504,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16178900003433228
+      "elapsed_seconds": 0.15977949999796692
     },
     {
       "family": "smollm3_yarn",
@@ -505,15 +517,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\smollm3_yarn\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\smollm3_yarn-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\smollm3_yarn-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 3.725290298461914e-08,
-      "worst_index": 77,
-      "word_differences": 125,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 182,
+      "word_differences": 106,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "smollm3",
@@ -531,7 +544,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14094379998277873
+      "elapsed_seconds": 0.13844880000397097
     },
     {
       "family": "smollm3_yarn",
@@ -544,16 +557,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\smollm3_yarn\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\smollm3_yarn-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\smollm3_yarn-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 3.725290298461914e-08,
-      "worst_index": 77,
-      "word_differences": 125,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 182,
+      "word_differences": 106,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "smollm3",
@@ -572,7 +586,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16411800001515076
+      "elapsed_seconds": 0.15265899999940302
     },
     {
       "family": "smollm3_yarn",
@@ -585,15 +599,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\smollm3_yarn\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\smollm3_yarn-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\smollm3_yarn-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 3.725290298461914e-08,
-      "worst_index": 77,
-      "word_differences": 190,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 365,
+      "word_differences": 143,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "smollm3",
@@ -611,7 +626,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14101650001248345
+      "elapsed_seconds": 0.13240919999952894
     },
     {
       "family": "smollm3_yarn",
@@ -624,16 +639,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\smollm3_yarn\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\smollm3_yarn-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\smollm3_yarn-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 3.725290298461914e-08,
-      "worst_index": 77,
-      "word_differences": 190,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 365,
+      "word_differences": 143,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "smollm3",
@@ -652,7 +668,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16296789998887107
+      "elapsed_seconds": 0.17248760000802577
     },
     {
       "family": "gpt_oss",
@@ -665,15 +681,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gpt_oss\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gpt_oss-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gpt_oss-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 102,
-      "word_differences": 142,
+      "worst_index": 79,
+      "word_differences": 144,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "gpt_oss",
@@ -691,7 +708,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13907199999084696
+      "elapsed_seconds": 0.13442989999020938
     },
     {
       "family": "gpt_oss",
@@ -704,16 +721,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gpt_oss\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gpt_oss-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gpt_oss-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 102,
-      "word_differences": 142,
+      "worst_index": 79,
+      "word_differences": 144,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "gpt_oss",
@@ -732,7 +750,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1714411999564618
+      "elapsed_seconds": 0.1639872999949148
     },
     {
       "family": "gpt_oss",
@@ -745,15 +763,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gpt_oss\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gpt_oss-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gpt_oss-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 350,
-      "word_differences": 198,
+      "worst_index": 334,
+      "word_differences": 179,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "gpt_oss",
@@ -771,7 +790,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1390675999573432
+      "elapsed_seconds": 0.13776330000837334
     },
     {
       "family": "gpt_oss",
@@ -784,16 +803,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gpt_oss\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gpt_oss-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gpt_oss-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 350,
-      "word_differences": 198,
+      "worst_index": 334,
+      "word_differences": 179,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "gpt_oss",
@@ -812,7 +832,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1800468000001274
+      "elapsed_seconds": 0.1601170999929309
     },
     {
       "family": "qwen2",
@@ -825,9 +845,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen2\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen2-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen2-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -851,7 +872,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13386710005579516
+      "elapsed_seconds": 0.13398259998939466
     },
     {
       "family": "qwen2",
@@ -864,10 +885,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen2\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen2-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen2-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -892,7 +914,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14577549998648465
+      "elapsed_seconds": 0.1362756000016816
     },
     {
       "family": "qwen2",
@@ -905,9 +927,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen2\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen2-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen2-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -931,7 +954,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13599759998032823
+      "elapsed_seconds": 0.13268609999795444
     },
     {
       "family": "qwen2",
@@ -944,10 +967,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen2\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen2-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen2-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -972,7 +996,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14103449997492135
+      "elapsed_seconds": 0.13327589999244083
     },
     {
       "family": "qwen2_5_gqa",
@@ -985,15 +1009,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen2_5_gqa\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen2_5_gqa-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen2_5_gqa-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 4.470348358154297e-08,
       "worst_index": 176,
-      "word_differences": 116,
+      "word_differences": 115,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen2",
@@ -1011,7 +1036,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.12980330002028495
+      "elapsed_seconds": 0.13062779999745544
     },
     {
       "family": "qwen2_5_gqa",
@@ -1024,16 +1049,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen2_5_gqa\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen2_5_gqa-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen2_5_gqa-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 4.470348358154297e-08,
       "worst_index": 176,
-      "word_differences": 116,
+      "word_differences": 115,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen2",
@@ -1052,7 +1078,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1394828000338748
+      "elapsed_seconds": 0.14163519999419805
     },
     {
       "family": "qwen2_5_gqa",
@@ -1065,15 +1091,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen2_5_gqa\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen2_5_gqa-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen2_5_gqa-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 5.960464477539063e-08,
+      "max_abs": 2.9802322387695312e-08,
       "worst_index": 287,
-      "word_differences": 163,
+      "word_differences": 129,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen2",
@@ -1091,7 +1118,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13258909998694435
+      "elapsed_seconds": 0.12910240000928752
     },
     {
       "family": "qwen2_5_gqa",
@@ -1104,16 +1131,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen2_5_gqa\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen2_5_gqa-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen2_5_gqa-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 5.960464477539063e-08,
+      "max_abs": 2.9802322387695312e-08,
       "worst_index": 287,
-      "word_differences": 163,
+      "word_differences": 129,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen2",
@@ -1132,7 +1160,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1405432000174187
+      "elapsed_seconds": 0.13980790000641719
     },
     {
       "family": "qwen2_5_sliding_tied",
@@ -1145,15 +1173,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen2_5_sliding_tied\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen2_5_sliding_tied-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen2_5_sliding_tied-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 107,
-      "word_differences": 145,
+      "worst_index": 90,
+      "word_differences": 109,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen2",
@@ -1171,7 +1200,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14035020000301301
+      "elapsed_seconds": 0.14262040000176057
     },
     {
       "family": "qwen2_5_sliding_tied",
@@ -1184,16 +1213,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen2_5_sliding_tied\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen2_5_sliding_tied-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen2_5_sliding_tied-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 107,
-      "word_differences": 145,
+      "worst_index": 90,
+      "word_differences": 109,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen2",
@@ -1212,7 +1242,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15840590000152588
+      "elapsed_seconds": 0.14627430000109598
     },
     {
       "family": "qwen2_5_sliding_tied",
@@ -1225,15 +1255,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen2_5_sliding_tied\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen2_5_sliding_tied-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen2_5_sliding_tied-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 107,
-      "word_differences": 212,
+      "worst_index": 309,
+      "word_differences": 157,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen2",
@@ -1251,7 +1282,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1383710999507457
+      "elapsed_seconds": 0.13318079999589827
     },
     {
       "family": "qwen2_5_sliding_tied",
@@ -1264,16 +1295,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen2_5_sliding_tied\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen2_5_sliding_tied-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen2_5_sliding_tied-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 107,
-      "word_differences": 212,
+      "worst_index": 309,
+      "word_differences": 157,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen2",
@@ -1292,7 +1324,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15422959998250008
+      "elapsed_seconds": 0.14897819999896456
     },
     {
       "family": "mistral",
@@ -1305,9 +1337,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\mistral\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\mistral-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\mistral-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -1331,7 +1364,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13126689998898655
+      "elapsed_seconds": 0.13717530001304112
     },
     {
       "family": "mistral",
@@ -1344,10 +1377,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\mistral\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\mistral-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\mistral-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -1372,7 +1406,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.13675889995647594
+      "elapsed_seconds": 0.13880369999969844
     },
     {
       "family": "mistral",
@@ -1385,9 +1419,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\mistral\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\mistral-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\mistral-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -1411,7 +1446,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14324050000868738
+      "elapsed_seconds": 0.13921700000355486
     },
     {
       "family": "mistral",
@@ -1424,10 +1459,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\mistral\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\mistral-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\mistral-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -1452,7 +1488,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1440322999842465
+      "elapsed_seconds": 0.14071510000212584
     },
     {
       "family": "phi3",
@@ -1465,9 +1501,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\phi3\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\phi3-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\phi3-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -1491,7 +1528,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.12836269999388605
+      "elapsed_seconds": 0.1329896999959601
     },
     {
       "family": "phi3",
@@ -1504,10 +1541,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\phi3\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\phi3-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\phi3-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -1532,7 +1570,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.13220679998630658
+      "elapsed_seconds": 0.13779079999949317
     },
     {
       "family": "phi3",
@@ -1545,9 +1583,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\phi3\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\phi3-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\phi3-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -1571,7 +1610,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13025890005519614
+      "elapsed_seconds": 0.1306814999989001
     },
     {
       "family": "phi3",
@@ -1584,10 +1623,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\phi3\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\phi3-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\phi3-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -1612,7 +1652,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1397430000361055
+      "elapsed_seconds": 0.14260920000378974
     },
     {
       "family": "phi4_multimodal_text",
@@ -1625,9 +1665,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\phi4_multimodal_text\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\phi4_multimodal_text-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\phi4_multimodal_text-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -1651,7 +1692,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13256100000580773
+      "elapsed_seconds": 0.13075630000093952
     },
     {
       "family": "phi4_multimodal_text",
@@ -1664,10 +1705,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\phi4_multimodal_text\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\phi4_multimodal_text-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\phi4_multimodal_text-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -1692,7 +1734,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14939580002101138
+      "elapsed_seconds": 0.13688920000276994
     },
     {
       "family": "phi4_multimodal_text",
@@ -1705,9 +1747,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\phi4_multimodal_text\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\phi4_multimodal_text-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\phi4_multimodal_text-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -1731,7 +1774,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.139211300003808
+      "elapsed_seconds": 0.13019450000138022
     },
     {
       "family": "phi4_multimodal_text",
@@ -1744,10 +1787,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\phi4_multimodal_text\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\phi4_multimodal_text-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\phi4_multimodal_text-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -1772,7 +1816,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1452316000359133
+      "elapsed_seconds": 0.1358057000034023
     },
     {
       "family": "gemma3",
@@ -1785,15 +1829,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gemma3-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gemma3-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 4.470348358154297e-08,
-      "worst_index": 165,
-      "word_differences": 160,
+      "max_abs": 3.725290298461914e-08,
+      "worst_index": 98,
+      "word_differences": 134,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "gemma3_text",
@@ -1811,7 +1856,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13340200000675395
+      "elapsed_seconds": 0.12665809999452904
     },
     {
       "family": "gemma3",
@@ -1824,16 +1869,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gemma3-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gemma3-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 4.470348358154297e-08,
-      "worst_index": 165,
-      "word_differences": 160,
+      "max_abs": 3.725290298461914e-08,
+      "worst_index": 98,
+      "word_differences": 134,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "gemma3_text",
@@ -1852,7 +1898,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14881230000173673
+      "elapsed_seconds": 0.14820650000183377
     },
     {
       "family": "gemma3",
@@ -1865,15 +1911,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gemma3-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gemma3-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 4.470348358154297e-08,
-      "worst_index": 244,
-      "word_differences": 233,
+      "max_abs": 3.725290298461914e-08,
+      "worst_index": 98,
+      "word_differences": 183,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "gemma3_text",
@@ -1891,7 +1938,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13634889997774735
+      "elapsed_seconds": 0.13182700000470504
     },
     {
       "family": "gemma3",
@@ -1904,216 +1951,304 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gemma3-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gemma3-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
+      "exit": 0,
+      "values": 288,
+      "excluded_values": 96,
+      "max_abs": 3.725290298461914e-08,
+      "worst_index": 98,
+      "word_differences": 183,
+      "failing_values": 0,
+      "device": "AMD Radeon Graphics",
+      "architecture": "gemma3_text",
+      "streamed_linears": 14,
+      "source_first_parameters": false,
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "variant_plan": {
+        "linear-forward": "amd-rdna3-lds64",
+        "linear-bias-forward": "amd-rdna3-lds64",
+        "linear-residual-forward": "amd-rdna3-lds64",
+        "linear3-forward": "amd-rdna3-lds64",
+        "silu-forward": "portable",
+        "silu-backward": "portable",
+        "adamw": "portable"
+      },
+      "variant_dispatches": {},
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.14805089999572374
+    },
+    {
+      "family": "gemma3_softcap_tied",
+      "case": "unmasked",
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\unmasked\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gemma3_softcap_tied-unmasked-resident.json"
+      ],
+      "pass": true,
+      "oracle_vector_width": 8,
+      "exit": 0,
+      "values": 192,
+      "excluded_values": 0,
+      "max_abs": 5.960464477539063e-08,
+      "worst_index": 92,
+      "word_differences": 149,
+      "failing_values": 0,
+      "device": "AMD Radeon Graphics",
+      "architecture": "gemma3_text",
+      "streamed_linears": 0,
+      "source_first_parameters": false,
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "variant_plan": {
+        "linear-forward": "amd-rdna3-lds64",
+        "linear-bias-forward": "amd-rdna3-lds64",
+        "linear-residual-forward": "amd-rdna3-lds64",
+        "linear3-forward": "amd-rdna3-lds64",
+        "silu-forward": "portable",
+        "silu-backward": "portable",
+        "adamw": "portable"
+      },
+      "variant_dispatches": {},
+      "elapsed_seconds": 0.1335077999974601
+    },
+    {
+      "family": "gemma3_softcap_tied",
+      "case": "unmasked",
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\unmasked\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gemma3_softcap_tied-unmasked-streaming.json",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "oracle_vector_width": 8,
+      "exit": 0,
+      "values": 192,
+      "excluded_values": 0,
+      "max_abs": 5.960464477539063e-08,
+      "worst_index": 92,
+      "word_differences": 149,
+      "failing_values": 0,
+      "device": "AMD Radeon Graphics",
+      "architecture": "gemma3_text",
+      "streamed_linears": 14,
+      "source_first_parameters": false,
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "variant_plan": {
+        "linear-forward": "amd-rdna3-lds64",
+        "linear-bias-forward": "amd-rdna3-lds64",
+        "linear-residual-forward": "amd-rdna3-lds64",
+        "linear3-forward": "amd-rdna3-lds64",
+        "silu-forward": "portable",
+        "silu-backward": "portable",
+        "adamw": "portable"
+      },
+      "variant_dispatches": {},
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1414649000071222
+    },
+    {
+      "family": "gemma3_softcap_tied",
+      "case": "padded",
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\padded\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\padded\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gemma3_softcap_tied-padded-resident.json"
+      ],
+      "pass": true,
+      "oracle_vector_width": 8,
+      "exit": 0,
+      "values": 288,
+      "excluded_values": 96,
+      "max_abs": 5.960464477539063e-08,
+      "worst_index": 92,
+      "word_differences": 229,
+      "failing_values": 0,
+      "device": "AMD Radeon Graphics",
+      "architecture": "gemma3_text",
+      "streamed_linears": 0,
+      "source_first_parameters": false,
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "variant_plan": {
+        "linear-forward": "amd-rdna3-lds64",
+        "linear-bias-forward": "amd-rdna3-lds64",
+        "linear-residual-forward": "amd-rdna3-lds64",
+        "linear3-forward": "amd-rdna3-lds64",
+        "silu-forward": "portable",
+        "silu-backward": "portable",
+        "adamw": "portable"
+      },
+      "variant_dispatches": {},
+      "elapsed_seconds": 0.13125449999643024
+    },
+    {
+      "family": "gemma3_softcap_tied",
+      "case": "padded",
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\padded\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\padded\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gemma3_softcap_tied-padded-streaming.json",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "oracle_vector_width": 8,
+      "exit": 0,
+      "values": 288,
+      "excluded_values": 96,
+      "max_abs": 5.960464477539063e-08,
+      "worst_index": 92,
+      "word_differences": 229,
+      "failing_values": 0,
+      "device": "AMD Radeon Graphics",
+      "architecture": "gemma3_text",
+      "streamed_linears": 14,
+      "source_first_parameters": false,
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "variant_plan": {
+        "linear-forward": "amd-rdna3-lds64",
+        "linear-bias-forward": "amd-rdna3-lds64",
+        "linear-residual-forward": "amd-rdna3-lds64",
+        "linear3-forward": "amd-rdna3-lds64",
+        "silu-forward": "portable",
+        "silu-backward": "portable",
+        "adamw": "portable"
+      },
+      "variant_dispatches": {},
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.14509809999435674
+    },
+    {
+      "family": "gemma4",
+      "case": "unmasked",
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\unmasked\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gemma4-unmasked-resident.json"
+      ],
+      "pass": true,
+      "oracle_vector_width": 8,
+      "exit": 0,
+      "values": 192,
+      "excluded_values": 0,
+      "max_abs": 4.470348358154297e-08,
+      "worst_index": 101,
+      "word_differences": 140,
+      "failing_values": 0,
+      "device": "AMD Radeon Graphics",
+      "architecture": "gemma4_text",
+      "streamed_linears": 0,
+      "source_first_parameters": false,
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "variant_plan": {
+        "linear-forward": "amd-rdna3-lds64",
+        "linear-bias-forward": "amd-rdna3-lds64",
+        "linear-residual-forward": "amd-rdna3-lds64",
+        "linear3-forward": "amd-rdna3-lds64",
+        "silu-forward": "portable",
+        "silu-backward": "portable",
+        "adamw": "portable"
+      },
+      "variant_dispatches": {},
+      "elapsed_seconds": 0.13398319999396335
+    },
+    {
+      "family": "gemma4",
+      "case": "unmasked",
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\unmasked\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gemma4-unmasked-streaming.json",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "oracle_vector_width": 8,
+      "exit": 0,
+      "values": 192,
+      "excluded_values": 0,
+      "max_abs": 4.470348358154297e-08,
+      "worst_index": 101,
+      "word_differences": 140,
+      "failing_values": 0,
+      "device": "AMD Radeon Graphics",
+      "architecture": "gemma4_text",
+      "streamed_linears": 14,
+      "source_first_parameters": false,
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "variant_plan": {
+        "linear-forward": "amd-rdna3-lds64",
+        "linear-bias-forward": "amd-rdna3-lds64",
+        "linear-residual-forward": "amd-rdna3-lds64",
+        "linear3-forward": "amd-rdna3-lds64",
+        "silu-forward": "portable",
+        "silu-backward": "portable",
+        "adamw": "portable"
+      },
+      "variant_dispatches": {},
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1464070000074571
+    },
+    {
+      "family": "gemma4",
+      "case": "padded",
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\padded\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\padded\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gemma4-padded-resident.json"
+      ],
+      "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 4.470348358154297e-08,
-      "worst_index": 244,
-      "word_differences": 233,
-      "failing_values": 0,
-      "device": "AMD Radeon Graphics",
-      "architecture": "gemma3_text",
-      "streamed_linears": 14,
-      "source_first_parameters": false,
-      "vendor_id": 4098,
-      "device_id": 5567,
-      "variant_plan": {
-        "linear-forward": "amd-rdna3-lds64",
-        "linear-bias-forward": "amd-rdna3-lds64",
-        "linear-residual-forward": "amd-rdna3-lds64",
-        "linear3-forward": "amd-rdna3-lds64",
-        "silu-forward": "portable",
-        "silu-backward": "portable",
-        "adamw": "portable"
-      },
-      "variant_dispatches": {},
-      "resident_word_differences": 0,
-      "elapsed_seconds": 0.14697040000464767
-    },
-    {
-      "family": "gemma3_softcap_tied",
-      "case": "unmasked",
-      "mode": "resident",
-      "command": [
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
-        "--model",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\unmasked\\model",
-        "--fixture",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\unmasked\\input.json",
-        "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gemma3_softcap_tied-unmasked-resident.json"
-      ],
-      "pass": true,
-      "exit": 0,
-      "values": 192,
-      "excluded_values": 0,
-      "max_abs": 5.960464477539063e-08,
       "worst_index": 101,
-      "word_differences": 163,
-      "failing_values": 0,
-      "device": "AMD Radeon Graphics",
-      "architecture": "gemma3_text",
-      "streamed_linears": 0,
-      "source_first_parameters": false,
-      "vendor_id": 4098,
-      "device_id": 5567,
-      "variant_plan": {
-        "linear-forward": "amd-rdna3-lds64",
-        "linear-bias-forward": "amd-rdna3-lds64",
-        "linear-residual-forward": "amd-rdna3-lds64",
-        "linear3-forward": "amd-rdna3-lds64",
-        "silu-forward": "portable",
-        "silu-backward": "portable",
-        "adamw": "portable"
-      },
-      "variant_dispatches": {},
-      "elapsed_seconds": 0.13349669997114688
-    },
-    {
-      "family": "gemma3_softcap_tied",
-      "case": "unmasked",
-      "mode": "streaming",
-      "command": [
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
-        "--model",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\unmasked\\model",
-        "--fixture",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\unmasked\\input.json",
-        "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gemma3_softcap_tied-unmasked-streaming.json",
-        "--stream-parameters"
-      ],
-      "pass": true,
-      "exit": 0,
-      "values": 192,
-      "excluded_values": 0,
-      "max_abs": 5.960464477539063e-08,
-      "worst_index": 101,
-      "word_differences": 163,
-      "failing_values": 0,
-      "device": "AMD Radeon Graphics",
-      "architecture": "gemma3_text",
-      "streamed_linears": 14,
-      "source_first_parameters": false,
-      "vendor_id": 4098,
-      "device_id": 5567,
-      "variant_plan": {
-        "linear-forward": "amd-rdna3-lds64",
-        "linear-bias-forward": "amd-rdna3-lds64",
-        "linear-residual-forward": "amd-rdna3-lds64",
-        "linear3-forward": "amd-rdna3-lds64",
-        "silu-forward": "portable",
-        "silu-backward": "portable",
-        "adamw": "portable"
-      },
-      "variant_dispatches": {},
-      "resident_word_differences": 0,
-      "elapsed_seconds": 0.15161749999970198
-    },
-    {
-      "family": "gemma3_softcap_tied",
-      "case": "padded",
-      "mode": "resident",
-      "command": [
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
-        "--model",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\padded\\model",
-        "--fixture",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\padded\\input.json",
-        "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gemma3_softcap_tied-padded-resident.json"
-      ],
-      "pass": true,
-      "exit": 0,
-      "values": 288,
-      "excluded_values": 96,
-      "max_abs": 5.960464477539063e-08,
-      "worst_index": 268,
-      "word_differences": 246,
-      "failing_values": 0,
-      "device": "AMD Radeon Graphics",
-      "architecture": "gemma3_text",
-      "streamed_linears": 0,
-      "source_first_parameters": false,
-      "vendor_id": 4098,
-      "device_id": 5567,
-      "variant_plan": {
-        "linear-forward": "amd-rdna3-lds64",
-        "linear-bias-forward": "amd-rdna3-lds64",
-        "linear-residual-forward": "amd-rdna3-lds64",
-        "linear3-forward": "amd-rdna3-lds64",
-        "silu-forward": "portable",
-        "silu-backward": "portable",
-        "adamw": "portable"
-      },
-      "variant_dispatches": {},
-      "elapsed_seconds": 0.13787480001337826
-    },
-    {
-      "family": "gemma3_softcap_tied",
-      "case": "padded",
-      "mode": "streaming",
-      "command": [
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
-        "--model",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\padded\\model",
-        "--fixture",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma3_softcap_tied\\padded\\input.json",
-        "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gemma3_softcap_tied-padded-streaming.json",
-        "--stream-parameters"
-      ],
-      "pass": true,
-      "exit": 0,
-      "values": 288,
-      "excluded_values": 96,
-      "max_abs": 5.960464477539063e-08,
-      "worst_index": 268,
-      "word_differences": 246,
-      "failing_values": 0,
-      "device": "AMD Radeon Graphics",
-      "architecture": "gemma3_text",
-      "streamed_linears": 14,
-      "source_first_parameters": false,
-      "vendor_id": 4098,
-      "device_id": 5567,
-      "variant_plan": {
-        "linear-forward": "amd-rdna3-lds64",
-        "linear-bias-forward": "amd-rdna3-lds64",
-        "linear-residual-forward": "amd-rdna3-lds64",
-        "linear3-forward": "amd-rdna3-lds64",
-        "silu-forward": "portable",
-        "silu-backward": "portable",
-        "adamw": "portable"
-      },
-      "variant_dispatches": {},
-      "resident_word_differences": 0,
-      "elapsed_seconds": 0.15027380001265556
-    },
-    {
-      "family": "gemma4",
-      "case": "unmasked",
-      "mode": "resident",
-      "command": [
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
-        "--model",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\unmasked\\model",
-        "--fixture",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\unmasked\\input.json",
-        "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gemma4-unmasked-resident.json"
-      ],
-      "pass": true,
-      "exit": 0,
-      "values": 192,
-      "excluded_values": 0,
-      "max_abs": 5.960464477539063e-08,
-      "worst_index": 101,
-      "word_differences": 176,
+      "word_differences": 201,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "gemma4_text",
@@ -2131,87 +2266,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.134395900007803
-    },
-    {
-      "family": "gemma4",
-      "case": "unmasked",
-      "mode": "streaming",
-      "command": [
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
-        "--model",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\unmasked\\model",
-        "--fixture",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\unmasked\\input.json",
-        "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gemma4-unmasked-streaming.json",
-        "--stream-parameters"
-      ],
-      "pass": true,
-      "exit": 0,
-      "values": 192,
-      "excluded_values": 0,
-      "max_abs": 5.960464477539063e-08,
-      "worst_index": 101,
-      "word_differences": 176,
-      "failing_values": 0,
-      "device": "AMD Radeon Graphics",
-      "architecture": "gemma4_text",
-      "streamed_linears": 14,
-      "source_first_parameters": false,
-      "vendor_id": 4098,
-      "device_id": 5567,
-      "variant_plan": {
-        "linear-forward": "amd-rdna3-lds64",
-        "linear-bias-forward": "amd-rdna3-lds64",
-        "linear-residual-forward": "amd-rdna3-lds64",
-        "linear3-forward": "amd-rdna3-lds64",
-        "silu-forward": "portable",
-        "silu-backward": "portable",
-        "adamw": "portable"
-      },
-      "variant_dispatches": {},
-      "resident_word_differences": 0,
-      "elapsed_seconds": 0.1480636999476701
-    },
-    {
-      "family": "gemma4",
-      "case": "padded",
-      "mode": "resident",
-      "command": [
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-transformer-logits.exe",
-        "--model",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\padded\\model",
-        "--fixture",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\padded\\input.json",
-        "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gemma4-padded-resident.json"
-      ],
-      "pass": true,
-      "exit": 0,
-      "values": 288,
-      "excluded_values": 96,
-      "max_abs": 5.960464477539063e-08,
-      "worst_index": 101,
-      "word_differences": 256,
-      "failing_values": 0,
-      "device": "AMD Radeon Graphics",
-      "architecture": "gemma4_text",
-      "streamed_linears": 0,
-      "source_first_parameters": false,
-      "vendor_id": 4098,
-      "device_id": 5567,
-      "variant_plan": {
-        "linear-forward": "amd-rdna3-lds64",
-        "linear-bias-forward": "amd-rdna3-lds64",
-        "linear-residual-forward": "amd-rdna3-lds64",
-        "linear3-forward": "amd-rdna3-lds64",
-        "silu-forward": "portable",
-        "silu-backward": "portable",
-        "adamw": "portable"
-      },
-      "variant_dispatches": {},
-      "elapsed_seconds": 0.13642130000516772
+      "elapsed_seconds": 0.13090200000442564
     },
     {
       "family": "gemma4",
@@ -2224,16 +2279,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gemma4\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gemma4-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gemma4-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 5.960464477539063e-08,
+      "max_abs": 4.470348358154297e-08,
       "worst_index": 101,
-      "word_differences": 256,
+      "word_differences": 201,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "gemma4_text",
@@ -2252,7 +2308,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1507092000101693
+      "elapsed_seconds": 0.14642420000745915
     },
     {
       "family": "kimi_k25_text",
@@ -2265,15 +2321,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\kimi_k25_text\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\kimi_k25_text-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\kimi_k25_text-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 5.960464477539063e-08,
       "worst_index": 178,
-      "word_differences": 154,
+      "word_differences": 162,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "deepseek_v3",
@@ -2291,7 +2348,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14160329999867827
+      "elapsed_seconds": 0.14018919999944046
     },
     {
       "family": "kimi_k25_text",
@@ -2304,16 +2361,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\kimi_k25_text\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\kimi_k25_text-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\kimi_k25_text-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 5.960464477539063e-08,
       "worst_index": 178,
-      "word_differences": 154,
+      "word_differences": 162,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "deepseek_v3",
@@ -2332,7 +2390,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.18290180002804846
+      "elapsed_seconds": 0.164429199998267
     },
     {
       "family": "kimi_k25_text",
@@ -2345,15 +2403,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\kimi_k25_text\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\kimi_k25_text-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\kimi_k25_text-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 269,
-      "word_differences": 194,
+      "worst_index": 62,
+      "word_differences": 205,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "deepseek_v3",
@@ -2371,7 +2430,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15086659998632967
+      "elapsed_seconds": 0.13960840000072494
     },
     {
       "family": "kimi_k25_text",
@@ -2384,16 +2443,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\kimi_k25_text\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\kimi_k25_text-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\kimi_k25_text-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 269,
-      "word_differences": 194,
+      "worst_index": 62,
+      "word_differences": 205,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "deepseek_v3",
@@ -2412,7 +2472,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1772872000001371
+      "elapsed_seconds": 0.15938250000181142
     },
     {
       "family": "mistral4",
@@ -2425,15 +2485,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\mistral4\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\mistral4-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\mistral4-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 1.4901161193847656e-08,
-      "worst_index": 187,
-      "word_differences": 88,
+      "worst_index": 89,
+      "word_differences": 68,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "mistral4",
@@ -2451,7 +2512,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1422082000062801
+      "elapsed_seconds": 0.1351443999883486
     },
     {
       "family": "mistral4",
@@ -2464,16 +2525,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\mistral4\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\mistral4-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\mistral4-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 1.4901161193847656e-08,
-      "worst_index": 187,
-      "word_differences": 88,
+      "worst_index": 89,
+      "word_differences": 68,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "mistral4",
@@ -2492,7 +2554,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16801890003262088
+      "elapsed_seconds": 0.15949200000613928
     },
     {
       "family": "mistral4",
@@ -2505,15 +2567,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\mistral4\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\mistral4-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\mistral4-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 1.4901161193847656e-08,
-      "worst_index": 377,
-      "word_differences": 163,
+      "max_abs": 5.960464477539063e-08,
+      "worst_index": 362,
+      "word_differences": 162,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "mistral4",
@@ -2531,7 +2594,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1409898999845609
+      "elapsed_seconds": 0.1602815000078408
     },
     {
       "family": "mistral4",
@@ -2544,16 +2607,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\mistral4\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\mistral4-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\mistral4-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 1.4901161193847656e-08,
-      "worst_index": 377,
-      "word_differences": 163,
+      "max_abs": 5.960464477539063e-08,
+      "worst_index": 362,
+      "word_differences": 162,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "mistral4",
@@ -2572,7 +2636,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.17215989995747805
+      "elapsed_seconds": 0.17578550000325777
     },
     {
       "family": "deepseek_v4",
@@ -2585,15 +2649,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\deepseek_v4\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\deepseek_v4-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\deepseek_v4-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 4.470348358154297e-08,
+      "max_abs": 5.960464477539063e-08,
       "worst_index": 190,
-      "word_differences": 150,
+      "word_differences": 148,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "deepseek_v4",
@@ -2611,7 +2676,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1594381000031717
+      "elapsed_seconds": 0.15547750001132954
     },
     {
       "family": "deepseek_v4",
@@ -2624,16 +2689,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\deepseek_v4\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\deepseek_v4-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\deepseek_v4-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 4.470348358154297e-08,
+      "max_abs": 5.960464477539063e-08,
       "worst_index": 190,
-      "word_differences": 150,
+      "word_differences": 148,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "deepseek_v4",
@@ -2652,7 +2718,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.19173359998967499
+      "elapsed_seconds": 0.17970959999365732
     },
     {
       "family": "deepseek_v4",
@@ -2665,14 +2731,15 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\deepseek_v4\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\deepseek_v4-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\deepseek_v4-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 4.470348358154297e-08,
-      "worst_index": 99,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 328,
       "word_differences": 230,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
@@ -2691,7 +2758,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15417509997496381
+      "elapsed_seconds": 0.14704809999966528
     },
     {
       "family": "deepseek_v4",
@@ -2704,15 +2771,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\deepseek_v4\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\deepseek_v4-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\deepseek_v4-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 4.470348358154297e-08,
-      "worst_index": 99,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 328,
       "word_differences": 230,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
@@ -2732,7 +2800,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.19033940002555028
+      "elapsed_seconds": 0.17770139999629464
     },
     {
       "family": "mixtral",
@@ -2745,9 +2813,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\mixtral\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\mixtral-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\mixtral-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -2771,7 +2840,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1394727000151761
+      "elapsed_seconds": 0.13415100000565872
     },
     {
       "family": "mixtral",
@@ -2784,10 +2853,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\mixtral\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\mixtral-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\mixtral-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -2812,7 +2882,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14386449998710304
+      "elapsed_seconds": 0.14397800000733696
     },
     {
       "family": "mixtral",
@@ -2825,9 +2895,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\mixtral\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\mixtral-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\mixtral-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -2851,7 +2922,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13872170000104234
+      "elapsed_seconds": 0.14479180000489578
     },
     {
       "family": "mixtral",
@@ -2864,10 +2935,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\mixtral\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\mixtral-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\mixtral-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -2892,7 +2964,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15037909999955446
+      "elapsed_seconds": 0.1449599999905331
     },
     {
       "family": "qwen3_5_full",
@@ -2905,15 +2977,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_full\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_full-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_full-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 2.9802322387695312e-08,
-      "worst_index": 59,
-      "word_differences": 87,
+      "max_abs": 1.4901161193847656e-08,
+      "worst_index": 146,
+      "word_differences": 67,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_5_text",
@@ -2931,7 +3004,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13543840002967045
+      "elapsed_seconds": 0.12404939999396447
     },
     {
       "family": "qwen3_5_full",
@@ -2944,16 +3017,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_full\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_full-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_full-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 2.9802322387695312e-08,
-      "worst_index": 59,
-      "word_differences": 87,
+      "max_abs": 1.4901161193847656e-08,
+      "worst_index": 146,
+      "word_differences": 67,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_5_text",
@@ -2972,7 +3046,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1393054000218399
+      "elapsed_seconds": 0.13675879999937024
     },
     {
       "family": "qwen3_5_full",
@@ -2985,15 +3059,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_full\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_full-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_full-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 3.725290298461914e-08,
-      "worst_index": 346,
-      "word_differences": 134,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 347,
+      "word_differences": 98,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_5_text",
@@ -3011,7 +3086,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13347860000794753
+      "elapsed_seconds": 0.1359599999996135
     },
     {
       "family": "qwen3_5_full",
@@ -3024,16 +3099,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_full\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_full-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_full-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 3.725290298461914e-08,
-      "worst_index": 346,
-      "word_differences": 134,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 347,
+      "word_differences": 98,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_5_text",
@@ -3052,7 +3128,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14426169998478144
+      "elapsed_seconds": 0.14041180000640452
     },
     {
       "family": "qwen3_5_linear",
@@ -3065,9 +3141,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_linear\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_linear-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_linear-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -3091,7 +3168,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13826920004794374
+      "elapsed_seconds": 0.12650230000144802
     },
     {
       "family": "qwen3_5_linear",
@@ -3104,10 +3181,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_linear\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_linear-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_linear-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -3132,7 +3210,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15491979999933392
+      "elapsed_seconds": 0.13315149999107234
     },
     {
       "family": "qwen3_5_linear",
@@ -3145,9 +3223,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_linear\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_linear-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_linear-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -3171,7 +3250,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15494049998233095
+      "elapsed_seconds": 0.13136450000456534
     },
     {
       "family": "qwen3_5_linear",
@@ -3184,10 +3263,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_linear\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_linear-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_linear-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -3212,7 +3292,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14683109999168664
+      "elapsed_seconds": 0.13654479999968316
     },
     {
       "family": "qwen3_5_mixed",
@@ -3225,15 +3305,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_mixed\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_mixed-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_mixed-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 1.6763806343078613e-08,
-      "worst_index": 176,
-      "word_differences": 90,
+      "max_abs": 2.2351741790771484e-08,
+      "worst_index": 48,
+      "word_differences": 81,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_5_text",
@@ -3251,7 +3332,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1448798999772407
+      "elapsed_seconds": 0.1446243999962462
     },
     {
       "family": "qwen3_5_mixed",
@@ -3264,16 +3345,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_mixed\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_mixed-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_mixed-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 1.6763806343078613e-08,
-      "worst_index": 176,
-      "word_differences": 90,
+      "max_abs": 2.2351741790771484e-08,
+      "worst_index": 48,
+      "word_differences": 81,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_5_text",
@@ -3292,7 +3374,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1763224999886006
+      "elapsed_seconds": 0.17311949998838827
     },
     {
       "family": "qwen3_5_mixed",
@@ -3305,15 +3387,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_mixed\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_mixed-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_mixed-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 2.9802322387695312e-08,
       "worst_index": 346,
-      "word_differences": 139,
+      "word_differences": 144,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_5_text",
@@ -3331,7 +3414,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14708029996836558
+      "elapsed_seconds": 0.14204529998824
     },
     {
       "family": "qwen3_5_mixed",
@@ -3344,16 +3427,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_mixed\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_mixed-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_mixed-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 2.9802322387695312e-08,
       "worst_index": 346,
-      "word_differences": 139,
+      "word_differences": 144,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_5_text",
@@ -3372,7 +3456,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.178072799986694
+      "elapsed_seconds": 0.1712176000000909
     },
     {
       "family": "qwen3_5_moe",
@@ -3385,15 +3469,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_moe\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_moe-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_moe-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 121,
-      "word_differences": 115,
+      "worst_index": 165,
+      "word_differences": 125,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_5_moe_text",
@@ -3411,7 +3496,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14192230004118755
+      "elapsed_seconds": 0.1409183999930974
     },
     {
       "family": "qwen3_5_moe",
@@ -3424,16 +3509,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_moe\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_moe-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_moe-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 121,
-      "word_differences": 115,
+      "worst_index": 165,
+      "word_differences": 125,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_5_moe_text",
@@ -3452,7 +3538,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1725035000126809
+      "elapsed_seconds": 0.15853549999883398
     },
     {
       "family": "qwen3_5_moe",
@@ -3465,15 +3551,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_moe\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_moe-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_moe-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 4.470348358154297e-08,
       "worst_index": 374,
-      "word_differences": 178,
+      "word_differences": 188,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_5_moe_text",
@@ -3491,7 +3578,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14326209999853745
+      "elapsed_seconds": 0.13981719998992048
     },
     {
       "family": "qwen3_5_moe",
@@ -3504,16 +3591,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_5_moe\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_5_moe-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_5_moe-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 4.470348358154297e-08,
       "worst_index": 374,
-      "word_differences": 178,
+      "word_differences": 188,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_5_moe_text",
@@ -3532,7 +3620,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.17299589997855946
+      "elapsed_seconds": 0.16580010000325274
     },
     {
       "family": "qwen4_exp_linear",
@@ -3545,9 +3633,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_linear\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_linear-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_linear-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -3571,7 +3660,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13749909994658083
+      "elapsed_seconds": 0.13798909999604803
     },
     {
       "family": "qwen4_exp_linear",
@@ -3584,10 +3673,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_linear\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_linear-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_linear-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -3612,7 +3702,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16522369999438524
+      "elapsed_seconds": 0.15203539999492932
     },
     {
       "family": "qwen4_exp_linear",
@@ -3625,9 +3715,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_linear\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_linear-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_linear-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -3651,7 +3742,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14173570001730695
+      "elapsed_seconds": 0.136868500005221
     },
     {
       "family": "qwen4_exp_linear",
@@ -3664,10 +3755,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_linear\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_linear-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_linear-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -3692,7 +3784,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16273400001227856
+      "elapsed_seconds": 0.15324580000014976
     },
     {
       "family": "qwen4_exp_qsa",
@@ -3705,15 +3797,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_qsa\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_qsa-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_qsa-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 8.381903171539307e-09,
       "worst_index": 82,
-      "word_differences": 110,
+      "word_differences": 115,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen4_exp_text",
@@ -3731,7 +3824,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15695139998570085
+      "elapsed_seconds": 0.1400056999991648
     },
     {
       "family": "qwen4_exp_qsa",
@@ -3744,16 +3837,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_qsa\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_qsa-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_qsa-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 8.381903171539307e-09,
       "worst_index": 82,
-      "word_differences": 110,
+      "word_differences": 115,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen4_exp_text",
@@ -3772,7 +3866,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1730703999637626
+      "elapsed_seconds": 0.15902919998916332
     },
     {
       "family": "qwen4_exp_qsa",
@@ -3785,15 +3879,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_qsa\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_qsa-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_qsa-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 1.4901161193847656e-08,
       "worst_index": 277,
-      "word_differences": 182,
+      "word_differences": 169,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen4_exp_text",
@@ -3811,7 +3906,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14271240000380203
+      "elapsed_seconds": 0.14147560000128578
     },
     {
       "family": "qwen4_exp_qsa",
@@ -3824,16 +3919,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_qsa\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_qsa-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_qsa-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 1.4901161193847656e-08,
       "worst_index": 277,
-      "word_differences": 182,
+      "word_differences": 169,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen4_exp_text",
@@ -3852,7 +3948,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16184179997071624
+      "elapsed_seconds": 0.15073590000974946
     },
     {
       "family": "qwen4_exp_ple",
@@ -3865,9 +3961,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_ple\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_ple-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_ple-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -3891,7 +3988,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14566600002581254
+      "elapsed_seconds": 0.1409196000022348
     },
     {
       "family": "qwen4_exp_ple",
@@ -3904,10 +4001,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_ple\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_ple-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_ple-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -3932,7 +4030,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16667230002349243
+      "elapsed_seconds": 0.1617056999966735
     },
     {
       "family": "qwen4_exp_ple",
@@ -3945,9 +4043,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_ple\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_ple-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_ple-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -3971,7 +4070,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14249340002425015
+      "elapsed_seconds": 0.1407906000094954
     },
     {
       "family": "qwen4_exp_ple",
@@ -3984,10 +4083,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_ple\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_ple-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_ple-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -4012,7 +4112,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16533709998475388
+      "elapsed_seconds": 0.1617182999907527
     },
     {
       "family": "qwen4_exp_mixed_ple",
@@ -4025,15 +4125,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_mixed_ple\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_mixed_ple-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_mixed_ple-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 1.4901161193847656e-08,
       "worst_index": 176,
-      "word_differences": 128,
+      "word_differences": 135,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen4_exp_text",
@@ -4051,7 +4152,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.16368930001044646
+      "elapsed_seconds": 0.15452559999539517
     },
     {
       "family": "qwen4_exp_mixed_ple",
@@ -4064,16 +4165,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_mixed_ple\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_mixed_ple-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_mixed_ple-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
       "max_abs": 1.4901161193847656e-08,
       "worst_index": 176,
-      "word_differences": 128,
+      "word_differences": 135,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen4_exp_text",
@@ -4092,7 +4194,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.20673989999340847
+      "elapsed_seconds": 0.18746820000524167
     },
     {
       "family": "qwen4_exp_mixed_ple",
@@ -4105,15 +4207,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_mixed_ple\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_mixed_ple-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_mixed_ple-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 1.4901161193847656e-08,
       "worst_index": 9,
-      "word_differences": 176,
+      "word_differences": 186,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen4_exp_text",
@@ -4131,7 +4234,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15827990003162995
+      "elapsed_seconds": 0.1545280999998795
     },
     {
       "family": "qwen4_exp_mixed_ple",
@@ -4144,16 +4247,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen4_exp_mixed_ple\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen4_exp_mixed_ple-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen4_exp_mixed_ple-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 1.4901161193847656e-08,
       "worst_index": 9,
-      "word_differences": 176,
+      "word_differences": 186,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen4_exp_text",
@@ -4172,7 +4276,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.2070327999535948
+      "elapsed_seconds": 0.17665959999430925
     },
     {
       "family": "minimax_m2",
@@ -4185,9 +4289,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\minimax_m2\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\minimax_m2-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\minimax_m2-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -4211,7 +4316,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15316290000919253
+      "elapsed_seconds": 0.13835669998661615
     },
     {
       "family": "minimax_m2",
@@ -4224,10 +4329,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\minimax_m2\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\minimax_m2-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\minimax_m2-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -4252,7 +4358,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16890530003001913
+      "elapsed_seconds": 0.1556958000001032
     },
     {
       "family": "minimax_m2",
@@ -4265,9 +4371,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\minimax_m2\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\minimax_m2-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\minimax_m2-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -4291,7 +4398,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14302620000671595
+      "elapsed_seconds": 0.14325929999176878
     },
     {
       "family": "minimax_m2",
@@ -4304,10 +4411,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\minimax_m2\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\minimax_m2-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\minimax_m2-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -4332,7 +4440,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.17504200001712888
+      "elapsed_seconds": 0.15794809999351855
     },
     {
       "family": "minimax_m3_dense",
@@ -4345,15 +4453,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\minimax_m3_dense\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\minimax_m3_dense-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\minimax_m3_dense-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 2.9802322387695312e-08,
+      "max_abs": 5.960464477539063e-08,
       "worst_index": 168,
-      "word_differences": 152,
+      "word_differences": 137,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "minimax_m3_vl_text",
@@ -4371,7 +4480,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1381317000486888
+      "elapsed_seconds": 0.1362591000070097
     },
     {
       "family": "minimax_m3_dense",
@@ -4384,16 +4493,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\minimax_m3_dense\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\minimax_m3_dense-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\minimax_m3_dense-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 2.9802322387695312e-08,
+      "max_abs": 5.960464477539063e-08,
       "worst_index": 168,
-      "word_differences": 152,
+      "word_differences": 137,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "minimax_m3_vl_text",
@@ -4412,7 +4522,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14391029998660088
+      "elapsed_seconds": 0.14692310000828002
     },
     {
       "family": "minimax_m3_dense",
@@ -4425,15 +4535,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\minimax_m3_dense\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\minimax_m3_dense-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\minimax_m3_dense-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 302,
-      "word_differences": 220,
+      "worst_index": 370,
+      "word_differences": 210,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "minimax_m3_vl_text",
@@ -4451,7 +4562,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.13171470002271235
+      "elapsed_seconds": 0.15565369999967515
     },
     {
       "family": "minimax_m3_dense",
@@ -4464,16 +4575,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\minimax_m3_dense\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\minimax_m3_dense-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\minimax_m3_dense-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 302,
-      "word_differences": 220,
+      "worst_index": 370,
+      "word_differences": 210,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "minimax_m3_vl_text",
@@ -4492,7 +4604,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.14308409998193383
+      "elapsed_seconds": 0.15775240000220947
     },
     {
       "family": "minimax_m3",
@@ -4505,15 +4617,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\minimax_m3\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\minimax_m3-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\minimax_m3-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 2.9802322387695312e-08,
-      "worst_index": 138,
-      "word_differences": 140,
+      "max_abs": 4.470348358154297e-08,
+      "worst_index": 183,
+      "word_differences": 132,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "minimax_m3_vl_text",
@@ -4531,7 +4644,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15805640001781285
+      "elapsed_seconds": 0.1326165999926161
     },
     {
       "family": "minimax_m3",
@@ -4544,16 +4657,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\minimax_m3\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\minimax_m3-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\minimax_m3-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 2.9802322387695312e-08,
-      "worst_index": 138,
-      "word_differences": 140,
+      "max_abs": 4.470348358154297e-08,
+      "worst_index": 183,
+      "word_differences": 132,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "minimax_m3_vl_text",
@@ -4572,7 +4686,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.17359409999335185
+      "elapsed_seconds": 0.15021279999928083
     },
     {
       "family": "minimax_m3",
@@ -4585,15 +4699,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\minimax_m3\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\minimax_m3-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\minimax_m3-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 4.470348358154297e-08,
-      "worst_index": 234,
-      "word_differences": 217,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 87,
+      "word_differences": 199,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "minimax_m3_vl_text",
@@ -4611,7 +4726,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14803559996653348
+      "elapsed_seconds": 0.13851589999103453
     },
     {
       "family": "minimax_m3",
@@ -4624,16 +4739,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\minimax_m3\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\minimax_m3-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\minimax_m3-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 4.470348358154297e-08,
-      "worst_index": 234,
-      "word_differences": 217,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 87,
+      "word_differences": 199,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "minimax_m3_vl_text",
@@ -4652,7 +4768,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16944540000986308
+      "elapsed_seconds": 0.15110260000801645
     },
     {
       "family": "dbrx",
@@ -4665,9 +4781,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\dbrx\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\dbrx-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\dbrx-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -4691,7 +4808,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14635609998367727
+      "elapsed_seconds": 0.13466309999057557
     },
     {
       "family": "dbrx",
@@ -4704,10 +4821,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\dbrx\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\dbrx-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\dbrx-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -4732,7 +4850,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.18236009997781366
+      "elapsed_seconds": 0.1567596999957459
     },
     {
       "family": "dbrx",
@@ -4745,9 +4863,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\dbrx\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\dbrx-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\dbrx-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -4771,7 +4890,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.16378459997940809
+      "elapsed_seconds": 0.13190839999879245
     },
     {
       "family": "dbrx",
@@ -4784,10 +4903,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\dbrx\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\dbrx-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\dbrx-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -4812,7 +4932,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1751714000129141
+      "elapsed_seconds": 0.1510474999959115
     },
     {
       "family": "t5",
@@ -4825,9 +4945,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\t5\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\t5-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\t5-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -4851,7 +4972,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1798856999957934
+      "elapsed_seconds": 0.15138130000559613
     },
     {
       "family": "t5",
@@ -4864,10 +4985,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\t5\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\t5-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\t5-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -4892,7 +5014,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.20438760000979528
+      "elapsed_seconds": 0.17487969998910557
     },
     {
       "family": "t5",
@@ -4905,9 +5027,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\t5\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\t5-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\t5-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -4931,7 +5054,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.17432190000545233
+      "elapsed_seconds": 0.13977860000159126
     },
     {
       "family": "t5",
@@ -4944,10 +5067,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\t5\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\t5-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\t5-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -4972,7 +5096,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.19787299999734387
+      "elapsed_seconds": 0.16849009999714326
     },
     {
       "family": "bart",
@@ -4985,9 +5109,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\bart\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\bart-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\bart-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -5011,7 +5136,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.16780759999528527
+      "elapsed_seconds": 0.14284119999501854
     },
     {
       "family": "bart",
@@ -5024,10 +5149,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\bart\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\bart-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\bart-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -5052,7 +5178,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.20247429999290034
+      "elapsed_seconds": 0.16482669999822974
     },
     {
       "family": "bart",
@@ -5065,9 +5191,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\bart\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\bart-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\bart-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -5091,7 +5218,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1652722000144422
+      "elapsed_seconds": 0.15027960001316387
     },
     {
       "family": "bart",
@@ -5104,10 +5231,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\bart\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\bart-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\bart-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -5132,7 +5260,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.19997670000884682
+      "elapsed_seconds": 0.17168179999862332
     },
     {
       "family": "switch_transformers",
@@ -5145,9 +5273,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\switch_transformers\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\switch_transformers-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\switch_transformers-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -5171,7 +5300,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.18444179999642074
+      "elapsed_seconds": 0.15535820000513922
     },
     {
       "family": "switch_transformers",
@@ -5184,10 +5313,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\switch_transformers\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\switch_transformers-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\switch_transformers-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -5212,7 +5342,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.22850750002544373
+      "elapsed_seconds": 0.1886707999947248
     },
     {
       "family": "switch_transformers",
@@ -5225,9 +5355,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\switch_transformers\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\switch_transformers-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\switch_transformers-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -5251,7 +5382,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1778080000076443
+      "elapsed_seconds": 0.15409720000752714
     },
     {
       "family": "switch_transformers",
@@ -5264,10 +5395,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\switch_transformers\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\switch_transformers-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\switch_transformers-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -5292,7 +5424,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.2279458999983035
+      "elapsed_seconds": 0.19175589999940712
     },
     {
       "family": "bert",
@@ -5305,9 +5437,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\bert\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\bert-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\bert-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -5331,7 +5464,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14443590003065765
+      "elapsed_seconds": 0.13398919999599457
     },
     {
       "family": "bert",
@@ -5344,10 +5477,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\bert\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\bert-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\bert-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
@@ -5372,7 +5506,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1605318000074476
+      "elapsed_seconds": 0.1594102999952156
     },
     {
       "family": "bert",
@@ -5385,9 +5519,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\bert\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\bert-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\bert-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -5411,7 +5546,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14950659999158233
+      "elapsed_seconds": 0.13198630000988487
     },
     {
       "family": "bert",
@@ -5424,10 +5559,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\bert\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\bert-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\bert-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
@@ -5452,7 +5588,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16172589996131137
+      "elapsed_seconds": 0.1477327000029618
     },
     {
       "family": "kimi_k3_kda",
@@ -5465,9 +5601,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\kimi_k3_kda\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\kimi_k3_kda-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\kimi_k3_kda-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 384,
       "excluded_values": 0,
@@ -5491,7 +5628,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.20740110002225265
+      "elapsed_seconds": 0.1765737999958219
     },
     {
       "family": "kimi_k3_kda",
@@ -5504,10 +5641,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\kimi_k3_kda\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\kimi_k3_kda-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\kimi_k3_kda-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 384,
       "excluded_values": 0,
@@ -5532,7 +5670,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.29478860000381246
+      "elapsed_seconds": 0.22186669999791775
     },
     {
       "family": "kimi_k3_mla",
@@ -5545,9 +5683,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\kimi_k3_mla\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\kimi_k3_mla-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\kimi_k3_mla-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 384,
       "excluded_values": 0,
@@ -5571,7 +5710,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.2046118999714963
+      "elapsed_seconds": 0.16698270000051707
     },
     {
       "family": "kimi_k3_mla",
@@ -5584,10 +5723,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\kimi_k3_mla\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\kimi_k3_mla-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\kimi_k3_mla-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 384,
       "excluded_values": 0,
@@ -5612,7 +5752,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.2779113000142388
+      "elapsed_seconds": 0.22240299999248236
     },
     {
       "family": "kimi_k3_text",
@@ -5625,9 +5765,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\kimi_k3_text\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\kimi_k3_text-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\kimi_k3_text-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 384,
       "excluded_values": 0,
@@ -5651,7 +5792,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.20313530002022162
+      "elapsed_seconds": 0.17447359999641776
     },
     {
       "family": "kimi_k3_text",
@@ -5664,10 +5805,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\kimi_k3_text\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\kimi_k3_text-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\kimi_k3_text-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 384,
       "excluded_values": 0,
@@ -5692,7 +5834,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.2946351999999024
+      "elapsed_seconds": 0.22332140000071377
     },
     {
       "family": "gpt2_wide",
@@ -5705,9 +5847,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gpt2_wide\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gpt2_wide-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gpt2_wide-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 3840,
       "excluded_values": 0,
@@ -5731,7 +5874,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1536430999985896
+      "elapsed_seconds": 0.14209870000195224
     },
     {
       "family": "gpt2_wide",
@@ -5744,10 +5887,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gpt2_wide\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gpt2_wide-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gpt2_wide-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 3840,
       "excluded_values": 0,
@@ -5772,7 +5916,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.17577680002432317
+      "elapsed_seconds": 0.14763519998814445
     },
     {
       "family": "gpt2_wide",
@@ -5785,9 +5929,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gpt2_wide\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gpt2_wide-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gpt2_wide-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 2880,
       "excluded_values": 960,
@@ -5811,7 +5956,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15871039999183267
+      "elapsed_seconds": 0.14148000000568572
     },
     {
       "family": "gpt2_wide",
@@ -5824,10 +5969,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\gpt2_wide\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\gpt2_wide-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\gpt2_wide-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 2880,
       "excluded_values": 960,
@@ -5852,7 +5998,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.17664520000107586
+      "elapsed_seconds": 0.16134459999739192
     },
     {
       "family": "llama_wide",
@@ -5865,9 +6011,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\llama_wide\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\llama_wide-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\llama_wide-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 3840,
       "excluded_values": 0,
@@ -5891,7 +6038,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15121480001835153
+      "elapsed_seconds": 0.13536149999708869
     },
     {
       "family": "llama_wide",
@@ -5904,10 +6051,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\llama_wide\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\llama_wide-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\llama_wide-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 3840,
       "excluded_values": 0,
@@ -5932,7 +6080,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15752780000912026
+      "elapsed_seconds": 0.14586239999334794
     },
     {
       "family": "llama_wide",
@@ -5945,9 +6093,10 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\llama_wide\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\llama_wide-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\llama_wide-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 2880,
       "excluded_values": 960,
@@ -5971,7 +6120,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14990670001134276
+      "elapsed_seconds": 0.13054980000015348
     },
     {
       "family": "llama_wide",
@@ -5984,10 +6133,11 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\llama_wide\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\llama_wide-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\llama_wide-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 2880,
       "excluded_values": 960,
@@ -6012,7 +6162,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1565062000299804
+      "elapsed_seconds": 0.14306600000418257
     },
     {
       "family": "falcon_h1_gated_after",
@@ -6025,15 +6175,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\falcon_h1_gated_after\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\falcon_h1_gated_after-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\falcon_h1_gated_after-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 246,
       "excluded_values": 0,
-      "max_abs": 4.470348358154297e-08,
-      "worst_index": 166,
-      "word_differences": 129,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 112,
+      "word_differences": 86,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "falcon_h1",
@@ -6051,7 +6202,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15727860003244132
+      "elapsed_seconds": 0.13562010000168812
     },
     {
       "family": "falcon_h1_gated_after",
@@ -6064,16 +6215,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\falcon_h1_gated_after\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\falcon_h1_gated_after-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\falcon_h1_gated_after-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 246,
       "excluded_values": 0,
-      "max_abs": 4.470348358154297e-08,
-      "worst_index": 166,
-      "word_differences": 129,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 112,
+      "word_differences": 86,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "falcon_h1",
@@ -6092,7 +6244,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16837209998629987
+      "elapsed_seconds": 0.15157580000231974
     },
     {
       "family": "falcon_h1_gated_after",
@@ -6105,15 +6257,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\falcon_h1_gated_after\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\falcon_h1_gated_after-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\falcon_h1_gated_after-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 369,
       "excluded_values": 123,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 380,
-      "word_differences": 226,
+      "worst_index": 406,
+      "word_differences": 145,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "falcon_h1",
@@ -6131,7 +6284,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15416169998934492
+      "elapsed_seconds": 0.13666819999343716
     },
     {
       "family": "falcon_h1_gated_after",
@@ -6144,16 +6297,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\falcon_h1_gated_after\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\falcon_h1_gated_after-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\falcon_h1_gated_after-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 369,
       "excluded_values": 123,
       "max_abs": 2.9802322387695312e-08,
-      "worst_index": 380,
-      "word_differences": 226,
+      "worst_index": 406,
+      "word_differences": 145,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "falcon_h1",
@@ -6172,7 +6326,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.17192230001091957
+      "elapsed_seconds": 0.14476349999313243
     },
     {
       "family": "falcon_h1_gated_before",
@@ -6185,15 +6339,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\falcon_h1_gated_before\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\falcon_h1_gated_before-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\falcon_h1_gated_before-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 246,
       "excluded_values": 0,
       "max_abs": 4.470348358154297e-08,
       "worst_index": 222,
-      "word_differences": 165,
+      "word_differences": 127,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "falcon_h1",
@@ -6211,7 +6366,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.1528225999791175
+      "elapsed_seconds": 0.13584639999317005
     },
     {
       "family": "falcon_h1_gated_before",
@@ -6224,16 +6379,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\falcon_h1_gated_before\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\falcon_h1_gated_before-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\falcon_h1_gated_before-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 246,
       "excluded_values": 0,
       "max_abs": 4.470348358154297e-08,
       "worst_index": 222,
-      "word_differences": 165,
+      "word_differences": 127,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "falcon_h1",
@@ -6252,7 +6408,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.1701432999689132
+      "elapsed_seconds": 0.1546781000070041
     },
     {
       "family": "falcon_h1_gated_before",
@@ -6265,15 +6421,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\falcon_h1_gated_before\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\falcon_h1_gated_before-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\falcon_h1_gated_before-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 369,
       "excluded_values": 123,
-      "max_abs": 4.470348358154297e-08,
-      "worst_index": 148,
-      "word_differences": 237,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 344,
+      "word_differences": 132,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "falcon_h1",
@@ -6291,7 +6448,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15227670001331717
+      "elapsed_seconds": 0.14000150001083966
     },
     {
       "family": "falcon_h1_gated_before",
@@ -6304,16 +6461,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\falcon_h1_gated_before\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\falcon_h1_gated_before-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\falcon_h1_gated_before-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 369,
       "excluded_values": 123,
-      "max_abs": 4.470348358154297e-08,
-      "worst_index": 148,
-      "word_differences": 237,
+      "max_abs": 2.9802322387695312e-08,
+      "worst_index": 344,
+      "word_differences": 132,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "falcon_h1",
@@ -6332,7 +6490,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.17627670004731044
+      "elapsed_seconds": 0.15113640000345185
     },
     {
       "family": "falcon_h1_silu",
@@ -6345,15 +6503,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\falcon_h1_silu\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\falcon_h1_silu-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\falcon_h1_silu-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 246,
       "excluded_values": 0,
-      "max_abs": 2.2351741790771484e-08,
-      "worst_index": 227,
-      "word_differences": 154,
+      "max_abs": 1.4901161193847656e-08,
+      "worst_index": 181,
+      "word_differences": 90,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "falcon_h1",
@@ -6371,7 +6530,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15288399998098612
+      "elapsed_seconds": 0.1269515999883879
     },
     {
       "family": "falcon_h1_silu",
@@ -6384,16 +6543,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\falcon_h1_silu\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\falcon_h1_silu-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\falcon_h1_silu-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 246,
       "excluded_values": 0,
-      "max_abs": 2.2351741790771484e-08,
-      "worst_index": 227,
-      "word_differences": 154,
+      "max_abs": 1.4901161193847656e-08,
+      "worst_index": 181,
+      "word_differences": 90,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "falcon_h1",
@@ -6412,7 +6572,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16648580000037327
+      "elapsed_seconds": 0.1456538000056753
     },
     {
       "family": "falcon_h1_silu",
@@ -6425,15 +6585,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\falcon_h1_silu\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\falcon_h1_silu-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\falcon_h1_silu-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 369,
       "excluded_values": 123,
-      "max_abs": 2.9802322387695312e-08,
-      "worst_index": 477,
-      "word_differences": 193,
+      "max_abs": 1.4901161193847656e-08,
+      "worst_index": 467,
+      "word_differences": 118,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "falcon_h1",
@@ -6451,7 +6612,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.15093439997872338
+      "elapsed_seconds": 0.13688050000928342
     },
     {
       "family": "falcon_h1_silu",
@@ -6464,16 +6625,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\falcon_h1_silu\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\falcon_h1_silu-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\falcon_h1_silu-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 369,
       "excluded_values": 123,
-      "max_abs": 2.9802322387695312e-08,
-      "worst_index": 477,
-      "word_differences": 193,
+      "max_abs": 1.4901161193847656e-08,
+      "worst_index": 467,
+      "word_differences": 118,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "falcon_h1",
@@ -6492,7 +6654,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.17115260002901778
+      "elapsed_seconds": 0.15518400000291876
     },
     {
       "family": "qwen3_next",
@@ -6505,15 +6667,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_next\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_next-unmasked-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_next-unmasked-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 2.9802322387695312e-08,
-      "worst_index": 162,
-      "word_differences": 106,
+      "max_abs": 4.470348358154297e-08,
+      "worst_index": 48,
+      "word_differences": 100,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_next",
@@ -6531,7 +6694,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14614699996309355
+      "elapsed_seconds": 0.13610840000910684
     },
     {
       "family": "qwen3_next",
@@ -6544,16 +6707,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_next\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_next-unmasked-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_next-unmasked-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 192,
       "excluded_values": 0,
-      "max_abs": 2.9802322387695312e-08,
-      "worst_index": 162,
-      "word_differences": 106,
+      "max_abs": 4.470348358154297e-08,
+      "worst_index": 48,
+      "word_differences": 100,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_next",
@@ -6572,7 +6736,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.16202330001397058
+      "elapsed_seconds": 0.1336575999885099
     },
     {
       "family": "qwen3_next",
@@ -6585,15 +6749,16 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_next\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_next-padded-resident.json"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_next-padded-resident.json"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 2.9802322387695312e-08,
-      "worst_index": 336,
-      "word_differences": 166,
+      "max_abs": 4.470348358154297e-08,
+      "worst_index": 48,
+      "word_differences": 142,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_next",
@@ -6611,7 +6776,7 @@
         "adamw": "portable"
       },
       "variant_dispatches": {},
-      "elapsed_seconds": 0.14742029999615625
+      "elapsed_seconds": 0.13310209999326617
     },
     {
       "family": "qwen3_next",
@@ -6624,16 +6789,17 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\forward\\qwen3_next\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-20261111\\qwen3_next-padded-streaming.json",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-forward-orderfix\\qwen3_next-padded-streaming.json",
         "--stream-parameters"
       ],
       "pass": true,
+      "oracle_vector_width": 8,
       "exit": 0,
       "values": 288,
       "excluded_values": 96,
-      "max_abs": 2.9802322387695312e-08,
-      "worst_index": 336,
-      "word_differences": 166,
+      "max_abs": 4.470348358154297e-08,
+      "worst_index": 48,
+      "word_differences": 142,
       "failing_values": 0,
       "device": "AMD Radeon Graphics",
       "architecture": "qwen3_next",
@@ -6652,7 +6818,7 @@
       },
       "variant_dispatches": {},
       "resident_word_differences": 0,
-      "elapsed_seconds": 0.15799010003684089
+      "elapsed_seconds": 0.1447520999936387
     }
   ],
   "missing_rdna_profiles": [],
