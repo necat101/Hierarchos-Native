@@ -56,11 +56,13 @@ def prepare(args):
         if args.cases and name not in args.cases:
             continue
         torch.manual_seed(0xC11F000 + case_index)
+        wide=getattr(args,'wmma_wide',False)
+        if wide:width=128
         vision = CLIPVisionConfig(hidden_size=width, intermediate_size=width*2,
             num_hidden_layers=2, num_attention_heads=4, num_channels=3,
             image_size=8, patch_size=patch, hidden_act=activation, attention_dropout=0., layer_norm_eps=1e-5)
-        text = LlamaConfig(vocab_size=64, hidden_size=16, intermediate_size=32,
-            num_hidden_layers=2, num_attention_heads=2, num_key_value_heads=2,
+        text = LlamaConfig(vocab_size=64, hidden_size=64 if wide else 16, intermediate_size=128 if wide else 32,
+            num_hidden_layers=2, num_attention_heads=8 if wide else 2, num_key_value_heads=8 if wide else 2,
             max_position_embeddings=64, rms_norm_eps=1e-5, tie_word_embeddings=False,
             attention_dropout=0., pad_token_id=0, bos_token_id=1, eos_token_id=2)
         vision._attn_implementation = "eager"
@@ -269,6 +271,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     sub=parser.add_subparsers(dest="command",required=True)
     p=sub.add_parser("prepare");p.add_argument("--output",type=Path,required=True);p.add_argument("--cases",nargs="+")
+    p.add_argument('--wmma-wide',action='store_true',help='prepare additional eligible WMMA geometry in a new fixture directory')
     p=sub.add_parser("run");p.add_argument("--fixtures",type=Path,required=True);p.add_argument("--output",type=Path,required=True)
     p.add_argument("--binary",type=Path,required=True);p.add_argument("--target",choices=["gen9","rdna3"],required=True)
     p.add_argument("--device-id",type=lambda x:int(x,0));p.add_argument("--cases",nargs="+")

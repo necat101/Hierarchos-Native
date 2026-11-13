@@ -83,13 +83,14 @@ def prepare(args):
         if args.cases and name not in args.cases:
             continue
         torch.manual_seed(0xC11F800 + case_index)
+        wide=getattr(args,'wmma_wide',False)
         vision = Gemma4VisionConfig(
-            hidden_size=16,
-            intermediate_size=32,
+            hidden_size=64 if wide else 16,
+            intermediate_size=128 if wide else 32,
             num_hidden_layers=2,
             num_attention_heads=4,
             num_key_value_heads=4,
-            head_dim=4,
+            head_dim=16 if wide else 4,
             hidden_act="gelu_pytorch_tanh",
             rms_norm_eps=1e-6,
             attention_dropout=0.0,
@@ -103,11 +104,11 @@ def prepare(args):
         )
         text = Gemma4TextConfig(
             vocab_size=64,
-            hidden_size=16,
-            intermediate_size=32,
+            hidden_size=64 if wide else 16,
+            intermediate_size=128 if wide else 32,
             num_hidden_layers=2,
-            num_attention_heads=2,
-            num_key_value_heads=2,
+            num_attention_heads=8 if wide else 2,
+            num_key_value_heads=8 if wide else 2,
             head_dim=8,
             max_position_embeddings=64,
             rms_norm_eps=1e-6,
@@ -488,6 +489,7 @@ def main():
     p = sub.add_parser("prepare")
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--cases", nargs="+")
+    p.add_argument('--wmma-wide',action='store_true',help='prepare additional eligible WMMA geometry in a new fixture directory')
     p = sub.add_parser("run")
     p.add_argument("--fixtures", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)

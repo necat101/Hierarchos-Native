@@ -136,6 +136,10 @@ fn run() -> Result<()> {
         serde_json::to_vec_pretty(&serde_json::json!({
             "schema":1,"scope":"raw_rgb_siglip_gemma3_full_parameter_training",
             "device":device.name(),"vendor_id":device.vendor_id(),"device_id":device.device_id(),
+            "precision":{"requested":hierarchos_vulkan::wmma::WmmaMode::from_env()?.label(),
+                "accumulation_dispatches":hierarchos_vulkan::wmma_linear::linear_wmma_precision_counts(),
+                "phases":hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts(),
+                "master_weights":"fp32","optimizer_state":"fp32"},
             "pixels":pixels,"alternate":alternate,"steps":steps,"final":final_output,"reload":reload_output,
         }))?,
     )?;

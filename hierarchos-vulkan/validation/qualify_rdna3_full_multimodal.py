@@ -75,7 +75,7 @@ def main():
             complete=complete,**{'pass':complete and all(r['pass'] for r in records)},results=records))
     persist()
     for stage in a.stages:
-        env={**os.environ,'HIERARCHOS_ATEN_VECTOR_WIDTH':'8'}
+        env={**os.environ,'HIERARCHOS_ATEN_VECTOR_WIDTH':'8','HIERARCHOS_WMMA_MODE':'off'}
         dest=a.output/stage
         print('Starting',stage,flush=True)
         if stage in IMAGES:

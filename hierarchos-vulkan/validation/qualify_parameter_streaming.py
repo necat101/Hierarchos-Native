@@ -26,7 +26,7 @@ FAMILIES=['gpt2','llama','mixtral','qwen3_next','deepseek_v4',
 
 def qualify(family,out):
     fixture=ROOT/'hierarchos-vulkan/.peft-oracle-fixtures/parameter-streaming'/out.name/family
-    env=dict(os.environ,HIERARCHOS_PEFT_USE_PREBUILT='1',HIERARCHOS_PEFT_STREAM_PARAMETERS='1',
+    env=dict(os.environ,HIERARCHOS_PEFT_USE_PREBUILT='1',HIERARCHOS_PEFT_STREAM_PARAMETERS='1',HIERARCHOS_WMMA_MODE='off',
         HIERARCHOS_PEFT_BIN_DIR=str(out/'bin'),
         HIERARCHOS_PEFT_FIXTURE_ROOT=str(fixture))
     start=time.monotonic()
@@ -47,14 +47,16 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('families',nargs='*',choices=FAMILIES)
     p.add_argument('--workers',type=int,default=1)
+    p.add_argument('--bin-dir',type=Path,default=ROOT/'hierarchos-vulkan/target/debug')
+    p.add_argument('--output',type=Path)
     a=p.parse_args()
-    out=ROOT/'target/parameter-streaming'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    out=(a.output or ROOT/'target/parameter-streaming'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')).resolve()
     out.mkdir(parents=True,exist_ok=False)
     (out/'bin').mkdir()
     binaries={}
     for stem in ['hierarchos-vulkan-transformer-logits','transformer_parity','peft_checkpoint']:
         name=stem+('.exe' if os.name=='nt' else '')
-        source=ROOT/'hierarchos-vulkan/target/debug'/name
+        source=a.bin_dir/name
         destination=out/'bin'/name
         shutil.copy2(source,destination)
         binaries[name]=hashlib.sha256(destination.read_bytes()).hexdigest()

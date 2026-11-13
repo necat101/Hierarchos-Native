@@ -31,7 +31,17 @@ impl Runtime {
         eprintln!("Vision backend: {:?}; device: {}; precision: {}",p.kind,device.name(),wmma.description());
         let d=device;
         Ok(match p.kind {
-            Kind::Shared=>Self::Shared(Box::new(VulkanImageText::from_hf_package(d,&p.root,o.batch,o.seq,o.batch)?)),
+            Kind::Shared=>{
+                let mut graph=VulkanImageText::from_hf_package(d,&p.root,o.batch,o.seq,o.batch)?;
+                // The desktop CLI must take the same joint AMP transaction as
+                // the direct shared-CLIP probe. Encoder/decoder packages keep
+                // their unscaled FP32 gradient policy.
+                if wmma!=hierarchos_vulkan::wmma::WmmaMode::Off&&!p.seq2seq
+                    &&graph.loss_scaler_state()?.is_none(){
+                    graph.set_loss_scaler(Some(Default::default()))?;
+                }
+                Self::Shared(Box::new(graph))
+            },
             Kind::Llava=>Self::Llava(Box::new(VulkanLlava::from_hf_package(d,&p.root,o.batch,o.seq,o.batch)?)),
             Kind::Gemma3=>Self::Gemma3(Box::new(VulkanGemma3Vision::from_hf_package(d,&p.root,o.batch,o.seq,o.batch)?)),
             Kind::Gemma4=>Self::Gemma4(Box::new(VulkanGemma4Vision::from_hf_package(d,&p.root,o.batch,o.seq,1,picture.width)?)),

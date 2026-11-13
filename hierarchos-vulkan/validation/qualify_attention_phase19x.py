@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Freeze fresh two-pass attention-backward evidence on the current source.
 
-The full Phase XVI receipt covers 16 GPT-2 shapes and 74 retained cases. Its
-CPU oracle inputs are not present in this checkout, so it remains a historical
-receipt. This producer instead runs the current-source two-pass backward test
-and dispatch harness, binds those logs to the current trainer and shader bytes,
-and records the Phase XVI shape/retained coverage as historical metadata only.
+The full Phase XVI receipt covers 16 GPT-2 shapes and 74 retained cases and
+remains historical. Phase XIX-Y separately replays those recovered inputs.
+This producer binds fresh current-source two-pass backward and dispatch logs
+to the current trainer and shader bytes. Its numerical scope is four backward
+cases; wider shape/retained coverage is historical metadata only.
 """
 
 from __future__ import annotations
@@ -63,10 +63,14 @@ def load(path: Path):
 
 
 def main() -> int:
+    global WORK, GATE
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--work", type=Path, default=WORK)
+    parser.add_argument("--gate", type=Path, default=GATE)
     parser.add_argument("--install", action="store_true")
     parser.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args()
+    WORK, GATE = args.work.resolve(), args.gate.resolve()
 
     dirty = git("status", "--porcelain", "--untracked-files=no")
     require(not dirty or args.allow_dirty, "tracked worktree is dirty:\n" + dirty)

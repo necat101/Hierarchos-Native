@@ -35,6 +35,20 @@ def prepare(args):
         raise ValueError('expected BART, T5 or Switch profiles')
     required = [p['profile'] for p in json.loads(shared.INVENTORY.read_text())['profiles']]
     models = [(name, model) for name, model, _ in reference.tiny_models(training_reference=True) if name in selected]
+    wide=getattr(args,'wmma_wide',False)
+    if wide:
+        larger=[]
+        for name,base in models:
+            config=copy.deepcopy(base.config)
+            config.d_model=64
+            if name=='bart':
+                config.encoder_attention_heads=config.decoder_attention_heads=8
+                config.encoder_ffn_dim=config.decoder_ffn_dim=128
+                config.max_position_embeddings=64
+            else:
+                config.d_kv=8;config.d_ff=128;config.num_heads=8
+            larger.append((name,type(base)(config)))
+        models=larger
     if {name for name, _ in models} != selected:
         raise ValueError('missing upstream encoder/decoder model')
     out = args.output.resolve()
@@ -70,13 +84,14 @@ def prepare(args):
             encoder = text.get_encoder()
             embedding = encoder.get_input_embeddings()
             vocab, width = embedding.weight.shape
+            vision_width=64 if wide else 16
             vision_config = CLIPVisionConfig(
-                hidden_size=16, intermediate_size=32, num_hidden_layers=2, num_attention_heads=2,
+                hidden_size=vision_width, intermediate_size=vision_width*2, num_hidden_layers=2, num_attention_heads=2,
                 image_size=8, patch_size=4, num_channels=3, hidden_act='quick_gelu', attention_dropout=0.)
             torch.manual_seed(0x434C4950 + sum(name.encode()))
             tower = CLIPVisionModel(vision_config).float().train()
             tower.set_attn_implementation('eager')
-            projector = torch.nn.Sequential(torch.nn.Linear(16, width), torch.nn.GELU(), torch.nn.Linear(width, width))
+            projector = torch.nn.Sequential(torch.nn.Linear(vision_width, width), torch.nn.GELU(), torch.nn.Linear(width, width))
             with torch.no_grad():
                 for parameter in projector.parameters():
                     parameter.mul_(.15)
@@ -101,6 +116,9 @@ def prepare(args):
             alternate = processor(images=[Image.fromarray(x) for x in alternate_rgb], return_tensors='pt')['pixel_values']
             ids = torch.tensor([[1,token,token,token,token,7,3,2], [2,token,token,token,token,3,7,1]])
             decoder_ids = torch.tensor([[0,4,5,6,7,3,2,1], [0,6,3,5,4,7,2,1]])
+            if wide:
+                ids=torch.cat([ids,ids[:,[5,6,7,0]].repeat(1,4)],dim=1)
+                decoder_ids=decoder_ids.repeat(1,3)
             mask = torch.ones_like(ids)
             decoder_mask = torch.ones_like(decoder_ids)
             if padded:
@@ -114,7 +132,7 @@ def prepare(args):
             weights[:,-1] = 0
             weights[:,:-1] *= decoder_mask[:,1:]
             targets[weights == 0] = -100
-            fixture = {'batch_size': 2, 'seq_len': 8, 'image_count': 2,
+            fixture = {'batch_size': 2, 'seq_len': ids.shape[1], 'image_count': 2,
                        'input_ids': ids.flatten().tolist(), 'attention_mask': mask.float().flatten().tolist(),
                        'decoder_input_ids': decoder_ids.flatten().tolist(),
                        'decoder_attention_mask': decoder_mask.float().flatten().tolist(),
@@ -136,7 +154,7 @@ def prepare(args):
             handles = [encoder.register_forward_pre_hook(enter_encoder),
                        encoder.register_forward_hook(leave_encoder), embedding.register_forward_hook(inject)]
             def forward(values):
-                features = tower(values, output_hidden_states=True).hidden_states[-1][:,1:,:].reshape(-1,16)
+                features = tower(values, output_hidden_states=True).hidden_states[-1][:,1:,:].reshape(-1,vision_width)
                 projected = projector(features)
                 holder['projected'] = projected
                 result = text(input_ids=ids, attention_mask=mask, decoder_input_ids=decoder_ids,
@@ -203,6 +221,7 @@ def main():
     p = sub.add_parser('prepare')
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--profiles', nargs='+')
+    p.add_argument('--wmma-wide',action='store_true',help='prepare additional eligible WMMA geometry; never overwrites frozen fixtures')
     p = sub.add_parser('run')
     p.add_argument('--fixtures', type=Path, required=True)
     p.add_argument('--binary', type=Path, required=True)
