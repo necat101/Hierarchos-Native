@@ -44,8 +44,9 @@ strict failures (maximum `4.76837158203125e-06`). Receipt:
 | Llama64 full-parameter and LoRA training | **PASS_SCOPED** | 20 steps each; 480/320 cooperative dispatches; FP32 masters and optimizer state; loss scaling enabled |
 | Shared CLIP64 image/text CLI and direct probe | **PASS_SCOPED** | 94 CLI cooperative dispatches (30 forward, 32 dW, 32 dX); six documented shape fallbacks remain FP32; image/text parameter equality `0.0` against the direct probe |
 | T5, BART, Switch wide cases (6) | **PASS_SCOPED for dispatches/numerics; scaler NOT RUN** | 6/6 pass; 352/426 cooperative dispatches. These encoder-decoder probes retain the documented unscaled FP32-gradient policy: `loss_scaler` is null, so automatic loss scaling is not qualified for this family. |
+| Wide-family loss scaling | **NOT RUN / UNQUALIFIED** | Only the shared LLaVA probe records a scaler; Gemma3 has no scaler evidence and T5/BART/Switch record `loss_scaler: null`. |
 | LLaVA wide | **PASS_SCOPED** | Cooperative forward/dW/dX confirmed |
-| Gemma3 wide | **PASS_SCOPED** | Cooperative forward/dW/dX confirmed; its raw FP32 diagnostics exceed strict `2e-7` |
+| Gemma3 wide | **PASS_SCOPED for dispatches/numerics; scaler NOT RUN** | Cooperative forward/dW/dX confirmed; the probe has no loss-scaler field, so automatic scaling is not qualified; its raw FP32 diagnostics exceed strict `2e-7` |
 | Gemma4 wide RGB | **FAIL** | Unchanged policy: step-1 vision RMS `0.006074178677798042` > `0.003`, maximum `0.017984390258789062`; not promoted |
 | Mixed primitive qualification | **PASS** | 37/37 gates; 15 cooperative, 1 plain FP16, 0 shape fallbacks |
 

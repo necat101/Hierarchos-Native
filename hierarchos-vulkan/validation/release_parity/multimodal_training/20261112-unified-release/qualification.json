@@ -45,7 +45,7 @@
       "status": "PARTIAL",
       "passed": 8,
       "failed": 1,
-      "scoped_loss_scaling": "LLaVA and Gemma3 probes carry a scaler; T5/BART/Switch probes retain the documented unscaled FP32-gradient policy and are not qualified for automatic loss scaling",
+      "scoped_loss_scaling": "Only the LLaVA probe records a scaler; Gemma3 has no loss-scaler evidence and T5/BART/Switch record loss_scaler:null, so automatic loss scaling is not qualified for the wide families",
       "gemma4_failure": {
         "rms": 0.006074178677798042,
         "limit": 0.003,
