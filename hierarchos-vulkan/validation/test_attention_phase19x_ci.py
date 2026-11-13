@@ -11,13 +11,26 @@ same changed-hash assertion as the main suite.
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 import test_attention_phase19x as base
 from test_attention_phase19x import CRATE
+from check_attention_phase19x import RECEIPT as CURRENT_RECEIPT, verify
 
 
-@unittest.skipUnless(base.RECEIPT.is_file(), "attention receipt is not present")
+@unittest.skipUnless(CURRENT_RECEIPT.is_file(), "current attention receipt is not present")
 class AttentionPhaseXIXXCIControls(base.AttentionPhaseXIXXControls):
+    # The inherited suite's path intentionally identifies its historical
+    # snapshot. Current CI selects the current checker default and must first
+    # prove that unmodified receipt passes, so stale-source failures cannot
+    # masquerade as successful rejection controls.
+    __unittest_skip__ = False
+
+    def setUp(self):
+        with patch.object(base, "RECEIPT", CURRENT_RECEIPT):
+            super().setUp()
+        verify(self.path, CRATE)
+
     def test_changed_trainer(self):
         trainer = CRATE / "target/release/hierarchos-vulkan-transformer-train.exe"
         if trainer.is_file():
