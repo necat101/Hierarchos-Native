@@ -61,6 +61,17 @@ class UnifiedReleaseControls(unittest.TestCase):
         self.reject(lambda d,p:p['wide']['results'].pop())
     def test_unsupported_precision_accepted(self):
         self.reject(lambda d,p:p['gui_cli']['unsupported_controls'][0].update(exit_code=0))
+    def test_missing_rejection_control(self):
+        self.reject(lambda d,p:p['gui_cli']['unsupported_controls'].pop())
+    def test_duplicated_gui_workflow_does_not_replace_coverage(self):
+        self.reject(lambda d,p:p['gui_cli']['workflows'].__setitem__(0,p['gui_cli']['workflows'][1]))
+    def test_primitive_from_another_executable(self):
+        self.reject(lambda d,p:p['wmma_mixed']['producer'].update(binary_sha256='0'*64))
+    def test_restored_scaler_history_is_required(self):
+        def mutate(d,p):
+            key=next(k for k in p['precision']['checks'] if k.startswith('vision-overflow-') and '/restored-state' in k)
+            p['precision']['checks'][key].update(skipped_steps=0)
+        self.reject(mutate)
     def test_hidden_diagnostic_failures(self):
         self.reject(lambda d,p:p['intermediates'].update(strict_diagnostic_failures=0))
     def test_forged_primitive_pass_flag(self):

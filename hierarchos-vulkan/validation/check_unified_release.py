@@ -110,6 +110,8 @@ def validate_payload(document,components):
             require(row and all(v['max_abs']==0 for v in row.values()),'exact resume diverged')
         if '/state' in key and key.startswith('vision-overflow-'):
             require(row['skipped_steps']==2 and row['scale']==2.**78,'joint overflow skip/backoff failed')
+        if '/restored-state' in key and key.startswith('vision-overflow-'):
+            require(row['skipped_steps']==4 and row['scale']==2.**76,'restored global scaler history failed')
         metrics=[row] if isinstance(row,dict) and 'max_abs' in row else list(row.values()) if isinstance(row,dict) else []
         for value in metrics:
             if not isinstance(value,dict) or 'max_abs' not in value:continue
@@ -141,6 +143,8 @@ def validate_payload(document,components):
     verify_primitive(components['wmma_mixed'],'mixed',0)
     verify_primitive(components['wmma_full_original'],'full-fp16',9)
     failures=verify_primitive(components['wmma_full_dot2'],'full-fp16',3)
+    for key in ('wmma_mixed','wmma_full_original','wmma_full_dot2'):
+        bound('wmma_qualify',components[key]['producer']['binary_sha256'])
     require(components['wmma_full_dot2']['full_oracle']=='rdna3-dot2','wrong matched FP16 oracle')
     require(all(r['label'].startswith('128x128x96') and 'vs FP32' in r['label'] for r in failures),'uncharacterized Full FP16 failure')
     applicable=[r for r in components['wmma_full_dot2']['results'] if int(re.match(r'\d+x\d+x(\d+)',r['label']).group(1))<=64]
@@ -157,11 +161,17 @@ def validate_payload(document,components):
         r=tests[name];require(r['passed']>=floor and r['failed']==0 and r['exit_code']==0,'test suite failed or incomplete: '+name)
     require(tests['oversized_fallback']['passed']==1 and tests['oversized_fallback']['failed']==0,'real oversized fallback was not executed')
     gui=components['gui_cli'];require(gui['status']=='PASS' and len(gui['workflows'])==8,'GUI Start coverage incomplete')
+    require({(r['workflow'],r['precision']['requested']) for r in gui['workflows']}==
+            {(name,mode) for name in ('vision','full','full-finetune','lora') for mode in ('mixed','full-fp16')},
+            'GUI workflow/mode inventory changed')
     bound('hierarchos-native-cli',gui['cli_sha256']);bound('gui_test',gui['gui_test_sha256'])
     for r in gui['workflows']:
         require(r['optimizer_updates']==2 and r['steps']==2,'GUI optimizer updates incomplete')
         verify_mode(r['precision'],r['precision']['requested'],r['workflow']!='lora')
-    require(gui['unsupported_controls'] and all(r['exit_code']!=0 and not r['output_created'] for r in gui['unsupported_controls']),'unsupported precision silently accepted')
+    require(len(gui['unsupported_controls'])==4 and {r['control'] for r in gui['unsupported_controls']}==
+            {'invalid-mode','unqualified-full-profile','wrong-checkpoint-precision','partial-window-checkpoint'},
+            'precision rejection controls incomplete')
+    require(all(r['exit_code']!=0 and not r['output_created'] for r in gui['unsupported_controls']),'unsupported precision silently accepted')
     from check_phase19z_current import verify_packed_status
     verify_packed_status(components['packed'])
     intermediate=components['intermediates']
