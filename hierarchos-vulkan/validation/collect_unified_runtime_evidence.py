@@ -34,7 +34,7 @@ def main():
         ('library','phase22-library-final.log',a.libtest,1159),
         ('cli','phase22-cli-unit.log',binary,50),('gui','phase22-gui-unit.log',a.gui_test,17),
         ('oversized_fallback','phase22-full-fallback-build-test-3.log',a.libtest,1),
-        ('gui_hardware','phase22-gui-hardware.log',a.gui_test,2)]}
+        ('gui_hardware','phase22-gui-hardware-waited.log',a.gui_test,2)]}
     fallback=(ROOT/'target/phase22-full-fallback-build-test-3.log').read_text()
     require('reduction=128 forward=3 dW=3 dX=3' in fallback and 'cooperative delta=[0,0]' in fallback,'fallback test did not execute all FP32 phases')
     workflows=[]
