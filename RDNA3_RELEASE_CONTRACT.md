@@ -63,7 +63,10 @@ unchanged. Broad original primitive failures remain separate evidence.
 Phase XIX-Z release admission requires every one of the thirteen current
 packed benchmark/guard pairs to pass. A partial packed result cannot qualify a
 release. The checker reexecutes the CPU route guards over the fresh measurement
-receipts. Local physical GPU qualification and self-hosted GitHub runner
+receipts. Timed route producers use 120 observations to balance complete
+three-leg and four-leg rotations. Existing batch sweeps, warmups, chains,
+candidate graphs, numerical gates and decision bands remain unchanged; older
+20/40-sample failed sweeps are preserved. Local physical GPU qualification and self-hosted GitHub runner
 availability are separate facts; a queued workflow is never counted as PASS.
 
 This scope document is not a release receipt. Current-source producers,

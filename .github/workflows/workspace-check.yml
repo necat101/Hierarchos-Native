@@ -139,6 +139,9 @@ jobs:
         run: |
           python hierarchos-vulkan/validation/check_measured_producer_routes.py
 
+      - name: Packed sampling protocol controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_packed_sampling_protocol.py"
+
       - name: Gen9 strict qualification negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_gen9_architectures.py"
 
