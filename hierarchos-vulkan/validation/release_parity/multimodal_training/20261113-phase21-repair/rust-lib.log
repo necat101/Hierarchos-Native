@@ -1,0 +1,1620 @@
+   Compiling hierarchos-vulkan v0.1.0 (C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan)
+warning: unused variable: `push`
+   --> src\deepseek_v41\mixed_moe_grad.rs:322:13
+    |
+322 |         let push = gate_push(c, rows);
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `push`
+    --> src\deepseek_v41\backbone.rs:2136:13
+     |
+2136 |         let push = MoeGatePush {
+     |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+
+warning: variable does not need to be mutable
+     --> src\full_training_graph.rs:20140:21
+      |
+20140 |                 let mut readback = GpuBuffer::uninitialized_host_f32(&source.device, len)?;
+      |                     ----^^^^^^^^
+      |                     |
+      |                     help: remove this `mut`
+      |
+      = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unreachable pattern
+    --> src\transformer\peft_state.rs:1543:21
+     |
+1543 |                     _ => {}
+     |                     ^ no value can reach this
+     |
+note: multiple earlier patterns match some of the same values
+    --> src\transformer\peft_state.rs:1543:21
+     |
+1497 |                       VulkanQwenGatedDeltaProjection::Qwen3Next { qkvz, ba, .. } => {
+     |                       ---------------------------------------------------------- matches some of the same values
+...
+1502 |                       VulkanQwenGatedDeltaProjection::Qwen35 { qkv, z, b, a } => {
+     |                       ------------------------------------------------------- matches some of the same values
+...
+1507 | /                     VulkanQwenGatedDeltaProjection::OlmoHybrid {
+1508 | |                         q, k, v, z, b, a, ..
+1509 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1514 | /                     VulkanQwenGatedDeltaProjection::Glm5 {
+1515 | |                         q,
+1516 | |                         k,
+1517 | |                         v,
+...    |
+1523 | |                         ..
+1524 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1543 |                       _ => {}
+     |                       ^ ...and 1 other patterns collectively make this unreachable
+     = note: `#[warn(unreachable_patterns)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+     --> src\transformer.rs:11765:13
+      |
+11765 |         let mut config = Self {
+      |             ----^^^^^^
+      |             |
+      |             help: remove this `mut`
+
+warning: unused variable: `layer_index`
+     --> src\transformer.rs:66727:5
+      |
+66727 |     layer_index: usize,
+      |     ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_layer_index`
+
+warning: variable does not need to be mutable
+  --> src\gpt2_cpu_math_tests.rs:64:13
+   |
+64 |         let mut resident = VulkanTransformer::from_hf_package_with_config(
+   |             ----^^^^^^^^
+   |             |
+   |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src\gpt2_cpu_math_tests.rs:71:13
+   |
+71 |         let mut streamed = VulkanTransformer::from_hf_package_with_streamed_parameters(
+   |             ----^^^^^^^^
+   |             |
+   |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src\vulkan.rs:8189:9
+     |
+8189 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src\vulkan.rs:8349:9
+     |
+8349 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: type `vulkan::ComputeBatch` is more private than the item `tap`
+    --> src\activation_trace.rs:112:1
+     |
+ 112 | / pub fn tap(
+ 113 | |     commands: &mut ComputeBatch,
+ 114 | |     buffer: &GpuBuffer,
+ 115 | |     len: usize,
+...    |
+ 118 | |     shape: [usize; 3],
+ 119 | | ) -> Result<()> {
+     | |_______________^ function `tap` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `deepseek_v41::checkpoint::payload_cache::Key` is more private than the item `deepseek_v41::checkpoint::payload_cache::PayloadCache::get`
+  --> src\deepseek_v41\checkpoint_cache.rs:75:5
+   |
+75 |     pub fn get(&mut self, key: &Key) -> Option<Arc<Vec<u8>>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `deepseek_v41::checkpoint::payload_cache::PayloadCache::get` is reachable at visibility `pub(in crate::deepseek_v41)`
+   |
+note: but type `deepseek_v41::checkpoint::payload_cache::Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+  --> src\deepseek_v41\checkpoint_cache.rs:31:1
+   |
+31 | pub(super) struct Key {
+   | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `deepseek_v41::checkpoint::payload_cache::Key` is more private than the item `deepseek_v41::checkpoint::payload_cache::PayloadCache::insert`
+   --> src\deepseek_v41\checkpoint_cache.rs:103:5
+    |
+103 |     pub fn insert(&mut self, key: Key, bytes: &[u8]) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `deepseek_v41::checkpoint::payload_cache::PayloadCache::insert` is reachable at visibility `pub(in crate::deepseek_v41)`
+    |
+note: but type `deepseek_v41::checkpoint::payload_cache::Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+   --> src\deepseek_v41\checkpoint_cache.rs:31:1
+    |
+ 31 | pub(super) struct Key {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer`
+    --> src\deepseek_v41\mixed_linear.rs:337:5
+     |
+ 337 | /     pub fn record_cast_buffer(
+ 338 | |         &self,
+ 339 | |         commands: &mut vulkan::ComputeBatch,
+ 340 | |         input: &GpuBuffer,
+ 341 | |         elements: usize,
+ 342 | |         precision: DeepseekV41WeightOutput,
+ 343 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_apply`
+    --> src\deepseek_v41\mixed_linear.rs:397:5
+     |
+ 397 | /     pub fn record_apply(
+ 398 | |         &self,
+ 399 | |         commands: &mut vulkan::ComputeBatch,
+ 400 | |         input: &GpuBuffer,
+...    |
+ 403 | |         precision: DeepseekV41WeightOutput,
+ 404 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_apply` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma::WmmaGemm::record_conversion`
+    --> src\wmma.rs:649:5
+     |
+ 649 | /     pub fn record_conversion(
+ 650 | |         &self,
+ 651 | |         batch: &mut vulkan::ComputeBatch,
+ 652 | |         source_f32: &GpuBuffer,
+ 653 | |         destination_f16: &GpuBuffer,
+ 654 | |         len: usize,
+ 655 | |     ) -> Result<()> {
+     | |___________________^ method `wmma::WmmaGemm::record_conversion` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma::WmmaGemm::record_gemm`
+    --> src\wmma.rs:671:5
+     |
+ 671 | /     pub fn record_gemm(
+ 672 | |         &self,
+ 673 | |         batch: &mut vulkan::ComputeBatch,
+ 674 | |         arm: WmmaGemmArm,
+...    |
+ 681 | |         layout: GemmLayout,
+ 682 | |     ) -> Result<()> {
+     | |___________________^ method `wmma::WmmaGemm::record_gemm` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma_linear::LinearWmma::record_forward`
+    --> src\wmma_linear.rs:315:5
+     |
+ 315 | /     pub fn record_forward(
+ 316 | |         &self,
+ 317 | |         commands: &mut vulkan::ComputeBatch,
+ 318 | |         input: &GpuBuffer,
+...    |
+ 321 | |         rows: usize,
+ 322 | |     ) -> Result<bool> {
+     | |_____________________^ method `wmma_linear::LinearWmma::record_forward` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma_linear::LinearWmma::record_weight_grad`
+    --> src\wmma_linear.rs:358:5
+     |
+ 358 | /     pub fn record_weight_grad(
+ 359 | |         &self,
+ 360 | |         commands: &mut vulkan::ComputeBatch,
+ 361 | |         grad_output: &GpuBuffer,
+...    |
+ 364 | |         rows: usize,
+ 365 | |     ) -> Result<bool> {
+     | |_____________________^ method `wmma_linear::LinearWmma::record_weight_grad` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma_linear::LinearWmma::record_input_grad`
+    --> src\wmma_linear.rs:397:5
+     |
+ 397 | /     pub fn record_input_grad(
+ 398 | |         &self,
+ 399 | |         commands: &mut vulkan::ComputeBatch,
+ 400 | |         grad_output: &GpuBuffer,
+...    |
+ 403 | |         rows: usize,
+ 404 | |     ) -> Result<bool> {
+     | |_____________________^ method `wmma_linear::LinearWmma::record_input_grad` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeSession` is more private than the item `BatchHandle::Session::session`
+    --> src\vulkan.rs:5588:9
+     |
+5588 |         session: *mut ComputeSession,
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `BatchHandle::Session::session` is reachable at visibility `pub(crate)`
+     |
+note: but type `ComputeSession` is only usable at visibility `pub(self)`
+    --> src\vulkan.rs:5562:1
+     |
+5562 | struct ComputeSession {
+     | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled` is never used
+    --> src\lib.rs:3261:19
+     |
+1124 | impl HierarchosOutNormHeadTrainer {
+     | --------------------------------- method in this implementation
+...
+3261 |     pub(crate) fn record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled(
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `apply` is never used
+    --> src\deepseek_v41\backbone.rs:2392:8
+     |
+2391 | impl MoeExecution {
+     | ----------------- method in this implementation
+2392 |     fn apply(&self, input: &GpuBuffer, rows: usize) -> Result<GpuBuffer> {
+     |        ^^^^^
+
+warning: field `directory` is never read
+  --> src\deepseek_v41\model_train.rs:81:5
+   |
+78 | pub struct DeepseekV41ModelTrainer {
+   |            ----------------------- field in this struct
+...
+81 |     directory: PathBuf,
+   |     ^^^^^^^^^
+
+warning: field `hidden_bits` is never read
+  --> src\deepseek_v41\terminal_tests.rs:27:5
+   |
+14 | struct Fixture {
+   |        ------- field in this struct
+...
+27 |     hidden_bits: Vec<u32>,
+   |     ^^^^^^^^^^^
+
+warning: field `alpha` is never read
+   --> src\deepseek_v41\train.rs:103:5
+    |
+101 | struct TrainableFactors {
+    |        ---------------- field in this struct
+102 |     rank: usize,
+103 |     alpha: f64,
+    |     ^^^^^
+    |
+    = note: `TrainableFactors` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `record_prepared_full_model_optimizer_step` and `finish_prepared_full_model_accumulation_wavefront` are never used
+     --> src\full_training_graph.rs:22904:8
+      |
+ 8187 | impl HierarchosTrainingGraph {
+      | ---------------------------- methods in this implementation
+...
+22904 |     fn record_prepared_full_model_optimizer_step(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+23391 |     fn finish_prepared_full_model_accumulation_wavefront(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `release_training_state` is never used
+   --> src\shared_lm_head.rs:456:19
+    |
+ 99 | impl SharedLmHeadParameter {
+    | -------------------------- method in this implementation
+...
+456 |     pub(crate) fn release_training_state(&self) -> Result<()> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_forward` is never used
+     --> src\transformer.rs:28327:8
+      |
+27700 | impl TieredLmHead {
+      | ----------------- method in this implementation
+...
+28327 |     fn record_forward(
+      |        ^^^^^^^^^^^^^^
+
+warning: function `decode_transformer_float_tensor` is never used
+     --> src\transformer.rs:36655:4
+      |
+36655 | fn decode_transformer_float_tensor(name: &str, tensor: TensorView<'_>) -> Result<HostFloatTensor> {
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `load_gpt2_weights` is never used
+     --> src\transformer.rs:40862:4
+      |
+40862 | fn load_gpt2_weights(
+      |    ^^^^^^^^^^^^^^^^^
+
+warning: field `grad_attention_gate_values` is never read
+     --> src\transformer.rs:49479:5
+      |
+49409 | struct TransformerLayerTape {
+      |        -------------------- field in this struct
+...
+49479 |     grad_attention_gate_values: GpuBuffer,
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `key_hidden_size` is never used
+     --> src\transformer.rs:55856:8
+      |
+55701 | impl VulkanMlaAttention {
+      | ----------------------- method in this implementation
+...
+55856 |     fn key_hidden_size(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^
+
+warning: field `eps` is never read
+   --> src\transformer\gemma4_vision.rs:921:5
+    |
+903 | pub struct VulkanGemma4Vision {
+    |            ------------------ field in this struct
+...
+921 |     eps: f32,
+    |     ^^^
+
+warning: fields `physical_device` and `physical_device_index` are never read
+  --> src\vulkan.rs:38:5
+   |
+35 | struct DeviceInner {
+   |        ----------- fields in this struct
+...
+38 |     physical_device: vk::PhysicalDevice,
+   |     ^^^^^^^^^^^^^^^
+...
+72 |     physical_device_index: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: `hierarchos-vulkan` (lib test) generated 35 warnings (run `cargo fix --lib -p hierarchos-vulkan --tests` to apply 9 suggestions)
+    Finished `release` profile [optimized] target(s) in 11m 09s
+     Running unittests src\lib.rs (target\release\deps\hierarchos_vulkan-8c8d2140efff5506.exe)
+
+running 1197 tests
+test bench_ab::tests::agreement_gate_rejects_out_of_tolerance_tensors ... ok
+test bench_ab::tests::rank_two_default_follows_the_record_and_otherwise_keeps_the_fusion ... ok
+test bench_ab::tests::four_leg_sampling_rotates_every_leg_through_every_position ... ok
+test bench_ab::tests::promotion_predicate_rejects_a_wrong_default ... ok
+test bench_ab::tests::rank_two_arms_must_actually_differ ... ok
+test bench_ab::tests::median_handles_both_parities ... ok
+test bench_ab::tests::sampling_rotates_and_returns_last_results ... ok
+test bench_ab::tests::recorded_decision_overrides_the_gate_proxy ... ok
+test bench_ab::tests::rotated_order_covers_every_leg_every_position ... ok
+test bench_ab::tests::separated_legs_need_two_labels ... ok
+test checkpoint::tests::binary16_widening_agrees_with_the_weight_offload_copy ... ok
+test checkpoint::tests::portable_ltm_geometry_rejects_batch_isolated_pytorch_state ... ok
+test checkpoint::tests::adamw_v1_reader_maps_historical_global_step_to_every_slot ... ok
+test checkpoint::tests::adamw_v2_reader_preserves_slot_steps_with_unknown_legacy_decay_topology ... ok
+test checkpoint::tests::model_tensor_reader_promotes_f16_and_bf16_to_fp32 ... ok
+test checkpoint::tests::fp32_replacement_promotes_trainable_mixed_source_and_preserves_other_dtype ... ok
+test control::tests::auxiliary_source_scale_accepts_zero_gradient_mask ... ok
+test coverage_record::tests::a_carried_claim_must_be_in_the_record ... ok
+test coverage_record::tests::a_device_with_no_recorded_coverage_fails ... ok
+test coverage_record::tests::a_clean_merge_has_nothing_to_refuse ... ok
+test coverage_record::tests::a_golden_case_that_stops_being_measured_fails ... ok
+test coverage_record::tests::a_newly_exercised_invocation_is_a_note ... ok
+test coverage_record::tests::a_case_that_compares_less_than_it_did_fails ... ok
+test coverage_record::tests::a_recorded_missing_dispatch_that_vanishes_also_fails ... ok
+test coverage_record::tests::a_recorded_rejection_that_is_neither_measured_nor_carried_fails ... ok
+test coverage_record::tests::a_rejection_carried_past_its_canary_is_clean ... ok
+test coverage_record::tests::a_rejection_this_run_confirmed_is_clean ... ok
+test coverage_record::tests::a_verified_invocation_missing_from_the_record_is_a_note ... ok
+test coverage_record::tests::an_arm_that_became_unavailable_where_it_ran_fails_with_that_reason ... ok
+test coverage_record::tests::an_invocation_that_stops_being_exercised_fails ... ok
+test coverage_record::tests::an_arm_that_stops_running_fails ... ok
+test coverage_record::tests::an_unrecorded_device_fails_rather_than_defaulting ... ok
+test coverage_record::tests::bootstrap_creates_only_the_entries_that_are_missing ... ok
+test coverage_record::tests::bootstrap_prints_the_diff_it_wrote ... ok
+test coverage_record::tests::bootstrap_with_nothing_missing_writes_nothing ... ok
+test checkpoint::tests::pending_gradient_roundtrip_preserves_registry_order_and_values ... ok
+test coverage_record::tests::both_records_refuse_a_loss_in_the_same_words ... ok
+test coverage_record::tests::carrying_a_case_the_record_verified_fails ... ok
+test coverage_record::tests::grown_coverage_is_a_note ... ok
+test coverage_record::tests::recording_a_shrunken_entry_is_reported_before_it_is_applied ... ok
+test coverage_record::tests::recording_merges_this_device_and_lists_its_invocations ... ok
+test coverage_record::tests::the_recorded_coverage_reproducing_is_clean ... ok
+test checkpoint::tests::adamw_v3_roundtrip_preserves_slot_steps_and_decay_topology ... ok
+test decision_records::tests::a_chain_policy_reads_the_measurement_it_is_entitled_to ... ok
+test decision_records::tests::every_producer_record_shares_one_loader_and_one_band_rule ... ok
+test checkpoint::tests::portable_master_validator_rejects_low_precision_optimizer_slot ... ok
+test decision_records::tests::every_record_accepts_a_policy_scope ... ok
+test decision_records::tests::key_state_record_names_the_route_that_won_each_geometry ... ok
+test decision_records::tests::lookup_is_exact_on_device_and_geometry ... ok
+test decision_records::tests::a_route_outside_the_kind_vocabulary_is_rejected ... ok
+test decision_records::tests::a_projection_route_is_rejected_by_a_chain_record ... ok
+test decision_records::tests::a_route_with_no_timing_of_its_own_is_rejected ... ok
+test decision_records::tests::a_folded_entry_is_loadable_and_selectable ... ok
+test decision_records::tests::a_route_that_is_not_the_fastest_candidate_is_rejected ... ok
+test decision_records::tests::a_scoped_withhold_must_name_a_route_the_policy_has ... ok
+test decision_records::tests::key_state_forward_record_loads_into_its_own_consumer ... ok
+test decision_records::tests::low_rank_forward_record_loads_into_its_own_consumer ... ok
+test decision_records::tests::a_withheld_route_must_match_its_measured_decision ... ok
+test decision_records::tests::policy_scoped_entries_override_only_their_own_policy ... ok
+test decision_records::tests::rank_two_rule_keeps_the_fusion_unless_measured_or_forced ... ok
+test decision_records::tests::record_parses_and_is_non_empty ... ok
+test decision_records::tests::rule_prefers_the_record_over_the_gate ... ok
+test decision_records::tests::tbptt_chain_records_name_packed_or_legacy_per_geometry ... ok
+test decision_records::tests::the_backward_fusion_record_measures_the_folded_rung_without_adopting_it ... ok
+test decision_records::tests::the_fp16_route_reads_its_own_entries_and_the_dense_route_does_not ... ok
+test decision_records::tests::the_low_rank_record_mixes_candidate_sets_by_geometry ... ok
+test decision_records::tests::wrong_kind_is_rejected ... ok
+test checkpoint::tests::portable_running_carrier_encoder_roundtrips_python_abi ... ok
+test coverage_record::tests::a_duplicated_entry_is_rejected_rather_than_audited ... ok
+test coverage_record::tests::a_record_round_trips_through_disk ... ok
+test checkpoint::tests::portable_running_carrier_reader_decodes_python_cached_rosa_layout ... ok
+test deepseek_v41::attention::projection_grad::tests::attention_projection_conditional_branches_preserve_none_gradients ... ok
+test control::tests::hard_act_rowwise_depth_backward_matches_prefix_reference_at_deeper_horizon ... ok
+test deepseek_v41::attention::tape::tests::attention_tape_rejects_aliases_foreign_handles_and_bad_geometry ... ok
+test deepseek_v41::attention::grouped_tests::deepseek_v41_bf16_grouped_decode_reduction_matches_frozen_cpu ... ok
+test control::tests::finite_clamp_matches_pytorch_boundaries_and_preserves_nonfinite_branch ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_grouped_output_adjoints_cpu_pytorch_strict ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_attention_adjoint_crosses_dispatch_axis_bound ... ok
+test control::tests::hard_act_zero_source_mask_produces_zero_gradients ... ok
+test deepseek_v41::attention_tests::deepseek_v41_window_indices_match_the_released_ring_rules ... ok
+test deepseek_v41::attention::projection_grad::tests::attention_projection_rejects_geometry_and_configuration_mismatch ... ok
+test deepseek_v41::attention::projection_grad::tests::attention_projection_cache_chain_and_all_factor_vjps_match_cpu ... ok
+test deepseek_v41::attention::tape::tests::attention_tape_invalid_reads_and_backward_seeds_are_rejected ... ok
+test deepseek_v41::attention::grouped_tests::deepseek_v41_pinned_sparse_reduction_matches_cpu_production_shapes ... ok
+test deepseek_v41::attention::tape::tests::attention_tape_overwrite_and_absent_seed_ownership_is_exact ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_cache_write_adjoints_cpu_pytorch_strict ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_rotary_adjoints_cpu_pytorch_strict ... ok
+test deepseek_v41::attention_tests::deepseek_v41_sparse_attention_matches_a_float64_gather_reference ... ok
+test deepseek_v41::attention::schedule_tests::deepseek_v41_schedule_width_attention_contractions_match_cpu_bits ... ok
+test deepseek_v41::attention_grad::tests::deepseek_v41_sparse_attention_adjoints_cpu_pytorch_strict ... ok
+test deepseek_v41::attention_tests::deepseek_v41_sparse_attention_keeps_index_validity_at_finite_mask_extremes ... ok
+test deepseek_v41::attention_tests::deepseek_v41_attention_matches_the_pinned_reference_fixture ... ok
+test deepseek_v41::attention_tests::deepseek_v41_attention_wires_the_shared_index_selection_and_key_cache ... ok
+test deepseek_v41::backbone::block_grad_tests::deepseek_v41_hc_post_adjoint_matches_the_pinned_cpu_fixture ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_swiglu_clamp_route_reduction_and_padding_match_cpu ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_computed_conditional_adamw_resume_and_export_match_cpu ... ok
+test deepseek_v41::attention_tests::deepseek_v41_window_cache_ring_matches_the_index_order ... ok
+test deepseek_v41::backbone::block_grad_tests::deepseek_v41_moe_adjoints_match_the_pinned_cpu_fixture ... ok
+test deepseek_v41::checkpoint::payload_cache::tests::payload_cache_bounds_lru_and_invalidates_each_shard ... ok
+test deepseek_v41::backbone::routing_tests::deepseek_v41_top6_boundary_tie_matches_frozen_cpu ... ok
+test deepseek_v41::checkpoint::payload_identity_tests::cached_payload_still_rejects_modified_truncated_and_deleted_shards ... ok
+test deepseek_v41::checkpoint::payload_identity_tests::expert_batches_check_both_boundaries_and_preserve_cache_invalidation ... ok
+test deepseek_v41::backbone::block_grad_tests::deepseek_v41_hc_collapse_adjoints_match_the_pinned_cpu_fixture ... ok
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_clones_share_index_and_shard_headers ... ok
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_reads_sharded_f32_bf16_and_actual_compressor_keys ... ok
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_rejects_shard_path_escape ... ok
+test deepseek_v41::checkpoint_tests::lora_targets_cover_only_additive_projection_boundaries ... ok
+test deepseek_v41::checkpoint_tests::deepseek_v41_checkpoint_rejects_packed_nonfinite_and_invalid_offsets ... ok
+test deepseek_v41::attention::tape::tests::attention_tape_shared_sources_and_decode_chain_match_cpu_autograd ... ok
+test deepseek_v41::checkpoint::payload_cache::tests::payload_cache_metadata_count_is_bounded_too ... ok
+test deepseek_v41::backbone::block_grad_tests::deepseek_v41_ffn_norm_adjoint_matches_the_pinned_cpu_fixture ... ok
+test deepseek_v41::backbone::router_width_tests::deepseek_v41_384_expert_top6_router_at_production_width_matches_cpu_bits ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_moe_routing_matches_the_pinned_reference_fixture ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::fp32_moe_scalar_clamp_bounds_match_pinned_cpu_subgradient ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_backbone_applies_engram_before_scheduled_blocks ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_backbone_runs_the_released_block_order ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_adjoint_rejects_bad_geometry_config_and_foreign_buffers ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_moe_matches_the_pinned_reference_fixture ... ok
+test deepseek_v41::backbone::routing_tests::deepseek_v41_top6_routing_reduction_matches_frozen_cpu ... ok
+test deepseek_v41::backbone_tests::deepseek_v41_hyper_connections_match_the_pinned_reference_fixture ... ok
+test deepseek_v41::compressed_kv_tests::deepseek_v41_compressed_kv_rotates_then_quantizes_without_mutating_latents ... ok
+test deepseek_v41::cpu_math::tests::native_avx2_scope_preserves_host_dispatch ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_checkpoint_streaming_backward_and_inactive_gradients_match_cpu ... ok
+test deepseek_v41::backbone::mixed_moe_grad::tests::mixed_moe_retained_chain_and_adapter_vjps_match_cpu_and_release_experts ... ok
+test deepseek_v41::compressor::tape_tests::deepseek_v41_compressor_tape_snapshots_norm_gain ... ok
+test deepseek_v41::compression_tests::deepseek_v41_compressor_prefill_and_decode_match_pinned_fp32_reference ... ok
+test deepseek_v41::compressor::tape_tests::deepseek_v41_compressor_decode_tape_snapshots_norm_gain ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_chains_state_across_steps_matching_cpu ... ok
+test deepseek_v41::compressed_kv_tests::deepseek_v41_compressed_kv_decode_uses_the_completed_group_position ... ok
+test deepseek_v41::engram_tests::deepseek_v41_engram_layout_matches_the_pinned_reference ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_pool_simd_and_scalar_tails_match_cpu ... ok
+test deepseek_v41::compressed_kv_tests::deepseek_v41_compressed_kv_rejects_wrong_ratio_and_phase ... ok
+test deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_matches_cpu_pytorch ... ok
+test deepseek_v41::engram::gradients::tests::engram_retained_lookup_projection_chain_vjps_and_weight_release_match_cpu ... ok
+test deepseek_v41::compression_tests::deepseek_v41_compressor_rejects_foreign_device_input_before_dispatch ... ok
+test deepseek_v41::engram_tests::deepseek_v41_engram_gate_matches_the_pinned_reference ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_runs_on_native_state ... ok
+test deepseek_v41::engram::width_tests::deepseek_v41_engram_gate_at_production_width_matches_cpu_bits ... ok
+test deepseek_v41::compressor_grad::decode_tests::deepseek_v41_compressor_decode_adjoint_rejects_unqualified_calls ... ok
+test deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_prefill_adjoint_runs_on_native_operands ... ok
+test deepseek_v41::engram::gradients::tests::engram_streamed_table_is_unneeded_by_retained_backward ... ok
+test deepseek_v41::engram_tests::deepseek_v41_engram_hash_matches_the_pinned_reference ... ok
+test deepseek_v41::mixed_linear::gradients::tests::projection_checkpoints_bind_trained_factors_config_and_moments ... ok
+test deepseek_v41::engram_tests::deepseek_v41_engram_rejects_invalid_multipliers ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_candidate_source_publishes_masks_for_consumer_indexers ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_fine_indexer_owns_keys_and_returns_sorted_shared_positions ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_key_production_matches_pinned_fp32_reference ... ok
+test deepseek_v41::engram::gradients::tests::engram_normalized_gate_vjps_match_cpu_including_width5120 ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_selection_rejects_invalid_topk_and_shapes ... ok
+test deepseek_v41::mixed_linear::gradients::tests::projection_tape_lora_vjps_match_cpu_and_release_frozen_weights ... ok
+test deepseek_v41::engram::gradients::tests::engram_adjoint_rejects_overflow_geometry_precision_and_foreign_buffers ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_fused_expert_chain_matches_staged_grids_and_cpu_references ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_selection_matches_pinned_reference_topk ... ok
+test deepseek_v41::mixed_linear::gradients::tests::packed_projection_tape_vjps_match_cpu_pytorch ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_bf16_index_scores_match_cpu_bits_including_masks_and_32_heads ... ok
+test deepseek_v41::mixed_linear::gradients::tests::projection_tape_rejects_unqualified_precision_and_bad_geometry ... ok
+test deepseek_v41::model::lora_tests::deepseek_v41_lora_production_width_strict_all_logits ... ignored, production-width PEFT package (~247 MB, two model loads); run explicitly
+test deepseek_v41::model::prefill_tests::deepseek_v41_four_token_prefill_strict_all_logits ... ignored, production-width four-token prefill (~241 MB package); run explicitly
+test deepseek_v41::model::production_tests::deepseek_v41_default_package_production_width_strict_all_logits ... ignored, production-width default package (~4.6 GB); run with --ignored
+test deepseek_v41::model::production_tests::deepseek_v41_production_width_vocabulary_strict_all_logits ... ignored, production-width package (~7.8 GB); run with --ignored
+test deepseek_v41::model::production_tests::deepseek_v41_streamed_all_production_width_strict_all_logits ... ignored, production-width all-expert streamed package (~4.6 GB); run explicitly
+test deepseek_v41::model::production_tests::deepseek_v41_streamed_block_production_width_strict_all_logits ... ignored, production-width streamed block package (~4.6 GB); run explicitly
+test deepseek_v41::model::production_tests::deepseek_v41_streamed_production_width_strict_all_logits ... ignored, production-width streamed package (~4.6 GB); run explicitly
+test deepseek_v41::model::production_tests::deepseek_v41_streamed_vocabulary_production_width_strict_all_logits ... ignored, production-width streamed vocabulary package (~4.6 GB); run explicitly
+test deepseek_v41::model::scalable_release_tests::deepseek_v41_default_package_scalable_release_strict_all_logits ... ignored, scalable 40-layer/384-expert release gate; run explicitly before a kernel port
+test deepseek_v41::model::scalable_release_tests::deepseek_v41_scalable_release_preserves_production_feature_contract ... ok
+test deepseek_v41::model::schedule_width_tests::deepseek_v41_default_package_schedule_width_strict_all_logits ... ignored, production-width sparse/Engram/top-6 package; run with --ignored
+test deepseek_v41::mixed_linear::gradients::tests::projection_weight_gradient_cpu_output_geometry_reduction ... ok
+test deepseek_v41::mixed_linear::gradients::tests::gathered_adapter_spans_preserve_individual_words_and_order ... ok
+test deepseek_v41::model::schedule_width_tests::deepseek_v41_schedule_width_frozen_fixture_contract ... ok
+test deepseek_v41::compressor_grad::tests::deepseek_v41_compressor_adjoint_rejects_unqualified_calls ... ok
+test deepseek_v41::indexer_tests::deepseek_v41_index_score_kernel_matches_host_float64_reference ... ok
+test deepseek_v41::mixed_linear::pair_tests::paired_preparation_preserves_projection_bits_lora_and_block_fallbacks ... ok
+test deepseek_v41::model::tests::deepseek_v41_legacy_backbone_weights_still_promote_dense_bf16 ... ok
+test deepseek_v41::mixed_linear::gradients::tests::query_projection_computed_gradients_adamw_resume_export_match_cpu ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_attention_rejects_unconverted_grouped_weights_and_invalid_storage ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_attention_matches_cpu_bits_through_prefill_decode_reset ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_engram_checkpoint_preserves_projection_storage_and_stream_policy ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_linear_block128_matches_pinned_cpu_reference ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_linear_matches_typed_cpu_boundaries ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_bf16_cast_matches_cpu_ties_subnormals_and_nonfinite_classes ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_moe_matches_released_expert_and_moe_forward ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_engram_matches_released_bf16_table_projection_and_residual ... ok
+test deepseek_v41::model::tests::deepseek_v41_default_loader_requires_engram_metadata ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_checkpoint_requires_engram_artifacts_and_exact_owned_parameters ... ok
+test deepseek_v41::mixed_tests::deepseek_v41_mixed_storage_and_precision_validation ... ok
+test deepseek_v41::model::tests::deepseek_v41_default_package_loader_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_exports_complete_fp32_diagnostic_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_additional_seeds_and_top3_strict_all_logits ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_all_checks_shared_metadata_and_storage ... ok
+test deepseek_v41::model::tests::deepseek_v41_bf16_checkpoint_rejects_incomplete_precision_contracts ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_checkpoint_checks_late_expert_metadata ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_packed_experts_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_package_generation_matches_manual_steps ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_single_sharded_bf16_and_raw_weights_are_identical ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_input_rejection_preserves_state_and_partial_failure_requires_prefill ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_all_shared_payload_failure_invalidates_sequence ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_payload_errors_invalidate_sequence ... ok
+test deepseek_v41::model::tests::deepseek_v41_model_packed_attention_indexer_strict_all_logits ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_joint_cpu_fixture_remains_frozen ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_joint_depth_and_384_expert_strict_all_logits ... ignored, joint 40-layer/384-expert resident graph; run explicitly on the local Vulkan device
+test deepseek_v41::model::tests::structure::deepseek_v41_long_context_2048_token_strict_all_logits ... ignored, 40-layer/384-expert 2,048-token YaRN graph; run explicitly on the local Vulkan device
+test deepseek_v41::model::tests::structure::deepseek_v41_long_context_cpu_fixture_remains_frozen ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_table_staging_is_released_between_lookups ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_projection_payload_errors_invalidate_sequence ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_projection_partial_upload_is_released ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_payload_is_lazy_and_errors_are_propagated ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_joint_strict_all_logits ... ignored, 40-layer/384-expert all-expert streamed graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_long_context_2048_strict_all_logits ... ignored, 40-layer/384-expert all-expert streamed 2,048-token graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_joint_strict_all_logits ... ignored, joint 40-layer/384-expert streamed experts and tables; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_long_context_2048_strict_all_logits ... ignored, 40-layer/384-expert streamed experts and tables 2,048-token graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_block_joint_strict_all_logits ... ignored, 40-layer/384-expert streamed projections joint graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_block_long_context_2048_strict_all_logits ... ignored, 40-layer/384-expert streamed projections 2,048-token graph; run explicitly
+test deepseek_v41::model::tests::deepseek_v41_application_streaming_is_explicit_and_bit_exact ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_joint_strict_all_logits ... ignored, 40-layer/384-expert streamed checkpoint graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_long_context_2048_strict_all_logits ... ignored, 40-layer/384-expert streamed 2,048-token graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_vocabulary_joint_strict_all_logits ... ignored, 40-layer/384-expert streamed vocabulary joint graph; run explicitly
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_vocabulary_long_context_2048_strict_all_logits ... ignored, 40-layer/384-expert streamed vocabulary 2,048-token graph; run explicitly
+test deepseek_v41::model::tests::deepseek_v41_model_bf16_residual_hc_strict_all_logits ... ok
+test deepseek_v41::model::tests::temporary_test_roots_are_unique_under_concurrent_reservation ... ok
+test deepseek_v41::model::tests::temporary_test_roots_do_not_reuse_stale_directories ... ok
+test deepseek_v41::model::tests::temporary_test_roots_support_repeated_sequential_reservation ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_tables_match_resident_logits ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_engram_table_metadata_is_deferred ... ok
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_expert_staging_is_released_between_calls ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_production_ratio_cpu_training_gate ... ignored, six-layer/384-expert production-ratio training gate; run in a fresh process to bound this machine's commit peak
+test deepseek_v41::model::tests::streamed::deepseek_v41_streamed_layer_projections_match_resident_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_all_tables_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_training_rejects_budget_and_changed_frozen_base ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_all_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_retained_training_smoke_and_forward_identity ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_production_uninterrupted_training_logit_trajectory ... ignored, six-layer/384-expert uninterrupted CPU logit trajectory; run in its own process on this machine
+test deepseek_v41::model::tests::training::hc_adjoint_tests::deepseek_v41_modality_hc_repeat_adjoint_matches_frozen_words ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_block_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::deepseek_v41_streamed_vocabulary_hybrid_and_bf16_strict_all_logits ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_compressor_adjoint_matches_frozen_words ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_modality_absent_gradients_match_text_path_bits ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_matches_train_sequence_bits ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_gate_adjoints_match_released_cpu ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_grouped_adjoints_match_frozen_words ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_released_depth_schedule_and_384_expert_strict_all_logits ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_hc_adjoints_match_released_cpu ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_modality_absent_optimizer_state_matches_train_sequence ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_sparse_adjoints_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_terminal_matches_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_unary_boundaries_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_swiglu_adjoints_match_frozen_cpu ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_input_adjoints_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::native_state::multimodal_training_throughput_benchmark ... ignored, explicit multimodal throughput benchmark; requires frozen shared fixtures
+test deepseek_v41::model::tests::training::native_vision::native_state::native_checkpoint_cleanup_is_scoped_to_test_owned_paths ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_projection_panels_match_frozen_words ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_avx2_narrow_projections_match_frozen_cpu_tolerance ... ok
+test deepseek_v41::model::tests::vocabulary::deepseek_v41_streamed_vocabulary_preflights_both_headers ... ok
+test deepseek_v41::model::tests::training::native_vision::backward_primitives::deepseek_v41_native_avx2_lora_matmuls_match_frozen_words ... ok
+test deepseek_v41::model::tests::vocabulary::deepseek_v41_streamed_vocabulary_buffers_are_released_after_each_operation ... ok
+test deepseek_v41::model::tests::wide::deepseek_v41_wide_projection_panels_and_tied_topk_match_cpu ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_cpu_state_forward_diagnostic ... ok
+test deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_loads_exact_owned_checkpoint_tensors ... ok
+test deepseek_v41::model::tests::vocabulary::deepseek_v41_streamed_vocabulary_payload_errors_invalidate_sequence ... ok
+test deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_rejects_weight_ownership_and_capacity_mismatches ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_checkpoint_rejects_invalid_dtype_shapes_scales_and_offsets ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_checkpoint_reads_exported_and_converted_sharded_payloads ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_decoding_matches_independent_cpu_bit_exactly ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_depth_schedule_and_384_expert_strict_all_logits ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_decode_tiles_large_row_tables_without_expanding_weights ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_engram_checkpoint_runtime_preserves_cache_and_reset ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_engram_lookup_and_residual_match_released_forward ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_weights_validate_geometry_and_finite_materialization ... ok
+test deepseek_v41::peft::tests::adapter_module_spellings_normalize_to_the_checkpoint_path ... ok
+test deepseek_v41::peft::tests::capability_stays_fail_closed_for_replacement_modules ... ok
+test deepseek_v41::peft::tests::half_decoding_matches_the_ieee_conversion ... ok
+test deepseek_v41::peft::tests::target_matching_follows_peft_suffix_semantics ... ok
+test deepseek_v41::model::tests::training::native_vision::deepseek_v41_native_multimodal_joint_two_adamw_steps_match_frozen_cpu ... ok
+test deepseek_v41::peft::tests::unmerged_export_preserves_factors_patterns_and_rslora ... ok
+test deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_rejects_invalid_calls_before_mutation_and_recovers_component_errors ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_linear_matches_independent_cpu_blocks ... ok
+test deepseek_v41::quantization_tests::deepseek_v41_fp4_midpoints_match_cpu_for_all_positive_e4m3_scales ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_depth_schedule_and_384_expert_strict_all_logits ... ok
+test deepseek_v41::packed_weights_tests::deepseek_v41_packed_kernel_rejects_foreign_buffers_and_invalid_precision_geometry ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_depth_schedule_and_384_expert_strict_all_logits ... ok
+test deepseek_v41::quantization_tests::deepseek_v41_quantization_matches_released_kernels_bit_exactly ... ok
+test deepseek_v41::tests::deepseek_v41_candidate_filter_can_be_disabled ... ok
+test deepseek_v41::tests::deepseek_v41_rejects_invalid_dimensions_and_missing_fields ... ok
+test deepseek_v41::tests::deepseek_v41_rejects_invalid_sharing_schedules ... ok
+test deepseek_v41::tests::deepseek_v41_released_config_preserves_package_and_builds_sharing_plan ... ok
+test deepseek_v41::tests::deepseek_v41_released_engram_prime_ranges_match_table_rows ... ok
+test deepseek_v41::tests::deepseek_v41_standalone_text_is_distinct_and_executor_fails_closed ... ok
+test deepseek_v41::rotary_tests::deepseek_v41_rotary_matches_pinned_reference ... ok
+test deepseek_v41::tokenizer::tests::numpy_engram_hash_multipliers_match_frozen_reference ... ok
+test deepseek_v41::tokenizer::tests::published_v4_1_tokenizer_reproduces_released_engram_metadata ... ignored, requires the published V4.1 tokenizer.json via V41_TOKENIZER
+test deepseek_v41::tokenizer::tests::tokenizer_derives_fixture_engram_map_and_multipliers ... ok
+test deepseek_v41::rotary_tests::deepseek_v41_rotary_rejects_invalid_configuration_and_positions ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_vocabulary_structure_strict_all_logits ... ok
+test deepseek_v41::train::conditional_tests::conditional_adamw_invalid_late_parameter_and_overflow_are_atomic ... ok
+test deepseek_v41::terminal::tests::terminal_adjoints_match_the_pinned_cpu_fixture ... ok
+test deepseek_v41::quantization_tests::deepseek_v41_quantization_rejects_invalid_shapes_and_modes ... ok
+test deepseek_v41::train::conditional_tests::conditional_adamw_sparse_moments_allocate_on_first_parameter_gradient ... ok
+test deepseek_v41::model::tests::structure::deepseek_v41_streamed_all_tables_projections_structure_strict_all_logits ... ok
+test deepseek_v41::terminal::tests::reduced_cross_entropy_and_row_mean_keep_their_distinct_cpu_folds ... ok
+test deepseek_v41::train::tests::adapter_adamw_matches_the_pinned_cpu_trajectory_and_resumes ... ok
+test deepseek_v41::rotary_tests::deepseek_v41_rotary_tiles_rows_past_one_dispatch_axis ... ok
+test distributed::tcp::tests::tcp_preserves_fp32_bits_tails_and_control_messages ... ok
+test distributed::tcp::tests::tcp_rejects_invalid_and_truncated_frames ... ok
+test distributed::tcp::tests::tcp_rejects_invalid_capacity_before_connecting ... ok
+test deepseek_v41::train::conditional_tests::conditional_adamw_counter_checkpoint_rejects_invalid_payloads_and_migrates_v2 ... ok
+test full_training_graph::architecture_config_json_roundtrip_tests::checkpoint_config_edits_preserve_python_contract_number_lexemes ... ok
+test distributed::tcp::tests::tcp_simultaneous_large_exchange_makes_progress ... ok
+test deepseek_v41::orchestrator::tests::deepseek_v41_orchestrator_matches_explicit_shared_layer_execution_and_reset ... ok
+test deepseek_v41::model::tests::wide::deepseek_v41_model_wider_yarn_bf16_strict_all_logits ... ok
+test deepseek_v41::unary_tests::deepseek_v41_cpu_scalar_log_staging_matches_cpu ... ok
+test deepseek_v41::train::conditional_tests::conditional_adamw_checkpoint_resume_and_export_preserve_factor_clocks ... ok
+test deepseek_v41::upload::tests::parameter_upload_batch_preserves_words_and_bounds_staging ... ok
+test full_training_graph::ltm_alignment_controller_tests::controller_microbatch_rows_track_closing_observation_separately ... ok
+test full_training_graph::ltm_alignment_controller_tests::empty_window_advances_bookkeeping_without_quality_score ... ok
+test full_training_graph::ltm_alignment_controller_tests::stride_and_readiness_match_pytorch_controller_semantics ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::budgeted_outer_update_mode_maps_across_planner_chunks ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::device_auxiliary_mask_factorization_preserves_exact_row_sources ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::labeled_sequence_backward_caps_are_derived_per_pytorch_tbptt_chunk ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::labeled_sequence_objective_matches_pytorch_backward_cap_policy ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::pending_gradient_transport_source_is_send_and_sync_without_training_graph_sync ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::pytorch_tbptt_weighting_rejects_zero_real_token_microbatch ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::raw_chunk_weighting_matches_sampled_pytorch_denominators ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::replica_transport_source_is_send_and_sync_without_training_graph_sync ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::sequence_scalar_minimum_backward_gate_matches_pytorch_tie_semantics ... ok
+test full_training_graph::pytorch_tbptt_weighting_tests::uneven_microbatches_match_pytorch_weighted_token_auxiliary_math ... ok
+test full_training_graph::token_tape_branch_selector_tests::branch_only_candidate_freezes_sibling_tape_and_numerics ... ok
+test full_training_graph::token_tape_branch_selector_tests::branch_selector_bootstraps_unmeasured_then_uses_normalized_ucb_pressure ... ok
+test full_training_graph::token_tape_branch_selector_tests::segment_schedule_factor_candidates_collapse_cartesian_duplicates ... ok
+test full_training_graph::token_tape_branch_selector_tests::segment_schedule_selector_uses_marginal_pressure_and_rotates_exact_ties ... ok
+test full_training_graph::token_tape_branch_selector_tests::tape_geometry_selector_isolates_microbatch_and_stride_coordinates ... ok
+test full_training_graph::token_tape_online_probe_tests::host_jitter_without_gpu_slowdown_is_not_marked_as_throttling ... ok
+test full_training_graph::token_tape_online_probe_tests::sustained_probe_excludes_warmup_and_reports_steady_state_statistics ... ok
+test full_training_graph::training_session_tests::backend_neutral_stream_and_rng_session_needs_no_python_rng_blob ... ok
+test full_training_graph::training_session_tests::canonical_counter_policy_is_self_contained ... ok
+test full_training_graph::training_session_tests::dynamic_loss_scaler_exposes_exact_native_backward_source_scale ... ok
+test full_training_graph::training_session_tests::dynamic_loss_scaler_skips_overflow_and_grows_on_interval ... ok
+test full_training_graph::training_session_tests::gradient_clip_coefficient_clips_huge_finite_norms_without_overflow ... ok
+test full_training_graph::training_session_tests::gradient_clip_coefficient_rejects_nonfinite_norms ... ok
+test full_training_graph::training_session_tests::native_epoch_shuffle_cursor_owns_next_batch_and_rolls_epoch ... ok
+test full_training_graph::training_session_tests::native_length_grouped_cursor_matches_python_vectors ... ok
+test full_training_graph::training_session_tests::native_training_session_accepts_post_horizon_lambda_lr_counter ... ok
+test full_training_graph::training_session_tests::native_training_session_json_round_trip_preserves_live_lr_state ... ok
+test full_training_graph::training_session_tests::native_training_session_rejects_main_schedule_without_group_lrs ... ok
+test full_training_graph::training_session_tests::persisted_mid_epoch_session_requires_recurrent_host_replay ... ok
+test full_training_graph::training_session_tests::portable_fisher_yates_has_stable_cross_language_vector ... ok
+test full_training_graph::training_session_tests::portable_v6_checkpoint_rejects_backend_scaled_pending_gradient_domain ... ok
+test full_training_graph::training_session_tests::replay_rejects_native_session_cursor_drift ... ok
+test full_training_graph::training_session_tests::zero_gradient_clip_limit_disables_magnitude_clipping_but_keeps_checks ... ok
+test full_training_graph::training_working_set_plan_tests::full_graph_scratch_reuses_repeated_reverse_subphases ... ok
+test full_training_graph::training_working_set_plan_tests::phase_live_bytes_do_not_confuse_reserved_arena_with_active_slots ... ok
+test full_training_graph::training_working_set_plan_tests::projected_transport_width_recompiles_the_same_lifetime_graph ... ok
+test full_training_graph::training_working_set_plan_tests::repeated_interval_overlap_tracks_noncontiguous_worker_uses ... ok
+test full_training_graph::training_working_set_plan_tests::smaller_replica_can_reject_wide_transport_before_graph_allocation ... ok
+test full_training_graph::training_working_set_plan_tests::tape_budget_accounts_for_compiled_graph_peak_without_double_counting ... ok
+test full_training_graph::training_working_set_plan_tests::topology_aware_transport_residency_tracks_each_replica_physical_memory ... ok
+test full_training_graph::training_working_set_plan_tests::topology_aware_transport_residency_tracks_primary_physical_memory ... ok
+test full_training_graph::wide_head_wave32_geometry_tests::fusion_geometry_cross_is_gated_and_requires_both_geometry_arms ... ok
+test full_training_graph::wide_head_wave32_geometry_tests::joint_pair_probe_is_gated_by_wave32_head64_and_compiled_availability ... ok
+test full_training_graph::wide_head_wave32_geometry_tests::paired_geometry_fusion_probe_grows_linearly_with_tower_neighbors ... ok
+test full_training_graph::wide_head_wave32_geometry_tests::wave32_head64_adds_dual_pair_wg128_against_wg64_baseline ... ok
+test full_training_graph::wide_head_wave32_geometry_tests::wave32_head64_factorizes_fusion_depth_under_paired_workgroup_geometry ... ok
+test full_training_graph::wide_head_wave32_geometry_tests::wave32_head64_mixed_baseline_probes_both_symmetric_pair_regimes ... ok
+test deepseek_v41::train::conditional_tests::conditional_adamw_none_zero_and_independent_factor_steps_match_cpu ... ok
+test deepseek_v41::unary_tests::deepseek_v41_cpu_sqrt_seed_and_staging_match_cpu ... ok
+test deepseek_v41::tests::deepseek_v41_vulkan_candidates_match_pinned_reference ... ok
+test kernel_golden_coverage::tests::the_coverage_flags_resolve_their_defaults ... ok
+test kernel_golden_coverage::tests::the_coverage_key_is_the_goldens_name ... ok
+test lm_execution::tests::lm_autotune_applies_margin_to_the_combined_backward_plan ... ok
+test lm_execution::tests::lm_autotune_requires_two_percent_margin_over_portable_baseline ... ok
+test lm_execution::tests::lm_weight_grad_candidates_follow_workgroup_capabilities ... ok
+test lm_execution::tests::native_fp16_reuse_arms_match_shared_memory_envelope ... ok
+test lm_execution::tests::native_fp16_reuse_candidates_respect_device_shared_memory ... ok
+test lm_execution::tests::native_fp16_reuse_candidates_stop_after_covering_context_width ... ok
+test lm_execution::tests::rows16_cross_row_arms_are_offered_and_cache_admission_requires_the_arm ... ok
+test lora::tests::native_lora_hf_merge_unmerge_preserves_base_and_untouched_tensors ... ok
+test hierarchos_ce_mask_tests::hierarchos_ce_zero_sources_do_not_poison_tape_adjoints ... ok
+test deepseek_v41::unary_tests::deepseek_v41_unary_matches_independent_scalar_and_vector_tail_references ... ok
+test lora::tests::native_lora_merge_applies_b_times_a_and_saved_ltm ... ok
+test lora::tests::native_lora_merge_rejects_unbound_base ... ok
+test lora::tests::native_lora_merge_supports_bias_all_and_generic_modules_to_save ... ok
+test lora::tests::native_lora_merge_supports_dora_magnitude_vectors ... ok
+test lora::tests::native_lora_merge_supports_lora_b_bias ... ok
+test lora::tests::native_lora_merge_supports_lora_only_bias_and_null_modules_to_save ... ok
+test lora::tests::native_lora_merge_supports_packed_target_parameters_and_current_task_types ... ok
+test lora::tests::native_lora_merge_supports_trainable_token_indices_and_corda_metadata ... ok
+test lora::tests::standalone_lora_config_accepts_peft_regex_module_selectors ... ok
+test lora::tests::standalone_lora_config_rejects_topology_mutating_layer_replication ... ok
+test hierarchos_ce_mask_tests::hierarchos_ce_retains_loss_under_large_common_logit_offsets ... ok
+test lora::tests::native_lora_merge_supports_trainable_token_module_map_and_default_key ... ok
+test lora::tests::packed_parameter_layouts_match_independent_einsum_and_reverse_with_offsets ... ok
+test mixed_precision::tests::bf16_storage_roundtrip_preserves_fp32_master ... ok
+test multimodal::tests::modality_rows_reject_ambiguous_or_invalid_layouts ... ok
+test hierarchos_ce_mask_tests::hierarchos_ce_zero_sources_do_not_poison_streaming_adjoints ... ok
+test precision_policy::tests::full_profile_requires_the_qualified_geometry_and_driver ... ok
+test mixed_precision::tests::fp16_storage_roundtrip_preserves_fp32_master ... ok
+test mixed_precision::tests::fp16_storage_uses_ieee_round_to_nearest_even ... ok
+test mixed_precision::tests::mirror_readback_reuses_timeline_arena_scratch ... ok
+test multimodal::tests::modality_scatter_and_adjoint_preserve_order_and_text_rows ... ok
+test rwkv_low_rank::tests::a_contended_sweep_keeps_the_default_and_says_so ... ok
+test rwkv_low_rank::tests::a_lead_that_loses_a_round_keeps_the_default ... ok
+test rwkv_low_rank::tests::a_quiet_sweep_still_decides_and_records_its_spread ... ok
+test rwkv_low_rank::tests::a_unanimous_win_displaces_the_structural_default ... ok
+test rwkv_low_rank::tests::ally_f32_topology_admission_rejects_weak_wins_and_preserves_other_profiles ... ok
+test rwkv_low_rank::tests::column_slices_grid_carries_rows_in_the_second_dimension ... ok
+test rwkv_low_rank::tests::column_slices_is_never_dispatched_with_a_row_per_workgroup_grid ... ok
+test rwkv_low_rank::tests::every_fp16_variant_has_a_distinct_override_value_and_label ... ok
+test rwkv_channel_mix::tests::fused_layer_norm_backward_matches_legacy_nonzero_external_chain ... ok
+test rwkv_low_rank::tests::fan_in_reference_profile_is_adapter_driver_and_geometry_scoped ... ok
+test rwkv_low_rank::tests::no_measured_rounds_keeps_the_default ... ok
+test rwkv_low_rank::tests::row_per_workgroup_topologies_keep_one_grid_dimension ... ok
+test rwkv_low_rank::tests::split_rounds_leave_the_default ... ok
+test rwkv_low_rank::tests::the_override_vocabulary_is_the_union_of_both_families ... ok
+test rwkv_low_rank::tests::the_verdict_is_order_independent_and_withholds_unmeasured_rounds ... ok
+test rwkv_channel_mix::tests::fused_external_norm_gradient_matches_zero_external_reference ... ok
+test rwkv_optimizer::tests::adamw_range_wavefront_matches_full_tensor_update ... ok
+test rwkv_optimizer::tests::adamw_predeclared_wavefront_queues_multiple_bounded_runs ... ok
+test rwkv_optimizer::tests::clipped_grad_scaler_keeps_scale_and_adam_clocks_device_resident_across_windows ... ok
+test rwkv_optimizer::tests::canonical_gradient_shard_accumulation_reuses_transient_arena_buffers ... ok
+test rwkv_low_rank::tests::fan_in_fusion_preserves_materialized_fp32_rounding ... ok
+test rwkv_optimizer::tests::device_grad_scaler_gates_adamw_without_host_branch ... ok
+test rwkv_optimizer::tests::device_grad_scaler_gates_predeclared_adamw_wavefront_and_releases_generation ... ok
+test rwkv_optimizer::tests::device_grad_scaler_gates_prepared_clipped_adamw_without_double_unscale ... ok
+test rwkv_optimizer::tests::device_norm_clip_scale_and_adamw_match_host_reference ... ok
+test rwkv_optimizer::tests::fp16_storage_mirror_refreshes_in_same_adamw_command_stream ... ok
+test full_training_graph::hierarchos_causal_lm_tests::hierarchos_causal_lm_continuation_matches_cpu_across_manager_and_rosa_boundaries ... ok
+test rwkv_optimizer::tests::inactive_slot_preserves_parameter_moments_and_adam_clock ... ok
+test rwkv_optimizer::tests::inactive_gradient_override_is_accepted_and_remains_frozen ... ok
+test rwkv_optimizer::tests::optimizer_generation_nonblocking_ready_run_preserves_coalescing ... ok
+test rwkv_optimizer::tests::optimizer_generation_predeclared_gpu_ranges_keep_wavefront_bounded ... ok
+test rwkv_optimizer::tests::optimizer_generation_predeclared_gpu_schedule_rejects_host_owned_suffix ... ok
+test rwkv_optimizer::tests::indexed_device_gradient_scale_combines_control_word_and_normalization ... ok
+test rwkv_optimizer::tests::optimizer_generation_ready_run_stops_at_first_live_range ... ok
+test rwkv_optimizer::tests::loss_unscale_and_adamw_share_one_command_stream ... ok
+test full_training_graph::hierarchos_causal_lm_tests::network_tcp_gradient_merge_matches_existing_transport_and_reload_logits ... ok
+test rwkv_optimizer::tests::optimizer_generation_ready_run_waits_for_coalescing_floor ... ok
+test rwkv_optimizer::tests::optimizer_generation_waits_for_every_broadcast_source_clone ... ok
+test rwkv_optimizer::tests::optimizer_generation_range_retirement_unblocks_as_a_wavefront ... ok
+test rwkv_post_mix::tests::post_mix_forward_autotune_requires_meaningful_speedup ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::backward_kernel_geometry_bootstrap_prefers_subgroup_alignment ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::backward_kernel_geometry_labels_are_stable ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::backward_segment_cache_separates_core_and_full_cell_profiles ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::backward_segment_hierarchical_pruning_reduces_three_dimensional_search ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::backward_segment_persistent_cache_roundtrips_rank_aware_key ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::backward_segment_selector_accepts_material_end_to_end_win ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::backward_segment_selector_keeps_deep_current_topology_on_near_tie ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::forward_projection_cache_key_separates_pair_tail_and_recurrence ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::forward_projection_selector_chooses_fastest_material_reuse_tile ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::forward_projection_selector_keeps_baseline_on_near_tie ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::numerics_policy_labels_include_recurrent_fast_arms ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::profile_forward_projection_weight_reuse_scaling ... ignored, GPU forward projection weight-reuse parity/profile; enable the reuse research arm and run explicitly
+test rwkv_time_mix_core::state_backward_schedule_tests::profile_projection_input_grad_weight_reuse2 ... ignored, GPU projection input-gradient parity/profile; run explicitly on the target Vulkan device
+test rwkv_time_mix_core::state_backward_schedule_tests::profile_projection_weight_grad_tiled ... ignored, GPU projection weight-gradient parity/profile; run explicitly on the target Vulkan device
+test rwkv_time_mix_core::state_backward_schedule_tests::profile_state_backward_schedules ... ignored, GPU training-backward microprofile; run explicitly on the target Vulkan device
+test rwkv_time_mix_core::state_backward_schedule_tests::projection_reuse_factorization_composes_unmeasured_rows_tile_pair ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::projection_reuse_factorization_probes_axes_instead_of_cartesian_grid ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::recurrent_subgroup_geometry_accepts_complete_multi_wave_workgroups ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::state_backward_selector_accepts_materially_faster_shallow_schedule ... ok
+test rwkv_time_mix_core::state_backward_schedule_tests::state_backward_selector_keeps_deep_fusion_on_near_tie ... ok
+test stochastic::tests::dropout_threshold_has_exact_binary_half_boundary ... ok
+test stochastic::tests::philox_zero_counter_matches_random123_vector ... ok
+test stochastic::tests::reservations_advance_once_and_replay_by_value ... ok
+test rwkv_post_mix::tests::fused_group_norm_bonus_gate_matches_legacy_and_removes_dispatch_seam ... ok
+test tape_profiles::tests::accepts_online_exploration_as_controlled_scheduler_training_data ... ok
+test tape_profiles::tests::adaptive_ranking_lets_recent_slowdown_overtake_old_history ... ok
+test tape_profiles::tests::backward_segment_schedule_labels_split_into_independent_runtime_factors ... ok
+test tape_profiles::tests::confidence_ranking_prefers_repeatable_candidate_over_marginal_one_off_win ... ok
+test tape_profiles::tests::decayed_ucb_reopens_stale_candidate_for_measurement ... ok
+test tape_profiles::tests::device_driver_fingerprint_is_exact_when_present_and_legacy_records_remain_fallback ... ok
+test tape_profiles::tests::factorized_branch_schedule_and_kernel_scores_can_compose_unmeasured_pair ... ok
+test tape_profiles::tests::factorized_h_l_topology_scores_can_compose_an_unmeasured_pair ... ok
+test tape_profiles::tests::factorized_segment_subscores_can_compose_an_unmeasured_full_schedule ... ok
+test tape_profiles::tests::factorized_tape_geometry_scores_can_compose_an_unmeasured_pair ... ok
+test tape_profiles::tests::ignores_automatic_scheduler_observations ... ok
+test tape_profiles::tests::ignores_rejected_and_unknown_schema_records ... ok
+test tape_profiles::tests::kernel_geometry_variants_are_distinct_policy_arms_while_legacy_records_remain_valid ... ok
+test tape_profiles::tests::memory_pressure_context_filters_specific_profiles_and_keeps_legacy_fallback ... ok
+test tape_profiles::tests::numerics_policy_is_a_distinct_arm_and_legacy_records_mean_strict_parity ... ok
+test tape_profiles::tests::online_observation_is_appended_and_immediately_visible ... ok
+test tape_profiles::tests::pre_fan_in_kernel_geometry_observations_do_not_seed_revised_geometry_policy ... ok
+test tape_profiles::tests::precision_policy_separates_profile_populations_and_legacy_records_mean_fp32 ... ok
+test tape_profiles::tests::ranks_matching_geometry_by_median_end_to_end_throughput ... ok
+test tape_profiles::tests::topology_variants_are_distinct_policy_arms_while_legacy_records_remain_valid ... ok
+test rwkv_optimizer::tests::scaled_adamw_range_wavefront_matches_unscaled_full_tensor_update ... ok
+test rwkv_post_mix::tests::fused_post_mix_residual_projection_matches_legacy_three_dispatch_chain ... ok
+test rwkv_optimizer::tests::eight_way_accumulation_matches_four_way_and_scalar_at_group_edges ... ok
+test stochastic::tests::vulkan_dropout_replays_same_reservation_exactly ... ok
+test tests::dense_lm_shared_gradient_accumulates_across_submissions ... ok
+test tests::lm_fused_adjoint_dx_tile_microprofile ... ignored, GPU fused-adjoint dX tile-width microprofile; run explicitly on the target Vulkan device
+test tests::lm_rows16_batch_bisect_microprofile ... ignored, GPU rows16 batch bisection microprofile; run explicitly on the target Vulkan device
+test tests::lm_rows16_forward_stats_seam_microprofile ... ignored, GPU rows16 LM projection->stats seam microprofile; run explicitly on the target Vulkan device
+test tests::lm_width448_backward_topology_microprofile ... ignored, GPU LM width-448 backward microprofile; run explicitly on the target Vulkan device
+test tests::fused_cross_entropy_lm_backward_matches_materialized_gradients ... ok
+test tests::compatible_compute_kernels_share_interned_layout_handles ... ok
+test tests::fused_out_norm_head_forward_matches_legacy_and_removes_dispatch_seam ... ok
+test full_training_graph::hierarchos_causal_lm_tests::hierarchos_causal_lm_weighted_language_metric_matches_cpu ... ok
+test tests::gpu_buffer_clone_keeps_one_allocation_alive ... ok
+test full_training_graph::hierarchos_causal_lm_tests::hierarchos_causal_lm_dense_sparse_objective_equivalence ... ok
+test tests::persistent_upload_arena_reuses_staging_allocation_across_batches ... ok
+test deepseek_v41::model::tests::training::native_vision::native_state::deepseek_v41_native_joint_checkpoint_resume_export_and_freshness ... ok
+test tests::tied_embedding_and_lm_loss_share_optimizer_identity ... ok
+test tests::native_fp16_lm_input_grad_reuse_arms_match_packed_at_width_448 ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_streamed_training_matches_resident_dense_and_packed ... ok
+test tests::out_norm_large_tied_embedding_radix_matches_dense_sparse_reference ... ok
+test token_frontend::tests::profile_rosa_subgroup_workgroups_512 ... ignored, GPU occupancy microprofile; run explicitly on the target Vulkan device
+test token_frontend::tests::rebuilt_bounded_rosa_state_matches_shader_generation_layout ... ok
+test tests::weighted_ce_adjoint_respects_zero_and_fractional_row_mass ... ok
+test token_frontend::tests::rosa_workgroup_tracks_packed_state_geometry ... ok
+test tests::phased_shared_lm_accumulation_matches_one_combined_update ... ok
+test tied_embedding::tests::padding_idx_suppresses_only_embedding_gradient_for_that_row ... ok
+test full_training_graph::hierarchos_causal_lm_tests::hierarchos_causal_lm_architecture_contract ... ok
+test tests::vocabulary_streaming_lm_loss_matches_materialized_logits_across_tile_tail ... ok
+test tied_embedding::tests::multi_workgroup_radix_gradient_reduction_preserves_source_order ... ok
+test tied_embedding::tests::segmented_gradient_adds_after_existing_device_gradient_in_one_submission ... ok
+test tied_embedding::tests::repeated_token_gradient_reduction_is_fixed_order_and_repeatable ... ok
+test training_numerics::tests::vulkan_dynamic_loss_scale_can_advance_twice_without_intermediate_readback ... ok
+test training_numerics::tests::vulkan_dynamic_loss_scale_scales_only_strided_backward_source_field ... ok
+test training_numerics::tests::vulkan_dynamic_loss_scale_drives_next_window_source_without_host_readback ... ok
+test training_numerics::tests::vulkan_dynamic_loss_scale_host_resolve_overrides_device_only_state ... ok
+test training_numerics::tests::vulkan_dynamic_loss_scale_observation_can_preserve_device_authority ... ok
+test full_training_graph::hierarchos_causal_lm_tests::hierarchos_causal_lm_vendor_kernels_match_portable ... ok
+test training_numerics::tests::vulkan_gradient_clip_reduction_owns_nonfinite_safety_flag ... ok
+test training_numerics::tests::vulkan_gradient_clip_coefficient_matches_pytorch_formula ... ok
+test token_frontend::tests::hierarchos_causal_lm_rosa_padding_preserves_all_kernel_variants ... ok
+test training_numerics::tests::vulkan_ltm_alignment_controller_committed_step_needs_no_host_predicate ... ok
+test token_frontend::tests::rosa_cache_tiled_candidates_match_untiled_recurrence ... ok
+test training_numerics::tests::vulkan_ltm_alignment_controller_obeys_grad_scaler_skip_without_host_decision ... ok
+test training_numerics::tests::vulkan_ltm_alignment_controller_advances_twice_without_intermediate_readback ... ok
+test training_numerics::tests::vulkan_gradient_l2_reducer_is_robust_for_huge_finite_values ... ok
+test training_numerics::tests::vulkan_gradient_l2_reducer_propagates_nonfinite_inputs ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_attention_adjoint_diagnostic ... ignored, external shader diagnostic; not a production math switch
+test training_numerics::tests::vulkan_ordered_f32_sum_matches_rust_left_to_right_rounding ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_attention_diagnostic ... ignored, external shader diagnostic; not a production math switch
+test rwkv_channel_mix::tests::fused_channel_mix_full_forward_matches_legacy_four_dispatch_chain ... ok
+test training_numerics::tests::vulkan_nonfinite_detector_finds_inf_and_nan_written_on_device ... ok
+test transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_aligner_linears_match_frozen_words ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_attention_is_word_exact ... ok
+test transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_final_rms_adjoint_matches_frozen_words ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_attention_adjoint_is_word_exact ... ok
+test transformer::gpt2_cpu_math_tests::gpt2_cpu_math_preserves_gen9_and_other_architecture_routes ... ok
+test transformer::falcon_h1::tests::falcon_h1_rms_sqrt_div_rounding_matches_ieee ... ok
+test transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_sdpa_matches_independent_random_cpu ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_linear_weight_gradients_are_word_exact ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_axial_rope_is_word_exact ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_rms_contiguous_axes_are_word_exact ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_decoder_attention_and_adjoint_are_word_exact ... ok
+test transformer::gemma4_vision::cpu_tests::gemma4_cpu_sparse_pool_is_word_exact ... ok
+test transformer::deepseek_v41_vision::tests::deepseek_v41_native_vision_two_adamw_steps_match_frozen_cpu ... ok
+test rwkv_channel_mix::tests::fused_channel_mix_producer_matches_legacy_three_dispatch_chain ... ok
+test transformer::image_text::rdna3_text_attention_tests::gpt2_bench::rdna3_gpt2_paired_gpu_benchmark ... ignored, requires the explicit serial-control benchmark runner
+test transformer::image_text::cpu_training_tests::shared_cpu_clip_adjoint_and_bias_match_independent_words ... ok
+test transformer::image_text::cpu_training_tests::shared_cpu_activation_adjoints_preserve_cpu_graph_order ... ok
+test transformer::image_text::cpu_training_tests::shared_cpu_flash_sdpa_forward_and_adjoint_match_independent_words ... ok
+test transformer::image_text::cpu_training_tests::shared_cpu_rope_forward_and_adjoint_match_independent_words ... ok
+test transformer::image_text::cpu_training_tests::shared_cpu_patch_projection_matches_independent_onednn_words ... ok
+test transformer::image_text::cpu_training_tests::shared_cpu_cosine_matches_frozen_active_vml_dispatch ... ok
+test transformer::image_text::cpu_training_tests::shared_cpu_wide_residual_and_weight_adjoints_match_independent_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_attention_admission_excludes_unmeasured_features ... ok
+test transformer::image_text::cpu_training_tests::shared_cpu_wide_norms_match_independent_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_avx512_layer_norm_cpu_words ... ok
+test transformer::amp::tests::complete_microbatch_windows_match_independent_average_updates_and_skip_overflow ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_avx512_attention_cpu_parity ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_avx512_vision_attention_projector_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_avx512_gelu_rms_gemm_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_avx512_pow_rms_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_adamw_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_bias_grad_cpu_words ... ok
+test transformer::multimodal_cpu_math_tests::multimodal_cpu_math_trace ... ignored, set HIERARCHOS_MM_DIAGNOSTIC_INPUT and OUTPUT to frozen fixture paths
+test transformer::peft_registry::tests::documented_peft_families_have_independent_saved_module_qualification ... ok
+test transformer::peft_registry::tests::unqualified_architectures_remain_fail_closed ... ok
+test transformer::tests::afmoe_contract_maps_dual_norm_gated_attention_and_hybrid_moe ... ok
+test transformer::tests::afmoe_loaders_preserve_hf_router_expert_bias_packed_experts_shared_experts_and_attention_gate ... ok
+test transformer::tests::albert_contract_preserves_factorized_embeddings_and_shared_group_topology ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_attention_cpu_words ... ok
+test transformer::tests::apertus_checkpoint_loader_reads_hf_norm_qk_bias_and_xielu_state ... ok
+test transformer::tests::apertus_contract_matches_hf_defaults_and_dense_topology ... ok
+test transformer::tests::arcee_checkpoint_loader_preserves_configurable_attention_biases ... ok
+test transformer::tests::arcee_contract_parses_afm_non_gated_relu2_layout ... ok
+test transformer::tests::aria_text_contract_maps_grouped_moe_and_shared_experts ... ok
+test transformer::tests::aria_text_loader_preserves_grouped_expert_orientation_and_shared_biases ... ok
+test transformer::tests::aten_vector_width_follows_host_avx512_support_not_the_gpu_vendor ... ok
+test transformer::tests::aten_vector_width_override_names_a_supported_width_or_defers ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_clip_backward_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_wide_input_grad_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_new_gelu_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_cross_entropy_cpu_words ... ok
+test transformer::tests::bart_contract_maps_hf_decoder_cross_attention_and_offset_positions ... ok
+test transformer::tests::bart_checkpoint_loader_reads_decoder_and_cross_attention ... ok
+test transformer::tests::bart_native_encoder_loader_uses_source_side_geometry_and_weights ... ok
+test transformer::tests::bert_checkpoint_loader_reads_segments_encoder_and_tied_mlm_head ... ok
+test transformer::tests::bert_contract_maps_segments_bidirectional_post_residual_mlm_stack ... ok
+test transformer::tests::bert_generation_checkpoint_loader_reads_self_and_cross_attention ... ok
+test transformer::amp::tests::global_overflow_skips_parameters_moments_and_shared_step_and_resumes_scale ... ok
+test transformer::tests::bert_generation_contract_maps_decoder_cross_attention_and_package_causality ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_builtin_gelu_backward_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_gpt2_scalar_log_cpu_words ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_siglip_avx2_backward_cpu_words ... ok
+test transformer::tests::attention_backward_key_range_split_is_bit_exact ... ok
+test transformer::tests::amd_classic_layer_norm_matches_independent_cpu_moments_and_affine ... ok
+test transformer::amp::tests::scaling_preserves_a_gradient_that_underflows_in_fp16_storage ... ok
+test transformer::tests::avx512_lora_a_matches_independent_cpu_across_batches_widths_and_ranks ... ok
+test transformer::tests::bart_seq2seq_facade_encodes_source_ids_and_matches_explicit_context_generation ... ok
+test transformer::tests::bias_all_round_trips_dense_qwen2_qkv_biases ... ok
+test transformer::tests::bert_generation_cross_attention_vulkan_forward_and_backward_respect_encoder_mask ... ok
+test transformer::tests::avx512_lora_b_adjoint_matches_independent_cpu_geometry_sweep ... ok
+test transformer::tests::big_bird_contract_accepts_hf_sparse_default_and_preserves_embedding_semantics ... ok
+test transformer::tests::big_bird_biasless_checkpoint_loader_omits_only_attention_projection_biases ... ok
+test transformer::tests::bigbird_pegasus_checkpoint_loader_preserves_biasless_attention_and_terminal_norm ... ok
+test transformer::tests::big_bird_sparse_package_uses_hf_dense_fallback_boundary ... ok
+test transformer::tests::biogpt_contract_matches_current_hf_dense_decoder_math ... ok
+test transformer::tests::biogpt_checkpoint_loader_reads_hf_names_biases_and_tied_output ... ok
+test transformer::tests::bitnet_contract_maps_projection_sub_norms_relu2_and_defaults ... ok
+test transformer::tests::bitnet_checkpoint_loader_reads_projection_sub_norms ... ok
+test transformer::tests::blenderbot_contract_maps_prenorm_zero_offset_positions_and_terminal_norm ... ok
+test transformer::tests::blenderbot_checkpoint_loader_reads_zero_offset_positions_and_terminal_norm ... ok
+test transformer::tests::blenderbot_small_contract_preserves_hf_embedding_norm_order ... ok
+test transformer::tests::bloom_contract_parses_alibi_embedding_norm_and_fused_qkv ... ok
+test transformer::tests::code_llama_model_type_is_a_canonical_llama_graph_alias ... ok
+test transformer::tests::codegen_contract_parses_shared_prenorm_partial_rope_and_fused_qkv ... ok
+test transformer::tests::codegen_qkv_layout_round_trips ... ok
+test transformer::tests::blenderbot_small_checkpoint_loader_reads_embedding_norm_without_terminal_norm ... ok
+test transformer::tests::cohere2_contract_maps_mixed_sliding_nope_and_rotary_layers ... ok
+test transformer::tests::cohere2_moe_contract_maps_current_hf_sparse_decoder_defaults ... ok
+test transformer::tests::cohere2_checkpoint_loader_preserves_optional_attention_biases ... ok
+test transformer::tests::cohere2_moe_loader_reads_current_hf_packed_experts_and_router ... ok
+test transformer::tests::cohere_checkpoint_loader_preserves_qk_norm_and_optional_attention_biases ... ok
+test transformer::tests::cohere_contract_maps_parallel_residual_qk_layernorm_and_logit_scale ... ok
+test transformer::tests::constrained_beam_step_interleaves_constraint_progress_like_hf ... ok
+test transformer::tests::constrained_generation_state_matches_hf_progress_and_reset_semantics ... ok
+test transformer::tests::continuous_batching_config_fails_closed_for_unimplemented_hf_scheduler_knobs ... ok
+test transformer::tests::contrastive_ranking_matches_hf_confidence_minus_degeneration_formula ... ok
+test transformer::tests::cohere_compass_text_contract_maps_per_layer_rope_and_nope ... ok
+test transformer::tests::ctrl_contract_maps_hf_split_qkv_relu_and_fixed_positions ... ok
+test transformer::tests::cwm_contract_maps_llama3_rope_gqa_and_mixed_attention ... ok
+test transformer::tests::dbrx_contract_parses_gqa_rope_clipping_and_packed_moe ... ok
+test transformer::tests::ctrl_checkpoint_loader_synthesizes_positions_and_reads_hf_weights ... ok
+test transformer::tests::deepseek_v32_contract_normalizes_mla_moe_and_sparse_layer_types ... ok
+test transformer::tests::bias_all_round_trips_dense_jais2_attention_mlp_and_norm_biases ... ok
+test transformer::tests::deepseek_v4_config_matches_current_hf_defaults_and_rejects_bad_attention_schedule ... ok
+test transformer::tests::bias_all_accepts_bias_free_mixtral_through_generic_topology_detection ... ok
+test transformer::tests::bias_all_round_trips_every_gpt2_bias_through_peft_adapter_export ... ok
+test transformer::tests::bias_all_round_trips_every_bert_bias_with_current_peft_key_layout ... ok
+test transformer::gpt2_cpu_math_tests::gpt2_wide_frozen_cpu_logits_resident_and_streamed ... ok
+test transformer::tests::bias_all_trains_bert_embedding_prediction_and_decoder_biases_without_base_weights ... ok
+test transformer::tests::deepseek_v32_dsa_indexer_matches_full_and_cached_sparse_routing ... ok
+test transformer::tests::deepseek_v4_hash_moe_schedule_matches_hf_config_normalization ... ok
+test transformer::tests::bias_all_trains_factorized_bert_projection_bias_without_base_weights ... ok
+test transformer::tests::bias_all_trains_gpt_oss_sparse_biases_without_base_weights ... ok
+test transformer::tests::bias_all_round_trips_rembert_electra_and_megatron_bert_topologies ... ok
+test transformer::tests::deepseek_v4_hca_loader_reads_persistent_compressor_parameters ... ok
+test transformer::image_text::rdna3_text_attention_tests::rdna3_short_attention_is_word_exact_and_measured ... ok
+test transformer::tests::deepseek_v4_csa_overlap_compressor_matches_hf_ca_cb_forward_and_backward ... ok
+test transformer::tests::deepseek_v4_csa_attention_runs_forward_backward_and_steps_only_differentiable_path ... ok
+test transformer::tests::bias_all_round_trips_gpt_oss_attention_router_and_packed_expert_biases ... ok
+test transformer::tests::deepseek_v4_grouped_linear_matches_hf_forward_backward_and_step ... ok
+test transformer::tests::deepseek_v4_csa_lightning_scores_and_topk_mask_match_hf_semantics ... ok
+test transformer::tests::distilbert_checkpoint_loader_reads_hf_mlm_names_and_tied_projector ... ok
+test transformer::tests::distilbert_contract_maps_bidirectional_post_residual_mlm_stack ... ok
+test transformer::tests::dola_contrast_math_matches_relative_top_and_js_layer_selection ... ok
+test transformer::tests::dola_generation_config_and_layer_selection_match_hf_contract ... ok
+test transformer::tests::deepseek_v4_hca_compressor_keeps_batch_windows_independent ... ok
+test transformer::tests::deepseek_v4_generation_kv_cache_matches_full_prefix_logits_for_csa_hca_mhc ... ok
+test transformer::tests::dots1_contract_maps_qwen3_attention_and_deepseek_style_moe ... ok
+test transformer::tests::dots1_loader_preserves_packed_experts_correction_bias_and_shared_experts ... ok
+test transformer::tests::early_exit_generation_config_matches_hf_assistant_defaults_and_validation ... ok
+test transformer::tests::electra_checkpoint_loader_reads_factorized_embeddings_projection_and_generator_head ... ok
+test transformer::tests::electra_contract_maps_factorized_embeddings_and_generator_head ... ok
+test transformer::tests::emu3_text_contract_maps_llama_math_and_residual_dropout ... ok
+test transformer::tests::deepseek_v32_checkpoint_export_round_trips_dsa_indexer_state ... ok
+test transformer::tests::ernie4_5_checkpoint_loader_preserves_projection_and_gated_mlp_biases ... ok
+test transformer::tests::ernie4_5_contract_maps_explicit_head_width_biases_gqa_and_interleaved_rope ... ok
+test transformer::tests::ernie4_5_moe_contract_maps_hybrid_schedule_shared_experts_and_corrected_router ... ok
+test transformer::tests::ernie4_5_moe_loader_reads_corrected_router_packed_experts_and_biased_shared_mlp ... ok
+test transformer::tests::ernie_contract_reuses_bert_math_and_accepts_task_type_embeddings ... ok
+test transformer::tests::esm_contract_matches_hf_encoder_decoder_and_rotary_modes ... ok
+test transformer::tests::esm_token_dropout_scales_match_hf_mask_ratio_math ... ok
+test transformer::tests::esmc_checkpoint_loader_reads_hf_names_full_qk_norms_and_optional_biases ... ok
+test transformer::tests::esmc_contract_maps_bidirectional_layernorm_qk_norm_and_residual_scaling ... ok
+test transformer::tests::eurobert_contract_uses_llama_math_with_bidirectional_attention ... ok
+test transformer::tests::exaone4_contract_maps_post_norm_qk_norm_and_hybrid_rope_schedule ... ok
+test transformer::tests::deepseek_v4_hca_module_accepts_sequences_shorter_than_compress_rate ... ok
+test transformer::tests::falcon_contract_parses_mqa_mha_and_new_decoder_gqa_topologies ... ok
+test transformer::tests::falcon_contract_supports_rope_alibi_and_biased_linear_variants ... ok
+test transformer::tests::falcon_qkv_layout_round_trips_mqa_gqa_and_mha ... ok
+test transformer::tests::flex_olmo_contract_combines_olmo2_post_norms_with_packed_moe ... ok
+test transformer::tests::falcon_checkpoint_loader_preserves_linear_biases_and_qkv_layout ... ok
+test transformer::tests::force_words_ids_parses_phrasal_and_disjunctive_constraints ... ok
+test transformer::tests::flex_olmo_loader_reads_current_hf_packed_experts_and_router ... ok
+test transformer::tests::fsmt_contract_maps_target_decoder_dual_vocab_and_padding_aware_positions ... ok
+test transformer::tests::fsmt_checkpoint_loader_reads_target_decoder_projection_and_cross_attention ... ok
+test transformer::tests::gemma2_contract_maps_softcaps_alternating_attention_and_sandwich_norms ... ok
+test transformer::tests::gemma2_checkpoint_loader_reads_four_norms_and_optional_attention_biases ... ok
+test transformer::tests::gemma3_contract_maps_qk_rmsnorm_mixed_rope_and_sandwich_norms ... ok
+test transformer::tests::gemma3_package_maps_per_layer_rope_scaling ... ok
+test transformer::tests::gemma_contract_preserves_independent_attention_width_and_math_conventions ... ok
+test transformer::tests::generation_beam_early_stopping_distinguishes_false_true_and_never ... ok
+test transformer::tests::generation_beam_finalize_returns_top_n_hypotheses_in_rank_order ... ok
+test transformer::tests::generation_beam_sampling_is_seeded_and_without_replacement ... ok
+test transformer::tests::generation_cfg_validation_rejects_invalid_runtime_inputs ... ok
+test transformer::tests::generation_classifier_free_guidance_matches_hf_log_probability_formula ... ok
+test transformer::tests::generation_current_surface_fails_closed_for_unimplemented_semantic_backends ... ok
+test transformer::tests::generation_encoder_no_repeat_ngram_matches_hf_source_ngram_lookup ... ok
+test transformer::tests::generation_encoder_processors_use_original_decoder_only_prompt ... ok
+test transformer::tests::generation_encoder_repetition_penalty_matches_hf_inverse_penalty ... ok
+test transformer::tests::generation_exponential_decay_length_penalty_matches_hf_eos_boost ... ok
+test transformer::tests::deepseek_v4_hca_module_matches_end_to_end_numerical_gradients_and_steps ... ok
+test transformer::tests::generation_exponential_decay_length_penalty_runs_before_suppression ... ok
+test transformer::tests::generation_forced_bos_and_eos_obey_processor_order ... ok
+test transformer::tests::generation_invalid_value_processor_matches_hf_replacements ... ok
+test transformer::tests::generation_max_time_requires_a_finite_value ... ok
+test transformer::tests::generation_min_p_and_epsilon_keep_required_top_tokens ... ok
+test transformer::tests::generation_mode_dispatch_matches_current_hf_generation_config ... ok
+test transformer::tests::generation_native_cache_accepts_hf_semantic_aliases_and_prefill_hint ... ok
+test transformer::tests::generation_non_beam_renormalize_logits_matches_hf_processor_order ... ok
+test transformer::tests::generation_num_return_sequences_validation_matches_hf_mode_constraints ... ok
+test transformer::tests::generation_repetition_penalty_matches_hf_sign_rule ... ok
+test transformer::tests::generation_sampling_is_seeded_and_respects_top_k ... ok
+test transformer::tests::generation_sequence_bias_matches_current_hf_prefix_semantics ... ok
+test transformer::tests::generation_sequence_constraints_match_hf_processor_semantics ... ok
+test transformer::tests::generation_stop_string_state_applies_to_appended_tokens_and_sequences ... ok
+test transformer::tests::generation_synthid_watermark_matches_transformers_cpu_reference ... ok
+test transformer::tests::generation_top_h_typical_and_eta_leave_finite_sampling_support ... ok
+test transformer::tests::generation_top_p_filters_the_low_probability_tail ... ok
+test transformer::tests::generation_watermark_lefthash_matches_pytorch_cpu_reference ... ok
+test transformer::tests::generation_watermark_validation_rejects_invalid_configs ... ok
+test transformer::tests::gemma3_checkpoint_loader_reads_qk_norms_and_per_layer_rope ... ok
+test transformer::tests::deepseek_v4_hca_attention_applies_local_window_and_compressed_causality ... ok
+test transformer::tests::glm4_contract_adds_four_norm_residual_topology_to_glm_math ... ok
+test transformer::tests::glm4_moe_lite_constructor_defaults_and_layer_types_match_hf ... ok
+test transformer::tests::glm4_moe_lite_reuses_exact_mla_and_glm_packed_moe_contracts ... ok
+test transformer::tests::generation_watermark_selfhash_matches_pytorch_cpu_reference ... ok
+test transformer::tests::glm4_checkpoint_loader_maps_all_four_rmsnorms_and_fused_gate_up ... ok
+test transformer::tests::deepseek_v4_hca_compressor_vulkan_matches_forward_and_numerical_gradients ... ok
+test transformer::tests::deepseek_v4_full_checkpoint_export_round_trips_attention_mhc_moe_and_hash_state ... ok
+test transformer::tests::deepseek_v4_swiglu_runs_through_moe_forward_and_backward ... ok
+test transformer::tests::deepseek_v4_swiglu_vulkan_matches_clamped_silu_forward_and_backward ... ok
+test transformer::tests::glm_contract_maps_fused_gate_up_gqa_and_partial_interleaved_rope ... ok
+test transformer::tests::glm_checkpoint_loader_splits_fused_gate_up_and_reads_qkv_biases ... ok
+test transformer::tests::glm_moe_dsa_contract_matches_hf_indexer_schedule_and_aliases ... ok
+test transformer::tests::gpt2_and_gpt_bigcode_contracts_support_unscaled_attention ... ok
+test transformer::tests::gpt2_and_gpt_neo_contracts_accept_untied_lm_heads ... ok
+test transformer::tests::encoder_decoder_bert_composite_loads_real_safe_serialization_layout ... ok
+test transformer::tests::glm5_next_generation_kv_cache_matches_full_prefix_logits ... ok
+test transformer::tests::deepseek_v4_kv_layout_concat_and_split_preserve_batch_boundaries ... ok
+test transformer::tests::glm5_next_kda_recurrent_matches_hf_forward_and_backward ... ok
+test transformer::tests::dora_linear_forward_and_backward_match_detached_norm_reference ... ok
+test transformer::tests::deepseek_v4_peft_dedicated_attention_and_compressors_round_trip ... ok
+test transformer::tests::generic_decoder_generation_kv_cache_matches_full_prefix_logits ... ok
+test transformer::tests::gpt2_contract_accepts_exact_erf_gelu ... ok
+test transformer::tests::glm5_next_peft_round_trips_supported_kda_and_shared_expert_linears ... ok
+test transformer::tests::glm_moe_dsa_checkpoint_export_preserves_full_and_shared_indexer_schedule ... ok
+test transformer::tests::glm5_kda_recurrent_split_resume_matches_monolithic ... ok
+test transformer::tests::gpt2_batched_generation_preserves_return_dimension_and_disjoint_rng_streams ... ok
+test transformer::tests::gpt2_cross_attention_loader_splits_hf_conv1d_kv_layout ... ok
+test transformer::tests::dora_magnitude_round_trips_through_peft_adapter_export ... ok
+test transformer::tests::glm5_next_checkpoint_export_round_trips_kda_mhc_and_moe ... ok
+test transformer::tests::gpt2_beam_sampling_kv_cache_matches_full_prefix_reference ... ok
+test transformer::tests::gpt2_cfg_without_negative_prompt_uses_last_prompt_token_like_hf ... ok
+test transformer::tests::gpt2_cfg_scores_negative_prompt_and_cache_match_full_prefix ... ok
+test transformer::tests::gpt2_cross_attention_batch_generation_routes_encoder_context_per_item ... ok
+test transformer::tests::gpt2_beam_generation_kv_cache_matches_full_prefix_reference ... ok
+test transformer::tests::gpt2_continuous_paged_batch_matches_independent_paged_requests ... ok
+test transformer::tests::gpt2_contrastive_generation_supports_streaming_structured_output_and_reference_execution ... ok
+test transformer::tests::gpt2_dola_generation_supports_outputs_streaming_and_explicit_layers ... ok
+test transformer::tests::gpt2_early_exit_assisted_generation_matches_target_and_supports_sampling_outputs_and_streaming ... ok
+test transformer::tests::gpt2_empty_decoder_only_prompt_uses_bos_like_hf_generate ... ok
+test transformer::tests::gpt2_cross_attention_can_opt_into_hf_decoder_start_prompt_preparation ... ok
+test transformer::tests::gpt2_external_assistant_model_batch_matches_serial_seed_partition ... ok
+test transformer::tests::gpt2_constrained_beam_forces_phrase_and_kv_cache_matches_full_prefix ... ok
+test transformer::tests::gpt2_generate_ids_remains_first_result_compatible_with_multi_return_api ... ok
+test transformer::tests::gpt2_cross_attention_multi_return_streaming_matches_context_generation ... ok
+test transformer::tests::gpt2_shard_paths_are_relative_safetensors_only ... ok
+test transformer::tests::gpt2_early_exit_assisted_generation_supports_encoder_context ... ok
+test transformer::tests::gpt2_external_assistant_model_matches_target_and_supports_sampling_outputs_and_streaming ... ok
+test transformer::tests::gpt2_generation_kv_cache_matches_full_prefix_logits ... ok
+test transformer::tests::gpt2_external_assistant_model_supports_shared_encoder_context ... ok
+test transformer::tests::gpt2_max_time_stops_after_the_current_generation_pass_across_modes ... ok
+test transformer::tests::gpt2_paged_beam_generation_matches_contiguous_and_full_prefix_reference ... ok
+test transformer::tests::gpt2_group_beam_kv_cache_matches_full_prefix_and_structured_output ... ok
+test transformer::tests::gpt_bigcode_contract_parses_multi_query_attention_and_linear_layout ... ok
+test transformer::tests::gpt_neo_contract_parses_global_and_local_attention ... ok
+test transformer::tests::gpt_neox_contract_parses_rope_parallel_residual_and_untied_head ... ok
+test transformer::tests::gpt_neox_japanese_contract_maps_biasless_neox_variant ... ok
+test transformer::tests::gpt_neox_qkv_layout_round_trips ... ok
+test transformer::tests::gpt_oss_contract_matches_current_hf_attention_moe_and_yarn_defaults ... ok
+test transformer::tests::gpt2_multi_return_streaming_routes_tokens_by_sequence_index ... ok
+test transformer::tests::gpt2_paged_generation_kv_cache_is_opt_in_and_matches_contiguous_math ... ok
+test transformer::tests::gpt_oss_packed_expert_gate_up_layout_round_trips_hf_interleaving ... ok
+test transformer::tests::gpt_sw3_contract_is_an_exact_gpt2_graph_alias ... ok
+test transformer::tests::gptj_contract_parses_shared_prenorm_partial_rope_and_untied_head ... ok
+test transformer::tests::granite_contract_preserves_hf_scaling_semantics ... ok
+test transformer::tests::granite_moe_contract_preserves_granite_scaling_and_sparse_router_semantics ... ok
+test transformer::tests::gpt2_prompt_lookup_assisted_generation_matches_greedy_and_supports_outputs_and_streaming ... ok
+test transformer::tests::granite_moe_shared_contract_maps_ungated_shared_mlp ... ok
+test transformer::tests::granite_moe_loader_reads_current_hf_block_sparse_experts_and_router ... ok
+test transformer::tests::gpt_oss_moe_loader_reads_current_hf_interleaved_experts_router_and_biases ... ok
+test transformer::tests::group_beam_generation_is_supported_and_validates_hf_constraints ... ok
+test transformer::tests::group_beam_hamming_diversity_matches_hf_token_frequency_penalty ... ok
+test transformer::tests::helium_contract_uses_interleaved_rope_and_hf_default_theta ... ok
+test transformer::tests::hf_contract_rejects_unsupported_families_and_accepts_gpt2_cross_attention ... ok
+test transformer::tests::hf_generation_config_accepts_scalar_eos_and_beam_sampling ... ok
+test transformer::tests::hf_generation_config_parses_cfg_and_keeps_negative_prompt_request_only ... ok
+test transformer::tests::hf_generation_config_parses_common_sequence_constraints ... ok
+test transformer::tests::hf_generation_config_parses_sampling_beams_and_multi_eos ... ok
+test transformer::tests::hf_generation_config_preserves_current_cache_assistant_and_performance_surface ... ok
+test transformer::tests::hf_generation_config_rejects_zero_max_new_tokens ... ok
+test transformer::tests::granite_moe_swa_contract_composes_sparse_moe_mixed_attention_and_nope ... ok
+test transformer::tests::hf_generation_config_round_trips_batch_decoder_start_tokens ... ok
+test transformer::tests::hf_generation_config_special_tokens_accept_null_and_reject_negative_ids ... ok
+test transformer::tests::hunyuan_v1_dense_contract_maps_post_rope_qk_norm_and_gqa ... ok
+test transformer::tests::hunyuan_v1_moe_contract_maps_dense_attention_and_packed_moe ... ok
+test transformer::tests::granite_moe_shared_loader_reads_ungated_shared_mlp ... ok
+test transformer::tests::hy_v3_contract_maps_qk_norm_hybrid_moe_and_hf_defaults ... ok
+test transformer::tests::hunyuan_v1_moe_loader_reads_hf_router_packed_experts_and_shared_mlp ... ok
+test transformer::tests::hunyuan_v1_dense_checkpoint_loader_reads_post_rope_qk_norms ... ok
+test transformer::tests::hyperclovax_contract_maps_mup_biases_and_optional_peri_layer_norm ... ok
+test transformer::tests::jais2_contract_parses_layernorm_biased_dense_relu2_layout ... ok
+test transformer::tests::hy_v3_loader_preserves_router_correction_packed_experts_and_shared_biases ... ok
+test transformer::tests::kimi_k3_moonvit_vision_config_fails_closed_as_unsupported ... ok
+test transformer::tests::hyperclovax_checkpoint_loader_reads_peri_norms_and_optional_biases ... ok
+test transformer::tests::kimi_k3_mxfp4_compressed_tensors_package_fails_closed ... ok
+test transformer::tests::kimi_k3_wrapper_resolves_nested_kimi_linear_config_without_aliasing ... ok
+test transformer::tests::kimi_linear_attention_partition_rejects_malformed_schedules ... ok
+test transformer::tests::kimi_k3_package_uses_nested_text_config_and_language_model_prefixes ... ok
+test transformer::tests::kimi_linear_attn_res_loader_reads_canonical_tensor_names ... ok
+test transformer::tests::gpt2_structured_beam_output_matches_cached_sequence_ranking_and_traces ... ok
+test transformer::tests::kimi_linear_full_attention_loader_is_hybrid_schedule_aware_and_loads_output_gate ... ok
+test transformer::tests::gpt2_multi_return_zero_token_generation_rejects_invalid_hf_length ... ok
+test transformer::tests::gpt2_structured_constrained_beam_matches_sequence_api_and_traces ... ok
+test transformer::tests::kimi_linear_latent_moe_loader_reads_canonical_block_sparse_abi ... ok
+test transformer::tests::gpt2_sampled_num_return_sequences_use_deterministic_distinct_rng_streams ... ok
+test transformer::tests::gpt2_structured_generation_exposes_cross_attention_probabilities ... ok
+test transformer::tests::kimi_linear_production_attention_partition_is_exact_and_one_indexed ... ok
+test transformer::tests::kimi_linear_situ_config_preserves_non_default_and_optional_parameters ... ok
+test transformer::tests::gpt2_structured_generation_exposes_hf_style_scores_and_raw_logits ... ok
+test transformer::tests::laguna_attention_gate_loader_preserves_per_layer_gate_widths ... ok
+test transformer::tests::laguna_contract_maps_variable_heads_softplus_gate_and_hybrid_moe ... ok
+test transformer::tests::gpt2_structured_non_beam_attention_outputs_match_vulkan_attention_contract ... ok
+test transformer::tests::gpt2_structured_batch_output_matches_legacy_batch_seed_partition ... ok
+test transformer::tests::jais2_generation_kv_cache_matches_full_prefix_logits ... ok
+test transformer::tests::gpt_oss_generation_kv_cache_matches_full_prefix_logits ... ok
+test transformer::tests::gpt2_structured_generation_exposes_hf_style_hidden_state_shapes ... ok
+test transformer::tests::kimi_linear_attn_res_matches_reference_and_finite_difference ... ok
+test transformer::tests::lora_b_bias_rejects_dora_like_current_peft ... ok
+test transformer::tests::kimi_linear_kda_projection_runs_forward_backward_and_exports_canonical_abi ... ok
+test transformer::tests::llama4_packed_target_parameters_round_trip_through_peft_adapter_export ... ok
+test transformer::tests::lora_config_accepts_every_current_peft_task_type ... ok
+test transformer::tests::kimi_linear_checkpoint_export_round_trips_full_mixed_graph ... ok
+test transformer::tests::lora_exclude_modules_string_uses_peft_fullmatch_regex ... ok
+test transformer::tests::lora_initialization_modes_match_peft_linear_semantics ... ok
+test transformer::tests::lora_modules_to_save_are_excluded_from_lora_targeting_like_peft ... ok
+test transformer::tests::kimi_linear_native_adamw_step_updates_kda_and_attn_res_parameters ... ok
+test transformer::tests::kimi_linear_generation_cache_matches_mixed_full_prefix_graph ... ok
+test transformer::tests::kimi_linear_latent_moe_runs_situ_forward_and_backward_with_finite_difference ... ok
+test transformer::tests::kimi_linear_situ_vulkan_matches_reference_and_finite_difference ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_cpu_autograd_adamw_resume_and_export_gate ... ok
+test transformer::tests::lora_dropout_is_training_only_and_deterministic_for_same_step ... ok
+test transformer::tests::lora_b_bias_forward_backward_matches_peft_linear_semantics ... ok
+test transformer::tests::m2m_100_contract_accepts_default_layerdrop_and_padding_aware_sinusoidal_positions ... ok
+test transformer::tests::m2m_100_checkpoint_loader_synthesizes_positions_and_preserves_layerdrop ... ok
+test transformer::tests::megatron_bert_contract_maps_prenorm_terminal_norm_and_decoder_cross_attention ... ok
+test transformer::tests::megatron_bert_checkpoint_loader_reads_prenorm_final_norm_and_cross_attention ... ok
+test transformer::tests::mellum_contract_maps_independent_attention_and_mlp_schedules ... ok
+test transformer::tests::mellum_moe_loader_reads_current_hf_packed_experts_and_router ... ok
+test transformer::tests::minicpm3_contract_maps_mla_scaling_and_standard_rope ... ok
+test transformer::tests::minicpm3_yarn_attention_scale_matches_hf_mla_contract ... ok
+test transformer::tests::minimax_m2_contract_maps_oversized_qk_norm_attention_and_sigmoid_moe ... ok
+test transformer::tests::lora_b_unfused_input_grad_preserves_rounded_products ... ok
+test transformer::tests::minimax_m2_loader_reads_full_qk_norms_packed_experts_and_correction_bias ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_packed_cpu_autograd_adamw_resume_and_export_gate ... ok
+test transformer::tests::lora_rank_alpha_patterns_drive_attachment_and_adapter_roundtrip ... ok
+test transformer::tests::ministral3_contract_parses_yarn_and_query_scaling ... ok
+test transformer::tests::ministral_contract_parses_bias_free_qwen2_layout_and_layer_attention_types ... ok
+test transformer::tests::longrope_vulkan_forward_and_backward_match_hf_frequency_math ... ok
+test transformer::tests::mistral4_contract_maps_mla_and_grouped_softmax_moe ... ok
+test transformer::tests::lora_b_bias_round_trips_through_peft_adapter_export ... ok
+test transformer::tests::lora_releases_frozen_base_training_state_and_reduces_live_buffer_bytes ... ok
+test transformer::tests::lora_all_linear_round_trips_and_honors_peft_filters ... ok
+test transformer::tests::mistral_contract_parses_dynamic_ntk_rope_scaling ... ok
+test transformer::tests::mistral_contract_parses_gqa_rope_and_sliding_window ... ok
+test transformer::tests::mistral_contract_parses_llama3_rope_scaling ... ok
+test transformer::tests::lora_only_bias_round_trips_through_peft_adapter_export ... ok
+test transformer::tests::lora_target_filters_match_peft_layer_and_exclusion_semantics ... ok
+test transformer::tests::mixtral_contract_maps_sparse_moe_gqa_rope_and_router ... ok
+test transformer::tests::mixtral_moe_loader_reads_current_hf_packed_experts_and_router ... ok
+test transformer::tests::mllama_text_only_export_restores_source_layers_and_reserved_embedding_rows ... ok
+test transformer::tests::modernbert_checkpoint_loader_preserves_identity_norm_fused_qkv_and_wi_order ... ok
+test transformer::tests::modernbert_contract_parses_bidirectional_mixed_attention_and_rope ... ok
+test transformer::tests::modernbert_decoder_checkpoint_loader_reads_split_qkv_and_lm_head_names ... ok
+test transformer::tests::modernbert_decoder_contract_preserves_modernbert_math_with_causal_split_qkv ... ok
+test transformer::tests::mimo_v2_flash_checkpoint_export_round_trips_mixed_attention_sinks_and_moe ... ok
+test transformer::tests::lora_optimizer_resume_preserves_dropout_moments_and_rejects_mismatch ... ok
+test transformer::tests::lora_target_modules_regex_round_trips_and_rejects_layer_filter_like_peft ... ok
+test transformer::tests::mistral_generation_kv_cache_matches_full_prefix_logits_with_rope_and_gqa ... ok
+test transformer::tests::mistral4_generation_kv_cache_matches_full_prefix_logits ... ok
+test transformer::tests::minimax_m3_vl_text_generation_cache_matches_sparse_full_prefix_logits ... ok
+test transformer::tests::mistral_beam_generation_kv_cache_matches_full_prefix_reference ... ok
+test transformer::tests::minimax_m2_generation_kv_cache_matches_full_prefix_logits ... ok
+test transformer::tests::mistral_paged_generation_matches_contiguous_and_full_prefix_with_rope_gqa_window ... ok
+test transformer::tests::mistral_beam_sampling_kv_cache_matches_full_prefix_reference ... ok
+test transformer::tests::mistral4_checkpoint_export_round_trips_mla_and_grouped_moe ... ok
+test transformer::tests::modules_to_save_input_embedding_trains_full_clone_without_tied_output_head ... ok
+test deepseek_v41::model::tests::training::deepseek_v41_full_model_bf16_cpu_autograd_adamw_resume_and_export_gate ... ok
+test transformer::tests::modules_to_save_noncanonical_embedding_alias_stays_independent_with_ensure_weight_tying ... ok
+test transformer::tests::mpt_contract_parses_biasless_fused_qkv_exact_gelu_and_alibi ... ok
+test transformer::tests::modules_to_save_lm_head_round_trips_for_untied_head ... ok
+test transformer::tests::mt5_contract_reuses_t5_math_with_current_hf_defaults ... ok
+test transformer::tests::mtp_assisted_generation_remains_explicit_until_its_architecture_path_is_implemented ... ok
+test transformer::tests::multimodal_wrapper_contracts_normalize_to_supported_text_backbones ... ok
+test transformer::tests::multimodal_wrapper_tensor_merge_rekeys_text_and_preserves_auxiliary_weights ... ok
+test transformer::tests::mt5_checkpoint_loader_reuses_hf_t5_tensor_topology ... ok
+test transformer::tests::modules_to_save_layer_norm_suffix_and_final_norm_round_trip_for_gpt2 ... ok
+test transformer::tests::modules_to_save_linear_suffix_round_trips_all_matching_gpt2_modules ... ok
+test transformer::tests::nanochat_checkpoint_loader_uses_parameter_free_norms_fc_names_and_attention_biases ... ok
+test transformer::tests::nanochat_contract_maps_parameter_free_rms_post_rope_qk_norm_and_softcap ... ok
+test transformer::tests::minimax_m3_vl_text_checkpoint_export_round_trips_lightning_indexer ... ok
+test transformer::tests::narrow_gemm_plan_follows_host_vector_width ... ok
+test transformer::tests::nemotron_contract_maps_layernorm1p_relu2_gqa_and_partial_rope ... ok
+test transformer::tests::modules_to_save_lm_head_clones_tied_head_and_round_trips_independently ... ok
+test transformer::tests::nomic_bert_contract_maps_bidirectional_rope_gated_mlp_and_post_residual_norms ... ok
+test transformer::tests::nomic_bert_checkpoint_loader_preserves_hf_tensor_layout ... ok
+test transformer::tests::olmo2_contract_maps_post_sublayer_rmsnorm_and_full_projection_qk_norm ... ok
+test transformer::tests::olmo3_contract_maps_olmo2_norms_and_alternating_attention_windows ... ok
+test transformer::tests::olmo_contract_maps_parameter_free_layer_norm_and_split_qkv_clipping ... ok
+test transformer::tests::olmo2_checkpoint_loader_reads_post_sublayer_and_full_projection_qk_norms ... ok
+test transformer::tests::olmo_hybrid_contract_maps_layerwise_norm_topology_and_gated_delta_geometry ... ok
+test transformer::tests::modules_to_save_ensure_weight_tying_matches_peft_tied_embedding_contract ... ok
+test transformer::tests::olmo_hybrid_loader_reads_independent_gated_delta_projections_and_beta_range ... ok
+test transformer::tests::olmoe_contract_maps_packed_moe_full_projection_qk_rmsnorm_and_post_norm_clipping ... ok
+test transformer::tests::olmoe_loader_reads_current_hf_packed_experts_and_router ... ok
+test transformer::tests::modules_to_save_round_trips_bert_embedding_block_and_prediction_norms ... ok
+test transformer::tests::open_llama_contract_preserves_legacy_dropout_stable_embedding_and_head_tying ... ok
+test transformer::tests::openai_gpt_contract_matches_hugging_face_post_residual_stack ... ok
+test transformer::tests::opt_checkpoint_loader_synthesizes_affine_free_layer_norms ... ok
+test transformer::tests::opt_contract_parses_pre_layernorm_learned_positions_and_split_qkv ... ok
+test transformer::tests::packed_moe_loader_attaches_deepseek_v4_hash_router_from_checkpoint ... ok
+test transformer::tests::paddleocr_vl_checkpoint_loader_reads_shared_projection_bias_flag ... ok
+test transformer::tests::paddleocr_vl_text_contract_maps_exact_text_only_llama_math ... ok
+test transformer::tests::named_lora_only_active_adapter_receives_adamw_updates ... ok
+test transformer::tests::modules_to_save_round_trips_common_llama_layout_rms_norms ... ok
+test transformer::tests::narrow_gemm_and_log_softmax_kernels_track_the_host_vector_width ... ok
+test transformer::tests::moe_router_vulkan_matches_deepseek_v4_sqrt_softplus_forward_and_backward ... ok
+test transformer::tests::moe_hash_router_vulkan_matches_deepseek_v4_fixed_membership_and_backward ... ok
+test transformer::tests::moe_router_vulkan_matches_laguna_softcapped_sigmoid_forward_and_backward ... ok
+test transformer::tests::moe_router_vulkan_matches_hf_scaled_softmax_forward_and_backward ... ok
+test transformer::tests::olora_gpt2_preserves_initial_function_and_round_trips_peft_adapter ... ok
+test transformer::tests::moe_jitter_replays_philox_and_backpropagates_through_router_and_experts ... ok
+test transformer::tests::named_lora_adapters_switch_disable_and_restore_without_overwriting_state ... ok
+test transformer::tests::paged_generation_kv_shares_prefix_cows_tail_and_reuses_freed_pages ... ok
+test transformer::tests::peft_rs_accepts_vulkan_lora_config_and_hf_key_style_matches ... ok
+test transformer::tests::peft_adapter_config_preserves_init_lora_weights_extension ... ok
+test transformer::tests::pegasus_contract_maps_prenorm_sinusoidal_positions_and_terminal_norm ... ok
+test transformer::tests::olmo_hybrid_paged_generation_preserves_recurrent_cache_and_pages_full_attention ... ok
+test transformer::tests::persimmon_contract_maps_relu2_qk_layernorm_and_partial_rope ... ok
+test transformer::tests::phi3_contract_parses_fused_gqa_partial_rope_and_sliding_window ... ok
+test transformer::tests::phi3_contract_parses_longrope_frequency_tables_and_hf_scaling ... ok
+test transformer::tests::phi_contract_parses_shared_prenorm_gqa_partial_rope_and_biased_head ... ok
+test transformer::tests::pegasus_checkpoint_loader_reads_frozen_positions_and_terminal_norm ... ok
+test transformer::tests::pegasus_x_checkpoint_loader_synthesizes_positions_and_omits_attention_biases ... ok
+test transformer::tests::prompt_lookup_candidates_match_hf_longest_suffix_eos_and_open_ended_behavior ... ok
+test transformer::tests::prompt_lookup_generation_config_and_validation_match_hf_contract ... ok
+test transformer::tests::qwen2_checkpoint_loader_applies_attention_bias_only_to_qkv ... ok
+test transformer::tests::qwen2_contract_parses_gqa_and_layer_attention_types ... ok
+test transformer::tests::qwen2_moe_contract_maps_shared_expert_and_router_semantics ... ok
+test transformer::tests::qwen2_moe_loader_reads_current_hf_packed_experts_and_shared_expert ... ok
+test transformer::tests::qwen2_vl_text_contract_normalizes_nested_multimodal_config_and_mrope ... ok
+test transformer::tests::qwen3_contract_parses_standard_rope_qk_rmsnorm_and_layer_attention_types ... ok
+test transformer::tests::qwen3_moe_contract_maps_standard_sparse_topology_and_router_semantics ... ok
+test transformer::tests::qwen3_moe_loader_reads_current_hf_packed_experts_and_router ... ok
+test transformer::tests::parameter_streaming::affine_partial_tiles_ignore_unselected_nan_and_mapped_runs_preserve_order ... ok
+test transformer::tests::qwen3_omni_and_kimi_k25_wrappers_reuse_native_text_graphs ... ok
+test transformer::tests::qwen3_vl_text_wrappers_normalize_to_native_qwen3_graphs ... ok
+test transformer::tests::paged_generation_fails_closed_when_graph_has_only_special_cache_layers ... ok
+test transformer::tests::qwen4_exp_accepts_legacy_and_modern_indexer_layer_types ... ok
+test transformer::tests::olmo_hybrid_checkpoint_export_round_trips_independent_gated_delta_projections ... ok
+test transformer::tests::qwen4_export_payload_patch_preserves_dtype_and_applies_sparse_decay ... ok
+test transformer::tests::paged_attention_matches_transformers_eager_math_with_gqa_and_sink ... ok
+test transformer::tests::qwen3_next_gated_delta_end_to_end_backward_matches_finite_difference ... ok
+test transformer::tests::qwen4_multimodal_package_uses_nested_text_config ... ok
+test transformer::tests::parameter_streaming::logits_only_and_hidden_state_surfaces_preserve_the_same_logits ... ok
+test transformer::tests::qwen4_ple_cached_ngram_rows_match_full_prefix_across_eos_boundaries ... ok
+test transformer::tests::precomputed_rope_forward_and_backward_match_hf_frequency_math ... ok
+test transformer::tests::parameter_streaming::stacked_transposed_experts_stream_exact_tiles_and_reject_partial_matches ... ok
+test transformer::tests::qwen4_grouped_rms_norm_matches_reference_forward_and_backward ... ok
+test transformer::tests::qwen4_ple_ngram_layout_matches_hf_hashing_and_eos_boundaries ... ok
+test transformer::tests::qwen4_checkpoint_export_round_trips_file_backed_ple_hyper_connections_and_moe ... ok
+test transformer::tests::qwen4_ple_sparse_embedding_adamw_matches_dense_touched_row_semantics ... ok
+test transformer::tests::parameter_streaming::single_tile_projection_and_input_adjoint_preserve_aliased_buffers ... ok
+test transformer::tests::load_time_output_head_gpt2_aliases_and_invalid_payloads_fail_before_allocation ... ok
+test transformer::tests::qwen4_terminal_hyper_mixer_replaces_final_norm ... ok
+test transformer::tests::qwen4_ple_row_gather_matches_the_whole_tensor_decode_and_batches_by_tile ... ok
+test transformer::tests::parameter_streaming::gen9_streamed_upload_windows_bound_retention_and_preserve_ordered_weights ... ok
+test transformer::tests::pissa_gpt2_preserves_initial_function_and_round_trips_peft_adapters ... ok
+test transformer::tests::qwen4_hyper_connection_matches_hf_forward_and_numerical_input_gradient ... ok
+test transformer::tests::qwen4_peft_round_trips_deltanet_ple_and_hyper_connection_linears ... ok
+test transformer::tests::qwen4_qsa_cached_generation_matches_full_prefix_rows ... ok
+test transformer::tests::named_modules_to_save_isolate_weights_gradients_moments_and_base ... ok
+test transformer::tests::qwen4_ple_dilated_depthwise_cached_update_matches_full_prefix ... ok
+test transformer::tests::qwen_hybrid_query_gate_pack_is_inverse_of_checkpoint_split ... ok
+test transformer::tests::rembert_checkpoint_loader_reads_factorized_input_output_and_cross_attention ... ok
+test transformer::tests::rembert_contract_maps_factorized_input_and_output_embeddings ... ok
+test transformer::tests::roberta_family_contract_maps_padding_aware_positions_and_mlm_stack ... ok
+test transformer::tests::qwen4_hyper_connection_loader_matches_hf_text_and_wrapper_layout ... ok
+test transformer::tests::roberta_family_cross_attention_loader_matches_hf_norm_layouts ... ok
+test transformer::tests::roberta_prelayernorm_contract_maps_pre_norm_layers_and_terminal_norm ... ok
+test transformer::tests::roberta_prelayernorm_checkpoint_loader_reads_pre_norm_and_terminal_norm_keys ... ok
+test transformer::tests::roc_bert_contract_maps_auxiliary_embeddings_and_bert_backbone ... ok
+test transformer::tests::roc_bert_auxiliary_loader_splits_hf_concat_projection_by_input_columns ... ok
+test transformer::tests::roformer_contract_maps_interleaved_full_head_rope_and_decoder_cross_attention ... ok
+test transformer::tests::roformer_checkpoint_loader_uses_analytic_positions_and_reads_cross_attention ... ok
+test transformer::tests::seed_oss_contract_maps_explicit_head_width_biases_gqa_and_residual_dropout ... ok
+test transformer::tests::seed_oss_checkpoint_loader_preserves_projection_and_gated_mlp_biases ... ok
+test transformer::tests::smollm3_contract_maps_nope_layers_and_sliding_attention ... ok
+test transformer::tests::sharded_tensor_store_skips_v4_integer_buffers_and_loads_tid2eid_explicitly ... ok
+test transformer::tests::solar_open_contract_maps_grouped_sigmoid_router_and_shared_experts ... ok
+test transformer::tests::qwen4_ple_dilated_depthwise_conv_matches_reference_forward_and_backward ... ok
+test transformer::tests::solar_open_loader_preserves_packed_experts_correction_bias_and_shared_expert ... ok
+test transformer::tests::qwen_gated_delta_depthwise_causal_conv_matches_reference ... ok
+test transformer::tests::qwen_gated_delta_cached_depthwise_causal_conv_update_matches_reference ... ok
+test transformer::tests::speculative_sampling_acceptance_and_correction_match_lossless_contract ... ok
+test transformer::tests::stablelm_contract_parses_layernorm_gqa_and_partial_rope ... ok
+test transformer::tests::standardized_rope_parameters_cover_current_hf_rotary_families ... ok
+test transformer::tests::starcoder2_checkpoint_loader_accepts_biasless_linear_layers ... ok
+test transformer::tests::starcoder2_contract_parses_biased_gqa_rope_and_sliding_window ... ok
+test transformer::tests::starcoder2_contract_supports_scaling_dropout_and_biasless_layout ... ok
+test transformer::tests::stochastic_dropout_contract_maps_hf_fields_and_rejects_invalid_probabilities ... ok
+test transformer::tests::qwen4_transformer_layer_hyper_connections_match_hf_branch_boundaries ... ok
+test transformer::tests::qwen4_ple_gate_matches_hf_forward_and_backward ... ok
+test transformer::tests::qwen_gated_delta_packed_backward_matches_finite_difference ... ok
+test transformer::tests::qwen_gated_delta_recurrent_matches_transformers_reference ... ok
+test transformer::tests::qwen4_qsa_vulkan_matches_hf_visible_block_selection_with_left_padding ... ok
+test transformer::tests::qwen_gdn_params_kernel_applies_the_pushed_beta_scale ... ok
+test transformer::tests::qwen4_two_branch_injection_chain_matches_hf_forward_and_backward ... ok
+test transformer::tests::tensor_store_row_gather_reads_only_requested_rows_in_requested_order ... ok
+test transformer::tests::token_embedding_padding_idx_matches_hf_architecture_contract ... ok
+test transformer::tests::sparse_attention_backward_matches_cpu_reference ... ok
+test transformer::tests::solar_open_generation_kv_cache_matches_full_prefix_logits ... ok
+test transformer::tests::transformer_layerdrop_sampling_is_deterministic_and_non_degenerate ... ok
+test transformer::tests::transformer_layerdrop_package_reads_hf_family_specific_fields ... ok
+test transformer::tests::parameter_streaming::source_first_dense_and_moe_preserve_logits_lora_and_adamw ... ok
+test transformer::tests::umt5_contract_uses_per_layer_relative_bias_t5_math_and_hf_defaults ... ok
+test transformer::tests::umt5_relative_attention_bias_loader_reads_every_decoder_layer ... ok
+test transformer::tests::vault_gemma_checkpoint_loader_reads_two_norms_and_optional_attention_biases ... ok
+test transformer::tests::vault_gemma_contract_matches_gemma2_attention_without_post_sublayer_norms ... ok
+test transformer::tests::xglm_checkpoint_loader_synthesizes_nonpersistent_positions_and_reads_hf_weights ... ok
+test transformer::tests::xglm_contract_maps_fixed_sinusoidal_positions_dropout_and_split_qkv ... ok
+test transformer::tests::parameter_streaming::graph_parameter_streaming_preserves_inference_lora_backward_and_adamw ... ok
+test transformer::tests::xglm_cross_attention_loader_reads_hf_encoder_attention_layout ... ok
+test transformer::tests::qwen_hybrid_moe_checkpoint_export_round_trips_gated_delta_and_shared_experts ... ok
+test transformer::tests::xlm_family_checkpoint_loader_reads_hf_names_and_tied_projection ... ok
+test transformer::tests::xlm_roberta_xl_contract_maps_hf_pre_norm_topology ... ok
+test transformer::tests::xlm_family_contract_maps_bidirectional_post_residual_encoder ... ok
+test transformer::tests::xlm_roberta_xl_checkpoint_loader_omits_embedding_norm_and_reads_xl_norm_keys ... ok
+test transformer::tests::sparse_gqa_attention_backward_matches_cpu_reference ... ok
+test transformer::tests::solar_open_checkpoint_export_round_trips_grouped_moe_and_shared_experts ... ok
+test transformer::tests::transformer_logit_softcap_matches_hugging_face_forward_and_backward ... ok
+test transformer::vision::cpu_gemm_tests::rdna3_hw_fma_vision_gate_is_rdna3_only ... ok
+test transformer::tests::t5_gemma_component_loaders_seq2seq_and_export_preserve_peer_component ... ok
+test transformer::tests::streamed_input_embedding_preserves_mllama_reserved_rows ... ok
+test transformer::vision::cpu_gemm_tests::rdna3_hw_fma_vision_modules_declare_the_expected_workgroup ... ok
+test transformer::tests::t5_native_encoder_loader_and_seq2seq_facade_use_source_side_contract ... ok
+test transformer::tests::streamed_output_head_preserves_tied_lookup_projection_and_export ... ok
+test transformer::vision::cpu_gemm_tests::rdna3_hw_fma_patch_linear_is_word_exact ... ok
+test transformer::tests::streamed_output_head_matches_resident_logits ... ok
+test transformer::tests::structured_generation_ignores_optional_output_flags_without_return_dict ... ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_gemm_limits_admission_to_measured_shapes ... ok
+test transformer::tests::two_pass_attention_backward_matches_scalar_gradients ... ok
+test transformer::vision::cpu_gemm_tests::image_text_cpu_attention_matches_frozen_eager_context ... ok
+test transformer::vision::cpu_gemm_tests::rdna3_hw_fma_vision_input_gradient_is_word_exact_and_measured ... ok
+test transformer::vision::cpu_gemm_tests::rdna3_hw_fma_operator_scale_ab ... ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_attention_frozen_context_is_word_exact ... ok
+test transformer::tests::transformer_clamp_matches_torch_clamp_edges ... ok
+test transformer::vision::cpu_gemm_tests::vision_unary_shader_diagnostic ... ignored, opt-in standalone SPIR-V unary diagnostic; never a pipeline acceptance gate
+test transformer::welford_small_tests::small_welford_admission_is_bounded_to_the_measured_adapter_and_width ... ok
+test transformer::vision::cpu_gemm_tests::rdna3_hw_fma_linear_matches_the_software_construction ... ok
+test vendor::tests::amd_matmul_measurements_do_not_admit_other_drivers_or_unmeasured_shapes ... ok
+test vendor::tests::attention_backward_budget_error_names_the_geometry_and_the_override ... ok
+test vendor::tests::attention_backward_budget_matches_the_measured_boundary ... ok
+test vendor::tests::attention_backward_key_blocks_split_only_the_strict_adjoint ... ok
+test vendor::tests::candidate_module_experiment_from_env ... ok
+test vendor::tests::committed_rdna3_modules_declare_their_capability_contract ... ok
+test vendor::tests::committed_vendor_modules_declare_their_capability_contract ... ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_gemm_frozen_panels_and_tails_are_word_exact ... ok
+test vendor::tests::gen9_pci_table_is_the_one_the_vendor_layer_publishes ... ok
+test vendor::tests::intel_matmul_geometry_gate_matches_the_measured_matrix ... ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_composed_text_attention_matches_frozen_eager_contexts ... ok
+test vendor::tests::native_fp16_lm_reliability_policy_is_scoped_to_intel_gen9 ... ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_projector_norm_matches_strided_forward_and_contiguous_adjoint ... ok
+test vendor::tests::portable_fallback_bytes_are_the_mainline_artifacts ... ok
+test vendor::tests::push_geometry_reads_the_leading_rows_input_output_words ... ok
+test vendor::tests::rdna3_classification_is_amd_pci_ids_only ... ok
+test transformer::vision::cpu_gemm_tests::rdna3_hw_fma_weight_gradient_is_word_exact_and_measured ... ok
+test vendor::tests::rdna3_geometry_gate_matches_the_portable_tiling_threshold ... ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_patch_convolution_dispatch_is_word_exact ... ok
+test vendor::tests::scalar_fallbacks_are_the_published_modules ... ok
+test transformer::vision::cpu_gemm_tests::vision_onednn_gelu_matches_frozen_active_cpu_dispatch ... ok
+test vendor::tests::unmeasured_fusion_replacement_is_scoped_to_the_qualified_intel_target ... ok
+test vendor::tests::vendor_classification_uses_pci_ids_not_names ... ok
+test vendor::tests::vendor_labels_round_trip_and_portable_alias_resolves_to_other ... ok
+test transformer::vision::cpu_gemm_tests::rdna3_hw_fma_vision_linear_is_word_exact_and_measured ... ok
+test vendor::tests::vendor_variants_preserve_the_host_dispatch_contract ... ok
+test vulkan::spirv_access::tests::reflects_embedded_read_write_and_inplace_buffers ... ok
+test vulkan::spirv_access::tests::requires_all_block_members_and_merges_aliased_declarations ... ok
+test vulkan::spirv_access::tests::unknown_sets_decorations_and_malformed_words_are_conservative ... ok
+test transformer::vision::cpu_gemm_tests::rdna3_hw_fma_vision_ab_geometry_matrix ... ok
+test vulkan::tests::amd_route_keys_identify_the_pci_adapter_and_driver_and_keep_intel_keys ... ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_builtin_gelu_is_word_exact ... ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_input_gradient_frozen_panels_and_tails_are_word_exact ... ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_layer_norm_backward_is_word_exact ... ok
+test transformer::vision::cpu_gemm_tests::vision_cpu_seq5_attention_matches_frozen_eager_context ... ok
+test vendor::tests::non_intel_devices_keep_the_portable_modules ... ok
+test vendor::tests::rdna3_devices_select_the_rdna3_modules ... ok
+test vulkan::tests::batched_read_reuses_the_open_session_submission ... ok
+test vulkan::tests::compute_pipeline_interning_distinguishes_shader_and_layout ... ok
+test vulkan::tests::abandoned_pending_clears_are_reclaimed_without_retaining_the_device ... ok
+test vendor::tests::families_without_variants_always_use_the_portable_module ... ok
+test vulkan::tests::device_group_transport_candidate_requires_shared_multi_device_group ... ok
+test vulkan::tests::compute_pipelines_share_driver_objects_and_preserve_kernel_access ... ok
+test vulkan::tests::gpu_job_boundary_policy_defaults_to_amd_and_scopes_the_gen9_port ... ok
+test vulkan::tests::gpu_job_boundary_policy_honors_explicit_override ... ok
+test vulkan::tests::gradient_transport_plan_keeps_staging_active_until_direct_probe_exists ... ok
+test vulkan::tests::kernel_profile_categories_keep_optimizer_mirror_costs_distinct ... ok
+test vulkan::tests::memory_pressure_bucket_is_coarse_bounded_context ... ok
+test vulkan::tests::opaque_external_memory_transport_candidate_requires_matching_uuids ... ok
+test vulkan::tests::opaque_external_transport_requires_gpu_semaphore_sync ... ok
+test vulkan::tests::overlapping_view_detection_distinguishes_overlap_from_distinct_ranges ... ok
+test vendor::tests::vendor_matmul_kernel_routes_dispatch_geometry_to_the_right_module ... ok
+test vulkan::tests::cloned_device_views_synchronize_shared_queue_and_command_pool_host_access ... ok
+test vendor::tests::intel_variants_are_bit_exact_with_portable_kernels ... ok
+test vulkan::tests::pooled_range_allocation_respects_alignment_and_preserves_slack ... ok
+test vulkan::tests::pooled_range_free_coalesces_adjacent_and_overlapping_ranges ... ok
+test vulkan::tests::deferred_zero_fill_does_not_pin_its_device ... ok
+test vulkan::tests::completed_compute_batches_reuse_command_buffers ... ok
+test vulkan::tests::bounded_pruning_reclaims_abandoned_entries_at_the_threshold ... ok
+test vulkan::tests::device_update_f32_at_writes_scalar_without_upload_staging ... ok
+test vulkan::tests::deferred_zero_fill_is_visible_to_a_host_readback ... ok
+test vendor::tests::scalar_schedule_reproduces_the_portable_kernels ... ok
+test vendor::tests::rdna3_variants_are_bit_exact_with_portable_kernels ... ok
+test vulkan::tests::pending_clear_drain_probes_only_bound_buffers ... ok
+test vulkan::tests::device_fill_f32_writes_pattern_without_upload_staging ... ok
+test vulkan::tests::recorded_weight_uploads_retire_together_inside_a_session ... ok
+test vulkan::tests::timestamp_delta_handles_wrapped_queue_timestamps ... ok
+test vulkan::tests::deferred_zero_fill_is_visible_to_the_first_dispatch ... ok
+test vulkan::tests::reflected_access_elides_shared_reads_and_orders_dependent_writes ... ok
+test vulkan::tests::scheduled_u32_uploads_preserve_bits_without_retiring_the_layer ... ok
+test vulkan::tests::scratch_slab_nonzero_offsets_bind_distinct_descriptor_ranges ... ok
+test vulkan::tests::watchdog_slice_budget_is_a_measured_bound_inside_a_measured_window ... ok
+test vulkan::tests::watchdog_slice_budget_is_per_dispatch_on_amd_and_length_based_on_gen9 ... ok
+test vulkan::tests::stale_pending_clear_cannot_fill_an_address_reused_allocation ... ok
+test vulkan::tests::timeline_submission_arena_defers_transient_scratch_reuse_until_epoch ... ok
+test vulkan::tests::submitted_compute_batch_keeps_copy_resources_alive_until_completion_wait ... ok
+test vulkan::tests::timeline_command_buffer_ring_reclaims_before_submission_owner_drop ... ok
+test weight_offload::tests::bf16_and_f16_decode_matches_their_f32_expansions ... ok
+test weight_offload::tests::bounded_read_decodes_exactly_the_previous_whole_file_values ... ok
+test weight_offload::tests::bulk_f32_decode_preserves_bits_and_unaligned_fallback_errors ... ok
+test weight_offload::tests::f32_row_tiles_and_full_materialization_read_through_the_cache ... ok
+test weight_offload::tests::flat_cache_eviction_disabled_reads_and_finite_checks_remain_bounded ... ok
+test vulkan::tests::watchdog_slice_budget_follows_the_measured_retirement_on_this_adapter ... ok
+test vulkan::tests::pending_clears_are_applied_once_per_allocation_without_cross_talk ... ok
+test weight_offload::tests::flat_views_reuse_physical_tiles_without_row_geometry_collisions ... ok
+test weight_offload::tests::logical_row_prefix_materializes_only_addressable_rows ... ok
+test weight_offload::tests::loading_many_tensors_reads_each_payload_once_and_parses_one_header ... ok
+test weight_offload::tests::residency_plans_fall_back_to_the_tiered_path_without_a_budget ... ok
+test weight_offload::tests::non_finite_and_unsupported_payloads_fail_closed ... ok
+test weight_offload::tests::retained_payload_handles_reopen_on_change_and_reject_missing_sources ... ok
+test weight_offload::tests::row_gather_rejects_out_of_range_rows_and_rank_1_tensors ... ok
+test vulkan::tests::timeline_submission_arena_detaches_local_upload_chunks_from_owner ... ok
+test vulkan::tests::pending_clear_is_consumed_only_by_its_allocating_thread ... ok
+test weight_offload::tests::host_cache_honours_its_byte_budget_and_evicts ... ok
+test wmma::tests::drift_and_agreement_metrics_are_self_consistent ... ok
+test wmma::tests::half_conversion_is_exact_round_to_nearest_even ... ok
+test wmma::tests::mode_parsing_is_explicit_and_rejects_unknown_values ... ok
+test weight_offload::tests::row_reads_touch_only_the_requested_bytes_and_reuse_host_tiles ... ok
+test weight_offload::tests::row_gather_pulls_each_wanted_tile_once_and_preserves_caller_order ... ok
+test wmma::tests::shape_admission_rejects_tiles_that_cannot_be_filled ... ok
+test weight_offload::tests::shared_packages_are_reused_across_callers_and_one_ledger ... ok
+test weight_offload::tests::sharded_packages_resolve_through_the_weight_map ... ok
+test vulkan::tests::transient_optimizer_scratch_suballocates_persistent_device_slab ... ok
+test vulkan::tests::unreachable_pending_clear_is_pruned_without_retaining_its_device ... ok
+test transformer::welford_small_tests::small_welford_matches_general_path_across_all_short_widths ... ok
+test vulkan::tests::watchdog_slice_budget_retires_on_accumulated_length ... ok
+test vulkan::tests::watchdog_submission_slicing_preserves_dependent_dispatch_results ... ok
+test vulkan::tests::unbound_zero_fill_is_retained_until_its_owner_binds_it ... ok
+test vulkan::tests::zero_filled_buffer_keeps_an_overwriting_upload ... ok
+test vulkan::tests::timeline_submission_arena_reuses_descriptor_pool_chunks ... ok
+test wmma_linear::tests::full_fp16_graph_widens_accumulators_in_all_three_phases ... ok
+test wmma::tests::plain_fp16_gemm_matches_mixed_oracle ... ok
+test wmma::tests::wmma_mixed_matches_matched_oracle ... ok
+test vulkan::tests::watchdog_slicing_is_wired_into_the_training_path_on_this_adapter ... ok
+test wmma_linear::tests::weight_mirror_is_reused_within_an_epoch_and_refreshed_after_a_step ... ok
+test wmma_linear::tests::ineligible_shapes_keep_their_own_kernel_and_are_counted ... ok
+test wmma::tests::unsupported_explicit_mode_reports_diagnostic ... ok
+test wmma::tests::wmma_full_fp16_matches_matched_oracle ... ok
+test wmma_linear::tests::mixed_linear_graph_path_matches_fp32_in_three_phases ... ok
+test transformer::tests::streamed_vocabulary_lora_training_resume_matches_resident ... ok
+test transformer::tests::load_time_output_head_streaming_bounds_allocations_and_preserves_logits ... ok
+
+test result: ok. 1157 passed; 0 failed; 40 ignored; 0 measured; 0 filtered out; finished in 38.94s
+
+EXIT=0

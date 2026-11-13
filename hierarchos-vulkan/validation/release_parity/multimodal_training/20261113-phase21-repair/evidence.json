@@ -1,0 +1,74 @@
+{
+  "schema": "hierarchos.phase21.repair.v1",
+  "created": "2026-11-13",
+  "source_revision": "91dda255d56d47fb4182a117b9c104480694a966",
+  "branch": "codex/rdna3-phase19-instrumented",
+  "protected_revision": "0483bcab17c0ad01872afb8bd5aa8bdc90e6b657",
+  "policy": {
+    "gemma4_cooperative_projections": ["self_attn.q_proj", "self_attn.k_proj"],
+    "gemma4_fp32_projections": ["self_attn.v_proj", "self_attn.o_proj", "mlp.gate_proj", "mlp.up_proj", "mlp.down_proj", "patch_projection"],
+    "vision_rms_limit": 0.003,
+    "vision_max_limit": 0.02,
+    "fp32_absolute_limit": 2e-07,
+    "thresholds_changed": false
+  },
+  "checks": {
+    "gemma4_wide_mixed": {
+      "status": "PASS_SCOPED",
+      "cooperative_dispatches": [44, 0],
+      "phases": [28, 8, 8],
+      "policy_fallbacks": 114,
+      "step2_vision_max_abs": 0.001407623291015625,
+      "step2_vision_rms": 0.00031492973139237037,
+      "step2_logits_max_abs": 0.00004801154136657715,
+      "reload_max_abs": 0.0,
+      "receipt_sha256": "70d9e823d41ab7189761e946e8f800df1040dfe27c7bb315b6b2f08770a8c786"
+    },
+    "wide_multimodal": {
+      "status": "PASS_SCOPED",
+      "cases": 9,
+      "failed": 0,
+      "receipt_sha256": "0346e2abf64528d7699241b588551e450339eb0358e55c303a453e85d99ccc51"
+    },
+    "full_fp16_oversized": {
+      "status": "PASS",
+      "tests_passed": 1,
+      "tests_failed": 0,
+      "log_sha256": "0c5f4abcfa93d35924b6e054ab4c6f313ab238404c5a7028daa125743f5c201d"
+    },
+    "shader_provenance": {
+      "status": "PASS",
+      "identical": 727,
+      "total": 727,
+      "glslang_version": "11:15.3.0",
+      "glslang_sha256": "64c49955b902968b5c0ab9cfb82a9bf441ae45fbce12876fcb64cac459cdf749",
+      "log_sha256": "4d9a0e5e6bc0e3c0e9a65f884d17419e82a1644c258bb96d3dba0a4a8630d344"
+    },
+    "rust_lib": {
+      "status": "PASS",
+      "passed": 1157,
+      "failed": 0,
+      "ignored": 40,
+      "log_sha256": "b6f8c254f207a0c69a887bb069ada4accee8b8a2ccfa3d681c44e66c8ecb764a"
+    }
+  },
+  "not_run": [
+    "CLI suite at 91dda25",
+    "GUI suite at 91dda25",
+    "93 maintained FP32 image cases at 91dda25 (historical 93/93 at 719b9c5)",
+    "166 FP32 text cases at 91dda25 (historical 166/166 at 719b9c5)",
+    "GitHub Actions at 91dda25"
+  ],
+  "blocked": [
+    "Phase XIX-W final-root matrix",
+    "Phase XIX-X final-root activation receipt",
+    "Phase XIX-Y final-root oracle receipt",
+    "Phase XIX-Z current-source receipt",
+    "self-hosted Windows Vulkan AMD packed-cell runner"
+  ],
+  "unqualified_historical": [
+    "194 of 1,116 strict intermediate diagnostics at 719b9c5",
+    "128-wide exploratory post-training strict difference approximately 2.24e-7",
+    "DeepSeek V4.1 stress maximum 4.76837158203125e-6"
+  ]
+}
