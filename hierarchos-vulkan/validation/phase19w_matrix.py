@@ -407,7 +407,7 @@ def _evidence_entry(path: Path | None) -> list[dict]:
     result = []
     if path is None:
         return result
-    path = Path(path)
+    path = Path(path).resolve()
     if not path.is_file():
         raise ValueError(f"missing evidence file: {path}")
     result.append({"path": path.relative_to(ROOT).as_posix(), "sha256": sha(path)})
