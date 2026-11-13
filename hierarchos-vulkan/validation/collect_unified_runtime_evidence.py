@@ -29,14 +29,18 @@ def main():
     p.add_argument('--cli',type=Path,required=True)
     p.add_argument('--bins',type=Path,required=True)
     p.add_argument('--gui-prefix',default='phase22-gui')
+    for name,filename in [('library','phase22-library-final.log'),('cli','phase22-cli-unit.log'),
+            ('gui','phase22-gui-unit.log'),('fallback','phase22-full-fallback-build-test-3.log'),
+            ('gui-hardware','phase22-gui-hardware-waited.log')]:
+        p.add_argument('--'+name+'-log',type=Path,default=ROOT/'target'/filename)
     a=p.parse_args();out=a.work.resolve();out.mkdir(parents=True,exist_ok=False)
     fixture=a.fixture.resolve();binary=a.cli.resolve();bins=a.bins.resolve()
-    tests={key:summary(ROOT/'target'/log,exe,floor) for key,log,exe,floor in [
-        ('library','phase22-library-final.log',a.libtest,1159),
-        ('cli','phase22-cli-unit.log',a.cli_test,50),('gui','phase22-gui-unit.log',a.gui_test,17),
-        ('oversized_fallback','phase22-full-fallback-build-test-3.log',a.libtest,1),
-        ('gui_hardware','phase22-gui-hardware-waited.log',a.gui_test,2)]}
-    fallback=(ROOT/'target/phase22-full-fallback-build-test-3.log').read_text()
+    tests={key:summary(log,exe,floor) for key,log,exe,floor in [
+        ('library',a.library_log,a.libtest,1159),
+        ('cli',a.cli_log,a.cli_test,50),('gui',a.gui_log,a.gui_test,17),
+        ('oversized_fallback',a.fallback_log,a.libtest,1),
+        ('gui_hardware',a.gui_hardware_log,a.gui_test,2)]}
+    fallback=a.fallback_log.read_text()
     require('reduction=128 forward=3 dW=3 dX=3' in fallback and 'cooperative delta=[0,0]' in fallback,'fallback test did not execute all FP32 phases')
     workflows=[]
     for mode in ('mixed','full-fp16'):
