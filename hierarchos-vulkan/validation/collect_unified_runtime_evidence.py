@@ -26,6 +26,7 @@ def main():
     p.add_argument('--libtest',type=Path,required=True)
     p.add_argument('--gui-test',type=Path,required=True)
     p.add_argument('--cli-test',type=Path,required=True)
+    p.add_argument('--model-fallback',type=Path,required=True)
     p.add_argument('--cli',type=Path,required=True)
     p.add_argument('--bins',type=Path,required=True)
     p.add_argument('--gui-prefix',default='phase22-gui')
@@ -42,6 +43,13 @@ def main():
         ('gui_hardware',a.gui_hardware_log,a.gui_test,2)]}
     fallback=a.fallback_log.read_text()
     require('reduction=128 forward=3 dW=3 dX=3' in fallback and 'cooperative delta=[0,0]' in fallback,'fallback test did not execute all FP32 phases')
+    model_fallback=json.loads(a.model_fallback.read_text())
+    require(model_fallback['status']=='PASS_INTERNAL_FALLBACK_ONLY','model fallback/export qualification failed')
+    tests['oversized_fallback']['model_export']={
+        key:model_fallback[key] for key in ('status','scope','binary_sha256','source_revision','source_sha256','fixture_sha256','checks','limits')}
+    tests['oversized_fallback']['model_export'].update(qualification_sha256=digest(a.model_fallback),
+        precision=model_fallback['reports']['full-fp16']['precision'],
+        optimizer_steps=[s['training']['text']['step'] for s in model_fallback['reports']['full-fp16']['steps']])
     workflows=[]
     for mode in ('mixed','full-fp16'):
         for name in ('vision','full','full-finetune','lora'):

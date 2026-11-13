@@ -67,6 +67,8 @@ class UnifiedReleaseControls(unittest.TestCase):
         self.reject(lambda d,p:p['gui_cli']['workflows'].__setitem__(0,p['gui_cli']['workflows'][1]))
     def test_primitive_from_another_executable(self):
         self.reject(lambda d,p:p['wmma_mixed']['producer'].update(binary_sha256='0'*64))
+    def test_oversized_model_fallback_must_execute(self):
+        self.reject(lambda d,p:p['tests']['oversized_fallback']['model_export']['precision'].update(full_fp16_reduction_fallbacks=0))
     def test_restored_scaler_history_is_required(self):
         def mutate(d,p):
             key=next(k for k in p['precision']['checks'] if k.startswith('vision-overflow-') and '/restored-state' in k)

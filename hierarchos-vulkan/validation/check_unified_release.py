@@ -160,6 +160,16 @@ def validate_payload(document,components):
     for name,floor in [('library',1159),('cli',50),('gui',17)]:
         r=tests[name];require(r['passed']>=floor and r['failed']==0 and r['exit_code']==0,'test suite failed or incomplete: '+name)
     require(tests['oversized_fallback']['passed']==1 and tests['oversized_fallback']['failed']==0,'real oversized fallback was not executed')
+    model_fallback=tests['oversized_fallback']['model_export']
+    bound('image_text_pipeline_probe',model_fallback['binary_sha256'])
+    require(model_fallback['status']=='PASS_INTERNAL_FALLBACK_ONLY' and model_fallback['optimizer_steps']==[1,2],
+            'internal oversized fallback/export execution incomplete')
+    require(model_fallback['precision']['full_fp16_reduction_fallbacks']>0
+            and model_fallback['precision']['mixed_fp32_accumulation']==0,'oversized model did not execute Full-policy FP32 fallback')
+    for key,row in model_fallback['checks'].items():
+        for value in ([row] if 'max_abs' in row else row.values()):
+            require(strict(value['max_abs'],.05) and strict(value['rms'],.01),'oversized fallback numerical check failed')
+            if '/reload/' in key:require(value['max_abs']==0,'oversized fallback export/reload diverged')
     gui=components['gui_cli'];require(gui['status']=='PASS' and len(gui['workflows'])==8,'GUI Start coverage incomplete')
     require({(r['workflow'],r['precision']['requested']) for r in gui['workflows']}==
             {(name,mode) for name in ('vision','full','full-finetune','lora') for mode in ('mixed','full-fp16')},
