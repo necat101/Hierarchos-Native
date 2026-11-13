@@ -1,7 +1,8 @@
 {
-  "schema": "hierarchos.phase21.repair.v1",
+  "schema": "hierarchos.phase21.repair.v2",
   "created": "2026-11-13",
-  "source_revision": "91dda255d56d47fb4182a117b9c104480694a966",
+  "source_revision": "b84bc91c71dba828f60ca06d77126869c4aec184",
+  "repair_revision": "49ebcdaab730c34e617adb5f04cc47bc2dcef9d7",
   "branch": "codex/rdna3-phase19-instrumented",
   "protected_revision": "0483bcab17c0ad01872afb8bd5aa8bdc90e6b657",
   "policy": {
@@ -46,23 +47,39 @@
     },
     "rust_lib": {
       "status": "PASS",
-      "passed": 1157,
+      "passed": 1158,
       "failed": 0,
       "ignored": 40,
-      "log_sha256": "b6f8c254f207a0c69a887bb069ada4accee8b8a2ccfa3d681c44e66c8ecb764a"
+      "log_sha256": "7fc7d5c09052f71680981eaf1f040d8512b90943101ba4aabfb6cbe2b5569779"
+    },
+    "phase19w": {
+      "status": "PASS",
+      "canonical_types": 146,
+      "aliases": 83,
+      "forward_replays": 166,
+      "generation_requests": 72,
+      "training_profiles": 32,
+      "matrix_sha256": "517e4245635682272b30e1e2547a1cc7f3d0c3e2e38d4d9bb689d4fdca6641a4"
+    },
+    "phase19x_attention": {
+      "status": "PASS",
+      "receipt": "phase19x/attention/current-qualification.json"
+    },
+    "packed_lora_target_order": {
+      "status": "PASS",
+      "regression_test": "lora_packed_tests::packed_target_parameters_use_geometry_when_config_order_is_sorted"
     }
   },
   "not_run": [
-    "CLI suite at 91dda25",
-    "GUI suite at 91dda25",
-    "93 maintained FP32 image cases at 91dda25 (historical 93/93 at 719b9c5)",
-    "166 FP32 text cases at 91dda25 (historical 166/166 at 719b9c5)",
-    "GitHub Actions at 91dda25"
+    "CLI suite at b84bc91",
+    "GUI suite at b84bc91",
+    "93 maintained FP32 image cases at b84bc91 (historical 93/93 at 719b9c5)",
+    "166 FP32 text cases at b84bc91 (historical 166/166 at 719b9c5)",
+    "GitHub Actions at b84bc91"
   ],
   "blocked": [
-    "Phase XIX-W final-root matrix",
-    "Phase XIX-X final-root activation receipt",
-    "Phase XIX-Y final-root oracle receipt",
+    "Phase XIX-X activity/drift receipt (missing drift export checkpoints)",
+    "Phase XIX-Y final-root receipt (missing recovered shape archive and current image-text fixtures)",
     "Phase XIX-Z current-source receipt",
     "self-hosted Windows Vulkan AMD packed-cell runner"
   ],

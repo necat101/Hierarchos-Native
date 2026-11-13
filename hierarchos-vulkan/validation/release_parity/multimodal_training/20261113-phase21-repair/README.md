@@ -1,17 +1,20 @@
-# Phase XXI numerical repair - 2026-11-13
+# Phase XXI numerical and compatibility repair - 2026-11-13
 
-Implementation revision: `91dda255d56d47fb4182a117b9c104480694a966`
+Implementation revision: `b84bc91c71dba828f60ca06d77126869c4aec184`
 Branch: `codex/rdna3-phase19-instrumented`
 Device: `AMD Radeon Graphics [pci=1002:15bf]`
 
-This record covers the Phase XXI repair only. It does not replace the
-`20261112-unified-release` Phase XIX-W/X/Y/Z receipts, which remain absent.
+This record covers the Phase XXI repair. Phase XIX-W and the attention half of
+Phase XIX-X were regenerated; Phase XIX-X activity/drift, Phase XIX-Y, Phase
+XIX-Z, and GitHub Actions remain blocked.
 
-## Numerical policy change
+## Gemma4 wide Mixed
 
-Gemma4 wide RGB Mixed previously failed the unchanged vision limit because
-rounding Q, K and V operands to FP16 is amplified by the parameter-free V norm.
-Independent eager replay isolated the contributions:
+**PASS_SCOPED** for `gemma4_rgb8`. Rounding Q and K operands stays inside the
+unchanged wide limits; V is the dominant error source because its parameter-free
+norm amplifies FP16 query/value quantization. V, output, and MLP projections
+therefore remain FP32 and are counted as policy fallbacks, not cooperative
+dispatches.
 
 | Rounded projections | Vision max | Vision RMS |
 |---|---:|---:|
@@ -21,15 +24,7 @@ Independent eager replay isolated the contributions:
 | V only | `8.26836e-03` | `2.56412e-03` |
 | Q + K + V | `8.29124e-03` | `2.56489e-03` |
 
-The policy therefore keeps Q and K on cooperative WMMA, and keeps V, the output
-projection, and the MLP projections on their FP32 kernels. Skipped projections
-are counted separately as `policy_fallbacks`; they are never added to the
-cooperative dispatch counters. No acceptance threshold was changed
-(`RMS <= 0.003`, `max <= 0.02`, strict FP32 `< 2e-7`).
-
-## Gemma4 wide Mixed
-
-**PASS_SCOPED** for `gemma4_rgb8`:
+Result:
 
 - Mixed dispatches `44`; phases forward/dW/dX `[28, 8, 8]`.
 - FP16-accumulating dispatches `0`; FP32 masters and optimizer state.
@@ -41,15 +36,14 @@ cooperative dispatch counters. No acceptance threshold was changed
 - Step-2 logits max `4.801154136657715e-05`, RMS
   `8.569628412135932e-06`.
 - Reload logits and vision features differ by `0.0`.
+- No threshold changed: RMS `<= 0.003`, max `<= 0.02`, strict FP32 `< 2e-7`.
 
-The earlier all-Q/K/V attempt failed with step-2 vision max
-`0.2756843566894531` and RMS `0.04629850713155045`; the all-FP32 attempt failed
-the cooperative-dispatch qualifier with zero dispatches. Neither result is
-promoted.
+The rejected all-Q/K/V attempt reached step-2 vision max
+`0.2756843566894531` / RMS `0.04629850713155045`; the all-FP32 attempt had zero
+cooperative dispatches and failed the qualifier. Neither is promoted.
 
 Receipt: `gemma4-wide.json`, SHA-256
 `70d9e823d41ab7189761e946e8f800df1040dfe27c7bb315b6b2f08770a8c786`.
-Runner source-file manifest is embedded in the receipt (1,549 files).
 Gemma4 binary SHA-256:
 `d5c76370dcd1e2cad4cbc24a15218675469a556e9d5621091373d967b3c1b957`.
 
@@ -64,16 +58,15 @@ Gemma4 binary SHA-256:
 
 Receipt: `wide-multimodal.json`, SHA-256
 `0346e2abf64528d7699241b588551e450339eb0358e55c303a453e85d99ccc51`.
-Binary SHA-256 values are recorded in the receipt.
 
 ## Scoped Full FP16 oversized reduction
 
 **PASS**, real GPU test
 `wmma_linear::tests::full_fp16_graph_widens_accumulators_in_all_three_phases`:
-1 passed, 0 failed, exit 0. The test exercises forward, dW and dX at K=64 with
-FP16 accumulation, then verifies a K=128 projection is rejected into the
-explicit FP32 path, increments `full_fp16_reduction_fallbacks` once, and does
-not increment either cooperative precision counter.
+1 passed, 0 failed, exit 0. Forward, dW, and dX at K=64 use FP16 accumulation;
+K=128 is rejected into the explicit FP32 path, increments
+`full_fp16_reduction_fallbacks` once, and leaves both cooperative precision
+counters unchanged.
 
 Log: `full-fp16-oversized.log`, SHA-256
 `0c5f4abcfa93d35924b6e054ab4c6f313ab238404c5a7028daa125743f5c201d`.
@@ -93,24 +86,55 @@ Expected hashes were not edited.
 
 ## Rust library suite
 
-**PASS**, current source: `1,157 passed; 0 failed; 40 ignored`, exit 0.
+**PASS**, current source: `1,158 passed; 0 failed; 40 ignored`, exit 0. This
+includes the new packed-target geometry regression test.
 
 Log: `rust-lib.log`, SHA-256
-`b6f8c254f207a0c69a887bb069ada4accee8b8a2ccfa3d681c44e66c8ecb764a`.
+`7fc7d5c09052f71680981eaf1f040d8512b90943101ba4aabfb6cbe2b5569779`.
+
+## Phase XIX-W
+
+**PASS**, current-source compatibility matrix:
+
+- 146 canonical types and 83 aliases.
+- 166 forward replays over 43 historical green profiles, all pass.
+- 72 generation requests over 18 profiles, all pass.
+- 32 PEFT training profiles, all pass.
+- 26 historical native architectures preserved; no regression.
+- Matrix SHA-256:
+  `517e4245635682272b30e1e2547a1cc7f3d0c3e2e38d4d9bb689d4fdca6641a4`
+  at
+  `hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19w-matrix.json`.
+
+The PEFT replay exposed an order-dependent Mixtral merge: a sorted
+`target_parameters` list made `gate_up_proj` and `down_proj` resolve to the
+other's tensor. The resolver now prefers the candidate whose packed geometry
+uniquely accepts the adapter A/B dimensions, retaining declaration order only
+when geometry is ambiguous. All 32 profiles then passed. Regression test:
+`lora_packed_tests::packed_target_parameters_use_geometry_when_config_order_is_sorted`.
+
+## Phase XIX-X
+
+Attention half: **PASS**. Fresh two-pass attention-backward evidence and its
+SPIR-V binding were installed at
+`phase19x/attention/current-qualification.json`.
+
+Activity/drift half: **BLOCKED**. The producer requires the missing
+`hierarchos-vulkan/target/phase19x/drift/exports/step-0010-*` checkpoints; no
+current-source receipt is claimed.
 
 ## Not run or not qualified here
 
 | Scope | Status | Detail |
 |---|---|---|
-| CLI suite | **NOT RUN** | Previous count at `719b9c5` was 50 passed; not rerun after `91dda25`. |
+| CLI suite | **NOT RUN** | Previous count at `719b9c5` was 50 passed; not rerun at `b84bc91`. |
 | GUI suite | **NOT RUN** | Previous count at `719b9c5` was 17 passed, 0 failed, 4 ignored; not rerun. |
-| 93 maintained FP32 image cases | **HISTORICAL ONLY** | 93/93 passed at `719b9c5`; FP32 arithmetic and its thresholds were not changed, but this root was not rerun at `91dda25`. |
-| 166 FP32 text cases | **HISTORICAL ONLY** | 166/166 passed at `719b9c5`; not rerun at `91dda25`. |
-| 1,116 strict intermediate diagnostics | **FAIL / UNQUALIFIED (historical)** | 194 failures at `719b9c5`, dominated by post-training feature drift. Not part of the frozen observable/update gate and not reset or retuned. |
-| 128-wide exploratory image geometry | **HISTORICAL / UNQUALIFIED** | Post-training strict difference approximately `2.24e-7`; it remains outside the 93-case gate. |
+| 93 maintained FP32 image cases | **HISTORICAL ONLY** | 93/93 passed at `719b9c5`; FP32 arithmetic was not changed, but this root was not rerun. |
+| 166 FP32 text cases | **HISTORICAL ONLY** | 166/166 passed at `719b9c5`; not rerun. |
+| 1,116 strict intermediate diagnostics | **FAIL / UNQUALIFIED (historical)** | 194 failures at `719b9c5`, dominated by post-training feature drift; not part of the frozen observable/update gate and not retuned. |
+| 128-wide exploratory image geometry | **HISTORICAL / UNQUALIFIED** | Post-training strict difference approximately `2.24e-7`; remains outside the 93-case gate. |
 | DeepSeek V4.1 stress | **HISTORICAL / UNQUALIFIED** | 32 strict failures, maximum `4.76837158203125e-06`; not promoted. |
-| Phase XIX-W matrix | **BLOCKED** | Final-root `phase19w-matrix.json` was not regenerated from current-source forward/generation evidence. |
-| Phase XIX-X activation | **BLOCKED** | Final-root `phase19x/current-qualification.json` and activation evidence are absent. |
-| Phase XIX-Y oracle bytes | **BLOCKED** | Final-root `phase19y/current-qualification.json` is absent. |
-| Phase XIX-Z | **BLOCKED** | Current-source `phase19z/current-qualification.json` remains absent; the old receipt fails closed on a changed shader. |
-| GitHub Actions | **NOT RUN / BLOCKED** | No new workflow conclusion is claimed; the self-hosted Windows Vulkan AMD packed-cell runner remains unavailable. |
+| Phase XIX-X activity/drift | **BLOCKED** | Missing drift export checkpoints. |
+| Phase XIX-Y | **BLOCKED** | The recovered shape archive (`gpt2-shapes-avx512-oracles.zip`) and a current image-text probe/fixture set are absent; the producer cannot rebind. |
+| Phase XIX-Z | **BLOCKED** | Current-source packed-cell receipt and the authorized self-hosted Windows Vulkan AMD runner are absent. |
+| GitHub Actions | **NOT RUN / BLOCKED** | No workflow conclusion is claimed. |
