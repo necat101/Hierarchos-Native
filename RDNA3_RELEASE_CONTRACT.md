@@ -52,6 +52,11 @@ the original FP32 kernels. A real K=128 GPU test now executes forward, dW and
 dX fallback, AdamW, and parameter/moment checkpoint restoration, matching the
 FP32 control bit for bit while both cooperative counters remain unchanged.
 This component checkpoint test does not advertise full-model optimizer resume.
+An additional internal 128-wide image/text run executes two joint updates,
+records 144 oversized FP32 reduction fallbacks, and exports real HF packages.
+Every retained final logit, vision feature and projected feature reloads
+bit-identically. This specifically tests the internal fallback/export route;
+the 128-wide package remains rejected by Full FP16 frontend admission.
 The Llama64/shared CLIP64 package and adapter/driver admission rules remain
 unchanged. Broad original primitive failures remain separate evidence.
 

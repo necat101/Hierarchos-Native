@@ -42,7 +42,8 @@ def main():
         'hierarchos-vulkan/src','hierarchos-vulkan/shaders','hierarchos-inference/src',
         'hierarchos-native-cli/src','hierarchos-gui/src',
         ':(glob)hierarchos-vulkan/validation/*.py',':(glob)hierarchos-vulkan/validation/*.json',
-        ':(glob)hierarchos-*/Cargo.toml',':(glob)hierarchos-*/Cargo.lock','.github/workflows'],text=True).splitlines()
+        ':(glob)hierarchos-*/Cargo.toml',':(glob)hierarchos-*/Cargo.lock','.github/workflows',
+        'RDNA3_RELEASE_CONTRACT.md'],text=True).splitlines()
     sources={name:digest(ROOT/name) for name in paths}
     binaries={name:dict(path=Path(value).resolve().relative_to(ROOT).as_posix(),sha256=digest(value))
               for name,value in inputs['binaries'].items()}

@@ -203,7 +203,7 @@ def verify(path=DEFAULT,*,check_subreceipts=True):
         'hierarchos-inference/src','hierarchos-native-cli/src','hierarchos-gui/src'],text=True).splitlines())
     required_sources.update({'hierarchos-vulkan/validation/check_unified_release.py',
         'hierarchos-vulkan/validation/qualify_unified_release.py','hierarchos-vulkan/validation/test_unified_release.py',
-        '.github/workflows/workspace-check.yml'})
+        '.github/workflows/workspace-check.yml','RDNA3_RELEASE_CONTRACT.md'})
     require(required_sources.issubset(document['source_files']),'unified runtime/source inventory incomplete')
     for relative,sha in document['source_files'].items():require(digest(ROOT/relative)==sha,'current source changed: '+relative)
     for relative,sha in document['evidence_files'].items():require(digest(base/relative)==sha,'release evidence changed: '+relative)
