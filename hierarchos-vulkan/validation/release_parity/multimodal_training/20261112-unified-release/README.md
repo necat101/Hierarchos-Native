@@ -1,5 +1,13 @@
 # Unified multimodal and WMMA release verification - 2026-11-12
 
+> **Phase XXI addendum (2026-11-13):** the Gemma4 wide Mixed failure was
+> repaired by keeping V/O/MLP on FP32 and admitting Q/K through cooperative
+> WMMA; shader provenance is now **727/727 PASS** with glslang 15.3.0. The
+> current-source Phase XIX-W matrix and Phase XIX-X attention receipt are
+> present. See `../20261113-phase21-repair/README.md` for final-source evidence.
+> Phase XIX-X activity/drift, Phase XIX-Y, Phase XIX-Z, and GitHub Actions
+> remain blocked. The tables below remain the historical `719b9c5` record.
+
 Implementation revision: `719b9c5430bf1ac15471b7d4e9024d832d7fdbfa`
 Branch: `codex/rdna3-phase19-instrumented`
 Device: `AMD Radeon Graphics [pci=1002:15bf;driver=00800184]`
