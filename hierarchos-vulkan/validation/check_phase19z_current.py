@@ -64,6 +64,12 @@ def verify_packed_status(document: dict, directory: Path | None = None,
     require(document.get("failures")==[], "packed-cell failures cannot qualify a release")
     results=document.get("results") or {}
     require(set(results)==names,"packed-cell result inventory changed")
+    if run_guards:
+        source_files=document.get('source_files') or {}
+        require(len(source_files)>100,'packed current-source binding is incomplete')
+        for name,sha in source_files.items():
+            path=crate.parent/name
+            require(path.is_file() and sha256_file(path)==sha,'packed source changed: '+name)
     for spec in ALL_SPECS:
         row=results[spec.name]
         require(row.get("bench")==0 and row.get("guard")==0, "packed benchmark/guard failed: "+spec.name)
