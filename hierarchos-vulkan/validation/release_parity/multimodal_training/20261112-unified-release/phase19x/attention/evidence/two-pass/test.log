@@ -1,0 +1,1338 @@
+warning: unused variable: `push`
+   --> src\deepseek_v41\mixed_moe_grad.rs:322:13
+    |
+322 |         let push = gate_push(c, rows);
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `push`
+    --> src\deepseek_v41\backbone.rs:2136:13
+     |
+2136 |         let push = MoeGatePush {
+     |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+
+warning: variable does not need to be mutable
+     --> src\full_training_graph.rs:20140:21
+      |
+20140 |                 let mut readback = GpuBuffer::uninitialized_host_f32(&source.device, len)?;
+      |                     ----^^^^^^^^
+      |                     |
+      |                     help: remove this `mut`
+      |
+      = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unreachable pattern
+    --> src\transformer\peft_state.rs:1528:21
+     |
+1528 |                     _ => {}
+     |                     ^ no value can reach this
+     |
+note: multiple earlier patterns match some of the same values
+    --> src\transformer\peft_state.rs:1528:21
+     |
+1482 |                       VulkanQwenGatedDeltaProjection::Qwen3Next { qkvz, ba, .. } => {
+     |                       ---------------------------------------------------------- matches some of the same values
+...
+1487 |                       VulkanQwenGatedDeltaProjection::Qwen35 { qkv, z, b, a } => {
+     |                       ------------------------------------------------------- matches some of the same values
+...
+1492 | /                     VulkanQwenGatedDeltaProjection::OlmoHybrid {
+1493 | |                         q, k, v, z, b, a, ..
+1494 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1499 | /                     VulkanQwenGatedDeltaProjection::Glm5 {
+1500 | |                         q,
+1501 | |                         k,
+1502 | |                         v,
+...    |
+1508 | |                         ..
+1509 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1528 |                       _ => {}
+     |                       ^ ...and 1 other patterns collectively make this unreachable
+     = note: `#[warn(unreachable_patterns)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+     --> src\transformer.rs:11763:13
+      |
+11763 |         let mut config = Self {
+      |             ----^^^^^^
+      |             |
+      |             help: remove this `mut`
+
+warning: unused variable: `layer_index`
+     --> src\transformer.rs:66696:5
+      |
+66696 |     layer_index: usize,
+      |     ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_layer_index`
+
+warning: variable does not need to be mutable
+    --> src\vulkan.rs:8189:9
+     |
+8189 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src\vulkan.rs:8349:9
+     |
+8349 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: type `ComputeBatch` is more private than the item `tap`
+    --> src\activation_trace.rs:112:1
+     |
+ 112 | / pub fn tap(
+ 113 | |     commands: &mut ComputeBatch,
+ 114 | |     buffer: &GpuBuffer,
+ 115 | |     len: usize,
+...    |
+ 118 | |     shape: [usize; 3],
+ 119 | | ) -> Result<()> {
+     | |_______________^ function `tap` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `Key` is more private than the item `PayloadCache::get`
+  --> src\deepseek_v41\checkpoint_cache.rs:75:5
+   |
+75 |     pub fn get(&mut self, key: &Key) -> Option<Arc<Vec<u8>>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `PayloadCache::get` is reachable at visibility `pub(in crate::deepseek_v41)`
+   |
+note: but type `Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+  --> src\deepseek_v41\checkpoint_cache.rs:31:1
+   |
+31 | pub(super) struct Key {
+   | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `Key` is more private than the item `PayloadCache::insert`
+   --> src\deepseek_v41\checkpoint_cache.rs:103:5
+    |
+103 |     pub fn insert(&mut self, key: Key, bytes: &[u8]) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `PayloadCache::insert` is reachable at visibility `pub(in crate::deepseek_v41)`
+    |
+note: but type `Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+   --> src\deepseek_v41\checkpoint_cache.rs:31:1
+    |
+ 31 | pub(super) struct Key {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer`
+    --> src\deepseek_v41\mixed_linear.rs:337:5
+     |
+ 337 | /     pub fn record_cast_buffer(
+ 338 | |         &self,
+ 339 | |         commands: &mut vulkan::ComputeBatch,
+ 340 | |         input: &GpuBuffer,
+ 341 | |         elements: usize,
+ 342 | |         precision: DeepseekV41WeightOutput,
+ 343 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_apply`
+    --> src\deepseek_v41\mixed_linear.rs:397:5
+     |
+ 397 | /     pub fn record_apply(
+ 398 | |         &self,
+ 399 | |         commands: &mut vulkan::ComputeBatch,
+ 400 | |         input: &GpuBuffer,
+...    |
+ 403 | |         precision: DeepseekV41WeightOutput,
+ 404 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_apply` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `WmmaGemm::record_conversion`
+    --> src\wmma.rs:649:5
+     |
+ 649 | /     pub fn record_conversion(
+ 650 | |         &self,
+ 651 | |         batch: &mut vulkan::ComputeBatch,
+ 652 | |         source_f32: &GpuBuffer,
+ 653 | |         destination_f16: &GpuBuffer,
+ 654 | |         len: usize,
+ 655 | |     ) -> Result<()> {
+     | |___________________^ method `WmmaGemm::record_conversion` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `WmmaGemm::record_gemm`
+    --> src\wmma.rs:671:5
+     |
+ 671 | /     pub fn record_gemm(
+ 672 | |         &self,
+ 673 | |         batch: &mut vulkan::ComputeBatch,
+ 674 | |         arm: WmmaGemmArm,
+...    |
+ 681 | |         layout: GemmLayout,
+ 682 | |     ) -> Result<()> {
+     | |___________________^ method `WmmaGemm::record_gemm` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `LinearWmma::record_forward`
+    --> src\wmma_linear.rs:263:5
+     |
+ 263 | /     pub fn record_forward(
+ 264 | |         &self,
+ 265 | |         commands: &mut vulkan::ComputeBatch,
+ 266 | |         input: &GpuBuffer,
+...    |
+ 269 | |         rows: usize,
+ 270 | |     ) -> Result<bool> {
+     | |_____________________^ method `LinearWmma::record_forward` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `LinearWmma::record_weight_grad`
+    --> src\wmma_linear.rs:305:5
+     |
+ 305 | /     pub fn record_weight_grad(
+ 306 | |         &self,
+ 307 | |         commands: &mut vulkan::ComputeBatch,
+ 308 | |         grad_output: &GpuBuffer,
+...    |
+ 311 | |         rows: usize,
+ 312 | |     ) -> Result<bool> {
+     | |_____________________^ method `LinearWmma::record_weight_grad` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `LinearWmma::record_input_grad`
+    --> src\wmma_linear.rs:343:5
+     |
+ 343 | /     pub fn record_input_grad(
+ 344 | |         &self,
+ 345 | |         commands: &mut vulkan::ComputeBatch,
+ 346 | |         grad_output: &GpuBuffer,
+...    |
+ 349 | |         rows: usize,
+ 350 | |     ) -> Result<bool> {
+     | |_____________________^ method `LinearWmma::record_input_grad` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeSession` is more private than the item `BatchHandle::Session::session`
+    --> src\vulkan.rs:5588:9
+     |
+5588 |         session: *mut ComputeSession,
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `BatchHandle::Session::session` is reachable at visibility `pub(crate)`
+     |
+note: but type `ComputeSession` is only usable at visibility `pub(self)`
+    --> src\vulkan.rs:5562:1
+     |
+5562 | struct ComputeSession {
+     | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled` is never used
+    --> src\lib.rs:3258:19
+     |
+1121 | impl HierarchosOutNormHeadTrainer {
+     | --------------------------------- method in this implementation
+...
+3258 |     pub(crate) fn record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled(
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `apply` is never used
+    --> src\deepseek_v41\backbone.rs:2392:8
+     |
+2391 | impl MoeExecution {
+     | ----------------- method in this implementation
+2392 |     fn apply(&self, input: &GpuBuffer, rows: usize) -> Result<GpuBuffer> {
+     |        ^^^^^
+
+warning: field `directory` is never read
+  --> src\deepseek_v41\model_train.rs:81:5
+   |
+78 | pub struct DeepseekV41ModelTrainer {
+   |            ----------------------- field in this struct
+...
+81 |     directory: PathBuf,
+   |     ^^^^^^^^^
+
+warning: field `alpha` is never read
+   --> src\deepseek_v41\train.rs:103:5
+    |
+101 | struct TrainableFactors {
+    |        ---------------- field in this struct
+102 |     rank: usize,
+103 |     alpha: f64,
+    |     ^^^^^
+    |
+    = note: `TrainableFactors` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `record_prepared_full_model_optimizer_step` and `finish_prepared_full_model_accumulation_wavefront` are never used
+     --> src\full_training_graph.rs:22904:8
+      |
+ 8187 | impl HierarchosTrainingGraph {
+      | ---------------------------- methods in this implementation
+...
+22904 |     fn record_prepared_full_model_optimizer_step(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+23391 |     fn finish_prepared_full_model_accumulation_wavefront(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `gradient` is never used
+   --> src\multimodal.rs:210:19
+    |
+ 78 | impl<'a> PreparedModalityRows<'a> {
+    | --------------------------------- method in this implementation
+...
+210 |     pub(crate) fn gradient(&self) -> Result<Vec<f32>> {
+    |                   ^^^^^^^^
+
+warning: methods `release_training_state` and `training_state_bytes` are never used
+   --> src\shared_lm_head.rs:456:19
+    |
+ 99 | impl SharedLmHeadParameter {
+    | -------------------------- methods in this implementation
+...
+456 |     pub(crate) fn release_training_state(&self) -> Result<()> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+465 |     pub(crate) fn training_state_bytes(&self) -> Result<usize> {
+    |                   ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `generation_sample_token` is never used
+    --> src\transformer.rs:4023:4
+     |
+4023 | fn generation_sample_token(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `uses_alibi_attention` and `uses_mask_relative_alibi_positions` are never used
+    --> src\transformer.rs:7456:8
+     |
+6070 | impl VulkanTransformerArchitecture {
+     | ---------------------------------- methods in this implementation
+...
+7456 |     fn uses_alibi_attention(self) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^
+...
+7460 |     fn uses_mask_relative_alibi_positions(self) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `gated_delta_recurrent` is never read
+     --> src\transformer.rs:26491:5
+      |
+26344 | struct TransformerKernels {
+      |        ------------------ field in this struct
+...
+26491 |     gated_delta_recurrent: vulkan::ComputeKernel,
+      |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `bump_wmma_epoch` is never used
+     --> src\transformer.rs:26737:8
+      |
+26562 | impl TransformerKernels {
+      | ----------------------- method in this implementation
+...
+26737 |     fn bump_wmma_epoch(&self) {
+      |        ^^^^^^^^^^^^^^^
+
+warning: trait `OptionalGpuBufferExt` is never used
+     --> src\transformer.rs:27628:7
+      |
+27628 | trait OptionalGpuBufferExt {
+      |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TIERED_LM_HEAD_MAX_TILE_ROWS` is never used
+     --> src\transformer.rs:27663:7
+      |
+27663 | const TIERED_LM_HEAD_MAX_TILE_ROWS: usize =
+      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_forward` is never used
+     --> src\transformer.rs:28334:8
+      |
+27707 | impl TieredLmHead {
+      | ----------------- method in this implementation
+...
+28334 |     fn record_forward(
+      |        ^^^^^^^^^^^^^^
+
+warning: method `training_state_bytes` is never used
+     --> src\transformer.rs:28701:8
+      |
+28591 | impl TrainableParameter {
+      | ----------------------- method in this implementation
+...
+28701 |     fn training_state_bytes(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: method `as_mut` is never used
+     --> src\transformer.rs:29047:8
+      |
+29038 | impl VulkanLoraBank {
+      | ------------------- method in this implementation
+...
+29047 |     fn as_mut(&mut self) -> Option<&mut VulkanLora> {
+      |        ^^^^^^
+
+warning: method `enable_lora` is never used
+     --> src\transformer.rs:29435:8
+      |
+29307 | impl VulkanLinear {
+      | ----------------- method in this implementation
+...
+29435 |     fn enable_lora(
+      |        ^^^^^^^^^^^
+
+warning: field `num_hidden_layers` is never read
+     --> src\transformer.rs:33906:5
+      |
+33905 | struct AlbertTopology {
+      |        -------------- field in this struct
+33906 |     num_hidden_layers: usize,
+      |     ^^^^^^^^^^^^^^^^^
+      |
+      = note: `AlbertTopology` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: function `decode_transformer_float_tensor` is never used
+     --> src\transformer.rs:36624:4
+      |
+36624 | fn decode_transformer_float_tensor(name: &str, tensor: TensorView<'_>) -> Result<HostFloatTensor> {
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `load_gpt2_weights` is never used
+     --> src\transformer.rs:40831:4
+      |
+40831 | fn load_gpt2_weights(
+      |    ^^^^^^^^^^^^^^^^^
+
+warning: function `load_llama_weights` is never used
+     --> src\transformer.rs:44555:4
+      |
+44555 | fn load_llama_weights(
+      |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `load_deepseek_v4_hca_compressors` is never used
+     --> src\transformer.rs:47078:4
+      |
+47078 | fn load_deepseek_v4_hca_compressors(
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `grad_attention_gate_values` is never read
+     --> src\transformer.rs:49448:5
+      |
+49378 | struct TransformerLayerTape {
+      |        -------------------- field in this struct
+...
+49448 |     grad_attention_gate_values: GpuBuffer,
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `input_dim` and `output_dim` are never used
+     --> src\transformer.rs:54421:8
+      |
+54360 | impl VulkanDeepseekV4GroupedLinear {
+      | ---------------------------------- methods in this implementation
+...
+54421 |     fn input_dim(&self) -> usize {
+      |        ^^^^^^^^^
+...
+54425 |     fn output_dim(&self) -> usize {
+      |        ^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> src\transformer.rs:54688:8
+      |
+54586 | impl VulkanDeepseekV4CsaOverlapCompressor {
+      | ----------------------------------------- method in this implementation
+...
+54688 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> src\transformer.rs:55324:8
+      |
+55279 | impl VulkanDeepseekV4CsaCompressor {
+      | ---------------------------------- method in this implementation
+...
+55324 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> src\transformer.rs:55509:8
+      |
+55408 | impl VulkanDeepseekV4HcaCompressor {
+      | ---------------------------------- method in this implementation
+...
+55509 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `key_hidden_size` is never used
+     --> src\transformer.rs:55825:8
+      |
+55670 | impl VulkanMlaAttention {
+      | ----------------------- method in this implementation
+...
+55825 |     fn key_hidden_size(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^
+
+warning: methods `record_forward` and `record_backward` are never used
+     --> src\transformer.rs:60973:8
+      |
+59375 | impl VulkanTransformerLayer {
+      | --------------------------- methods in this implementation
+...
+60973 |     fn record_forward(
+      |        ^^^^^^^^^^^^^^
+...
+62728 |     fn record_backward(
+      |        ^^^^^^^^^^^^^^^
+
+warning: methods `generation_last_logits_with_layer_count`, `generation_prefill_kv_cache`, `generate_beam_ids_with_context`, `generate_beam_ids_with_kv_cache`, and `generate_beam_ids_full_prefix_with_context` are never used
+     --> src\transformer.rs:80210:8
+      |
+67699 | impl VulkanTransformer {
+      | ---------------------- methods in this implementation
+...
+80210 |     fn generation_last_logits_with_layer_count(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+80647 |     fn generation_prefill_kv_cache(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+83008 |     fn generate_beam_ids_with_context(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+83648 |     fn generate_beam_ids_with_kv_cache(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+83782 |     fn generate_beam_ids_full_prefix_with_context(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `eps` is never read
+   --> src\transformer\gemma4_vision.rs:904:5
+    |
+886 | pub struct VulkanGemma4Vision {
+    |            ------------------ field in this struct
+...
+904 |     eps: f32,
+    |     ^^^
+
+warning: function `rdna3_vision_capability` is never used
+   --> src\vendor.rs:631:14
+    |
+631 | pub const fn rdna3_vision_capability(vendor_id: u32, device_id: u32) -> bool {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `physical_device` and `physical_device_index` are never read
+  --> src\vulkan.rs:38:5
+   |
+35 | struct DeviceInner {
+   |        ----------- fields in this struct
+...
+38 |     physical_device: vk::PhysicalDevice,
+   |     ^^^^^^^^^^^^^^^
+...
+72 |     physical_device_index: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+   Compiling hierarchos-vulkan v0.1.0 (C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan)
+warning: `hierarchos-vulkan` (lib) generated 52 warnings (run `cargo fix --lib -p hierarchos-vulkan` to apply 7 suggestions)
+warning: unused import: `collections::BTreeSet`
+  --> src\bin\activation_probe.rs:14:5
+   |
+14 |     collections::BTreeSet,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `epoch`
+   --> src\bin\held_out_eval.rs:647:17
+    |
+647 |             let epoch = index / batches_per_epoch;
+    |                 ^^^^^ help: if this is intentional, prefix it with an underscore: `_epoch`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `hierarchos-vulkan` (bin "held_out_eval" test) generated 1 warning (run `cargo fix --bin "held_out_eval" -p hierarchos-vulkan --tests` to apply 1 suggestion)
+warning: `hierarchos-vulkan` (bin "activation_probe" test) generated 1 warning (run `cargo fix --bin "activation_probe" -p hierarchos-vulkan --tests` to apply 1 suggestion)
+warning: variable does not need to be mutable
+    --> validation\..\src\vulkan.rs:8189:9
+     |
+8189 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> validation\..\src\vulkan.rs:8349:9
+     |
+8349 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: type `ComputeSession` is more private than the item `BatchHandle::Session::session`
+    --> validation\..\src\vulkan.rs:5588:9
+     |
+5588 |         session: *mut ComputeSession,
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `BatchHandle::Session::session` is reachable at visibility `pub(crate)`
+     |
+note: but type `ComputeSession` is only usable at visibility `pub(self)`
+    --> validation\..\src\vulkan.rs:5562:1
+     |
+5562 | struct ComputeSession {
+     | ^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: variable does not need to be mutable
+    --> src\bin\..\vulkan.rs:8189:9
+     |
+8189 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> src\bin\..\vulkan.rs:8349:9
+     |
+8349 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: type `ComputeSession` is more private than the item `BatchHandle::Session::session`
+    --> src\bin\..\vulkan.rs:5588:9
+     |
+5588 |         session: *mut ComputeSession,
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `BatchHandle::Session::session` is reachable at visibility `pub(crate)`
+     |
+note: but type `ComputeSession` is only usable at visibility `pub(self)`
+    --> src\bin\..\vulkan.rs:5562:1
+     |
+5562 | struct ComputeSession {
+     | ^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: `hierarchos-vulkan` (bin "attention_kernel_cache_check" test) generated 3 warnings (run `cargo fix --bin "attention_kernel_cache_check" -p hierarchos-vulkan --tests` to apply 2 suggestions)
+warning: `hierarchos-vulkan` (bin "placement_probe" test) generated 3 warnings (run `cargo fix --bin "placement_probe" -p hierarchos-vulkan --tests` to apply 2 suggestions)
+warning: `hierarchos-vulkan` (bin "onednn_gelu_probe" test) generated 3 warnings (3 duplicates)
+warning: `hierarchos-vulkan` (bin "reduction_kernel_validation" test) generated 3 warnings (3 duplicates)
+warning: `hierarchos-vulkan` (bin "matmul_kernel_validation" test) generated 3 warnings (3 duplicates)
+warning: `hierarchos-vulkan` (bin "gpu_primitive_probe" test) generated 3 warnings (3 duplicates)
+warning: variable does not need to be mutable
+  --> src\gpt2_cpu_math_tests.rs:64:13
+   |
+64 |         let mut resident = VulkanTransformer::from_hf_package_with_config(
+   |             ----^^^^^^^^
+   |             |
+   |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src\gpt2_cpu_math_tests.rs:71:13
+   |
+71 |         let mut streamed = VulkanTransformer::from_hf_package_with_streamed_parameters(
+   |             ----^^^^^^^^
+   |             |
+   |             help: remove this `mut`
+
+warning: type `vulkan::ComputeBatch` is more private than the item `tap`
+    --> src\activation_trace.rs:112:1
+     |
+ 112 | / pub fn tap(
+ 113 | |     commands: &mut ComputeBatch,
+ 114 | |     buffer: &GpuBuffer,
+ 115 | |     len: usize,
+...    |
+ 118 | |     shape: [usize; 3],
+ 119 | | ) -> Result<()> {
+     | |_______________^ function `tap` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `deepseek_v41::checkpoint::payload_cache::Key` is more private than the item `deepseek_v41::checkpoint::payload_cache::PayloadCache::get`
+  --> src\deepseek_v41\checkpoint_cache.rs:75:5
+   |
+75 |     pub fn get(&mut self, key: &Key) -> Option<Arc<Vec<u8>>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `deepseek_v41::checkpoint::payload_cache::PayloadCache::get` is reachable at visibility `pub(in crate::deepseek_v41)`
+   |
+note: but type `deepseek_v41::checkpoint::payload_cache::Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+  --> src\deepseek_v41\checkpoint_cache.rs:31:1
+   |
+31 | pub(super) struct Key {
+   | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `deepseek_v41::checkpoint::payload_cache::Key` is more private than the item `deepseek_v41::checkpoint::payload_cache::PayloadCache::insert`
+   --> src\deepseek_v41\checkpoint_cache.rs:103:5
+    |
+103 |     pub fn insert(&mut self, key: Key, bytes: &[u8]) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `deepseek_v41::checkpoint::payload_cache::PayloadCache::insert` is reachable at visibility `pub(in crate::deepseek_v41)`
+    |
+note: but type `deepseek_v41::checkpoint::payload_cache::Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+   --> src\deepseek_v41\checkpoint_cache.rs:31:1
+    |
+ 31 | pub(super) struct Key {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer`
+    --> src\deepseek_v41\mixed_linear.rs:337:5
+     |
+ 337 | /     pub fn record_cast_buffer(
+ 338 | |         &self,
+ 339 | |         commands: &mut vulkan::ComputeBatch,
+ 340 | |         input: &GpuBuffer,
+ 341 | |         elements: usize,
+ 342 | |         precision: DeepseekV41WeightOutput,
+ 343 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_apply`
+    --> src\deepseek_v41\mixed_linear.rs:397:5
+     |
+ 397 | /     pub fn record_apply(
+ 398 | |         &self,
+ 399 | |         commands: &mut vulkan::ComputeBatch,
+ 400 | |         input: &GpuBuffer,
+...    |
+ 403 | |         precision: DeepseekV41WeightOutput,
+ 404 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_apply` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma::WmmaGemm::record_conversion`
+    --> src\wmma.rs:649:5
+     |
+ 649 | /     pub fn record_conversion(
+ 650 | |         &self,
+ 651 | |         batch: &mut vulkan::ComputeBatch,
+ 652 | |         source_f32: &GpuBuffer,
+ 653 | |         destination_f16: &GpuBuffer,
+ 654 | |         len: usize,
+ 655 | |     ) -> Result<()> {
+     | |___________________^ method `wmma::WmmaGemm::record_conversion` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma::WmmaGemm::record_gemm`
+    --> src\wmma.rs:671:5
+     |
+ 671 | /     pub fn record_gemm(
+ 672 | |         &self,
+ 673 | |         batch: &mut vulkan::ComputeBatch,
+ 674 | |         arm: WmmaGemmArm,
+...    |
+ 681 | |         layout: GemmLayout,
+ 682 | |     ) -> Result<()> {
+     | |___________________^ method `wmma::WmmaGemm::record_gemm` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma_linear::LinearWmma::record_forward`
+    --> src\wmma_linear.rs:263:5
+     |
+ 263 | /     pub fn record_forward(
+ 264 | |         &self,
+ 265 | |         commands: &mut vulkan::ComputeBatch,
+ 266 | |         input: &GpuBuffer,
+...    |
+ 269 | |         rows: usize,
+ 270 | |     ) -> Result<bool> {
+     | |_____________________^ method `wmma_linear::LinearWmma::record_forward` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma_linear::LinearWmma::record_weight_grad`
+    --> src\wmma_linear.rs:305:5
+     |
+ 305 | /     pub fn record_weight_grad(
+ 306 | |         &self,
+ 307 | |         commands: &mut vulkan::ComputeBatch,
+ 308 | |         grad_output: &GpuBuffer,
+...    |
+ 311 | |         rows: usize,
+ 312 | |     ) -> Result<bool> {
+     | |_____________________^ method `wmma_linear::LinearWmma::record_weight_grad` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `vulkan::ComputeBatch` is more private than the item `wmma_linear::LinearWmma::record_input_grad`
+    --> src\wmma_linear.rs:343:5
+     |
+ 343 | /     pub fn record_input_grad(
+ 344 | |         &self,
+ 345 | |         commands: &mut vulkan::ComputeBatch,
+ 346 | |         grad_output: &GpuBuffer,
+...    |
+ 349 | |         rows: usize,
+ 350 | |     ) -> Result<bool> {
+     | |_____________________^ method `wmma_linear::LinearWmma::record_input_grad` is reachable at visibility `pub`
+     |
+note: but type `vulkan::ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5459:1
+     |
+5459 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `hidden_bits` is never read
+  --> src\deepseek_v41\terminal_tests.rs:27:5
+   |
+14 | struct Fixture {
+   |        ------- field in this struct
+...
+27 |     hidden_bits: Vec<u32>,
+   |     ^^^^^^^^^^^
+
+warning: method `release_training_state` is never used
+   --> src\shared_lm_head.rs:456:19
+    |
+ 99 | impl SharedLmHeadParameter {
+    | -------------------------- method in this implementation
+...
+456 |     pub(crate) fn release_training_state(&self) -> Result<()> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `hierarchos-vulkan` (lib test) generated 36 warnings (22 duplicates) (run `cargo fix --lib -p hierarchos-vulkan --tests` to apply 2 suggestions)
+    Finished `release` profile [optimized] target(s) in 20m 45s
+     Running unittests src\lib.rs (target\release\deps\hierarchos_vulkan-8c8d2140efff5506.exe)
+
+running 1 test
+[fixture-causal] batch=8 heads=8 seq=64 head_dim=128 causal=1 masked=false unwritten=0 grad_q: elements=524288 bitwise_equal=524288 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[fixture-causal] batch=8 heads=8 seq=64 head_dim=128 causal=1 masked=false unwritten=0 grad_k: elements=524288 bitwise_equal=524288 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[fixture-causal] batch=8 heads=8 seq=64 head_dim=128 causal=1 masked=false unwritten=0 grad_v: elements=524288 bitwise_equal=524288 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[fixture-full] batch=8 heads=8 seq=64 head_dim=128 causal=0 masked=false unwritten=0 grad_q: elements=524288 bitwise_equal=524288 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[fixture-full] batch=8 heads=8 seq=64 head_dim=128 causal=0 masked=false unwritten=0 grad_k: elements=524288 bitwise_equal=524288 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[fixture-full] batch=8 heads=8 seq=64 head_dim=128 causal=0 masked=false unwritten=0 grad_v: elements=524288 bitwise_equal=524288 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[padded-causal] batch=2 heads=2 seq=16 head_dim=64 causal=1 masked=true unwritten=0 grad_q: elements=4096 bitwise_equal=4096 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[padded-causal] batch=2 heads=2 seq=16 head_dim=64 causal=1 masked=true unwritten=0 grad_k: elements=4096 bitwise_equal=4096 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[padded-causal] batch=2 heads=2 seq=16 head_dim=64 causal=1 masked=true unwritten=0 grad_v: elements=4096 bitwise_equal=4096 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[small-causal] batch=1 heads=1 seq=4 head_dim=4 causal=1 masked=false unwritten=0 grad_q: elements=16 bitwise_equal=16 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[small-causal] batch=1 heads=1 seq=4 head_dim=4 causal=1 masked=false unwritten=0 grad_k: elements=16 bitwise_equal=16 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[small-causal] batch=1 heads=1 seq=4 head_dim=4 causal=1 masked=false unwritten=0 grad_v: elements=16 bitwise_equal=16 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+test transformer::tests::two_pass_attention_backward_matches_scalar_gradients ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1191 filtered out; finished in 6.22s
+
+     Running unittests src\bin\activation_probe.rs (target\release\deps\activation_probe-ec36fd3127a0559f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests validation\attention_kernel_cache_check.rs (target\release\deps\attention_kernel_cache_check-4b190c08966e6634.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.00s
+
+     Running unittests src\bin\coverage_record.rs (target\release\deps\coverage_record-36dd1d613615aec2.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\cpu_adamw_probe.rs (target\release\deps\cpu_adamw_probe-38355f95784ae4af.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\full_training_graph_loss_coupling.rs (target\release\deps\full_training_graph_loss_coupling-fa989286bd060a6d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\gemma3_vision_probe.rs (target\release\deps\gemma3_vision_probe-2ef0b91028783cde.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\gemma4_vision_probe.rs (target\release\deps\gemma4_vision_probe-087d2973fa2f5899.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\gpu_primitive_probe.rs (target\release\deps\gpu_primitive_probe-f34e02854e4aefdb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.00s
+
+     Running unittests src\bin\held_out_eval.rs (target\release\deps\held_out_eval-3bc53f78db355e80.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\adapter_step.rs (target\release\deps\hierarchos_vulkan_adapter_step-37758280e2fad424.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\control_parity.rs (target\release\deps\hierarchos_vulkan_control_parity-d0cf070e2f3a53c4.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\deepseek_v41_forward_probe.rs (target\release\deps\hierarchos_vulkan_deepseek_v41_forward_probe-dcf00a743ab2afe4.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\vulkan_devices.rs (target\release\deps\hierarchos_vulkan_devices-f7b8888bd701e6ef.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\full_training_graph_fusion.rs (target\release\deps\hierarchos_vulkan_full_training_graph_fusion-092d535aa0c8c793.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\full_training_graph_inspect.rs (target\release\deps\hierarchos_vulkan_full_training_graph_inspect-17955d92775ffeac.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\full_training_graph_projection_coupling.rs (target\release\deps\hierarchos_vulkan_full_training_graph_projection_coupling-dc15283db2ebd11e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\head_step.rs (target\release\deps\hierarchos_vulkan_head_step-5fa4e6b20a2a2821.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\labeled_sequence_parity.rs (target\release\deps\hierarchos_vulkan_labeled_sequence_parity-15c91be6bc225fb8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running unittests src\bin\manager_hard_act_parity.rs (target\release\deps\hierarchos_vulkan_manager_hard_act_parity-ec7661d8262db8f5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\optimizer_inspect.rs (target\release\deps\hierarchos_vulkan_optimizer_inspect-0590d1d18dc0e5d5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\out_norm_step.rs (target\release\deps\hierarchos_vulkan_out_norm_step-792d5ea4526a5cd0.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\package_step.rs (target\release\deps\hierarchos_vulkan_package_step-c53ebd5d73a4a1db.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\projection_step.rs (target\release\deps\hierarchos_vulkan_projection_step-17bb7c6f15a76c5f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\raw_token_resume_step.rs (target\release\deps\hierarchos_vulkan_raw_token_resume_step-eef6f9999181fb43.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\raw_token_tape_parity.rs (target\release\deps\hierarchos_vulkan_raw_token_tape_parity-20adaea919fab634.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\raw_token_training_graph_smoke.rs (target\release\deps\hierarchos_vulkan_raw_token_training_graph_smoke-43b532c2a4d68b44.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rosa_vulkan_persistence_parity.rs (target\release\deps\hierarchos_vulkan_rosa_persistence_parity-c9b8768380d4d624.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_adapter_channel_mix_step.rs (target\release\deps\hierarchos_vulkan_rwkv_adapter_channel_mix_step-a813a756d7bbbb7b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_cell_slice_step.rs (target\release\deps\hierarchos_vulkan_rwkv_cell_slice_step-6cc59dc58ac93888.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_channel_mix_step.rs (target\release\deps\hierarchos_vulkan_rwkv_channel_mix_step-bea881171dce8574.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_full_time_mix_step.rs (target\release\deps\hierarchos_vulkan_rwkv_full_time_mix_step-bf9ae03db52f6daa.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_fused_time_mix_step.rs (target\release\deps\hierarchos_vulkan_rwkv_fused_time_mix_step-c8486bbf938e098d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_key_state_forward_bench.rs (target\release\deps\hierarchos_vulkan_rwkv_key_state_forward_bench-f09eb8795f846496.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_low_rank_dw_bench.rs (target\release\deps\hierarchos_vulkan_rwkv_low_rank_dw_bench-9063b96ba8ccec6a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_low_rank_fp16_forward_bench.rs (target\release\deps\hierarchos_vulkan_rwkv_low_rank_fp16_forward_bench-2acd13a6a5cb76cb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_low_rank_step.rs (target\release\deps\hierarchos_vulkan_rwkv_low_rank_step-43b33b89b46a7bc6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_packed_cell_channel_mix_bench.rs (target\release\deps\hierarchos_vulkan_rwkv_packed_cell_channel_mix_bench-1e7ee98a72b43ae9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_packed_cell_low_rank_forward_bench.rs (target\release\deps\hierarchos_vulkan_rwkv_packed_cell_low_rank_forward_bench-17afecc94a50741a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_packed_cell_step.rs (target\release\deps\hierarchos_vulkan_rwkv_packed_cell_step-28106c9bf73106be.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_packed_cell_time_mix_bench.rs (target\release\deps\hierarchos_vulkan_rwkv_packed_cell_time_mix_bench-4afd8bac691bfc68.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_packed_state_step.rs (target\release\deps\hierarchos_vulkan_rwkv_packed_state_step-06a8bcc5eb239fb8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_state_step.rs (target\release\deps\hierarchos_vulkan_rwkv_state_step-63ea7d57ddb12332.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_tbptt_branch_accumulation.rs (target\release\deps\hierarchos_vulkan_rwkv_tbptt_branch_accumulation-cdd69557a1986ab5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_tbptt_fork_parity.rs (target\release\deps\hierarchos_vulkan_rwkv_tbptt_fork_parity-54ef8c55ca0b225d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_tbptt_packed_chains_bench.rs (target\release\deps\hierarchos_vulkan_rwkv_tbptt_packed_chains_bench-7524b06cb809a389.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_tbptt_sequence_step.rs (target\release\deps\hierarchos_vulkan_rwkv_tbptt_sequence_step-d24c3e0c85874fcd.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_tbptt_time_mix_bench.rs (target\release\deps\hierarchos_vulkan_rwkv_tbptt_time_mix_bench-f2dd459c454d9f72.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_time_mix_core_step.rs (target\release\deps\hierarchos_vulkan_rwkv_time_mix_core_step-1787741461506ab1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\token_frontend_parity.rs (target\release\deps\hierarchos_vulkan_token_frontend_parity-12cebdf98cdf543a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\token_memory_frontend_parity.rs (target\release\deps\hierarchos_vulkan_token_memory_frontend_parity-fb2414ed5eb402ca.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\train.rs (target\release\deps\hierarchos_vulkan_train-5f89aae667fb2a77.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running unittests src\bin\hierarchos-vulkan-training-qualification.rs (target\release\deps\hierarchos_vulkan_training_qualification-24e37e0bb9c34bdb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\training_submission_bench.rs (target\release\deps\hierarchos_vulkan_training_submission_bench-c5d66a387d53e466.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\transformer_logits.rs (target\release\deps\hierarchos_vulkan_transformer_logits-0c487f5663c7d082.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\transformer_train.rs (target\release\deps\hierarchos_vulkan_transformer_train-37da15459d0bb8ca.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running unittests src\bin\worker_refinement_loss_parity.rs (target\release\deps\hierarchos_vulkan_worker_refinement_loss_parity-7736fa04e59b396f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\image_text_pipeline_probe.rs (target\release\deps\image_text_pipeline_probe-ad23fbaab74e3579.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\llava_pipeline_probe.rs (target\release\deps\llava_pipeline_probe-76a11a91dbf44fb1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\matmul_kernel_validation.rs (target\release\deps\matmul_kernel_validation-d654b46251a0ac57.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.00s
+
+     Running unittests src\bin\multimodal_training_probe.rs (target\release\deps\multimodal_training_probe-a3a19bf7bd9fb769.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\onednn_gelu_probe.rs (target\release\deps\onednn_gelu_probe-e6fb758468e5c9b6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.00s
+
+     Running unittests src\bin\parameter_streaming_bench.rs (target\release\deps\parameter_streaming_bench-6bc9b9953aad70ea.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\peft_bank_parity.rs (target\release\deps\peft_bank_parity-1556f3eefe622ad3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\peft_checkpoint.rs (target\release\deps\peft_checkpoint-00ab6d81ecc0f64e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\placement_probe.rs (target\release\deps\placement_probe-932c3a97f65288c2.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.00s
+
+     Running unittests src\bin\reduction_kernel_validation.rs (target\release\deps\reduction_kernel_validation-b23b7a695d55cf4d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.00s
+
+     Running unittests src\bin\rwkv_tbptt_packed_forward_parity.rs (target\release\deps\rwkv_tbptt_packed_forward_parity-6ad454c80a1cb107.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\training-stability.rs (target\release\deps\training_stability-37b52bff858c8a72.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\training_step_probe.rs (target\release\deps\training_step_probe-770d3b27ac2b147c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\transformer_generation_parity.rs (target\release\deps\transformer_generation_parity-aba9f1077df56f63.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\transformer_parity.rs (target\release\deps\transformer_parity-46a0321274203691.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\wmma_bench.rs (target\release\deps\wmma_bench-bd0e3cff9c2f7cba.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\wmma_drift.rs (target\release\deps\wmma_drift-0226130bf764fb8e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\wmma_probe.rs (target\release\deps\wmma_probe-25555eb30fcda143.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\wmma_qualify.rs (target\release\deps\wmma_qualify-8159d9f8ab902bf5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+TEST_EXIT=0
