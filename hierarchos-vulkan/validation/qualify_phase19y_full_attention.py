@@ -198,7 +198,7 @@ def main() -> int:
         "source_files": sources,
         "binaries": {
             "image_text_pipeline_probe": {
-                "path": "target/debug/image_text_pipeline_probe.exe",
+                "path": args.binary.resolve().relative_to(CRATE).as_posix(),
                 "sha256": digest(args.binary),
             }
         },

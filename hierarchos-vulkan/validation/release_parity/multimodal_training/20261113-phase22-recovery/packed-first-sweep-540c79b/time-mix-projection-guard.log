@@ -1,0 +1,7 @@
+time-mix-projection: batch  1: fused        fused   1.202 ms  staged   1.200 ms
+time-mix-projection: batch  4: fused        fused   2.880 ms  staged   2.968 ms
+time-mix-projection: batch  8: withheld     fused   4.032 ms  staged   4.084 ms
+time-mix-projection: batch 16: fused        fused   8.565 ms  staged   9.007 ms
+time-mix-projection: batch 32: withheld     fused  14.614 ms  staged  14.522 ms
+PASS: time-mix-projection is measured across batch 1, 4, 8, 16, 32 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184], and its record follows it; 2 geometry(ies) are measured but withheld from the runtime because their graphs are not bit-identical
+PASS: 1 receipt(s) re-checked against the record(s) they consume: time-mix-projection

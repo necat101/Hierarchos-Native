@@ -149,6 +149,10 @@ def validate_payload(document,components):
         q=components[key];require(q['pass'] and q['status_counts']=={'identical':count} and len(q['shaders'])==count,'shader reproduction failed')
     tests=components['tests']
     bound('libtest',tests['library']['binary_sha256'])
+    bound('cli_test',tests['cli']['binary_sha256'])
+    bound('gui_test',tests['gui']['binary_sha256'])
+    bound('libtest',tests['oversized_fallback']['binary_sha256'])
+    bound('gui_test',tests['gui_hardware']['binary_sha256'])
     for name,floor in [('library',1159),('cli',50),('gui',17)]:
         r=tests[name];require(r['passed']>=floor and r['failed']==0 and r['exit_code']==0,'test suite failed or incomplete: '+name)
     require(tests['oversized_fallback']['passed']==1 and tests['oversized_fallback']['failed']==0,'real oversized fallback was not executed')

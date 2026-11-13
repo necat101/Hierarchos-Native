@@ -19,10 +19,16 @@ class FullAttentionNegativeControls(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.document = load(RECEIPT)
-        cls.binary_root = CRATE / "target/debug"
+        cls.binary_root = CRATE / Path(cls.document["binaries"]["image_text_pipeline_probe"]["path"]).parent
 
     def test_positive_receipt_validates(self):
         validate(self.document, RECEIPT.parent, binary_root=self.binary_root)
+
+    def test_executable_path_cannot_escape_crate(self):
+        document = copy.deepcopy(self.document)
+        document["binaries"]["image_text_pipeline_probe"]["path"] = "../target/release/image_text_pipeline_probe.exe"
+        with self.assertRaises(ValueError):
+            validate(document, RECEIPT.parent, binary_root=self.binary_root)
 
     def test_all_controls_are_rejected(self):
         result = run_negative_controls(self.document, RECEIPT.parent,

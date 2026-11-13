@@ -1,0 +1,1 @@
+FAIL: tbptt-backward-fusion: batch 1: the record names 'folded', but this receipt measures 'fused' ahead by 6.0%, outside the 2% noise band; the record is stale

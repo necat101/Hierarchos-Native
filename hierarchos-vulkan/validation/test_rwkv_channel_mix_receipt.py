@@ -36,7 +36,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parent
 RECEIPT = ROOT / "validation" / "packed_cell_channel_mix_bench.json"
-DECISIONS = ROOT / "validation" / "channel_mix_forward_decisions.json"
+# This Intel promotion snapshot is historical. The current AMD sweep is checked
+# separately by check_measured_producer_routes against its live decision table.
+DECISIONS = (ROOT / "validation/release_parity/multimodal_training" /
+             "20261113-phase22-recovery/decision-tables-before/channel_mix_forward_decisions.json")
 HARNESS = ROOT / "validation" / "bench_rwkv_packed_cell_channel_mix.py"
 
 TENSORS = {"output", "packed_new_state", "grad_x", "grad_packed_state", "token_feature_grad"}

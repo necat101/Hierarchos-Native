@@ -25,6 +25,7 @@ def main():
     p.add_argument('--precision-run',type=Path,required=True)
     p.add_argument('--libtest',type=Path,required=True)
     p.add_argument('--gui-test',type=Path,required=True)
+    p.add_argument('--cli-test',type=Path,required=True)
     p.add_argument('--cli',type=Path,required=True)
     p.add_argument('--bins',type=Path,required=True)
     p.add_argument('--gui-prefix',default='phase22-gui')
@@ -32,7 +33,7 @@ def main():
     fixture=a.fixture.resolve();binary=a.cli.resolve();bins=a.bins.resolve()
     tests={key:summary(ROOT/'target'/log,exe,floor) for key,log,exe,floor in [
         ('library','phase22-library-final.log',a.libtest,1159),
-        ('cli','phase22-cli-unit.log',binary,50),('gui','phase22-gui-unit.log',a.gui_test,17),
+        ('cli','phase22-cli-unit.log',a.cli_test,50),('gui','phase22-gui-unit.log',a.gui_test,17),
         ('oversized_fallback','phase22-full-fallback-build-test-3.log',a.libtest,1),
         ('gui_hardware','phase22-gui-hardware-waited.log',a.gui_test,2)]}
     fallback=(ROOT/'target/phase22-full-fallback-build-test-3.log').read_text()

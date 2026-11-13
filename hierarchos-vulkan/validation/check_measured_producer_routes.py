@@ -83,6 +83,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATION = ROOT / "validation"
+# Canonical live receipts follow the release candidate. Older root-level A/B
+# snapshots remain immutable historical evidence of their original route tables.
+CURRENT_RECEIPTS = (VALIDATION / "release_parity" / "multimodal_training" /
+                    "20261112-unified-release" / "phase19z" / "packed-cell")
 
 PACKED_TENSORS = frozenset(
     {"output", "packed_new_state", "grad_x", "grad_packed_state", "token_feature_grad"}
@@ -214,7 +218,7 @@ PRODUCERS: tuple[Producer, ...] = (
         driver="hierarchos-vulkan/validation/bench_rwkv_packed_cell_time_mix.py",
         bench_args=("--iterations", "20", "--warmup", "5"),
         guard_label="Time-mix projection route across the sweep",
-        receipt=VALIDATION / "packed_cell_time_mix_bench.json",
+        receipt=CURRENT_RECEIPTS / "packed_cell_time_mix_bench.json",
         record=VALIDATION / "time_mix_projection_decisions.json",
         kind="rwkv-time-mix-projection",
         probe="linear3-forward",
@@ -237,7 +241,7 @@ PRODUCERS: tuple[Producer, ...] = (
         driver="hierarchos-vulkan/validation/bench_rwkv_packed_cell_channel_mix.py",
         bench_args=("--iterations", "20", "--warmup", "5"),
         guard_label="Channel-mix route across the sweep",
-        receipt=VALIDATION / "packed_cell_channel_mix_bench.json",
+        receipt=CURRENT_RECEIPTS / "packed_cell_channel_mix_bench.json",
         record=VALIDATION / "channel_mix_forward_decisions.json",
         kind="rwkv-channel-mix-forward",
         probe="linear_residual-forward",
@@ -260,7 +264,7 @@ PRODUCERS: tuple[Producer, ...] = (
         driver="hierarchos-vulkan/validation/bench_rwkv_packed_cell_low_rank_forward.py",
         bench_args=("--iterations", "20", "--warmup", "5"),
         guard_label="LN1/low-rank route across the sweep",
-        receipt=VALIDATION / "packed_cell_low_rank_forward_bench.json",
+        receipt=CURRENT_RECEIPTS / "packed_cell_low_rank_forward_bench.json",
         record=VALIDATION / "low_rank_full_forward_decisions.json",
         kind="rwkv-low-rank-full-forward",
         probe="low-rank-forward",
@@ -285,7 +289,7 @@ PRODUCERS: tuple[Producer, ...] = (
         driver="hierarchos-vulkan/validation/bench_rwkv_low_rank_fp16_forward.py",
         bench_args=("--iterations", "20", "--warmup", "5"),
         guard_label="FP16-storage low-rank route across the sweep",
-        receipt=VALIDATION / "low_rank_fp16_forward_bench.json",
+        receipt=CURRENT_RECEIPTS / "low_rank_fp16_forward_bench.json",
         record=VALIDATION / "low_rank_full_forward_decisions.json",
         kind="rwkv-low-rank-full-forward",
         probe="low-rank-forward",
@@ -315,7 +319,7 @@ PRODUCERS: tuple[Producer, ...] = (
         driver="hierarchos-vulkan/validation/bench_rwkv_key_state_forward.py",
         bench_args=("--iterations", "20", "--repetitions", "50"),
         guard_label="Key/state route across the sweep",
-        receipt=VALIDATION / "key_state_forward_bench.json",
+        receipt=CURRENT_RECEIPTS / "key_state_forward_bench.json",
         record=VALIDATION / "key_state_forward_decisions.json",
         kind="rwkv-key-state-forward",
         probe="key-state-forward",
@@ -361,7 +365,7 @@ TBPTT_TIME_MIX = Producer(
     driver="hierarchos-vulkan/validation/bench_rwkv_tbptt_time_mix.py",
     bench_args=("--steps", "8", "--iterations", "8", "--warmup", "2"),
     guard_label="TBPTT time-mix route across the sweep",
-    receipt=VALIDATION / "packed_cell_tbptt_time_mix_bench.json",
+    receipt=CURRENT_RECEIPTS / "packed_cell_tbptt_time_mix_bench.json",
     record=VALIDATION / "time_mix_projection_decisions.json",
     kind="rwkv-time-mix-projection",
     probe="linear3-forward",
@@ -496,7 +500,7 @@ CHAIN_PRODUCERS: tuple[ChainProducer, ...] = (
             "2",
         ),
         guard_label="TBPTT packed-forward route across the sweep",
-        receipt=VALIDATION / "tbptt_packed_forward_bench.json",
+        receipt=CURRENT_RECEIPTS / "tbptt_packed_forward_bench.json",
         record=VALIDATION / "tbptt_packed_forward_decisions.json",
         kind="rwkv-tbptt-packed-forward",
         probe="tbptt-packed-forward",
@@ -523,7 +527,7 @@ CHAIN_PRODUCERS: tuple[ChainProducer, ...] = (
             "2",
         ),
         guard_label="TBPTT packed-rematerialization route across the sweep",
-        receipt=VALIDATION / "tbptt_packed_remat_bench.json",
+        receipt=CURRENT_RECEIPTS / "tbptt_packed_remat_bench.json",
         record=VALIDATION / "tbptt_packed_rematerialization_decisions.json",
         kind="rwkv-tbptt-packed-rematerialization",
         probe="tbptt-packed-rematerialization",
@@ -552,7 +556,7 @@ CHAIN_PRODUCERS: tuple[ChainProducer, ...] = (
             "2",
         ),
         guard_label="TBPTT packed-forward fp16-storage route across the sweep",
-        receipt=VALIDATION / "tbptt_packed_forward_fp16_bench.json",
+        receipt=CURRENT_RECEIPTS / "tbptt_packed_forward_fp16_bench.json",
         record=VALIDATION / "tbptt_packed_forward_decisions.json",
         kind="rwkv-tbptt-packed-forward",
         probe="tbptt-packed-forward",
@@ -581,7 +585,7 @@ CHAIN_PRODUCERS: tuple[ChainProducer, ...] = (
             "2",
         ),
         guard_label="TBPTT packed-rematerialization fp16-storage route across the sweep",
-        receipt=VALIDATION / "tbptt_packed_remat_fp16_bench.json",
+        receipt=CURRENT_RECEIPTS / "tbptt_packed_remat_fp16_bench.json",
         record=VALIDATION / "tbptt_packed_rematerialization_decisions.json",
         kind="rwkv-tbptt-packed-rematerialization",
         probe="tbptt-packed-rematerialization",
@@ -612,7 +616,7 @@ CHAIN_PRODUCERS: tuple[ChainProducer, ...] = (
             "3",
         ),
         guard_label="TBPTT backward-fusion route across the sweep",
-        receipt=VALIDATION / "tbptt_backward_fusion_bench.json",
+        receipt=CURRENT_RECEIPTS / "tbptt_backward_fusion_bench.json",
         record=VALIDATION / "tbptt_backward_fusion_decisions.json",
         kind="rwkv-tbptt-backward-fusion",
         probe="tbptt-backward-fusion",
@@ -649,7 +653,7 @@ CHAIN_PRODUCERS: tuple[ChainProducer, ...] = (
             "3",
         ),
         guard_label="TBPTT backward-fusion fp16-storage route across the sweep",
-        receipt=VALIDATION / "tbptt_backward_fusion_fp16_bench.json",
+        receipt=CURRENT_RECEIPTS / "tbptt_backward_fusion_fp16_bench.json",
         record=VALIDATION / "tbptt_backward_fusion_decisions.json",
         kind="rwkv-tbptt-backward-fusion",
         probe="tbptt-backward-fusion",
@@ -701,7 +705,7 @@ class CompositionConsumer:
 
 PACKED_COMPOSITION = CompositionConsumer(
     name="packed-cell-composition",
-    receipt=VALIDATION / "packed_cell_composition.json",
+    receipt=CURRENT_RECEIPTS / "packed_cell_composition.json",
     records=(
         (VALIDATION / "time_mix_projection_decisions.json", "rwkv-time-mix-projection"),
         (VALIDATION / "channel_mix_forward_decisions.json", "rwkv-channel-mix-forward"),

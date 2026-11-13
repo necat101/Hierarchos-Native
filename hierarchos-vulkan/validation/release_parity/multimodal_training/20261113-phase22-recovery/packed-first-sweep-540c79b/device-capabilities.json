@@ -1,0 +1,13 @@
+{
+  "device": "AMD Radeon Graphics",
+  "device_id": 5567,
+  "device_index": 0,
+  "device_key": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "error": null,
+  "full_fp16_max_reduction": 64,
+  "full_fp16_qualified": true,
+  "full_fp16_supported": true,
+  "kind": "precision-capabilities",
+  "mixed_supported": true,
+  "vendor_id": 4098
+}

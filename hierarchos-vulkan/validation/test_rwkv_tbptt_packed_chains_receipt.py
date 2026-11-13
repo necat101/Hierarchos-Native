@@ -122,6 +122,15 @@ CHAINS = {
     },
 }
 
+# Preserve the record paired with these historical receipts. Current AMD
+# receipts and the rebuilt defaults are independently required by the live
+# thirteen-producer guard; an old snapshot cannot qualify a new route table.
+_HISTORICAL_RECORDS = (ROOT / "validation/release_parity/multimodal_training" /
+                       "20261113-phase22-recovery/decision-tables-before")
+for _spec in CHAINS.values():
+    if _spec["driver_chain"] in {"forward", "backward"}:
+        _spec["record"] = _HISTORICAL_RECORDS / _spec["record"].name
+
 
 def entry_for(record: dict, receipt: dict, batch: int) -> dict | None:
     """The verdict the runtime adopts for this receipt's policy at one batch.

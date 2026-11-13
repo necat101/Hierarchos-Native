@@ -143,9 +143,12 @@ def validate(document: dict, receipt_dir: Path, crate: Path = CRATE,
     probe = binaries.get("image_text_pipeline_probe") or {}
     require(SHA256.fullmatch(str(probe.get("sha256"))) is not None,
             "missing or malformed probe binding")
-    if binary_root is None:
-        binary_root = crate / "target/debug"
-    candidate = Path(binary_root) / BINARY_NAME
+    probe_path = Path(str(probe.get("path", "")))
+    require(not probe_path.is_absolute() and ".." not in probe_path.parts
+            and len(probe_path.parts) >= 3 and probe_path.parts[0] == "target"
+            and probe_path.name == BINARY_NAME, "invalid probe executable path")
+    candidate = (crate / probe_path if binary_root is None
+                 else Path(binary_root) / BINARY_NAME)
     if candidate.is_file():
         require(digest(candidate) == probe["sha256"], "probe binary changed")
     elif require_binary:
