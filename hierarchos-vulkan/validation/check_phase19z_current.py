@@ -53,6 +53,30 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def verify_packed_status(document: dict, directory: Path | None = None,
+                         crate: Path = CRATE, *, run_guards: bool = False) -> None:
+    from check_measured_producer_routes import ALL_SPECS
+    names={spec.name for spec in ALL_SPECS}
+    require(document.get("kind")=="phase19z-packed-cell-amd-local", "wrong packed-cell evidence kind")
+    require(document.get("status")=="PASS", "all thirteen current packed routes must pass")
+    require(len(document.get("passes",[]))==13 and set(document["passes"])==names,
+            "packed-cell pass inventory is incomplete or duplicated")
+    require(document.get("failures")==[], "packed-cell failures cannot qualify a release")
+    results=document.get("results") or {}
+    require(set(results)==names,"packed-cell result inventory changed")
+    for spec in ALL_SPECS:
+        row=results[spec.name]
+        require(row.get("bench")==0 and row.get("guard")==0, "packed benchmark/guard failed: "+spec.name)
+        if run_guards:
+            require(directory is not None,"packed receipt directory is missing")
+            path=directory/spec.receipt.name
+            require(path.is_file() and sha256_file(path)==row.get("receipt_sha256"),
+                    "packed measurement changed: "+spec.name)
+            run=subprocess.run([sys.executable,str(crate/"validation/check_measured_producer_routes.py"),
+                "--producer",spec.name,"--receipt",str(path)],cwd=crate.parent,capture_output=True,text=True)
+            require(run.returncode==0,"packed route guard failed: "+spec.name+": "+(run.stdout+run.stderr)[-500:])
+
+
 def verify(
     receipt_path: Path = RECEIPT,
     crate: Path = CRATE,
@@ -208,16 +232,17 @@ def verify(
             "packed-cell status changed")
     require(packed.get("device", "").startswith("AMD Radeon Graphics"),
             "packed-cell status is not from the AMD adapter")
-    require(packed.get("status") in ("PASS", "PARTIAL"),
-            "packed-cell status is invalid")
-    if packed.get("status") == "PARTIAL":
-        require(bool(packed.get("failures")), "packed-cell PARTIAL status has no failures")
+    require(packed.get("status") == "PASS", "packed-cell routes are not all passing")
+    packed_document=read_json(packed_path)
+    verify_packed_status(packed_document,packed_path.parent,crate,run_guards=verify_subs)
+    require(packed.get("passes")==packed_document["passes"] and packed.get("failures")==packed_document["failures"],
+            "packed-cell summary disagrees with executed status")
     require(counts.get("packed_routes_passed") == len(packed.get("passes") or []),
             "packed-cell pass count changed")
     require(counts.get("packed_routes_failed") == len(packed.get("failures") or []),
             "packed-cell failure count changed")
-    require(counts.get("packed_routes_passed") + counts.get("packed_routes_failed") >= 13,
-            "packed-cell producer accounting is incomplete")
+    require(counts.get("packed_routes_passed")==13 and counts.get("packed_routes_failed")==0,
+            "packed-cell release requires thirteen passing routes")
 
     subreceipts = receipt.get("subreceipts") or {}
     require(set(subreceipts) == set(EXPECTED_SUBRECEIPTS),

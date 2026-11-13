@@ -33,8 +33,8 @@ fn run() -> Result<()> {
         .map(PathBuf::from)
         .collect::<Vec<_>>();
     anyhow::ensure!(
-        args.len() == 2,
-        "usage: deepseek_v41_vision_precision_probe CASE.json OUTPUT.json"
+        args.len() == 2 || (args.len()==3 && args[2].as_os_str()=="--diagnostic-stages"),
+        "usage: deepseek_v41_vision_precision_probe CASE.json OUTPUT.json [--diagnostic-stages]"
     );
     let case: Case = serde_json::from_slice(&fs::read(&args[0])?)?;
     let device = VulkanDevice::new()?;
@@ -57,6 +57,9 @@ fn run() -> Result<()> {
     for step in 0..3 {
         graph.forward(&case.patches.values)?;
         let mut row = serde_json::json!({"projected":graph.projected().read_f32(case.upstream.values.len())?});
+        if step==0 && args.len()==3 {
+            row["stages"]=serde_json::to_value(graph.diagnostic_stages()?)?;
+        }
         if step < 2 {
             graph.backward(&upstream)?;
             row["patch_gradient"] =
@@ -79,6 +82,7 @@ fn run() -> Result<()> {
     let report = serde_json::json!({"device":device.name(),"steps":steps,
         "reload":reload.projected().read_f32(case.upstream.values.len())?,
         "precision":{"requested":hierarchos_vulkan::wmma::WmmaMode::from_env()?.label(),
+            "cpu_arithmetic_vector_width":hierarchos_vulkan::aten_vector_width(),
             "phases":hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts(),
             "accumulation_dispatches":hierarchos_vulkan::wmma_linear::linear_wmma_precision_counts(),
             "master_weights":"fp32","optimizer_state":"fp32","automatic_loss_scaling":false}});

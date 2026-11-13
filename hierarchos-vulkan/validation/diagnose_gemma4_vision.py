@@ -112,12 +112,25 @@ def main():
     kwargs=dict(input_ids=torch.tensor(f['input_ids']).view(batch,seq),
         attention_mask=torch.tensor(f['attention_mask'],dtype=torch.long).view(batch,seq),
         pixel_values=pixels,image_position_ids=torch.tensor(f['positions']).view(1,-1,2),use_cache=False)
-    with torch.no_grad():logits=model(**kwargs).logits.flatten().tolist()
+    # The frozen step-one oracle is a training forward with autograd enabled.
+    # Disabling autograd can select a different CPU kernel for the same shape.
+    logits=model(**kwargs).logits.detach().flatten().tolist()
     for h in handles:h.remove()
     gm.apply_multidimensional_rope=rope
     gm.eager_attention_forward=eager
     word=lambda x:struct.pack('<f',x)
     if [word(x) for x in logits]!=[word(x) for x in oracle['steps'][0]['forward']['logits']]:
+        expected=oracle['steps'][0]['forward']['logits']
+        (a.output/'cpu-replay-mismatch.json').write_text(json.dumps({
+            'status':'FAIL_CPU_ORACLE_REPLAY','different_words':sum(word(x)!=word(y) for x,y in zip(logits,expected,strict=True)),
+            'max_abs':max(abs(x-y) for x,y in zip(logits,expected,strict=True)),
+            'torch':torch.__version__,'cpu':torch.backends.cpu.get_cpu_capability(),
+            'environment':{k:os.environ.get(k) for k in ('ATEN_CPU_CAPABILITY','MKL_ENABLE_INSTRUCTIONS','ONEDNN_MAX_CPU_ISA')},
+            'vision_replay':{key:{'different_words':sum(word(x)!=word(y) for x,y in zip(seen[stage],oracle['steps'][0]['forward'][key],strict=True)),
+                'max_abs':max(abs(x-y) for x,y in zip(seen[stage],oracle['steps'][0]['forward'][key],strict=True))}
+                for key,stage in [('vision_features','vision_features'),('projected_features','projected')]},
+        },indent=2))
+        (a.output/'unqualified-cpu-stages.json').write_text(json.dumps({'status':'FAIL_CPU_ORACLE_REPLAY','stages':seen,'logits':logits},allow_nan=False))
         raise ValueError('CPU diagnostic does not reproduce the frozen oracle')
     faulthandler.cancel_dump_traceback_later()
     rows=[]

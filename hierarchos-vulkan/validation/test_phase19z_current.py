@@ -17,6 +17,24 @@ from pathlib import Path
 import check_phase19z_current as c
 
 
+class PackedReleaseControls(unittest.TestCase):
+    def test_partial_failed_missing_duplicate_and_forged_routes_are_rejected(self):
+        from check_measured_producer_routes import ALL_SPECS
+        names=sorted(spec.name for spec in ALL_SPECS)
+        valid={"kind":"phase19z-packed-cell-amd-local","status":"PASS","passes":names,"failures":[],
+            "results":{name:{"bench":0,"guard":0} for name in names}}
+        c.verify_packed_status(valid)
+        mutations=[lambda d:d.update(status="PARTIAL"),
+            lambda d:d.update(failures=[names[0]]),lambda d:d["passes"].pop(),
+            lambda d:d["passes"].__setitem__(0,names[1]),
+            lambda d:d["results"].pop(names[0]),
+            lambda d:d["results"][names[0]].update(bench=1),
+            lambda d:d["results"][names[0]].update(guard=1)]
+        for mutate in mutations:
+            doc=copy.deepcopy(valid);mutate(doc)
+            with self.assertRaises(c.QualificationError):c.verify_packed_status(doc)
+
+
 class Phase19ZCurrentControls(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

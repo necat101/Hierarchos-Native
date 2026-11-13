@@ -26,15 +26,18 @@ def main():
     for label,fixture in [('bounded',a.fixture),('stress',a.stress_fixture)]:
         if fixture is None:continue
         cpu=json.loads(fixture.read_text());report={};rows={}
+        width={'AVX2':'8','AVX512':'16'}.get(cpu['oracle']['cpu'])
+        require(width is not None,'unrecognized immutable CPU ISA')
         for mode in ('off','mixed'):
             output=a.output/f'{label}-{mode}.json'
             command=[str(a.binary.resolve()),str(fixture.resolve()),str(output.resolve())]
-            result=subprocess.run(command,env={**os.environ,'HIERARCHOS_WMMA_MODE':mode},capture_output=True,text=True)
+            result=subprocess.run(command,env={**os.environ,'HIERARCHOS_WMMA_MODE':mode,'HIERARCHOS_ATEN_VECTOR_WIDTH':width},capture_output=True,text=True)
             (a.output/f'{label}-{mode}.log').write_text(result.stdout+result.stderr)
-            commands.append(dict(command=command,mode=mode,returncode=result.returncode))
+            commands.append(dict(command=command,mode=mode,oracle_vector_width=width,returncode=result.returncode))
             require(result.returncode==0,f'{label}-{mode} failed')
             report[mode]=json.loads(output.read_text())
             precision=report[mode]['precision'];require(precision['requested']==mode,'wrong native precision')
+            require(precision['cpu_arithmetic_vector_width']==int(width),'native arithmetic does not match the recorded oracle ISA')
             counts=precision['accumulation_dispatches'];phases=precision['phases']
             require(counts[1]==0,'native V4.1 silently executed Full FP16')
             require(counts[0]>0 and all(x>0 for x in phases) if mode=='mixed' else counts==[0,0],

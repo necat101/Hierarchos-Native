@@ -226,10 +226,8 @@ def main() -> int:
     packed_status = load(packed_status_path)
     require(packed_status.get("kind") == "phase19z-packed-cell-amd-local",
             "packed-cell status has the wrong kind")
-    require(packed_status.get("status") in ("PASS", "PARTIAL"),
-            "packed-cell status is invalid")
-    require(len(packed_status.get("passes") or []) + len(packed_status.get("failures") or []) >= 13,
-            "packed-cell producer accounting is incomplete")
+    from check_phase19z_current import verify_packed_status
+    verify_packed_status(packed_status,packed_status_path.parent,CRATE,run_guards=True)
 
     six_cell = (activation.get("six_cell") or {}).get("cells") or {}
     training_doc = load(SUBDIRS["training"] / "current-qualification.json")

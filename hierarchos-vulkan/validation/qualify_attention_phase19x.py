@@ -168,7 +168,7 @@ def main() -> int:
             "source_head": old.get("source_head"),
             "shapes": old.get("shapes", {}).get("cases"),
             "retained": {name: row.get("cases") for name, row in retained.items()},
-            "note": "Full Phase XVI shape and retained-family evidence remains historical; it was not re-executed because the AVX-512 CPU oracle inputs are absent.",
+            "note": "Full Phase XVI shape and retained-family evidence remains historical in this narrow backward receipt; recovered AVX-512 inputs are replayed separately by the current Phase XIX-Y producer.",
         },
         "evidence": evidence,
         "limitations": [
