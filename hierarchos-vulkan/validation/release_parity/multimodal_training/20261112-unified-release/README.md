@@ -43,7 +43,7 @@ strict failures (maximum `4.76837158203125e-06`). Receipt:
 |---|---|---|
 | Llama64 full-parameter and LoRA training | **PASS_SCOPED** | 20 steps each; 480/320 cooperative dispatches; FP32 masters and optimizer state; loss scaling enabled |
 | Shared CLIP64 image/text CLI and direct probe | **PASS_SCOPED** | 94 CLI cooperative dispatches (30 forward, 32 dW, 32 dX); six documented shape fallbacks remain FP32; image/text parameter equality `0.0` against the direct probe |
-| T5, BART, Switch wide cases (6) | **PASS_SCOPED** | 6/6 pass; 352 cooperative dispatches |
+| T5, BART, Switch wide cases (6) | **PASS_SCOPED for dispatches/numerics; scaler NOT RUN** | 6/6 pass; 352/426 cooperative dispatches. These encoder-decoder probes retain the documented unscaled FP32-gradient policy: `loss_scaler` is null, so automatic loss scaling is not qualified for this family. |
 | LLaVA wide | **PASS_SCOPED** | Cooperative forward/dW/dX confirmed |
 | Gemma3 wide | **PASS_SCOPED** | Cooperative forward/dW/dX confirmed; its raw FP32 diagnostics exceed strict `2e-7` |
 | Gemma4 wide RGB | **FAIL** | Unchanged policy: step-1 vision RMS `0.006074178677798042` > `0.003`, maximum `0.017984390258789062`; not promoted |
@@ -110,9 +110,30 @@ Original primitive failure: `target/fullfp16-primitive-719b9c5.json`.
   `glslc` artifacts and the other 213 glslang artifacts pass. Receipt:
   `target/training-shaders-719b9c5.json`.
 
+## CI status at `b18ca21`
+
+All completed jobs failed closed on missing final-root receipts rather than on a
+new numerical assertion:
+
+- `phase19w architecture compatibility`: missing
+  `20261112-unified-release/phase19w-matrix.json`
+  (https://github.com/necat101/Hierarchos-Native/actions/runs/43335438702)
+- `phase19y oracle bytes`: missing
+  `20261112-unified-release/phase19y/current-qualification.json`
+  (https://github.com/necat101/Hierarchos-Native/actions/runs/43335438707)
+- `workspace check`: missing `phase19x/current-qualification.json`
+  (https://github.com/necat101/Hierarchos-Native/actions/runs/43335438718)
+- `phase19 instrumented qualification`: missing `phase19x/activation`
+  (https://github.com/necat101/Hierarchos-Native/actions/runs/43335438726)
+- `packed-cell producer A/B`: queued; no authorized self-hosted Windows
+  Vulkan AMD runner (https://github.com/necat101/Hierarchos-Native/actions/runs/43335438731)
+
+No CI success is claimed.
+
 ## Remaining limitations
 
-- Phase XIX-Z current-source qualification: **BLOCKED**; the old receipt fails
+- Phase XIX-Z current-source qualification: **BLOCKED**; the new-root
+  `phase19z/current-qualification.json` is absent, and the old receipt fails
   closed because `rwkv_key_state_forward_fused_wide.comp` changed.
 - Shader provenance: **BLOCKED** on the pinned glslang 15.3.0 toolchain.
 - Full-model optimizer resume, image gradient accumulation and partial-window
@@ -120,4 +141,4 @@ Original primitive failure: `target/fullfp16-primitive-719b9c5.json`.
 - The 128-wide exploratory image geometry retains its post-training strict
   difference of approximately `2.24e-7`; it is not added to the 93-case gate.
 - Windows Vulkan AMD CI runner availability and GitHub Actions conclusions are
-  not claimed here.
+  not claimed here beyond the failures above.

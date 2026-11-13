@@ -45,6 +45,7 @@
       "status": "PARTIAL",
       "passed": 8,
       "failed": 1,
+      "scoped_loss_scaling": "LLaVA and Gemma3 probes carry a scaler; T5/BART/Switch probes retain the documented unscaled FP32-gradient policy and are not qualified for automatic loss scaling",
       "gemma4_failure": {
         "rms": 0.006074178677798042,
         "limit": 0.003,
@@ -126,8 +127,16 @@
       "reason": "source binding changed; training/stability/held-out/drift/activation receipts not regenerated"
     },
     "ci": {
-      "status": "NOT_RUN",
-      "reason": "branch not yet pushed; no GitHub Actions conclusion inspected"
+      "status": "FAIL_CLOSED",
+      "evaluated_sha": "b18ca2184436b2635f2e958349cc8a64f51fa42f",
+      "reason": "final-root Phase XIX-X/Y/Z receipts and Phase XIX-W matrix are absent; packed-cell runner queued",
+      "runs": {
+        "phase19w": "https://github.com/necat101/Hierarchos-Native/actions/runs/43335438702",
+        "phase19y": "https://github.com/necat101/Hierarchos-Native/actions/runs/43335438707",
+        "workspace": "https://github.com/necat101/Hierarchos-Native/actions/runs/43335438718",
+        "instrumented": "https://github.com/necat101/Hierarchos-Native/actions/runs/43335438726",
+        "packed_cell": "https://github.com/necat101/Hierarchos-Native/actions/runs/43335438731"
+      }
     }
   },
   "binaries": {
