@@ -412,12 +412,12 @@ warning: fields `physical_device` and `physical_device_index` are never read
    |     ^^^^^^^^^^^^^^^^^^^^^
 
 warning: `hierarchos-vulkan` (lib test) generated 35 warnings (run `cargo fix --lib -p hierarchos-vulkan --tests` to apply 9 suggestions)
-    Finished `release` profile [optimized] target(s) in 3.72s
+    Finished `release` profile [optimized] target(s) in 0.48s
      Running unittests src\lib.rs (target\release\deps\hierarchos_vulkan-8c8d2140efff5506.exe)
 
 running 1 test
 test wmma_linear::tests::full_fp16_graph_widens_accumulators_in_all_three_phases ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1196 filtered out; finished in 0.12s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1197 filtered out; finished in 0.10s
 
 EXIT=0

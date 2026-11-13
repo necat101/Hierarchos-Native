@@ -23,19 +23,19 @@
       "step2_vision_rms": 0.00031492973139237037,
       "step2_logits_max_abs": 0.00004801154136657715,
       "reload_max_abs": 0.0,
-      "receipt_sha256": "70d9e823d41ab7189761e946e8f800df1040dfe27c7bb315b6b2f08770a8c786"
+      "receipt_sha256": "ee019aeb7a65b1687460e9e745c1c10ac9e44bafaedec55998129d7b34cc038e"
     },
     "wide_multimodal": {
       "status": "PASS_SCOPED",
       "cases": 9,
       "failed": 0,
-      "receipt_sha256": "0346e2abf64528d7699241b588551e450339eb0358e55c303a453e85d99ccc51"
+      "receipt_sha256": "af1b5b959ea7c299d1e20d029fa9cea334e15f00facfc7ccf0f521f3da24dee5"
     },
     "full_fp16_oversized": {
       "status": "PASS",
       "tests_passed": 1,
       "tests_failed": 0,
-      "log_sha256": "0c5f4abcfa93d35924b6e054ab4c6f313ab238404c5a7028daa125743f5c201d"
+      "log_sha256": "da8129f846c4380bc8b7aa5e6185cc92b70525185e80aea0becd2e306d45dbb5"
     },
     "shader_provenance": {
       "status": "PASS",

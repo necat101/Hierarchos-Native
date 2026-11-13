@@ -43,9 +43,9 @@ The rejected all-Q/K/V attempt reached step-2 vision max
 cooperative dispatches and failed the qualifier. Neither is promoted.
 
 Receipt: `gemma4-wide.json`, SHA-256
-`70d9e823d41ab7189761e946e8f800df1040dfe27c7bb315b6b2f08770a8c786`.
+`ee019aeb7a65b1687460e9e745c1c10ac9e44bafaedec55998129d7b34cc038e`.
 Gemma4 binary SHA-256:
-`d5c76370dcd1e2cad4cbc24a15218675469a556e9d5621091373d967b3c1b957`.
+`8a77ab0350a4f0cbb97e4d03edbf4311dd1431f359612faec120b1db76cb8fcb`.
 
 ## Full wide multimodal matrix
 
@@ -57,7 +57,7 @@ Gemma4 binary SHA-256:
 `switch_transformers/padded`.
 
 Receipt: `wide-multimodal.json`, SHA-256
-`0346e2abf64528d7699241b588551e450339eb0358e55c303a453e85d99ccc51`.
+`af1b5b959ea7c299d1e20d029fa9cea334e15f00facfc7ccf0f521f3da24dee5`.
 
 ## Scoped Full FP16 oversized reduction
 
@@ -69,7 +69,7 @@ K=128 is rejected into the explicit FP32 path, increments
 counters unchanged.
 
 Log: `full-fp16-oversized.log`, SHA-256
-`0c5f4abcfa93d35924b6e054ab4c6f313ab238404c5a7028daa125743f5c201d`.
+`da8129f846c4380bc8b7aa5e6185cc92b70525185e80aea0becd2e306d45dbb5`.
 
 ## Shader provenance
 

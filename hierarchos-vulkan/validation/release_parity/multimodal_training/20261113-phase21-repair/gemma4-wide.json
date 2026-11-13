@@ -967,7 +967,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-gemma4-cpu\\gemma4_rgb8\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-gemma4\\gemma4-gemma4_rgb8-off"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-gemma4\\gemma4-gemma4_rgb8-off"
       ],
       "mode": "off",
       "exit_code": 0
@@ -980,7 +980,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-gemma4-cpu\\gemma4_rgb8\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-gemma4\\gemma4-gemma4_rgb8-mixed"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-gemma4\\gemma4-gemma4_rgb8-mixed"
       ],
       "mode": "mixed",
       "exit_code": 0
@@ -2481,8 +2481,8 @@
     "hierarchos-vulkan/src/kernel_golden_coverage.rs": "fc8f611de6e2371698c6e389910a546724d233ecf25cfe243d8d80314ab10b9b",
     "hierarchos-vulkan/src/lib.rs": "2076375c26d6dca21b9f60c768501505f301442a25b0f980814a1ff80ac7828e",
     "hierarchos-vulkan/src/lm_execution.rs": "147eae7a6f30f150dbec6e70a012190174dad1f59f20ae1cbff093b02424e602",
-    "hierarchos-vulkan/src/lora.rs": "679b33ac020a1a266a4af3eea949039deb5a8e0d72ab42c3995e5c88a8e3c07b",
-    "hierarchos-vulkan/src/lora_packed_tests.rs": "7ebeb26cddf02d81bc91ad82e58d17252c93cd59c01bcee6e5e0a6131b5a6173",
+    "hierarchos-vulkan/src/lora.rs": "ce0b757358e88cea7e13880f703f25a27a6e6843f8bd9a84420dec38bd3a58bd",
+    "hierarchos-vulkan/src/lora_packed_tests.rs": "5542504e374e4af499b6fdf900a423fb08d8cfe14ee41ab05e4835714533e07c",
     "hierarchos-vulkan/src/mixed_precision.rs": "6658110fb58c4b791713426d6df2846da96c0447d87da7fee38cd0039d0cb892",
     "hierarchos-vulkan/src/multimodal.rs": "80950ac1dd872552e91cc1ec634c16d6be478cbcdfebacf4897c8c1445741f7b",
     "hierarchos-vulkan/src/multimodal_cpu_math_tests.rs": "1901bed10b1c813d8a10fc7eed4548593daa0facb7d1627b40d3998c944fdc2d",
@@ -2538,7 +2538,7 @@
     "hierarchos-vulkan/validation/qualify_multimodal_precision.py": "be01dd6182c79ee5c93ada51a4a6a8a57b09fd1b4a159779fcbcf3d069b38c5e"
   },
   "binary_sha256": {
-    "gemma4": "d5c76370dcd1e2cad4cbc24a15218675469a556e9d5621091373d967b3c1b957"
+    "gemma4": "8a77ab0350a4f0cbb97e4d03edbf4311dd1431f359612faec120b1db76cb8fcb"
   },
   "fixture_sha256": {
     "gemma4": {

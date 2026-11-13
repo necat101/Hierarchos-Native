@@ -13477,7 +13477,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-llava-cpu\\clip_last_layer_padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\llava-clip_last_layer_padded-off"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\llava-clip_last_layer_padded-off"
       ],
       "mode": "off",
       "exit_code": 0
@@ -13490,7 +13490,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-llava-cpu\\clip_last_layer_padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\llava-clip_last_layer_padded-mixed"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\llava-clip_last_layer_padded-mixed"
       ],
       "mode": "mixed",
       "exit_code": 0
@@ -13503,7 +13503,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-gemma3-cpu\\siglip_full_grid\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\gemma3-siglip_full_grid-off"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\gemma3-siglip_full_grid-off"
       ],
       "mode": "off",
       "exit_code": 0
@@ -13516,7 +13516,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-gemma3-cpu\\siglip_full_grid\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\gemma3-siglip_full_grid-mixed"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\gemma3-siglip_full_grid-mixed"
       ],
       "mode": "mixed",
       "exit_code": 0
@@ -13529,7 +13529,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-gemma4-cpu\\gemma4_rgb8\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\gemma4-gemma4_rgb8-off"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\gemma4-gemma4_rgb8-off"
       ],
       "mode": "off",
       "exit_code": 0
@@ -13542,7 +13542,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-gemma4-cpu\\gemma4_rgb8\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\gemma4-gemma4_rgb8-mixed"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\gemma4-gemma4_rgb8-mixed"
       ],
       "mode": "mixed",
       "exit_code": 0
@@ -13555,7 +13555,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-seq2seq-cpu-3\\t5\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\seq2seq-t5-unmasked-off"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\seq2seq-t5-unmasked-off"
       ],
       "mode": "off",
       "exit_code": 0
@@ -13568,7 +13568,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-seq2seq-cpu-3\\t5\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\seq2seq-t5-unmasked-mixed"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\seq2seq-t5-unmasked-mixed"
       ],
       "mode": "mixed",
       "exit_code": 0
@@ -13581,7 +13581,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-seq2seq-cpu-3\\t5\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\seq2seq-t5-padded-off"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\seq2seq-t5-padded-off"
       ],
       "mode": "off",
       "exit_code": 0
@@ -13594,7 +13594,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-seq2seq-cpu-3\\t5\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\seq2seq-t5-padded-mixed"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\seq2seq-t5-padded-mixed"
       ],
       "mode": "mixed",
       "exit_code": 0
@@ -13607,7 +13607,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-seq2seq-cpu-3\\bart\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\seq2seq-bart-unmasked-off"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\seq2seq-bart-unmasked-off"
       ],
       "mode": "off",
       "exit_code": 0
@@ -13620,7 +13620,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-seq2seq-cpu-3\\bart\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\seq2seq-bart-unmasked-mixed"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\seq2seq-bart-unmasked-mixed"
       ],
       "mode": "mixed",
       "exit_code": 0
@@ -13633,7 +13633,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-seq2seq-cpu-3\\bart\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\seq2seq-bart-padded-off"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\seq2seq-bart-padded-off"
       ],
       "mode": "off",
       "exit_code": 0
@@ -13646,7 +13646,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-seq2seq-cpu-3\\bart\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\seq2seq-bart-padded-mixed"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\seq2seq-bart-padded-mixed"
       ],
       "mode": "mixed",
       "exit_code": 0
@@ -13659,7 +13659,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-seq2seq-cpu-3\\switch_transformers\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\seq2seq-switch_transformers-unmasked-off"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\seq2seq-switch_transformers-unmasked-off"
       ],
       "mode": "off",
       "exit_code": 0
@@ -13672,7 +13672,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-seq2seq-cpu-3\\switch_transformers\\unmasked\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\seq2seq-switch_transformers-unmasked-mixed"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\seq2seq-switch_transformers-unmasked-mixed"
       ],
       "mode": "mixed",
       "exit_code": 0
@@ -13685,7 +13685,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-seq2seq-cpu-3\\switch_transformers\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\seq2seq-switch_transformers-padded-off"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\seq2seq-switch_transformers-padded-off"
       ],
       "mode": "off",
       "exit_code": 0
@@ -13698,7 +13698,7 @@
         "--fixture",
         "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-wide-seq2seq-cpu-3\\switch_transformers\\padded\\input.json",
         "--output",
-        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-91dda25-wide\\seq2seq-switch_transformers-padded-mixed"
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase21-final-fa18e61-wide\\seq2seq-switch_transformers-padded-mixed"
       ],
       "mode": "mixed",
       "exit_code": 0
@@ -15199,8 +15199,8 @@
     "hierarchos-vulkan/src/kernel_golden_coverage.rs": "fc8f611de6e2371698c6e389910a546724d233ecf25cfe243d8d80314ab10b9b",
     "hierarchos-vulkan/src/lib.rs": "2076375c26d6dca21b9f60c768501505f301442a25b0f980814a1ff80ac7828e",
     "hierarchos-vulkan/src/lm_execution.rs": "147eae7a6f30f150dbec6e70a012190174dad1f59f20ae1cbff093b02424e602",
-    "hierarchos-vulkan/src/lora.rs": "679b33ac020a1a266a4af3eea949039deb5a8e0d72ab42c3995e5c88a8e3c07b",
-    "hierarchos-vulkan/src/lora_packed_tests.rs": "7ebeb26cddf02d81bc91ad82e58d17252c93cd59c01bcee6e5e0a6131b5a6173",
+    "hierarchos-vulkan/src/lora.rs": "ce0b757358e88cea7e13880f703f25a27a6e6843f8bd9a84420dec38bd3a58bd",
+    "hierarchos-vulkan/src/lora_packed_tests.rs": "5542504e374e4af499b6fdf900a423fb08d8cfe14ee41ab05e4835714533e07c",
     "hierarchos-vulkan/src/mixed_precision.rs": "6658110fb58c4b791713426d6df2846da96c0447d87da7fee38cd0039d0cb892",
     "hierarchos-vulkan/src/multimodal.rs": "80950ac1dd872552e91cc1ec634c16d6be478cbcdfebacf4897c8c1445741f7b",
     "hierarchos-vulkan/src/multimodal_cpu_math_tests.rs": "1901bed10b1c813d8a10fc7eed4548593daa0facb7d1627b40d3998c944fdc2d",
@@ -15258,7 +15258,7 @@
   "binary_sha256": {
     "llava": "3dfc64ebf79070ba38523a89edab6982d80d94b8bd8600d9fbe87fd54c32eba0",
     "gemma3": "afbede84ec70a5f4f6548b5c4ae9becea959c9eaa336501e1c6de3628d2caae1",
-    "gemma4": "d5c76370dcd1e2cad4cbc24a15218675469a556e9d5621091373d967b3c1b957",
+    "gemma4": "8a77ab0350a4f0cbb97e4d03edbf4311dd1431f359612faec120b1db76cb8fcb",
     "seq2seq": "49b7b2baa410103ce22c822ab60b301da5495c4d7ed2bb2c685e0502260cf318"
   },
   "fixture_sha256": {
