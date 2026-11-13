@@ -19,5 +19,6 @@ licenses/** -text
 PROGRESS_DEEPSEEK_V41_AUDIT.md -text
 VALIDATION_STATUS.md -text
 
-# This workflow is source-bound and must be checked out byte-for-byte.
-.github/workflows/phase19y-oracles.yml -text
+# Current release receipts bind every workflow. Preserve their exact bytes on
+# Windows and Linux instead of translating line endings during checkout.
+.github/workflows/** -text
