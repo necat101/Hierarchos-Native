@@ -1,0 +1,5341 @@
+{
+  "schema": 1,
+  "target": "rdna3",
+  "pass": true,
+  "absolute_limit": 2e-07,
+  "rtol": 0,
+  "comparison": "strict_less_than",
+  "binary": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+  "binary_sha256": "bb349b6d3daded68fe106347ca2be9a60dba2a307f2b0314ed1f5b1223b779ce",
+  "manifest_sha256": "5b04c85ca50c1a5e56542b761195bb6e3c3b25f2bd36132eb401298eb0abdaa4",
+  "records": [
+    {
+      "family": "gpt2",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\gpt2\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt2\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\gpt2-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 30,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 10,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 28,
+          "word_differences": 18,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 10,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        19,
+        14,
+        10,
+        5
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 2.2503654000001916
+    },
+    {
+      "family": "gpt2",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\gpt2\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt2\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\gpt2-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 30,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 10,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 28,
+          "word_differences": 18,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 10,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        19,
+        14,
+        10,
+        5
+      ],
+      "streamed_linears": 8,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.145936800000527
+    },
+    {
+      "family": "gpt2",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\gpt2\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt2\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\gpt2-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 30,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 10,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 3.725290298461914e-08,
+          "worst_index": 2,
+          "word_differences": 29,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 28,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 3.725290298461914e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        19,
+        14,
+        10,
+        5
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.12467930000002525
+    },
+    {
+      "family": "gpt2",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\gpt2\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt2\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\gpt2-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 30,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 10,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 3.725290298461914e-08,
+          "worst_index": 2,
+          "word_differences": 29,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 28,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 3.725290298461914e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        19,
+        14,
+        10,
+        5
+      ],
+      "streamed_linears": 8,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.13955859999987297
+    },
+    {
+      "family": "llama",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\llama\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\llama\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\llama-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 13,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 13,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 6,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 14,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.12094600000000355
+    },
+    {
+      "family": "llama",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\llama\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\llama\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\llama-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 13,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 13,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 6,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 14,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 14,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1356895999997505
+    },
+    {
+      "family": "llama",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\llama\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\llama\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\llama-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 13,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.6763806343078613e-08,
+          "worst_index": 4,
+          "word_differences": 20,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 26,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 14,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.1230639000004885
+    },
+    {
+      "family": "llama",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\llama\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\llama\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\llama-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 13,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.6763806343078613e-08,
+          "worst_index": 4,
+          "word_differences": 20,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 26,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 14,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 14,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.13428949999979523
+    },
+    {
+      "family": "mistral",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\mistral\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mistral\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\mistral-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 24,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 26,
+          "word_differences": 20,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 26,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 13,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        21,
+        9,
+        23,
+        22
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.12208250000003318
+    },
+    {
+      "family": "mistral",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\mistral\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mistral\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\mistral-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 24,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 26,
+          "word_differences": 20,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 26,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 13,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        21,
+        9,
+        23,
+        22
+      ],
+      "streamed_linears": 14,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1311967999999979
+    },
+    {
+      "family": "mistral",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\mistral\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mistral\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\mistral-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 24,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 30,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 21,
+          "word_differences": 29,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.862645149230957e-08,
+          "worst_index": 5,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        21,
+        9,
+        23,
+        22
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.1336299999993571
+    },
+    {
+      "family": "mistral",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\mistral\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mistral\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\mistral-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 24,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 30,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 21,
+          "word_differences": 29,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.862645149230957e-08,
+          "worst_index": 5,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        21,
+        9,
+        23,
+        22
+      ],
+      "streamed_linears": 14,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1551084999991872
+    },
+    {
+      "family": "mixtral",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\mixtral\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mixtral\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\mixtral-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 31,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 15,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 29,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.862645149230957e-08,
+          "worst_index": 2,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        31,
+        24,
+        29,
+        3
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.13301400000000285
+    },
+    {
+      "family": "mixtral",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\mixtral\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mixtral\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\mixtral-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 31,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 15,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 29,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.862645149230957e-08,
+          "worst_index": 2,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        31,
+        24,
+        29,
+        3
+      ],
+      "streamed_linears": 28,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1425864000002548
+    },
+    {
+      "family": "mixtral",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\mixtral\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mixtral\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\mixtral-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 31,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 30,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 29,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 31,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        31,
+        24,
+        29,
+        3
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.13071810000019468
+    },
+    {
+      "family": "mixtral",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\mixtral\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\mixtral\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\mixtral-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 31,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 30,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 29,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 31,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        31,
+        24,
+        29,
+        3
+      ],
+      "streamed_linears": 28,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.14323259999946458
+    },
+    {
+      "family": "qwen2",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen2\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen2-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 3,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 10,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 4.470348358154297e-08,
+          "worst_index": 14,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 20,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 4.470348358154297e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        25,
+        19,
+        14,
+        11
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.12397520000013174
+    },
+    {
+      "family": "qwen2",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen2\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen2-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 3,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 10,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 4.470348358154297e-08,
+          "worst_index": 14,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 20,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 4.470348358154297e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        25,
+        19,
+        14,
+        11
+      ],
+      "streamed_linears": 14,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1315191000003324
+    },
+    {
+      "family": "qwen2",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen2\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen2-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 3,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 19,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 14,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 21,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        25,
+        19,
+        14,
+        11
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.12296389999937674
+    },
+    {
+      "family": "qwen2",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen2\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen2-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 3,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 19,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 14,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 21,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        25,
+        19,
+        14,
+        11
+      ],
+      "streamed_linears": 14,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.13446970000040892
+    },
+    {
+      "family": "qwen3_next",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_next\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_next\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_next-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 7,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 8.940696716308594e-08,
+          "worst_index": 7,
+          "word_differences": 31,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 12,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 7,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 8.940696716308594e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.13083689999984927
+    },
+    {
+      "family": "qwen3_next",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_next\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_next\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_next-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 7,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 8.940696716308594e-08,
+          "worst_index": 7,
+          "word_differences": 31,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 12,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 7,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 8.940696716308594e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 12,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1471334999996543
+    },
+    {
+      "family": "qwen3_next",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_next\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_next\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_next-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 7,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 8.940696716308594e-08,
+          "worst_index": 7,
+          "word_differences": 32,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 12,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 7,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 8.940696716308594e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.1395630999995774
+    },
+    {
+      "family": "qwen3_next",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_next\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_next\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_next-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 7,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 8.940696716308594e-08,
+          "worst_index": 7,
+          "word_differences": 32,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 12,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 7,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 8.940696716308594e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 12,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1494701999999961
+    },
+    {
+      "family": "gpt_oss",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\gpt_oss\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt_oss\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\gpt_oss-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 20,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 10,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 6,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 28,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        20,
+        1,
+        12,
+        20
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.13463450000017474
+    },
+    {
+      "family": "gpt_oss",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\gpt_oss\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt_oss\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\gpt_oss-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 20,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 10,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 6,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 28,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        20,
+        1,
+        12,
+        20
+      ],
+      "streamed_linears": 28,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.17220799999995506
+    },
+    {
+      "family": "gpt_oss",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\gpt_oss\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt_oss\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\gpt_oss-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 20,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 10,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 9,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 28,
+          "word_differences": 30,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        20,
+        1,
+        12,
+        20
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.13016290000086883
+    },
+    {
+      "family": "gpt_oss",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\gpt_oss\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\gpt_oss\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\gpt_oss-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 20,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 10,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 9,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 28,
+          "word_differences": 30,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        20,
+        1,
+        12,
+        20
+      ],
+      "streamed_linears": 28,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1746555999998236
+    },
+    {
+      "family": "smollm3",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\smollm3\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\smollm3\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\smollm3-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.862645149230957e-08,
+          "worst_index": 30,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 3.3527612686157227e-08,
+          "worst_index": 9,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 3.3527612686157227e-08,
+          "worst_index": 23,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.862645149230957e-08,
+          "worst_index": 31,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 3.3527612686157227e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.1432875000000422
+    },
+    {
+      "family": "smollm3",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\smollm3\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\smollm3\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\smollm3-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.862645149230957e-08,
+          "worst_index": 30,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 3.3527612686157227e-08,
+          "worst_index": 9,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 3.3527612686157227e-08,
+          "worst_index": 23,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.862645149230957e-08,
+          "worst_index": 31,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 3.3527612686157227e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 28,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.16529160000027332
+    },
+    {
+      "family": "smollm3",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\smollm3\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\smollm3\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\smollm3-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.862645149230957e-08,
+          "worst_index": 30,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.6763806343078613e-08,
+          "worst_index": 31,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 8,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 24,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.13039050000043062
+    },
+    {
+      "family": "smollm3",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\smollm3\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\smollm3\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\smollm3-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.862645149230957e-08,
+          "worst_index": 30,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.6763806343078613e-08,
+          "worst_index": 31,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 8,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 24,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 28,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1638262999995277
+    },
+    {
+      "family": "qwen2_5_gqa",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen2_5_gqa\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_gqa\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen2_5_gqa-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 8,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 16,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 28,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 1,
+          "word_differences": 20,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        2,
+        8,
+        30,
+        30
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.1407179999996515
+    },
+    {
+      "family": "qwen2_5_gqa",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen2_5_gqa\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_gqa\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen2_5_gqa-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 8,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 16,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 28,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 1,
+          "word_differences": 20,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        2,
+        8,
+        30,
+        30
+      ],
+      "streamed_linears": 14,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.13951010000073438
+    },
+    {
+      "family": "qwen2_5_gqa",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen2_5_gqa\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_gqa\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen2_5_gqa-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 8,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 16,
+          "word_differences": 20,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.6763806343078613e-08,
+          "worst_index": 11,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 1,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        2,
+        8,
+        30,
+        30
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.13554970000041067
+    },
+    {
+      "family": "qwen2_5_gqa",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen2_5_gqa\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_gqa\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen2_5_gqa-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 8,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 16,
+          "word_differences": 20,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.6763806343078613e-08,
+          "worst_index": 11,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 1,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        2,
+        8,
+        30,
+        30
+      ],
+      "streamed_linears": 14,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.14487389999976585
+    },
+    {
+      "family": "qwen2_5_sliding_tied",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen2_5_sliding_tied\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_sliding_tied\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen2_5_sliding_tied-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 5.960464477539063e-08,
+          "worst_index": 7,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 31,
+          "word_differences": 13,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 31,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 4.470348358154297e-08,
+          "worst_index": 7,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 5.960464477539063e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.14028659999985393
+    },
+    {
+      "family": "qwen2_5_sliding_tied",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen2_5_sliding_tied\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_sliding_tied\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen2_5_sliding_tied-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 5.960464477539063e-08,
+          "worst_index": 7,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 31,
+          "word_differences": 13,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 31,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 4.470348358154297e-08,
+          "worst_index": 7,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 5.960464477539063e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 28,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.14421609999953944
+    },
+    {
+      "family": "qwen2_5_sliding_tied",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen2_5_sliding_tied\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_sliding_tied\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen2_5_sliding_tied-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 5.960464477539063e-08,
+          "worst_index": 7,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 31,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 31,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 4.470348358154297e-08,
+          "worst_index": 7,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 5.960464477539063e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.1360568999998577
+    },
+    {
+      "family": "qwen2_5_sliding_tied",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen2_5_sliding_tied\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen2_5_sliding_tied\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen2_5_sliding_tied-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 5.960464477539063e-08,
+          "worst_index": 7,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 31,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 31,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 4.470348358154297e-08,
+          "worst_index": 7,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 5.960464477539063e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "streamed_linears": 28,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.15347269999983837
+    },
+    {
+      "family": "qwen3_5_full",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_full\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_full\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_full-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 29,
+          "word_differences": 11,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 27,
+          "word_differences": 9,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 6,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.6763806343078613e-08,
+          "worst_index": 19,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        18,
+        31,
+        17,
+        8
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.13793880000048375
+    },
+    {
+      "family": "qwen3_5_full",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_full\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_full\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_full-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 29,
+          "word_differences": 11,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 27,
+          "word_differences": 9,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 6,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.6763806343078613e-08,
+          "worst_index": 19,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        18,
+        31,
+        17,
+        8
+      ],
+      "streamed_linears": 8,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.14280370000051335
+    },
+    {
+      "family": "qwen3_5_full",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_full\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_full\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_full-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 29,
+          "word_differences": 11,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 27,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 20,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 26,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.4901161193847656e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        18,
+        31,
+        17,
+        8
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.13058509999973467
+    },
+    {
+      "family": "qwen3_5_full",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_full\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_full\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_full-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 29,
+          "word_differences": 11,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 27,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 20,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 26,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.4901161193847656e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        18,
+        31,
+        17,
+        8
+      ],
+      "streamed_linears": 8,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.14285879999988538
+    },
+    {
+      "family": "qwen3_5_linear",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_linear\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_linear\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_linear-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 18,
+          "word_differences": 2,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 26,
+          "word_differences": 4,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.1175870895385742e-08,
+          "worst_index": 15,
+          "word_differences": 20,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 25,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.4901161193847656e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        2,
+        18,
+        0,
+        31
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.125064900000325
+    },
+    {
+      "family": "qwen3_5_linear",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_linear\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_linear\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_linear-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 18,
+          "word_differences": 2,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 26,
+          "word_differences": 4,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.1175870895385742e-08,
+          "worst_index": 15,
+          "word_differences": 20,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 25,
+          "word_differences": 21,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.4901161193847656e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        2,
+        18,
+        0,
+        31
+      ],
+      "streamed_linears": 8,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.13797530000010738
+    },
+    {
+      "family": "qwen3_5_linear",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_linear\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_linear\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_linear-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 18,
+          "word_differences": 2,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 16,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 22,
+          "word_differences": 20,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 18,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.2351741790771484e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        2,
+        18,
+        0,
+        31
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.13226290000056906
+    },
+    {
+      "family": "qwen3_5_linear",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_linear\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_linear\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_linear-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 18,
+          "word_differences": 2,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 16,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 22,
+          "word_differences": 20,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 18,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.2351741790771484e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        2,
+        18,
+        0,
+        31
+      ],
+      "streamed_linears": 8,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.14583549999952083
+    },
+    {
+      "family": "qwen3_5_mixed",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_mixed\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_mixed\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_mixed-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 3.725290298461914e-09,
+          "worst_index": 17,
+          "word_differences": 1,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 29,
+          "word_differences": 17,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 23,
+          "word_differences": 31,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 1,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        29,
+        31,
+        19,
+        15
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.14285950000066805
+    },
+    {
+      "family": "qwen3_5_mixed",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_mixed\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_mixed\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_mixed-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 3.725290298461914e-09,
+          "worst_index": 17,
+          "word_differences": 1,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 29,
+          "word_differences": 17,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 23,
+          "word_differences": 31,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 1,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.9802322387695312e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        29,
+        31,
+        19,
+        15
+      ],
+      "streamed_linears": 32,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.17495820000021922
+    },
+    {
+      "family": "qwen3_5_mixed",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_mixed\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_mixed\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_mixed-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 3.725290298461914e-09,
+          "worst_index": 17,
+          "word_differences": 1,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 31,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 3.725290298461914e-08,
+          "worst_index": 18,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 1,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 3.725290298461914e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        29,
+        31,
+        19,
+        15
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.14644550000048184
+    },
+    {
+      "family": "qwen3_5_mixed",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_mixed\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_mixed\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_mixed-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 3.725290298461914e-09,
+          "worst_index": 17,
+          "word_differences": 1,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 31,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 3.725290298461914e-08,
+          "worst_index": 18,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.9802322387695312e-08,
+          "worst_index": 1,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 3.725290298461914e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        29,
+        31,
+        19,
+        15
+      ],
+      "streamed_linears": 32,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1694336000000476
+    },
+    {
+      "family": "qwen3_5_moe",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_moe\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_moe\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_moe-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 19,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 31,
+          "word_differences": 16,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 30,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 30,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.2351741790771484e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        21,
+        7,
+        21,
+        7
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.1430419999996957
+    },
+    {
+      "family": "qwen3_5_moe",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_moe\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_moe\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_moe-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 19,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 31,
+          "word_differences": 16,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 30,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 30,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.2351741790771484e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        21,
+        7,
+        21,
+        7
+      ],
+      "streamed_linears": 38,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.18262349999986327
+    },
+    {
+      "family": "qwen3_5_moe",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_moe\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_moe\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_moe-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 19,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 30,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 27,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 11,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.2351741790771484e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        21,
+        7,
+        21,
+        7
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.1469772999998895
+    },
+    {
+      "family": "qwen3_5_moe",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen3_5_moe\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen3_5_moe\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen3_5_moe-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 2.2351741790771484e-08,
+          "worst_index": 19,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 30,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 27,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 11,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 2.2351741790771484e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        21,
+        7,
+        21,
+        7
+      ],
+      "streamed_linears": 38,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.18136309999954392
+    },
+    {
+      "family": "qwen4_exp_linear",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_linear\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_linear\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_linear-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 4,
+          "word_differences": 17,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 8.381903171539307e-09,
+          "worst_index": 13,
+          "word_differences": 18,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 21,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 30,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.4901161193847656e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        22,
+        8,
+        27,
+        4
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.14490569999998115
+    },
+    {
+      "family": "qwen4_exp_linear",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_linear\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_linear\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_linear-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 4,
+          "word_differences": 17,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 8.381903171539307e-09,
+          "worst_index": 13,
+          "word_differences": 18,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 21,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 30,
+          "word_differences": 22,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.4901161193847656e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        22,
+        8,
+        27,
+        4
+      ],
+      "streamed_linears": 27,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.16285049999987677
+    },
+    {
+      "family": "qwen4_exp_linear",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_linear\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_linear\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_linear-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 4,
+          "word_differences": 17,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 8,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 9.313225746154785e-09,
+          "worst_index": 19,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 30,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.4901161193847656e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        22,
+        8,
+        27,
+        4
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.13255109999954584
+    },
+    {
+      "family": "qwen4_exp_linear",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_linear\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_linear\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_linear-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 4,
+          "word_differences": 17,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 8,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 9.313225746154785e-09,
+          "worst_index": 19,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 30,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.4901161193847656e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        22,
+        8,
+        27,
+        4
+      ],
+      "streamed_linears": 27,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.15652139999929204
+    },
+    {
+      "family": "qwen4_exp_qsa",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_qsa\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_qsa\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_qsa-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 12,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 30,
+          "word_differences": 15,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 16,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 10,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.4901161193847656e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        12,
+        23,
+        0,
+        16
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.14785220000067056
+    },
+    {
+      "family": "qwen4_exp_qsa",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_qsa\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_qsa\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_qsa-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 12,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 30,
+          "word_differences": 15,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 16,
+          "word_differences": 28,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 10,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.4901161193847656e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        12,
+        23,
+        0,
+        16
+      ],
+      "streamed_linears": 27,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.17585589999998774
+    },
+    {
+      "family": "qwen4_exp_qsa",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_qsa\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_qsa\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_qsa-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 12,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.3969838619232178e-08,
+          "worst_index": 24,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 16,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.1175870895385742e-08,
+          "worst_index": 10,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.4901161193847656e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        12,
+        23,
+        0,
+        16
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.14192470000034518
+    },
+    {
+      "family": "qwen4_exp_qsa",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_qsa\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_qsa\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_qsa-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 12,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.3969838619232178e-08,
+          "worst_index": 24,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 16,
+          "word_differences": 27,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.1175870895385742e-08,
+          "worst_index": 10,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.4901161193847656e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        12,
+        23,
+        0,
+        16
+      ],
+      "streamed_linears": 27,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.17107560000022204
+    },
+    {
+      "family": "qwen4_exp_ple",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_ple\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_ple\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_ple-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 21,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.1175870895385742e-08,
+          "worst_index": 10,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 24,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 21,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.1175870895385742e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        18,
+        12,
+        7,
+        18
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.1435209000001123
+    },
+    {
+      "family": "qwen4_exp_ple",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_ple\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_ple\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_ple-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 21,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.1175870895385742e-08,
+          "worst_index": 10,
+          "word_differences": 26,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 24,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 21,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.1175870895385742e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        18,
+        12,
+        7,
+        18
+      ],
+      "streamed_linears": 29,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.17362880000018777
+    },
+    {
+      "family": "qwen4_exp_ple",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_ple\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_ple\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_ple-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 21,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 29,
+          "word_differences": 29,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 8.381903171539307e-09,
+          "worst_index": 13,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 24,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 8.381903171539307e-09,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        18,
+        12,
+        7,
+        18
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.1475362999999561
+    },
+    {
+      "family": "qwen4_exp_ple",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_ple\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_ple\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_ple-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 21,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 29,
+          "word_differences": 29,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 8.381903171539307e-09,
+          "worst_index": 13,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 24,
+          "word_differences": 24,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 8.381903171539307e-09,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        18,
+        12,
+        7,
+        18
+      ],
+      "streamed_linears": 29,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.16775140000027022
+    },
+    {
+      "family": "qwen4_exp_mixed_ple",
+      "use_cache": false,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_mixed_ple\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_mixed_ple\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_mixed_ple-full-resident.json",
+        "--use-cache",
+        "false"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 9.313225746154785e-09,
+          "worst_index": 25,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 29,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 28,
+          "word_differences": 30,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.7695128917694092e-08,
+          "worst_index": 0,
+          "word_differences": 30,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.7695128917694092e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        1,
+        9,
+        29,
+        28
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.15297620000001189
+    },
+    {
+      "family": "qwen4_exp_mixed_ple",
+      "use_cache": false,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_mixed_ple\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_mixed_ple\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_mixed_ple-full-streaming.json",
+        "--use-cache",
+        "false",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 9.313225746154785e-09,
+          "worst_index": 25,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 7.450580596923828e-09,
+          "worst_index": 29,
+          "word_differences": 23,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 28,
+          "word_differences": 30,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.7695128917694092e-08,
+          "worst_index": 0,
+          "word_differences": 30,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.7695128917694092e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        1,
+        9,
+        29,
+        28
+      ],
+      "streamed_linears": 54,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.2016924999998082
+    },
+    {
+      "family": "qwen4_exp_mixed_ple",
+      "use_cache": true,
+      "mode": "resident",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_mixed_ple\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_mixed_ple\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_mixed_ple-cache-resident.json",
+        "--use-cache",
+        "true"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 9.313225746154785e-09,
+          "worst_index": 25,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.1175870895385742e-08,
+          "worst_index": 13,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.862645149230957e-08,
+          "worst_index": 28,
+          "word_differences": 29,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 5,
+          "word_differences": 30,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.862645149230957e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        1,
+        9,
+        29,
+        28
+      ],
+      "streamed_linears": 0,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "elapsed_seconds": 0.15785669999968377
+    },
+    {
+      "family": "qwen4_exp_mixed_ple",
+      "use_cache": true,
+      "mode": "streaming",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\transformer_generation_parity.exe",
+        "--model",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation-packages\\qwen4_exp_mixed_ple\\unmasked\\model",
+        "--fixture",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase19w-reference\\gen9final\\cpu\\generation\\qwen4_exp_mixed_ple\\input.json",
+        "--output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-generation\\qwen4_exp_mixed_ple-cache-streaming.json",
+        "--use-cache",
+        "true",
+        "--stream-parameters"
+      ],
+      "pass": true,
+      "exit": 0,
+      "steps": [
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 9.313225746154785e-09,
+          "worst_index": 25,
+          "word_differences": 19,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.1175870895385742e-08,
+          "worst_index": 13,
+          "word_differences": 25,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.862645149230957e-08,
+          "worst_index": 28,
+          "word_differences": 29,
+          "failing_values": 0,
+          "pass": true
+        },
+        {
+          "values": 32,
+          "excluded_values": 0,
+          "max_abs": 1.4901161193847656e-08,
+          "worst_index": 5,
+          "word_differences": 30,
+          "failing_values": 0,
+          "pass": true
+        }
+      ],
+      "max_abs": 1.862645149230957e-08,
+      "sequence": [
+        1,
+        5,
+        9,
+        3,
+        7,
+        1,
+        9,
+        29,
+        28
+      ],
+      "streamed_linears": 54,
+      "device": "AMD Radeon Graphics",
+      "vendor_id": 4098,
+      "device_id": 5567,
+      "resident_word_differences": 0,
+      "elapsed_seconds": 0.1956025999998019
+    }
+  ]
+}

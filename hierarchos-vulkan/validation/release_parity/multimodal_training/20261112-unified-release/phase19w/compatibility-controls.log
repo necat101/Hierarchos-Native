@@ -1,0 +1,29 @@
+test_alias_to_wrong_graph_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_alias_to_wrong_graph_is_rejected) ... ok
+test_duplicate_row_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_duplicate_row_is_rejected) ... ok
+test_false_untested_forward_claim_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_false_untested_forward_claim_is_rejected) ... ok
+test_forged_alias_numerical_pass_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_forged_alias_numerical_pass_is_rejected) ... ok
+test_forged_generation_pass_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_forged_generation_pass_is_rejected) ... ok
+test_forged_historical_pass_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_forged_historical_pass_is_rejected) ... ok
+test_forged_training_parity_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_forged_training_parity_is_rejected) ... ok
+test_missing_alias_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_missing_alias_is_rejected) ... ok
+test_missing_canonical_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_missing_canonical_is_rejected) ... ok
+test_missing_evidence_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_missing_evidence_is_rejected) ... ok
+test_missing_generation_cache_mode_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_missing_generation_cache_mode_is_rejected) ... ok
+test_missing_generation_profile_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_missing_generation_profile_is_rejected) ... ok
+test_missing_historical_architecture_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_missing_historical_architecture_is_rejected) ... ok
+test_missing_historical_forward_profile_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_missing_historical_forward_profile_is_rejected) ... ok
+test_missing_mode_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_missing_mode_is_rejected) ... ok
+test_missing_training_profile_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_missing_training_profile_is_rejected) ... ok
+test_positive_matrix_validates (test_phase19w_compatibility.CompatibilityNegativeControls.test_positive_matrix_validates) ... ok
+test_reduced_generation_matrix_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_reduced_generation_matrix_is_rejected) ... ok
+test_source_contract_drift_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_source_contract_drift_is_rejected) ... ok
+test_training_without_streamed_linear_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_training_without_streamed_linear_is_rejected) ... ok
+test_unknown_status_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_unknown_status_is_rejected) ... ok
+test_wrong_device_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_wrong_device_is_rejected) ... ok
+test_wrong_policy_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_wrong_policy_is_rejected) ... ok
+test_wrong_vendor_is_rejected (test_phase19w_compatibility.CompatibilityNegativeControls.test_wrong_vendor_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.872s
+
+OK
