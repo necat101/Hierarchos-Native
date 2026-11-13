@@ -198,7 +198,7 @@ impl Gemma4VisionLayer {
             G | GA | U | P | D_GA | D_G | D_U | D_P => rows_intermediate,
             _ => rows_dim,
         });
-        Ok(Self {
+        let mut layer = Self {
             q: Self::linear_no_bias(
                 package,
                 device,
@@ -322,7 +322,24 @@ impl Gemma4VisionLayer {
             v_mean: GpuBuffer::zeros_f32(device, rows_heads)?,
             v_rstd: GpuBuffer::zeros_f32(device, rows_heads)?,
             prefix,
-        })
+        };
+        // Gemma4's sandwich RMSNorms amplify FP16 operand error. Independent
+        // replays show that q/k stay at 1.4e-4 max / 4.6e-5 RMS, while the
+        // parameter-free V norm turns FP16-query/value quantization into
+        // 0.0083 max / 0.0026 RMS, and the output/MLP projections add the rest
+        // of the 0.018 failure. Keep V, output and MLP on their FP32 kernels and
+        // count those skipped cooperative dispatches as policy fallbacks. Q/K
+        // retain cooperative WMMA, well inside the unchanged Mixed policy.
+        for linear in [
+            &mut layer.v,
+            &mut layer.o,
+            &mut layer.gate,
+            &mut layer.up,
+            &mut layer.down,
+        ] {
+            linear.disable_wmma();
+        }
+        Ok(layer)
     }
 
     fn linear_forward(
@@ -1148,8 +1165,10 @@ impl VulkanGemma4Vision {
                 .use_vector_cpu_rsqrt(true);
         projector_norm.freeze();
         let vk = VisionKernels::new(&device)?;
+        let mut patch = VulkanLinear::new_no_bias(&device, patch_dim, dim, &patch_weight)?;
+        patch.disable_wmma();
         Ok(Self {
-            patch: VulkanLinear::new_no_bias(&device, patch_dim, dim, &patch_weight)?,
+            patch,
             position: TrainableParameter::new(&device, &position_values, true)?,
             layers: (0..num_layers)
                 .map(|i| {

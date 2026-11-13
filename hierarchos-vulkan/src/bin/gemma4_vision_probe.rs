@@ -165,6 +165,7 @@ fn run() -> Result<()> {
             "precision":{"requested":hierarchos_vulkan::wmma::WmmaMode::from_env()?.label(),
                 "accumulation_dispatches":hierarchos_vulkan::wmma_linear::linear_wmma_precision_counts(),
                 "phases":hierarchos_vulkan::wmma_linear::linear_wmma_phase_counts(),
+                "policy_fallbacks":hierarchos_vulkan::wmma_linear::linear_wmma_policy_fallbacks(),
                 "master_weights":"fp32","optimizer_state":"fp32"},
             "pixels":pixels,"positions":graph.positions(),"alternate":alternate,
             "steps":steps,"final":final_output,"reload":reload_output,

@@ -242,7 +242,7 @@ mod parameter_streaming {
             let weight=GpuBuffer::from_f32(&device,weights)?;
             let output=GpuBuffer::zeros_f32(&device,output_dim)?;
             let mut commands=vulkan::ComputeBatch::new(&device)?;
-            record_linear_projection(&mut commands,&kernels,&input,&weight,None,&output,1,input_dim,output_dim,false)?;
+            record_linear_projection(&mut commands,&kernels,&input,&weight,None,&output,1,input_dim,output_dim,false,true)?;
             commands.submit()?;
             expected.push(output.read_f32(output_dim)?.iter().map(|v|v.to_bits()).collect::<Vec<_>>());
         }

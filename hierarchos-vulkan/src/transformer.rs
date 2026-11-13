@@ -28441,6 +28441,7 @@ impl TieredLmHead {
                     self.input_dim,
                     count,
                     narrow_output,
+                    true,
                 )?;
             }
             if output_scratch.is_some() {
@@ -28997,6 +28998,10 @@ struct VulkanLinear {
     has_bias: bool,
     train_base: bool,
     train_bias: bool,
+    /// False for projections whose FP16 operand conversion is outside the
+    /// numerical policy. Such a projection always records its FP32 kernel and
+    /// its dispatches are counted as policy fallbacks, never as WMMA.
+    wmma_allowed: bool,
     lora: VulkanLoraBank,
 }
 
@@ -29189,6 +29194,7 @@ fn record_linear_projection(
     input_dim: usize,
     output_dim: usize,
     narrow_output: bool,
+    allow_wmma: bool,
 ) -> Result<()> {
     if input_dim == 0 || output_dim == 0 || rows == 0 {
         bail!("linear dispatch requires positive rows and dimensions");
@@ -29197,21 +29203,23 @@ fn record_linear_projection(
     // qualified kernel writes, so a later bias add, residual or checkpoint copy
     // sees the layout it already expects. Shapes outside the tile contract keep
     // their own kernel and are counted as fallbacks.
-    if let Some(executor) = kernels.wmma_linear(rows, input_dim, output_dim)? {
-        if executor.record_forward(commands, input, weight, output, rows)? {
-            if let Some(bias) = bias {
-                let bias_push = BiasPush {
-                    rows: rows as u32,
-                    dim: output_dim as u32,
-                };
-                kernels.bias_add.record_dispatch(
-                    commands,
-                    &[output, bias],
-                    bytemuck::bytes_of(&bias_push),
-                    [div_ceil_u32(rows * output_dim, 256), 1, 1],
-                )?;
+    if allow_wmma {
+        if let Some(executor) = kernels.wmma_linear(rows, input_dim, output_dim)? {
+            if executor.record_forward(commands, input, weight, output, rows)? {
+                if let Some(bias) = bias {
+                    let bias_push = BiasPush {
+                        rows: rows as u32,
+                        dim: output_dim as u32,
+                    };
+                    kernels.bias_add.record_dispatch(
+                        commands,
+                        &[output, bias],
+                        bytemuck::bytes_of(&bias_push),
+                        [div_ceil_u32(rows * output_dim, 256), 1, 1],
+                    )?;
+                }
+                return Ok(());
             }
-            return Ok(());
         }
     }
     let push = LinearPush {
@@ -29317,6 +29325,7 @@ impl VulkanLinear {
             has_bias: bias.is_some(),
             train_base: false,
             train_bias: false,
+            wmma_allowed: true,
             lora: VulkanLoraBank::default(),
         })
     }
@@ -29339,6 +29348,7 @@ impl VulkanLinear {
             has_bias: true,
             train_base: true,
             train_bias: true,
+            wmma_allowed: true,
             lora: VulkanLoraBank::default(),
         })
     }
@@ -29363,8 +29373,18 @@ impl VulkanLinear {
             has_bias: false,
             train_base: true,
             train_bias: false,
+            wmma_allowed: true,
             lora: VulkanLoraBank::default(),
         })
+    }
+
+    /// Disable WMMA for this projection under the numerical policy.
+    ///
+    /// The forward, weight-gradient and input-gradient paths all keep their
+    /// FP32 kernels; each skipped cooperative dispatch is reported through
+    /// [`wmma_linear::linear_wmma_policy_fallbacks`].
+    fn disable_wmma(&mut self) {
+        self.wmma_allowed = false;
     }
 
     /// Clone an upstream module for PEFT layer replication while preserving
@@ -29383,6 +29403,7 @@ impl VulkanLinear {
             has_bias: self.has_bias,
             train_base: self.train_base,
             train_bias: self.train_bias,
+            wmma_allowed: self.wmma_allowed,
             lora: VulkanLoraBank::default(),
         })
     }
@@ -29662,6 +29683,9 @@ impl VulkanLinear {
                 tiered,
             )?;
         } else {
+            if !self.wmma_allowed {
+                crate::wmma_linear::note_policy_fallback();
+            }
             record_linear_projection(
                 commands,
                 kernels,
@@ -29673,6 +29697,7 @@ impl VulkanLinear {
                 self.input_dim,
                 self.output_dim,
                 narrow_output,
+                self.wmma_allowed,
             )?;
         }
         if let Some(lora) = self.lora.as_ref() {
@@ -29941,15 +29966,20 @@ impl VulkanLinear {
             grad_output
         };
         if self.train_base {
-            let via_wmma = match kernels.wmma_linear(rows, self.input_dim, self.output_dim)? {
-                Some(executor) => executor.record_weight_grad(
-                    commands,
-                    base_grad_output,
-                    input,
-                    self.weight.grad_target()?,
-                    rows,
-                )?,
-                None => false,
+            let via_wmma = if self.wmma_allowed {
+                match kernels.wmma_linear(rows, self.input_dim, self.output_dim)? {
+                    Some(executor) => executor.record_weight_grad(
+                        commands,
+                        base_grad_output,
+                        input,
+                        self.weight.grad_target()?,
+                        rows,
+                    )?,
+                    None => false,
+                }
+            } else {
+                crate::wmma_linear::note_policy_fallback();
+                false
             };
             if !via_wmma {
                 kernels.linear_weight_grad.record_dispatch(
@@ -30011,15 +30041,20 @@ impl VulkanLinear {
                 [div_ceil_u32(self.input_dim, 16), div_ceil_u32(rows, 16), 1],
             )?;
         } else {
-            let via_wmma = match kernels.wmma_linear(rows, self.input_dim, self.output_dim)? {
-                Some(executor) => executor.record_input_grad(
-                    commands,
-                    base_grad_output,
-                    &self.weight.values,
-                    base_grad_input,
-                    rows,
-                )?,
-                None => false,
+            let via_wmma = if self.wmma_allowed {
+                match kernels.wmma_linear(rows, self.input_dim, self.output_dim)? {
+                    Some(executor) => executor.record_input_grad(
+                        commands,
+                        base_grad_output,
+                        &self.weight.values,
+                        base_grad_input,
+                        rows,
+                    )?,
+                    None => false,
+                }
+            } else {
+                crate::wmma_linear::note_policy_fallback();
+                false
             };
             if !via_wmma {
                 kernels.linear_input_grad.record_dispatch(
@@ -78326,6 +78361,7 @@ impl VulkanTransformer {
                 lm_push.input_dim as usize,
                 lm_push.output_dim as usize,
                 false,
+                true,
             )?;
             if let Some(lm_head_bias) = self.lm_head_bias.as_ref() {
                 let bias_push = BiasPush {
@@ -86050,6 +86086,7 @@ impl VulkanTransformer {
                     lm_push.input_dim as usize,
                     lm_push.output_dim as usize,
                     false,
+                    true,
                 )?;
                 if let Some(lm_head_bias) = self.lm_head_bias.as_ref() {
                     let bias_push = BiasPush {

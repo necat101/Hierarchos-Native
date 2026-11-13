@@ -46,6 +46,7 @@ static FORWARD_DISPATCHES: AtomicU64 = AtomicU64::new(0);
 static WEIGHT_GRAD_DISPATCHES: AtomicU64 = AtomicU64::new(0);
 static INPUT_GRAD_DISPATCHES: AtomicU64 = AtomicU64::new(0);
 static SHAPE_FALLBACKS: AtomicU64 = AtomicU64::new(0);
+static POLICY_FALLBACKS: AtomicU64 = AtomicU64::new(0);
 static WEIGHT_CONVERSIONS: AtomicU64 = AtomicU64::new(0);
 static WEIGHT_CONVERSION_BYTES: AtomicU64 = AtomicU64::new(0);
 static WEIGHT_MIRROR_REUSES: AtomicU64 = AtomicU64::new(0);
@@ -67,6 +68,21 @@ pub fn linear_wmma_precision_counts() -> [u64; 2] {
     [MIXED_DISPATCHES.load(Ordering::Relaxed), FULL_FP16_DISPATCHES.load(Ordering::Relaxed)]
 }
 
+/// Projections kept on their FP32 kernel by an explicit numerical policy even
+/// though their shape is WMMA-eligible.
+///
+/// These dispatches are not cooperative and must never be added to
+/// [`linear_wmma_dispatch_counts`]. They are counted here so a graph that keeps
+/// a sensitive tower in FP32 can document exactly how many projections took
+/// that route.
+pub fn linear_wmma_policy_fallbacks() -> u64 {
+    POLICY_FALLBACKS.load(Ordering::Relaxed)
+}
+
+pub(crate) fn note_policy_fallback() {
+    POLICY_FALLBACKS.fetch_add(1, Ordering::Relaxed);
+}
+
 /// Mirror slots one executor may hold before the stalest is evicted.
 ///
 /// A geometry is shared by every projection of that shape, and the widest real
@@ -82,6 +98,8 @@ pub struct LinearWmmaConversionStats {
     pub weight_bytes: u64,
     /// Weight dispatches that reused a mirror without converting.
     pub mirror_reuses: u64,
+    /// FP32 dispatches retained by an explicit numerical policy.
+    pub policy_fallbacks: u64,
 }
 
 pub fn linear_wmma_conversion_stats() -> LinearWmmaConversionStats {
@@ -89,6 +107,7 @@ pub fn linear_wmma_conversion_stats() -> LinearWmmaConversionStats {
         weight_conversions: WEIGHT_CONVERSIONS.load(Ordering::Relaxed),
         weight_bytes: WEIGHT_CONVERSION_BYTES.load(Ordering::Relaxed),
         mirror_reuses: WEIGHT_MIRROR_REUSES.load(Ordering::Relaxed),
+        policy_fallbacks: POLICY_FALLBACKS.load(Ordering::Relaxed),
     }
 }
 
