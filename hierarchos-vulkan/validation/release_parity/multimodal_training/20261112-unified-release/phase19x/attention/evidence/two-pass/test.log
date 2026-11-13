@@ -1,0 +1,18 @@
+
+running 1 test
+[fixture-causal] batch=8 heads=8 seq=64 head_dim=128 causal=1 masked=false unwritten=0 grad_q: elements=524288 bitwise_equal=524288 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[fixture-causal] batch=8 heads=8 seq=64 head_dim=128 causal=1 masked=false unwritten=0 grad_k: elements=524288 bitwise_equal=524288 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[fixture-causal] batch=8 heads=8 seq=64 head_dim=128 causal=1 masked=false unwritten=0 grad_v: elements=524288 bitwise_equal=524288 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[fixture-full] batch=8 heads=8 seq=64 head_dim=128 causal=0 masked=false unwritten=0 grad_q: elements=524288 bitwise_equal=524288 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[fixture-full] batch=8 heads=8 seq=64 head_dim=128 causal=0 masked=false unwritten=0 grad_k: elements=524288 bitwise_equal=524288 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[fixture-full] batch=8 heads=8 seq=64 head_dim=128 causal=0 masked=false unwritten=0 grad_v: elements=524288 bitwise_equal=524288 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[padded-causal] batch=2 heads=2 seq=16 head_dim=64 causal=1 masked=true unwritten=0 grad_q: elements=4096 bitwise_equal=4096 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[padded-causal] batch=2 heads=2 seq=16 head_dim=64 causal=1 masked=true unwritten=0 grad_k: elements=4096 bitwise_equal=4096 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[padded-causal] batch=2 heads=2 seq=16 head_dim=64 causal=1 masked=true unwritten=0 grad_v: elements=4096 bitwise_equal=4096 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[small-causal] batch=1 heads=1 seq=4 head_dim=4 causal=1 masked=false unwritten=0 grad_q: elements=16 bitwise_equal=16 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[small-causal] batch=1 heads=1 seq=4 head_dim=4 causal=1 masked=false unwritten=0 grad_k: elements=16 bitwise_equal=16 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+[small-causal] batch=1 heads=1 seq=4 head_dim=4 causal=1 masked=false unwritten=0 grad_v: elements=16 bitwise_equal=16 max_abs=0.000e0 max_rel=0.000e0 rms=0.000e0 max_ulp=0 nan(expected/actual)=0/0 inf=0/0 first_divergence=none PASS
+test transformer::tests::two_pass_attention_backward_matches_scalar_gradients ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1198 filtered out; finished in 1.19s
+

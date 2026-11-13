@@ -15,3 +15,10 @@ tables, through `check_measured_producer_routes.py`.
 Re-recording retains each producer's original batches, samples, warmups and
 decision margin. A rebuild and an independent complete sweep are required;
 recording a policy alone does not qualify it.
+
+`packed-second-sweep-3f7ac75` retains the complete post-rebuild sweep. Ten
+benchmark/guard pairs passed. Three timing guards failed: time-mix projection
+at batch 4 (staged ahead 3.7%), channel mix at batch 8 (staged ahead 3.4%), and
+FP16-storage rematerialization at batch 1 (packed ahead 3.9%). The original 2%
+band remains unchanged, and the status is FAIL. The numerical requirements
+passed; the existing time-mix geometry refusals remain explicit.
