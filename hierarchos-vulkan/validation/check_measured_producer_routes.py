@@ -87,6 +87,11 @@ VALIDATION = ROOT / "validation"
 # snapshots remain immutable historical evidence of their original route tables.
 CURRENT_RECEIPTS = (VALIDATION / "release_parity" / "multimodal_training" /
                     "20261112-unified-release" / "phase19z" / "packed-cell")
+# Complete cycles of both the three-leg and four-leg rotated samplers. Earlier
+# 20/40-sample sweeps produced conflicting winners beyond the unchanged bands.
+# More observations and balanced leg positions improve measurement reliability;
+# the geometries, warmups, candidate routes and numeric policies stay fixed.
+TIMING_SAMPLES = "120"
 
 PACKED_TENSORS = frozenset(
     {"output", "packed_new_state", "grad_x", "grad_packed_state", "token_feature_grad"}
@@ -216,7 +221,7 @@ PRODUCERS: tuple[Producer, ...] = (
         name="time-mix-projection",
         label="Time-mix projection",
         driver="hierarchos-vulkan/validation/bench_rwkv_packed_cell_time_mix.py",
-        bench_args=("--iterations", "20", "--warmup", "5"),
+        bench_args=("--iterations", TIMING_SAMPLES, "--warmup", "5"),
         guard_label="Time-mix projection route across the sweep",
         receipt=CURRENT_RECEIPTS / "packed_cell_time_mix_bench.json",
         record=VALIDATION / "time_mix_projection_decisions.json",
@@ -239,7 +244,7 @@ PRODUCERS: tuple[Producer, ...] = (
         name="channel-mix",
         label="Channel-mix",
         driver="hierarchos-vulkan/validation/bench_rwkv_packed_cell_channel_mix.py",
-        bench_args=("--iterations", "20", "--warmup", "5"),
+        bench_args=("--iterations", TIMING_SAMPLES, "--warmup", "5"),
         guard_label="Channel-mix route across the sweep",
         receipt=CURRENT_RECEIPTS / "packed_cell_channel_mix_bench.json",
         record=VALIDATION / "channel_mix_forward_decisions.json",
@@ -262,7 +267,7 @@ PRODUCERS: tuple[Producer, ...] = (
         name="low-rank-forward",
         label="LN1/low-rank forward",
         driver="hierarchos-vulkan/validation/bench_rwkv_packed_cell_low_rank_forward.py",
-        bench_args=("--iterations", "20", "--warmup", "5"),
+        bench_args=("--iterations", TIMING_SAMPLES, "--warmup", "5"),
         guard_label="LN1/low-rank route across the sweep",
         receipt=CURRENT_RECEIPTS / "packed_cell_low_rank_forward_bench.json",
         record=VALIDATION / "low_rank_full_forward_decisions.json",
@@ -287,7 +292,7 @@ PRODUCERS: tuple[Producer, ...] = (
         name="low-rank-forward-fp16",
         label="FP16-storage low-rank forward",
         driver="hierarchos-vulkan/validation/bench_rwkv_low_rank_fp16_forward.py",
-        bench_args=("--iterations", "20", "--warmup", "5"),
+        bench_args=("--iterations", TIMING_SAMPLES, "--warmup", "5"),
         guard_label="FP16-storage low-rank route across the sweep",
         receipt=CURRENT_RECEIPTS / "low_rank_fp16_forward_bench.json",
         record=VALIDATION / "low_rank_full_forward_decisions.json",
@@ -317,7 +322,7 @@ PRODUCERS: tuple[Producer, ...] = (
         name="key-state-forward",
         label="Key/state forward",
         driver="hierarchos-vulkan/validation/bench_rwkv_key_state_forward.py",
-        bench_args=("--iterations", "20", "--repetitions", "50"),
+        bench_args=("--iterations", TIMING_SAMPLES, "--repetitions", "50"),
         guard_label="Key/state route across the sweep",
         receipt=CURRENT_RECEIPTS / "key_state_forward_bench.json",
         record=VALIDATION / "key_state_forward_decisions.json",
@@ -495,7 +500,7 @@ CHAIN_PRODUCERS: tuple[ChainProducer, ...] = (
             "--steps",
             "8",
             "--iterations",
-            "20",
+            TIMING_SAMPLES,
             "--warmup",
             "2",
         ),
@@ -522,7 +527,7 @@ CHAIN_PRODUCERS: tuple[ChainProducer, ...] = (
             "--steps",
             "8",
             "--iterations",
-            "20",
+            TIMING_SAMPLES,
             "--warmup",
             "2",
         ),
@@ -551,7 +556,7 @@ CHAIN_PRODUCERS: tuple[ChainProducer, ...] = (
             "--steps",
             "8",
             "--iterations",
-            "20",
+            TIMING_SAMPLES,
             "--warmup",
             "2",
         ),
@@ -580,7 +585,7 @@ CHAIN_PRODUCERS: tuple[ChainProducer, ...] = (
             "--steps",
             "8",
             "--iterations",
-            "20",
+            TIMING_SAMPLES,
             "--warmup",
             "2",
         ),
@@ -601,17 +606,15 @@ CHAIN_PRODUCERS: tuple[ChainProducer, ...] = (
         name="tbptt-backward-fusion",
         label="TBPTT backward fusion",
         driver="hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py",
-        # The two backward arms differ by well under a percent on this adapter, so
-        # the sweep samples twice as long as the forward/remat chains: a 20-sample
-        # run has twice flipped the sign outside the 2% band between passes, which
-        # is exactly the instability the tie rule is meant to absorb.
+        # Keep every candidate and default in balanced sampler positions. The
+        # earlier 20/40-sample measurements remain archived, including failures.
         bench_args=(
             "--chain",
             "backward",
             "--steps",
             "8",
             "--iterations",
-            "40",
+            TIMING_SAMPLES,
             "--warmup",
             "3",
         ),
@@ -648,7 +651,7 @@ CHAIN_PRODUCERS: tuple[ChainProducer, ...] = (
             "--steps",
             "8",
             "--iterations",
-            "40",
+            TIMING_SAMPLES,
             "--warmup",
             "3",
         ),
@@ -722,6 +725,16 @@ CONSUMERS = (TBPTT_TIME_MIX, PACKED_COMPOSITION)
 ALL_SPECS = PRODUCERS + CHAIN_PRODUCERS + CONSUMERS
 CONSUMERS_BY_NAME = {consumer.name: consumer for consumer in CONSUMERS}
 ALL_SPECS_BY_NAME = {spec.name: spec for spec in ALL_SPECS}
+
+
+def check_sample_count(spec, receipt: dict) -> None:
+    samples = receipt.get("samples")
+    if type(samples) is not int or samples < 1:
+        raise Problem(f"the receipt records samples={samples!r}")
+    if "--iterations" in spec.bench_args:
+        expected = int(spec.bench_args[spec.bench_args.index("--iterations") + 1])
+        if samples != expected:
+            raise Problem(f"the receipt records samples={samples}, expected {expected} from the maintained sweep")
 
 
 def canonical_policy(policy: str | None) -> str | None:
@@ -828,8 +841,7 @@ def check_receipt(producer: Producer, receipt: dict) -> list[dict]:
         )
     if not receipt.get("batches"):
         raise Problem("the receipt carries no measured batch")
-    if int(receipt.get("samples", 0)) < 1:
-        raise Problem(f"the receipt records samples={receipt.get('samples')!r}")
+    check_sample_count(producer, receipt)
     if "repetitions" in receipt and int(receipt["repetitions"]) < 1:
         raise Problem(f"the receipt records repetitions={receipt['repetitions']!r}")
     if producer.vendor_dispatches_per_step and int(receipt.get("steps", 0)) < 1:
@@ -1697,8 +1709,7 @@ def check_chain_producer(
         raise Problem(f"the receipt records width={receipt.get('width')!r}")
     if int(receipt.get("steps", 0)) < 1:
         raise Problem(f"the receipt records steps={receipt.get('steps')!r}")
-    if int(receipt.get("samples", 0)) < 1:
-        raise Problem(f"the receipt records samples={receipt.get('samples')!r}")
+    check_sample_count(chain, receipt)
     batches = [row["batch"] for row in receipt.get("batches", [])]
     if not batches:
         raise Problem("the receipt carries no measured batch")

@@ -22,3 +22,11 @@ at batch 4 (staged ahead 3.7%), channel mix at batch 8 (staged ahead 3.4%), and
 FP16-storage rematerialization at batch 1 (packed ahead 3.9%). The original 2%
 band remains unchanged, and the status is FAIL. The numerical requirements
 passed; the existing time-mix geometry refusals remain explicit.
+
+The current packed timing protocol uses 120 timed observations per candidate.
+This is a complete number of the existing three-leg and four-leg rotations,
+with more observations than the earlier 20/40-sample runs. Candidate graphs,
+batch sweeps, warmups, eight-step chains, 50 key/state repetitions and the
+original 1%/2% decision bands remain unchanged. The CPU guard now rejects a
+receipt whose sample count differs from its maintained recipe. The earlier
+short measurements stay archived with their actual FAIL statuses.
