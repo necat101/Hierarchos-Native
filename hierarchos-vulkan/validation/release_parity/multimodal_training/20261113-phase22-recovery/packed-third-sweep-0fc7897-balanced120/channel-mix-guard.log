@@ -1,0 +1,1 @@
+FAIL: channel-mix: batch 32: the record names 'staged', but this receipt measures 'fused' ahead by 6.1%, outside the 2% noise band; the record is stale

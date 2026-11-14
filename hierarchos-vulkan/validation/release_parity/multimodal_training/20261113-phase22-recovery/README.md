@@ -30,3 +30,16 @@ batch sweeps, warmups, eight-step chains, 50 key/state repetitions and the
 original 1%/2% decision bands remain unchanged. The CPU guard now rejects a
 receipt whose sample count differs from its maintained recipe. The earlier
 short measurements stay archived with their actual FAIL statuses.
+
+`packed-third-sweep-0fc7897-balanced120` preserves the first complete 120-sample
+sweep, still FAIL (10/13). All numerical comparisons passed. The performance
+guards rejected channel mix, dense low-rank and FP16-storage packed forward at
+batch 32. Their policies will be recorded with the same 120-sample protocol,
+then independently replayed after rebuilding affected executables.
+
+The chain recording driver supports a candidate output table so all three
+calibrations can run before changing the shipped tables. Each recording pass
+still uses the maintained build and measurement path. Candidate recording is
+not qualification. The pre-recording binary/table literal audit records which
+executables embed the three mutable tables; unaffected numerical evidence can
+be reused only if its binary and source bindings still verify.

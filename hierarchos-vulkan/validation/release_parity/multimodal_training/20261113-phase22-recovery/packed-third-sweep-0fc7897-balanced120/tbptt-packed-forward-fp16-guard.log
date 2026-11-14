@@ -1,0 +1,1 @@
+FAIL: tbptt-packed-forward-fp16: batch 32: the record names 'packed', but this receipt measures 'legacy' ahead by 31.1%, outside the 2% noise band; the record is stale

@@ -846,7 +846,14 @@ def main() -> int:
     parser.add_argument("--keep-fixtures", type=Path)
     parser.add_argument("--record", type=Path)
     parser.add_argument("--record-decisions", action="store_true")
+    parser.add_argument(
+        "--decisions-output",
+        type=Path,
+        help="record into this candidate table instead of the shipped table (requires --record-decisions)",
+    )
     args = parser.parse_args()
+    if args.decisions_output is not None and not args.record_decisions:
+        parser.error("--decisions-output requires --record-decisions")
     if args.profile_folded and args.negative_control:
         parser.error("--profile-folded and --negative-control are separate measurements")
     if args.profile_folded:
@@ -872,7 +879,7 @@ def main() -> int:
 
     spec = CHAINS[args.chain]
     receipt_path = args.record or spec["receipts"][args.parameter_storage]
-    record_path = spec["record"]
+    record_path = args.decisions_output or spec["record"]
     binary = ab.build_release_binary(BINARY)
     cleanup = None
     if args.keep_fixtures is not None:

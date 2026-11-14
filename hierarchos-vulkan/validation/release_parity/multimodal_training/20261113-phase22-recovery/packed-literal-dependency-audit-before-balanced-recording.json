@@ -1,0 +1,200 @@
+{
+  "source_revision": "0fc7897",
+  "table_sha256": {
+    "channel_mix_forward_decisions.json": "39fd0364ffc95e8bc238c588826a2c4854fc2d9a1b7916cd0d797b010f7eb52c",
+    "low_rank_full_forward_decisions.json": "2435be4bedbea87820a0a5bd0b80f19df9387e0a726c6e1881b4f842628961e3",
+    "tbptt_packed_forward_decisions.json": "9a9843d5ce8192645bd4564a74408e5b7f66132f0437f106cdddfad89b65815f"
+  },
+  "binaries": {
+    "wmma_drift": {
+      "path": "hierarchos-vulkan/target/release/wmma_drift.exe",
+      "sha256": "a17213553b3d0b99743f2e09c8ad002f490b5fe10fed2a1a88b0256288d3095b",
+      "embedded_decision_tables": []
+    },
+    "activation_probe": {
+      "path": "hierarchos-vulkan/target/release/activation_probe.exe",
+      "sha256": "817a507693d5891f99b2b8bb663debaa9f80be97375a76d44ae3438d567e97d4",
+      "embedded_decision_tables": []
+    },
+    "hierarchos-vulkan-training-qualification": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-vulkan-training-qualification.exe",
+      "sha256": "52a7c4566d6672d2c924f38c5794cfcfcda8ad610873b9cef081fce287f02c3c",
+      "embedded_decision_tables": []
+    },
+    "training-stability": {
+      "path": "hierarchos-vulkan/target/release/training-stability.exe",
+      "sha256": "7554ddfa1ac0d1c5b7b853f90998690a54f8355a56c0b8ddf2dc410a1f1e7e23",
+      "embedded_decision_tables": []
+    },
+    "held_out_eval": {
+      "path": "hierarchos-vulkan/target/release/held_out_eval.exe",
+      "sha256": "e6ec4152e678a245ab4ec3d36224daff7c8a538c1d65070daadf58089f5dd39a",
+      "embedded_decision_tables": []
+    },
+    "hierarchos-vulkan-transformer-train": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-vulkan-transformer-train.exe",
+      "sha256": "5778552a7b3c1e3ae8a56ce00c2ce5c54345e1e5644602f430d7ea3d6b757b3f",
+      "embedded_decision_tables": []
+    },
+    "hierarchos-vulkan-transformer-logits": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-vulkan-transformer-logits.exe",
+      "sha256": "f284c880a63e4a715f3bf98ba159b5e54297f7258fa511444108ea2d7a647bf3",
+      "embedded_decision_tables": []
+    },
+    "image_text_pipeline_probe": {
+      "path": "hierarchos-vulkan/target/release/image_text_pipeline_probe.exe",
+      "sha256": "a9ec1cb9edce9285280702cffcb5dad84de7b7f35e0c46e55f94441551bd2926",
+      "embedded_decision_tables": []
+    },
+    "gemma3_vision_probe": {
+      "path": "hierarchos-vulkan/target/release/gemma3_vision_probe.exe",
+      "sha256": "b59ba2b75dd592f8d0a79feb330c1245280767d4a31f99885787ca10969dc859",
+      "embedded_decision_tables": []
+    },
+    "gemma4_vision_probe": {
+      "path": "hierarchos-vulkan/target/release/gemma4_vision_probe.exe",
+      "sha256": "14c1638fea5e215c9c6f19952061c537847e8a0793cf3ae4ad09082f06c4cee8",
+      "embedded_decision_tables": []
+    },
+    "llava_pipeline_probe": {
+      "path": "hierarchos-vulkan/target/release/llava_pipeline_probe.exe",
+      "sha256": "84c97a7d2f77564a7cf413d64e9dc414120e1b4b4117562d0a583e4de6e98b00",
+      "embedded_decision_tables": []
+    },
+    "deepseek_v41_vision_precision_probe": {
+      "path": "hierarchos-vulkan/target/release/deepseek_v41_vision_precision_probe.exe",
+      "sha256": "d65a221aba9f38766a42d3ed1346710ca80986d705db3344ee0d7c370aa54b8a",
+      "embedded_decision_tables": []
+    },
+    "wmma_qualify": {
+      "path": "hierarchos-vulkan/target/release/wmma_qualify.exe",
+      "sha256": "5a873979d43e694185a53ebb047c773d6bb12831e01145f4d625ebd0907fe3f7",
+      "embedded_decision_tables": []
+    },
+    "parameter_streaming_bench": {
+      "path": "hierarchos-vulkan/target/release/parameter_streaming_bench.exe",
+      "sha256": "6996e54c28293847eb79aad5b75ebef8223245f9d339be8c443d34cf96241177",
+      "embedded_decision_tables": []
+    },
+    "peft_bank_parity": {
+      "path": "hierarchos-vulkan/target/release/peft_bank_parity.exe",
+      "sha256": "f7602c3e587a902a8ded80c7001b6cec424e2249e60d38a012c71feba0119e31",
+      "embedded_decision_tables": []
+    },
+    "transformer_generation_parity": {
+      "path": "hierarchos-vulkan/target/release/transformer_generation_parity.exe",
+      "sha256": "bb349b6d3daded68fe106347ca2be9a60dba2a307f2b0314ed1f5b1223b779ce",
+      "embedded_decision_tables": []
+    },
+    "transformer_parity": {
+      "path": "hierarchos-vulkan/target/release/transformer_parity.exe",
+      "sha256": "f816535778742b85cea1b007bd57cf73ff5aee7521835b027c5f3272ef361dcd",
+      "embedded_decision_tables": []
+    },
+    "peft_checkpoint": {
+      "path": "hierarchos-vulkan/target/release/peft_checkpoint.exe",
+      "sha256": "27eee613816aaacd4c651c0eff6afc2b6604b7cdd12d3423cb1658bc644c131b",
+      "embedded_decision_tables": []
+    },
+    "hierarchos-vulkan-rwkv-key-state-forward-bench": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-vulkan-rwkv-key-state-forward-bench.exe",
+      "sha256": "15a5a862b29023b8f2e6dfaae70cf4fc1ff4a5a52920c5d7ec3810ccf1c24770",
+      "embedded_decision_tables": []
+    },
+    "hierarchos-vulkan-rwkv-low-rank-fp16-forward-bench": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-vulkan-rwkv-low-rank-fp16-forward-bench.exe",
+      "sha256": "d1e92f8fe5a73c9b02ce864ebc2e99ec7d6dbd18f2e58c7045e348fbe5825233",
+      "embedded_decision_tables": [
+        "low_rank_full_forward_decisions.json"
+      ]
+    },
+    "hierarchos-vulkan-rwkv-packed-cell-channel-mix-bench": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-vulkan-rwkv-packed-cell-channel-mix-bench.exe",
+      "sha256": "cf74404f7a1d79578e547aaa05ef525998c7c94af2969ae37595f264cfc41475",
+      "embedded_decision_tables": [
+        "channel_mix_forward_decisions.json",
+        "low_rank_full_forward_decisions.json"
+      ]
+    },
+    "hierarchos-vulkan-rwkv-packed-cell-low-rank-forward-bench": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-vulkan-rwkv-packed-cell-low-rank-forward-bench.exe",
+      "sha256": "e281343ca81a8734b65de1b93aee0aa1b26743953d6d7f7aac20dffd30d21070",
+      "embedded_decision_tables": [
+        "channel_mix_forward_decisions.json",
+        "low_rank_full_forward_decisions.json"
+      ]
+    },
+    "hierarchos-vulkan-rwkv-packed-cell-time-mix-bench": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-vulkan-rwkv-packed-cell-time-mix-bench.exe",
+      "sha256": "394d555a315282887704f02c66fa56be758db8d8d9c940b497affaa86cdf2469",
+      "embedded_decision_tables": [
+        "channel_mix_forward_decisions.json",
+        "low_rank_full_forward_decisions.json"
+      ]
+    },
+    "hierarchos-vulkan-rwkv-tbptt-packed-chains-bench": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-vulkan-rwkv-tbptt-packed-chains-bench.exe",
+      "sha256": "b42fd6eabe7f471040b79aa703bd17e7e619c1eb89974f4877e7fc4327ec542a",
+      "embedded_decision_tables": [
+        "channel_mix_forward_decisions.json",
+        "low_rank_full_forward_decisions.json",
+        "tbptt_packed_forward_decisions.json"
+      ]
+    },
+    "hierarchos-vulkan-rwkv-tbptt-time-mix-bench": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-vulkan-rwkv-tbptt-time-mix-bench.exe",
+      "sha256": "f60292800aad961ddcebea5c979d86c1bf5fd221db182630e6b32b7e5e4ecf8c",
+      "embedded_decision_tables": [
+        "channel_mix_forward_decisions.json",
+        "low_rank_full_forward_decisions.json",
+        "tbptt_packed_forward_decisions.json"
+      ]
+    },
+    "rwkv_tbptt_packed_forward_parity": {
+      "path": "hierarchos-vulkan/target/release/rwkv_tbptt_packed_forward_parity.exe",
+      "sha256": "9dfe2da7a9c6bfa32ffdf96c9139c4a542f9b725895441d12256cc2e57d67e6b",
+      "embedded_decision_tables": [
+        "channel_mix_forward_decisions.json",
+        "low_rank_full_forward_decisions.json",
+        "tbptt_packed_forward_decisions.json"
+      ]
+    },
+    "hierarchos-vulkan-rwkv-packed-cell-step": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-vulkan-rwkv-packed-cell-step.exe",
+      "sha256": "c57e90cc35cddbce0c60698d3c848b4e25b5a37ecab518e860958c8917c01e56",
+      "embedded_decision_tables": [
+        "channel_mix_forward_decisions.json",
+        "low_rank_full_forward_decisions.json"
+      ]
+    },
+    "hierarchos-native-cli": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-native-cli.exe",
+      "sha256": "ef9e4f364eecf103aef8a31bd29e4eeb06014cefe109bf790a3233a25c192e06",
+      "embedded_decision_tables": []
+    },
+    "gui_app": {
+      "path": "hierarchos-vulkan/target/release/hierarchos-native.exe",
+      "sha256": "980199a3ad11339cc5fc4de44bfa43891e7d5335af2e81008ae0e14e747419d3",
+      "embedded_decision_tables": []
+    },
+    "libtest": {
+      "path": "hierarchos-vulkan/target/release/deps/hierarchos_vulkan-8c8d2140efff5506.exe",
+      "sha256": "4bffca7c92a57b4a8ead74c5db06a532e992312e1fb5bcbcff60089a6390db8e",
+      "embedded_decision_tables": [
+        "channel_mix_forward_decisions.json",
+        "low_rank_full_forward_decisions.json",
+        "tbptt_packed_forward_decisions.json"
+      ]
+    },
+    "cli_test": {
+      "path": "hierarchos-vulkan/target/release/deps/hierarchos_native_cli-a2e912338276c5dc.exe",
+      "sha256": "d783ab3512cae91b5496e27e34ebf6d4d764123ec5aa01abe2f3383e12ac9e6f",
+      "embedded_decision_tables": []
+    },
+    "gui_test": {
+      "path": "hierarchos-vulkan/target/release/deps/hierarchos_native-92163c8214723152.exe",
+      "sha256": "af11bcbdd95390ca40f3a72cef748bf1f62420360cef12bcc473dbdd09d29cce",
+      "embedded_decision_tables": []
+    }
+  }
+}

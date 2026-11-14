@@ -1,0 +1,1 @@
+FAIL: low-rank-forward: batch 32: the record names 'fused', but this receipt measures 'staged' ahead by 2.2%, outside the 2% noise band; the record is stale
