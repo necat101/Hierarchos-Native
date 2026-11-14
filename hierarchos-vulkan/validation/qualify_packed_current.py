@@ -39,12 +39,27 @@ def merge_batch_receipts(receipts):
     samples.  Each batch is therefore measured in its own process, and this
     merges the per-batch receipts without changing any row or ratio.
     """
+    if not receipts:
+        raise ValueError('no batch receipts')
     merged = copy.deepcopy(receipts[0])
+    for receipt in receipts:
+        for key in ('result','device','width','head_size','chain','steps','parameter_storage',
+                    'precision_policy','samples','warmup','atol','rtol','margin','unit',
+                    'fused_arm','narrow_arm','composed_arm'):
+            if receipt.get(key) != merged.get(key):
+                raise ValueError('batch receipt metadata changed: '+key)
     batches = sorted(
         (row for receipt in receipts for row in receipt["batches"]),
         key=lambda row: row["batch"],
     )
     merged["batches"] = batches
+    if len({row['batch'] for row in batches}) != len(batches):
+        raise ValueError('duplicate measured batch')
+    for key in tuple(merged):
+        if key.startswith('median_'):
+            field=key[len('median_'):]
+            if all(field in row for row in batches):
+                merged[key]=statistics.median(row[field] for row in batches)
     ratios = [
         row["composed_over_fused"]
         for row in batches
@@ -52,6 +67,8 @@ def merge_batch_receipts(receipts):
     ]
     if ratios:
         merged["median_composed_over_fused"] = statistics.median(ratios)
+        if 'winner' in merged:
+            merged['winner']='composed' if all(r<1 for r in ratios) else 'fused' if all(r>1 for r in ratios) else 'mixed'
     withheld = {}
     for receipt in receipts:
         for entry in receipt.get("withheld_routes", []):

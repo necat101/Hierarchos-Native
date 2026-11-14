@@ -1065,6 +1065,33 @@ def composed_vendor_dispatches(
     return (1 if forward else 2) * steps
 
 
+def row_refuses_staged(producer: Producer, receipt: dict, row: dict) -> bool:
+    """A refusal at another geometry cannot waive this row's timing contract."""
+    if producer.kind != "rwkv-low-rank-full-forward":
+        return False
+    worst = row.get("worst_max_abs")
+    observed = [t.get("max_abs") for t in row.get("tensors", [])]
+    if not observed or not isinstance(worst, (int, float)) or not worst > 0.0:
+        return False
+    if any(not isinstance(v, (int, float)) or not 0 <= v < float('inf') for v in observed):
+        return False
+    if worst != max(observed):
+        return False
+    return any(e.get('batch') == row['batch'] and e.get('route') == 'staged'
+        and e.get('worst_max_abs') == worst and bool(e.get('reason'))
+        for e in receipt.get('withheld_routes', []))
+
+
+def unrecorded_default(producer: Producer, receipt: dict, row: dict) -> str:
+    # Mirrors vendor::unmeasured_composition_is_qualified: only Intel was
+    # admitted without a measured decision. Availability alone is insufficient.
+    device = normalized(receipt['device'])
+    intel = device.startswith('intel') or '[pci=8086:' in device
+    if producer.fallback == 'vendor' and intel and row.get(producer.vendor_flag or ''):
+        return 'composed'
+    return row['fused_label']
+
+
 def check_row(
     producer: Producer,
     receipt: dict,
@@ -1255,11 +1282,7 @@ def check_row(
         # otherwise compose, so the structural graph is what it must build.
         expected = row["fused_label"]
     else:
-        # No emitted verdict means the structural default decides. A vendor
-        # fallback inside the composed arm does not select that arm: the fused
-        # producer is available here (the fused leg dispatched it), and a
-        # geometry measured inside the noise band deliberately carries no entry.
-        expected = row["fused_label"]
+        expected = unrecorded_default(producer, receipt, row)
     if row.get("default_label") != expected:
         raise Problem(
             f"batch {batch}: the default built {row.get('default_label')!r}, expected "
@@ -1363,15 +1386,6 @@ def check_producer(
     if producer.consumer and producer.chains:
         check_consumer_chain_routes(producer, receipt)
     default_checked = bool(applicable)
-    # A policy that withheld a measured route is not allowed to adopt any staged
-    # graph: the reason for the refusal is a numerical difference in the graph,
-    # not the geometry where the win happened to be measured. At a geometry
-    # whose recording was a tie there is no entry to withhold, so the runtime
-    # keeps the structural fused default and a replay cannot turn that tie into
-    # a missing decision.
-    policy_withheld = any(
-        entry.get("route") != producer.default_route for entry in withheld.values()
-    )
     report = []
     for row in rows:
         entry = lookup.get(row["batch"])
@@ -1383,7 +1397,7 @@ def check_producer(
             margin,
             default_checked,
             withheld=row["batch"] in withheld,
-            policy_withheld=policy_withheld,
+            policy_withheld=row_refuses_staged(producer, receipt, row),
         )
         shown = "  ".join(
             f"{label} {row[field] * producer.unit_scale:7.3f} {producer.unit}"
@@ -1523,11 +1537,23 @@ def check_folded_evidence(chain: ChainProducer, row: dict) -> set[str]:
     batch = row["batch"]
     candidates = {label for label, field in chain.candidates if field in row}
     stated = row.get("folded_candidate")
+    fused_schedule = row.get("fused_schedule")
+    folded_schedule = row.get("folded_schedule")
+    same_as_fused = (
+        isinstance(fused_schedule, str) and folded_schedule == fused_schedule
+    )
     if "folded" in candidates and stated is not True:
-        raise Problem(
-            f"batch {batch}: the receipt timed the folded rung but does not mark it a "
-            "routing candidate, so its timing cannot be recorded as one"
-        )
+        # A separate folded cell that pinned the same schedule as the fused arm
+        # is one graph measured twice. Its timing is evidence, not a route: the
+        # two cells differ only by allocation, and the record may not name a
+        # fusion-depth decision the receipt did not make.
+        if not (same_as_fused and stated is False):
+            raise Problem(
+                f"batch {batch}: the receipt timed the folded rung but does not mark it a "
+                "routing candidate, so its timing cannot be recorded as one"
+            )
+    if same_as_fused and stated is True:
+        raise Problem(f"batch {batch}: the folded arm repeats fused and is not a distinct route")
     if "folded" not in candidates:
         if stated:
             raise Problem(
@@ -1539,7 +1565,7 @@ def check_folded_evidence(chain: ChainProducer, row: dict) -> set[str]:
             f"batch {batch}: the folded leg reports {row.get('folded_label')!r}, so it is "
             "not the graph this check names"
         )
-    schedule = row.get("folded_schedule")
+    schedule = folded_schedule
     staged_schedule = row.get("staged_schedule")
     if not isinstance(schedule, str) or not isinstance(staged_schedule, str):
         raise Problem(f"batch {batch}: the folded evidence does not name the schedules it built")
@@ -1561,7 +1587,7 @@ def check_folded_evidence(chain: ChainProducer, row: dict) -> set[str]:
             f"fan-in as well as depth ({schedule!r} vs {staged_schedule!r})"
         )
     magnitude = row.get("staged_key_parameter_max_abs")
-    if not isinstance(magnitude, (int, float)) or magnitude <= 0.0:
+    if not isinstance(magnitude, (int, float)) or not 0.0 < magnitude < float('inf'):
         raise Problem(
             f"batch {batch}: the staged arm's grad_k_k/grad_k_a are {magnitude!r}, so the "
             "folded rung's agreement with them would prove nothing"
@@ -1575,13 +1601,13 @@ def check_folded_evidence(chain: ChainProducer, row: dict) -> set[str]:
             "from the two-dispatch chain; the route's acceptance gate admits no allowance"
         )
     tensors = row.get("folded_max_abs")
-    if not isinstance(tensors, (int, float)) or tensors > FOLDED_TENSOR_ATOL:
+    if not isinstance(tensors, (int, float)) or not 0 <= tensors <= FOLDED_TENSOR_ATOL:
         raise Problem(
             f"batch {batch}: the folded rung's returned tensors diverge by {tensors!r}, "
             f"beyond the {FOLDED_TENSOR_ATOL:.1e} contracted-ulp bound"
         )
     step = row.get("folded_parameter_delta")
-    if not isinstance(step, (int, float)) or step > FOLDED_PARAMETER_ATOL:
+    if not isinstance(step, (int, float)) or not 0 <= step <= FOLDED_PARAMETER_ATOL:
         raise Problem(
             f"batch {batch}: one AdamW step on the folded rung moved a parameter by "
             f"{step!r}, beyond the {FOLDED_PARAMETER_ATOL:.1e} bound"
@@ -1591,7 +1617,33 @@ def check_folded_evidence(chain: ChainProducer, row: dict) -> set[str]:
         raise Problem(
             f"batch {batch}: folded_over_staged is not the measured folded/staged ratio"
         )
-    return candidates
+    return candidates - {"folded"} if same_as_fused else candidates
+
+
+def check_shipped_route_timings(chain: ChainProducer, row: dict) -> None:
+    if chain.folded_rung:
+        return
+    if row.get('timing_protocol') != 'shipped-route-v1':
+        raise Problem('forward/rematerialization receipt lacks the fixed timing protocol')
+    raw_default = row.get('default', {})
+    values = (raw_default.get('median_ms'), row.get('default_ms'))
+    if any(not isinstance(v, (int, float)) or not 0 < v < float('inf') for v in values) or not close(*values):
+        raise Problem('default timing disagrees with the raw binary measurement')
+    if raw_default.get('label') != row.get('default_label'):
+        raise Problem('default route disagrees with the raw binary measurement')
+    sources = row.get('decision_timing_sources') or {}
+    if set(sources) != set(chain.routes):
+        raise Problem('candidate timing-source inventory is incomplete')
+    for route, field in chain.candidates:
+        raw = row.get(route) or {}
+        forced = raw.get('median_ms')
+        if raw.get('label') != route or not isinstance(forced, (int, float)) or not 0 < forced < float('inf'):
+            raise Problem('missing or invalid raw forced-arm timing: '+route)
+        shipped = row['default_label'] == route
+        source = 'shipped-default' if shipped else 'forced-arm'
+        expected = row['default_ms'] if shipped else forced
+        if sources.get(route) != source or not close(row.get(field), expected):
+            raise Problem('candidate timing does not follow the fixed raw measurement rule: '+route)
 
 
 def check_chain_withheld(
@@ -1835,6 +1887,7 @@ def check_chain_producer(
     staged, fused = chain.candidates[0][0], chain.candidates[1][0]
     for row in receipt["batches"]:
         batch = row["batch"]
+        check_shipped_route_timings(chain, row)
         if staged in row and fused in row:
             stage_a, stage_b = row.get(f"{staged}_schedule"), row.get(f"{fused}_schedule")
             if stage_a is not None and stage_a == stage_b:
@@ -1846,7 +1899,9 @@ def check_chain_producer(
         # two-dispatch pair is always there. `check_folded_evidence` has already
         # refused a row whose folded timing is not recordable.
         timings = {
-            label: row[field] for label, field in chain.candidates if field in row
+            label: row[field]
+            for label, field in chain.candidates
+            if field in row and label in supported[batch]
         }
         for label, value in timings.items():
             if not isinstance(value, (int, float)) or value <= 0.0:

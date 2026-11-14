@@ -1,0 +1,589 @@
+{
+  "result": "pass",
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "width": 128,
+  "head_size": 16,
+  "steps": 8,
+  "chain": "backward",
+  "parameter_storage": "fp16-storage",
+  "precision_policy": "fp16-storage-fp32-compute",
+  "samples": 1200,
+  "warmup": 3,
+  "margin": 0.02,
+  "unmeasured": [],
+  "batches": [
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "head_size": 16,
+      "batch": 1,
+      "steps": 8,
+      "chain": "backward",
+      "parameter_storage": "fp16-storage",
+      "precision_policy": "fp16-storage-fp32-compute",
+      "staged": {
+        "label": "staged",
+        "median_ms": 7.289,
+        "ms_per_step": 0.911125
+      },
+      "fused": {
+        "label": "fused",
+        "median_ms": 7.29205,
+        "ms_per_step": 0.91150625
+      },
+      "default": {
+        "label": "fused",
+        "median_ms": 7.3641000000000005,
+        "ms_per_step": 0.9205125000000001
+      },
+      "default_route": "fused",
+      "recorded_route": null,
+      "fused_over_staged": 1.000418438743312,
+      "folded": {
+        "label": "folded",
+        "median_ms": 7.211550000000001,
+        "ms_per_step": 0.9014437500000001
+      },
+      "folded_over_staged": 0.9893743997804914,
+      "folded_label": "folded",
+      "folded_schedule": "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+      "folded_max_abs": 0.0,
+      "folded_key_parameter_max_abs": 0.0,
+      "staged_key_parameter_max_abs": 0.008072711527347565,
+      "folded_parameter_delta": 0.0,
+      "staged_schedule": "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+      "fused_schedule": "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+      "default_schedule": "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+      "available_schedules": [
+        "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in"
+      ],
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 2560,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 2560,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "staged_ms": 7.289,
+      "fused_ms": 7.29205,
+      "default_ms": 7.3641000000000005,
+      "default_over_staged": 1.010303196597613,
+      "staged_label": "staged",
+      "fused_label": "fused",
+      "default_label": "fused",
+      "expected_default_label": "fused",
+      "folded_ms": 7.211550000000001,
+      "folded_candidate": true
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "head_size": 16,
+      "batch": 4,
+      "steps": 8,
+      "chain": "backward",
+      "parameter_storage": "fp16-storage",
+      "precision_policy": "fp16-storage-fp32-compute",
+      "staged": {
+        "label": "staged",
+        "median_ms": 8.7099,
+        "ms_per_step": 1.0887375
+      },
+      "fused": {
+        "label": "fused",
+        "median_ms": 8.71495,
+        "ms_per_step": 1.08936875
+      },
+      "default": {
+        "label": "folded",
+        "median_ms": 8.747449999999999,
+        "ms_per_step": 1.0934312499999999
+      },
+      "default_route": "folded",
+      "recorded_route": "folded",
+      "fused_over_staged": 1.0005797999977037,
+      "folded": {
+        "label": "folded",
+        "median_ms": 8.4288,
+        "ms_per_step": 1.0536
+      },
+      "folded_over_staged": 0.9677263803258362,
+      "folded_label": "folded",
+      "folded_schedule": "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "folded_max_abs": 0.0,
+      "folded_key_parameter_max_abs": 0.0,
+      "staged_key_parameter_max_abs": 0.009440848603844643,
+      "folded_parameter_delta": 0.0,
+      "staged_schedule": "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "fused_schedule": "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "default_schedule": "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "available_schedules": [
+        "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in"
+      ],
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 10240,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 10240,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "staged_ms": 8.7099,
+      "fused_ms": 8.71495,
+      "default_ms": 8.747449999999999,
+      "default_over_staged": 1.00431118612154,
+      "staged_label": "staged",
+      "fused_label": "fused",
+      "default_label": "folded",
+      "expected_default_label": "folded",
+      "folded_ms": 8.4288,
+      "folded_candidate": true
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "head_size": 16,
+      "batch": 8,
+      "steps": 8,
+      "chain": "backward",
+      "parameter_storage": "fp16-storage",
+      "precision_policy": "fp16-storage-fp32-compute",
+      "staged": {
+        "label": "staged",
+        "median_ms": 12.02735,
+        "ms_per_step": 1.50341875
+      },
+      "fused": {
+        "label": "fused",
+        "median_ms": 12.021899999999999,
+        "ms_per_step": 1.5027374999999998
+      },
+      "default": {
+        "label": "folded",
+        "median_ms": 11.9868,
+        "ms_per_step": 1.49835
+      },
+      "default_route": "folded",
+      "recorded_route": "folded",
+      "fused_over_staged": 0.9995468661010113,
+      "folded": {
+        "label": "folded",
+        "median_ms": 11.77655,
+        "ms_per_step": 1.47206875
+      },
+      "folded_over_staged": 0.9791475262630588,
+      "folded_label": "folded",
+      "folded_schedule": "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+      "folded_max_abs": 0.0,
+      "folded_key_parameter_max_abs": 0.0,
+      "staged_key_parameter_max_abs": 0.01571117714047432,
+      "folded_parameter_delta": 0.0,
+      "staged_schedule": "rkv-add3+key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+      "fused_schedule": "rkv-add3-key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+      "default_schedule": "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+      "available_schedules": [
+        "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in"
+      ],
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 20480,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 20480,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "staged_ms": 12.02735,
+      "fused_ms": 12.021899999999999,
+      "default_ms": 11.9868,
+      "default_over_staged": 0.9966285175038558,
+      "staged_label": "staged",
+      "fused_label": "fused",
+      "default_label": "folded",
+      "expected_default_label": "folded",
+      "folded_ms": 11.77655,
+      "folded_candidate": true
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "head_size": 16,
+      "batch": 16,
+      "steps": 8,
+      "chain": "backward",
+      "parameter_storage": "fp16-storage",
+      "precision_policy": "fp16-storage-fp32-compute",
+      "staged": {
+        "label": "staged",
+        "median_ms": 16.8589,
+        "ms_per_step": 2.1073625
+      },
+      "fused": {
+        "label": "fused",
+        "median_ms": 16.9753,
+        "ms_per_step": 2.1219125
+      },
+      "default": {
+        "label": "folded",
+        "median_ms": 16.7154,
+        "ms_per_step": 2.089425
+      },
+      "default_route": "folded",
+      "recorded_route": "folded",
+      "fused_over_staged": 1.0069043650534735,
+      "folded": {
+        "label": "folded",
+        "median_ms": 16.6056,
+        "ms_per_step": 2.0757
+      },
+      "folded_over_staged": 0.984975294948069,
+      "folded_label": "folded",
+      "folded_schedule": "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+      "folded_max_abs": 0.0,
+      "folded_key_parameter_max_abs": 0.0,
+      "staged_key_parameter_max_abs": 0.025188416242599487,
+      "folded_parameter_delta": 0.0,
+      "staged_schedule": "rkv-add3+key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+      "fused_schedule": "rkv-add3-key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+      "default_schedule": "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+      "available_schedules": [
+        "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in"
+      ],
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 40960,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 40960,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "staged_ms": 16.8589,
+      "fused_ms": 16.9753,
+      "default_ms": 16.7154,
+      "default_over_staged": 0.9914881753851081,
+      "staged_label": "staged",
+      "fused_label": "fused",
+      "default_label": "folded",
+      "expected_default_label": "folded",
+      "folded_ms": 16.6056,
+      "folded_candidate": true
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "head_size": 16,
+      "batch": 32,
+      "steps": 8,
+      "chain": "backward",
+      "parameter_storage": "fp16-storage",
+      "precision_policy": "fp16-storage-fp32-compute",
+      "staged": {
+        "label": "staged",
+        "median_ms": 25.503349999999998,
+        "ms_per_step": 3.1879187499999997
+      },
+      "fused": {
+        "label": "fused",
+        "median_ms": 25.0923,
+        "ms_per_step": 3.1365375
+      },
+      "default": {
+        "label": "fused",
+        "median_ms": 24.4895,
+        "ms_per_step": 3.0611875
+      },
+      "default_route": "fused",
+      "recorded_route": "fused",
+      "fused_over_staged": 0.9838825095526668,
+      "folded": {
+        "label": "folded",
+        "median_ms": 25.0875,
+        "ms_per_step": 3.1359375
+      },
+      "folded_over_staged": 0.9836942989842511,
+      "folded_label": "folded",
+      "folded_schedule": "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "folded_max_abs": 0.0,
+      "folded_key_parameter_max_abs": 0.0,
+      "staged_key_parameter_max_abs": 0.032116811722517014,
+      "folded_parameter_delta": 0.0,
+      "staged_schedule": "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "fused_schedule": "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "default_schedule": "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+      "available_schedules": [
+        "rkv-add3+key+reduce+split-input-mix->weight+low-rank-split-fan-in",
+        "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+weight->split-input-mix+low-rank-split-fan-in",
+        "rkv-add3+key+reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+fused-input-mix->weight+low-rank-split-fan-in",
+        "rkv-add3+key+reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-split-fan-in",
+        "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+split-input-mix->weight+low-rank-split-fan-in",
+        "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+weight->split-input-mix+low-rank-split-fan-in",
+        "rkv-add3-key+reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+fused-input-mix->weight+low-rank-split-fan-in",
+        "rkv-add3-key+reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-split-fan-in",
+        "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+split-input-mix->weight+low-rank-split-fan-in",
+        "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+split-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+weight->split-input-mix+low-rank-split-fan-in",
+        "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+weight->split-input-mix+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+fused-input-mix->weight+low-rank-split-fan-in",
+        "rkv-add3-key-reduce+fused-input-mix->weight+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+fused-input-mix->weight+low-rank-fused-outer-fan-in",
+        "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-split-fan-in",
+        "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-base-fan-in",
+        "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in"
+      ],
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 32768,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 81920,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 32768,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 32768,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 81920,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "staged_ms": 25.503349999999998,
+      "fused_ms": 25.0923,
+      "default_ms": 24.4895,
+      "default_over_staged": 0.9602463990024841,
+      "staged_label": "staged",
+      "fused_label": "fused",
+      "default_label": "fused",
+      "expected_default_label": "fused",
+      "folded_ms": 25.0875,
+      "folded_candidate": true
+    }
+  ],
+  "batch_process_isolation": true
+}

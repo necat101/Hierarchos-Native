@@ -1,0 +1,7 @@
+channel-mix: batch  1: fused        fused   1.615 ms  staged   1.718 ms
+channel-mix: batch  4: fused        fused   2.433 ms  staged   2.549 ms
+channel-mix: batch  8: fused        fused   3.558 ms  staged   3.648 ms
+channel-mix: batch 16: fused        fused   8.368 ms  staged   8.452 ms
+channel-mix: batch 32: fused        fused  15.365 ms  staged  15.450 ms
+PASS: channel-mix is measured across batch 1, 4, 8, 16, 32 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184], and its record follows it
+PASS: 1 receipt(s) re-checked against the record(s) they consume: channel-mix

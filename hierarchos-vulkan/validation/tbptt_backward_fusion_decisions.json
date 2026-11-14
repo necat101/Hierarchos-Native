@@ -9,21 +9,6 @@
     {
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
-      "batch": 1,
-      "route": "fused",
-      "candidates": {
-        "staged": 6.4822,
-        "fused": 6.3858,
-        "folded": 6.88295
-      },
-      "probe": "tbptt-backward-fusion",
-      "source": "measured",
-      "parameter_storage": "fp32",
-      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
-    },
-    {
-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
-      "width": 128,
       "batch": 4,
       "route": "folded",
       "candidates": {
@@ -42,9 +27,9 @@
       "batch": 4,
       "route": "folded",
       "candidates": {
-        "staged": 7.98995,
-        "fused": 8.00335,
-        "folded": 7.8082
+        "staged": 8.4022,
+        "fused": 8.35075,
+        "folded": 8.1188
       },
       "probe": "tbptt-backward-fusion",
       "source": "measured",
@@ -72,9 +57,9 @@
       "batch": 8,
       "route": "folded",
       "candidates": {
-        "staged": 10.69515,
-        "fused": 10.73725,
-        "folded": 10.4159
+        "staged": 11.01705,
+        "fused": 11.0483,
+        "folded": 10.68005
       },
       "probe": "tbptt-backward-fusion",
       "source": "measured",
@@ -102,9 +87,9 @@
       "batch": 16,
       "route": "folded",
       "candidates": {
-        "staged": 16.84015,
-        "fused": 16.94625,
-        "folded": 16.51585
+        "staged": 16.0044,
+        "fused": 15.7182,
+        "folded": 15.3209
       },
       "probe": "tbptt-backward-fusion",
       "source": "measured",
@@ -124,21 +109,6 @@
       "probe": "tbptt-backward-fusion",
       "source": "measured",
       "parameter_storage": "fp16-storage",
-      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
-    },
-    {
-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
-      "width": 128,
-      "batch": 32,
-      "route": "folded",
-      "candidates": {
-        "staged": 25.60505,
-        "fused": 40.6485,
-        "folded": 25.54975
-      },
-      "probe": "tbptt-backward-fusion",
-      "source": "measured",
-      "parameter_storage": "fp32",
       "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
     },
     {

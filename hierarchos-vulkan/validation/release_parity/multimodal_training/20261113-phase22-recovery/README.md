@@ -61,3 +61,94 @@ warmup, candidate graph, chain length or key/state repetition count changes.
 Leaf routes are recorded/applied first; forward, rematerialization and backward
 chains are recorded/applied in order, with real rebuilds between stages. A full
 independent thirteen-pair replay after the final rebuild is still required.
+
+
+## Packed-cell replay recovery
+
+The sequential 1,200-observation replay in `packed-cell-partial-dll-20261113`
+showed why sample count alone was not enough. Its first nine routes ran;
+time-mix and dense low-rank tripped guard cases described below, and later
+processes exited at Windows DLL initialization (`0xC0000142`) before writing
+receipts. Its numerical rows were exact. At batch 16 it measured
+rematerialization `packed` ahead by 8.6%, while the recorded table measured
+`legacy` ahead by 17.2%. The time-mix sign also moved across the unchanged 2%
+band between recording and replay.
+
+That was an APU clock/thermal-history confound, not a route signal. Four fresh
+processes timing only time-mix batch 16 measured composed/fused ratios 0.9968,
+0.9999, 0.9946 and 1.0102 (two with the original warmup of 5, two with 200). Two
+complete per-batch time-mix sequences then measured batch 8 at 0.9921 and
+0.9925, batch 16 at 1.0008 and 0.9969, and batch 32 at 0.9956 and 0.9875. The
+isolated rematerialization batch 16 measured `legacy` 16.38 ms against `packed`
+19.10 ms, matching its table. A long-lived process let each batch's APU state
+depend on every earlier batch; the 1,200-observation median did not remove that
+bias.
+
+`qualify_packed_current.py` therefore measures every non-composition batch in
+its own fresh process and merges the unchanged rows. Sample counts, warmups,
+the 1%/2% bands, candidate graphs, chain lengths and repetitions are unchanged.
+The guard also accepts the structural fused default where a recorder withdrew a
+within-band tie (time-mix batch 8) or where a policy has withheld every staged
+verdict because the graph is not bit-identical (dense low-rank). Those are
+consistency repairs, not threshold changes.
+
+`packed-cell-isolated-classifier-split` preserves the first isolated replay. It
+passed ten routes and found a real validation defect: at backward-fusion batch
+1 the autotuner selected the fully folded schedule, while the record's `fused`
+verdict means "keep the autotuner's depth", not a particular rung. The benchmark
+classified the default by its rung and rejected the receipt. The classifier now
+accepts any autotuner depth for a `fused` or absent record and still requires
+the exact rung for `staged` and `folded` records; regression tests cover both.
+That failed replay remains archived with its real FAIL status.
+
+`packed-cell-forward-cell-confound` preserves the next isolated replay. It
+passed eleven routes; the two forward A/Bs failed on their independently
+allocated forced-packed cells, not on the shipped route. At FP16 batch 32 the
+forced cell measured 37.46 ms while the shipped default, dispatching the same
+packed route, measured 25.37 ms; at FP32 batch 16 the forced cell measured
+17.63 ms while the shipped default measured 17.06 ms against legacy 17.23 ms.
+The two cells are separate Vulkan allocations and one can land in a slower heap
+at large batch sizes. The harness now uses the shipped default's timing when it
+dispatches packed and disagrees with the forced copy by more than the unchanged
+decision band, and keeps the forced arm below that band. This removes the
+allocation confound without changing a threshold or the route table. Focused
+FP32/FP16 forward replays then passed both guards.
+
+The final isolated replay is recorded in `packed-cell`; its status, source and
+binary bindings are authoritative for the packed-cell portion of the release.
+No failed sweep is overwritten or relabelled.
+
+## Continuation after the 4719757 handoff
+
+The six pending files and their exact diff are preserved under
+`handoff-4719757-pending`. The last isolated sweep remains FAIL (12/13), archived
+under `packed-cell-backward-folded-same-schedule`; the stopped follow-up had no
+completed receipt. No process was active when this continuation began.
+
+Forward/rematerialization timing now follows a predeclared symmetric rule: use
+the actual production cell for whichever candidate the default dispatches,
+whether that measurement is faster or slower; use the independently forced cell
+for the other candidate. Every original nested binary timing remains intact,
+and the guard re-derives the selected fields and sources. This replaces the
+previous rule that switched measurement source only after a 2% discrepancy.
+Different cell timings were observed; their cause was not established by heap
+telemetry, so allocation placement is an investigation rather than a proven
+cause. The 1%/2% decision bands and numerical contracts remain unchanged.
+
+An identical folded/fused schedule is retained as a measured observation but
+cannot become an independent routing candidate. It must still satisfy all key,
+tensor and optimizer readback gates. A refusal at one geometry no longer waives
+another geometry's performance test: the latter needs its own non-bit-identical
+readback and refusal evidence. Unrecorded vendor admission mirrors the runtime's
+Intel-only rule; mere availability of a vendor module does not expand admission.
+Isolated batch merges recompute their aggregate medians and reject inconsistent
+metadata or duplicate batches. Nine independent integrity controls and seven
+focused driver tests pass. The full chain receipt suite runs 21 tests: 19 pass,
+two optional hardware reruns are skipped and are not counted as passes.
+
+The backward decision table inherited from the handoff is a proposal until the
+maintained recording driver remeasures both storage policies. A new independent
+thirteen-pair sweep is mandatory after applying/rebuilding that candidate.
+X/Y top-level source inventories must also be freshly assembled after the
+benchmark-classifier change; the W matrix still verifies. No release PASS is
+claimed by these notes.

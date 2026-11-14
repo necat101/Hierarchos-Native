@@ -65,7 +65,7 @@ class ShippedPackedMeasurementTest(unittest.TestCase):
         self.assertEqual(measured, 25.37005)
         self.assertEqual(source, "shipped-default")
 
-    def test_keeps_the_forced_arm_when_the_cells_agree(self):
+    def test_source_is_fixed_even_when_the_cells_agree(self):
         measured, source = driver.select_packed_measurement(
             packed_ms=25.20,
             legacy_ms=25.54,
@@ -73,8 +73,18 @@ class ShippedPackedMeasurementTest(unittest.TestCase):
             default_label="packed",
             margin=0.02,
         )
-        self.assertEqual(measured, 25.20)
-        self.assertEqual(source, "forced-arm")
+        self.assertEqual(measured, 25.37)
+        self.assertEqual(source, "shipped-default")
+
+    def test_a_slower_production_cell_cannot_be_hidden(self):
+        measured, source = driver.select_candidate_measurement(
+            route='packed',forced_ms=20.0,default_ms=30.0,default_label='packed')
+        self.assertEqual((measured,source),(30.0,'shipped-default'))
+
+    def test_the_same_rule_measures_a_legacy_production_cell(self):
+        measured, source = driver.select_candidate_measurement(
+            route='legacy',forced_ms=20.0,default_ms=30.0,default_label='legacy')
+        self.assertEqual((measured,source),(30.0,'shipped-default'))
 
     def test_does_not_use_a_legacy_default_as_the_packed_measurement(self):
         measured, source = driver.select_packed_measurement(
@@ -86,6 +96,25 @@ class ShippedPackedMeasurementTest(unittest.TestCase):
         )
         self.assertEqual(measured, 7.40)
         self.assertEqual(source, "forced-arm")
+
+
+class FoldedCandidateDistinctnessTest(unittest.TestCase):
+    def test_a_folded_leg_that_repeats_the_fused_schedule_is_evidence_only(self):
+        run = {
+            "folded_ms": 7.08,
+            "folded_schedule": "rkv-add3-key-reduce+weight->fused",
+            "fused_schedule": "rkv-add3-key-reduce+weight->fused",
+            "staged_schedule": "rkv-add3+key+reduce+weight->fused",
+            "folded_key_parameter_max_abs": 0.0,
+            "staged_key_parameter_max_abs": 1.0,
+            "folded_max_abs": 0.0,
+            "folded_parameter_delta": 0.0,
+        }
+        self.assertFalse(driver.folded_candidate(1, run))
+
+    def test_a_duplicate_schedule_still_requires_its_numeric_readback(self):
+        run = dict(folded_ms=7.0,folded_schedule='same',fused_schedule='same')
+        with self.assertRaises(driver.bridge.Mismatch):driver.folded_candidate(1,run)
 
 
 CHAINS = {

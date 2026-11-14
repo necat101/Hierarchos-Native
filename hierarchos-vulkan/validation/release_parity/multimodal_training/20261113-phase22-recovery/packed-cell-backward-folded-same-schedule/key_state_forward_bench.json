@@ -1,0 +1,312 @@
+{
+  "result": "pass",
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "width": 128,
+  "fused_arm": "key-state-forward-fused-wide",
+  "promotion": "geometry-aware",
+  "batches": [
+    {
+      "batch": 1,
+      "fused_ms": 0.02649,
+      "composed_ms": 0.034981,
+      "default_ms": 0.023388999999999997,
+      "composed_over_fused": 1.3205360513401283,
+      "default_over_fused": 0.8829369573423933,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": "narrow-fused",
+      "recorded_compose": false,
+      "expected_default_label": "fused",
+      "fused_key_state_forward_dispatches": 1,
+      "composed_key_state_forward_dispatches": 2,
+      "default_key_state_forward_dispatches": 1,
+      "tensors": [
+        {
+          "label": "new_state",
+          "values": 2048,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000002032734757e-05
+        },
+        {
+          "label": "tmix",
+          "values": 128,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000126214101329e-05
+        },
+        {
+          "label": "scaled_k",
+          "values": 128,
+          "max_abs": 0.0,
+          "worst_excess": -1.0002453949069605e-05
+        },
+        {
+          "label": "kk",
+          "values": 128,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000063955776568e-05
+        },
+        {
+          "label": "saved_sa",
+          "values": 128,
+          "max_abs": 0.0,
+          "worst_excess": -1.0001983403693885e-05
+        }
+      ],
+      "narrow_ms": 0.023275999999999998,
+      "narrow_over_fused": 0.8786711966779917,
+      "composed_over_narrow": 1.5028785014607322,
+      "worst_max_abs_wide_vs_narrow": 0.0,
+      "fused_arm": "key-state-forward-fused-wide",
+      "narrow_arm": "key-state-forward-fused",
+      "default_arm": "key-state-forward-fused",
+      "narrow_key_state_forward_dispatches": 1
+    },
+    {
+      "batch": 4,
+      "fused_ms": 0.031827999999999995,
+      "composed_ms": 0.041643000000000006,
+      "default_ms": 0.029137999999999997,
+      "composed_over_fused": 1.308376272464497,
+      "default_over_fused": 0.9154832223199698,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": "narrow-fused",
+      "recorded_compose": false,
+      "expected_default_label": "fused",
+      "fused_key_state_forward_dispatches": 1,
+      "composed_key_state_forward_dispatches": 2,
+      "default_key_state_forward_dispatches": 1,
+      "tensors": [
+        {
+          "label": "new_state",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000004273582364e-05
+        },
+        {
+          "label": "tmix",
+          "values": 512,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000051724011429e-05
+        },
+        {
+          "label": "scaled_k",
+          "values": 512,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000074224575656e-05
+        },
+        {
+          "label": "kk",
+          "values": 512,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000025839428418e-05
+        },
+        {
+          "label": "saved_sa",
+          "values": 512,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000019280711058e-05
+        }
+      ],
+      "narrow_ms": 0.028925,
+      "narrow_over_fused": 0.9087910016337817,
+      "composed_over_narrow": 1.4396888504753675,
+      "worst_max_abs_wide_vs_narrow": 0.0,
+      "fused_arm": "key-state-forward-fused-wide",
+      "narrow_arm": "key-state-forward-fused",
+      "default_arm": "key-state-forward-fused",
+      "narrow_key_state_forward_dispatches": 1
+    },
+    {
+      "batch": 8,
+      "fused_ms": 0.039304,
+      "composed_ms": 0.053474,
+      "default_ms": 0.035082,
+      "composed_over_fused": 1.360523101974354,
+      "default_over_fused": 0.8925809077956444,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": "narrow-fused",
+      "recorded_compose": false,
+      "expected_default_label": "fused",
+      "fused_key_state_forward_dispatches": 1,
+      "composed_key_state_forward_dispatches": 2,
+      "default_key_state_forward_dispatches": 1,
+      "tensors": [
+        {
+          "label": "new_state",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000000779592256e-05
+        },
+        {
+          "label": "tmix",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000003379398096e-05
+        },
+        {
+          "label": "scaled_k",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -1.000016085644893e-05
+        },
+        {
+          "label": "kk",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000029559660106e-05
+        },
+        {
+          "label": "saved_sa",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -1.000023617205443e-05
+        }
+      ],
+      "narrow_ms": 0.034505,
+      "narrow_over_fused": 0.8779004681457359,
+      "composed_over_narrow": 1.549746413563252,
+      "worst_max_abs_wide_vs_narrow": 0.0,
+      "fused_arm": "key-state-forward-fused-wide",
+      "narrow_arm": "key-state-forward-fused",
+      "default_arm": "key-state-forward-fused",
+      "narrow_key_state_forward_dispatches": 1
+    },
+    {
+      "batch": 16,
+      "fused_ms": 0.057347,
+      "composed_ms": 0.071153,
+      "default_ms": 0.047126,
+      "composed_over_fused": 1.240744938706471,
+      "default_over_fused": 0.8217692294278689,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": "narrow-fused",
+      "recorded_compose": false,
+      "expected_default_label": "fused",
+      "fused_key_state_forward_dispatches": 1,
+      "composed_key_state_forward_dispatches": 2,
+      "default_key_state_forward_dispatches": 1,
+      "tensors": [
+        {
+          "label": "new_state",
+          "values": 32768,
+          "max_abs": 0.0,
+          "worst_excess": -1.000000021862411e-05
+        },
+        {
+          "label": "tmix",
+          "values": 2048,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000002149811508e-05
+        },
+        {
+          "label": "scaled_k",
+          "values": 2048,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000002709566162e-05
+        },
+        {
+          "label": "kk",
+          "values": 2048,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000001024830454e-05
+        },
+        {
+          "label": "saved_sa",
+          "values": 2048,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000037463705668e-05
+        }
+      ],
+      "narrow_ms": 0.046193,
+      "narrow_over_fused": 0.8054998517795177,
+      "composed_over_narrow": 1.5403416102006797,
+      "worst_max_abs_wide_vs_narrow": 0.0,
+      "fused_arm": "key-state-forward-fused-wide",
+      "narrow_arm": "key-state-forward-fused",
+      "default_arm": "key-state-forward-fused",
+      "narrow_key_state_forward_dispatches": 1
+    },
+    {
+      "batch": 32,
+      "fused_ms": 0.10180600000000001,
+      "composed_ms": 0.117195,
+      "default_ms": 0.08468699999999998,
+      "composed_over_fused": 1.151160049505923,
+      "default_over_fused": 0.8318468459619274,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": "narrow-fused",
+      "recorded_compose": false,
+      "expected_default_label": "fused",
+      "fused_key_state_forward_dispatches": 1,
+      "composed_key_state_forward_dispatches": 2,
+      "default_key_state_forward_dispatches": 1,
+      "tensors": [
+        {
+          "label": "new_state",
+          "values": 65536,
+          "max_abs": 0.0,
+          "worst_excess": -1.000000061547587e-05
+        },
+        {
+          "label": "tmix",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000004595491193e-05
+        },
+        {
+          "label": "scaled_k",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000015837114917e-05
+        },
+        {
+          "label": "kk",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -1.0000006337177638e-05
+        },
+        {
+          "label": "saved_sa",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -1.000003644331082e-05
+        }
+      ],
+      "narrow_ms": 0.084558,
+      "narrow_over_fused": 0.8305797300748482,
+      "composed_over_narrow": 1.3859717590293053,
+      "worst_max_abs_wide_vs_narrow": 0.0,
+      "fused_arm": "key-state-forward-fused-wide",
+      "narrow_arm": "key-state-forward-fused",
+      "default_arm": "key-state-forward-fused",
+      "narrow_key_state_forward_dispatches": 1
+    }
+  ],
+  "median_composed_over_fused": 1.308376272464497,
+  "winner": "fused",
+  "samples": 1200,
+  "repetitions": 50,
+  "warmup": 1,
+  "atol": 1e-05,
+  "rtol": 1e-06,
+  "unit": "milliseconds of one key/state forward; each timed sample is `repetitions` dispatches in one submission, divided by the repetition count",
+  "narrow_arm": "key-state-forward-fused",
+  "composed_arm": "key-transform-forward+state-forward",
+  "arms_note": "`fused` is the shipped wider-group kernel (64 / head_size heads per workgroup), `narrow` is the one-workgroup-per-head kernel it replaced, `composed` is the two-dispatch chain and `default` is the route the decision record selects. `narrow_over_fused` and `composed_over_narrow` are what show whether widening the group moved the crossover instead of assuming it did, and the record is written from all three candidate timings.",
+  "arm_rule": "`fused_arm` names the fused kernel each leg is: `wide` is the wider-group variant (64 / head_size heads per workgroup), `narrow` the one-workgroup-per-head kernel. `recorded_route` is the single field the record stores per geometry -- `wide-fused`, `narrow-fused` or `staged` -- so the arm is the route rather than a second field. `default_arm` is what the shipped default built, or null where it dispatched the chain.",
+  "batch_process_isolation": true
+}

@@ -826,6 +826,19 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         row["folded_schedule"] = row["fused_schedule"]
         self.assert_rejected(chain, receipt, record, "not the fully folded rung")
 
+    def test_a_folded_leg_that_repeats_fused_is_not_a_route_candidate(self) -> None:
+        """Two cells on the same schedule are allocation noise, not a depth win."""
+        chain, receipt, record = self.backward_pair()
+        row = receipt["batches"][0]
+        row["folded_schedule"] = row["fused_schedule"]
+        row["folded_candidate"] = False
+        row["folded_ms"] = row["fused_ms"] * 0.90
+        for entry in measured_chain_entries(receipt, record):
+            if entry["batch"] == row["batch"]:
+                entry["candidates"].pop("folded", None)
+        completed = self.run_guard(chain, receipt, record)
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+
     def refused_forward_pair(self) -> tuple[guard.ChainProducer, dict, dict]:
         """The committed forward pair with the FP16 policy's measurements withdrawn.
 

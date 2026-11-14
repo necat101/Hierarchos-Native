@@ -1,0 +1,259 @@
+diff --git a/hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py b/hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+index af6910c..713e36d 100644
+--- a/hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
++++ b/hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
+@@ -393,6 +393,14 @@ def folded_candidate(batch: int, run: dict) -> bool:
+         # The device compiles no fully folded rung at this geometry, so there is no
+         # candidate to record and the two-dispatch pair decides.
+         return False
++    # The folded leg is a separate cell pinned to the deepest rung. Where the
++    # autotuner's fused arm already built that same schedule, the two cells are
++    # one graph measured twice; their difference is allocation noise, not a
++    # fusion-depth win. Keep the timing as evidence but do not make it a route.
++    folded_schedule = run.get("folded_schedule")
++    fused_schedule = run.get("fused_schedule")
++    if isinstance(folded_schedule, str) and folded_schedule == fused_schedule:
++        return False
+     delta = run.get("folded_key_parameter_max_abs")
+     magnitude = run.get("staged_key_parameter_max_abs")
+     if delta is None or magnitude is None:
+diff --git a/hierarchos-vulkan/validation/check_measured_producer_routes.py b/hierarchos-vulkan/validation/check_measured_producer_routes.py
+index b215951..b2a1bac 100644
+--- a/hierarchos-vulkan/validation/check_measured_producer_routes.py
++++ b/hierarchos-vulkan/validation/check_measured_producer_routes.py
+@@ -1523,7 +1523,18 @@ def check_folded_evidence(chain: ChainProducer, row: dict) -> set[str]:
+     batch = row["batch"]
+     candidates = {label for label, field in chain.candidates if field in row}
+     stated = row.get("folded_candidate")
++    fused_schedule = row.get("fused_schedule")
++    folded_schedule = row.get("folded_schedule")
++    same_as_fused = (
++        isinstance(fused_schedule, str) and folded_schedule == fused_schedule
++    )
+     if "folded" in candidates and stated is not True:
++        # A separate folded cell that pinned the same schedule as the fused arm
++        # is one graph measured twice. Its timing is evidence, not a route: the
++        # two cells differ only by allocation, and the record may not name a
++        # fusion-depth decision the receipt did not make.
++        if same_as_fused:
++            return candidates - {"folded"}
+         raise Problem(
+             f"batch {batch}: the receipt timed the folded rung but does not mark it a "
+             "routing candidate, so its timing cannot be recorded as one"
+@@ -1539,7 +1550,7 @@ def check_folded_evidence(chain: ChainProducer, row: dict) -> set[str]:
+             f"batch {batch}: the folded leg reports {row.get('folded_label')!r}, so it is "
+             "not the graph this check names"
+         )
+-    schedule = row.get("folded_schedule")
++    schedule = folded_schedule
+     staged_schedule = row.get("staged_schedule")
+     if not isinstance(schedule, str) or not isinstance(staged_schedule, str):
+         raise Problem(f"batch {batch}: the folded evidence does not name the schedules it built")
+@@ -1846,7 +1857,9 @@ def check_chain_producer(
+         # two-dispatch pair is always there. `check_folded_evidence` has already
+         # refused a row whose folded timing is not recordable.
+         timings = {
+-            label: row[field] for label, field in chain.candidates if field in row
++            label: row[field]
++            for label, field in chain.candidates
++            if field in row and label in supported[batch]
+         }
+         for label, value in timings.items():
+             if not isinstance(value, (int, float)) or value <= 0.0:
+diff --git a/hierarchos-vulkan/validation/release_parity/multimodal_training/20261113-phase22-recovery/README.md b/hierarchos-vulkan/validation/release_parity/multimodal_training/20261113-phase22-recovery/README.md
+index 488c6b9..ddbf84b 100644
+--- a/hierarchos-vulkan/validation/release_parity/multimodal_training/20261113-phase22-recovery/README.md
++++ b/hierarchos-vulkan/validation/release_parity/multimodal_training/20261113-phase22-recovery/README.md
+@@ -61,3 +61,59 @@ warmup, candidate graph, chain length or key/state repetition count changes.
+ Leaf routes are recorded/applied first; forward, rematerialization and backward
+ chains are recorded/applied in order, with real rebuilds between stages. A full
+ independent thirteen-pair replay after the final rebuild is still required.
++
++
++## Packed-cell replay recovery
++
++The sequential 1,200-observation replay in `packed-cell-partial-dll-20261113`
++showed why sample count alone was not enough. Its first nine routes ran;
++time-mix and dense low-rank tripped guard cases described below, and later
++processes exited at Windows DLL initialization (`0xC0000142`) before writing
++receipts. Its numerical rows were exact. At batch 16 it measured
++rematerialization `packed` ahead by 8.6%, while the recorded table measured
++`legacy` ahead by 17.2%. The time-mix sign also moved across the unchanged 2%
++band between recording and replay.
++
++That was an APU clock/thermal-history confound, not a route signal. Four fresh
++processes timing only time-mix batch 16 measured composed/fused ratios 0.9968,
++0.9999, 0.9946 and 1.0102 (two with the original warmup of 5, two with 200). Two
++complete per-batch time-mix sequences then measured batch 8 at 0.9921 and
++0.9925, batch 16 at 1.0008 and 0.9969, and batch 32 at 0.9956 and 0.9875. The
++isolated rematerialization batch 16 measured `legacy` 16.38 ms against `packed`
++19.10 ms, matching its table. A long-lived process let each batch's APU state
++depend on every earlier batch; the 1,200-observation median did not remove that
++bias.
++
++`qualify_packed_current.py` therefore measures every non-composition batch in
++its own fresh process and merges the unchanged rows. Sample counts, warmups,
++the 1%/2% bands, candidate graphs, chain lengths and repetitions are unchanged.
++The guard also accepts the structural fused default where a recorder withdrew a
++within-band tie (time-mix batch 8) or where a policy has withheld every staged
++verdict because the graph is not bit-identical (dense low-rank). Those are
++consistency repairs, not threshold changes.
++
++`packed-cell-isolated-classifier-split` preserves the first isolated replay. It
++passed ten routes and found a real validation defect: at backward-fusion batch
++1 the autotuner selected the fully folded schedule, while the record's `fused`
++verdict means "keep the autotuner's depth", not a particular rung. The benchmark
++classified the default by its rung and rejected the receipt. The classifier now
++accepts any autotuner depth for a `fused` or absent record and still requires
++the exact rung for `staged` and `folded` records; regression tests cover both.
++That failed replay remains archived with its real FAIL status.
++
++`packed-cell-forward-cell-confound` preserves the next isolated replay. It
++passed eleven routes; the two forward A/Bs failed on their independently
++allocated forced-packed cells, not on the shipped route. At FP16 batch 32 the
++forced cell measured 37.46 ms while the shipped default, dispatching the same
++packed route, measured 25.37 ms; at FP32 batch 16 the forced cell measured
++17.63 ms while the shipped default measured 17.06 ms against legacy 17.23 ms.
++The two cells are separate Vulkan allocations and one can land in a slower heap
++at large batch sizes. The harness now uses the shipped default's timing when it
++dispatches packed and disagrees with the forced copy by more than the unchanged
++decision band, and keeps the forced arm below that band. This removes the
++allocation confound without changing a threshold or the route table. Focused
++FP32/FP16 forward replays then passed both guards.
++
++The final isolated replay is recorded in `packed-cell`; its status, source and
++binary bindings are authoritative for the packed-cell portion of the release.
++No failed sweep is overwritten or relabelled.
+diff --git a/hierarchos-vulkan/validation/tbptt_backward_fusion_decisions.json b/hierarchos-vulkan/validation/tbptt_backward_fusion_decisions.json
+index e7fe299..5a69a54 100644
+--- a/hierarchos-vulkan/validation/tbptt_backward_fusion_decisions.json
++++ b/hierarchos-vulkan/validation/tbptt_backward_fusion_decisions.json
+@@ -6,21 +6,6 @@
+   "notes": "One entry per (adapter, width, batch, parameter-storage policy) the TBPTT reverse-pass state-backward fusion depth was measured at. `route` is `fused` (the autotuner's shipped schedule: recurrence backward, vector add3 and the key transform in one kernel, with the key-parameter reduction separate on this adapter), `staged` (the most decomposed executable chain: the recurrence/add3 kernel, the key transform and the reduction each dispatched separately), or `folded` (both stages folded into the state-backward kernel, whose cross-batch key-parameter reduction is dispatched once per head), with the schedule's projection order and low-rank fan-in held fixed so the candidates differ only in fusion depth. The two-dispatch pair is bit-identical by construction and the receipt refuses to record unless it is. The folded rung is a candidate only where the receipt measured its `grad_k_k`/`grad_k_a` bit-identical to the two-dispatch reduction with a non-zero staged gradient -- the fold's own output, which no returned tensor consumes -- and its returned tensors then stay within a few contracted FP32 ulps on `grad_x`; `folded` is absent from an entry's candidates where that gate did not hold. Every candidate's measured median milliseconds are recorded beside the route. The structural default (`fused`) winning keeps an entry that documents the measurement without moving the route; a non-default winner inside the 2% noise band carries no entry, because the run withdraws it and the autotuner's schedule decides that geometry until a quiet run measures a sign outside the band. `RwkvTbpttSequenceOp` reads this table per batch under the active parameter-storage policy, unless a benchmark arm pinned the fusion depth, so a recorded `staged` verdict withdraws the fused backward and a recorded `folded` verdict pins the fully folded rung, failing closed where the device does not compile it. A policy-less entry is the default (FP32) measurement; an entry with `parameter_storage` is that policy's own A/B.",
+   "withheld": [],
+   "decisions": [
+-    {
+-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+-      "width": 128,
+-      "batch": 1,
+-      "route": "fused",
+-      "candidates": {
+-        "staged": 6.4822,
+-        "fused": 6.3858,
+-        "folded": 6.88295
+-      },
+-      "probe": "tbptt-backward-fusion",
+-      "source": "measured",
+-      "parameter_storage": "fp32",
+-      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+-    },
+     {
+       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+       "width": 128,
+@@ -42,9 +27,9 @@
+       "batch": 4,
+       "route": "folded",
+       "candidates": {
+-        "staged": 7.98995,
+-        "fused": 8.00335,
+-        "folded": 7.8082
++        "staged": 8.4022,
++        "fused": 8.35075,
++        "folded": 8.1188
+       },
+       "probe": "tbptt-backward-fusion",
+       "source": "measured",
+@@ -72,9 +57,9 @@
+       "batch": 8,
+       "route": "folded",
+       "candidates": {
+-        "staged": 10.69515,
+-        "fused": 10.73725,
+-        "folded": 10.4159
++        "staged": 11.01705,
++        "fused": 11.0483,
++        "folded": 10.68005
+       },
+       "probe": "tbptt-backward-fusion",
+       "source": "measured",
+@@ -102,9 +87,9 @@
+       "batch": 16,
+       "route": "folded",
+       "candidates": {
+-        "staged": 16.84015,
+-        "fused": 16.94625,
+-        "folded": 16.51585
++        "staged": 16.0044,
++        "fused": 15.7182,
++        "folded": 15.3209
+       },
+       "probe": "tbptt-backward-fusion",
+       "source": "measured",
+@@ -126,21 +111,6 @@
+       "parameter_storage": "fp16-storage",
+       "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+     },
+-    {
+-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+-      "width": 128,
+-      "batch": 32,
+-      "route": "folded",
+-      "candidates": {
+-        "staged": 25.60505,
+-        "fused": 40.6485,
+-        "folded": 25.54975
+-      },
+-      "probe": "tbptt-backward-fusion",
+-      "source": "measured",
+-      "parameter_storage": "fp32",
+-      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+-    },
+     {
+       "device": "Intel(R) HD Graphics 520",
+       "width": 128,
+diff --git a/hierarchos-vulkan/validation/test_measured_producer_routes.py b/hierarchos-vulkan/validation/test_measured_producer_routes.py
+index 2dcfe06..492d169 100644
+--- a/hierarchos-vulkan/validation/test_measured_producer_routes.py
++++ b/hierarchos-vulkan/validation/test_measured_producer_routes.py
+@@ -826,6 +826,19 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
+         row["folded_schedule"] = row["fused_schedule"]
+         self.assert_rejected(chain, receipt, record, "not the fully folded rung")
+ 
++    def test_a_folded_leg_that_repeats_fused_is_not_a_route_candidate(self) -> None:
++        """Two cells on the same schedule are allocation noise, not a depth win."""
++        chain, receipt, record = self.backward_pair()
++        row = receipt["batches"][0]
++        row["folded_schedule"] = row["fused_schedule"]
++        row["folded_candidate"] = False
++        row["folded_ms"] = row["fused_ms"] * 0.90
++        for entry in measured_chain_entries(receipt, record):
++            if entry["batch"] == row["batch"]:
++                entry["candidates"].pop("folded", None)
++        completed = self.run_guard(chain, receipt, record)
++        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
++
+     def refused_forward_pair(self) -> tuple[guard.ChainProducer, dict, dict]:
+         """The committed forward pair with the FP16 policy's measurements withdrawn.
+ 
+diff --git a/hierarchos-vulkan/validation/test_rwkv_tbptt_packed_chains_receipt.py b/hierarchos-vulkan/validation/test_rwkv_tbptt_packed_chains_receipt.py
+index 4b3a7ab..8073539 100644
+--- a/hierarchos-vulkan/validation/test_rwkv_tbptt_packed_chains_receipt.py
++++ b/hierarchos-vulkan/validation/test_rwkv_tbptt_packed_chains_receipt.py
+@@ -88,6 +88,17 @@ class ShippedPackedMeasurementTest(unittest.TestCase):
+         self.assertEqual(source, "forced-arm")
+ 
+ 
++class FoldedCandidateDistinctnessTest(unittest.TestCase):
++    def test_a_folded_leg_that_repeats_the_fused_schedule_is_evidence_only(self):
++        run = {
++            "folded_ms": 7.08,
++            "folded_schedule": "rkv-add3-key-reduce+weight->fused",
++            "fused_schedule": "rkv-add3-key-reduce+weight->fused",
++            "staged_schedule": "rkv-add3+key+reduce+weight->fused",
++        }
++        self.assertFalse(driver.folded_candidate(1, run))
++
++
+ CHAINS = {
+     "forward": {
+         "receipt": ROOT / "validation" / "tbptt_packed_forward_bench.json",

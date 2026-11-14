@@ -334,7 +334,7 @@ def require_folded_tensor_parity(batch: int, run: dict) -> None:
     """The folded rung's returned tensors, against the staged chain."""
     if "folded_max_abs" not in run:
         return
-    if run["folded_max_abs"] > FOLDED_ATOL:
+    if not 0 <= run["folded_max_abs"] <= FOLDED_ATOL:
         raise bridge.Mismatch(
             f"batch {batch}: the folded fusion rung diverges from the staged chain by "
             f"{run['folded_max_abs']:.3e} on {run.get('folded_schedule')}, beyond the "
@@ -352,7 +352,7 @@ def require_folded_key_parameter_parity(batch: int, run: dict) -> None:
     if "folded_key_parameter_max_abs" not in run:
         return
     delta = run["folded_key_parameter_max_abs"]
-    if delta > FOLDED_KEY_PARAMETER_ATOL:
+    if delta != 0.0:
         raise bridge.Mismatch(
             f"batch {batch}: the folded rung moved grad_k_k/grad_k_a by {delta:.3e} away "
             "from the two-dispatch chain; it must publish the gradients that reduction "
@@ -365,7 +365,7 @@ def require_folded_parameter_parity(batch: int, run: dict) -> None:
     if "folded_parameter_delta" not in run:
         return
     delta = run["folded_parameter_delta"]
-    if delta > FOLDED_PARAMETER_ATOL:
+    if not 0 <= delta <= FOLDED_PARAMETER_ATOL:
         raise bridge.Mismatch(
             f"batch {batch}: one AdamW step on the folded rung moved a parameter by "
             f"{delta:.3e}, beyond the {FOLDED_PARAMETER_ATOL:.1e} allowance; the "
@@ -393,6 +393,13 @@ def folded_candidate(batch: int, run: dict) -> bool:
         # The device compiles no fully folded rung at this geometry, so there is no
         # candidate to record and the two-dispatch pair decides.
         return False
+    # The folded leg is a separate cell pinned to the deepest rung. Where the
+    # autotuner's fused arm already built that same schedule, the two cells are
+    # one graph measured twice; their difference is allocation noise, not a
+    # fusion-depth win. Keep the timing as evidence but do not make it a route.
+    folded_schedule = run.get("folded_schedule")
+    fused_schedule = run.get("fused_schedule")
+    same_schedule = isinstance(folded_schedule, str) and folded_schedule == fused_schedule
     delta = run.get("folded_key_parameter_max_abs")
     magnitude = run.get("staged_key_parameter_max_abs")
     if delta is None or magnitude is None:
@@ -400,15 +407,17 @@ def folded_candidate(batch: int, run: dict) -> bool:
             f"batch {batch}: the folded rung was timed but its key-parameter readback "
             "was not recorded, so the route has no acceptance gate"
         )
-    if magnitude <= 0.0:
+    if not 0.0 < magnitude < float('inf'):
         raise bridge.Mismatch(
             f"batch {batch}: the staged arm's grad_k_k/grad_k_a are all zero, so the "
             "folded rung's agreement with them would prove nothing"
         )
+    if any(field not in run for field in ('folded_max_abs', 'folded_parameter_delta')):
+        raise bridge.Mismatch(f"batch {batch}: missing folded tensor/optimizer readback")
     require_folded_key_parameter_parity(batch, run)
     require_folded_tensor_parity(batch, run)
     require_folded_parameter_parity(batch, run)
-    return True
+    return not same_schedule
 
 
 def withheld_backward_reason(run: dict) -> str | None:
@@ -441,6 +450,20 @@ def no_decomposed_graph(stderr: str) -> bool:
     )
 
 
+def select_candidate_measurement(
+    *, route: str, forced_ms: float, default_ms: float, default_label: str,
+) -> tuple[float, str]:
+    """Measure the shipped route on its actual cell, in either direction.
+
+    This rule is fixed before observing timings. It uses the production cell
+    whenever that cell runs this candidate, including when it is slower. The
+    independently allocated forced cell remains in the raw binary receipt.
+    """
+    if default_label == route:
+        return default_ms, "shipped-default"
+    return forced_ms, "forced-arm"
+
+
 def select_packed_measurement(
     *,
     packed_ms: float,
@@ -449,24 +472,9 @@ def select_packed_measurement(
     default_label: str,
     margin: float,
 ) -> tuple[float, str]:
-    """Choose the packed timing a route decision may use.
-
-    When the shipped default already dispatches the packed route, the forced
-    packed arm is a second Vulkan cell running the same graph. The two cells are
-    allocated independently; at large batch sizes one can land in a slower heap
-    and report a 20-50% slower median while the shipped cell stays fast. A
-    divergence beyond the decision band is a placement confound, not a route
-    measurement, so the shipped default's time decides. Below the band the forced
-    arm is kept: a small difference is noise, and the independent cell is what
-    makes the A/B meaningful.
-    """
-    if default_label != "packed":
-        return packed_ms, "forced-arm"
-    forced_ratio = packed_ms / legacy_ms
-    shipped_ratio = default_ms / legacy_ms
-    if abs(forced_ratio / shipped_ratio - 1.0) > margin:
-        return default_ms, "shipped-default"
-    return packed_ms, "forced-arm"
+    """Compatibility wrapper; decision bands never choose a measurement source."""
+    return select_candidate_measurement(route="packed",forced_ms=packed_ms,
+        default_ms=default_ms,default_label=default_label)
 
 
 def measure(
@@ -543,17 +551,18 @@ def measure(
             "parameter_storage": run["parameter_storage"],
             "precision_policy": run["precision_policy"],
         }
-        if chain != "backward" and row["default_label"] == packed_arm:
-            measured_ms, source = select_packed_measurement(
-                packed_ms=row[f"{packed_arm}_ms"],
-                legacy_ms=row[f"{staged_arm}_ms"],
-                default_ms=row["default_ms"],
-                default_label=row["default_label"],
-                margin=margin,
-            )
-            row[f"{packed_arm}_ms"] = measured_ms
-            row[spec["ratio"]] = measured_ms / row[f"{staged_arm}_ms"]
-            row["packed_decision_source"] = source
+        if chain != "backward":
+            row["timing_protocol"] = "shipped-route-v1"
+            row["decision_timing_sources"] = {}
+            for arm in spec["arms"]:
+                measured_ms, source = select_candidate_measurement(
+                    route=arm,forced_ms=row[f"{arm}_ms"],default_ms=row["default_ms"],
+                    default_label=row["default_label"],
+                )
+                row[f"{arm}_ms"] = measured_ms
+                row["decision_timing_sources"][arm] = source
+            row[spec["ratio"]] = row[f"{packed_arm}_ms"] / row[f"{staged_arm}_ms"]
+            row[f"default_over_{spec['baseline']}"] = row["default_ms"] / row[f"{spec['baseline']}_ms"]
         for field in (
             "staged_schedule",
             "fused_schedule",

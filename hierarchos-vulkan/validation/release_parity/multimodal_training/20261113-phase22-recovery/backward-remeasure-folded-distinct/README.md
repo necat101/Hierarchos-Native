@@ -1,0 +1,1 @@
+This follow-up was stopped during build/startup. fp32.log contains no completed batch receipt. It is NOT RUN / incomplete, not a successful qualification. The earlier completed recording transcript is preserved separately in handoff-4719757-pending.

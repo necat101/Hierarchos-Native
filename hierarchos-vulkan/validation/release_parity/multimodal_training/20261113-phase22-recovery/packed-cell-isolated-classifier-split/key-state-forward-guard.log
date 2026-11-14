@@ -1,0 +1,7 @@
+key-state-forward: batch  1: narrow-fused wide-fused  26.519 us  narrow-fused  23.330 us  staged  34.271 us
+key-state-forward: batch  4: narrow-fused wide-fused  32.069 us  narrow-fused  28.897 us  staged  42.044 us
+key-state-forward: batch  8: narrow-fused wide-fused  39.858 us  narrow-fused  35.548 us  staged  53.906 us
+key-state-forward: batch 16: narrow-fused wide-fused  52.797 us  narrow-fused  50.382 us  staged  66.984 us
+key-state-forward: batch 32: narrow-fused wide-fused 102.325 us  narrow-fused  84.695 us  staged 117.894 us
+PASS: key-state-forward is measured across batch 1, 4, 8, 16, 32 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184], and its record follows it
+PASS: 1 receipt(s) re-checked against the record(s) they consume: key-state-forward
