@@ -212,8 +212,9 @@ def verify(
                 reuses = record["mirror_reuses"]
                 if epoch_reuse:
                     # The epoch-aware producer refreshes the mirror for an
-                    # evaluation between steps, so the following training step
-                    # can legitimately reuse it. Every step must still account
+                    # evaluation, including the required pre-training eval@0,
+                    # so the following training step can legitimately reuse it.
+                    # Every step must still account
                     # for the 15 forward and 15 input-gradient mirror uses, and
                     # a reuse is only valid immediately after an evaluation.
                     require(reuses >= PER_STEP_PHASES,
@@ -223,8 +224,17 @@ def verify(
                     require(conversions in (0, PER_STEP_PHASES),
                             f"{run['label']}: mixed arm converted the mirror more than once per step")
                     if conversions == 0:
-                        require(index > 0 and index in evaluated_after,
+                        require(index in evaluated_after,
                                 f"{run['label']}: step {index} reused a mirror without a preceding evaluation")
+                        expected_epoch = (run["parameter_start_digest"] if index == 0
+                                          else records[index - 1]["param_digest"])
+                        for evaluation in run["evaluations"]:
+                            if evaluation["after_step"] != index:
+                                continue
+                            require(evaluation["parameter_digest_before"] == evaluation["parameter_digest_after"],
+                                    f"{run['label']}: evaluation modified parameters")
+                            require(evaluation["parameter_digest_before"] == expected_epoch,
+                                    f"{run['label']}: step {index} evaluation used a different parameter epoch")
                 else:
                     require(conversions > 0,
                             f"{run['label']}: no weight-mirror conversion occurred")
@@ -436,9 +446,11 @@ def verify(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("receipt", nargs="?", type=Path, default=DEFAULT_RECEIPT)
+    parser.add_argument("--epoch-reuse", action="store_true",
+                        help="verify current epoch-aware mirror reuse, including pre-training evaluation")
     args = parser.parse_args()
     try:
-        summary = verify(args.receipt)
+        summary = verify(args.receipt, epoch_reuse=args.epoch_reuse)
     except QualificationError as error:
         print(f"WMMA DRIFT QUALIFICATION: FAIL: {error}")
         return 1
