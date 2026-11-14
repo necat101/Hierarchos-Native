@@ -79,8 +79,7 @@ def main():
     resume=a.precision_run.resolve()/'lora-mixed-state'
     reject('wrong-checkpoint-precision',[binary,'transformer-finetune','--model-path',fixture/'model/text',
         '--train',fixture/'dataset.jsonl','--out-dir',out/'wrong-resume','--batch-size','2','--seq-len','24','--epochs','1',
-        '--wmma-mode','full-fp16','--lora-rank','8','--lora-alpha','16','--lora-dropout','0',
-        '--lora-target-module','q_proj','--lora-target-module','v_proj','--peft-resume',resume],
+        '--wmma-mode','full-fp16','--peft-resume',resume],
         'precision',out/'wrong-resume','off')
     reject('partial-window-checkpoint',[bins/'hierarchos-vulkan-transformer-train.exe','--model',fixture/'model/text',
         '--dataset',fixture/'dataset.jsonl','--output',out/'partial-window','--batch-size','2','--seq-len','24',
