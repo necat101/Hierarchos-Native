@@ -14,7 +14,7 @@ use hierarchos_vulkan::wmma::{WmmaMode, WMMA_MODE_ENV};
 use hierarchos_vulkan::VulkanDevice;
 
 fn usage() -> &'static str {
-    "hierarchos-vulkan-wmma-probe [--wmma-mode off|mixed|full-fp16] [--json]\n\n\
+    "wmma_probe [--wmma-mode off|mixed|full-fp16] [--json]\n\n\
      With no --wmma-mode the probe uses HIERARCHOS_WMMA_MODE, or `off` when unset.\n\
      `off` keeps the FP32 device contract without probing WMMA feature chains.\n\
      Mixed/Full FP16 require AMD RDNA3 or newer plus the Vulkan feature contract."

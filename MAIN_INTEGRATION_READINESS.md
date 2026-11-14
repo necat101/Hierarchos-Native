@@ -17,7 +17,7 @@ Live Gen9 qualification is assigned to the later Gen9-host pull, per the user. T
 
 1. Run `python hierarchos-vulkan/validation/check_main_compatibility.py`.
 2. Build the normal release and run the library suite with `HIERARCHOS_WMMA_MODE=off` and the normal host ISA detection.
-3. Run `hierarchos-vulkan-wmma-probe --wmma-mode off --json`: expect FP32, `rdna3_or_newer=false`, `probed=false`, `enabled=false` and no cooperative dispatches.
+3. Run `wmma_probe --wmma-mode off --json`: expect FP32, `rdna3_or_newer=false`, `probed=false`, `enabled=false` and no cooperative dispatches.
 4. Request `mixed` and `full-fp16` explicitly: both must fail with the AMD RDNA3-or-newer admission diagnostic.
 5. Run the existing Gen9 strict logits, image/text, generation, PEFT/resume and RWKV regression matrices against the original frozen references. Retain the original tolerances and compare the FP32 route/performance with the pre-WMMA baseline.
 
