@@ -295,6 +295,23 @@ fn backward_fusion_suffix<'a>(label: &'a str, rung: &str) -> &'a str {
     &label[rung.len()..]
 }
 
+/// The route a backward-fusion default actually represents.
+///
+/// A `fused` record is the autotuner's shipped depth, not a particular rung; the
+/// autotuner may pick the fully folded depth on one run and a less folded one on
+/// the next. Only the two explicit overrides have a rung requirement.
+fn classify_backward_fusion_default(
+    recorded_route: Option<&str>,
+    default_schedule: Option<&str>,
+) -> &'static str {
+    let rung = default_schedule.and_then(backward_fusion_rung);
+    match recorded_route {
+        Some("staged") if rung == Some(BACKWARD_FUSION_RUNGS[0]) => "staged",
+        Some("folded") if rung == Some(BACKWARD_FUSION_RUNGS[2]) => "folded",
+        _ => "fused",
+    }
+}
+
 struct Args {
     chain: Chain,
     model_dir: PathBuf,
@@ -1683,14 +1700,12 @@ fn main() -> Result<()> {
             );
         }
         // `fused` names the autotuner's shipped depth, which need not be the
-        // extreme the fused arm pins; a recorded staged or folded verdict is what
-        // moves it, and the route is classified by the rung the default built
-        // rather than by which arm it happens to match.
-        match default_schedule.as_deref().and_then(backward_fusion_rung) {
-            Some(rung) if Some(rung) == Some(BACKWARD_FUSION_RUNGS[0]) => "staged",
-            Some(rung) if Some(rung) == Some(BACKWARD_FUSION_RUNGS[2]) => "folded",
-            _ => "fused",
-        }
+        // extreme the fused arm pins; the autotuner may itself choose the fully
+        // folded rung at one geometry and a less folded one at the next. A fused
+        // or absent record therefore imposes no rung: classify the default as
+        // fused, and let the recorded schedule prove the receipt. Only staged and
+        // folded verdicts move the default and require their own rung.
+        classify_backward_fusion_default(recorded_route, default_schedule.as_deref())
     } else {
         args.chain
             .active_label(&default, args.batch)
@@ -1787,4 +1802,38 @@ fn main() -> Result<()> {
     };
     println!("{}", serde_json::to_string(&output)?);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fused_record_accepts_the_autotuners_folded_depth() {
+        assert_eq!(
+            classify_backward_fusion_default(
+                Some("fused"),
+                Some("rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in")
+            ),
+            "fused"
+        );
+        assert_eq!(
+            classify_backward_fusion_default(
+                None,
+                Some("rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in")
+            ),
+            "fused"
+        );
+    }
+
+    #[test]
+    fn explicit_records_still_require_their_rung() {
+        let staged = "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in";
+        let folded = "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in";
+        let intermediate = "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in";
+        assert_eq!(classify_backward_fusion_default(Some("staged"), Some(staged)), "staged");
+        assert_eq!(classify_backward_fusion_default(Some("folded"), Some(folded)), "folded");
+        assert_eq!(classify_backward_fusion_default(Some("staged"), Some(intermediate)), "fused");
+        assert_eq!(classify_backward_fusion_default(Some("folded"), Some(intermediate)), "fused");
+    }
 }

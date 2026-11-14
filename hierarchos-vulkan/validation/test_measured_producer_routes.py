@@ -162,6 +162,54 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
                 self.assertEqual(completed.returncode, 0, completed.stderr)
                 self.assertIn(f"PASS: {producer.name}", completed.stdout)
 
+    def test_an_in_band_tie_keeps_the_structural_default(self) -> None:
+        """A vendor fallback inside the composed arm does not select that arm.
+
+        Time-mix batch 8 was recorded inside the unchanged 2% band, so the
+        record carries no verdict. The composed arm then uses its vendor
+        projection, but the fused producer is still available and is the
+        structural default; the receipt measured exactly that.
+        """
+        producer = guard.PRODUCERS_BY_NAME["time-mix-projection"]
+        receipt, record = load(producer)
+        row = rows_by_batch(receipt)[8]
+        lookup, _ = entries_for(producer, receipt, record)
+        self.assertNotIn(8, lookup)
+        self.assertTrue(row["composed_ran_vendor_linear3"])
+        self.assertEqual(row["default_label"], "fused")
+        self.assertLessEqual(
+            abs(row["composed_over_fused"] - 1.0), band_of(producer, record)
+        )
+        completed = self.run_guard(producer, receipt, record)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_a_geometry_with_no_verdict_keeps_a_withheld_policy_fused(self) -> None:
+        """A policy that may not adopt staged cannot owe a staged verdict.
+
+        The dense low-rank FP32 policy withholds every staged win because the
+        two graphs are not bit-identical. Batch 8 was a tie at recording, so it
+        has no entry and no withheld verdict; a later run measuring staged more
+        than 2% ahead still keeps the structural fused default.
+        """
+        producer = guard.PRODUCERS_BY_NAME["low-rank-forward"]
+        receipt, record = load(producer)
+        lookup, _ = entries_for(producer, receipt, record)
+        held = guard.withheld_for(producer, record, receipt)
+        self.assertTrue(held)
+        rows = [
+            row
+            for row in receipt["batches"]
+            if row["batch"] not in lookup and row["batch"] not in held
+        ]
+        self.assertTrue(rows)
+        row = max(rows, key=lambda candidate: abs(candidate["composed_over_fused"] - 1.0))
+        self.assertGreater(
+            abs(row["composed_over_fused"] - 1.0), band_of(producer, record)
+        )
+        self.assertEqual(row["default_label"], "fused")
+        completed = self.run_guard(producer, receipt, record)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
     def test_a_sweep_that_stops_before_a_recorded_geometry_is_rejected(self) -> None:
         for producer in PRODUCERS:
             with self.subTest(producer=producer.name):
@@ -178,9 +226,9 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         for producer in PRODUCERS:
             with self.subTest(producer=producer.name):
                 receipt, record = load(producer)
-                lookup, _ = entries_by_batch(producer, receipt, record)
-                self.assertTrue(lookup, "the committed record carries no entry to copy")
-                source = next(iter(lookup.values()))
+                _, applicable = entries_by_batch(producer, receipt, record)
+                self.assertTrue(applicable, "the committed record carries no entry to copy")
+                source = applicable[0]
                 stray = copy.deepcopy(source)
                 stray["batch"] = max(producer.sweep) + 32
                 record["decisions"].append(stray)
@@ -193,6 +241,21 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
                 lookup, _ = entries_by_batch(producer, receipt, record)
                 band = band_of(producer, record)
                 rows = rows_by_batch(receipt)
+                if not lookup:
+                    # Every measured verdict for this policy is withheld, so there
+                    # is no adopted entry to remove. Removing a withheld verdict's
+                    # decision must still fail: the refusal has to name a
+                    # measurement, not stand beside an absent one.
+                    held = guard.withheld_for(producer, record, receipt)
+                    self.assertTrue(held, "the committed record carries no entry to remove")
+                    batch = next(iter(held))
+                    record["decisions"] = [
+                        entry for entry in record["decisions"] if entry["batch"] != batch
+                    ]
+                    self.assert_rejected(
+                        producer, receipt, record, "withholds a route but carries no measured decision"
+                    )
+                    continue
                 batch = next(
                     batch
                     for batch in lookup
@@ -222,8 +285,8 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         for producer in PRODUCERS:
             with self.subTest(producer=producer.name):
                 receipt, record = load(producer)
-                lookup, _ = entries_by_batch(producer, receipt, record)
-                entry = next(iter(lookup.values()))
+                lookup, applicable = entries_by_batch(producer, receipt, record)
+                entry = next(iter(lookup.values())) if lookup else applicable[0]
                 entry["route"] = max(entry["candidates"], key=entry["candidates"].get)
                 self.assert_rejected(producer, receipt, record, "fastest candidate it lists")
 
@@ -232,6 +295,14 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
             with self.subTest(producer=producer.name):
                 receipt, record = load(producer)
                 lookup, _ = entries_by_batch(producer, receipt, record)
+                if not lookup:
+                    # This policy adopts none of its measured verdicts, so it
+                    # cannot have a receipt that moved ahead of an adopted route.
+                    # Expose the audit entries by removing the refusals to test the
+                    # stale-entry path itself.
+                    record["withheld"] = []
+                    lookup, _ = entries_by_batch(producer, receipt, record)
+                    self.assertTrue(lookup)
                 batch = next(iter(lookup))
                 row = rows_by_batch(receipt)[batch]
                 entry = lookup[batch]
@@ -248,8 +319,8 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         for producer in PRODUCERS:
             with self.subTest(producer=producer.name):
                 receipt, record = load(producer)
-                lookup, _ = entries_by_batch(producer, receipt, record)
-                entry = next(iter(lookup.values()))
+                lookup, applicable = entries_by_batch(producer, receipt, record)
+                entry = next(iter(lookup.values())) if lookup else applicable[0]
                 baseline = producer.default_route
                 target = (
                     "narrow-fused"
@@ -317,7 +388,12 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
             with self.subTest(producer=producer.name):
                 receipt, record = load(producer)
                 lookup, _ = entries_by_batch(producer, receipt, record)
-                batch = next(iter(lookup))
+                if lookup:
+                    batch = next(iter(lookup))
+                else:
+                    held = guard.withheld_for(producer, record, receipt)
+                    self.assertTrue(held)
+                    batch = next(iter(held))
                 row = rows_by_batch(receipt)[batch]
                 row["default_label"] = (
                     "composed" if row["default_label"] != "composed" else row["fused_label"]
@@ -429,27 +505,33 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         """
         fp16 = guard.PRODUCERS_BY_NAME["low-rank-forward-fp16"]
         dense = guard.PRODUCERS_BY_NAME["low-rank-forward"]
-        receipt, record = load(fp16)
-        lookup, _ = entries_by_batch(fp16, receipt, record)
-        # A scoped entry the receipt actually adopted: the staged wins are now
-        # withheld, so the mutation has to move a fused verdict and catch the
-        # receipt naming a different route than the record.
-        batch = next(
-            batch
-            for batch, entry in lookup.items()
-            if entry.get("parameter_storage") == "fp16-storage"
-            and rows_by_batch(receipt)[batch].get("recorded_route") == entry["route"]
-            and entry["route"] == "fused"
-        )
-        entry = lookup[batch]
-        entry["route"] = "staged"
-        entry["candidates"]["staged"] = entry["candidates"]["fused"] * 0.90
-        completed = self.run_guard(fp16, receipt, record)
-        self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
-        self.assertIn("the receipt was measured against route", completed.stderr)
-        dense_receipt, _ = load(dense)
-        completed = self.run_guard(dense, dense_receipt, record)
-        self.assertEqual(completed.returncode, 0, completed.stderr)
+        device = "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]"
+        record = {
+            "decisions": [
+                {
+                    "device": device,
+                    "width": 128,
+                    "batch": 1,
+                    "route": "staged",
+                    "parameter_storage": "fp16-storage",
+                    "candidates": {"fused": 2.0, "staged": 1.0},
+                    "probe": "low-rank-forward",
+                    "source": "measured",
+                }
+            ],
+            "withheld": [],
+        }
+        scoped_receipt = {
+            "device": device,
+            "width": 128,
+            "parameter_storage": "fp16-storage",
+            "batches": [{"batch": 1}],
+        }
+        lookup, _ = guard.entries_for(fp16, record, scoped_receipt)
+        self.assertIn(1, lookup)
+        dense_receipt = {**scoped_receipt, "parameter_storage": None}
+        lookup, _ = guard.entries_for(dense, record, dense_receipt)
+        self.assertNotIn(1, lookup)
 
     def run_composition(self, receipt: dict, records: dict[str, dict] | None) -> subprocess.CompletedProcess:
         """Run the packed-composition consumer against copies of its records."""
