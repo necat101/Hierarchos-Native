@@ -26,6 +26,30 @@
       "width": 128,
       "batch": 1,
       "route": "staged",
+      "reason": "The fused and staged graphs differ under fp32 parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph.",
+      "parameter_storage": "fp32"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 4,
+      "route": "staged",
+      "reason": "The fused and staged graphs differ under fp32 parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph.",
+      "parameter_storage": "fp32"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 32,
+      "route": "staged",
+      "reason": "The fused and staged graphs differ under fp32 parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph.",
+      "parameter_storage": "fp32"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 1,
+      "route": "staged",
       "reason": "The fused and staged graphs differ under fp16-storage parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph.",
       "parameter_storage": "fp16-storage"
     },
@@ -60,30 +84,6 @@
       "route": "staged",
       "reason": "The fused and staged graphs differ under fp16-storage parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph.",
       "parameter_storage": "fp16-storage"
-    },
-    {
-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
-      "width": 128,
-      "batch": 1,
-      "route": "staged",
-      "reason": "The fused and staged graphs differ under fp32 parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph.",
-      "parameter_storage": "fp32"
-    },
-    {
-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
-      "width": 128,
-      "batch": 4,
-      "route": "staged",
-      "reason": "The fused and staged graphs differ under fp32 parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph.",
-      "parameter_storage": "fp32"
-    },
-    {
-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
-      "width": 128,
-      "batch": 8,
-      "route": "staged",
-      "reason": "The fused and staged graphs differ under fp32 parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph.",
-      "parameter_storage": "fp32"
     }
   ],
   "decisions": [
@@ -93,8 +93,8 @@
       "batch": 1,
       "route": "staged",
       "candidates": {
-        "fused": 1.47095,
-        "staged": 1.4277
+        "fused": 1.45355,
+        "staged": 1.398
       },
       "probe": "low-rank-forward",
       "source": "measured",
@@ -107,8 +107,8 @@
       "batch": 1,
       "route": "staged",
       "candidates": {
-        "fused": 1.6374,
-        "staged": 1.5685
+        "fused": 1.6925,
+        "staged": 1.63015
       },
       "probe": "low-rank-forward",
       "source": "measured",
@@ -121,8 +121,8 @@
       "batch": 4,
       "route": "staged",
       "candidates": {
-        "fused": 1.5617,
-        "staged": 1.4838
+        "fused": 1.4955,
+        "staged": 1.44095
       },
       "probe": "low-rank-forward",
       "source": "measured",
@@ -135,8 +135,8 @@
       "batch": 4,
       "route": "staged",
       "candidates": {
-        "fused": 2.8158,
-        "staged": 2.64135
+        "fused": 2.9977,
+        "staged": 2.89025
       },
       "probe": "low-rank-forward",
       "source": "measured",
@@ -149,27 +149,13 @@
       "batch": 8,
       "route": "staged",
       "candidates": {
-        "fused": 1.54195,
-        "staged": 1.39755
+        "fused": 1.5192,
+        "staged": 1.3525
       },
       "probe": "low-rank-forward",
       "source": "measured",
       "parameter_storage": "fp16-storage",
       "measured_by": "validation/bench_rwkv_low_rank_fp16_forward.py"
-    },
-    {
-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
-      "width": 128,
-      "batch": 8,
-      "route": "staged",
-      "candidates": {
-        "fused": 4.096,
-        "staged": 3.90305
-      },
-      "probe": "low-rank-forward",
-      "source": "measured",
-      "parameter_storage": "fp32",
-      "measured_by": "validation/bench_rwkv_packed_cell_low_rank_forward.py"
     },
     {
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
@@ -177,8 +163,8 @@
       "batch": 16,
       "route": "staged",
       "candidates": {
-        "fused": 1.68425,
-        "staged": 1.5076
+        "fused": 1.64775,
+        "staged": 1.48905
       },
       "probe": "low-rank-forward",
       "source": "measured",
@@ -191,13 +177,27 @@
       "batch": 32,
       "route": "staged",
       "candidates": {
-        "fused": 2.0156,
-        "staged": 1.849
+        "fused": 1.89735,
+        "staged": 1.7303
       },
       "probe": "low-rank-forward",
       "source": "measured",
       "parameter_storage": "fp16-storage",
       "measured_by": "validation/bench_rwkv_low_rank_fp16_forward.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 32,
+      "route": "staged",
+      "candidates": {
+        "fused": 14.15415,
+        "staged": 13.65135
+      },
+      "probe": "low-rank-forward",
+      "source": "measured",
+      "parameter_storage": "fp32",
+      "measured_by": "validation/bench_rwkv_packed_cell_low_rank_forward.py"
     },
     {
       "device": "Intel(R) HD Graphics 520",

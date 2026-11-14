@@ -12,8 +12,8 @@
       "batch": 1,
       "route": "fused",
       "candidates": {
-        "fused": 1.5845,
-        "staged": 1.69065
+        "fused": 2.18995,
+        "staged": 2.2686
       },
       "probe": "linear_residual-forward",
       "source": "measured",
@@ -26,8 +26,8 @@
       "batch": 4,
       "route": "fused",
       "candidates": {
-        "fused": 2.9564,
-        "staged": 3.1133
+        "fused": 3.0499,
+        "staged": 3.1827
       },
       "probe": "linear_residual-forward",
       "source": "measured",
@@ -40,8 +40,8 @@
       "batch": 8,
       "route": "fused",
       "candidates": {
-        "fused": 4.0266,
-        "staged": 4.0972
+        "fused": 4.50905,
+        "staged": 4.5672
       },
       "probe": "linear_residual-forward",
       "source": "measured",
@@ -54,8 +54,8 @@
       "batch": 16,
       "route": "fused",
       "candidates": {
-        "fused": 7.6308,
-        "staged": 8.05215
+        "fused": 8.4071,
+        "staged": 8.60685
       },
       "probe": "linear_residual-forward",
       "source": "measured",
@@ -68,8 +68,8 @@
       "batch": 32,
       "route": "fused",
       "candidates": {
-        "fused": 13.4873,
-        "staged": 13.53135
+        "fused": 13.37685,
+        "staged": 13.3791
       },
       "probe": "linear_residual-forward",
       "source": "measured",

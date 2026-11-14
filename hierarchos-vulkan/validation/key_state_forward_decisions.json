@@ -12,9 +12,9 @@
       "batch": 1,
       "route": "narrow-fused",
       "candidates": {
-        "wide-fused": 0.026277,
-        "narrow-fused": 0.023077,
-        "staged": 0.034486
+        "wide-fused": 0.026416,
+        "narrow-fused": 0.022962,
+        "staged": 0.034278
       },
       "probe": "key-state-forward",
       "source": "measured",
@@ -27,9 +27,9 @@
       "batch": 4,
       "route": "narrow-fused",
       "candidates": {
-        "wide-fused": 0.031866,
-        "narrow-fused": 0.027994,
-        "staged": 0.041682
+        "wide-fused": 0.031584,
+        "narrow-fused": 0.028534,
+        "staged": 0.041484
       },
       "probe": "key-state-forward",
       "source": "measured",
@@ -42,9 +42,9 @@
       "batch": 8,
       "route": "narrow-fused",
       "candidates": {
-        "wide-fused": 0.039928,
-        "narrow-fused": 0.034236,
-        "staged": 0.052752
+        "wide-fused": 0.039426,
+        "narrow-fused": 0.034597,
+        "staged": 0.053366
       },
       "probe": "key-state-forward",
       "source": "measured",
@@ -57,9 +57,9 @@
       "batch": 16,
       "route": "narrow-fused",
       "candidates": {
-        "wide-fused": 0.057951,
-        "narrow-fused": 0.048817,
-        "staged": 0.071933
+        "wide-fused": 0.0529,
+        "narrow-fused": 0.050222,
+        "staged": 0.067026
       },
       "probe": "key-state-forward",
       "source": "measured",
@@ -72,9 +72,9 @@
       "batch": 32,
       "route": "narrow-fused",
       "candidates": {
-        "wide-fused": 0.104244,
-        "narrow-fused": 0.087915,
-        "staged": 0.118709
+        "wide-fused": 0.10033,
+        "narrow-fused": 0.07936,
+        "staged": 0.116424
       },
       "probe": "key-state-forward",
       "source": "measured",
