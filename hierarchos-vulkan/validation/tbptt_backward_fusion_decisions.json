@@ -12,8 +12,8 @@
       "batch": 1,
       "route": "fused",
       "candidates": {
-        "staged": 7.322,
-        "fused": 7.2875
+        "staged": 6.9859,
+        "fused": 6.76395
       },
       "probe": "tbptt-backward-fusion",
       "source": "measured",
@@ -23,27 +23,26 @@
     {
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
-      "batch": 4,
-      "route": "folded",
+      "batch": 1,
+      "route": "fused",
       "candidates": {
-        "staged": 8.7486,
-        "fused": 8.7725,
-        "folded": 8.53525
+        "staged": 6.87105,
+        "fused": 6.767
       },
       "probe": "tbptt-backward-fusion",
       "source": "measured",
-      "parameter_storage": "fp16-storage",
+      "parameter_storage": "fp32",
       "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
     },
     {
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 4,
-      "route": "folded",
+      "route": "fused",
       "candidates": {
-        "staged": 8.73105,
-        "fused": 8.77755,
-        "folded": 8.5512
+        "staged": 7.9859,
+        "fused": 7.97615,
+        "folded": 7.98835
       },
       "probe": "tbptt-backward-fusion",
       "source": "measured",
@@ -54,11 +53,11 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 8,
-      "route": "folded",
+      "route": "fused",
       "candidates": {
-        "staged": 11.5631,
-        "fused": 11.6315,
-        "folded": 11.36025
+        "staged": 10.66535,
+        "fused": 10.5913,
+        "folded": 10.62975
       },
       "probe": "tbptt-backward-fusion",
       "source": "measured",
@@ -69,11 +68,11 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 8,
-      "route": "folded",
+      "route": "fused",
       "candidates": {
-        "staged": 11.52225,
-        "fused": 11.6068,
-        "folded": 11.31165
+        "staged": 10.62845,
+        "fused": 10.53505,
+        "folded": 10.5578
       },
       "probe": "tbptt-backward-fusion",
       "source": "measured",
@@ -84,15 +83,30 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 16,
-      "route": "folded",
+      "route": "fused",
       "candidates": {
-        "staged": 16.89105,
-        "fused": 17.0054,
-        "folded": 16.65305
+        "staged": 16.7363,
+        "fused": 16.6136,
+        "folded": 16.66445
       },
       "probe": "tbptt-backward-fusion",
       "source": "measured",
       "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 32,
+      "route": "fused",
+      "candidates": {
+        "staged": 25.4891,
+        "fused": 25.3619,
+        "folded": 25.42415
+      },
+      "probe": "tbptt-backward-fusion",
+      "source": "measured",
+      "parameter_storage": "fp32",
       "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
     },
     {

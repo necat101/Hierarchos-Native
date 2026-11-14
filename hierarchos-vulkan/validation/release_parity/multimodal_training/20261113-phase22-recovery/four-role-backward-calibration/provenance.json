@@ -1,0 +1,213 @@
+{
+  "kind": "calibration-only",
+  "qualification_status": "NOT RUN",
+  "source_revision": "baeb6b05eb5346d29ba9f5d7a424f9b78e56289a",
+  "immutable_sha256": {
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py": "5e1a675572cf4f732d904d0fb19bdb36efca9eaa1a56c228aaa36fad54035b8c",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\packed_allocation_timing.py": "5c71559a41cbb4687544096d33de9f61bcbaa49416d75586455f335ec2424d81",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\ab_harness.py": "cf62b79b833b22f9e9a95ad84a5c4e12bc3a8269d20c19dda17f91ce5f934bc2",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\hierarchos-vulkan-rwkv-tbptt-packed-chains-bench.exe": "3e2955bead721dfdc1493e30f7e6fe83aab0fc6f846b76d8f412ab289f6b748e"
+  },
+  "before_table_sha256": {
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\tbptt_backward_fusion_decisions.json": "b27b76859d683214a3bd5ea39aab53bc540f632467aae9fe48a2a66864b00caa"
+  },
+  "measurements": [
+    {
+      "producer": "tbptt-backward-fusion",
+      "receipt_sha256": "0141ec168716ed39587ed002b84c90a8a6004110f806872768f32ebbb888fe8b",
+      "batches": [
+        1,
+        4,
+        8,
+        16,
+        32
+      ]
+    },
+    {
+      "producer": "tbptt-backward-fusion-fp16",
+      "receipt_sha256": "703372046cb334ae3e529699ad9839e87016bc0a4bd10dab10e2a721cbc5e522",
+      "batches": [
+        1,
+        4,
+        8,
+        16,
+        32
+      ]
+    }
+  ],
+  "commands": [
+    [
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py",
+      "--chain",
+      "backward",
+      "--steps",
+      "8",
+      "--iterations",
+      "1200",
+      "--warmup",
+      "3",
+      "--batch",
+      "1",
+      "--record",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\release_parity\\multimodal_training\\20261113-phase22-recovery\\four-role-backward-calibration\\tbptt-backward-fusion-1.json"
+    ],
+    [
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py",
+      "--chain",
+      "backward",
+      "--steps",
+      "8",
+      "--iterations",
+      "1200",
+      "--warmup",
+      "3",
+      "--batch",
+      "4",
+      "--record",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\release_parity\\multimodal_training\\20261113-phase22-recovery\\four-role-backward-calibration\\tbptt-backward-fusion-4.json"
+    ],
+    [
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py",
+      "--chain",
+      "backward",
+      "--steps",
+      "8",
+      "--iterations",
+      "1200",
+      "--warmup",
+      "3",
+      "--batch",
+      "8",
+      "--record",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\release_parity\\multimodal_training\\20261113-phase22-recovery\\four-role-backward-calibration\\tbptt-backward-fusion-8.json"
+    ],
+    [
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py",
+      "--chain",
+      "backward",
+      "--steps",
+      "8",
+      "--iterations",
+      "1200",
+      "--warmup",
+      "3",
+      "--batch",
+      "16",
+      "--record",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\release_parity\\multimodal_training\\20261113-phase22-recovery\\four-role-backward-calibration\\tbptt-backward-fusion-16.json"
+    ],
+    [
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py",
+      "--chain",
+      "backward",
+      "--steps",
+      "8",
+      "--iterations",
+      "1200",
+      "--warmup",
+      "3",
+      "--batch",
+      "32",
+      "--record",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\release_parity\\multimodal_training\\20261113-phase22-recovery\\four-role-backward-calibration\\tbptt-backward-fusion-32.json"
+    ],
+    [
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py",
+      "--chain",
+      "backward",
+      "--parameter-storage",
+      "fp16-storage",
+      "--steps",
+      "8",
+      "--iterations",
+      "1200",
+      "--warmup",
+      "3",
+      "--batch",
+      "1",
+      "--record",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\release_parity\\multimodal_training\\20261113-phase22-recovery\\four-role-backward-calibration\\tbptt-backward-fusion-fp16-1.json"
+    ],
+    [
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py",
+      "--chain",
+      "backward",
+      "--parameter-storage",
+      "fp16-storage",
+      "--steps",
+      "8",
+      "--iterations",
+      "1200",
+      "--warmup",
+      "3",
+      "--batch",
+      "4",
+      "--record",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\release_parity\\multimodal_training\\20261113-phase22-recovery\\four-role-backward-calibration\\tbptt-backward-fusion-fp16-4.json"
+    ],
+    [
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py",
+      "--chain",
+      "backward",
+      "--parameter-storage",
+      "fp16-storage",
+      "--steps",
+      "8",
+      "--iterations",
+      "1200",
+      "--warmup",
+      "3",
+      "--batch",
+      "8",
+      "--record",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\release_parity\\multimodal_training\\20261113-phase22-recovery\\four-role-backward-calibration\\tbptt-backward-fusion-fp16-8.json"
+    ],
+    [
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py",
+      "--chain",
+      "backward",
+      "--parameter-storage",
+      "fp16-storage",
+      "--steps",
+      "8",
+      "--iterations",
+      "1200",
+      "--warmup",
+      "3",
+      "--batch",
+      "16",
+      "--record",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\release_parity\\multimodal_training\\20261113-phase22-recovery\\four-role-backward-calibration\\tbptt-backward-fusion-fp16-16.json"
+    ],
+    [
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py",
+      "--chain",
+      "backward",
+      "--parameter-storage",
+      "fp16-storage",
+      "--steps",
+      "8",
+      "--iterations",
+      "1200",
+      "--warmup",
+      "3",
+      "--batch",
+      "32",
+      "--record",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\release_parity\\multimodal_training\\20261113-phase22-recovery\\four-role-backward-calibration\\tbptt-backward-fusion-fp16-32.json"
+    ]
+  ],
+  "candidate_sha256": {
+    "tbptt_backward_fusion_decisions.json": "f83ea9cd53ed863ea8b80b1e4e77317a0471fd2bdc46e839d8907ddc9ccf661a"
+  }
+}
