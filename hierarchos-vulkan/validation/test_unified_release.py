@@ -76,6 +76,19 @@ class UnifiedReleaseControls(unittest.TestCase):
         self.reject(mutate)
     def test_hidden_diagnostic_failures(self):
         self.reject(lambda d,p:p['intermediates'].update(strict_diagnostic_failures=0))
+    def test_forged_diagnostic_flags_cannot_hide_observed_failures(self):
+        def mutate(d,p):
+            for row in p['intermediates']['raw_diagnostics']:row['pass']=True
+            p['intermediates']['strict_diagnostic_failures']=0
+        self.reject(mutate)
+    def test_forged_native_bounded_qualification(self):
+        def mutate(d,p):
+            checks=p['native_v41']['checks']['bounded']
+            key=next(k for k in checks if k.endswith('independent-FP32'))
+            checks[key]['max_abs']=5e-7
+        self.reject(mutate)
+    def test_missing_replay_stage_with_forged_aggregate_pass(self):
+        self.reject(lambda d,p:p['fp32_replay']['results'].pop())
     def test_forged_primitive_pass_flag(self):
         def mutate(d,p):
             row=next(r for r in p['wmma_full_original']['results'] if not r['passed']);row['passed']=True

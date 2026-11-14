@@ -60,6 +60,54 @@ def verify_primitive(q,mode,failed):
     return failures
 
 
+def verify_replay(q,binaries):
+    stages=[*IMAGE_COUNTS,'text166','deepseek215','native-v41']
+    # Execution order is recorded separately; both inventories must be complete.
+    require(q['pass'] and q['complete'],'FP32 full replay is incomplete')
+    require(len(q['stages'])==9 and set(q['stages'])==set(stages),'FP32 replay stage inventory changed')
+    require([r['stage'] for r in q['results']]==q['stages']
+            and all(r['pass'] and r['returncode']==0 for r in q['results']),
+            'FP32 replay execution is incomplete or failing')
+    names=('libtest','image_text_pipeline_probe','gemma3_vision_probe','gemma4_vision_probe',
+           'llava_pipeline_probe','hierarchos-vulkan-transformer-logits')
+    require(len(q['binary_sha256'])==6 and set(q['binary_sha256'].values())==
+            {binaries[name]['sha256'] for name in names},'FP32 replay executable inventory changed')
+
+
+def verify_native_checks(native):
+    require(set(native['checks'])=={'bounded','stress'},'native bounded/stress inventory incomplete')
+    for label,checks in native['checks'].items():
+        independent=[v for k,v in checks.items() if k.endswith('independent-FP32')]
+        require(len(independent)==65,'native independent comparison inventory changed')
+        for key,value in checks.items():
+            require(strict(value['max_abs'],float('inf')) and strict(value['rms'],float('inf')),
+                    'nonfinite native observation')
+            if key.endswith('independent-FP32'):
+                ok=strict(value['max_abs'],2e-7)
+                require(value['strict_limit']==2e-7 and value['within_strict_limit']==ok,
+                        'native strict diagnostic flag disagrees with numeric observation')
+                if label=='bounded':require(ok,'native bounded independent FP32 comparison failed')
+            elif key.endswith('mixed-vs-FP32'):
+                require(strict(value['max_abs'],.02) and strict(value['rms'],.003),
+                        'native Mixed numerical check failed')
+            elif key.endswith('/reload'):
+                require(value['max_abs']==0,'native export/reload diverged')
+        require(native['reports'][label]['independent_FP32_qualified']==
+                all(strict(v['max_abs'],2e-7) for v in independent),
+                'native aggregate qualification disagrees with numeric observations')
+
+
+def verify_intermediates(q):
+    rows=q['raw_diagnostics']
+    require(q['maintained_cases']==93 and q['diagnostic_checks']==len(rows)==1116,
+            'FP32 diagnostic inventory changed')
+    for row in rows:
+        require(strict(row['max_abs'],float('inf')) and row['pass']==strict(row['max_abs'],2e-7),
+                'FP32 diagnostic flag disagrees with numeric observation')
+    require(q['strict_diagnostic_failures']==sum(not strict(r['max_abs'],2e-7) for r in rows),
+            'FP32 diagnostic failures hidden')
+
+
 def validate_payload(document,components):
     require(document.get('schema')==1 and document.get('status')=='PASS_SCOPED_RELEASE','invalid unified release status')
     require(set(components)==REQUIRED,'missing unified qualification components')
@@ -80,7 +128,7 @@ def validate_payload(document,components):
     require(text['pass'] and len(rows)==166 and len({(r['family'],r['case'],r['mode']) for r in rows})==166,'text inventory incomplete')
     require(text['absolute_limit']==2e-7 and text['rtol']==0 and text['comparison']=='strict_less_than','text policy changed')
     for r in rows:require(r['pass'] and strict(r['max_abs'],2e-7) and r['failing_values']==0,'strict text comparison failed')
-    require(components['fp32_replay']['pass'] and components['fp32_replay']['complete'],'FP32 full replay is incomplete')
+    verify_replay(components['fp32_replay'],binaries)
     for stage,count in IMAGE_COUNTS.items():
         q=components[stage]
         require(q['pass'] and q['rtol']==0 and q['comparison']=='strict_less_than','image policy/result changed')
@@ -139,6 +187,7 @@ def validate_payload(document,components):
                 if '/reload/' not in key:require(strict(value['rms'],.003),'wide Mixed RMS failed')
     native=components['native_v41']
     require(native['status']=='PASS_BOUNDED_NATIVE_VISION' and native['reports']['bounded']['independent_FP32_qualified'],'native bounded fixture failed')
+    verify_native_checks(native)
     verify_mode(native['reports']['bounded']['precision'],'mixed')
     verify_primitive(components['wmma_mixed'],'mixed',0)
     verify_primitive(components['wmma_full_original'],'full-fp16',9)
@@ -185,8 +234,7 @@ def validate_payload(document,components):
     from check_phase19z_current import verify_packed_status
     verify_packed_status(components['packed'])
     intermediate=components['intermediates']
-    require(intermediate['maintained_cases']==93 and intermediate['diagnostic_checks']==1116,'FP32 diagnostic inventory changed')
-    require(intermediate['strict_diagnostic_failures']==sum(not r['pass'] for r in intermediate['raw_diagnostics']),'FP32 diagnostic failures hidden')
+    verify_intermediates(intermediate)
     require(document['limitations'],'scoped release limitations missing')
 
 
