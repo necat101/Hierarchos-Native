@@ -1,0 +1,194 @@
+{
+  "status": "NOT_REPRODUCED_NO_PINS_ISSUED",
+  "scope": "Unmodified standalone native vision generator; exact byte equality required. These failures do not change the original fixtures or their numerical tolerances.",
+  "attempts": [
+    {
+      "environment": "windows-latest",
+      "url": "https://github.com/necat101/Hierarchos-Native/actions/runs/43596926623",
+      "reports": [
+        {
+          "byte_identical": false,
+          "cpu": "AVX2",
+          "generated_sha256": "04bdfdfcd1cdf8a10c741dad36bc37b16ab7ba4ed9c89ae082ce34bc4b101702",
+          "generator_sha256": "44b986351e792fc97ec95106657accacbacfb2445f170c8d938a835aaea80945",
+          "numpy": "2.5.3",
+          "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+          "processor": "AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD",
+          "torch": "2.14.1+cpu",
+          "torch_revision": "5c4886908584029761b579af026dcfb627c84070"
+        }
+      ]
+    },
+    {
+      "environment": "windows-2022",
+      "url": "https://github.com/necat101/Hierarchos-Native/actions/runs/43597244557",
+      "reports": [
+        {
+          "byte_identical": false,
+          "cpu": "AVX2",
+          "generated_sha256": "aaa1e44d8925d2426b7ba28a0b07cc926e5257ae717f1877f53672cac1d8e8a5",
+          "generator_sha256": "44b986351e792fc97ec95106657accacbacfb2445f170c8d938a835aaea80945",
+          "numpy": "2.5.3",
+          "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+          "processor": "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel",
+          "torch": "2.14.1+cpu",
+          "torch_revision": "5c4886908584029761b579af026dcfb627c84070"
+        }
+      ]
+    },
+    {
+      "environment": "windows-2022-blas",
+      "url": "https://github.com/necat101/Hierarchos-Native/actions/runs/43597659495",
+      "reports": [
+        {
+          "cpu": "AVX2",
+          "generator_sha256": "44b986351e792fc97ec95106657accacbacfb2445f170c8d938a835aaea80945",
+          "numpy": "2.5.3",
+          "platform": "Windows-2022Server-10.0.20348-SP0",
+          "processor": "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel",
+          "results": [
+            {
+              "byte_identical": false,
+              "generated_sha256": "aaa1e44d8925d2426b7ba28a0b07cc926e5257ae717f1877f53672cac1d8e8a5",
+              "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+              "settings": {},
+              "variant": "default"
+            },
+            {
+              "byte_identical": false,
+              "generated_sha256": "3497ecdca2a4a4a24720c8696b970f4232988c8c1a32da357a9290679bd3aa76",
+              "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+              "settings": {
+                "MKL_ENABLE_INSTRUCTIONS": "AVX2"
+              },
+              "variant": "avx2"
+            },
+            {
+              "byte_identical": false,
+              "generated_sha256": "0055d95f946a080e0dc6636396244933bca5c58990859a7a7f3f4fc6e87e4691",
+              "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+              "settings": {
+                "MKL_ENABLE_INSTRUCTIONS": "SSE4_2"
+              },
+              "variant": "sse42"
+            },
+            {
+              "byte_identical": false,
+              "generated_sha256": "d47e738ebc44a0541a5894c3fd8d69e784e77f016e2b6b8e3436c6b89a66059d",
+              "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+              "settings": {
+                "MKL_CBWR": "COMPATIBLE"
+              },
+              "variant": "cnr"
+            }
+          ],
+          "torch": "2.14.1+cpu",
+          "torch_revision": "5c4886908584029761b579af026dcfb627c84070"
+        }
+      ]
+    },
+    {
+      "environment": "windows-2022-python312",
+      "url": "https://github.com/necat101/Hierarchos-Native/actions/runs/43598766956",
+      "reports": [
+        {
+          "cpu": "AVX2",
+          "generator_sha256": "44b986351e792fc97ec95106657accacbacfb2445f170c8d938a835aaea80945",
+          "numpy": "2.5.3",
+          "platform": "Windows-2022Server-10.0.20348-SP0",
+          "processor": "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel",
+          "results": [
+            {
+              "byte_identical": false,
+              "generated_sha256": "aaa1e44d8925d2426b7ba28a0b07cc926e5257ae717f1877f53672cac1d8e8a5",
+              "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+              "settings": {},
+              "variant": "default"
+            },
+            {
+              "byte_identical": false,
+              "generated_sha256": "3497ecdca2a4a4a24720c8696b970f4232988c8c1a32da357a9290679bd3aa76",
+              "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+              "settings": {
+                "MKL_ENABLE_INSTRUCTIONS": "AVX2"
+              },
+              "variant": "avx2"
+            },
+            {
+              "byte_identical": false,
+              "generated_sha256": "0055d95f946a080e0dc6636396244933bca5c58990859a7a7f3f4fc6e87e4691",
+              "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+              "settings": {
+                "MKL_ENABLE_INSTRUCTIONS": "SSE4_2"
+              },
+              "variant": "sse42"
+            },
+            {
+              "byte_identical": false,
+              "generated_sha256": "d47e738ebc44a0541a5894c3fd8d69e784e77f016e2b6b8e3436c6b89a66059d",
+              "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+              "settings": {
+                "MKL_CBWR": "COMPATIBLE"
+              },
+              "variant": "cnr"
+            }
+          ],
+          "torch": "2.14.1+cpu",
+          "torch_revision": "5c4886908584029761b579af026dcfb627c84070"
+        }
+      ]
+    },
+    {
+      "environment": "windows-2022-python313",
+      "url": "https://github.com/necat101/Hierarchos-Native/actions/runs/43598766956",
+      "reports": [
+        {
+          "cpu": "AVX2",
+          "generator_sha256": "44b986351e792fc97ec95106657accacbacfb2445f170c8d938a835aaea80945",
+          "numpy": "2.5.3",
+          "platform": "Windows-2022Server-10.0.20348-SP0",
+          "processor": "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD",
+          "results": [
+            {
+              "byte_identical": false,
+              "generated_sha256": "d941fb9ac5bb33dd765318252c509b818af203761a03124415446f95aaa61397",
+              "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+              "settings": {},
+              "variant": "default"
+            },
+            {
+              "byte_identical": false,
+              "generated_sha256": "d941fb9ac5bb33dd765318252c509b818af203761a03124415446f95aaa61397",
+              "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+              "settings": {
+                "MKL_ENABLE_INSTRUCTIONS": "AVX2"
+              },
+              "variant": "avx2"
+            },
+            {
+              "byte_identical": false,
+              "generated_sha256": "d941fb9ac5bb33dd765318252c509b818af203761a03124415446f95aaa61397",
+              "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+              "settings": {
+                "MKL_ENABLE_INSTRUCTIONS": "SSE4_2"
+              },
+              "variant": "sse42"
+            },
+            {
+              "byte_identical": false,
+              "generated_sha256": "d8e49f60c17527456d28aa120e683a4538a347d729afc14f2ff1a2be27b48824",
+              "original_sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+              "settings": {
+                "MKL_CBWR": "COMPATIBLE"
+              },
+              "variant": "cnr"
+            }
+          ],
+          "torch": "2.14.1+cpu",
+          "torch_revision": "5c4886908584029761b579af026dcfb627c84070"
+        }
+      ]
+    }
+  ],
+  "python311": "Not executed: NumPy 2.5.3 has no supported Python 3.11 distribution."
+}

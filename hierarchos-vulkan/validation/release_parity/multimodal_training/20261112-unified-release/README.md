@@ -1,5 +1,7 @@
 # Unified FP32, Mixed WMMA and scoped Full FP16 qualification
 
+Delivery gate: **BLOCKED on native fixture provenance**. See [CI_STATUS.md](CI_STATUS.md) for the remaining required check and preserved reproduction evidence.
+
 Local numerical and source-bound status: **PASS (scoped)**. The sealed machine-readable record is [release-qualification.json](release-qualification.json); [precision-capabilities.json](precision-capabilities.json) gives the family-by-family support contract. GitHub-hosted CI is a separate final-commit check; its actual run URLs and conclusions belong in the delivery report. Self-hosted hardware availability is never inferred from local PASS.
 
 Sealed source revision: `a7422faa65b47d233bb7e44e26023b9055684e77`. Device: `AMD Radeon Graphics [pci=1002:15bf;driver=00800184]`. Release receipt SHA-256: `3f4fa7928666c3218dfaed106427f509562ed1a5e91134115228d506e804ad2f`. All source, executable, shader, component and raw-evidence digests are recorded in the receipt. No numerical acceptance limit was increased.

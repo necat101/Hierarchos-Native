@@ -1,0 +1,12 @@
+{
+  "command": [
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\unified-oracle\\Scripts\\python.exe",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\freeze_deepseek_v41_native_pipeline.py",
+    "--output",
+    "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-native-pipeline-provenance\\deepseek_v41_native_pipeline_avx2.json"
+  ],
+  "exit_code": 0,
+  "byte_identical": false,
+  "original_sha256": "9f5592989820c1567caf3fd4ca6b5354f7bb8e78dfb6b38f1ebb43b9b4cc403b",
+  "generated_sha256": "1d73d6d49c9868b92fdd650584e6d10ea3f7c58b34bfe30e1636f7945f7e8777"
+}

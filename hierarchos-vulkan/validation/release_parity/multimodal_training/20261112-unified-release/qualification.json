@@ -1,16 +1,18 @@
 {
   "schema": 2,
-  "status": "PASS_SCOPED_RELEASE",
+  "status": "BLOCKED_FIXTURE_PROVENANCE",
   "source_revision": "a7422faa65b47d233bb7e44e26023b9055684e77",
   "release_receipt": "release-qualification.json",
   "release_sha256": "3f4fa7928666c3218dfaed106427f509562ed1a5e91134115228d506e804ad2f",
   "historical_phase20_summary": "../20261113-phase22-recovery/phase20-handoff/qualification.json",
   "hosted_ci": {
-    "status": "NOT RUN",
-    "note": "Inspect actual push runs at the final published commit before declaring completion"
+    "status": "BLOCKED",
+    "reason": "Two native AVX2 fixtures lack verified toolchain pins; exact reproduction has not succeeded."
   },
   "self_hosted_ci": {
     "status": "NOT RUN",
     "note": "Local thirteen-route PASS does not assert an authorized hosted GPU runner is available"
-  }
+  },
+  "local_numerical_status": "PASS_SCOPED_RELEASE",
+  "delivery_status": "CI_STATUS.md"
 }

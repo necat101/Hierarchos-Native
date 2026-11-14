@@ -1,0 +1,72 @@
+[
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_fixture_toolchain.py\"",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-20.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/check_measured_producer_routes.py",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-21.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_packed_sampling_protocol.py\"",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-22.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_packed_allocation_timing.py\"",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-23.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_packed_measurement_integrity.py\"",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-24.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_gen9_architectures.py\"",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-25.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_rdna3_final_regression.py\"",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-26.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_multimodal_training.py\"",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-27.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_llava_pipeline.py\"",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-28.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_gemma3_pipeline.py\"",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-29.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_gemma4_pipeline.py\"",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-30.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/check_training_stack_receipt.py",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-31.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/check_folded_publication_profile.py",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-32.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_folded_publication_profile.py\"",
+    "exit_code": 0,
+    "log": "target/phase22-pristine-33.log"
+  }
+]

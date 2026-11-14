@@ -1,0 +1,102 @@
+[
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_rdna3_workflow_paths.py\"",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-0.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/check_rdna3_multimodal_receipts.py",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-1.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py --historical-only",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-2.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/check_phase19x_current.py",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-3.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_phase19x_current.py\"",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-4.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_wmma_drift_epoch_reuse.py\"",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-5.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/check_attention_phase19x.py",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-6.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_attention_phase19x_ci.py\"",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-7.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/check_phase19y_full_attention.py",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-8.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_phase19y_full_attention.py\"",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-9.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/check_phase19z_current.py",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-10.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_phase19z_current.py\"",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-11.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/check_unified_release.py",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-12.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_unified_release.py\"",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-13.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/check_phase19u_audit.py",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-14.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_phase19u_audit.py\"",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-15.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_rdna3_gpt2_receipts.py\"",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-16.log"
+  },
+  {
+    "command": "python -m unittest discover -s hierarchos-vulkan/validation -p \"test_phase16_receipts.py\"",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-17.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/render_ab_workflow.py --check",
+    "exit_code": 0,
+    "log": "target\\phase22-pristine-18.log"
+  },
+  {
+    "command": "python hierarchos-vulkan/validation/fixture_toolchain.py check-all --expect-from hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_block128.json",
+    "exit_code": 1,
+    "log": "target\\phase22-pristine-19.log"
+  }
+]

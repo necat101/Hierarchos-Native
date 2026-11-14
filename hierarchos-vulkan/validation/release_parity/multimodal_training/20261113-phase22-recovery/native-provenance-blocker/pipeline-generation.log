@@ -1,0 +1,17 @@
+C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\validation\fixture_toolchain.py:76: UserWarning: deepseek_v41_backbone.json: predates toolchain pinning; reproduction is not certified
+  warnings.warn(f"{path.name}: predates toolchain pinning; reproduction is not certified")
+C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\validation\fixture_toolchain.py:76: UserWarning: deepseek_v41_engram.json: predates toolchain pinning; reproduction is not certified
+  warnings.warn(f"{path.name}: predates toolchain pinning; reproduction is not certified")
+C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\validation\fixture_toolchain.py:76: UserWarning: deepseek_v41_model.json: predates toolchain pinning; reproduction is not certified
+  warnings.warn(f"{path.name}: predates toolchain pinning; reproduction is not certified")
+C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\validation\fixture_toolchain.py:76: UserWarning: deepseek_v41_block_grad.json: predates toolchain pinning; reproduction is not certified
+  warnings.warn(f"{path.name}: predates toolchain pinning; reproduction is not certified")
+C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan\validation\fixture_toolchain.py:76: UserWarning: deepseek_v41_full_training.json: predates toolchain pinning; reproduction is not certified
+  warnings.warn(f"{path.name}: predates toolchain pinning; reproduction is not certified")
+native_vit_4x4 joint CPU 0 complete
+native_vit_4x4 joint CPU 1 complete
+native_vit_4x4 joint CPU 2 complete
+native_vit_6x4 joint CPU 0 complete
+native_vit_6x4 joint CPU 1 complete
+native_vit_6x4 joint CPU 2 complete
+Frozen independent joint native VL CPU reference 1d73d6d49c9868b92fdd650584e6d10ea3f7c58b34bfe30e1636f7945f7e8777
