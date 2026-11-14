@@ -44,6 +44,19 @@ def load(producer: guard.Producer) -> tuple[dict, dict]:
 
 def recompute_chain_ratios(chain: guard.ChainProducer, row: dict) -> None:
     """Rewrite every derived ratio from the arm timings after editing one arm."""
+    if row.get('timing_protocol') == 'allocation-balanced-fusion-v1':
+        from packed_allocation_timing import merge_allocation_runs, SCHEDULES
+        row['default_route'] = row['default_label']
+        for part in row['allocation_runs']:
+            for key in (*SCHEDULES, 'default_route', 'recorded_route'):
+                part[key] = row[key]
+            for index, arm in enumerate(('staged', 'fused', 'default', 'folded')):
+                ms = row[arm + '_ms']
+                part[arm].update(label=row['default_label'] if arm == 'default' else arm,
+                                 median_ms=ms, ms_per_step=ms / row['steps'])
+                part['timing_samples'][index] = [ms] * part['samples']
+        simulated = merge_allocation_runs(row['allocation_runs'], samples=row['samples'], warmup=row['warmup'])
+        row['timing_samples'] = simulated['timing_samples']
     if row.get('timing_protocol') in ('shipped-route-v1', 'allocation-balanced-shipped-v2'):
         # A controlled timing/route mutation must keep its raw simulated
         # observations coherent, so the intended invariant rejects it. Separate

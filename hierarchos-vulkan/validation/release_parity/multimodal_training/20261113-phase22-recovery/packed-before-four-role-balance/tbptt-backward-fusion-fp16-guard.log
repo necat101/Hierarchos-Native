@@ -1,0 +1,1 @@
+FAIL: tbptt-backward-fusion-fp16: batch 1: the record names 'fused', but this receipt measures 'staged' ahead by 2.9%, outside the 2% noise band; the record is stale

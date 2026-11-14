@@ -67,7 +67,9 @@ receipts. Timed route producers use 1,200 observations to balance complete
 three-leg and four-leg rotations. Forward/rematerialization also counterbalance
 all three physical allocation positions in fresh native processes, pooling
 400 raw observations per construction order into 1,200 per leg. Each rotation
-uses the original warmup count. Every rotation retains exact parity gates;
+uses the original warmup count. Backward fusion balances four construction
+positions with 300 observations each, retaining all folded-gradient and
+optimizer-update gates even for repeated schedules. Every rotation retains exact parity gates;
 the production-policy leg leaves only the target chain unpinned, isolating the
 other chains as in the forced arms. No order or run is selected by its winner.
 Existing batch sweeps, per-process warmups, chains,

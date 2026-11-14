@@ -18,8 +18,9 @@ route (or the structural default where the adapter has no entry).
 `--parameter-storage fp16-storage` runs the same A/B with the cell's packed FP16
 execution mirrors installed -- the op-level analogue of the training graph's
 `fp16-storage-fp32-compute` policy -- and writes that policy's own receipt. Its
-For forward/rematerialization with a sample count divisible by three, each
-geometry runs all three construction rotations. Raw observations are pooled
+For forward/rematerialization with a sample count divisible by three, and
+backward fusion with a count divisible by four, each geometry runs every
+construction rotation. Raw observations are pooled
 without dropping a run, so each role occupies every allocation position equally.
 The requested warmup is applied to each rotation; total timed observations per
 leg remain unchanged. Short exploratory counts retain the unbalanced protocol
@@ -100,7 +101,7 @@ import json
 import sys
 import tempfile
 from pathlib import Path
-from packed_allocation_timing import merge_allocation_runs
+from packed_allocation_timing import merge_allocation_runs, timing_arms
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ab_harness as ab  # noqa: E402  (shared measurement + record merge)
@@ -308,11 +309,12 @@ def run_batch(
     parameter_storage: str,
     allocation_rotation: int | None = None,
 ) -> dict:
-    if chain != 'backward' and allocation_rotation is None and iterations >= 3 and iterations % 3 == 0:
+    roles = len(timing_arms(chain))
+    if allocation_rotation is None and iterations >= roles and iterations % roles == 0:
         parts = [run_batch(binary, model_dir, chain, batch, steps=steps,
-                           iterations=iterations // 3, warmup=warmup,
+                           iterations=iterations // roles, warmup=warmup,
                            parameter_storage=parameter_storage, allocation_rotation=rotation)
-                 for rotation in range(3)]
+                 for rotation in range(roles)]
         return merge_allocation_runs(parts, samples=iterations, warmup=warmup)
     return ab.run_json(
         [

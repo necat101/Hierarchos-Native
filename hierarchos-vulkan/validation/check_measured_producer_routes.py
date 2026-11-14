@@ -1621,28 +1621,40 @@ def check_folded_evidence(chain: ChainProducer, row: dict) -> set[str]:
 
 
 def check_shipped_route_timings(chain: ChainProducer, row: dict, *, require_balanced=False) -> None:
-    if chain.folded_rung:
-        return
-    from packed_allocation_timing import PROTOCOL, merge_allocation_runs
+    from packed_allocation_timing import PROTOCOL, BACKWARD_PROTOCOL, METADATA, SCHEDULES, merge_allocation_runs, timing_arms
     protocol = row.get('timing_protocol')
-    if require_balanced and protocol != PROTOCOL:
-        raise Problem('current forward/rematerialization requires balanced allocation rotations')
-    if protocol == PROTOCOL:
+    required_protocol = BACKWARD_PROTOCOL if chain.folded_rung else PROTOCOL
+    if require_balanced and protocol != required_protocol:
+        raise Problem('current chain timing requires balanced allocation rotations')
+    if protocol == required_protocol:
         try:
             expected = merge_allocation_runs(row.get('allocation_runs', []), samples=int(TIMING_SAMPLES),
                 warmup=int(chain.bench_args[chain.bench_args.index('--warmup')+1]))
         except (ValueError, TypeError, KeyError) as error:
             raise Problem('invalid allocation timing evidence: '+str(error)) from error
-        for key in ('device', 'width', 'head_size', 'batch', 'steps', 'chain',
-                    'parameter_storage', 'precision_policy', 'default_route', 'recorded_route'):
+        for key in METADATA + (SCHEDULES if chain.folded_rung else ()):
             if row.get(key) != expected[key]:
                 raise Problem('pooled allocation metadata disagrees with raw rotations: '+key)
-        for arm in ('legacy', 'packed', 'default'):
+        for arm in timing_arms(row['chain']):
             measured = (row.get(arm) or {}).get('median_ms')
             if not isinstance(measured, (int, float)) or not close(measured, expected[arm]['median_ms']):
                 raise Problem('pooled allocation timing disagrees with raw rotations: '+arm)
         if row.get('samples') != int(TIMING_SAMPLES) or row.get('timing_samples') != expected['timing_samples']:
             raise Problem('pooled allocation sample inventory changed')
+        if chain.folded_rung:
+            if row.get('default_label') != expected['default_route']:
+                raise Problem('default route disagrees with raw allocation rotations')
+            for key in ('folded_max_abs', 'folded_parameter_delta', 'folded_key_parameter_max_abs',
+                        'staged_key_parameter_max_abs'):
+                if row.get(key) != expected[key]:
+                    raise Problem('pooled folded numeric evidence disagrees with raw rotations: '+key)
+            for arm in ('staged', 'fused', 'folded', 'default'):
+                value = row.get(arm+'_ms')
+                if not isinstance(value, (int, float)) or not close(value, expected[arm]['median_ms']):
+                    raise Problem('backward timing disagrees with raw rotations: '+arm)
+            return
+    elif chain.folded_rung:
+        return  # Legacy standalone fault fixtures cannot qualify a current release.
     elif protocol != 'shipped-route-v1':
         raise Problem('forward/rematerialization receipt lacks the fixed timing protocol')
     raw_default = row.get('default', {})

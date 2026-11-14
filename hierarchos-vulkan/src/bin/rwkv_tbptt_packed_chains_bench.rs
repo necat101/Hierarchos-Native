@@ -404,8 +404,8 @@ impl Args {
                         next_value(&mut args, "--allocation-rotation")?,
                         "--allocation-rotation",
                     )?;
-                    if allocation_rotation >= 3 {
-                        bail!("--allocation-rotation must be 0, 1 or 2");
+                    if allocation_rotation >= 4 {
+                        bail!("--allocation-rotation must be between 0 and 3");
                     }
                 }
                 "--negative-control" => negative_control = true,
@@ -721,27 +721,12 @@ fn parameter_snapshot_delta(
 /// warm cache or clock drift cannot systematically favor one leg. The legs are
 /// passed in one slice so the backward chain can add its folded rung without a
 /// second sampling loop.
-fn sample(
-    ops: &mut [&mut RwkvTbpttSequenceOp],
-    args: &Args,
-    x: &[f32],
-    token_features: &[f32],
-    initial_state: &[f32],
-    grad_output: &[f32],
-) -> Result<Vec<f64>> {
-    Ok(
-        sample_raw(ops, args, x, token_features, initial_state, grad_output)?
-            .into_iter()
-            .map(|mut samples| median(&mut samples))
-            .collect(),
-    )
-}
-
-/// The same interleaved sampling without collapsing each leg to its median.
+/// Interleaved rotated sampling, retaining every observation per leg.
 ///
 /// The folded rung's deltas are a few tenths of a millisecond on a step that
 /// takes tens, so the profile needs the spread to say whether a delta is signal
-/// at all; the sweep only ever reads medians and keeps using `sample`.
+/// at all. The sweep pools these observations across construction rotations
+/// before deriving its medians; no rotation is selected by its winner.
 fn sample_raw(
     ops: &mut [&mut RwkvTbpttSequenceOp],
     args: &Args,
@@ -1360,8 +1345,8 @@ fn profile_folded(args: &Args) -> Result<()> {
     Ok(())
 }
 
-fn allocation_roles(rotation: usize) -> [usize; 3] {
-    std::array::from_fn(|slot| (slot + rotation) % 3)
+fn allocation_roles(rotation: usize, count: usize) -> Vec<usize> {
+    (0..count).map(|slot| (slot + rotation) % count).collect()
 }
 
 fn main() -> Result<()> {
@@ -1385,19 +1370,23 @@ fn main() -> Result<()> {
 
     // Counterbalance physical allocation position without pinning the default:
     // it must still execute the real recorded production route. The driver
-    // pools equal sample counts from all three construction rotations.
-    let mut ops = [None, None, None];
-    for role in allocation_roles(args.allocation_rotation) {
+    // pools equal sample counts from every construction rotation.
+    let count = if args.chain == Chain::BackwardFusion {
+        4
+    } else {
+        3
+    };
+    if args.allocation_rotation >= count {
+        bail!("allocation rotation is outside this chain's role count");
+    }
+    let mut ops: Vec<Option<RwkvTbpttSequenceOp>> = (0..count).map(|_| None).collect();
+    for role in allocation_roles(args.allocation_rotation, count) {
         ops[role] = Some(build(&args, device.clone())?);
     }
-    let [Some(mut legacy), Some(mut packed), Some(mut default)] = ops else {
-        unreachable!("the allocation permutation covers every role");
-    };
-    let mut folded = if args.chain == Chain::BackwardFusion {
-        Some(build(&args, device.clone())?)
-    } else {
-        None
-    };
+    let mut legacy = ops[0].take().expect("legacy role allocated");
+    let mut packed = ops[1].take().expect("packed role allocated");
+    let mut default = ops[2].take().expect("default role allocated");
+    let mut folded = ops.get_mut(3).and_then(Option::take);
     if args.storage == Storage::Fp16 {
         for op in [&mut legacy, &mut packed, &mut default] {
             op.enable_low_rank_fp16_parameter_storage()?;
@@ -1546,36 +1535,32 @@ fn main() -> Result<()> {
         );
     }
 
-    let mut timing_samples = None;
-    let (legacy_ms, packed_ms, default_ms, folded_ms) = match folded.as_mut() {
-        Some(folded) => {
-            let samples = sample(
-                &mut [&mut legacy, &mut packed, &mut default, folded],
-                &args,
-                &x,
-                &token_features,
-                &initial_state,
-                &grad_output,
-            )?;
-            (samples[0], samples[1], samples[2], Some(samples[3]))
-        }
-        None => {
-            let raw = sample_raw(
-                &mut [&mut legacy, &mut packed, &mut default],
-                &args,
-                &x,
-                &token_features,
-                &initial_state,
-                &grad_output,
-            )?;
-            let samples: Vec<f64> = raw
-                .iter()
-                .map(|values| median(&mut values.clone()))
-                .collect();
-            timing_samples = Some(raw);
-            (samples[0], samples[1], samples[2], None)
-        }
+    let raw = if let Some(folded) = folded.as_mut() {
+        sample_raw(
+            &mut [&mut legacy, &mut packed, &mut default, folded],
+            &args,
+            &x,
+            &token_features,
+            &initial_state,
+            &grad_output,
+        )?
+    } else {
+        sample_raw(
+            &mut [&mut legacy, &mut packed, &mut default],
+            &args,
+            &x,
+            &token_features,
+            &initial_state,
+            &grad_output,
+        )?
     };
+    let medians: Vec<f64> = raw
+        .iter()
+        .map(|values| median(&mut values.clone()))
+        .collect();
+    let (legacy_ms, packed_ms, default_ms, folded_ms) =
+        (medians[0], medians[1], medians[2], medians.get(3).copied());
+    let timing_samples = Some(raw);
 
     let legacy_last = step(
         &mut legacy,
@@ -1858,17 +1843,19 @@ mod tests {
 
     #[test]
     fn every_role_occupies_every_allocation_position() {
-        for role in 0..3 {
-            let mut positions: Vec<_> = (0..3)
-                .map(|rotation| {
-                    allocation_roles(rotation)
-                        .iter()
-                        .position(|&item| item == role)
-                        .unwrap()
-                })
-                .collect();
-            positions.sort_unstable();
-            assert_eq!(positions, vec![0, 1, 2]);
+        for count in [3, 4] {
+            for role in 0..count {
+                let mut positions: Vec<_> = (0..count)
+                    .map(|rotation| {
+                        allocation_roles(rotation, count)
+                            .iter()
+                            .position(|&item| item == role)
+                            .unwrap()
+                    })
+                    .collect();
+                positions.sort_unstable();
+                assert_eq!(positions, (0..count).collect::<Vec<_>>());
+            }
         }
     }
 

@@ -1,0 +1,7 @@
+tbptt-packed-forward: batch  1: packed  packed   6.972 ms  legacy   6.950 ms
+tbptt-packed-forward: batch  4: packed  packed   8.083 ms  legacy   8.091 ms
+tbptt-packed-forward: batch  8: packed  packed  10.349 ms  legacy  10.371 ms
+tbptt-packed-forward: batch 16: packed  packed  16.506 ms  legacy  16.615 ms
+tbptt-packed-forward: batch 32: packed  packed  24.911 ms  legacy  24.866 ms
+PASS: tbptt-packed-forward is measured across batch 1, 4, 8, 16, 32 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184], and its record follows it
+PASS: 1 receipt(s) re-checked against the record(s) they consume: tbptt-packed-forward
