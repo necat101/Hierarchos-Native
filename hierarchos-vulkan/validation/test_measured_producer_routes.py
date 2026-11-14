@@ -173,7 +173,7 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         producer = guard.PRODUCERS_BY_NAME["time-mix-projection"]
         receipt, record = load(producer)
         row = rows_by_batch(receipt)[8]
-        lookup, _ = entries_for(producer, receipt, record)
+        lookup, _ = entries_by_batch(producer, receipt, record)
         self.assertNotIn(8, lookup)
         self.assertTrue(row["composed_ran_vendor_linear3"])
         self.assertEqual(row["default_label"], "fused")
@@ -193,7 +193,7 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         """
         producer = guard.PRODUCERS_BY_NAME["low-rank-forward"]
         receipt, record = load(producer)
-        lookup, _ = entries_for(producer, receipt, record)
+        lookup, _ = entries_by_batch(producer, receipt, record)
         held = guard.withheld_for(producer, record, receipt)
         self.assertTrue(held)
         rows = [
