@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   reproduce:
-    runs-on: windows-latest
+    runs-on: windows-2022
     env:
       ATEN_CPU_CAPABILITY: avx2
       PYTHONDONTWRITEBYTECODE: "1"
