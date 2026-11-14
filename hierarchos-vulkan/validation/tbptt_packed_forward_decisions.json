@@ -10,20 +10,6 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 1,
-      "route": "packed",
-      "candidates": {
-        "legacy": 7.57465,
-        "packed": 7.34085
-      },
-      "probe": "tbptt-packed-forward",
-      "source": "measured",
-      "parameter_storage": "fp16-storage",
-      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
-    },
-    {
-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
-      "width": 128,
-      "batch": 1,
       "route": "legacy",
       "candidates": {
         "legacy": 7.1812,
@@ -37,11 +23,11 @@
     {
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
-      "batch": 8,
+      "batch": 4,
       "route": "packed",
       "candidates": {
-        "legacy": 11.89525,
-        "packed": 11.8253
+        "legacy": 16.46015,
+        "packed": 11.66375
       },
       "probe": "tbptt-packed-forward",
       "source": "measured",
@@ -51,11 +37,11 @@
     {
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
-      "batch": 16,
+      "batch": 8,
       "route": "packed",
       "candidates": {
-        "legacy": 16.9481,
-        "packed": 16.9218
+        "legacy": 11.33125,
+        "packed": 11.247
       },
       "probe": "tbptt-packed-forward",
       "source": "measured",
@@ -68,8 +54,8 @@
       "batch": 32,
       "route": "packed",
       "candidates": {
-        "legacy": 25.93415,
-        "packed": 25.7351
+        "legacy": 26.1841,
+        "packed": 25.9416
       },
       "probe": "tbptt-packed-forward",
       "source": "measured",
