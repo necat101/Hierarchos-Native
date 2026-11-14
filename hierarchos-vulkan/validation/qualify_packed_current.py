@@ -91,7 +91,8 @@ def main():
         raise RuntimeError('commit a clean candidate before packed-cell measurements')
     paths=subprocess.check_output(['git','-C',str(ROOT),'ls-files','hierarchos-vulkan/src','hierarchos-vulkan/shaders',
         'hierarchos-vulkan/validation/check_measured_producer_routes.py'],text=True).splitlines()
-    paths+=sorted({spec.driver for spec in ALL_SPECS})+[Path(__file__).relative_to(ROOT).as_posix()]
+    paths+=sorted({spec.driver for spec in ALL_SPECS})+[Path(__file__).relative_to(ROOT).as_posix(),
+        'hierarchos-vulkan/validation/packed_allocation_timing.py']
     paths+=['hierarchos-vulkan/Cargo.toml','hierarchos-vulkan/Cargo.lock','hierarchos-inference/Cargo.toml','hierarchos-inference/Cargo.lock']
     sources={name:digest(ROOT/name) for name in paths}
     # The benchmark drivers must not update their route tables during replay.

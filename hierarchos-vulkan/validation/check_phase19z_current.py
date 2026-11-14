@@ -67,6 +67,8 @@ def verify_packed_status(document: dict, directory: Path | None = None,
     if run_guards:
         source_files=document.get('source_files') or {}
         require(len(source_files)>100,'packed current-source binding is incomplete')
+        require('hierarchos-vulkan/validation/packed_allocation_timing.py' in source_files,
+                'packed allocation timing helper is missing from the source binding')
         for name,sha in source_files.items():
             path=crate.parent/name
             require(path.is_file() and sha256_file(path)==sha,'packed source changed: '+name)

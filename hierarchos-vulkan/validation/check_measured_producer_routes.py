@@ -1620,10 +1620,30 @@ def check_folded_evidence(chain: ChainProducer, row: dict) -> set[str]:
     return candidates - {"folded"} if same_as_fused else candidates
 
 
-def check_shipped_route_timings(chain: ChainProducer, row: dict) -> None:
+def check_shipped_route_timings(chain: ChainProducer, row: dict, *, require_balanced=False) -> None:
     if chain.folded_rung:
         return
-    if row.get('timing_protocol') != 'shipped-route-v1':
+    from packed_allocation_timing import PROTOCOL, merge_allocation_runs
+    protocol = row.get('timing_protocol')
+    if require_balanced and protocol != PROTOCOL:
+        raise Problem('current forward/rematerialization requires balanced allocation rotations')
+    if protocol == PROTOCOL:
+        try:
+            expected = merge_allocation_runs(row.get('allocation_runs', []), samples=int(TIMING_SAMPLES),
+                warmup=int(chain.bench_args[chain.bench_args.index('--warmup')+1]))
+        except (ValueError, TypeError, KeyError) as error:
+            raise Problem('invalid allocation timing evidence: '+str(error)) from error
+        for key in ('device', 'width', 'head_size', 'batch', 'steps', 'chain',
+                    'parameter_storage', 'precision_policy', 'default_route', 'recorded_route'):
+            if row.get(key) != expected[key]:
+                raise Problem('pooled allocation metadata disagrees with raw rotations: '+key)
+        for arm in ('legacy', 'packed', 'default'):
+            measured = (row.get(arm) or {}).get('median_ms')
+            if not isinstance(measured, (int, float)) or not close(measured, expected[arm]['median_ms']):
+                raise Problem('pooled allocation timing disagrees with raw rotations: '+arm)
+        if row.get('samples') != int(TIMING_SAMPLES) or row.get('timing_samples') != expected['timing_samples']:
+            raise Problem('pooled allocation sample inventory changed')
+    elif protocol != 'shipped-route-v1':
         raise Problem('forward/rematerialization receipt lacks the fixed timing protocol')
     raw_default = row.get('default', {})
     values = (raw_default.get('median_ms'), row.get('default_ms'))
@@ -1887,7 +1907,7 @@ def check_chain_producer(
     staged, fused = chain.candidates[0][0], chain.candidates[1][0]
     for row in receipt["batches"]:
         batch = row["batch"]
-        check_shipped_route_timings(chain, row)
+        check_shipped_route_timings(chain, row, require_balanced=True)
         if staged in row and fused in row:
             stage_a, stage_b = row.get(f"{staged}_schedule"), row.get(f"{fused}_schedule")
             if stage_a is not None and stage_a == stage_b:

@@ -64,7 +64,13 @@ Phase XIX-Z release admission requires every one of the thirteen current
 packed benchmark/guard pairs to pass. A partial packed result cannot qualify a
 release. The checker reexecutes the CPU route guards over the fresh measurement
 receipts. Timed route producers use 1,200 observations to balance complete
-three-leg and four-leg rotations. Existing batch sweeps, warmups, chains,
+three-leg and four-leg rotations. Forward/rematerialization also counterbalance
+all three physical allocation positions in fresh native processes, pooling
+400 raw observations per construction order into 1,200 per leg. Each rotation
+uses the original warmup count. Every rotation retains exact parity gates;
+the production-policy leg leaves only the target chain unpinned, isolating the
+other chains as in the forced arms. No order or run is selected by its winner.
+Existing batch sweeps, per-process warmups, chains,
 candidate graphs, numerical gates and decision bands remain unchanged; older
 20/40/120-sample failed sweeps are preserved. Local physical GPU qualification and self-hosted GitHub runner
 availability are separate facts; a queued workflow is never counted as PASS.

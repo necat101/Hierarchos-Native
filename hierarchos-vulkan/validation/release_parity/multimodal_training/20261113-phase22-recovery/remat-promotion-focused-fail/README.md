@@ -1,0 +1,1 @@
+Focused independent replay after rematerialization promotion: FAIL. All five FP32 batches executed; batch 1 reversed beyond the unchanged 2% band (legacy 7.1474 ms, production packed 7.45395 ms). The driver stopped before FP16-storage. This is evidence of allocation-role confounding, not qualification or a reason to toggle the policy again. Preserve all raw rows.

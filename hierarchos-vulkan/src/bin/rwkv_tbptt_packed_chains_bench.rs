@@ -213,6 +213,11 @@ struct Output {
     chain: &'static str,
     parameter_storage: &'static str,
     precision_policy: &'static str,
+    allocation_rotation: usize,
+    samples: usize,
+    warmup: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    timing_samples: Option<Vec<Vec<f64>>>,
     // The forward and rematerialization chains name their arms `legacy`/`packed`;
     // the backward-fusion chain names them `staged`/`fused`. Only the pair that
     // this chain measured is serialized, so each receipt names one decision.
@@ -323,6 +328,7 @@ struct Args {
     steps: usize,
     iterations: usize,
     warmup: usize,
+    allocation_rotation: usize,
     storage: Storage,
     // Instead of timing, inject a broken arrival count into the fold and require
     // the parameter-step guard to reject it.
@@ -345,6 +351,7 @@ impl Args {
         let mut steps = DEFAULT_STEPS;
         let mut iterations = DEFAULT_ITERATIONS;
         let mut warmup = DEFAULT_WARMUP;
+        let mut allocation_rotation = 0;
         let mut storage = Storage::Fp32;
         let mut negative_control = false;
         let mut profile_folded = false;
@@ -392,6 +399,15 @@ impl Args {
                         parse_usize(next_value(&mut args, "--iterations")?, "--iterations")?
                 }
                 "--warmup" => warmup = parse_usize(next_value(&mut args, "--warmup")?, "--warmup")?,
+                "--allocation-rotation" => {
+                    allocation_rotation = parse_usize(
+                        next_value(&mut args, "--allocation-rotation")?,
+                        "--allocation-rotation",
+                    )?;
+                    if allocation_rotation >= 3 {
+                        bail!("--allocation-rotation must be 0, 1 or 2");
+                    }
+                }
                 "--negative-control" => negative_control = true,
                 "--profile-folded" => profile_folded = true,
                 other => bail!("unknown argument {other:?}"),
@@ -411,6 +427,7 @@ impl Args {
             steps,
             iterations,
             warmup,
+            allocation_rotation,
             storage,
             negative_control,
             profile_folded,
@@ -751,7 +768,7 @@ fn sample_raw(
         .collect();
     for round in 0..args.iterations {
         for position in 0..ops.len() {
-            let slot = (position + round) % ops.len();
+            let slot = (position + round + args.allocation_rotation) % ops.len();
             let start = Instant::now();
             step(
                 &mut *ops[slot],
@@ -1343,6 +1360,10 @@ fn profile_folded(args: &Args) -> Result<()> {
     Ok(())
 }
 
+fn allocation_roles(rotation: usize) -> [usize; 3] {
+    std::array::from_fn(|slot| (slot + rotation) % 3)
+}
+
 fn main() -> Result<()> {
     let args = Args::parse()?;
     if args.profile_folded && args.negative_control {
@@ -1362,9 +1383,16 @@ fn main() -> Result<()> {
     std::env::set_var("HIERARCHOS_RWKV_CROSS_BATCH_KEY_PARAM_REDUCE", "1");
     let device = VulkanDevice::new()?;
 
-    let mut legacy = build(&args, device.clone())?;
-    let mut packed = build(&args, device.clone())?;
-    let mut default = build(&args, device.clone())?;
+    // Counterbalance physical allocation position without pinning the default:
+    // it must still execute the real recorded production route. The driver
+    // pools equal sample counts from all three construction rotations.
+    let mut ops = [None, None, None];
+    for role in allocation_roles(args.allocation_rotation) {
+        ops[role] = Some(build(&args, device.clone())?);
+    }
+    let [Some(mut legacy), Some(mut packed), Some(mut default)] = ops else {
+        unreachable!("the allocation permutation covers every role");
+    };
     let mut folded = if args.chain == Chain::BackwardFusion {
         Some(build(&args, device.clone())?)
     } else {
@@ -1386,6 +1414,16 @@ fn main() -> Result<()> {
     }
     pin(&mut legacy, args.chain, false, args.batch)?;
     pin(&mut packed, args.chain, true, args.batch)?;
+    // Isolate the target chain in the production-policy leg as in both forced
+    // arms. Only the chain under test is left unpinned to read its route table.
+    match args.chain {
+        Chain::Forward => default.set_packed_backward_rematerialization_enabled(false),
+        Chain::Rematerialization => default.set_packed_forward_only_enabled(true),
+        Chain::BackwardFusion => {
+            default.set_packed_forward_only_enabled(true);
+            default.set_packed_backward_rematerialization_enabled(false);
+        }
+    }
     if let Some(op) = folded.as_mut() {
         pin_folded(op, args.batch)?;
     }
@@ -1508,6 +1546,7 @@ fn main() -> Result<()> {
         );
     }
 
+    let mut timing_samples = None;
     let (legacy_ms, packed_ms, default_ms, folded_ms) = match folded.as_mut() {
         Some(folded) => {
             let samples = sample(
@@ -1521,7 +1560,7 @@ fn main() -> Result<()> {
             (samples[0], samples[1], samples[2], Some(samples[3]))
         }
         None => {
-            let samples = sample(
+            let raw = sample_raw(
                 &mut [&mut legacy, &mut packed, &mut default],
                 &args,
                 &x,
@@ -1529,6 +1568,11 @@ fn main() -> Result<()> {
                 &initial_state,
                 &grad_output,
             )?;
+            let samples: Vec<f64> = raw
+                .iter()
+                .map(|values| median(&mut values.clone()))
+                .collect();
+            timing_samples = Some(raw);
             (samples[0], samples[1], samples[2], None)
         }
     };
@@ -1762,6 +1806,10 @@ fn main() -> Result<()> {
         chain: args.chain.label(),
         parameter_storage: args.storage.label(),
         precision_policy: args.storage.precision_policy(),
+        allocation_rotation: args.allocation_rotation,
+        samples: args.iterations,
+        warmup: args.warmup,
+        timing_samples,
         legacy: legacy_leg,
         packed: packed_leg,
         staged: staged_leg,
@@ -1809,6 +1857,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn every_role_occupies_every_allocation_position() {
+        for role in 0..3 {
+            let mut positions: Vec<_> = (0..3)
+                .map(|rotation| {
+                    allocation_roles(rotation)
+                        .iter()
+                        .position(|&item| item == role)
+                        .unwrap()
+                })
+                .collect();
+            positions.sort_unstable();
+            assert_eq!(positions, vec![0, 1, 2]);
+        }
+    }
+
+    #[test]
     fn fused_record_accepts_the_autotuners_folded_depth() {
         assert_eq!(
             classify_backward_fusion_default(
@@ -1830,10 +1894,23 @@ mod tests {
     fn explicit_records_still_require_their_rung() {
         let staged = "rkv-add3+key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in";
         let folded = "rkv-add3-key-reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in";
-        let intermediate = "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in";
-        assert_eq!(classify_backward_fusion_default(Some("staged"), Some(staged)), "staged");
-        assert_eq!(classify_backward_fusion_default(Some("folded"), Some(folded)), "folded");
-        assert_eq!(classify_backward_fusion_default(Some("staged"), Some(intermediate)), "fused");
-        assert_eq!(classify_backward_fusion_default(Some("folded"), Some(intermediate)), "fused");
+        let intermediate =
+            "rkv-add3-key+reduce+weight->fused-input-mix+low-rank-fused-outer-fan-in";
+        assert_eq!(
+            classify_backward_fusion_default(Some("staged"), Some(staged)),
+            "staged"
+        );
+        assert_eq!(
+            classify_backward_fusion_default(Some("folded"), Some(folded)),
+            "folded"
+        );
+        assert_eq!(
+            classify_backward_fusion_default(Some("staged"), Some(intermediate)),
+            "fused"
+        );
+        assert_eq!(
+            classify_backward_fusion_default(Some("folded"), Some(intermediate)),
+            "fused"
+        );
     }
 }

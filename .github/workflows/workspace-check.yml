@@ -145,6 +145,9 @@ jobs:
       - name: Packed sampling protocol controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_packed_sampling_protocol.py"
 
+      - name: Packed allocation timing controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_packed_allocation_timing.py"
+
       - name: Packed measurement integrity controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_packed_measurement_integrity.py"
 

@@ -8,7 +8,7 @@ only the vector caches and consume packed matrix history directly. Both are
 bit-identical to their legacy graphs, so which one wins is a per-geometry
 performance question.
 
-This driver measures one chain per invocation, one process per geometry, and
+This driver measures one chain per invocation, isolating each geometry, and
 writes the receipt the guard reads plus (with `--record-decisions`) the route
 record `RwkvTbpttSequenceOp` consults before recording a sequence. The binary
 pins the two forced arms, so the record cannot override the A/B, and it measures
@@ -18,7 +18,14 @@ route (or the structural default where the adapter has no entry).
 `--parameter-storage fp16-storage` runs the same A/B with the cell's packed FP16
 execution mirrors installed -- the op-level analogue of the training graph's
 `fp16-storage-fp32-compute` policy -- and writes that policy's own receipt. Its
-verdicts are recorded under the policy scope, so the FP16 route can be adopted
+For forward/rematerialization with a sample count divisible by three, each
+geometry runs all three construction rotations. Raw observations are pooled
+without dropping a run, so each role occupies every allocation position equally.
+The requested warmup is applied to each rotation; total timed observations per
+leg remain unchanged. Short exploratory counts retain the unbalanced protocol
+and cannot qualify a current release.
+
+Verdicts are recorded under the policy scope, so the FP16 route can be adopted
 from its own measurement without moving the FP32 verdicts.
 
 `--chain backward` measures the reverse pass's state-backward fusion depth on
@@ -93,6 +100,7 @@ import json
 import sys
 import tempfile
 from pathlib import Path
+from packed_allocation_timing import merge_allocation_runs
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ab_harness as ab  # noqa: E402  (shared measurement + record merge)
@@ -175,9 +183,9 @@ CHAINS = {
         "arms": ("legacy", "packed"),
         "ratio": "packed_over_legacy",
         "baseline": "legacy",
-        # Every measured rematerialization verdict is the structural default, and
-        # the fp16-storage A/B agrees, so no policy refuses anything today. The
-        # table still goes through the same regeneration, so a measured `packed`
+        # Both storage policies have their own full exact-parity measurements;
+        # no policy refuses a measured route today. The table still goes through
+        # the same regeneration, so a measured `packed`
         # win under a policy whose frozen trajectory uses the structural graph
         # would be withheld automatically.
         "policy_refusals": {},
@@ -235,8 +243,8 @@ RECORD_NOTES = {
         "a quiet run measures a sign outside the band. `RwkvTbpttSequenceOp` reads this table per "
         "batch under the active parameter-storage policy, unless a benchmark arm pinned "
         "the switch, so a recorded `packed` verdict promotes rematerialization only "
-        "where it was measured. Packed loses under FP16 storage too, and every measured "
-        "verdict is the structural default, so that policy needs no scoped entry. A "
+        "where it was measured. FP16-storage verdicts are measured and recorded in their own scope without "
+        "moving FP32 entries. A "
         "policy that cannot adopt a measured move (its trajectory golden is pinned to "
         "the structural graph) records a `withheld` entry naming that measured route."
     ),
@@ -298,7 +306,14 @@ def run_batch(
     iterations: int,
     warmup: int,
     parameter_storage: str,
+    allocation_rotation: int | None = None,
 ) -> dict:
+    if chain != 'backward' and allocation_rotation is None and iterations >= 3 and iterations % 3 == 0:
+        parts = [run_batch(binary, model_dir, chain, batch, steps=steps,
+                           iterations=iterations // 3, warmup=warmup,
+                           parameter_storage=parameter_storage, allocation_rotation=rotation)
+                 for rotation in range(3)]
+        return merge_allocation_runs(parts, samples=iterations, warmup=warmup)
     return ab.run_json(
         [
             str(binary),
@@ -324,6 +339,8 @@ def run_batch(
             str(warmup),
             "--parameter-storage",
             parameter_storage,
+            '--allocation-rotation',
+            str(allocation_rotation or 0),
         ],
         batch=batch,
         label=f"TBPTT packed {chain} benchmark",
@@ -552,7 +569,7 @@ def measure(
             "precision_policy": run["precision_policy"],
         }
         if chain != "backward":
-            row["timing_protocol"] = "shipped-route-v1"
+            row["timing_protocol"] = run.get('timing_protocol', 'shipped-route-v1')
             row["decision_timing_sources"] = {}
             for arm in spec["arms"]:
                 measured_ms, source = select_candidate_measurement(

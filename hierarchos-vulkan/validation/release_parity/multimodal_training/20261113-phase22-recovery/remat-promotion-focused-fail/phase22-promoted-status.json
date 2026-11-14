@@ -1,0 +1,28 @@
+[
+  {
+    "label": "chain-build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--release",
+      "--manifest-path",
+      "hierarchos-vulkan/Cargo.toml",
+      "--bin",
+      "hierarchos-vulkan-rwkv-tbptt-packed-chains-bench"
+    ],
+    "exit_code": 0,
+    "seconds": 143.10081362724304,
+    "source_revision": "e721473e93839355176acb24ea8eccaacd2b4854"
+  },
+  {
+    "label": "remat-focused",
+    "command": [
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-remat-focused.py"
+    ],
+    "exit_code": 1,
+    "seconds": 291.4083664417267,
+    "source_revision": "e721473e93839355176acb24ea8eccaacd2b4854"
+  }
+]
