@@ -1748,6 +1748,11 @@ impl VulkanDevice {
         };
 
         let priorities = [1.0f32];
+        let physical_properties = unsafe { instance.get_physical_device_properties(physical_device) };
+        let wmma_hardware_eligible = crate::device_policy::wmma_hardware_eligible(
+            physical_properties.vendor_id, physical_properties.device_id);
+        let probe_wmma = crate::device_policy::wmma_probe_requested(
+            wmma_mode.requested(), physical_properties.vendor_id, physical_properties.device_id);
         let queue_infos = [vk::DeviceQueueCreateInfo::default()
             .queue_family_index(queue_family_index)
             .queue_priorities(&priorities)];
@@ -1805,11 +1810,13 @@ impl VulkanDevice {
         // the extension; chaining the struct for an absent extension is not a
         // valid query. The Vulkan memory model is a promoted Vulkan 1.2 feature,
         // so it is always queryable on this device's 1.4 implementation.
-        if cooperative_matrix_extension_exposed {
+        if probe_wmma && cooperative_matrix_extension_exposed {
             mixed_precision_features =
                 mixed_precision_features.push_next(&mut cooperative_matrix_support);
         }
-        mixed_precision_features = mixed_precision_features.push_next(&mut memory_model_support);
+        if probe_wmma {
+            mixed_precision_features = mixed_precision_features.push_next(&mut memory_model_support);
+        }
         unsafe {
             instance.get_physical_device_features2(physical_device, &mut mixed_precision_features)
         };
@@ -1834,7 +1841,7 @@ impl VulkanDevice {
         let cooperative_matrix_feature_supported = cooperative_matrix_extension_exposed
             && cooperative_matrix_support.cooperative_matrix != vk::FALSE;
         let memory_model_supported = memory_model_support.vulkan_memory_model != vk::FALSE;
-        let cooperative_matrix_tiles = if cooperative_matrix_feature_supported {
+        let cooperative_matrix_tiles = if probe_wmma && cooperative_matrix_feature_supported {
             crate::wmma::probe_cooperative_matrix_tiles(&entry, &instance, physical_device)
                 .unwrap_or_default()
         } else {
@@ -1845,10 +1852,12 @@ impl VulkanDevice {
         let mut device_subgroup_properties = vk::PhysicalDeviceSubgroupProperties::default();
         let mut device_subgroup_query =
             vk::PhysicalDeviceProperties2::default().push_next(&mut device_subgroup_properties);
-        unsafe {
-            instance.get_physical_device_properties2(physical_device, &mut device_subgroup_query)
-        };
-        let wmma_subgroup_supported = if subgroup_size_control_extension_exposed {
+        if probe_wmma {
+            unsafe {
+                instance.get_physical_device_properties2(physical_device, &mut device_subgroup_query)
+            };
+        }
+        let wmma_subgroup_supported = if probe_wmma && subgroup_size_control_extension_exposed {
             let mut control_features =
                 vk::PhysicalDeviceSubgroupSizeControlFeatures::default();
             let mut features_query =
@@ -1872,13 +1881,15 @@ impl VulkanDevice {
         } else {
             false
         };
-        let wmma_enabled = wmma_mode.requested()
+        let wmma_enabled = probe_wmma
             && cooperative_matrix_feature_supported
             && memory_model_supported
             && wmma_subgroup_supported
             && storage_buffer_16_bit_access_enabled
             && shader_float16_enabled;
         let wmma_capabilities = crate::wmma::VulkanWmmaCapabilities {
+            rdna3_or_newer: wmma_hardware_eligible,
+            probed: probe_wmma,
             extension_exposed: cooperative_matrix_extension_exposed,
             feature_supported: cooperative_matrix_feature_supported,
             memory_model_supported,

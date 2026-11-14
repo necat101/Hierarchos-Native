@@ -44,7 +44,7 @@ impl WmmaModeChoice {
             Self::Mixed => {
                 "Eligible matrix operations use FP16 operands and FP32 accumulation. Master weights, \
                  gradients, AdamW state, normalization, softmax and loss stay FP32. Other operations \
-                 use FP32 kernels. Requires a compatible cooperative-matrix GPU."
+                 use FP32 kernels. Requires AMD RDNA3 or newer and compatible cooperative-matrix features."
             }
             Self::FullFp16 => {
                 "Requires a qualified local Llama64 or shared CLIP64/Llama64 package and the \

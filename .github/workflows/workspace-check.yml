@@ -41,6 +41,9 @@ jobs:
         shell: pwsh
         run: ./check-workspace.ps1
 
+      - name: Pre-WMMA FP32 and device-admission controls
+        run: python hierarchos-vulkan/validation/check_main_compatibility.py
+
       # Binds the tracked RDNA3 multimodal receipts by SHA-256, re-derives the
       # 44/44 and 85/85 totals from the per-profile rows. CPU-side; no adapter needed.
       - name: RDNA3 multimodal receipt guard

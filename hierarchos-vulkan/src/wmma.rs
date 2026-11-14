@@ -15,7 +15,8 @@
 //!   FP32 masters and optimizer state are still retained. This arm is
 //!   experimental: FP16 accumulation can overflow to infinity and loses mantissa bits.
 //!
-//! Nothing here is inferred from the adapter's vendor or name. The device must
+//! Admission requires an AMD RDNA3-or-newer PCI ID; names and vendor overrides
+//! cannot admit an older GPU. The device must additionally
 //! expose `VK_KHR_cooperative_matrix`, the `cooperativeMatrix` feature, the
 //! Vulkan memory model, 16-bit storage/arithmetic, and a cooperative
 //! configuration whose scope is `SUBGROUP` with 16x16x16 tiles; the WMMA
@@ -189,6 +190,10 @@ impl std::fmt::Display for WmmaTile {
 /// `doctor`/`devices` diagnostics, and every qualification receipt.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct VulkanWmmaCapabilities {
+    /// Physical AMD RDNA3-or-newer PCI admission, independent of driver features.
+    pub rdna3_or_newer: bool,
+    /// WMMA was requested on admitted hardware, so optional features were queried.
+    pub probed: bool,
     /// `VK_KHR_cooperative_matrix` appears in the device extension list.
     pub extension_exposed: bool,
     /// `VkPhysicalDeviceCooperativeMatrixFeaturesKHR::cooperativeMatrix`.
@@ -215,7 +220,8 @@ pub struct VulkanWmmaCapabilities {
 impl VulkanWmmaCapabilities {
     /// Everything the mixed arm needs, including an enabled feature.
     pub fn mixed_supported(&self) -> bool {
-        self.enabled
+        self.rdna3_or_newer && self.probed && self.enabled
+            && self.extension_exposed && self.feature_supported && self.memory_model_supported
             && self.storage_16bit
             && self.shader_float16
             && self.subgroup_size_control_supported
@@ -227,7 +233,8 @@ impl VulkanWmmaCapabilities {
     /// Everything the full-FP16 arm needs. Deliberately separate from
     /// [`Self::mixed_supported`]: an adapter may expose only FP32 accumulation.
     pub fn full_fp16_supported(&self) -> bool {
-        self.enabled
+        self.rdna3_or_newer && self.probed && self.enabled
+            && self.extension_exposed && self.feature_supported && self.memory_model_supported
             && self.storage_16bit
             && self.shader_float16
             && self.subgroup_size_control_supported
@@ -248,6 +255,7 @@ impl VulkanWmmaCapabilities {
     /// was not enabled.
     pub fn diagnostics(&self) -> String {
         let mut out = String::new();
+        out.push_str(&format!("WMMA admission: rdna3_or_newer={} probed={}\n", self.rdna3_or_newer, self.probed));
         out.push_str(&format!(
             "cooperative matrix: extension_exposed={} feature_supported={} memory_model={} subgroup_size_control={} enabled={}\n",
             self.extension_exposed,
@@ -293,6 +301,12 @@ impl VulkanWmmaCapabilities {
     pub fn unavailable_reason(&self, mode: WmmaMode) -> &'static str {
         if mode == WmmaMode::Off {
             return "mode off never needs cooperative matrices";
+        }
+        if !self.rdna3_or_newer {
+            return "WMMA requires AMD RDNA3 or newer; this device retains its existing FP32 path";
+        }
+        if !self.probed {
+            return "WMMA is off; cooperative-matrix features were not probed";
         }
         if !self.extension_exposed {
             return "device does not expose VK_KHR_cooperative_matrix";
@@ -1312,6 +1326,35 @@ mod tests {
         assert!(!WmmaMode::Off.requested());
         assert!(WmmaMode::Mixed.requested());
         Ok(())
+    }
+
+    #[test]
+    fn feature_flags_cannot_admit_a_non_rdna3_device() {
+        let tile = WmmaTile { m:16, n:16, k:16, a_is_f16:true, b_is_f16:true,
+            c_is_f16:false, c_is_f32:true, subgroup_scope:true, saturating:false };
+        let mut caps = VulkanWmmaCapabilities {
+            rdna3_or_newer:true, probed:true, enabled:true,
+            extension_exposed:true, feature_supported:true, memory_model_supported:true,
+            subgroup_size_control_supported:true, storage_16bit:true, shader_float16:true,
+            mixed_tile:Some(tile), full_fp16_tile:Some(WmmaTile { c_is_f16:true, c_is_f32:false, ..tile }),
+            ..Default::default()
+        };
+        assert!(caps.mixed_supported() && caps.full_fp16_supported());
+        caps.rdna3_or_newer = false;
+        for mode in [WmmaMode::Mixed, WmmaMode::FullFp16] {
+            assert!(!caps.supports_mode(mode));
+            assert!(caps.require(mode).unwrap_err().to_string().contains("RDNA3 or newer"));
+        }
+        assert!(caps.supports_mode(WmmaMode::Off));
+        assert!(caps.require(WmmaMode::Off).is_ok());
+    }
+
+    #[test]
+    fn off_device_cannot_report_an_unprobed_wmma_mode_as_supported() {
+        let caps = VulkanWmmaCapabilities { rdna3_or_newer:true, ..Default::default() };
+        assert!(!caps.mixed_supported() && !caps.full_fp16_supported());
+        assert!(caps.unavailable_reason(WmmaMode::Mixed).contains("not probed"));
+        assert!(caps.supports_mode(WmmaMode::Off));
     }
 
     #[test]

@@ -1,0 +1,39 @@
+{
+  "schema": 2,
+  "status": "PASS_SCOPED_RELEASE",
+  "source_revision": "705a8a8f7b9cb495bdbda83f22feb64c6158298d",
+  "release_receipt": "release-qualification.json",
+  "release_sha256": "69cfe011c8fb1ee2496f7c743d4fd208a67548474733eae9da6bccca5660c64f",
+  "historical_phase20_summary": "../20261113-phase22-recovery/phase20-handoff/qualification.json",
+  "hosted_ci": {
+    "status": "PENDING_FINAL_COMMIT",
+    "note": "Check all four workflows at the published AVX512/RDNA3 commit."
+  },
+  "self_hosted_ci": {
+    "status": "NOT RUN",
+    "note": "Local thirteen-route PASS does not assert an authorized hosted GPU runner is available"
+  },
+  "local_numerical_status": "PASS_SCOPED_RELEASE",
+  "delivery_status": "CI_STATUS.md",
+  "qualification_target": {
+    "cpu": "AVX512",
+    "gpu": "RDNA3"
+  },
+  "avx2_host_verification": {
+    "status": "PENDING_ON_AVX2_HOST",
+    "fixtures": [
+      {
+        "fixture": "deepseek_v41_native_pipeline_avx2.json",
+        "cpu": "AVX2",
+        "sha256": "9f5592989820c1567caf3fd4ca6b5354f7bb8e78dfb6b38f1ebb43b9b4cc403b",
+        "status": "PENDING_HOST_VERIFICATION"
+      },
+      {
+        "fixture": "deepseek_v41_native_vision_avx2.json",
+        "cpu": "AVX2",
+        "sha256": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+        "status": "PENDING_HOST_VERIFICATION"
+      }
+    ]
+  }
+}

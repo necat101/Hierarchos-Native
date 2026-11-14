@@ -37,6 +37,12 @@ class UnifiedReleaseControls(unittest.TestCase):
         self.reject(lambda d,p:d['qualification_target'].update(cpu='AVX2'))
     def test_wrong_shader(self):
         self.reject_binding(lambda d:d['source_files'].__setitem__('hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc.spv','0'*64))
+    def test_shared_shader_cannot_replace_isolated_rdna3_coverage(self):
+        def mutate(d,p):
+            rows=p['shader727']['shaders']
+            i=next(i for i,r in enumerate(rows) if r['artifact']=='rwkv_key_state_forward_fused_wide_amd_rdna3.spv')
+            rows[i]=next(r for r in rows if r['artifact']=='rwkv_key_state_forward_fused_wide.spv')
+        self.reject(mutate)
     def test_wrong_executable(self):
         self.reject(lambda d,p:d['binaries']['image_text_pipeline_probe'].update(sha256='0'*64))
     def test_component_hash_mismatch(self):

@@ -224,6 +224,8 @@ const RWKV_KEY_STATE_FORWARD_FUSED_SPV: &[u8] =
     include_bytes!("../shaders/rwkv_key_state_forward_fused.spv");
 const RWKV_KEY_STATE_FORWARD_FUSED_WIDE_SPV: &[u8] =
     include_bytes!("../shaders/rwkv_key_state_forward_fused_wide.spv");
+const RWKV_KEY_STATE_FORWARD_FUSED_WIDE_RDNA3_SPV: &[u8] =
+    include_bytes!("../shaders/rwkv_key_state_forward_fused_wide_amd_rdna3.spv");
 const RWKV_MATRIX_STATE_BACKWARD_ROWS_SPV: &[u8] =
     include_bytes!("../shaders/rwkv_matrix_state_backward_rows.spv");
 const RWKV_MATRIX_STATE_BACKWARD_COLS_SPV: &[u8] =
@@ -2404,7 +2406,11 @@ impl RwkvTimeMixCoreOp {
             key_state_forward_fused_wide: if head_size <= 64 {
                 Some(vulkan::ComputeKernel::new_with_access(
                     &device,
-                    RWKV_KEY_STATE_FORWARD_FUSED_WIDE_SPV,
+                    if crate::vendor::is_amd_rdna3(&device) {
+                        RWKV_KEY_STATE_FORWARD_FUSED_WIDE_RDNA3_SPV
+                    } else {
+                        RWKV_KEY_STATE_FORWARD_FUSED_WIDE_SPV
+                    },
                     &[
                         vulkan::BindingAccess::ReadOnly,
                         vulkan::BindingAccess::ReadOnly,
@@ -8218,16 +8224,19 @@ impl RwkvTimeMixCoreOp {
         // A recorded `staged` verdict measured this graph, so it may build the
         // portable `linear3-forward` composition where the vendor module did not
         // win its geometry. The gate alone decides every unrecorded geometry.
-        let vendor_ready = crate::vendor::unmeasured_composition_is_qualified(
-            self.device.vendor_id(),
-        ) && self.linear3_forward.selects_variant_for(
+        let vendor_variant = self.linear3_forward.selects_variant_for(
             batch as u32,
             self.width as u32,
             self.width as u32,
         );
         crate::decision_records::prefers_composition(
             self.forward_fusion_forced,
-            measured.is_some() || vendor_ready,
+            crate::device_policy::composition_admitted(
+                crate::vendor::is_amd_rdna3(&self.device),
+                crate::vendor::unmeasured_composition_is_qualified(self.device.vendor_id()),
+                vendor_variant,
+                measured.is_some(),
+            ),
             measured,
         )
     }

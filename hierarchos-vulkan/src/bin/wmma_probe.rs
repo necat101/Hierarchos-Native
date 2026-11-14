@@ -16,8 +16,8 @@ use hierarchos_vulkan::VulkanDevice;
 fn usage() -> &'static str {
     "hierarchos-vulkan-wmma-probe [--wmma-mode off|mixed|full-fp16] [--json]\n\n\
      With no --wmma-mode the probe uses HIERARCHOS_WMMA_MODE, or `off` when unset.\n\
-     `off` still reports the advertised configurations; it simply does not enable\n\
-     the cooperative-matrix feature, so it can be used as a non-invasive probe."
+     `off` keeps the FP32 device contract without probing WMMA feature chains.\n\
+     Mixed/Full FP16 require AMD RDNA3 or newer plus the Vulkan feature contract."
 }
 
 fn main() -> ExitCode {
@@ -80,6 +80,8 @@ fn run() -> Result<()> {
                 "  \"device\": {:?},\n",
                 "  \"physical_device_index\": {},\n",
                 "  \"mode\": {:?},\n",
+                "  \"rdna3_or_newer\": {},\n",
+                "  \"probed\": {},\n",
                 "  \"extension_exposed\": {},\n",
                 "  \"feature_supported\": {},\n",
                 "  \"memory_model_supported\": {},\n",
@@ -98,6 +100,8 @@ fn run() -> Result<()> {
             device.name(),
             device.physical_device_index(),
             mode.label(),
+            capabilities.rdna3_or_newer,
+            capabilities.probed,
             capabilities.extension_exposed,
             capabilities.feature_supported,
             capabilities.memory_model_supported,

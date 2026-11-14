@@ -18,6 +18,7 @@ pub mod cpu_adamw;
 pub use cpu_adamw::CpuAdamWHyperParams;
 pub mod coverage_record;
 pub mod decision_records;
+mod device_policy;
 /// DeepSeek V4.1 configuration, planning and native Vulkan text graph, including
 /// default package loading through `DeepseekV41CausalLM::from_hf_package`.
 pub mod deepseek_v41;

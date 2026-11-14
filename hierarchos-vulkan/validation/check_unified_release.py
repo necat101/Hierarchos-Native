@@ -210,8 +210,14 @@ def validate_payload(document,components):
     require(all(r['label'].startswith('128x128x96') and 'vs FP32' in r['label'] for r in failures),'uncharacterized Full FP16 failure')
     applicable=[r for r in components['wmma_full_dot2']['results'] if int(re.match(r'\d+x\d+x(\d+)',r['label']).group(1))<=64]
     require(len(applicable)==28 and all(r['passed'] for r in applicable),'short-reduction Full FP16 policy failed')
-    for key,count in [('shader727',727),('shader_wmma',4)]:
+    # The historical component key is retained; the manifest now includes the
+    # isolated RDNA3 key-state variant in addition to the original 727 recipes.
+    for key,count in [('shader727',728),('shader_wmma',4)]:
         q=components[key];require(q['pass'] and q['status_counts']=={'identical':count} and len(q['shaders'])==count,'shader reproduction failed')
+    artifacts=[r['artifact'] for r in components['shader727']['shaders']]
+    require(len(set(artifacts))==728 and {'rwkv_key_state_forward_fused_wide.spv',
+            'rwkv_key_state_forward_fused_wide_amd_rdna3.spv'}.issubset(artifacts),
+            'legacy and isolated RDNA3 shader variants must both be reproduced')
     tests=components['tests']
     bound('libtest',tests['library']['binary_sha256'])
     bound('cli_test',tests['cli']['binary_sha256'])

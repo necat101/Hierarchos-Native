@@ -1,5 +1,16 @@
 # Current numerical qualification scope
 
+WMMA is opt-in and admitted only on recognised AMD RDNA3-or-newer PCI devices
+with the required cooperative-matrix, subgroup, memory-model and FP16 features.
+Vendor-name overrides cannot bypass the physical-device gate. Default `off`
+does not query or enable WMMA feature chains and leaves the existing FP32 vendor
+selector in use. RDNA1/2 keep their existing AMD FP32 route, and Intel Gen9 keeps
+its pre-WMMA route. The RDNA3 key-state arithmetic fix has a separate shader;
+the shared source and SPIR-V are restored to pre-WMMA main. CPU CI verifies all
+1,301 pre-existing shader files and the FP32 selector against `ead6cd3`.
+Live Gen9 qualification will be performed later on that host, as assigned by
+the user; these local controls do not claim that hardware execution.
+
 This release target is **AVX512 + RDNA3**. AVX2 fixture reproduction belongs to
 the AVX2 qualification host. The target-scoped provenance audit keeps those
 assignments explicit as `PENDING_HOST_VERIFICATION`, bound to the original

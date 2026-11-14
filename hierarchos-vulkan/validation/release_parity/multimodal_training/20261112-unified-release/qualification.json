@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "status": "PASS_SCOPED_RELEASE",
+  "status": "PENDING_MAIN_COMPATIBILITY_REQUALIFICATION",
   "source_revision": "705a8a8f7b9cb495bdbda83f22feb64c6158298d",
   "release_receipt": "release-qualification.json",
   "release_sha256": "69cfe011c8fb1ee2496f7c743d4fd208a67548474733eae9da6bccca5660c64f",
@@ -35,5 +35,7 @@
         "status": "PENDING_HOST_VERIFICATION"
       }
     ]
-  }
+  },
+  "previous_qualified_commit": "92cfa703acb3345b5af5e607ed97f697704b064d",
+  "gen9_hardware_qualification": "PENDING_ON_GEN9_HOST"
 }

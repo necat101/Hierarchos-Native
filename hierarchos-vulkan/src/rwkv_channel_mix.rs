@@ -671,16 +671,19 @@ impl RwkvChannelMixOp {
         // geometries it measured, which is how the RDNA3 batch-32 `staged` entry
         // was left unbuilt against the compiled record. The gate still decides
         // every unrecorded geometry.
-        let vendor_ready = crate::vendor::unmeasured_composition_is_qualified(
-            self.device.vendor_id(),
-        ) && self.linear_residual_forward.selects_variant_for(
+        let vendor_variant = self.linear_residual_forward.selects_variant_for(
             batch as u32,
             self.hidden_width as u32,
             self.width as u32,
         );
         crate::decision_records::prefers_composition(
             self.forward_fusion_forced,
-            measured.is_some() || vendor_ready,
+            crate::device_policy::composition_admitted(
+                crate::vendor::is_amd_rdna3(&self.device),
+                crate::vendor::unmeasured_composition_is_qualified(self.device.vendor_id()),
+                vendor_variant,
+                measured.is_some(),
+            ),
             measured,
         )
     }
