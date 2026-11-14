@@ -57,6 +57,11 @@ def recompute_chain_ratios(chain: guard.ChainProducer, row: dict) -> None:
                 part['timing_samples'][index] = [ms] * part['samples']
         simulated = merge_allocation_runs(row['allocation_runs'], samples=row['samples'], warmup=row['warmup'])
         row['timing_samples'] = simulated['timing_samples']
+        for arm in ('staged', 'fused', 'default', 'folded'):
+            row[arm].update(median_ms=simulated[arm]['median_ms'],
+                            ms_per_step=simulated[arm]['ms_per_step'])
+        row['default_ms'] = simulated['default']['median_ms']
+        row['default_label'] = simulated['default_route']
     if row.get('timing_protocol') in ('shipped-route-v1', 'allocation-balanced-shipped-v2'):
         # A controlled timing/route mutation must keep its raw simulated
         # observations coherent, so the intended invariant rejects it. Separate
@@ -298,10 +303,17 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
                     )
                     continue
                 batch = next(
-                    batch
-                    for batch in lookup
-                    if abs(rows[batch]["composed_over_fused"] - 1.0) > band
+                    (
+                        batch
+                        for batch in lookup
+                        if abs(rows[batch]["composed_over_fused"] - 1.0) > band
+                    ),
+                    next(iter(lookup)),
                 )
+                row = rows[batch]
+                if abs(row["composed_over_fused"] - 1.0) <= band:
+                    row["composed_ms"] = row["fused_ms"] * 0.90
+                    recompute_ratios(row)
                 record["decisions"] = [
                     entry for entry in record["decisions"] if entry["batch"] != batch
                 ]
@@ -626,16 +638,25 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         completed = self.run_guard(producer, receipt, record)
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
-        # The same receipt read as a record owner is the failure the consumer
-        # flag exists to avoid.
+        # The same receipt read as a record owner must reject an AMD entry at a
+        # batch its sweep did not dispatch. The shipped b32 entry belongs to the
+        # other vendor, so this control adds the receipt's own vendor instead.
         owner = dataclasses.replace(producer, consumer=False)
-        with self.assertRaisesRegex(guard.Problem, "never measured"):
-            guard.check_producer(
-                owner,
-                receipt_path=producer.receipt,
-                record_path=producer.record,
-                sweep=producer.sweep,
-            )
+        entry = copy.deepcopy(
+            next(e for e in record["decisions"] if e["batch"] != 32)
+        )
+        entry["batch"] = 32
+        record["decisions"].append(entry)
+        with tempfile.TemporaryDirectory(prefix="producer-owner-") as scratch:
+            record_path = Path(scratch) / "record.json"
+            record_path.write_text(json.dumps(record), encoding="utf-8")
+            with self.assertRaisesRegex(guard.Problem, "never measured"):
+                guard.check_producer(
+                    owner,
+                    receipt_path=producer.receipt,
+                    record_path=record_path,
+                    sweep=producer.sweep,
+                )
 
     def test_a_consumer_receipt_that_contradicts_its_record_is_rejected(self) -> None:
         producer = guard.TBPTT_TIME_MIX
@@ -671,7 +692,7 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         _, time_mix = load(guard.PRODUCERS_BY_NAME["time-mix-projection"])
         time_mix["decisions"].append(
             {
-                "device": "Intel(R) HD Graphics 520",
+                "device": "AMD Radeon Graphics",
                 "width": receipt["width"],
                 "batch": receipt["batch"],
                 "route": "fused",
@@ -695,10 +716,10 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
 
     def test_composition_rejects_a_receipt_for_another_vendor(self) -> None:
         receipt = json.loads(guard.PACKED_COMPOSITION.receipt.read_text(encoding="utf-8"))
-        receipt["qualified_vendor"] = "amd"
+        receipt["qualified_vendor"] = "intel"
         completed = self.run_composition(receipt, records=None)
         self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
-        self.assertIn("not an amd module", completed.stderr)
+        self.assertIn("not an intel module", completed.stderr)
 
     def test_the_guard_cli_rejects_a_record_override_for_a_consumer(self) -> None:
         completed = subprocess.run(

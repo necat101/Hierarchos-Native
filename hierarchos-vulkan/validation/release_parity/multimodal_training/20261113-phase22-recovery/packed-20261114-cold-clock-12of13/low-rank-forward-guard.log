@@ -1,0 +1,7 @@
+low-rank-forward: batch  1: withheld     fused   1.639 ms  staged   1.574 ms
+low-rank-forward: batch  4: withheld     fused   2.455 ms  staged   2.384 ms
+low-rank-forward: batch  8: fallback     fused   3.602 ms  staged   3.454 ms
+low-rank-forward: batch 16: fallback     fused   7.182 ms  staged   7.071 ms
+low-rank-forward: batch 32: withheld     fused  12.673 ms  staged  12.279 ms
+PASS: low-rank-forward is measured across batch 1, 4, 8, 16, 32 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184], and its record follows it; 3 geometry(ies) are measured but withheld from the runtime because their graphs are not bit-identical
+PASS: 1 receipt(s) re-checked against the record(s) they consume: low-rank-forward

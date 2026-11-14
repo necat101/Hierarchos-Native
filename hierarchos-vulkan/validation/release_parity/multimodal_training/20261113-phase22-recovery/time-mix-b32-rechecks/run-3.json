@@ -1,0 +1,74 @@
+{
+  "result": "pass",
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "width": 128,
+  "linear3_variant": "amd-rdna3-lds64",
+  "promotion": "geometry-aware",
+  "batches": [
+    {
+      "batch": 32,
+      "fused_ms": 14.2482,
+      "composed_ms": 14.1386,
+      "default_ms": 14.1734,
+      "composed_over_fused": 0.9923078002835446,
+      "default_over_fused": 0.9947502140621272,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": null,
+      "recorded_compose": null,
+      "expected_default_label": "fused",
+      "fused_linear3_dispatches": 0,
+      "composed_linear3_dispatches": 1,
+      "default_linear3_dispatches": 0,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000119909644127
+        },
+        {
+          "label": "packed_new_state",
+          "values": 81920,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000000834713547
+        },
+        {
+          "label": "grad_x",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000223652648856
+        },
+        {
+          "label": "grad_packed_state",
+          "values": 81920,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000733845401555
+        }
+      ],
+      "composed_ran_vendor_linear3": true,
+      "unmeasured_compose": false
+    }
+  ],
+  "median_composed_over_fused": 0.9923078002835446,
+  "winner": "composed",
+  "samples": 1200,
+  "warmup": 5,
+  "atol": 0.0001,
+  "rtol": 1e-05,
+  "withheld_routes": [
+    {
+      "batch": 32,
+      "route": "staged",
+      "reason": "The single-cell probe agrees, but the composed projection with the wide key/state kernel changes the eight-timestep packed-forward result on this adapter/driver (batch 8: 3.0547380447387695e-7; batch 32: 5.364418029785156e-7). Controlled replays using the original fused producer or narrow key/state kernel are exact. Keep the structural fused producer; this timing is evidence, not permission to change the exact recurrent program."
+    }
+  ]
+}

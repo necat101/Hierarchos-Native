@@ -1,0 +1,1 @@
+FAIL: time-mix-projection: batch 32: 'staged' is ahead of the default route by 3.0%, outside the 2% noise band, but the record carries no decision for it
