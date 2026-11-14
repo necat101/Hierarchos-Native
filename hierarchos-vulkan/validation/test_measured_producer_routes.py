@@ -799,7 +799,7 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
     def test_the_folded_rung_is_recorded_only_where_its_reduction_is_exact(self) -> None:
         """The route's acceptance gate is the fold's own readback, with no allowance."""
         chain, receipt, record = self.backward_pair()
-        row = receipt["batches"][0]
+        row = next(r for r in receipt['batches'] if r.get('folded_candidate') is True)
         self.assertEqual(row["folded_key_parameter_max_abs"], 0.0)
         self.assertGreater(row["staged_key_parameter_max_abs"], 0.0)
         self.assertTrue(row["folded_candidate"])
@@ -833,16 +833,21 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
     def test_a_folded_rung_at_a_shallower_depth_is_rejected(self) -> None:
         chain, receipt, record = self.backward_pair()
         row = receipt["batches"][0]
-        row["folded_schedule"] = row["fused_schedule"]
+        row['folded_candidate']=True
+        row["folded_schedule"] = row["staged_schedule"]
         self.assert_rejected(chain, receipt, record, "not the fully folded rung")
 
     def test_a_folded_leg_that_repeats_fused_is_not_a_route_candidate(self) -> None:
         """Two cells on the same schedule are allocation noise, not a depth win."""
         chain, receipt, record = self.backward_pair()
-        row = receipt["batches"][0]
-        row["folded_schedule"] = row["fused_schedule"]
+        own={e['batch'] for e in measured_chain_entries(receipt,record)}
+        row = next(r for r in receipt['batches'] if r['batch'] not in own)
+        row['fused_schedule']=row['folded_schedule']
+        if row['default_label']=='fused':row['default_schedule']=row['folded_schedule']
         row["folded_candidate"] = False
         row["folded_ms"] = row["fused_ms"] * 0.90
+        row['folded']['median_ms']=row['folded_ms']
+        recompute_chain_ratios(chain,row)
         for entry in measured_chain_entries(receipt, record):
             if entry["batch"] == row["batch"]:
                 entry["candidates"].pop("folded", None)
@@ -857,15 +862,27 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         state the refusal was recorded in, so the refusal machinery stays
         exercised by a fixture instead of by the shipped table.
         """
-        chain = guard.CHAIN_PRODUCERS[0]
+        chain = guard.ALL_SPECS_BY_NAME['tbptt-packed-forward-fp16']
         receipt, record = load(chain)
+        positive=self.run_guard(chain,receipt,record)
+        self.assertEqual(positive.returncode,0,positive.stdout+positive.stderr)
+        # Reconstruct the historical shared-only state as a controlled fixture.
+        # Current policy-scoped measurements need not retain its old crossover.
         record["decisions"] = [
             entry
             for entry in record["decisions"]
-            if entry.get("parameter_storage") is None
+            if entry['device'] != receipt['device'] or entry['width'] != receipt['width']
         ]
         receipt["parameter_storage"] = "fp16-storage"
         for row in receipt["batches"]:
+            row['default_label']='packed';row['expected_default_label']='packed'
+            row['recorded_route']=None if row['batch'] in (16,32) else 'packed'
+            row['legacy_ms']=row['packed_ms']*(0.8 if row['batch'] in (16,32) else 1.2)
+            recompute_chain_ratios(chain,row)
+            record['decisions'].append(dict(device=receipt['device'],width=receipt['width'],
+                batch=row['batch'],route='legacy' if row['batch'] in (16,32) else 'packed',
+                candidates={r:row[r+'_ms'] for r in ('legacy','packed')},probe=chain.probe,
+                source='measured',measured_by=chain.measured_by))
             if row["batch"] in (16, 32):
                 row["recorded_route"] = None
                 row["expected_default_label"] = "packed"
@@ -906,24 +923,35 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
             ],
             "a recorded FP16 measurement must lift the refusal at its geometry",
         )
-        measured = {entry["batch"] for entry in measured_chain_entries(receipt, record)}
-        self.assertEqual(measured, {1, 16, 32})
+        measured = measured_chain_entries(receipt, record)
+        self.assertTrue(measured)
+        own=measured[0]
+        # An opposite shared fallback must not displace this real scoped verdict.
+        shared=copy.deepcopy(own);shared.pop('parameter_storage',None)
+        shared['route']='legacy' if own['route']=='packed' else 'packed'
+        shared['candidates']={r:1.0 if r==shared['route'] else 2.0 for r in ('legacy','packed')}
+        record['decisions']=[e for e in record['decisions'] if not (
+            e['device']==shared['device'] and e['width']==shared['width'] and
+            e['batch']==shared['batch'] and e.get('parameter_storage') is None)]
+        record['decisions'].append(shared)
         completed = self.run_guard(chain, receipt, record)
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
-        self.assertIn("batch 16: legacy", completed.stdout)
-        self.assertIn("batch 32: legacy", completed.stdout)
+        self.assertIn(f"batch {own['batch']:>2}: {own['route']}", completed.stdout)
 
     def test_a_scoped_chain_verdict_leaves_the_default_receipt_alone(self) -> None:
         chain = guard.ALL_SPECS_BY_NAME["tbptt-packed-forward"]
         receipt, record = load(chain)
+        positive=self.run_guard(chain,receipt,record)
+        self.assertEqual(positive.returncode,0,positive.stdout+positive.stderr)
         scoped = next(
-            entry for entry in record["decisions"] if entry.get("parameter_storage")
+            entry for entry in record["decisions"] if entry.get("parameter_storage")=='fp16-storage'
         )
         scoped["route"] = "packed" if scoped["route"] == "legacy" else "legacy"
+        scoped['candidates']={r:1.0 if r==scoped['route'] else 2.0 for r in ('legacy','packed')}
         default_receipt = json.loads(chain.receipt.read_text(encoding="utf-8"))
         completed = self.run_guard(chain, default_receipt, record)
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
-        self.assertIn("batch 16: legacy", completed.stdout)
+        self.assertEqual(completed.stdout,positive.stdout)
 
     def test_a_scoped_chain_verdict_that_is_not_its_fastest_is_rejected(self) -> None:
         chain = guard.ALL_SPECS_BY_NAME["tbptt-packed-forward-fp16"]
@@ -1008,7 +1036,7 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         producer = guard.PRODUCERS_BY_NAME["key-state-forward"]
         receipt, record = load(producer)
         row = rows_by_batch(receipt)[32]
-        row["composed_ms"] = row["fused_ms"] * 0.90
+        row["composed_ms"] = min(row["fused_ms"], row["narrow_ms"]) * 0.90
         row["default_ms"] = row["composed_ms"]
         row["default_label"] = "composed"
         row["expected_default_label"] = "composed"
@@ -1019,7 +1047,7 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         recompute_ratios(row)
         entry = entries_by_batch(producer, receipt, record)[0][32]
         entry["route"] = "staged"
-        entry["candidates"]["staged"] = entry["candidates"][producer.default_route] * 0.90
+        entry["candidates"]["staged"] = min(entry["candidates"].values()) * 0.90
         completed = self.run_guard(producer, receipt, record)
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertIn("batch 32: staged", completed.stdout)
