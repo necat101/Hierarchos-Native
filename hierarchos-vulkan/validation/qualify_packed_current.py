@@ -5,7 +5,7 @@ receipts are written in a new directory; existing decision records are read
 only. A failing numerical or route decision remains a failure, never a PASS
 based on the benchmark process alone. No self-hosted CI result is inferred.
 """
-import argparse, hashlib, json, os, subprocess, sys
+import argparse, copy, hashlib, json, os, statistics, subprocess, sys, tempfile
 from pathlib import Path
 from check_measured_producer_routes import ALL_SPECS
 
@@ -28,6 +28,41 @@ def digest(path):
     with Path(path).open('rb') as f:
         for chunk in iter(lambda:f.read(1024*1024),b''):h.update(chunk)
     return h.hexdigest()
+
+
+def merge_batch_receipts(receipts):
+    """One sweep receipt from one fresh-process measurement per batch.
+
+    Measuring every batch in a long-lived process lets the APU's clock/thermal
+    state at batch N depend on every earlier batch.  That changed route ratios
+    beyond the unchanged noise band between recording and replay even at 1200
+    samples.  Each batch is therefore measured in its own process, and this
+    merges the per-batch receipts without changing any row or ratio.
+    """
+    merged = copy.deepcopy(receipts[0])
+    batches = sorted(
+        (row for receipt in receipts for row in receipt["batches"]),
+        key=lambda row: row["batch"],
+    )
+    merged["batches"] = batches
+    ratios = [
+        row["composed_over_fused"]
+        for row in batches
+        if isinstance(row.get("composed_over_fused"), (int, float))
+    ]
+    if ratios:
+        merged["median_composed_over_fused"] = statistics.median(ratios)
+    withheld = {}
+    for receipt in receipts:
+        for entry in receipt.get("withheld_routes", []):
+            withheld[(entry["batch"], entry["route"])] = entry
+    if "withheld_routes" in merged or withheld:
+        merged["withheld_routes"] = [withheld[key] for key in sorted(withheld)]
+    unmeasured = sorted({batch for receipt in receipts for batch in receipt.get("unmeasured", [])})
+    if "unmeasured" in merged or unmeasured:
+        merged["unmeasured"] = unmeasured
+    merged["batch_process_isolation"] = True
+    return merged
 
 
 def main():
@@ -68,16 +103,33 @@ def main():
     for spec in ALL_SPECS:
         receipt=out/spec.receipt.name
         command=[sys.executable,str(ROOT/spec.driver)]
-        if spec.step_kind!='composition':command += [v for batch in spec.sweep for v in ('--batch',str(batch))]
-        command+=list(spec.bench_args)+['--record',str(receipt)]
+        command+=list(spec.bench_args)
         print('Starting packed route',spec.name,flush=True)
         with (out/(spec.name+'-bench.log')).open('w',encoding='utf-8') as log:
-            bench=subprocess.run(command,cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT)
+            if spec.step_kind=='composition':
+                bench=subprocess.run(command+['--record',str(receipt)],cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT)
+                commands=[command+['--record',str(receipt)]]
+            else:
+                receipts=[]
+                commands=[]
+                bench=None
+                with tempfile.TemporaryDirectory(prefix='packed-batch-'+spec.name+'-') as scratch:
+                    for batch in spec.sweep:
+                        batch_receipt=Path(scratch)/f'batch-{batch}.json'
+                        batch_command=command+['--batch',str(batch),'--record',str(batch_receipt)]
+                        commands.append(batch_command)
+                        log.write('$ '+' '.join(map(str,batch_command))+'\n');log.flush()
+                        bench=subprocess.run(batch_command,cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT)
+                        log.flush()
+                        if bench.returncode!=0 or not batch_receipt.exists():break
+                        receipts.append(json.loads(batch_receipt.read_text(encoding='utf-8')))
+                    if bench is not None and bench.returncode==0 and len(receipts)==len(spec.sweep):
+                        receipt.write_text(json.dumps(merge_batch_receipts(receipts),indent=2)+'\n',encoding='utf-8')
         guard_command=[sys.executable,str(ROOT/'hierarchos-vulkan/validation/check_measured_producer_routes.py'),
                        '--producer',spec.name,'--receipt',str(receipt)]
         with (out/(spec.name+'-guard.log')).open('w',encoding='utf-8') as log:
             guard=subprocess.run(guard_command,cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT)
-        result=dict(bench=bench.returncode,guard=guard.returncode,command=command,guard_command=guard_command,
+        result=dict(bench=bench.returncode,guard=guard.returncode,commands=commands,guard_command=guard_command,
                     receipt_sha256=digest(receipt) if receipt.exists() else None)
         status['results'][spec.name]=result
         status['passes' if bench.returncode==guard.returncode==0 else 'failures'].append(spec.name)

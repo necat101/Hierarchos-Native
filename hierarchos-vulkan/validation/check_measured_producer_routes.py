@@ -1073,6 +1073,7 @@ def check_row(
     margin: float,
     default_checked: bool,
     withheld: bool = False,
+    policy_withheld: bool = False,
 ) -> None:
     batch = row["batch"]
     timings = {label: row[field] for label, field in producer.candidates}
@@ -1218,7 +1219,7 @@ def check_row(
                         f"measures {measured_winner!r} ahead by {drift:.1%}, outside the "
                         f"{margin:.0%} noise band; the record is stale"
                     )
-    elif default_checked and not producer.consumer and not withheld:
+    elif default_checked and not producer.consumer and not withheld and not policy_withheld:
         # This adapter has decisions elsewhere, so a geometry outside the band
         # with no entry is a measured crossover the record has not absorbed. The
         # first check covers a winning arm that is not the default route at all
@@ -1253,9 +1254,11 @@ def check_row(
         # The runtime skips a withheld verdict even where the vendor gate would
         # otherwise compose, so the structural graph is what it must build.
         expected = row["fused_label"]
-    elif producer.fallback == "vendor":
-        expected = "composed" if row.get(producer.vendor_flag or "") else row["fused_label"]
     else:
+        # No emitted verdict means the structural default decides. A vendor
+        # fallback inside the composed arm does not select that arm: the fused
+        # producer is available here (the fused leg dispatched it), and a
+        # geometry measured inside the noise band deliberately carries no entry.
         expected = row["fused_label"]
     if row.get("default_label") != expected:
         raise Problem(
@@ -1360,6 +1363,15 @@ def check_producer(
     if producer.consumer and producer.chains:
         check_consumer_chain_routes(producer, receipt)
     default_checked = bool(applicable)
+    # A policy that withheld a measured route is not allowed to adopt any staged
+    # graph: the reason for the refusal is a numerical difference in the graph,
+    # not the geometry where the win happened to be measured. At a geometry
+    # whose recording was a tie there is no entry to withhold, so the runtime
+    # keeps the structural fused default and a replay cannot turn that tie into
+    # a missing decision.
+    policy_withheld = any(
+        entry.get("route") != producer.default_route for entry in withheld.values()
+    )
     report = []
     for row in rows:
         entry = lookup.get(row["batch"])
@@ -1371,6 +1383,7 @@ def check_producer(
             margin,
             default_checked,
             withheld=row["batch"] in withheld,
+            policy_withheld=policy_withheld,
         )
         shown = "  ".join(
             f"{label} {row[field] * producer.unit_scale:7.3f} {producer.unit}"
