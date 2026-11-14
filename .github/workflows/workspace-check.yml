@@ -134,9 +134,12 @@ jobs:
       # hash-bound legacy set may only shrink after a successful reproduction;
       # --strict additionally rejects that historical, unverified set.
       - name: V4.1 fixture provenance
-        run: |
-          python hierarchos-vulkan/validation/fixture_toolchain.py check-all --expect-from hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_block128.json
-          python -m unittest discover -s hierarchos-vulkan/validation -p "test_fixture_toolchain.py"
+        run: python hierarchos-vulkan/validation/fixture_toolchain.py check-all --expect-from hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_block128.json
+
+      # Keep native checks in separate steps: Windows PowerShell otherwise
+      # lets a later successful command mask an earlier nonzero exit status.
+      - name: V4.1 fixture provenance controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_fixture_toolchain.py"
 
       - name: Recorded measurement routes
         run: |
@@ -188,9 +191,10 @@ jobs:
       # which is a real result, but one that has to change the conclusion and this
       # guard in the same diff rather than quietly contradict the document.
       - name: Committed folded-publication profile
-        run: |
-          python hierarchos-vulkan/validation/check_folded_publication_profile.py
-          python -m unittest discover -s hierarchos-vulkan/validation -p "test_folded_publication_profile.py"
+        run: python hierarchos-vulkan/validation/check_folded_publication_profile.py
+
+      - name: Folded-publication profile controls
+        run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_folded_publication_profile.py"
 
   # Phase XIX-T is sealed to numerical source 60063fd and policy revision
   # dac3534. Its exact source/evidence manifest cannot validate a later

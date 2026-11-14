@@ -1,7 +1,0 @@
-{"device":"AMD Radeon Graphics","epoch":1,"epoch_batch":1,"event":"train_step","loss":4.1745219230651855,"peft":true,"step":0,"supervised_tokens":14}
-WMMA: full-fp16 selected for dense Transformer projections (cooperative matrix: extension_exposed=true feature_supported=true memory_model=true subgroup_size_control=true enabled=true
-  storage_16bit=true shader_float16=true driver_subgroup_size=64 configurations=11
-  mixed (f16xf16+fp32) tile: 16x16x16 A=f16 B=f16 C=f32 scope=subgroup
-  full-fp16 (f16xf16+f16) tile: 16x16x16 A=f16 B=f16 C=f16 scope=subgroup
-)
-Error: training ended inside a gradient accumulation window; use a complete number of microbatches

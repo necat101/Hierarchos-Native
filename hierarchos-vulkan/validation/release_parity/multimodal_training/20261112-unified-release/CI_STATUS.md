@@ -13,4 +13,6 @@ The remaining mandatory command is `fixture_toolchain.py check-all`. These froze
 
 Both original files are unchanged. Local/hosted regeneration has not reproduced them exactly, so no verified pin was added, no legacy exception was added, and the gate remains enabled. The original generator environment (including CPU/backend configuration) or a verified original reproduction record is needed. Detailed failed attempts and workflow URLs are preserved under `../20261113-phase22-recovery/native-provenance-blocker/`.
 
+All four hosted workflows reported success at `8b01d5c`, but the workspace job log contains this same provenance failure. Its two-command PowerShell step let the subsequent successful unit tests mask the audit's exit code. The audit and its controls now run in separate steps; the folded-publication check and its controls use the same correction. A green result from that earlier workflow is not sufficient release evidence. The original masked result and log excerpt are preserved in `../20261113-phase22-recovery/native-provenance-blocker/masked-ci-step.json`.
+
 The 194 additional strict intermediate failures and native stress exclusions remain visible in the numerical report. This candidate is not declared release-ready until the provenance gate and all four hosted workflows pass at one final commit.

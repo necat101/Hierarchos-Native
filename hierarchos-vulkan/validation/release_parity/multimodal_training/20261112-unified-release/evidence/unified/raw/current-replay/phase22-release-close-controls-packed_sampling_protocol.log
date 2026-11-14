@@ -1,8 +1,0 @@
-test_all_route_producers_cover_balanced_rotation_cycles (test_packed_sampling_protocol.SamplingProtocolControls.test_all_route_producers_cover_balanced_rotation_cycles) ... ok
-test_old_short_measurements_cannot_qualify_current_producers (test_packed_sampling_protocol.SamplingProtocolControls.test_old_short_measurements_cannot_qualify_current_producers) ... ok
-test_valid_counts_and_counterfeit_counts (test_packed_sampling_protocol.SamplingProtocolControls.test_valid_counts_and_counterfeit_counts) ... ok
-
-----------------------------------------------------------------------
-Ran 3 tests in 0.001s
-
-OK

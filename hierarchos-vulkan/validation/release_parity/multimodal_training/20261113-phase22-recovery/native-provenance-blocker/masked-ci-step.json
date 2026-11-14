@@ -1,0 +1,10 @@
+{
+  "head_sha": "8b01d5c7e11b9d97560812a049a55d6b96e696fa",
+  "run_id": 43599528939,
+  "job_id": 132461093115,
+  "workflow_conclusion": "success",
+  "audit_result": "FAIL: two unpinned native AVX2 fixtures",
+  "cause": "A following successful native command replaced LASTEXITCODE in the same PowerShell step.",
+  "run_url": "https://github.com/necat101/Hierarchos-Native/actions/runs/43599528939",
+  "log_excerpt": "2026-11-14T13:30:01.6060742Z ##[group]Run python hierarchos-vulkan/validation/fixture_toolchain.py check-all --expect-from hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_block128.json\r\n2026-11-14T13:30:01.6061854Z \u001b[36;1mpython hierarchos-vulkan/validation/fixture_toolchain.py check-all --expect-from hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_block128.json\u001b[0m\r\n2026-11-14T13:30:01.6062677Z \u001b[36;1mpython -m unittest discover -s hierarchos-vulkan/validation -p \"test_fixture_toolchain.py\"\u001b[0m\r\n2026-11-14T13:30:01.6123850Z shell: C:\\Program Files\\PowerShell\\7\\pwsh.EXE -command \". '{0}'\"\r\n2026-11-14T13:30:01.6124165Z env:\r\n2026-11-14T13:30:01.6124355Z   CARGO_HOME: C:\\Users\\runneradmin\\.cargo\r\n2026-11-14T13:30:01.6124611Z   CARGO_INCREMENTAL: 0\r\n2026-11-14T13:30:01.6124803Z   CARGO_TERM_COLOR: always\r\n2026-11-14T13:30:01.6125011Z ##[endgroup]\r\n2026-11-14T13:30:08.3796951Z {\r\n2026-11-14T13:30:08.3797209Z   \"pinned\": 17,\r\n2026-11-14T13:30:08.3797445Z   \"legacy\": 54,\r\n2026-11-14T13:30:08.3797697Z   \"total\": 73,\r\n2026-11-14T13:30:08.3797873Z   \"problems\": [\r\n2026-11-14T13:30:08.3798215Z     \"deepseek_v41_native_pipeline_avx2.json: missing verified pin or legacy SHA-256\",\r\n2026-11-14T13:30:08.3798735Z     \"deepseek_v41_native_vision_avx2.json: missing verified pin or legacy SHA-256\"\r\n2026-11-14T13:30:08.3799098Z   ]\r\n2026-11-14T13:30:08.3799631Z }\r\n2026-11-14T13:30:08.5446130Z ..............\r\n2026-11-14T13:30:08.5446649Z ----------------------------------------------------------------------\r\n2026-11-14T13:30:08.5447123Z Ran 14 tests in 0.041s\r\n2026-11-14T13:30:08.5447255Z \r\n2026-11-14T13:30:08.5447318Z OK\r"
+}
