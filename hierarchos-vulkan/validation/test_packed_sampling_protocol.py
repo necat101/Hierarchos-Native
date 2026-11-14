@@ -10,7 +10,7 @@ class SamplingProtocolControls(unittest.TestCase):
         for spec in producers:
             with self.subTest(producer=spec.name):
                 samples=int(spec.bench_args[spec.bench_args.index('--iterations')+1])
-                self.assertGreaterEqual(samples,120)
+                self.assertGreaterEqual(samples,1200)
                 self.assertEqual(samples%3,0)
                 self.assertEqual(samples%4,0)
                 self.assertEqual(spec.sweep,(1,4,8,16,32))
@@ -27,7 +27,7 @@ class SamplingProtocolControls(unittest.TestCase):
 
     def test_old_short_measurements_cannot_qualify_current_producers(self):
         for spec in guard.PRODUCERS+guard.CHAIN_PRODUCERS:
-            for old in (20,40):
+            for old in (20,40,120):
                 with self.subTest(producer=spec.name,samples=old):
                     with self.assertRaises(guard.Problem):
                         guard.check_sample_count(spec,{'samples':old})

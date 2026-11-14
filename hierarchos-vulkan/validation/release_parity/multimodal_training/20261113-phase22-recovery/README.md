@@ -43,3 +43,21 @@ still uses the maintained build and measurement path. Candidate recording is
 not qualification. The pre-recording binary/table literal audit records which
 executables embed the three mutable tables; unaffected numerical evidence can
 be reused only if its binary and source bindings still verify.
+
+`packed-fourth-sweep-259f63a-balanced120` preserves the second 120-observation
+sweep. Every numerical pair passes, but three performance guards fail (channel
+mix, dense low-rank and FP32 packed forward), so status remains FAIL. The final
+binary lock also caught Cargo relinking the key/state consumer during the sweep.
+It did not embed the three changed tables, but library metadata still invalidated
+its build artifact. The producer now builds all nine packed release executables
+before capturing its binary lock; the lock itself remains mandatory.
+
+Independent 120-observation channel ratios at batch 16 were 1.01832, 1.05522 and
+0.97458 (composed/fused). Dense low-rank batch 16 ratios were 0.98671, 0.98222 and
+0.97272. The original 2% boundary is crossed by measurement variability. The
+next protocol uses 1,200 observations (100 complete cycles of both rotations)
+for all eleven timed producers. No numerical limit, decision band, batch,
+warmup, candidate graph, chain length or key/state repetition count changes.
+Leaf routes are recorded/applied first; forward, rematerialization and backward
+chains are recorded/applied in order, with real rebuilds between stages. A full
+independent thirteen-pair replay after the final rebuild is still required.

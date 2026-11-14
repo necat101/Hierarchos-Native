@@ -10,6 +10,17 @@ from pathlib import Path
 from check_measured_producer_routes import ALL_SPECS
 
 ROOT=Path(__file__).resolve().parents[2]
+PACKED_RELEASE_BINARIES=(
+    'hierarchos-vulkan-rwkv-key-state-forward-bench',
+    'hierarchos-vulkan-rwkv-low-rank-fp16-forward-bench',
+    'hierarchos-vulkan-rwkv-packed-cell-channel-mix-bench',
+    'hierarchos-vulkan-rwkv-packed-cell-low-rank-forward-bench',
+    'hierarchos-vulkan-rwkv-packed-cell-time-mix-bench',
+    'hierarchos-vulkan-rwkv-tbptt-packed-chains-bench',
+    'hierarchos-vulkan-rwkv-tbptt-time-mix-bench',
+    'rwkv_tbptt_packed_forward_parity',
+    'hierarchos-vulkan-rwkv-packed-cell-step',
+)
 
 
 def digest(path):
@@ -34,6 +45,14 @@ def main():
     # The benchmark drivers must not update their route tables during replay.
     records={p.as_posix():digest(p) for p in (ROOT/'hierarchos-vulkan/validation').rglob('*decisions*.json')}
     env={**os.environ,'CARGO_TARGET_DIR':str(ROOT/'hierarchos-vulkan/target'),'CARGO_BUILD_JOBS':'2','HIERARCHOS_WMMA_MODE':'off'}
+    # Cargo may relink a consumer after a library metadata change even when it
+    # does not embed the changed table. Build the full packed set before taking
+    # the immutable binary snapshot, rather than rebuilding it during timing.
+    build_command=['cargo','build','--locked','--release','--manifest-path',
+        str(ROOT/'hierarchos-vulkan/Cargo.toml'),
+        *[word for name in PACKED_RELEASE_BINARIES for word in ('--bin',name)]]
+    with (out/'release-build.log').open('w',encoding='utf-8') as log:
+        subprocess.run(build_command,cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT,check=True)
     cli=ROOT/'hierarchos-vulkan/target/release/hierarchos-native-cli.exe'
     capability_run=subprocess.run([str(cli),'precision-info'],cwd=ROOT,env=env,capture_output=True,text=True,check=True)
     capability=json.loads(capability_run.stdout)
@@ -42,6 +61,7 @@ def main():
     (out/'device-capabilities.json').write_text(json.dumps(capability,indent=2)+'\n')
     binaries={p.name:digest(p) for p in (ROOT/'hierarchos-vulkan/target/release').glob('*.exe')}
     status=dict(schema=1,kind='phase19z-packed-cell-amd-local',status='NOT RUN',source_revision=revision,
+        release_build_command=build_command,release_build_exit_code=0,
         device=capability['device_key'],adapter='amd-rdna3-lds64',binary_sha256=binaries,
         ci=dict(status='NOT RUN',note='Local physical GPU replay; self-hosted workflow is separate'),
         source_files=sources,decision_record_sha256=records,passes=[],failures=[],results={})

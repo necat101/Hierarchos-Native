@@ -144,7 +144,7 @@ jobs:
       - name: Time-mix projection A/B on the shipped default
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_packed_cell_time_mix.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 120 --warmup 5
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 1200 --warmup 5
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/packed_cell_time_mix_bench.json
 
       - name: Time-mix projection route across the sweep
@@ -155,7 +155,7 @@ jobs:
       - name: Channel-mix A/B on the shipped default
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_packed_cell_channel_mix.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 120 --warmup 5
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 1200 --warmup 5
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/packed_cell_channel_mix_bench.json
 
       - name: Channel-mix route across the sweep
@@ -166,7 +166,7 @@ jobs:
       - name: LN1/low-rank forward A/B on the shipped default
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_packed_cell_low_rank_forward.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 120 --warmup 5
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 1200 --warmup 5
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/packed_cell_low_rank_forward_bench.json
 
       - name: LN1/low-rank route across the sweep
@@ -177,7 +177,7 @@ jobs:
       - name: FP16-storage low-rank forward A/B on the shipped default
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_low_rank_fp16_forward.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 120 --warmup 5
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 1200 --warmup 5
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/low_rank_fp16_forward_bench.json
 
       - name: FP16-storage low-rank route across the sweep
@@ -188,7 +188,7 @@ jobs:
       - name: Key/state forward A/B on the shipped default
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_key_state_forward.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 120 --repetitions 50
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 1200 --repetitions 50
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/key_state_forward_bench.json
 
       - name: Key/state route across the sweep
@@ -199,7 +199,7 @@ jobs:
       - name: TBPTT packed forward A/B on the shipped default
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain forward --steps 8 --iterations 120
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain forward --steps 8 --iterations 1200
           --warmup 2
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/tbptt_packed_forward_bench.json
 
@@ -211,7 +211,7 @@ jobs:
       - name: TBPTT packed rematerialization A/B on the shipped default
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain remat --steps 8 --iterations 120
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain remat --steps 8 --iterations 1200
           --warmup 2
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/tbptt_packed_remat_bench.json
 
@@ -224,7 +224,7 @@ jobs:
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
           --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain forward --parameter-storage fp16-storage
-          --steps 8 --iterations 120 --warmup 2
+          --steps 8 --iterations 1200 --warmup 2
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/tbptt_packed_forward_fp16_bench.json
 
       - name: TBPTT packed-forward fp16-storage route across the sweep
@@ -236,7 +236,7 @@ jobs:
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
           --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain remat --parameter-storage fp16-storage
-          --steps 8 --iterations 120 --warmup 2
+          --steps 8 --iterations 1200 --warmup 2
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/tbptt_packed_remat_fp16_bench.json
 
       - name: TBPTT packed-rematerialization fp16-storage route across the sweep
@@ -247,7 +247,7 @@ jobs:
       - name: TBPTT backward fusion A/B on the shipped default
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain backward --steps 8 --iterations 120
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain backward --steps 8 --iterations 1200
           --warmup 3
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/tbptt_backward_fusion_bench.json
 
@@ -260,7 +260,7 @@ jobs:
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
           --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain backward --parameter-storage
-          fp16-storage --steps 8 --iterations 120 --warmup 3
+          fp16-storage --steps 8 --iterations 1200 --warmup 3
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/tbptt_backward_fusion_fp16_bench.json
 
       - name: TBPTT backward-fusion fp16-storage route across the sweep
@@ -384,7 +384,7 @@ jobs:
       - name: Time-mix projection A/B (AMD adapter)
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_packed_cell_time_mix.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 120 --warmup 5
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 1200 --warmup 5
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/packed_cell_time_mix_bench.json
 
       - name: Time-mix projection route across the sweep (AMD adapter)
@@ -395,7 +395,7 @@ jobs:
       - name: Channel-mix A/B (AMD adapter)
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_packed_cell_channel_mix.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 120 --warmup 5
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 1200 --warmup 5
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/packed_cell_channel_mix_bench.json
 
       - name: Channel-mix route across the sweep (AMD adapter)
@@ -406,7 +406,7 @@ jobs:
       - name: LN1/low-rank forward A/B (AMD adapter)
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_packed_cell_low_rank_forward.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 120 --warmup 5
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 1200 --warmup 5
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/packed_cell_low_rank_forward_bench.json
 
       - name: LN1/low-rank route across the sweep (AMD adapter)
@@ -417,7 +417,7 @@ jobs:
       - name: FP16-storage low-rank forward A/B (AMD adapter)
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_low_rank_fp16_forward.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 120 --warmup 5
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 1200 --warmup 5
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/low_rank_fp16_forward_bench.json
 
       - name: FP16-storage low-rank route across the sweep (AMD adapter)
@@ -428,7 +428,7 @@ jobs:
       - name: Key/state forward A/B (AMD adapter)
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_key_state_forward.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 120 --repetitions 50
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --iterations 1200 --repetitions 50
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/key_state_forward_bench.json
 
       - name: Key/state route across the sweep (AMD adapter)
@@ -439,7 +439,7 @@ jobs:
       - name: TBPTT packed forward A/B (AMD adapter)
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain forward --steps 8 --iterations 120
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain forward --steps 8 --iterations 1200
           --warmup 2
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/tbptt_packed_forward_bench.json
 
@@ -451,7 +451,7 @@ jobs:
       - name: TBPTT packed rematerialization A/B (AMD adapter)
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain remat --steps 8 --iterations 120
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain remat --steps 8 --iterations 1200
           --warmup 2
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/tbptt_packed_remat_bench.json
 
@@ -464,7 +464,7 @@ jobs:
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
           --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain forward --parameter-storage fp16-storage
-          --steps 8 --iterations 120 --warmup 2
+          --steps 8 --iterations 1200 --warmup 2
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/tbptt_packed_forward_fp16_bench.json
 
       - name: TBPTT packed-forward fp16-storage route across the sweep (AMD adapter)
@@ -476,7 +476,7 @@ jobs:
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
           --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain remat --parameter-storage fp16-storage
-          --steps 8 --iterations 120 --warmup 2
+          --steps 8 --iterations 1200 --warmup 2
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/tbptt_packed_remat_fp16_bench.json
 
       - name: TBPTT packed-rematerialization fp16-storage route across the sweep (AMD adapter)
@@ -487,7 +487,7 @@ jobs:
       - name: TBPTT backward fusion A/B (AMD adapter)
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
-          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain backward --steps 8 --iterations 120
+          --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain backward --steps 8 --iterations 1200
           --warmup 3
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/tbptt_backward_fusion_bench.json
 
@@ -500,7 +500,7 @@ jobs:
         run: >
           python hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py
           --batch 1 --batch 4 --batch 8 --batch 16 --batch 32 --chain backward --parameter-storage
-          fp16-storage --steps 8 --iterations 120 --warmup 3
+          fp16-storage --steps 8 --iterations 1200 --warmup 3
           --record hierarchos-vulkan/validation/release_parity/multimodal_training/20261112-unified-release/phase19z/packed-cell/tbptt_backward_fusion_fp16_bench.json
 
       - name: TBPTT backward-fusion fp16-storage route across the sweep (AMD adapter)

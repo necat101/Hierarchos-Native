@@ -1,0 +1,1 @@
+FAIL: tbptt-packed-forward: batch 16: 'legacy' is ahead of the structural default by 24.9%, outside the 2% noise band, but the record carries no decision for it

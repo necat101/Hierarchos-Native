@@ -91,7 +91,7 @@ CURRENT_RECEIPTS = (VALIDATION / "release_parity" / "multimodal_training" /
 # 20/40-sample sweeps produced conflicting winners beyond the unchanged bands.
 # More observations and balanced leg positions improve measurement reliability;
 # the geometries, warmups, candidate routes and numeric policies stay fixed.
-TIMING_SAMPLES = "120"
+TIMING_SAMPLES = "1200"
 
 PACKED_TENSORS = frozenset(
     {"output", "packed_new_state", "grad_x", "grad_packed_state", "token_feature_grad"}

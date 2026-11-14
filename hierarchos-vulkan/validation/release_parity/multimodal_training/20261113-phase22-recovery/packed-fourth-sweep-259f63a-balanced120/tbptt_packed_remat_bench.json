@@ -1,0 +1,361 @@
+{
+  "result": "pass",
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "width": 128,
+  "head_size": 16,
+  "steps": 8,
+  "chain": "remat",
+  "parameter_storage": null,
+  "precision_policy": "fp32",
+  "samples": 120,
+  "warmup": 2,
+  "margin": 0.02,
+  "unmeasured": [],
+  "batches": [
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "head_size": 16,
+      "batch": 1,
+      "steps": 8,
+      "chain": "remat",
+      "parameter_storage": "fp32",
+      "precision_policy": "fp32",
+      "legacy": {
+        "label": "legacy",
+        "median_ms": 7.18495,
+        "ms_per_step": 0.89811875
+      },
+      "packed": {
+        "label": "packed",
+        "median_ms": 7.45415,
+        "ms_per_step": 0.93176875
+      },
+      "default": {
+        "label": "legacy",
+        "median_ms": 7.405049999999999,
+        "ms_per_step": 0.9256312499999999
+      },
+      "default_route": "legacy",
+      "recorded_route": "legacy",
+      "packed_over_legacy": 1.037467205756477,
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 2560,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 2560,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "legacy_ms": 7.18495,
+      "packed_ms": 7.45415,
+      "default_ms": 7.405049999999999,
+      "default_over_legacy": 1.0306334769205074,
+      "legacy_label": "legacy",
+      "packed_label": "packed",
+      "default_label": "legacy",
+      "expected_default_label": "legacy"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "head_size": 16,
+      "batch": 4,
+      "steps": 8,
+      "chain": "remat",
+      "parameter_storage": "fp32",
+      "precision_policy": "fp32",
+      "legacy": {
+        "label": "legacy",
+        "median_ms": 8.76735,
+        "ms_per_step": 1.09591875
+      },
+      "packed": {
+        "label": "packed",
+        "median_ms": 9.041450000000001,
+        "ms_per_step": 1.1301812500000001
+      },
+      "default": {
+        "label": "legacy",
+        "median_ms": 8.8531,
+        "ms_per_step": 1.1066375
+      },
+      "default_route": "legacy",
+      "recorded_route": "legacy",
+      "packed_over_legacy": 1.0312637227896686,
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 10240,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 10240,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "legacy_ms": 8.76735,
+      "packed_ms": 9.041450000000001,
+      "default_ms": 8.8531,
+      "default_over_legacy": 1.00978060645463,
+      "legacy_label": "legacy",
+      "packed_label": "packed",
+      "default_label": "legacy",
+      "expected_default_label": "legacy"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "head_size": 16,
+      "batch": 8,
+      "steps": 8,
+      "chain": "remat",
+      "parameter_storage": "fp32",
+      "precision_policy": "fp32",
+      "legacy": {
+        "label": "legacy",
+        "median_ms": 11.31935,
+        "ms_per_step": 1.41491875
+      },
+      "packed": {
+        "label": "packed",
+        "median_ms": 12.24325,
+        "ms_per_step": 1.53040625
+      },
+      "default": {
+        "label": "legacy",
+        "median_ms": 11.344549999999998,
+        "ms_per_step": 1.4180687499999998
+      },
+      "default_route": "legacy",
+      "recorded_route": "legacy",
+      "packed_over_legacy": 1.0816212945089603,
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 20480,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 20480,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "legacy_ms": 11.31935,
+      "packed_ms": 12.24325,
+      "default_ms": 11.344549999999998,
+      "default_over_legacy": 1.002226276243777,
+      "legacy_label": "legacy",
+      "packed_label": "packed",
+      "default_label": "legacy",
+      "expected_default_label": "legacy"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "head_size": 16,
+      "batch": 16,
+      "steps": 8,
+      "chain": "remat",
+      "parameter_storage": "fp32",
+      "precision_policy": "fp32",
+      "legacy": {
+        "label": "legacy",
+        "median_ms": 16.6849,
+        "ms_per_step": 2.0856125
+      },
+      "packed": {
+        "label": "packed",
+        "median_ms": 19.5848,
+        "ms_per_step": 2.4481
+      },
+      "default": {
+        "label": "legacy",
+        "median_ms": 16.67225,
+        "ms_per_step": 2.08403125
+      },
+      "default_route": "legacy",
+      "recorded_route": "legacy",
+      "packed_over_legacy": 1.173803858578715,
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 40960,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 40960,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "legacy_ms": 16.6849,
+      "packed_ms": 19.5848,
+      "default_ms": 16.67225,
+      "default_over_legacy": 0.9992418294385942,
+      "legacy_label": "legacy",
+      "packed_label": "packed",
+      "default_label": "legacy",
+      "expected_default_label": "legacy"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "head_size": 16,
+      "batch": 32,
+      "steps": 8,
+      "chain": "remat",
+      "parameter_storage": "fp32",
+      "precision_policy": "fp32",
+      "legacy": {
+        "label": "legacy",
+        "median_ms": 24.9327,
+        "ms_per_step": 3.1165875
+      },
+      "packed": {
+        "label": "packed",
+        "median_ms": 31.16305,
+        "ms_per_step": 3.89538125
+      },
+      "default": {
+        "label": "legacy",
+        "median_ms": 24.1652,
+        "ms_per_step": 3.02065
+      },
+      "default_route": "legacy",
+      "recorded_route": "legacy",
+      "packed_over_legacy": 1.249886694982894,
+      "worst_max_abs": 0.0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 32768,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "final_packed_state",
+          "values": 81920,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_x",
+          "values": 32768,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 32768,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 81920,
+          "max_abs": 0.0,
+          "worst_excess": 0.0
+        }
+      ],
+      "legacy_ms": 24.9327,
+      "packed_ms": 31.16305,
+      "default_ms": 24.1652,
+      "default_over_legacy": 0.9692171325207458,
+      "legacy_label": "legacy",
+      "packed_label": "packed",
+      "default_label": "legacy",
+      "expected_default_label": "legacy"
+    }
+  ]
+}

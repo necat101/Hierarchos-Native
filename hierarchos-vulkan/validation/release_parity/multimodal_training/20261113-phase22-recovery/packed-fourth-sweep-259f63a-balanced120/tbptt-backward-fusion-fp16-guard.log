@@ -1,0 +1,7 @@
+tbptt-backward-fusion-fp16: batch  1: folded  fused   7.264 ms  staged   7.220 ms  folded   7.229 ms
+tbptt-backward-fusion-fp16: batch  4: folded  fused   8.971 ms  staged   8.953 ms  folded   8.762 ms
+tbptt-backward-fusion-fp16: batch  8: folded  fused  11.626 ms  staged  11.484 ms  folded  11.324 ms
+tbptt-backward-fusion-fp16: batch 16: folded  fused  16.877 ms  staged  16.834 ms  folded  16.515 ms
+tbptt-backward-fusion-fp16: batch 32: fused   fused  25.436 ms  staged  25.776 ms  folded  25.361 ms
+PASS: tbptt-backward-fusion-fp16 is measured across batch 1, 4, 8, 16, 32 on AMD Radeon Graphics [pci=1002:15bf;driver=00800184], and its record follows it
+PASS: 1 receipt(s) re-checked against the record(s) they consume: tbptt-backward-fusion-fp16
