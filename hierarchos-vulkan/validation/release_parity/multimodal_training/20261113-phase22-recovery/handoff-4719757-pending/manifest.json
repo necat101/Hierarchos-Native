@@ -1,11 +1,29 @@
 {
   "source_revision": "4719757de5ec039f4ba435113085ba58d0092b72",
   "files": {
-    "hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py": "19f0c8988b2ab67a8c266f94d7226a2e3a85460947ba82e0b63490ac6b41a410",
-    "hierarchos-vulkan/validation/check_measured_producer_routes.py": "73e013b4984777b3ea8ef9a0149b3e24c2b5530569b18f77751b082d390553c4",
-    "hierarchos-vulkan/validation/release_parity/multimodal_training/20261113-phase22-recovery/README.md": "9ff4fdbd4b50e5854070dff1e3bdfd9bf2eefcbb240d3ddb0245184453c2aa58",
-    "hierarchos-vulkan/validation/tbptt_backward_fusion_decisions.json": "7d4dcd11a1fe69eb7a7cf64bf957e79ca9b56c9ad864c934f1f9d2a470ca1d55",
-    "hierarchos-vulkan/validation/test_measured_producer_routes.py": "6a60ab33be9703e66153c27a84c1db10bac3f714f8fadb2cea381566a1b32d1f",
-    "hierarchos-vulkan/validation/test_rwkv_tbptt_packed_chains_receipt.py": "042bc54d0b79c787b104ee0c0d2d2ac27dc27b9535b3e721926974cda90aa00f"
+    "hierarchos-vulkan/validation/bench_rwkv_tbptt_packed_chains.py": {
+      "snapshot": "snapshots/bench_rwkv_tbptt_packed_chains.py",
+      "sha256": "19f0c8988b2ab67a8c266f94d7226a2e3a85460947ba82e0b63490ac6b41a410"
+    },
+    "hierarchos-vulkan/validation/check_measured_producer_routes.py": {
+      "snapshot": "snapshots/check_measured_producer_routes.py",
+      "sha256": "73e013b4984777b3ea8ef9a0149b3e24c2b5530569b18f77751b082d390553c4"
+    },
+    "hierarchos-vulkan/validation/release_parity/multimodal_training/20261113-phase22-recovery/README.md": {
+      "snapshot": "snapshots/README.md",
+      "sha256": "9ff4fdbd4b50e5854070dff1e3bdfd9bf2eefcbb240d3ddb0245184453c2aa58"
+    },
+    "hierarchos-vulkan/validation/tbptt_backward_fusion_decisions.json": {
+      "snapshot": "snapshots/tbptt_backward_fusion_decisions.json",
+      "sha256": "7d4dcd11a1fe69eb7a7cf64bf957e79ca9b56c9ad864c934f1f9d2a470ca1d55"
+    },
+    "hierarchos-vulkan/validation/test_measured_producer_routes.py": {
+      "snapshot": "snapshots/test_measured_producer_routes.py",
+      "sha256": "6a60ab33be9703e66153c27a84c1db10bac3f714f8fadb2cea381566a1b32d1f"
+    },
+    "hierarchos-vulkan/validation/test_rwkv_tbptt_packed_chains_receipt.py": {
+      "snapshot": "snapshots/test_rwkv_tbptt_packed_chains_receipt.py",
+      "sha256": "042bc54d0b79c787b104ee0c0d2d2ac27dc27b9535b3e721926974cda90aa00f"
+    }
   }
 }
