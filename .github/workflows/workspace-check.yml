@@ -133,8 +133,10 @@ jobs:
       # Audits use the recorded library pair without importing torch. The
       # hash-bound legacy set may only shrink after a successful reproduction;
       # --strict additionally rejects that historical, unverified set.
-      - name: V4.1 fixture provenance
-        run: python hierarchos-vulkan/validation/fixture_toolchain.py check-all --expect-from hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_block128.json
+      # This candidate is AVX512/RDNA3. Hash-bound AVX2 reproduction assignments
+      # stay pending on that host; the unscoped/AVX2 audit still requires pins.
+      - name: V4.1 fixture provenance (AVX512 RDNA3 target)
+        run: python hierarchos-vulkan/validation/fixture_toolchain.py check-all --target-cpu AVX512 --expect-from hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_block128.json
 
       # Keep native checks in separate steps: Windows PowerShell otherwise
       # lets a later successful command mask an earlier nonzero exit status.

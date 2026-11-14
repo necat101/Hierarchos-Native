@@ -1,0 +1,1 @@
+Previous receipt, report and blocked CI state are preserved byte for byte. Corresponding numerical evidence remains tracked at commit 7dec7ac291b06eb043bfa09ce9c21572aaa70e80 under 20261112-unified-release/evidence/unified. The new seal keeps that executed evidence unchanged while making the user-specified AVX512/RDNA3 target and pending AVX2 host verification explicit.

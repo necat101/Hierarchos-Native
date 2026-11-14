@@ -123,6 +123,93 @@ class ToolchainTests(unittest.TestCase):
         self.assertTrue(ft.audit(self.root, PAIR, historical={})["problems"])
         self.assertTrue(ft.audit(self.root, PAIR, historical={key: {"sha256": "changed"}})["problems"])
 
+    def assign_pending_host(self):
+        self.path.write_text(json.dumps({"cpu": "AVX2", "values": [1, 2]}))
+        document = {"schema": 1, "fixtures": {self.path.name: {
+            "cpu": "AVX2", "sha256": ft._sha(self.path), "status": "PENDING_HOST_VERIFICATION"}}}
+        (self.root / ft.HOST_QUALIFICATIONS).write_text(json.dumps(document))
+        return document
+
+    def test_other_host_assignment_stays_pending_without_certifying_a_pin(self):
+        self.assign_pending_host()
+        before = self.path.read_bytes()
+        report = ft.audit(self.root, PAIR, target_cpu="AVX512")
+        self.assertFalse(report["problems"])
+        self.assertEqual(report["target_cpu"], "AVX512")
+        self.assertEqual(report["pinned"], 0)
+        self.assertEqual(report["deferred_host_verification"], [{
+            "fixture": self.path.name, "cpu": "AVX2", "sha256": ft._sha(self.path),
+            "status": "PENDING_HOST_VERIFICATION"}])
+        self.assertIsNone(ft.pin(self.path))
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_assigned_host_and_unscoped_audits_still_require_verified_pins(self):
+        self.assign_pending_host()
+        for target in (None, "AVX2"):
+            with self.subTest(target=target):
+                report = ft.audit(self.root, PAIR, target_cpu=target)
+                self.assertTrue(report["problems"])
+                self.assertFalse(report["deferred_host_verification"])
+
+    def test_other_cpu_metadata_alone_cannot_defer_an_unpinned_fixture(self):
+        self.path.write_text(json.dumps({"cpu": "AVX2"}))
+        self.assertTrue(ft.audit(self.root, PAIR, target_cpu="AVX512")["problems"])
+
+    def test_pending_assignment_rejects_changed_bytes_cpu_status_or_missing_fixture(self):
+        original = self.assign_pending_host()
+        for field, value in (("sha256", "0" * 64), ("cpu", "AVX512"), ("status", "VERIFIED")):
+            with self.subTest(field=field):
+                document = json.loads(json.dumps(original))
+                document["fixtures"][self.path.name][field] = value
+                (self.root / ft.HOST_QUALIFICATIONS).write_text(json.dumps(document))
+                report = ft.audit(self.root, PAIR, target_cpu="AVX512")
+                self.assertTrue(report["problems"])
+                self.assertFalse(report["deferred_host_verification"])
+        (self.root / ft.HOST_QUALIFICATIONS).write_text(json.dumps(original))
+        self.path.unlink()
+        self.assertTrue(ft.audit(self.root, PAIR, target_cpu="AVX512")["problems"])
+
+    def test_pending_host_cannot_replace_a_legacy_baseline(self):
+        self.assign_pending_host()
+        (self.root / ft.LEGACY).write_text(json.dumps({self.path.name: {"sha256": ft._sha(self.path)}}))
+        self.assertTrue(ft.audit(self.root, PAIR, target_cpu="AVX512")["problems"])
+
+    def test_exact_reproduction_removes_pending_assignment_and_preserves_bytes(self):
+        self.assign_pending_host()
+        before = self.path.read_bytes()
+        with self.assertWarns(UserWarning):
+            ft.write_fixture(self.path, json.dumps({"cpu": "AVX2", "values": [1, 2]}))
+        self.assertEqual(self.path.read_bytes(), before)
+        self.assertEqual(ft.pin(self.path), PAIR)
+        self.assertEqual(ft._read(self.root / ft.HOST_QUALIFICATIONS)["fixtures"], {})
+        self.assertFalse(ft.audit(self.root, PAIR, target_cpu="AVX2")["problems"])
+
+    def test_failed_reproduction_keeps_pending_assignment(self):
+        self.assign_pending_host()
+        host_file = self.root / ft.HOST_QUALIFICATIONS
+        before = host_file.read_bytes()
+        with self.assertWarns(UserWarning), self.assertRaises(ValueError):
+            ft.write_fixture(self.path, json.dumps({"cpu": "AVX2", "values": [9]}))
+        self.assertEqual(host_file.read_bytes(), before)
+        self.assertIsNone(ft.pin(self.path))
+
+    def test_pending_fixture_cannot_be_certified_on_the_other_cpu_host(self):
+        self.assign_pending_host()
+        host_file = self.root / ft.HOST_QUALIFICATIONS
+        before = host_file.read_bytes()
+        with patch.object(ft, "current", return_value={**PAIR, "cpu": "AVX512"}):
+            with self.assertWarns(UserWarning), self.assertRaisesRegex(ValueError, "assigned AVX2 CPU host"):
+                ft.write_fixture(self.path, self.path.read_text())
+        self.assertEqual(host_file.read_bytes(), before)
+        self.assertIsNone(ft.pin(self.path))
+
+    def test_malformed_host_assignments_fail_closed(self):
+        self.path.write_text(json.dumps({"cpu": "AVX2"}))
+        for value in (["invalid"], {"schema": 2, "fixtures": {}}, {"schema": 1, "fixtures": []}):
+            with self.subTest(value=value):
+                (self.root / ft.HOST_QUALIFICATIONS).write_text(json.dumps(value))
+                self.assertTrue(ft.audit(self.root, PAIR, target_cpu="AVX512")["problems"])
+
 
 if __name__ == "__main__":
     unittest.main()

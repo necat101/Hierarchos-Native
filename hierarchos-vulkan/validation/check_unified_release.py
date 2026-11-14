@@ -12,10 +12,21 @@ DEFAULT=ROOT/'hierarchos-vulkan/validation/release_parity/multimodal_training/20
 IMAGE_COUNTS={'shared77':77,'seq2seq':6,'gemma3':4,'gemma4-legacy':1,'gemma4-rgb':1,'llava':4}
 REQUIRED={'text166','fp32_replay','precision','wide','native_v41','wmma_mixed','wmma_full_original','wmma_full_dot2',
           'shader727','shader_wmma','tests','gui_cli','packed','intermediates','phase19w','phase19x','phase19y','phase19z',*IMAGE_COUNTS}
+QUALIFICATION_TARGET={'cpu':'AVX512','gpu':'RDNA3'}
+HOST_QUALIFICATIONS='hierarchos-vulkan/validation/fixtures/fixture_host_qualifications.json'
 
 
 def require(ok,message):
     if not ok:raise ValueError(message)
+
+
+def target_fixture_provenance():
+    import fixture_toolchain as ft
+    expected=ft.pin(ft.FIXTURES/'deepseek_v41_mixed_block128.json')
+    historical=json.loads((ROOT/'HANDOFF-MANIFEST.json').read_text())
+    report=ft.audit(ft.FIXTURES,expected,target_cpu=QUALIFICATION_TARGET['cpu'],historical=historical)
+    require(not report['problems'],'target fixture provenance failed: '+str(report['problems']))
+    return report
 
 
 def digest(path):
@@ -110,6 +121,7 @@ def verify_intermediates(q):
 
 def validate_payload(document,components):
     require(document.get('schema')==1 and document.get('status')=='PASS_SCOPED_RELEASE','invalid unified release status')
+    require(document.get('qualification_target')==QUALIFICATION_TARGET,'wrong release qualification target')
     require(set(components)==REQUIRED,'missing unified qualification components')
     require(document['precision_policy']['full_fp16_max_reduction']==64,'Full FP16 numerical range was widened')
     require(document['precision_policy']['full_fp16_is_universal_graph_precision'] is False,'Full FP16 graph semantics overstated')
@@ -251,9 +263,10 @@ def verify(path=DEFAULT,*,check_subreceipts=True):
         'hierarchos-inference/src','hierarchos-native-cli/src','hierarchos-gui/src'],text=True).splitlines())
     required_sources.update({'hierarchos-vulkan/validation/check_unified_release.py',
         'hierarchos-vulkan/validation/qualify_unified_release.py','hierarchos-vulkan/validation/test_unified_release.py',
-        '.github/workflows/workspace-check.yml','RDNA3_RELEASE_CONTRACT.md','.gitattributes'})
+        '.github/workflows/workspace-check.yml','RDNA3_RELEASE_CONTRACT.md','.gitattributes',HOST_QUALIFICATIONS})
     require(required_sources.issubset(document['source_files']),'unified runtime/source inventory incomplete')
     for relative,sha in document['source_files'].items():require(digest(ROOT/relative)==sha,'current source changed: '+relative)
+    require(document.get('fixture_provenance')==target_fixture_provenance(),'target fixture provenance report changed')
     for relative,sha in document['evidence_files'].items():require(digest(base/relative)==sha,'release evidence changed: '+relative)
     for name,row in document['binaries'].items():
         p=ROOT/row['path']

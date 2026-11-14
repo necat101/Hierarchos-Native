@@ -1,6 +1,6 @@
 # Unified FP32, Mixed WMMA and scoped Full FP16 qualification
 
-Delivery gate: **BLOCKED on native fixture provenance**. See [CI_STATUS.md](CI_STATUS.md) for the remaining required check and preserved reproduction evidence.
+Qualification target: **AVX512 + RDNA3**. Native AVX2 fixture reproduction is **pending on the AVX2 host** and does not block this target. See [CI_STATUS.md](CI_STATUS.md) for target-scoped checks and the separate host assignment.
 
 Local numerical and source-bound status: **PASS (scoped)**. The sealed machine-readable record is [release-qualification.json](release-qualification.json); [precision-capabilities.json](precision-capabilities.json) gives the family-by-family support contract. GitHub-hosted CI is a separate final-commit check; its actual run URLs and conclusions belong in the delivery report. Self-hosted hardware availability is never inferred from local PASS.
 

@@ -17,6 +17,8 @@ import warnings
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SIDECAR = "deepseek_v41_toolchain.json"
 LEGACY = "deepseek_v41_toolchain_legacy.json"
+HOST_QUALIFICATIONS = "fixture_host_qualifications.json"
+CPU_TARGETS = ("AVX2", "AVX512")
 
 
 def current():
@@ -98,6 +100,11 @@ def write_fixture(path, text, *args, **kwargs):
     if not isinstance(generated, (dict, list)):
         raise ValueError(f"{path}: expected a fixture object or array")
     check_file(path)
+    host_file = path.parent / HOST_QUALIFICATIONS
+    hosts = _read(host_file)
+    assigned = hosts.get("fixtures", {}).get(path.name)
+    if assigned is not None and current().get("cpu") != assigned.get("cpu"):
+        raise ValueError(f"{path.name}: reproduce on the assigned {assigned.get('cpu')} CPU host")
     if path.exists():
         if payload(_read(path)) != payload(generated):
             raise ValueError(f"{path.name}: refusing to overwrite frozen CPU fixture values; use a host variant")
@@ -114,18 +121,50 @@ def write_fixture(path, text, *args, **kwargs):
         legacy = _read(baseline)
         if legacy.pop(path.name, None) is not None:
             baseline.write_text(json.dumps(legacy, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if host_file.exists():
+        if hosts.get("fixtures", {}).pop(path.name, None) is not None:
+            host_file.write_text(json.dumps(hosts, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return len(text)
 
 
-def audit(directory, expected, *, strict=False, historical=None):
+def audit(directory, expected, *, strict=False, historical=None, target_cpu=None):
+    """Audit pins, keeping assigned other-host reproduction explicitly pending.
+
+    A target scope never issues a pin. Deferral requires an exact hash and CPU
+    metadata match in the host-assignment file. Unscoped and assigned-host
+    audits still reject the unverified fixture.
+    """
+    if target_cpu is not None and target_cpu not in CPU_TARGETS:
+        raise ValueError("unknown CPU qualification target")
     directory = Path(directory)
     legacy = _read(directory / LEGACY)
     files = sorted(p for p in directory.glob("deepseek_v41_*.json")
                    if p.name not in {SIDECAR, LEGACY, "deepseek_v41_flash_1017_config.json"})
-    problems, pinned, old = [], 0, 0
+    problems, pinned, old, deferred = [], 0, 0, []
     if not files:
         problems.append("empty fixture directory")
     names = {p.name for p in files}
+    hosts = _read(directory / HOST_QUALIFICATIONS)
+    assignments = hosts.get("fixtures", {}) if isinstance(hosts, dict) else {}
+    if hosts and (not isinstance(hosts, dict) or hosts.get("schema") != 1 or not isinstance(assignments, dict)):
+        problems.append("invalid host-qualification assignments")
+        assignments = {}
+    valid_assignments = {}
+    for name, row in assignments.items():
+        if name not in names:
+            problems.append(f"{name}: assigned host fixture missing")
+            continue
+        path = directory / name
+        value = _read(path)
+        if (not isinstance(row, dict) or row.get("status") != "PENDING_HOST_VERIFICATION"
+                or row.get("cpu") not in CPU_TARGETS
+                or row.get("sha256") != _sha(path)
+                or not isinstance(value, dict) or value.get("cpu") != row.get("cpu")):
+            problems.append(f"{name}: host assignment must match frozen bytes and recorded CPU")
+        elif name in legacy:
+            problems.append(f"{name}: legacy fixtures cannot enter pending host assignments")
+        else:
+            valid_assignments[name] = row
     for name in legacy:
         if name not in names:
             problems.append(f"{name}: stale legacy entry (file missing)")
@@ -141,20 +180,28 @@ def audit(directory, expected, *, strict=False, historical=None):
             continue
         if toolchain is None:
             if legacy.get(path.name, {}).get("sha256") != _sha(path):
-                problems.append(f"{path.name}: missing verified pin or legacy SHA-256")
+                assigned = valid_assignments.get(path.name)
+                if assigned is not None and target_cpu is not None and assigned["cpu"] != target_cpu:
+                    deferred.append(dict(fixture=path.name, cpu=assigned["cpu"],
+                                         sha256=assigned["sha256"], status=assigned["status"]))
+                else:
+                    problems.append(f"{path.name}: missing verified pin or legacy SHA-256")
             else:
                 old += 1
                 if strict:
                     problems.append(f"{path.name}: missing verified toolchain pin")
         else:
             pinned += 1
+            if path.name in assignments:
+                problems.append(f"{path.name}: verified fixture must leave pending host assignments")
             if any(not toolchain.get(k) or toolchain[k] != expected.get(k) for k in ("torch", "numpy")):
                 problems.append(f"{path.name}: library pin {toolchain} differs from {expected}")
             if not toolchain.get("cpu"):
                 problems.append(f"{path.name}: CPU capability pin missing")
             if path.name in legacy:
                 problems.append(f"{path.name}: verified fixture must leave the legacy baseline")
-    return {"pinned": pinned, "legacy": old, "total": len(files), "problems": problems}
+    return {"target_cpu": target_cpu or "ALL_HOSTS", "pinned": pinned, "legacy": old,
+            "total": len(files), "deferred_host_verification": deferred, "problems": problems}
 
 
 def main():
@@ -167,6 +214,8 @@ def main():
     all_check.add_argument("--fixtures", type=Path, default=FIXTURES)
     all_check.add_argument("--expect-from", type=Path, required=True)
     all_check.add_argument("--strict", action="store_true")
+    all_check.add_argument("--target-cpu", choices=CPU_TARGETS,
+                           help="qualification target; hash-bound other-host fixtures remain explicitly pending")
     all_check.add_argument("--historical-manifest", type=Path,
                            default=Path(__file__).resolve().parents[2] / "HANDOFF-MANIFEST.json")
     args = parser.parse_args()
@@ -182,7 +231,7 @@ def main():
         if not args.historical_manifest.is_file():
             parser.error("historical manifest is required to enforce the legacy ratchet")
         report = audit(args.fixtures, expected, strict=args.strict,
-                       historical=_read(args.historical_manifest))
+                       historical=_read(args.historical_manifest), target_cpu=args.target_cpu)
         print(json.dumps(report, indent=2))
         return int(bool(report["problems"]))
     return 0

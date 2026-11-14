@@ -6,7 +6,8 @@ maintained Phase XIX checkers run before the new release receipt is published.
 """
 import argparse, json, os, subprocess, sys
 from pathlib import Path
-from check_unified_release import ROOT, REQUIRED, DEFAULT, digest, require, validate_payload, verify
+from check_unified_release import (ROOT, REQUIRED, DEFAULT, HOST_QUALIFICATIONS, QUALIFICATION_TARGET,
+                                  digest, require, target_fixture_provenance, validate_payload, verify)
 
 
 def main():
@@ -19,6 +20,7 @@ def main():
     require(not subprocess.check_output(['git','-C',str(ROOT),'status','--porcelain','--untracked-files=no'],text=True).strip(),
             'commit a clean candidate and component evidence before release sealing')
     revision=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
+    provenance=target_fixture_provenance()
     for name in ('phase19x','phase19y','phase19z'):
         script={'phase19x':'check_phase19x_current.py','phase19y':'check_phase19y_full_attention.py','phase19z':'check_phase19z_current.py'}[name]
         subprocess.run([sys.executable,str(ROOT/'hierarchos-vulkan/validation'/script),'--receipt',
@@ -43,7 +45,7 @@ def main():
         'hierarchos-native-cli/src','hierarchos-gui/src',
         ':(glob)hierarchos-vulkan/validation/*.py',':(glob)hierarchos-vulkan/validation/*.json',
         ':(glob)hierarchos-*/Cargo.toml',':(glob)hierarchos-*/Cargo.lock','.github/workflows',
-        'RDNA3_RELEASE_CONTRACT.md','.gitattributes'],text=True).splitlines()
+        'RDNA3_RELEASE_CONTRACT.md','.gitattributes',HOST_QUALIFICATIONS],text=True).splitlines()
     sources={name:digest(ROOT/name) for name in paths}
     binaries={name:dict(path=Path(value).resolve().relative_to(ROOT).as_posix(),sha256=digest(value))
               for name,value in inputs['binaries'].items()}
@@ -67,6 +69,7 @@ def main():
                 scope='qualified Llama64/shared CLIP64 package, adapter/driver and reductions <=64; FP32 suboperations retained' if full else 'not admitted',
                 evidence=['precision','tests','gui_cli'] if full else [])))
     document=dict(schema=1,status='PASS_SCOPED_RELEASE',source_revision=revision,source_clean=True,
+        qualification_target=QUALIFICATION_TARGET,fixture_provenance=provenance,
         device=inputs['device'],components=bindings,source_files=sources,binaries=binaries,evidence_files=evidence,
         precision_policy=policy,precision_capabilities=capabilities,
         limitations=[
@@ -77,10 +80,12 @@ def main():
             'Full-model optimizer resume, image accumulation, dropout accumulation and partial-window resume remain unsupported.',
             'Local thirteen-route qualification does not assert a queued or unavailable self-hosted GitHub workflow passed.',
             'GitHub-hosted CI conclusions must be checked at the published release commit; sealing this receipt does not predict them.'])
+    document['limitations'].append('Native AVX2 fixture reproduction remains pending on the AVX2 host; this AVX512/RDNA3 target does not certify it.')
     validate_payload(document,components)
     require(all(digest(ROOT/name)==sha for name,sha in sources.items()),'source changed while sealing')
     matrix=base/'precision-capabilities.json';require(not matrix.exists(),'capability matrix already exists')
-    matrix.write_text(json.dumps(dict(schema=1,source_revision=revision,device=inputs['device'],policy=policy,families=capabilities),indent=2)+'\n')
+    matrix.write_text(json.dumps(dict(schema=1,source_revision=revision,qualification_target=QUALIFICATION_TARGET,
+                                     device=inputs['device'],policy=policy,families=capabilities),indent=2)+'\n')
     document['evidence_files'][matrix.relative_to(base).as_posix()]=digest(matrix)
     with out.open('x') as f:json.dump(document,f,indent=2,allow_nan=False)
     verify(out)

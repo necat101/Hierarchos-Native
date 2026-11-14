@@ -1,5 +1,14 @@
 # Current numerical qualification scope
 
+This release target is **AVX512 + RDNA3**. AVX2 fixture reproduction belongs to
+the AVX2 qualification host. The target-scoped provenance audit keeps those
+assignments explicit as `PENDING_HOST_VERIFICATION`, bound to the original
+fixture SHA-256 and recorded CPU. That status certifies neither an AVX2
+reproduction nor an AVX512 replacement. The unscoped and AVX2-target audits
+still require verified pins; successful exact reproduction on the assigned
+CPU removes the pending assignment. The existing AVX512 oracle-archive and
+RDNA3 numerical/dispatch gates remain required for this target.
+
 The original maintained FP32 contract requires 93 image cases and 166 text
 comparisons, strict `max_abs < 2e-7`, `rtol=0`, and the original loss, parameter
 update and export/reload checks. Those expectations and frozen inputs remain

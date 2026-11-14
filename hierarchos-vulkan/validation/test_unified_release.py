@@ -27,6 +27,14 @@ class UnifiedReleaseControls(unittest.TestCase):
     def test_positive_including_all_current_source_subcheckers(self):c.verify()
     def test_stale_source(self):
         self.reject_binding(lambda d:d['source_files'].__setitem__('hierarchos-vulkan/src/transformer.rs','0'*64))
+    def test_host_assignment_policy_binding_cannot_be_removed(self):
+        self.reject_binding(lambda d:d['source_files'].pop(c.HOST_QUALIFICATIONS))
+    def test_stale_host_assignment_policy(self):
+        self.reject_binding(lambda d:d['source_files'].__setitem__(c.HOST_QUALIFICATIONS,'0'*64))
+    def test_pending_other_host_verification_cannot_be_hidden(self):
+        self.reject_binding(lambda d:d['fixture_provenance'].update(deferred_host_verification=[]))
+    def test_release_cannot_claim_the_other_cpu_target(self):
+        self.reject(lambda d,p:d['qualification_target'].update(cpu='AVX2'))
     def test_wrong_shader(self):
         self.reject_binding(lambda d:d['source_files'].__setitem__('hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc.spv','0'*64))
     def test_wrong_executable(self):

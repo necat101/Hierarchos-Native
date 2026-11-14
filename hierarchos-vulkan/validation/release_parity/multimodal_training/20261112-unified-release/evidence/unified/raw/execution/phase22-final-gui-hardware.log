@@ -1,7 +1,0 @@
-
-running 2 tests
-test multimodal_ui::tests::full_fp16_training_start_executes_qualified_workers ... ok
-test multimodal_ui::tests::mixed_training_start_executes_cooperative_workers ... ok
-
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 2.76s
-

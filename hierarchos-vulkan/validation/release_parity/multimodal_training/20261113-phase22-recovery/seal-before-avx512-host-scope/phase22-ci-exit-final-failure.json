@@ -1,0 +1,377 @@
+{
+  "head_sha": "7dec7ac291b06eb043bfa09ce9c21572aaa70e80",
+  "run_id": 43600747630,
+  "run_url": "https://github.com/necat101/Hierarchos-Native/actions/runs/43600747630",
+  "job_id": 132464753273,
+  "conclusion": "failure",
+  "failed_step": "V4.1 fixture provenance",
+  "jobs": [
+    {
+      "id": 132464753021,
+      "name": "phase19t-historical",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 43600747630,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Phase XIX-T sealed policy overlay",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Phase XIX-T sealed negative controls",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Post Run actions/setup-python@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Post Run actions/checkout@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        }
+      ]
+    },
+    {
+      "id": 132464753273,
+      "name": "workspace-check",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_id": 43600747630,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Install Rust",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Cache Cargo and target",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "RDNA3 Windows path smoke test",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "One-pass workspace check",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "RDNA3 multimodal receipt guard",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Expanded RDNA3 GPT2 receipt guard (historical integrity)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Phase XIX-X current-source instrumented qualification",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Phase XIX-X current-source negative controls",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Current mirror-epoch drift controls",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Phase XIX-X attention receipt",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Phase XIX-X attention negative controls",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        },
+        {
+          "name": "Phase XIX-Y full-attention receipt",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14
+        },
+        {
+          "name": "Phase XIX-Y full-attention negative controls",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15
+        },
+        {
+          "name": "Phase XIX-Z current-source receipt",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16
+        },
+        {
+          "name": "Phase XIX-Z current-source negative controls",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17
+        },
+        {
+          "name": "Unified FP32 Mixed and scoped Full FP16 release",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18
+        },
+        {
+          "name": "Unified release fault injection",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19
+        },
+        {
+          "name": "Phase XIX-U historical audit",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20
+        },
+        {
+          "name": "Phase XIX-U audit negative controls",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21
+        },
+        {
+          "name": "Expanded RDNA3 GPT2 receipt negative controls",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22
+        },
+        {
+          "name": "Phase XVI qualification negative controls",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23
+        },
+        {
+          "name": "A/B workflow matches the route guard's spec table",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 24
+        },
+        {
+          "name": "V4.1 fixture provenance",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 25
+        },
+        {
+          "name": "V4.1 fixture provenance controls",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 26
+        },
+        {
+          "name": "Recorded measurement routes",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 27
+        },
+        {
+          "name": "Packed sampling protocol controls",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 28
+        },
+        {
+          "name": "Packed allocation timing controls",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 29
+        },
+        {
+          "name": "Packed measurement integrity controls",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 30
+        },
+        {
+          "name": "Gen9 strict qualification negative controls",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 31
+        },
+        {
+          "name": "RDNA3 regression collection negative controls",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 32
+        },
+        {
+          "name": "Multimodal training qualification negative controls",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 33
+        },
+        {
+          "name": "Image pipeline qualification negative controls",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 34
+        },
+        {
+          "name": "Gemma3 image qualification controls",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 35
+        },
+        {
+          "name": "Gemma4 image qualification controls",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 36
+        },
+        {
+          "name": "Committed training-stack receipt",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 37
+        },
+        {
+          "name": "Committed folded-publication profile",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 38
+        },
+        {
+          "name": "Folded-publication profile controls",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 39
+        },
+        {
+          "name": "Post Cache Cargo and target",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 77
+        },
+        {
+          "name": "Post Run actions/checkout@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 78
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 79
+        }
+      ]
+    },
+    {
+      "id": 132464753276,
+      "name": "workflow-validation",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 43600747630,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Install actionlint",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Validate GitHub Actions workflows",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Post Run actions/checkout@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        }
+      ]
+    }
+  ],
+  "log_excerpt": "2026-11-14T13:44:21.0563867Z ##[group]Run python hierarchos-vulkan/validation/fixture_toolchain.py check-all --expect-from hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_block128.json\r\n2026-11-14T13:44:21.0564856Z \u001b[36;1mpython hierarchos-vulkan/validation/fixture_toolchain.py check-all --expect-from hierarchos-vulkan/validation/fixtures/deepseek_v41_mixed_block128.json\u001b[0m\r\n2026-11-14T13:44:21.0620322Z shell: C:\\Program Files\\PowerShell\\7\\pwsh.EXE -command \". '{0}'\"\r\n2026-11-14T13:44:21.0620606Z env:\r\n2026-11-14T13:44:21.0620771Z   CARGO_HOME: C:\\Users\\runneradmin\\.cargo\r\n2026-11-14T13:44:21.0620992Z   CARGO_INCREMENTAL: 0\r\n2026-11-14T13:44:21.0621156Z   CARGO_TERM_COLOR: always\r\n2026-11-14T13:44:21.0621323Z ##[endgroup]\r\n2026-11-14T13:44:27.2994371Z {\r\n2026-11-14T13:44:27.2994598Z   \"pinned\": 17,\r\n2026-11-14T13:44:27.2994775Z   \"legacy\": 54,\r\n2026-11-14T13:44:27.2994926Z   \"total\": 73,\r\n2026-11-14T13:44:27.2995075Z   \"problems\": [\r\n2026-11-14T13:44:27.2995448Z     \"deepseek_v41_native_pipeline_avx2.json: missing verified pin or legacy SHA-256\",\r\n2026-11-14T13:44:27.2995878Z     \"deepseek_v41_native_vision_avx2.json: missing verified pin or legacy SHA-256\"\r\n2026-11-14T13:44:27.2996161Z   ]\r\n2026-11-14T13:44:27.2996288Z }\r\n2026-11-14T13:44:27.3916848Z ##[error]Process completed with exit code 1.\r"
+}

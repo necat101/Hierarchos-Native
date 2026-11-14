@@ -1,2 +1,0 @@
-WMMA: dense Transformer projections will request full-fp16
-error: Full FP16 is qualified for the 64-wide, one-layer Llama profile (64 intermediate/vocabulary, eight heads, no dropout, 33–64 batch×sequence rows). Other model profiles require independent qualification.

@@ -1,0 +1,58 @@
+{
+  "status": "BLOCKED_FIXTURE_PROVENANCE",
+  "commit": "7dec7ac291b06eb043bfa09ce9c21572aaa70e80",
+  "observed_at": "2026-11-14T13:44:05.624776+00:00",
+  "local_numerical_status": "PASS_SCOPED_RELEASE",
+  "release_receipt_sha256": "87c468f552c974cbdfa0a79a9ad5032acd26deb6f35f1d94f6a90995709ea51a",
+  "ci": {
+    "required_workflows": [
+      "architecture-compatibility.yml",
+      "phase19-instrumented.yml",
+      "phase19y-oracles.yml",
+      "workspace-check.yml"
+    ],
+    "runs": {
+      "phase19y-oracles.yml": {
+        "id": 43600747604,
+        "name": "phase19y oracle bytes",
+        "path": ".github/workflows/phase19y-oracles.yml",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/necat101/Hierarchos-Native/actions/runs/43600747604",
+        "head_sha": "7dec7ac291b06eb043bfa09ce9c21572aaa70e80"
+      },
+      "architecture-compatibility.yml": {
+        "id": 43600747623,
+        "name": "phase19w architecture compatibility",
+        "path": ".github/workflows/architecture-compatibility.yml",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/necat101/Hierarchos-Native/actions/runs/43600747623",
+        "head_sha": "7dec7ac291b06eb043bfa09ce9c21572aaa70e80"
+      },
+      "phase19-instrumented.yml": {
+        "id": 43600747653,
+        "name": "phase19 instrumented qualification",
+        "path": ".github/workflows/phase19-instrumented.yml",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/necat101/Hierarchos-Native/actions/runs/43600747653",
+        "head_sha": "7dec7ac291b06eb043bfa09ce9c21572aaa70e80"
+      },
+      "workspace-check.yml": {
+        "id": 43600747630,
+        "name": "workspace check",
+        "path": ".github/workflows/workspace-check.yml",
+        "status": "completed",
+        "conclusion": "failure",
+        "html_url": "https://github.com/necat101/Hierarchos-Native/actions/runs/43600747630",
+        "head_sha": "7dec7ac291b06eb043bfa09ce9c21572aaa70e80"
+      }
+    }
+  },
+  "blocking_fixtures": [
+    "deepseek_v41_native_vision_avx2.json",
+    "deepseek_v41_native_pipeline_avx2.json"
+  ],
+  "note": "Earlier hosted success masked a native-command failure. The corrected workflow separates the audit and unit tests."
+}
