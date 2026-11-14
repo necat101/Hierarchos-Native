@@ -25,31 +25,42 @@ jobs:
         run: |
           python -m pip install torch==2.14.1+cpu --index-url https://download.pytorch.org/whl/cpu
           python -m pip install numpy==2.5.3 pillow==13.0.0
-      - name: Reproduce the unmodified vision generator
-        run: python hierarchos-vulkan/validation/freeze_deepseek_v41_vision.py --output "$env:RUNNER_TEMP/native-vision-reproduced.json"
-      - name: Compare every original byte
+      - name: Reproduce and compare the recorded AVX2 generator
         shell: python
         run: |
-          import hashlib, json, os, pathlib, platform
+          import hashlib, json, os, pathlib, platform, subprocess, sys
           import numpy, torch
-          original = pathlib.Path('hierarchos-vulkan/validation/fixtures/deepseek_v41_native_vision_avx2.json')
-          reproduced = pathlib.Path(os.environ['RUNNER_TEMP']) / 'native-vision-reproduced.json'
+          root = pathlib.Path.cwd()
+          temp = pathlib.Path(os.environ['RUNNER_TEMP'])
+          original = root / 'hierarchos-vulkan/validation/fixtures/deepseek_v41_native_vision_avx2.json'
+          generator = root / 'hierarchos-vulkan/validation/freeze_deepseek_v41_vision.py'
           sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+          variants = {'default': {}, 'avx2': {'MKL_ENABLE_INSTRUCTIONS': 'AVX2'},
+                      'sse42': {'MKL_ENABLE_INSTRUCTIONS': 'SSE4_2'},
+                      'cnr': {'MKL_CBWR': 'COMPATIBLE'}}
+          results = []
+          for name, settings in variants.items():
+              output = temp / ('native-vision-' + name + '.json')
+              env = dict(os.environ)
+              for key in ('MKL_ENABLE_INSTRUCTIONS', 'MKL_CBWR', 'ONEDNN_MAX_CPU_ISA'):
+                  env.pop(key, None)
+              env.update(settings)
+              subprocess.run([sys.executable, str(generator), '--output', str(output)], env=env, check=True)
+              results.append(dict(variant=name, settings=settings, original_sha256=sha(original),
+                                  generated_sha256=sha(output), byte_identical=original.read_bytes() == output.read_bytes()))
           report = dict(torch=torch.__version__, numpy=numpy.__version__, cpu=torch.backends.cpu.get_cpu_capability(),
-                        processor=platform.processor(), torch_revision=torch.version.git_version,
-                        generator_sha256=sha(pathlib.Path('hierarchos-vulkan/validation/freeze_deepseek_v41_vision.py')),
-                        original_sha256=sha(original), generated_sha256=sha(reproduced),
-                        byte_identical=original.read_bytes() == reproduced.read_bytes())
+                        processor=platform.processor(), platform=platform.platform(), torch_revision=torch.version.git_version,
+                        generator_sha256=sha(generator), results=results)
           print('NATIVE_ORACLE_PROBE_BEGIN')
           print(json.dumps(report, sort_keys=True))
           print('NATIVE_ORACLE_PROBE_END')
-          (reproduced.parent / 'native-oracle-probe.json').write_text(json.dumps(report, indent=2))
-          assert report['byte_identical'], 'Original fixture was not reproduced; no provenance pin may be issued'
+          (temp / 'native-oracle-probe.json').write_text(json.dumps(report, indent=2))
+          assert any(r['byte_identical'] for r in results), 'No exact reproduction; no provenance pin may be issued'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: native-oracle-probe
           path: |
-            ${{ runner.temp }}/native-vision-reproduced.json
+            ${{ runner.temp }}/native-vision-*.json
             ${{ runner.temp }}/native-oracle-probe.json
           retention-days: 14
