@@ -9,39 +9,11 @@
     {
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
-      "batch": 1,
-      "route": "packed",
-      "candidates": {
-        "legacy": 7.4823,
-        "packed": 7.26305
-      },
-      "probe": "tbptt-packed-rematerialization",
-      "source": "measured",
-      "parameter_storage": "fp16-storage",
-      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
-    },
-    {
-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
-      "width": 128,
-      "batch": 1,
-      "route": "packed",
-      "candidates": {
-        "legacy": 7.44065,
-        "packed": 7.26545
-      },
-      "probe": "tbptt-packed-rematerialization",
-      "source": "measured",
-      "parameter_storage": "fp32",
-      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
-    },
-    {
-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
-      "width": 128,
       "batch": 4,
       "route": "legacy",
       "candidates": {
-        "legacy": 8.84005,
-        "packed": 8.8672
+        "legacy": 8.2229,
+        "packed": 8.33395
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -54,8 +26,8 @@
       "batch": 4,
       "route": "legacy",
       "candidates": {
-        "legacy": 8.95535,
-        "packed": 9.03875
+        "legacy": 8.1497,
+        "packed": 8.26405
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -68,8 +40,8 @@
       "batch": 8,
       "route": "legacy",
       "candidates": {
-        "legacy": 11.6877,
-        "packed": 12.5324
+        "legacy": 10.3465,
+        "packed": 11.0996
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -82,8 +54,8 @@
       "batch": 8,
       "route": "legacy",
       "candidates": {
-        "legacy": 11.74055,
-        "packed": 12.5797
+        "legacy": 10.26215,
+        "packed": 10.8849
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -96,8 +68,8 @@
       "batch": 16,
       "route": "legacy",
       "candidates": {
-        "legacy": 17.77465,
-        "packed": 21.09465
+        "legacy": 15.73205,
+        "packed": 18.0389
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -110,8 +82,8 @@
       "batch": 16,
       "route": "legacy",
       "candidates": {
-        "legacy": 17.5877,
-        "packed": 21.0951
+        "legacy": 15.59805,
+        "packed": 17.9252
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -124,8 +96,8 @@
       "batch": 32,
       "route": "legacy",
       "candidates": {
-        "legacy": 24.7043,
-        "packed": 32.44385
+        "legacy": 24.559,
+        "packed": 30.9846
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -138,8 +110,8 @@
       "batch": 32,
       "route": "legacy",
       "candidates": {
-        "legacy": 24.9187,
-        "packed": 32.27265
+        "legacy": 24.2085,
+        "packed": 30.78915
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
