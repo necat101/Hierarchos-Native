@@ -1,0 +1,28 @@
+test_bad_parity_in_a_nonselected_rotation (test_packed_allocation_timing.AllocationTimingTest.test_bad_parity_in_a_nonselected_rotation) ... ok
+test_balancing_removes_position_bias_without_selecting_a_run (test_packed_allocation_timing.AllocationTimingTest.test_balancing_removes_position_bias_without_selecting_a_run) ... ok
+test_duplicate_rotation (test_packed_allocation_timing.AllocationTimingTest.test_duplicate_rotation) ... ok
+test_forged_native_median (test_packed_allocation_timing.AllocationTimingTest.test_forged_native_median) ... ok
+test_guard_rederives_pooled_readings_and_rejects_unbalanced_fallback (test_packed_allocation_timing.AllocationTimingTest.test_guard_rederives_pooled_readings_and_rejects_unbalanced_fallback) ... ok
+test_metadata_change (test_packed_allocation_timing.AllocationTimingTest.test_metadata_change) ... ok
+test_missing_rotation (test_packed_allocation_timing.AllocationTimingTest.test_missing_rotation) ... ok
+test_nonfinite_observation (test_packed_allocation_timing.AllocationTimingTest.test_nonfinite_observation) ... ok
+test_shortened_trace (test_packed_allocation_timing.AllocationTimingTest.test_shortened_trace) ... ok
+test_warmup_change (test_packed_allocation_timing.AllocationTimingTest.test_warmup_change) ... ok
+test_bad_parity_in_a_nonselected_rotation (test_packed_allocation_timing.BackwardAllocationTimingTest.test_bad_parity_in_a_nonselected_rotation) ... ok
+test_balancing_removes_position_bias_without_selecting_a_run (test_packed_allocation_timing.BackwardAllocationTimingTest.test_balancing_removes_position_bias_without_selecting_a_run) ... ok
+test_duplicate_rotation (test_packed_allocation_timing.BackwardAllocationTimingTest.test_duplicate_rotation) ... ok
+test_folded_gradient_failure_in_any_rotation (test_packed_allocation_timing.BackwardAllocationTimingTest.test_folded_gradient_failure_in_any_rotation) ... ok
+test_folded_nonfinite_in_any_rotation (test_packed_allocation_timing.BackwardAllocationTimingTest.test_folded_nonfinite_in_any_rotation) ... ok
+test_forged_native_median (test_packed_allocation_timing.BackwardAllocationTimingTest.test_forged_native_median) ... ok
+test_guard_rederives_pooled_readings_and_rejects_unbalanced_fallback (test_packed_allocation_timing.BackwardAllocationTimingTest.test_guard_rederives_pooled_readings_and_rejects_unbalanced_fallback) ... ok
+test_metadata_change (test_packed_allocation_timing.BackwardAllocationTimingTest.test_metadata_change) ... ok
+test_missing_rotation (test_packed_allocation_timing.BackwardAllocationTimingTest.test_missing_rotation) ... ok
+test_nonfinite_observation (test_packed_allocation_timing.BackwardAllocationTimingTest.test_nonfinite_observation) ... ok
+test_shortened_trace (test_packed_allocation_timing.BackwardAllocationTimingTest.test_shortened_trace) ... ok
+test_warmup_change (test_packed_allocation_timing.BackwardAllocationTimingTest.test_warmup_change) ... ok
+test_zero_staged_reference_in_any_rotation (test_packed_allocation_timing.BackwardAllocationTimingTest.test_zero_staged_reference_in_any_rotation) ... ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 0.058s
+
+OK

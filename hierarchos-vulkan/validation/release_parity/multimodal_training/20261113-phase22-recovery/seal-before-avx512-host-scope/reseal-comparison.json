@@ -1,0 +1,26 @@
+{
+  "status": "PASS_IDENTICAL_EXECUTED_EVIDENCE",
+  "qualification_target": {
+    "cpu": "AVX512",
+    "gpu": "RDNA3"
+  },
+  "changed_sources": [
+    ".github/workflows/workspace-check.yml",
+    "RDNA3_RELEASE_CONTRACT.md",
+    "hierarchos-vulkan/validation/check_unified_release.py",
+    "hierarchos-vulkan/validation/fixture_toolchain.py",
+    "hierarchos-vulkan/validation/qualify_unified_release.py",
+    "hierarchos-vulkan/validation/test_fixture_toolchain.py",
+    "hierarchos-vulkan/validation/test_unified_release.py"
+  ],
+  "added_sources": [
+    "hierarchos-vulkan/validation/fixtures/fixture_host_qualifications.json"
+  ],
+  "unchanged_components": 24,
+  "unchanged_binaries": 33,
+  "unchanged_raw_and_component_files": 139,
+  "previous_receipt_sha256": "87c468f552c974cbdfa0a79a9ad5032acd26deb6f35f1d94f6a90995709ea51a",
+  "current_receipt_sha256": "69cfe011c8fb1ee2496f7c743d4fd208a67548474733eae9da6bccca5660c64f",
+  "current_source_revision": "705a8a8f7b9cb495bdbda83f22feb64c6158298d",
+  "avx2_verification": "PENDING_ON_AVX2_HOST"
+}

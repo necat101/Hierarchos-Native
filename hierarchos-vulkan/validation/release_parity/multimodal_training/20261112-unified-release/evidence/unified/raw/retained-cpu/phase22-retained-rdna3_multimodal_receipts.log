@@ -1,0 +1,7 @@
+[receipt-guard] sha256 verified: 10 receipts
+[receipt-guard] inventory 44/44 green, 85/85 cases pass, all profiles green
+[receipt-guard] six-profile replay: 9/9 cases pass
+[receipt-guard] native V4.1: 30/30 tests, max_abs_logit=0.0
+[receipt-guard] Gen9 physical run recorded as blocked, no receipt issued
+[receipt-guard] 44/44 and qualified claims are evidence-backed
+PASS

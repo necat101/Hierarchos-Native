@@ -1,0 +1,19 @@
+{
+  "status": "PASS_AVX512_RDNA3_TARGET_SCOPE",
+  "target": {
+    "cpu": "AVX512",
+    "gpu": "RDNA3"
+  },
+  "host_controls_passed": 23,
+  "unified_controls_passed": 32,
+  "avx512_audit_exit": 0,
+  "avx2_audit_exit": 1,
+  "all_hosts_audit_exit": 1,
+  "avx2_verification": "PENDING_ON_AVX2_HOST",
+  "unchanged_original_fixtures_and_pins": {
+    "deepseek_v41_native_vision_avx2.json": "f6bb7f095bb829f1124fd528ed79d36d12e8fc2fe041a89734c9a2ab4cdfc439",
+    "deepseek_v41_native_pipeline_avx2.json": "9f5592989820c1567caf3fd4ca6b5354f7bb8e78dfb6b38f1ebb43b9b4cc403b",
+    "deepseek_v41_toolchain.json": "3d2488ca18dbb83e43b1e8d3b4dc95912ac886b3dc92c54ec6bd8e9d2b9bccc2",
+    "deepseek_v41_toolchain_legacy.json": "ab531012d422c043e636cb5dbae636443a541670bedabdc892f7a3c18904597a"
+  }
+}

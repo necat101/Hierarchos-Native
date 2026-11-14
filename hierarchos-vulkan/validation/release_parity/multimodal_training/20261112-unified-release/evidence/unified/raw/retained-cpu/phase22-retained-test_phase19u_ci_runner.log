@@ -1,0 +1,22 @@
+test_all_original_logs_match_contract (test_phase19u_ci_runner.HistoricalRunnerControls.test_all_original_logs_match_contract) ... ok
+test_ci_cannot_claim_current_qualification (test_phase19u_ci_runner.HistoricalRunnerControls.test_ci_cannot_claim_current_qualification) ... ok
+test_import_error_is_rejected (test_phase19u_ci_runner.HistoricalRunnerControls.test_import_error_is_rejected) ... ok
+test_missing_source_revision_is_rejected (test_phase19u_ci_runner.HistoricalRunnerControls.test_missing_source_revision_is_rejected) ... ok
+test_original_cannot_use_recovery_bytes (test_phase19u_ci_runner.HistoricalRunnerControls.test_original_cannot_use_recovery_bytes) ... ok
+test_recovery_cannot_be_original (test_phase19u_ci_runner.HistoricalRunnerControls.test_recovery_cannot_be_original) ... ok
+test_recovery_logs_match_contract (test_phase19u_ci_runner.HistoricalRunnerControls.test_recovery_logs_match_contract) ... ok
+test_truncated_output_is_rejected (test_phase19u_ci_runner.HistoricalRunnerControls.test_truncated_output_is_rejected) ... ok
+test_unexpected_skip_is_rejected (test_phase19u_ci_runner.HistoricalRunnerControls.test_unexpected_skip_is_rejected) ... ok
+test_unknown_suite_is_rejected (test_phase19u_ci_runner.HistoricalRunnerControls.test_unknown_suite_is_rejected) ... ok
+test_wrong_error_test_is_rejected (test_phase19u_ci_runner.HistoricalRunnerControls.test_wrong_error_test_is_rejected) ... ok
+test_wrong_exit_is_rejected (test_phase19u_ci_runner.HistoricalRunnerControls.test_wrong_exit_is_rejected) ... ok
+test_wrong_identity_is_rejected (test_phase19u_ci_runner.HistoricalRunnerControls.test_wrong_identity_is_rejected) ... ok
+test_wrong_missing_artifact_is_rejected (test_phase19u_ci_runner.HistoricalRunnerControls.test_wrong_missing_artifact_is_rejected) ... ok
+test_wrong_recovered_bytes_are_rejected (test_phase19u_ci_runner.HistoricalRunnerControls.test_wrong_recovered_bytes_are_rejected) ... ok
+test_wrong_test_hash_is_rejected (test_phase19u_ci_runner.HistoricalRunnerControls.test_wrong_test_hash_is_rejected) ... ok
+test_wrong_total_is_rejected (test_phase19u_ci_runner.HistoricalRunnerControls.test_wrong_total_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 1.511s
+
+OK

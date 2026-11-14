@@ -4,7 +4,7 @@ Qualification target: **AVX512 + RDNA3**. Native AVX2 fixture reproduction is **
 
 Local numerical and source-bound status: **PASS (scoped)**. The sealed machine-readable record is [release-qualification.json](release-qualification.json); [precision-capabilities.json](precision-capabilities.json) gives the family-by-family support contract. GitHub-hosted CI is a separate final-commit check; its actual run URLs and conclusions belong in the delivery report. Self-hosted hardware availability is never inferred from local PASS.
 
-Sealed source revision: `b0b2e08e903f2f1edcda1fb8b8a7e8b442aa1def`. Device: `AMD Radeon Graphics [pci=1002:15bf;driver=00800184]`. Release receipt SHA-256: `87c468f552c974cbdfa0a79a9ad5032acd26deb6f35f1d94f6a90995709ea51a`. All source, executable, shader, component and raw-evidence digests are recorded in the receipt. No numerical acceptance limit was increased.
+Sealed source revision: `705a8a8f7b9cb495bdbda83f22feb64c6158298d`. Device: `AMD Radeon Graphics [pci=1002:15bf;driver=00800184]`. Release receipt SHA-256: `69cfe011c8fb1ee2496f7c743d4fd208a67548474733eae9da6bccca5660c64f`. All source, executable, shader, component and raw-evidence digests are recorded in the receipt. No numerical acceptance limit was increased.
 
 ## Numerical qualification
 
