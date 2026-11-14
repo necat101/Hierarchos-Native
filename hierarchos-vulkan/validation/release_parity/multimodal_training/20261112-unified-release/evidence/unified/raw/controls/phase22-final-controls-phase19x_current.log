@@ -1,0 +1,13 @@
+test_changed_shader_inventory (test_phase19x_current.PhaseXIXXControls.test_changed_shader_inventory) ... ok
+test_changed_transformer (test_phase19x_current.PhaseXIXXControls.test_changed_transformer) ... ok
+test_forged_status (test_phase19x_current.PhaseXIXXControls.test_forged_status) ... ok
+test_missing_receipt (test_phase19x_current.PhaseXIXXControls.test_missing_receipt) ... ok
+test_missing_subreceipt (test_phase19x_current.PhaseXIXXControls.test_missing_subreceipt) ... ok
+test_stale_mirror (test_phase19x_current.PhaseXIXXControls.test_stale_mirror) ... ok
+test_tampered_evidence (test_phase19x_current.PhaseXIXXControls.test_tampered_evidence) ... ok
+test_wrong_kind (test_phase19x_current.PhaseXIXXControls.test_wrong_kind) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 19.439s
+
+OK

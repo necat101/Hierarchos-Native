@@ -1,0 +1,101 @@
+{
+  "manifest": "hierarchos-vulkan\\validation\\wmma_shader_manifest.json",
+  "compilers": {
+    "glslc": [
+      {
+        "path": ".tools/env/Library/bin/glslc.exe",
+        "version": "2023.8",
+        "reported": "shaderc v2023.8 unknown hash, 2025-08-31"
+      },
+      {
+        "path": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.tools\\env\\Library\\bin\\glslc.exe",
+        "version": "2023.8",
+        "reported": "shaderc v2023.8 unknown hash, 2025-08-31"
+      }
+    ]
+  },
+  "status_counts": {
+    "identical": 4
+  },
+  "manifest_problems": [],
+  "notes": [],
+  "shaders": [
+    {
+      "artifact": "fp32_to_fp16_native.spv",
+      "source": "fp32_to_fp16_native.comp",
+      "compiler": "glslc",
+      "flags": [
+        "-fshader-stage=compute",
+        "--target-env=vulkan1.2",
+        "--target-spv=spv1.4",
+        "-O"
+      ],
+      "version_source": "manifest",
+      "expected_version": "2023.8",
+      "version": "2023.8",
+      "compiler_path": ".tools/env/Library/bin/glslc.exe",
+      "compile_exit": 0,
+      "embedded_sha256": "51d229f1eb7d7085af392547716b84234f411a915c4f4fa528080302a684139f",
+      "rebuilt_sha256": "51d229f1eb7d7085af392547716b84234f411a915c4f4fa528080302a684139f",
+      "status": "identical"
+    },
+    {
+      "artifact": "gemm_f16_f32_plain.spv",
+      "source": "gemm_f16_f32_plain.comp",
+      "compiler": "glslc",
+      "flags": [
+        "-fshader-stage=compute",
+        "--target-env=vulkan1.2",
+        "--target-spv=spv1.4",
+        "-O"
+      ],
+      "version_source": "manifest",
+      "expected_version": "2023.8",
+      "version": "2023.8",
+      "compiler_path": ".tools/env/Library/bin/glslc.exe",
+      "compile_exit": 0,
+      "embedded_sha256": "4985910ecf1926fd4a69e5d78a8e734be95c9860fac1ac15c0adb71defbce99c",
+      "rebuilt_sha256": "4985910ecf1926fd4a69e5d78a8e734be95c9860fac1ac15c0adb71defbce99c",
+      "status": "identical"
+    },
+    {
+      "artifact": "wmma_gemm_f16_f32acc.spv",
+      "source": "wmma_gemm_f16_f32acc.comp",
+      "compiler": "glslc",
+      "flags": [
+        "-fshader-stage=compute",
+        "--target-env=vulkan1.2",
+        "--target-spv=spv1.4",
+        "-O"
+      ],
+      "version_source": "manifest",
+      "expected_version": "2023.8",
+      "version": "2023.8",
+      "compiler_path": ".tools/env/Library/bin/glslc.exe",
+      "compile_exit": 0,
+      "embedded_sha256": "c6fd0f349bf66c731a43673ae410a6f41fd5609bf9d0b029fc15940042d8fcf5",
+      "rebuilt_sha256": "c6fd0f349bf66c731a43673ae410a6f41fd5609bf9d0b029fc15940042d8fcf5",
+      "status": "identical"
+    },
+    {
+      "artifact": "wmma_gemm_f16_f16acc.spv",
+      "source": "wmma_gemm_f16_f16acc.comp",
+      "compiler": "glslc",
+      "flags": [
+        "-fshader-stage=compute",
+        "--target-env=vulkan1.2",
+        "--target-spv=spv1.4",
+        "-O"
+      ],
+      "version_source": "manifest",
+      "expected_version": "2023.8",
+      "version": "2023.8",
+      "compiler_path": ".tools/env/Library/bin/glslc.exe",
+      "compile_exit": 0,
+      "embedded_sha256": "90724b47132fcbfbde3d7365727c04297922b16e7387ac460a434de8828531e1",
+      "rebuilt_sha256": "90724b47132fcbfbde3d7365727c04297922b16e7387ac460a434de8828531e1",
+      "status": "identical"
+    }
+  ],
+  "pass": true
+}

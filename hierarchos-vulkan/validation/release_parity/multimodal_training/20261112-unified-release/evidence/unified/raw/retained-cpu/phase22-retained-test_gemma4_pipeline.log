@@ -1,0 +1,11 @@
+test_duplicate_cases_cannot_inflate_coverage (test_gemma4_pipeline.Gemma4GateTests.test_duplicate_cases_cannot_inflate_coverage) ... ok
+test_empty_and_unknown_requests_cannot_pass (test_gemma4_pipeline.Gemma4GateTests.test_empty_and_unknown_requests_cannot_pass) ... ok
+test_empty_inventory_cannot_pass (test_gemma4_pipeline.Gemma4GateTests.test_empty_inventory_cannot_pass) ... ok
+test_modified_cpu_source_cannot_run (test_gemma4_pipeline.Gemma4GateTests.test_modified_cpu_source_cannot_run) ... ok
+test_unknown_pixel_domain_cannot_run (test_gemma4_pipeline.Gemma4GateTests.test_unknown_pixel_domain_cannot_run) ... ok
+test_bad_inputs_and_unsupported_features_cannot_export_or_modify_source (test_gemma4_pipeline.NativeGemma4Guards.test_bad_inputs_and_unsupported_features_cannot_export_or_modify_source) ... skipped 'native Gemma4 fixture paths not configured'
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.028s
+
+OK (skipped=1)

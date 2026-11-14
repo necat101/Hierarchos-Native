@@ -1,0 +1,42 @@
+test_a_hand_edited_delta_fails (test_folded_publication_profile.ArithmeticTests.test_a_hand_edited_delta_fails) ... ok
+test_a_hand_edited_range_resolution_fails (test_folded_publication_profile.ArithmeticTests.test_a_hand_edited_range_resolution_fails) ... ok
+test_a_hand_edited_resolution_fails (test_folded_publication_profile.ArithmeticTests.test_a_hand_edited_resolution_fails) ... ok
+test_a_median_outside_its_own_range_fails (test_folded_publication_profile.ArithmeticTests.test_a_median_outside_its_own_range_fails) ... ok
+test_a_ratio_that_disagrees_with_the_legs_fails (test_folded_publication_profile.ArithmeticTests.test_a_ratio_that_disagrees_with_the_legs_fails) ... ok
+test_a_tail_that_disagrees_with_the_legs_fails (test_folded_publication_profile.ArithmeticTests.test_a_tail_that_disagrees_with_the_legs_fails) ... ok
+test_a_fold_that_starts_leading_fails (test_folded_publication_profile.ClaimTests.test_a_fold_that_starts_leading_fails) ... ok
+test_a_reduction_tail_that_becomes_visible_fails (test_folded_publication_profile.ClaimTests.test_a_reduction_tail_that_becomes_visible_fails) ... ok
+test_counters_that_become_visible_are_named_too (test_folded_publication_profile.ClaimTests.test_counters_that_become_visible_are_named_too) ... ok
+test_both_profiles_cover_the_whole_sweep (test_folded_publication_profile.CommittedProfileTests.test_both_profiles_cover_the_whole_sweep) ... ok
+test_the_committed_profiles_hold_the_claim (test_folded_publication_profile.CommittedProfileTests.test_the_committed_profiles_hold_the_claim) ... ok
+test_a_fresh_run_that_keeps_the_tie_passes_with_a_note_when_it_drifts (test_folded_publication_profile.CompareTests.test_a_fresh_run_that_keeps_the_tie_passes_with_a_note_when_it_drifts) ... ok
+test_a_fresh_run_that_lost_its_gates_fails (test_folded_publication_profile.CompareTests.test_a_fresh_run_that_lost_its_gates_fails) ... ok
+test_a_fresh_run_whose_fold_leads_fails (test_folded_publication_profile.CompareTests.test_a_fresh_run_whose_fold_leads_fails) ... ok
+test_the_committed_profile_compares_clean_against_itself (test_folded_publication_profile.CompareTests.test_the_committed_profile_compares_clean_against_itself) ... ok
+test_a_leg_that_pinned_another_depth_fails (test_folded_publication_profile.DepthTests.test_a_leg_that_pinned_another_depth_fails) ... ok
+test_a_missing_depth_fails (test_folded_publication_profile.DepthTests.test_a_missing_depth_fails) ... ok
+test_an_unexpected_leg_fails (test_folded_publication_profile.DepthTests.test_an_unexpected_leg_fails) ... ok
+test_a_hand_flipped_component_flag_fails (test_folded_publication_profile.FlagTests.test_a_hand_flipped_component_flag_fails) ... ok
+test_a_hand_flipped_lead_flag_fails (test_folded_publication_profile.FlagTests.test_a_hand_flipped_lead_flag_fails) ... ok
+test_a_clean_fold_that_moved_the_gradients_fails (test_folded_publication_profile.GateTests.test_a_clean_fold_that_moved_the_gradients_fails) ... ok
+test_a_missing_gate_record_fails (test_folded_publication_profile.GateTests.test_a_missing_gate_record_fails) ... ok
+test_a_nonzero_allowance_fails (test_folded_publication_profile.GateTests.test_a_nonzero_allowance_fails) ... ok
+test_a_phantom_delta_recorded_at_batch_one_fails (test_folded_publication_profile.GateTests.test_a_phantom_delta_recorded_at_batch_one_fails) ... ok
+test_a_phantom_leg_that_published_anyway_fails (test_folded_publication_profile.GateTests.test_a_phantom_leg_that_published_anyway_fails) ... ok
+test_a_zero_staged_magnitude_fails (test_folded_publication_profile.GateTests.test_a_zero_staged_magnitude_fails) ... ok
+test_a_profile_of_another_kind_fails (test_folded_publication_profile.HeaderTests.test_a_profile_of_another_kind_fails) ... ok
+test_a_profile_recorded_under_the_wrong_policy_fails (test_folded_publication_profile.HeaderTests.test_a_profile_recorded_under_the_wrong_policy_fails) ... ok
+test_a_profile_that_did_not_pass_fails (test_folded_publication_profile.HeaderTests.test_a_profile_that_did_not_pass_fails) ... ok
+test_a_profile_timed_with_too_few_samples_fails (test_folded_publication_profile.HeaderTests.test_a_profile_timed_with_too_few_samples_fails) ... ok
+test_a_profile_with_shorter_windows_fails (test_folded_publication_profile.HeaderTests.test_a_profile_with_shorter_windows_fails) ... ok
+test_another_adapters_profile_fails (test_folded_publication_profile.HeaderTests.test_another_adapters_profile_fails) ... ok
+test_a_dropped_geometry_fails (test_folded_publication_profile.SweepTests.test_a_dropped_geometry_fails) ... ok
+test_a_duplicated_geometry_fails (test_folded_publication_profile.SweepTests.test_a_duplicated_geometry_fails) ... ok
+test_a_missing_phantom_leg_fails_above_batch_one (test_folded_publication_profile.SweepTests.test_a_missing_phantom_leg_fails_above_batch_one) ... ok
+test_a_phantom_leg_at_batch_one_fails (test_folded_publication_profile.SweepTests.test_a_phantom_leg_at_batch_one_fails) ... ok
+test_a_row_that_disagrees_about_its_geometry_fails (test_folded_publication_profile.SweepTests.test_a_row_that_disagrees_about_its_geometry_fails) ... ok
+
+----------------------------------------------------------------------
+Ran 37 tests in 0.017s
+
+OK

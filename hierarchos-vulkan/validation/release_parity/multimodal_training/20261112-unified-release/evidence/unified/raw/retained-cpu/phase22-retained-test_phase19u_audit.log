@@ -1,0 +1,14 @@
+test_baseline_audit_passes (test_phase19u_audit.HistoricalAuditControls.test_baseline_audit_passes) ... ok
+test_count_cannot_be_inflated (test_phase19u_audit.HistoricalAuditControls.test_count_cannot_be_inflated) ... ok
+test_current_source_cannot_change (test_phase19u_audit.HistoricalAuditControls.test_current_source_cannot_change) ... ok
+test_historical_receipt_cannot_change (test_phase19u_audit.HistoricalAuditControls.test_historical_receipt_cannot_change) ... ok
+test_log_digest_cannot_change (test_phase19u_audit.HistoricalAuditControls.test_log_digest_cannot_change) ... ok
+test_missing_current_control_is_rejected (test_phase19u_audit.HistoricalAuditControls.test_missing_current_control_is_rejected) ... ok
+test_recovered_bytes_cannot_be_substituted (test_phase19u_audit.HistoricalAuditControls.test_recovered_bytes_cannot_be_substituted) ... ok
+test_recovery_record_cannot_be_removed (test_phase19u_audit.HistoricalAuditControls.test_recovery_record_cannot_be_removed) ... ok
+test_test_source_digest_cannot_change (test_phase19u_audit.HistoricalAuditControls.test_test_source_digest_cannot_change) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 2.498s
+
+OK

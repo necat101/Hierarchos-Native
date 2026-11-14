@@ -1,0 +1,13 @@
+{
+  "status": "PASS_IDENTICAL_EXECUTED_EVIDENCE",
+  "changed_sources": [
+    ".github/workflows/workspace-check.yml"
+  ],
+  "unchanged_components": 24,
+  "unchanged_binaries": 33,
+  "unchanged_raw_and_component_files": 139,
+  "previous_receipt_sha256": "3f4fa7928666c3218dfaed106427f509562ed1a5e91134115228d506e804ad2f",
+  "current_receipt_sha256": "87c468f552c974cbdfa0a79a9ad5032acd26deb6f35f1d94f6a90995709ea51a",
+  "current_source_revision": "b0b2e08e903f2f1edcda1fb8b8a7e8b442aa1def",
+  "delivery_status": "BLOCKED_FIXTURE_PROVENANCE"
+}

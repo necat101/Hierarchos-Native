@@ -1,0 +1,281 @@
+{
+  "schema": 1,
+  "source_revision": "b0b2e08e903f2f1edcda1fb8b8a7e8b442aa1def",
+  "device": {
+    "device": "AMD Radeon Graphics",
+    "device_id": 5567,
+    "device_index": 0,
+    "device_key": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+    "error": null,
+    "full_fp16_max_reduction": 64,
+    "full_fp16_qualified": true,
+    "full_fp16_supported": true,
+    "kind": "precision-capabilities",
+    "mixed_supported": true,
+    "vendor_id": 4098
+  },
+  "policy": {
+    "default": "off",
+    "mixed_operands": "fp16",
+    "mixed_accumulation": "fp32",
+    "full_fp16_max_reduction": 64,
+    "full_fp16_is_universal_graph_precision": false,
+    "full_fp16_admission": "qualified local Llama64/shared CLIP64 profile and AMD 1002:15bf driver 00800184",
+    "master_weights": "fp32",
+    "optimizer_state": "fp32",
+    "long_full_reductions": "explicit FP32 fallback"
+  },
+  "families": [
+    {
+      "family": "transformer_full",
+      "fp32": {
+        "status": "fully_qualified",
+        "scope": "original maintained frozen observable-value inventory; native V4.1 bounded fixture",
+        "evidence": [
+          "text166"
+        ]
+      },
+      "mixed": {
+        "status": "supported_with_explicit_fp32_suboperations",
+        "scope": "executed bounded full/LoRA, wide multimodal or native-vision fixture; not arbitrary model/range qualification",
+        "loss_scaling": "GPU global scaling/unscaling/skip",
+        "evidence": [
+          "precision"
+        ]
+      },
+      "full_fp16": {
+        "status": "fully_qualified",
+        "scope": "qualified Llama64/shared CLIP64 package, adapter/driver and reductions <=64; FP32 suboperations retained",
+        "evidence": [
+          "precision",
+          "tests",
+          "gui_cli"
+        ]
+      }
+    },
+    {
+      "family": "transformer_lora",
+      "fp32": {
+        "status": "fully_qualified",
+        "scope": "original maintained frozen observable-value inventory; native V4.1 bounded fixture",
+        "evidence": [
+          "text166"
+        ]
+      },
+      "mixed": {
+        "status": "supported_with_explicit_fp32_suboperations",
+        "scope": "executed bounded full/LoRA, wide multimodal or native-vision fixture; not arbitrary model/range qualification",
+        "loss_scaling": "GPU global scaling/unscaling/skip",
+        "evidence": [
+          "precision"
+        ]
+      },
+      "full_fp16": {
+        "status": "fully_qualified",
+        "scope": "qualified Llama64/shared CLIP64 package, adapter/driver and reductions <=64; FP32 suboperations retained",
+        "evidence": [
+          "precision",
+          "tests",
+          "gui_cli"
+        ]
+      }
+    },
+    {
+      "family": "shared_clip_projector",
+      "fp32": {
+        "status": "fully_qualified",
+        "scope": "original maintained frozen observable-value inventory; native V4.1 bounded fixture",
+        "evidence": [
+          "text166",
+          "shared77"
+        ]
+      },
+      "mixed": {
+        "status": "supported_with_explicit_fp32_suboperations",
+        "scope": "executed bounded full/LoRA, wide multimodal or native-vision fixture; not arbitrary model/range qualification",
+        "loss_scaling": "GPU global scaling/unscaling/skip",
+        "evidence": [
+          "precision"
+        ]
+      },
+      "full_fp16": {
+        "status": "fully_qualified",
+        "scope": "qualified Llama64/shared CLIP64 package, adapter/driver and reductions <=64; FP32 suboperations retained",
+        "evidence": [
+          "precision",
+          "tests",
+          "gui_cli"
+        ]
+      }
+    },
+    {
+      "family": "bart_image",
+      "fp32": {
+        "status": "fully_qualified",
+        "scope": "original maintained frozen observable-value inventory; native V4.1 bounded fixture",
+        "evidence": [
+          "text166",
+          "seq2seq"
+        ]
+      },
+      "mixed": {
+        "status": "supported_with_explicit_fp32_suboperations",
+        "scope": "executed bounded full/LoRA, wide multimodal or native-vision fixture; not arbitrary model/range qualification",
+        "loss_scaling": "tested unscaled FP32 storage; FP16 GEMM operand quantization remains; no automatic-scaling claim",
+        "evidence": [
+          "wide"
+        ]
+      },
+      "full_fp16": {
+        "status": "unsupported",
+        "scope": "not admitted",
+        "evidence": []
+      }
+    },
+    {
+      "family": "t5_image",
+      "fp32": {
+        "status": "fully_qualified",
+        "scope": "original maintained frozen observable-value inventory; native V4.1 bounded fixture",
+        "evidence": [
+          "text166",
+          "seq2seq"
+        ]
+      },
+      "mixed": {
+        "status": "supported_with_explicit_fp32_suboperations",
+        "scope": "executed bounded full/LoRA, wide multimodal or native-vision fixture; not arbitrary model/range qualification",
+        "loss_scaling": "tested unscaled FP32 storage; FP16 GEMM operand quantization remains; no automatic-scaling claim",
+        "evidence": [
+          "wide"
+        ]
+      },
+      "full_fp16": {
+        "status": "unsupported",
+        "scope": "not admitted",
+        "evidence": []
+      }
+    },
+    {
+      "family": "switch_image",
+      "fp32": {
+        "status": "fully_qualified",
+        "scope": "original maintained frozen observable-value inventory; native V4.1 bounded fixture",
+        "evidence": [
+          "text166",
+          "seq2seq"
+        ]
+      },
+      "mixed": {
+        "status": "supported_with_explicit_fp32_suboperations",
+        "scope": "executed bounded full/LoRA, wide multimodal or native-vision fixture; not arbitrary model/range qualification",
+        "loss_scaling": "tested unscaled FP32 storage; FP16 GEMM operand quantization remains; no automatic-scaling claim",
+        "evidence": [
+          "wide"
+        ]
+      },
+      "full_fp16": {
+        "status": "unsupported",
+        "scope": "not admitted",
+        "evidence": []
+      }
+    },
+    {
+      "family": "llava",
+      "fp32": {
+        "status": "fully_qualified",
+        "scope": "original maintained frozen observable-value inventory; native V4.1 bounded fixture",
+        "evidence": [
+          "text166",
+          "llava"
+        ]
+      },
+      "mixed": {
+        "status": "supported_with_explicit_fp32_suboperations",
+        "scope": "executed bounded full/LoRA, wide multimodal or native-vision fixture; not arbitrary model/range qualification",
+        "loss_scaling": "GPU global scaling/unscaling/skip",
+        "evidence": [
+          "wide"
+        ]
+      },
+      "full_fp16": {
+        "status": "unsupported",
+        "scope": "not admitted",
+        "evidence": []
+      }
+    },
+    {
+      "family": "gemma3",
+      "fp32": {
+        "status": "fully_qualified",
+        "scope": "original maintained frozen observable-value inventory; native V4.1 bounded fixture",
+        "evidence": [
+          "text166",
+          "gemma3"
+        ]
+      },
+      "mixed": {
+        "status": "supported_with_explicit_fp32_suboperations",
+        "scope": "executed bounded full/LoRA, wide multimodal or native-vision fixture; not arbitrary model/range qualification",
+        "loss_scaling": "tested unscaled FP32 storage; FP16 GEMM operand quantization remains; no automatic-scaling claim",
+        "evidence": [
+          "wide"
+        ]
+      },
+      "full_fp16": {
+        "status": "unsupported",
+        "scope": "not admitted",
+        "evidence": []
+      }
+    },
+    {
+      "family": "gemma4",
+      "fp32": {
+        "status": "fully_qualified",
+        "scope": "original maintained frozen observable-value inventory; native V4.1 bounded fixture",
+        "evidence": [
+          "text166",
+          "gemma4-legacy",
+          "gemma4-rgb"
+        ]
+      },
+      "mixed": {
+        "status": "supported_with_explicit_fp32_suboperations",
+        "scope": "executed bounded full/LoRA, wide multimodal or native-vision fixture; not arbitrary model/range qualification",
+        "loss_scaling": "tested unscaled FP32 storage; FP16 GEMM operand quantization remains; no automatic-scaling claim",
+        "evidence": [
+          "wide"
+        ]
+      },
+      "full_fp16": {
+        "status": "unsupported",
+        "scope": "not admitted",
+        "evidence": []
+      }
+    },
+    {
+      "family": "deepseek_v41",
+      "fp32": {
+        "status": "fully_qualified",
+        "scope": "original maintained frozen observable-value inventory; native V4.1 bounded fixture",
+        "evidence": [
+          "text166",
+          "native_v41"
+        ]
+      },
+      "mixed": {
+        "status": "supported_with_explicit_fp32_suboperations",
+        "scope": "executed bounded full/LoRA, wide multimodal or native-vision fixture; not arbitrary model/range qualification",
+        "loss_scaling": "tested unscaled FP32 storage; FP16 GEMM operand quantization remains; no automatic-scaling claim",
+        "evidence": [
+          "native_v41"
+        ]
+      },
+      "full_fp16": {
+        "status": "unsupported",
+        "scope": "not admitted",
+        "evidence": []
+      }
+    }
+  ]
+}

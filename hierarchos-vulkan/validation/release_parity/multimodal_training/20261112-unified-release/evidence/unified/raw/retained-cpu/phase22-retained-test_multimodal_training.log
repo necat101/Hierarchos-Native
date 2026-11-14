@@ -1,0 +1,13 @@
+test_diagnostic_state_writer_preserves_tensor_names_shapes_and_values (test_multimodal_training.MultimodalGateTests.test_diagnostic_state_writer_preserves_tensor_names_shapes_and_values) ... ok
+test_frozen_cpu_vector_policy_overrides_replay_host (test_multimodal_training.MultimodalGateTests.test_frozen_cpu_vector_policy_overrides_replay_host) ... ok
+test_incomplete_cpu_preparation_cannot_run (test_multimodal_training.MultimodalGateTests.test_incomplete_cpu_preparation_cannot_run) ... ok
+test_no_empty_or_partial_comparisons (test_multimodal_training.MultimodalGateTests.test_no_empty_or_partial_comparisons) ... ok
+test_nonfinite_is_never_a_pass (test_multimodal_training.MultimodalGateTests.test_nonfinite_is_never_a_pass) ... ok
+test_physical_device_required (test_multimodal_training.MultimodalGateTests.test_physical_device_required) ... ok
+test_safetensors_shape_and_payload_coverage (test_multimodal_training.MultimodalGateTests.test_safetensors_shape_and_payload_coverage) ... ok
+test_strict_threshold_and_no_relative_tolerance (test_multimodal_training.MultimodalGateTests.test_strict_threshold_and_no_relative_tolerance) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.046s
+
+OK

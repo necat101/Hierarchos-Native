@@ -1,0 +1,13 @@
+test_changed_coverage (test_attention_phase19x_ci.AttentionPhaseXIXXCIControls.test_changed_coverage) ... ok
+test_changed_evidence (test_attention_phase19x_ci.AttentionPhaseXIXXCIControls.test_changed_evidence) ... ok
+test_changed_historical_coverage (test_attention_phase19x_ci.AttentionPhaseXIXXCIControls.test_changed_historical_coverage) ... ok
+test_changed_trainer (test_attention_phase19x_ci.AttentionPhaseXIXXCIControls.test_changed_trainer) ... ok
+test_changed_transformer (test_attention_phase19x_ci.AttentionPhaseXIXXCIControls.test_changed_transformer) ... ok
+test_forged_status (test_attention_phase19x_ci.AttentionPhaseXIXXCIControls.test_forged_status) ... ok
+test_missing_receipt (test_attention_phase19x_ci.AttentionPhaseXIXXCIControls.test_missing_receipt) ... ok
+test_wrong_kind (test_attention_phase19x_ci.AttentionPhaseXIXXCIControls.test_wrong_kind) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 1.670s
+
+OK

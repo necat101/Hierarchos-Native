@@ -1,0 +1,14 @@
+{
+  "status": "PASS_FAILURE_PROPAGATION_CORRECTION",
+  "isolated_provenance_step": {
+    "exit_code": 1,
+    "expected_exit_code": 1,
+    "result": "The original two missing fixture pins reach the PowerShell step exit status."
+  },
+  "fixture_controls": {"exit_code": 0, "passed": 14},
+  "folded_profile_check": {"exit_code": 0},
+  "folded_profile_controls": {"exit_code": 0, "passed": 37},
+  "unified_release_controls": {"exit_code": 0, "passed": 28},
+  "numerical_reseal": "PASS_IDENTICAL_EXECUTED_EVIDENCE; see ../seal-before-ci-exit-fix/reseal-comparison.json",
+  "delivery_status": "BLOCKED_FIXTURE_PROVENANCE"
+}

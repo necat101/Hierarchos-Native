@@ -1,0 +1,408 @@
+{
+  "device": "AMD Radeon Graphics",
+  "mode": "full-fp16",
+  "full_oracle": "rdna3-dot2",
+  "capabilities": {
+    "mixed_supported": true,
+    "full_fp16_supported": true,
+    "subgroup_size": 32,
+    "driver_default_subgroup_size": 64
+  },
+  "dispatch_counts": {
+    "cooperative": 15,
+    "plain_f16": 1,
+    "shape_fallbacks": 0
+  },
+  "gates": 37,
+  "failed": 3,
+  "results": [
+    {
+      "label": "64x48x40 wmma-full-fp16 vs FP32",
+      "max_abs": 0.02222251892,
+      "rms": 0.00332919307,
+      "relative": 0.002498412233,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "64x48x40 wmma-full-fp16 vs matched oracle",
+      "max_abs": 0.00390625,
+      "rms": 0.0001468864856,
+      "relative": 0.0008376247341,
+      "nonfinite": 0,
+      "max_abs_limit": 0.03125,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "64x48x40 matched fp16 oracle vs FP32",
+      "max_abs": 0.02222251892,
+      "rms": 0.003329785245,
+      "relative": 0.002498412233,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "33x17x19 wmma-full-fp16 vs FP32",
+      "max_abs": 0.006421089172,
+      "rms": 0.001774833502,
+      "relative": 0.001565274895,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "33x17x19 wmma-full-fp16 vs matched oracle",
+      "max_abs": 0.00390625,
+      "rms": 0.0001699980161,
+      "relative": 0.0009057971014,
+      "nonfinite": 0,
+      "max_abs_limit": 0.01562,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "33x17x19 matched fp16 oracle vs FP32",
+      "max_abs": 0.006421089172,
+      "rms": 0.001769078923,
+      "relative": 0.001565274895,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "128x128x96 wmma-full-fp16 vs FP32",
+      "max_abs": 0.04995346069,
+      "rms": 0.007526293554,
+      "relative": 0.005544855935,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "128x128x96 wmma-full-fp16 vs matched oracle",
+      "max_abs": 0.015625,
+      "rms": 0.0002460775432,
+      "relative": 0.001091758196,
+      "nonfinite": 0,
+      "max_abs_limit": 0.03125,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "128x128x96 matched fp16 oracle vs FP32",
+      "max_abs": 0.04995346069,
+      "rms": 0.007528306623,
+      "relative": 0.005544855935,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "16x1024x64 wmma-full-fp16 vs FP32",
+      "max_abs": 0.03872871399,
+      "rms": 0.005198428381,
+      "relative": 0.004432712966,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "16x1024x64 wmma-full-fp16 vs matched oracle",
+      "max_abs": 0.0078125,
+      "rms": 0.0001464068693,
+      "relative": 0.001004016064,
+      "nonfinite": 0,
+      "max_abs_limit": 0.03125,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "16x1024x64 matched fp16 oracle vs FP32",
+      "max_abs": 0.03872871399,
+      "rms": 0.005197690115,
+      "relative": 0.004432712966,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "256x64x16 wmma-full-fp16 vs FP32",
+      "max_abs": 0.008155822754,
+      "rms": 0.001521359244,
+      "relative": 0.002674200469,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "256x64x16 wmma-full-fp16 vs matched oracle",
+      "max_abs": 0.00390625,
+      "rms": 5.712749957e-05,
+      "relative": 0.0007942811755,
+      "nonfinite": 0,
+      "max_abs_limit": 0.01562,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "256x64x16 matched fp16 oracle vs FP32",
+      "max_abs": 0.008155822754,
+      "rms": 0.001521950954,
+      "relative": 0.002674200469,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "37x8192x48 wmma-full-fp16 vs FP32",
+      "max_abs": 0.03730010986,
+      "rms": 0.004080767945,
+      "relative": 0.005182902816,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "37x8192x48 wmma-full-fp16 vs matched oracle",
+      "max_abs": 0.0078125,
+      "rms": 0.000131657593,
+      "relative": 0.00151413457,
+      "nonfinite": 0,
+      "max_abs_limit": 0.03125,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "37x8192x48 matched fp16 oracle vs FP32",
+      "max_abs": 0.03730010986,
+      "rms": 0.004081005779,
+      "relative": 0.005182902816,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "64x48x40 trans_a=true trans_b=false vs oracle",
+      "max_abs": 0.00390625,
+      "rms": 8.687688668e-05,
+      "relative": 0.0006910850035,
+      "nonfinite": 0,
+      "max_abs_limit": 0.03125,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "64x48x40 trans_a=true trans_b=false vs FP32",
+      "max_abs": 0.0258808136,
+      "rms": 0.003295005738,
+      "relative": 0.003204664144,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "64x48x40 trans_a=false trans_b=true vs oracle",
+      "max_abs": 0.00390625,
+      "rms": 9.323276739e-05,
+      "relative": 0.0008511631088,
+      "nonfinite": 0,
+      "max_abs_limit": 0.03125,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "64x48x40 trans_a=false trans_b=true vs FP32",
+      "max_abs": 0.02063655853,
+      "rms": 0.003339954175,
+      "relative": 0.002602826306,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "64x48x40 trans_a=true trans_b=true vs oracle",
+      "max_abs": 0.00390625,
+      "rms": 7.047739499e-05,
+      "relative": 0.0008586508215,
+      "nonfinite": 0,
+      "max_abs_limit": 0.03125,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "64x48x40 trans_a=true trans_b=true vs FP32",
+      "max_abs": 0.01699924469,
+      "rms": 0.003273409525,
+      "relative": 0.002588799343,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "33x17x19 trans_a=true trans_b=false vs oracle",
+      "max_abs": 3.051757812e-05,
+      "rms": 1.288453158e-06,
+      "relative": 9.264320252e-06,
+      "nonfinite": 0,
+      "max_abs_limit": 0.01562,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "33x17x19 trans_a=true trans_b=false vs FP32",
+      "max_abs": 0.007631778717,
+      "rms": 0.001879808029,
+      "relative": 0.001627170368,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "33x17x19 trans_a=false trans_b=true vs oracle",
+      "max_abs": 0.0,
+      "rms": 0.0,
+      "relative": 0.0,
+      "nonfinite": 0,
+      "max_abs_limit": 0.01562,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "33x17x19 trans_a=false trans_b=true vs FP32",
+      "max_abs": 0.01207733154,
+      "rms": 0.001925043932,
+      "relative": 0.001597405436,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "33x17x19 trans_a=true trans_b=true vs oracle",
+      "max_abs": 0.0,
+      "rms": 0.0,
+      "relative": 0.0,
+      "nonfinite": 0,
+      "max_abs_limit": 0.01562,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "33x17x19 trans_a=true trans_b=true vs FP32",
+      "max_abs": 0.008678436279,
+      "rms": 0.001882744024,
+      "relative": 0.002040257002,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": true
+    },
+    {
+      "label": "128x128x96 trans_a=true trans_b=false vs oracle",
+      "max_abs": 0.0078125,
+      "rms": 0.000252148135,
+      "relative": 0.001087590413,
+      "nonfinite": 0,
+      "max_abs_limit": 0.03125,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "128x128x96 trans_a=true trans_b=false vs FP32",
+      "max_abs": 0.0731048584,
+      "rms": 0.007727016406,
+      "relative": 0.005430314852,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": false
+    },
+    {
+      "label": "128x128x96 trans_a=false trans_b=true vs oracle",
+      "max_abs": 0.0078125,
+      "rms": 0.0002073490621,
+      "relative": 0.001082216268,
+      "nonfinite": 0,
+      "max_abs_limit": 0.03125,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "128x128x96 trans_a=false trans_b=true vs FP32",
+      "max_abs": 0.06378555298,
+      "rms": 0.007654405472,
+      "relative": 0.005694435561,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": false
+    },
+    {
+      "label": "128x128x96 trans_a=true trans_b=true vs oracle",
+      "max_abs": 0.015625,
+      "rms": 0.0002613624526,
+      "relative": 0.001097189808,
+      "nonfinite": 0,
+      "max_abs_limit": 0.03125,
+      "rms_limit": null,
+      "passed": true
+    },
+    {
+      "label": "128x128x96 trans_a=true trans_b=true vs FP32",
+      "max_abs": 0.06324768066,
+      "rms": 0.007670393503,
+      "relative": 0.005134326231,
+      "nonfinite": 0,
+      "max_abs_limit": 0.05,
+      "rms_limit": 0.01,
+      "passed": false
+    },
+    {
+      "label": "64x64x64 plain-f16-storage vs matched oracle",
+      "max_abs": 0.0,
+      "rms": 0.0,
+      "relative": 0.0,
+      "nonfinite": 0,
+      "max_abs_limit": 0.001,
+      "rms_limit": null,
+      "passed": true
+    }
+  ],
+  "producer": {
+    "raw_stdout_sha256": "0b1d40cd12691591358cd2721ef7c4c8536490ac4e7dd25094249d7455dc41d5",
+    "stderr_sha256": "5c8a35519823544dad62c7c4ff96bea58ce68add0e62f468961aad85367b92d6",
+    "stdout_trailer": "",
+    "binary_sha256": "5a873979d43e694185a53ebb047c773d6bb12831e01145f4d625ebd0907fe3f7",
+    "exit_code": 1,
+    "command": [
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\release\\wmma_qualify.exe",
+      "--wmma-mode",
+      "full-fp16",
+      "--json",
+      "--full-oracle",
+      "rdna3-dot2",
+      "--dump-operands",
+      "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-full-operands.json"
+    ],
+    "note": "Actual current executable output; JSON decoded without changing numeric observations. Raw stdout and stderr retained."
+  }
+}

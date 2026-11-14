@@ -1,0 +1,9 @@
+{
+  "pinned": 17,
+  "legacy": 54,
+  "total": 73,
+  "problems": [
+    "deepseek_v41_native_pipeline_avx2.json: missing verified pin or legacy SHA-256",
+    "deepseek_v41_native_vision_avx2.json: missing verified pin or legacy SHA-256"
+  ]
+}
