@@ -1,0 +1,247 @@
+{
+  "result": "pass",
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "width": 128,
+  "linear3_variant": "amd-rdna3-lds64",
+  "promotion": "geometry-aware",
+  "batches": [
+    {
+      "batch": 1,
+      "fused_ms": 8.1715,
+      "composed_ms": 8.438849999999999,
+      "default_ms": 8.386500000000002,
+      "composed_over_fused": 1.0327173713516489,
+      "default_over_fused": 1.0263109588202903,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": null,
+      "recorded_compose": null,
+      "expected_default_label": "fused",
+      "fused_linear3_dispatches": 0,
+      "composed_linear3_dispatches": 0,
+      "default_linear3_dispatches": 0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000492215156556
+        },
+        {
+          "label": "final_packed_state",
+          "values": 2560,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000156603302458
+        },
+        {
+          "label": "grad_x",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000107693675091
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 1024,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000230753226788
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 2560,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        }
+      ],
+      "composed_ran_vendor_linear3": false,
+      "unmeasured_compose": false,
+      "fused_ms_per_step": 1.0214375,
+      "composed_ms_per_step": 1.0548562499999998,
+      "default_ms_per_step": 1.0483125000000002,
+      "default_packed_forward": false,
+      "default_packed_rematerialization": false
+    },
+    {
+      "batch": 4,
+      "fused_ms": 9.5779,
+      "composed_ms": 9.59705,
+      "default_ms": 9.5094,
+      "composed_over_fused": 1.001999394439282,
+      "default_over_fused": 0.9928481191075288,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": null,
+      "recorded_compose": null,
+      "expected_default_label": "fused",
+      "fused_linear3_dispatches": 0,
+      "composed_linear3_dispatches": 0,
+      "default_linear3_dispatches": 0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000059857964516
+        },
+        {
+          "label": "final_packed_state",
+          "values": 10240,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000017196631234
+        },
+        {
+          "label": "grad_x",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000125078746352
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 4096,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000020229734219
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 10240,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        }
+      ],
+      "composed_ran_vendor_linear3": false,
+      "unmeasured_compose": false,
+      "fused_ms_per_step": 1.1972375,
+      "composed_ms_per_step": 1.19963125,
+      "default_ms_per_step": 1.188675,
+      "default_packed_forward": true,
+      "default_packed_rematerialization": false
+    },
+    {
+      "batch": 8,
+      "fused_ms": 11.14605,
+      "composed_ms": 11.12795,
+      "default_ms": 11.30045,
+      "composed_over_fused": 0.9983761063336338,
+      "default_over_fused": 1.0138524409992777,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": null,
+      "recorded_compose": null,
+      "expected_default_label": "fused",
+      "fused_linear3_dispatches": 0,
+      "composed_linear3_dispatches": 8,
+      "default_linear3_dispatches": 0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000082639977337
+        },
+        {
+          "label": "final_packed_state",
+          "values": 20480,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000028621128878
+        },
+        {
+          "label": "grad_x",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001000006161066267
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 8192,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000009764848983
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 20480,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        }
+      ],
+      "composed_ran_vendor_linear3": true,
+      "unmeasured_compose": false,
+      "fused_ms_per_step": 1.39325625,
+      "composed_ms_per_step": 1.39099375,
+      "default_ms_per_step": 1.41255625,
+      "default_packed_forward": true,
+      "default_packed_rematerialization": false
+    },
+    {
+      "batch": 16,
+      "fused_ms": 18.248350000000002,
+      "composed_ms": 18.541800000000002,
+      "default_ms": 18.46875,
+      "composed_over_fused": 1.016080905944921,
+      "default_over_fused": 1.0120778042946348,
+      "worst_max_abs": 0.0,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": null,
+      "recorded_compose": null,
+      "expected_default_label": "fused",
+      "fused_linear3_dispatches": 0,
+      "composed_linear3_dispatches": 8,
+      "default_linear3_dispatches": 0,
+      "tensors": [
+        {
+          "label": "outputs",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000011947005988
+        },
+        {
+          "label": "final_packed_state",
+          "values": 40960,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000037615354813
+        },
+        {
+          "label": "grad_x",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000019820527087
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 16384,
+          "max_abs": 0.0,
+          "worst_excess": -0.00010000009764848983
+        },
+        {
+          "label": "grad_initial_packed_state",
+          "values": 40960,
+          "max_abs": 0.0,
+          "worst_excess": -0.0001
+        }
+      ],
+      "composed_ran_vendor_linear3": true,
+      "unmeasured_compose": false,
+      "fused_ms_per_step": 2.2810437500000003,
+      "composed_ms_per_step": 2.3177250000000003,
+      "default_ms_per_step": 2.30859375,
+      "default_packed_forward": true,
+      "default_packed_rematerialization": false
+    }
+  ],
+  "median_composed_over_fused": 1.0090401501921016,
+  "winner": "mixed",
+  "steps": 8,
+  "head_size": 16,
+  "state_size": 20,
+  "samples": 8,
+  "warmup": 2,
+  "atol": 0.0001,
+  "rtol": 1e-05,
+  "batch_process_isolation": true
+}

@@ -1,0 +1,37 @@
+{
+  "kind": "calibration-proposal-only",
+  "qualification_status": "NOT RUN",
+  "measured_source_revision": "be72c27736e656a0497da07a940fe220e7c8b0e7",
+  "driver_sha256": "eaa17a88ce8cf494a75347291de6e6e8b499a481191afbe8d29eda4eaf630682",
+  "helper_sha256": "cf62b79b833b22f9e9a95ad84a5c4e12bc3a8269d20c19dda17f91ce5f934bc2",
+  "before_sha256": "dd14575ec19afb6bdf25cdfc3aadb6db18c106d18af11bafeb2db70a5857e9e0",
+  "candidate_sha256": "10b92ca8ca9002207c187cac3e752b1275d804a930c21c1a6e1f9d1939fbbf1c",
+  "measurements": [
+    {
+      "producer": "tbptt-packed-rematerialization",
+      "source_receipt_sha256": "4903498a6c87127c12dd1b79157a1325ce89cdb87ba270c38ceb6e47b5eb6a54",
+      "storage": "fp32",
+      "batches": [
+        1,
+        4,
+        8,
+        16,
+        32
+      ],
+      "selected_source": "shipped-route-v1"
+    },
+    {
+      "producer": "tbptt-packed-rematerialization-fp16",
+      "source_receipt_sha256": "b9495fa063679b1ea262dd62d527a1a5a1bb231997fd9c315a9069bfe1fd7a10",
+      "storage": "fp16-storage",
+      "batches": [
+        1,
+        4,
+        8,
+        16,
+        32
+      ],
+      "selected_source": "shipped-route-v1"
+    }
+  ]
+}

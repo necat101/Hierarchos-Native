@@ -1,0 +1,1 @@
+FAIL: tbptt-packed-rematerialization: batch 1: the record names 'legacy', but this receipt measures 'packed' ahead by 2.4%, outside the 2% noise band; the record is stale

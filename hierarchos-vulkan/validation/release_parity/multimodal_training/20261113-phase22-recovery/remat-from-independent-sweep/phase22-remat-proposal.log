@@ -1,0 +1,3 @@
+Prepared candidate from both actual full five-batch measurements; runtime table untouched
+{'device': 'AMD Radeon Graphics [pci=1002:15bf;driver=00800184]', 'width': 128, 'batch': 1, 'route': 'packed', 'candidates': {'legacy': 7.4823, 'packed': 7.26305}, 'probe': 'tbptt-packed-rematerialization', 'source': 'measured', 'parameter_storage': 'fp16-storage', 'measured_by': 'validation/bench_rwkv_tbptt_packed_chains.py'}
+{'device': 'AMD Radeon Graphics [pci=1002:15bf;driver=00800184]', 'width': 128, 'batch': 1, 'route': 'packed', 'candidates': {'legacy': 7.44065, 'packed': 7.26545}, 'probe': 'tbptt-packed-rematerialization', 'source': 'measured', 'parameter_storage': 'fp32', 'measured_by': 'validation/bench_rwkv_tbptt_packed_chains.py'}

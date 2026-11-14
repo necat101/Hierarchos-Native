@@ -10,10 +10,10 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 1,
-      "route": "legacy",
+      "route": "packed",
       "candidates": {
-        "legacy": 7.24035,
-        "packed": 7.3144
+        "legacy": 7.4823,
+        "packed": 7.26305
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -24,10 +24,10 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 1,
-      "route": "legacy",
+      "route": "packed",
       "candidates": {
-        "legacy": 7.1577,
-        "packed": 7.33375
+        "legacy": 7.44065,
+        "packed": 7.26545
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -40,8 +40,8 @@
       "batch": 4,
       "route": "legacy",
       "candidates": {
-        "legacy": 9.02555,
-        "packed": 9.2429
+        "legacy": 8.84005,
+        "packed": 8.8672
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -54,8 +54,8 @@
       "batch": 4,
       "route": "legacy",
       "candidates": {
-        "legacy": 8.8624,
-        "packed": 9.11755
+        "legacy": 8.95535,
+        "packed": 9.03875
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -68,8 +68,8 @@
       "batch": 8,
       "route": "legacy",
       "candidates": {
-        "legacy": 11.54045,
-        "packed": 12.45555
+        "legacy": 11.6877,
+        "packed": 12.5324
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -82,8 +82,8 @@
       "batch": 8,
       "route": "legacy",
       "candidates": {
-        "legacy": 11.5371,
-        "packed": 12.4635
+        "legacy": 11.74055,
+        "packed": 12.5797
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -96,8 +96,8 @@
       "batch": 16,
       "route": "legacy",
       "candidates": {
-        "legacy": 18.5647,
-        "packed": 21.95895
+        "legacy": 17.77465,
+        "packed": 21.09465
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -110,8 +110,8 @@
       "batch": 16,
       "route": "legacy",
       "candidates": {
-        "legacy": 16.72395,
-        "packed": 19.60245
+        "legacy": 17.5877,
+        "packed": 21.0951
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -124,8 +124,8 @@
       "batch": 32,
       "route": "legacy",
       "candidates": {
-        "legacy": 25.74915,
-        "packed": 32.2151
+        "legacy": 24.7043,
+        "packed": 32.44385
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -138,8 +138,8 @@
       "batch": 32,
       "route": "legacy",
       "candidates": {
-        "legacy": 24.71145,
-        "packed": 31.162
+        "legacy": 24.9187,
+        "packed": 32.27265
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
