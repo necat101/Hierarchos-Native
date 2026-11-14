@@ -280,6 +280,92 @@
       ],
       "candidate_after_sha256": "5e16c4ff6f1e92ba6b05679a6ad426abb4681205c87dd9838fe6b13c91b0651a",
       "exit_code": 0
+    },
+    {
+      "name": "tbptt-packed-rematerialization",
+      "source_revision": "b400b89bcd59df829c81cfca1e1b568d47edab14",
+      "driver_sha256": "b76884303bdf47f1c3a6f8ff2bb2a17130d5cd5c8428ef0312bcc814e6dc1fc4",
+      "runtime_tables": {
+        "channel_mix_forward_decisions.json": "a9f878b758d6b578a4509fd3dd06ed40146cb84571da579ccfa2b6ec2050fb02",
+        "key_state_forward_decisions.json": "116477cfff4f5445cd3dc6ee6eb8025b30e6953c0a2aa756bb78c43da8d28496",
+        "low_rank_full_forward_decisions.json": "13d90f5ee19bad577d025964da32a7a0f6c91da18a06c8ae723a375fa642f00f",
+        "tbptt_backward_fusion_decisions.json": "b0e94e3ab6652afa952d5bce724233fa1732b28891d7f0b9c27ca4c596a9cfd7",
+        "tbptt_packed_forward_decisions.json": "5e16c4ff6f1e92ba6b05679a6ad426abb4681205c87dd9838fe6b13c91b0651a",
+        "tbptt_packed_rematerialization_decisions.json": "509dedfb01fd6dbf2bf63d7c098c42d9cfcde9e30e9901bd60c90a09c360dcd3",
+        "time_mix_projection_decisions.json": "75f0c89d8d16ee711b05742bf8b03c9417fb1b63ab22d86758668b194c3c7456"
+      },
+      "candidate_before_sha256": "509dedfb01fd6dbf2bf63d7c098c42d9cfcde9e30e9901bd60c90a09c360dcd3",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py",
+        "--batch",
+        "1",
+        "--batch",
+        "4",
+        "--batch",
+        "8",
+        "--batch",
+        "16",
+        "--batch",
+        "32",
+        "--chain",
+        "remat",
+        "--steps",
+        "8",
+        "--iterations",
+        "1200",
+        "--warmup",
+        "2",
+        "--record-decisions",
+        "--decisions-output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\release_parity\\multimodal_training\\20261113-phase22-recovery\\policy-recording-balanced1200\\tbptt_packed_rematerialization_decisions.json"
+      ],
+      "candidate_after_sha256": "fec41bf02da6425fa913f4ca7943d84ef3b681ed858ea447b6c2c95f35f87676",
+      "exit_code": 0
+    },
+    {
+      "name": "tbptt-packed-rematerialization-fp16",
+      "source_revision": "527767778148c6dcac086f66724f21c6ea4a156b",
+      "driver_sha256": "b76884303bdf47f1c3a6f8ff2bb2a17130d5cd5c8428ef0312bcc814e6dc1fc4",
+      "runtime_tables": {
+        "channel_mix_forward_decisions.json": "a9f878b758d6b578a4509fd3dd06ed40146cb84571da579ccfa2b6ec2050fb02",
+        "key_state_forward_decisions.json": "116477cfff4f5445cd3dc6ee6eb8025b30e6953c0a2aa756bb78c43da8d28496",
+        "low_rank_full_forward_decisions.json": "13d90f5ee19bad577d025964da32a7a0f6c91da18a06c8ae723a375fa642f00f",
+        "tbptt_backward_fusion_decisions.json": "b0e94e3ab6652afa952d5bce724233fa1732b28891d7f0b9c27ca4c596a9cfd7",
+        "tbptt_packed_forward_decisions.json": "5e16c4ff6f1e92ba6b05679a6ad426abb4681205c87dd9838fe6b13c91b0651a",
+        "tbptt_packed_rematerialization_decisions.json": "509dedfb01fd6dbf2bf63d7c098c42d9cfcde9e30e9901bd60c90a09c360dcd3",
+        "time_mix_projection_decisions.json": "75f0c89d8d16ee711b05742bf8b03c9417fb1b63ab22d86758668b194c3c7456"
+      },
+      "candidate_before_sha256": "fec41bf02da6425fa913f4ca7943d84ef3b681ed858ea447b6c2c95f35f87676",
+      "command": [
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\.phase19w-venv\\Scripts\\python.exe",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\bench_rwkv_tbptt_packed_chains.py",
+        "--batch",
+        "1",
+        "--batch",
+        "4",
+        "--batch",
+        "8",
+        "--batch",
+        "16",
+        "--batch",
+        "32",
+        "--chain",
+        "remat",
+        "--parameter-storage",
+        "fp16-storage",
+        "--steps",
+        "8",
+        "--iterations",
+        "1200",
+        "--warmup",
+        "2",
+        "--record-decisions",
+        "--decisions-output",
+        "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\validation\\release_parity\\multimodal_training\\20261113-phase22-recovery\\policy-recording-balanced1200\\tbptt_packed_rematerialization_decisions.json"
+      ],
+      "candidate_after_sha256": "dd14575ec19afb6bdf25cdfc3aadb6db18c106d18af11bafeb2db70a5857e9e0",
+      "exit_code": 0
     }
   ],
   "promotions": [
@@ -312,6 +398,16 @@
         "tbptt_packed_forward_decisions.json": {
           "before_sha256": "26505a148ef03f274264b33e121f895fc8357023e8b17f269b9057b6b0d830f0",
           "after_sha256": "5e16c4ff6f1e92ba6b05679a6ad426abb4681205c87dd9838fe6b13c91b0651a"
+        }
+      }
+    },
+    {
+      "stage": "rematerialization",
+      "source_revision": "527767778148c6dcac086f66724f21c6ea4a156b",
+      "tables": {
+        "tbptt_packed_rematerialization_decisions.json": {
+          "before_sha256": "509dedfb01fd6dbf2bf63d7c098c42d9cfcde9e30e9901bd60c90a09c360dcd3",
+          "after_sha256": "dd14575ec19afb6bdf25cdfc3aadb6db18c106d18af11bafeb2db70a5857e9e0"
         }
       }
     }

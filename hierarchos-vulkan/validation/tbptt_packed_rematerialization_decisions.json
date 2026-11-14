@@ -12,8 +12,8 @@
       "batch": 1,
       "route": "legacy",
       "candidates": {
-        "legacy": 6.3376,
-        "packed": 6.38215
+        "legacy": 7.24035,
+        "packed": 7.3144
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -26,8 +26,8 @@
       "batch": 1,
       "route": "legacy",
       "candidates": {
-        "legacy": 7.0944,
-        "packed": 7.36285
+        "legacy": 7.1577,
+        "packed": 7.33375
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -40,8 +40,8 @@
       "batch": 4,
       "route": "legacy",
       "candidates": {
-        "legacy": 7.78805,
-        "packed": 7.974
+        "legacy": 9.02555,
+        "packed": 9.2429
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -54,8 +54,8 @@
       "batch": 4,
       "route": "legacy",
       "candidates": {
-        "legacy": 8.937,
-        "packed": 9.2732
+        "legacy": 8.8624,
+        "packed": 9.11755
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -68,8 +68,8 @@
       "batch": 8,
       "route": "legacy",
       "candidates": {
-        "legacy": 9.7514,
-        "packed": 10.373
+        "legacy": 11.54045,
+        "packed": 12.45555
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -82,8 +82,8 @@
       "batch": 8,
       "route": "legacy",
       "candidates": {
-        "legacy": 11.2824,
-        "packed": 11.8984
+        "legacy": 11.5371,
+        "packed": 12.4635
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -96,8 +96,8 @@
       "batch": 16,
       "route": "legacy",
       "candidates": {
-        "legacy": 15.4365,
-        "packed": 18.0532
+        "legacy": 18.5647,
+        "packed": 21.95895
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -110,8 +110,8 @@
       "batch": 16,
       "route": "legacy",
       "candidates": {
-        "legacy": 16.218,
-        "packed": 18.68205
+        "legacy": 16.72395,
+        "packed": 19.60245
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -124,8 +124,8 @@
       "batch": 32,
       "route": "legacy",
       "candidates": {
-        "legacy": 24.5592,
-        "packed": 30.8236
+        "legacy": 25.74915,
+        "packed": 32.2151
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
@@ -138,8 +138,8 @@
       "batch": 32,
       "route": "legacy",
       "candidates": {
-        "legacy": 24.81115,
-        "packed": 31.1978
+        "legacy": 24.71145,
+        "packed": 31.162
       },
       "probe": "tbptt-packed-rematerialization",
       "source": "measured",
