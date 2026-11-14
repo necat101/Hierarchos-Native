@@ -10,10 +10,24 @@
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
       "batch": 1,
+      "route": "packed",
+      "candidates": {
+        "legacy": 7.2614,
+        "packed": 7.2536
+      },
+      "probe": "tbptt-packed-forward",
+      "source": "measured",
+      "parameter_storage": "fp16-storage",
+      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
+    },
+    {
+      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+      "width": 128,
+      "batch": 1,
       "route": "legacy",
       "candidates": {
-        "legacy": 7.1812,
-        "packed": 7.37105
+        "legacy": 7.11035,
+        "packed": 7.32805
       },
       "probe": "tbptt-packed-forward",
       "source": "measured",
@@ -23,25 +37,11 @@
     {
       "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
       "width": 128,
-      "batch": 4,
+      "batch": 32,
       "route": "packed",
       "candidates": {
-        "legacy": 16.46015,
-        "packed": 11.66375
-      },
-      "probe": "tbptt-packed-forward",
-      "source": "measured",
-      "parameter_storage": "fp16-storage",
-      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
-    },
-    {
-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
-      "width": 128,
-      "batch": 8,
-      "route": "packed",
-      "candidates": {
-        "legacy": 11.33125,
-        "packed": 11.247
+        "legacy": 25.0884,
+        "packed": 24.7926
       },
       "probe": "tbptt-packed-forward",
       "source": "measured",
@@ -54,22 +54,8 @@
       "batch": 32,
       "route": "packed",
       "candidates": {
-        "legacy": 26.1841,
-        "packed": 25.9416
-      },
-      "probe": "tbptt-packed-forward",
-      "source": "measured",
-      "parameter_storage": "fp16-storage",
-      "measured_by": "validation/bench_rwkv_tbptt_packed_chains.py"
-    },
-    {
-      "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
-      "width": 128,
-      "batch": 32,
-      "route": "packed",
-      "candidates": {
-        "legacy": 24.94095,
-        "packed": 24.6833
+        "legacy": 25.06665,
+        "packed": 24.6803
       },
       "probe": "tbptt-packed-forward",
       "source": "measured",
