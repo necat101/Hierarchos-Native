@@ -1,0 +1,50 @@
+{
+  "attempted_optimizer_windows": 2,
+  "backend": "native-vulkan",
+  "device": "AMD Radeon Graphics",
+  "epochs": [
+    {
+      "epoch": 1,
+      "mean_loss": 4.150383949279785,
+      "optimizer_step": 1,
+      "steps": 1
+    },
+    {
+      "epoch": 2,
+      "mean_loss": 3.8788087368011475,
+      "optimizer_step": 2,
+      "steps": 1
+    }
+  ],
+  "optimizer_step": 2,
+  "optimizer_updates": 2,
+  "precision": {
+    "automatic_loss_scaling": true,
+    "cooperative_dispatches": 48,
+    "cpu_arithmetic_vector_width": 8,
+    "forward": 16,
+    "full_fp16_accumulation": 0,
+    "full_fp16_max_reduction": 64,
+    "full_fp16_reduction_fallbacks": 0,
+    "input_grad": 16,
+    "loss_scaler": {
+      "accumulation_steps": 1,
+      "backoff_factor": 0.5,
+      "growth_factor": 2.0,
+      "growth_interval": 2000,
+      "growth_tracker": 2,
+      "pending_microbatches": 0,
+      "scale": 256.0,
+      "skipped_steps": 0
+    },
+    "master_weights": "fp32",
+    "mixed_fp32_accumulation": 48,
+    "optimizer_state": "fp32",
+    "requested": "mixed",
+    "shape_fallbacks": 0,
+    "weight_grad": 16
+  },
+  "starting_step": 0,
+  "steps": 2,
+  "training_mode": "full"
+}

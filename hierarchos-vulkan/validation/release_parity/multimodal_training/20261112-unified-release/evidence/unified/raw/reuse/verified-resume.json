@@ -1,0 +1,24 @@
+{
+  "status": "PASS_VERIFIED_EXISTING_EXECUTION",
+  "source_revision": "8247925b8ff22ef35a9d859d8b620e51222a5a8e",
+  "fp32_replay": {
+    "path": "target/phase22-final-fp32-replay/qualification.json",
+    "sha256": "f8c99112f27a181c969d14d1a0913cccfb3ad13f621ec7abe6db9bbb07d5e942",
+    "stages": 9,
+    "all_stage_returncodes_zero": true
+  },
+  "native_v41": {
+    "path": "target/phase22-final-v41/qualification.json",
+    "sha256": "fc9142deddb194e1bf2f56038d5f238d6ba6d71d5d9d4f701b8f218d9d161b66"
+  },
+  "packed": {
+    "passed": 13,
+    "source_revision": "8247925b8ff22ef35a9d859d8b620e51222a5a8e"
+  },
+  "intermediates": {
+    "maintained_passed": 93,
+    "diagnostic_checks": 1116,
+    "strict_diagnostic_failures": 194
+  },
+  "unaffected_binary_count": 22
+}

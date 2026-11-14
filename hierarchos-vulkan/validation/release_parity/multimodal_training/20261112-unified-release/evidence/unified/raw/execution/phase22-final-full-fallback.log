@@ -1,0 +1,7 @@
+
+running 1 test
+test transformer::amp::tests::oversized_full_fp16_executes_fp32_forward_backward_adamw_and_checkpoint ... Full FP16 oversized GPU evidence: reduction=128 forward=3 dW=3 dX=3; FP32 outputs/gradients/masters/moments/resume identical; cooperative delta=[0,0]
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1198 filtered out; finished in 0.21s
+

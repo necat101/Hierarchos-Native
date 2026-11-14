@@ -1,0 +1,55 @@
+
+running 50 tests
+test image_generation::tests::image_engine_arguments_preserve_prompts_and_force_vulkan ... ok
+test tests::contract_staging_updates_nested_and_flat_configs_without_mutating_source ... ok
+test tests::deepseek_v41_generation_context_is_bounded_by_native_runtime ... ok
+test tests::failed_ckpt_to_inference_does_not_publish_partial_output ... ok
+test tests::full_finetune_rejects_adapter_options_before_io ... ok
+test tests::hugging_face_dataset_split_matching_covers_single_sharded_jsonl_and_parquet ... ok
+test tests::hugging_face_repo_and_file_validation_is_fail_closed ... ok
+test tests::hugging_face_url_components_are_encoded_without_flattening_file_paths ... ok
+test tests::local_tokenizer_assets_are_installed_into_output_and_checkpoints ... ok
+test tests::modules_to_save_requires_its_separate_registry_gate ... ok
+test tests::native_causal_tokenization_and_chat_share_eos_resolution ... ok
+test tests::native_causal_tokenization_appends_eos_once_and_preserves_bos ... ok
+test tests::native_causal_tokenization_keeps_prompt_open_before_answer ... ok
+test tests::native_causal_tokenization_preserves_literal_prompt_eos ... ok
+test tests::native_causal_tokenization_response_eos_is_not_answer_content ... ok
+test tests::native_cli_training_defaults_match_root_cli_contract ... ok
+test tests::native_eos_probability_stop_uses_raw_softmax_and_generated_token_gate ... ok
+test tests::native_uncertainty_stop_is_fail_closed_for_active_nonfinite_logits ... ok
+test tests::native_uncertainty_stop_matches_root_cli_guard_geometry ... ok
+test tests::package_vocab_size_accepts_native_config_contract ... ok
+test tests::parameter_streaming_generation_cli_requires_explicit_flag ... ok
+test tests::parquet_dataset_is_materialized_as_jsonl_without_python ... ok
+test tests::peft_cli_rejects_ambiguous_configs_and_invalid_budgets_before_io ... ok
+test tests::plain_text_row_produces_supervised_ids ... ok
+test tests::platform_executable_matches_host ... ok
+test tests::response_boundary_weight_never_boosts_eos ... ok
+test tests::response_preserving_truncation_keeps_prompt_suffix_and_minimum_answer ... ok
+test tests::root_text_schema_detection_covers_content_and_question_answer ... ok
+test tests::transformer_chunking_attaches_cross_attention_encoder_context ... ok
+test tests::transformer_chunking_builds_shifted_causal_targets_and_padding ... ok
+test tests::transformer_dropout_override_is_explicit_and_covers_nested_mpt_field ... ok
+test tests::transformer_encoder_context_rejects_hidden_width_mismatch ... ok
+test tests::transformer_generate_cli_accepts_named_peft_adapter ... ok
+test tests::transformer_generate_cli_continuous_batching_fails_closed_on_cache_conflicts ... ok
+test tests::transformer_generate_cli_continuous_batching_is_opt_in_and_implies_paged_cache ... ok
+test tests::transformer_generate_cli_exposes_hf_generation_overrides ... ok
+test tests::transformer_generate_cli_rejects_adapter_name_without_adapter ... ok
+test tests::transformer_generate_routes_deepseek_v41_through_the_dedicated_loader ... ok
+test tests::transformer_generation_config_overlay_is_last_write_wins ... ok
+test tests::transformer_package_metadata_cannot_implicitly_enable_paged_serving ... ok
+test tests::transformer_peft_mode_includes_implicit_finetune_and_resume ... ok
+test tests::transformer_precision_parser_defers_full_profile_admission_until_model_is_known ... ok
+test tests::transformer_safetensors_index_collects_unique_safe_shards ... ok
+test tests::transformer_wmma_mode_reaches_the_trainer_environment ... ok
+test vision::tests::native_spans_and_padding_keep_image_identity ... ok
+test vision::tests::partial_batches_do_not_train_repeated_padding_examples ... ok
+test vision::tests::released_v41_rgb_patch_order_and_bfloat_boundary ... ok
+test vision::tests::shifted_text_target_after_an_image_row_remains_supervised ... ok
+test vision::tests::vision_options_reject_mismatched_and_invalid_controls ... ok
+test vision::tests::vision_precision_accepts_amp_aliases_without_touching_the_process_policy ... ok
+
+test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+

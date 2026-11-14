@@ -1,0 +1,14 @@
+test_duplicate_cannot_be_promoted_as_an_independent_candidate (test_packed_measurement_integrity.PackedMeasurementIntegrity.test_duplicate_cannot_be_promoted_as_an_independent_candidate) ... ok
+test_duplicate_folded_schedule_keeps_numeric_gates (test_packed_measurement_integrity.PackedMeasurementIntegrity.test_duplicate_folded_schedule_keeps_numeric_gates) ... ok
+test_invented_candidate_time_is_rejected (test_packed_measurement_integrity.PackedMeasurementIntegrity.test_invented_candidate_time_is_rejected) ... ok
+test_isolated_batch_aggregate_uses_every_row (test_packed_measurement_integrity.PackedMeasurementIntegrity.test_isolated_batch_aggregate_uses_every_row) ... ok
+test_missing_raw_readings_are_rejected (test_packed_measurement_integrity.PackedMeasurementIntegrity.test_missing_raw_readings_are_rejected) ... ok
+test_one_refusal_does_not_waive_a_bit_exact_geometry (test_packed_measurement_integrity.PackedMeasurementIntegrity.test_one_refusal_does_not_waive_a_bit_exact_geometry) ... ok
+test_refusal_requires_this_geometry_and_numeric_evidence (test_packed_measurement_integrity.PackedMeasurementIntegrity.test_refusal_requires_this_geometry_and_numeric_evidence) ... ok
+test_slower_production_timing_is_used_for_either_route (test_packed_measurement_integrity.PackedMeasurementIntegrity.test_slower_production_timing_is_used_for_either_route) ... ok
+test_vendor_availability_does_not_expand_vendor_admission (test_packed_measurement_integrity.PackedMeasurementIntegrity.test_vendor_availability_does_not_expand_vendor_admission) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.009s
+
+OK

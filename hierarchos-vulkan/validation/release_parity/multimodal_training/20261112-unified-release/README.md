@@ -1,153 +1,117 @@
-# Unified multimodal and WMMA release verification - 2026-11-12
+# Unified FP32, Mixed WMMA and scoped Full FP16 qualification
 
-> **Phase XXI addendum (2026-11-13):** the Gemma4 wide Mixed failure was
-> repaired by keeping V/O/MLP on FP32 and admitting Q/K through cooperative
-> WMMA; shader provenance is now **727/727 PASS** with glslang 15.3.0. The
-> current-source Phase XIX-W matrix and Phase XIX-X attention receipt are
-> present. See `../20261113-phase21-repair/README.md` for final-source evidence.
-> Phase XIX-X activity/drift, Phase XIX-Y, Phase XIX-Z, and GitHub Actions
-> remain blocked. The tables below remain the historical `719b9c5` record.
+Local numerical and source-bound status: **PASS (scoped)**. The sealed machine-readable record is [release-qualification.json](release-qualification.json); [precision-capabilities.json](precision-capabilities.json) gives the family-by-family support contract. GitHub-hosted CI is a separate final-commit check; its actual run URLs and conclusions belong in the delivery report. Self-hosted hardware availability is never inferred from local PASS.
 
-Implementation revision: `719b9c5430bf1ac15471b7d4e9024d832d7fdbfa`
-Branch: `codex/rdna3-phase19-instrumented`
-Device: `AMD Radeon Graphics [pci=1002:15bf;driver=00800184]`
+Sealed source revision: `a7422faa65b47d233bb7e44e26023b9055684e77`. Device: `AMD Radeon Graphics [pci=1002:15bf;driver=00800184]`. Release receipt SHA-256: `3f4fa7928666c3218dfaed106427f509562ed1a5e91134115228d506e804ad2f`. All source, executable, shader, component and raw-evidence digests are recorded in the receipt. No numerical acceptance limit was increased.
 
-This is a current-source verification record, not a claim that Phase XIX-Z
-current-source qualification is complete. The existing Phase XIX-Z checker
-remains **BLOCKED** on stale source bindings and is not replaced here. Raw
-receipts live under the repository's ignored `target/`; this document records
-their status and the exact scope that was run.
+## Numerical qualification
 
-## FP32 multimodal
-
-| Scope | Status | Result |
+| Scope | Status | Actual evidence |
 |---|---|---|
-| 93 maintained image cases (`shared77`, `seq2seq`, `gemma4-legacy`, `gemma4-rgb`, `gemma3`, `llava`) | **PASS** | 93/93 cases; all six stages exit 0; strict main gate `max_abs < 2e-7`, `rtol=0` |
-| 166 text cases | **PASS** | 166/166; strict maximum `1.7881393432617188e-07` |
-| Strict intermediate vision/feature diagnostics | **FAIL / UNQUALIFIED** | 194 of 1,116 diagnostic checks fail; worst `4.57763671875e-05` (Gemma4 vision features). These are not part of the frozen main gate and are not hidden. |
+| Maintained FP32 images | PASS | 93/93 across six original stages; maximum observed logit error 1.7881393432617188e-07; original loss, update and reload gates retained |
+| Maintained FP32 text | PASS | 166/166 resident/streaming comparisons; maximum 1.7881393432617188e-07; strict `<2e-7`, rtol 0 |
+| Additional strict intermediate diagnostics | FAIL / unqualified | 194/1116 fail; all raw rows retained |
+| Native V4.1 bounded vision | PASS, bounded | 65 strict rows; maximum 1.5646219253540039e-07; 32 Mixed dispatches; exact reload |
+| Native V4.1 stress | FAIL / unqualified | First-norm difference 2.384185791015625e-7; independent float64 diagnosis retained; no universal strict-equivalence claim |
+| Exploratory geometry | Unqualified | Hidden64/vocab64 maximum 2.2351741790771484e-7; hidden128/vocab32 maxima 2.9802322387695312e-7 and 3.5762786865234375e-7; separate from maintained 93 |
+| Mixed primitives | PASS | 37/37 |
+| Original Full FP16 primitive cadence | FAIL, preserved | 9/37 fail; not relabeled by the matched-oracle result |
+| Matched RDNA3 dot2 Full FP16 | PASS within admitted reductions | 28/28 K<=64; three K=96 versus-FP32 failures retained |
 
-Receipts: `target/unified-release-images-719b9c5/qualification.json`,
-`target/unified-fp32-text166-final-719b9c5.log`.
+Full training and ordinary LoRA ran 20 optimizer updates in Off, Mixed and Full FP16. Accumulation ran 40 microbatches into 20 updates. Masters and AdamW moments remained FP32; deterministic exact LoRA resume included optimizer and scaler state. Forced global image/text overflow skipped both optimizers without changing weights, moments or clocks: two skips at 2^78, then four after restored state at 2^76. The real GPU underflow test preserves a gradient that otherwise rounds to zero as an FP16 operand.
 
-Image binaries: `image_text_pipeline_probe.exe`
-`49b7b2baa410103ce22c822ab60b301da5495c4d7ed2bb2c685e0502260cf318`,
-`llava_pipeline_probe.exe`
-`3dfc64ebf79070ba38523a89edab6982d80d94b8bd8600d9fbe87fd54c32eba0`,
-`gemma3_vision_probe.exe`
-`afbede84ec70a5f4f6548b5c4ae9becea959c9eaa336501e1c6de3628d2caae1`,
-`gemma4_vision_probe.exe`
-`dec5024754bfa0e55c5fd11b45829eb7b3dc51daf6fe04e5d64e211b26125714`,
-test runner `46e1616020dc0c45f6dd5f2aa84831a4ceaa00cd3d7ddc20a65646eb3f01c3a4`.
+| Trajectory | Loss maximum / RMS versus FP32 | Master maximum versus FP32 | Accumulation dispatches |
+|---|---|---|---|
+| full-mixed | 2.21729279e-05 / 1.15093467e-05 | 5.29699028e-05 | [480, 0] |
+| full-full-fp16 | 0.000366210938 / 0.000137590513 | 0.000247489661 | [0, 480] |
+| lora-mixed | 2.24113464e-05 / 1.17173697e-05 | 0.000102061778 | [320, 0] |
+| lora-full-fp16 | 0.000106811523 / 5.2882133e-05 | 0.000203663483 | [0, 320] |
 
-Native V4.1 bounded Mixed remains **PASS_BOUNDED_NATIVE_VISION** with 65 strict
-rows (maximum `1.564621925354004e-07`), 32 cooperative dispatches and exact
-reload. The separate stress fixture remains **FAIL / UNQUALIFIED** with 65
-strict failures (maximum `4.76837158203125e-06`). Receipt:
-`target/unified-release-v41-final/qualification.json`.
+## Wide Mixed matrix
 
-## Mixed WMMA
+| Family / case | Status | Mixed forward, dW, dX | Worst qualified Mixed maximum / RMS |
+|---|---|---|---|
+| llava / clip_last_layer_padded | PASS, scoped | [189, 54, 54] | 0.00123545527 / 0.000304668142 |
+| gemma3 / siglip_full_grid | PASS, scoped | [189, 54, 54] | 0.0038895905 / 0.0010215329 |
+| gemma4 / gemma4_rgb8 | PASS, scoped | [28, 8, 8] | 0.00140762329 / 0.000314929731 |
+| seq2seq / t5/unmasked | PASS, scoped | None | 5.10513783e-05 / 6.48748804e-06 |
+| seq2seq / t5/padded | PASS, scoped | None | 6.85341656e-05 / 1.00578595e-05 |
+| seq2seq / bart/unmasked | PASS, scoped | None | 2.39014626e-05 / 6.78559587e-06 |
+| seq2seq / bart/padded | PASS, scoped | None | 2.77161598e-05 / 8.63157629e-06 |
+| seq2seq / switch_transformers/unmasked | PASS, scoped | None | 0.00148224831 / 0.00024096831 |
+| seq2seq / switch_transformers/padded | PASS, scoped | None | 2.45571136e-05 / 7.99244704e-06 |
 
-| Scope | Status | Result |
+Gemma4 Q/K execute cooperative WMMA; V/O/patch/MLP follow the measured FP32 policy (44 cooperative dispatches, 114 explicit policy fallbacks). The unchanged Mixed limits are max <0.02 and RMS <0.003. Shared CLIP/LLaVA transactions and standalone GPT2/Llama full/LoRA have tested GPU loss scaling. T5/BART/Switch, Gemma3, Gemma4 and native V4.1 retain their explicitly bounded unscaled FP32-gradient policy; FP16 GEMM operand quantization still occurs. Complete CUDA autocast/GradScaler equivalence is not advertised for those paths.
+
+## Full FP16 and GUI
+
+Full FP16 uses the genuine FP16 cooperative accumulator for eligible reductions <=64, with FP32 graph suboperations, masters and moments. The qualified local Llama64/shared CLIP64 profile and adapter/driver admission remain enforced. A real K=128 GPU test executes forward/dW/dX FP32 fallback, AdamW and parameter/moment checkpoint restoration with cooperative delta [0,0]. An internal two-update 128-wide image/text test records 144 reduction fallbacks and exact HF export/reload; that test does not admit 128-wide Full FP16 through the frontend. All original primitive failures remain visible.
+
+Actual GUI Start executed eight workflows: Mixed and Full FP16, each vision, full training, full-parameter fine-tune and LoRA. Every workflow completed two optimizer updates with the requested accumulator route. Four real rejection controls cover invalid mode, unqualified Full profile, checkpoint precision mismatch and partial accumulation-window checkpoint. Full-model optimizer resume, image accumulation, dropout accumulation and partial-window resume remain unsupported. These were real Start code-path tests; manual visual clickthrough was not run.
+
+## Current-source qualification and regression
+
+| Gate | Status | Scope |
 |---|---|---|
-| Llama64 full-parameter and LoRA training | **PASS_SCOPED** | 20 steps each; 480/320 cooperative dispatches; FP32 masters and optimizer state; loss scaling enabled |
-| Shared CLIP64 image/text CLI and direct probe | **PASS_SCOPED** | 94 CLI cooperative dispatches (30 forward, 32 dW, 32 dX); six documented shape fallbacks remain FP32; image/text parameter equality `0.0` against the direct probe |
-| T5, BART, Switch wide cases (6) | **PASS_SCOPED for dispatches/numerics; scaler NOT RUN** | 6/6 pass; 352/426 cooperative dispatches. These encoder-decoder probes retain the documented unscaled FP32-gradient policy: `loss_scaler` is null, so automatic loss scaling is not qualified for this family. |
-| Wide-family loss scaling | **NOT RUN / UNQUALIFIED** | Only the shared LLaVA probe records a scaler; Gemma3 has no scaler evidence and T5/BART/Switch record `loss_scaler: null`. |
-| LLaVA wide | **PASS_SCOPED** | Cooperative forward/dW/dX confirmed |
-| Gemma3 wide | **PASS_SCOPED for dispatches/numerics; scaler NOT RUN** | Cooperative forward/dW/dX confirmed; the probe has no loss-scaler field, so automatic scaling is not qualified; its raw FP32 diagnostics exceed strict `2e-7` |
-| Gemma4 wide RGB | **FAIL** | Unchanged policy: step-1 vision RMS `0.006074178677798042` > `0.003`, maximum `0.017984390258789062`; not promoted |
-| Mixed primitive qualification | **PASS** | 37/37 gates; 15 cooperative, 1 plain FP16, 0 shape fallbacks |
+| phase19w | PASS | 146 canonical + 83 aliases; 166 forward, 72 generation, 32 PEFT runs; source `1a54d15d117e7ec6ea187872e891132149a64923` |
+| phase19x | PASS | Six newly executed families: attention, training, stability, held-out, drift and activation; source `7d921a2305ec75dc724ae8170b5f757433c21cb5` |
+| phase19y | PASS | 16/16 expanded shapes + 74/74 retained shared cases; all 93 entries accounted, with 19 historical entries distinguished; source `7d921a2305ec75dc724ae8170b5f757433c21cb5` |
+| phase19z | PASS | All current families, oracle verification, restored shader, source/binary bindings and all thirteen packed pairs; source `7d921a2305ec75dc724ae8170b5f757433c21cb5` |
+| Packed-cell | PASS | 13/13 independent current GPU benchmark/guard pairs; full batches 1/4/8/16/32, 1,200 balanced observations, original warmups, eight-step chains and 1%/2% bands |
+| Shader provenance | PASS | 727/727 identical training variants; 4/4 WMMA; 45-artifact gate is an overlapping subset, not an extra 45 variants |
+| library | PASS | 1159 passed, 0 failed, 40 ignored; ignored tests excluded from passes |
+| cli | PASS | 50 passed, 0 failed, 0 ignored; ignored tests excluded from passes |
+| gui | PASS | 17 passed, 0 failed, 4 ignored; ignored tests excluded from passes |
+| gui_hardware | PASS | 2 passed, 0 failed, 0 ignored; ignored tests excluded from passes |
+| oversized_fallback | PASS | 1 passed, 0 failed, 0 ignored; ignored tests excluded from passes |
+| Rust packed benchmark controls | PASS | 3 passed, 0 failed, 0 ignored; exact executable hash bound separately |
 
-Receipts: `target/unified-release-precision-final/qualification.json`,
-`target/unified-release-mixed-gui-clean/qualification.json`,
-`target/unified-wide-multimodal-719b9c5/qualification.json`,
-`target/mixed-primitive-719b9c5.json`.
+Training X preserved eight arms, three resume arms and eight performance arms. Stability retained all five original learning rates and 100-step trajectories, selecting 0.001. Held-out/drift used orders 0/37/512: validation gaps were +0.0956068, -0.000362141 and +0.116005; no three-order confidence interval or universal Mixed accuracy equality is claimed. Same-weight maximum logit drift was 0.0551729 in this separate large-model investigation. Activation executed all six cells and ten traces; first divergence was Q projection. Epoch-reuse validation checks both the preceding evaluation and its parameter digest.
 
-Gradient accumulation, overflow skipping, scaler growth/backoff, solo optimizer
-skipping and exact LoRA resume pass for the scoped fixture. A forced joint
-overflow leaves image weights, language weights, AdamW moments and clocks
-unchanged and backs the scale off.
+Fixture provenance is separated by workload: the maintained 93-image/166-text frozen reference is AVX2; Y expanded shapes use the immutable AVX512/Torch 2.6.0/HF 129e8dc oracle, while the retained shared manifest records AVX2. W forward/generation use Torch 2.14.1/HF 4692303 with AVX2; PEFT uses Torch 2.6.0/HF 129e8dc with AVX512. The exact manifests and environments, rather than a common CPU label, define each reference.
 
-## Scoped Full FP16
+The five Z training families are byte-identical copies of the actually executed current X evidence, independently re-verified by both consumers; their complete copy provenance is retained. CPU fixtures were not regenerated or relabeled: 2,748 frozen files verify against the immutable handoff. The 16-shape and 77-case oracle ZIPs retain their published SHA-256 values. Original failed packed sweeps, before/after policy tables and official calibration logs are archived under `../20261113-phase22-recovery/`. Independent post-recording replay is required; calibration alone is never counted as PASS.
 
-| Scope | Status | Result |
-|---|---|---|
-| Llama64 full-parameter | **PASS_SCOPED** | 480 actual FP16-accumulating dispatches (160 forward, 160 dW, 160 dX); 0 Mixed; 0 FP32 reduction fallbacks |
-| Llama64 LoRA | **PASS_SCOPED** | 320 FP16-accumulating forward/dX dispatches; frozen base weights have no dW |
-| Shared CLIP64 image/text | **PASS_SCOPED** | Two training steps; actual FP16 accumulation; image and text updates; zero reload divergence |
-| Gradient accumulation | **PASS_SCOPED** | 960 full-training / 640 LoRA dispatches over 40 microbatches; deterministic equal-weight windows |
-| Oversized reduction | **FP32 fallback by design** | Reductions greater than 64 are rejected from cooperative Full FP16 and use the explicit FP32 path; they are not reported as Full FP16 dispatches |
-| Broad original primitive | **HISTORICAL / FAIL** | 9 of 37 primitive gates fail under the original cadence oracle; unchanged and preserved |
-| Matched dot2 oracle, applicable short reductions | **PASS** | 28/28 applicable gates, unchanged drift limits |
-| Native V4.1 Full FP16 | **REJECTED** | Not admitted |
+The user reported an active Discord call during the late packed replay. Its exact start time and hardware impact are unknown; the context note is retained in raw diagnostics. Thresholds and calibration were left unchanged, and every actual guard still had to pass.
 
-Full-training drift versus FP32: max logit `3.662109375e-04`, RMS
-`1.3759e-04`; LoRA max `1.068115234375e-04`, RMS `5.2882e-05`.
-Maximum admitted reduction: 64. Full FP16 means FP16 GEMM accumulation, not
-FP16 graph arithmetic; normalization, softmax, loss, masters and AdamW remain
-FP32.
+Forward/rematerialization uses three construction rotations with 400 observations each; backward fusion uses four rotations with 300 each. Each uses the original per-process warmup, pooling 1,200 raw samples per leg. Both allocation placement and execution order are balanced. All raw timing arrays and exact-parity readbacks are retained; 23 allocation fault controls reject missing orders, forged medians, invalid samples and hidden numeric failures. The target production route remains unpinned while other chains are held fixed as in the forced arms.
 
-Receipt: `target/unified-release-precision-final/qualification.json`.
-Original primitive failure: `target/fullfp16-primitive-719b9c5.json`.
+The retained Phase XX report and summary remain byte-for-byte in `../20261113-phase22-recovery/phase20-handoff/`. [RDNA3_RELEASE_CONTRACT.md](../../../../../RDNA3_RELEASE_CONTRACT.md) describes numerical exclusions; raw component JSON, logs and fixture/toolchain metadata are under `evidence/unified/`. The final delivery report must list the actual hosted CI URLs at the published commit; local qualification does not imply hosted or self-hosted CI success.
 
-## GUI and CLI
+## Executable SHA-256 inventory
 
-- Actual GUI Start action: eight workflows executed (Mixed and Full FP16, each
-  vision, full Transformer, full-parameter fine-tune, LoRA) through
-  `multimodal_ui`; both ignored Start tests pass.
-- Mixed GUI reports: 84 vision, 48 full/fine-tune, 32 LoRA cooperative
-  dispatches; Full FP16 reports: 84, 48, 32, with FP16 accumulation nonzero.
-- `hierarchos-native-cli` release binary:
-  `743feeb89204d6131bab13e64ead6394a616b4fd9006f9121cc7ff0511a1eee0`.
-- CLI tests: 50 passed, 0 failed. GUI tests: 17 passed, 0 failed, 4 ignored;
-  the two precision Start tests were run separately and passed.
-- Full Rust library suite: 1,157 passed, 0 failed, 40 ignored, exit 0
-  (`target/rust-lib-final2.log`).
-
-## Packed cell and shader provenance
-
-- Packed-cell composition: **PASS**. `worst_max_abs = 0.0`, qualified AMD plan,
-  vendor dispatches for `linear-forward`, `linear-residual-forward` and
-  `linear3-forward`, negative control rejected. Receipt:
-  `target/packed-cell-719b9c5.json`.
-- The 13-route AMD receipt remains **HISTORICAL ONLY** at
-  `b03bf0919ea0b3bfb4fcbc6964674131bbc4464d`; the required current-source
-  Phase XIX-Z regeneration is not complete.
-- Shader provenance: **BLOCKED**. 674 of 727 training variants reproduce
-  byte-for-byte with the installed toolchains; 53 glslangValidator artifacts
-  require the pinned 15.3.0 release, while only 16.5.0/16.6.0 are installed.
-  `glslc` artifacts and the other 213 glslang artifacts pass. Receipt:
-  `target/training-shaders-719b9c5.json`.
-
-## CI status at `b18ca21`
-
-All completed jobs failed closed on missing final-root receipts rather than on a
-new numerical assertion:
-
-- `phase19w architecture compatibility`: missing
-  `20261112-unified-release/phase19w-matrix.json`
-  (https://github.com/necat101/Hierarchos-Native/actions/runs/43335438702)
-- `phase19y oracle bytes`: missing
-  `20261112-unified-release/phase19y/current-qualification.json`
-  (https://github.com/necat101/Hierarchos-Native/actions/runs/43335438707)
-- `workspace check`: missing `phase19x/current-qualification.json`
-  (https://github.com/necat101/Hierarchos-Native/actions/runs/43335438718)
-- `phase19 instrumented qualification`: missing `phase19x/activation`
-  (https://github.com/necat101/Hierarchos-Native/actions/runs/43335438726)
-- `packed-cell producer A/B`: queued; no authorized self-hosted Windows
-  Vulkan AMD runner (https://github.com/necat101/Hierarchos-Native/actions/runs/43335438731)
-
-No CI success is claimed.
-
-## Remaining limitations
-
-- Phase XIX-Z current-source qualification: **BLOCKED**; the new-root
-  `phase19z/current-qualification.json` is absent, and the old receipt fails
-  closed because `rwkv_key_state_forward_fused_wide.comp` changed.
-- Shader provenance: **BLOCKED** on the pinned glslang 15.3.0 toolchain.
-- Full-model optimizer resume, image gradient accumulation and partial-window
-  resume remain unsupported.
-- The 128-wide exploratory image geometry retains its post-training strict
-  difference of approximately `2.24e-7`; it is not added to the 93-case gate.
-- Windows Vulkan AMD CI runner availability and GitHub Actions conclusions are
-  not claimed here beyond the failures above.
+| Executable | SHA-256 |
+|---|---|
+| activation_probe | `817a507693d5891f99b2b8bb663debaa9f80be97375a76d44ae3438d567e97d4` |
+| classifier_test | `1dd73bb97fbfefc6267feee91bee9189f0e5d5b9398d61ee67dac03cb7c5b83c` |
+| cli_test | `d783ab3512cae91b5496e27e34ebf6d4d764123ec5aa01abe2f3383e12ac9e6f` |
+| deepseek_v41_vision_precision_probe | `d65a221aba9f38766a42d3ed1346710ca80986d705db3344ee0d7c370aa54b8a` |
+| gemma3_vision_probe | `b59ba2b75dd592f8d0a79feb330c1245280767d4a31f99885787ca10969dc859` |
+| gemma4_vision_probe | `14c1638fea5e215c9c6f19952061c537847e8a0793cf3ae4ad09082f06c4cee8` |
+| gui_app | `980199a3ad11339cc5fc4de44bfa43891e7d5335af2e81008ae0e14e747419d3` |
+| gui_test | `af11bcbdd95390ca40f3a72cef748bf1f62420360cef12bcc473dbdd09d29cce` |
+| held_out_eval | `e6ec4152e678a245ab4ec3d36224daff7c8a538c1d65070daadf58089f5dd39a` |
+| hierarchos-native-cli | `ef9e4f364eecf103aef8a31bd29e4eeb06014cefe109bf790a3233a25c192e06` |
+| hierarchos-vulkan-rwkv-key-state-forward-bench | `0d3db02f32125f1b237f2dfdb9ec1912b3895fb5cd7a9c2438a46e938c6742d8` |
+| hierarchos-vulkan-rwkv-low-rank-fp16-forward-bench | `ef78065b037ebb4d95951c09c6c7308da6703684be56909b211f314a61b81bf1` |
+| hierarchos-vulkan-rwkv-packed-cell-channel-mix-bench | `0c8151c9d182a7570650073827aa346dd19f4206aa1562c4f26f4fedda212a77` |
+| hierarchos-vulkan-rwkv-packed-cell-low-rank-forward-bench | `818ecd8cc01048592b2fab6bf20884c6f636a1073141098b9e981a105ae00a81` |
+| hierarchos-vulkan-rwkv-packed-cell-step | `0e7278b47a2e41e74f0e8cf400eb90f7aaae5c99f2c862b8a86b1b238f0b076a` |
+| hierarchos-vulkan-rwkv-packed-cell-time-mix-bench | `3e8f3cffa4106671f5cc4fd1e2929a519b5fcb79bb4d00d5ab67693dec357531` |
+| hierarchos-vulkan-rwkv-tbptt-packed-chains-bench | `2a74b7bc561bb90b03311546a84ca995e528a94d7ab2d8f2640d564eacf40217` |
+| hierarchos-vulkan-rwkv-tbptt-time-mix-bench | `c5278403b9862ec187fd04d4a5022f13b4a2699756a1201c5e2573d5f846fd9a` |
+| hierarchos-vulkan-training-qualification | `52a7c4566d6672d2c924f38c5794cfcfcda8ad610873b9cef081fce287f02c3c` |
+| hierarchos-vulkan-transformer-logits | `f284c880a63e4a715f3bf98ba159b5e54297f7258fa511444108ea2d7a647bf3` |
+| hierarchos-vulkan-transformer-train | `5778552a7b3c1e3ae8a56ce00c2ce5c54345e1e5644602f430d7ea3d6b757b3f` |
+| image_text_pipeline_probe | `a9ec1cb9edce9285280702cffcb5dad84de7b7f35e0c46e55f94441551bd2926` |
+| libtest | `092452e3c555dc46b9abc2ee938bd552b832e5eedc9cb4580131ffc46f539e5b` |
+| llava_pipeline_probe | `84c97a7d2f77564a7cf413d64e9dc414120e1b4b4117562d0a583e4de6e98b00` |
+| parameter_streaming_bench | `6996e54c28293847eb79aad5b75ebef8223245f9d339be8c443d34cf96241177` |
+| peft_bank_parity | `f7602c3e587a902a8ded80c7001b6cec424e2249e60d38a012c71feba0119e31` |
+| peft_checkpoint | `27eee613816aaacd4c651c0eff6afc2b6604b7cdd12d3423cb1658bc644c131b` |
+| rwkv_tbptt_packed_forward_parity | `fb6be03ad08bd5de9e7fd4cab8fe9ea7f87312a101c11ce0979d132ed087dc84` |
+| training-stability | `7554ddfa1ac0d1c5b7b853f90998690a54f8355a56c0b8ddf2dc410a1f1e7e23` |
+| transformer_generation_parity | `bb349b6d3daded68fe106347ca2be9a60dba2a307f2b0314ed1f5b1223b779ce` |
+| transformer_parity | `f816535778742b85cea1b007bd57cf73ff5aee7521835b027c5f3272ef361dcd` |
+| wmma_drift | `a17213553b3d0b99743f2e09c8ad002f490b5fe10fed2a1a88b0256288d3095b` |
+| wmma_qualify | `5a873979d43e694185a53ebb047c773d6bb12831e01145f4d625ebd0907fe3f7` |

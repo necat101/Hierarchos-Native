@@ -1,0 +1,11 @@
+        fp32  batch  1: staged   21.454 ms  fused   21.402 ms  folded   21.426 ms  folded/fused 1.0011  resolution +/-0.485 ms
+        fp32  batch  4: staged   25.844 ms  fused   25.855 ms  folded   25.801 ms  folded/fused 0.9979  resolution +/-0.453 ms  tail -0.011 ms  counters -0.043 ms
+        fp32  batch  8: staged   29.459 ms  fused   29.420 ms  folded   29.531 ms  folded/fused 1.0038  resolution +/-0.381 ms  tail +0.112 ms  counters -0.001 ms
+        fp32  batch 16: staged   40.884 ms  fused   41.009 ms  folded   41.121 ms  folded/fused 1.0027  resolution +/-0.595 ms  tail +0.172 ms  counters -0.060 ms
+        fp32  batch 32: staged   65.073 ms  fused   64.776 ms  folded   64.684 ms  folded/fused 0.9986  resolution +/-1.232 ms  tail -0.183 ms  counters +0.091 ms
+fp16-storage  batch  1: staged   23.570 ms  fused   23.350 ms  folded   23.294 ms  folded/fused 0.9976  resolution +/-0.402 ms
+fp16-storage  batch  4: staged   29.018 ms  fused   28.867 ms  folded   28.812 ms  folded/fused 0.9981  resolution +/-1.705 ms  tail +0.069 ms  counters -0.124 ms
+fp16-storage  batch  8: staged   31.248 ms  fused   31.387 ms  folded   31.619 ms  folded/fused 1.0074  resolution +/-2.125 ms  tail +0.177 ms  counters +0.055 ms
+fp16-storage  batch 16: staged   42.235 ms  fused   42.357 ms  folded   42.358 ms  folded/fused 1.0000  resolution +/-0.627 ms  tail -0.077 ms  counters +0.078 ms
+fp16-storage  batch 32: staged   66.406 ms  fused   66.164 ms  folded   65.916 ms  folded/fused 0.9963  resolution +/-1.738 ms  tail -0.232 ms  counters -0.016 ms
+PASS: 2 folded-publication profile(s) hold their arithmetic, their gates and the claim that neither component is resolvable
