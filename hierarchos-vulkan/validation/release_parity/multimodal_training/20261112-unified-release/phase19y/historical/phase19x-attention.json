@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "kind": "phase19x-two-pass-attention-current-source",
+  "status": "PASS",
+  "pass": true,
+  "target": "rdna3",
+  "scope": "phase19x_two_pass_attention_backward_current_source",
+  "source_revision": "3f7ac75ddde4a0686002e58759ca4f2e874d653a",
+  "source_clean": true,
+  "source_files": {
+    "src/transformer.rs": "b27dd978390fb777fdd7202ab6025af399b4a6fef39eb69341f3d83d83988a27",
+    "src/lora.rs": "ce0b757358e88cea7e13880f703f25a27a6e6843f8bd9a84420dec38bd3a58bd",
+    "src/transformer/peft_state.rs": "0decacef8766dbf920692f5b568766a35566fbe5c8129e95d38b0da468ccddc3",
+    "src/bin/transformer_train.rs": "551cef395dfcd4aa8e181af363eff2caca3e0f743e504215ee68ff6e4df79032",
+    "validation/two_pass_backward_equivalence.sh": "01333f4000815f235a0ba38add91e9a99e4a5be7d7c000c8d45180bc5e27000e",
+    "validation/qualify_attention_phase19x.py": "01b3ee485221b8caa4bda16b3cdd1d2e09ba2b95a979799feef40b7c0654e6d9",
+    "validation/check_attention_phase19x.py": "c3b6bddda4327ba9d4b598bc1e4a206b2d0c68f845c12fa658e9df3143aa4377",
+    "validation/test_attention_phase19x.py": "6721c1d63adcb51d6c53e2fcac8826e8f69fb0d57dcd380b0c4eb26b39e3664a"
+  },
+  "binaries": {
+    "trainer": "5778552a7b3c1e3ae8a56ce00c2ce5c54345e1e5644602f430d7ea3d6b757b3f"
+  },
+  "attention_backward": {
+    "enabled_by": "HIERARCHOS_ATTENTION_BACKWARD_TWO_PASS",
+    "cases": 4,
+    "comparisons": 12,
+    "elements": 3158064,
+    "bitwise_equal": 3158064,
+    "max_abs": 0.0,
+    "max_ulp": 0,
+    "unwritten": 0,
+    "adapters_identical": true,
+    "adapter_files": [
+      "adapter_config.json 1fa6572209fb7a4c5fce8f4efcfaef8a90b11af831952a76dcb76b2a5da6d696",
+      "adapter_model.safetensors b3da10f2ca2b889e595f868131dfb99ddf5d1a5740d67cc489f7fedb9550a2d4",
+      "training_report.json 287a807bb5398f13a4ea11c5a28f5cd02ca3e4025a9cd281802ac9dc0f45db37"
+    ],
+    "dispatches": {
+      "scalar_arm": {
+        "scalar": 2,
+        "query": 0,
+        "key": 0
+      },
+      "twopass_arm": {
+        "scalar": 0,
+        "query": 2,
+        "key": 2
+      }
+    },
+    "diagnostic": "two-pass backward: kernels=true scratch=true supported=true key_blocks=1 causal=1 unfused_qk=9 head_dim=128 kv_seq=64 value_scale=1 bias=0 sparse=0 compressed=0 paged=0 offset=0",
+    "negative_controls": {
+      "detected": 11,
+      "total": 11
+    },
+    "test_log_sha256": "6ab882a2a65e009a193df3f9305dc7a48aa2d6415a4f63bda2804c6588c4add3",
+    "harness_log_sha256": "f75cc606edf4c1a12d7bd24132ff8f331162ff10ea2d3ad712c532a5e9c7a5fa"
+  },
+  "shaders": {
+    "inventory": 45,
+    "status_counts": {
+      "identical": 45
+    },
+    "historical_artifacts": 43,
+    "phase16_artifacts": 2,
+    "sealed_gate_sha256": "f0af7fe413169762f334cb47d4d579f613ea06f5bd1ee84af8105c12a1a76a9a"
+  },
+  "historical_phase16": {
+    "receipt_sha256": "550a4ec99e9e9dd11726ca2dd71a4550078f4f5def21c2bb80ca797b45c9a7d9",
+    "source_head": "1561560c8606640f69efc6580b8401411f93399a",
+    "shapes": 16,
+    "retained": {
+      "shared": 74,
+      "kimi": 3,
+      "seq2seq": 6,
+      "gemma3": 4,
+      "gemma4": 2,
+      "llava": 4
+    },
+    "note": "Full Phase XVI shape and retained-family evidence remains historical in this narrow backward receipt; recovered AVX-512 inputs are replayed separately by the current Phase XIX-Y producer."
+  },
+  "evidence": {
+    "two-pass/test.log": "6ab882a2a65e009a193df3f9305dc7a48aa2d6415a4f63bda2804c6588c4add3",
+    "two-pass/harness.log": "f75cc606edf4c1a12d7bd24132ff8f331162ff10ea2d3ad712c532a5e9c7a5fa",
+    "phase16-spirv.json": "f0af7fe413169762f334cb47d4d579f613ea06f5bd1ee84af8105c12a1a76a9a"
+  },
+  "limitations": [
+    "Only the four-case, twelve-tensor two-pass backward is current-source evidence.",
+    "The 16-shape and 74-retained-case Phase XVI evidence is historical and is not claimed as current-source evidence.",
+    "Raw GPU captures and adapter files remain under target/ and are bound by hash only."
+  ]
+}

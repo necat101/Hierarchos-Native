@@ -1,0 +1,15 @@
+{
+  "model": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-x\\drift\\exports\\step-0100-off",
+  "mode": "mixed",
+  "partition": "validation",
+  "windows": 288,
+  "seq": 64,
+  "vocab": 1024,
+  "logit_elements": 18874368,
+  "valid_target_tokens": 17080,
+  "cross_entropy": 2.8319672243435137,
+  "parameter_digest": "0d7664581b03f34f22c112d311c5db6323020ac1c6fe029ed9c8afb2c18305bf",
+  "wmma_forward_dispatches": 540,
+  "wmma_shape_fallbacks": 0,
+  "elapsed_ms": 4086.8425
+}

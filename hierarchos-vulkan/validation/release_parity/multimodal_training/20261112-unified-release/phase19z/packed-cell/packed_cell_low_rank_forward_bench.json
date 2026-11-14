@@ -1,0 +1,299 @@
+{
+  "result": "pass",
+  "device": "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]",
+  "width": 128,
+  "fused_arm": "layernorm-low-rank-producer",
+  "promotion": "geometry-aware",
+  "batches": [
+    {
+      "batch": 1,
+      "fused_ms": 1.6271499999999999,
+      "composed_ms": 1.5566,
+      "default_ms": 1.6271499999999999,
+      "composed_over_fused": 0.9566419813784839,
+      "default_over_fused": 1.0,
+      "worst_max_abs": 1.1444091796875e-05,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": null,
+      "recorded_compose": null,
+      "expected_default_label": "fused",
+      "fused_low_rank_forward_dispatches": 1,
+      "composed_low_rank_forward_dispatches": 12,
+      "default_low_rank_forward_dispatches": 1,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 128,
+          "max_abs": 1.1920928955078125e-07,
+          "worst_excess": -0.0001000256245955825
+        },
+        {
+          "label": "packed_new_state",
+          "values": 2560,
+          "max_abs": 2.384185791015625e-07,
+          "worst_excess": -0.00010000025195358831
+        },
+        {
+          "label": "grad_x",
+          "values": 128,
+          "max_abs": 1.6689300537109375e-06,
+          "worst_excess": -9.936087789246812e-05
+        },
+        {
+          "label": "grad_packed_state",
+          "values": 2560,
+          "max_abs": 8.940696716308594e-08,
+          "worst_excess": -9.997722869418794e-05
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 128,
+          "max_abs": 1.1444091796875e-05,
+          "worst_excess": -0.00010042635023593904
+        }
+      ]
+    },
+    {
+      "batch": 4,
+      "fused_ms": 2.4242500000000002,
+      "composed_ms": 2.35145,
+      "default_ms": 2.4359,
+      "composed_over_fused": 0.9699700938434566,
+      "default_over_fused": 1.0048056099824687,
+      "worst_max_abs": 9.059906005859375e-06,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": null,
+      "recorded_compose": null,
+      "expected_default_label": "fused",
+      "fused_low_rank_forward_dispatches": 1,
+      "composed_low_rank_forward_dispatches": 12,
+      "default_low_rank_forward_dispatches": 1,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 512,
+          "max_abs": 1.7881393432617188e-07,
+          "worst_excess": -9.986267246305943e-05
+        },
+        {
+          "label": "packed_new_state",
+          "values": 10240,
+          "max_abs": 2.384185791015625e-07,
+          "worst_excess": -9.986267246305943e-05
+        },
+        {
+          "label": "grad_x",
+          "values": 512,
+          "max_abs": 5.7220458984375e-06,
+          "worst_excess": -9.950420666486025e-05
+        },
+        {
+          "label": "grad_packed_state",
+          "values": 10240,
+          "max_abs": 2.384185791015625e-07,
+          "worst_excess": -9.996096433605999e-05
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 512,
+          "max_abs": 9.059906005859375e-06,
+          "worst_excess": -9.412347592413426e-05
+        }
+      ]
+    },
+    {
+      "batch": 8,
+      "fused_ms": 3.4158,
+      "composed_ms": 3.2651,
+      "default_ms": 3.4203,
+      "composed_over_fused": 0.9558814918906259,
+      "default_over_fused": 1.0013174073423503,
+      "worst_max_abs": 1.2874603271484375e-05,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": null,
+      "recorded_compose": null,
+      "expected_default_label": "fused",
+      "fused_low_rank_forward_dispatches": 1,
+      "composed_low_rank_forward_dispatches": 12,
+      "default_low_rank_forward_dispatches": 1,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 1024,
+          "max_abs": 1.4901161193847656e-07,
+          "worst_excess": -9.999674764461815e-05
+        },
+        {
+          "label": "packed_new_state",
+          "values": 20480,
+          "max_abs": 2.384185791015625e-07,
+          "worst_excess": -9.999674764461815e-05
+        },
+        {
+          "label": "grad_x",
+          "values": 1024,
+          "max_abs": 3.814697265625e-06,
+          "worst_excess": -9.915606455877424e-05
+        },
+        {
+          "label": "grad_packed_state",
+          "values": 20480,
+          "max_abs": 3.5762786865234375e-07,
+          "worst_excess": -9.997821899713017e-05
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 1024,
+          "max_abs": 1.2874603271484375e-05,
+          "worst_excess": -9.282550469040871e-05
+        }
+      ]
+    },
+    {
+      "batch": 16,
+      "fused_ms": 8.54795,
+      "composed_ms": 8.39645,
+      "default_ms": 8.5688,
+      "composed_over_fused": 0.9822764522487848,
+      "default_over_fused": 1.002439181324177,
+      "worst_max_abs": 9.5367431640625e-06,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": null,
+      "recorded_compose": null,
+      "expected_default_label": "fused",
+      "fused_low_rank_forward_dispatches": 1,
+      "composed_low_rank_forward_dispatches": 12,
+      "default_low_rank_forward_dispatches": 1,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 2048,
+          "max_abs": 1.1920928955078125e-07,
+          "worst_excess": -9.995575428009033e-05
+        },
+        {
+          "label": "packed_new_state",
+          "values": 40960,
+          "max_abs": 2.384185791015625e-07,
+          "worst_excess": -9.995575428009033e-05
+        },
+        {
+          "label": "grad_x",
+          "values": 2048,
+          "max_abs": 4.76837158203125e-06,
+          "worst_excess": -9.852187057957054e-05
+        },
+        {
+          "label": "grad_packed_state",
+          "values": 40960,
+          "max_abs": 2.980232238769531e-07,
+          "worst_excess": -9.996703604469076e-05
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 2048,
+          "max_abs": 9.5367431640625e-06,
+          "worst_excess": -9.713871717453004e-05
+        }
+      ]
+    },
+    {
+      "batch": 32,
+      "fused_ms": 14.997499999999999,
+      "composed_ms": 14.949750000000002,
+      "default_ms": 15.137550000000001,
+      "composed_over_fused": 0.9968161360226706,
+      "default_over_fused": 1.009338223037173,
+      "worst_max_abs": 9.5367431640625e-06,
+      "fused_label": "fused",
+      "composed_label": "composed",
+      "default_label": "fused",
+      "recorded_route": null,
+      "recorded_compose": null,
+      "expected_default_label": "fused",
+      "fused_low_rank_forward_dispatches": 1,
+      "composed_low_rank_forward_dispatches": 12,
+      "default_low_rank_forward_dispatches": 1,
+      "tensors": [
+        {
+          "label": "output",
+          "values": 4096,
+          "max_abs": 1.1920928955078125e-07,
+          "worst_excess": -9.994232878088952e-05
+        },
+        {
+          "label": "packed_new_state",
+          "values": 81920,
+          "max_abs": 3.5762786865234375e-07,
+          "worst_excess": -9.994232878088952e-05
+        },
+        {
+          "label": "grad_x",
+          "values": 4096,
+          "max_abs": 2.9206275939941406e-06,
+          "worst_excess": -9.934723008424045e-05
+        },
+        {
+          "label": "grad_packed_state",
+          "values": 81920,
+          "max_abs": 3.5762786865234375e-07,
+          "worst_excess": -9.994400268507889e-05
+        },
+        {
+          "label": "token_feature_grad",
+          "values": 4096,
+          "max_abs": 9.5367431640625e-06,
+          "worst_excess": -9.57843991741538e-05
+        }
+      ]
+    }
+  ],
+  "median_composed_over_fused": 0.9699700938434566,
+  "winner": "composed",
+  "samples": 1200,
+  "warmup": 5,
+  "atol": 0.0001,
+  "rtol": 1e-05,
+  "withheld_routes": [
+    {
+      "batch": 1,
+      "route": "staged",
+      "worst_max_abs": 1.1444091796875e-05,
+      "reason": "The fused and staged graphs differ under fp32 parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph."
+    },
+    {
+      "batch": 4,
+      "route": "staged",
+      "worst_max_abs": 9.059906005859375e-06,
+      "reason": "The fused and staged graphs differ under fp32 parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph."
+    },
+    {
+      "batch": 8,
+      "route": "staged",
+      "worst_max_abs": 1.2874603271484375e-05,
+      "reason": "The fused and staged graphs differ under fp32 parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph."
+    },
+    {
+      "batch": 16,
+      "route": "staged",
+      "worst_max_abs": 9.5367431640625e-06,
+      "reason": "The fused and staged graphs differ under fp32 parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph."
+    },
+    {
+      "batch": 32,
+      "route": "staged",
+      "worst_max_abs": 9.5367431640625e-06,
+      "reason": "The fused and staged graphs differ under fp32 parameter values (worst |diff| above zero in this driver's parity comparison), while the training trajectory is held bit-exact. The measured win stays in the record as evidence, but the runtime does not adopt it and keeps the structural fused graph."
+    }
+  ],
+  "withheld_note": "A staged arm that is faster but not bit-identical to the fused producer is measured and recorded as evidence, and withheld from adoption: the training trajectory is held bit-exact, so the structural fused graph keeps shipping at that geometry.",
+  "batch_process_isolation": true
+}

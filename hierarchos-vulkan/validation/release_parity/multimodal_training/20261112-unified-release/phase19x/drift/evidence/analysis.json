@@ -1,0 +1,627 @@
+{
+  "dumps": {
+    "off": {
+      "0": {
+        "parameter_digest": "daaa3852a49494874b6f6d9e4ffd6db50690cc9afed422a6b1c4d4f062aa5a4d",
+        "binary_sha256": "c237f480686573ebb844062e6452dd5da196ca15346e84c4a9db314849e3215d"
+      },
+      "1": {
+        "parameter_digest": "75a114540f2f8fc76ee31ffd98f4e34574f40faad7772819c6af4876f917ec76",
+        "binary_sha256": "c6f9f4d8ecfe2a19c3bfc8d840fe964daf0c834c2874f681b7682b18bad2bc86"
+      },
+      "10": {
+        "parameter_digest": "7756a3b52ee39cba10f40dca590a010bb426b7f509573706c45b3d9d234c6bcd",
+        "binary_sha256": "077cf5f6b78c4d94485fec64b2eec866bd0468df8107dda509e7b7de8776f5af"
+      },
+      "100": {
+        "parameter_digest": "0d7664581b03f34f22c112d311c5db6323020ac1c6fe029ed9c8afb2c18305bf",
+        "binary_sha256": "e73c484750031888bffcd71cfe1ccf9635d2edf351cc76b8e6a6ac669402310d"
+      }
+    },
+    "mixed": {
+      "0": {
+        "parameter_digest": "daaa3852a49494874b6f6d9e4ffd6db50690cc9afed422a6b1c4d4f062aa5a4d",
+        "binary_sha256": "c237f480686573ebb844062e6452dd5da196ca15346e84c4a9db314849e3215d"
+      },
+      "1": {
+        "parameter_digest": "1c8b4f191a7933b05fe7dccecfdd7dc1878c10c99907be9338df8e31382dec11",
+        "binary_sha256": "9190ccf9f65d514188b8a3df02a521fc1b00e3fe8a56a7bd6557e6209f71bc03"
+      },
+      "10": {
+        "parameter_digest": "6fc920301e301a6f4fb2b0d5ce1bf61efd786d3476682928686f265489ca1d53",
+        "binary_sha256": "998d131319f3e66610958c35b283e551c73aa866fdc4ad366f625f28e28c6e96"
+      },
+      "100": {
+        "parameter_digest": "5b43c55c2cf6f7ed668958ec7f456d74ab644e175262e5b556e8950f19f7443b",
+        "binary_sha256": "bbeb5542a117d205fc4b9ac862ce96b8e83d290da6aab6f8353f43fbdffbc2a5"
+      }
+    }
+  },
+  "step_1_update": {
+    "off": {
+      "lm_head": {
+        "count": 1048576,
+        "sumsq": 1.0482509349961155,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009998449849124777
+      },
+      "embed": {
+        "count": 1048576,
+        "sumsq": 0.15256253463497424,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 896000,
+        "rms": 0.0003814380302581455
+      },
+      "norm": {
+        "count": 5120,
+        "sumsq": 0.005117960412807321,
+        "max_abs": 0.001000046730041504,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009998008017232383
+      },
+      "mlp.down_proj": {
+        "count": 2097152,
+        "sumsq": 2.096559316717157,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009998586833086438
+      },
+      "mlp.gate_proj": {
+        "count": 2097152,
+        "sumsq": 2.0965907986629446,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.000999866190222101
+      },
+      "mlp.up_proj": {
+        "count": 2097152,
+        "sumsq": 2.0965736666585584,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009998621050789818
+      },
+      "attn.k_proj": {
+        "count": 2097152,
+        "sumsq": 2.095524031160544,
+        "max_abs": 0.000999998301267624,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009996117866276641
+      },
+      "attn.o_proj": {
+        "count": 2097152,
+        "sumsq": 2.0969389186157783,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009999491961486253
+      },
+      "attn.q_proj": {
+        "count": 2097152,
+        "sumsq": 2.0955402220564925,
+        "max_abs": 0.000999998301267624,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009996156483297785
+      },
+      "attn.v_proj": {
+        "count": 2097152,
+        "sumsq": 2.0969549422587805,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009999530166696208
+      }
+    },
+    "mixed": {
+      "lm_head": {
+        "count": 1048576,
+        "sumsq": 1.0482579617190966,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009998483360289542
+      },
+      "embed": {
+        "count": 1048576,
+        "sumsq": 0.15256560573806413,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 896000,
+        "rms": 0.00038144186943668595
+      },
+      "norm": {
+        "count": 5120,
+        "sumsq": 0.005119240882649478,
+        "max_abs": 0.001000046730041504,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009999258646982167
+      },
+      "mlp.down_proj": {
+        "count": 2097152,
+        "sumsq": 2.096566031184353,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009998602843873494
+      },
+      "mlp.gate_proj": {
+        "count": 2097152,
+        "sumsq": 2.096583386509289,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009998644227888966
+      },
+      "mlp.up_proj": {
+        "count": 2097152,
+        "sumsq": 2.096567761062741,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009998606968800432
+      },
+      "attn.k_proj": {
+        "count": 2097152,
+        "sumsq": 2.0955153210846174,
+        "max_abs": 0.000999998301267624,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.000999609709175085
+      },
+      "attn.o_proj": {
+        "count": 2097152,
+        "sumsq": 2.0969350860429157,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009999482823452067
+      },
+      "attn.q_proj": {
+        "count": 2097152,
+        "sumsq": 2.095525646267115,
+        "max_abs": 0.000999998301267624,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009996121718485514
+      },
+      "attn.v_proj": {
+        "count": 2097152,
+        "sumsq": 2.0969446073563436,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 0,
+        "sign_compared": 0,
+        "near_zero": 0,
+        "rms": 0.0009999505525180566
+      }
+    },
+    "divergence": {
+      "lm_head": {
+        "count": 1048576,
+        "sumsq": 1.0482509349961155,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 321,
+        "sign_compared": 1048576,
+        "near_zero": 0,
+        "rms": 0.0009998449849124777,
+        "cosine": 0.9994752948929562,
+        "sign_flip_fraction": 0.00030612945556640625,
+        "rms_ratio": 0.9999966483752029,
+        "off_rms": 0.0009998449849124777,
+        "mixed_rms": 0.0009998483360289542
+      },
+      "embed": {
+        "count": 1048576,
+        "sumsq": 0.15256253463497424,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 47,
+        "sign_compared": 152576,
+        "near_zero": 896000,
+        "rms": 0.0003814380302581455,
+        "cosine": 0.9994013563507186,
+        "sign_flip_fraction": 0.00030804320469798657,
+        "rms_ratio": 0.9999899350888088,
+        "off_rms": 0.0003814380302581455,
+        "mixed_rms": 0.00038144186943668595
+      },
+      "norm": {
+        "count": 5120,
+        "sumsq": 0.005117960412807321,
+        "max_abs": 0.001000046730041504,
+        "sign_flips": 3,
+        "sign_compared": 5120,
+        "near_zero": 0,
+        "rms": 0.0009998008017232383,
+        "cosine": 0.9990668340717637,
+        "sign_flip_fraction": 0.0005859375,
+        "rms_ratio": 0.9998749277527528,
+        "off_rms": 0.0009998008017232383,
+        "mixed_rms": 0.0009999258646982167
+      },
+      "mlp.down_proj": {
+        "count": 2097152,
+        "sumsq": 2.096559316717157,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 765,
+        "sign_compared": 2097152,
+        "near_zero": 0,
+        "rms": 0.0009998586833086438,
+        "cosine": 0.9993566134694197,
+        "sign_flip_fraction": 0.0003647804260253906,
+        "rms_ratio": 0.9999983986975673,
+        "off_rms": 0.0009998586833086438,
+        "mixed_rms": 0.0009998602843873494
+      },
+      "mlp.gate_proj": {
+        "count": 2097152,
+        "sumsq": 2.0965907986629446,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 878,
+        "sign_compared": 2097152,
+        "near_zero": 0,
+        "rms": 0.000999866190222101,
+        "cosine": 0.9992486745282531,
+        "sign_flip_fraction": 0.00041866302490234375,
+        "rms_ratio": 1.0000017676728605,
+        "off_rms": 0.000999866190222101,
+        "mixed_rms": 0.0009998644227888966
+      },
+      "mlp.up_proj": {
+        "count": 2097152,
+        "sumsq": 2.0965736666585584,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 876,
+        "sign_compared": 2097152,
+        "near_zero": 0,
+        "rms": 0.0009998621050789818,
+        "cosine": 0.9992507060869198,
+        "sign_flip_fraction": 0.0004177093505859375,
+        "rms_ratio": 1.0000014083951323,
+        "off_rms": 0.0009998621050789818,
+        "mixed_rms": 0.0009998606968800432
+      },
+      "attn.k_proj": {
+        "count": 2097152,
+        "sumsq": 2.095524031160544,
+        "max_abs": 0.000999998301267624,
+        "sign_flips": 1746,
+        "sign_compared": 2097152,
+        "near_zero": 0,
+        "rms": 0.0009996117866276641,
+        "cosine": 0.998577312412171,
+        "sign_flip_fraction": 0.0008325576782226562,
+        "rms_ratio": 1.0000020782637065,
+        "off_rms": 0.0009996117866276641,
+        "mixed_rms": 0.000999609709175085
+      },
+      "attn.o_proj": {
+        "count": 2097152,
+        "sumsq": 2.0969389186157783,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 615,
+        "sign_compared": 2097152,
+        "near_zero": 0,
+        "rms": 0.0009999491961486253,
+        "cosine": 0.9994476478022607,
+        "sign_flip_fraction": 0.0002932548522949219,
+        "rms_ratio": 1.0000009138506807,
+        "off_rms": 0.0009999491961486253,
+        "mixed_rms": 0.0009999482823452067
+      },
+      "attn.q_proj": {
+        "count": 2097152,
+        "sumsq": 2.0955402220564925,
+        "max_abs": 0.000999998301267624,
+        "sign_flips": 1698,
+        "sign_compared": 2097152,
+        "near_zero": 0,
+        "rms": 0.0009996156483297785,
+        "cosine": 0.9986163678465476,
+        "sign_flip_fraction": 0.0008096694946289062,
+        "rms_ratio": 1.0000034778300275,
+        "off_rms": 0.0009996156483297785,
+        "mixed_rms": 0.0009996121718485514
+      },
+      "attn.v_proj": {
+        "count": 2097152,
+        "sumsq": 2.0969549422587805,
+        "max_abs": 0.0010000020265579224,
+        "sign_flips": 579,
+        "sign_compared": 2097152,
+        "near_zero": 0,
+        "rms": 0.0009999530166696208,
+        "cosine": 0.9994796344042506,
+        "sign_flip_fraction": 0.0002760887145996094,
+        "rms_ratio": 1.0000024642734164,
+        "off_rms": 0.0009999530166696208,
+        "mixed_rms": 0.0009999505525180566
+      }
+    }
+  },
+  "step_1_weight_divergence": {
+    "lm_head": {
+      "count": 1048576,
+      "max_abs": 0.0019963617669418454,
+      "rms": 3.2389634416907935e-05,
+      "relative_rms": 0.0016206190039429673
+    },
+    "embed": {
+      "count": 1048576,
+      "max_abs": 0.0019980454817414284,
+      "rms": 1.3198524491812542e-05,
+      "relative_rms": 0.0006602941354072248
+    },
+    "norm": {
+      "count": 5120,
+      "max_abs": 0.001874685287475586,
+      "rms": 4.319533995255106e-05,
+      "relative_rms": 4.319636953395947e-05
+    },
+    "mlp.down_proj": {
+      "count": 2097152,
+      "max_abs": 0.001997144310735166,
+      "rms": 3.586657863818068e-05,
+      "relative_rms": 0.001791640264151461
+    },
+    "mlp.gate_proj": {
+      "count": 2097152,
+      "max_abs": 0.001993766985833645,
+      "rms": 3.875882064834993e-05,
+      "relative_rms": 0.0019365564603922095
+    },
+    "mlp.up_proj": {
+      "count": 2097152,
+      "max_abs": 0.0019964296370744705,
+      "rms": 3.870623270410213e-05,
+      "relative_rms": 0.001934765455401649
+    },
+    "attn.k_proj": {
+      "count": 2097152,
+      "max_abs": 0.001983262598514557,
+      "rms": 5.332129473487732e-05,
+      "relative_rms": 0.002664488212556629
+    },
+    "attn.o_proj": {
+      "count": 2097152,
+      "max_abs": 0.001997344195842743,
+      "rms": 3.323538991398598e-05,
+      "relative_rms": 0.0016578484933311764
+    },
+    "attn.q_proj": {
+      "count": 2097152,
+      "max_abs": 0.0019851140677928925,
+      "rms": 5.2584483484232024e-05,
+      "relative_rms": 0.0026276390144491595
+    },
+    "attn.v_proj": {
+      "count": 2097152,
+      "max_abs": 0.0019951127469539642,
+      "rms": 3.225881028482662e-05,
+      "relative_rms": 0.001610457918551174
+    }
+  },
+  "weight_divergence": {
+    "10": {
+      "lm_head": {
+        "count": 1048576,
+        "max_abs": 0.003543773666024208,
+        "rms": 3.840714036321151e-05,
+        "relative_rms": 0.0018811502237289421
+      },
+      "embed": {
+        "count": 1048576,
+        "max_abs": 0.006564605049788952,
+        "rms": 6.39283792347282e-05,
+        "relative_rms": 0.00318265607854645
+      },
+      "norm": {
+        "count": 5120,
+        "max_abs": 0.0018677711486816406,
+        "rms": 4.831487662901445e-05,
+        "relative_rms": 4.833400945418131e-05
+      },
+      "mlp.down_proj": {
+        "count": 2097152,
+        "max_abs": 0.0038542738184332848,
+        "rms": 4.3725641486128653e-05,
+        "relative_rms": 0.0021489572259718905
+      },
+      "mlp.gate_proj": {
+        "count": 2097152,
+        "max_abs": 0.00392506830394268,
+        "rms": 4.70016979041293e-05,
+        "relative_rms": 0.0023086699744963874
+      },
+      "mlp.up_proj": {
+        "count": 2097152,
+        "max_abs": 0.003435734659433365,
+        "rms": 4.6348558139404e-05,
+        "relative_rms": 0.0022781915154316303
+      },
+      "attn.k_proj": {
+        "count": 2097152,
+        "max_abs": 0.003725925460457802,
+        "rms": 6.199489626743636e-05,
+        "relative_rms": 0.003041754274146687
+      },
+      "attn.o_proj": {
+        "count": 2097152,
+        "max_abs": 0.0037512239068746567,
+        "rms": 3.823839409276267e-05,
+        "relative_rms": 0.0018764363023402713
+      },
+      "attn.q_proj": {
+        "count": 2097152,
+        "max_abs": 0.0033525358885526657,
+        "rms": 6.149841400686465e-05,
+        "relative_rms": 0.0030173037208931627
+      },
+      "attn.v_proj": {
+        "count": 2097152,
+        "max_abs": 0.002200692892074585,
+        "rms": 3.7854372875142316e-05,
+        "relative_rms": 0.0018583521070353753
+      }
+    },
+    "100": {
+      "lm_head": {
+        "count": 1048576,
+        "max_abs": 0.04641202837228775,
+        "rms": 0.004002463979887188,
+        "relative_rms": 0.18231230264885046
+      },
+      "embed": {
+        "count": 1048576,
+        "max_abs": 0.06771798804402351,
+        "rms": 0.007095966751542438,
+        "relative_rms": 0.3349354995946281
+      },
+      "norm": {
+        "count": 5120,
+        "max_abs": 0.027514934539794922,
+        "rms": 0.004723928223355058,
+        "relative_rms": 0.004748499067415384
+      },
+      "mlp.down_proj": {
+        "count": 2097152,
+        "max_abs": 0.04218033468350768,
+        "rms": 0.0042840954487991766,
+        "relative_rms": 0.2017505796957111
+      },
+      "mlp.gate_proj": {
+        "count": 2097152,
+        "max_abs": 0.0486364234238863,
+        "rms": 0.003651598848663298,
+        "relative_rms": 0.1726519428447291
+      },
+      "mlp.up_proj": {
+        "count": 2097152,
+        "max_abs": 0.05208524316549301,
+        "rms": 0.003390211182227714,
+        "relative_rms": 0.16093062306305023
+      },
+      "attn.k_proj": {
+        "count": 2097152,
+        "max_abs": 0.06863599643111229,
+        "rms": 0.008375724366839202,
+        "relative_rms": 0.37876332898741044
+      },
+      "attn.o_proj": {
+        "count": 2097152,
+        "max_abs": 0.03233226761221886,
+        "rms": 0.0031300034254622476,
+        "relative_rms": 0.146597841713944
+      },
+      "attn.q_proj": {
+        "count": 2097152,
+        "max_abs": 0.07379618566483259,
+        "rms": 0.009533716134182373,
+        "relative_rms": 0.42801923242680107
+      },
+      "attn.v_proj": {
+        "count": 2097152,
+        "max_abs": 0.03645401634275913,
+        "rms": 0.003098978340452526,
+        "relative_rms": 0.146085976035039
+      }
+    }
+  },
+  "forward_comparisons": {
+    "step-0": {
+      "elements": 18874368,
+      "max_abs": 0.0027093887329101562,
+      "rms": 0.0004902441736936744,
+      "mean_abs": 0.0003903800240029249,
+      "elements_over_1e_3": 785735,
+      "elements_over_1e_2": 0,
+      "nonfinite": 0,
+      "cross_entropy_off": 7.119862882201544,
+      "cross_entropy_mixed": 7.1198734853175685,
+      "cross_entropy_delta": 1.0603116024299197e-05,
+      "off_dispatches": 0,
+      "mixed_dispatches": 540,
+      "mixed_fallbacks": 0,
+      "checkpoint": "step-0",
+      "directory": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\hierarchos-vulkan\\target\\wmma-fixture\\model",
+      "source_run": "order-0-off",
+      "source_parameter_digest": "daaa3852a49494874b6f6d9e4ffd6db50690cc9afed422a6b1c4d4f062aa5a4d",
+      "off_parameter_digest": "daaa3852a49494874b6f6d9e4ffd6db50690cc9afed422a6b1c4d4f062aa5a4d",
+      "mixed_parameter_digest": "daaa3852a49494874b6f6d9e4ffd6db50690cc9afed422a6b1c4d4f062aa5a4d",
+      "off_logits_sha256": "7cac08df496dc48b3add4d3daf02c5d70a609efafe970b824cd3d496b03e4b99",
+      "mixed_logits_sha256": "3f6964cd1576a00835bc1d2e8ab77d80105357774f5ea4094432b5db01c49c94"
+    },
+    "step-10": {
+      "elements": 18874368,
+      "max_abs": 0.05517292022705078,
+      "rms": 0.00045806634550294274,
+      "mean_abs": 0.000290936397629589,
+      "elements_over_1e_3": 747536,
+      "elements_over_1e_2": 749,
+      "nonfinite": 0,
+      "cross_entropy_off": 5.700101809818819,
+      "cross_entropy_mixed": 5.700128024633199,
+      "cross_entropy_delta": 2.6214814379699192e-05,
+      "off_dispatches": 0,
+      "mixed_dispatches": 540,
+      "mixed_fallbacks": 0,
+      "checkpoint": "step-10",
+      "directory": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-x\\drift\\exports\\step-0010-off",
+      "source_run": "order-0-off",
+      "source_parameter_digest": "7756a3b52ee39cba10f40dca590a010bb426b7f509573706c45b3d9d234c6bcd",
+      "off_parameter_digest": "7756a3b52ee39cba10f40dca590a010bb426b7f509573706c45b3d9d234c6bcd",
+      "mixed_parameter_digest": "7756a3b52ee39cba10f40dca590a010bb426b7f509573706c45b3d9d234c6bcd",
+      "off_logits_sha256": "096b724706c640cada853f3921cba4f1b8168b771c990718bd5f829fd30313d6",
+      "mixed_logits_sha256": "2b98b35df18d5407efba79828b26be449b8ec8c71a4653cf6a929a71efe9ae9e"
+    },
+    "step-100": {
+      "elements": 18874368,
+      "max_abs": 0.027724266052246094,
+      "rms": 0.0003280986564630323,
+      "mean_abs": 0.00023225637132964598,
+      "elements_over_1e_3": 303995,
+      "elements_over_1e_2": 401,
+      "nonfinite": 0,
+      "cross_entropy_off": 2.8319610488830245,
+      "cross_entropy_mixed": 2.8319672243435137,
+      "cross_entropy_delta": 6.17546048919948e-06,
+      "off_dispatches": 0,
+      "mixed_dispatches": 540,
+      "mixed_fallbacks": 0,
+      "checkpoint": "step-100",
+      "directory": "C:\\Users\\User\\Downloads\\Multimodal\\Hierarchos-Native-phase19\\target\\phase22-final-x\\drift\\exports\\step-0100-off",
+      "source_run": "order-0-off",
+      "source_parameter_digest": "0d7664581b03f34f22c112d311c5db6323020ac1c6fe029ed9c8afb2c18305bf",
+      "off_parameter_digest": "0d7664581b03f34f22c112d311c5db6323020ac1c6fe029ed9c8afb2c18305bf",
+      "mixed_parameter_digest": "0d7664581b03f34f22c112d311c5db6323020ac1c6fe029ed9c8afb2c18305bf",
+      "off_logits_sha256": "4ad33b9e80b03776ffe64316bbbc3b4f8593612e8fbcfcd161971d772f0a551c",
+      "mixed_logits_sha256": "7140a41a75ce4ebccc9fad87146d2e6dd2a7c9a1fffec17d53cdd7d89ac99837"
+    }
+  }
+}

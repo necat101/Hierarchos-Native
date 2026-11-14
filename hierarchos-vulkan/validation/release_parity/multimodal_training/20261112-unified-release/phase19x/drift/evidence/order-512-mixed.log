@@ -1,0 +1,7 @@
+WMMA: mixed selected for dense Transformer projections (cooperative matrix: extension_exposed=true feature_supported=true memory_model=true subgroup_size_control=true enabled=true
+  storage_16bit=true shader_float16=true driver_subgroup_size=64 configurations=11
+  mixed (f16xf16+fp32) tile: 16x16x16 A=f16 B=f16 C=f32 scope=subgroup
+  full-fp16 (f16xf16+f16) tile: 16x16x16 A=f16 B=f16 C=f16 scope=subgroup
+)
+two-pass backward: kernels=true scratch=true supported=true key_blocks=1 causal=1 unfused_qk=9 head_dim=128 kv_seq=64 value_scale=1 bias=0 sparse=0 compressed=0 paged=0 offset=0
+{"final_test":3.1842025188024863,"final_validation":3.0909478813406093,"mode":"mixed","order_offset":512,"parameter_elements":16782336,"steps":100,"total_wall_ms":23183.748400000004}

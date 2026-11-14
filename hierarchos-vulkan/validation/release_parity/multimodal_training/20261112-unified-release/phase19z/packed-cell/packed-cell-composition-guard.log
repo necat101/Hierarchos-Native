@@ -1,0 +1,4 @@
+packed-cell-composition: rwkv-time-mix-projection: batch  8 has no amd entry; the vendor gate decides
+packed-cell-composition: rwkv-channel-mix-forward: batch  8 has no amd entry; the vendor gate decides
+PASS: packed-cell-composition qualifies the staged route at width 128 batch 8 for amd, and its records agree
+PASS: 1 receipt(s) re-checked against the record(s) they consume: packed-cell-composition

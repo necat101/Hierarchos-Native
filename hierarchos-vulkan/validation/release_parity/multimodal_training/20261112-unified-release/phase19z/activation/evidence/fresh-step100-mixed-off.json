@@ -1,0 +1,19 @@
+{
+  "precision": "Off",
+  "effective_mode": "Off",
+  "dispatches": [
+    0,
+    0,
+    0
+  ],
+  "shape_fallbacks": 0,
+  "windows": 288,
+  "valid_target_tokens": 17080,
+  "cross_entropy": 2.92756263602981,
+  "perplexity": 18.68204002770662,
+  "nonfinite_logits": 0,
+  "logits_sha256": "865214f833c8c3c784147772a3c2036731ef302baf7547228c3e47cbbfb59eba",
+  "logits_elements": 18874368,
+  "logits_max_abs": 17.682655,
+  "device": "AMD Radeon Graphics"
+}
