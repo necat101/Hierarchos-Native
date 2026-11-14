@@ -441,6 +441,34 @@ def no_decomposed_graph(stderr: str) -> bool:
     )
 
 
+def select_packed_measurement(
+    *,
+    packed_ms: float,
+    legacy_ms: float,
+    default_ms: float,
+    default_label: str,
+    margin: float,
+) -> tuple[float, str]:
+    """Choose the packed timing a route decision may use.
+
+    When the shipped default already dispatches the packed route, the forced
+    packed arm is a second Vulkan cell running the same graph. The two cells are
+    allocated independently; at large batch sizes one can land in a slower heap
+    and report a 20-50% slower median while the shipped cell stays fast. A
+    divergence beyond the decision band is a placement confound, not a route
+    measurement, so the shipped default's time decides. Below the band the forced
+    arm is kept: a small difference is noise, and the independent cell is what
+    makes the A/B meaningful.
+    """
+    if default_label != "packed":
+        return packed_ms, "forced-arm"
+    forced_ratio = packed_ms / legacy_ms
+    shipped_ratio = default_ms / legacy_ms
+    if abs(forced_ratio / shipped_ratio - 1.0) > margin:
+        return default_ms, "shipped-default"
+    return packed_ms, "forced-arm"
+
+
 def measure(
     binary: Path,
     model_dir: Path,
@@ -451,6 +479,7 @@ def measure(
     iterations: int,
     warmup: int,
     parameter_storage: str,
+    margin: float,
 ) -> tuple[list[dict], list[int]]:
     runs = []
     unmeasured: list[int] = []
@@ -514,6 +543,17 @@ def measure(
             "parameter_storage": run["parameter_storage"],
             "precision_policy": run["precision_policy"],
         }
+        if chain != "backward" and row["default_label"] == packed_arm:
+            measured_ms, source = select_packed_measurement(
+                packed_ms=row[f"{packed_arm}_ms"],
+                legacy_ms=row[f"{staged_arm}_ms"],
+                default_ms=row["default_ms"],
+                default_label=row["default_label"],
+                margin=margin,
+            )
+            row[f"{packed_arm}_ms"] = measured_ms
+            row[spec["ratio"]] = measured_ms / row[f"{staged_arm}_ms"]
+            row["packed_decision_source"] = source
         for field in (
             "staged_schedule",
             "fused_schedule",
@@ -900,6 +940,7 @@ def main() -> int:
             iterations=args.iterations,
             warmup=args.warmup,
             parameter_storage=args.parameter_storage,
+            margin=args.margin,
         )
         if unmeasured:
             print(

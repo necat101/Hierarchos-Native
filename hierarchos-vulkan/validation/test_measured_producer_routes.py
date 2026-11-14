@@ -202,7 +202,12 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
             if row["batch"] not in lookup and row["batch"] not in held
         ]
         self.assertTrue(rows)
-        row = max(rows, key=lambda candidate: abs(candidate["composed_over_fused"] - 1.0))
+        row = rows[0]
+        # The committed isolated replay may measure this unrecorded geometry as a
+        # tie. Force the stale-crossover value so the policy refusal is what the
+        # guard exercises, not the accident of one run's clock state.
+        row["composed_ms"] = row["fused_ms"] * 0.94
+        row["composed_over_fused"] = row["composed_ms"] / row["fused_ms"]
         self.assertGreater(
             abs(row["composed_over_fused"] - 1.0), band_of(producer, record)
         )

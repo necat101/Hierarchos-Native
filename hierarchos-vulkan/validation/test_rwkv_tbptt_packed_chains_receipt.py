@@ -51,6 +51,43 @@ class FoldedTrajectoryAdmissionTest(unittest.TestCase):
                                                                  folded_parameter_delta=1e-8)))
 
 
+class ShippedPackedMeasurementTest(unittest.TestCase):
+    """A confounded forced cell may not declare the packed route stale."""
+
+    def test_uses_the_shipped_cell_when_the_forced_copy_is_confounded(self):
+        measured, source = driver.select_packed_measurement(
+            packed_ms=37.45905,
+            legacy_ms=25.54175,
+            default_ms=25.37005,
+            default_label="packed",
+            margin=0.02,
+        )
+        self.assertEqual(measured, 25.37005)
+        self.assertEqual(source, "shipped-default")
+
+    def test_keeps_the_forced_arm_when_the_cells_agree(self):
+        measured, source = driver.select_packed_measurement(
+            packed_ms=25.20,
+            legacy_ms=25.54,
+            default_ms=25.37,
+            default_label="packed",
+            margin=0.02,
+        )
+        self.assertEqual(measured, 25.20)
+        self.assertEqual(source, "forced-arm")
+
+    def test_does_not_use_a_legacy_default_as_the_packed_measurement(self):
+        measured, source = driver.select_packed_measurement(
+            packed_ms=7.40,
+            legacy_ms=7.17,
+            default_ms=7.30,
+            default_label="legacy",
+            margin=0.02,
+        )
+        self.assertEqual(measured, 7.40)
+        self.assertEqual(source, "forced-arm")
+
+
 CHAINS = {
     "forward": {
         "receipt": ROOT / "validation" / "tbptt_packed_forward_bench.json",
