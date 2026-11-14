@@ -44,6 +44,16 @@ def load(producer: guard.Producer) -> tuple[dict, dict]:
 
 def recompute_chain_ratios(chain: guard.ChainProducer, row: dict) -> None:
     """Rewrite every derived ratio from the arm timings after editing one arm."""
+    if row.get('timing_protocol') == 'shipped-route-v1':
+        # A controlled timing/route mutation must keep its raw simulated
+        # observations coherent, so the intended invariant rejects it. Separate
+        # integrity controls deliberately forge these sources and must fail.
+        for route,field in chain.candidates:
+            row[route]['median_ms']=row[field]
+        row['default_ms']=row[row['default_label']+'_ms']
+        row['default'].update(label=row['default_label'],median_ms=row['default_ms'])
+        row['decision_timing_sources']={route:'shipped-default' if route==row['default_label']
+            else 'forced-arm' for route in chain.routes}
     for numerator, denominator, field in chain.ratios:
         row[field] = row[f"{numerator}_ms"] / row[f"{denominator}_ms"]
     row[f"default_over_{chain.baseline}"] = (
@@ -752,8 +762,7 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
         ]
         row = rows[batch]
         row["legacy_ms"] = row["packed_ms"] * 0.92
-        row["packed_over_legacy"] = row["packed_ms"] / row["legacy_ms"]
-        row["default_over_legacy"] = row["default_ms"] / row["legacy_ms"]
+        recompute_chain_ratios(chain,row)
         self.assert_rejected(chain, receipt, record, "no decision for it")
 
     def test_a_chain_default_that_stops_following_the_record_is_rejected(self) -> None:
@@ -772,6 +781,7 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
                 row["default_label"] = next(
                     route for route in chain.routes if route != entry["route"]
                 )
+                recompute_chain_ratios(chain,row)
                 self.assert_rejected(chain, receipt, record, "the default built")
 
     def test_packed_chain_parity_must_stay_exact(self) -> None:
@@ -988,6 +998,7 @@ class MeasuredProducerRouteGuardTest(unittest.TestCase):
                     row["recorded_route"] = None
                     row["expected_default_label"] = chain.default_route
                     row["default_label"] = chain.default_route
+                    recompute_chain_ratios(chain,row)
                 completed = self.run_guard(chain, receipt, record)
                 self.assertEqual(completed.returncode, 0, completed.stderr)
                 self.assertIn("structural default", completed.stdout)
