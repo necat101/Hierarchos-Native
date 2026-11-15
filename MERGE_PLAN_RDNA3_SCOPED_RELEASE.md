@@ -1,215 +1,188 @@
-# Merge plan — scoped RDNA3 release (Phase XXVIII review)
+# Merge plan — scoped RDNA3 release (Phase XXXI final)
 
-Read-only plan for reviewing `codex/rdna3-phase19-instrumented` against `main`.
-Nothing here authorises a merge: the branch is prepared for review, and the merge
-itself waits for explicit approval.
+Read-only plan for merging `codex/rdna3-phase19-instrumented` into `main`. Nothing here
+authorises a merge: the branch is prepared for review, and the merge waits for explicit
+approval.
 
 ## 1. Identity
 
 | | |
 |---|---|
-| Branch under review | `codex/rdna3-phase19-instrumented` |
-| **Release qualification source** | `306c7db9afbf5de3840c0e6c63876c6c67ab18fc` — last code change; the SHA the sealed evidence describes |
-| **Phase XXVII handoff commit** | `ad1b7b0feafe8674b6fc1b446f1a5a2adf159891` — documentation only |
-| **Reviewed candidate tip** | tip of the branch at review time: `git rev-parse origin/codex/rdna3-phase19-instrumented`. Every commit after `306c7db` is documentation-only |
-| Target | `main` = `origin/main` = `ead6cd3fa5f8943e478dcd0aec27e6014f62d1d5` |
-| Merge base | `ead6cd3fa5f8943e478dcd0aec27e6014f62d1d5` |
-| Commits in code range | **223** (`ead6cd3..306c7db`) |
-| Files changed in code range | **4,200** — 4,123 added, 77 modified, 0 deleted |
-| Commits including handoff docs | 224 (`ead6cd3..ad1b7b0`), 4,202 files |
+| Branch | `codex/rdna3-phase19-instrumented` |
+| **Reviewed candidate** | `e8eb5316f09ee415ea2d5fadddd57d5acbe166cb` |
+| Target `main` | `ead6cd3fa5f8943e478dcd0aec27e6014f62d1d5` |
+| Merge base | `ead6cd3fa5f8943e478dcd0aec27e6014f62d1d5` = tip of `main` |
+| Fast-forward | **yes** — `main` is an ancestor of the candidate |
+| Commits in range | **226** |
+| Files changed | **4,208** — 4,131 added, 77 modified, **0 deleted** |
+| Added bytes | 477.7 MB across the added files; 68 files above 1 MB |
 
-Three revisions must not be conflated. `306c7db` is what was qualified and what the
-receipts bind. `ad1b7b0` adds two root Markdown files and changes no code, evidence or
-threshold. The tip at review time may be later still. **A CI run only proves anything
-about the commit its `headSha` names**, so §6 records which SHA each run covers rather
-than treating "CI is green" as a property of the branch.
+The merge base equals the tip of `main`, so this integrates as a **fast-forward** with no
+merge commit, no reconciliation of divergent history, and a rollback that loses no work.
 
-The merge base equals the tip of `main`, so `main` is a strict ancestor of the
-qualified branch: the integration is a **fast-forward**, not a merge commit. That is
-the safest possible shape here — it introduces no reconciliation of divergent history
-and makes rollback a single ref move.
+Three revisions are distinct and must not be conflated: the candidate `e8eb531` is what
+the evidence describes; any documentation commit made after it (including the one
+carrying this file) adds no code and no evidence; a CI run only proves something about
+the commit its `headSha` names.
 
-## 2. What the range contains, by subsystem
+## 2. What the range contains
 
 | Subsystem | Files | Purpose |
 |---|---|---|
-| `hierarchos-vulkan/validation/release_parity/**` | 3,959 | Sealed evidence: Phase XV–XXV receipts, packed-cell matrices, unified release manifest and its 24 component copies |
-| `hierarchos-vulkan/src/**` | 47 | WMMA admission and device policy, RWKV packed-cell kernels, `bench_ab`/`decision_records`, probes and benchmark bins |
-| `hierarchos-vulkan/validation/*.py` | 105 | Producers, checkers, negative controls, oracle verifiers |
-| `hierarchos-vulkan/shaders/**` | 14 | Isolated RDNA3 key-state variant, attention backward Q/K variants, WMMA GEMM, fp32→fp16 conversion |
-| `.github/workflows/*.yml` | 6 | The four mandatory gates plus the self-hosted A/B and the AMD performance run |
-| `hierarchos-native-cli`, `hierarchos-gui` | 8 | Vision runtime wiring and the multimodal Start surface exercised by the GUI evidence |
-| Root contracts and audits | 13 | `RDNA3_RELEASE_CONTRACT.md`, `RDNA3_WMMA.md`, `RDNA3_MIXED_GUI.md`, `RDNA3_PRECISION_COMPLETION.md`, `MAIN_INTEGRATION_READINESS.md`, audit documents |
+| `hierarchos-vulkan/validation/release_parity/**` | 3,959 | Sealed evidence: Phase XV–XXV receipts, packed-cell matrices, unified release manifest and its component copies |
+| `hierarchos-vulkan/src/**` | 58 `.rs` | WMMA admission and device policy, packed-cell kernels, `bench_ab`/`decision_records`, probes and benchmark bins |
+| `hierarchos-vulkan/validation/*.py` | 105 | Producers, checkers, negative controls, the digest guard |
+| `hierarchos-vulkan/shaders/**` | 14 | Isolated RDNA3 key-state variant, attention backward Q/K, WMMA GEMM, fp32→fp16 |
+| `.github/workflows/*.yml` | 7 | The four mandatory gates, the AMD performance run, the self-hosted A/B, and the Phase XXIX evidence-integrity gate |
+| `hierarchos-native-cli`, `hierarchos-gui` | 8 | Vision runtime wiring and the multimodal Start surface |
+| Root contracts and audits | 13 | `RDNA3_RELEASE_CONTRACT.md`, `RDNA3_WMMA.md`, `RDNA3_PRECISION_COMPLETION.md`, `MAIN_INTEGRATION_READINESS.md`, this plan, the resealing procedure, the Phase XV audit, the evidence audit, the A/B runbook |
 
-Added evidence in the code range (`ead6cd3..306c7db`) totals **477.6 MB across 4,123
-files**, with 68 files above 1 MB. The
-largest is `20261113-phase22-recovery/numerical-before-20261114.zip` at **59.6 MB**;
-`evidence/unified/raw/primitives/operands.json` (15.6 MB) and
-`evidence/unified/raw/fallback/model-export.json` (6.8 MB) are each stored twice because
-every sealed root carries its own copy. That duplication is evidence, not code, and no
-producer reads the older copy — but a reviewer should decide deliberately whether this
-volume belongs on `main` before approving, because the merge is a fast-forward and the
-archive cannot be dropped afterwards without deleting sealed evidence.
+## 3. Focused review of the sensitive contents
 
-## 3. Sensitive files a reviewer must read
+**3.1 Configuration files — 8 changed (7 workflows + `.gitattributes`).**
+`architecture-compatibility.yml`, `phase19-instrumented.yml`, `phase19y-oracles.yml`,
+`workspace-check.yml` are the mandatory gates; `rdna3-performance.yml` is the AMD
+performance run; `time-mix-ab.yml` is the self-hosted A/B (pending, see §7);
+`evidence-integrity.yml` is the Phase XXIX digest guard added on this branch.
+`.gitattributes` sets line-ending policy. A change here changes what "green" means, so
+these are the first thing a reviewer should read. All five workflows on the candidate
+concluded `success`; the new guard passed on its first run.
 
-- `.github/workflows/{architecture-compatibility,phase19-instrumented,phase19y-oracles,workspace-check}.yml`
-  — these define the gates that make the release claim; a change here changes what
-  "green" means.
-- `.github/workflows/time-mix-ab.yml` — self-hosted A/B, permanently queued without a
-  runner (see §7).
-- `hierarchos-vulkan/src/device_policy.rs` and the five `src/bin` plus
-  `validation/*.rs` `#[path]` include sites — RDNA3-only admission.
-- `hierarchos-vulkan/shaders/rwkv_key_state_forward_fused_wide.spv` (shared, byte-identical
-  to pre-WMMA `ead6cd3`) versus `..._amd_rdna3.spv` (isolated fix).
-- `hierarchos-vulkan/src/rwkv_time_mix_core.rs` — carries the restored portable
-  composition-selection expression `measured || (qualified && variant)`.
-- `hierarchos-vulkan/validation/emit_two_pass_evidence.py` — the attention parser fix
-  described in `RELEASE_RESEALING_PROCEDURE.md`.
-- `hierarchos-vulkan/validation/qualify_phase19{x,y,z}_current.py`, `check_*`,
-  `check_unified_release.py`, `qualify_unified_release.py` — the sealed roots are
-  literals inside these files.
+**3.2 `src/device_policy.rs` — admission is narrow and device-independent where it must
+be.** `wmma_hardware_eligible` accepts only vendor `0x1002` with an explicit PCI-ID list
+(RDNA3 `0x73a8…0x749f`, `0x15bf`, `0x15c8`, `0x1900/1901`; RDNA3.5 `0x1114`, `0x150e`,
+`0x1586`, `0x1902`; RDNA4 `0x7550/7551/7590`), sourced from AMD GPUOpen `device_info` at
+a pinned commit. Vulkan cooperative-matrix features remain mandatory regardless of ID.
+`composition_admitted` is recovered verbatim from pre-WMMA `main` so an Intel Gen9 or
+RDNA1/2 dispatch decision cannot change. `wmma_requires_amd_rdna3_or_newer` rejects
+Intel, NVIDIA, ARM and unknown-vendor devices; 6 tests pass.
 
-## 4. Phase XV provenance discrepancy — adjudicated
+**3.3 The isolated SPIR-V pair.** `shaders/rwkv_key_state_forward_fused_wide.spv`
+(12,488 B, sha256 `8481b7c7…`) is **byte-identical to pre-WMMA `main`** — verified by
+hashing the blob at `origin/main`. The RDNA3 arithmetic fix lives only in
+`shaders/rwkv_key_state_forward_fused_wide_amd_rdna3.spv` (11,980 B, sha256
+`8aab7de3…`), so other devices keep their existing bytes. The provenance manifest
+requires 728 identical rebuilds including both artifacts.
 
-One historical root in the range is not a clean regeneration. Full evidence:
-`PHASE15_EVIDENCE_REBINDING_AUDIT.md`. The review-relevant summary:
+**3.4 Sealed-root literals.** The sealed root `20261115-phase25-current-source` is a
+literal in 19 validation scripts; the three assemblers name their sub-roots directly —
+`qualify_phase19x_current.py:26`, `qualify_phase19z_current.py:28` and `:39`. The
+Y assembler is `qualify_phase19y_full_attention.py` (there is no
+`qualify_phase19y_current.py`); it takes `--output` and carries the root literal as well.
+This is why advancing a root is a source change, not a flag (§3 of
+`RELEASE_RESEALING_PROCEDURE.md`).
 
-- Commit `9e636fb` changed **one file**,
-  `20261108-rdna3-phase15-qualification/current-qualification.json`, rewriting 32
-  values: `source_head`, `producer_sha256`, five binary digests, **12 of 14** `evidence`
-  digests, six `retained.*.qualification_sha256` values, and one numeric —
-  `retained.gemma4.worst_logit` `1.6391277313232422e-07 → 1.4156103134155273e-07`.
-- The **source binding is genuine**: all 134 `sources` digests match the tree at
-  `9e636fb` exactly.
-- The **regenerated evidence is not preserved**. Hashing every committed revision of
-  each referenced path finds no revision that ever held the declared content (18 of 18
-  mismatched bindings), and the family receipts still on disk carry the *old* digests
-  and the *old* `1.639e-07`. The aggregate therefore contradicts the evidence it cites,
-  and `verify.py` does not check the `evidence` map or the family hashes — which is why
-  it went unnoticed.
-- `SHA256SUMS` was refreshed (`b1d6f49`) to match the edited receipt, so the root is
-  consistent as a manifest but not as a provenance chain.
+**3.5 Large artifacts — all required evidence, none removable.**
+- `release_parity/multimodal_training/20261113-phase22-recovery/numerical-before-20261114.zip`
+  (59.6 MB, 1,827 members) is the preserved pre-2026-11-14 numerical state, byte-verified
+  against its own SHA-256 manifest; it is ZIPped because the unpacked Windows paths
+  exceed 260 characters. Its README states it is historical evidence, not the refreshed
+  qualification.
+- 291 `.safetensors` files, 48.9 MB total (72 in the sealed root, whose whole tree is
+  52 MB), are LoRA adapter weights and AdamW optimizer-state snapshots. Checkers read
+  them directly — `check_phase19t_current.py` counts `required_safetensors`, the
+  stability checks resume from them — so deleting or trimming them invalidates receipts.
+- `evidence/unified/raw/primitives/operands.json` (15.6 MB) and
+  `raw/fallback/model-export.json` (6.8 MB) exist twice because each sealed root carries
+  its own copy; no producer reads the older one, but the copy is part of that root's
+  manifest.
 
-Impact on this merge: none for the scoped release. The root is read only by
-`emit_spirv_gate.py` (through `gates/spirv.json`) and by
-`check_phase16_receipts.py` / `emit_phase16_spirv_gate.py`;
-`20261115-phase25-current-source/release-qualification.json` contains **0** references
-to it, and `verify.py` already fails on bound-source drift, so there is no current
-passing state to protect.
+## 4. Historical findings a reviewer must accept
 
-This is a **historical evidence-integrity defect**, not a release blocker. The original
-receipt is byte-recoverable at `9e636fb~1` (sha `7bbba8cd…`, identical to `origin/main`),
-nothing was rewritten or deleted in this phase, and the justified corrective action is
-an audit note plus a quarantine label — not restoration, which would rewrite history a
-second time. A reviewer must consciously accept the branch with this known defect, or
-require a follow-up root before merge.
+Both are historical-only, outside the current release's dependency closure, and neither
+is rewritten or re-sealed.
 
-No other file in the range deletes or rewrites sealed evidence: 0 deletions, and the
-remaining 73 modifications are source, workflow, CLI/GUI, shader and documentation
-files.
+- **Phase XV rebinding (`9e636fb`, 2026-11-09).** One receipt file, 32 values rewritten
+  in place: `source_head`, `producer_sha256`, five binary digests, 12 of 14 evidence
+  digests, six `retained.*.qualification_sha256`, and `gemma4.worst_logit`
+  `1.6391277323e-07 → 1.4156103134e-07`. All 134 source hashes are genuine; the new
+  evidence is not preserved — hashing every committed revision of each referenced path
+  finds **18 of 18** bindings naming content that path never held, while the family
+  receipts still carry the old digests and the old `1.639e-07`. Original recoverable at
+  `9e636fb~1` = `origin/main` (`7bbba8cd…`). Details: `PHASE15_EVIDENCE_REBINDING_AUDIT.md`.
+- **`20261108-rdna3-gpt2-current` (`3806c8c`).** One binding
+  (`v41native/primitives.log`, `668eb9d8…`) names content no revision of that path held.
+  Same failure class at one entry, found by the Phase XXIX audit
+  (`EVIDENCE_INTEGRITY_AUDIT.md` §4).
 
-## 5. Release evidence and its bindings
+Neither root is referenced by `release-qualification.json` (0 occurrences).
 
-`release-qualification.json` (`20261115-phase25-current-source`):
+## 5. Release evidence, its bindings, and the integrity gate
 
-- `status: PASS_SCOPED_RELEASE`, `source_revision: 0779b3d…` (ancestor of the reviewed
-  head, which is all the checkers require), 24 components, ~2,000 bound source files,
-  33 binaries.
-- `text166` — re-executed at `306c7db` scope; 166/166, max abs `1.788139343e-07`,
-  `< 2e-07`, `rtol 0`, executable `ac675c4f…`.
-- Phase XIX-X / Y / Z — executed in Phase XXV, checker-passing, bound to 397 / 1,577
-  sources and their own evidence counts.
-- `packed` — `phase19z/packed-cell/status.json`, 13/13 on `amd-rdna3-lds64`.
-- `precision`, `wide`, `tests`, `gui_cli`, `wmma_*`, `shader727` (728/728),
-  `shader_wmma` (4/4) — executed in Phase XXVI against the current binaries.
+`20261115-phase25-current-source/release-qualification.json`:
+`status: PASS_SCOPED_RELEASE`, 24 components, 2,000 bound sources, 140 evidence files,
+33 binaries; `source_revision: 0779b3d…` (an ancestor, which is what the checkers
+require). Text166 166/166 at max abs `1.788139343e-07 < 2e-7` with `rtol=0`; XIX-X/Y/Z
+checker-passing; packed-cell 13/13 on `amd-rdna3-lds64`; precision 20 steps; wide 9
+results; shaders 728/728 and WMMA 4/4.
 
-Independent verification at the reviewed head: `check_unified_release.py` →
-`PASS_SCOPED_RELEASE`; `test_unified_release.py` → 33 passed.
+Independent verification at the candidate: `check_unified_release.py` →
+`PASS_SCOPED_RELEASE`; `test_unified_release.py` → 33 passed; the Phase XXIX guard
+(`check_evidence_integrity.py --latest-release --strict`) → 2,197 findings, **0
+failures**; its 18 negative controls pass. The guard's own files sit **outside** the
+sealed `source_files` closure, which is why adding them did not disturb the receipt.
 
-## 6. CI evidence, per SHA
+## 6. CI on the exact candidate `e8eb531`
 
-Independently read back through the GitHub API on 2026-11-15. Every run below is a
-`push` event that concluded `success`.
-
-**On the documentation handoff `ad1b7b0`:**
-
-| Workflow | Run | Head | Created |
-|---|---|---|---|
-| Workspace check / unified release | 43699252188 | `ad1b7b0` | 2026-11-15T09:26:20Z |
-| Phase XIX instrumented qualification | 43699252204 | `ad1b7b0` | 2026-11-15T09:26:20Z |
-| Phase XIX-Y oracle bytes | 43699252175 | `ad1b7b0` | 2026-11-15T09:26:20Z |
-| Phase XIX-W architecture compatibility | 43699252211 | `ad1b7b0` | 2026-11-15T09:26:20Z |
-
-URLs follow `https://github.com/necat101/Hierarchos-Native/actions/runs/<id>`.
-
-**On the qualified code candidate `306c7db`** (Phase XXVI final):
+All `push` events, `2026-11-15T20:46:46Z`, all `success`:
 
 | Workflow | Run |
 |---|---|
-| Workspace check | 43693998223 |
-| Phase XIX instrumented qualification | 43693998237 |
-| Phase XIX-Y oracle bytes | 43693998268 |
-| Phase XIX-W architecture compatibility | 43693998290 |
+| Workspace check / unified release | 43759967266 |
+| Phase XIX instrumented qualification | 43759966990 |
+| Phase XIX-Y oracle bytes | 43759967031 |
+| Phase XIX-W architecture compatibility | 43759966978 |
+| **Evidence integrity (new)** | 43759967292 |
 
-`ad1b7b0` differs from `306c7db` only by two root Markdown files, so its green runs
-cover the same code and evidence; they do not re-qualify anything. Neither set validates
-a later commit. When this review's documentation commit lands, read its own runs with
-`gh run list --branch codex/rdna3-phase19-instrumented --limit 8`; this table is
-deliberately not rewritten to chase a self-referential final SHA.
+URLs: `https://github.com/necat101/Hierarchos-Native/actions/runs/<id>`.
+
+Any documentation commit after this point gets its own runs; read them with
+`gh run list --branch codex/rdna3-phase19-instrumented --limit 8`. That commit contains
+no code and no evidence change, so it cannot invalidate the qualification — only the
+runs' head SHA changes.
 
 ## 7. Outstanding qualifications
 
-| Item | Status | Blocker classification |
+| Item | Status | Classification |
 |---|---|---|
-| Self-hosted packed-cell producer A/B (`time-mix-ab.yml`) | **Pending** — no runner | Deferred. `GET /repos/necat101/Hierarchos-Native/actions/runners` returns `total_count: 0`; `producer-ab` requires `[self-hosted, windows, vulkan]` and `cross-adapter-ab` adds `amd`, both with tuned `linear3-forward`/`linear-residual-forward` modules. Resume procedure: `PACKED_CELL_AB_RUNNER_RUNBOOK.md`. It is a cross-check of the locally measured 13/13 matrix, not a substitute for it. |
-| Physical Intel Gen9 | **Pending** — no host | Deferred platform qualification; Gen9 keeps the pre-WMMA FP32 selector, so no RDNA3 claim covers it. |
-| Physical RDNA1/RDNA2 | **Pending** — no host | Deferred platform qualification; FP32 selector retained. |
-| AVX2-host fixture reproduction | **Pending** — no host | Deferred; the release uses the frozen AVX2 oracle fixtures, not a live AVX2 host. |
+| Self-hosted packed-cell A/B (`time-mix-ab.yml`) | **Pending** — `total_count: 0` runners | Deferred cross-check of the locally measured 13/13 matrix; resume with `PACKED_CELL_AB_RUNNER_RUNBOOK.md` |
+| Physical Intel Gen9 | **Pending** — no host | Deferred platform qualification; Gen9 keeps the pre-WMMA FP32 selector |
+| Physical RDNA1/RDNA2 | **Pending** — no host | Deferred; FP32 selector retained |
+| AVX2-host fixture reproduction | **Pending** — no host | Deferred; frozen AVX2 oracle fixtures are used, not a live host |
 
-None of these is a blocker for the **scoped RDNA3** release, which is what the sealed
-receipt claims. They are blockers for any statement of universal or cross-platform
-qualification, and no such statement is made.
+None is a blocker for the **scoped RDNA3** release. They are blockers only for a
+universal or cross-platform claim, which this branch does not make.
 
 ## 8. Merge sequence (executes only on approval)
 
 ```bash
 set -e
 git fetch origin
-git rev-parse origin/main                      # expect ead6cd3 (or re-base the plan if moved)
 git merge-base --is-ancestor origin/main FETCH_HEAD && echo fast-forward-ok
 
-# 1. Re-confirm the candidate is the reviewed commit and clean.
 git switch --detach origin/codex/rdna3-phase19-instrumented
 test -z "$(git status --porcelain --untracked-files=no)"
 
-# 2. Re-run the local gates on the exact candidate.
 python hierarchos-vulkan/validation/check_phase19x_current.py
 python hierarchos-vulkan/validation/check_phase19z_current.py
 python hierarchos-vulkan/validation/check_unified_release.py
 python -m pytest hierarchos-vulkan/validation/test_unified_release.py -q
+python hierarchos-vulkan/validation/check_evidence_integrity.py --latest-release --strict
 python hierarchos-vulkan/validation/check_main_compatibility.py
-python hierarchos-vulkan/validation/check_shader_provenance.py \
-  --manifest hierarchos-vulkan/validation/training_shader_manifest.json \
-  --compiler-path "glslangValidator=C:/VulkanSDK/1.4.321.1/Bin/glslangValidator.exe"
 
-# 3. Fast-forward main and push only after step 2 is green.
 git switch main
 git merge --ff-only origin/codex/rdna3-phase19-instrumented
 git push origin main
 ```
 
-Post-merge verification: `git rev-parse HEAD` equals the reviewed SHA; the four
-workflows must run and conclude `success` **on `main`'s new head**; then re-run
-`check_unified_release.py` and `check_main_compatibility.py` from a fresh clone of
-`main` to prove the evidence is in the merged tree, not only in the branch worktree.
+Post-merge: `git rev-parse HEAD` equals the candidate; the five workflows run and
+conclude `success` **on `main`'s new head**; re-run the checker and the digest guard from
+a fresh clone of `main` to prove the evidence is in the merged tree.
 
-Do not delete `codex/rdna3-phase19-instrumented` after merging — it is the audit trail
-the receipts name, and `codex/rdna3-wmma` (`0483bca`) must stay untouched.
+Do not delete `codex/rdna3-phase19-instrumented` — it is the audit trail the receipts
+name — and `codex/rdna3-wmma` (`0483bca`) stays untouched.
 
 ## 9. Rollback
-
-Because the integration is a fast-forward, rollback is a ref move that loses no work:
 
 ```bash
 git switch main
@@ -217,15 +190,21 @@ git reset --hard ead6cd3fa5f8943e478dcd0aec27e6014f62d1d5   # local only
 git push --force-with-lease origin main                     # only on approval
 ```
 
-`codex/rdna3-phase19-instrumented` still points at the qualified commit, every
-`release_parity` root is additive and unchanged by the rollback, and
-`codex/rdna3-wmma` is never involved. No evidence is deleted by reverting `main`.
+Every `release_parity` root is additive, so the rollback deletes no evidence; the
+qualified branch ref still points at the candidate; `codex/rdna3-wmma` is never involved.
 
 ## 10. Recommendation
 
-**READY FOR REVIEW.** The scoped RDNA3 release is internally consistent: one sealed
-manifest, checker and 33 tests passing, and four mandatory workflows green on both
-`306c7db` and `ad1b7b0`. It is not `READY TO MERGE`: the Phase XV provenance defect in
-§4 is a known, unresolved audit finding that a reviewer must accept explicitly, and the
-self-hosted A/B (§7) has never executed. `MERGED` would only be claimed after an actual
-merge.
+**READY TO MERGE — AWAITING USER AUTHORIZATION.**
+
+- No WMMA implementation gap remains in the declared RDNA3 scope (Phase XXX verified
+  admission, `off`/`mixed`/`full-fp16`, FP32 masters and optimizer state, reduction
+  limits and FP32 fallback, CLI `--amp` compatibility, GUI forwarding, and
+  unsupported-device refusal).
+- The candidate is a clean fast-forward of `main` with five green workflows and a
+  digest-clean release closure.
+- Accepted, documented, and outside the closure: the two historical evidence findings
+  in §4, the four pending hardware qualifications in §7, and the intentionally scoped
+  Full-FP16 package limits.
+
+`MERGED` would only be claimed after an actual merge.
