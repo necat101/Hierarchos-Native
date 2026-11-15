@@ -14,10 +14,12 @@ mod kernel_golden;
 #[path = "../vulkan.rs"]
 mod vulkan;
 // `vulkan.rs` names its cooperative-matrix capability types through
-// `crate::wmma`, so a bin that compiles it standalone needs that module in the
-// same crate root.
+// `crate::wmma` and its hardware-admission policy through `crate::device_policy`,
+// so a bin that compiles it standalone needs both in the same crate root.
 #[path = "../wmma.rs"]
 mod wmma;
+#[path = "../device_policy.rs"]
+mod device_policy;
 
 use anyhow::{bail, ensure, Context, Result};
 use kernel_golden::{coverage_args, Golden};
