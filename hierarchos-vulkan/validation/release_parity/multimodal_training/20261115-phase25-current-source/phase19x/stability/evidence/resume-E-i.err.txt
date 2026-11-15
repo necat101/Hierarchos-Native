@@ -1,0 +1,1 @@
+QUAL_CONFIG mode=lora precision=off two_pass=false batch=8 seq=64 steps=8 start_step=0 lr=0.001 seed=7 device=AMD Radeon Graphics

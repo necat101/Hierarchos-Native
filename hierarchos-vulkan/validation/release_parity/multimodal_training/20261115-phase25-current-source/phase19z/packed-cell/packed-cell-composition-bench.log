@@ -1,0 +1,1049 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.47
+   Compiling cfg-if v1.0.4
+   Compiling windows-link v0.2.1
+   Compiling memchr v2.8.3
+   Compiling once_cell v1.21.4
+   Compiling syn v3.0.3
+   Compiling syn v2.0.119
+   Compiling getrandom v0.4.3
+   Compiling autocfg v1.5.1
+   Compiling windows-sys v0.61.2
+   Compiling jobserver v0.1.35
+   Compiling find-msvc-tools v0.1.11
+   Compiling libm v0.2.16
+   Compiling shlex v2.0.1
+   Compiling cc v1.4.4
+   Compiling num-traits v0.2.19
+   Compiling serde_core v1.0.229
+   Compiling itoa v1.0.18
+   Compiling synstructure v0.13.2
+   Compiling crossbeam-utils v0.8.22
+   Compiling stable_deref_trait v1.2.1
+   Compiling zerofrom-derive v0.1.7
+   Compiling serde v1.0.229
+   Compiling pin-project-lite v0.2.17
+   Compiling zerofrom v0.1.8
+   Compiling yoke-derive v0.8.2
+   Compiling bytemuck_derive v1.12.0
+   Compiling serde_derive v1.0.229
+   Compiling version_check v0.9.5
+   Compiling bytemuck v1.25.2
+   Compiling yoke v0.8.3
+   Compiling bitflags v2.13.1
+   Compiling smallvec v1.15.2
+   Compiling fnv v1.0.7
+   Compiling getrandom v0.3.4
+   Compiling zmij v1.0.23
+   Compiling zerocopy v0.8.56
+   Compiling futures-core v0.3.34
+   Compiling bytes v1.12.1
+   Compiling zerocopy-derive v0.8.56
+   Compiling zerovec-derive v0.11.6
+   Compiling serde_json v1.0.151
+   Compiling equivalent v1.0.2
+   Compiling either v1.17.0
+   Compiling zerovec v0.11.8
+   Compiling cmake v0.1.58
+   Compiling displaydoc v0.2.7
+   Compiling aho-corasick v1.1.5
+   Compiling futures-sink v0.3.34
+   Compiling fs_extra v1.3.0
+   Compiling dunce v1.0.5
+   Compiling regex-syntax v0.8.11
+   Compiling aws-lc-sys v0.44.0
+   Compiling regex-automata v0.4.18
+   Compiling socket2 v0.6.5
+   Compiling mio v1.2.2
+   Compiling tokio-macros v2.7.2
+   Compiling tracing-core v0.1.36
+   Compiling libc v0.2.189
+   Compiling crossbeam-epoch v0.9.20
+   Compiling tokio v1.53.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_core v0.9.5
+   Compiling windows-result v0.4.1
+   Compiling windows-strings v0.5.1
+   Compiling hashbrown v0.17.1
+   Compiling crossbeam-deque v0.8.7
+   Compiling slab v0.4.12
+   Compiling log v0.4.34
+   Compiling indexmap v2.14.1
+   Compiling rand_chacha v0.9.0
+   Compiling futures-channel v0.3.34
+   Compiling tinystr v0.8.4
+   Compiling tracing-attributes v0.1.31
+   Compiling litemap v0.8.3
+   Compiling writeable v0.6.4
+   Compiling futures-io v0.3.34
+   Compiling ident_case v1.0.1
+   Compiling rand_core v0.10.1
+   Compiling paste v1.0.15
+   Compiling aws-lc-rs v1.18.0
+   Compiling strsim v0.11.1
+   Compiling rayon-core v1.13.0
+   Compiling icu_locale_core v2.3.0
+   Compiling tracing v0.1.44
+   Compiling rand v0.9.5
+   Compiling zerotrie v0.2.5
+   Compiling potential_utf v0.1.6
+   Compiling http v1.5.0
+   Compiling futures-macro v0.3.34
+   Compiling thiserror v2.0.20
+   Compiling icu_properties_data v2.3.0
+   Compiling icu_normalizer_data v2.3.0
+   Compiling typenum v1.20.1
+   Compiling futures-task v0.3.34
+   Compiling zeroize v1.9.0
+   Compiling utf8_iter v1.0.4
+   Compiling icu_collections v2.3.0
+   Compiling futures-util v0.3.34
+   Compiling icu_provider v2.3.1
+   Compiling thiserror-impl v2.0.20
+   Compiling percent-encoding v2.3.2
+   Compiling ryu v1.0.23
+   Compiling rayon v1.12.0
+   Compiling rustls-pki-types v1.15.1
+   Compiling http-body v1.1.0
+   Compiling num-complex v0.4.6
+   Compiling untrusted v0.9.0
+   Compiling httparse v1.10.1
+   Compiling rustls v0.23.43
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling rand_distr v0.5.1
+   Compiling tokio-util v0.7.19
+   Compiling pulp v0.22.3
+   Compiling windows-implement v0.60.2
+   Compiling windows-interface v0.59.3
+   Compiling tower-service v0.3.3
+   Compiling try-lock v0.2.5
+   Compiling subtle v2.6.1
+   Compiling atomic-waker v1.1.2
+   Compiling h2 v0.4.19
+   Compiling want v0.3.1
+   Compiling windows-core v0.62.2
+   Compiling half v2.7.1
+   Compiling idna_adapter v1.2.2
+   Compiling form_urlencoded v1.2.2
+   Compiling raw-cpuid v11.6.0
+   Compiling dyn-stack-macros v0.1.3
+   Compiling cpufeatures v0.3.1
+   Compiling reborrow v0.5.5
+   Compiling pulp-wasm-simd-flag v0.1.1
+   Compiling unicase v2.9.0
+   Compiling mime_guess v2.0.5
+   Compiling dyn-stack v0.13.2
+   Compiling hyper v1.11.1
+   Compiling idna v1.1.0
+   Compiling windows-registry v0.6.1
+   Compiling itertools v0.14.0
+   Compiling sync_wrapper v1.0.2
+   Compiling tower-layer v0.3.3
+   Compiling base64 v0.22.1
+   Compiling winapi v0.3.9
+   Compiling static_assertions v1.1.0
+   Compiling ipnet v2.12.1
+   Compiling seq-macro v0.3.6
+   Compiling crc32fast v1.5.1
+   Compiling gemm-common v0.19.0
+   Compiling hyper-util v0.1.20
+   Compiling tower v0.5.3
+   Compiling url v2.5.8
+   Compiling darling_core v0.20.11
+   Compiling regex v1.13.1
+   Compiling windows-threading v0.2.1
+   Compiling option-ext v0.2.0
+   Compiling mime v0.3.17
+   Compiling anyhow v1.0.104
+   Compiling fastrand v2.5.0
+   Compiling ntapi v0.4.3
+   Compiling lazy_static v1.5.0
+   Compiling sharded-slab v0.1.7
+   Compiling tempfile v3.27.0
+   Compiling dirs-sys v0.5.0
+   Compiling windows-future v0.3.2
+   Compiling darling_macro v0.20.11
+   Compiling tower-http v0.6.11
+   Compiling chacha20 v0.10.2
+   Compiling serde_urlencoded v0.7.1
+   Compiling windows-numerics v0.3.1
+   Compiling windows-collections v0.3.2
+   Compiling http-body-util v0.1.5
+   Compiling tracing-log v0.2.0
+   Compiling tracing-serde v0.2.0
+   Compiling matchers v0.2.0
+   Compiling bstr v1.13.1
+   Compiling nu-ansi-term v0.50.3
+   Compiling encoding_rs v0.8.35
+   Compiling thread_local v1.1.10
+   Compiling num-conv v0.2.2
+   Compiling deranged v0.5.8
+   Compiling pkg-config v0.3.34
+   Compiling time-core v0.1.9
+   Compiling powerfmt v0.2.0
+   Compiling rustversion v1.0.23
+   Compiling typewit v1.15.2
+   Compiling const_panic v0.2.17
+   Compiling time v0.3.55
+   Compiling onig_sys v69.9.3
+   Compiling tracing-subscriber v0.3.23
+   Compiling windows v0.62.2
+   Compiling rustls-webpki v0.103.15
+   Compiling tokio-rustls v0.26.4
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling hyper-rustls v0.27.9
+   Compiling rand v0.10.2
+   Compiling reqwest v0.13.4
+   Compiling darling v0.20.11
+   Compiling dirs v6.0.0
+   Compiling futures-executor v0.3.34
+   Compiling hybrid-array v0.4.14
+   Compiling generic-array v0.14.7
+   Compiling crossbeam-channel v0.5.16
+   Compiling approx v0.5.1
+   Compiling blake3 v1.8.7
+   Compiling pin-project-internal v1.1.13
+   Compiling git-version-macro v0.3.9
+   Compiling async-trait v0.1.92
+   Compiling os_str_bytes v6.6.1
+   Compiling linktime-proc-macro v0.2.3
+   Compiling link-section v0.19.3
+   Compiling konst_proc_macros v0.4.1
+   Compiling symlink v0.1.0
+   Compiling tracing-appender v0.2.5
+   Compiling konst v0.4.3
+   Compiling ctor v1.0.13
+   Compiling shellexpand v3.1.2
+   Compiling git-version v0.3.9
+   Compiling pin-project v1.1.13
+   Compiling futures v0.3.34
+   Compiling derive_builder_core v0.20.2
+   Compiling sysinfo v0.38.4
+   Compiling ahash v0.8.12
+   Compiling chrono v0.4.45
+   Compiling colored v3.1.1
+   Compiling more-asserts v0.3.1
+   Compiling constant_time_eq v0.4.2
+   Compiling esaxx-rs v0.1.10
+   Compiling twox-hash v2.1.4
+   Compiling allocator-api2 v0.2.21
+   Compiling minimal-lexical v0.2.1
+   Compiling redb v3.1.3
+   Compiling arrayvec v0.7.8
+   Compiling bit-vec v0.8.0
+   Compiling humantime v2.4.0
+   Compiling foldhash v0.2.0
+   Compiling oneshot v0.1.13
+   Compiling const-str v1.1.0
+   Compiling xet-runtime v1.6.0
+   Compiling hashbrown v0.16.1
+   Compiling bit-set v0.8.0
+   Compiling nom v7.1.3
+   Compiling lz4_flex v0.13.1
+   Compiling castaway v0.2.4
+   Compiling derive_builder_macro v0.20.2
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling gemm-f32 v0.19.0
+   Compiling uuid v1.26.0
+   Compiling darling_core v0.24.1
+   Compiling countio v0.3.0
+   Compiling monostate-impl v0.1.18
+   Compiling macro_rules_attribute-proc_macro v0.2.3
+   Compiling safe-transmute v0.11.3
+   Compiling base64 v0.13.1
+   Compiling unicode-segmentation v1.13.3
+   Compiling heapify v0.2.0
+   Compiling prettyplease v0.3.0
+   Compiling const-oid v0.10.2
+   Compiling pastey v0.2.3
+   Compiling darling_macro v0.24.1
+   Compiling macro_rules_attribute v0.2.3
+   Compiling digest v0.11.3
+   Compiling xet-core-structures v1.6.0
+   Compiling spm_precompiled v0.1.4
+   Compiling monostate v0.1.18
+   Compiling gemm-f16 v0.19.0
+   Compiling derive_builder v0.20.2
+   Compiling compact_str v0.9.1
+   Compiling fancy-regex v0.14.0
+   Compiling onig v6.5.3
+   Compiling reqwest-middleware v0.5.2
+   Compiling statrs v0.18.0
+   Compiling tokio-retry v0.3.2
+   Compiling gemm-c64 v0.19.0
+   Compiling gemm-c32 v0.19.0
+   Compiling gemm-f64 v0.19.0
+   Compiling rayon-cond v0.4.0
+   Compiling dary_heap v0.3.9
+   Compiling unicode-normalization-alignments v0.1.12
+   Compiling memmap2 v0.9.11
+   Compiling serde_repr v0.1.21
+   Compiling typed-path v0.12.3
+   Compiling windows_x86_64_msvc v0.52.6
+   Compiling unicode_categories v0.1.1
+   Compiling cfg-if v0.1.10
+   Compiling urlencoding v2.1.3
+   Compiling xet-client v1.6.0
+   Compiling zip v8.6.0
+   Compiling gearhash v0.1.3
+   Compiling tokenizers v0.22.2
+   Compiling gemm v0.19.0
+   Compiling sha2 v0.11.0
+   Compiling darling v0.24.1
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling safetensors v0.8.0
+   Compiling float8 v0.7.0
+   Compiling safe_arch v0.7.4
+   Compiling matrixmultiply v0.3.11
+   Compiling num_cpus v1.17.0
+   Compiling byteorder v1.5.0
+   Compiling candle-core v0.11.0
+   Compiling wide v0.7.33
+   Compiling digest v0.10.7
+   Compiling bon-macros v3.10.0
+   Compiling xet-data v1.6.0
+   Compiling num-integer v0.1.47
+   Compiling ash v0.38.0+1.3.281
+   Compiling cpufeatures v0.2.17
+   Compiling rawpointer v0.2.1
+   Compiling sha2 v0.10.9
+   Compiling num-rational v0.4.2
+   Compiling windows-targets v0.52.6
+   Compiling hf-xet v1.6.0
+   Compiling bon v3.10.0
+   Compiling candle-nn v0.11.0
+   Compiling simba v0.9.1
+   Compiling safetensors v0.7.0
+   Compiling globset v0.4.20
+   Compiling safetensors v0.6.2
+   Compiling nalgebra-macros v0.2.2
+   Compiling libloading v0.8.9
+   Compiling pathdiff v0.2.3
+   Compiling hierarchos-vulkan v0.1.0 (C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-vulkan)
+   Compiling hf-hub v1.0.0
+   Compiling nalgebra v0.33.3
+   Compiling hierarchos-inference v0.1.0 (C:\Users\User\Downloads\Multimodal\Hierarchos-Native-phase19\hierarchos-inference)
+   Compiling peft-rs v1.2.0
+   Compiling windows-sys v0.59.0
+warning: unused variable: `push`
+   --> src\deepseek_v41\mixed_moe_grad.rs:322:13
+    |
+322 |         let push = gate_push(c, rows);
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `push`
+    --> src\deepseek_v41\backbone.rs:2136:13
+     |
+2136 |         let push = MoeGatePush {
+     |             ^^^^ help: if this is intentional, prefix it with an underscore: `_push`
+
+warning: variable does not need to be mutable
+     --> src\full_training_graph.rs:20140:21
+      |
+20140 |                 let mut readback = GpuBuffer::uninitialized_host_f32(&source.device, len)?;
+      |                     ----^^^^^^^^
+      |                     |
+      |                     help: remove this `mut`
+      |
+      = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unreachable pattern
+    --> src\transformer\peft_state.rs:1543:21
+     |
+1543 |                     _ => {}
+     |                     ^ no value can reach this
+     |
+note: multiple earlier patterns match some of the same values
+    --> src\transformer\peft_state.rs:1543:21
+     |
+1497 |                       VulkanQwenGatedDeltaProjection::Qwen3Next { qkvz, ba, .. } => {
+     |                       ---------------------------------------------------------- matches some of the same values
+...
+1502 |                       VulkanQwenGatedDeltaProjection::Qwen35 { qkv, z, b, a } => {
+     |                       ------------------------------------------------------- matches some of the same values
+...
+1507 | /                     VulkanQwenGatedDeltaProjection::OlmoHybrid {
+1508 | |                         q, k, v, z, b, a, ..
+1509 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1514 | /                     VulkanQwenGatedDeltaProjection::Glm5 {
+1515 | |                         q,
+1516 | |                         k,
+1517 | |                         v,
+...    |
+1523 | |                         ..
+1524 | |                     } => {
+     | |_____________________- matches some of the same values
+...
+1543 |                       _ => {}
+     |                       ^ ...and 1 other patterns collectively make this unreachable
+     = note: `#[warn(unreachable_patterns)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+     --> src\transformer.rs:11765:13
+      |
+11765 |         let mut config = Self {
+      |             ----^^^^^^
+      |             |
+      |             help: remove this `mut`
+
+warning: unused variable: `layer_index`
+     --> src\transformer.rs:66727:5
+      |
+66727 |     layer_index: usize,
+      |     ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_layer_index`
+
+warning: variable does not need to be mutable
+    --> src\vulkan.rs:8200:9
+     |
+8200 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+    --> src\vulkan.rs:8360:9
+     |
+8360 |         mut self,
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: type `ComputeBatch` is more private than the item `tap`
+    --> src\activation_trace.rs:112:1
+     |
+ 112 | / pub fn tap(
+ 113 | |     commands: &mut ComputeBatch,
+ 114 | |     buffer: &GpuBuffer,
+ 115 | |     len: usize,
+...    |
+ 118 | |     shape: [usize; 3],
+ 119 | | ) -> Result<()> {
+     | |_______________^ function `tap` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5470:1
+     |
+5470 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `Key` is more private than the item `PayloadCache::get`
+  --> src\deepseek_v41\checkpoint_cache.rs:75:5
+   |
+75 |     pub fn get(&mut self, key: &Key) -> Option<Arc<Vec<u8>>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `PayloadCache::get` is reachable at visibility `pub(in crate::deepseek_v41)`
+   |
+note: but type `Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+  --> src\deepseek_v41\checkpoint_cache.rs:31:1
+   |
+31 | pub(super) struct Key {
+   | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `Key` is more private than the item `PayloadCache::insert`
+   --> src\deepseek_v41\checkpoint_cache.rs:103:5
+    |
+103 |     pub fn insert(&mut self, key: Key, bytes: &[u8]) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `PayloadCache::insert` is reachable at visibility `pub(in crate::deepseek_v41)`
+    |
+note: but type `Key` is only usable at visibility `pub(in crate::deepseek_v41::checkpoint)`
+   --> src\deepseek_v41\checkpoint_cache.rs:31:1
+    |
+ 31 | pub(super) struct Key {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer`
+    --> src\deepseek_v41\mixed_linear.rs:337:5
+     |
+ 337 | /     pub fn record_cast_buffer(
+ 338 | |         &self,
+ 339 | |         commands: &mut vulkan::ComputeBatch,
+ 340 | |         input: &GpuBuffer,
+ 341 | |         elements: usize,
+ 342 | |         precision: DeepseekV41WeightOutput,
+ 343 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_cast_buffer` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5470:1
+     |
+5470 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `mixed_linear::DeepseekV41MixedLinearKernel::record_apply`
+    --> src\deepseek_v41\mixed_linear.rs:397:5
+     |
+ 397 | /     pub fn record_apply(
+ 398 | |         &self,
+ 399 | |         commands: &mut vulkan::ComputeBatch,
+ 400 | |         input: &GpuBuffer,
+...    |
+ 403 | |         precision: DeepseekV41WeightOutput,
+ 404 | |     ) -> Result<GpuBuffer> {
+     | |__________________________^ method `mixed_linear::DeepseekV41MixedLinearKernel::record_apply` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5470:1
+     |
+5470 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `WmmaGemm::record_conversion`
+    --> src\wmma.rs:663:5
+     |
+ 663 | /     pub fn record_conversion(
+ 664 | |         &self,
+ 665 | |         batch: &mut vulkan::ComputeBatch,
+ 666 | |         source_f32: &GpuBuffer,
+ 667 | |         destination_f16: &GpuBuffer,
+ 668 | |         len: usize,
+ 669 | |     ) -> Result<()> {
+     | |___________________^ method `WmmaGemm::record_conversion` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5470:1
+     |
+5470 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `WmmaGemm::record_gemm`
+    --> src\wmma.rs:685:5
+     |
+ 685 | /     pub fn record_gemm(
+ 686 | |         &self,
+ 687 | |         batch: &mut vulkan::ComputeBatch,
+ 688 | |         arm: WmmaGemmArm,
+...    |
+ 695 | |         layout: GemmLayout,
+ 696 | |     ) -> Result<()> {
+     | |___________________^ method `WmmaGemm::record_gemm` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5470:1
+     |
+5470 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `LinearWmma::record_forward`
+    --> src\wmma_linear.rs:315:5
+     |
+ 315 | /     pub fn record_forward(
+ 316 | |         &self,
+ 317 | |         commands: &mut vulkan::ComputeBatch,
+ 318 | |         input: &GpuBuffer,
+...    |
+ 321 | |         rows: usize,
+ 322 | |     ) -> Result<bool> {
+     | |_____________________^ method `LinearWmma::record_forward` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5470:1
+     |
+5470 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `LinearWmma::record_weight_grad`
+    --> src\wmma_linear.rs:358:5
+     |
+ 358 | /     pub fn record_weight_grad(
+ 359 | |         &self,
+ 360 | |         commands: &mut vulkan::ComputeBatch,
+ 361 | |         grad_output: &GpuBuffer,
+...    |
+ 364 | |         rows: usize,
+ 365 | |     ) -> Result<bool> {
+     | |_____________________^ method `LinearWmma::record_weight_grad` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5470:1
+     |
+5470 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeBatch` is more private than the item `LinearWmma::record_input_grad`
+    --> src\wmma_linear.rs:397:5
+     |
+ 397 | /     pub fn record_input_grad(
+ 398 | |         &self,
+ 399 | |         commands: &mut vulkan::ComputeBatch,
+ 400 | |         grad_output: &GpuBuffer,
+...    |
+ 403 | |         rows: usize,
+ 404 | |     ) -> Result<bool> {
+     | |_____________________^ method `LinearWmma::record_input_grad` is reachable at visibility `pub`
+     |
+note: but type `ComputeBatch` is only usable at visibility `pub(crate)`
+    --> src\vulkan.rs:5470:1
+     |
+5470 | pub(crate) struct ComputeBatch {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `ComputeSession` is more private than the item `BatchHandle::Session::session`
+    --> src\vulkan.rs:5599:9
+     |
+5599 |         session: *mut ComputeSession,
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `BatchHandle::Session::session` is reachable at visibility `pub(crate)`
+     |
+note: but type `ComputeSession` is only usable at visibility `pub(self)`
+    --> src\vulkan.rs:5573:1
+     |
+5573 | struct ComputeSession {
+     | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled` is never used
+    --> src\lib.rs:3262:19
+     |
+1125 | impl HierarchosOutNormHeadTrainer {
+     | --------------------------------- method in this implementation
+...
+3262 |     pub(crate) fn record_loss_backward_from_buffer_shared_lm_with_z_loss_device_scaled(
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `apply` is never used
+    --> src\deepseek_v41\backbone.rs:2392:8
+     |
+2391 | impl MoeExecution {
+     | ----------------- method in this implementation
+2392 |     fn apply(&self, input: &GpuBuffer, rows: usize) -> Result<GpuBuffer> {
+     |        ^^^^^
+
+warning: field `directory` is never read
+  --> src\deepseek_v41\model_train.rs:81:5
+   |
+78 | pub struct DeepseekV41ModelTrainer {
+   |            ----------------------- field in this struct
+...
+81 |     directory: PathBuf,
+   |     ^^^^^^^^^
+
+warning: field `alpha` is never read
+   --> src\deepseek_v41\train.rs:103:5
+    |
+101 | struct TrainableFactors {
+    |        ---------------- field in this struct
+102 |     rank: usize,
+103 |     alpha: f64,
+    |     ^^^^^
+    |
+    = note: `TrainableFactors` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `record_prepared_full_model_optimizer_step` and `finish_prepared_full_model_accumulation_wavefront` are never used
+     --> src\full_training_graph.rs:22904:8
+      |
+ 8187 | impl HierarchosTrainingGraph {
+      | ---------------------------- methods in this implementation
+...
+22904 |     fn record_prepared_full_model_optimizer_step(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+23391 |     fn finish_prepared_full_model_accumulation_wavefront(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `gradient` is never used
+   --> src\multimodal.rs:210:19
+    |
+ 78 | impl<'a> PreparedModalityRows<'a> {
+    | --------------------------------- method in this implementation
+...
+210 |     pub(crate) fn gradient(&self) -> Result<Vec<f32>> {
+    |                   ^^^^^^^^
+
+warning: methods `release_training_state` and `training_state_bytes` are never used
+   --> src\shared_lm_head.rs:456:19
+    |
+ 99 | impl SharedLmHeadParameter {
+    | -------------------------- methods in this implementation
+...
+456 |     pub(crate) fn release_training_state(&self) -> Result<()> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+465 |     pub(crate) fn training_state_bytes(&self) -> Result<usize> {
+    |                   ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `generation_sample_token` is never used
+    --> src\transformer.rs:4025:4
+     |
+4025 | fn generation_sample_token(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `uses_alibi_attention` and `uses_mask_relative_alibi_positions` are never used
+    --> src\transformer.rs:7458:8
+     |
+6072 | impl VulkanTransformerArchitecture {
+     | ---------------------------------- methods in this implementation
+...
+7458 |     fn uses_alibi_attention(self) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^
+...
+7462 |     fn uses_mask_relative_alibi_positions(self) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `gated_delta_recurrent` is never read
+     --> src\transformer.rs:26494:5
+      |
+26346 | struct TransformerKernels {
+      |        ------------------ field in this struct
+...
+26494 |     gated_delta_recurrent: vulkan::ComputeKernel,
+      |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: trait `OptionalGpuBufferExt` is never used
+     --> src\transformer.rs:27621:7
+      |
+27621 | trait OptionalGpuBufferExt {
+      |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TIERED_LM_HEAD_MAX_TILE_ROWS` is never used
+     --> src\transformer.rs:27656:7
+      |
+27656 | const TIERED_LM_HEAD_MAX_TILE_ROWS: usize =
+      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_forward` is never used
+     --> src\transformer.rs:28327:8
+      |
+27700 | impl TieredLmHead {
+      | ----------------- method in this implementation
+...
+28327 |     fn record_forward(
+      |        ^^^^^^^^^^^^^^
+
+warning: method `training_state_bytes` is never used
+     --> src\transformer.rs:28695:8
+      |
+28585 | impl TrainableParameter {
+      | ----------------------- method in this implementation
+...
+28695 |     fn training_state_bytes(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: method `as_mut` is never used
+     --> src\transformer.rs:29048:8
+      |
+29039 | impl VulkanLoraBank {
+      | ------------------- method in this implementation
+...
+29048 |     fn as_mut(&mut self) -> Option<&mut VulkanLora> {
+      |        ^^^^^^
+
+warning: method `enable_lora` is never used
+     --> src\transformer.rs:29452:8
+      |
+29311 | impl VulkanLinear {
+      | ----------------- method in this implementation
+...
+29452 |     fn enable_lora(
+      |        ^^^^^^^^^^^
+
+warning: field `num_hidden_layers` is never read
+     --> src\transformer.rs:33937:5
+      |
+33936 | struct AlbertTopology {
+      |        -------------- field in this struct
+33937 |     num_hidden_layers: usize,
+      |     ^^^^^^^^^^^^^^^^^
+      |
+      = note: `AlbertTopology` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: function `decode_transformer_float_tensor` is never used
+     --> src\transformer.rs:36655:4
+      |
+36655 | fn decode_transformer_float_tensor(name: &str, tensor: TensorView<'_>) -> Result<HostFloatTensor> {
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `load_gpt2_weights` is never used
+     --> src\transformer.rs:40862:4
+      |
+40862 | fn load_gpt2_weights(
+      |    ^^^^^^^^^^^^^^^^^
+
+warning: function `load_llama_weights` is never used
+     --> src\transformer.rs:44586:4
+      |
+44586 | fn load_llama_weights(
+      |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `load_deepseek_v4_hca_compressors` is never used
+     --> src\transformer.rs:47109:4
+      |
+47109 | fn load_deepseek_v4_hca_compressors(
+      |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `grad_attention_gate_values` is never read
+     --> src\transformer.rs:49479:5
+      |
+49409 | struct TransformerLayerTape {
+      |        -------------------- field in this struct
+...
+49479 |     grad_attention_gate_values: GpuBuffer,
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `input_dim` and `output_dim` are never used
+     --> src\transformer.rs:54452:8
+      |
+54391 | impl VulkanDeepseekV4GroupedLinear {
+      | ---------------------------------- methods in this implementation
+...
+54452 |     fn input_dim(&self) -> usize {
+      |        ^^^^^^^^^
+...
+54456 |     fn output_dim(&self) -> usize {
+      |        ^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> src\transformer.rs:54719:8
+      |
+54617 | impl VulkanDeepseekV4CsaOverlapCompressor {
+      | ----------------------------------------- method in this implementation
+...
+54719 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> src\transformer.rs:55355:8
+      |
+55310 | impl VulkanDeepseekV4CsaCompressor {
+      | ---------------------------------- method in this implementation
+...
+55355 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `output_rows` is never used
+     --> src\transformer.rs:55540:8
+      |
+55439 | impl VulkanDeepseekV4HcaCompressor {
+      | ---------------------------------- method in this implementation
+...
+55540 |     fn output_rows(&self) -> usize {
+      |        ^^^^^^^^^^^
+
+warning: method `key_hidden_size` is never used
+     --> src\transformer.rs:55856:8
+      |
+55701 | impl VulkanMlaAttention {
+      | ----------------------- method in this implementation
+...
+55856 |     fn key_hidden_size(&self) -> usize {
+      |        ^^^^^^^^^^^^^^^
+
+warning: methods `record_forward` and `record_backward` are never used
+     --> src\transformer.rs:61004:8
+      |
+59406 | impl VulkanTransformerLayer {
+      | --------------------------- methods in this implementation
+...
+61004 |     fn record_forward(
+      |        ^^^^^^^^^^^^^^
+...
+62759 |     fn record_backward(
+      |        ^^^^^^^^^^^^^^^
+
+warning: methods `generation_last_logits_with_layer_count`, `generation_prefill_kv_cache`, `generate_beam_ids_with_context`, `generate_beam_ids_with_kv_cache`, and `generate_beam_ids_full_prefix_with_context` are never used
+     --> src\transformer.rs:80242:8
+      |
+67730 | impl VulkanTransformer {
+      | ---------------------- methods in this implementation
+...
+80242 |     fn generation_last_logits_with_layer_count(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+80679 |     fn generation_prefill_kv_cache(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+83040 |     fn generate_beam_ids_with_context(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+83680 |     fn generate_beam_ids_with_kv_cache(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+83814 |     fn generate_beam_ids_full_prefix_with_context(
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `eps` is never read
+   --> src\transformer\gemma4_vision.rs:921:5
+    |
+903 | pub struct VulkanGemma4Vision {
+    |            ------------------ field in this struct
+...
+921 |     eps: f32,
+    |     ^^^
+
+warning: function `rdna3_vision_capability` is never used
+   --> src\vendor.rs:631:14
+    |
+631 | pub const fn rdna3_vision_capability(vendor_id: u32, device_id: u32) -> bool {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `physical_device` and `physical_device_index` are never read
+  --> src\vulkan.rs:38:5
+   |
+35 | struct DeviceInner {
+   |        ----------- fields in this struct
+...
+38 |     physical_device: vk::PhysicalDevice,
+   |     ^^^^^^^^^^^^^^^
+...
+72 |     physical_device_index: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: `hierarchos-vulkan` (lib) generated 51 warnings (run `cargo fix --lib -p hierarchos-vulkan` to apply 7 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5m 30s
+  step 0 output: 1024 values, max_abs 0.000000000e+00
+  step 0 packed_new_state: 20480 values, max_abs 0.000000000e+00
+  step 0 grad_x: 1024 values, max_abs 0.000000000e+00
+  step 0 grad_packed_state: 20480 values, max_abs 0.000000000e+00
+  step 0 token_feature_grad: 1024 values, max_abs 0.000000000e+00
+  step 1 output: 1024 values, max_abs 0.000000000e+00
+  step 1 packed_new_state: 20480 values, max_abs 0.000000000e+00
+  step 1 grad_x: 1024 values, max_abs 0.000000000e+00
+  step 1 grad_packed_state: 20480 values, max_abs 0.000000000e+00
+  step 1 token_feature_grad: 1024 values, max_abs 0.000000000e+00
+  step 2 output: 1024 values, max_abs 0.000000000e+00
+  step 2 packed_new_state: 20480 values, max_abs 0.000000000e+00
+  step 2 grad_x: 1024 values, max_abs 0.000000000e+00
+  step 2 grad_packed_state: 20480 values, max_abs 0.000000000e+00
+  step 2 token_feature_grad: 1024 values, max_abs 0.000000000e+00
+negative control
+  negative control rejected the perturbation as expected: negative control cell output: |vulkan-cpu| 1.586700000e-04 exceeds atol 1.000e-04 + rtol 1.000e-05*scale (bound 1.038858545e-04) at index 0; vulkan=0.38842678 cpu=0.38858545
+{
+  "result": "pass",
+  "width": 128,
+  "head_size": 16,
+  "batch": 8,
+  "steps": 3,
+  "comparisons": 15,
+  "worst_max_abs": 0.0,
+  "atol": 0.0001,
+  "rtol": 1e-05,
+  "time_mix_forward_fusion": "disabled",
+  "channel_mix_forward_fusion": "disabled",
+  "performance_admission": "explicit raw-module qualification override; shipping routes use amd_matmul_decisions.json",
+  "expected_vendor": "auto",
+  "qualified_vendor": "amd",
+  "vendor_variants": {
+    "linear-forward": "amd-rdna3-lds64",
+    "linear-residual-forward": "amd-rdna3-lds64",
+    "linear3-forward": "amd-rdna3-lds64"
+  },
+  "vendor_plan": "linear-forward=amd-rdna3-lds64 linear-bias-forward=amd-rdna3-lds64 linear-residual-forward=amd-rdna3-lds64 linear3-forward=amd-rdna3-lds64 silu-forward=portable silu-backward=portable adamw=portable",
+  "vendor_dispatch": "linear-forward=1 linear-residual-forward=1 linear3-forward=1",
+  "portable_dispatch": "",
+  "negative_control": "rejected",
+  "negative_control_detail": "negative control cell output: |vulkan-cpu| 1.586700000e-04 exceeds atol 1.000e-04 + rtol 1.000e-05*scale (bound 1.038858545e-04) at index 0; vulkan=0.38842678 cpu=0.38858545",
+  "rows": [
+    {
+      "label": "step 0 output",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 0 packed_new_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 0 grad_x",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 0 grad_packed_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 0 token_feature_grad",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 output",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 packed_new_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 grad_x",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 grad_packed_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 1 token_feature_grad",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 output",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 packed_new_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 grad_x",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 grad_packed_state",
+      "values": 20480,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    {
+      "label": "step 2 token_feature_grad",
+      "values": 1024,
+      "max_abs": 0.0,
+      "atol": 0.0001,
+      "rtol": 1e-05
+    }
+  ]
+}
