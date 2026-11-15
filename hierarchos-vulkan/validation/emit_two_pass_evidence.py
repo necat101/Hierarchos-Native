@@ -23,8 +23,12 @@ from pathlib import Path
 CASES = ("fixture-causal", "fixture-full", "padded-causal", "small-causal")
 TENSORS = ("q", "k", "v")
 
+# The case line is not required to start the physical line: libtest prints the
+# test name with no trailing newline, so the first case's `eprintln!` is appended
+# to `test <name> ... ` and a `^` anchor would silently drop one of the twelve
+# comparisons. Every other field below is still matched exactly.
 GRAD = re.compile(
-    r"^\[(?P<case>[a-z0-9-]+)\] batch=(?P<batch>\d+) heads=(?P<heads>\d+) seq=(?P<seq>\d+) "
+    r"\[(?P<case>[a-z0-9-]+)\] batch=(?P<batch>\d+) heads=(?P<heads>\d+) seq=(?P<seq>\d+) "
     r"head_dim=(?P<head_dim>\d+) causal=(?P<causal>[01]) masked=(?P<masked>true|false) "
     r"unwritten=(?P<unwritten>\d+) grad_(?P<tensor>[qkv]): elements=(?P<elements>\d+) "
     r"bitwise_equal=(?P<equal>\d+) max_abs=(?P<max_abs>\S+) max_rel=(?P<max_rel>\S+) "
