@@ -434,7 +434,36 @@ The self-hosted `time-mix-ab.yml` (packed-cell producer A/B) requires
 and is never a pass. It is not a blocker for the scoped RDNA3 release, which is
 measured locally on the qualified adapter by `qualify_packed_current.py`.
 
-## 12. Evidence provenance vocabulary
+## 12. Evidence integrity invariants
+
+A receipt is only as good as the files its pointers resolve to. Two invariants follow
+from the Phase XV audit (`PHASE15_EVIDENCE_REBINDING_AUDIT.md`):
+
+1. **Every digest must resolve to a committed blob at the receipt's revision.** Check it
+   before committing a root:
+
+```bash
+python - <<'PY'
+import json,subprocess
+R='hierarchos-vulkan/validation/release_parity/multimodal_training/<root>'
+d=json.load(open(R+'/current-qualification.json'))
+digs=[v['qualification_sha256'] for v in d.get('retained',{}).values()]+list(d.get('evidence',{}).values())
+print(subprocess.run(['git','cat-file','--batch-check'],input='\n'.join(digs),capture_output=True,text=True).stdout)
+PY
+```
+
+   Every line must report `blob`, not `missing`. A digest that resolves to nothing means
+   the run's output was never preserved and the receipt cannot support it.
+2. **Regeneration produces a new root; it never rewrites an old receipt in place.** An
+   in-place edit that changes `source_head`, a binary digest or a numeric leaves the
+   historical root describing a run it did not record, and no amount of refreshing
+   `SHA256SUMS` makes it provenance again.
+
+Note that `verify.py` in the Phase XV root does not check the `evidence` map or the
+`retained.*.qualification_sha256` values, so a root can pass its own verifier while
+those pointers are broken. Run both checks above and the root verifier.
+
+## 13. Evidence provenance vocabulary
 
 Every claim in a handoff must name which of these it is:
 
