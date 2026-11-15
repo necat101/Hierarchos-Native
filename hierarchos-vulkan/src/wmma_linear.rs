@@ -68,8 +68,9 @@ pub fn linear_wmma_precision_counts() -> [u64; 2] {
     [MIXED_DISPATCHES.load(Ordering::Relaxed), FULL_FP16_DISPATCHES.load(Ordering::Relaxed)]
 }
 
-/// Projections kept on their FP32 kernel by an explicit numerical policy even
-/// though their shape is WMMA-eligible.
+/// Projections kept on their FP32 kernel by an explicit numerical policy, or by
+/// the measured FP32/cooperative crossover policy, even though their shape is
+/// WMMA-eligible.
 ///
 /// These dispatches are not cooperative and must never be added to
 /// [`linear_wmma_dispatch_counts`]. They are counted here so a graph that keeps

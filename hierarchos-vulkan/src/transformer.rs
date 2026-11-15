@@ -26710,6 +26710,14 @@ impl TransformerKernels {
         if !self.wmma_mode.requested() {
             return Ok(None);
         }
+        // Measured dispatch policy: below the FP32/cooperative crossover the
+        // matrix cores cost more than they save, so the projection keeps its
+        // qualified FP32 kernel instead of paying the regression. The decision
+        // is counted so a receipt can show how many projections stayed FP32.
+        if !crate::wmma::wmma_shape_profitable(rows, output_dim, input_dim) {
+            crate::wmma_linear::note_policy_fallback();
+            return Ok(None);
+        }
         let key = (rows, input_dim, output_dim);
         let mut executors = self
             .wmma_linears

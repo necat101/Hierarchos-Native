@@ -481,6 +481,29 @@ pub fn wmma_shape_eligible(rows: usize, columns: usize, reduction: usize) -> boo
         && rows.div_ceil(32).saturating_mul(columns.div_ceil(32)) >= 4
 }
 
+/// Measured minimum work for the cooperative-matrix kernel to beat the FP32
+/// vendor GEMM.
+///
+/// Paired ABBA sweeps of `wmma_bench` on RDNA3 (16x16x16 cooperative tile) show
+/// the FP32 kernel winning every small shape (0.59x-0.82x) and the cooperative
+/// kernel winning every shape from roughly 16 MMAC upward (1.08x-2.07x). This
+/// floor keeps a ~2x margin above the largest measured losing shape
+/// (128x256x256 = 8.4 MMAC) and declines only the marginal 5-10 MMAC wins, so a
+/// graph never pays a dispatch overhead it cannot amortize.
+pub const WMMA_MIN_PROFITABLE_MACS: u64 = 16_000_000;
+
+/// Whether a shape is admissible and large enough for admission to pay off.
+///
+/// This is a dispatch policy, not a numerical contract: a declining caller keeps
+/// its existing FP32 kernel and its results are unchanged.
+pub fn wmma_shape_profitable(rows: usize, columns: usize, reduction: usize) -> bool {
+    wmma_shape_eligible(rows, columns, reduction)
+        && (rows as u64)
+            .saturating_mul(columns as u64)
+            .saturating_mul(reduction as u64)
+            >= WMMA_MIN_PROFITABLE_MACS
+}
+
 /// Opt-in GEMM encodings used by callers that already hold FP16 storage.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct GemmLayout {
@@ -1380,6 +1403,46 @@ mod tests {
         assert!(!wmma_shape_eligible(16, 16, 16));
         assert!(wmma_shape_eligible(256, 256, 128));
         assert!(wmma_shape_eligible(64, 1024, 64));
+    }
+
+    /// The performance gate must match the shapes `wmma_bench` measured, and it
+    /// may only narrow the tile contract, never widen it.
+    #[test]
+    fn profitable_shape_policy_matches_measured_crossover() {
+        for (rows, columns, reduction) in [
+            (16, 64, 64),
+            (16, 320, 64),
+            (16, 64, 256),
+            (32, 320, 64),
+            (64, 320, 64),
+            (64, 256, 256),
+            (128, 256, 256),
+            (128, 320, 64),
+        ] {
+            assert!(
+                !wmma_shape_profitable(rows, columns, reduction),
+                "{rows}x{columns}x{reduction} measured slower in cooperative WMMA and must keep FP32"
+            );
+        }
+        for (rows, columns, reduction) in [
+            (256, 768, 256),
+            (128, 768, 768),
+            (256, 512, 512),
+            (512, 768, 768),
+            (2048, 768, 2048),
+            (128, 8192, 768),
+        ] {
+            assert!(
+                wmma_shape_profitable(rows, columns, reduction),
+                "{rows}x{columns}x{reduction} measured faster in cooperative WMMA"
+            );
+        }
+        // A large reduction and column count cannot rescue an unusable row count,
+        // and the profitability gate never widens the tile contract.
+        for (rows, columns, reduction) in [(1, 8192, 8192), (8, 4096, 4096), (1024, 1024, 8)] {
+            assert!(!wmma_shape_profitable(rows, columns, reduction));
+        }
+        assert!(WMMA_MIN_PROFITABLE_MACS > 128 * 256 * 256);
     }
 
     #[test]
