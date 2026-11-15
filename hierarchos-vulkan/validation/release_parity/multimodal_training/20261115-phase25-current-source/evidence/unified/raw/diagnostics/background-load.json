@@ -1,0 +1,21 @@
+{
+  "kind": "user-reported-background-load",
+  "recorded_at_utc": "2026-11-14T07:37:30.062592+00:00",
+  "report": "User is in a Discord call; performance may drop very slightly.",
+  "exact_call_start_time": "unknown",
+  "observed_completed_passes": [
+    "time-mix-projection",
+    "channel-mix",
+    "low-rank-forward",
+    "low-rank-forward-fp16",
+    "key-state-forward",
+    "tbptt-packed-forward",
+    "tbptt-packed-rematerialization",
+    "tbptt-packed-forward-fp16",
+    "tbptt-packed-rematerialization-fp16",
+    "tbptt-backward-fusion"
+  ],
+  "observed_completed_failures": [],
+  "running_producer": "tbptt-backward-fusion-fp16",
+  "measurement_policy": "Keep all raw results and original limits; do not rewrite calibration or waive performance failures."
+}

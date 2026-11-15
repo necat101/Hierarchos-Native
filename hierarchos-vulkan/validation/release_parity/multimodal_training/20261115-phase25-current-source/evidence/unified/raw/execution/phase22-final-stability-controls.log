@@ -1,0 +1,36 @@
+test_changed_adapter_bytes (test_training_stability.StabilityControls.test_changed_adapter_bytes) ... ok
+test_changed_beta1 (test_training_stability.StabilityControls.test_changed_beta1) ... ok
+test_changed_beta2 (test_training_stability.StabilityControls.test_changed_beta2) ... ok
+test_changed_dataset_hash (test_training_stability.StabilityControls.test_changed_dataset_hash) ... ok
+test_changed_epsilon (test_training_stability.StabilityControls.test_changed_epsilon) ... ok
+test_changed_final_parameter_digest (test_training_stability.StabilityControls.test_changed_final_parameter_digest) ... ok
+test_changed_fixture_config (test_training_stability.StabilityControls.test_changed_fixture_config) ... ok
+test_changed_harness_binding (test_training_stability.StabilityControls.test_changed_harness_binding) ... ok
+test_changed_loss_bit (test_training_stability.StabilityControls.test_changed_loss_bit) ... ok
+test_changed_optimizer_status (test_training_stability.StabilityControls.test_changed_optimizer_status) ... ok
+test_changed_optimizer_step (test_training_stability.StabilityControls.test_changed_optimizer_step) ... ok
+test_changed_per_step_learning_rate (test_training_stability.StabilityControls.test_changed_per_step_learning_rate) ... ok
+test_changed_resumed_loss (test_training_stability.StabilityControls.test_changed_resumed_loss) ... ok
+test_changed_selection (test_training_stability.StabilityControls.test_changed_selection) ... ok
+test_changed_selection_criterion (test_training_stability.StabilityControls.test_changed_selection_criterion) ... ok
+test_changed_transformer_binding (test_training_stability.StabilityControls.test_changed_transformer_binding) ... ok
+test_changed_weight_decay (test_training_stability.StabilityControls.test_changed_weight_decay) ... ok
+test_failed_subprocess_returncode (test_training_stability.StabilityControls.test_failed_subprocess_returncode) ... ok
+test_forged_step_count (test_training_stability.StabilityControls.test_forged_step_count) ... ok
+test_full_finetune_labeled_lora (test_training_stability.StabilityControls.test_full_finetune_labeled_lora) ... ok
+test_lora_labeled_full_finetune (test_training_stability.StabilityControls.test_lora_labeled_full_finetune) ... ok
+test_missing_arm (test_training_stability.StabilityControls.test_missing_arm) ... ok
+test_missing_checkpoint_state (test_training_stability.StabilityControls.test_missing_checkpoint_state) ... ok
+test_missing_receipt (test_training_stability.StabilityControls.test_missing_receipt) ... ok
+test_nonfinite_loss (test_training_stability.StabilityControls.test_nonfinite_loss) ... ok
+test_performance_sample_tamper (test_training_stability.StabilityControls.test_performance_sample_tamper) ... ok
+test_scalar_fallback_in_two_pass_log (test_training_stability.StabilityControls.test_scalar_fallback_in_two_pass_log) ... ok
+test_tampered_profile_log (test_training_stability.StabilityControls.test_tampered_profile_log) ... ok
+test_unrelated_source_revision (test_training_stability.StabilityControls.test_unrelated_source_revision) ... ok
+test_wrong_resumed_step (test_training_stability.StabilityControls.test_wrong_resumed_step) ... ok
+test_zero_query_dispatch_claim (test_training_stability.StabilityControls.test_zero_query_dispatch_claim) ... ok
+
+----------------------------------------------------------------------
+Ran 31 tests in 26.960s
+
+OK

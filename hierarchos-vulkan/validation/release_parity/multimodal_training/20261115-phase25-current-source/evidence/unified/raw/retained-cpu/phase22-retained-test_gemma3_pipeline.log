@@ -1,0 +1,10 @@
+test_duplicate_frozen_case_cannot_inflate_coverage (test_gemma3_pipeline.Gemma3GateTests.test_duplicate_frozen_case_cannot_inflate_coverage) ... ok
+test_empty_frozen_inventory_cannot_pass (test_gemma3_pipeline.Gemma3GateTests.test_empty_frozen_inventory_cannot_pass) ... ok
+test_modified_oracle_source_cannot_run (test_gemma3_pipeline.Gemma3GateTests.test_modified_oracle_source_cannot_run) ... ok
+test_unknown_and_empty_requests_cannot_pass (test_gemma3_pipeline.Gemma3GateTests.test_unknown_and_empty_requests_cannot_pass) ... ok
+test_malformed_inputs_cannot_export_or_change_source (test_gemma3_pipeline.NativeGemma3Guards.test_malformed_inputs_cannot_export_or_change_source) ... skipped 'native Gemma3 fixture paths not configured'
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.062s
+
+OK (skipped=1)

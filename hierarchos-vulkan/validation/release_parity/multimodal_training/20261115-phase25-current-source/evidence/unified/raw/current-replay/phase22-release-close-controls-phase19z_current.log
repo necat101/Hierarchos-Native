@@ -1,0 +1,18 @@
+test_partial_failed_missing_duplicate_and_forged_routes_are_rejected (test_phase19z_current.PackedReleaseControls.test_partial_failed_missing_duplicate_and_forged_routes_are_rejected) ... ok
+test_positive_receipt_and_evidence (test_phase19z_current.Phase19ZCurrentControls.test_positive_receipt_and_evidence) ... ok
+test_stale_source_binding (test_phase19z_current.Phase19ZCurrentControls.test_stale_source_binding) ... ok
+test_wrong_attention_accounting (test_phase19z_current.Phase19ZCurrentControls.test_wrong_attention_accounting) ... ok
+test_wrong_binary_hash_when_present (test_phase19z_current.Phase19ZCurrentControls.test_wrong_binary_hash_when_present) ... ok
+test_wrong_oracle_archive (test_phase19z_current.Phase19ZCurrentControls.test_wrong_oracle_archive) ... ok
+test_wrong_selected_lr (test_phase19z_current.Phase19ZCurrentControls.test_wrong_selected_lr) ... ok
+test_wrong_shader (test_phase19z_current.Phase19ZCurrentControls.test_wrong_shader) ... ok
+test_wrong_shader_inventory (test_phase19z_current.Phase19ZCurrentControls.test_wrong_shader_inventory) ... ok
+test_wrong_source_revision (test_phase19z_current.Phase19ZCurrentControls.test_wrong_source_revision) ... ok
+test_wrong_status (test_phase19z_current.Phase19ZCurrentControls.test_wrong_status) ... ok
+test_wrong_subreceipt_hash (test_phase19z_current.Phase19ZCurrentControls.test_wrong_subreceipt_hash) ... ok
+test_wrong_training_count (test_phase19z_current.Phase19ZCurrentControls.test_wrong_training_count) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 10.360s
+
+OK
