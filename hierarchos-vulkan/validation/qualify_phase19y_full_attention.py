@@ -23,11 +23,11 @@ from check_phase19y_full_attention import (
 
 RECEIPT = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261112-unified-release/phase19y"
+    / "20261115-phase25-current-source/phase19y"
 )
 PHASE19X = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261112-unified-release/phase19x" / "attention" / "current-qualification.json"
+    / "20261115-phase25-current-source/phase19x" / "attention" / "current-qualification.json"
 )
 PHASE16 = (
     CRATE / "validation/release_parity/multimodal_training"

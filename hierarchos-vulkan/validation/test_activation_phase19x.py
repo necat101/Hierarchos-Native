@@ -16,7 +16,7 @@ CRATE = Path(__file__).resolve().parents[1]
 RECEIPT = Path(os.environ.get(
     "HIERARCHOS_ACTIVATION_RECEIPT",
     CRATE / "validation/release_parity/multimodal_training/"
-    "20261112-unified-release/phase19x/activation",
+    "20261115-phase25-current-source/phase19x/activation",
 ))
 if not RECEIPT.is_absolute():
     RECEIPT = CRATE.parent / RECEIPT

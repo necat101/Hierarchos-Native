@@ -2,7 +2,7 @@
 
 These engineering results require the final source and release replay before
 the unified release receipt can be marked complete. Historical receipts remain
-unchanged; fresh current receipts use `20261112-unified-release/`.
+unchanged; fresh current receipts use `20261115-phase25-current-source/`.
 
 FP32 remains the default. Mixed uses FP16 GEMM operands with FP32 cooperative
 accumulation. Full FP16 uses a distinct FP16 cooperative accumulator and widens

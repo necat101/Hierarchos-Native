@@ -23,7 +23,7 @@ CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 RECEIPT = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261112-unified-release/phase19x"
+    / "20261115-phase25-current-source/phase19x"
 )
 SUBDIRS = {
     "attention": RECEIPT / "attention",
