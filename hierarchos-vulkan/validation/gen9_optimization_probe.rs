@@ -2,9 +2,10 @@
 #![allow(dead_code)]
 #[path = "../src/vulkan.rs"] mod vulkan;
 // `vulkan.rs` names its cooperative-matrix capability types through
-// `crate::wmma`, so a probe that compiles it standalone needs that module in
-// the same crate root.
+// `crate::wmma` and its hardware-admission policy through `crate::device_policy`,
+// so a probe that compiles it standalone needs both in the same crate root.
 #[path = "../src/wmma.rs"] mod wmma;
+#[path = "../src/device_policy.rs"] mod device_policy;
 #[cfg(not(baseline_io))]
 #[path = "../src/weight_offload.rs"] mod weight_offload;
 #[cfg(baseline_io)]

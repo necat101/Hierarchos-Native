@@ -4,6 +4,11 @@
 mod kernel_golden;
 #[path = "../src/vulkan.rs"]
 mod vulkan;
+// `vulkan.rs` names its hardware-admission policy through `crate::device_policy`,
+// so an example that compiles it standalone needs that module in the same crate
+// root.
+#[path = "../src/device_policy.rs"]
+mod device_policy;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::path::PathBuf;
