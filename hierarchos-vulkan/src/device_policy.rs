@@ -26,16 +26,21 @@ pub(crate) const fn wmma_probe_requested(requested: bool, vendor_id: u32, device
     requested && wmma_hardware_eligible(vendor_id, device_id)
 }
 
-/// Preserve the pre-WMMA composition gate outside the qualified RDNA3 class.
-/// RDNA3's recorded staged result covers its complete graph even where the
-/// vendor variant falls back; other devices retain their original variant gate.
+/// The pre-WMMA composition gate, recovered verbatim from main `ead6cd3`.
+///
+/// A recorded verdict admits the graph outright -- the record measured the
+/// complete graph, including its portable fallback -- and without one the
+/// vendor variant gate decides. This is deliberately device-independent: the
+/// RDNA3 routing work must not make an Intel Gen9 or RDNA1/RDNA2 dispatch
+/// decision differ from pre-WMMA `main`. Requiring `vendor_variant` for a
+/// recorded geometry would strand the portable compositions those records
+/// measured, which is exactly the regression this predicate prevents.
 pub(crate) const fn composition_admitted(
-    rdna3: bool,
     unmeasured_qualified: bool,
     vendor_variant: bool,
     measured: bool,
 ) -> bool {
-    (unmeasured_qualified && vendor_variant) || (measured && (rdna3 || vendor_variant))
+    measured || (unmeasured_qualified && vendor_variant)
 }
 
 #[cfg(test)]
@@ -83,21 +88,37 @@ mod tests {
         assert!(!wmma_probe_requested(true, 0x8086, 0x1916));
     }
 
+    /// The literal pre-WMMA `main` expression, kept as an independent oracle:
+    /// `measured.is_some() || (unmeasured_composition_is_qualified(vendor) &&
+    /// selects_variant_for(..))`.
+    const fn pre_wmma_gate(qualified: bool, variant: bool, measured: bool) -> bool {
+        measured || (qualified && variant)
+    }
+
     #[test]
-    fn non_rdna3_composition_is_exactly_the_pre_wmma_rule() {
+    fn composition_admission_is_exactly_the_pre_wmma_rule_on_every_device() {
         for qualified in [false, true] {
             for variant in [false, true] {
                 for measured in [false, true] {
-                    assert_eq!(composition_admitted(false, qualified, variant, measured),
-                               (qualified || measured) && variant);
+                    assert_eq!(
+                        composition_admitted(qualified, variant, measured),
+                        pre_wmma_gate(qualified, variant, measured),
+                        "qualified={qualified} variant={variant} measured={measured}"
+                    );
                 }
             }
         }
     }
 
     #[test]
-    fn rdna3_keeps_its_measured_complete_graph_admission() {
-        assert!(composition_admitted(true, false, false, true));
-        assert!(!composition_admitted(true, true, false, false));
+    fn a_recorded_geometry_is_admitted_even_where_the_vendor_variant_falls_back() {
+        // The RDNA3 batch-32 `staged` entry, and the equivalent portable
+        // compositions recorded on Intel, must stay buildable: pre-WMMA main
+        // admitted them and this branch must not narrow that.
+        assert!(composition_admitted(false, false, true));
+        assert!(composition_admitted(true, false, true));
+        assert!(!composition_admitted(false, false, false));
+        assert!(!composition_admitted(true, false, false));
+        assert!(composition_admitted(true, true, false));
     }
 }

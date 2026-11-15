@@ -8232,7 +8232,6 @@ impl RwkvTimeMixCoreOp {
         crate::decision_records::prefers_composition(
             self.forward_fusion_forced,
             crate::device_policy::composition_admitted(
-                crate::vendor::is_amd_rdna3(&self.device),
                 crate::vendor::unmeasured_composition_is_qualified(self.device.vendor_id()),
                 vendor_variant,
                 measured.is_some(),
