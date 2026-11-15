@@ -463,6 +463,61 @@ Note that `verify.py` in the Phase XV root does not check the `evidence` map or 
 `retained.*.qualification_sha256` values, so a root can pass its own verifier while
 those pointers are broken. Run both checks above and the root verifier.
 
+### The digest guard
+
+`hierarchos-vulkan/validation/check_evidence_integrity.py` is the executable form of
+both invariants. It is offline and deterministic: it reads receipts, hashes raw file
+bytes (never a re-serialized copy of the JSON), and resolves every declared binding.
+
+```bash
+# one root, fail closed
+python hierarchos-vulkan/validation/check_evidence_integrity.py --root \
+  hierarchos-vulkan/validation/release_parity/multimodal_training/<root> --strict
+
+# the newest sealed release, which is what CI gates on
+python hierarchos-vulkan/validation/check_evidence_integrity.py --latest-release --strict
+
+# every digest-declaring root, report only (historical audit)
+python hierarchos-vulkan/validation/check_evidence_integrity.py --audit-all
+```
+
+Bindings it understands: `evidence` and `evidence_files` maps, `retained.*.qualification_sha256`,
+`components[*].{path,sha256}`, and `sources`/`source_files`. A metadata block such as
+`{"file": "evidence.zip", "bytes": 21372426}` is not mistaken for a digest map.
+Paths are resolved only inside the root (and the repository, for source bindings);
+traversal, absolute paths and symlinks that leave the root are rejected.
+
+Statuses are reported separately, never collapsed into one PASS/FAIL:
+
+| Status | Meaning |
+|---|---|
+| `valid` | bytes hash to the declared digest |
+| `mismatch` | a file exists at the declared location but its bytes differ |
+| `missing` | no candidate file exists under the root |
+| `source-drift` | a bound source changed after the receipt's revision (expected for historical roots, fatal for a release) |
+| `invalid-digest` | the declared value is not a SHA-256 |
+| `unsafe-path` | the reference escapes the root |
+| `unsupported-schema` | the receipt declares no binding this guard understands |
+| `provenance-unestablished` | the digest may be correct, but no executable, log or producer artifact is tracked, so a run cannot be shown |
+
+`--strict` fails on everything except `provenance-unestablished`, which is reported
+because no repository convention guarantees a preserved log. That is the honest split:
+a matching hash proves bytes, not execution.
+
+When the guard has to run: before a root is committed, and as the `evidence integrity`
+workflow runs it on every push against the newest sealed release. Strict scope is the
+release's own dependency closure; historical roots are covered by `--audit-all`, so a
+known defect in an old root cannot silently fail an unrelated release — and cannot be
+hidden either, because `test_evidence_integrity.py` asserts that the Phase XV
+rebinding is still detected.
+
+Negative controls live in `test_evidence_integrity.py` (18 tests): byte change, digest
+change, removal, aggregate/family disagreement, retained-digest disagreement, malformed
+digest, traversal, escaping symlink, unsupported schema, Git-object absence versus
+mismatch, source drift, provenance separation, the current release passing strict, and
+the Phase XV regression with two mutation controls that prove the suite fails if the
+evidence-map check or digest resolution is disabled.
+
 ## 13. Evidence provenance vocabulary
 
 Every claim in a handoff must name which of these it is:

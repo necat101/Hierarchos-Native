@@ -82,11 +82,12 @@ One historical root in the range is not a clean regeneration. Full evidence:
   `retained.gemma4.worst_logit` `1.6391277313232422e-07 → 1.4156103134155273e-07`.
 - The **source binding is genuine**: all 134 `sources` digests match the tree at
   `9e636fb` exactly.
-- The **regenerated evidence is not preserved**. None of the rewritten digests resolves
-  to a blob in Git (the clone is neither shallow nor partial), and the family receipts
-  still on disk carry the *old* digests and the *old* `1.639e-07`. The aggregate
-  therefore contradicts the evidence it cites, and `verify.py` does not check the
-  `evidence` map or the family hashes — which is why it went unnoticed.
+- The **regenerated evidence is not preserved**. Hashing every committed revision of
+  each referenced path finds no revision that ever held the declared content (18 of 18
+  mismatched bindings), and the family receipts still on disk carry the *old* digests
+  and the *old* `1.639e-07`. The aggregate therefore contradicts the evidence it cites,
+  and `verify.py` does not check the `evidence` map or the family hashes — which is why
+  it went unnoticed.
 - `SHA256SUMS` was refreshed (`b1d6f49`) to match the edited receipt, so the root is
   consistent as a manifest but not as a provenance chain.
 

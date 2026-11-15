@@ -1,0 +1,59 @@
+name: evidence integrity
+
+# The qualification receipts in this repository declare digests for the evidence they
+# rest on. Nothing in the existing checks re-derives those digests, so a receipt whose
+# pointers no longer resolve still reads as passing. This job runs the digest guard:
+# its negative controls, then strict validation of the newest sealed release root.
+#
+# Strict scope is deliberately narrow. It covers the release manifest's own bindings
+# (components, evidence_files, source_files) and nothing else, so an unrelated
+# historical root cannot turn a green release red. Historical roots are audited by
+# `--audit-all`, which reports rather than gates; the Phase XV rebinding is asserted by
+# `test_evidence_integrity.py::PhaseFifteenRegression`, so it stays visible here.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidence-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  digest-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test runner
+        run: python -m pip install --upgrade pip pytest
+
+      # 18 controls: byte change, digest change, removal, aggregate/family
+      # disagreement, malformed digest, traversal, escaping symlink, unsupported
+      # schema, source drift, provenance separation, and the Phase XV regression.
+      - name: Digest guard negative controls
+        working-directory: hierarchos-vulkan/validation
+        run: python -m pytest test_evidence_integrity.py -q
+
+      - name: Newest sealed release passes strict evidence validation
+        run: |
+          python hierarchos-vulkan/validation/check_evidence_integrity.py \
+            --latest-release --strict
+
+      # Informational: prints every historical root whose bindings do not resolve.
+      # Exit status is 0 by design so a known historical defect is visible in the log
+      # without failing the build for roots outside the release closure.
+      - name: Historical root inventory (report only)
+        run: |
+          python hierarchos-vulkan/validation/check_evidence_integrity.py \
+            --audit-all \
+            --documented-exception 20261108-rdna3-phase15-qualification

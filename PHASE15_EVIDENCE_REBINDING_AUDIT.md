@@ -44,6 +44,10 @@ merely unfetched.
 The two untouched `evidence` entries are `isolation.json` (`016f2964…`) and
 `provenance.json` (`2864eef8…`).
 
+The `history/declared-evidence-content` check hashes each revision of a path rather
+than trusting Git object ids; it is what distinguishes "this file changed later" from
+"this digest never described a committed file".
+
 The sibling files in that root changed in separate commits for separate reasons:
 `README.md` and `commands.md` in `0f36356` (spirv-val producer), `SHA256SUMS` in
 `b1d6f49` (manifest refresh to cover the edited receipt). The manifest at `b1d6f49`
@@ -54,22 +58,31 @@ manifest**; it is not consistent as a provenance chain.
 
 No. Three independent tests:
 
-**3.1 The digests do not resolve.** For each rewritten digest, search Git's object
-database:
+**3.1 The digests name content that never existed at those paths.** A declared evidence
+digest is a SHA-256 of file content; a Git object id hashes an object header plus the
+content, so `git cat-file --batch-check` cannot answer this question. An earlier draft
+of this note used that command, saw `missing` for every value, and drew a conclusion the
+method did not support. That specific claim is withdrawn; the finding does not rest on
+it.
+
+The correct test hashes every committed revision of the path the receipt names:
 
 ```bash
-python - <<'PY'
-import json,subprocess
-R='hierarchos-vulkan/validation/release_parity/multimodal_training/20261108-rdna3-phase15-qualification'
-d=json.load(open(R+'/current-qualification.json'))
-digs=[v['qualification_sha256'] for v in d['retained'].values()]+list(d['evidence'].values())
-print(subprocess.run(['git','cat-file','--batch-check'],input='\n'.join(digs),
-                     capture_output=True,text=True).stdout)
-PY
+python hierarchos-vulkan/validation/check_evidence_integrity.py --root \
+  hierarchos-vulkan/validation/release_parity/multimodal_training/\
+20261108-rdna3-phase15-qualification --verbose
 ```
 
-Result: **all 20 report `missing`**. None of the content those values describe was ever
-committed to this repository.
+Result:
+
+```
+[provenance-unestablished] history/declared-evidence-content
+  18 of 18 mismatched binding(s) name content that no committed revision of that
+  path ever held
+```
+
+So the declared values were not produced by rewriting the file in some later commit:
+the content they describe was never committed at those paths at all.
 
 **3.2 The family receipts contradict the aggregate.** The six files the aggregate now
 cites still carry their original content and hashes:
