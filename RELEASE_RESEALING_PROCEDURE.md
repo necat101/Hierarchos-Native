@@ -305,10 +305,36 @@ python hierarchos-vulkan/validation/qualify_multimodal_precision.py \
 
 # oversized fallback: writes <output>/qualification.json, status PASS_INTERNAL_FALLBACK_ONLY
 python hierarchos-vulkan/validation/qualify_full_fp16_model_fallback.py \
-  --fixture target/unified-precision-fixture \
+  --fixture target/phase38-fallback128-fixture \
   --binary hierarchos-vulkan/target/release/image_text_pipeline_probe.exe \
-  --output target/phase26-fallback-model.json
+  --output target/phase38-fallback-model
 ```
+
+The oversized-fallback fixture is the frozen 128-wide package, not the 2x24 tree.
+`wmma_shape_profitable` now requires `rows * columns * reduction >=
+WMMA_MIN_PROFITABLE_MACS` (16,000,000) before a cooperative executor exists at
+all, so at 48 rows (`48 * 128 * 128 = 786,432`) every projection is declined by
+the crossover policy and the Full FP16 reduction cap is never consulted — the
+diagnostic would silently stop proving a fallback. Build the fixture from the
+frozen tree instead, keeping the model bytes untouched:
+
+```python
+import json, shutil
+src, dst = Path('target/unified-precision-fixture'), Path('target/phase38-fallback128-fixture')
+shutil.copytree(src / 'model', dst / 'model')            # byte-identical 128-wide package
+d = json.loads((src / 'input.json').read_text())
+d['batch_size'] = d['image_count'] = 48                  # 1,152 rows, one image per sequence
+for k in ('input_ids', 'attention_mask', 'targets', 'loss_weights'):
+    d[k] = d[k] * 24                                     # frozen 2x24 block, repeated 24x
+d['rgb'] *= 24; d['alternate_rgb'] *= 24                 # 48 images x 768 bytes
+```
+
+`1,152 * 128 * 128 = 18,874,368` clears the floor, so all seven projections are
+admitted and the reduction cap decides: 64 is below the forward/input-gradient
+reduction of 128 and the weight-gradient reduction of 1,152. The producer
+asserts the derived route count (`7 * 7 + 2 * 2 * 7 = 77` fallbacks), zero
+cooperative dispatches and zero Full FP16 accumulations. Do not restore the
+2x24 tree, and do not relax the count to `> 0`.
 
 The `seq2seq` wide fixture root is `unified-wide-seq2seq-cpu-3`; the similarly named
 `-cpu` directory is a partial tree without `manifest.json`.

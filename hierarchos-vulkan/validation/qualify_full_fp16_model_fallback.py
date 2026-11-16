@@ -4,6 +4,47 @@ This is a fallback diagnostic on the additional 128-wide package, not Full
 FP16 admission for that package. The frontend must continue to reject it. The
 separate K=128 component test proves exact forward/dW/dX FP32 fallback and AdamW
 moment restoration; this run additionally exercises the real package exporter.
+
+Fixture geometry is part of the contract.
+
+The package is 128 wide, so every text projection restarts from the reduction
+leg `K = 128`, above `FULL_FP16_MAX_REDUCTION = 64`. A model that wide may never
+accumulate in Full FP16. Reaching that policy check, however, requires the
+graph to admit a cooperative executor first: `TransformerKernels::wmma_linear`
+(and `ProjectionWmma::admits`, which shares it) now calls
+`wmma_shape_profitable`, which needs `rows * columns * reduction` to reach
+`WMMA_MIN_PROFITABLE_MACS = 16_000_000`. At the frozen 2x24 package that is
+```
+48 * 128 * 128 = 786_432
+```
+so the crossover policy declines every projection and the reduction cap is
+never consulted. Passing `target/unified-precision-fixture` therefore asserts
+the profitability route, not the fallback this diagnostic exists to prove.
+
+The fixture used here is the same 128-wide package (byte-identical model tree)
+exercised at 48 sequences x 24 tokens = 1,152 rows: the frozen 2x24 input block
+repeated 24 times, with
+`image_count` raised to 48 so each sequence still carries its own 16 image
+placeholders. That gives
+```
+1_152 * 128 * 128 = 18_874_368 >= 16_000_000
+```
+for every one of the seven 128x128 projections, so all of them are admitted and
+the reduction cap decides. Reduction lengths are `128` for the forward and
+input-gradient GEMMs and `1_152` (the row count) for the weight-gradient GEMM,
+so all three phases must fall back.
+
+The probe performs seven forward passes (one alternate, two explicit forwards,
+two training forwards, one final, one reload) and two training steps with two
+backward phases each, over seven projections:
+```
+7 * 7 + 2 * 2 * 7 = 77
+```
+The receipt asserts that exact count, and that no cooperative or Full FP16
+dispatch happened at all. The historical 32/144/148 counters were produced by a
+pre-gate runtime whose graph did not pre-check the crossover (so weight-gradient
+dispatches still ran Full FP16 at `K = 48`) and whose attempt accounting differs
+from this implementation, so they are superseded rather than reproduced.
 """
 import argparse, json, os, subprocess
 from pathlib import Path
@@ -34,7 +75,15 @@ def main():
         require(reports[mode]['precision']['master_weights']=='fp32' and
                 reports[mode]['precision']['optimizer_state']=='fp32','fallback changed master or moment storage')
     precision=reports['full-fp16']['precision']
-    require(precision['full_fp16_reduction_fallbacks']>0,'oversized model never executed FP32 fallback')
+    # 7 projections x 7 forward passes + 2 steps x 2 backward phases x 7 projections.
+    forward_passes,projections,steps,backward_phases=7,7,2,2
+    expected=forward_passes*projections+steps*backward_phases*projections
+    require(precision['full_fp16_reduction_fallbacks']==expected,
+            f'expected {expected} reduction-policy FP32 fallbacks for a 128-wide package at this geometry, '
+            f"got {precision['full_fp16_reduction_fallbacks']}; the fixture must keep every projection above "
+            'the WMMA profitability floor so the reduction cap is the deciding policy')
+    require(precision['full_fp16_accumulation']==0,'oversized model executed a Full FP16 accumulation')
+    require(precision['cooperative_dispatches']==0,'oversized model dispatched a cooperative WMMA kernel')
     require(precision['mixed_fp32_accumulation']==0,'Full fallback silently used Mixed accumulation')
     checks={}
     for mode in reports:
