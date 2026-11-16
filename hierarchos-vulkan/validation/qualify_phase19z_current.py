@@ -25,7 +25,7 @@ CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 RECEIPT = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261115-phase25-current-source/phase19z"
+    / "20261116-phase38-current-source/phase19z"
 )
 SUBDIRS = {
     "training": RECEIPT / "training",
@@ -36,7 +36,7 @@ SUBDIRS = {
 }
 ATTENTION = (
     CRATE / "validation/release_parity/multimodal_training"
-    / "20261115-phase25-current-source/phase19y/current-qualification.json"
+    / "20261116-phase38-current-source/phase19y/current-qualification.json"
 )
 ORACLE_REPORT = RECEIPT / "oracle-verification.json"
 SHADER = "hierarchos-vulkan/shaders/transformer_attention_forward_cpu_reciprocal.spv"

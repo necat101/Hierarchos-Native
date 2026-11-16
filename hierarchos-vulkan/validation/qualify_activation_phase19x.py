@@ -36,7 +36,7 @@ EXPORTS = WORK / "exports"
 DRIFT_WORK = Path(os.environ.get("HIERARCHOS_DRIFT_WORK", CRATE / "target/phase19x/drift"))
 RECEIPT = Path(os.environ.get(
     "HIERARCHOS_RECEIPT_DIR",
-    CRATE / "validation/release_parity/multimodal_training/20261115-phase25-current-source/phase19x/activation",
+    CRATE / "validation/release_parity/multimodal_training/20261116-phase38-current-source/phase19x/activation",
 ))
 FIXTURE = CRATE / "validation/fixtures/phase17"
 MODEL = Path(os.environ.get("HIERARCHOS_MODEL", CRATE / "target/wmma-fixture/model"))

@@ -8,7 +8,7 @@ import argparse, hashlib, json, math, re, subprocess, sys
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[2]
-DEFAULT=ROOT/'hierarchos-vulkan/validation/release_parity/multimodal_training/20261115-phase25-current-source/release-qualification.json'
+DEFAULT=ROOT/'hierarchos-vulkan/validation/release_parity/multimodal_training/20261116-phase38-current-source/release-qualification.json'
 IMAGE_COUNTS={'shared77':77,'seq2seq':6,'gemma3':4,'gemma4-legacy':1,'gemma4-rgb':1,'llava':4}
 REQUIRED={'text166','fp32_replay','precision','wide','native_v41','wmma_mixed','wmma_full_original','wmma_full_dot2',
           'shader727','shader_wmma','tests','gui_cli','packed','intermediates','phase19w','phase19x','phase19y','phase19z',*IMAGE_COUNTS}

@@ -47,7 +47,7 @@ DEFAULT_PEFT = (
     ROOT
     / "hierarchos-vulkan/validation/release_parity/parameter_streaming/qualification.json"
 )
-DEFAULT_OUTPUT = ROOT / "hierarchos-vulkan/validation/release_parity/multimodal_training/20261115-phase25-current-source/phase19w-matrix.json"
+DEFAULT_OUTPUT = ROOT / "hierarchos-vulkan/validation/release_parity/multimodal_training/20261116-phase38-current-source/phase19w-matrix.json"
 ORACLE_TRANSFORMERS_REVISION = "129e8dc306932532e0b9e702d1fb4d5d7771c2a4"
 PEFT_BINARIES = frozenset({
     "hierarchos-vulkan-transformer-logits.exe",

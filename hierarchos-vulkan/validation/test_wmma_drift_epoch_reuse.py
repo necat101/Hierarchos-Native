@@ -5,7 +5,7 @@ from unittest.mock import patch
 import test_wmma_drift as base
 import check_wmma_drift as checker
 
-CURRENT=Path(__file__).resolve().parent/'release_parity/multimodal_training/20261115-phase25-current-source/phase19x/drift'
+CURRENT=Path(__file__).resolve().parent/'release_parity/multimodal_training/20261116-phase38-current-source/phase19x/drift'
 
 
 @unittest.skipUnless((CURRENT/'current-qualification.json').is_file(),'current drift receipt is not present')

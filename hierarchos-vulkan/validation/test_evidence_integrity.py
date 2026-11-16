@@ -17,7 +17,7 @@ REPO = Path(__file__).resolve().parents[2]
 PHASE15 = (REPO / "hierarchos-vulkan" / "validation" / "release_parity" /
            "multimodal_training" / "20261108-rdna3-phase15-qualification")
 RELEASE = (REPO / "hierarchos-vulkan" / "validation" / "release_parity" /
-           "multimodal_training" / "20261115-phase25-current-source" /
+           "multimodal_training" / "20261116-phase38-current-source" /
            "release-qualification.json")
 
 

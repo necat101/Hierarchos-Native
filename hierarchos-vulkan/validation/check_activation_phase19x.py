@@ -20,7 +20,7 @@ from pathlib import Path
 CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 FIXTURE = CRATE / "validation/fixtures/phase17"
-DEFAULT = Path(os.environ.get("HIERARCHOS_ACTIVATION_RECEIPT", CRATE / "validation/release_parity/multimodal_training/20261115-phase25-current-source/phase19x/activation"))
+DEFAULT = Path(os.environ.get("HIERARCHOS_ACTIVATION_RECEIPT", CRATE / "validation/release_parity/multimodal_training/20261116-phase38-current-source/phase19x/activation"))
 LAYERS = 2
 PER_LAYER = [
     "pre_attention_norm", "q_proj", "k_proj", "v_proj", "attention_context",

@@ -16,7 +16,7 @@ CRATE = Path(__file__).resolve().parents[1]
 RECEIPT = (
     CRATE
     / "validation/release_parity/multimodal_training"
-    / "20261115-phase25-current-source/phase19x"
+    / "20261116-phase38-current-source/phase19x"
     / "current-qualification.json"
 )
 CHECKER = CRATE / "validation/check_phase19x_current.py"

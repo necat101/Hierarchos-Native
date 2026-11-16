@@ -8,7 +8,8 @@ from check_phase19z_current import QualificationError
 class UnifiedReleaseControls(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        if not c.DEFAULT.exists():raise unittest.SkipTest('unified release not sealed yet')
+        if not c.DEFAULT.exists():
+            raise AssertionError('unified release receipt missing: '+str(c.DEFAULT))
         cls.original,cls.components=c.verify(check_subreceipts=False)
 
     def reject(self,mutate):

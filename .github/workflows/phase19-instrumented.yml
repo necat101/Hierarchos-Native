@@ -10,7 +10,7 @@ jobs:
   activation:
     runs-on: ubuntu-latest
     env:
-      HIERARCHOS_ACTIVATION_RECEIPT: hierarchos-vulkan/validation/release_parity/multimodal_training/20261115-phase25-current-source/phase19x/activation
+      HIERARCHOS_ACTIVATION_RECEIPT: hierarchos-vulkan/validation/release_parity/multimodal_training/20261116-phase38-current-source/phase19x/activation
     steps:
       - uses: actions/checkout@v5
         with:

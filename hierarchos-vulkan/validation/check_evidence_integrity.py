@@ -31,7 +31,7 @@ Usage
 -----
     python hierarchos-vulkan/validation/check_evidence_integrity.py --release \
       hierarchos-vulkan/validation/release_parity/multimodal_training/\
-20261115-phase25-current-source/release-qualification.json --strict
+20261116-phase38-current-source/release-qualification.json --strict
 """
 from __future__ import annotations
 

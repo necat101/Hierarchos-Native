@@ -199,7 +199,7 @@ def main() -> int:
     parser.add_argument("--work", type=pathlib.Path)
     parser.add_argument("--receipt", type=pathlib.Path,
                         default=CRATE / "validation/release_parity/multimodal_training"
-                        / "20261115-phase25-current-source/phase19y/current-qualification.json")
+                        / "20261116-phase38-current-source/phase19y/current-qualification.json")
     parser.add_argument("--report", type=pathlib.Path)
     args = parser.parse_args()
 

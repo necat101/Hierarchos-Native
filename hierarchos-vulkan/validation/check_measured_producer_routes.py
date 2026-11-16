@@ -86,7 +86,7 @@ VALIDATION = ROOT / "validation"
 # Canonical live receipts follow the release candidate. Older root-level A/B
 # snapshots remain immutable historical evidence of their original route tables.
 CURRENT_RECEIPTS = (VALIDATION / "release_parity" / "multimodal_training" /
-                    "20261115-phase25-current-source" / "phase19z" / "packed-cell")
+                    "20261116-phase38-current-source" / "phase19z" / "packed-cell")
 # Complete cycles of both the three-leg and four-leg rotated samplers. Earlier
 # 20/40-sample sweeps produced conflicting winners beyond the unchanged bands.
 # More observations and balanced leg positions improve measurement reliability;
