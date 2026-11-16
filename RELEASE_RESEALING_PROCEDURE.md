@@ -339,6 +339,37 @@ cooperative dispatches and zero Full FP16 accumulations. Do not restore the
 The `seq2seq` wide fixture root is `unified-wide-seq2seq-cpu-3`; the similarly named
 `-cpu` directory is a partial tree without `manifest.json`.
 
+### Native V4.1 cooperative geometry (open conflict)
+
+The native V4.1 fixtures must be generated with the pinned oracle **and**
+`ATEN_CPU_CAPABILITY=avx2` (plus `MKL_ENABLE_INSTRUCTIONS=AVX2`,
+`ONEDNN_MAX_CPU_ISA=AVX2`): on this AVX512 host the same torch build emits
+different kernels, and `prepare_v41_wmma_fixture.py --weight-std .02
+--upstream-std .003` then stops reproducing `unified-v41-bounded-fixture.json`
+byte-for-byte (`11 0a049473aa…` for the stress shape, `46e46f6eb733…` for the
+bounded one).
+
+`qualify_v41_wmma.py` needs `accumulation_dispatches[0] > 0`, so the vision
+tower must clear `WMMA_MIN_PROFITABLE_MACS`. The historical 8x8 fixture cannot:
+16 patches × 384 columns × 128 reduction = 786,432. Three cooperative
+geometries were measured, and each one breaches the fixture's own bounded
+`max_abs < 2e-7` FP32 limit:
+
+| geometry | gate | `projected` population | measured FP32 max |
+|---|---|---|---|
+| 40×40 image, 400 patches | 19.66 MMAC | 12,800 | 3.58e-7 |
+| 12×12 image + 4096 MLP, 36 patches | 18.87 MMAC | 1,152 | 2.38e-7 |
+| 8×8 image + 8192 MLP, 16 patches | 16.78 MMAC | 512 | 3.05e-7 |
+
+Raising the patch count multiplies the compared population (extreme-value
+growth of the absolute maximum); widening the MLP raises the activation
+magnitudes, and the limit is absolute. Do not "fix" this by lowering
+`--weight-std`, by widening the tolerance, or by dropping the bounded label.
+The owner decision is either a cooperative native-vision geometry whose
+absolute FP32 error stays under 2e-7, or an explicit statement that the bounded
+strict comparison is taken at the released (sub-crossover) geometry and the
+cooperative route is qualified by the separate primitive component.
+
 Runtime and GUI evidence is **collected**, never synthesized: the collector reads real
 logs and requires eight real GUI Start exports.
 
