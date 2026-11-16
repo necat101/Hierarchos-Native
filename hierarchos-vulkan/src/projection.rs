@@ -100,6 +100,15 @@ struct ProjectionWmma {
 }
 
 impl ProjectionWmma {
+    /// Whether this projection's full-batch geometry can amortize a
+    /// cooperative-matrix dispatch.
+    ///
+    /// The executor is allocated for `max_rows`, so the decision is made once at
+    /// construction; smaller batches are gated per call by `select_arm`.
+    pub(crate) fn admits(max_rows: usize, input_dim: usize, output_dim: usize) -> bool {
+        wmma::wmma_shape_profitable(max_rows, output_dim, input_dim)
+    }
+
     fn new(
         device: &VulkanDevice,
         mode: wmma::WmmaMode,
@@ -195,8 +204,14 @@ impl LinearProjectionTrainer {
         // The policy is opt-in through HIERARCHOS_WMMA_MODE (set by
         // `--wmma-mode`). When it is off, or when this projection carries a bias
         // the fused FP32 kernel handles, the existing arithmetic is unchanged.
+        // Shapes below the measured FP32/cooperative crossover keep the
+        // qualified FP32 kernel for the same reason the Transformer graph does.
         let wmma_execution = match wmma::WmmaMode::from_env()? {
             wmma::WmmaMode::Off => None,
+            mode if !ProjectionWmma::admits(max_rows, input_dim, output_dim) => {
+                crate::wmma_linear::note_policy_fallback();
+                None
+            }
             mode => Some(ProjectionWmma::new(
                 &device,
                 mode,
@@ -788,4 +803,31 @@ fn validate_prefix(prefix: &str) -> Result<()> {
 
 fn div_ceil_u32(value: usize, divisor: usize) -> u32 {
     value.div_ceil(divisor) as u32
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Training projections negotiate WMMA here, not through the Transformer
+    /// graph, so the measured profitability policy has to be applied in this
+    /// constructor as well. Below the crossover the projection must keep its
+    /// qualified FP32 kernel; at and above it the cooperative executor is built.
+    #[test]
+    fn projection_wmma_admits_only_profitable_geometries() {
+        // The benchmark's own projection geometries (16 rows, 64 reduction).
+        assert!(!ProjectionWmma::admits(16, 64, 320));
+        assert!(!ProjectionWmma::admits(16, 64, 256));
+        // A measured cooperative win at 10.5 MMAC still sits below the floor.
+        assert!(!ProjectionWmma::admits(512, 64, 320));
+        // Boundary: 400 x 400 x 100 is exactly 16,000,000 MACs.
+        assert!(!ProjectionWmma::admits(400, 400, 99));
+        assert!(ProjectionWmma::admits(400, 400, 100));
+        assert!(ProjectionWmma::admits(400, 400, 101));
+        // A large reduction cannot rescue an unfillable tile.
+        assert!(!ProjectionWmma::admits(1, 8192, 8192));
+        // Saturating arithmetic: absurd geometry must not wrap into admission
+        // below the floor or panic.
+        assert!(ProjectionWmma::admits(usize::MAX, 1024, 1024));
+    }
 }
