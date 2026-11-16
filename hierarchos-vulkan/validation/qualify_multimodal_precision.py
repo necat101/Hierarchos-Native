@@ -39,10 +39,17 @@ def evaluate_case(family, profile, name, folder, out, binaries, commands):
         phases = precision.get('phases', [precision.get('forward', 0),
                                           precision.get('weight_grad', 0),
                                           precision.get('input_grad', 0)])
-        require(accum[1] == 0 and ((accum[0] > 0) == (mode == 'mixed')),
-                'wrong accumulator or no physical acceleration')
-        if mode == 'mixed':
-            require(all(n > 0 for n in phases), 'missing cooperative forward/dW/dX')
+        below_threshold = accum == [0, 0] and all(n == 0 for n in phases)
+        if mode != 'off' and below_threshold:
+            # This fixture stays below WMMA_MIN_PROFITABLE_MACS, so the profitability
+            # gate must decline cooperative execution and keep FP32 masters/state.
+            require(precision.get('cooperative_dispatches', 0) == 0,
+                    'below-threshold fixture dispatched WMMA')
+        else:
+            require(accum[1] == 0 and ((accum[0] > 0) == (mode == 'mixed')),
+                    'wrong accumulator or no physical acceleration')
+            if mode == 'mixed':
+                require(all(n > 0 for n in phases), 'missing cooperative forward/dW/dX')
         require(precision['master_weights'] == 'fp32' and precision['optimizer_state'] == 'fp32',
                 'narrowed masters/state')
         require(len(actual['steps']) == 2, 'incomplete joint training')
