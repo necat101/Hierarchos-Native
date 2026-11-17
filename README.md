@@ -52,7 +52,14 @@ those textual session deltas are not promoted. [Sealed receipt](hierarchos-vulka
 
 ## Quick start
 
-Install Rust/Cargo and a Vulkan compute driver, then build from source:
+**Download a prebuilt package:** the [`v0.2.0` RDNA3 WMMA release](https://github.com/necat101/Hierarchos-Native/releases/tag/v0.2.0)
+ships a static-CRT Windows x64 archive containing the CLI, the GUI and the Vulkan
+companion executables. Extract it and run `bin\hierarchos-native-cli.exe doctor`.
+No Rust, Python or Visual C++ Redistributable is required at runtime — only
+Windows 11 x64 and a Vulkan 1.x compute driver. Checksums and build metadata are
+attached to the release. [Jump to the download instructions](#download-a-release-build).
+
+Or install Rust/Cargo and a Vulkan compute driver and build from source:
 
 ```powershell
 git clone https://github.com/necat101/Hierarchos-Native.git
@@ -95,6 +102,7 @@ Checked-in SPIR-V binaries are included; ordinary builds do not need a shader co
 - [Supported architectures](#supported-architectures)
 - [Training and inference](#training-and-inference)
 - [Streaming and offloading](#streaming-and-offloading)
+- [RDNA3 WMMA (opt-in)](#rdna3-wmma-opt-in)
 - [Desktop GUI](#desktop-gui)
 - [Validation](#validation)
 - [Performance](#performance)
@@ -368,6 +376,54 @@ and **72-request generation** matrices.
 
 ---
 
+## RDNA3 WMMA (opt-in)
+
+`v0.2.0` adds an **opt-in cooperative-matrix (WMMA) path for RDNA3**. It is off
+by default, and the default FP32 path keeps its bit-identical logits and its
+previous-`main` performance (worst paired ratio `1.0007` across seven workloads,
+all FP32 logits byte-identical).
+
+```powershell
+# Default: FP32, no cooperative-matrix feature queried.
+& $cli transformer-train --model-path .\model --train .\data.jsonl --out-dir .\out
+
+# Opt in: FP16 operands with FP32 accumulation, FP32 masters and FP32 AdamW.
+& $cli transformer-train --model-path .\model --train .\data.jsonl --out-dir .\out --wmma-mode mixed
+
+# What did this device actually negotiate?
+& $cli precision-info --device-index 0
+```
+
+| Arm | `--wmma-mode` | Operands → accumulation | Masters / AdamW | Status |
+| --- | --- | --- | --- | --- |
+| FP32 | `off` (default) | FP32 → FP32 | FP32 | Qualified, unchanged |
+| Mixed WMMA | `mixed` | FP16 → **FP32** | FP32 | Opt-in, numerically gated |
+| Full FP16 | `full-fp16` | FP16 → **FP16** (reductions ≤ 64) | FP32 | Experimental, qualified Llama-64 profile only |
+
+- **Hardware boundary.** Qualified on AMD RDNA3 PCI **`1002:15bf`** only, on
+  Windows x64, with a cooperative `16x16x16` f16/f16→f32 tile. Other RDNA3
+  parts, RDNA1/2, Intel Gen9 and multi-GPU device groups are **not** qualified;
+  an unsupported explicit request fails with the probed reason instead of
+  silently running FP32.
+- **It is opt-in because it is not faster end to end.** Single-GEMM latency
+  improves `1.83×`–`2.31×` above the crossover, but the measured 512-row
+  training step was **slower** with Mixed (`14.0444 ms` vs `12.2911 ms` FP32,
+  ratio `0.8708`). Mixed therefore stays off by default and no training-step
+  speedup is claimed.
+- **Fallbacks are not dispatches.** Projections below
+  `WMMA_MIN_PROFITABLE_MACS = 16,000,000` keep the FP32 kernel and increment a
+  fallback counter; the released wide-multimodal and native V4.1 fixtures are
+  below that floor and record zero cooperative dispatches.
+
+**[Full WMMA guide](WMMA_GUIDE.md)** — modes, hardware admission, copyable
+commands, dispatch/fallback semantics, safety, measurements and limitations.
+Numerical scope: [release contract](RDNA3_RELEASE_CONTRACT.md). Engineering
+history: [WMMA log](RDNA3_WMMA.md).
+
+<div align="right"><a href="#table-of-contents">↑ Back to contents</a></div>
+
+---
+
 ## Desktop GUI
 
 ```powershell
@@ -582,6 +638,46 @@ measured updates):
 The documented device qualification is Windows-based. The backend uses Rust and
 Vulkan; non-Windows builds use their platform's driver and executable conventions.
 Availability on a Vulkan device is separate from recorded numerical qualification.
+
+### Download a release build
+
+**[Hierarchos-Native v0.2.0 — RDNA3 WMMA](https://github.com/necat101/Hierarchos-Native/releases/tag/v0.2.0)**
+
+| Asset | Platform | Contents |
+| --- | --- | --- |
+| `Hierarchos-Native-Windows-x64-Portable-v0.2.0.zip` | Windows 11 x64 (`x86_64-pc-windows-msvc`) | `bin\` with `hierarchos-native-cli.exe`, `hierarchos-native.exe` (GUI), `hierarchos-vulkan-train.exe`, `hierarchos-vulkan-devices.exe`, `hierarchos-vulkan-transformer-train.exe`, `hierarchos-vulkan-transformer-logits.exe`, `hierarchos-infer.exe`; shaders, licenses, notices, `BUILD_INFO.txt`, `DEPENDENCIES.txt`, `QUICKSTART.txt` |
+| `SHA256SUMS` | any | SHA-256 of every attached asset |
+| `BUILD_MANIFEST.json` | any | Source commit, target triple, toolchain, build flags |
+
+Requirements: Windows 11 x64 and a Vulkan 1.x compute driver for GPU work.
+All executables are statically linked against the MSVC C runtime, so **no Visual
+C++ Redistributable is needed**. Rust, Cargo, Python and PyTorch are not runtime
+requirements. Model weights are **not** bundled — point the CLI at a supported
+local package (`--model-path`) or let it download a public one (`--hf-model`).
+
+```powershell
+# Extract (check the hash first — it is listed in SHA256SUMS on the release page)
+Get-FileHash .\Hierarchos-Native-Windows-x64-Portable-v0.2.0.zip -Algorithm SHA256
+Expand-Archive .\Hierarchos-Native-Windows-x64-Portable-v0.2.0.zip -DestinationPath .\hierarchos
+cd .\hierarchos
+
+.\bin\hierarchos-native-cli.exe doctor
+.\bin\hierarchos-native-cli.exe devices
+.\bin\hierarchos-native-cli.exe --help
+
+# First run against a small public fixture
+.\bin\hierarchos-native-cli.exe infer --hf-model hf-internal-testing/tiny-random-gpt2 `
+  --prompt "Hello" --max-new-tokens 32 --no-do-sample
+
+# RDNA3 WMMA capability report for this machine
+.\bin\hierarchos-native-cli.exe precision-info --device-index 0
+```
+
+Troubleshooting: a missing Vulkan driver shows up in `doctor` and `devices`;
+keep `bin\` intact because the CLI launches its Vulkan companions from there
+(`HIERARCHOS_VULKAN_BIN_DIR` overrides discovery); `precision-info` explains why
+WMMA was refused on a given adapter. [CLI reference](hierarchos-native-cli/README.md) ·
+[WMMA guide](WMMA_GUIDE.md) · [issues](https://github.com/necat101/Hierarchos-Native/issues).
 
 ### Portable standalone bundle
 
