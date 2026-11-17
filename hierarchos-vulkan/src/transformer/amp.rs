@@ -515,27 +515,39 @@ mod tests {
         full.wmma_mode = WmmaMode::FullFp16;
         let mut reference = TransformerKernels::new(&device)?;
         reference.wmma_mode = WmmaMode::Off;
+        // Geometry is part of this fixture. `TransformerKernels::wmma_linear`
+        // only builds a cooperative executor once the projection clears
+        // `WMMA_MIN_PROFITABLE_MACS` (16,000,000 MACs, `08179c5`); below that the
+        // crossover policy declines the shape before any `LinearWmma` exists, so
+        // `admits` never consults `FULL_FP16_MAX_REDUCTION` and no reduction
+        // fallback is recorded. `ROWS * DIM * DIM` = `1,024 * 128 * 128` =
+        // `16,777,216` crosses the floor while the reduction stays `DIM = 128`,
+        // still above `FULL_FP16_MAX_REDUCTION = 64` for forward (K = input
+        // width) and dX (K = output width); dW reduces over `ROWS`, likewise
+        // above the cap, so each phase keeps its oversized FP32 fallback.
         const DIM: usize = 128;
+        const ROWS: usize = 1024;
         const LEN: usize = DIM * DIM;
+        const ACT: usize = ROWS * DIM;
         let candidate = VulkanLinear::new_no_bias(&device, DIM, DIM, &vec![1.0/64.0;LEN])?;
         let expected = VulkanLinear::new_no_bias(&device, DIM, DIM, &vec![1.0/64.0;LEN])?;
-        let mut input_values=vec![0.0;LEN];input_values[0]=1.0+2.0f32.powi(-20);
-        let mut gradient_values=vec![0.0;LEN];gradient_values[0]=1.0/32.0+2.0f32.powi(-25);
+        let mut input_values=vec![0.0;ACT];input_values[0]=1.0+2.0f32.powi(-20);
+        let mut gradient_values=vec![0.0;ACT];gradient_values[0]=1.0/32.0+2.0f32.powi(-25);
         let input=GpuBuffer::from_f32(&device,&input_values)?;
         let gradient=GpuBuffer::from_f32(&device,&gradient_values)?;
         let hyper=AdamWHyperParams{lr:0.001,beta1:0.9,beta2:0.999,eps:0.001,weight_decay:0.01};
         let before=crate::wmma_linear::linear_wmma_precision_counts();
         let fallbacks=crate::wmma_linear::full_fp16_reduction_fallbacks();
         let run=|linear:&VulkanLinear,kernels:&TransformerKernels,step:u32|->Result<(Vec<f32>,Vec<f32>,Vec<f32>)>{
-            let output=GpuBuffer::zeros_f32(&device,LEN)?;
-            let dx=GpuBuffer::zeros_f32(&device,LEN)?;
+            let output=GpuBuffer::zeros_f32(&device,ACT)?;
+            let dx=GpuBuffer::zeros_f32(&device,ACT)?;
             let mut commands=vulkan::ComputeBatch::new(&device)?;
-            linear.record_forward(&mut commands,kernels,&input,&output,DIM)?;
-            linear.record_backward(&mut commands,kernels,&input,&gradient,&dx,DIM)?;
+            linear.record_forward(&mut commands,kernels,&input,&output,ROWS)?;
+            linear.record_backward(&mut commands,kernels,&input,&gradient,&dx,ROWS)?;
             linear.record_step(&mut commands,kernels,step,hyper)?;
             commands.submit()?;
             kernels.bump_wmma_epoch();
-            Ok((output.read_f32(LEN)?,dx.read_f32(LEN)?,linear.weight.grad_buffer()?.read_f32(LEN)?))
+            Ok((output.read_f32(ACT)?,dx.read_f32(ACT)?,linear.weight.grad_buffer()?.read_f32(LEN)?))
         };
         let first=run(&candidate,&full,1)?;
         assert_eq!(first,run(&expected,&reference,1)?);
@@ -569,7 +581,7 @@ mod tests {
         assert_ne!(candidate.weight.read()?,vec![1.0/64.0;LEN],"AdamW must update the FP32 masters");
         assert_eq!(crate::wmma_linear::linear_wmma_precision_counts(),before,"oversized fallbacks must dispatch neither Mixed nor FP16 accumulation");
         assert_eq!(crate::wmma_linear::full_fp16_reduction_fallbacks()-fallbacks,9);
-        eprintln!("Full FP16 oversized GPU evidence: reduction=128 forward=3 dW=3 dX=3; FP32 outputs/gradients/masters/moments/resume identical; cooperative delta=[0,0]");
+        eprintln!("Full FP16 oversized GPU evidence: rows={ROWS} reduction=128 forward=3 dW=3 dX=3 (forward K=128, dW K={ROWS}, dX K=128, all above FULL_FP16_MAX_REDUCTION=64); FP32 outputs/gradients/masters/moments/resume identical; cooperative delta=[0,0]");
         Ok(())
     }
     #[test]
