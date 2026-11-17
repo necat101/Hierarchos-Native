@@ -8,7 +8,7 @@
 
 I want to share a little context about the person maintaining this project and why community support would mean so much right now. I was recently laid off from my internship and am facing a serious financial shortfall. I currently have about **$190** to my name, with **$725 in rent due by November 30, 2026**. I've been skipping meals to stretch what I have, and without help or a change in circumstances, I may lose my housing and face homelessness beginning **December 1, 2026**.
 
-I also deal with motor-cortex-related coordination issues that affect my ability to drive safely. That limits some in-person work opportunities and may affect the pace and future trajectory of this project as I work to find a sustainable way forward.
+I also deal with motor-cortex-damage-related coordination issues that affect my ability to drive safely. That limits some in-person work opportunities and may affect the pace and future trajectory of this project as I work to find a sustainable way forward.
 
 If you find Hierarchos Native useful and are in a position to help, please consider making a voluntary contribution. Right now, support would help me cover basic needs like rent and food while also giving me a better chance to keep developing and maintaining the project. I understand that not everyone can donate, and there is absolutely no obligation or expectation. Sharing the project, giving it a GitHub star, reporting issues, or contributing code are also genuinely appreciated.
 
