@@ -22,7 +22,7 @@ release root and is never relabelled as current-source evidence.
 import argparse, hashlib, json, math, os, subprocess
 from pathlib import Path
 from safetensors.numpy import load_file
-from qualify_precision_training import digest, metric, require, write, ROOT
+from qualify_precision_training import digest, metric, producer_provenance, require, write, ROOT
 
 
 POLICY = dict(wmma_min_profitable_macs=16_000_000, full_fp16_max_reduction=64)
@@ -243,6 +243,8 @@ def main():
                    help='families to execute (default: all four)')
     p.add_argument('--historical-release', type=Path, required=True,
                    help='sealed pre-gate release-qualification.json whose wide rows are disclosed, not reused')
+    p.add_argument('--reuse-receipt', type=Path,
+                   help='reuse an existing receipt whose measured case results still match their fixtures, oracles and binaries')
     a = p.parse_args()
     requested = a.families or ('llava', 'gemma3', 'gemma4', 'seq2seq')
     out = a.output.resolve()
@@ -251,8 +253,7 @@ def main():
     fixtures = {}
     oracles = {}
     sources = {}
-    source_revision = subprocess.check_output(
-        ['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
+    source_revision, producer = producer_provenance(__file__)
     for family in requested:
         root = getattr(a, family).resolve()
         manifest = json.loads((root / 'manifest.json').read_text())
@@ -287,18 +288,41 @@ def main():
     results = []
     commands = []
     failures = []
-    for family, profile, name, folder, provenance in cases:
-        try:
-            result = evaluate_case(family, profile, name, folder, out, binaries, commands,
-                                   provenance)
-        except Exception as error:
-            result = dict(family=family, profile=profile, case=name, status='FAIL',
-                          error=str(error))
-            failures.append(result)
-            print('FAIL', family, name, str(error), flush=True)
-        results.append(result)
-        if result['status'] == 'PASS_SCOPED':
-            print('PASS_SCOPED', family, name, flush=True)
+    if a.reuse_receipt is None:
+        for family, profile, name, folder, provenance in cases:
+            try:
+                result = evaluate_case(family, profile, name, folder, out, binaries, commands,
+                                       provenance)
+            except Exception as error:
+                result = dict(family=family, profile=profile, case=name, status='FAIL',
+                              error=str(error))
+                failures.append(result)
+                print('FAIL', family, name, str(error), flush=True)
+            results.append(result)
+            if result['status'] == 'PASS_SCOPED':
+                print('PASS_SCOPED', family, name, flush=True)
+    else:
+        # Only the provenance is regenerated here. The measured case rows are
+        # reused when every dependency they were produced against is unchanged.
+        prior = json.loads(a.reuse_receipt.resolve().read_text())
+        require(prior.get('schema') == 1 and prior.get('status') == 'PASS_SCOPED',
+                'reused wide receipt is not a passing wide component')
+        require(prior['fixture_sha256'] == fixtures, 'reused wide fixture inventory changed')
+        require(prior['oracle_contract'] == oracles, 'reused wide oracle contract changed')
+        require(prior['binary_sha256'] == binary_hashes, 'reused wide executable digest changed')
+        require(prior['policy'] == dict(mixed_max_abs=.02, mixed_rms=.003,
+                                        original_fp32_max_abs=2e-7, rtol=0),
+                'reused wide numerical policy changed')
+        results = prior['results']
+        commands = prior['commands']
+        require({(r['family'], r['case']) for r in results}
+                == {(family, name) for family, _, name, _, _ in cases},
+                'reused wide case inventory changed')
+        for row in results:
+            require(row['status'] == 'PASS_SCOPED', 'reused wide case is not passing')
+            require(row['provenance'] == case_provenance(fixtures[row['family']], row['case']),
+                    'reused wide case provenance no longer matches its fixture')
+        print('REUSED', len(results), 'measured wide cases', flush=True)
     require(all(digest(v) == binary_hashes[k] for k, v in binaries.items()),
             'binary changed during qualification')
     require(all(digest(ROOT / p) == h for p, h in sources.items()),
@@ -322,7 +346,8 @@ def main():
                      a.historical_release.resolve(), source_revision)])
     status = 'PASS_SCOPED' if not failures else 'FAIL'
     write(out / 'qualification.json', dict(
-        schema=1, status=status, source_revision=source_revision,
+        schema=1, status=status, source_revision=source_revision, producer=producer,
+        runtime=dict(source_revision=source_revision, binary_sha256=binary_hashes),
         results=results, failures=failures, commands=commands,
         source_files=sources, binary_sha256=binary_hashes, fixture_sha256=fixtures,
         oracle_contract=oracles, qualification_scope=scope,

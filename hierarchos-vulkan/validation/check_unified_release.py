@@ -363,14 +363,56 @@ def verify_wide_route(wide):
             'wide historical disclosure does not describe a different execution route')
 
 
-def verify_overflow_route(checks):
-    """Joint overflow skip/backoff must be executed and reconciled, or explained.
+def verify_producer(component, label):
+    """Re-read the qualification producer from the revision it claims.
 
-    The released joint geometry is below WMMA_MIN_PROFITABLE_MACS, so a 2^80
-    scale cannot overflow FP32 masters or compute and the producer records that
-    fact instead of manufacturing a skip. When the scenario does execute, the
-    sealed 2^78/2^76 scaler history stays mandatory.
+    Ancestry alone cannot distinguish the runtime build revision from the
+    revision of the python producer that generated a receipt: a producer can be
+    committed after the binaries it measures. The recorded producer digest is
+    therefore verified against the git blob at the declared revision, and the
+    runtime fact is required to stay in its own block.
     """
+    producer=component.get('producer')
+    require(isinstance(producer,dict),label+' qualification producer provenance missing')
+    path=producer.get('path');revision=producer.get('revision');sha=producer.get('sha256')
+    require(isinstance(path,str) and path.endswith('.py') and not Path(path).is_absolute()
+            and '..' not in Path(path).parts,'invalid qualification producer path: '+label)
+    require(isinstance(revision,str) and len(revision)==40,'invalid qualification producer revision: '+label)
+    require(isinstance(sha,str) and len(sha)==64,'invalid qualification producer digest: '+label)
+    sources=component.get('source_files') or component.get('source_sha256')
+    require(isinstance(sources,dict),label+' component source map missing')
+    require(sources.get(path)==sha,
+            label+' qualification producer digest disagrees with the component source map')
+    require(subprocess.run(['git','merge-base','--is-ancestor',revision,'HEAD'],
+            cwd=ROOT,capture_output=True).returncode==0,
+            label+' qualification producer revision is not in this repository history')
+    blob=subprocess.run(['git','show',revision+':'+path],cwd=ROOT,capture_output=True)
+    require(blob.returncode==0,label+' qualification producer is absent at its declared revision')
+    require(hashlib.sha256(blob.stdout).hexdigest()==sha,
+            label+' qualification producer digest does not match its declared revision')
+    runtime=component.get('runtime')
+    require(isinstance(runtime,dict),label+' runtime provenance block missing')
+    require(runtime.get('source_revision')==component['source_revision'],
+            label+' runtime source revision disagrees with the component source revision')
+    require(runtime.get('binary_sha256')==component['binary_sha256'],
+            label+' runtime binary digests disagree with the component executable map')
+
+
+def verify_overflow_route(checks):
+    """The joint skip/backoff must be executed, never explained away.
+
+    A 2^80 joint scale overflows only where the shared transaction really
+    quantizes its scaled gradients to FP16 GEMM operands, so the strict 2^78/2^76
+    history is required on the arm that dispatched. An arm that the released
+    reduction cap forces onto FP32 must prove that fallback instead of claiming a
+    skip, and a below-threshold observation can never stand in for the test.
+    """
+    require(not any('FP32-scaler-reassigned' in key for key in checks),
+            'a below-threshold result is presented as the joint overflow qualification')
+    diagnostic=checks.get('vision-overflow/below-threshold-diagnostic')
+    require(isinstance(diagnostic,dict),'below-threshold joint overflow diagnostic missing')
+    require(diagnostic.get('cooperative_dispatches')==0 and diagnostic.get('skipped_steps')==0,
+            'below-threshold joint overflow diagnostic claims dispatch or a skip')
     for mode in ('mixed','full-fp16'):
         label='vision-overflow-'+mode
         state=checks.get(label+'/state');restored=checks.get(label+'/restored-state')
@@ -381,15 +423,23 @@ def verify_overflow_route(checks):
                     'joint overflow skip/backoff failed: '+label)
             require(restored['skipped_steps']==4 and restored['scale']==2.**76,
                     'restored global scaler history failed: '+label)
+            for component in ('image','text'):
+                row=checks.get(label+'/'+component+'-unchanged')
+                require(isinstance(row,dict) and row
+                        and all(value['max_abs']==0 for value in row.values()),
+                        'joint overflow changed masters: '+label+'/'+component)
             continue
-        row=checks.get(label+'/FP32-scaler-reassigned')
-        require(isinstance(row,dict),'joint overflow route is neither executed nor explained: '+label)
-        require(row.get('geometry')=='below-threshold',
-                'joint overflow reassignment is not a below-threshold disclosure: '+label)
-        require(row.get('skipped_steps')==0,
-                'joint overflow reassignment claims skipped steps it did not execute: '+label)
+        require(mode=='full-fp16','joint overflow recovery was not executed: '+label)
+        row=checks.get(label+'/reduction-cap-fp32')
+        require(isinstance(row,dict),'joint overflow route is neither executed nor policy-explained: '+label)
+        require(row.get('geometry')=='reduction-cap',
+                'joint overflow explanation is not the released reduction cap: '+label)
+        require(row.get('cooperative_dispatches')==0 and row.get('skipped_steps')==0,
+                'reduction-cap joint arm claims dispatch or a skip: '+label)
+        require(row.get('full_fp16_reduction_fallbacks',0)>0,
+                'reduction-cap joint arm did not record its FP32 fallback: '+label)
         require(isinstance(row.get('reason'),str) and row['reason'],
-                'joint overflow reassignment lacks its reason: '+label)
+                'joint overflow reduction-cap disclosure lacks its reason: '+label)
 
 
 def verify_intermediates(q):
@@ -470,6 +520,7 @@ def validate_payload(document,components):
             require(maximum==0 if exact else maximum<limit,'precision numerical check failed: '+key)
             if not exact:require(strict(value['rms'],.003 if 'mixed' in key else .01),'precision RMS check failed: '+key)
     verify_overflow_route(precision['checks'])
+    verify_producer(precision,'precision')
     for mode in ('mixed','full-fp16'):
         require('wide-'+mode+'/masters-vs-FP32' in precision['checks'],
                 'long-row master comparison is missing at the wide fixture: '+mode)
@@ -509,6 +560,7 @@ def validate_payload(document,components):
                 require(value['within_strict_limit']==strict(value['max_abs'],2e-7),
                         'wide strict diagnostic flag disagrees with numeric observation')
     verify_wide_route(wide)
+    verify_producer(wide,'wide')
     native=components['native_v41']
     require(native['status']=='PASS_BOUNDED_NATIVE_VISION' and native['reports']['bounded']['independent_FP32_qualified'],'native bounded fixture failed')
     verify_native_checks(native)

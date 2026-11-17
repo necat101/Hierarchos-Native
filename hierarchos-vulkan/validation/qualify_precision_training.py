@@ -14,6 +14,17 @@ MODES=('off','mixed','full-fp16')
 
 def digest(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 def write(path,value):Path(path).write_text(json.dumps(value,indent=2,allow_nan=False)+'\n')
+def producer_provenance(module_file):
+    """Bind the python producer by its own revision and digest.
+
+    `source_revision` identifies the release tree the receipt is sealed against.
+    It is not evidence of which producer generated it: a qualification producer
+    can be committed after the revision whose binaries it measures, so the two
+    facts are recorded separately instead of being read off one commit id.
+    """
+    revision=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
+    relative=Path(module_file).resolve().relative_to(ROOT).as_posix()
+    return revision,dict(path=relative,revision=revision,sha256=digest(Path(module_file)))
 def require(condition,message):
     if not condition:raise ValueError(message)
 def metric(a,b,maximum,rms=None):
@@ -38,6 +49,8 @@ def main():
     parser.add_argument('--steps',type=int,default=20)
     parser.add_argument('--wide-fixtures',type=Path,
         help='authorized 64-row, 512-wide numerical fixture (config+weights+dataset)')
+    parser.add_argument('--overflow-fixtures',type=Path,
+        help='approved above-floor joint image/text package (1,152 rows x 128) that reaches the shared overflow scaler')
     args=parser.parse_args();require(args.steps>=4 and args.steps%2==0,'steps must be even and at least four')
     out=args.output.resolve();out.mkdir(parents=True,exist_ok=False)
     fixture=args.fixtures.resolve();bins=args.bins.resolve()
@@ -208,30 +221,54 @@ def main():
                 for key in ('logits','pixel_gradient','projected_gradient'):
                     actual=step['forward'][key] if key=='logits' else step['training'][key]
                     checks[f'{label}/step-{index+1}-independent-CPU-{key}']=metric(cpu['steps'][index][key],actual,maximum,rms)
+    # Joint overflow: the shared transaction arms one loss scaler for both optimizers,
+    # but a 2^80 scale only overflows where the scaled gradients are really quantized
+    # to FP16 GEMM operands. The released CLIP64 geometry is below
+    # WMMA_MIN_PROFITABLE_MACS, so its Mixed request runs FP32 and cannot overflow.
+    # That observation is retained as a diagnostic and is never accepted in place of
+    # the overflow test; the strict 2^78/2^76 history is exercised on the approved
+    # above-floor joint package (1,152 * 128 * 128 = 18,874,368 MACs).
+    below=out/'vision-overflow-below-threshold'
+    run('mixed',[executables['image_text_pipeline_probe'],'--model',fixture/'model','--fixture',fixture/'input.json',
+        '--output',below,'--loss-scale',str(2.**80)],'vision-overflow-below-threshold')
+    below_report=json.loads((below/'report.json').read_text())
+    require(below_report['precision']['cooperative_dispatches']==0,'below-threshold joint fixture dispatched WMMA')
+    require(below_report['precision']['loss_scaler']['skipped_steps']==0,'FP32 arm skipped an update')
+    require([s['training']['text']['step'] for s in below_report['steps']]==[1,2],'missing FP32 joint update')
+    checks['vision-overflow/below-threshold-diagnostic']=dict(
+        geometry='below-threshold',cooperative_dispatches=0,
+        skipped_steps=below_report['precision']['loss_scaler']['skipped_steps'],
+        reason='2^80 cannot overflow FP32 masters/compute; this diagnostic does not qualify overflow recovery')
+    overflow=args.overflow_fixtures.resolve() if args.overflow_fixtures else None
+    require(overflow is not None and (overflow/'input.json').is_file() and (overflow/'model').is_dir(),
+        'an approved above-floor joint fixture is required to exercise overflow recovery')
     for mode in MODES[1:]:
         label='vision-overflow-'+mode;destination=out/label
-        run(mode,[executables['image_text_pipeline_probe'],'--model',fixture/'model','--fixture',fixture/'input.json',
+        run(mode,[executables['image_text_pipeline_probe'],'--model',overflow/'model','--fixture',overflow/'input.json',
             '--output',destination,'--loss-scale',str(2.**80)],label)
         report=json.loads((destination/'report.json').read_text())
         if report['precision']['cooperative_dispatches']==0:
-            # The profitability gate keeps this below-threshold geometry in FP32, where
-            # a 2^80 joint scale cannot overflow, so no backoff is the correct result.
-            # Overflow/backoff coverage stays with the threshold-crossing producers.
-            require(report['precision']['loss_scaler']['skipped_steps']==0,'FP32 arm skipped an update')
-            require([s['training']['text']['step'] for s in report['steps']]==[1,2],'missing FP32 joint update')
-            checks[label+'/FP32-scaler-reassigned']=dict(
-                geometry='below-threshold',reason='2^80 cannot overflow FP32 masters/compute',
-                skipped_steps=report['precision']['loss_scaler']['skipped_steps'])
+            # FULL_FP16_MAX_REDUCTION=64 sends this 128-wide weight gradient to its
+            # documented FP32 fallback, so the arm executes FP32 and cannot overflow.
+            # It is recorded as the released policy fallback, never as a skip.
+            require(mode=='full-fp16','Mixed overflow fixture did not dispatch cooperatively')
+            require(report['precision']['full_fp16_reduction_fallbacks']>0,'Full FP16 overflow arm fell back without the reduction cap')
+            require(report['precision']['loss_scaler']['skipped_steps']==0,'FP32 Full arm skipped an update')
+            checks[label+'/reduction-cap-fp32']=dict(
+                geometry='reduction-cap',cooperative_dispatches=0,
+                full_fp16_reduction_fallbacks=report['precision']['full_fp16_reduction_fallbacks'],
+                skipped_steps=report['precision']['loss_scaler']['skipped_steps'],
+                reason='FULL_FP16_MAX_REDUCTION=64 keeps the 128-wide weight gradient on FP32; no overflow is claimed for this arm')
             continue
         require([s['training']['text']['step'] for s in report['steps']]==[0,0],'overflow committed an image/text update')
         require(report['precision']['loss_scaler']['skipped_steps']==2 and report['precision']['loss_scaler']['scale']==2.**78,'joint scaler did not back off')
         for component in ('image','text'):
-            row=tensors(fixture/'model'/component/'model.safetensors',destination/'step-2'/component/'model.safetensors',2e-7)
+            row=tensors(overflow/'model'/component/'model.safetensors',destination/'step-2'/component/'model.safetensors',2e-7)
             require(all(x['max_abs']==0 for x in row.values()),'joint overflow changed masters')
             checks[label+'/'+component+'-unchanged']=row
         state=out/(label+'-scaler.json');write(state,report['precision']['loss_scaler'])
         restored=out/(label+'-restore')
-        run(mode,[executables['image_text_pipeline_probe'],'--model',destination/'step-2','--fixture',fixture/'input.json',
+        run(mode,[executables['image_text_pipeline_probe'],'--model',destination/'step-2','--fixture',overflow/'input.json',
             '--output',restored,'--loss-scaler-state',state],label+'-restore')
         restored_report=json.loads((restored/'report.json').read_text())
         require(restored_report['precision']['loss_scaler']['skipped_steps']==4 and restored_report['precision']['loss_scaler']['scale']==2.**76,'restored scaler history lost')
@@ -275,9 +312,11 @@ def main():
     require(all(digest(path)==hashes[name] for name,path in executables.items()),'executable changed during qualification')
     require(all(digest(ROOT/path)==sha for path,sha in sources.items()),'source changed during qualification')
     require(all(digest(fixture/path)==sha for path,sha in fixture_hashes.items()),'CPU fixture changed during qualification')
+    source_revision,producer=producer_provenance(__file__)
     write(out/'qualification.json',dict(schema=1,status='PASS_SCOPED',
         scope='Llama64 full/ordinary LoRA convergence, complete two-microbatch accumulation and exact LoRA resume; shared CLIP64 joint image/text training, global overflow skipping, scaler restore and reload',
-        steps=args.steps,source_revision=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip(),
+        steps=args.steps,source_revision=source_revision,producer=producer,
+        runtime=dict(source_revision=source_revision,binary_sha256=hashes),
         source_sha256=sources,binary_sha256=hashes,fixture_sha256=fixture_hashes,
         wide_fixture_sha256=wide_hashes,wide_reports=wide_reports,commands=commands,
         reports=reports,losses=losses,checks=checks,

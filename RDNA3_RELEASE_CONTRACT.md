@@ -60,11 +60,20 @@ profitability floor, so its Mixed route dispatches; the 20-step master drift at
 that geometry leaves the sealed `0.02` envelope, so master-parameter
 comparisons are asserted on the authorized 64-row 512-wide fixture
 (`64 * 512 * 512 = 16,777,216` MACs) and every reassignment names a comparison
-the receipt contains. The joint vision overflow scenario is recorded as
-below-threshold for the same reason: a `2^80` scale cannot overflow FP32 masters
-or compute when nothing cooperatively dispatches, so the receipt states zero
-skipped steps instead of manufacturing a skip. The strict `2^78`/`2^76` scaler
-history stays mandatory whenever that scenario executes.
+the receipt contains.
+
+The joint overflow qualification is **executed**, not explained. A `2^80` joint
+scale overflows only where the shared transaction really quantizes its scaled
+gradients to FP16 GEMM operands, so the strict `2^78`/`2^76` scaler history is
+asserted on the approved above-floor joint package
+(`1,152 * 128 * 128 = 18,874,368` MACs): the Mixed arm dispatches cooperatively,
+skips both updates without touching either master set, backs off to `2^78`, and
+preserves four skipped steps at `2^76` when the scaler state is restored. The
+released CLIP64 geometry remains below `WMMA_MIN_PROFITABLE_MACS`, so its own
+`2^80` run is retained only as a diagnostic recording zero dispatches and zero
+skips; a below-threshold row can never stand in for the overflow test. The Full
+FP16 arm of the above-floor package stays on its documented
+`FULL_FP16_MAX_REDUCTION = 64` FP32 fallback and claims no overflow.
 
 Native V4.1 retains its released ViT, two-dimensional rotary attention and
 spatial aligner. It is qualified **numerically, on the execution route it
