@@ -16,9 +16,15 @@ import check_evidence_integrity as g
 REPO = Path(__file__).resolve().parents[2]
 PHASE15 = (REPO / "hierarchos-vulkan" / "validation" / "release_parity" /
            "multimodal_training" / "20261108-rdna3-phase15-qualification")
-RELEASE = (REPO / "hierarchos-vulkan" / "validation" / "release_parity" /
-           "multimodal_training" / "20261116-phase38-current-source" /
-           "release-qualification.json")
+# The newest sealed root, discovered by the same rule `--latest-release` uses.
+# Pinning a phase directory here made this guard keep auditing a superseded root
+# after the Phase XLI migration, so it failed on source drift that belonged to
+# the older seal rather than to the current one.
+SEALED = sorted((REPO / "hierarchos-vulkan" / "validation" /
+                 "release_parity").rglob("release-qualification.json"))
+RELEASE = SEALED[-1] if SEALED else (REPO / "hierarchos-vulkan" / "validation" /
+                                     "release_parity" / "multimodal_training" /
+                                     "no-sealed-release")
 
 
 def sha(path: Path) -> str:
