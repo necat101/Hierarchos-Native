@@ -140,10 +140,11 @@ def main():
         maximum,rms=(.02,.003) if mode=='mixed' else (.05,.01)
         checks[f'full-{mode}/independent-CPU-loss']=metric(cpu_text['results']['ordinary']['losses'],losses[f'full-{mode}'],maximum,rms)
         # The 48-row CPU trajectory cannot bound 3936-row master drift; the
-        # master contract is asserted on the wide fixture below.
+        # master contract is asserted on the wide fixture below. The FP32 arm is
+        # that comparison's baseline, so it has no wide master row to point at.
         checks[f'full-{mode}/independent-CPU-masters-reassigned']=dict(
             geometry='long-row',reason='CPU trajectory is a 48-row fixture',
-            redirect=f'wide-{mode}/masters-vs-FP32')
+            **({} if mode=='off' else dict(redirect=f'wide-{mode}/masters-vs-FP32')))
     for kind in ('full','lora'):
         baseline=text_run('off',kind,f'accumulation-{kind}-off',args.steps,large_batch=True)
         name='model.safetensors' if kind=='full' else 'adapter_model.safetensors'

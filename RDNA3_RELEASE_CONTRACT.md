@@ -54,7 +54,17 @@ skipping. Other architecture-specific trainers retain their tested unscaled
 policy. FP32 gradient **storage** does not prevent quantization when gradients
 become FP16 GEMM operands; automatic scaling is not claimed for those paths.
 Their supported numerical scope is the executed bounded matrix, not arbitrary
-gradient ranges or complete PyTorch autocast/GradScaler equivalence.
+gradient ranges or complete PyTorch autocast/GradScaler equivalence. The text
+training geometry is a 192x24 = 4,608-row trajectory that crosses the
+profitability floor, so its Mixed route dispatches; the 20-step master drift at
+that geometry leaves the sealed `0.02` envelope, so master-parameter
+comparisons are asserted on the authorized 64-row 512-wide fixture
+(`64 * 512 * 512 = 16,777,216` MACs) and every reassignment names a comparison
+the receipt contains. The joint vision overflow scenario is recorded as
+below-threshold for the same reason: a `2^80` scale cannot overflow FP32 masters
+or compute when nothing cooperatively dispatches, so the receipt states zero
+skipped steps instead of manufacturing a skip. The strict `2^78`/`2^76` scaler
+history stays mandatory whenever that scenario executes.
 
 Native V4.1 retains its released ViT, two-dimensional rotary attention and
 spatial aligner. It is qualified **numerically, on the execution route it

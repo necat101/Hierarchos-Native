@@ -84,10 +84,20 @@ class UnifiedReleaseControls(unittest.TestCase):
         self.reject(lambda d,p:p['wmma_mixed']['producer'].update(binary_sha256='0'*64))
     def test_oversized_model_fallback_must_execute(self):
         self.reject(lambda d,p:p['tests']['oversized_fallback']['model_export']['precision'].update(full_fp16_reduction_fallbacks=0))
-    def test_restored_scaler_history_is_required(self):
+    def test_joint_overflow_route_must_be_executed_or_explained(self):
+        # The released joint geometry is below the profitability floor, so a 2^80
+        # scale cannot overflow FP32 masters/compute and the producer records that
+        # reassignment. Removing it leaves the route neither executed nor explained.
         def mutate(d,p):
-            key=next(k for k in p['precision']['checks'] if k.startswith('vision-overflow-') and '/restored-state' in k)
-            p['precision']['checks'][key].update(skipped_steps=0)
+            for mode in ('mixed','full-fp16'):
+                p['precision']['checks'].pop('vision-overflow-'+mode+'/FP32-scaler-reassigned')
+        self.reject(mutate)
+    def test_joint_overflow_reassignment_cannot_claim_a_skip(self):
+        def mutate(d,p):
+            p['precision']['checks']['vision-overflow-mixed/FP32-scaler-reassigned'].update(skipped_steps=2)
+        self.reject(mutate)
+    def test_reassigned_comparison_target_must_exist(self):
+        def mutate(d,p):p['precision']['checks'].pop('wide-mixed/masters-vs-FP32')
         self.reject(mutate)
     def test_hidden_diagnostic_failures(self):
         self.reject(lambda d,p:p['intermediates'].update(strict_diagnostic_failures=0))
@@ -133,7 +143,9 @@ class UnifiedReleaseControls(unittest.TestCase):
     def test_native_stress_strict_limit_still_enforced(self):
         def mutate(d,p):
             key=next(k for k in p['native_v41']['checks']['stress'] if k.endswith('independent-FP32'))
-            p['native_v41']['checks']['stress'][key].update(max_abs=2e-7,within_strict_limit=False)
+            # The strict flag must agree with the observation: a stress row above
+            # the 2e-7 limit cannot publish within_strict_limit=true.
+            p['native_v41']['checks']['stress'][key].update(max_abs=5e-7,within_strict_limit=True)
         self.reject(mutate)
     def test_native_reload_must_stay_exact(self):
         def mutate(d,p):
@@ -312,6 +324,24 @@ class PrecisionRouteControls(unittest.TestCase):
 
     def test_fp32_route_cannot_dispatch(self):
         with self.assertRaises(ValueError):c.verify_mode(self.block(requested='off'),'off',False)
+
+    def test_joint_overflow_scaler_history_is_still_verified(self):
+        # The strict 2^78/2^76 history is not deleted for the reassigned route.
+        checks={}
+        for mode in ('mixed','full-fp16'):
+            checks['vision-overflow-'+mode+'/state']=dict(skipped_steps=2,scale=2.**78)
+            checks['vision-overflow-'+mode+'/restored-state']=dict(skipped_steps=4,scale=2.**76)
+        c.verify_overflow_route(checks)
+
+    def test_joint_overflow_restore_must_keep_its_history(self):
+        checks={'vision-overflow-mixed/state':dict(skipped_steps=2,scale=2.**78),
+                'vision-overflow-mixed/restored-state':dict(skipped_steps=0,scale=2.**76)}
+        with self.assertRaises(ValueError):c.verify_overflow_route(checks)
+
+    def test_joint_overflow_reassignment_requires_a_below_threshold_reason(self):
+        checks={'vision-overflow-mixed/FP32-scaler-reassigned':dict(geometry='long-row',
+                reason='reassigned',skipped_steps=0)}
+        with self.assertRaises(ValueError):c.verify_overflow_route(checks)
 
 
 class WideRouteControls(unittest.TestCase):

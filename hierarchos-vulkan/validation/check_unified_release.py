@@ -363,6 +363,35 @@ def verify_wide_route(wide):
             'wide historical disclosure does not describe a different execution route')
 
 
+def verify_overflow_route(checks):
+    """Joint overflow skip/backoff must be executed and reconciled, or explained.
+
+    The released joint geometry is below WMMA_MIN_PROFITABLE_MACS, so a 2^80
+    scale cannot overflow FP32 masters or compute and the producer records that
+    fact instead of manufacturing a skip. When the scenario does execute, the
+    sealed 2^78/2^76 scaler history stays mandatory.
+    """
+    for mode in ('mixed','full-fp16'):
+        label='vision-overflow-'+mode
+        state=checks.get(label+'/state');restored=checks.get(label+'/restored-state')
+        if state is not None or restored is not None:
+            require(isinstance(state,dict) and isinstance(restored,dict),
+                    'joint overflow state/restore inventory incomplete: '+label)
+            require(state['skipped_steps']==2 and state['scale']==2.**78,
+                    'joint overflow skip/backoff failed: '+label)
+            require(restored['skipped_steps']==4 and restored['scale']==2.**76,
+                    'restored global scaler history failed: '+label)
+            continue
+        row=checks.get(label+'/FP32-scaler-reassigned')
+        require(isinstance(row,dict),'joint overflow route is neither executed nor explained: '+label)
+        require(row.get('geometry')=='below-threshold',
+                'joint overflow reassignment is not a below-threshold disclosure: '+label)
+        require(row.get('skipped_steps')==0,
+                'joint overflow reassignment claims skipped steps it did not execute: '+label)
+        require(isinstance(row.get('reason'),str) and row['reason'],
+                'joint overflow reassignment lacks its reason: '+label)
+
+
 def verify_intermediates(q):
     rows=q['raw_diagnostics']
     require(q['maintained_cases']==93 and q['diagnostic_checks']==len(rows)==1116,
@@ -423,10 +452,12 @@ def validate_payload(document,components):
     for key,row in precision['checks'].items():
         if 'exact-resume' in key:
             require(row and all(v['max_abs']==0 for v in row.values()),'exact resume diverged')
-        if '/state' in key and key.startswith('vision-overflow-'):
-            require(row['skipped_steps']==2 and row['scale']==2.**78,'joint overflow skip/backoff failed')
-        if '/restored-state' in key and key.startswith('vision-overflow-'):
-            require(row['skipped_steps']==4 and row['scale']==2.**76,'restored global scaler history failed')
+        if isinstance(row,dict) and 'redirect' in row:
+            # A comparison may move to another fixture, but only to one that ran.
+            require(isinstance(row.get('reason'),str) and row['reason'],
+                    'reassigned comparison lacks its reason: '+key)
+            require(row['redirect'] in precision['checks'],
+                    'reassigned comparison target is missing: '+key)
         metrics=[row] if isinstance(row,dict) and 'max_abs' in row else list(row.values()) if isinstance(row,dict) else []
         for value in metrics:
             if not isinstance(value,dict) or 'max_abs' not in value:continue
@@ -438,6 +469,10 @@ def validate_payload(document,components):
             limit=.02 if 'mixed' in key else .05
             require(maximum==0 if exact else maximum<limit,'precision numerical check failed: '+key)
             if not exact:require(strict(value['rms'],.003 if 'mixed' in key else .01),'precision RMS check failed: '+key)
+    verify_overflow_route(precision['checks'])
+    for mode in ('mixed','full-fp16'):
+        require('wide-'+mode+'/masters-vs-FP32' in precision['checks'],
+                'long-row master comparison is missing at the wide fixture: '+mode)
     wide=components['wide'];require(wide['status']=='PASS_SCOPED' and len(wide['results'])==9,'wide matrix incomplete or failing')
     require({r['family'] for r in wide['results']}=={'llava','gemma3','gemma4','seq2seq'},'wide architecture coverage incomplete')
     require({(r['family'],r['case']) for r in wide['results']}==WIDE_CASES,'wide case inventory changed')
@@ -468,7 +503,8 @@ def validate_payload(document,components):
             if key.startswith('mixed/') and isinstance(value,dict) and 'max_abs' in value:
                 limit=2e-7 if '/reload/' in key else .02
                 require(strict(value['max_abs'],limit),'wide Mixed maximum failed')
-                if '/reload/' not in key:require(strict(value['rms'],.003),'wide Mixed RMS failed')
+                if '/reload/' in key:require(value['max_abs']==0,'wide export/reload diverged')
+                else:require(strict(value['rms'],.003),'wide Mixed RMS failed')
             if key.startswith('off/') and isinstance(value,dict) and 'within_strict_limit' in value:
                 require(value['within_strict_limit']==strict(value['max_abs'],2e-7),
                         'wide strict diagnostic flag disagrees with numeric observation')
