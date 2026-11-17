@@ -50,8 +50,9 @@ policy (`WMMA_MIN_PROFITABLE_MACS = 16,000,000` against a widest projection of
 records zero cooperative accumulations and its 65 mixed-vs-FP32 comparisons are
 bit-identical to the FP32 control. The receipt therefore claims neither
 cooperative Mixed dispatch nor acceleration for native vision; the current-source
-WMMA implementation is qualified by the separate precision, wide-multimodal and
-primitive evidence. A separate larger-magnitude fixture retains its failing
+WMMA implementation is qualified by the separate precision and primitive
+evidence, not by the native or wide fixtures, which share the same CPU-scale
+geometry and record the same zero cooperative accumulations. A separate larger-magnitude fixture retains its failing
 strict FP32 diagnostics and is not promoted by the bounded result. Native
 language LoRA remains FP32; native V4.1 Full FP16 remains rejected.
 

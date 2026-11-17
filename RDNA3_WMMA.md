@@ -716,8 +716,11 @@ dispatched.
 
 **What this does not say.** It is not evidence that cooperative Mixed WMMA
 dispatch runs in native V4.1 on the current source, and it does not replace the
-separate RDNA3 WMMA qualification (precision training, wide multimodal and the
-`wmma_qualify` primitive gates). A receipt whose route metadata disagrees with
+separate RDNA3 WMMA qualification (precision training and the `wmma_qualify`
+primitive gates). The nine wide-multimodal fixtures share the same CPU-scale
+geometry, record the same zero cooperative accumulations, and are qualified
+numerically on their own measured route for the same reason; they are not a
+substitute for those components. A receipt whose route metadata disagrees with
 its own counters, or which claims cooperative dispatch below the profitability
 floor, is rejected by `check_unified_release.py`.
 

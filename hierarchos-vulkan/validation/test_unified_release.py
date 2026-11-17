@@ -188,6 +188,92 @@ class UnifiedReleaseControls(unittest.TestCase):
     def test_partial_packed_cell_cannot_qualify(self):
         self.reject(lambda d,p:p['packed']['results'][p['packed']['passes'][0]].update(guard=1))
 
+    def test_wide_numerical_qualification_is_accepted(self):
+        # The positive path is the sealed receipt itself: every wide case is a
+        # numerical qualification of the route its own counters measured.
+        self.assertFalse(self.original['wide_multimodal_scope']['cooperative_mixed_executed'])
+        self.assertEqual(self.original['wide_multimodal_scope']['measured_route'],
+                         'mixed_configured_non_cooperative_route')
+        c.verify_wide_route(self.components['wide'])
+        for case in self.components['wide']['results']:
+            c.verify_wide_case(case,self.components['wide']['fixture_sha256'][case['family']])
+    def test_wide_requires_all_nine_cases(self):
+        self.reject(lambda d,p:p['wide']['results'].pop())
+    def test_wide_fixture_provenance_is_mandatory(self):
+        def mutate(d,p):
+            path=next(iter(p['wide']['results'][0]['provenance']['fixtures']))
+            p['wide']['results'][0]['provenance']['fixtures'].pop(path)
+        self.reject(mutate)
+    def test_wide_oracle_provenance_is_mandatory(self):
+        self.reject(lambda d,p:p['wide']['results'][0]['provenance'].__setitem__('oracle',{}))
+    def test_wide_oracle_provenance_must_match_the_family_fixture_map(self):
+        def mutate(d,p):
+            path=next(iter(p['wide']['results'][0]['provenance']['oracle']))
+            p['wide']['results'][0]['provenance']['oracle'][path]='0'*64
+        self.reject(mutate)
+    def test_wide_oracle_contract_cannot_lose_its_cpu_pin(self):
+        self.reject(lambda d,p:p['wide']['oracle_contract']['seq2seq'].update(threads=8))
+    def test_wide_numerical_policy_cannot_be_changed(self):
+        self.reject(lambda d,p:p['wide']['policy'].update(original_fp32_max_abs=3e-7))
+    def test_wide_mixed_reload_must_stay_exact(self):
+        def mutate(d,p):
+            key=next(k for k in p['wide']['results'][0]['checks'] if k.startswith('mixed/reload/'))
+            p['wide']['results'][0]['checks'][key]['max_abs']=1e-9
+        self.reject(mutate)
+    def test_wide_zero_dispatch_must_stay_in_its_declared_scope(self):
+        def mutate(d,p):p['wide']['results'][0]['route'].update(scope='wide_cooperative_mixed_numerical')
+        self.reject(mutate)
+    def test_wide_route_counters_must_reconcile_with_the_phases(self):
+        def mutate(d,p):p['wide']['results'][0]['route'].update(phases=[1,0,0])
+        self.reject(mutate)
+    def test_wide_false_cooperative_claim_is_rejected(self):
+        """A self-consistent relabel of the measured route is still rejected."""
+        def mutate(d,p):
+            for row in p['wide']['results']:
+                row['precision']['mixed'].update(accumulation_dispatches=[297,0],phases=[189,54,54])
+                row['route'].update(accumulation_dispatches=[297,0],phases=[189,54,54],
+                    cooperative_mixed_wmma_dispatched=True,observed_route='mixed_cooperative_route',
+                    scope='wide_cooperative_mixed_numerical')
+            p['wide']['qualification_scope'].update(kind='wide_cooperative_mixed_numerical',
+                measured_route='mixed_cooperative_route',cooperative_mixed_executed=True,not_claimed=[])
+            d['wide_multimodal_scope']=c.wide_scope_summary(p['wide'])
+        self.reject(mutate)
+    def test_wide_historical_receipt_cannot_satisfy_the_current_component(self):
+        def mutate(d,p):
+            p['wide'].pop('qualification_scope');p['wide'].pop('source_revision')
+            p['wide'].pop('oracle_contract')
+            for row in p['wide']['results']:row.pop('route')
+        self.reject(mutate)
+    def test_wide_historical_disclosure_cannot_be_removed(self):
+        self.reject(lambda d,p:p['wide']['qualification_scope'].__setitem__('historical_pre_gate_receipts',[]))
+    def test_wide_historical_receipt_cannot_be_presented_as_current(self):
+        def mutate(d,p):
+            row=p['wide']['qualification_scope']['historical_pre_gate_receipts'][0]
+            row['release_source_revision']=p['wide']['source_revision']
+        self.reject(mutate)
+    def test_wide_separate_current_source_wmma_evidence_is_required(self):
+        self.reject(lambda d,p:p['wide']['qualification_scope'].__setitem__('separate_wmma_evidence',[]))
+    def test_wide_scope_cannot_be_broadened(self):
+        def mutate(d,p):
+            p['wide']['qualification_scope'].update(
+                claim='current-source cooperative Mixed WMMA dispatch qualification')
+        self.reject(mutate)
+    def test_wide_profitability_policy_cannot_be_changed(self):
+        def mutate(d,p):
+            p['wide']['qualification_scope']['policy']['wmma_min_profitable_macs']=1_000_000
+        self.reject(mutate)
+    def test_wide_component_source_must_be_current(self):
+        def mutate(d,p):
+            path=next(iter(p['wide']['source_files']))
+            p['wide']['source_files'][path]='0'*64
+        self.reject(mutate)
+    def test_wide_manifest_scope_must_match_the_component(self):
+        self.reject(lambda d,p:d['wide_multimodal_scope'].update(cooperative_mixed_executed=True))
+    def test_wide_manifest_capability_cannot_claim_cooperative(self):
+        def mutate(d,p):
+            row=next(r for r in d['precision_capabilities'] if r['family']=='llava')
+            row['mixed']['independent_cooperative_qualification']=True
+        self.reject(mutate)
 
 
 class PrecisionRouteControls(unittest.TestCase):
@@ -226,6 +312,67 @@ class PrecisionRouteControls(unittest.TestCase):
 
     def test_fp32_route_cannot_dispatch(self):
         with self.assertRaises(ValueError):c.verify_mode(self.block(requested='off'),'off',False)
+
+
+class WideRouteControls(unittest.TestCase):
+    """The wide route predicate, independent of any sealed receipt."""
+    FIXTURES={'clip_last_layer_padded/input.json':'a'*64,'clip_last_layer_padded/cpu.json':'b'*64}
+    def case(self,**overrides):
+        precision={'off':dict(requested='off',accumulation_dispatches=[0,0],phases=[0,0,0],
+                              master_weights='fp32',optimizer_state='fp32'),
+                   'mixed':dict(requested='mixed',accumulation_dispatches=[0,0],phases=[0,0,0],
+                                master_weights='fp32',optimizer_state='fp32')}
+        route=dict(configured_precision='mixed',accumulation_dispatches=[0,0],phases=[0,0,0],
+                   cooperative_mixed_wmma_dispatched=False,full_fp16_wmma_dispatched=False,
+                   observed_route='mixed_configured_non_cooperative_route',
+                   fallback_telemetry={},scope='wide_numerical_non_cooperative_route')
+        route.update(overrides.pop('route',{}))
+        precision['mixed'].update(overrides.pop('mixed',{}))
+        case=dict(family='llava',case='clip_last_layer_padded',status='PASS_SCOPED',precision=precision,
+                  route=route,provenance=dict(fixtures={'clip_last_layer_padded/input.json':'a'*64},
+                                              oracle={'clip_last_layer_padded/cpu.json':'b'*64}))
+        case.update(overrides);return case
+
+    def test_measured_non_cooperative_route_is_accepted(self):
+        c.verify_wide_case(self.case(),self.FIXTURES)
+
+    def test_measured_cooperative_route_is_accepted_when_it_dispatched(self):
+        route=dict(accumulation_dispatches=[297,0],phases=[189,54,54],
+                   cooperative_mixed_wmma_dispatched=True,
+                   observed_route='mixed_cooperative_route',scope='wide_cooperative_mixed_numerical')
+        case=self.case(route=route,mixed=dict(accumulation_dispatches=[297,0],phases=[189,54,54]))
+        c.verify_wide_case(case,self.FIXTURES)
+
+    def test_configured_mixed_is_not_reported_as_cooperative(self):
+        # Selecting Mixed is not dispatch: zero counters cannot carry a
+        # cooperative label, which is the exact error B5 corrected.
+        with self.assertRaises(ValueError):
+            c.verify_wide_case(self.case(route=dict(cooperative_mixed_wmma_dispatched=True,
+                observed_route='mixed_cooperative_route',
+                scope='wide_cooperative_mixed_numerical')),self.FIXTURES)
+
+    def test_zero_dispatch_cannot_keep_cooperative_phases(self):
+        with self.assertRaises(ValueError):
+            c.verify_wide_case(self.case(route=dict(phases=[1,0,1])),self.FIXTURES)
+
+    def test_route_counters_must_match_the_executed_report(self):
+        with self.assertRaises(ValueError):
+            c.verify_wide_case(self.case(route=dict(accumulation_dispatches=[297,0],
+                phases=[189,54,54])),self.FIXTURES)
+
+    def test_missing_route_metadata_is_rejected(self):
+        case=self.case();case.pop('route')
+        with self.assertRaises(ValueError):c.verify_wide_case(case,self.FIXTURES)
+
+    def test_unbound_oracle_digest_is_rejected(self):
+        case=self.case(provenance=dict(fixtures={'clip_last_layer_padded/input.json':'a'*64},
+                                       oracle={'clip_last_layer_padded/cpu.json':'c'*64}))
+        with self.assertRaises(ValueError):c.verify_wide_case(case,self.FIXTURES)
+
+    def test_fallback_telemetry_must_come_from_the_executed_report(self):
+        with self.assertRaises(ValueError):
+            c.verify_wide_case(self.case(route=dict(fallback_telemetry={'shape_fallbacks':3})),
+                               self.FIXTURES)
 
 
 if __name__=='__main__':unittest.main()

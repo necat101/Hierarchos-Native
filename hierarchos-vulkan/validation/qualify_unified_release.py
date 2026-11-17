@@ -7,8 +7,9 @@ maintained Phase XIX checkers run before the new release receipt is published.
 import argparse, json, os, subprocess, sys
 from pathlib import Path
 from check_unified_release import (ROOT, REQUIRED, DEFAULT, HOST_QUALIFICATIONS, QUALIFICATION_TARGET,
-                                  digest, native_scope_summary, require, target_fixture_provenance,
-                                  validate_payload, verify)
+                                  WIDE_FAMILIES, digest, native_scope_summary, require,
+                                  target_fixture_provenance, validate_payload, verify,
+                                  wide_scope_summary)
 
 
 def main():
@@ -56,11 +57,35 @@ def main():
         master_weights='fp32',optimizer_state='fp32',long_full_reductions='explicit FP32 fallback')
     native_route=components['native_v41']['qualification_scope']
     cooperative=native_route['cooperative_mixed_executed']
+    wide_route=components['wide']['qualification_scope']
+    wide_cooperative=wide_route['cooperative_mixed_executed']
     capabilities=[]
     for family in ('transformer_full','transformer_lora','shared_clip_projector','bart_image','t5_image','switch_image',
                    'llava','gemma3','gemma4','deepseek_v41'):
         full=family in ('transformer_full','transformer_lora','shared_clip_projector')
         scaling=family in ('transformer_full','transformer_lora','shared_clip_projector','llava')
+        route_note={}
+        if family=='deepseek_v41':
+            route_note=dict(
+                execution_route='cooperative_mixed' if cooperative else 'fp32_no_cooperative_dispatch',
+                independent_cooperative_qualification=cooperative,
+                scope_note=('native V4.1 is qualified numerically on its measured current-source '
+                    'cooperative Mixed route' if cooperative else
+                    'native V4.1 is qualified numerically on its measured current-source FP32 '
+                    'route; cooperative Mixed dispatch is not claimed for native vision, and the '
+                    'current-source WMMA implementation is qualified by the separate precision and '
+                    'primitive components'))
+        elif family in WIDE_FAMILIES:
+            route_note=dict(
+                execution_route=wide_route['measured_route'],
+                independent_cooperative_qualification=wide_cooperative,
+                scope_note=('wide multimodal fixtures are qualified numerically on their measured '
+                    'current-source cooperative Mixed route' if wide_cooperative else
+                    'wide multimodal fixtures are qualified numerically on their measured current-source '
+                    'FP32-kernel route; at the released CPU-scale geometries the unchanged profitability '
+                    'policy dispatches no cooperative accumulation, so these rows are not an independent '
+                    'cooperative Mixed WMMA dispatch qualification. That route is qualified by the '
+                    'separate precision and primitive components.'))
         capabilities.append(dict(family=family,
             fp32=dict(status='fully_qualified',scope='original maintained frozen observable-value inventory; native V4.1 bounded fixture',
                       evidence=['text166',*IMAGE_COUNTS_FOR(family)]),
@@ -68,15 +93,7 @@ def main():
                 scope='executed bounded full/LoRA, wide multimodal or native-vision fixture; not arbitrary model/range qualification',
                 loss_scaling='GPU global scaling/unscaling/skip' if scaling else 'tested unscaled FP32 storage; FP16 GEMM operand quantization remains; no automatic-scaling claim',
                 evidence=['native_v41'] if family=='deepseek_v41' else ['precision'] if full else ['wide'],
-                **({} if family!='deepseek_v41' else dict(
-                    execution_route='cooperative_mixed' if cooperative else 'fp32_no_cooperative_dispatch',
-                    independent_cooperative_qualification=cooperative,
-                    scope_note=('native V4.1 is qualified numerically on its measured current-source '
-                        'cooperative Mixed route' if cooperative else
-                        'native V4.1 is qualified numerically on its measured current-source FP32 '
-                        'route; cooperative Mixed dispatch is not claimed for native vision, and the '
-                        'current-source WMMA implementation is qualified by the separate precision, '
-                        'wide-multimodal and primitive components')))),
+                **route_note),
             full_fp16=dict(status='fully_qualified' if full else 'unsupported',
                 scope='qualified Llama64/shared CLIP64 package, adapter/driver and reductions <=64; FP32 suboperations retained' if full else 'not admitted',
                 evidence=['precision','tests','gui_cli'] if full else [])))
@@ -85,6 +102,7 @@ def main():
         device=inputs['device'],components=bindings,source_files=sources,binaries=binaries,evidence_files=evidence,
         precision_policy=policy,precision_capabilities=capabilities,
         native_v41_scope=native_scope_summary(components['native_v41']),
+        wide_multimodal_scope=wide_scope_summary(components['wide']),
         limitations=[
             'The unchanged 2e-7 intermediate diagnostic failures remain disclosed; original strict 93-image and 166-text observable-value gates are separate.',
             'Additional 64/128-wide FP32 and native V4.1 stress diagnostics are not promoted to universal strict CPU equivalence.',
@@ -96,7 +114,14 @@ def main():
             'Native V4.1 is a numerical qualification of the execution route it measured; its bounded '
             'and stress fixtures record zero cooperative accumulations, so they are not evidence that '
             'cooperative Mixed WMMA dispatch ran. The pre-gate [32, 0] receipts are preserved historical '
-            'records and are not current-source Mixed dispatch evidence.'])
+            'records and are not current-source Mixed dispatch evidence.',
+            'Wide multimodal is a numerical qualification of the nine executed family fixtures on their '
+            'measured current-source route. At the released CPU-scale geometries the unchanged '
+            'profitability policy dispatches no cooperative accumulation, so the wide rows are not '
+            'current-source cooperative Mixed WMMA dispatch evidence. The pre-gate Phase 25 wide rows '
+            '([297, 0], [297, 0], [44, 0], 352 and 426) are preserved historical records disclosed from '
+            'their own sealed root, and cooperative Mixed WMMA remains required from the precision and '
+            'primitive components.'])
     document['limitations'].append('Native AVX2 fixture reproduction remains pending on the AVX2 host; this AVX512/RDNA3 target does not certify it.')
     validate_payload(document,components)
     require(all(digest(ROOT/name)==sha for name,sha in sources.items()),'source changed while sealing')

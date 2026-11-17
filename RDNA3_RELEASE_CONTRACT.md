@@ -87,10 +87,18 @@ this release, each of which records cooperative dispatches. Those components
 are independent of the native V4.1 fixture and are not weakened by this scope
 statement. The wide-multimodal packages are CPU-scale as well (`8x8` images,
 `hidden_size` 128): every projection there is also below
-`WMMA_MIN_PROFITABLE_MACS`, so their `mixed` rows record
-`accumulation_dispatches [0, 0]` on the current source. Those sealed receipts
-are retained unchanged and qualify the mixed numerical route at that geometry;
-they are not current-source records of cooperative dispatch.
+`WMMA_MIN_PROFITABLE_MACS`, so each of the nine cases records
+`accumulation_dispatches [0, 0]` with phases `[0, 0, 0]` under a configured
+`mixed` request. The current-source wide component therefore qualifies all nine
+model-family fixtures **numerically on the route their counters measured**,
+`mixed_configured_non_cooperative_route`. All nine fixtures, their inputs,
+pinned CPU oracles, numerical comparisons, tolerances, negative controls and
+artifact-integrity checks are retained, and each case records its own counters,
+phase inventory, policy-fallback telemetry, fixture/oracle provenance and route
+metadata. It is **not** an independent current-source qualification of
+cooperative Mixed WMMA accumulator dispatch, and a receipt that claims one is
+rejected. Its machine-checked scope binds the separate precision and primitive
+components, which remain required exactly as before.
 
 Historical disclosure: the pre-`08179c5` releases
 (`20261112-unified-release`, `20261115-phase25-current-source`) recorded bounded
@@ -98,7 +106,12 @@ Historical disclosure: the pre-`08179c5` releases
 `1.564621925354004e-7` maximum, because the profitability gate introduced in
 `08179c5` did not exist yet. Those receipts remain valid historical records of
 the earlier implementation and are preserved unchanged. They are not
-current-source proof of V4.1 cooperative dispatch. No tolerance, threshold,
+current-source proof of V4.1 cooperative dispatch. The same holds for the wide
+rows of that sealed root: phase25 recorded `[297, 0]`/`[189, 54, 54]` for LLaVA
+and Gemma3, `[44, 0]`/`[28, 8, 8]` for Gemma4 and `352`/`426` cooperative
+seq2seq dispatches, while the current-source wide component records all nine at
+zero. Those values are disclosed from `20261115-phase25-current-source` itself
+and are not current-source evidence. No tolerance, threshold,
 fixture row, stress case or negative control was changed to draw this
 distinction; only the claim and its machine-checked scope metadata were
 corrected.

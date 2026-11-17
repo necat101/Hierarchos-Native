@@ -21,6 +21,20 @@ NATIVE_POLICY={'wmma_min_profitable_macs':16_000_000,'full_fp16_max_reduction':6
 NATIVE_CLAIM='native V4.1 numerical behaviour on the measured execution route'
 NATIVE_NOT_CLAIMED=['current-source cooperative Mixed WMMA dispatch','native vision acceleration']
 NATIVE_SEPARATE_EVIDENCE=['precision','wide','wmma_mixed','wmma_full_original','wmma_full_dot2']
+# The wide-multimodal component qualifies the numerical behaviour of its nine
+# fixtures on the route their own counters measured. At the released CPU-scale
+# geometries the unchanged profitability policy dispatches nothing cooperatively,
+# so this component is not independent current-source WMMA dispatch evidence; the
+# precision and primitive components remain the mandatory proof of that route.
+WIDE_POLICY={'wmma_min_profitable_macs':16_000_000,'full_fp16_max_reduction':64}
+WIDE_CLAIM=('wide multimodal numerical behaviour of all nine model-family fixtures '
+            'on the measured execution route')
+WIDE_NOT_CLAIMED=['current-source cooperative Mixed WMMA accumulator dispatch']
+WIDE_SEPARATE_EVIDENCE=['precision','wmma_mixed','wmma_full_original','wmma_full_dot2']
+WIDE_FAMILIES=('llava','gemma3','gemma4','bart_image','t5_image','switch_image')
+WIDE_CASES={('llava','clip_last_layer_padded'),('gemma3','siglip_full_grid'),('gemma4','gemma4_rgb8'),
+            *{('seq2seq',family+'/'+case) for family in ('t5','bart','switch_transformers') for case in ('unmasked','padded')}}
+WIDE_NUMERICAL_POLICY={'mixed_max_abs':.02,'mixed_rms':.003,'original_fp32_max_abs':2e-7,'rtol':0}
 
 
 def require(ok,message):
@@ -227,6 +241,128 @@ def verify_native_route(native):
             'historical disclosure does not describe a different execution route')
 
 
+def wide_scope_summary(wide):
+    """The manifest-facing projection of the measured wide-multimodal scope."""
+    scope=wide['qualification_scope']
+    return {key:scope[key] for key in ('kind','measured_route','cooperative_mixed_executed',
+                                       'not_claimed','separate_wmma_evidence')}
+
+
+def verify_wide_case(case,fixtures):
+    """Validate one wide case against its own counters and bound provenance.
+
+    The released wide fixtures are CPU-scale, so the unchanged profitability
+    policy declines every cooperative projection and the `mixed` request runs the
+    FP32 kernels. The route the counters measured is verified instead of
+    demanding an accumulator that never executed; a case that did dispatch
+    cooperatively must prove it, and a case that did not must say so and keep
+    every numerical gate the component already enforced.
+    """
+    require(set(case['precision'])=={'off','mixed'},'wide case must record both precision arms')
+    off=case['precision']['off'];mixed=case['precision']['mixed']
+    verify_mode(off,'off')
+    route=case.get('route')
+    require(isinstance(route,dict),'wide case measured route metadata missing')
+    counts=mode_counts(mixed);phase_counts=phases(mixed)
+    require(route.get('configured_precision')=='mixed','wide case configured precision changed')
+    require(route.get('accumulation_dispatches')==counts,
+            'wide route counters disagree with the executed precision report')
+    require(route.get('phases')==phase_counts,
+            'wide route phases disagree with the executed precision report')
+    require(sum(phase_counts)==sum(counts),
+            'wide cooperative phase inventory disagrees with the dispatch counters')
+    cooperative=counts[0]>0
+    require(route.get('cooperative_mixed_wmma_dispatched') is cooperative,
+            'wide route dispatch flag disagrees with the executed counters')
+    require(route.get('full_fp16_wmma_dispatched') is (counts[1]>0),
+            'wide route Full FP16 flag disagrees with the executed counters')
+    require(route.get('observed_route')==('mixed_cooperative_route' if cooperative
+            else 'mixed_configured_non_cooperative_route'),
+            'wide observed route label disagrees with the executed counters')
+    require(route.get('scope')==('wide_cooperative_mixed_numerical' if cooperative
+            else 'wide_numerical_non_cooperative_route'),
+            'wide case scope disagrees with the executed route')
+    telemetry=route.get('fallback_telemetry')
+    require(isinstance(telemetry,dict),'wide route fallback telemetry missing')
+    for key,value in telemetry.items():
+        require(isinstance(value,int) and value>=0,'wide fallback counter is not a count: '+key)
+        require(mixed.get(key)==value,
+                'wide fallback telemetry disagrees with the executed report: '+key)
+    provenance=case.get('provenance')
+    require(isinstance(provenance,dict),'wide case provenance missing')
+    for label in ('fixtures','oracle'):
+        rows=provenance.get(label)
+        require(isinstance(rows,dict) and rows,'wide '+label+' provenance missing')
+        for path,sha in rows.items():
+            require(isinstance(sha,str) and len(sha)==64,'wide '+label+' digest invalid: '+path)
+            require(fixtures.get(path)==sha,
+                    'wide '+label+' is not bound by the family fixture map: '+path)
+    if cooperative:
+        verify_mode(mixed,'mixed')
+    else:
+        require(counts==[0,0] and phase_counts==[0,0,0],
+                'wide non-cooperative route recorded cooperative work')
+        require(mixed['requested']=='mixed','wide Mixed request changed')
+        require(mixed['master_weights']=='fp32' and mixed['optimizer_state']=='fp32',
+                'wide Mixed master/optimizer precision changed')
+
+
+def verify_wide_route(wide):
+    """Validate the wide scope against the route its nine cases measured.
+
+    Zero cooperative dispatches are accepted only when the component says so and
+    stops claiming a cooperative qualification. The component must still bind the
+    independent current-source WMMA evidence, so narrowing this row cannot weaken
+    the release's Mixed WMMA claim.
+    """
+    scope=wide.get('qualification_scope')
+    require(isinstance(scope,dict),'wide multimodal qualification scope missing')
+    require(scope.get('claim')==WIDE_CLAIM,'wide multimodal claim overstated or changed')
+    require(scope.get('separate_wmma_evidence')==WIDE_SEPARATE_EVIDENCE,
+            'wide scope does not bind the separate current-source WMMA evidence')
+    require(scope.get('policy')==WIDE_POLICY,'wide WMMA profitability/numerical policy changed')
+    require(all(name in REQUIRED for name in WIDE_SEPARATE_EVIDENCE),
+            'separate current-source WMMA evidence is not a required release component')
+    routes={case['route']['observed_route'] for case in wide['results']}
+    require(len(routes)==1,'wide cases measured different execution routes')
+    cooperative=all(case['route']['cooperative_mixed_wmma_dispatched'] for case in wide['results'])
+    require(scope.get('cooperative_mixed_executed') is cooperative,
+            'wide scope dispatch flag disagrees with the measured route')
+    require(scope.get('measured_route')==routes.pop(),
+            'wide scope route label disagrees with the measured route')
+    require(scope.get('kind')==wide['results'][0]['route']['scope'],
+            'wide scope kind disagrees with the measured route')
+    require(scope.get('not_claimed')==([] if cooperative else WIDE_NOT_CLAIMED),
+            'wide scope understates what the measured route did not qualify')
+    require(isinstance(wide.get('source_revision'),str) and len(wide['source_revision'])==40,
+            'wide component source revision missing')
+    require(subprocess.run(['git','merge-base','--is-ancestor',wide['source_revision'],'HEAD'],
+            cwd=ROOT,capture_output=True).returncode==0,
+            'wide component source revision is not in this repository history')
+    history=scope.get('historical_pre_gate_receipts')
+    require(isinstance(history,list) and len(history)==1,'wide historical pre-gate disclosure missing')
+    row=history[0]
+    require(row.get('release_source_revision')!=wide['source_revision'],
+            'historical cooperative receipt is presented as current source')
+    require(isinstance(row.get('component_sha256'),str) and len(row['component_sha256'])==64,
+            'wide historical disclosure lacks its component digest')
+    require(isinstance(row.get('release_source_revision'),str)
+            and len(row['release_source_revision'])==40,
+            'wide historical disclosure lacks its release revision')
+    require(subprocess.run(['git','merge-base','--is-ancestor',row['release_source_revision'],'HEAD'],
+            cwd=ROOT,capture_output=True).returncode==0,
+            'wide historical disclosure revision is not in this repository history')
+    recorded={(path['family'],path['case']):path for path in row.get('routes',[])}
+    require(set(recorded)==WIDE_CASES and len(recorded)==9,
+            'wide historical disclosure does not cover the qualified case inventory')
+    for path in recorded.values():
+        require(path['accumulation_dispatches'][1]==0 and path['accumulation_dispatches'][0]>0,
+                'wide historical disclosure is not a cooperative Mixed receipt')
+    require(any(recorded[(case['family'],case['case'])]['accumulation_dispatches']
+                !=case['route']['accumulation_dispatches'] for case in wide['results']),
+            'wide historical disclosure does not describe a different execution route')
+
+
 def verify_intermediates(q):
     rows=q['raw_diagnostics']
     require(q['maintained_cases']==93 and q['diagnostic_checks']==len(rows)==1116,
@@ -304,24 +440,55 @@ def validate_payload(document,components):
             if not exact:require(strict(value['rms'],.003 if 'mixed' in key else .01),'precision RMS check failed: '+key)
     wide=components['wide'];require(wide['status']=='PASS_SCOPED' and len(wide['results'])==9,'wide matrix incomplete or failing')
     require({r['family'] for r in wide['results']}=={'llava','gemma3','gemma4','seq2seq'},'wide architecture coverage incomplete')
-    require({(r['family'],r['case']) for r in wide['results']}=={
-        ('llava','clip_last_layer_padded'),('gemma3','siglip_full_grid'),('gemma4','gemma4_rgb8'),
-        *{('seq2seq',family+'/'+case) for family in ('t5','bart','switch_transformers') for case in ('unmasked','padded')}},'wide case inventory changed')
+    require({(r['family'],r['case']) for r in wide['results']}==WIDE_CASES,'wide case inventory changed')
+    require(set(wide.get('fixture_sha256',{}))=={'llava','gemma3','gemma4','seq2seq'},'wide fixture provenance incomplete')
+    require(set(wide.get('binary_sha256',{}))=={'llava','gemma3','gemma4','seq2seq'},'wide executable inventory changed')
+    require(set(wide.get('oracle_contract',{}))=={'llava','gemma3','gemma4','seq2seq'},'wide oracle provenance incomplete')
+    for family,row in wide['oracle_contract'].items():
+        require(row.get('cpu')=='AVX2' and row.get('threads')==1,'wide CPU oracle pinning changed: '+family)
+        require(row.get('manifest_sha256')==wide['fixture_sha256'][family].get('manifest.json'),
+                'wide oracle manifest disagrees with the fixture map: '+family)
+        require(isinstance(row.get('oracle_sha256'),str) and len(row['oracle_sha256'])==64,
+                'wide oracle provenance digest missing: '+family)
+    require(len(wide.get('commands',[]))==18,'wide execution inventory is not nine cases times two arms')
+    require({(row['mode'],row['exit_code']) for row in wide['commands']}=={('off',0),('mixed',0)},
+            'wide execution commands failed or changed mode')
+    require(wide.get('policy')==WIDE_NUMERICAL_POLICY,'wide numerical policy changed')
+    require(isinstance(wide.get('source_files'),dict) and wide['source_files'],
+            'wide component source provenance missing')
+    for relative,sha in wide['source_files'].items():
+        require(not Path(relative).is_absolute() and '..' not in Path(relative).parts,
+                'unsafe wide source path: '+relative)
+        require(digest(ROOT/relative)==sha,'wide component source changed: '+relative)
     for r in wide['results']:
         require(r['status']=='PASS_SCOPED','wide family failed')
-        verify_mode(r['precision']['off'],'off');verify_mode(r['precision']['mixed'],'mixed')
+        verify_wide_case(r,wide['fixture_sha256'][r['family']])
         if r['family']=='gemma4':require(r['precision']['mixed']['policy_fallbacks']>0,'Gemma4 sensitive FP32 policy missing')
         for key,value in r['checks'].items():
             if key.startswith('mixed/') and isinstance(value,dict) and 'max_abs' in value:
                 limit=2e-7 if '/reload/' in key else .02
                 require(strict(value['max_abs'],limit),'wide Mixed maximum failed')
                 if '/reload/' not in key:require(strict(value['rms'],.003),'wide Mixed RMS failed')
+            if key.startswith('off/') and isinstance(value,dict) and 'within_strict_limit' in value:
+                require(value['within_strict_limit']==strict(value['max_abs'],2e-7),
+                        'wide strict diagnostic flag disagrees with numeric observation')
+    verify_wide_route(wide)
     native=components['native_v41']
     require(native['status']=='PASS_BOUNDED_NATIVE_VISION' and native['reports']['bounded']['independent_FP32_qualified'],'native bounded fixture failed')
     verify_native_checks(native)
     verify_native_route(native)
     require(document.get('native_v41_scope')==native_scope_summary(native),
             'release manifest native V4.1 scope disagrees with the measured component')
+    require(document.get('wide_multimodal_scope')==wide_scope_summary(wide),
+            'release manifest wide multimodal scope disagrees with the measured component')
+    for capability in document['precision_capabilities']:
+        if capability['family'] not in WIDE_FAMILIES:continue
+        mixed_capability=capability['mixed']
+        require(mixed_capability.get('execution_route')==wide['qualification_scope']['measured_route'],
+                'manifest mixed route disagrees with the wide component: '+capability['family'])
+        require(mixed_capability.get('independent_cooperative_qualification')
+                is wide['qualification_scope']['cooperative_mixed_executed'],
+                'manifest cooperative qualification disagrees with the wide component: '+capability['family'])
     verify_primitive(components['wmma_mixed'],'mixed',0)
     verify_primitive(components['wmma_full_original'],'full-fp16',9)
     failures=verify_primitive(components['wmma_full_dot2'],'full-fp16',3)
