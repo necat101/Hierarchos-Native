@@ -1,0 +1,33 @@
+{
+  "cpu_model": "AMD Ryzen Z1 Extreme",
+  "disk_free_bytes": 21749137408,
+  "logical_processors": 16,
+  "memory_bytes": 11494346752,
+  "mkldnn": true,
+  "note": "Torch 2.6.0+cpu installed in .phase19w-venv; the original CPU oracle manifest records the same torch revision, 1 thread, AVX512 capability, SDPA text attention and eager vision attention.",
+  "numpy": "2.4.6",
+  "oracle_manifest_sha256": "709427881624237c05dccf1e9bdd7593285819304af7d3778b885bc206fbad0c",
+  "physical_cores": 8,
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.13.14 (tags/v3.13.14:fd17997, Jun 10 2026, 13:03:48) [MSC v.1944 64 bit (AMD64)]",
+  "reference_model_input_sha256": {
+    "config.json": "6d1760e9facce5ae3913a1ed60fc7f8fe29e35eb7b662be49861f9e87cd2aa89",
+    "image/config.json": "1f87da2a0a6c49de7d3d0f265e98d31b206de80f0d70b584369153a6c41584f1",
+    "image/model.safetensors": "aed8d82b2f07615ae2e0c5f15b9794c2208138d802fd1ae26017d0e19437ffd1",
+    "image/preprocessor_config.json": "effa96347b7c954a56e7c2fce8aa0b0f1c24d161a947d33f5df137d15af13231",
+    "text/config.json": "aa844a8565ae1a30991e5c736533d110cdc6e58462a72f5ee1e5f9eee6f3986e",
+    "text/generation_config.json": "ac3289fe14c15c83e32d983a6b1c44d29ff1e90ef7b9393bc7f155bc0e9a4561",
+    "text/model.safetensors": "bf2ba7751555a1921abbad2e249c4ddd5f5e1f2be9cde3ac6c0cff75a1077c93"
+  },
+  "safetensors": "0.8.0",
+  "schema": 1,
+  "scope": "phase19y_avx512_cpu_oracle_environment",
+  "threads": 1,
+  "torch": "2.6.0+cpu",
+  "torch_config": "PyTorch built with:\n  - C++ Version: 201703\n  - MSVC 192930157\n  - Intel(R) oneAPI Math Kernel Library Version 2025.0.1-Product Build 20241031 for Intel(R) 64 architecture applications\n  - Intel(R) MKL-DNN v3.5.3 (Git Hash 66f0cb9eb66affd2da3bf5f8d897376f04aae6af)\n  - OpenMP 2019\n  - LAPACK is enabled (usually provided by MKL)\n  - CPU capability usage: AVX512\n  - Build settings: BLAS_INFO=mkl, BUILD_TYPE=Release, COMMIT_SHA=2236df1770800ffea5697b11b0bb0d910b2e59e1, CXX_COMPILER=C:/actions-runner/_work/pytorch/pytorch/pytorch/.ci/pytorch/windows/tmp_bin/sccache-cl.exe, CXX_FLAGS=/DWIN32 /D_WINDOWS /GR /EHsc /Zc:__cplusplus /bigobj /FS /utf-8 -DUSE_PTHREADPOOL -DNDEBUG -DUSE_KINETO -DLIBKINETO_NOCUPTI -DLIBKINETO_NOROCTRACER -DLIBKINETO_NOXPUPTI=ON -DUSE_FBGEMM -DUSE_XNNPACK -DSYMBOLICATE_MOBILE_DEBUG_HANDLE /wd4624 /wd4068 /wd4067 /wd4267 /wd4661 /wd4717 /wd4244 /wd4804 /wd4273, LAPACK_INFO=mkl, PERF_WITH_AVX=1, PERF_WITH_AVX2=1, TORCH_VERSION=2.6.0, USE_CUDA=0, USE_CUDNN=OFF, USE_CUSPARSELT=OFF, USE_EXCEPTION_PTR=1, USE_GFLAGS=OFF, USE_GLOG=OFF, USE_GLOO=ON, USE_MKL=ON, USE_MKLDNN=ON, USE_MPI=OFF, USE_NCCL=OFF, USE_NNPACK=OFF, USE_OPENMP=ON, USE_ROCM=OFF, USE_ROCM_KERNEL_ASSERT=OFF, \n",
+  "torch_config_sha256": "7c79923d51cbfe1efc0a905a88c557105f9a1c36fbb3024148e12531ddf416f9",
+  "torch_cpu_capability": "AVX512",
+  "torch_revision": "2236df1770800ffea5697b11b0bb0d910b2e59e1",
+  "transformers_revision": "129e8dc306932532e0b9e702d1fb4d5d7771c2a4",
+  "windows_query": "{\"Name\":\"AMD Ryzen Z1 Extreme                           \",\"NumberOfCores\":8,\"NumberOfLogicalProcessors\":16}\n{\"TotalPhysicalMemory\":11494346752}"
+}

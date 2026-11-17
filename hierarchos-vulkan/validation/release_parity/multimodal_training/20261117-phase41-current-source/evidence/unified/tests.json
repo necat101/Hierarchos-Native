@@ -1,0 +1,340 @@
+{
+  "library": {
+    "passed": 1169,
+    "failed": 0,
+    "ignored": 40,
+    "exit_code": 0,
+    "log_sha256": "f98ff42e33737e6f9e791e63fda3b426bbf068d35e4e97c036b1dc9f8dbc1ae7",
+    "binary_sha256": "9cafaf0d3b8e0c220257d07df1008fad8626ed05bec64cad1a5d96c29cade94c"
+  },
+  "cli": {
+    "passed": 50,
+    "failed": 0,
+    "ignored": 0,
+    "exit_code": 0,
+    "log_sha256": "82bc1e23f80ec1adbadccc08d9f4888ce5b63a620f8d0573ae28136a57645470",
+    "binary_sha256": "9121b826716794a1b01ca3c6df2ff20b6ae89b04b136f884b3d12f97e30f432b"
+  },
+  "gui": {
+    "passed": 17,
+    "failed": 0,
+    "ignored": 4,
+    "exit_code": 0,
+    "log_sha256": "f2c03b316c7449f6d8ca2ed4b4a103f587e974cd1d84c2874cb597592db567a2",
+    "binary_sha256": "fe9a030a9e40124e9f2799e758f5f87028176573d7364af91948b0cbe4fc4317"
+  },
+  "oversized_fallback": {
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "exit_code": 0,
+    "log_sha256": "0a3de7c766dccf7bf41da254c013623f10203000c1b8dc76a42aef0b39b69dc8",
+    "binary_sha256": "9cafaf0d3b8e0c220257d07df1008fad8626ed05bec64cad1a5d96c29cade94c",
+    "model_export": {
+      "status": "PASS_INTERNAL_FALLBACK_ONLY",
+      "scope": "Two joint updates, oversized FP32 fallback, FP32 masters/moments and native HF export/reload; no 128-wide Full FP16 frontend admission",
+      "binary_sha256": "624398a8cc7340218ba203f1bbfc40a3f0411b1e3b18b96cb64c7ea67de01030",
+      "source_revision": "867b93c138fbd8f088c301f5cd90357ba621ea3f",
+      "source_sha256": "261925139ac46c9905993606c7bb1556bfe522fcfcc6c3f16d48c4f7dcf3b3fa",
+      "fixture_sha256": {
+        "input.json": "1e13d13f7f1d10d28396bbf0bbf86d660d9c101547ece4d1fe68c86e47ae78b2",
+        "model/config.json": "8d0487fb6decd98e2053524dde9199e0762028b9a37128b84612152d57cb12ba",
+        "model/image/config.json": "c59b0bb0a106f458504dfa99a11709b47baf51d43425480dde0aed58e6d78c4e",
+        "model/image/model.safetensors": "739873f761e17bbb6ae3d960ae4dcca11736ac4b252016b080947f4afa2d98e3",
+        "model/image/preprocessor_config.json": "effa96347b7c954a56e7c2fce8aa0b0f1c24d161a947d33f5df137d15af13231",
+        "model/text/config.json": "1b7b5c63ea4b532fe04d633da81c3e0adf6026fcf66ef90f87911db3c11251b5",
+        "model/text/generation_config.json": "9a7c1027fe57c657682afe16934cf7323c493f79b785266803f5185b4bfce416",
+        "model/text/model.safetensors": "5458f65bd2e9d4fbbf7ff1468cfc8966adc124bd2cf699baaba3e286ae93d9c5"
+      },
+      "checks": {
+        "off/reload/logits": {
+          "values": 36864,
+          "max_abs": 0.0,
+          "rms": 0.0
+        },
+        "off/reload/vision_features": {
+          "values": 98304,
+          "max_abs": 0.0,
+          "rms": 0.0
+        },
+        "off/reload/projected_features": {
+          "values": 98304,
+          "max_abs": 0.0,
+          "rms": 0.0
+        },
+        "full-fp16/reload/logits": {
+          "values": 36864,
+          "max_abs": 0.0,
+          "rms": 0.0
+        },
+        "full-fp16/reload/vision_features": {
+          "values": 98304,
+          "max_abs": 0.0,
+          "rms": 0.0
+        },
+        "full-fp16/reload/projected_features": {
+          "values": 98304,
+          "max_abs": 0.0,
+          "rms": 0.0
+        },
+        "full-vs-fp32/logits": {
+          "values": 36864,
+          "max_abs": 1.1324882507324219e-06,
+          "rms": 3.6271363676902217e-07
+        },
+        "full-vs-fp32/vision_features": {
+          "values": 98304,
+          "max_abs": 1.3113021850585938e-06,
+          "rms": 3.1238678951751967e-07
+        },
+        "full-vs-fp32/projected_features": {
+          "values": 98304,
+          "max_abs": 3.5390257835388184e-08,
+          "rms": 1.136511597629145e-08
+        },
+        "masters/image": {
+          "multi_modal_projector.linear_1.bias": {
+            "values": 128,
+            "max_abs": 1.5133991837501526e-08,
+            "rms": 3.0643056350900703e-09
+          },
+          "multi_modal_projector.linear_1.weight": {
+            "values": 16384,
+            "max_abs": 2.60770320892334e-08,
+            "rms": 2.5826794682703314e-09
+          },
+          "multi_modal_projector.linear_2.bias": {
+            "values": 128,
+            "max_abs": 2.8638169169425964e-08,
+            "rms": 5.865348325678845e-09
+          },
+          "multi_modal_projector.linear_2.weight": {
+            "values": 16384,
+            "max_abs": 3.818422555923462e-08,
+            "rms": 3.4417946513664947e-09
+          },
+          "vision_tower.vision_model.embeddings.class_embedding": {
+            "values": 128,
+            "max_abs": 1.4901161193847656e-08,
+            "rms": 1.9516120327686465e-09
+          },
+          "vision_tower.vision_model.embeddings.patch_embedding.weight": {
+            "values": 6144,
+            "max_abs": 1.6763806343078613e-08,
+            "rms": 2.134992933609778e-09
+          },
+          "vision_tower.vision_model.embeddings.position_embedding.weight": {
+            "values": 2176,
+            "max_abs": 6.05359673500061e-09,
+            "rms": 9.298553628531655e-10
+          },
+          "vision_tower.vision_model.encoder.layers.0.layer_norm1.bias": {
+            "values": 128,
+            "max_abs": 3.3032847568392754e-09,
+            "rms": 8.954567714968767e-10
+          },
+          "vision_tower.vision_model.encoder.layers.0.layer_norm1.weight": {
+            "values": 128,
+            "max_abs": 0.0,
+            "rms": 0.0
+          },
+          "vision_tower.vision_model.encoder.layers.0.layer_norm2.bias": {
+            "values": 128,
+            "max_abs": 9.313225746154785e-10,
+            "rms": 3.0536022191541117e-10
+          },
+          "vision_tower.vision_model.encoder.layers.0.layer_norm2.weight": {
+            "values": 128,
+            "max_abs": 0.0,
+            "rms": 0.0
+          },
+          "vision_tower.vision_model.encoder.layers.0.mlp.fc1.bias": {
+            "values": 128,
+            "max_abs": 1.1641532182693481e-09,
+            "rms": 3.987680531164391e-10
+          },
+          "vision_tower.vision_model.encoder.layers.0.mlp.fc1.weight": {
+            "values": 16384,
+            "max_abs": 1.4901161193847656e-08,
+            "rms": 7.531596148801702e-10
+          },
+          "vision_tower.vision_model.encoder.layers.0.mlp.fc2.bias": {
+            "values": 128,
+            "max_abs": 3.550667315721512e-09,
+            "rms": 1.0224918089806701e-09
+          },
+          "vision_tower.vision_model.encoder.layers.0.mlp.fc2.weight": {
+            "values": 16384,
+            "max_abs": 1.4901161193847656e-08,
+            "rms": 8.603305420618604e-10
+          },
+          "vision_tower.vision_model.encoder.layers.0.self_attn.k_proj.bias": {
+            "values": 128,
+            "max_abs": 8.578870253073134e-12,
+            "rms": 2.5026742124453127e-12
+          },
+          "vision_tower.vision_model.encoder.layers.0.self_attn.k_proj.weight": {
+            "values": 16384,
+            "max_abs": 1.4901161193847656e-08,
+            "rms": 3.4158474719902323e-10
+          },
+          "vision_tower.vision_model.encoder.layers.0.self_attn.out_proj.bias": {
+            "values": 128,
+            "max_abs": 4.540197551250458e-09,
+            "rms": 1.1296212785958946e-09
+          },
+          "vision_tower.vision_model.encoder.layers.0.self_attn.out_proj.weight": {
+            "values": 16384,
+            "max_abs": 1.4901161193847656e-08,
+            "rms": 1.0641521816328652e-09
+          },
+          "vision_tower.vision_model.encoder.layers.0.self_attn.q_proj.bias": {
+            "values": 128,
+            "max_abs": 4.656612873077393e-10,
+            "rms": 1.1791668876067092e-10
+          },
+          "vision_tower.vision_model.encoder.layers.0.self_attn.q_proj.weight": {
+            "values": 16384,
+            "max_abs": 1.4901161193847656e-08,
+            "rms": 3.3652782157582025e-10
+          },
+          "vision_tower.vision_model.encoder.layers.0.self_attn.v_proj.bias": {
+            "values": 128,
+            "max_abs": 2.7939677238464355e-09,
+            "rms": 1.008469281301033e-09
+          },
+          "vision_tower.vision_model.encoder.layers.0.self_attn.v_proj.weight": {
+            "values": 16384,
+            "max_abs": 1.4901161193847656e-08,
+            "rms": 1.0302117434058665e-09
+          },
+          "vision_tower.vision_model.post_layernorm.bias": {
+            "values": 128,
+            "max_abs": 0.0,
+            "rms": 0.0
+          },
+          "vision_tower.vision_model.post_layernorm.weight": {
+            "values": 128,
+            "max_abs": 0.0,
+            "rms": 0.0
+          },
+          "vision_tower.vision_model.pre_layrnorm.bias": {
+            "values": 128,
+            "max_abs": 7.916241884231567e-09,
+            "rms": 1.4544759724842328e-09
+          },
+          "vision_tower.vision_model.pre_layrnorm.weight": {
+            "values": 128,
+            "max_abs": 0.0,
+            "rms": 0.0
+          }
+        },
+        "masters/text": {
+          "lm_head.weight": {
+            "values": 4096,
+            "max_abs": 3.725290298461914e-08,
+            "rms": 7.990415454264463e-09
+          },
+          "model.embed_tokens.weight": {
+            "values": 4096,
+            "max_abs": 3.5390257835388184e-08,
+            "rms": 2.7987059867016006e-09
+          },
+          "model.layers.0.input_layernorm.weight": {
+            "values": 128,
+            "max_abs": 5.960464477539063e-08,
+            "rms": 7.450580596923828e-09
+          },
+          "model.layers.0.mlp.down_proj.weight": {
+            "values": 16384,
+            "max_abs": 2.9802322387695312e-08,
+            "rms": 2.4684457185060908e-09
+          },
+          "model.layers.0.mlp.gate_proj.weight": {
+            "values": 16384,
+            "max_abs": 3.032619133591652e-08,
+            "rms": 2.5410356714504787e-09
+          },
+          "model.layers.0.mlp.up_proj.weight": {
+            "values": 16384,
+            "max_abs": 3.166496753692627e-08,
+            "rms": 2.6888907276203184e-09
+          },
+          "model.layers.0.post_attention_layernorm.weight": {
+            "values": 128,
+            "max_abs": 1.1920928955078125e-07,
+            "rms": 1.0536712127723509e-08
+          },
+          "model.layers.0.self_attn.k_proj.weight": {
+            "values": 16384,
+            "max_abs": 5.587935447692871e-09,
+            "rms": 5.11047373870596e-10
+          },
+          "model.layers.0.self_attn.o_proj.weight": {
+            "values": 16384,
+            "max_abs": 3.888271749019623e-08,
+            "rms": 5.485565402025384e-09
+          },
+          "model.layers.0.self_attn.q_proj.weight": {
+            "values": 16384,
+            "max_abs": 1.1408701539039612e-08,
+            "rms": 4.96757403890932e-10
+          },
+          "model.layers.0.self_attn.v_proj.weight": {
+            "values": 16384,
+            "max_abs": 3.259629011154175e-08,
+            "rms": 3.697002546569427e-09
+          },
+          "model.norm.weight": {
+            "values": 128,
+            "max_abs": 1.1920928955078125e-07,
+            "rms": 2.29642316809631e-08
+          }
+        }
+      },
+      "limits": {
+        "full_max_abs": 0.05,
+        "full_rms": 0.01,
+        "reload_exact": true
+      },
+      "qualification_sha256": "3a84cdc36e96f7e60e5006726538d59687855d762427656dfd5937647d5d6d46",
+      "precision": {
+        "automatic_loss_scaling": true,
+        "cooperative_dispatches": 0,
+        "forward": 0,
+        "full_fp16_accumulation": 0,
+        "full_fp16_max_reduction": 64,
+        "full_fp16_reduction_fallbacks": 77,
+        "input_grad": 0,
+        "loss_scaler": {
+          "accumulation_steps": 1,
+          "backoff_factor": 0.5,
+          "growth_factor": 2.0,
+          "growth_interval": 2000,
+          "growth_tracker": 2,
+          "pending_microbatches": 0,
+          "scale": 256.0,
+          "skipped_steps": 0
+        },
+        "master_weights": "fp32",
+        "mixed_fp32_accumulation": 0,
+        "optimizer_state": "fp32",
+        "requested": "full-fp16",
+        "shape_fallbacks": 77,
+        "weight_grad": 0
+      },
+      "optimizer_steps": [
+        1,
+        2
+      ]
+    }
+  },
+  "gui_hardware": {
+    "passed": 2,
+    "failed": 0,
+    "ignored": 0,
+    "exit_code": 0,
+    "log_sha256": "e0b1d3e77c74e64b9ccc2e556787ddcc7d018a6c15457afc163027f47ce78f18",
+    "binary_sha256": "fe9a030a9e40124e9f2799e758f5f87028176573d7364af91948b0cbe4fc4317"
+  }
+}
