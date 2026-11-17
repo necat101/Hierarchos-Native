@@ -58,11 +58,28 @@ def phases(precision):
 def verify_mode(precision,mode,weight_grad=True):
     require(precision['requested']==mode,'wrong requested precision')
     counts=mode_counts(precision);p=phases(precision)
+    require(sum(p)==sum(counts),'cooperative phase inventory disagrees with the dispatch counters')
     if mode=='off':require(counts==[0,0],'FP32 dispatched cooperative low precision')
     else:
         idx=0 if mode=='mixed' else 1
         require(counts[idx]>0 and counts[1-idx]==0,'missing or wrong cooperative accumulator route')
-        require(p[0]>0 and p[2]>0 and (p[1]>0)==weight_grad,'missing/wrong cooperative training phase')
+        require(p[0]>0 and p[2]>0,'missing cooperative forward or input-gradient phase')
+        fallbacks=precision.get('full_fp16_reduction_fallbacks',0)
+        if weight_grad:
+            if p[1]>0:
+                # The documented Full FP16 cap keeps reductions above 64 on their
+                # FP32 kernel; a cooperative weight gradient and a recorded
+                # reduction fallback cannot both describe the same route.
+                require(mode!='full-fp16' or fallbacks==0,
+                        'Full FP16 recorded a reduction fallback beside a cooperative weight gradient')
+            elif mode=='full-fp16':
+                # A full-parameter Full FP16 run may take the reduction cap on its
+                # weight-gradient projection, but only as a recorded fallback.
+                require(fallbacks>0,'missing Full FP16 weight-gradient phase without a recorded reduction fallback')
+            else:
+                require(False,'missing cooperative weight-gradient phase')
+        else:
+            require(p[1]==0,'unexpected cooperative weight-gradient phase')
     require(precision['master_weights']=='fp32' and precision['optimizer_state']=='fp32','master/optimizer precision changed')
 
 

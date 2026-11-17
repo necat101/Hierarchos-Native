@@ -80,11 +80,17 @@ and phases `[0, 0, 0]`, with the 65 mixed-vs-FP32 comparisons bit-identical to
 the FP32 control. That is a numerical qualification of the FP32 route. It is
 **not** current-source evidence that cooperative Mixed WMMA dispatch runs.
 
-The current-source RDNA3 WMMA implementation is qualified separately, by the
-precision-training, wide-multimodal and primitive evidence families (and by the
+The current-source RDNA3 WMMA implementation is qualified separately by the
+precision-training evidence family, the GUI/CLI workflows and the
 `wmma_mixed`, `wmma_full_original` and `wmma_full_dot2` primitive components of
-this release). Those components are independent of the native V4.1 fixture and
-are not weakened by this scope statement.
+this release, each of which records cooperative dispatches. Those components
+are independent of the native V4.1 fixture and are not weakened by this scope
+statement. The wide-multimodal packages are CPU-scale as well (`8x8` images,
+`hidden_size` 128): every projection there is also below
+`WMMA_MIN_PROFITABLE_MACS`, so their `mixed` rows record
+`accumulation_dispatches [0, 0]` on the current source. Those sealed receipts
+are retained unchanged and qualify the mixed numerical route at that geometry;
+they are not current-source records of cooperative dispatch.
 
 Historical disclosure: the pre-`08179c5` releases
 (`20261112-unified-release`, `20261115-phase25-current-source`) recorded bounded

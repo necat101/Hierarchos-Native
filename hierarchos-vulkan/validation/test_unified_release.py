@@ -189,4 +189,43 @@ class UnifiedReleaseControls(unittest.TestCase):
         self.reject(lambda d,p:p['packed']['results'][p['packed']['passes'][0]].update(guard=1))
 
 
+
+class PrecisionRouteControls(unittest.TestCase):
+    """The training route predicate, independent of any sealed receipt."""
+    def block(self,**kw):
+        base=dict(requested='mixed',accumulation_dispatches=[96,0],phases=[32,32,32],
+                  master_weights='fp32',optimizer_state='fp32')
+        base.update(kw);return base
+
+    def test_mixed_route_is_accepted(self):c.verify_mode(self.block(),'mixed')
+
+    def test_full_fp16_reduction_cap_records_the_weight_gradient_fallback(self):
+        # FULL_FP16_MAX_REDUCTION=64 leaves oversized dW reductions on their FP32
+        # kernel; the receipt must say so instead of inventing a cooperative phase.
+        c.verify_mode(self.block(requested='full-fp16',accumulation_dispatches=[0,320],
+            phases=[160,0,160],full_fp16_reduction_fallbacks=160),'full-fp16')
+
+    def test_full_fp16_weight_gradient_cannot_vanish_without_a_fallback(self):
+        with self.assertRaises(ValueError):
+            c.verify_mode(self.block(requested='full-fp16',accumulation_dispatches=[0,320],
+                phases=[160,0,160]),'full-fp16')
+
+    def test_full_fp16_cannot_report_a_fallback_beside_a_cooperative_weight_gradient(self):
+        with self.assertRaises(ValueError):
+            c.verify_mode(self.block(requested='full-fp16',accumulation_dispatches=[0,480],
+                phases=[160,160,160],full_fp16_reduction_fallbacks=3),'full-fp16')
+
+    def test_mixed_weight_gradient_cannot_vanish(self):
+        with self.assertRaises(ValueError):c.verify_mode(self.block(phases=[32,0,32]),'mixed')
+
+    def test_phase_inventory_must_match_the_counters(self):
+        with self.assertRaises(ValueError):c.verify_mode(self.block(accumulation_dispatches=[95,0]),'mixed')
+
+    def test_lora_must_not_dispatch_a_weight_gradient(self):
+        with self.assertRaises(ValueError):c.verify_mode(self.block(),'mixed',False)
+
+    def test_fp32_route_cannot_dispatch(self):
+        with self.assertRaises(ValueError):c.verify_mode(self.block(requested='off'),'off',False)
+
+
 if __name__=='__main__':unittest.main()
