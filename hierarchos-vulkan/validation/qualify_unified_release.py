@@ -7,7 +7,8 @@ maintained Phase XIX checkers run before the new release receipt is published.
 import argparse, json, os, subprocess, sys
 from pathlib import Path
 from check_unified_release import (ROOT, REQUIRED, DEFAULT, HOST_QUALIFICATIONS, QUALIFICATION_TARGET,
-                                  digest, require, target_fixture_provenance, validate_payload, verify)
+                                  digest, native_scope_summary, require, target_fixture_provenance,
+                                  validate_payload, verify)
 
 
 def main():
@@ -53,6 +54,8 @@ def main():
         full_fp16_max_reduction=64,full_fp16_is_universal_graph_precision=False,
         full_fp16_admission='qualified local Llama64/shared CLIP64 profile and AMD 1002:15bf driver 00800184',
         master_weights='fp32',optimizer_state='fp32',long_full_reductions='explicit FP32 fallback')
+    native_route=components['native_v41']['qualification_scope']
+    cooperative=native_route['cooperative_mixed_executed']
     capabilities=[]
     for family in ('transformer_full','transformer_lora','shared_clip_projector','bart_image','t5_image','switch_image',
                    'llava','gemma3','gemma4','deepseek_v41'):
@@ -64,7 +67,16 @@ def main():
             mixed=dict(status='supported_with_explicit_fp32_suboperations',
                 scope='executed bounded full/LoRA, wide multimodal or native-vision fixture; not arbitrary model/range qualification',
                 loss_scaling='GPU global scaling/unscaling/skip' if scaling else 'tested unscaled FP32 storage; FP16 GEMM operand quantization remains; no automatic-scaling claim',
-                evidence=['native_v41'] if family=='deepseek_v41' else ['precision'] if full else ['wide']),
+                evidence=['native_v41'] if family=='deepseek_v41' else ['precision'] if full else ['wide'],
+                **({} if family!='deepseek_v41' else dict(
+                    execution_route='cooperative_mixed' if cooperative else 'fp32_no_cooperative_dispatch',
+                    independent_cooperative_qualification=cooperative,
+                    scope_note=('native V4.1 is qualified numerically on its measured current-source '
+                        'cooperative Mixed route' if cooperative else
+                        'native V4.1 is qualified numerically on its measured current-source FP32 '
+                        'route; cooperative Mixed dispatch is not claimed for native vision, and the '
+                        'current-source WMMA implementation is qualified by the separate precision, '
+                        'wide-multimodal and primitive components')))),
             full_fp16=dict(status='fully_qualified' if full else 'unsupported',
                 scope='qualified Llama64/shared CLIP64 package, adapter/driver and reductions <=64; FP32 suboperations retained' if full else 'not admitted',
                 evidence=['precision','tests','gui_cli'] if full else [])))
@@ -72,6 +84,7 @@ def main():
         qualification_target=QUALIFICATION_TARGET,fixture_provenance=provenance,
         device=inputs['device'],components=bindings,source_files=sources,binaries=binaries,evidence_files=evidence,
         precision_policy=policy,precision_capabilities=capabilities,
+        native_v41_scope=native_scope_summary(components['native_v41']),
         limitations=[
             'The unchanged 2e-7 intermediate diagnostic failures remain disclosed; original strict 93-image and 166-text observable-value gates are separate.',
             'Additional 64/128-wide FP32 and native V4.1 stress diagnostics are not promoted to universal strict CPU equivalence.',
@@ -79,7 +92,11 @@ def main():
             'Automatic scaling is claimed only for executed GPT2/Llama/ordinary-LoRA and shared CLIP/LLaVA joint transactions.',
             'Full-model optimizer resume, image accumulation, dropout accumulation and partial-window resume remain unsupported.',
             'Local thirteen-route qualification does not assert a queued or unavailable self-hosted GitHub workflow passed.',
-            'GitHub-hosted CI conclusions must be checked at the published release commit; sealing this receipt does not predict them.'])
+            'GitHub-hosted CI conclusions must be checked at the published release commit; sealing this receipt does not predict them.',
+            'Native V4.1 is a numerical qualification of the execution route it measured; its bounded '
+            'and stress fixtures record zero cooperative accumulations, so they are not evidence that '
+            'cooperative Mixed WMMA dispatch ran. The pre-gate [32, 0] receipts are preserved historical '
+            'records and are not current-source Mixed dispatch evidence.'])
     document['limitations'].append('Native AVX2 fixture reproduction remains pending on the AVX2 host; this AVX512/RDNA3 target does not certify it.')
     validate_payload(document,components)
     require(all(digest(ROOT/name)==sha for name,sha in sources.items()),'source changed while sealing')

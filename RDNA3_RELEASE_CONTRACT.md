@@ -57,14 +57,45 @@ Their supported numerical scope is the executed bounded matrix, not arbitrary
 gradient ranges or complete PyTorch autocast/GradScaler equivalence.
 
 Native V4.1 retains its released ViT, two-dimensional rotary attention and
-spatial aligner. The bounded independent 128-wide fixture passes all 65 strict
-rows (maximum `1.564621925354004e-7`). In the stress fixture the patch projection
-is identical, and first-norm output differs by `2.384185791015625e-7`.
+spatial aligner. It is qualified **numerically, on the execution route it
+actually measured**, not as an independent qualification of cooperative Mixed
+WMMA dispatch. The bounded independent 128-wide fixture passes all 65 strict
+rows (maximum `1.564621925354004e-7`), and the 65 stress rows are retained with
+their larger-magnitude result. In the stress fixture the patch projection is
+identical, and first-norm output differs by `2.384185791015625e-7`.
 Operand-matched CPU and GPU norms are each within two FP32 ULP of an independent
 float64 calculation. Subsequent drift is retained and the stress fixture is
 not qualified as strict CPU-equivalent. The qualifier explicitly pins the
 CPU oracle's recorded vector width. Native language LoRA remains FP32; native
 V4.1 Full FP16 and automatic scaling remain outside this capability contract.
+
+The measured route matters and is recorded in the receipt. At the released
+fixture geometry (`8x8` image, 16 vision patches, `vision_dim` 128,
+`vision_inter_dim` 256) the widest native vision projection is `wqkv` at
+`16 * 384 * 128 = 786,432` MACs. `wmma_shape_profitable` requires
+`WMMA_MIN_PROFITABLE_MACS = 16,000,000`, so the crossover policy declines every
+native vision projection before any cooperative executor exists. The `mixed`
+request therefore executes the FP32 kernels: `accumulation_dispatches [0, 0]`
+and phases `[0, 0, 0]`, with the 65 mixed-vs-FP32 comparisons bit-identical to
+the FP32 control. That is a numerical qualification of the FP32 route. It is
+**not** current-source evidence that cooperative Mixed WMMA dispatch runs.
+
+The current-source RDNA3 WMMA implementation is qualified separately, by the
+precision-training, wide-multimodal and primitive evidence families (and by the
+`wmma_mixed`, `wmma_full_original` and `wmma_full_dot2` primitive components of
+this release). Those components are independent of the native V4.1 fixture and
+are not weakened by this scope statement.
+
+Historical disclosure: the pre-`08179c5` releases
+(`20261112-unified-release`, `20261115-phase25-current-source`) recorded bounded
+`accumulation_dispatches [32, 0]` with phases `[16, 8, 8]` at the same
+`1.564621925354004e-7` maximum, because the profitability gate introduced in
+`08179c5` did not exist yet. Those receipts remain valid historical records of
+the earlier implementation and are preserved unchanged. They are not
+current-source proof of V4.1 cooperative dispatch. No tolerance, threshold,
+fixture row, stress case or negative control was changed to draw this
+distinction; only the claim and its machine-checked scope metadata were
+corrected.
 
 Scoped Full FP16 uses a genuine FP16 cooperative accumulator for eligible
 reductions up to 64, widening the result on the GPU. Longer reductions execute

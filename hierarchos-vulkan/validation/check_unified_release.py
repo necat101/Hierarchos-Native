@@ -14,6 +14,13 @@ REQUIRED={'text166','fp32_replay','precision','wide','native_v41','wmma_mixed','
           'shader727','shader_wmma','tests','gui_cli','packed','intermediates','phase19w','phase19x','phase19y','phase19z',*IMAGE_COUNTS}
 QUALIFICATION_TARGET={'cpu':'AVX512','gpu':'RDNA3'}
 HOST_QUALIFICATIONS='hierarchos-vulkan/validation/fixtures/fixture_host_qualifications.json'
+# Native V4.1 is a numerical qualification of the route it measured. These are
+# the policy constants the route receipt is checked against; they are the
+# production values, never a test-only override.
+NATIVE_POLICY={'wmma_min_profitable_macs':16_000_000,'full_fp16_max_reduction':64}
+NATIVE_CLAIM='native V4.1 numerical behaviour on the measured execution route'
+NATIVE_NOT_CLAIMED=['current-source cooperative Mixed WMMA dispatch','native vision acceleration']
+NATIVE_SEPARATE_EVIDENCE=['precision','wide','wmma_mixed','wmma_full_original','wmma_full_dot2']
 
 
 def require(ok,message):
@@ -108,6 +115,101 @@ def verify_native_checks(native):
                 'native aggregate qualification disagrees with numeric observations')
 
 
+def native_scope_summary(native):
+    """The manifest-facing projection of the measured native V4.1 scope."""
+    scope=native['qualification_scope']
+    return {key:scope[key] for key in ('kind','measured_route','cooperative_mixed_executed',
+                                       'not_claimed','separate_wmma_evidence')}
+
+
+def verify_native_route(native):
+    """Validate the measured route, not a required route label.
+
+    A cooperative run must prove its dispatches and its phases. An FP32 run must
+    prove that nothing dispatched and that its comparisons stayed bit-identical.
+    Either way the recorded route has to agree with the executed counters and
+    with the fixture geometry against the production profitability policy, so a
+    receipt cannot relabel a fallback as WMMA execution or the reverse.
+    """
+    scope=native.get('qualification_scope')
+    require(isinstance(scope,dict),'native V4.1 qualification scope missing')
+    require(scope.get('claim')==NATIVE_CLAIM,'native V4.1 claim overstated or changed')
+    require(scope.get('separate_wmma_evidence')==NATIVE_SEPARATE_EVIDENCE,
+            'native scope does not bind the separate current-source WMMA evidence')
+    kinds=set();measured=set()
+    for label in ('bounded','stress'):
+        precision=native['reports'][label]['precision'];route=native['reports'][label].get('route')
+        require(isinstance(route,dict),f'native {label} route metadata missing')
+        require(precision['requested']=='mixed','native bounded/stress precision request changed')
+        require(precision['master_weights']=='fp32' and precision['optimizer_state']=='fp32',
+                'native master/optimizer precision changed')
+        require(precision['automatic_loss_scaling'] is False,'native V4.1 automatic loss scaling was claimed')
+        counts=mode_counts(precision);phases_list=phases(precision)
+        require(route['accumulation_dispatches']==counts and route['phases']==phases_list,
+                'native route counters disagree with the executed precision report')
+        require(counts[1]==0,'native V4.1 executed Full FP16')
+        cooperative=counts[0]>0
+        require(route['cooperative_mixed_executed'] is cooperative,
+                'native route dispatch flag disagrees with the executed counters')
+        require(route['measured_route']==('cooperative_mixed' if cooperative else 'fp32_no_cooperative_dispatch'),
+                'native measured route label disagrees with the executed counters')
+        require(route['scope']==('mixed_cooperative_numerical' if cooperative else 'numerical_fp32_route'),
+                'native qualification scope disagrees with the executed route')
+        require(route['policy']==NATIVE_POLICY,'native profitability/numerical policy changed')
+        if cooperative:require(all(value>0 for value in phases_list),
+                'native cooperative route lacks forward, weight- or input-gradient accumulation')
+        else:require(phases_list==[0,0,0],'native FP32 route recorded cooperative phases')
+        geometry=route['geometry'];n=geometry['n_vit_tokens'];dim=geometry['vision_dim']
+        inter=geometry['vision_inter_dim'];patch=geometry['patch_reduction']
+        require(all(value>0 for value in (n,dim,inter,patch)),'native fixture geometry is unusable')
+        expected=dict(patch_embed=n*dim*patch,wqkv=n*3*dim*dim,w1=n*inter*dim,w2=n*dim*inter,w3=n*inter*dim)
+        require(geometry['projections']==expected,'native projection geometry changed')
+        require(geometry['max_projection_macs']==max(expected.values())
+                and geometry['widest']==max(expected,key=expected.get),
+                'native widest projection disagrees with the recorded geometry')
+        eligible=geometry['max_projection_macs']>=NATIVE_POLICY['wmma_min_profitable_macs']
+        require(route['admission']==('admitted' if eligible else 'declined'),
+                'native admission flag disagrees with the profitability policy')
+        require(route['declined_by']==(None if cooperative else
+                ('wmma_shape_profitable' if not eligible else 'numerical_policy')),
+                'native decline reason disagrees with the measured geometry')
+        require(not cooperative or eligible,'cooperative dispatch claimed below the profitability floor')
+        label_route='cooperative_parity' if cooperative else 'fallback_parity'
+        for key,row in native['checks'][label].items():
+            if key.endswith('mixed-vs-FP32'):require(row.get('route')==label_route,
+                    'native comparison route label changed')
+        if not cooperative:
+            require(all(row['max_abs']==0 for key,row in native['checks'][label].items()
+                        if key.endswith('mixed-vs-FP32')),
+                    'a declined cooperative request did not stay on the FP32 kernels')
+        control=native['reports'][label].get('control_route') or {}
+        require(control.get('accumulation_dispatches')==[0,0] and control.get('phases')==[0,0,0],
+                'native FP32 control dispatched cooperative accumulation')
+        kinds.add(route['scope']);measured.add(tuple(counts))
+    require(len(kinds)==1,'bounded and stress fixtures measured different execution routes')
+    require(len(measured)==1,'bounded and stress dispatch inventories differ')
+    kind=kinds.pop();current=list(measured.pop())
+    require(scope['kind']==kind,'native qualification kind disagrees with the measured route')
+    cooperative=kind=='mixed_cooperative_numerical'
+    require(scope['cooperative_mixed_executed']==cooperative,'native scope dispatch flag disagrees with the route')
+    require(scope['measured_route']==('cooperative_mixed' if cooperative else 'fp32_no_cooperative_dispatch'),
+            'native scope route label changed')
+    require(scope['not_claimed']==([] if cooperative else NATIVE_NOT_CLAIMED),
+            'native scope understates what the measured route did not qualify')
+    historical=scope.get('historical_pre_gate_receipts')
+    require(isinstance(historical,list) and historical,'native historical dispatch disclosure missing')
+    for row in historical:
+        require(row['accumulation_dispatches'][1]==0 and row['accumulation_dispatches'][0]>0,
+                'historical disclosure is not a cooperative Mixed receipt')
+        require(row['release_source_revision']!=native['source_revision'],
+                'historical cooperative receipt is presented as current source')
+        require(isinstance(row['native_receipt_sha256'],str) and len(row['native_receipt_sha256'])==64,
+                'historical disclosure lacks a receipt digest')
+        require(strict(row['bounded_max_abs'],float('inf')),'historical disclosure lacks its numerical result')
+    require(any(row['accumulation_dispatches']!=current for row in historical),
+            'historical disclosure does not describe a different execution route')
+
+
 def verify_intermediates(q):
     rows=q['raw_diagnostics']
     require(q['maintained_cases']==93 and q['diagnostic_checks']==len(rows)==1116,
@@ -200,7 +302,9 @@ def validate_payload(document,components):
     native=components['native_v41']
     require(native['status']=='PASS_BOUNDED_NATIVE_VISION' and native['reports']['bounded']['independent_FP32_qualified'],'native bounded fixture failed')
     verify_native_checks(native)
-    verify_mode(native['reports']['bounded']['precision'],'mixed')
+    verify_native_route(native)
+    require(document.get('native_v41_scope')==native_scope_summary(native),
+            'release manifest native V4.1 scope disagrees with the measured component')
     verify_primitive(components['wmma_mixed'],'mixed',0)
     verify_primitive(components['wmma_full_original'],'full-fp16',9)
     failures=verify_primitive(components['wmma_full_dot2'],'full-fp16',3)

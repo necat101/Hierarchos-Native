@@ -102,6 +102,83 @@ class UnifiedReleaseControls(unittest.TestCase):
             key=next(k for k in checks if k.endswith('independent-FP32'))
             checks[key]['max_abs']=5e-7
         self.reject(mutate)
+    def forge_cooperative(self,p,counts=(32,0),phase_counts=(16,8,8)):
+        """A fully self-consistent receipt that relabels the route as cooperative."""
+        for label in ('bounded','stress'):
+            route=p['native_v41']['reports'][label]['route']
+            route.update(scope='mixed_cooperative_numerical',measured_route='cooperative_mixed',
+                cooperative_mixed_executed=True,accumulation_dispatches=list(counts),phases=list(phase_counts),
+                declined_by=None)
+            p['native_v41']['reports'][label]['precision'].update(accumulation_dispatches=list(counts),phases=list(phase_counts))
+            for key,row in p['native_v41']['checks'][label].items():
+                if key.endswith('mixed-vs-FP32'):row['route']='cooperative_parity'
+        p['native_v41']['qualification_scope'].update(kind='mixed_cooperative_numerical',
+            measured_route='cooperative_mixed',cooperative_mixed_executed=True,not_claimed=[])
+    def test_native_fp32_qualification_is_accepted(self):
+        # The positive path is the sealed receipt itself: both fixtures must be
+        # a numerical qualification on the route they actually measured.
+        self.assertTrue(self.original['native_v41_scope']['cooperative_mixed_executed'] is False)
+        self.assertEqual(self.original['native_v41_scope']['kind'],'numerical_fp32_route')
+        c.verify_native_route(self.components['native_v41'])
+    def test_native_requires_every_bounded_comparison(self):
+        def mutate(d,p):
+            key=next(k for k in p['native_v41']['checks']['bounded'] if k.endswith('independent-FP32'))
+            p['native_v41']['checks']['bounded'].pop(key)
+        self.reject(mutate)
+    def test_native_requires_every_stress_comparison(self):
+        def mutate(d,p):
+            key=next(k for k in p['native_v41']['checks']['stress'] if k.endswith('independent-FP32'))
+            p['native_v41']['checks']['stress'].pop(key)
+        self.reject(mutate)
+    def test_native_stress_strict_limit_still_enforced(self):
+        def mutate(d,p):
+            key=next(k for k in p['native_v41']['checks']['stress'] if k.endswith('independent-FP32'))
+            p['native_v41']['checks']['stress'][key].update(max_abs=2e-7,within_strict_limit=False)
+        self.reject(mutate)
+    def test_native_reload_must_stay_exact(self):
+        def mutate(d,p):
+            p['native_v41']['checks']['bounded']['mixed/reload']['max_abs']=1e-9
+        self.reject(mutate)
+    def test_native_route_counters_must_match_the_executed_precision(self):
+        def mutate(d,p):
+            p['native_v41']['reports']['bounded']['route'].update(accumulation_dispatches=[32,0],phases=[16,8,8])
+        self.reject(mutate)
+    def test_native_fallback_cannot_be_relabeled_as_cooperative(self):
+        def mutate(d,p):
+            route=p['native_v41']['reports']['bounded']['route']
+            route.update(scope='mixed_cooperative_numerical',measured_route='cooperative_mixed',
+                cooperative_mixed_executed=True,declined_by=None)
+        self.reject(mutate)
+    def test_native_cooperative_claim_below_the_profitability_floor(self):
+        def mutate(d,p):
+            self.forge_cooperative(p);d['native_v41_scope']=c.native_scope_summary(p['native_v41'])
+        self.reject(mutate)
+    def test_native_historical_dispatch_disclosure_cannot_be_removed(self):
+        def mutate(d,p):
+            p['native_v41']['qualification_scope']['historical_pre_gate_receipts']=[]
+        self.reject(mutate)
+    def test_native_historical_receipt_cannot_be_presented_as_current(self):
+        def mutate(d,p):
+            history=p['native_v41']['qualification_scope']['historical_pre_gate_receipts']
+            history[0]['release_source_revision']=p['native_v41']['source_revision']
+        self.reject(mutate)
+    def test_native_scope_cannot_claim_cooperative_qualification(self):
+        def mutate(d,p):
+            p['native_v41']['qualification_scope'].update(kind='mixed_cooperative_numerical')
+            d['native_v41_scope']=c.native_scope_summary(p['native_v41'])
+        self.reject(mutate)
+    def test_native_manifest_scope_must_match_the_component(self):
+        def mutate(d,p):
+            d['native_v41_scope']['cooperative_mixed_executed']=True
+        self.reject(mutate)
+    def test_native_parity_label_must_match_the_measured_route(self):
+        def mutate(d,p):
+            key=next(k for k in p['native_v41']['checks']['bounded'] if k.endswith('mixed-vs-FP32'))
+            p['native_v41']['checks']['bounded'][key]['route']='cooperative_parity'
+        self.reject(mutate)
+    def test_separate_current_source_wmma_evidence_is_required(self):
+        def mutate(d,p):p.pop('wmma_mixed')
+        self.reject(mutate)
     def test_missing_replay_stage_with_forged_aggregate_pass(self):
         self.reject(lambda d,p:p['fp32_replay']['results'].pop())
     def test_forged_primitive_pass_flag(self):

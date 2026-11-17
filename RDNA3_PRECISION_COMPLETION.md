@@ -41,12 +41,19 @@ gradient accumulation remain outside this capability contract. The additional
 image fixture retains its strict FP32 CPU diagnostic failure (about `2.24e-7`
 after training); it does not replace or weaken the original 93-image strict gate.
 
-Native V4.1 Mixed accelerates its native vision projections, preserving its
-released ViT/aligner layout and language trainer. The bounded 128-wide independent
-CPU fixture passes strict FP32 comparisons below `2e-7`, real Mixed forward/dW/dX,
-two AdamW updates and exact reload. A separate larger-magnitude fixture retains
-its failing strict FP32 diagnostics and is not promoted by the bounded result.
-Native language LoRA remains FP32; native V4.1 Full FP16 remains rejected.
+Native V4.1 preserves its released ViT/aligner layout and language trainer, and
+is qualified **numerically on the execution route it measured**. The bounded
+128-wide independent CPU fixture passes strict FP32 comparisons below `2e-7`,
+two AdamW updates and exact reload. At that fixture geometry the profitability
+policy (`WMMA_MIN_PROFITABLE_MACS = 16,000,000` against a widest projection of
+`786,432` MACs) declines every native vision projection, so the `mixed` request
+records zero cooperative accumulations and its 65 mixed-vs-FP32 comparisons are
+bit-identical to the FP32 control. The receipt therefore claims neither
+cooperative Mixed dispatch nor acceleration for native vision; the current-source
+WMMA implementation is qualified by the separate precision, wide-multimodal and
+primitive evidence. A separate larger-magnitude fixture retains its failing
+strict FP32 diagnostics and is not promoted by the bounded result. Native
+language LoRA remains FP32; native V4.1 Full FP16 remains rejected.
 
 The original Full FP16 primitive definition remains reproducible with the default
 `wmma_qualify --wmma-mode full-fp16`: nine of its 37 gates fail. Its historical

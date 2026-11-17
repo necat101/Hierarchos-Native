@@ -4,7 +4,11 @@ Current engineering status (2026-11-12): see
 [precision completion](RDNA3_PRECISION_COMPLETION.md) and
 [desktop integration](RDNA3_MIXED_GUI.md). The dated measurements below remain
 historical records; later work adds real Full FP16 graph widening/training,
-scoped automatic loss scaling, and native V4.1 Mixed vision integration.
+scoped automatic loss scaling, and native V4.1 vision integration that is
+qualified numerically on its measured FP32 route. Cooperative Mixed dispatch is
+**not** claimed for that fixture; see
+[the release contract](RDNA3_RELEASE_CONTRACT.md) and
+[the native V4.1 route section](#native-v41-numerical-qualification-not-dispatch-evidence).
 
 Status: **opt-in, experimental, default off.** The FP32 Vulkan path is unchanged
 and no existing shader, tolerance, golden reference or checkpoint format was
@@ -695,3 +699,38 @@ Whole optimizer step, 26 steps per arm, three ABBA rounds:
 exported adapter after two LoRA steps is bit-identical between arms
 (`b3da10f2ca2b889e595f868131dfb99ddf5d1a5740d67cc489f7fedb9550a2d4`), and the
 candidate arm dispatches the scalar backward zero times.
+
+## Native V4.1: numerical qualification, not dispatch evidence
+
+**Scope (current source).** The native V4.1 bounded fixture is a *numerical*
+qualification of the execution route it measured. At its released geometry
+(`8x8` image, 16 vision patches, `vision_dim` 128, `vision_inter_dim` 256) the
+widest native vision projection is `wqkv` at `16 * 384 * 128 = 786,432` MACs,
+below `WMMA_MIN_PROFITABLE_MACS = 16,000,000`. `wmma_shape_profitable` therefore
+declines every native vision projection, the `mixed` request executes the FP32
+kernels, and the probe records `accumulation_dispatches [0, 0]` with phases
+`[0, 0, 0]`. The 65 bounded strict FP32 rows still pass (`max_abs
+1.564621925354004e-7`), the 65 stress rows are retained, and the 65
+mixed-vs-FP32 comparisons are bit-identical to the FP32 control because nothing
+dispatched.
+
+**What this does not say.** It is not evidence that cooperative Mixed WMMA
+dispatch runs in native V4.1 on the current source, and it does not replace the
+separate RDNA3 WMMA qualification (precision training, wide multimodal and the
+`wmma_qualify` primitive gates). A receipt whose route metadata disagrees with
+its own counters, or which claims cooperative dispatch below the profitability
+floor, is rejected by `check_unified_release.py`.
+
+| Receipt | Source | bounded `accumulation_dispatches` | phases | bounded FP32 max |
+| --- | --- | --- | --- | --- |
+| `20261112-unified-release` | pre-gate (`705a8a8f`) | `[32, 0]` | `[16, 8, 8]` | `1.564621925354004e-7` |
+| `20261115-phase25-current-source` | pre-gate (`0779b3d9`) | `[32, 0]` | `[16, 8, 8]` | `1.564621925354004e-7` |
+| `20261116-phase38-current-source` | current source | `[0, 0]` | `[0, 0, 0]` | `1.564621925354004e-7` |
+
+`08179c5` introduced the profitability gate that separates the first two rows
+from the third. The earlier receipts are preserved unchanged as historical
+records of the earlier implementation; they are not current-source proof of
+native V4.1 cooperative dispatch. The current producer reads those sealed
+receipts, records their counters and revisions in the new receipt, and the
+checker refuses a disclosure that omits them, that presents one as current
+source, or that claims the FP32 fixture qualified cooperative dispatch.
