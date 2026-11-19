@@ -12,6 +12,12 @@ I also deal with motor-cortex-damage-related coordination issues that affect my 
 
 If you find Hierarchos Native useful and are in a position to help, please consider making a voluntary contribution. Right now, support would help me cover basic needs like rent and food while also giving me a better chance to keep developing and maintaining the project. I understand that not everyone can donate, and there is absolutely no obligation or expectation. Sharing the project, giving it a GitHub star, reporting issues, or contributing code are also genuinely appreciated.
 
+11/19/2026 2:13AM
+
+Laptop died, I spilled water on it, having been incredibly sleep deprived and depressed, did not even notice it until I went to go power it on. I just watched the screen fade to white and die, I've never cried so hard in my life 3; I feel like someone ran over my dog. This was my first ever x86 computer, and now I killed it.
+
+Intel gen9 development will unfortunately have to halt for the foreseeable future as my financial situation is far from capable of a replacement at the time. work will proceed with RDNA, and eventually, planned QUALCOMM support If i don't go homeless next month.
+
 **[Support on Buy Me a Coffee](https://buymeacoffee.com/netcat420)** · **[Support on Patreon](https://www.patreon.com/cw/MakhiBurroughs)**
 
 ---
