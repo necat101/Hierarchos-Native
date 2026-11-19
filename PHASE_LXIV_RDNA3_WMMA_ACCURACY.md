@@ -124,25 +124,77 @@ Reaching zero failures under that model would require either an FP32 accumulator
 (the Mixed mode, which is a different contract and would destroy the meaning of
 "Full FP16") or a widened tolerance. Neither is done.
 
-## 4. What this phase does not establish
+## 4. Performance
 
-* **No new performance measurement.** The cooperative kernel that carries the
-  measured speedup (`wmma_gemm_f16_f32acc.spv`, SHA-256
-  `e07e48882a2459ebe30be228675596a12ac3f6b846badf32099ef06cca5cea65`) is
-  byte-identical to `A`, and the Mixed qualification receipt is byte-identical,
-  so `A`'s recorded ABBA result applies unchanged. That is a proof of identity,
-  not a new timing run.
-* **No training-step throughput claim.** The Phase LXII limitation stands: at
-  64 rows the process-level step is dominated by host and graph work.
+The cooperative kernel that carries the measured speedup
+(`wmma_gemm_f16_f32acc.spv`, SHA-256
+`e07e48882a2459ebe30be228675596a12ac3f6b846badf32099ef06cca5cea65`) is
+byte-identical to `A`, and the Mixed qualification receipt is byte-identical.
+Two paired ABBA sweeps were run fresh in this phase anyway, so the claim does not
+rest on identity alone: 8 pairs, strictly serial, alternating order, 4 rounds ×
+20 timed iterations per arm per round, raw per-iteration samples retained under
+`hierarchos-vulkan/target/wmma-lxiv/abba_main_vs_final/` and
+`…/abba_a_vs_final/`. Ratio is `reference_ms / final_ms`, so above 1.0 is faster.
+
+`FINAL` vs `MAIN` (`wmma-mixed-f32acc` arm):
+
+| Shape | MAIN ms | FINAL ms | ratio | 95% CI |
+| --- | ---: | ---: | ---: | --- |
+| `2048x768x2048` | 5.7624 | 3.5587 | **1.6063** | [1.586, 1.627] |
+| `512x2048x768` | 1.6133 | 0.9619 | **1.7025** | [1.643, 1.765] |
+| `512x768x768` | 0.5578 | 0.3828 | **1.4496** | [1.433, 1.466] |
+| `128x8192x768` | 1.8952 | 1.3916 | **1.3360** | [1.280, 1.395] |
+| `64x64x64` (below floor, kernel-level) | 0.1222 | 0.1105 | 1.0862 | [1.048, 1.126] |
+| `16x128x32` (below floor, kernel-level) | 0.0990 | 0.0954 | 1.0304 | [0.989, 1.074] |
+
+Controls: the FP32 negative control (byte-identical kernel in both executables)
+measured `0.9871 [0.935, 1.039]`, `0.9786 [0.925, 1.032]`, `1.0006 [0.983,
+1.018]`, `1.0158 [0.961, 1.071]`, `1.0270 [0.955, 1.099]`, `0.9846 [0.902,
+1.067]`, and the plain-FP16 control `0.9850`, `0.9839`, `1.0018`, `1.0258`,
+`1.0184`, `0.9724`; every interval contains 1.0, so the harness floor is clean
+and the change is confined to the cooperative kernel.
+
+`FINAL` vs `A`:
+
+| Shape | A ms | FINAL ms | ratio | 95% CI |
+| --- | ---: | ---: | ---: | --- |
+| `2048x768x2048` | 3.5727 | 3.5718 | 1.0002 | [0.986, 1.014] |
+| `512x2048x768` | 0.9610 | 0.9575 | 0.9997 | [0.983, 1.017] |
+| `512x768x768` | 0.3887 | 0.3868 | 1.0064 | [0.990, 1.023] |
+| `128x8192x768` | 1.8569 | 1.8537 | 1.0017 | [0.988, 1.015] |
+
+Every interval includes 1.0: `FINAL` is the same kernel as `A` for the production
+path, as the byte-identical SPIR-V predicts. No protected shape is slower than
+either reference.
+
+The changed shader is the Full FP16 arm, which is not a production performance
+path. Its epilogue is four tiles × (two fragment stores + one merge); that cost is
+fixed per workgroup and does not scale with the reduction length. It was not
+re-timed as a throughput claim and none is made.
+
+## 5. What this phase does not establish
+
+* **No additional WMMA optimization.** Candidate B (64×32 tile) was **not
+  attempted** in this phase: the accuracy change is in the same shader file, no
+  profiling result gave a specific new staging or occupancy opportunity, and the
+  phase's acceptance rule requires a production-shape CI lower bound above 1.05
+  before any such change is retained. Nothing was attempted, so nothing is
+  claimed and nothing was rejected on measurements.
+* **No training-step throughput claim.** The Phase LXII limitation stands and was
+  not re-measured: at 64 rows the process-level step is dominated by host and
+  graph work. From the kernel numbers above, the GEMM dispatched for
+  `2048x768x2048` falls 2.20 ms, but the fraction of a training step spent in
+  cooperative dispatches has not been re-established in this phase, so an
+  end-to-end figure is **unresolved** rather than estimated.
 * **No AMD ISA confirmation.** No gfx110x disassembler is available on this host.
-* **Candidate B (64×32 tile) was not attempted** in this phase. The accuracy work
-  changed the same shader family, and no profiling result in this phase gave a
-  reason to reopen tile design.
 * **Hosted CI recompiles nothing.** It verifies the recorded reproduction and the
   SPIR-V structure; the compile-and-byte-identity check is `--reproduce` on a host
   with the pinned shaderc.
+* **`128x128x96` remains unqualified under the historical `tile16` model.** Four
+gates stay red there by construction; see §3.1.
 
-## 5. Reproducing this
+
+## 6. Reproducing this
 
 ```bash
 cd hierarchos-vulkan
