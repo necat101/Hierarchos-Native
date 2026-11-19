@@ -56,18 +56,22 @@ geometry and record the same zero cooperative accumulations. A separate larger-m
 strict FP32 diagnostics and is not promoted by the bounded result. Native
 language LoRA remains FP32; native V4.1 Full FP16 remains rejected.
 
-Phase LXIV changed the Full FP16 reduction order to two FP16 accumulator banks over
-alternating K slices, merged once in FP16, and added the matching `split2` oracle.
-The default `wmma_qualify --wmma-mode full-fp16` now reports four failing gates
-instead of nine, and the three that failed the unchanged FP32 budget
-(`0.0731`, `0.0638`, `0.0632` against `0.05`) now pass at `0.0318`, `0.0419`,
-`0.0368`. Under `--full-oracle split2` the same kernel is 37/37. The four
-remaining gates compare against the historical `tile16` model, which is 3 ULP
-from the hardware's dot2 cadence; see `PHASE_LXIV_RDNA3_WMMA_ACCURACY.md`.
+Phase LXIV changed the Full FP16 reduction order to eight FP16 accumulator banks
+over consecutive K slices, merged once per tile by a pairwise FP16 tree, and
+added the matching `split8` oracle. The default
+`wmma_qualify --wmma-mode full-fp16` now reports **zero** failing gates: all nine
+that failed on `main` pass, including the three that missed the unchanged FP32
+budget (`0.0731`, `0.0638`, `0.0632` against `0.05`, now `0.0230`, `0.0216`,
+`0.0237`) and the six compared against the historical `tile16` model. Five of the
+nine pass at exactly the two-ULP bound, so they carry no margin. Under
+`--full-oracle split8` the same kernel is 37/37. An earlier two-bank
+implementation on this branch left four `128x128x96` `tile16` gates failing and
+this record previously described them as unavoidable; that inference was wrong
+and is superseded. See `PHASE_LXIV_RDNA3_WMMA_ACCURACY.md`.
 
-Before Phase LXIV, the original Full FP16 primitive definition was reproducible
-with the default `wmma_qualify --wmma-mode full-fp16`: nine of its 37 gates
-failed. Its historical
+On `main`, the original Full FP16 primitive definition was reproducible with the
+default `wmma_qualify --wmma-mode full-fp16`: nine of its 37 gates failed. Its
+historical
 oracle assumes one rounding per 16 reduction terms. Independent cadence sweeps
 instead closely match two-product accumulation. AMD documents that RDNA3 WMMA
 internally uses DOT instructions and supports round-to-nearest-even; internal
