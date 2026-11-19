@@ -14,19 +14,19 @@ It verifies:
 * `wmma_gemm_f16_f32acc.{comp,spv}` are still the exact Phase LXII bytes, so the
   measured performance path cannot drift while accuracy work lands;
 * `wmma_gemm_f16_f16acc.{comp,spv}` are the exact Phase LXIV bytes, both modules
-  are SPIR-V 1.4, and the cooperative multiply-add counts are 4 and 8;
-* the split reduction is structurally present in the source: two accumulator
-  banks, the alternating-slice selector, the FP16 merge, and no FP32 accumulator
-  fragment anywhere in the module (so an FP32 accumulation cannot be reported as
-  FP16 accumulation);
+  are SPIR-V 1.4, and the cooperative multiply-add counts are 4 and 32;
+* the split reduction is structurally present in the source: eight accumulator
+  banks, the round-robin slice selector, the pairwise FP16 merge tree, and no
+  FP32 accumulator fragment anywhere in the module (so an FP32 accumulation
+  cannot be reported as FP16 accumulation);
 * the packed candidate A operand staging is still exactly as qualified;
 * every numerical tolerance constant, the 16,000,000-MAC profitability floor and
   its dispatch predicate are unchanged;
 * the matched-oracle surface still offers the historical `tile16` model and the
   two cadence-matched models, so no reference was removed or replaced;
-* the recorded qualification receipt reproduces: 37 gates, the exact four
-  remaining tile16-model/unqualified labels, zero FP32-budget failures, and a
-  clean 37/37 under the contract-matched `split2` oracle;
+* the recorded qualification receipt reproduces: 37 gates, zero failures under
+  both the historical `tile16` default and the contract-matched `split8` oracle,
+  and every one of the nine originally failing gates recorded as passing;
 * no dependency manifest, model weight or prebuilt binary was added, and no
   protected arithmetic path outside the named files changed.
 
@@ -74,11 +74,11 @@ CURRENT = {
     "wmma_gemm_f16_f16acc": {
         "source": "hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc.comp",
         "binary": "hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc.spv",
-        "source_sha256": "7fc07d0c88c53b52a760c8785df7ae98c280a21af8c9da28abeb2f6d6a40495a",
-        "source_bytes": 15062,
-        "binary_sha256": "1a02ed98ff61c68ac4f30154e9b9797a5275c896b5743ab78fed78d137d4047f",
-        "binary_bytes": 14976,
-        "cooperative_mul_adds": 8,
+        "source_sha256": "764cd5dd33c78bd3a71f906418e4965eeed684140e6b1e7de7c3ad2a2e2f2274",
+        "source_bytes": 23428,
+        "binary_sha256": "dbed2a528f674a37fd6672ff83a786eb28804a77a85befd076acc80d701106fe",
+        "binary_bytes": 37368,
+        "cooperative_mul_adds": 32,
         "role": "phase-lxiv-split-reduction",
     },
 }
@@ -117,15 +117,24 @@ TOLERANCES = (
     "pub const FULL_VS_MATCHED_ORACLE_MAX_ABS: f64 = 4.0e-3;",
 )
 
-# The four gates that the historical single-accumulator module also failed, and
-# that the historical `tile16` model cannot qualify: it assumes one rounding per
-# 16-wide K slice, while the hardware rounds on the dot2 cadence. They are named
-# exactly so a different four can never be reported as "the same four".
-EXPECTED_TILE16_FAILURES = (
+# The historical `tile16` model stays the default so the original failure set is
+# reproducible, but the eight-bank reduction now meets it on every fixture. Zero
+# is the recorded count; a single regression under that model must fail the gate.
+EXPECTED_TILE16_FAILURES: tuple[str, ...] = ()
+
+# The gates that the recorded MAIN/Candidate A single-accumulator receipt failed
+# and that this implementation must now pass. Named exactly, so a different set
+# can never be reported as "the same nine".
+EXPECTED_RECOVERED = (
     "128x128x96 wmma-full-fp16 vs matched oracle",
     "128x128x96 trans_a=true trans_b=false vs oracle",
+    "128x128x96 trans_a=true trans_b=false vs FP32",
     "128x128x96 trans_a=false trans_b=true vs oracle",
+    "128x128x96 trans_a=false trans_b=true vs FP32",
     "128x128x96 trans_a=true trans_b=true vs oracle",
+    "128x128x96 trans_a=true trans_b=true vs FP32",
+    "16x1024x64 wmma-full-fp16 vs matched oracle",
+    "37x8192x48 wmma-full-fp16 vs matched oracle",
 )
 
 
@@ -191,18 +200,25 @@ def check_artifacts(root: Path) -> dict:
 
 def check_split_source(root: Path) -> None:
     text = read(root / CURRENT["wmma_gemm_f16_f16acc"]["source"])
-    # Two banks, selected by the K-slice parity.
-    require(text.count("alt00") >= 2 and text.count("alt11") >= 2,
-            "the second accumulator bank is missing")
-    require(text.count("if ((slice & 1u) == 0u)") == 1,
-            "the alternating-slice selector changed")
+    # Eight banks per tile, selected round-robin by the K-slice index.
+    require(text.count("uint bank = slice & 7u;") == 1,
+            "the round-robin slice selector changed")
     require(text.count("slice++;") == 1,
             "the K-slice counter changed")
-    # The merge must be an FP16 addition, not a widening one.
-    require(text.count("float16_t merged = float16_t(c_part[e] + float(c_tile[e]));") == 4,
-            "the FP16 bank merge changed")
-    require(text.count("gl_MatrixUseAccumulator>(float16_t(0.0))") == 8,
-            "the accumulator bank initialisation changed")
+    require(text.count("acc_0_00") == 4 and text.count("acc_7_11") == 4,
+            "the eighth accumulator bank is missing or unreferenced")
+    require(text.count("gl_MatrixUseAccumulator>(float16_t(0.0))") == 32,
+            "the accumulator bank initialisation changed (expected 8 banks x 4 tiles)")
+    # The epilogue must be a pairwise binary16 tree, not a widening merge.
+    require(text.count("PAIR_BANKS(c_p0, c_p1);") == 4
+            and text.count("PAIR_BANKS(c_p2, c_p3);") == 4,
+            "the pairwise FP16 merge tree changed")
+    require(text.count("WRITE_TILE(c_p0, c_p2,") == 4,
+            "the merged-tile store changed")
+    require(text.count("ADD_BANK(c_p0);") == 4 and text.count("COPY_BANK(c_p0);") == 4,
+            "the per-pair bank accumulation changed")
+    require(text.count("float16_t merged = float16_t(float(lo[e]) + float(hi[e]));") == 1,
+            "the final FP16 merge of the two subtrees changed")
     # No FP32 accumulator fragment: this arm must never silently accumulate in
     # FP32 and still be reported as FP16 accumulation.
     require("coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>"
@@ -235,12 +251,13 @@ def check_policy(root: Path) -> None:
             "profitability floor sanity assertion changed")
     # The matched-oracle surface must keep the historical model and add the
     # cadence-matched one; a removed reference cannot be reported as a pass.
-    for variant in ("Fp32,", "Fp16TileK,", "Fp16Dot2,", "Fp16Split2,"):
+    for variant in ("Fp32,", "Fp16TileK,", "Fp16Dot2,", "Fp16Split2,", "Fp16Split8,"):
         require(re.search(rf"^\s*{re.escape(variant)}\s*$", text, re.MULTILINE)
                 is not None,
                 f"matched-oracle variant removed: {variant.rstrip(',')}")
     qualify = read(root / WMMA_QUALIFY)
-    for option in ('Some("tile16")', 'Some("rdna3-dot2")', 'Some("split2")'):
+    for option in ('Some("tile16")', 'Some("rdna3-dot2")', 'Some("split2")',
+                   'Some("split8")'):
         require(option in qualify, f"oracle option removed: {option}")
     require("wmma_full_fp16_meets_fp32_budget_on_long_reductions" in text,
             "the long-reduction FP32 budget test is missing")
@@ -267,7 +284,7 @@ def gate_rows(rows) -> dict:
 
 
 def check_receipt(receipt: dict) -> None:
-    require(receipt.get("schema") == 1
+    require(receipt.get("schema") == 2
             and receipt.get("kind") == "wmma-lxiv-accuracy-receipt",
             "unexpected accuracy receipt schema")
     require(receipt.get("adapter") == "AMD Radeon Graphics 1002:15bf",
@@ -292,13 +309,13 @@ def check_receipt(receipt: dict) -> None:
                 f"{stem}: the recorded SPIR-V validation is not clean")
 
     runs = receipt.get("runs") or {}
-    for mode in ("mixed", "full-fp16-tile16", "full-fp16-split2"):
+    for mode in ("mixed", "full-fp16-tile16", "full-fp16-split8"):
         require(mode in runs, f"qualification run missing from the receipt: {mode}")
     mixed = runs["mixed"]
     require(mixed["gates"] == 37 and mixed["failed"] == 0,
             "the mixed qualification is no longer 37/37")
-    split2 = runs["full-fp16-split2"]
-    require(split2["gates"] == 37 and split2["failed"] == 0,
+    split8 = runs["full-fp16-split8"]
+    require(split8["gates"] == 37 and split8["failed"] == 0,
             "the contract-matched full-FP16 qualification is not 37/37")
     tile16 = runs["full-fp16-tile16"]
     require(tile16["gates"] == 37,
@@ -323,21 +340,21 @@ def check_receipt(receipt: dict) -> None:
                 require(row["rms"] <= row["rms_limit"],
                         f"{name}: {row['label']} exceeds its recorded RMS limit")
 
-    # The three geometries that previously failed the FP32 budget must be
-    # recorded as passing, with their measured values retained.
+    # Every one of the nine gates that the recorded MAIN/Candidate A receipt
+    # failed must be recorded as passing, with its measured value retained. The
+    # limits are the unchanged ones: 0.05 for the FP32 budgets, and the two-ULP
+    # matched-oracle budget of 0.03125 at this fixture magnitude.
     previously = receipt.get("previously_failing") or {}
-    require(set(previously) == {
-        "128x128x96 trans_a=true trans_b=false vs FP32",
-        "128x128x96 trans_a=false trans_b=true vs FP32",
-        "128x128x96 trans_a=true trans_b=true vs FP32",
-    }, "the previously failing FP32 gates are not all recorded")
+    require(set(previously) == set(EXPECTED_RECOVERED),
+            "the previously failing gates are not all recorded: "
+            + "; ".join(sorted(set(EXPECTED_RECOVERED) ^ set(previously))))
     for label, record in previously.items():
         require(record["before"] > record["limit"],
                 f"{label}: the recorded baseline was not actually failing")
         require(record["after"] <= record["limit"],
                 f"{label}: the recorded result does not pass the unchanged limit")
-        require(record["limit"] == 5.0e-2,
-                f"{label}: the recorded limit is not the unchanged 0.05")
+        require(record["limit"] in (5.0e-2, 0.03125),
+                f"{label}: the recorded limit is not an unchanged one")
     require(receipt.get("pass") is True, "recorded accuracy result did not pass")
 
 
@@ -412,8 +429,9 @@ def main() -> int:
             else "recorded reproduction receipt verified")
     print("PHASE LXIV CURRENT-CANDIDATE VALIDATION: PASS "
           f"({len(changed)} path(s) changed against {args.base[:12]}, "
-          "Phase LXII f32acc artifacts byte-identical, 8 cooperative multiply-adds "
-          "in the split module, 16,000,000-MAC floor and every tolerance unchanged, "
+          "Phase LXII f32acc artifacts byte-identical, 32 cooperative multiply-adds "
+          "in the eight-bank split module, 16,000,000-MAC floor and every tolerance "
+          "unchanged, full FP16 37/37 under the historical default oracle, "
           f"{mode}; no GPU timing is claimed by hosted CI)")
     return 0
 

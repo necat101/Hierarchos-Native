@@ -22,6 +22,8 @@ FILES = (
     + tuple(spec["binary"] for spec in c.CURRENT.values())
     + (c.WMMA_RS, c.WMMA_QUALIFY)
 )
+SPLIT_SOURCE = c.CURRENT["wmma_gemm_f16_f16acc"]["source"]
+MERGED_LINE = "float16_t merged = float16_t(float(lo[e]) + float(hi[e]));"
 
 
 class CurrentCandidateControls(unittest.TestCase):
@@ -63,10 +65,33 @@ class CurrentCandidateControls(unittest.TestCase):
                 receipt=self.receipt if receipt is None else receipt,
             )
 
+    def edit_source(self, root, old, new):
+        path = root / SPLIT_SOURCE
+        text = path.read_text(encoding="utf-8")
+        self.assertIn(old, text, "the control targets text that no longer exists")
+        path.write_text(text.replace(old, new), encoding="utf-8")
+
+    def assertStructurallyRejected(self, mutate):
+        """Mutate the source *and* re-pin it, so the structural check is tested.
+
+        Without re-pinning, every source mutation would be caught by the
+        artifact digest and the structural predicates would never execute.
+        """
+        root = self.mutated(mutate)
+        spec = c.CURRENT["wmma_gemm_f16_f16acc"]
+        mutated = root / SPLIT_SOURCE
+        saved = (spec["source_sha256"], spec["source_bytes"])
+        spec["source_sha256"] = c.digest(mutated)
+        spec["source_bytes"] = mutated.stat().st_size
+        try:
+            self.assertRejected(root, message="the structural check accepted a changed kernel")
+        finally:
+            spec["source_sha256"], spec["source_bytes"] = saved
+
     # -- positive --------------------------------------------------------
     def test_positive_current_candidate_validates(self):
         summary = c.validate(self.tree, changed=self.changed, receipt=self.receipt)
-        self.assertEqual(summary["wmma_gemm_f16_f16acc"]["cooperative_mul_adds"], 8)
+        self.assertEqual(summary["wmma_gemm_f16_f16acc"]["cooperative_mul_adds"], 32)
         self.assertEqual(summary["wmma_gemm_f16_f32acc"]["cooperative_mul_adds"], 4)
 
     # -- the qualified bytes cannot change -------------------------------
@@ -78,7 +103,7 @@ class CurrentCandidateControls(unittest.TestCase):
 
     def test_changed_split_source_is_rejected(self):
         def mutate(root):
-            path = root / c.CURRENT["wmma_gemm_f16_f16acc"]["source"]
+            path = root / SPLIT_SOURCE
             path.write_bytes(path.read_bytes() + b"// tampered\n")
         self.assertRejected(self.mutated(mutate))
 
@@ -88,49 +113,53 @@ class CurrentCandidateControls(unittest.TestCase):
         self.assertRejected(self.mutated(mutate))
 
     # -- the accuracy mechanism cannot be removed ------------------------
-    def test_second_accumulator_bank_cannot_be_dropped(self):
-        def mutate(root):
-            path = root / c.CURRENT["wmma_gemm_f16_f16acc"]["source"]
-            path.write_text(path.read_text(encoding="utf-8").replace("alt00", "b00"),
-                            encoding="utf-8")
-        self.assertRejected(self.mutated(mutate))
+    def test_first_accumulator_bank_cannot_be_dropped(self):
+        self.assertStructurallyRejected(
+            lambda root: self.edit_source(root, "acc_0_00", "b0_00"))
 
-    def test_alternating_slice_selector_cannot_be_dropped(self):
-        def mutate(root):
-            path = root / c.CURRENT["wmma_gemm_f16_f16acc"]["source"]
-            path.write_text(
-                path.read_text(encoding="utf-8")
-                    .replace("if ((slice & 1u) == 0u)", "if (true)"),
-                encoding="utf-8")
-        self.assertRejected(self.mutated(mutate))
+    def test_eighth_accumulator_bank_cannot_be_dropped(self):
+        self.assertStructurallyRejected(
+            lambda root: self.edit_source(root, "acc_7_11", "b7_11"))
+
+    def test_round_robin_slice_selector_cannot_be_dropped(self):
+        self.assertStructurallyRejected(
+            lambda root: self.edit_source(root, "uint bank = slice & 7u;",
+                                          "uint bank = 0u;"))
+
+    def test_bank_count_cannot_be_halved(self):
+        self.assertStructurallyRejected(
+            lambda root: self.edit_source(root, "uint bank = slice & 7u;",
+                                          "uint bank = slice & 3u;"))
+
+    def test_pairwise_tree_cannot_become_a_linear_merge(self):
+        self.assertStructurallyRejected(
+            lambda root: self.edit_source(
+                root, "PAIR_BANKS(c_p2, c_p3);\n    WRITE_TILE(c_p0, c_p2,",
+                "WRITE_TILE(c_p0, c_p2,"))
 
     def test_fp16_merge_cannot_become_a_widening_merge(self):
-        def mutate(root):
-            path = root / c.CURRENT["wmma_gemm_f16_f16acc"]["source"]
-            path.write_text(
-                path.read_text(encoding="utf-8")
-                    .replace("float16_t merged = float16_t(c_part[e] + float(c_tile[e]));",
-                             "float merged = c_part[e] + float(c_tile[e]);"),
-                encoding="utf-8")
-        self.assertRejected(self.mutated(mutate))
+        self.assertStructurallyRejected(
+            lambda root: self.edit_source(
+                root, MERGED_LINE,
+                "float merged = float(lo[e]) + float(hi[e]);"))
 
     def test_fp32_accumulator_in_the_fp16_arm_is_rejected(self):
         def mutate(root):
-            path = root / c.CURRENT["wmma_gemm_f16_f16acc"]["source"]
+            path = root / SPLIT_SOURCE
             text = path.read_text(encoding="utf-8")
             text += ("\ncoopmat<float, gl_ScopeSubgroup, 16, 16, "
                      "gl_MatrixUseAccumulator> widened;\n")
             path.write_text(text, encoding="utf-8")
-        self.assertRejected(self.mutated(mutate))
+        self.assertStructurallyRejected(mutate)
 
     def test_packed_operand_staging_cannot_be_dropped(self):
         def mutate(root):
-            path = root / c.CURRENT["wmma_gemm_f16_f16acc"]["source"]
+            path = root / SPLIT_SOURCE
             text = path.read_text(encoding="utf-8")
             path.write_text(text.replace("f16vec2 pair = a[off >> 1u];", "")
                             .replace("f16vec2 pair = b[off >> 1u];", ""),
                             encoding="utf-8")
-        self.assertRejected(self.mutated(mutate))
+        self.assertStructurallyRejected(mutate)
 
     # -- the policy surface cannot change --------------------------------
     def test_numerical_limit_cannot_be_relaxed(self):
@@ -156,11 +185,18 @@ class CurrentCandidateControls(unittest.TestCase):
                             .replace("    Fp16Split2,\n", ""), encoding="utf-8")
         self.assertRejected(self.mutated(mutate))
 
+    def test_eight_bank_oracle_cannot_be_removed(self):
+        def mutate(root):
+            path = root / c.WMMA_RS
+            path.write_text(path.read_text(encoding="utf-8")
+                            .replace("    Fp16Split8,\n", ""), encoding="utf-8")
+        self.assertRejected(self.mutated(mutate))
+
     def test_oracle_option_cannot_be_removed_from_the_qualifier(self):
         def mutate(root):
             path = root / c.WMMA_QUALIFY
             path.write_text(path.read_text(encoding="utf-8")
-                            .replace('Some("split2")', 'Some("other")'),
+                            .replace('Some("split8")', 'Some("other")'),
                             encoding="utf-8")
         self.assertRejected(self.mutated(mutate))
 
@@ -177,21 +213,19 @@ class CurrentCandidateControls(unittest.TestCase):
     # -- the recorded numerics are a claim, not a pass -------------------
     def test_contract_matched_run_cannot_record_a_failure(self):
         forged = self.forged()
-        forged["runs"]["full-fp16-split2"]["failed"] = 1
+        forged["runs"]["full-fp16-split8"]["failed"] = 1
         self.assertRejected(receipt=forged)
 
-    def test_historical_failure_count_cannot_be_zeroed(self):
+    def test_a_recorded_failure_cannot_be_introduced(self):
         forged = self.forged()
-        forged["runs"]["full-fp16-tile16"]["failed"] = 0
+        forged["runs"]["full-fp16-tile16"]["failed"] = 1
         self.assertRejected(receipt=forged)
 
-    def test_a_different_four_cannot_be_reported(self):
+    def test_a_gate_cannot_be_recorded_as_failing(self):
         forged = self.forged()
         rows = forged["runs"]["full-fp16-tile16"]["results"]
         for row in rows:
             if row["label"] == "128x128x96 wmma-full-fp16 vs matched oracle":
-                row["passed"] = True
-            if row["label"] == "33x17x19 wmma-full-fp16 vs matched oracle":
                 row["passed"] = False
         self.assertRejected(receipt=forged)
 
@@ -221,6 +255,11 @@ class CurrentCandidateControls(unittest.TestCase):
         forged["previously_failing"]["128x128x96 trans_a=true trans_b=false vs FP32"]["limit"] = 1.0
         self.assertRejected(receipt=forged)
 
+    def test_recovered_gate_cannot_be_dropped_from_the_record(self):
+        forged = self.forged()
+        del forged["previously_failing"]["37x8192x48 wmma-full-fp16 vs matched oracle"]
+        self.assertRejected(receipt=forged)
+
     def test_recorded_artifact_must_match_the_committed_binary(self):
         forged = self.forged()
         forged["shaders"]["wmma_gemm_f16_f16acc"]["binary_sha256"] = "0" * 64
@@ -234,6 +273,11 @@ class CurrentCandidateControls(unittest.TestCase):
     def test_production_flags_are_pinned(self):
         forged = self.forged()
         forged["flags"] = [flag for flag in forged["flags"] if flag != "-O"]
+        self.assertRejected(receipt=forged)
+
+    def test_receipt_schema_is_pinned(self):
+        forged = self.forged()
+        forged["schema"] = 1
         self.assertRejected(receipt=forged)
 
     # -- what counts as part of the change -------------------------------
@@ -251,10 +295,10 @@ class CurrentCandidateControls(unittest.TestCase):
         header = struct.pack("<5I", c.SPIRV_MAGIC, c.SPIRV_VERSION, 0, 10, 0)
         body = b"".join(
             struct.pack("<I", (1 << 16) | c.OP_COOPERATIVE_MATRIX_MUL_ADD)
-            for _ in range(7))
+            for _ in range(31))
         module = c.spirv_summary(header + body)
-        self.assertEqual(module["cooperative_mul_adds"], 7)
-        # The split module must hold exactly eight; seven is a different kernel.
+        self.assertEqual(module["cooperative_mul_adds"], 31)
+        # The split module must hold exactly 32; 31 is a different kernel.
         self.assertNotEqual(module["cooperative_mul_adds"],
                             c.CURRENT["wmma_gemm_f16_f16acc"]["cooperative_mul_adds"])
 
