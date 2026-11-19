@@ -30,6 +30,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          # A pull_request event checks out a synthetic merge commit, which would
+          # make the scope diff include unrelated base-branch commits. Check out
+          # the actual branch head so the file list is this phase's own work.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,7 +45,7 @@ jobs:
           # Phase LXV starts at b86c29e; only this phase's files are in scope.
           PHASE_LXV_BASE: b86c29e212e0d439d6698a0d47a48ed58424ce88
         run: |
-          git diff --name-only "$PHASE_LXV_BASE"...HEAD > "$RUNNER_TEMP/changed.txt"
+          git diff --name-only "$PHASE_LXV_BASE" HEAD > "$RUNNER_TEMP/changed.txt"
           cat "$RUNNER_TEMP/changed.txt"
 
       - name: Phase LXV gate
