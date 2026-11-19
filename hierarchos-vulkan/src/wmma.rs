@@ -1043,13 +1043,24 @@ pub enum OracleAccumulation {
     /// separate FP16 accumulators with the RDNA3 dot2 cadence, and the two banks
     /// are merged once, in binary16, per output element.
     ///
-    /// This is the contract the Phase LXIV `wmma_gemm_f16_f16acc` module
-    /// implements. A matched oracle has to model the accumulation order the
-    /// kernel actually issues; `Fp16TileK` models a single accumulator rounded
-    /// once per K slice, which is neither what this kernel does nor what the
-    /// hardware does, so it cannot serve as the implementation-correctness
-    /// reference for it.
+    /// This was the contract of the Phase LXIV two-bank module. A matched
+    /// oracle has to model the accumulation order the kernel actually issues;
+    /// `Fp16TileK` models a single accumulator rounded once per K slice, which
+    /// is neither what that kernel did nor what the hardware does, so it could
+    /// not serve as the implementation-correctness reference for it. Retained
+    /// so the two-bank receipt stays reproducible.
     Fp16Split2,
+    /// Eight-bank split model: consecutive 16-wide K slices are assigned to
+    /// eight FP16 accumulator banks round-robin with the RDNA3 dot2 cadence,
+    /// and the banks are merged once, in binary16, by the pairwise tree
+    /// `((b0+b1)+(b2+b3)) + ((b4+b5)+(b6+b7))`.
+    ///
+    /// This is the contract the current `wmma_gemm_f16_f16acc` module issues.
+    /// Blocked summation bounds the rounding error of a fixed-precision
+    /// reduction: each bank carries 1/8 of the terms, so each running sum is
+    /// about eight times smaller and the roundings it absorbs are
+    /// proportionally finer relative to the final result.
+    Fp16Split8,
 }
 
 /// Matched mixed-precision reference for `C = op(A) * op(B)`.
@@ -1084,9 +1095,16 @@ pub fn oracle_gemm(
         for col in 0..columns {
             let mut acc = 0.0f32;
             let mut partial = 0.0f32;
-            // `Fp16Split2` keeps one accumulator per K-slice bank; the other
-            // models keep a single accumulator at index 0.
-            let mut banks = [0.0f32; 2];
+            // The split models keep one accumulator per K-slice bank; the
+            // other models keep a single accumulator at index 0. Unused banks
+            // stay exactly zero, and adding binary16 zero is exact, so a
+            // reduction shorter than the bank count reduces to the same value.
+            let mut banks = [0.0f32; 8];
+            let bank_count: usize = match accumulation {
+                OracleAccumulation::Fp16Split2 => 2,
+                OracleAccumulation::Fp16Split8 => 8,
+                _ => 1,
+            };
             let mut bank_of_last = 0usize;
             for t in 0..reduction {
                 let av = if layout.transposed_a {
@@ -1106,11 +1124,13 @@ pub fn oracle_gemm(
                 let cadence = match accumulation {
                     OracleAccumulation::Fp32 => 0,
                     OracleAccumulation::Fp16TileK => WMMA_TILE_K as usize,
-                    OracleAccumulation::Fp16Dot2 | OracleAccumulation::Fp16Split2 => 2,
+                    OracleAccumulation::Fp16Dot2
+                    | OracleAccumulation::Fp16Split2
+                    | OracleAccumulation::Fp16Split8 => 2,
                 };
                 if cadence != 0 && (t + 1) % cadence == 0 {
-                    let bank = if accumulation == OracleAccumulation::Fp16Split2 {
-                        (t / WMMA_TILE_K as usize) % 2
+                    let bank = if bank_count > 1 {
+                        (t / WMMA_TILE_K as usize) % bank_count
                     } else {
                         0
                     };
@@ -1122,12 +1142,20 @@ pub fn oracle_gemm(
             if partial != 0.0 {
                 banks[bank_of_last] = round_to_f16(banks[bank_of_last] + partial);
             }
-            out[row * columns + col] = if accumulation == OracleAccumulation::Fp16Split2 {
-                round_to_f16(banks[0] + banks[1])
-            } else if accumulation == OracleAccumulation::Fp32 {
-                acc
-            } else {
-                banks[0]
+            out[row * columns + col] = match accumulation {
+                OracleAccumulation::Fp16Split2 => round_to_f16(banks[0] + banks[1]),
+                OracleAccumulation::Fp16Split8 => {
+                    // Pairwise merge tree, exactly as the shader epilogue does.
+                    let l0 = round_to_f16(banks[0] + banks[1]);
+                    let l1 = round_to_f16(banks[2] + banks[3]);
+                    let l2 = round_to_f16(banks[4] + banks[5]);
+                    let l3 = round_to_f16(banks[6] + banks[7]);
+                    let m0 = round_to_f16(l0 + l1);
+                    let m1 = round_to_f16(l2 + l3);
+                    round_to_f16(m0 + m1)
+                }
+                OracleAccumulation::Fp32 => acc,
+                _ => banks[0],
             };
         }
     }
@@ -1571,9 +1599,9 @@ mod tests {
     /// The full-FP16 arm must satisfy its own contract: finite output and the
     /// matched-oracle bound, not merely "a number came back".
     ///
-    /// The matched oracle models the order the Phase LXIV module issues: two
-    /// FP16 accumulator banks over alternating K slices, merged once in FP16.
-    /// The bound is the unchanged two-ULP budget.
+    /// The matched oracle models the order the current module issues: eight
+    /// FP16 accumulator banks over consecutive K slices, merged by a pairwise
+    /// FP16 tree. The bound is the unchanged two-ULP budget.
     #[test]
     fn wmma_full_fp16_matches_matched_oracle() -> Result<()> {
         let Some(device) = device_or_skip(WmmaMode::FullFp16) else {
@@ -1593,7 +1621,7 @@ mod tests {
                 columns,
                 reduction,
                 GemmLayout::default(),
-                OracleAccumulation::Fp16Split2,
+                OracleAccumulation::Fp16Split8,
             )?;
             let observed = gemm.matmul(
                 WmmaGemmArm::FullFp16Accumulate,

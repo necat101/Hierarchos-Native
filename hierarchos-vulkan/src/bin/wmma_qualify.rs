@@ -161,7 +161,8 @@ fn run() -> Result<()> {
                 Some("tile16") => OracleAccumulation::Fp16TileK,
                 Some("rdna3-dot2") => OracleAccumulation::Fp16Dot2,
                 Some("split2") => OracleAccumulation::Fp16Split2,
-                _ => bail!("--full-oracle requires tile16, rdna3-dot2 or split2"),
+                Some("split8") => OracleAccumulation::Fp16Split8,
+                _ => bail!("--full-oracle requires tile16, rdna3-dot2, split2 or split8"),
             },
             "--dump-operands" => dump = Some(std::path::PathBuf::from(
                 args.next().context("--dump-operands requires a new output path")?)),
@@ -450,6 +451,7 @@ fn run() -> Result<()> {
             match full_accumulation {
                 OracleAccumulation::Fp16Dot2 => "rdna3-dot2",
                 OracleAccumulation::Fp16Split2 => "split2",
+                OracleAccumulation::Fp16Split8 => "split8",
                 _ => "tile16",
             },
             capabilities.mixed_supported(),
