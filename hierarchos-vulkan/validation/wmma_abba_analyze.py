@@ -10,59 +10,28 @@ the printed ratio is `baseline_ms / candidate_ms`. The `fp32-baseline` arm is a
 negative control: its kernel is byte-identical in both executables, so its ratio
 should straddle 1.0 and bounds the run-to-run noise floor.
 
+The statistics live in `abba_stats.py`, which is also what `phase_lxv_stats.py`
+and every newer qualification tool use. This module used to carry its own
+Student-t table that stopped at 12 degrees of freedom and fell back to
+`1.96` above it, which made every interval with 13 or more pairs too narrow. It
+now shares the single implementation: computed t quantiles, no normal
+approximation, and a hard error instead of a silent fallback.
+
 Usage: python wmma_abba_analyze.py <OUT_DIR>
 """
-import json
 import math
-import os
 import statistics
 import sys
 
-# Two-tailed 95% t quantiles, df = 1..12.
-T95 = {
-    1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447,
-    7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228, 11: 2.201, 12: 2.179,
-}
+import abba_stats
+
 ARMS = ("fp32-baseline", "plain-f16-storage-f32acc", "wmma-mixed-f32acc")
-
-
-def load_runs(out_dir):
-    runs = {}
-    with open(os.path.join(out_dir, "index.tsv"), encoding="utf-8") as handle:
-        handle.readline()
-        for line in handle:
-            parts = line.rstrip("\n").split("\t")
-            if len(parts) < 5:
-                continue
-            pair, arm, rc, _sha, base_name = parts[:5]
-            if rc != "0":
-                raise SystemExit("run failed: pair %s arm %s rc %s" % (pair, arm, rc))
-            grouped = {}
-            with open(base_name + "_samples.jsonl", encoding="utf-8") as samples:
-                for row in samples:
-                    row = row.strip()
-                    if not row:
-                        continue
-                    record = json.loads(row)
-                    key = (record["shape"], record["arm"])
-                    grouped.setdefault(key, []).extend(record["samples_s"])
-            runs.setdefault(int(pair), {})[arm] = grouped
-    return runs
-
-
-def mean_ci(values):
-    n = len(values)
-    mean = statistics.fmean(values)
-    if n < 2:
-        return mean, float("nan"), float("nan")
-    half = T95.get(n - 1, 1.96) * statistics.stdev(values) / math.sqrt(n)
-    return mean, mean - half, mean + half
 
 
 def main():
     if len(sys.argv) < 2:
         raise SystemExit("usage: wmma_abba_analyze.py <OUT_DIR>")
-    runs = load_runs(sys.argv[1])
+    runs = abba_stats.load_dir(sys.argv[1])
     pairs = sorted(runs)
     print("pairs: %d" % len(pairs))
 
@@ -91,7 +60,7 @@ def main():
                 ratios.append(mb / mc)
             if not ratios:
                 continue
-            mean, lo, hi = mean_ci(ratios)
+            mean, lo, hi = abba_stats.mean_ci(ratios)
             geo = math.exp(statistics.fmean([math.log(r) for r in ratios]))
             print("%-16s %-24s %9.4f %9.4f %8.4f  [%6.3f, %6.3f] %8.4f" % (
                 shape, arm, statistics.median(base) * 1e3,

@@ -376,8 +376,31 @@ def check_hardware(receipt):
     return hardware
 
 
+CORRECTION = HERE / "phase_lxvi_statistics_correction.json"
+
+
+def corrected_intervals():
+    """Dated correction record, when present.
+
+    The archived receipt was printed from a three-decimal t table. The corrected
+    Student-t quantile moves a few intervals by up to ~2e-5, which is larger than
+    the 1e-6 reproduction tolerance but is not a change to the samples. The
+    correction record carries the value the canonical implementation produces, so
+    an archived interval is accepted only if it equals either the receipt's own
+    number or that documented corrected number.
+    """
+    if not CORRECTION.exists():
+        return {}
+    record = json.loads(CORRECTION.read_text(encoding="utf-8"))
+    return {
+        (entry["sweep"], entry["shape"]): entry["corrected_ci95"]
+        for entry in record.get("entries", [])
+    }
+
+
 def check_performance(receipt):
     recorded = receipt["performance"]
+    corrected = corrected_intervals()
     recomputed = {}
     for name, entry in recorded.items():
         directory = EVIDENCE / name
@@ -390,9 +413,17 @@ def check_performance(receipt):
         for shape, want in entry["shapes"].items():
             require(shape in stats, f"{name}: {shape} is not derivable from the raw samples")
             got = stats[shape]
-            for key in ("mean_ratio", "ci95_low", "ci95_high", "median_reference_ms",
-                        "median_candidate_ms"):
+            for key in ("mean_ratio", "median_reference_ms", "median_candidate_ms"):
                 require(abs(got[key] - want[key]) <= 1e-6,
+                        f"{name}/{shape}: recorded {key} does not match the raw samples")
+            documented = corrected.get((name, shape))
+            for index, key in enumerate(("ci95_low", "ci95_high")):
+                matches_receipt = abs(got[key] - want[key]) <= 1e-6
+                matches_correction = (
+                    documented is not None
+                    and abs(got[key] - documented[index]) <= 1e-9
+                )
+                require(matches_receipt or matches_correction,
                         f"{name}/{shape}: recorded {key} does not match the raw samples")
             require(got["pairs"] == want["pairs"], f"{name}/{shape}: pair count changed")
         if entry.get("production"):
