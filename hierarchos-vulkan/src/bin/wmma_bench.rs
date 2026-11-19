@@ -78,6 +78,7 @@ fn run() -> Result<()> {
     let mut rounds = 5usize;
     let mut iterations = 40usize;
     let mut json = false;
+    let mut dump_samples: Option<std::path::PathBuf> = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--wmma-mode" => {
@@ -99,10 +100,15 @@ fn run() -> Result<()> {
                     .context("--iterations must be an integer")?;
             }
             "--json" => json = true,
+            "--dump-samples" => {
+                dump_samples = Some(std::path::PathBuf::from(
+                    args.next().context("--dump-samples requires a path")?,
+                ));
+            }
             "--help" | "-h" => {
                 println!(
                     "hierarchos-vulkan-wmma-bench [--wmma-mode off|mixed|full-fp16] \
-                     [--rounds N] [--iterations N] [--json]"
+                     [--rounds N] [--iterations N] [--json] [--dump-samples PATH]"
                 );
                 return Ok(());
             }
@@ -142,11 +148,14 @@ fn run() -> Result<()> {
     }
 
     let mut json_blocks: Vec<String> = Vec::new();
+    // Raw per-iteration samples, one entry per (shape, arm, round).
+    let mut raw_lines: Vec<(String, &'static str, usize, Vec<f64>)> = Vec::new();
 
     for (rows, columns, reduction, label) in SHAPES {
         let a = deterministic(rows * reduction, 0x1234_5678 ^ rows as u32);
         let b = deterministic(columns * reduction, 0x9E37_79B9 ^ columns as u32);
         let reference = reference_fp32_gemm(&a, &b, rows, columns, reduction, layout)?;
+        let shape_name = format!("{rows}x{columns}x{reduction}");
 
         let mut measurements: Vec<Measurement> = Vec::new();
         // Warm every arm once so the first round is not skewed by pipeline
@@ -165,6 +174,12 @@ fn run() -> Result<()> {
                     *arm, &a, &b, rows, columns, reduction, layout, iterations,
                 )?;
                 let round_median = median(&samples);
+                raw_lines.push((
+                    shape_name.clone(),
+                    arm.label(),
+                    round,
+                    samples.clone(),
+                ));
                 match measurements.iter_mut().find(|entry| entry.label == arm.label()) {
                     Some(entry) => entry.rounds.push(round_median),
                     None => measurements.push(Measurement {
@@ -267,6 +282,26 @@ fn run() -> Result<()> {
                 "  baseline median {:.4} ms; {scalable}",
                 baseline_median * 1.0e3
             );
+        }
+    }
+
+    if let Some(path) = dump_samples {
+        // One JSON object per line, one line per (shape, arm, round). The shape
+        // and arm labels are enough to reconstruct the pairing; the driving
+        // script adds the executable hash and run ordinal.
+        let mut out = String::new();
+        for (shape, arm, round, samples) in &raw_lines {
+            let values: Vec<String> =
+                samples.iter().map(|value| format!("{value:.9}")).collect();
+            out.push_str(&format!(
+                "{{\"shape\":{shape:?},\"arm\":{arm:?},\"round\":{round},\"samples_s\":[{}]}}\n",
+                values.join(",")
+            ));
+        }
+        std::fs::write(&path, out)
+            .with_context(|| format!("writing raw samples to {}", path.display()))?;
+        if !json {
+            println!("raw samples: {} lines -> {}", raw_lines.len(), path.display());
         }
     }
 

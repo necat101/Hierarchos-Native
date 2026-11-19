@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "kind": "wmma-candidate-a-spirv-reproduction",
+  "compiler": "glslc",
+  "compiler_version": "shaderc v2023.8 v2025.3",
+  "flags": [
+    "-fshader-stage=compute",
+    "--target-env=vulkan1.2",
+    "--target-spv=spv1.4",
+    "-O"
+  ],
+  "spirv_val": "vulkan1.2",
+  "recorded_at": "2026-11-19",
+  "note": "Both committed .spv reproduce bit-for-bit from their .comp with the production command recorded in PHASE_LXII_RDNA3_WMMA_VECTOR_LOAD.md. This is toolchain-versioned evidence, recorded on a host with the Vulkan SDK; the gate recompiles and re-verifies when --reproduce is passed and otherwise holds these digests. A hosted runner has no pinned shaderc, so it never claims to have recompiled them.",
+  "shaders": {
+    "wmma_gemm_f16_f32acc": {
+      "source_sha256": "239b63144bdd7c7aef703d88622201bc9c6c4832000e7dc86cec3317034863fc",
+      "source_bytes": 13409,
+      "embedded_sha256": "e07e48882a2459ebe30be228675596a12ac3f6b846badf32099ef06cca5cea65",
+      "embedded_bytes": 12720,
+      "rebuilt_sha256": "e07e48882a2459ebe30be228675596a12ac3f6b846badf32099ef06cca5cea65",
+      "cooperative_mul_adds": 4,
+      "spirv_val": "clean"
+    },
+    "wmma_gemm_f16_f16acc": {
+      "source_sha256": "43a62481f1cf23d96505b39ec8226deb9f4a02c3f054d3c6a7646ba10649f05e",
+      "source_bytes": 10246,
+      "embedded_sha256": "b040095e481f9de7625df7a2d5bc743027629468e2bb553b571ee0f1237ad73a",
+      "embedded_bytes": 12736,
+      "rebuilt_sha256": "b040095e481f9de7625df7a2d5bc743027629468e2bb553b571ee0f1237ad73a",
+      "cooperative_mul_adds": 4,
+      "spirv_val": "clean"
+    }
+  },
+  "pass": true
+}

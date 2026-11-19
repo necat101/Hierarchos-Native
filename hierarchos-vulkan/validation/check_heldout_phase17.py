@@ -21,6 +21,7 @@ import tempfile
 from pathlib import Path
 
 import qualify_heldout_phase17 as p
+import source_provenance
 import qualify_training_phase16 as q
 
 SCHEMA = 1
@@ -99,10 +100,10 @@ def verify(receipt_dir: Path, crate: Path | None = None) -> dict:
     require(ancestor.returncode == 0, "source revision is not an ancestor of HEAD")
     require(receipt.get("source_clean") is True, "receipt was produced from a dirty worktree")
 
-    for relative, expected in receipt["source_files"].items():
-        path = crate / relative
-        require(path.is_file(), f"missing bound source {relative}")
-        require(q.sha256_file(path) == expected, f"bound source changed: {relative}")
+    # Held to the revision the receipt declares rather than to this checkout.
+    binding = source_provenance.verify_bindings(
+        crate.parent, revision, receipt["source_files"], prefix=crate.name)
+    require(binding.ok, binding.describe())
     require("src/bin/held_out_eval.rs" in receipt["source_files"], "harness binding missing")
 
     # The digest's shape is verifiable on any checkout; only the byte

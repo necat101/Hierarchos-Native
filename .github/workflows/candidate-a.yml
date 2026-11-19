@@ -1,0 +1,105 @@
+name: candidate a
+
+# Two records are kept separate on purpose.
+#
+#   `candidate-a`        The Phase LXII record. It is *history*: the gate, its
+#                        controls, its fixture and the four artifacts it pins are
+#                        read from the recorded revision itself, materialised into
+#                        a detached worktree. Nothing in the current tree can
+#                        change what that record says, and the gate is run
+#                        unmodified - it is not loosened to tolerate later work.
+#
+#   `current-candidate`  The Phase LXIV implementation in the tree under review.
+#                        It pins the Phase LXII performance module byte for byte
+#                        (so the measured speedup area cannot drift while
+#                        accuracy work lands), pins the new split-reduction
+#                        module, and verifies the recorded numerical receipt.
+#
+# Neither job claims a GPU measurement. The performance record is the recorded
+# RDNA3 evidence for the exact binaries it names, and the numerical record is the
+# receipt measured on the RDNA3 adapter; a hosted runner has no RDNA3 adapter and
+# no pinned shaderc, so both verify recorded reproduction and structure instead.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: candidate-a-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The revision at which the Phase LXII artifacts and evidence were qualified.
+  PHASE_LXII_REVISION: 7c49558b8155a351b30893a6d8f318d4e063d1bd
+
+jobs:
+  candidate-a:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The gate diffs against the recorded base commit, so it needs history.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The gate and everything it reads are taken from the recorded revision, so
+      # later changes to the current tree cannot weaken or reinterpret it.
+      - name: Materialise the Phase LXII revision
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/phase-lxii" "$PHASE_LXII_REVISION"
+          git -C "$RUNNER_TEMP/phase-lxii" rev-parse HEAD
+
+      - name: Phase LXII Candidate A historical validation
+        working-directory: ${{ runner.temp }}/phase-lxii
+        run: python hierarchos-vulkan/validation/check_candidate_a.py
+
+      # 22 controls, run against the historical tree: changed shader bytes, dropped
+      # packed staging, moved profitability floor, dropped boundary shape,
+      # dispatch/tolerance edit, benchmark statistic edit, withdrawn sample export,
+      # ABBA default drift, protected source outside Candidate A, model weight in
+      # the diff, dependency change, forged reproduction fields, SPIR-V structure.
+      - name: Phase LXII Candidate A negative controls
+        working-directory: ${{ runner.temp }}/phase-lxii
+        run: >-
+          python -m unittest discover -s hierarchos-vulkan/validation
+          -p "test_candidate_a.py" -v
+
+  current-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Phase LXIV current-implementation validation
+        run: python hierarchos-vulkan/validation/check_current_candidate.py
+
+      # 28 controls: changed performance-shader bytes, changed split source,
+      # missing artifact, dropped second accumulator bank, dropped slice selector,
+      # widening merge, FP32 accumulator introduced into the FP16 arm, dropped
+      # packed staging, relaxed numerical limit, moved profitability floor, removed
+      # oracle variant, removed oracle option, removed accuracy test, forged run
+      # counts, forged failure sets, a failing FP32-budget gate, a measured value
+      # above its recorded limit, a claimed improvement over a passing baseline, a
+      # relaxed recorded limit, forged artifact digests, non-reproducing SPIR-V,
+      # altered compiler flags, protected source outside the change, a model weight
+      # in the diff, a dependency change, and SPIR-V structure.
+      - name: Phase LXIV negative controls
+        run: >-
+          python -m unittest discover -s hierarchos-vulkan/validation
+          -p "test_current_candidate.py" -v

@@ -6,6 +6,7 @@ remain mandatory. Additional strict intermediate failures stay explicit.
 """
 import argparse, hashlib, json, math, re, subprocess, sys
 from pathlib import Path
+import source_provenance
 
 ROOT=Path(__file__).resolve().parents[2]
 DEFAULT=ROOT/'hierarchos-vulkan/validation/release_parity/multimodal_training/20261117-phase42-current-source/release-qualification.json'
@@ -542,10 +543,12 @@ def validate_payload(document,components):
     require(wide.get('policy')==WIDE_NUMERICAL_POLICY,'wide numerical policy changed')
     require(isinstance(wide.get('source_files'),dict) and wide['source_files'],
             'wide component source provenance missing')
-    for relative,sha in wide['source_files'].items():
+    for relative in wide['source_files']:
         require(not Path(relative).is_absolute() and '..' not in Path(relative).parts,
                 'unsafe wide source path: '+relative)
-        require(digest(ROOT/relative)==sha,'wide component source changed: '+relative)
+    # The wide component is sealed at its own revision; hold it to those bytes.
+    wide_binding=source_provenance.verify_bindings(ROOT,wide['source_revision'],wide['source_files'])
+    require(wide_binding.ok,'wide component source binding failed: '+wide_binding.describe())
     for r in wide['results']:
         require(r['status']=='PASS_SCOPED','wide family failed')
         verify_wide_case(r,wide['fixture_sha256'][r['family']])
@@ -647,7 +650,11 @@ def verify(path=DEFAULT,*,check_subreceipts=True):
         'hierarchos-vulkan/validation/qualify_unified_release.py','hierarchos-vulkan/validation/test_unified_release.py',
         '.github/workflows/workspace-check.yml','RDNA3_RELEASE_CONTRACT.md','.gitattributes',HOST_QUALIFICATIONS})
     require(required_sources.issubset(document['source_files']),'unified runtime/source inventory incomplete')
-    for relative,sha in document['source_files'].items():require(digest(ROOT/relative)==sha,'current source changed: '+relative)
+    # The release receipt names the revision it qualified. Its source map is a
+    # statement about that revision's committed bytes, not about this checkout:
+    # the running tree is qualified separately by the current-PR gates.
+    source_binding=source_provenance.verify_bindings(ROOT,document['source_revision'],document['source_files'])
+    require(source_binding.ok,'release source binding failed: '+source_binding.describe())
     require(document.get('fixture_provenance')==target_fixture_provenance(),'target fixture provenance report changed')
     for relative,sha in document['evidence_files'].items():require(digest(base/relative)==sha,'release evidence changed: '+relative)
     for name,row in document['binaries'].items():
@@ -667,7 +674,11 @@ def verify(path=DEFAULT,*,check_subreceipts=True):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--receipt',type=Path,default=DEFAULT)
-    a=p.parse_args();verify(a.receipt);print('UNIFIED RELEASE: PASS_SCOPED_RELEASE',flush=True)
+    a=p.parse_args();document,_=verify(a.receipt)
+    drift=source_provenance.drift_paths(ROOT,document['source_files'])
+    print('UNIFIED RELEASE: PASS_SCOPED_RELEASE ('+document['source_revision'][:12]+', '
+          +str(len(document['source_files']))+' sources verified at their declared revision, '
+          +str(len(drift))+' file(s) differ in this checkout)',flush=True)
 
 
 if __name__=='__main__':main()

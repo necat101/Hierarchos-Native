@@ -12,6 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import source_provenance
+
 CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 RECEIPT = (
@@ -74,11 +76,11 @@ def verify(path: Path = RECEIPT, crate: Path = CRATE, binary_root: Path | None =
     require(len(sources) >= 140, "Phase XIX-S binds too few sources")
     require("hierarchos-vulkan/src/transformer.rs" in sources,
             "instrumented transformer is not bound")
-    for name, expected in sources.items():
-        require(SHA256.fullmatch(str(expected)) is not None, "invalid source digest")
-        actual = crate.parent / name
-        require(actual.is_file(), "missing bound source " + name)
-        require(digest(actual) == expected, "bound source changed: " + name)
+    # The receipt is a statement about the revision it names, so those bytes are
+    # what it is held to. This checkout answers the separate question and is
+    # reported below rather than folded into the receipt's verdict.
+    binding = source_provenance.verify_bindings(crate.parent, revision, sources)
+    require(binding.ok, binding.describe())
 
     binaries = document.get("binaries") or {}
     for name in ("image_text_pipeline_probe", "gemma3_vision_probe", "gemma4_vision_probe",
@@ -191,11 +193,13 @@ def main() -> int:
     except (ValueError, FileNotFoundError) as error:
         print(f"PHASE XIX-X CURRENT SOURCE: FAIL ({error})")
         return 1
-    print("PHASE XIX-X CURRENT SOURCE: PASS "
+    drift = source_provenance.drift_paths(CRATE.parent, document["source_files"])
+    print("PHASE XIX-X RECEIPT AT DECLARED REVISION: PASS "
           f"({document['source_revision'][:12]}, "
           f"{len(document['source_files'])} sources, "
           f"{document['counts']['attention_backward']['comparisons']} gradient tensors, "
-          f"{document['shaders']['inventory']} shader artifacts)")
+          f"{document['shaders']['inventory']} shader artifacts; "
+          f"{len(drift)} bound file(s) differ in this checkout)")
     return 0
 
 
