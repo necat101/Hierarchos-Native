@@ -1,0 +1,57 @@
+name: phase lxv
+
+# Structural gate for the Phase LXV record. This job does **not** run a GPU, a
+# Vulkan driver, RGP or a benchmark: a hosted runner has no RDNA3 adapter. It
+# verifies that the committed evidence still says what the record claims -
+# shader bytes, static ISA counts and register/LDS/scratch facts from the
+# captured code objects, the eight-seed accuracy receipts, the recomputed
+# accuracy margins, and the ABBA statistics recomputed from the raw samples.
+#
+# The measurements themselves were taken on the RDNA3 host and are recorded in
+# `hierarchos-vulkan/validation/PHASE_LXV_*.md` and `phase_lxv_receipt.json`.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase-lxv-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phase-lxv-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Record the changed files the scope check reads
+        run: |
+          git diff --name-only \
+            81ac82fa972d84025129e7c3f0e58fdece7df786...HEAD > "$RUNNER_TEMP/changed.txt"
+          cat "$RUNNER_TEMP/changed.txt"
+
+      - name: Phase LXV gate
+        working-directory: hierarchos-vulkan/validation
+        run: python check_phase_lxv.py --changed "$RUNNER_TEMP/changed.txt"
+
+      # 17 controls: forged static WMMA count, missing capture digest, edited ISA
+      # listing, swapped code object, undeclared 16-bank build, widened tolerance,
+      # gate marked passed above its limit, hidden failure, dropped seed, false
+      # margin-target claim, moved margin threshold, dropped margin gate, edited
+      # ABBA statistic, missing raw samples, relabelled verdict, forged dispatch
+      # count, unapproved source file.
+      - name: Phase LXV negative controls
+        working-directory: hierarchos-vulkan/validation
+        run: python -m unittest test_phase_lxv.py -v
