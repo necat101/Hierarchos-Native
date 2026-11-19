@@ -22,6 +22,7 @@ import sys
 from pathlib import Path
 
 import qualify_wmma_drift as q
+import source_provenance
 
 CRATE = q.CRATE
 DEFAULT_RECEIPT = q.RECEIPT_ROOT / "current-qualification.json"
@@ -102,10 +103,10 @@ def verify(
     require(ancestor.returncode == 0, "source revision is not an ancestor of HEAD")
     require(receipt.get("source_clean") is True, "receipt was produced from a dirty worktree")
 
-    for relative, expected in receipt["source_files"].items():
-        path = crate / relative
-        require(path.is_file(), f"missing bound source {relative}")
-        require(q.sha256_file(path) == expected, f"bound source changed: {relative}")
+    # Held to the revision the receipt declares rather than to this checkout.
+    binding = source_provenance.verify_bindings(
+        crate.parent, revision, receipt["source_files"], prefix=crate.name)
+    require(binding.ok, binding.describe())
     require("src/bin/wmma_drift.rs" in receipt["source_files"], "harness binding missing")
 
     binary_digest = str(receipt["binaries"]["wmma_drift"])

@@ -1,0 +1,52 @@
+name: candidate a
+
+# The sealed release roots under hierarchos-vulkan/validation/release_parity are
+# historical: the evidence-integrity job verifies each one against the revision it
+# declares. This job asks the complementary question - does the tree under review
+# still carry the Phase LXII RDNA3 WMMA Candidate A implementation, and nothing else
+# on the arithmetic path?
+#
+# It never claims a GPU measurement. The performance record is the recorded RDNA3
+# evidence for the exact binaries it names; a hosted runner has no RDNA3 adapter and
+# no pinned shaderc, so this job verifies the recorded byte-for-byte reproduction and
+# the SPIR-V structure instead of recompiling or re-timing.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: candidate-a-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  candidate-a:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The gate diffs against the recorded base commit, so it needs history.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Candidate A current-PR validation
+        run: python hierarchos-vulkan/validation/check_candidate_a.py
+
+      # 22 controls: changed shader bytes, dropped packed staging, moved
+      # profitability floor, dropped boundary shape, dispatch/tolerance edit,
+      # benchmark statistic edit, withdrawn sample export, ABBA default drift,
+      # protected source outside Candidate A, model weight in the diff, dependency
+      # change, forged reproduction fields, and SPIR-V structure.
+      - name: Candidate A negative controls
+        run: >-
+          python -m unittest discover -s hierarchos-vulkan/validation
+          -p "test_candidate_a.py" -v
