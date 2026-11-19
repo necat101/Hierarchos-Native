@@ -1,28 +1,57 @@
 #version 450
 
-// RDNA3 hardware-WMMA GEMM, experimental full-FP16 arm.
+// RDNA3 hardware-WMMA GEMM, full-FP16 arm.
 //
 //   C[m, n] = op(A)[m, k] * op(B)[k, n]      (FP16 operands, FP16 accumulation)
 //
 // Identical blocking, staging and masking to `wmma_gemm_f16_f32acc.comp`; the
-// only difference is that the accumulator fragment itself is `float16_t`, so the
-// driver may emit the FP16-accumulating cooperative-matrix form. Accumulation
-// therefore loses mantissa bits and can overflow to infinity: this module is only
-// reachable from `--wmma-mode full-fp16`, whose documentation states the
-// limitation. The host stores FP32 master parameters and computes
-// normalization, softmax and loss reductions in FP32 regardless of this arm.
+// accumulator fragments themselves are `float16_t`, so the driver emits the
+// FP16-accumulating cooperative-matrix form. Accumulation therefore loses
+// mantissa bits and can overflow to infinity; the mode is only reachable from
+// `--wmma-mode full-fp16`, whose documentation states the limitation. The host
+// stores FP32 master parameters and computes normalization, softmax and loss
+// reductions in FP32 regardless of this arm.
 //
 // The tile store widens the FP16 accumulators back to an FP32 output buffer so
 // the surrounding graph keeps its existing FP32 activation contract.
 //
-// The operand staging is the same Phase LXI candidate A form documented in
-// `wmma_gemm_f16_f32acc.comp`: each operand is viewed as packed `f16vec2`
-// words, a lane fetches a pair of adjacent halves along that operand's globally
-// contiguous axis with one aligned 32-bit load, and the workgroup tile layout,
-// lane coverage and row-major fragment loads are unchanged. Odd leading
-// dimensions and partially in-range pairs fall back to two independently masked
-// 16-bit extract loads, so the staged bytes - and therefore the FP16
-// accumulation cadence and its documented failure set - are unchanged.
+// Phase LXIV split reduction
+// --------------------------
+//
+// A single FP16 accumulator that runs over the whole reduction keeps rounding a
+// large partial sum, so the error grows with the reduction length and with the
+// accumulator's magnitude. This arm now keeps *two* FP16 accumulator banks and
+// assigns alternating 16-wide K slices to them, then merges the two banks once,
+// in FP16, per output tile:
+//
+//     acc0 = sum of slices 0, 2, 4, ...           (FP16, RDNA3 dot2 cadence)
+//     acc1 = sum of slices 1, 3, 5, ...           (FP16, RDNA3 dot2 cadence)
+//     out  = float16_t(acc0 + acc1)
+//
+// Both banks are genuine FP16 accumulators, the merge is an FP16 addition, and
+// no product is computed in a wider precision than before: the operands, the
+// matmul instruction and every accumulator rounding are unchanged. What changes
+// is the reduction order. Each bank carries roughly half the terms, so each
+// intermediate sum is smaller and the roundings it absorbs are finer relative to
+// the final result. This is the numerically stable partial-reduction order the
+// Phase LXIV accuracy work identified; it is not an FP32 accumulation and the
+// module does not claim to be one.
+//
+// The alternative -- accumulating the whole reduction into one FP16 value -- is
+// what the historical Phase LXII module did, and it is what fails three
+// `128x128x96` FP32 gates at 0.063-0.073 against the unchanged 0.05 limit.
+//
+// The operand staging is the Phase LXI candidate A form: each operand is viewed
+// as packed `f16vec2` words, a lane fetches a pair of adjacent halves along that
+// operand's globally contiguous axis with one aligned 32-bit load, and the
+// workgroup tile layout, lane coverage and row-major fragment loads are
+// unchanged. Odd leading dimensions and partially in-range pairs fall back to
+// two independently masked 16-bit extract loads, so the staged bytes are
+// identical to the scalar path.
+//
+// Epilogue cost: four tiles, each needing two fragment stores and an FP16 merge
+// through workgroup memory. That is a fixed per-workgroup cost, independent of
+// the reduction length, and it is paid once rather than per K slice.
 
 #extension GL_KHR_shader_subgroup_basic : require
 #extension GL_KHR_memory_scope_semantics : require
@@ -49,7 +78,10 @@ layout(push_constant) uniform Push {
 
 shared float16_t a_tile[2][256];
 shared float16_t b_tile[2][256];
+// Fragment staging for one accumulator bank at a time, plus the exact FP32 image
+// of the first bank used by the FP16 merge. Both are reused tile by tile.
 shared float16_t c_tile[256];
+shared float c_part[256];
 
 void main() {
     uint lane = gl_SubgroupInvocationID;
@@ -66,6 +98,7 @@ void main() {
     coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseB> b_frag0;
     coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseB> b_frag1;
 
+    // Bank 0 and bank 1 receive alternating K slices.
     coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> acc00 =
         coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
     coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> acc01 =
@@ -75,6 +108,16 @@ void main() {
     coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> acc11 =
         coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
 
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> alt00 =
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> alt01 =
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> alt10 =
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> alt11 =
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+
+    uint slice = 0u;
     for (uint k0 = 0u; k0 < pc.k; k0 += 16u) {
         if (!trans_a) {
             // A row-major [m][k]: reduction axis contiguous -> pair along col.
@@ -198,46 +241,110 @@ void main() {
         coopMatLoad(b_frag0, b_tile[0], 0, 16, gl_CooperativeMatrixLayoutRowMajor);
         coopMatLoad(b_frag1, b_tile[1], 0, 16, gl_CooperativeMatrixLayoutRowMajor);
 
-        acc00 = coopMatMulAdd(a_frag0, b_frag0, acc00);
-        acc01 = coopMatMulAdd(a_frag0, b_frag1, acc01);
-        acc10 = coopMatMulAdd(a_frag1, b_frag0, acc10);
-        acc11 = coopMatMulAdd(a_frag1, b_frag1, acc11);
+        // Alternate the K slice between the two accumulator banks. The slice
+        // index is uniform across the workgroup, so this branch does not
+        // diverge within the wave.
+        if ((slice & 1u) == 0u) {
+            acc00 = coopMatMulAdd(a_frag0, b_frag0, acc00);
+            acc01 = coopMatMulAdd(a_frag0, b_frag1, acc01);
+            acc10 = coopMatMulAdd(a_frag1, b_frag0, acc10);
+            acc11 = coopMatMulAdd(a_frag1, b_frag1, acc11);
+        } else {
+            alt00 = coopMatMulAdd(a_frag0, b_frag0, alt00);
+            alt01 = coopMatMulAdd(a_frag0, b_frag1, alt01);
+            alt10 = coopMatMulAdd(a_frag1, b_frag0, alt10);
+            alt11 = coopMatMulAdd(a_frag1, b_frag1, alt11);
+        }
+        slice++;
         barrier();
     }
 
-    coopMatStore(acc00, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+    // Epilogue: merge the two FP16 banks per tile in FP16, then widen the merged
+    // tile to the FP32 output buffer.
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> low;
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> high;
+
+    // Tile 0: rows [m0, m0+16), columns [n0, n0+16).
+    low = acc00;
+    high = alt00;
+    coopMatStore(low, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+    barrier();
+    for (uint e = lane; e < 256u; e += lanes) {
+        c_part[e] = float(c_tile[e]);
+    }
+    barrier();
+    coopMatStore(high, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
     barrier();
     for (uint e = lane; e < 256u; e += lanes) {
         uint gm = m0 + (e >> 4u);
         uint gn = n0 + (e & 15u);
-        if (gm < pc.m && gn < pc.n) c[gm * pc.ldc + gn] = float(c_tile[e]);
+        if (gm < pc.m && gn < pc.n) {
+            float16_t merged = float16_t(c_part[e] + float(c_tile[e]));
+            c[gm * pc.ldc + gn] = float(merged);
+        }
     }
     barrier();
 
-    coopMatStore(acc01, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+    // Tile 1: rows [m0, m0+16), columns [n0+16, n0+32).
+    low = acc01;
+    high = alt01;
+    coopMatStore(low, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+    barrier();
+    for (uint e = lane; e < 256u; e += lanes) {
+        c_part[e] = float(c_tile[e]);
+    }
+    barrier();
+    coopMatStore(high, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
     barrier();
     for (uint e = lane; e < 256u; e += lanes) {
         uint gm = m0 + (e >> 4u);
         uint gn = n0 + 16u + (e & 15u);
-        if (gm < pc.m && gn < pc.n) c[gm * pc.ldc + gn] = float(c_tile[e]);
+        if (gm < pc.m && gn < pc.n) {
+            float16_t merged = float16_t(c_part[e] + float(c_tile[e]));
+            c[gm * pc.ldc + gn] = float(merged);
+        }
     }
     barrier();
 
-    coopMatStore(acc10, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+    // Tile 2: rows [m0+16, m0+32), columns [n0, n0+16).
+    low = acc10;
+    high = alt10;
+    coopMatStore(low, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+    barrier();
+    for (uint e = lane; e < 256u; e += lanes) {
+        c_part[e] = float(c_tile[e]);
+    }
+    barrier();
+    coopMatStore(high, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
     barrier();
     for (uint e = lane; e < 256u; e += lanes) {
         uint gm = m0 + 16u + (e >> 4u);
         uint gn = n0 + (e & 15u);
-        if (gm < pc.m && gn < pc.n) c[gm * pc.ldc + gn] = float(c_tile[e]);
+        if (gm < pc.m && gn < pc.n) {
+            float16_t merged = float16_t(c_part[e] + float(c_tile[e]));
+            c[gm * pc.ldc + gn] = float(merged);
+        }
     }
     barrier();
 
-    coopMatStore(acc11, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+    // Tile 3: rows [m0+16, m0+32), columns [n0+16, n0+32).
+    low = acc11;
+    high = alt11;
+    coopMatStore(low, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+    barrier();
+    for (uint e = lane; e < 256u; e += lanes) {
+        c_part[e] = float(c_tile[e]);
+    }
+    barrier();
+    coopMatStore(high, c_tile, 0, 16, gl_CooperativeMatrixLayoutRowMajor);
     barrier();
     for (uint e = lane; e < 256u; e += lanes) {
         uint gm = m0 + 16u + (e >> 4u);
         uint gn = n0 + 16u + (e & 15u);
-        if (gm < pc.m && gn < pc.n) c[gm * pc.ldc + gn] = float(c_tile[e]);
+        if (gm < pc.m && gn < pc.n) {
+            float16_t merged = float16_t(c_part[e] + float(c_tile[e]));
+            c[gm * pc.ldc + gn] = float(merged);
+        }
     }
     barrier();
 }

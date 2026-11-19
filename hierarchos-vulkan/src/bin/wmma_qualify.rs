@@ -160,7 +160,8 @@ fn run() -> Result<()> {
             "--full-oracle" => full_accumulation = match args.next().as_deref() {
                 Some("tile16") => OracleAccumulation::Fp16TileK,
                 Some("rdna3-dot2") => OracleAccumulation::Fp16Dot2,
-                _ => bail!("--full-oracle requires tile16 or rdna3-dot2"),
+                Some("split2") => OracleAccumulation::Fp16Split2,
+                _ => bail!("--full-oracle requires tile16, rdna3-dot2 or split2"),
             },
             "--dump-operands" => dump = Some(std::path::PathBuf::from(
                 args.next().context("--dump-operands requires a new output path")?)),
@@ -446,7 +447,11 @@ fn run() -> Result<()> {
             "{{\n  \"device\": {:?},\n  \"mode\": {:?},\n  \"full_oracle\": {:?},\n  \"capabilities\": {{\"mixed_supported\": {}, \"full_fp16_supported\": {}, \"subgroup_size\": {}, \"driver_default_subgroup_size\": {}}},\n  \"dispatch_counts\": {{\"cooperative\": {}, \"plain_f16\": {}, \"shape_fallbacks\": {}}},\n  \"gates\": {}, \"failed\": {},\n  \"results\": [\n{}\n  ]\n}}",
             device.name(),
             mode.label(),
-            if full_accumulation == OracleAccumulation::Fp16Dot2 {"rdna3-dot2"} else {"tile16"},
+            match full_accumulation {
+                OracleAccumulation::Fp16Dot2 => "rdna3-dot2",
+                OracleAccumulation::Fp16Split2 => "split2",
+                _ => "tile16",
+            },
             capabilities.mixed_supported(),
             capabilities.full_fp16_supported(),
             hierarchos_vulkan::wmma::WMMA_SUBGROUP_SIZE,

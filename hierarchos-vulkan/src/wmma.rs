@@ -1039,6 +1039,17 @@ pub enum OracleAccumulation {
     /// the historical tile16 model does not. Internal hardware order remains
     /// implementation dependent, so this is not a bitwise emulation claim.
     Fp16Dot2,
+    /// Two-bank split model: alternating 16-wide K slices accumulate into two
+    /// separate FP16 accumulators with the RDNA3 dot2 cadence, and the two banks
+    /// are merged once, in binary16, per output element.
+    ///
+    /// This is the contract the Phase LXIV `wmma_gemm_f16_f16acc` module
+    /// implements. A matched oracle has to model the accumulation order the
+    /// kernel actually issues; `Fp16TileK` models a single accumulator rounded
+    /// once per K slice, which is neither what this kernel does nor what the
+    /// hardware does, so it cannot serve as the implementation-correctness
+    /// reference for it.
+    Fp16Split2,
 }
 
 /// Matched mixed-precision reference for `C = op(A) * op(B)`.
@@ -1073,6 +1084,10 @@ pub fn oracle_gemm(
         for col in 0..columns {
             let mut acc = 0.0f32;
             let mut partial = 0.0f32;
+            // `Fp16Split2` keeps one accumulator per K-slice bank; the other
+            // models keep a single accumulator at index 0.
+            let mut banks = [0.0f32; 2];
+            let mut bank_of_last = 0usize;
             for t in 0..reduction {
                 let av = if layout.transposed_a {
                     a_h[t * rows + row]
@@ -1086,20 +1101,34 @@ pub fn oracle_gemm(
                 };
                 match accumulation {
                     OracleAccumulation::Fp32 => acc = (av * bv) + acc,
-                    OracleAccumulation::Fp16TileK | OracleAccumulation::Fp16Dot2 => partial = (av * bv) + partial,
+                    _ => partial = (av * bv) + partial,
                 }
-                let cadence = if accumulation == OracleAccumulation::Fp16Dot2 {2} else {WMMA_TILE_K as usize};
-                if accumulation != OracleAccumulation::Fp32
-                    && (t + 1) % cadence == 0
-                {
-                    acc = round_to_f16(acc + partial);
+                let cadence = match accumulation {
+                    OracleAccumulation::Fp32 => 0,
+                    OracleAccumulation::Fp16TileK => WMMA_TILE_K as usize,
+                    OracleAccumulation::Fp16Dot2 | OracleAccumulation::Fp16Split2 => 2,
+                };
+                if cadence != 0 && (t + 1) % cadence == 0 {
+                    let bank = if accumulation == OracleAccumulation::Fp16Split2 {
+                        (t / WMMA_TILE_K as usize) % 2
+                    } else {
+                        0
+                    };
+                    banks[bank] = round_to_f16(banks[bank] + partial);
+                    bank_of_last = bank;
                     partial = 0.0;
                 }
             }
             if partial != 0.0 {
-                acc = round_to_f16(acc + partial);
+                banks[bank_of_last] = round_to_f16(banks[bank_of_last] + partial);
             }
-            out[row * columns + col] = acc;
+            out[row * columns + col] = if accumulation == OracleAccumulation::Fp16Split2 {
+                round_to_f16(banks[0] + banks[1])
+            } else if accumulation == OracleAccumulation::Fp32 {
+                acc
+            } else {
+                banks[0]
+            };
         }
     }
     Ok(out)
@@ -1541,6 +1570,10 @@ mod tests {
 
     /// The full-FP16 arm must satisfy its own contract: finite output and the
     /// matched-oracle bound, not merely "a number came back".
+    ///
+    /// The matched oracle models the order the Phase LXIV module issues: two
+    /// FP16 accumulator banks over alternating K slices, merged once in FP16.
+    /// The bound is the unchanged two-ULP budget.
     #[test]
     fn wmma_full_fp16_matches_matched_oracle() -> Result<()> {
         let Some(device) = device_or_skip(WmmaMode::FullFp16) else {
@@ -1560,7 +1593,7 @@ mod tests {
                 columns,
                 reduction,
                 GemmLayout::default(),
-                OracleAccumulation::Fp16TileK,
+                OracleAccumulation::Fp16Split2,
             )?;
             let observed = gemm.matmul(
                 WmmaGemmArm::FullFp16Accumulate,
@@ -1583,6 +1616,77 @@ mod tests {
                 reduction,
                 measured.max_abs,
                 limit
+            );
+        }
+        Ok(())
+    }
+
+    /// The long-reduction geometry whose single-accumulator form failed the
+    /// unchanged FP32 budget must now meet it in every operand layout.
+    ///
+    /// `128x128x96` is the fixture whose three transposed cases previously
+    /// measured 0.0631-0.0731 against the unchanged `FULL_VS_FP32_MAX_ABS` of
+    /// 0.05. This is an accuracy gate, so it is checked against the f64
+    /// reference rather than against any accumulation model.
+    #[test]
+    fn wmma_full_fp16_meets_fp32_budget_on_long_reductions() -> Result<()> {
+        let Some(device) = device_or_skip(WmmaMode::FullFp16) else {
+            return Ok(());
+        };
+        let gemm = WmmaGemm::new(&device, WmmaMode::FullFp16)?;
+        if !gemm.capabilities().full_fp16_supported() {
+            return Ok(());
+        }
+        let (rows, columns, reduction) = (128usize, 128usize, 96usize);
+        for layout in [
+            GemmLayout::default(),
+            GemmLayout {
+                transposed_a: true,
+                transposed_b: false,
+            },
+            GemmLayout {
+                transposed_a: false,
+                transposed_b: true,
+            },
+            GemmLayout {
+                transposed_a: true,
+                transposed_b: true,
+            },
+        ] {
+            let a = deterministic_matrix(rows * reduction, 0xA101_0001);
+            let b = deterministic_matrix(reduction * columns, 0xB202_0002);
+            let reference =
+                reference_fp32_gemm(&a, &b, rows, columns, reduction, layout)?;
+            let observed = gemm.matmul(
+                WmmaGemmArm::FullFp16Accumulate,
+                &a,
+                &b,
+                rows,
+                columns,
+                reduction,
+                layout,
+            )?;
+            let measured = drift(&reference, &observed)?;
+            assert!(measured.all_finite());
+            assert!(
+                measured.max_abs <= FULL_VS_FP32_MAX_ABS,
+                "full-FP16 WMMA {}x{}x{} {:?} vs FP32 max_abs {} > {}",
+                rows,
+                columns,
+                reduction,
+                layout,
+                measured.max_abs,
+                FULL_VS_FP32_MAX_ABS
+            );
+            assert!(
+                measured.rms <= FULL_VS_FP32_RMS,
+                "full-FP16 WMMA {}x{}x{} {:?} vs FP32 rms {} > {}",
+                rows,
+                columns,
+                reduction,
+                layout,
+                measured.rms,
+                FULL_VS_FP32_RMS
             );
         }
         Ok(())
