@@ -1470,7 +1470,22 @@ mod tests {
         if !gemm.capabilities().mixed_supported() {
             return Ok(());
         }
-        for (rows, columns, reduction) in [(64usize, 48usize, 40usize), (33, 17, 19), (128, 128, 96)]
+        // Shapes are chosen to cover staging boundaries, not just sizes. The
+        // all-odd fixture forces every operand onto the masked 16-bit fallback
+        // because an odd leading dimension makes a pair base odd. `64x48x19`
+        // keeps A's transposed leading dimension even (64) while the reduction
+        // axis is odd, so the final K slice packs words whose second half is out
+        // of range. `19x48x64` keeps A's row-major leading dimension even (64)
+        // while only 19 output rows exist, so the last row tile packs a pair at
+        // the matrix edge. Both must return the same masked values the scalar
+        // path returned, with nothing read past the logical matrix.
+        for (rows, columns, reduction) in [
+            (64usize, 48usize, 40usize),
+            (33, 17, 19),
+            (128, 128, 96),
+            (64, 48, 19),
+            (19, 48, 64),
+        ]
         {
             for layout in [
                 GemmLayout::default(),

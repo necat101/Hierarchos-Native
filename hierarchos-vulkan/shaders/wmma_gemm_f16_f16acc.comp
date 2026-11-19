@@ -14,6 +14,15 @@
 //
 // The tile store widens the FP16 accumulators back to an FP32 output buffer so
 // the surrounding graph keeps its existing FP32 activation contract.
+//
+// The operand staging is the same Phase LXI candidate A form documented in
+// `wmma_gemm_f16_f32acc.comp`: each operand is viewed as packed `f16vec2`
+// words, a lane fetches a pair of adjacent halves along that operand's globally
+// contiguous axis with one aligned 32-bit load, and the workgroup tile layout,
+// lane coverage and row-major fragment loads are unchanged. Odd leading
+// dimensions and partially in-range pairs fall back to two independently masked
+// 16-bit extract loads, so the staged bytes - and therefore the FP16
+// accumulation cadence and its documented failure set - are unchanged.
 
 #extension GL_KHR_shader_subgroup_basic : require
 #extension GL_KHR_memory_scope_semantics : require
@@ -23,8 +32,8 @@
 
 layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 
-layout(set = 0, binding = 0, std430) readonly buffer ABuffer { float16_t a[]; };
-layout(set = 0, binding = 1, std430) readonly buffer BBuffer { float16_t b[]; };
+layout(set = 0, binding = 0, std430) readonly buffer ABuffer { f16vec2 a[]; };
+layout(set = 0, binding = 1, std430) readonly buffer BBuffer { f16vec2 b[]; };
 layout(set = 0, binding = 2, std430) writeonly buffer CBuffer { float c[]; };
 
 layout(push_constant) uniform Push {
@@ -49,6 +58,8 @@ void main() {
     uint n0 = gl_WorkGroupID.x * 32u;
     bool trans_a = (pc.flags & 1u) != 0u;
     bool trans_b = (pc.flags & 2u) != 0u;
+    bool wide_a = (pc.lda & 1u) == 0u;
+    bool wide_b = (pc.ldb & 1u) == 0u;
 
     coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> a_frag0;
     coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> a_frag1;
@@ -65,29 +76,120 @@ void main() {
         coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
 
     for (uint k0 = 0u; k0 < pc.k; k0 += 16u) {
-        for (uint i = lane; i < 512u; i += lanes) {
-            uint tile = i >> 8u;
-            uint element = i & 255u;
-            uint row = element >> 4u;
-            uint col = element & 15u;
-
-            // A: row-major [m][k].
-            uint gm = m0 + tile * 16u + row;
-            uint gka = k0 + col;
-            float16_t va = float16_t(0.0);
-            if (gm < pc.m && gka < pc.k) {
-                va = trans_a ? a[gka * pc.lda + gm] : a[gm * pc.lda + gka];
+        if (!trans_a) {
+            // A row-major [m][k]: reduction axis contiguous -> pair along col.
+            for (uint p = lane; p < 256u; p += lanes) {
+                uint tile = p >> 7u;
+                uint e = p & 127u;
+                uint row = e >> 3u;
+                uint col = (e & 7u) << 1u;
+                uint gm = m0 + tile * 16u + row;
+                uint gk = k0 + col;
+                uint off = gm * pc.lda + gk;
+                float16_t v0 = float16_t(0.0);
+                float16_t v1 = float16_t(0.0);
+                if (wide_a && gm < pc.m && gk + 1u < pc.k) {
+                    f16vec2 pair = a[off >> 1u];
+                    v0 = pair.x;
+                    v1 = pair.y;
+                } else {
+                    if (gm < pc.m && gk < pc.k) {
+                        v0 = a[off >> 1u][off & 1u];
+                    }
+                    if (gm < pc.m && gk + 1u < pc.k) {
+                        uint next = off + 1u;
+                        v1 = a[next >> 1u][next & 1u];
+                    }
+                }
+                a_tile[tile][row * 16u + col] = v0;
+                a_tile[tile][row * 16u + col + 1u] = v1;
             }
-            a_tile[tile][element] = va;
-
-            // B: row-major [k][n].
-            uint gkb = k0 + row;
-            uint gn = n0 + tile * 16u + col;
-            float16_t vb = float16_t(0.0);
-            if (gn < pc.n && gkb < pc.k) {
-                vb = trans_b ? b[gn * pc.ldb + gkb] : b[gkb * pc.ldb + gn];
+        } else {
+            // A transposed [k][m]: output axis contiguous -> pair along row.
+            for (uint p = lane; p < 256u; p += lanes) {
+                uint tile = p >> 7u;
+                uint e = p & 127u;
+                uint row = (e >> 4u) << 1u;
+                uint col = e & 15u;
+                uint gm = m0 + tile * 16u + row;
+                uint gk = k0 + col;
+                uint off = gk * pc.lda + gm;
+                float16_t v0 = float16_t(0.0);
+                float16_t v1 = float16_t(0.0);
+                if (wide_a && gk < pc.k && gm + 1u < pc.m) {
+                    f16vec2 pair = a[off >> 1u];
+                    v0 = pair.x;
+                    v1 = pair.y;
+                } else {
+                    if (gk < pc.k && gm < pc.m) {
+                        v0 = a[off >> 1u][off & 1u];
+                    }
+                    if (gk < pc.k && gm + 1u < pc.m) {
+                        uint next = off + 1u;
+                        v1 = a[next >> 1u][next & 1u];
+                    }
+                }
+                a_tile[tile][row * 16u + col] = v0;
+                a_tile[tile][row * 16u + col + 16u] = v1;
             }
-            b_tile[tile][element] = vb;
+        }
+
+        if (!trans_b) {
+            // B row-major [k][n]: output axis contiguous -> pair along col.
+            for (uint p = lane; p < 256u; p += lanes) {
+                uint tile = p >> 7u;
+                uint e = p & 127u;
+                uint row = e >> 3u;
+                uint col = (e & 7u) << 1u;
+                uint gk = k0 + row;
+                uint gn = n0 + tile * 16u + col;
+                uint off = gk * pc.ldb + gn;
+                float16_t v0 = float16_t(0.0);
+                float16_t v1 = float16_t(0.0);
+                if (wide_b && gk < pc.k && gn + 1u < pc.n) {
+                    f16vec2 pair = b[off >> 1u];
+                    v0 = pair.x;
+                    v1 = pair.y;
+                } else {
+                    if (gk < pc.k && gn < pc.n) {
+                        v0 = b[off >> 1u][off & 1u];
+                    }
+                    if (gk < pc.k && gn + 1u < pc.n) {
+                        uint next = off + 1u;
+                        v1 = b[next >> 1u][next & 1u];
+                    }
+                }
+                b_tile[tile][row * 16u + col] = v0;
+                b_tile[tile][row * 16u + col + 1u] = v1;
+            }
+        } else {
+            // B transposed [n][k]: reduction axis contiguous -> pair along row.
+            for (uint p = lane; p < 256u; p += lanes) {
+                uint tile = p >> 7u;
+                uint e = p & 127u;
+                uint row = (e >> 4u) << 1u;
+                uint col = e & 15u;
+                uint gk = k0 + row;
+                uint gn = n0 + tile * 16u + col;
+                uint off = gn * pc.ldb + gk;
+                float16_t v0 = float16_t(0.0);
+                float16_t v1 = float16_t(0.0);
+                if (wide_b && gn < pc.n && gk + 1u < pc.k) {
+                    f16vec2 pair = b[off >> 1u];
+                    v0 = pair.x;
+                    v1 = pair.y;
+                } else {
+                    if (gn < pc.n && gk < pc.k) {
+                        v0 = b[off >> 1u][off & 1u];
+                    }
+                    if (gn < pc.n && gk + 1u < pc.k) {
+                        uint next = off + 1u;
+                        v1 = b[next >> 1u][next & 1u];
+                    }
+                }
+                b_tile[tile][row * 16u + col] = v0;
+                b_tile[tile][row * 16u + col + 16u] = v1;
+            }
         }
         barrier();
 
