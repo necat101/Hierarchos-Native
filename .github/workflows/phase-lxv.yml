@@ -37,9 +37,11 @@ jobs:
           python-version: "3.12"
 
       - name: Record the changed files the scope check reads
+        env:
+          # Phase LXV starts at b86c29e; only this phase's files are in scope.
+          PHASE_LXV_BASE: b86c29e212e0d439d6698a0d47a48ed58424ce88
         run: |
-          git diff --name-only \
-            81ac82fa972d84025129e7c3f0e58fdece7df786...HEAD > "$RUNNER_TEMP/changed.txt"
+          git diff --name-only "$PHASE_LXV_BASE"...HEAD > "$RUNNER_TEMP/changed.txt"
           cat "$RUNNER_TEMP/changed.txt"
 
       - name: Phase LXV gate
