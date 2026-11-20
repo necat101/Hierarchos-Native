@@ -1,0 +1,345 @@
+#version 450
+
+// RDNA3 hardware-WMMA GEMM, full-FP16 arm — Phase LXIX two-bank reuse candidate.
+//
+//   C[m, n] = op(A)[m, k] * op(B)[k, n]      (FP16 operands, FP16 accumulation)
+//
+// Identical blocking, staging and masking to the Phase LXVII sequential
+// bank-reuse module. Only accumulator lifetime, bank traversal granularity and
+// partial-result storage change.
+//
+// Reduction contract (unchanged)
+// ------------------------------
+//
+//     bank b  = slices b, b+8, b+16, ...          (FP16, RDNA3 dot2 cadence)
+//     part[k] = fp16(bank 2k + bank 2k+1)
+//     out     = fp16( fp16(part0 + part1) + fp16(part2 + part3) )
+//
+// What Phase LXIX changes — two banks live at a time, eager pair reduction
+// -----------------------------------------------------------------------
+//
+// Phase LXVII walked the eight banks one at a time in bank-major order, so the
+// slice stream per bank was `b, b+8, b+16, ...`. Consecutive staged slices were
+// therefore 8 * 16 = 128 halves (256 B) apart in a row-major operand instead of
+// adjacent, which leaves most of each fetched cache line unused at the moment it
+// is fetched.
+//
+// This candidate keeps TWO banks' accumulator sets live and processes the slice
+// belonging to bank 2p immediately followed by the slice belonging to bank 2p+1.
+// Those two slices are adjacent in K, so each fetched line is consumed while it
+// is still hot. The K-slice assignment is untouched: bank b still receives
+// slices b, b+8, b+16, ..., and within a bank the slices are still accumulated
+// in ascending order, because bank 2p's stream and bank 2p+1's stream are walked
+// independently as the outer/inner `sub` step.
+//
+// Because both banks of a pair are complete at the same instant, the pair is
+// reduced to `part[p]` as soon as its second bank folds, and the merge tree is
+// evaluated level by level at the earliest point its operands exist:
+//
+//     after pair 0: slot0 = part0
+//     after pair 1: slot1 = part1; slot0 = fp16(slot0 + slot1)            -> lo
+//     after pair 2: slot1 = part2
+//     after pair 3: slot2 = part3; slot1 = fp16(slot1 + slot2)            -> hi
+//                                   slot0 = fp16(slot0 + slot1)            -> out
+//
+// At most three 256-half slots are live per output tile at any point (at pair 3
+// the values lo, part2 and part3 must coexist), so `part` shrinks from
+// 4x4x256 to 4x3x256 halves and LDS from 10,752 B to 8,704 B. Three slots is the
+// provable floor for this tree: banks 6 and 7 must each be materialised
+// separately before fp16(part2 + part3) can be formed.
+//
+// No rounding point is removed, no operand order changes, and no K slice is
+// reassigned. Outputs are expected to be bit-identical to the eight-bank module.
+
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_memory_scope_semantics : require
+#extension GL_KHR_cooperative_matrix : require
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#extension GL_EXT_shader_16bit_storage : require
+
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer ABuffer { f16vec2 a[]; };
+layout(set = 0, binding = 1, std430) readonly buffer BBuffer { f16vec2 b[]; };
+layout(set = 0, binding = 2, std430) writeonly buffer CBuffer { float c[]; };
+
+layout(push_constant) uniform Push {
+    uint m;
+    uint n;
+    uint k;
+    uint lda;
+    uint ldb;
+    uint ldc;
+    uint flags;
+    uint reserved;
+} pc;
+
+shared float16_t a_tile[2][256];
+shared float16_t b_tile[2][256];
+// Staging for the odd bank of a pair while its slot is being combined.
+shared float16_t c_tile[256];
+// Bank partials: [tile][slot]. Slots are reused as the merge tree advances;
+// never more than three are live at once.
+shared float16_t part[4][3][256];
+
+// Fold a completed bank pair into `slot`:
+//
+//   slot = fp16(even_bank + odd_bank)
+//
+// which is the same expression the eight-bank epilogue formed with COPY_BANK
+// followed by ADD_BANK, with the same operand order.
+#define FOLD_PAIR(tile, even_frag, odd_frag)                                    \
+    do {                                                                        \
+        coopMatStore(even_frag, part[(tile)][slot], 0, 16,                      \
+                     gl_CooperativeMatrixLayoutRowMajor);                       \
+        coopMatStore(odd_frag, c_tile, 0, 16,                                   \
+                     gl_CooperativeMatrixLayoutRowMajor);                       \
+        barrier();                                                              \
+        for (uint e = lane; e < 256u; e += lanes) {                             \
+            part[(tile)][slot][e] = float16_t(                                  \
+                float(part[(tile)][slot][e]) + float(c_tile[e]));               \
+        }                                                                       \
+        barrier();                                                              \
+    } while (false)
+
+// Final level of the merge tree for one output tile. On entry slot 0 holds
+// `lo = fp16(part0 + part1)`, slot 1 holds `part2` and slot 2 holds `part3`.
+// This forms hi = fp16(part2 + part3) and out = fp16(lo + hi), then widens to
+// the FP32 output buffer with masking.
+#define MERGE_FINAL(tile, row_base, col_base)                                   \
+    do {                                                                        \
+        for (uint e = lane; e < 256u; e += lanes) {                             \
+            uint gm = (row_base) + (e >> 4u);                                   \
+            uint gn = (col_base) + (e & 15u);                                   \
+            if (gm < pc.m && gn < pc.n) {                                       \
+                float16_t hi = float16_t(                                       \
+                    float(part[(tile)][1][e]) + float(part[(tile)][2][e]));     \
+                float16_t merged = float16_t(                                   \
+                    float(part[(tile)][0][e]) + float(hi));                     \
+                c[gm * pc.ldc + gn] = float(merged);                            \
+            }                                                                   \
+        }                                                                       \
+    } while (false)
+
+void main() {
+    uint lane = gl_SubgroupInvocationID;
+    uint lanes = gl_SubgroupSize;
+    uint m0 = gl_WorkGroupID.y * 32u;
+    uint n0 = gl_WorkGroupID.x * 32u;
+    bool trans_a = (pc.flags & 1u) != 0u;
+    bool trans_b = (pc.flags & 2u) != 0u;
+    bool wide_a = (pc.lda & 1u) == 0u;
+    bool wide_b = (pc.ldb & 1u) == 0u;
+
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> a_frag0;
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> a_frag1;
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseB> b_frag0;
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseB> b_frag1;
+
+    // Four bank pairs. `pair`, `slice` and both loop bounds are workgroup
+    // uniform, so every barrier below sits in uniform control flow.
+    for (uint pair = 0u; pair < 4u; ++pair) {
+        uint bank_a = pair * 2u;
+        uint bank_b = bank_a + 1u;
+
+        // Two live accumulator sets: the even bank of the pair and the odd bank.
+        // Both start at exact zero, exactly as each bank did before.
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> e_00 =
+            coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> e_01 =
+            coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> e_10 =
+            coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> e_11 =
+            coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> o_00 =
+            coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> o_01 =
+            coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> o_10 =
+            coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+        coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> o_11 =
+            coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float16_t(0.0));
+
+        // Bank `bank_a` owns slices bank_a, bank_a+8, ...; bank `bank_b` owns the
+        // same indices shifted by one. Stepping both streams per iteration makes
+        // the two staged slices adjacent in K while each bank still accumulates
+        // its own slices in ascending order.
+        for (uint slice = bank_a; slice * 16u < pc.k; slice += 8u) {
+            for (uint sub = 0u; sub < 2u; ++sub) {
+                uint s = slice + sub;
+                // Uniform guard: the odd bank of the last pair can be empty
+                // (K=96 leaves banks 6 and 7 with no slice at all).
+                if (s * 16u < pc.k) {
+                    uint k0 = s * 16u;
+                    if (!trans_a) {
+                        // A row-major [m][k]: reduction axis contiguous -> pair along col.
+                        for (uint p = lane; p < 256u; p += lanes) {
+                            uint tile = p >> 7u;
+                            uint e = p & 127u;
+                            uint row = e >> 3u;
+                            uint col = (e & 7u) << 1u;
+                            uint gm = m0 + tile * 16u + row;
+                            uint gk = k0 + col;
+                            uint off = gm * pc.lda + gk;
+                            float16_t v0 = float16_t(0.0);
+                            float16_t v1 = float16_t(0.0);
+                            if (wide_a && gm < pc.m && gk + 1u < pc.k) {
+                                f16vec2 pair_v = a[off >> 1u];
+                                v0 = pair_v.x;
+                                v1 = pair_v.y;
+                            } else {
+                                if (gm < pc.m && gk < pc.k) {
+                                    v0 = a[off >> 1u][off & 1u];
+                                }
+                                if (gm < pc.m && gk + 1u < pc.k) {
+                                    uint next = off + 1u;
+                                    v1 = a[next >> 1u][next & 1u];
+                                }
+                            }
+                            a_tile[tile][row * 16u + col] = v0;
+                            a_tile[tile][row * 16u + col + 1u] = v1;
+                        }
+                    } else {
+                        // A transposed [k][m]: output axis contiguous -> pair along row.
+                        for (uint p = lane; p < 256u; p += lanes) {
+                            uint tile = p >> 7u;
+                            uint e = p & 127u;
+                            uint row = (e >> 4u) << 1u;
+                            uint col = e & 15u;
+                            uint gm = m0 + tile * 16u + row;
+                            uint gk = k0 + col;
+                            uint off = gk * pc.lda + gm;
+                            float16_t v0 = float16_t(0.0);
+                            float16_t v1 = float16_t(0.0);
+                            if (wide_a && gk < pc.k && gm + 1u < pc.m) {
+                                f16vec2 pair_v = a[off >> 1u];
+                                v0 = pair_v.x;
+                                v1 = pair_v.y;
+                            } else {
+                                if (gk < pc.k && gm < pc.m) {
+                                    v0 = a[off >> 1u][off & 1u];
+                                }
+                                if (gk < pc.k && gm + 1u < pc.m) {
+                                    uint next = off + 1u;
+                                    v1 = a[next >> 1u][next & 1u];
+                                }
+                            }
+                            a_tile[tile][row * 16u + col] = v0;
+                            a_tile[tile][row * 16u + col + 16u] = v1;
+                        }
+                    }
+
+                    if (!trans_b) {
+                        // B row-major [k][n]: output axis contiguous -> pair along col.
+                        for (uint p = lane; p < 256u; p += lanes) {
+                            uint tile = p >> 7u;
+                            uint e = p & 127u;
+                            uint row = e >> 3u;
+                            uint col = (e & 7u) << 1u;
+                            uint gk = k0 + row;
+                            uint gn = n0 + tile * 16u + col;
+                            uint off = gk * pc.ldb + gn;
+                            float16_t v0 = float16_t(0.0);
+                            float16_t v1 = float16_t(0.0);
+                            if (wide_b && gk < pc.k && gn + 1u < pc.n) {
+                                f16vec2 pair_v = b[off >> 1u];
+                                v0 = pair_v.x;
+                                v1 = pair_v.y;
+                            } else {
+                                if (gk < pc.k && gn < pc.n) {
+                                    v0 = b[off >> 1u][off & 1u];
+                                }
+                                if (gk < pc.k && gn + 1u < pc.n) {
+                                    uint next = off + 1u;
+                                    v1 = b[next >> 1u][next & 1u];
+                                }
+                            }
+                            b_tile[tile][row * 16u + col] = v0;
+                            b_tile[tile][row * 16u + col + 1u] = v1;
+                        }
+                    } else {
+                        // B transposed [n][k]: reduction axis contiguous -> pair along row.
+                        for (uint p = lane; p < 256u; p += lanes) {
+                            uint tile = p >> 7u;
+                            uint e = p & 127u;
+                            uint row = (e >> 4u) << 1u;
+                            uint col = e & 15u;
+                            uint gk = k0 + row;
+                            uint gn = n0 + tile * 16u + col;
+                            uint off = gn * pc.ldb + gk;
+                            float16_t v0 = float16_t(0.0);
+                            float16_t v1 = float16_t(0.0);
+                            if (wide_b && gn < pc.n && gk + 1u < pc.k) {
+                                f16vec2 pair_v = b[off >> 1u];
+                                v0 = pair_v.x;
+                                v1 = pair_v.y;
+                            } else {
+                                if (gn < pc.n && gk < pc.k) {
+                                    v0 = b[off >> 1u][off & 1u];
+                                }
+                                if (gn < pc.n && gk + 1u < pc.k) {
+                                    uint next = off + 1u;
+                                    v1 = b[next >> 1u][next & 1u];
+                                }
+                            }
+                            b_tile[tile][row * 16u + col] = v0;
+                            b_tile[tile][row * 16u + col + 16u] = v1;
+                        }
+                    }
+                    barrier();
+
+                    coopMatLoad(a_frag0, a_tile[0], 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+                    coopMatLoad(a_frag1, a_tile[1], 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+                    coopMatLoad(b_frag0, b_tile[0], 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+                    coopMatLoad(b_frag1, b_tile[1], 0, 16, gl_CooperativeMatrixLayoutRowMajor);
+
+                    if (sub == 0u) {
+                        e_00 = coopMatMulAdd(a_frag0, b_frag0, e_00);
+                        e_01 = coopMatMulAdd(a_frag0, b_frag1, e_01);
+                        e_10 = coopMatMulAdd(a_frag1, b_frag0, e_10);
+                        e_11 = coopMatMulAdd(a_frag1, b_frag1, e_11);
+                    } else {
+                        o_00 = coopMatMulAdd(a_frag0, b_frag0, o_00);
+                        o_01 = coopMatMulAdd(a_frag0, b_frag1, o_01);
+                        o_10 = coopMatMulAdd(a_frag1, b_frag0, o_10);
+                        o_11 = coopMatMulAdd(a_frag1, b_frag1, o_11);
+                    }
+                    barrier();
+                }
+            }
+        }
+
+        // Slot reuse: pair 0 -> 0, pair 1 -> 1, pair 2 -> 1, pair 3 -> 2.
+        // Pair 1's fold is preceded by pair 0's result already in slot 0, and
+        // the level-1 merge right after it consumes slot 1, freeing it for pair 2.
+        uint slot = (pair == 0u) ? 0u : ((pair == 3u) ? 2u : 1u);
+
+        // Tile 0: rows [m0, m0+16), columns [n0, n0+16).
+        FOLD_PAIR(0, e_00, o_00);
+        // Tile 1: rows [m0, m0+16), columns [n0+16, n0+32).
+        FOLD_PAIR(1, e_01, o_01);
+        // Tile 2: rows [m0+16, m0+32), columns [n0, n0+16).
+        FOLD_PAIR(2, e_10, o_10);
+        // Tile 3: rows [m0+16, m0+32), columns [n0+16, n0+32).
+        FOLD_PAIR(3, e_11, o_11);
+
+        // Earliest legal point for the level-1 merge: both operands of
+        // fp16(part0 + part1) are final once pair 1 completes.
+        if (pair == 1u) {
+            for (uint t = 0u; t < 4u; ++t) {
+                for (uint e = lane; e < 256u; e += lanes) {
+                    part[t][0][e] = float16_t(
+                        float(part[t][0][e]) + float(part[t][1][e]));
+                }
+            }
+            barrier();
+        }
+    }
+
+    // Level-2 merge and store, unchanged tree and operand order.
+    MERGE_FINAL(0, m0, n0);
+    MERGE_FINAL(1, m0, n0 + 16u);
+    MERGE_FINAL(2, m0 + 16u, n0);
+    MERGE_FINAL(3, m0 + 16u, n0 + 16u);
+}

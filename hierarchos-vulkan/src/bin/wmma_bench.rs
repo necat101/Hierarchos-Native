@@ -141,6 +141,15 @@ fn run() -> Result<()> {
         println!("WMMA paired ABBA benchmark");
         println!("device: {}", device.name());
         println!("mode: {} ({})", mode.label(), mode.description());
+        if mode == WmmaMode::FullFp16 {
+            println!(
+                "full-fp16 variant: {} (shader {}, pipeline {})",
+                gemm.full_fp16_variant().label(),
+                gemm.full_fp16_variant().shader_name(),
+                gemm.full_fp16_pipeline_identity()
+                    .unwrap_or_else(|| "unavailable".to_owned())
+            );
+        }
         print!("{}", capabilities.diagnostics());
         println!(
             "rounds={rounds} iterations/round={iterations} layout=A[rows,k]xB^T[columns,k]"
@@ -308,9 +317,15 @@ fn run() -> Result<()> {
     if json {
         let counts = gemm.dispatch_counts();
         println!(
-            "{{\n  \"device\": {:?},\n  \"mode\": {:?},\n  \"rounds\": {},\n  \"iterations_per_round\": {},\n  \"cooperative_dispatches\": {},\n  \"plain_dispatches\": {},\n  \"shape_fallbacks\": {},\n  \"shapes\": [\n{}\n  ]\n}}",
+            "{{\n  \"device\": {:?},\n  \"mode\": {:?},\n  \"full_fp16_variant\": {:?},\n  \"full_fp16_pipeline\": {:?},\n  \"rounds\": {},\n  \"iterations_per_round\": {},\n  \"cooperative_dispatches\": {},\n  \"plain_dispatches\": {},\n  \"shape_fallbacks\": {},\n  \"shapes\": [\n{}\n  ]\n}}",
             device.name(),
             mode.label(),
+            if mode == WmmaMode::FullFp16 {
+                gemm.full_fp16_variant().label()
+            } else {
+                "n/a"
+            },
+            gemm.full_fp16_pipeline_identity().unwrap_or_default(),
             rounds,
             iterations,
             counts.cooperative,

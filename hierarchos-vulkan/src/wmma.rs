@@ -40,6 +40,11 @@ use crate::{GpuBuffer, VulkanDevice};
 
 const WMMA_GEMM_F32ACC_SPV: &[u8] = include_bytes!("../shaders/wmma_gemm_f16_f32acc.spv");
 const WMMA_GEMM_F16ACC_SPV: &[u8] = include_bytes!("../shaders/wmma_gemm_f16_f16acc.spv");
+/// Phase LXIX two-bank bank-reuse module. Selectable through
+/// [`FULL_FP16_VARIANT_ENV`]; never the default until a promotion decision is
+/// taken, because it is still slower than the FP32 kernel it replaces.
+const WMMA_GEMM_F16ACC_TWOBANK_SPV: &[u8] =
+    include_bytes!("../shaders/wmma_gemm_f16_f16acc_twobank.spv");
 const GEMM_F16_F32_PLAIN_SPV: &[u8] = include_bytes!("../shaders/gemm_f16_f32_plain.spv");
 const FP32_TO_FP16_NATIVE_SPV: &[u8] = include_bytes!("../shaders/fp32_to_fp16_native.spv");
 /// The product's existing FP32 linear kernel, used as the paired baseline arm.
@@ -131,6 +136,90 @@ impl WmmaMode {
             Self::FullFp16 => {
                 "FP16 GEMM operands and FP16 accumulation (experimental); FP32 masters and FP32 optimizer state retained"
             }
+        }
+    }
+}
+
+/// Environment variable that selects which committed Full FP16 shader the
+/// `FullFp16` arm loads. Unset/empty means [`FullFp16Variant::Split8`], i.e. the
+/// currently shipped module, so a process that never sets it keeps the existing
+/// pipeline and the existing numerical contract.
+pub const FULL_FP16_VARIANT_ENV: &str = "HIERARCHOS_WMMA_FULL_FP16_VARIANT";
+
+/// The committed Full FP16 shader variants this build can dispatch.
+///
+/// The variant selects the actual SPIR-V module, not a label: each variant is a
+/// distinct `include_bytes!` blob, so the pipelines they create have different
+/// shader signatures (the FNV-1a of the SPIR-V is the shader component of the
+/// pipeline cache key in [`vulkan::ComputeKernel`]). Two variants therefore
+/// cannot share a cached pipeline.
+///
+/// Both variants evaluate the same reduction contract (bank `b` owns slices
+/// `b, b+8, ...`, pairwise FP16 merge tree, identical operand order and rounding
+/// points) and are expected to produce bit-identical FP32 outputs.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum FullFp16Variant {
+    /// The eight-bank split8 module committed as `wmma_gemm_f16_f16acc.spv`.
+    /// This is the default and the currently shipped arm.
+    #[default]
+    Split8,
+    /// The Phase LXIX two-bank bank-reuse module
+    /// (`wmma_gemm_f16_f16acc_twobank.spv`). Same arithmetic, fewer live
+    /// accumulator banks, smaller partial array, different pipeline.
+    TwoBank,
+}
+
+impl FullFp16Variant {
+    pub const ALL: [Self; 2] = [Self::Split8, Self::TwoBank];
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "split8" | "eight-bank" | "eightbank" | "eight_bank" | "8" => Ok(Self::Split8),
+            "two-bank" | "twobank" | "two_bank" | "2" => Ok(Self::TwoBank),
+            other => bail!(
+                "unsupported full-fp16 variant {other:?}; expected split8 or two-bank"
+            ),
+        }
+    }
+
+    /// Resolve a raw environment value. Absent or empty selects the default.
+    ///
+    /// Split out from [`Self::from_env`] so the environment contract is testable
+    /// without mutating process state.
+    pub fn from_env_value(value: Option<String>) -> Result<Self> {
+        match value {
+            Some(value) if !value.trim().is_empty() => Self::parse(&value),
+            _ => Ok(Self::default()),
+        }
+    }
+
+    /// Read [`FULL_FP16_VARIANT_ENV`]. An absent or empty value selects
+    /// [`Self::Split8`].
+    pub fn from_env() -> Result<Self> {
+        Self::from_env_value(std::env::var(FULL_FP16_VARIANT_ENV).ok())
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Split8 => "split8",
+            Self::TwoBank => "two-bank",
+        }
+    }
+
+    /// Name this variant's SPIR-V carries in the build-generated shader
+    /// registry (`shaders/<name>.spv`).
+    pub fn shader_name(self) -> &'static str {
+        match self {
+            Self::Split8 => "wmma_gemm_f16_f16acc",
+            Self::TwoBank => "wmma_gemm_f16_f16acc_twobank",
+        }
+    }
+
+    /// The SPIR-V module this variant dispatches.
+    pub fn spirv(self) -> &'static [u8] {
+        match self {
+            Self::Split8 => WMMA_GEMM_F16ACC_SPV,
+            Self::TwoBank => WMMA_GEMM_F16ACC_TWOBANK_SPV,
         }
     }
 }
@@ -526,6 +615,7 @@ struct WmmaKernels {
 pub struct WmmaGemm {
     device: VulkanDevice,
     mode: WmmaMode,
+    full_fp16_variant: FullFp16Variant,
     capabilities: VulkanWmmaCapabilities,
     kernels: WmmaKernels,
     cooperative_dispatches: AtomicU64,
@@ -541,6 +631,20 @@ impl WmmaGemm {
     /// kernel. `Mixed`/`FullFp16` fail with the full diagnostic when the device
     /// does not satisfy [`VulkanWmmaCapabilities::require`].
     pub fn new(device: &VulkanDevice, mode: WmmaMode) -> Result<Self> {
+        Self::new_with_full_fp16_variant(device, mode, FullFp16Variant::from_env()?)
+    }
+
+    /// As [`Self::new`], with the Full FP16 shader variant chosen explicitly.
+    ///
+    /// The variant selects the SPIR-V module the `FullFp16` arm loads. It never
+    /// changes the requested mode: `Mixed` and `Off` do not load or dispatch the
+    /// Full FP16 module at all, and asking for `full-fp16` without a variant
+    /// selects [`FullFp16Variant::Split8`], the currently shipped module.
+    pub fn new_with_full_fp16_variant(
+        device: &VulkanDevice,
+        mode: WmmaMode,
+        full_fp16_variant: FullFp16Variant,
+    ) -> Result<Self> {
         let capabilities = device.wmma_capabilities();
         capabilities.require(mode)?;
         let convert = vulkan::ComputeKernel::new_with_access(
@@ -593,13 +697,17 @@ impl WmmaGemm {
             None
         };
         let full = if capabilities.full_fp16_supported() {
-            Some(gemm_kernel(WMMA_GEMM_F16ACC_SPV, "full-fp16")?)
+            Some(gemm_kernel(
+                full_fp16_variant.spirv(),
+                full_fp16_variant.shader_name(),
+            )?)
         } else {
             None
         };
         Ok(Self {
             device: device.clone(),
             mode,
+            full_fp16_variant,
             capabilities,
             kernels: WmmaKernels {
                 convert,
@@ -616,6 +724,28 @@ impl WmmaGemm {
 
     pub fn mode(&self) -> WmmaMode {
         self.mode
+    }
+
+    /// The Full FP16 shader variant this executor loaded.
+    pub fn full_fp16_variant(&self) -> FullFp16Variant {
+        self.full_fp16_variant
+    }
+
+    /// Identity of the pipeline the Full FP16 arm actually dispatches.
+    ///
+    /// The shader component is the FNV-1a signature of the exact SPIR-V bytes,
+    /// which is also the shader component of the pipeline cache key, so two
+    /// variants with different identities cannot reuse each other's interned
+    /// pipeline. Reported by `wmma_bench` beside the selected mode.
+    pub fn full_fp16_pipeline_identity(&self) -> Option<String> {
+        self.kernels.full.as_ref().map(|kernel| {
+            format!(
+                "{}/spirv-fnv1a64:0x{:016x}/len:{}",
+                kernel.shader_name().unwrap_or("unknown"),
+                kernel.shader_signature(),
+                self.full_fp16_variant.spirv().len()
+            )
+        })
     }
 
     pub fn capabilities(&self) -> VulkanWmmaCapabilities {
@@ -1405,6 +1535,154 @@ mod tests {
         assert!(WmmaMode::parse("half").is_err());
         assert!(!WmmaMode::Off.requested());
         assert!(WmmaMode::Mixed.requested());
+        Ok(())
+    }
+
+    #[test]
+    fn full_fp16_variant_parsing_is_explicit_and_rejects_unknown_values() -> Result<()> {
+        assert_eq!(FullFp16Variant::parse("split8")?, FullFp16Variant::Split8);
+        assert_eq!(FullFp16Variant::parse("eight-bank")?, FullFp16Variant::Split8);
+        assert_eq!(FullFp16Variant::parse("TWO-BANK")?, FullFp16Variant::TwoBank);
+        assert_eq!(FullFp16Variant::parse(" twobank ")?, FullFp16Variant::TwoBank);
+        let error = FullFp16Variant::parse("four-bank").unwrap_err().to_string();
+        assert!(
+            error.contains("unsupported full-fp16 variant") && error.contains("two-bank"),
+            "an unavailable variant must fail with the supported values: {error}"
+        );
+        assert!(FullFp16Variant::parse("").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn full_fp16_variant_defaults_to_the_shipped_split8_module() -> Result<()> {
+        assert_eq!(FullFp16Variant::default(), FullFp16Variant::Split8);
+        assert_eq!(
+            FullFp16Variant::from_env_value(None)?,
+            FullFp16Variant::Split8
+        );
+        assert_eq!(
+            FullFp16Variant::from_env_value(Some("   ".to_owned()))?,
+            FullFp16Variant::Split8
+        );
+        assert_eq!(
+            FullFp16Variant::from_env_value(Some("two-bank".to_owned()))?,
+            FullFp16Variant::TwoBank
+        );
+        assert!(FullFp16Variant::from_env_value(Some("split4".to_owned())).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn full_fp16_variants_ship_distinct_spirv_modules() {
+        assert_eq!(FullFp16Variant::Split8.spirv(), WMMA_GEMM_F16ACC_SPV);
+        assert_eq!(
+            FullFp16Variant::TwoBank.spirv(),
+            WMMA_GEMM_F16ACC_TWOBANK_SPV
+        );
+        assert_ne!(
+            FullFp16Variant::Split8.spirv(),
+            FullFp16Variant::TwoBank.spirv(),
+            "two variants must not resolve to the same SPIR-V"
+        );
+    }
+
+    /// The selector must change the pipeline that actually runs, not just the
+    /// label, and both variants must remain bit-identical to each other.
+    #[test]
+    fn full_fp16_variant_selects_the_shader_it_dispatches() -> Result<()> {
+        let Some(device) = device_or_skip(WmmaMode::FullFp16) else {
+            return Ok(());
+        };
+        let split8 = WmmaGemm::new_with_full_fp16_variant(
+            &device,
+            WmmaMode::FullFp16,
+            FullFp16Variant::Split8,
+        )?;
+        if !split8.capabilities().full_fp16_supported() {
+            return Ok(());
+        }
+        let two_bank = WmmaGemm::new_with_full_fp16_variant(
+            &device,
+            WmmaMode::FullFp16,
+            FullFp16Variant::TwoBank,
+        )?;
+
+        assert_eq!(split8.full_fp16_variant(), FullFp16Variant::Split8);
+        assert_eq!(two_bank.full_fp16_variant(), FullFp16Variant::TwoBank);
+        // The arm label is deliberately unchanged so every historical receipt
+        // keyed on `wmma-full-f16acc` stays comparable.
+        assert_eq!(WmmaGemmArm::FullFp16Accumulate.label(), "wmma-full-f16acc");
+
+        let split8_identity = split8
+            .full_fp16_pipeline_identity()
+            .expect("split8 pipeline identity");
+        let two_bank_identity = two_bank
+            .full_fp16_pipeline_identity()
+            .expect("two-bank pipeline identity");
+        assert!(
+            split8_identity.starts_with(&format!(
+                "{}/",
+                FullFp16Variant::Split8.shader_name()
+            )),
+            "split8 identity must name its own shader: {split8_identity}"
+        );
+        assert!(
+            two_bank_identity.starts_with(&format!(
+                "{}/",
+                FullFp16Variant::TwoBank.shader_name()
+            )),
+            "two-bank identity must name its own shader: {two_bank_identity}"
+        );
+        assert_ne!(
+            split8_identity, two_bank_identity,
+            "the two variants must not share a pipeline identity"
+        );
+
+        let (rows, columns, reduction) = (64usize, 96usize, 128usize);
+        let a = deterministic_matrix(rows * reduction, 0x5EED_0001);
+        let b = deterministic_matrix(reduction * columns, 0x5EED_0002);
+        let layout = GemmLayout {
+            transposed_a: false,
+            transposed_b: true,
+        };
+        let from_split8 = split8.matmul(
+            WmmaGemmArm::FullFp16Accumulate,
+            &a,
+            &b,
+            rows,
+            columns,
+            reduction,
+            layout,
+        )?;
+        let from_two_bank = two_bank.matmul(
+            WmmaGemmArm::FullFp16Accumulate,
+            &a,
+            &b,
+            rows,
+            columns,
+            reduction,
+            layout,
+        )?;
+        assert_eq!(from_split8.len(), from_two_bank.len());
+        for (index, (left, right)) in from_split8.iter().zip(&from_two_bank).enumerate() {
+            assert_eq!(
+                left.to_bits(),
+                right.to_bits(),
+                "element {index} differs between the split8 and two-bank variants"
+            );
+        }
+
+        // Mixed routing must not consult the Full FP16 variant at all.
+        let mixed = WmmaGemm::new_with_full_fp16_variant(
+            &device,
+            WmmaMode::Mixed,
+            FullFp16Variant::TwoBank,
+        )?;
+        assert_eq!(
+            mixed.select_arm(64, 64, 64),
+            Some(WmmaGemmArm::MixedFp32Accumulate),
+            "a Full FP16 variant must not change Mixed dispatch"
+        );
         Ok(())
     }
 
