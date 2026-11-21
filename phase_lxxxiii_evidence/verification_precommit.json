@@ -1,0 +1,25 @@
+{
+  "rev": ":0",
+  "manifest_sha256": "a7979f4f448ab3afa1598155d0eb708e8d36e4bed23457fa5dd515fcd22bbff4",
+  "entries": 612,
+  "worktree_verified": 612,
+  "staged_blob_verified": 612,
+  "tracked_evidence_paths": 613,
+  "attributes_verified": 613,
+  "logs": {
+    "analysis.log": {
+      "sha256": "fd90f6db1c891e187545b51f007fa7c9964e9ec55ff9d849a184844fabfad7af",
+      "bytes": 3182
+    },
+    "final_rerun.log": {
+      "sha256": "82724818c933f1b885aee50c93271d69786f7c10e3a41aad1fdc06f419417a45",
+      "bytes": 4725
+    }
+  },
+  "p3": {
+    "hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3.comp": "4e448e3cc6d5cccb1a39753f43dcc66d9c287a29a06dc9b4957224271b786d12",
+    "hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3.spv": "2aff4123544757b0d3aaf8eb1fe967a0c00c692eb73a74e49af802d7b5c517d2"
+  },
+  "failures": [],
+  "ok": true
+}

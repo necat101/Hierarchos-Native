@@ -1,0 +1,552 @@
+# Phase LXXXIII — Phase LXXXI Evidence Integrity Repair
+
+Repair of the Phase LXXXI release evidence on `codex/rdna3-p3-release-20261121` (PR #9), plus the permanent cross-platform gate that would have caught the defect.
+
+| | |
+|---|---|
+| Branch | `codex/rdna3-p3-release-20261121` |
+| Pull request | [#9](https://github.com/necat101/Hierarchos-Native/pull/9) (open, not merged) |
+| Starting commit | `303781a403bd86c6caafc34f835afdd59435d5a9` |
+| Repair commit | `pending` |
+| Closeout commit | `pending` |
+| Evidence inventory | 612 manifest entries, 613 tracked paths including the manifest |
+
+## 1. What failed, and why
+
+`phase_lxxxi_evidence/SHA256SUMS_phase_lxxxi.txt` binds 612 evidence files by SHA-256. After the Phase LXXXI evidence was committed, only 213 of the 612 digests resolved. 397 tracked files mismatched and two manifest entries, `analysis.log` and `final_rerun.log`, had no file in the tree at all.
+
+The root cause is a single ordering mistake, and it is reproducible:
+
+1. Commit `9e92b71` ("Add the Phase LXXXI release evidence") added the evidence directory before any Git attribute governed it. The producer wrote CRLF bytes on Windows and the committing checkout had `core.autocrlf=true`, so Git stored the LF form of every text file. The manifest, which had already been generated over the CRLF bytes, therefore described files that were never in the repository.
+2. Commit `67278c3` added `phase_lxxxi_evidence/** -text` in the same session. That rule prevents *future* translation, but it cannot retroactively change blobs that were already written. The 397 affected digests stayed unresolvable.
+3. `.gitignore` line 34 (`*.log`) silently excluded `analysis.log` and `final_rerun.log`. Neither was ever force-added, so two manifest entries pointed at paths that did not exist in Git.
+
+The two defects share one property: every existing check inspected Git metadata rather than bytes, so nothing noticed. That is what the new gate fixes.
+
+## 2. Scope of the repair
+
+No evidence byte was rewritten. The checked-out working tree already held the producer's original CRLF bytes for all 612 entries; the repository's stored blobs and index did not. The repair therefore restored the *repository* bytes to match the working tree, and left every file on disk untouched.
+
+| Quantity | Count |
+|---|---|
+| Manifest entries | 612 |
+| Already correct in the index | 213 |
+| Restaged blobs | 397 |
+| Force-added retained logs | 2 |
+| Working-tree files rewritten | 0 |
+| Deterministic LF→CRLF reconstructions | 0 |
+
+### Recovery source
+
+The preserved original producer directory (`Hierarchos-Native-lxvii-bankreuse/phase_lxxxi_evidence/`) was located and verified independently: it reproduces **612 of 612** manifest digests, including both logs. Every one of the 397 restaged paths was confirmed byte-identical to that producer file, and to the frozen digest, before staging. All 397 are therefore recorded as **direct source recoveries**; no reconstruction was used or needed.
+
+Because SHA-256 equality is transitive, a file that matches the frozen manifest also matches the producer file for the same entry. Each path, its digest, its byte count and its source is listed in `restored_paths.tsv` and in Appendix A.
+
+### The two retained logs
+
+| Log | SHA-256 | Bytes | Source |
+|---|---|---|---|
+| `analysis.log` | `fd90f6db1c891e187545b51f007fa7c9964e9ec55ff9d849a184844fabfad7af` | 3182 | original producer worktree |
+| `final_rerun.log` | `82724818c933f1b885aee50c93271d69786f7c10e3a41aad1fdc06f419417a45` | 4725 | original producer worktree |
+
+Both logs were inspected before publication. They contain only ABBA pair-progress lines, shape/ratio tables and timestamps — no credentials, tokens, private keys, absolute user paths or other secrets. They were added with `git add -f` on exactly these two paths so the `*.log` ignore rule stays intact for every other log.
+
+### Preserved manifest
+
+- SHA-256: `a7979f4f448ab3afa1598155d0eb708e8d36e4bed23457fa5dd515fcd22bbff4`
+- Bytes: 66899
+- The manifest is byte-identical to the one in the original producer directory and to the blob committed at the starting commit. It was not regenerated, reformatted or touched.
+- The new gate pins this digest (`--expect-manifest-sha256`), so a future "repair" that regenerates the manifest from the files it is supposed to verify fails instead of passing.
+
+## 3. Byte verification
+
+`git status` and `git diff` were unusable for this repair and are not evidence of anything. The index carried a stale stat cache that recorded `size: 9988` for a 9939-byte blob, so Git reported 397 byte-differing files as clean and `git add` was a no-op on them. Staging was therefore done by writing the blob for the raw file bytes and pointing the index at it with `update-index --index-info`, then reading every staged blob back and hashing it.
+
+| Check | Result |
+|---|---|
+| Manifest entries parsed | 612 |
+| Manifest digests well-formed and unique | 612 / 612 |
+| Working-tree files present | 612 / 612 |
+| Working-tree SHA-256 matches | 612 / 612 |
+| Staged Git blobs read back and hashed | 612 / 612 |
+| Effective `text` attribute `unset` | 613 / 613 (612 entries + manifest) |
+| Tracked evidence paths | 613 (612 + manifest) |
+| Unexpected tracked or on-disk entries | 0 |
+| Duplicate, missing or malformed manifest entries | 0 |
+
+## 4. The permanent gate
+
+### `hierarchos-vulkan/validation/check_phase_lxxxi_manifest.py`
+
+Standard library only, independent of the producing worktree. It parses the frozen manifest, validates digest formatting, rejects duplicates, and rejects absolute paths, `..` traversal, backslash separators, drive letters, reserved device names and trailing-dot components. It then derives the committed inventory from `git ls-tree` (excluding only the manifest), requires set equality with the manifest, hashes every checked-out file as raw bytes, reads every committed blob through `git cat-file --batch` and hashes that independently, and asks Git for the effective `text` attribute on every path. Working-tree and blob results are reported separately.
+
+It fails closed: a missing manifest, an unreachable object, an unreadable file, a symlink or junction that resolves outside the evidence directory, an inventory mismatch and a non-`unset` attribute are all failures. Nothing is skipped silently.
+
+### `hierarchos-vulkan/validation/test_phase_lxxxi_manifest.py`
+
+Every fixture is a throwaway Git repository under a temporary directory with real commits, real blobs and real bytes. No SHA-256 calculation is mocked and no Git plumbing is stubbed, so a control only passes when the gate genuinely fails for the reason it asserts.
+
+| Control | Asserted failure |
+|---|---|
+| Modified evidence bytes | working-tree digest mismatch, blob side still clean |
+| Modified manifest digest | working-tree and blob mismatch against the new digest |
+| Malformed digest (63 chars) | malformed SHA-256 digest |
+| Uppercase digest | non-canonical digest rejected |
+| Duplicate manifest entry | duplicate path |
+| Missing tracked evidence file | working tree: missing |
+| Unreadable evidence path | not skipped |
+| Manifest entry absent from the tree | inventory `missing_from_tree` |
+| Unlisted tracked evidence file | inventory `unlisted_in_tree` |
+| Extra untracked file on disk | unexpected file in the evidence directory |
+| Path traversal `../` | unsafe path |
+| Nested traversal `a/../../` | unsafe path |
+| Absolute path `/etc/passwd` | unsafe path |
+| Directory symlink/junction escape | escape rejected even when bytes match |
+| Missing `-text` rule | `text=unspecified` |
+| Explicit `text` attribute | `text=set` |
+| Working tree vs committed blob disagreement | blob mismatch while worktree passes |
+| Missing Git object | blob missing |
+| Missing `analysis.log` | absent from the committed tree |
+| Missing `final_rerun.log` | absent from the committed tree |
+| Replaced manifest | manifest pin rejects it |
+
+Two positive controls cover the valid inventory and the manifest pin; two further tests apply the gate to this checkout, including the frozen manifest digest. **24 controls passed locally** before the repair was committed, with the two repository tests deselected because they assert the committed state; all 26 run afterwards.
+
+## 5. CI
+
+The gate runs as the `lxxxi-manifest-gate` job in `.github/workflows/evidence-integrity.yml`, on `ubuntu-latest` and `windows-latest`. Both jobs perform a full checkout (no sparse-checkout, no filtering) so the complete `phase_lxxxi_evidence/` directory is materialized, then run the checker and the full control suite. The existing `digest-guard` job and its scope behaviour are unchanged.
+
+Run links and statuses are recorded in the closeout commit.
+
+## 6. Clean-clone verification
+
+Performed from a fresh clone of the pushed repair commit; recorded in the closeout commit.
+
+## 7. P3 artifacts
+
+Unchanged, as required. No shader source, SPIR-V, kernel logic, dispatch selection, tolerance, threshold or fallback was touched, and no GPU campaign was run.
+
+| Artifact | SHA-256 |
+|---|---|
+| `hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3.comp` | `4e448e3cc6d5cccb1a39753f43dcc66d9c287a29a06dc9b4957224271b786d12` |
+| `hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3.spv` | `2aff4123544757b0d3aaf8eb1fe967a0c00c692eb73a74e49af802d7b5c517d2` |
+
+## 8. Limitations
+
+- The gate verifies bytes and attributes; it does not re-run the Phase LXXXI benchmarks, so it cannot detect a run whose *numbers* were wrong, only one whose retained bytes moved.
+- The directory-escape control needs a symlink or junction. On a Windows host without `SeCreateSymbolicLinkPrivilege` the test falls back to a junction, and skips with an explicit message only if neither is available; the lexical traversal controls cover the same rejection path on every platform.
+- PR #9 remains open and unmerged. Merging is a maintainer action and was out of scope.
+
+## Appendix A — the 397 restaged paths
+
+Each path's accepted bytes are byte-identical to the original producer file and to the frozen manifest digest. `recovery` is `direct-binary-copy` for all of them.
+
+| # | Path | SHA-256 | Bytes |
+|---|---|---|---|
+| 1 | `abba_main_vs_p3_24p/index.tsv` | `35299c683d3731d904a108db9edd65d5039a434ad42b97bb2727db8efef6ae55` | 9988 |
+| 2 | `abba_main_vs_p3_24p/p10_base_meta.json` | `b064d407052e3093fbf2af7543939f5d74085ca1ab850729b9a0b1d1945d95e6` | 284 |
+| 3 | `abba_main_vs_p3_24p/p10_base_samples.jsonl` | `06618e71fd72598ceccacbf9296e8e8a9af74651f9730a37773002d7ac68ceac` | 2206 |
+| 4 | `abba_main_vs_p3_24p/p10_cand_meta.json` | `f7b993e96fc787bdc37b6956112f1b244614ed2afdc2a00c9185b094708c4714` | 285 |
+| 5 | `abba_main_vs_p3_24p/p10_cand_samples.jsonl` | `f1c6d66e38ee4bf7fb1c436d105a27a8972f70723a62ca332745dfece6ad146e` | 2263 |
+| 6 | `abba_main_vs_p3_24p/p11_base_meta.json` | `e095b3552c08edab5e3928c8c0bcf5f5c8fb03e583a959fb035496bcdfa6c31a` | 284 |
+| 7 | `abba_main_vs_p3_24p/p11_base_samples.jsonl` | `1c72af6d68884ba97e814684052768984737b40174033e1a732aacd745abe1b1` | 2208 |
+| 8 | `abba_main_vs_p3_24p/p11_cand_meta.json` | `e97b39debc541b89e8fe2ab7820df5f006bd49b442aa297ec0c32282bd30ef00` | 285 |
+| 9 | `abba_main_vs_p3_24p/p11_cand_samples.jsonl` | `bd8b475c31cfb09fcaa9b915d6db004be9f8d52c8c67a489f6f95113df276254` | 2264 |
+| 10 | `abba_main_vs_p3_24p/p12_base_meta.json` | `b084661f9402231c83af9d957b2806f3c15170a82233e7d9a8e70580544dc048` | 284 |
+| 11 | `abba_main_vs_p3_24p/p12_base_samples.jsonl` | `b09b557c79018485e4af1133acf9686572d6f33a689eaf65dd2f16879d321f5e` | 2201 |
+| 12 | `abba_main_vs_p3_24p/p12_cand_meta.json` | `1d1b0858e8e59cc1d047e8ac84b540ab286d61aca11d8965eac70a186c51fe19` | 285 |
+| 13 | `abba_main_vs_p3_24p/p12_cand_samples.jsonl` | `60f5d85f05fd67461cc160f3d6816973872c49f24286d8ce8ce150c2c308c72e` | 2257 |
+| 14 | `abba_main_vs_p3_24p/p13_base_meta.json` | `5ad6284770bed20a632bf9c522911a812b7fd54c8175003757fa4d7b4036851b` | 284 |
+| 15 | `abba_main_vs_p3_24p/p13_base_samples.jsonl` | `d17b80c8d4a60e4259cfe89df277898ef072fd94318068dc55107ca7232dcaf5` | 2200 |
+| 16 | `abba_main_vs_p3_24p/p13_cand_meta.json` | `755be7a4f89097eda9cb21c2af0d277d5fba2a231a67d5400af4f54e82169576` | 285 |
+| 17 | `abba_main_vs_p3_24p/p13_cand_samples.jsonl` | `b67d582afaf9b3eb79df01e955ca93144a43939e4c7e46c59d6e57d46d429b69` | 2270 |
+| 18 | `abba_main_vs_p3_24p/p14_base_meta.json` | `080b117854201d8b123fe22cfff63b4bf53239ad82f55efe49c8d8324e37cd16` | 284 |
+| 19 | `abba_main_vs_p3_24p/p14_base_samples.jsonl` | `4887f45ddd1e9df3c6f9f90ed479e7ba23615495adcad3fdba9dbc6839a0464c` | 2204 |
+| 20 | `abba_main_vs_p3_24p/p14_cand_meta.json` | `b27e55e1a2a5bd491b54e2c8bc304016d8876ec1d7e05d32df19d0118d71080a` | 285 |
+| 21 | `abba_main_vs_p3_24p/p14_cand_samples.jsonl` | `060eb0e0e440c2779d74013cdb64ca2898db03e65613be978e705474300888f1` | 2250 |
+| 22 | `abba_main_vs_p3_24p/p15_base_meta.json` | `aade49c920231395dbc67502029e3f41b28ff35ff6cd534d48b3a8d2ba7048c5` | 284 |
+| 23 | `abba_main_vs_p3_24p/p15_base_samples.jsonl` | `286382628e16d923c4c2ce52d4b216beba5528c0dbf1652a5c86136fb7d29b95` | 2200 |
+| 24 | `abba_main_vs_p3_24p/p15_cand_meta.json` | `6e642f22233784f54bd31519963ae0e88d069f426f80f0d87d7ca6b0a6d5792d` | 285 |
+| 25 | `abba_main_vs_p3_24p/p15_cand_samples.jsonl` | `321ca54e59cb0aafecbb8dddf016efb68f8e6dcd50e030ec70c0e63682bb5275` | 2258 |
+| 26 | `abba_main_vs_p3_24p/p16_base_meta.json` | `7b3ca617f4213b70e711fa4d5a0778321edeae7ccbfdfb91c9c173ca26d83d5f` | 284 |
+| 27 | `abba_main_vs_p3_24p/p16_base_samples.jsonl` | `6f86e984cc3af18c82b5b0ccef5382fc51fe14b7f6edd21d20c19cb9fe8f705f` | 2208 |
+| 28 | `abba_main_vs_p3_24p/p16_cand_meta.json` | `ca32c2493c688d90d886c990782441cab6423664f6166ec870bade9115d9f956` | 285 |
+| 29 | `abba_main_vs_p3_24p/p16_cand_samples.jsonl` | `525d9551670fbd116d6cd84fc1444123733aa06b475c9f2da4b1b50ff024d37d` | 2262 |
+| 30 | `abba_main_vs_p3_24p/p17_base_meta.json` | `c9d6bc613d603354c17a5870458ba63cd0af6883173674d5975e26cb600e1b79` | 284 |
+| 31 | `abba_main_vs_p3_24p/p17_base_samples.jsonl` | `d3ef70428738c9110de7e51ea521e9a7842f246bdb5b1998c5b1436ff4777ca0` | 2201 |
+| 32 | `abba_main_vs_p3_24p/p17_cand_meta.json` | `daedae9e622ccd7306bb3422c9f1c4e8120708d5e8ddbbdf1f3e87644bb782b1` | 285 |
+| 33 | `abba_main_vs_p3_24p/p17_cand_samples.jsonl` | `37711b817a7ee53037156ca8f978bc824aecec430f2811767668aa7f77f5e95b` | 2263 |
+| 34 | `abba_main_vs_p3_24p/p18_base_meta.json` | `710c4e26a73804426c32a925f3409bd3a50c34e1688ea77cf300daa2d4a948f2` | 284 |
+| 35 | `abba_main_vs_p3_24p/p18_base_samples.jsonl` | `83c76fc4a9a37e5c60e961fe579a2be48340a15faa1e4a8165ab132009fab3c3` | 2211 |
+| 36 | `abba_main_vs_p3_24p/p18_cand_meta.json` | `46403d300af225c5a418cb5b2573b1cd736d873fe2203a5253c4d227a0b7ce47` | 285 |
+| 37 | `abba_main_vs_p3_24p/p18_cand_samples.jsonl` | `20dcc3bf6c0e9fe5a584400ea8bbcb9762ce4eeec67b53808db76ed605d68e27` | 2262 |
+| 38 | `abba_main_vs_p3_24p/p19_base_meta.json` | `620e54b99b0183744e6d9204764793ad2e071c848d1c7cb3b76dd57c75888fcb` | 284 |
+| 39 | `abba_main_vs_p3_24p/p19_base_samples.jsonl` | `381633689583578ced5a3715a63955088b22c01624b3efb7ec1fdb73e9507f06` | 2204 |
+| 40 | `abba_main_vs_p3_24p/p19_cand_meta.json` | `333bd119e574ea74367460562789e1da99150b778d9472aa1847757b0ab15306` | 285 |
+| 41 | `abba_main_vs_p3_24p/p19_cand_samples.jsonl` | `4a8f646d290515768ec5d09016c11c3c0b30c6644b26384a6ef254117c15f433` | 2263 |
+| 42 | `abba_main_vs_p3_24p/p1_base_meta.json` | `defccdf1488a4802e60edab967fabc290060e518a03e8a02a87800fe6a868173` | 283 |
+| 43 | `abba_main_vs_p3_24p/p1_base_samples.jsonl` | `4844ef0ed8e3fcbb00736bc158d6d400c7dde20a97819bbf2d49fb1bdbcb0db9` | 2201 |
+| 44 | `abba_main_vs_p3_24p/p1_cand_meta.json` | `312305d5f527bed8b974b0dd41de3644fe0beea6e25f5dc360e439cc1ade2b04` | 284 |
+| 45 | `abba_main_vs_p3_24p/p1_cand_samples.jsonl` | `4c79c39e1cd5883ce7f0cd1d7616121363e2b44e0097abacc08421f0ad3c2ca8` | 2262 |
+| 46 | `abba_main_vs_p3_24p/p20_base_meta.json` | `2ece26b44b89d1bd0ce2ec03bccb6b4d8535c60ebd3dc8bccc109f6ae1593051` | 284 |
+| 47 | `abba_main_vs_p3_24p/p20_base_samples.jsonl` | `a3104f5a94bb1ad16d398ea4bdedc15332c45510e4dfec964d1bed6eb6130bde` | 2213 |
+| 48 | `abba_main_vs_p3_24p/p20_cand_meta.json` | `aa5d8d7f191b59c40652a1485a6a88e46450f74faa05c4b1b962d92fdd89c92f` | 285 |
+| 49 | `abba_main_vs_p3_24p/p20_cand_samples.jsonl` | `5f9208fa1fcb8ed126530c8626eb45e69ac12e92772c55cb26346b54a80c1f40` | 2264 |
+| 50 | `abba_main_vs_p3_24p/p21_base_meta.json` | `cf357a92ceb0d86e464f121014d3e20fe67c2268ebc463c12066dd3ad4624d3b` | 284 |
+| 51 | `abba_main_vs_p3_24p/p21_base_samples.jsonl` | `55c86910f0ac8d07f2a16030bdf3415fca62fdec5c1c48e95f1c872c4208bb39` | 2198 |
+| 52 | `abba_main_vs_p3_24p/p21_cand_meta.json` | `73f60f0fca16a74775bdfcb20168cec3bb7ff9af3ede631e613f9fbeeca8b3c1` | 285 |
+| 53 | `abba_main_vs_p3_24p/p21_cand_samples.jsonl` | `8ec4adfef85a1f1feb360e4252c23d9ab808282112e403ad0a573451c81c2993` | 2261 |
+| 54 | `abba_main_vs_p3_24p/p22_base_meta.json` | `51b8870c4fd2cd6422bfb1c89119609f2d66d78bb33cfc58de5dc0c3054e0a32` | 284 |
+| 55 | `abba_main_vs_p3_24p/p22_base_samples.jsonl` | `6e9c2edbe792b08c331f4a3013e6af4dbbc08e660089ec887291f2b1756547ec` | 2187 |
+| 56 | `abba_main_vs_p3_24p/p22_cand_meta.json` | `8f595537605ab9ed659e1a7173437f57a3b6e4ace4b2519cafc67b339b36807f` | 285 |
+| 57 | `abba_main_vs_p3_24p/p22_cand_samples.jsonl` | `de74fddce27fb1ff2712f89b9ac5aad4686ab1a9957300eb2a3a8347ae89f742` | 2265 |
+| 58 | `abba_main_vs_p3_24p/p23_base_meta.json` | `d4e2fdbb97be60d06dec98cfde8d05722895a3a008695119e3fb837e787c3665` | 284 |
+| 59 | `abba_main_vs_p3_24p/p23_base_samples.jsonl` | `ec73a5eb79d885c4f90b1431816136539c4d60656bbc6f6d127c136aa64544e6` | 2197 |
+| 60 | `abba_main_vs_p3_24p/p23_cand_meta.json` | `1afa2896f0f6bbcfc67c8c9ae6beef4db273fc06bf4f2309eec0026a30f2290c` | 285 |
+| 61 | `abba_main_vs_p3_24p/p23_cand_samples.jsonl` | `40104d254d7e7f53c7aeb45819ce0f6762e8464850ffc529a6f076e6cdc2e04f` | 2266 |
+| 62 | `abba_main_vs_p3_24p/p24_base_meta.json` | `068cc32d1bc4560e711f9d72d070e5892388398a4fd011795f886a728614d025` | 284 |
+| 63 | `abba_main_vs_p3_24p/p24_base_samples.jsonl` | `30d28d3a8fdd19c03806786ab7718562fafbe621ff9cbd1b7692fab8de826534` | 2205 |
+| 64 | `abba_main_vs_p3_24p/p24_cand_meta.json` | `7f31239afd57828ac62ef8fc2a1518e8c4893c9d1e4e5e9ddd4fa973a7b9fc06` | 285 |
+| 65 | `abba_main_vs_p3_24p/p24_cand_samples.jsonl` | `915f01c0c51e87866aa541b28796380521e5731de36670c6567fe1ca4543d276` | 2262 |
+| 66 | `abba_main_vs_p3_24p/p2_base_meta.json` | `b68508f04cd63e2eefdd097d4b7f2bc0a4c5db347bfa4ec93a35568758d2d2a7` | 283 |
+| 67 | `abba_main_vs_p3_24p/p2_base_samples.jsonl` | `d580471b955271072c4dc81b5efaa4b5a8c20ae22b80099ecbb9fbb2862890ae` | 2199 |
+| 68 | `abba_main_vs_p3_24p/p2_cand_meta.json` | `a25d50bffee5cb099e321293dbec7b119771f453de5b0bc67401b6368e1cddc8` | 284 |
+| 69 | `abba_main_vs_p3_24p/p2_cand_samples.jsonl` | `e56bd90570d4aed73c7d489a45ad0d8c07db2c527d165a5094f7d839feaa7f73` | 2255 |
+| 70 | `abba_main_vs_p3_24p/p3_base_meta.json` | `9d8c3e491e65f334d187aa0eeae0c2a0ff07b8a7cfac46dbef1620e4e2d04119` | 283 |
+| 71 | `abba_main_vs_p3_24p/p3_base_samples.jsonl` | `64dedf2f93f238cd2796439c419755cd859c4f50cedecb47fe6068bd43d95181` | 2203 |
+| 72 | `abba_main_vs_p3_24p/p3_cand_meta.json` | `33695292f18f3c907bba061889cb0f4e48e4f166719c83a227bf4cbb4525395e` | 284 |
+| 73 | `abba_main_vs_p3_24p/p3_cand_samples.jsonl` | `10f5098e194b1202564836283a34c4aa93dba9a103e930ee630aaf039396e5e1` | 2265 |
+| 74 | `abba_main_vs_p3_24p/p4_base_meta.json` | `90f3175601e2aad54c042d0bff4c84b4df9953090ae65edd1a1f8cef33375184` | 283 |
+| 75 | `abba_main_vs_p3_24p/p4_base_samples.jsonl` | `ffb8f0788d20aeff3cc229db1a09f70cb64e38f0aef4b8de06ad76e94ba1a455` | 2200 |
+| 76 | `abba_main_vs_p3_24p/p4_cand_meta.json` | `d44fdf208d1ccdbde9e770c45ad787c3f87641bf081f4e9f0bc0e64bc32a2119` | 284 |
+| 77 | `abba_main_vs_p3_24p/p4_cand_samples.jsonl` | `76cb262637528c88917e7a50937a40446d1863714966439c10b18a320380e42e` | 2265 |
+| 78 | `abba_main_vs_p3_24p/p5_base_meta.json` | `72b9a0b775942db8a1d03f152ea4ce49d126bae1993250f4e8907220f07bd7f8` | 283 |
+| 79 | `abba_main_vs_p3_24p/p5_base_samples.jsonl` | `1bd93654c2a3228f459e9abe186bdc7f473a8a37a06b1716a8c19d635a677e2b` | 2205 |
+| 80 | `abba_main_vs_p3_24p/p5_cand_meta.json` | `f40d614238a7b615d936221c3ae1253e0abf6d236a6a03702d2c7caf39897723` | 284 |
+| 81 | `abba_main_vs_p3_24p/p5_cand_samples.jsonl` | `93cbd4ee75d358dd23820f8f9ca0f72e6e406b6506d281e7a720278d3d0cdf05` | 2262 |
+| 82 | `abba_main_vs_p3_24p/p6_base_meta.json` | `f24c568fa19309aff0454bd3d7e2884b7c5a598f4acb4c9e4c3f2f020edfeec5` | 283 |
+| 83 | `abba_main_vs_p3_24p/p6_base_samples.jsonl` | `fd86f0b992bb02ec04f533db54f166b3b9c18262c1d9e09a26fbda9b1d73f708` | 2193 |
+| 84 | `abba_main_vs_p3_24p/p6_cand_meta.json` | `7b7712a51bc4a356b1436ff97b713c8950998623b1c12316687b665b68660c85` | 284 |
+| 85 | `abba_main_vs_p3_24p/p6_cand_samples.jsonl` | `2ec0f3866d29f316256a2995fc2dddce1514ad122c5ef87f1d25469d3cf22b5e` | 2266 |
+| 86 | `abba_main_vs_p3_24p/p7_base_meta.json` | `d3cc79657af539bbb95257014f531ca3b4dd0abbf9fbb43a12ae824b6c4d3ae2` | 283 |
+| 87 | `abba_main_vs_p3_24p/p7_base_samples.jsonl` | `755c1457249d36ac851db659fe90c40b1e9c1b71395fb82a56a9a3de575f3048` | 2200 |
+| 88 | `abba_main_vs_p3_24p/p7_cand_meta.json` | `d12cb5e71c3075c8408eac8d72f3d60d41868639d2757720f1e509b25c042e19` | 284 |
+| 89 | `abba_main_vs_p3_24p/p7_cand_samples.jsonl` | `3969ee70441f947dcfceed30ab167edd551c34ea43470032520c04808e70c581` | 2251 |
+| 90 | `abba_main_vs_p3_24p/p8_base_meta.json` | `ca8bc471260c4272c4cebae5f78e462229ae5516c992e7baef9a1edd010dfabe` | 283 |
+| 91 | `abba_main_vs_p3_24p/p8_base_samples.jsonl` | `e4804b57e2ba0bb845bb766012cef962dd544c1832e51cc90acd976cbd6d9fcb` | 2204 |
+| 92 | `abba_main_vs_p3_24p/p8_cand_meta.json` | `104dc36f403dfc2264898b059782fe1fb818a60a837365433322dee89b0b3907` | 284 |
+| 93 | `abba_main_vs_p3_24p/p8_cand_samples.jsonl` | `1bd340bc9b67ab32a1e29964caff845b294a98af496088276c15c9aa1ae93bc3` | 2266 |
+| 94 | `abba_main_vs_p3_24p/p9_base_meta.json` | `609cacbd8ea5369c4cafda33da7844f63e8246c58c31a023290d28b8ffd020c5` | 283 |
+| 95 | `abba_main_vs_p3_24p/p9_base_samples.jsonl` | `358f0fc0d2b46eccc6bb66ade1441b3287a74a459ce5c49eb3c7d17b754f4991` | 2206 |
+| 96 | `abba_main_vs_p3_24p/p9_cand_meta.json` | `3f2183056a9c0cb9b76477f6b1e880cf20cf5222649ad60aac0d09f88cb08040` | 284 |
+| 97 | `abba_main_vs_p3_24p/p9_cand_samples.jsonl` | `3f1f1a1f2f9ba496cb423fbe033672dd544a45dc1ca6abb7b329234c9d308d9b` | 2257 |
+| 98 | `abba_main_vs_p3_balanced_24p/SCHEDULE.json` | `1f41618adda7e80aedd76d731cc523eb37095818ce678cda8d2da2e1c2476552` | 5552 |
+| 99 | `abba_main_vs_p3_balanced_24p/index.tsv` | `8436fb15a81c7159c909870bf2a732e25aa0b7a60767fc06dece6c9902911036` | 10455 |
+| 100 | `abba_main_vs_p3_balanced_24p/p10_base_meta.json` | `0e21b453b1c7661b2ab224ee4e771341f0cd2142670f4feaa52c431f9139ee28` | 336 |
+| 101 | `abba_main_vs_p3_balanced_24p/p10_base_samples.jsonl` | `31fc47dcb4144e2c3eac16569d5a08b21373eddfbcbb291466f1aa4726732980` | 2204 |
+| 102 | `abba_main_vs_p3_balanced_24p/p10_cand_meta.json` | `6546dafa8afbea0464a9f35ef0ad37657415d215a29c2306d8608f8b500d4f04` | 337 |
+| 103 | `abba_main_vs_p3_balanced_24p/p10_cand_samples.jsonl` | `ac3a91ce9b45737ef27accc2653c4245c701b28e85f69cc47f0e5d47edbf1d2a` | 2264 |
+| 104 | `abba_main_vs_p3_balanced_24p/p11_base_meta.json` | `36c951b92683a95d4a88926a23270a68f25d13906e3e9b39f132fd5c631c9e4d` | 336 |
+| 105 | `abba_main_vs_p3_balanced_24p/p11_base_samples.jsonl` | `7d09034fb0965ca2fa8b579840f46c960ae2535aadc87667410a5fd83171961c` | 2204 |
+| 106 | `abba_main_vs_p3_balanced_24p/p11_cand_meta.json` | `085fbebc85b045212c0d60a98a1d571ae29b34e1301343b23729f2a3a653652b` | 337 |
+| 107 | `abba_main_vs_p3_balanced_24p/p11_cand_samples.jsonl` | `207d1bfb6672ab8bcbc03e647254ad3e73200db1e196b5599ca03c6f762025d6` | 2264 |
+| 108 | `abba_main_vs_p3_balanced_24p/p12_base_meta.json` | `a03f46f5b8d6ea2fcf26e9125a00e9317be79353303461c908d7bc1f896b8b38` | 336 |
+| 109 | `abba_main_vs_p3_balanced_24p/p12_base_samples.jsonl` | `0d583c685516a68e57b138559aee903e009a9f0f1fcf4b837f17f37ce68e77b0` | 2200 |
+| 110 | `abba_main_vs_p3_balanced_24p/p12_cand_meta.json` | `fe22d8fad928b08b54caa1992586b709b5a7d8dab3b5846770debe58762bdd05` | 337 |
+| 111 | `abba_main_vs_p3_balanced_24p/p12_cand_samples.jsonl` | `d780271b721a07eeefb6fb8ee20f5eaa5059c9fe1fdf0de1469aa9362350ca28` | 2254 |
+| 112 | `abba_main_vs_p3_balanced_24p/p13_base_meta.json` | `238b1caa5486795ae1910ed0de0af8a2eb1a27e84e3b5b5230e7355026790e61` | 336 |
+| 113 | `abba_main_vs_p3_balanced_24p/p13_base_samples.jsonl` | `42efad5694d621442a29c1050e2fa9ea37951dd92971b83eaac9f447211ea62c` | 2201 |
+| 114 | `abba_main_vs_p3_balanced_24p/p13_cand_meta.json` | `6ba783c292a4477ac5578ef90d74139884b436c0c0980e641c4b6d72100737aa` | 337 |
+| 115 | `abba_main_vs_p3_balanced_24p/p13_cand_samples.jsonl` | `1584ca094195bf1aa80a114c050293c45dabda81e0960262b2b138b82fd08b56` | 2266 |
+| 116 | `abba_main_vs_p3_balanced_24p/p14_base_meta.json` | `f959df40f642f26a3b4afe59ff156ecf6ec44c7fcb45bbf30685eade8d93c590` | 336 |
+| 117 | `abba_main_vs_p3_balanced_24p/p14_base_samples.jsonl` | `e1210af31d3e0a6647218089b44b8b4316dbd21e120ddb8cd0f6ccaf01c48fcd` | 2198 |
+| 118 | `abba_main_vs_p3_balanced_24p/p14_cand_meta.json` | `d4bcaf8683a71119980a04523b619ab24636af24bc852bdeda25d7f2d287ab1a` | 337 |
+| 119 | `abba_main_vs_p3_balanced_24p/p14_cand_samples.jsonl` | `8e8973ab8e153da88e67d157e9b8e9554f3f46c3be20d1aefa5fdbfe0dddd73b` | 2254 |
+| 120 | `abba_main_vs_p3_balanced_24p/p15_base_meta.json` | `04c64fec4c13e9c774fc77c62f86b16d4558c9f9f412c4b6c0149b2a2c0f5764` | 336 |
+| 121 | `abba_main_vs_p3_balanced_24p/p15_base_samples.jsonl` | `0a373ba5f8ed74bffd0d7062dec36a742f91982026094db3731a44be2c74c8ff` | 2197 |
+| 122 | `abba_main_vs_p3_balanced_24p/p15_cand_meta.json` | `7b29f06a17e28175c1fcf1a28a0fae9f4353dc4d2458a657be3c7db1c94ff26d` | 337 |
+| 123 | `abba_main_vs_p3_balanced_24p/p15_cand_samples.jsonl` | `455434cf96c5ba33abf8e27da2a0877d5be4bc5dda464fb045c676a217f14bec` | 2257 |
+| 124 | `abba_main_vs_p3_balanced_24p/p16_base_meta.json` | `bb284e098a9e3d3577aaa85b9b15f57220f7dc201b4daf5a1e603b8172ab8f47` | 336 |
+| 125 | `abba_main_vs_p3_balanced_24p/p16_base_samples.jsonl` | `c62dbb820000695444283827cf743b89aa05ad3bcbcf4047ee2ce25112a4931d` | 2199 |
+| 126 | `abba_main_vs_p3_balanced_24p/p16_cand_meta.json` | `07b9accb36ad78401355d07c22afdd5076d1803ae65da7131759cf72f256f866` | 337 |
+| 127 | `abba_main_vs_p3_balanced_24p/p16_cand_samples.jsonl` | `33f964fd90764b0d4c7fca4e4db03bb5e6d2be3ecde5c0c2a8bcfe5ba66804c5` | 2267 |
+| 128 | `abba_main_vs_p3_balanced_24p/p17_base_meta.json` | `3b6197ce75fec94b4969d34bde81c18b2dae51cb60d9f6612327b81449e3a444` | 336 |
+| 129 | `abba_main_vs_p3_balanced_24p/p17_base_samples.jsonl` | `7da2f860e0e004e6bd3e39226d14a9a62f50cf3d4031fb7dff065add68fc8bd0` | 2203 |
+| 130 | `abba_main_vs_p3_balanced_24p/p17_cand_meta.json` | `b017c47cec67280fe54f65c57361fba5197022f0e7c21891475197ae2de28d55` | 337 |
+| 131 | `abba_main_vs_p3_balanced_24p/p17_cand_samples.jsonl` | `b22ab089350751fbed83e36357ab091b331b38835e269cfcde44c5c2b9032bac` | 2261 |
+| 132 | `abba_main_vs_p3_balanced_24p/p18_base_meta.json` | `06e11e6a88e6872d8ca8b8be4bb706c61fe5b4d6bcb5cb9a949ee476bf27a3a8` | 336 |
+| 133 | `abba_main_vs_p3_balanced_24p/p18_base_samples.jsonl` | `5b8b003eefe3dc00e942fefc91c1d56bb89a06a176f27b5fc369f72d68fbfeab` | 2196 |
+| 134 | `abba_main_vs_p3_balanced_24p/p18_cand_meta.json` | `07064ef2d619114b0e97be1be8a2faabe4676a414491e252a277fdbd3d9df79f` | 337 |
+| 135 | `abba_main_vs_p3_balanced_24p/p18_cand_samples.jsonl` | `2918f1c608e02dcfb278eeab257af3025b661e4d5134810aed68382d58f52316` | 2258 |
+| 136 | `abba_main_vs_p3_balanced_24p/p19_base_meta.json` | `c69dd106788fd70546a209dd801406b931fbca8a877ceec562cf0065f5c5e39d` | 337 |
+| 137 | `abba_main_vs_p3_balanced_24p/p19_base_samples.jsonl` | `19fb1e3b2186632fe19dda83adbe8ebe003f3970f8e109e7180d655fce2e83f5` | 2207 |
+| 138 | `abba_main_vs_p3_balanced_24p/p19_cand_meta.json` | `0db8957c4b4637746c3373a8b45eaa9d38b54801f9633d82f3f5d0e5c07faac0` | 338 |
+| 139 | `abba_main_vs_p3_balanced_24p/p19_cand_samples.jsonl` | `1a136a4cea36715ede0330afecc535802a681e1cf7056a63c7399c524bcfb2d9` | 2263 |
+| 140 | `abba_main_vs_p3_balanced_24p/p1_base_meta.json` | `01dc61c6a2f5dd50d50896d7da7d5eec46b01c3004c60cba9ba0d25d541da37f` | 335 |
+| 141 | `abba_main_vs_p3_balanced_24p/p1_base_samples.jsonl` | `4466854339570fbf286870665ad7bae4397b21b968866530fd9c4ed5d6ab8e99` | 2192 |
+| 142 | `abba_main_vs_p3_balanced_24p/p1_cand_meta.json` | `d64c30b6a65fa55cefbddd0c7956c9b37f6d0d8eca485f97d3b1c306b870a63e` | 336 |
+| 143 | `abba_main_vs_p3_balanced_24p/p1_cand_samples.jsonl` | `1a3bf3f9685114b2bf792374544a1550d50e5401d4d49cd18fe3e579a220dbc6` | 2252 |
+| 144 | `abba_main_vs_p3_balanced_24p/p20_base_meta.json` | `893e861e983d593c0491337c8b903d98e65499af1bd88665c1bb7c74ae865bad` | 337 |
+| 145 | `abba_main_vs_p3_balanced_24p/p20_base_samples.jsonl` | `0d88894b2e4d07640e4733b05130191d31d6cccddd246d06eb5a63ac440b7bcb` | 2202 |
+| 146 | `abba_main_vs_p3_balanced_24p/p20_cand_meta.json` | `e7d618008f461128824bfb7096208530fb6db2c52cdcb3d8170dcc74bb59bc7b` | 338 |
+| 147 | `abba_main_vs_p3_balanced_24p/p20_cand_samples.jsonl` | `720fb2bf708cb79f45f81f5d2b04c2cb8bbddf62f63e491786f2fb0449471661` | 2249 |
+| 148 | `abba_main_vs_p3_balanced_24p/p21_base_meta.json` | `858f6f9dd56ac248d38ec2a670087a6cb97100336be52e931f4c5ba4e226e813` | 337 |
+| 149 | `abba_main_vs_p3_balanced_24p/p21_base_samples.jsonl` | `9195a8ba61f3ca912fb874ab7bd0fdf8a9e6279172db0060d1f09347f379d1a4` | 2199 |
+| 150 | `abba_main_vs_p3_balanced_24p/p21_cand_meta.json` | `702d897b047fee9bdd66f7b11cb90b595b2ad1abafb52642e9d6f96f81de45ce` | 338 |
+| 151 | `abba_main_vs_p3_balanced_24p/p21_cand_samples.jsonl` | `ad8c1204f0e1bf59c66b0bee1432b64704e6d8a71a20ee69c9da8127a094ce84` | 2258 |
+| 152 | `abba_main_vs_p3_balanced_24p/p22_base_meta.json` | `1a7725607f23dd4df363eb1e89c6de01fef62f7e06bd67e04fd374a09177d18d` | 337 |
+| 153 | `abba_main_vs_p3_balanced_24p/p22_base_samples.jsonl` | `436a1b9cf1c83bc793ea3cc475f0c3be384418113af0d33bb5b587f1dedfb234` | 2207 |
+| 154 | `abba_main_vs_p3_balanced_24p/p22_cand_meta.json` | `89342fdbc87d9f83ea3014b0c23f0db80a845e68d4eb847c8c1dde97829a3061` | 338 |
+| 155 | `abba_main_vs_p3_balanced_24p/p22_cand_samples.jsonl` | `59896900df4f2edaea1d38473fdaa066ba56548b4b6fc1e957b8489846f0eef3` | 2255 |
+| 156 | `abba_main_vs_p3_balanced_24p/p23_base_meta.json` | `d900a840f73f9f43b17d3615b5b7b6bece6492cbd25dbf682f17282eee38f46a` | 337 |
+| 157 | `abba_main_vs_p3_balanced_24p/p23_base_samples.jsonl` | `fd6b986b2c12e8ff5f6dae8d8669112040ea776f1aa971e97d4988abb185c942` | 2200 |
+| 158 | `abba_main_vs_p3_balanced_24p/p23_cand_meta.json` | `c9a7dcacaad0ce998dbd6a91a9000c1e273816f0b73f69b597b363f4a7b2fd5f` | 338 |
+| 159 | `abba_main_vs_p3_balanced_24p/p23_cand_samples.jsonl` | `578e4854173ca884bd55e3701da7525136f72654f6cdb8394c2d5b9702126edc` | 2272 |
+| 160 | `abba_main_vs_p3_balanced_24p/p24_base_meta.json` | `c98c94e69cbb31aec3095d960ba9c4ea1c2074a17d4fb018ad9fbe90aa9d1548` | 337 |
+| 161 | `abba_main_vs_p3_balanced_24p/p24_base_samples.jsonl` | `607f74b4cd28f5ebb9fa3980533db433d087ec4238d6a341078c92f2153df4a1` | 2202 |
+| 162 | `abba_main_vs_p3_balanced_24p/p24_cand_meta.json` | `4b5565f758fd5874ff2b5c406e75b37800e3090c7ac3fbdc458fdb9a30e2b915` | 338 |
+| 163 | `abba_main_vs_p3_balanced_24p/p24_cand_samples.jsonl` | `ba1d4b41f79f1602bd17fe9513fcec3793c0571f248910051b4f5794662c4df9` | 2259 |
+| 164 | `abba_main_vs_p3_balanced_24p/p2_base_meta.json` | `d35e79532118affb8de2f3f9854eceff8b6817df7fe03249bc868123433f59f6` | 335 |
+| 165 | `abba_main_vs_p3_balanced_24p/p2_base_samples.jsonl` | `fe191b7e48645ed24aef09fe3d83683e88f2f9ea6e3c98f3677f6c19a3180ef7` | 2196 |
+| 166 | `abba_main_vs_p3_balanced_24p/p2_cand_meta.json` | `004e6b25ffa7aa82b6600202dad180ef19062c68e73399bec3f821265584a49d` | 336 |
+| 167 | `abba_main_vs_p3_balanced_24p/p2_cand_samples.jsonl` | `fbf51561577846cc9940a6bae50ddecad1847eb70cf9603dec8ad1bad5bf75fb` | 2262 |
+| 168 | `abba_main_vs_p3_balanced_24p/p3_base_meta.json` | `7f8897d82d0d4d748b29d946d8484f0df65c76c4625e02c892ea2099104fdfda` | 335 |
+| 169 | `abba_main_vs_p3_balanced_24p/p3_base_samples.jsonl` | `9dfcb87912fbfec9bbe379e82503a049a1983755636ac5b3b18e793e7b0469a0` | 2204 |
+| 170 | `abba_main_vs_p3_balanced_24p/p3_cand_meta.json` | `4a2ce1bb72a835375fea93f83fbd83aabcc952886c9cdf6db16ce6852cb76ebb` | 336 |
+| 171 | `abba_main_vs_p3_balanced_24p/p3_cand_samples.jsonl` | `332ac216963c9d42603668ef4be756d73448a6a5c52cca797deb8da8eb6cffde` | 2261 |
+| 172 | `abba_main_vs_p3_balanced_24p/p4_base_meta.json` | `36f5249f2881c15a828360ce308100ed0f2dc5eccec9e11fb0e6e9d359c58d1c` | 335 |
+| 173 | `abba_main_vs_p3_balanced_24p/p4_base_samples.jsonl` | `180fb470ee9bb78b86580f85efe343ff2283f068f7ed9d76dfcce84d6a4ead97` | 2203 |
+| 174 | `abba_main_vs_p3_balanced_24p/p4_cand_meta.json` | `887788dc828204cd88cb78c2014d8fedd74a2e1adbf8331e05a488ddacac2986` | 336 |
+| 175 | `abba_main_vs_p3_balanced_24p/p4_cand_samples.jsonl` | `65e056ce655618c11da220315cc0bf53e875a91820073c506a831d1d26d8a69c` | 2257 |
+| 176 | `abba_main_vs_p3_balanced_24p/p5_base_meta.json` | `738bd24888b695993eec1595d9a1148bc8bab6ae061473b0fb2b2ff2d18de934` | 335 |
+| 177 | `abba_main_vs_p3_balanced_24p/p5_base_samples.jsonl` | `b93a810234eaae604c92f545af5a4de3104f8e0c2b5a5ade51aa84e2e9063983` | 2205 |
+| 178 | `abba_main_vs_p3_balanced_24p/p5_cand_meta.json` | `72ccbbca87e5bd03da7651f7df072406c48429b3e51d43ebfee4682f2bb1d881` | 336 |
+| 179 | `abba_main_vs_p3_balanced_24p/p5_cand_samples.jsonl` | `5125b4f6125abe562d7edfc714a6dc5c4c3a700bc3f3b444ef7f8073506ef1b7` | 2254 |
+| 180 | `abba_main_vs_p3_balanced_24p/p6_base_meta.json` | `1863dd2e9ef16b8571ef25484263a7cfe46d71fd5fa43a60ed34954fef8b9a4e` | 335 |
+| 181 | `abba_main_vs_p3_balanced_24p/p6_base_samples.jsonl` | `61333385172669775694b9b1c117030bec4dab5c154571fb78bc8d3feb453709` | 2196 |
+| 182 | `abba_main_vs_p3_balanced_24p/p6_cand_meta.json` | `9f1a58d82d078115732b341c9ca48488db1b528779a07288fd2cfb16b2451de3` | 336 |
+| 183 | `abba_main_vs_p3_balanced_24p/p6_cand_samples.jsonl` | `5ac42d04dabf9d278387544b0f8881e400818f19f568104b6069ec608b3459e9` | 2259 |
+| 184 | `abba_main_vs_p3_balanced_24p/p7_base_meta.json` | `7234bc16786dee40e944b78a3dc16aac544595e80a8e1b1d0c98c9fba60fe108` | 335 |
+| 185 | `abba_main_vs_p3_balanced_24p/p7_base_samples.jsonl` | `984c56f314e79101da15d3bb3997b9c8e7470734c70599ce6e3cb531aac80217` | 2200 |
+| 186 | `abba_main_vs_p3_balanced_24p/p7_cand_meta.json` | `1d2645388d0a0d9a2688020b6809c8267a09ae93c597eab9c7cef1f94bbb2482` | 336 |
+| 187 | `abba_main_vs_p3_balanced_24p/p7_cand_samples.jsonl` | `81c726f1bc2b06297d9a3cc07ecc8aefda58610775bcb62a17edb76426a7c06e` | 2261 |
+| 188 | `abba_main_vs_p3_balanced_24p/p8_base_meta.json` | `a10b779ed9967ef455af3f6e89ab243e844325665e09e091e991fa375e08df55` | 335 |
+| 189 | `abba_main_vs_p3_balanced_24p/p8_base_samples.jsonl` | `310166018327d6dd028e6d92c4a4c5d3bffbd6ca74f16d6c10dc3dd9c7a43acf` | 2196 |
+| 190 | `abba_main_vs_p3_balanced_24p/p8_cand_meta.json` | `d672f0169e2dda598c4daf7d61fdd7eccdf4b00930beca4df4740a605e5f526b` | 336 |
+| 191 | `abba_main_vs_p3_balanced_24p/p8_cand_samples.jsonl` | `b6895c866656d43bbe9d568cdd5e754dc633ab586c371017662e02511e60574b` | 2261 |
+| 192 | `abba_main_vs_p3_balanced_24p/p9_base_meta.json` | `9aaa60fd7fae1b6ac95031c2d7a5d96005701913155b7fb7d309eee3be98778f` | 335 |
+| 193 | `abba_main_vs_p3_balanced_24p/p9_base_samples.jsonl` | `ca6cebbe0f63aa2dd9affd55f19395e35a9aa59c8841ab572e0ca30b573793fa` | 2197 |
+| 194 | `abba_main_vs_p3_balanced_24p/p9_cand_meta.json` | `d73ed449196e44deec0d27d3d9f5c1eb73240004fb2676b27ac5514c72b0a848` | 336 |
+| 195 | `abba_main_vs_p3_balanced_24p/p9_cand_samples.jsonl` | `7717c32e7f2fa8db0271d9bae7bec14667dd68b56a72c81a6bfdf034b5b09771` | 2263 |
+| 196 | `abba_twowave_vs_p3_24p/index.tsv` | `b2b044fa6d4f29f1728eb800efea14655dbb45cf23d1c147e77bb28d2afedc75` | 10084 |
+| 197 | `abba_twowave_vs_p3_24p/p10_base_meta.json` | `173f21658666473e59bae63879c7889a06431db0b620f2a11155df35fd838b76` | 288 |
+| 198 | `abba_twowave_vs_p3_24p/p10_base_samples.jsonl` | `60cb156df7edff2b74e7254f45b230004932a83149c7c04f8f899dec8008438f` | 2276 |
+| 199 | `abba_twowave_vs_p3_24p/p10_cand_meta.json` | `f7b993e96fc787bdc37b6956112f1b244614ed2afdc2a00c9185b094708c4714` | 285 |
+| 200 | `abba_twowave_vs_p3_24p/p10_cand_samples.jsonl` | `862692b8d544df9787f47602c9cf6723c855c2573582c5714bca1552880a090b` | 2261 |
+| 201 | `abba_twowave_vs_p3_24p/p11_base_meta.json` | `bf69a5bbb9713789e275e05e29c589e4eab4961c4b540dafc45d5db5cef2c312` | 288 |
+| 202 | `abba_twowave_vs_p3_24p/p11_base_samples.jsonl` | `8c5bab69676f657035e2631841040589baf23f4d341a6e6bf5a17b3b37070df2` | 2270 |
+| 203 | `abba_twowave_vs_p3_24p/p11_cand_meta.json` | `e97b39debc541b89e8fe2ab7820df5f006bd49b442aa297ec0c32282bd30ef00` | 285 |
+| 204 | `abba_twowave_vs_p3_24p/p11_cand_samples.jsonl` | `4e8a333fad662064836f51df9fea8d8ffda821ea1f4ba3e3356df2529383f1ce` | 2257 |
+| 205 | `abba_twowave_vs_p3_24p/p12_base_meta.json` | `a3a60530fbfd8f0fa8deca30fd95fb3cefdc4d55cefb676a111b94da585642b2` | 288 |
+| 206 | `abba_twowave_vs_p3_24p/p12_base_samples.jsonl` | `1c7806d5d3c3331f848c2b9f4bf78707d5bcbaca415e78c792cd6cc71a8f5565` | 2277 |
+| 207 | `abba_twowave_vs_p3_24p/p12_cand_meta.json` | `1d1b0858e8e59cc1d047e8ac84b540ab286d61aca11d8965eac70a186c51fe19` | 285 |
+| 208 | `abba_twowave_vs_p3_24p/p12_cand_samples.jsonl` | `bfd0636389d804d5150ba205ceb34542c995c90a4a7ae19975f8fd52ae2d5262` | 2262 |
+| 209 | `abba_twowave_vs_p3_24p/p13_base_meta.json` | `7ada0c7af3d01d475e224588cb05f36915cb0e7d2f25e28d03a2f2ea9840b39c` | 288 |
+| 210 | `abba_twowave_vs_p3_24p/p13_base_samples.jsonl` | `68750095bbaabe70014df0f23ee86dbb4931e58474204c570e62f886d93472c1` | 2273 |
+| 211 | `abba_twowave_vs_p3_24p/p13_cand_meta.json` | `755be7a4f89097eda9cb21c2af0d277d5fba2a231a67d5400af4f54e82169576` | 285 |
+| 212 | `abba_twowave_vs_p3_24p/p13_cand_samples.jsonl` | `130d7233ff1c6a2eeba96a4014abc857acc05aa9b3231a79d2f69280919f9af2` | 2269 |
+| 213 | `abba_twowave_vs_p3_24p/p14_base_meta.json` | `bf31ab1d8660380f09ed9efd41713f8dbf86c978b0a125dea525bc4fb5924c48` | 288 |
+| 214 | `abba_twowave_vs_p3_24p/p14_base_samples.jsonl` | `aea399c859ad04e64abdac1c8532c2bc3f6530c9ba5bef5501cf1454696e09ba` | 2274 |
+| 215 | `abba_twowave_vs_p3_24p/p14_cand_meta.json` | `b27e55e1a2a5bd491b54e2c8bc304016d8876ec1d7e05d32df19d0118d71080a` | 285 |
+| 216 | `abba_twowave_vs_p3_24p/p14_cand_samples.jsonl` | `11f95ff1c65552a9045d3d7f3154db28980bad7a827e32eb96ee3312112e1b8b` | 2267 |
+| 217 | `abba_twowave_vs_p3_24p/p15_base_meta.json` | `4d6ccd333ac27d13a44f449c83d0bef53136a4a75d90a0c9f4ca45ab2290ed60` | 288 |
+| 218 | `abba_twowave_vs_p3_24p/p15_base_samples.jsonl` | `0567a9f286eeb0f73615f7a18b8a0582cc301ce5beab03675603fe0e4c5b9286` | 2267 |
+| 219 | `abba_twowave_vs_p3_24p/p15_cand_meta.json` | `6e642f22233784f54bd31519963ae0e88d069f426f80f0d87d7ca6b0a6d5792d` | 285 |
+| 220 | `abba_twowave_vs_p3_24p/p15_cand_samples.jsonl` | `bd6f4f3d839fb0d379a2ded0a707ce8f14f1d678a6750b7cca62e4c46f0daa3d` | 2261 |
+| 221 | `abba_twowave_vs_p3_24p/p16_base_meta.json` | `521c52d17d350a9509a8f8cf65507ca775231a1c8bd214c40d0fccf151e37cc2` | 288 |
+| 222 | `abba_twowave_vs_p3_24p/p16_base_samples.jsonl` | `ec9b1a19acfb65bd3a69944c6705f9705abfe7088a9d7e47159c3b9081628921` | 2270 |
+| 223 | `abba_twowave_vs_p3_24p/p16_cand_meta.json` | `ca32c2493c688d90d886c990782441cab6423664f6166ec870bade9115d9f956` | 285 |
+| 224 | `abba_twowave_vs_p3_24p/p16_cand_samples.jsonl` | `8481bd9d1080ccf8810a9e3ee6c10070892328e87445743194c7bf50efeeb877` | 2255 |
+| 225 | `abba_twowave_vs_p3_24p/p17_base_meta.json` | `30f69764eb64e159a0ed82666fdb7fa9923f3fe9ae0477516d336b02f34ce37d` | 288 |
+| 226 | `abba_twowave_vs_p3_24p/p17_base_samples.jsonl` | `12b727b91d81524137838fed7ada3f5434960986bcd7d46208af3a77e40bcf50` | 2280 |
+| 227 | `abba_twowave_vs_p3_24p/p17_cand_meta.json` | `daedae9e622ccd7306bb3422c9f1c4e8120708d5e8ddbbdf1f3e87644bb782b1` | 285 |
+| 228 | `abba_twowave_vs_p3_24p/p17_cand_samples.jsonl` | `aa7eeaf2421c39417df694c924edc5a4060836dffef1723579591ae9c037f793` | 2263 |
+| 229 | `abba_twowave_vs_p3_24p/p18_base_meta.json` | `2c6d16d6761d915b8b08100daee40fba13b8ec906adf423dcd9edafb08ee94e4` | 288 |
+| 230 | `abba_twowave_vs_p3_24p/p18_base_samples.jsonl` | `95ff451ee4c3de1f902735ed61129c96a663f6e9a352f158566c50df22fe129a` | 2281 |
+| 231 | `abba_twowave_vs_p3_24p/p18_cand_meta.json` | `46403d300af225c5a418cb5b2573b1cd736d873fe2203a5253c4d227a0b7ce47` | 285 |
+| 232 | `abba_twowave_vs_p3_24p/p18_cand_samples.jsonl` | `040e3c1a3e13164cff9222d7d5bd21862fee0acbd9ad49392ac09122f0a7bbbb` | 2257 |
+| 233 | `abba_twowave_vs_p3_24p/p19_base_meta.json` | `99f5de9e22c6f92ed4d5a6107db38fa05034a6656faa7576f7e09b74bd6bba90` | 288 |
+| 234 | `abba_twowave_vs_p3_24p/p19_base_samples.jsonl` | `e841618d4087e9795afe23e5b60b3763cf11ddd7bcc253437c49066ffb8d8321` | 2279 |
+| 235 | `abba_twowave_vs_p3_24p/p19_cand_meta.json` | `333bd119e574ea74367460562789e1da99150b778d9472aa1847757b0ab15306` | 285 |
+| 236 | `abba_twowave_vs_p3_24p/p19_cand_samples.jsonl` | `9b74d3d2ba19f9266629b987e3af0388d1bf3094e3ed8e7f32d60a5172967eb6` | 2258 |
+| 237 | `abba_twowave_vs_p3_24p/p1_base_meta.json` | `d139421b994fcfd560de97b2ccb7a3a7f5efcd9f8fe1cee1ae8a7927369f0429` | 287 |
+| 238 | `abba_twowave_vs_p3_24p/p1_base_samples.jsonl` | `87bfd546a9d8e0cfbd3499fdf2481662858f9f3a9eddd8cfded83241668aba08` | 2268 |
+| 239 | `abba_twowave_vs_p3_24p/p1_cand_meta.json` | `312305d5f527bed8b974b0dd41de3644fe0beea6e25f5dc360e439cc1ade2b04` | 284 |
+| 240 | `abba_twowave_vs_p3_24p/p1_cand_samples.jsonl` | `19866e46861db8ee99866b00722be89091a850951d5c5299b7a1c84872a587c1` | 2250 |
+| 241 | `abba_twowave_vs_p3_24p/p20_base_meta.json` | `12eda5f8353a7125a6c6d1555974b8365af43cc51814152023851342d5013012` | 288 |
+| 242 | `abba_twowave_vs_p3_24p/p20_base_samples.jsonl` | `0a1e9877154dae1d409dba0211e03c3eff600e8635ecf5d7f6d2baf1a0fb4e82` | 2272 |
+| 243 | `abba_twowave_vs_p3_24p/p20_cand_meta.json` | `aa5d8d7f191b59c40652a1485a6a88e46450f74faa05c4b1b962d92fdd89c92f` | 285 |
+| 244 | `abba_twowave_vs_p3_24p/p20_cand_samples.jsonl` | `3537a428c439bbfe077cb2398315a77a4fb321576dc3424c2c73f39b023242bf` | 2257 |
+| 245 | `abba_twowave_vs_p3_24p/p21_base_meta.json` | `363f68acd2f2b1d0c67be400584471f053638578bfb9bcd187223042894b7e7e` | 288 |
+| 246 | `abba_twowave_vs_p3_24p/p21_base_samples.jsonl` | `906a444df1bffd2859634453190fb26b8c89a432214c15d15ac91fa76e9c1efe` | 2284 |
+| 247 | `abba_twowave_vs_p3_24p/p21_cand_meta.json` | `73f60f0fca16a74775bdfcb20168cec3bb7ff9af3ede631e613f9fbeeca8b3c1` | 285 |
+| 248 | `abba_twowave_vs_p3_24p/p21_cand_samples.jsonl` | `eebf82e0fce4d17926a8093df31b632450013f8641610f60e57eb70c5aa65f0d` | 2262 |
+| 249 | `abba_twowave_vs_p3_24p/p22_base_meta.json` | `5265e4c4c794fa8db49d1a359de27efaf3728164a73bd618b547fe062075e7d1` | 288 |
+| 250 | `abba_twowave_vs_p3_24p/p22_base_samples.jsonl` | `d1c6c8fe288e4ac5fe7092c3d0b9cb19468e0e3635ad6d513764f01504b3d23c` | 2279 |
+| 251 | `abba_twowave_vs_p3_24p/p22_cand_meta.json` | `8f595537605ab9ed659e1a7173437f57a3b6e4ace4b2519cafc67b339b36807f` | 285 |
+| 252 | `abba_twowave_vs_p3_24p/p22_cand_samples.jsonl` | `d77839fd9e89bb3b365d27fee1e2b74e17ab9a324a87fc89f00d4add1e1f2ed2` | 2257 |
+| 253 | `abba_twowave_vs_p3_24p/p23_base_meta.json` | `9dae5b9d50d55ccd801d748051a0eeac4d5f2bc741b606c33f9a0627cfbe6e0a` | 288 |
+| 254 | `abba_twowave_vs_p3_24p/p23_base_samples.jsonl` | `6c9aeb9a6a8cf5bb1cb867bf3ff736b53b98fc2c121bc98740932c963edae30b` | 2276 |
+| 255 | `abba_twowave_vs_p3_24p/p23_cand_meta.json` | `1afa2896f0f6bbcfc67c8c9ae6beef4db273fc06bf4f2309eec0026a30f2290c` | 285 |
+| 256 | `abba_twowave_vs_p3_24p/p23_cand_samples.jsonl` | `f442916c5ee6f8f232260e4f5cd13584e0d35f48d2f6e7e6db6d016378b50ed2` | 2244 |
+| 257 | `abba_twowave_vs_p3_24p/p24_base_meta.json` | `c0c97c7635d604260eb0e36d9ac39b068d765dcce8dd7c8692f2e04c892ed4b7` | 288 |
+| 258 | `abba_twowave_vs_p3_24p/p24_base_samples.jsonl` | `782b937c89c946510759744c4e061beb5c724ffc0c0f5981bafc0197de670052` | 2263 |
+| 259 | `abba_twowave_vs_p3_24p/p24_cand_meta.json` | `7f31239afd57828ac62ef8fc2a1518e8c4893c9d1e4e5e9ddd4fa973a7b9fc06` | 285 |
+| 260 | `abba_twowave_vs_p3_24p/p24_cand_samples.jsonl` | `66ab665f86bfd5b60e8ebc91837455e6a24d98a47882db00a98cbc2619854fd7` | 2252 |
+| 261 | `abba_twowave_vs_p3_24p/p2_base_meta.json` | `ca4dcb6c1ed92c5c777a58fafadbc0415477a5b4606dae817d3b39f18a27082e` | 287 |
+| 262 | `abba_twowave_vs_p3_24p/p2_base_samples.jsonl` | `4f79d26cc954ef987c1ac6d1b65f5c3297f68db3d6857645099444d77700c26f` | 2279 |
+| 263 | `abba_twowave_vs_p3_24p/p2_cand_meta.json` | `a25d50bffee5cb099e321293dbec7b119771f453de5b0bc67401b6368e1cddc8` | 284 |
+| 264 | `abba_twowave_vs_p3_24p/p2_cand_samples.jsonl` | `ffc52a642d8638b0da56c4d199d878dfdbb2708e57db5f867857ab33e8536392` | 2259 |
+| 265 | `abba_twowave_vs_p3_24p/p3_base_meta.json` | `57efb1fcc0245069ae8cbb0e88da0af3de9be8b1f760eebf93a7f0a5390a0f50` | 287 |
+| 266 | `abba_twowave_vs_p3_24p/p3_base_samples.jsonl` | `85ed3d054dc3b1593207c4792547670769dc0a607addffe7b30e5b76c9481b02` | 2281 |
+| 267 | `abba_twowave_vs_p3_24p/p3_cand_meta.json` | `33695292f18f3c907bba061889cb0f4e48e4f166719c83a227bf4cbb4525395e` | 284 |
+| 268 | `abba_twowave_vs_p3_24p/p3_cand_samples.jsonl` | `eb5220746104e0d61b958a5091aa070e2d486dc574dbfb51d17c92122f34289c` | 2261 |
+| 269 | `abba_twowave_vs_p3_24p/p4_base_meta.json` | `b0e22bc2cde071b85bd56e7f01dbfca0e9fa66b0f4be1112007025fe55840d34` | 287 |
+| 270 | `abba_twowave_vs_p3_24p/p4_base_samples.jsonl` | `a22bb98a5568c8fa90e6ce40adf5ccd1604c64b7909b16837f5621480ad212df` | 2279 |
+| 271 | `abba_twowave_vs_p3_24p/p4_cand_meta.json` | `d44fdf208d1ccdbde9e770c45ad787c3f87641bf081f4e9f0bc0e64bc32a2119` | 284 |
+| 272 | `abba_twowave_vs_p3_24p/p4_cand_samples.jsonl` | `82e7ac74daa9b8eae844d0aba08b8e87d3623118c6afcbfe983a737422f944a4` | 2265 |
+| 273 | `abba_twowave_vs_p3_24p/p5_base_meta.json` | `887be6088e242f197057d7291c743bdc9ecbba7bfd46d9f7a626429dd4f5c0f6` | 287 |
+| 274 | `abba_twowave_vs_p3_24p/p5_base_samples.jsonl` | `d068001ff9ad22ae0ef3d24364e903fe494a6133e3dc5d69ff98dd357564f574` | 2282 |
+| 275 | `abba_twowave_vs_p3_24p/p5_cand_meta.json` | `f40d614238a7b615d936221c3ae1253e0abf6d236a6a03702d2c7caf39897723` | 284 |
+| 276 | `abba_twowave_vs_p3_24p/p5_cand_samples.jsonl` | `ed7404c6353ab4a78a9524b535c691e6a1cffe282a220eba4233716bfefd9e2c` | 2253 |
+| 277 | `abba_twowave_vs_p3_24p/p6_base_meta.json` | `5d64dc9c38d2345a0a6b18fa3f30dfe94917dc5ca49444d96fe06f8c3703e9f5` | 287 |
+| 278 | `abba_twowave_vs_p3_24p/p6_base_samples.jsonl` | `4a96efcf7475ba4c0611e072eed791ade7066149adfac7e3b3d9fb817371c100` | 2274 |
+| 279 | `abba_twowave_vs_p3_24p/p6_cand_meta.json` | `7b7712a51bc4a356b1436ff97b713c8950998623b1c12316687b665b68660c85` | 284 |
+| 280 | `abba_twowave_vs_p3_24p/p6_cand_samples.jsonl` | `89aadee1f03eb706246de0817ef95033056587fc150e77cd922022c1d17ba850` | 2257 |
+| 281 | `abba_twowave_vs_p3_24p/p7_base_meta.json` | `6db8658850e9193bd480e924a247d323135f0897ac2e16d3f50e428df5971f87` | 287 |
+| 282 | `abba_twowave_vs_p3_24p/p7_base_samples.jsonl` | `752668eef6beefe8a9391d14f1fc4908223e77d1b5557805ad4b23ff361902c4` | 2268 |
+| 283 | `abba_twowave_vs_p3_24p/p7_cand_meta.json` | `d12cb5e71c3075c8408eac8d72f3d60d41868639d2757720f1e509b25c042e19` | 284 |
+| 284 | `abba_twowave_vs_p3_24p/p7_cand_samples.jsonl` | `777d926858c52bb06e972d86e1982d5eb7b7c60ed8a3448d7aa318833cf803dd` | 2266 |
+| 285 | `abba_twowave_vs_p3_24p/p8_base_meta.json` | `03fc23f1ceb44ceaa4f54723beb0b57c97c71436e1aa4a4e91a05eda6c1114c2` | 287 |
+| 286 | `abba_twowave_vs_p3_24p/p8_base_samples.jsonl` | `0669bcad66587d3bca8808ca4fd47698ceff65019d89e91cb77225de2ff0efa0` | 2273 |
+| 287 | `abba_twowave_vs_p3_24p/p8_cand_meta.json` | `104dc36f403dfc2264898b059782fe1fb818a60a837365433322dee89b0b3907` | 284 |
+| 288 | `abba_twowave_vs_p3_24p/p8_cand_samples.jsonl` | `f47d356ec45d0bf269ef959dcc1f80d5502ea3fd91154fbfed5a104516096e3b` | 2258 |
+| 289 | `abba_twowave_vs_p3_24p/p9_base_meta.json` | `43f998982c41084e108da491b0c7922c6d2b37a766581f5c08a44aa021565b70` | 287 |
+| 290 | `abba_twowave_vs_p3_24p/p9_base_samples.jsonl` | `074bbe6ea94e8144f6d5213d62c2a63129c4e3d8aa32c529207c464cff528952` | 2279 |
+| 291 | `abba_twowave_vs_p3_24p/p9_cand_meta.json` | `3f2183056a9c0cb9b76477f6b1e880cf20cf5222649ad60aac0d09f88cb08040` | 284 |
+| 292 | `abba_twowave_vs_p3_24p/p9_cand_samples.jsonl` | `fb27e0b46ddc0247e1ced7d794270512255b61a8465b45fa5da412a3c54b160e` | 2260 |
+| 293 | `abba_twowave_vs_p3_balanced_24p/SCHEDULE.json` | `adb16f5e520113faa7a19792310f3ab4860ff4d69207ac20cb6f9cceb5674a1c` | 5555 |
+| 294 | `abba_twowave_vs_p3_balanced_24p/index.tsv` | `0cade9191c9e2721341d952c51eb530bb82b023e92199ef729a7567d6f9d72b8` | 10551 |
+| 295 | `abba_twowave_vs_p3_balanced_24p/p10_base_meta.json` | `699e63f65d3882438b671730f79d6615fe11eb8e9c07863312dac9e499544569` | 340 |
+| 296 | `abba_twowave_vs_p3_balanced_24p/p10_base_samples.jsonl` | `303e4369c2ac31de60d15596b95712d908c46872508cffda49458ca00cadeac1` | 2282 |
+| 297 | `abba_twowave_vs_p3_balanced_24p/p10_cand_meta.json` | `6546dafa8afbea0464a9f35ef0ad37657415d215a29c2306d8608f8b500d4f04` | 337 |
+| 298 | `abba_twowave_vs_p3_balanced_24p/p10_cand_samples.jsonl` | `238b8ee21a601da5178bec905269ba93f72c55f46fa8ba7b813917b798959244` | 2262 |
+| 299 | `abba_twowave_vs_p3_balanced_24p/p11_base_meta.json` | `a5e8ed662eb53fecddac0478505268c2905e9741e5869e62513313a5e1f45daf` | 340 |
+| 300 | `abba_twowave_vs_p3_balanced_24p/p11_base_samples.jsonl` | `c18237a2689169b33f6d7d7a8d083c85a6c5bac94e4a94becb75d238bfa7675e` | 2277 |
+| 301 | `abba_twowave_vs_p3_balanced_24p/p11_cand_meta.json` | `085fbebc85b045212c0d60a98a1d571ae29b34e1301343b23729f2a3a653652b` | 337 |
+| 302 | `abba_twowave_vs_p3_balanced_24p/p11_cand_samples.jsonl` | `2549c5e353dcabca64beb2ee662d0123280d662e94ab200e3ca7789358a842c6` | 2260 |
+| 303 | `abba_twowave_vs_p3_balanced_24p/p12_base_meta.json` | `439b1abb3c561610dbf0639f4b4aec901889bbb5d035794cb5ca099bcfbb392d` | 340 |
+| 304 | `abba_twowave_vs_p3_balanced_24p/p12_base_samples.jsonl` | `9a2480f9dd3c2edb2c3704863d67ead9e6f54f81fc9223b6896e30d4b2fc681f` | 2276 |
+| 305 | `abba_twowave_vs_p3_balanced_24p/p12_cand_meta.json` | `fe22d8fad928b08b54caa1992586b709b5a7d8dab3b5846770debe58762bdd05` | 337 |
+| 306 | `abba_twowave_vs_p3_balanced_24p/p12_cand_samples.jsonl` | `622a22390cb38cdb39ba3a4fb99753afa988515b6ea27befb74e4658b8fac8f5` | 2263 |
+| 307 | `abba_twowave_vs_p3_balanced_24p/p13_base_meta.json` | `3eeea8e56868f43d583936db33b5316fc9799bf455ae3193474147e2acd216cb` | 340 |
+| 308 | `abba_twowave_vs_p3_balanced_24p/p13_base_samples.jsonl` | `2484f4b3247e6e5d24746af618f60c39e5b6ba974c8fa391b64e616b345abb82` | 2271 |
+| 309 | `abba_twowave_vs_p3_balanced_24p/p13_cand_meta.json` | `6ba783c292a4477ac5578ef90d74139884b436c0c0980e641c4b6d72100737aa` | 337 |
+| 310 | `abba_twowave_vs_p3_balanced_24p/p13_cand_samples.jsonl` | `276b302565d9f1b4dd9773c744774ad638da7fdd798a3cd49445fb180f73734e` | 2259 |
+| 311 | `abba_twowave_vs_p3_balanced_24p/p14_base_meta.json` | `2228d99520996fd1c9320b334721c6d7cf4a58aabe8a7996227d43c11f16031e` | 340 |
+| 312 | `abba_twowave_vs_p3_balanced_24p/p14_base_samples.jsonl` | `45604830b135b6f10f75e93e127779809e351a2de2b94c9d06e146efd45b335d` | 2282 |
+| 313 | `abba_twowave_vs_p3_balanced_24p/p14_cand_meta.json` | `d4bcaf8683a71119980a04523b619ab24636af24bc852bdeda25d7f2d287ab1a` | 337 |
+| 314 | `abba_twowave_vs_p3_balanced_24p/p14_cand_samples.jsonl` | `e98a443e05dea5f37a1a72a084b42d5710399d85d0bd04da1eef7acf333c6f69` | 2252 |
+| 315 | `abba_twowave_vs_p3_balanced_24p/p15_base_meta.json` | `47829c4ddde17a732de44248da7de4ad485db406bbe9298f53eb019ccbee2a20` | 340 |
+| 316 | `abba_twowave_vs_p3_balanced_24p/p15_base_samples.jsonl` | `465f0114a81a592e3e1bb11ce797643936f23201dafcdf49bc9bb48d20a649e4` | 2276 |
+| 317 | `abba_twowave_vs_p3_balanced_24p/p15_cand_meta.json` | `7b29f06a17e28175c1fcf1a28a0fae9f4353dc4d2458a657be3c7db1c94ff26d` | 337 |
+| 318 | `abba_twowave_vs_p3_balanced_24p/p15_cand_samples.jsonl` | `c841c2b0d9f5d9f235ec55db4fb38ed62fb01a2595d9c8f17c481126e91f70c3` | 2261 |
+| 319 | `abba_twowave_vs_p3_balanced_24p/p16_base_meta.json` | `0b7f4e128d3d6e93f08ca10b4232080a0be5d13c925a9bbfbe3892f140bd7116` | 340 |
+| 320 | `abba_twowave_vs_p3_balanced_24p/p16_base_samples.jsonl` | `df06b93c07c8716a06c18054874e841cc73b5daa8f6647ce476a43ffda45e4f6` | 2272 |
+| 321 | `abba_twowave_vs_p3_balanced_24p/p16_cand_meta.json` | `07b9accb36ad78401355d07c22afdd5076d1803ae65da7131759cf72f256f866` | 337 |
+| 322 | `abba_twowave_vs_p3_balanced_24p/p16_cand_samples.jsonl` | `bb3f496ffa18e0fa71ff4c3a5f6c9684b3fd1296638090f9c3c77a331d52d317` | 2259 |
+| 323 | `abba_twowave_vs_p3_balanced_24p/p17_base_meta.json` | `741d9551adf06f670297130ab45925244113179360f6a4b165dd59c551a665e4` | 340 |
+| 324 | `abba_twowave_vs_p3_balanced_24p/p17_base_samples.jsonl` | `40030703d4163802503f2927fdf784901e26df22784e03cd677c91f3862dc731` | 2276 |
+| 325 | `abba_twowave_vs_p3_balanced_24p/p17_cand_meta.json` | `b017c47cec67280fe54f65c57361fba5197022f0e7c21891475197ae2de28d55` | 337 |
+| 326 | `abba_twowave_vs_p3_balanced_24p/p17_cand_samples.jsonl` | `537e353e45e21a6f0e1cd17f7aefb6536438c06168bc2d587c9e4fd14ae50470` | 2262 |
+| 327 | `abba_twowave_vs_p3_balanced_24p/p18_base_meta.json` | `af18c4d677a0b0e17a164190f8168375fbea076eb5a48845c9c626d0fd68e38c` | 340 |
+| 328 | `abba_twowave_vs_p3_balanced_24p/p18_base_samples.jsonl` | `5a7e8a67c186170f471040ded69da51f91c9062eeb22bb264ba22fd2ab26a0a1` | 2272 |
+| 329 | `abba_twowave_vs_p3_balanced_24p/p18_cand_meta.json` | `07064ef2d619114b0e97be1be8a2faabe4676a414491e252a277fdbd3d9df79f` | 337 |
+| 330 | `abba_twowave_vs_p3_balanced_24p/p18_cand_samples.jsonl` | `f6eabc473ab029470d2ccb1c00793dc4bcb16b6edd19a9562542fb80c7dbb32c` | 2259 |
+| 331 | `abba_twowave_vs_p3_balanced_24p/p19_base_meta.json` | `803f4cb2de66c4cdab94ea0e016b5916dbe11fd3c1ce28414d2f743e764ba4c3` | 341 |
+| 332 | `abba_twowave_vs_p3_balanced_24p/p19_base_samples.jsonl` | `6aeb7949df9339e6cccc0aef1e5b95dcbf74ed7624a09ab370bcf4ebcb3e5dd4` | 2284 |
+| 333 | `abba_twowave_vs_p3_balanced_24p/p19_cand_meta.json` | `0db8957c4b4637746c3373a8b45eaa9d38b54801f9633d82f3f5d0e5c07faac0` | 338 |
+| 334 | `abba_twowave_vs_p3_balanced_24p/p19_cand_samples.jsonl` | `7e5f4decc4df572bd45d7383b6f8ef1ba4f5b87a8c61a1a16933b3a583c86903` | 2255 |
+| 335 | `abba_twowave_vs_p3_balanced_24p/p1_base_meta.json` | `19bf534db0876af0d6368c7797d43b1b18ada35bd1998d4a031900bd4f228a2b` | 339 |
+| 336 | `abba_twowave_vs_p3_balanced_24p/p1_base_samples.jsonl` | `f50044eebec4d55376c700adc3f4afca908d2b0f142a966f1be12fc501e18fe6` | 2273 |
+| 337 | `abba_twowave_vs_p3_balanced_24p/p1_cand_meta.json` | `d64c30b6a65fa55cefbddd0c7956c9b37f6d0d8eca485f97d3b1c306b870a63e` | 336 |
+| 338 | `abba_twowave_vs_p3_balanced_24p/p1_cand_samples.jsonl` | `875d147ba2b2270326f195afb017cd0bc239c26eb8e446a77ff49d4f4569b785` | 2260 |
+| 339 | `abba_twowave_vs_p3_balanced_24p/p20_base_meta.json` | `0ea395a9cdd26e4f0b2b2113425fd6d8475f0c9e71ef2e97eed853563e9d02ce` | 341 |
+| 340 | `abba_twowave_vs_p3_balanced_24p/p20_base_samples.jsonl` | `447450713042f2cd66cb66e1f80f16738ed3af7cd489fd7468be0dc52caa5c37` | 2275 |
+| 341 | `abba_twowave_vs_p3_balanced_24p/p20_cand_meta.json` | `e7d618008f461128824bfb7096208530fb6db2c52cdcb3d8170dcc74bb59bc7b` | 338 |
+| 342 | `abba_twowave_vs_p3_balanced_24p/p20_cand_samples.jsonl` | `7dab315ec7c821fbf55311898279ebd963062a281a5f1330d529e3f23494dcd6` | 2265 |
+| 343 | `abba_twowave_vs_p3_balanced_24p/p21_base_meta.json` | `1765d1afa750cea997af199f2842e3f6fd030d6ffd67982ccca4aea8d43fe6fb` | 341 |
+| 344 | `abba_twowave_vs_p3_balanced_24p/p21_base_samples.jsonl` | `9ed796d7fec8d54388cc5f5bd62024ec7c7d31079c806c7e0039996ff8885a8c` | 2268 |
+| 345 | `abba_twowave_vs_p3_balanced_24p/p21_cand_meta.json` | `702d897b047fee9bdd66f7b11cb90b595b2ad1abafb52642e9d6f96f81de45ce` | 338 |
+| 346 | `abba_twowave_vs_p3_balanced_24p/p21_cand_samples.jsonl` | `f1883d629cc2ef9e63fe2edc48d005ed6acdb6dd349b920c9585bb337d06f139` | 2261 |
+| 347 | `abba_twowave_vs_p3_balanced_24p/p22_base_meta.json` | `bfa23ffdd1bc9b97234913640a56f168ec11e4bd8e041b6ce6225f1a232d5f17` | 341 |
+| 348 | `abba_twowave_vs_p3_balanced_24p/p22_base_samples.jsonl` | `6e891b45072cd9bb71b7a37ae41a0e9b7f49417ee0e412e37a6053e479409156` | 2280 |
+| 349 | `abba_twowave_vs_p3_balanced_24p/p22_cand_meta.json` | `89342fdbc87d9f83ea3014b0c23f0db80a845e68d4eb847c8c1dde97829a3061` | 338 |
+| 350 | `abba_twowave_vs_p3_balanced_24p/p22_cand_samples.jsonl` | `fd3c681bce993d1cadaf412c6fc202feeb78995615d1ebb94a60dca41072c24e` | 2261 |
+| 351 | `abba_twowave_vs_p3_balanced_24p/p23_base_meta.json` | `30a533fcaa7d4400d981034bcf7e95f8abdbd018c30e90918c3034cb5cb51956` | 341 |
+| 352 | `abba_twowave_vs_p3_balanced_24p/p23_base_samples.jsonl` | `d6cad0ad7a2c3216f5718f036f4af0f1eb0e9ae1bb04851ce1a02f22e1fac1df` | 2278 |
+| 353 | `abba_twowave_vs_p3_balanced_24p/p23_cand_meta.json` | `c9a7dcacaad0ce998dbd6a91a9000c1e273816f0b73f69b597b363f4a7b2fd5f` | 338 |
+| 354 | `abba_twowave_vs_p3_balanced_24p/p23_cand_samples.jsonl` | `618234699a93bcb15d8cb881fc6425321c585a8a747258172f607b51edc3baeb` | 2261 |
+| 355 | `abba_twowave_vs_p3_balanced_24p/p24_base_meta.json` | `e21fc3af1edf3d42e1ec1b2bf16a86f25c55db5f6a72c7c89ebab4adc89fb2d6` | 341 |
+| 356 | `abba_twowave_vs_p3_balanced_24p/p24_base_samples.jsonl` | `ff03d9128d099a70c448ca922d9857f32bba1ce0291e8549b0a1b19535484042` | 2267 |
+| 357 | `abba_twowave_vs_p3_balanced_24p/p24_cand_meta.json` | `4b5565f758fd5874ff2b5c406e75b37800e3090c7ac3fbdc458fdb9a30e2b915` | 338 |
+| 358 | `abba_twowave_vs_p3_balanced_24p/p24_cand_samples.jsonl` | `1a7bbad70a11b38e49bdd375aa083aa2c3e028e84a5d94983e4f2be7f01f23d6` | 2266 |
+| 359 | `abba_twowave_vs_p3_balanced_24p/p2_base_meta.json` | `3a6185767fa3967977a5409415b853aa922c5d10bbc9367ad22d57c46efe0ca9` | 339 |
+| 360 | `abba_twowave_vs_p3_balanced_24p/p2_base_samples.jsonl` | `91a244cdd07717280f981641e648d1c401862baa919ee7dfde527bdbbbf6e0f7` | 2269 |
+| 361 | `abba_twowave_vs_p3_balanced_24p/p2_cand_meta.json` | `004e6b25ffa7aa82b6600202dad180ef19062c68e73399bec3f821265584a49d` | 336 |
+| 362 | `abba_twowave_vs_p3_balanced_24p/p2_cand_samples.jsonl` | `3c7043f80b6544afca411d2558f13a692b1429bd01ac0c61bae03b462583d0a7` | 2248 |
+| 363 | `abba_twowave_vs_p3_balanced_24p/p3_base_meta.json` | `f4e6f223b4a9c16610b7a83c421150d11d75668f5a7f0e16510f679277d077a8` | 339 |
+| 364 | `abba_twowave_vs_p3_balanced_24p/p3_base_samples.jsonl` | `a22868905d7067e4e1723670629a894ad500c6ce2061fdbb6a7f14984f4ac096` | 2275 |
+| 365 | `abba_twowave_vs_p3_balanced_24p/p3_cand_meta.json` | `4a2ce1bb72a835375fea93f83fbd83aabcc952886c9cdf6db16ce6852cb76ebb` | 336 |
+| 366 | `abba_twowave_vs_p3_balanced_24p/p3_cand_samples.jsonl` | `ac5bfd32661b63f8aefcaeaa28231622821e0e4882dba68d3b2818fb8159bab0` | 2268 |
+| 367 | `abba_twowave_vs_p3_balanced_24p/p4_base_meta.json` | `0ba8b48271d558cc552d5143135a7cc4c083a8db6e87262733462b467c0cdda6` | 339 |
+| 368 | `abba_twowave_vs_p3_balanced_24p/p4_base_samples.jsonl` | `f61d59147f50ff6a4f1cea2bf14a5745deb53d0fc05b02849377b27089529508` | 2276 |
+| 369 | `abba_twowave_vs_p3_balanced_24p/p4_cand_meta.json` | `887788dc828204cd88cb78c2014d8fedd74a2e1adbf8331e05a488ddacac2986` | 336 |
+| 370 | `abba_twowave_vs_p3_balanced_24p/p4_cand_samples.jsonl` | `87bb029d61b4620be4a50ab2e841988db6e7d3b713ffa14618927733ff04d8e6` | 2268 |
+| 371 | `abba_twowave_vs_p3_balanced_24p/p5_base_meta.json` | `9e0014873e7bc7a49c7b4060200d641a912df6e6b9e56525c4242a3f3a8150da` | 339 |
+| 372 | `abba_twowave_vs_p3_balanced_24p/p5_base_samples.jsonl` | `ca231836f16873e627d7992e1b4f6b8c4f7937b427734d9e99e7c84730c0f92c` | 2282 |
+| 373 | `abba_twowave_vs_p3_balanced_24p/p5_cand_meta.json` | `72ccbbca87e5bd03da7651f7df072406c48429b3e51d43ebfee4682f2bb1d881` | 336 |
+| 374 | `abba_twowave_vs_p3_balanced_24p/p5_cand_samples.jsonl` | `17f59089138b423f798934d62ea623c35eb19980943ffab97f7603683c0ca4b6` | 2256 |
+| 375 | `abba_twowave_vs_p3_balanced_24p/p6_base_meta.json` | `c16eff5ce51e8b5ede7e6bcf23f8636ba60216cca23141501ccff6045ac8588b` | 339 |
+| 376 | `abba_twowave_vs_p3_balanced_24p/p6_base_samples.jsonl` | `4a2d3758fb68530ae12832930d0317f182af119944dec654787fafc91ba1ab56` | 2270 |
+| 377 | `abba_twowave_vs_p3_balanced_24p/p6_cand_meta.json` | `9f1a58d82d078115732b341c9ca48488db1b528779a07288fd2cfb16b2451de3` | 336 |
+| 378 | `abba_twowave_vs_p3_balanced_24p/p6_cand_samples.jsonl` | `8c459f8d7c6cc7057bd833d1cf3874c16e1af37f50475b5c7b14c086b85462e3` | 2266 |
+| 379 | `abba_twowave_vs_p3_balanced_24p/p7_base_meta.json` | `b4afd554e90d2bf52a7f205ab30232b9b46869edacbb52812ce7baf968e1d19e` | 339 |
+| 380 | `abba_twowave_vs_p3_balanced_24p/p7_base_samples.jsonl` | `5dcf5fa06712ec325567e958474ccbb42651ebe66272e801501287f56f45c518` | 2285 |
+| 381 | `abba_twowave_vs_p3_balanced_24p/p7_cand_meta.json` | `1d2645388d0a0d9a2688020b6809c8267a09ae93c597eab9c7cef1f94bbb2482` | 336 |
+| 382 | `abba_twowave_vs_p3_balanced_24p/p7_cand_samples.jsonl` | `0489b36c0ca7ff6ae1a1449717870c106b9b9c06557eb2b4a8c390cf60129fa0` | 2262 |
+| 383 | `abba_twowave_vs_p3_balanced_24p/p8_base_meta.json` | `feabdb07e2b82cf832bc8021271475cc7ff6886739c54bcfebed6639710d1961` | 339 |
+| 384 | `abba_twowave_vs_p3_balanced_24p/p8_base_samples.jsonl` | `f29e1995860587089681cafae6fc7185cb787a22e6ee0f9ce999af77c4db7c89` | 2274 |
+| 385 | `abba_twowave_vs_p3_balanced_24p/p8_cand_meta.json` | `d672f0169e2dda598c4daf7d61fdd7eccdf4b00930beca4df4740a605e5f526b` | 336 |
+| 386 | `abba_twowave_vs_p3_balanced_24p/p8_cand_samples.jsonl` | `8a3712fb532a45b8f3f1041bce39580e5cf28ff07132ed0484687e4c57e3896e` | 2254 |
+| 387 | `abba_twowave_vs_p3_balanced_24p/p9_base_meta.json` | `b5d7163c5ae41a4632a8890a55b187b7c1677b7331f4f82592f27a5abc17e01f` | 339 |
+| 388 | `abba_twowave_vs_p3_balanced_24p/p9_base_samples.jsonl` | `7b834998dd7461f4220c0e5f4de6e0d96014b8962d7b404c1e03636ccfb91d03` | 2271 |
+| 389 | `abba_twowave_vs_p3_balanced_24p/p9_cand_meta.json` | `d73ed449196e44deec0d27d3d9f5c1eb73240004fb2676b27ac5514c72b0a848` | 336 |
+| 390 | `abba_twowave_vs_p3_balanced_24p/p9_cand_samples.jsonl` | `61ebda265f02eec42c59e439ae33ad1c3dbdfcecf1672ea2892de01feea026ec` | 2265 |
+| 391 | `analyze_lxxxi.py` | `4f378097cced067d4895eb673e74ca004b2dd45673090b54c16ff982b163eb8b` | 2909 |
+| 392 | `final_rerun.sh` | `29a16b29ed062f428b1b6f3298274af48ce661c28626ea87e046dc8f87cd9bfb` | 1584 |
+| 393 | `lxxxi_production_smoke.json` | `07f90b3502e2dc78bda924428eeb72d2322dc37eca0451bb85c5b35e5cc5bf10` | 18866 |
+| 394 | `parse_gpu_profile.py` | `8534e736ee322333e145c8764467036542e21543acfdfdb59489fcb01062e525` | 5756 |
+| 395 | `phase_lxxxi_abba_report.json` | `7b18d524c46b210e31d29ffa93b9ff4702bf950616c3397e3f3066599377582c` | 8815 |
+| 396 | `run_lxxxi_abba.py` | `14ee1bdd9dce9f95879d104d614a72dab821e97404a5bf9490c57e6b59ba05a7` | 6751 |
+| 397 | `run_lxxxi_balanced.py` | `34233bcb12062502d646bc9c8435cf0e70e03564f5f5be019a8663be9d177a96` | 9040 |
+
+## Appendix B — Phase LXXXIII files
+
+| File | Purpose |
+|---|---|
+| `PHASE_LXXXIII_MANIFEST_REPAIR.md` | this report |
+| `restored_paths.tsv` | the 397 restaged paths, digests, sizes and recovery source |
+| `verification_precommit.json` | machine-readable pre-commit byte verification |
+| `checker_controls.txt` | negative-control run output |
+| `SHA256SUMS_phase_lxxxiii.txt` | checksums for the files above, excluding itself |
