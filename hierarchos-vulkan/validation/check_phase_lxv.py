@@ -27,6 +27,14 @@ in the tree:
 * the 16-bank experiment must be recorded as rejected on the measured VGPR wall,
   not silently dropped.
 
+The file-scope control is deliberately about **this phase's own change set**,
+not about every commit that descends from its base. See
+[`PHASE_LXV_SCOPE_BASE`] / [`PHASE_LXV_ENDPOINT`]: the range is fixed at the two
+commits that bound Phase LXV, so a later release commit is verified by that
+phase's own gate instead of being reported as an unapproved Phase LXV change.
+The scope control itself is unchanged - an unapproved path inside the range is
+still rejected.
+
 Hosted CI verifies structure and recomputation only. It never claims to have run
 the RDNA3 GPU, produced an RGP capture, or measured a millisecond.
 """
@@ -36,6 +44,7 @@ import argparse
 import hashlib
 import json
 import struct
+import subprocess
 import sys
 from pathlib import Path
 
@@ -52,6 +61,22 @@ SPIRV_VERSION = 0x00010400
 OP_COOPERATIVE_MATRIX_MUL_ADD = 4459
 
 BASE_REVISION = "81ac82fa972d84025129e7c3f0e58fdece7df786"
+
+# The two revisions that bound Phase LXV's own change set.
+#
+# `PHASE_LXV_SCOPE_BASE` is the commit the phase started from: the Phase LXIV
+# record was complete at `a70cef4`, and `b86c29e` is the documentation commit
+# immediately before the first Phase LXV commit. `PHASE_LXV_ENDPOINT` is the
+# last commit of the phase - after it, `759da5c` (Phase LXVI) and the two-wave /
+# P3 release commits are later work.
+#
+# The scope control must read this range, not `base..HEAD`. A branch that
+# descends from this phase keeps inheriting phases, and every later phase
+# legitimately touches files this one never approved (the release's
+# `.gitattributes` rule, `phase_lxxxi_evidence/**`, the P3 shaders). Diffing to
+# HEAD turns that later work into a false Phase LXV scope violation.
+PHASE_LXV_SCOPE_BASE = "b86c29e212e0d439d6698a0d47a48ed58424ce88"
+PHASE_LXV_ENDPOINT = "cf98af639cf1dd81539e182f158eda41da85e195"
 
 # The exact artifacts the Phase LXV record is about.
 SHADERS = {
@@ -463,6 +488,25 @@ def check_dispatch(receipt, receipts):
         require(isinstance(value, int), f"dispatch field {key} is not an integer")
 
 
+def historical_scope_paths(root: Path = ROOT) -> list:
+    """The files Phase LXV itself changed, from its own two recorded endpoints.
+
+    This is the change set the scope control was written for. Callers that want
+    to know whether a *later* release commit is in scope are asking the wrong
+    question: later work is verified by that phase's own gate, and the evidence
+    checker below still runs against whatever tree it is handed.
+    """
+    result = subprocess.run(
+        ["git", "-C", str(root), "diff", "--name-only",
+         PHASE_LXV_SCOPE_BASE, PHASE_LXV_ENDPOINT],
+        capture_output=True, text=True)
+    require(result.returncode == 0,
+            f"the recorded Phase LXV range {PHASE_LXV_SCOPE_BASE[:12]}.."
+            f"{PHASE_LXV_ENDPOINT[:12]} is unavailable: "
+            + result.stderr.strip()[:200])
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
 def check_scope(changed):
     if changed is None:
         return
@@ -497,8 +541,20 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--changed", type=Path, default=None,
                         help="file with one changed path per line (default: skip scope check)")
+    parser.add_argument("--write-scope", type=Path, default=None,
+                        help="write the Phase LXV historical change set here and exit")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
+    if args.write_scope is not None:
+        try:
+            paths = historical_scope_paths(args.root)
+        except ValueError as error:
+            print(f"phase-lxv: FAIL: {error}", file=sys.stderr)
+            return 1
+        args.write_scope.write_text("\n".join(paths) + "\n", encoding="utf-8")
+        print(f"phase-lxv: {len(paths)} path(s) in the recorded Phase LXV range "
+              f"{PHASE_LXV_SCOPE_BASE[:12]}..{PHASE_LXV_ENDPOINT[:12]}")
+        return 0
     changed = None
     if args.changed is not None:
         changed = [line.strip() for line in args.changed.read_text(encoding="utf-8").splitlines()

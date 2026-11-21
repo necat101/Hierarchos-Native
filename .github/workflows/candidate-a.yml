@@ -9,16 +9,31 @@ name: candidate a
 #                        change what that record says, and the gate is run
 #                        unmodified - it is not loosened to tolerate later work.
 #
-#   `current-candidate`  The Phase LXIV implementation in the tree under review.
-#                        It pins the Phase LXII performance module byte for byte
-#                        (so the measured speedup area cannot drift while
-#                        accuracy work lands), pins the new split-reduction
-#                        module, and verifies the recorded numerical receipt.
+#   `phase-lxiv-historical`
+#                        The Phase LXIV **record**, held to the revision it was
+#                        qualified at (`a70cef4`, the commit that records the
+#                        37/37 result and binds the gate to the eight-bank
+#                        bytes). The child checker and its 28 controls are run
+#                        from that detached worktree, so its fixed protected-
+#                        path inventory describes its own change and nothing
+#                        else.
 #
-# Neither job claims a GPU measurement. The performance record is the recorded
-# RDNA3 evidence for the exact binaries it names, and the numerical record is the
-# receipt measured on the RDNA3 adapter; a hosted runner has no RDNA3 adapter and
-# no pinned shaderc, so both verify recorded reproduction and structure instead.
+#   `current-candidate`  The **current release** in the tree under review, read
+#                        by `check_p3_release.py`. That gate is deliberately not
+#                        a path allowlist: it pins the Phase LXXXI P3 source and
+#                        SPIR-V bytes, the embedded-module and selector wiring,
+#                        the opt-in `off` default, the 16,000,000-MAC predicate at
+#                        every production admission point, the safe routing of
+#                        unprofitable shapes, the unchanged Phase LXII Mixed route
+#                        and the still-selectable split8/two-bank/two-wave
+#                        fallbacks.
+#
+# None of the three jobs claims a GPU measurement. The performance record is the
+# recorded RDNA3 evidence for the exact binaries it names, the numerical record
+# is the receipt measured on the RDNA3 adapter, and the Phase LXXXI hardware
+# qualification is the recorded Phase LXXIX/LXXXI evidence - a hosted runner has
+# no RDNA3 adapter and no pinned shaderc, so every job verifies recorded
+# reproduction and structure instead.
 
 on:
   push:
@@ -35,6 +50,10 @@ concurrency:
 env:
   # The revision at which the Phase LXII artifacts and evidence were qualified.
   PHASE_LXII_REVISION: 7c49558b8155a351b30893a6d8f318d4e063d1bd
+  # The revision at which the Phase LXIV eight-bank implementation and its
+  # 37/37 receipt were qualified: the commit that recorded the result and bound
+  # the gate to the module bytes, after which Phase LXV begins at b86c29e.
+  PHASE_LXIV_REVISION: a70cef4c6629f715f98cd42fb3ab29d8cbb9d575
 
 jobs:
   candidate-a:
@@ -73,11 +92,17 @@ jobs:
           python -m unittest discover -s hierarchos-vulkan/validation
           -p "test_candidate_a.py" -v
 
-  current-candidate:
+  # Phase LXIV is history. Its checker expects a fixed protected-path inventory
+  # and the eight-bank receipt of its own change; asking it to grade the
+  # cumulative release tree makes the release's own two-wave and P3 modules read
+  # as "protected source changed outside the qualified paths". It is therefore
+  # run where its assumptions are true - against the revision it qualified.
+  phase-lxiv-historical:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
+          # The recorded revision has to be in the clone.
           fetch-depth: 0
           persist-credentials: false
 
@@ -86,20 +111,69 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Phase LXIV current-implementation validation
+      # The gate and everything it reads are taken from the recorded revision, so
+      # later phases cannot weaken or reinterpret it.
+      - name: Materialise the Phase LXIV revision
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/phase-lxiv" "$PHASE_LXIV_REVISION"
+          git -C "$RUNNER_TEMP/phase-lxiv" rev-parse HEAD
+
+      - name: Phase LXIV historical validation
+        working-directory: ${{ runner.temp }}/phase-lxiv
         run: python hierarchos-vulkan/validation/check_current_candidate.py
 
-      # 28 controls: changed performance-shader bytes, changed split source,
-      # missing artifact, dropped second accumulator bank, dropped slice selector,
-      # widening merge, FP32 accumulator introduced into the FP16 arm, dropped
-      # packed staging, relaxed numerical limit, moved profitability floor, removed
-      # oracle variant, removed oracle option, removed accuracy test, forged run
-      # counts, forged failure sets, a failing FP32-budget gate, a measured value
-      # above its recorded limit, a claimed improvement over a passing baseline, a
-      # relaxed recorded limit, forged artifact digests, non-reproducing SPIR-V,
-      # altered compiler flags, protected source outside the change, a model weight
-      # in the diff, a dependency change, and SPIR-V structure.
+      # 28 controls, run against the historical tree: changed performance-shader
+      # bytes, changed split source, missing artifact, dropped second accumulator
+      # bank, dropped slice selector, widening merge, FP32 accumulator introduced
+      # into the FP16 arm, dropped packed staging, relaxed numerical limit, moved
+      # profitability floor, removed oracle variant, removed oracle option,
+      # removed accuracy test, forged run counts, forged failure sets, a failing
+      # FP32-budget gate, a measured value above its recorded limit, a claimed
+      # improvement over a passing baseline, a relaxed recorded limit, forged
+      # artifact digests, non-reproducing SPIR-V, altered compiler flags,
+      # protected source outside the change, a model weight in the diff, a
+      # dependency change, and SPIR-V structure.
       - name: Phase LXIV negative controls
+        working-directory: ${{ runner.temp }}/phase-lxiv
         run: >-
           python -m unittest discover -s hierarchos-vulkan/validation
           -p "test_current_candidate.py" -v
+
+  # The release under review, read by its own gate. `check_p3_release.py` pins
+  # bytes and structure rather than a path inventory: the P3 source and SPIR-V,
+  # the embedding and selector wiring, the opt-in `off` default, the
+  # 16,000,000-MAC predicate at every production admission point, the safe
+  # routing of unprofitable shapes, the unchanged Mixed route and the still
+  # selectable fallbacks. A shader or source change cannot slip through it by
+  # being added to a new path.
+  current-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Phase LXXXI P3 release validation
+        run: python hierarchos-vulkan/validation/check_p3_release.py
+
+      # 23 controls: altered P3 source bytes, altered P3 SPIR-V bytes, the P3
+      # module no longer embedded, the P3 variant dispatching another module, a
+      # reassigned shader name, a fifth qualification-only variant, a selector
+      # that accepts a qualification-only name, P3 no longer the default, a
+      # shrunk committed inventory, an opt-out WMMA default, a moved floor, a
+      # profitability predicate that admits everything, dropped shape
+      # eligibility, an ineligible shape reaching a cooperative arm, the removed
+      # projection admission, the removed Transformer admission, a dropped
+      # recorded-batch gate, a declined projection that stops recording its
+      # fallback, an altered Mixed artifact, a removed two-wave fallback, altered
+      # two-bank bytes and a removed fallback selection variable.
+      - name: Phase LXXXI P3 release negative controls
+        run: >-
+          python -m unittest discover -s hierarchos-vulkan/validation
+          -p "test_p3_release.py" -v

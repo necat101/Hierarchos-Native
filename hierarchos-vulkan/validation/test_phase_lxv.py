@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -185,6 +186,85 @@ class PhaseLxvControls(unittest.TestCase):
     def test_approved_scope_passes(self):
         c.validate(self.tree, changed=["hierarchos-vulkan/validation/check_phase_lxv.py",
                                        "PHASE_LXV_ACCURACY.md"])
+
+
+class PhaseLxvHistoricalScope(unittest.TestCase):
+    """The scope control is about Phase LXV's own commits, not its descendants.
+
+    The gate used to diff `base..HEAD`. On a branch that inherits later phases
+    that range grows with every release commit, so legitimate work this phase
+    never touched (the release `.gitattributes` rule, `phase_lxxxi_evidence/**`,
+    the P3 shaders) was reported as an unapproved Phase LXV change. These
+    controls pin the corrected contract: the historical range is read from the
+    two recorded endpoints and still rejected when it contains an unapproved
+    path, while a later release commit is not part of that range at all.
+    """
+
+    @staticmethod
+    def git(*args) -> str:
+        result = subprocess.run(["git", "-C", str(c.ROOT), *args],
+                                capture_output=True, text=True)
+        if result.returncode != 0:
+            raise AssertionError(f"git {' '.join(args)} failed: {result.stderr.strip()[:200]}")
+        return result.stdout
+
+    def later_scope_paths(self):
+        return [line for line in self.git("diff", "--name-only",
+                                          c.PHASE_LXV_ENDPOINT, "HEAD").splitlines()
+                if line.strip()]
+
+    def test_endpoint_is_a_committed_revision(self):
+        for revision in (c.PHASE_LXV_SCOPE_BASE, c.PHASE_LXV_ENDPOINT):
+            self.git("cat-file", "-e", revision + "^{commit}")
+        ancestry = subprocess.run(
+            ["git", "-C", str(c.ROOT), "merge-base", "--is-ancestor",
+             c.PHASE_LXV_SCOPE_BASE, c.PHASE_LXV_ENDPOINT], capture_output=True)
+        self.assertEqual(ancestry.returncode, 0,
+                         "the Phase LXV base is not an ancestor of its endpoint")
+
+    def test_historical_range_is_only_phase_lxv_paths(self):
+        paths = c.historical_scope_paths(c.ROOT)
+        self.assertTrue(paths, "the recorded Phase LXV range is empty")
+        approvals = tuple(prefix for prefix in c.APPROVED_CHANGES)
+        for path in paths:
+            if path.startswith("hierarchos-vulkan/validation/fixtures/"):
+                continue
+            self.assertTrue(
+                any(path.startswith(prefix) or path == prefix.rstrip("/")
+                    for prefix in approvals),
+                f"the recorded Phase LXV range contains an unapproved path: {path}")
+
+    def test_historical_range_passes_the_scope_check(self):
+        c.check_scope(c.historical_scope_paths(c.ROOT))
+
+    def test_later_release_commit_is_not_a_scope_violation(self):
+        historical = c.historical_scope_paths(c.ROOT)
+        later = self.later_scope_paths()
+        # The release commit adds the byte-preserving checkout rule and the
+        # Phase LXXXI evidence tree; neither belongs to Phase LXV.
+        self.assertNotIn(".gitattributes", historical)
+        self.assertIn(".gitattributes", later)
+        self.assertTrue(any(path.startswith("phase_lxxxi_evidence/")
+                            for path in later),
+                        "the later release scope does not contain the Phase LXXXI evidence")
+        # The corrected gate accepts the historical range...
+        c.check_scope(historical)
+        # ...while that same descendant diff is exactly what used to be misread.
+        with self.assertRaises(ValueError):
+            c.check_scope(later)
+
+    def test_unapproved_path_inside_the_historical_range_still_fails(self):
+        # The original negative control is retained: scope is not waived for a
+        # source-file modification, and folding a source path into the
+        # historical list is still rejected.
+        with self.assertRaises(ValueError):
+            c.check_scope(c.historical_scope_paths(c.ROOT)
+                          + ["hierarchos-vulkan/src/vulkan.rs"])
+
+    def test_unavailable_range_fails_closed(self):
+        with tempfile.TemporaryDirectory(prefix="phase-lxv-nogit-") as scratch:
+            with self.assertRaises(ValueError):
+                c.historical_scope_paths(Path(scratch))
 
 
 if __name__ == "__main__":
