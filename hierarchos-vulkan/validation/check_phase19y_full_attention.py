@@ -17,6 +17,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import source_provenance
+
 CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 RECEIPT = (
@@ -131,11 +133,10 @@ def validate(document: dict, receipt_dir: Path, crate: Path = CRATE,
         "hierarchos-vulkan/shaders/transformer_attention_forward_cpu_reciprocal.spv",
     ):
         require(required in sources, "missing source binding: " + required)
-    for name, expected in sources.items():
-        require(SHA256.fullmatch(str(expected)) is not None, "invalid source digest")
-        candidate = crate.parent / name
-        require(candidate.is_file(), "missing bound source " + name)
-        require(digest(candidate) == expected, "bound source changed: " + name)
+    # Sealed at the revision it declares: verify those bytes, and let the
+    # checkout's own drift stay a separate statement about the checkout.
+    binding = source_provenance.verify_bindings(crate.parent, revision, sources)
+    require(binding.ok, binding.describe())
     require(sources["hierarchos-vulkan/shaders/transformer_attention_forward_cpu_reciprocal.spv"]
             == SEALED_SHADER_SHA, "reciprocal shader is not the sealed artifact")
 
@@ -428,9 +429,11 @@ def main() -> int:
     except (ValueError, KeyError, FileNotFoundError) as error:
         print(f"PHASE XIX-Y FULL ATTENTION: FAIL ({error})")
         return 1
+    drift = source_provenance.drift_paths(CRATE.parent, document["source_files"])
     print("PHASE XIX-Y FULL ATTENTION: PASS "
           f"({document['source_revision'][:12]}, 16/16 shapes, 74/74 shared, "
-          f"{document['retained']['coverage']['total_accounted']} retained entries accounted)")
+          f"{document['retained']['coverage']['total_accounted']} retained entries accounted; "
+          f"{len(drift)} bound file(s) differ in this checkout)")
     return 0
 
 

@@ -169,3 +169,28 @@ availability are separate facts; a queued workflow is never counted as PASS.
 This scope document is not a release receipt. Current-source producers,
 source/executable/shader bindings, negative controls and CI must still pass
 before the candidate is declared qualified.
+
+## Historical source bindings and current-PR qualification
+
+A sealed receipt under `hierarchos-vulkan/validation/release_parity/` describes one
+git revision. Its `source_files` map is verified against the committed blobs at the
+`source_revision` it declares, not against whichever checkout happens to run the
+checker. Content that does not match the declared revision, a file absent from that
+revision, an unresolvable revision, a malformed digest and an unsafe path all fail
+closed. A checkout that has moved past the receipt is reported as tree drift and is
+never converted into a pass, and no receipt is ever rewritten to accept later source.
+
+This answers the receipt's own question and keeps an immutable seal valid across
+unrelated commits. The complementary question - does the tree under review still
+carry the qualified implementation - is asked by a separate current-PR gate:
+`check_candidate_a.py` binds the four Phase LXII shader artifacts, the packed 32-bit
+operand staging, the four cooperative multiply-adds per module, the SPIR-V modules,
+the unchanged 16,000,000-MAC profitability floor, the sample-export harness and both
+new boundary shapes to the PR diff.
+
+Hosted CI does not measure GPU timings and never claims to. The performance record
+is the recorded RDNA3 evidence for the exact binaries it names. SPIR-V validation and
+byte-for-byte shader reproduction are recorded on a host with the shaderc toolchain
+in `validation/fixtures/wmma_candidate_a_reproduction.json`, and
+`check_candidate_a.py --reproduce` re-derives them wherever that toolchain is
+available.

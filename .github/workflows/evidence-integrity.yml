@@ -10,6 +10,14 @@ name: evidence integrity
 # historical root cannot turn a green release red. Historical roots are audited by
 # `--audit-all`, which reports rather than gates; the Phase XV rebinding is asserted by
 # `test_evidence_integrity.py::PhaseFifteenRegression`, so it stays visible here.
+#
+# A source binding is verified against the `source_revision` the receipt declares:
+# those are the bytes the receipt qualified, and a later checkout that has moved on is
+# reported as tree drift rather than as a digest failure. That distinction is what lets
+# an immutable receipt stay valid across unrelated commits without relaxing anything -
+# content that does not match the declared revision, a file absent from it, an
+# unresolvable revision, a changed evidence artifact and a malformed digest all still
+# fail. The current tree is qualified separately by the candidate-A job.
 
 on:
   push:
@@ -28,6 +36,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Source bindings are resolved from the committed blobs at each receipt's
+          # declared revision, so those commits have to be in the clone.
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5

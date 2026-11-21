@@ -360,10 +360,10 @@ impl LinearProjectionTrainer {
         // the model. The fallback is counted so profiling shows it.
         if let Some(execution) = &self.wmma {
             if self.bias.is_none() {
-                if let Some(arm) =
-                    execution
-                        .gemm
-                        .select_arm(rows, self.output_dim, self.input_dim)
+                if let Some(arm) = execution
+                    .gemm
+                    .select_arm(rows, self.output_dim, self.input_dim)
+                    .filter(|_| ProjectionWmma::admits(rows, self.input_dim, self.output_dim))
                 {
                     execution.gemm.record_conversion(
                         batch,
@@ -556,6 +556,7 @@ impl LinearProjectionTrainer {
             if let Some(arm) = execution
                 .gemm
                 .select_arm(self.output_dim, self.input_dim, rows)
+                .filter(|_| ProjectionWmma::admits(rows, self.input_dim, self.output_dim))
             {
                 execution.gemm.record_gemm(
                     &mut batch,
@@ -593,6 +594,7 @@ impl LinearProjectionTrainer {
             if let Some(arm) = execution
                 .gemm
                 .select_arm(rows, self.input_dim, self.output_dim)
+                .filter(|_| ProjectionWmma::admits(rows, self.input_dim, self.output_dim))
             {
                 execution.gemm.record_gemm(
                     &mut batch,
@@ -829,5 +831,12 @@ mod tests {
         // Saturating arithmetic: absurd geometry must not wrap into admission
         // below the floor or panic.
         assert!(ProjectionWmma::admits(usize::MAX, 1024, 1024));
+        // The batch actually recorded is put through this same predicate by
+        // `record_forward`/`record_weight_grad`/`record_input_grad`, so a small
+        // batch cannot reach the cooperative arm even when the constructor's
+        // `max_rows` admitted the executor.
+        assert!(!ProjectionWmma::admits(16, 128, 32));
+        assert!(!ProjectionWmma::admits(16, 64, 320));
+        assert!(ProjectionWmma::admits(2048, 768, 2048));
     }
 }

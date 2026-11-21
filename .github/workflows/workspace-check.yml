@@ -52,14 +52,15 @@ jobs:
       - name: Expanded RDNA3 GPT2 receipt guard (historical integrity)
         run: python hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py --historical-only
 
-      # A historical receipt binds its own revision, so it can never qualify a
-      # different checkout. Current source needs a receipt bound to this HEAD:
-      # the Phase XV families check re-verifies the historical bindings, and the
-      # Phase XVI checker re-derives the two-pass gradient and dispatch evidence
-      # from the logs the receipt ships and re-verifies the 45-artifact gate.
-      # Both are required; a stale receipt fails closed rather than reaching for
-      # the sealed Phase XV one.
-      - name: Phase XIX-X current-source instrumented qualification
+      # These receipts are historical: each is verified byte for byte against the
+      # revision it declares, and the checkout it is read from is reported as drift
+      # rather than failed. What the PR tree contains is asked separately by the
+      # candidate-a workflow. The Phase XV families check re-verifies the historical
+      # bindings, and the Phase XVI checker re-derives the two-pass gradient and
+      # dispatch evidence from the logs the receipt ships and re-verifies the
+      # 45-artifact gate. An unresolvable revision, or a binding that does not match
+      # its own declared revision, still fails closed.
+      - name: Phase XIX-X instrumented receipt at its declared revision
         run: python hierarchos-vulkan/validation/check_phase19x_current.py
 
       - name: Phase XIX-X current-source negative controls
@@ -78,16 +79,16 @@ jobs:
 
       # The narrow Phase XIX-X receipt stays historical. This separate gate
       # binds the AVX-512 oracle manifests, 16 expanded shapes, 74 shared
-      # retained cases and the 93-entry accounting to the current source.
+      # retained cases and the 93-entry accounting to the revision it declares.
       - name: Phase XIX-Y full-attention receipt
         run: python hierarchos-vulkan/validation/check_phase19y_full_attention.py
 
       - name: Phase XIX-Y full-attention negative controls
         run: python -m unittest discover -s hierarchos-vulkan/validation -p "test_phase19y_full_attention.py"
 
-      # Phase XIX-Z is a current-source, top-level receipt over all five
-      # requalified families. Its checker re-verifies each family and requires
-      # the committed evidence tree to match, not merely to exist.
+      # Phase XIX-Z is a top-level receipt over all five requalified families,
+      # sealed at the revision it declares. Its checker re-verifies each family and
+      # requires the committed evidence tree to match, not merely to exist.
       - name: Phase XIX-Z current-source receipt
         run: python hierarchos-vulkan/validation/check_phase19z_current.py
 
