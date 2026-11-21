@@ -1,5 +1,30 @@
 # Opt-in RDNA3 WMMA (cooperative matrix) GEMM
 
+## Release status — P3 production Full FP16 epilogue (2026-11-21)
+
+The Full FP16 arm's production module is now the Phase LXXIX **P3** epilogue
+(`wmma_gemm_f16_f16acc_twowave_p3.spv`, SHA-256 `2aff4123…`, 23,280 B). It keeps
+the two-wave workgroup, staging, barriers and per-bank binary16 accumulation and
+replaces the 4 + 3 rounding merge tree with one float32 left-to-right sum of the
+eight bank partials and a single binary16 rounding.
+
+* WMMA is still **opt-in**: `off` remains the default mode.
+* `split8`, `two-bank` and `two-wave` remain selectable through
+  `HIERARCHOS_WMMA_FULL_FP16_VARIANT` as fallbacks.
+* Four protected shapes measured 1.0194–1.2614× against Original Main with
+  corrected 95 % CI lower bounds ≥ 1.0109 (GPU timestamps, 24 paired blocks,
+  position-balanced ABBA/BAAB).
+* The hard ULP gate `ULP_GATE_LIMITS = 0.03125` is unchanged and passes 37/37 on
+  all eight seeds. The historical 25 % tile16 headroom (`MARGIN_TARGET = 0.25`,
+  target `0.0234375`) is **informational**, not a blocker.
+* The direct-kernel `16×128×32` regression is disclosed (`0.7606` vs Main,
+  `[0.7583, 0.7630]`) and is 244× below `WMMA_MIN_PROFITABLE_MACS`; production
+  admission refuses it.
+
+Details, hashes and receipts: [RDNA3_P3_RELEASE.md](RDNA3_P3_RELEASE.md).
+
+---
+
 Current engineering status (2026-11-12): see
 [precision completion](RDNA3_PRECISION_COMPLETION.md) and
 [desktop integration](RDNA3_MIXED_GUI.md). The dated measurements below remain
