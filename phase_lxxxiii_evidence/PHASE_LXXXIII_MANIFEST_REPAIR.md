@@ -116,22 +116,22 @@ Two positive controls cover the valid inventory and the manifest pin; two furthe
 
 | Platform | Workflow run | Result |
 |---|---|---|
-| ubuntu-latest (push) | [Phase LXXXI manifest gate (ubuntu-latest)](https://github.com/necat101/Hierarchos-Native/actions/runs/44955956439/job/137004012609) | success â€” 612/612 worktree, 612/612 blobs, 26 passed |
-| windows-latest (push) | [Phase LXXXI manifest gate (windows-latest)](https://github.com/necat101/Hierarchos-Native/actions/runs/44955956439/job/137004012837) | success â€” 612/612 worktree, 612/612 blobs, 26 passed |
+| ubuntu-latest (push) | [Phase LXXXI manifest gate (ubuntu-latest)](https://github.com/necat101/Hierarchos-Native/actions/runs/44955956439/job/137004012609) | success — 612/612 worktree, 612/612 blobs, 26 passed |
+| windows-latest (push) | [Phase LXXXI manifest gate (windows-latest)](https://github.com/necat101/Hierarchos-Native/actions/runs/44955956439/job/137004012837) | success — 612/612 worktree, 612/612 blobs, 26 passed |
 | ubuntu-latest (pull_request) | [Phase LXXXI manifest gate (ubuntu-latest)](https://github.com/necat101/Hierarchos-Native/actions/runs/44955961132/job/137004028319) | success |
 | windows-latest (pull_request) | [Phase LXXXI manifest gate (windows-latest)](https://github.com/necat101/Hierarchos-Native/actions/runs/44955961132/job/137004028113) | success |
 
-Every workflow on the repair commit passed on both the `push` and `pull_request` events: `evidence integrity` (including the existing `digest-guard` job, unchanged), `candidate a`, `phase lxv` and `workspace check` â€” 8 of 8 runs successful. The manifest gate itself reported `working tree 612/612 verified`, `git blobs 612/612 verified`, `attributes 612/612 text=unset`, `RESULT PASS` and `26 passed` on each platform.
+Every workflow on the repair commit passed on both the `push` and `pull_request` events: `evidence integrity` (including the existing `digest-guard` job, unchanged), `candidate a`, `phase lxv` and `workspace check` — 8 of 8 runs successful. The manifest gate itself reported `working tree 612/612 verified`, `git blobs 612/612 verified`, `attributes 612/612 text=unset`, `RESULT PASS` and `26 passed` on each platform.
 
 ## 6. Clean-clone verification
 
 - Clone: `fresh `--depth 1` clone of the release branch over HTTPS` at `06749e3cef29c679b55debc3278f874d602534ec`
-- Working tree clean: yes â€” `git status --porcelain` empty after checkout
+- Working tree clean: yes — `git status --porcelain` empty after checkout
 - Working-tree SHA-256: 612/612 verified
 - Git-blob SHA-256: 612/612 verified
 - Attributes `-text`: 612/612 `text: unset`, including both logs
-- Both logs present and verified: `analysis.log` fd90f6dbâ€¦7af (3182 B), `final_rerun.log` 82724818â€¦a45 (4725 B)
-- P3 source / SPIR-V unchanged: `4e448e3câ€¦6d12` and `2aff4123â€¦17d2` â€” unchanged
+- Both logs present and verified: `analysis.log` fd90f6db…7af (3182 B), `final_rerun.log` 82724818…a45 (4725 B)
+- P3 source / SPIR-V unchanged: `4e448e3c…6d12` and `2aff4123…17d2` — unchanged
 
 The gate reported `RESULT PASS` at the clone's own HEAD, and the full control suite reported `26 passed`. This confirms the repair is carried by the repository, not by local state.
 
