@@ -7,8 +7,8 @@ Repair of the Phase LXXXI release evidence on `codex/rdna3-p3-release-20261121` 
 | Branch | `codex/rdna3-p3-release-20261121` |
 | Pull request | [#9](https://github.com/necat101/Hierarchos-Native/pull/9) (open, not merged) |
 | Starting commit | `303781a403bd86c6caafc34f835afdd59435d5a9` |
-| Repair commit | `pending` |
-| Closeout commit | `pending` |
+| Repair commit | `06749e3cef29c679b55debc3278f874d602534ec` |
+| Closeout commit | `this commit (PR #9 head)` |
 | Evidence inventory | 612 manifest entries, 613 tracked paths including the manifest |
 
 ## 1. What failed, and why
@@ -114,13 +114,26 @@ Two positive controls cover the valid inventory and the manifest pin; two furthe
 
 ## 5. CI
 
-The gate runs as the `lxxxi-manifest-gate` job in `.github/workflows/evidence-integrity.yml`, on `ubuntu-latest` and `windows-latest`. Both jobs perform a full checkout (no sparse-checkout, no filtering) so the complete `phase_lxxxi_evidence/` directory is materialized, then run the checker and the full control suite. The existing `digest-guard` job and its scope behaviour are unchanged.
+| Platform | Workflow run | Result |
+|---|---|---|
+| ubuntu-latest (push) | [Phase LXXXI manifest gate (ubuntu-latest)](https://github.com/necat101/Hierarchos-Native/actions/runs/44955956439/job/137004012609) | success â€” 612/612 worktree, 612/612 blobs, 26 passed |
+| windows-latest (push) | [Phase LXXXI manifest gate (windows-latest)](https://github.com/necat101/Hierarchos-Native/actions/runs/44955956439/job/137004012837) | success â€” 612/612 worktree, 612/612 blobs, 26 passed |
+| ubuntu-latest (pull_request) | [Phase LXXXI manifest gate (ubuntu-latest)](https://github.com/necat101/Hierarchos-Native/actions/runs/44955961132/job/137004028319) | success |
+| windows-latest (pull_request) | [Phase LXXXI manifest gate (windows-latest)](https://github.com/necat101/Hierarchos-Native/actions/runs/44955961132/job/137004028113) | success |
 
-Run links and statuses are recorded in the closeout commit.
+Every workflow on the repair commit passed on both the `push` and `pull_request` events: `evidence integrity` (including the existing `digest-guard` job, unchanged), `candidate a`, `phase lxv` and `workspace check` â€” 8 of 8 runs successful. The manifest gate itself reported `working tree 612/612 verified`, `git blobs 612/612 verified`, `attributes 612/612 text=unset`, `RESULT PASS` and `26 passed` on each platform.
 
 ## 6. Clean-clone verification
 
-Performed from a fresh clone of the pushed repair commit; recorded in the closeout commit.
+- Clone: `fresh `--depth 1` clone of the release branch over HTTPS` at `06749e3cef29c679b55debc3278f874d602534ec`
+- Working tree clean: yes â€” `git status --porcelain` empty after checkout
+- Working-tree SHA-256: 612/612 verified
+- Git-blob SHA-256: 612/612 verified
+- Attributes `-text`: 612/612 `text: unset`, including both logs
+- Both logs present and verified: `analysis.log` fd90f6dbâ€¦7af (3182 B), `final_rerun.log` 82724818â€¦a45 (4725 B)
+- P3 source / SPIR-V unchanged: `4e448e3câ€¦6d12` and `2aff4123â€¦17d2` â€” unchanged
+
+The gate reported `RESULT PASS` at the clone's own HEAD, and the full control suite reported `26 passed`. This confirms the repair is carried by the repository, not by local state.
 
 ## 7. P3 artifacts
 
