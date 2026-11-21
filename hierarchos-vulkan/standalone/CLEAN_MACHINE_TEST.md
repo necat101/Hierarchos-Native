@@ -1,113 +1,202 @@
-# Hierarchos Native — Windows x64 Portable RC2 Acceptance Report
+# Hierarchos Native — Windows x64 Portable v0.2.5 Acceptance Report
 
-Date: 2026-11-09
+Date: 2026-11-21
 
-Status: **PORTABLE RC — LOCAL ACCEPTANCE PASS**
+Status: **LOCAL ACCEPTANCE PASS, with explicitly blocked items.**
 
-This is a same-host extracted-artifact acceptance report, not a clean-machine
-certification. An independent Windows installation, a second physical CPU/GPU,
-and physical network isolation were not available. The result below is therefore
-limited to the measured Windows 11 / AMD RDNA3 host.
+This is a same-host extracted-artifact acceptance report for the v0.2.5 binaries.
+An independent Windows installation, a second physical CPU/GPU and physical
+network isolation were not available. The result below is limited to the measured
+Windows 11 / AMD RDNA3 host.
+
+This report describes the **newly built v0.2.5 binaries**. It does not re-use, and
+must not be confused with, the older RC2 acceptance report, which described a
+different source commit and did not ship the production P3 epilogue.
 
 ## Artifact and provenance
 
-- Artifact: `Hierarchos-Native-Windows-x64-Portable-RC2.zip`
-- Binary build source: `164711020d9fe9f229756f0ff58d8160ba9c580a`
-- Target: `x86_64-pc-windows-msvc`
+- Artifact: `Hierarchos-Native-Windows-x64-Portable-v0.2.5.zip`
+- Packaging source commit: `f47989bd91328d8f94c61e9af2e868199a847401` (clean tree at packaging)
+- Qualified kernel source commit: `b165c2994e9ef5929c9e36fca76192db8dd3df35`
+- Relation between the two: the packaging commit adds only documentation, the
+  evidence bindings and `phase_lxxxiv_evidence/` on top of the qualified commit.
+  No file under `hierarchos-vulkan/src`, `hierarchos-vulkan/shaders`,
+  `hierarchos-inference`, `hierarchos-native-cli` or `hierarchos-gui` differs.
+- Target: `x86_64-pc-windows-msvc` (default target; **not** `target-cpu=native`)
 - Profile: release (`opt-level=3`, thin LTO, `codegen-units=1`)
 - CRT linkage: static MSVC C runtime (`-C target-feature=+crt-static`)
+- Toolchain: `rustc 1.93.0 (254b59607 2026-01-19)` / LLVM 21.1.8,
+  `cargo 1.93.0 (083ac5135 2025-12-15)`
 - Standalone `Cargo.lock` SHA-256:
   `f4360adfc4a2127c0be817c71c08659c181f7ff04813b5f8bc882a23ca7132d7`
-- Archive SHA-256: recorded in the checksum sidecar beside the archive. It is
-  not embedded in this report because the report is inside the archive.
+- Packager: `hierarchos-vulkan/package-standalone.ps1 -StaticCrt` with the
+  dependency scan **enabled** (no `-SkipDependencyScan`)
+- The archive's own SHA-256 is recorded in `BUILD_MANIFEST.json` and
+  `SHA256SUMS` beside the ZIP, not inside it.
 
-`BUILD_INFO.txt` records the toolchain and per-executable SHA-256 values.
-`DEPENDENCIES.txt` records the analyzed PE import tables. The archive contains
-seven runtime executables and supporting documentation/licenses only; it does
-not contain Cargo manifests, source, shader sources, Cargo `target/`, PDBs,
-fixtures, models, caches, or developer logs.
+## Package inventory
 
-## Host used
+Extracted into a directory whose path contains spaces
+(`…\_v025_extract\portable test v0.2.5\`), then relocated to a deeper path that
+also contains spaces.
 
-- Windows 11 Enterprise x64, version 10.0.26300
-- AMD Ryzen Z1 Extreme, 16 logical CPUs
-- AMD Radeon Graphics, driver 32.0.31007.6002, Vulkan 1.4.341
-- 11.5 GB visible RAM
-- Rust/Cargo 1.93.0 used only for the build, not at runtime
+Present — exactly the allowlist:
 
-## Results
+```text
+bin/hierarchos-infer.exe
+bin/hierarchos-native-cli.exe
+bin/hierarchos-native.exe
+bin/hierarchos-vulkan-devices.exe
+bin/hierarchos-vulkan-train.exe
+bin/hierarchos-vulkan-transformer-logits.exe
+bin/hierarchos-vulkan-transformer-train.exe
+BUILD_INFO.txt
+CLEAN_MACHINE_TEST.md
+DEPENDENCIES.txt
+LICENSE
+licenses/Microsoft-STL.txt
+README.md
+README_ARCHITECTURES.md
+RELEASE_NOTES.md
+THIRD_PARTY_NOTICES.md
+```
 
-| Check | Result | Evidence / scope |
-| --- | --- | --- |
-| Seven packaged executables | **PASS** | Exactly seven `.exe` files in `bin/`; no target, PDB, source, cache, or test fixture |
-| Executable architecture | **PASS** | All seven are `IMAGE_FILE_MACHINE_AMD64` |
-| PE import closure | **PASS** | All seven contain only Windows system DLL/API-set imports; no `VCRUNTIME*.dll`, `MSVCP*.dll`, or other Visual C++ runtime DLL |
-| Developer-only DLLs | **PASS** | No unexpected third-party DLL imports in the seven PE import tables |
-| Absolute developer paths | **PASS** | Zero occurrences of the build/user paths in each executable; dependency report uses `Directory: bin` |
-| CLI startup/help | **PASS** | `hierarchos-native-cli.exe --help` exited 0 |
-| Backend `doctor` | **PASS** | Exited 0; one AMD Radeon Graphics device; companion paths resolved from the extracted `bin/` |
-| Vulkan device inventory | **PASS** | `devices` returned the AMD Radeon Graphics device, queue family 0 |
-| Architecture registry | **PASS** | 146 canonical architectures + 83 package aliases |
-| Local tiny-model inference | **PASS** | Local package generated tokens; exit 0 |
-| Fresh-cache Hub inference | **PASS** | `hf-internal-testing/tiny-random-gpt2` generated tokens; exit 0; cache populated in a new directory |
-| Offline local inference | **PASS (dead-proxy test)** | All proxy variables pointed at `127.0.0.1:9`; local inference exited 0. Physical network isolation was not performed. |
-| One-step Vulkan training | **PASS** | One epoch / one row / batch 1 / sequence 16: `steps=1`, `mean_loss=6.905534` |
-| Trained checkpoint reload | **PASS** | Exported model package loaded and generated tokens; exit 0 |
-| GUI launch | **PASS (window)** | `hierarchos-native.exe` created a live `Hierarchos Native` window and was responsive; closed cleanly |
-| GUI “Check backend” interaction | **BLOCKED** | Real mouse input and Windows UI Automation did not activate the control; UI Automation exposed zero descendants. The same backend check passes through the CLI. |
-| Missing model directory | **PASS** | Exited 1 with a clear missing `config.json` path diagnostic |
-| Unsupported architecture | **PASS** | Exited 1 with `unsupported Hugging Face model_type "definitely_unsupported"` and the supported list |
-| Missing companion binary | **PASS (diagnostic)** | `doctor` printed `hierarchos-vulkan-train: not found (needed for Hierarchos train/finetune)` and still exited 0; this is diagnostic behavior, not fail-closed |
-| Relocation to spaces | **PASS** | Copied package to `C:\Users\Public\Hierarchos Test\RC2 Relocated\portable copy`; `doctor` and local inference passed |
-| Deeply nested path | **PASS** | Copied to a nested path with spaces under that tree; `doctor` and `architectures` passed |
-| Read-only installation copy | **PASS** | ACL removed write access; a direct write attempt was denied; `doctor` and local inference still exited 0 |
-| Installation-directory writes | **PASS** | Ordinary inference used an external model and a per-user cache; no package write was required |
-| Different drive letter | **NOT TESTED** | Only the `C:` volume was available |
-| Independent clean machine | **BLOCKED** | No second Windows computer was available |
-| Second physical CPU/GPU | **BLOCKED** | No second qualifying host was available |
-| Physical network isolation | **BLOCKED** | Not performed; dead-proxy local inference is reported instead |
-| Code signing | **NOT PRESENT** | The archive and executables are unsigned |
+Absent, as required: `crates/`, `Cargo.toml`, `Cargo.lock`, `target/`, any `.rs`,
+`.comp`, `.glsl`, `.pdb`, `.lib`, `.rlib`, `.d`, fixtures, model weights,
+caches and developer logs. The assembly step enforces this: it raises rather than
+producing an archive that contains any path outside the runtime allowlist.
 
-## Visual C++ runtime conclusion
+## PE closure
 
-RC1 imported `VCRUNTIME140.dll` in every executable. RC2 does not. All seven
-released executables were rebuilt with `-C target-feature=+crt-static`, and the
-automated PE verifier reports **PASS** for a seven-executable closure with only
-Windows system imports. **A Microsoft Visual C++ 2015–2022 Redistributable
-installation is not required for RC2.**
+All seven executables:
 
-The Vulkan loader is supplied by the installed graphics software and is loaded
-at runtime; it is not a Microsoft C++ runtime component and is not bundled in the
-ZIP. Windows system components and the GPU driver remain external dependencies.
-No Vulkan acceleration is promised on a machine without a working Vulkan driver.
+| Check | Result |
+| --- | --- |
+| x64 PE architecture | **7/7** (`machine = 0x8664`, `PE32+`) |
+| `VCRUNTIME*.dll`, `MSVCP*.dll`, `MSVCR*.dll`, `concrt*.dll`, `ucrtbase.dll` imports | **none** |
+| Unexpected non-system DLL imports | **none** — import tables list only Windows system DLLs |
+| Export verifier verdict | **`RESULT: PASS`** (7 executables, `DEPENDENCIES.txt`) |
 
-## CPU compatibility
+**Correction to the expected dependency report.** `vulkan-1.dll` does **not**
+appear in `DEPENDENCIES.txt`, because it is not a static import of any executable:
+the Vulkan loader is resolved at runtime and each Vulkan-enabled binary contains
+the `vulkan-1.dll` load string exactly once. The verifier's external-DLL allowlist
+still permits `vulkan-1.dll` if it were imported. The loader and the GPU driver
+remain **external runtime requirements and are not bundled**.
 
-The release uses the default `x86_64-pc-windows-msvc` target and does not use
-`target-cpu=native` or a release-wide AVX-512 requirement. Existing runtime
-feature dispatch and fallback code were not changed. CPU compatibility is
-**analytically checked**, not physically certified on a second processor.
+## Per-executable hashes
 
-## Numerical and functional scope
+| Executable | SHA-256 |
+| --- | --- |
+| `hierarchos-native.exe` | `82125895d444cc347511874e22ec9fad17ad854d9d4abf57f15c8cdbe2c7fee8` |
+| `hierarchos-native-cli.exe` | `870b34f5f539cc154d5a4173f00a25978016b696cdb63941cfbbb67610a77abc` |
+| `hierarchos-infer.exe` | `82e98dc1f9934ae1241227fd191588f674de21c6ead388f7bc18d0c16fb28e61` |
+| `hierarchos-vulkan-train.exe` | `a49d1c4519017fe2c27a409fae90a417c67a59fbec03068e12236f052dea2a73` |
+| `hierarchos-vulkan-devices.exe` | `45077010b9a53c74c8c40243ec0cd702932185f3611f341699e44595aad6beee` |
+| `hierarchos-vulkan-transformer-train.exe` | `c4182014f0207d9b87fc8f9502ffe13eba5355eb58d19002c1f7f89e222d392f` |
+| `hierarchos-vulkan-transformer-logits.exe` | `6b662bcce831be3f8939ccd60133894a280d292fd553ae880e2353925ca8636c` |
 
-The packaged executable completed a real one-step Vulkan training update with
-`mean_loss=6.905534`, exported a model, reloaded it, and generated tokens. Local
-and fresh-cache Hub inference also completed. This is a focused rebuilt-binary
-smoke test, not a new full numerical qualification campaign.
+## Startup and diagnostics
 
-The prior source-bound baseline remains the reference for the full replay and
-parity suites: nine-stage replay, 1,139 Rust library tests, 218 active DeepSeek
-tests, 30 native V4.1 tests, and strict `< 2e-7` logit parity. No numerical
-algorithm, tolerance, checkpoint format, shader, or performance contract was
-changed in this packaging release; prior executable-specific results are not
-claimed automatically for the new static binaries.
+Run from the extracted directory (all exit statuses captured directly, not
+through a pipe):
 
-## Verdict
+| Command | Exit | Observed |
+| --- | ---: | --- |
+| `bin\hierarchos-native-cli.exe --help` | 0 | full command surface printed |
+| `… doctor` | 0 | `Vulkan compute devices: 1`, `[0] AMD Radeon Graphics (INTEGRATED_GPU, queue family 0)`, both companions resolved with absolute paths inside `bin\`, `Transformer registry: 146 canonical + 83 aliases` |
+| `… devices` | 0 | one JSON device record, `"name":"AMD Radeon Graphics"`, `"device_type":"INTEGRATED_GPU"` |
+| `… architectures` | 0 | `146 canonical + 83 package aliases` |
+| `… precision-info` | 0 | `full_fp16_supported: true`, `full_fp16_qualified: true`, `full_fp16_max_reduction: 64`, `device_key "AMD Radeon Graphics [pci=1002:15bf;driver=00800184]"` |
 
-**PORTABLE RC — LOCAL ACCEPTANCE PASS.**
+Companion executables resolve from `bin/` — confirmed by `doctor` printing the
+two companion paths inside the extracted `bin\` directory, and by the seven-file
+`bin\` listing.
 
-RC2 is extract-and-run on the measured Windows x64 host, relocatable, free of a
-Visual C++ Redistributable prerequisite, and has a verified seven-executable PE
-import closure. It is not clean-machine-certified: independent Windows,
-second-hardware, different-drive, physical network-isolation, code-signing, and
-GUI-button interaction checks remain unverified or blocked.
+## Functional smoke tests
+
+Model fixture: `hf-internal-testing/tiny-random-gpt2` from the per-user cache
+(`%LOCALAPPDATA%\Hierarchos\hf-cache`). It is an untrained random-weight model, so
+gibberish output is the expected result; the test is that the path runs.
+
+| Test | Result |
+| --- | --- |
+| Real inference, local model | **PASS** — `infer --prompt "Hello" --max-new-tokens 8 --no-do-sample` exit 0, emitted `" 200 200 200 reg reg regodod"` |
+| Native Vulkan training | **PASS** — `transformer-train … --epochs 1 --batch-size 1 --seq-len 16 --lr 5e-5`: `steps=1 mean_loss=6.914904`, `backend=Vulkan device=AMD Radeon Graphics`, exit 0 |
+| Checkpoint reload | **PASS** — `infer` against the produced directory exit 0; the output contains `config.json`, `model.safetensors`, tokenizer assets and `training_report.json` |
+| Relocation | **PASS** — directory moved to a deeper path containing spaces; `--help`, `doctor` and `precision-info` all still exit 0 and still report the adapter |
+| Global WMMA default | **PASS** — the training run's `WMMA evidence` block reports `"requested":"off"` with `cooperative_dispatches: 0`, confirming opt-in behaviour |
+
+## Precision policy, as observed from the package
+
+- Global WMMA is **off by default**: the training run with no mode flag reported
+  `requested:"off"` and zero cooperative dispatches.
+- `--wmma-mode full-fp16` is accepted and announces
+  `WMMA: dense Transformer projections will request full-fp16`, then **refuses**
+  (exit 1) because the packaged trainer qualifies Full FP16 only for the 64-wide,
+  one-layer Llama profile. This is a deliberate gate, not a silent fallback.
+- The exact qualified P3 module is embedded in the packaged binaries: the
+  complete 23,280-byte SPIR-V blob (SHA-256 `2aff4123…`) appears **verbatim,
+  exactly once**, in `hierarchos-native-cli.exe`,
+  `hierarchos-vulkan-transformer-train.exe` and
+  `hierarchos-vulkan-transformer-logits.exe`. The three binaries that never build
+  a WMMA pipeline (`hierarchos-infer.exe`, `hierarchos-native.exe`,
+  `hierarchos-vulkan-devices.exe`) contain zero copies.
+
+## Proof of an actual P3 production dispatch — and what is blocked
+
+An **above-threshold cooperative dispatch could not be exercised from inside the
+packaged archive**, and this is reported as **BLOCKED**, not as a pass.
+
+The reason is structural and is a property of the unchanged gating, not of this
+package build:
+
+- Cooperative admission requires `rows × columns × reduction ≥ 16,000,000`
+  (`wmma::wmma_shape_profitable`).
+- The packaged trainer's only qualified Full FP16 profile is 64-wide with
+  33–64 rows, i.e. at most `64 × 64 × 64 = 262,144` MACs — about **61× below the
+  floor** — so the same predicate that protects production declines it.
+- No packaged executable ships a raw GEMM benchmark, so the above-threshold path
+  cannot be re-driven from the archive alone.
+
+The dispatch was therefore proven with the archived production harness on the
+same adapter, and with the same binaries' code path:
+
+| Evidence | Value |
+| --- | --- |
+| Harness | `wmma_bench` (`HIERARCHOS_WMMA_MODE` unset, `--wmma-mode full-fp16`), archived as `phase_lxxxiv_evidence/bin/wmma_bench.exe` |
+| Self-reported variant | `full_fp16_variant: p3` |
+| Self-reported pipeline identity | `wmma_gemm_f16_f16acc_twowave_p3/spirv-fnv1a64:0x076216ad97d7605f/len:23280` |
+| Cooperative dispatches observed | 42 in the profile stream, with `shader=wmma_gemm_f16_f16acc_twowave_p3` records |
+| Adapter | `1002:15bf`, same device the packaged `precision-info` reports |
+
+A capability report alone would not prove a dispatch; the pipeline identity above
+comes from an executed cooperative dispatch, and the same 23,280-byte module is
+present in the packaged executables.
+
+## Blocked or unverified
+
+- **Above-threshold cooperative P3 dispatch from the packaged executables** —
+  blocked by the profitability floor versus the only qualified training profile,
+  as described above.
+- **GUI window interaction.** The GUI executable is present and was not driven:
+  no mouse/UI Automation harness is available in this environment. Reported as
+  **BLOCKED**, not as a pass.
+- **Clean-machine certification.** No independent Windows installation, second
+  physical CPU/GPU, or physical network-isolation test was available. CPU
+  compatibility is analytic only: default `x86_64-pc-windows-msvc` target, no
+  `target-cpu=native`, existing runtime feature dispatch retained.
+- **Different-drive relocation.** Relocation was tested within the same volume,
+  into deeper paths containing spaces.
+- **No end-to-end training-step speedup is claimed anywhere.** The qualification
+  numbers are per-dispatch GEMM kernel timings.
+
+## Numerical and performance qualification for these binaries
+
+The full record is `phase_lxxxiv_evidence/` in the repository
+(`PHASE_LXXXIV_REPORT.md`, 310-entry `SHA256SUMS_phase_lxxxiv.txt`, 40 accuracy
+receipts, raw paired timing samples). Summary on the measured `1002:15bf`
+adapter: 37/37 numerical gates at all eight seeds on the production route, 32/32
+preserved K=96 inputs and outputs bit-identical to the Phase LXXIX P3 tensors,
+and all four protected shapes above 1.0 on both the point estimate and the
+corrected 95 % confidence lower bound.

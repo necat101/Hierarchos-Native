@@ -1,0 +1,65 @@
+{
+ "release_version": "0.2.5",
+ "source_commit": "f47989bd91328d8f94c61e9af2e868199a847401",
+ "qualified_source_commit": "b165c2994e9ef5929c9e36fca76192db8dd3df35",
+ "source_tree_relation": "the packaging commit is the qualified commit plus documentation and Phase LXXXIV evidence only; no kernel, shader, SPIR-V, selector, threshold, reference or production-dispatch file differs",
+ "target_triple": "x86_64-pc-windows-msvc",
+ "rust_version": "rustc 1.93.0 (254b59607 2026-01-19), LLVM 21.1.8",
+ "cargo_version": "cargo 1.93.0 (083ac5135 2025-12-15)",
+ "release_flags": {
+  "profile": "release (opt-level=3, thin LTO, codegen-units=1)",
+  "rustflags": "-C target-feature=+crt-static plus --remap-path-prefix for the stage, cargo and rustup homes",
+  "target_cpu_native": false,
+  "dependency_scan": "enabled (no -SkipDependencyScan)"
+ },
+ "static_crt": true,
+ "standalone_cargo_lock_sha256": "f4360adfc4a2127c0be817c71c08659c181f7ff04813b5f8bc882a23ca7132d7",
+ "p3_source_sha256": "4e448e3cc6d5cccb1a39753f43dcc66d9c287a29a06dc9b4957224271b786d12",
+ "p3_spirv_sha256": "2aff4123544757b0d3aaf8eb1fe967a0c00c692eb73a74e49af802d7b5c517d2",
+ "p3_spirv_bytes": 23280,
+ "executables": {
+  "hierarchos-native.exe": {
+   "bytes": 5594624,
+   "sha256": "82125895d444cc347511874e22ec9fad17ad854d9d4abf57f15c8cdbe2c7fee8"
+  },
+  "hierarchos-native-cli.exe": {
+   "bytes": 39934464,
+   "sha256": "870b34f5f539cc154d5a4173f00a25978016b696cdb63941cfbbb67610a77abc"
+  },
+  "hierarchos-infer.exe": {
+   "bytes": 1108992,
+   "sha256": "82e98dc1f9934ae1241227fd191588f674de21c6ead388f7bc18d0c16fb28e61"
+  },
+  "hierarchos-vulkan-train.exe": {
+   "bytes": 16419840,
+   "sha256": "a49d1c4519017fe2c27a409fae90a417c67a59fbec03068e12236f052dea2a73"
+  },
+  "hierarchos-vulkan-devices.exe": {
+   "bytes": 941568,
+   "sha256": "45077010b9a53c74c8c40243ec0cd702932185f3611f341699e44595aad6beee"
+  },
+  "hierarchos-vulkan-transformer-train.exe": {
+   "bytes": 28293632,
+   "sha256": "c4182014f0207d9b87fc8f9502ffe13eba5355eb58d19002c1f7f89e222d392f"
+  },
+  "hierarchos-vulkan-transformer-logits.exe": {
+   "bytes": 19257344,
+   "sha256": "6b662bcce831be3f8939ccd60133894a280d292fd553ae880e2353925ca8636c"
+  }
+ },
+ "pe_dependency_verification": {
+  "result": "PASS",
+  "report": "DEPENDENCIES.txt",
+  "expected_external_gpu_runtime": "vulkan-1.dll (not bundled)"
+ },
+ "package": {
+  "file": "Hierarchos-Native-Windows-x64-Portable-v0.2.5.zip",
+  "bytes": 34041403,
+  "sha256": "c31ceea255d11c720d304a8449cc9a9d8b000f6fcd38ceb7a5d4f6f39434452f"
+ },
+ "reports": {
+  "qualification": "phase_lxxxiv_evidence/PHASE_LXXXIV_REPORT.md",
+  "qualification_manifest": "phase_lxxxiv_evidence/SHA256SUMS_phase_lxxxiv.txt",
+  "package_acceptance": "CLEAN_MACHINE_TEST.md"
+ }
+}
