@@ -45,6 +45,13 @@ const WMMA_GEMM_F16ACC_SPV: &[u8] = include_bytes!("../shaders/wmma_gemm_f16_f16
 /// taken, because it is still slower than the FP32 kernel it replaces.
 const WMMA_GEMM_F16ACC_TWOBANK_SPV: &[u8] =
     include_bytes!("../shaders/wmma_gemm_f16_f16acc_twobank.spv");
+/// Phase LXXI two-wave tiling module. Same reduction contract as the two-bank
+/// module, but two wave32 execution groups per workgroup and two output tiles
+/// per wave, so a single wave keeps four instead of eight 16x16 FP16
+/// accumulators live. Selectable through [`FULL_FP16_VARIANT_ENV`]; never the
+/// default.
+const WMMA_GEMM_F16ACC_TWOWAVE_SPV: &[u8] =
+    include_bytes!("../shaders/wmma_gemm_f16_f16acc_twowave.spv");
 const GEMM_F16_F32_PLAIN_SPV: &[u8] = include_bytes!("../shaders/gemm_f16_f32_plain.spv");
 const FP32_TO_FP16_NATIVE_SPV: &[u8] = include_bytes!("../shaders/fp32_to_fp16_native.spv");
 /// The product's existing FP32 linear kernel, used as the paired baseline arm.
@@ -167,17 +174,25 @@ pub enum FullFp16Variant {
     /// (`wmma_gemm_f16_f16acc_twobank.spv`). Same arithmetic, fewer live
     /// accumulator banks, smaller partial array, different pipeline.
     TwoBank,
+    /// The Phase LXXI two-wave tiling module
+    /// (`wmma_gemm_f16_f16acc_twowave.spv`). Same arithmetic as [`Self::TwoBank`]
+    /// and the same per-workgroup output tile, but the four 16x16 output tiles
+    /// are split across two wave32 execution groups so each wave keeps two
+    /// tiles' accumulators live instead of four. Costs two real workgroup
+    /// barriers per K slice, which every single-wave variant elides.
+    TwoWave,
 }
 
 impl FullFp16Variant {
-    pub const ALL: [Self; 2] = [Self::Split8, Self::TwoBank];
+    pub const ALL: [Self; 3] = [Self::Split8, Self::TwoBank, Self::TwoWave];
 
     pub fn parse(value: &str) -> Result<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "split8" | "eight-bank" | "eightbank" | "eight_bank" | "8" => Ok(Self::Split8),
             "two-bank" | "twobank" | "two_bank" | "2" => Ok(Self::TwoBank),
+            "two-wave" | "twowave" | "two_wave" | "64" => Ok(Self::TwoWave),
             other => bail!(
-                "unsupported full-fp16 variant {other:?}; expected split8 or two-bank"
+                "unsupported full-fp16 variant {other:?}; expected split8, two-bank or two-wave"
             ),
         }
     }
@@ -203,6 +218,7 @@ impl FullFp16Variant {
         match self {
             Self::Split8 => "split8",
             Self::TwoBank => "two-bank",
+            Self::TwoWave => "two-wave",
         }
     }
 
@@ -212,6 +228,7 @@ impl FullFp16Variant {
         match self {
             Self::Split8 => "wmma_gemm_f16_f16acc",
             Self::TwoBank => "wmma_gemm_f16_f16acc_twobank",
+            Self::TwoWave => "wmma_gemm_f16_f16acc_twowave",
         }
     }
 
@@ -220,6 +237,7 @@ impl FullFp16Variant {
         match self {
             Self::Split8 => WMMA_GEMM_F16ACC_SPV,
             Self::TwoBank => WMMA_GEMM_F16ACC_TWOBANK_SPV,
+            Self::TwoWave => WMMA_GEMM_F16ACC_TWOWAVE_SPV,
         }
     }
 }
@@ -1568,7 +1586,20 @@ mod tests {
             FullFp16Variant::from_env_value(Some("two-bank".to_owned()))?,
             FullFp16Variant::TwoBank
         );
+        assert_eq!(
+            FullFp16Variant::from_env_value(Some("two-wave".to_owned()))?,
+            FullFp16Variant::TwoWave
+        );
+        assert_eq!(
+            FullFp16Variant::from_env_value(Some("two_wave".to_owned()))?,
+            FullFp16Variant::TwoWave
+        );
+        assert_eq!(
+            FullFp16Variant::from_env_value(Some("64".to_owned()))?,
+            FullFp16Variant::TwoWave
+        );
         assert!(FullFp16Variant::from_env_value(Some("split4".to_owned())).is_err());
+        assert!(FullFp16Variant::from_env_value(Some("four-bank".to_owned())).is_err());
         Ok(())
     }
 
@@ -1579,11 +1610,24 @@ mod tests {
             FullFp16Variant::TwoBank.spirv(),
             WMMA_GEMM_F16ACC_TWOBANK_SPV
         );
-        assert_ne!(
-            FullFp16Variant::Split8.spirv(),
-            FullFp16Variant::TwoBank.spirv(),
-            "two variants must not resolve to the same SPIR-V"
+        assert_eq!(
+            FullFp16Variant::TwoWave.spirv(),
+            WMMA_GEMM_F16ACC_TWOWAVE_SPV
         );
+        // Every shipped variant must resolve to its own module, so no two
+        // variants can share a pipeline cache entry.
+        for (index, left) in FullFp16Variant::ALL.iter().enumerate() {
+            for right in &FullFp16Variant::ALL[index + 1..] {
+                assert_ne!(
+                    left.spirv(),
+                    right.spirv(),
+                    "{} and {} must not resolve to the same SPIR-V",
+                    left.label(),
+                    right.label()
+                );
+                assert_ne!(left.shader_name(), right.shader_name());
+            }
+        }
     }
 
     /// The selector must change the pipeline that actually runs, not just the
@@ -1606,9 +1650,15 @@ mod tests {
             WmmaMode::FullFp16,
             FullFp16Variant::TwoBank,
         )?;
+        let two_wave = WmmaGemm::new_with_full_fp16_variant(
+            &device,
+            WmmaMode::FullFp16,
+            FullFp16Variant::TwoWave,
+        )?;
 
         assert_eq!(split8.full_fp16_variant(), FullFp16Variant::Split8);
         assert_eq!(two_bank.full_fp16_variant(), FullFp16Variant::TwoBank);
+        assert_eq!(two_wave.full_fp16_variant(), FullFp16Variant::TwoWave);
         // The arm label is deliberately unchanged so every historical receipt
         // keyed on `wmma-full-f16acc` stays comparable.
         assert_eq!(WmmaGemmArm::FullFp16Accumulate.label(), "wmma-full-f16acc");
@@ -1637,6 +1687,18 @@ mod tests {
             split8_identity, two_bank_identity,
             "the two variants must not share a pipeline identity"
         );
+        let two_wave_identity = two_wave
+            .full_fp16_pipeline_identity()
+            .expect("two-wave pipeline identity");
+        assert!(
+            two_wave_identity.starts_with(&format!(
+                "{}/",
+                FullFp16Variant::TwoWave.shader_name()
+            )),
+            "two-wave identity must name its own shader: {two_wave_identity}"
+        );
+        assert_ne!(two_wave_identity, split8_identity);
+        assert_ne!(two_wave_identity, two_bank_identity);
 
         let (rows, columns, reduction) = (64usize, 96usize, 128usize);
         let a = deterministic_matrix(rows * reduction, 0x5EED_0001);
@@ -1663,12 +1725,29 @@ mod tests {
             reduction,
             layout,
         )?;
+        let from_two_wave = two_wave.matmul(
+            WmmaGemmArm::FullFp16Accumulate,
+            &a,
+            &b,
+            rows,
+            columns,
+            reduction,
+            layout,
+        )?;
         assert_eq!(from_split8.len(), from_two_bank.len());
+        assert_eq!(from_split8.len(), from_two_wave.len());
         for (index, (left, right)) in from_split8.iter().zip(&from_two_bank).enumerate() {
             assert_eq!(
                 left.to_bits(),
                 right.to_bits(),
                 "element {index} differs between the split8 and two-bank variants"
+            );
+        }
+        for (index, (left, right)) in from_split8.iter().zip(&from_two_wave).enumerate() {
+            assert_eq!(
+                left.to_bits(),
+                right.to_bits(),
+                "element {index} differs between the split8 and two-wave variants"
             );
         }
 
