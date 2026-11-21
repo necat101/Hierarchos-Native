@@ -33,7 +33,7 @@ nothing was pushed to `main`.
 | --- | --- |
 | Release branch | `codex/rdna3-p3-release-20261121` |
 | Release commit (production integration, tests, docs) | `88a114670bb0ef384b4cf9b1007df1787cf9376e` |
-| Evidence commit (this directory) | see `git log -1 -- phase_lxxxi_evidence` on the branch |
+| Evidence commit (this directory) | `9e92b71f898a0085e90bd955e43790667ceff57b` |
 | Parent (preserved two-wave candidate) | `bd7434ed8de2055f34dfd6fabdb94d2c2ccb2e1a` |
 | Base | `main` @ `94c4db1f18e57680d691bcafc9dc6f5b0ab292f6` |
 
