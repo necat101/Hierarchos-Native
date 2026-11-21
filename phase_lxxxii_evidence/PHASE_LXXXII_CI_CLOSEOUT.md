@@ -4,8 +4,15 @@
 **Date:** 2026-11-21
 **Repository:** `necat101/Hierarchos-Native`
 **Release branch:** `codex/rdna3-p3-release-20261121`
-**Corrective commit:** `c71272078658e7732a99cc67200d4bf4d08d4b91`
+**Corrective commits:** `c71272078658e7732a99cc67200d4bf4d08d4b91` (CI, checkers, tests), `f1370c008fa2dc9495993f727e4bc91fbd6aa12d` (this report), plus the addendum commit carrying the second-pass table
 **Terminal status:** `MANIFEST VERIFICATION FAILED — RELEASE NOT MERGE-READY`
+
+Phase LXXXII ran in two passes. The first fixed the three inherited CI
+assumptions and discovered the manifest defect. The second re-fetched the live
+repository - whose head had moved from `67278c3` to `f1370c0` because the first
+pass had already pushed its report - reproduced the manifest result with an
+independent verifier, and re-ran every gate. Both passes are recorded below and
+their numbers agree.
 
 No kernel, shader, SPIR-V, selector, threshold, fallback, GPU tensor, timing
 sample or historical Phase LXXVIII–LXXXI manifest was modified by this phase.
@@ -32,16 +39,25 @@ Failing workflows at that head, on both the `push` and `pull_request` events:
 (`44900715319` / `44900710282`) and `workspace check`
 (`44900715389` / `44900710285`). `evidence integrity` passed.
 
+Re-fetched at the start of the second pass, the live head was
+`f1370c008fa2dc9495993f727e4bc91fbd6aa12d`: the first pass's corrective commit
+`c712720` had already been pushed, together with this report. `main` was still
+`94c4db1f18e57680d691bcafc9dc6f5b0ab292f6`, PR #8 was still
+`4f115f2e3b968eabc42872769001e6c7b49f2e50`, and both PRs were still `OPEN`.
+The starting facts above therefore describe the state the first pass inherited;
+they were not re-assumed.
+
 ## 2. Ending state
 
 | Item | Value |
 |---|---|
-| PR #9 head | `c71272078658e7732a99cc67200d4bf4d08d4b91` |
+| PR #9 head (live, second pass) | `f1370c008fa2dc9495993f727e4bc91fbd6aa12d` |
 | PR #9 state | `OPEN`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN` |
 | PR #9 base | `main` @ `94c4db1f18e57680d691bcafc9dc6f5b0ab292f6` (unchanged) |
 | PR #8 head | `4f115f2e3b968eabc42872769001e6c7b49f2e50` (unchanged) |
 | PR #8 state | `OPEN` (deliberately not closed, not retargeted) |
-| Release branch head | `c71272078658e7732a99cc67200d4bf4d08d4b91` |
+| PR #8 base | `81ac82fa972d84025129e7c3f0e58fdece7df786` (unchanged) |
+| Release branch head | `f1370c008fa2dc9495993f727e4bc91fbd6aa12d`, then the addendum commit carrying this table (its SHA is recorded in the PR #9 comment) |
 
 ## 3. Ancestry: PR #8 and PR #9
 
@@ -50,23 +66,28 @@ Both PRs re-fetched and compared at the corrected head.
 | Measurement | Value |
 |---|---|
 | Merge base | `4f115f2e3b968eabc42872769001e6c7b49f2e50` — exactly PR #8's head |
-| PR #9 ahead of PR #8 | **6 commits** |
+| PR #9 ahead of PR #8 | **7 commits** at `f1370c0` (6 at `c712720`) |
 | PR #9 behind PR #8 | **0 commits** |
-| Ancestor test | `git merge-base --is-ancestor 4f115f2e c7127207` → true |
+| Ancestor test | `git merge-base --is-ancestor 4f115f2e f1370c00` → true |
 
 ```
 $ git merge-base 4f115f2e3b968eabc42872769001e6c7b49f2e50 c71272078658e7732a99cc67200d4bf4d08d4b91
 4f115f2e3b968eabc42872769001e6c7b49f2e50
-$ git rev-list --count 4f115f2e..c7127207   # ahead
+$ git rev-list --count 4f115f2e..c7127207   # ahead, first pass
 6
-$ git rev-list --count c7127207..4f115f2e   # behind
+$ git rev-list --count c7127207..4f115f2e   # behind, first pass
+0
+$ git rev-list --count 4f115f2e..f1370c00   # ahead, second pass
+7
+$ git rev-list --count f1370c00..4f115f2e   # behind, second pass
 0
 ```
 
-The five release commits verified in Phase LXXXI, plus the one corrective
-commit from this phase:
+The five release commits verified in Phase LXXXI, plus the CI correction and
+this report:
 
 ```
+f1370c0 Record the Phase LXXXII CI closeout and the manifest verification failure
 c712720 Scope the historical CI gates to their own revisions and add the P3 release gate
 67278c3 Record the evidence commit hash and pin the evidence bytes
 9e92b71 Add the Phase LXXXI release evidence
@@ -374,7 +395,85 @@ The deterministic repair, for the maintainer to authorize, is either:
 Until then the manifest does not verify in any checkout, and the release should
 not be merged.
 
-## 10. Full CI status at `c71272078658e7732a99cc67200d4bf4d08d4b91`
+### 9.8 Independent second-pass reproduction
+
+The second pass repeated the check from a different clone and a different
+verifier, without reusing the first pass's script or results.
+
+```
+git clone --shared --no-checkout --branch codex/rdna3-p3-release-20261121 \
+  C:/Users/User/Downloads/Multimodal/Hierarchos-Native-lxxxi-release \
+  C:/Users/User/Downloads/Multimodal/_lxxxii_clean2
+git sparse-checkout init --no-cone
+git sparse-checkout set --no-cone '/phase_lxxxi_evidence/' \
+  '/hierarchos-vulkan/shaders/' '/.gitattributes'
+git checkout f1370c008fa2dc9495993f727e4bc91fbd6aa12d
+```
+
+The verifier is ~90 lines of standalone Python: it parses the manifest, hashes
+the raw bytes of each referenced file, and for every mismatch tries the
+line-ending hypotheses on the same content. It imports nothing from
+`hierarchos-vulkan/validation` and never runs the producer.
+
+| Measurement | Value |
+|---|---|
+| Actual commit SHA | `f1370c008fa2dc9495993f727e4bc91fbd6aa12d` |
+| `HEAD` equals the release commit | yes |
+| Working tree | clean (`git status --porcelain` empty) |
+| Manifest entries | **612** |
+| Entries verifying | **213** |
+| Entries mismatching | **397** |
+| Referenced files missing | **2** (`analysis.log`, `final_rerun.log`) |
+| Mismatch diagnosis | `lf-blob-vs-crlf-manifest` for **397 of 397** |
+| Committed evidence files | 611 (the manifest lists all but itself) |
+| Committed but unlisted | none |
+| Untracked files in the evidence tree | none |
+| P3 source SHA-256 | `4e448e3cc6d5cccb1a39753f43dcc66d9c287a29a06dc9b4957224271b786d12` |
+| P3 SPIR-V SHA-256 | `2aff4123544757b0d3aaf8eb1fe967a0c00c692eb73a74e49af802d7b5c517d2` |
+| Clone on disk | 22 MB (`--shared` object database) |
+| Free disk before / after | 11 GiB / 11 GiB |
+
+`.gitattributes` is doing exactly what it was added to do, which is what makes
+the gap visible rather than hiding it:
+
+```
+$ git check-attr text -- phase_lxxxi_evidence/abba_main_vs_p3_24p/index.tsv
+... text: unset
+$ git cat-file blob HEAD:phase_lxxxi_evidence/abba_main_vs_p3_24p/index.tsv | sha256sum
+d8371ad897b3a7a20ce1138094f136f14e01dcfe425f73fd8ad513904668714c
+$ sha256sum phase_lxxxi_evidence/abba_main_vs_p3_24p/index.tsv
+d8371ad897b3a7a20ce1138094f136f14e01dcfe425f73fd8ad513904668714c
+$ # manifest, and the same bytes with LF expanded to CRLF:
+$ python -c "import hashlib;d=open('phase_lxxxi_evidence/abba_main_vs_p3_24p/index.tsv','rb').read();print(hashlib.sha256(d.replace(b'\n',b'\r\n')).hexdigest())"
+35299c683d3731d904a108db9edd65d5039a434ad42b97bb2727db8efef6ae55
+```
+
+Checkout bytes equal blob bytes - the rule prevents conversion - and the digest
+the manifest declares is the CRLF expansion of those bytes. The protection is
+present and effective; what it cannot do is rewrite blobs that were stored
+before it existed.
+
+## 10. Full CI status
+
+### 10.1 At the live head `f1370c008fa2dc9495993f727e4bc91fbd6aa12d`
+
+| Workflow | Run | Event | Result |
+|---|---|---|---|
+| `phase lxv` | `44942607623` | pull_request | ✅ success |
+| `candidate a` | `44942607648` | pull_request | ✅ success |
+| `workspace check` | `44942607699` | pull_request | ✅ success |
+| `evidence integrity` | `44942607628` | pull_request | ✅ success |
+| `phase lxv` | `44942602694` | push | ✅ success |
+| `candidate a` | `44942602586` | push | ✅ success |
+| `workspace check` | `44942602689` | push | ✅ success |
+| `evidence integrity` | `44942602636` | push | ✅ success |
+
+`workspace check` is the complete Windows job, including `./check-workspace.ps1`;
+it passed in 10m06s (push) and 9m36s (pull_request). The addendum commit's own
+runs are reported in the PR #9 comment once they finish, because a document
+cannot contain the status of the commit that carries it.
+
+### 10.2 At the corrective commit `c71272078658e7732a99cc67200d4bf4d08d4b91`
 
 | Workflow | Run | Event | Result |
 |---|---|---|---|
@@ -424,7 +523,9 @@ maintainer to close after merging #9.
 
 | Commit | Contents |
 |---|---|
-| `c71272078658e7732a99cc67200d4bf4d08d4b91` | The eight workflow / checker / test files below |
+| `c71272078658e7732a99cc67200d4bf4d08d4b91` | The eight workflow / checker / test files listed in §5 |
+| `f1370c008fa2dc9495993f727e4bc91fbd6aa12d` | First-pass version of this report |
+| addendum commit | Second-pass re-verification, the `f1370c0` CI table and the local-build-tree limitation; its SHA is recorded in the PR #9 comment |
 
 Baseline commit `67278c3d5b2041d63697af199e12dd61272bb2a9` and every earlier
 commit are untouched.
@@ -450,6 +551,19 @@ commit are untouched.
 6. `test_p3_release.py` and `check_p3_release.py` assert exact source text for
    the selector, policy and admission wiring; a deliberate refactor of those
    constructs requires updating the expectations in the same commit.
+7. **The local unified-release gate reads a stale build tree.** When the
+   gitignored `hierarchos-vulkan/target/` exists, `check_unified_release.py`
+   hashes its executables against the receipt. This host carries a
+   `target/release/wmma_qualify.exe` built by an earlier phase, whose digest is
+   not the receipt's pinned `5a873979…`; both the checker and
+   `test_unified_release.py` therefore fail locally until that cache is set
+   aside. With it absent - as in every fresh CI checkout - both pass (2004
+   sources, 98 tests). This is a property of the machine, not of the branch.
+8. **`pwsh` is not installed on this host**, so `./check-workspace.ps1` was not
+   executed locally; the complete Windows job ran on `windows-latest` in run
+   `44942607699` and passed.
+9. **A document cannot record its own CI run.** The addendum's runs are in the
+   PR #9 comment, not in this file.
 
 ## 14. SHA-256 manifest
 
