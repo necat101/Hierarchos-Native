@@ -82,3 +82,7 @@ hierarchos-vulkan/validation/fixtures/*/
 !hierarchos-vulkan/validation/fixtures/deepseek_v41_wide_4141073/*.safetensors
 !hierarchos-vulkan/validation/release_parity/deepseek_v41/receipts/**/*.log
 !hierarchos-vulkan/validation/release_parity/multimodal_training/**/*.log
+
+# Raw operand dumps are regenerable working artifacts; their digests are pinned
+# in phase_lxxxiv_evidence/dumps_index.json instead of being committed.
+phase_lxxxiv_evidence/dumps/
