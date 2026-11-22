@@ -1,0 +1,73 @@
+{
+ "abba_main_vs_p3_balanced_24p": {
+  "128x8192x768": {
+   "pairs": 24,
+   "median_reference_ms": 1.81023,
+   "median_candidate_ms": 1.42604,
+   "mean_ratio": 1.2721760673499691,
+   "ci95_low": 1.2583763316470598,
+   "ci95_high": 1.2859758030528785,
+   "geomean_ratio": 1.2717822921381372,
+   "verdict": "PARITY-OR-BETTER (CI lower bound >= 1.0)",
+   "protected": true
+  },
+  "16x128x32": {
+   "pairs": 24,
+   "median_reference_ms": 0.02705,
+   "median_candidate_ms": 0.03554,
+   "mean_ratio": 0.7565924647680031,
+   "ci95_low": 0.7504353291378358,
+   "ci95_high": 0.7627496003981704,
+   "geomean_ratio": 0.7564540661978552,
+   "verdict": "SLOWER (CI excludes 1.0)",
+   "protected": false
+  },
+  "2048x768x2048": {
+   "pairs": 24,
+   "median_reference_ms": 5.41931,
+   "median_candidate_ms": 5.31093,
+   "mean_ratio": 1.0242543245312912,
+   "ci95_low": 1.0159099224935548,
+   "ci95_high": 1.0325987265690275,
+   "geomean_ratio": 1.0240748110668063,
+   "verdict": "PARITY-OR-BETTER (CI lower bound >= 1.0)",
+   "protected": true
+  },
+  "512x2048x768": {
+   "pairs": 24,
+   "median_reference_ms": 1.49447,
+   "median_candidate_ms": 1.33321,
+   "mean_ratio": 1.1246032785512738,
+   "ci95_low": 1.1166992007897365,
+   "ci95_high": 1.1325073563128112,
+   "geomean_ratio": 1.1244544446478253,
+   "verdict": "PARITY-OR-BETTER (CI lower bound >= 1.0)",
+   "protected": true
+  },
+  "512x768x768": {
+   "pairs": 24,
+   "median_reference_ms": 0.60877,
+   "median_candidate_ms": 0.54859,
+   "mean_ratio": 1.1162775024254896,
+   "ci95_low": 1.08791162058249,
+   "ci95_high": 1.1446433842684893,
+   "geomean_ratio": 1.1143587501479548,
+   "verdict": "PARITY-OR-BETTER (CI lower bound >= 1.0)",
+   "protected": true
+  },
+  "64x64x64": {
+   "pairs": 24,
+   "median_reference_ms": 0.04652,
+   "median_candidate_ms": 0.04198,
+   "mean_ratio": 1.106912510841308,
+   "ci95_low": 1.1004265757915905,
+   "ci95_high": 1.1133984458910255,
+   "geomean_ratio": 1.1068105579458063,
+   "verdict": "PARITY-OR-BETTER (CI lower bound >= 1.0)",
+   "protected": false
+  }
+ },
+ "statistics_implementation": "../hierarchos-vulkan/validation\\abba_stats.py",
+ "interval_rule": "two-sided 95 % Student-t over per-pair ratios, df = pairs - 1, from the regularized incomplete beta function; no normal-quantile fallback",
+ "ratio_convention": "reference_ms / candidate_ms; > 1.0 means candidate faster"
+}

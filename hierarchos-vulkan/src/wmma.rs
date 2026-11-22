@@ -40,6 +40,26 @@ use crate::{GpuBuffer, VulkanDevice};
 
 const WMMA_GEMM_F32ACC_SPV: &[u8] = include_bytes!("../shaders/wmma_gemm_f16_f32acc.spv");
 const WMMA_GEMM_F16ACC_SPV: &[u8] = include_bytes!("../shaders/wmma_gemm_f16_f16acc.spv");
+/// Phase LXIX two-bank bank-reuse module. Selectable through
+/// [`FULL_FP16_VARIANT_ENV`]; never the default until a promotion decision is
+/// taken, because it is still slower than the FP32 kernel it replaces.
+const WMMA_GEMM_F16ACC_TWOBANK_SPV: &[u8] =
+    include_bytes!("../shaders/wmma_gemm_f16_f16acc_twobank.spv");
+/// Phase LXXI two-wave tiling module. Same reduction contract as the two-bank
+/// module, but two wave32 execution groups per workgroup and two output tiles
+/// per wave, so a single wave keeps four instead of eight 16x16 FP16
+/// accumulators live. Selectable through [`FULL_FP16_VARIANT_ENV`]; never the
+/// default.
+const WMMA_GEMM_F16ACC_TWOWAVE_SPV: &[u8] =
+    include_bytes!("../shaders/wmma_gemm_f16_f16acc_twowave.spv");
+/// Phase LXXIX P3 epilogue on the Phase LXXI two-wave tiling. Staging,
+/// workgroup shape, K-slice stream, bank assignment and per-bank accumulation
+/// are byte-for-byte the two-wave contract; the 4 + 3 rounding merge tree is
+/// replaced by one float32 left-to-right sum of the eight binary16 bank
+/// partials and a single binary16 rounding. This is the production Full FP16
+/// module; see `RDNA3_P3_RELEASE.md`.
+const WMMA_GEMM_F16ACC_TWOWAVE_P3_SPV: &[u8] =
+    include_bytes!("../shaders/wmma_gemm_f16_f16acc_twowave_p3.spv");
 const GEMM_F16_F32_PLAIN_SPV: &[u8] = include_bytes!("../shaders/gemm_f16_f32_plain.spv");
 const FP32_TO_FP16_NATIVE_SPV: &[u8] = include_bytes!("../shaders/fp32_to_fp16_native.spv");
 /// The product's existing FP32 linear kernel, used as the paired baseline arm.
@@ -131,6 +151,119 @@ impl WmmaMode {
             Self::FullFp16 => {
                 "FP16 GEMM operands and FP16 accumulation (experimental); FP32 masters and FP32 optimizer state retained"
             }
+        }
+    }
+}
+
+/// Environment variable that selects which committed Full FP16 shader the
+/// `FullFp16` arm loads. Unset/empty means [`FullFp16Variant::P3`], the module
+/// the production route dispatches. Setting it to `split8`, `two-bank` or
+/// `two-wave` selects one of the earlier modules; those remain available as a
+/// fallback and for comparison, and are not removed by the P3 default.
+pub const FULL_FP16_VARIANT_ENV: &str = "HIERARCHOS_WMMA_FULL_FP16_VARIANT";
+
+/// The committed Full FP16 shader variants this build can dispatch.
+///
+/// The variant selects the actual SPIR-V module, not a label: each variant is a
+/// distinct `include_bytes!` blob, so the pipelines they create have different
+/// shader signatures (the FNV-1a of the SPIR-V is the shader component of the
+/// pipeline cache key in [`vulkan::ComputeKernel`]). Two variants therefore
+/// cannot share a cached pipeline.
+///
+/// [`Self::Split8`], [`Self::TwoBank`] and [`Self::TwoWave`] evaluate the same
+/// reduction contract (bank `b` owns slices `b, b+8, ...`, pairwise FP16 merge
+/// tree, identical operand order and rounding points) and are expected to
+/// produce bit-identical FP32 outputs. [`Self::P3`] keeps that accumulation
+/// contract and changes the epilogue only: the eight bank partials are summed
+/// left-to-right in float32 and rounded to binary16 once, so its output is
+/// deliberately **not** bit-identical to the tree — it is closer to the
+/// correctly rounded FP16 result. See `RDNA3_P3_RELEASE.md`.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum FullFp16Variant {
+    /// The eight-bank split8 module committed as `wmma_gemm_f16_f16acc.spv`.
+    /// The pre-P3 production arm; still selectable as a fallback.
+    Split8,
+    /// The Phase LXIX two-bank bank-reuse module
+    /// (`wmma_gemm_f16_f16acc_twobank.spv`). Same arithmetic, fewer live
+    /// accumulator banks, smaller partial array, different pipeline.
+    TwoBank,
+    /// The Phase LXXI two-wave tiling module
+    /// (`wmma_gemm_f16_f16acc_twowave.spv`). Same arithmetic as [`Self::TwoBank`]
+    /// and the same per-workgroup output tile, but the four 16x16 output tiles
+    /// are split across two wave32 execution groups so each wave keeps two
+    /// tiles' accumulators live instead of four. Costs two real workgroup
+    /// barriers per K slice, which every single-wave variant elides.
+    TwoWave,
+    /// The Phase LXXIX P3 epilogue module
+    /// (`wmma_gemm_f16_f16acc_twowave_p3.spv`), and the production Full FP16
+    /// route. Same two-wave workgroup, staging, barriers and per-bank binary16
+    /// accumulation; one float32 left-to-right sum of the eight bank partials
+    /// and a single binary16 rounding instead of the 4 + 3 rounding tree.
+    /// Qualified on the physical RDNA3 device over 32 K=96 cases: 31/32 closer
+    /// to the independently computed FP16 reference than the tree, none worse.
+    #[default]
+    P3,
+}
+
+impl FullFp16Variant {
+    pub const ALL: [Self; 4] = [Self::Split8, Self::TwoBank, Self::TwoWave, Self::P3];
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "split8" | "eight-bank" | "eightbank" | "eight_bank" | "8" => Ok(Self::Split8),
+            "two-bank" | "twobank" | "two_bank" | "2" => Ok(Self::TwoBank),
+            "two-wave" | "twowave" | "two_wave" | "64" => Ok(Self::TwoWave),
+            "p3" | "twowave-p3" | "two-wave-p3" => Ok(Self::P3),
+            other => bail!(
+                "unsupported full-fp16 variant {other:?}; expected p3, split8, two-bank or two-wave"
+            ),
+        }
+    }
+
+    /// Resolve a raw environment value. Absent or empty selects the default.
+    ///
+    /// Split out from [`Self::from_env`] so the environment contract is testable
+    /// without mutating process state.
+    pub fn from_env_value(value: Option<String>) -> Result<Self> {
+        match value {
+            Some(value) if !value.trim().is_empty() => Self::parse(&value),
+            _ => Ok(Self::default()),
+        }
+    }
+
+    /// Read [`FULL_FP16_VARIANT_ENV`]. An absent or empty value selects
+    /// [`Self::P3`].
+    pub fn from_env() -> Result<Self> {
+        Self::from_env_value(std::env::var(FULL_FP16_VARIANT_ENV).ok())
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Split8 => "split8",
+            Self::TwoBank => "two-bank",
+            Self::TwoWave => "two-wave",
+            Self::P3 => "p3",
+        }
+    }
+
+    /// Name this variant's SPIR-V carries in the build-generated shader
+    /// registry (`shaders/<name>.spv`).
+    pub fn shader_name(self) -> &'static str {
+        match self {
+            Self::Split8 => "wmma_gemm_f16_f16acc",
+            Self::TwoBank => "wmma_gemm_f16_f16acc_twobank",
+            Self::TwoWave => "wmma_gemm_f16_f16acc_twowave",
+            Self::P3 => "wmma_gemm_f16_f16acc_twowave_p3",
+        }
+    }
+
+    /// The SPIR-V module this variant dispatches.
+    pub fn spirv(self) -> &'static [u8] {
+        match self {
+            Self::Split8 => WMMA_GEMM_F16ACC_SPV,
+            Self::TwoBank => WMMA_GEMM_F16ACC_TWOBANK_SPV,
+            Self::TwoWave => WMMA_GEMM_F16ACC_TWOWAVE_SPV,
+            Self::P3 => WMMA_GEMM_F16ACC_TWOWAVE_P3_SPV,
         }
     }
 }
@@ -526,6 +659,7 @@ struct WmmaKernels {
 pub struct WmmaGemm {
     device: VulkanDevice,
     mode: WmmaMode,
+    full_fp16_variant: FullFp16Variant,
     capabilities: VulkanWmmaCapabilities,
     kernels: WmmaKernels,
     cooperative_dispatches: AtomicU64,
@@ -541,6 +675,23 @@ impl WmmaGemm {
     /// kernel. `Mixed`/`FullFp16` fail with the full diagnostic when the device
     /// does not satisfy [`VulkanWmmaCapabilities::require`].
     pub fn new(device: &VulkanDevice, mode: WmmaMode) -> Result<Self> {
+        Self::new_with_full_fp16_variant(device, mode, FullFp16Variant::from_env()?)
+    }
+
+    /// As [`Self::new`], with the Full FP16 shader variant chosen explicitly.
+    ///
+    /// The variant selects the SPIR-V module the `FullFp16` arm loads. It never
+    /// changes the requested mode: `Mixed` and `Off` do not load or dispatch the
+    /// Full FP16 module at all, and asking for `full-fp16` without a variant
+    /// selects [`FullFp16Variant::P3`], the qualified production epilogue.
+    /// [`FullFp16Variant::Split8`] and the two earlier variants remain
+    /// selectable through [`FULL_FP16_VARIANT_ENV`] and through this
+    /// constructor, so the previous pipeline is preserved as a fallback.
+    pub fn new_with_full_fp16_variant(
+        device: &VulkanDevice,
+        mode: WmmaMode,
+        full_fp16_variant: FullFp16Variant,
+    ) -> Result<Self> {
         let capabilities = device.wmma_capabilities();
         capabilities.require(mode)?;
         let convert = vulkan::ComputeKernel::new_with_access(
@@ -593,13 +744,17 @@ impl WmmaGemm {
             None
         };
         let full = if capabilities.full_fp16_supported() {
-            Some(gemm_kernel(WMMA_GEMM_F16ACC_SPV, "full-fp16")?)
+            Some(gemm_kernel(
+                full_fp16_variant.spirv(),
+                full_fp16_variant.shader_name(),
+            )?)
         } else {
             None
         };
         Ok(Self {
             device: device.clone(),
             mode,
+            full_fp16_variant,
             capabilities,
             kernels: WmmaKernels {
                 convert,
@@ -616,6 +771,34 @@ impl WmmaGemm {
 
     pub fn mode(&self) -> WmmaMode {
         self.mode
+    }
+
+    /// The Full FP16 variant whose SPIR-V this executor loaded.
+    ///
+    /// Every constructor assigns this from a committed [`FullFp16Variant`], so
+    /// the value identifies the module exactly; `wmma_qualify` and `wmma_bench`
+    /// print it beside [`Self::full_fp16_pipeline_identity`]. There is no
+    /// caller-supplied or qualification-only module in this build, so no
+    /// executor can report a variant it is not dispatching.
+    pub fn full_fp16_variant(&self) -> FullFp16Variant {
+        self.full_fp16_variant
+    }
+
+    /// Identity of the pipeline the Full FP16 arm actually dispatches.
+    ///
+    /// The shader component is the FNV-1a signature of the exact SPIR-V bytes,
+    /// which is also the shader component of the pipeline cache key, so two
+    /// variants with different identities cannot reuse each other's interned
+    /// pipeline. Reported by `wmma_bench` beside the selected mode.
+    pub fn full_fp16_pipeline_identity(&self) -> Option<String> {
+        self.kernels.full.as_ref().map(|kernel| {
+            format!(
+                "{}/spirv-fnv1a64:0x{:016x}/len:{}",
+                kernel.shader_name().unwrap_or("unknown"),
+                kernel.shader_signature(),
+                self.full_fp16_variant.spirv().len()
+            )
+        })
     }
 
     pub fn capabilities(&self) -> VulkanWmmaCapabilities {
@@ -1039,6 +1222,28 @@ pub enum OracleAccumulation {
     /// the historical tile16 model does not. Internal hardware order remains
     /// implementation dependent, so this is not a bitwise emulation claim.
     Fp16Dot2,
+    /// Two-bank split model: alternating 16-wide K slices accumulate into two
+    /// separate FP16 accumulators with the RDNA3 dot2 cadence, and the two banks
+    /// are merged once, in binary16, per output element.
+    ///
+    /// This was the contract of the Phase LXIV two-bank module. A matched
+    /// oracle has to model the accumulation order the kernel actually issues;
+    /// `Fp16TileK` models a single accumulator rounded once per K slice, which
+    /// is neither what that kernel did nor what the hardware does, so it could
+    /// not serve as the implementation-correctness reference for it. Retained
+    /// so the two-bank receipt stays reproducible.
+    Fp16Split2,
+    /// Eight-bank split model: consecutive 16-wide K slices are assigned to
+    /// eight FP16 accumulator banks round-robin with the RDNA3 dot2 cadence,
+    /// and the banks are merged once, in binary16, by the pairwise tree
+    /// `((b0+b1)+(b2+b3)) + ((b4+b5)+(b6+b7))`.
+    ///
+    /// This is the contract the current `wmma_gemm_f16_f16acc` module issues.
+    /// Blocked summation bounds the rounding error of a fixed-precision
+    /// reduction: each bank carries 1/8 of the terms, so each running sum is
+    /// about eight times smaller and the roundings it absorbs are
+    /// proportionally finer relative to the final result.
+    Fp16Split8,
 }
 
 /// Matched mixed-precision reference for `C = op(A) * op(B)`.
@@ -1073,6 +1278,17 @@ pub fn oracle_gemm(
         for col in 0..columns {
             let mut acc = 0.0f32;
             let mut partial = 0.0f32;
+            // The split models keep one accumulator per K-slice bank; the
+            // other models keep a single accumulator at index 0. Unused banks
+            // stay exactly zero, and adding binary16 zero is exact, so a
+            // reduction shorter than the bank count reduces to the same value.
+            let mut banks = [0.0f32; 8];
+            let bank_count: usize = match accumulation {
+                OracleAccumulation::Fp16Split2 => 2,
+                OracleAccumulation::Fp16Split8 => 8,
+                _ => 1,
+            };
+            let mut bank_of_last = 0usize;
             for t in 0..reduction {
                 let av = if layout.transposed_a {
                     a_h[t * rows + row]
@@ -1086,20 +1302,44 @@ pub fn oracle_gemm(
                 };
                 match accumulation {
                     OracleAccumulation::Fp32 => acc = (av * bv) + acc,
-                    OracleAccumulation::Fp16TileK | OracleAccumulation::Fp16Dot2 => partial = (av * bv) + partial,
+                    _ => partial = (av * bv) + partial,
                 }
-                let cadence = if accumulation == OracleAccumulation::Fp16Dot2 {2} else {WMMA_TILE_K as usize};
-                if accumulation != OracleAccumulation::Fp32
-                    && (t + 1) % cadence == 0
-                {
-                    acc = round_to_f16(acc + partial);
+                let cadence = match accumulation {
+                    OracleAccumulation::Fp32 => 0,
+                    OracleAccumulation::Fp16TileK => WMMA_TILE_K as usize,
+                    OracleAccumulation::Fp16Dot2
+                    | OracleAccumulation::Fp16Split2
+                    | OracleAccumulation::Fp16Split8 => 2,
+                };
+                if cadence != 0 && (t + 1) % cadence == 0 {
+                    let bank = if bank_count > 1 {
+                        (t / WMMA_TILE_K as usize) % bank_count
+                    } else {
+                        0
+                    };
+                    banks[bank] = round_to_f16(banks[bank] + partial);
+                    bank_of_last = bank;
                     partial = 0.0;
                 }
             }
             if partial != 0.0 {
-                acc = round_to_f16(acc + partial);
+                banks[bank_of_last] = round_to_f16(banks[bank_of_last] + partial);
             }
-            out[row * columns + col] = acc;
+            out[row * columns + col] = match accumulation {
+                OracleAccumulation::Fp16Split2 => round_to_f16(banks[0] + banks[1]),
+                OracleAccumulation::Fp16Split8 => {
+                    // Pairwise merge tree, exactly as the shader epilogue does.
+                    let l0 = round_to_f16(banks[0] + banks[1]);
+                    let l1 = round_to_f16(banks[2] + banks[3]);
+                    let l2 = round_to_f16(banks[4] + banks[5]);
+                    let l3 = round_to_f16(banks[6] + banks[7]);
+                    let m0 = round_to_f16(l0 + l1);
+                    let m1 = round_to_f16(l2 + l3);
+                    round_to_f16(m0 + m1)
+                }
+                OracleAccumulation::Fp32 => acc,
+                _ => banks[0],
+            };
         }
     }
     Ok(out)
@@ -1320,6 +1560,17 @@ pub fn logit_agreement(
 mod tests {
     use super::*;
 
+    fn sha256_hex(bytes: &[u8]) -> String {
+        use sha2::{Digest, Sha256};
+        let digest = Sha256::digest(bytes);
+        let mut out = String::with_capacity(digest.len() * 2);
+        for byte in digest {
+            use std::fmt::Write as _;
+            let _ = write!(out, "{byte:02x}");
+        }
+        out
+    }
+
     fn deterministic_matrix(len: usize, seed: u32) -> Vec<f32> {
         let mut state = seed | 1;
         (0..len)
@@ -1348,6 +1599,415 @@ mod tests {
         assert!(WmmaMode::parse("half").is_err());
         assert!(!WmmaMode::Off.requested());
         assert!(WmmaMode::Mixed.requested());
+        Ok(())
+    }
+
+    #[test]
+    fn full_fp16_variant_parsing_is_explicit_and_rejects_unknown_values() -> Result<()> {
+        assert_eq!(FullFp16Variant::parse("split8")?, FullFp16Variant::Split8);
+        assert_eq!(FullFp16Variant::parse("eight-bank")?, FullFp16Variant::Split8);
+        assert_eq!(FullFp16Variant::parse("TWO-BANK")?, FullFp16Variant::TwoBank);
+        assert_eq!(FullFp16Variant::parse(" twobank ")?, FullFp16Variant::TwoBank);
+        assert_eq!(FullFp16Variant::parse("P3")?, FullFp16Variant::P3);
+        let error = FullFp16Variant::parse("four-bank").unwrap_err().to_string();
+        assert!(
+            error.contains("unsupported full-fp16 variant") && error.contains("two-bank"),
+            "an unavailable variant must fail with the supported values: {error}"
+        );
+        assert!(FullFp16Variant::parse("").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn full_fp16_variant_defaults_to_the_production_p3_module() -> Result<()> {
+        assert_eq!(FullFp16Variant::default(), FullFp16Variant::P3);
+        assert_eq!(FullFp16Variant::from_env_value(None)?, FullFp16Variant::P3);
+        assert_eq!(
+            FullFp16Variant::from_env_value(Some("   ".to_owned()))?,
+            FullFp16Variant::P3
+        );
+        // The pre-P3 module stays selectable: the fallback is not removed by
+        // the default change.
+        assert_eq!(
+            FullFp16Variant::from_env_value(Some("split8".to_owned()))?,
+            FullFp16Variant::Split8
+        );
+        assert_eq!(
+            FullFp16Variant::from_env_value(Some("p3".to_owned()))?,
+            FullFp16Variant::P3
+        );
+        assert_eq!(
+            FullFp16Variant::from_env_value(Some("two-bank".to_owned()))?,
+            FullFp16Variant::TwoBank
+        );
+        assert_eq!(
+            FullFp16Variant::from_env_value(Some("two-wave".to_owned()))?,
+            FullFp16Variant::TwoWave
+        );
+        assert_eq!(
+            FullFp16Variant::from_env_value(Some("two_wave".to_owned()))?,
+            FullFp16Variant::TwoWave
+        );
+        assert_eq!(
+            FullFp16Variant::from_env_value(Some("64".to_owned()))?,
+            FullFp16Variant::TwoWave
+        );
+        assert!(FullFp16Variant::from_env_value(Some("split4".to_owned())).is_err());
+        assert!(FullFp16Variant::from_env_value(Some("four-bank".to_owned())).is_err());
+        // A qualification-only module is not a variant and cannot be named
+        // through the production selector.
+        assert!(FullFp16Variant::from_env_value(Some("experimental".to_owned())).is_err());
+        assert!(
+            FullFp16Variant::from_env_value(Some("phase-lxxix-p3".to_owned())).is_err()
+        );
+        Ok(())
+    }
+
+    /// P3 is the production Full FP16 arm, and the profitability predicate both
+    /// production routes apply before consulting the selector rejects the
+    /// documented direct-kernel regression geometry. The selector keeps its
+    /// historical tile-eligibility gate; admission is enforced by the callers
+    /// (`ProjectionWmma::admits` at construction and per recorded batch, and the
+    /// Transformer graph's construction gate).
+    #[test]
+    fn p3_is_selected_only_for_profitable_geometry() -> Result<()> {
+        let Some(device) = device_or_skip(WmmaMode::FullFp16) else {
+            return Ok(());
+        };
+        let gemm = WmmaGemm::new(&device, WmmaMode::FullFp16)?;
+        if !gemm.capabilities().full_fp16_supported() {
+            return Ok(());
+        }
+        assert_eq!(gemm.full_fp16_variant(), FullFp16Variant::P3);
+
+        for (rows, columns, reduction) in [
+            (2048usize, 768usize, 2048usize),
+            (512, 2048, 768),
+            (128, 8192, 768),
+            (512, 768, 768),
+        ] {
+            assert!(
+                wmma_shape_profitable(rows, columns, reduction),
+                "{rows}x{columns}x{reduction} is a protected production shape"
+            );
+            assert_eq!(
+                gemm.select_arm(rows, columns, reduction),
+                Some(WmmaGemmArm::FullFp16Accumulate),
+                "{rows}x{columns}x{reduction} must take the P3 arm"
+            );
+        }
+
+        // Eligible under the tile contract but below the 16 MMAC floor: the
+        // documented direct-kernel regression shape, a marginal 8.4 MMAC
+        // shape, and the LoRA control. Every production selection point asks
+        // this predicate first, and it refuses all three.
+        for (rows, columns, reduction) in [
+            (16usize, 128usize, 32usize),
+            (128, 256, 256),
+            (64, 64, 64),
+        ] {
+            assert!(
+                wmma_shape_eligible(rows, columns, reduction),
+                "{rows}x{columns}x{reduction} must still pass the tile contract"
+            );
+            assert!(
+                !wmma_shape_profitable(rows, columns, reduction),
+                "{rows}x{columns}x{reduction} must be refused below the 16 MMAC floor"
+            );
+        }
+        // Boundary of the predicate itself: 400 x 400 x 99 is 15.84 MMAC and
+        // 400 x 400 x 100 is exactly the 16 MMAC floor.
+        assert!(!wmma_shape_profitable(400, 400, 99));
+        assert!(wmma_shape_profitable(400, 400, 100));
+        Ok(())
+    }
+
+    /// Outside the production contract the executor keeps its previous routes:
+    /// `off` has no cooperative arm, `mixed` keeps its own arm and fallback, and
+    /// an unsupported Full FP16 request fails at the capability boundary.
+    #[test]
+    fn unsupported_modes_keep_their_existing_route() -> Result<()> {
+        let Some(off_device) = device_or_skip(WmmaMode::Off) else {
+            return Ok(());
+        };
+        let off = WmmaGemm::new(&off_device, WmmaMode::Off)?;
+        assert_eq!(off.select_arm(2048, 768, 2048), None);
+        assert!(off.full_fp16_pipeline_identity().is_none());
+
+        // Probing is per requested mode, so the mixed arm needs its own device.
+        let Some(device) = device_or_skip(WmmaMode::Mixed) else {
+            return Ok(());
+        };
+        let mixed =
+            WmmaGemm::new_with_full_fp16_variant(&device, WmmaMode::Mixed, FullFp16Variant::P3)?;
+        if mixed.capabilities().mixed_supported() {
+            assert_eq!(
+                mixed.select_arm(2048, 768, 2048),
+                Some(WmmaGemmArm::MixedFp32Accumulate),
+                "a Full FP16 variant must not change Mixed dispatch"
+            );
+        }
+        // Mixed keeps its existing eligibility gate: it is not the arm this
+        // change tightens, and its fallback still covers sub-tile shapes.
+        assert_eq!(
+            mixed.select_arm(16, 128, 32),
+            Some(WmmaGemmArm::MixedFp32Accumulate)
+        );
+        assert_eq!(
+            mixed.select_arm(8, 8, 8),
+            Some(WmmaGemmArm::PlainF16Storage)
+        );
+
+        // Capability boundary, independent of the physical device: an
+        // unnegotiated or feature-incomplete device cannot be asked for the
+        // Full FP16 arm at all.
+        let mut unsupported = VulkanWmmaCapabilities::default();
+        assert!(unsupported.require(WmmaMode::FullFp16).is_err());
+        unsupported.probed = true;
+        unsupported.enabled = true;
+        assert!(unsupported.require(WmmaMode::FullFp16).is_err());
+        Ok(())
+    }
+
+    /// The production constructor loads the exact qualified P3 module — same
+    /// bytes the Phase LXXIX GPU campaign dispatched — and reports a pipeline
+    /// identity that is not an experimental route. The previous module remains
+    /// loadable through the same constructor as a fallback.
+    #[test]
+    fn production_default_dispatches_the_p3_module() -> Result<()> {
+        let Some(device) = device_or_skip(WmmaMode::FullFp16) else {
+            return Ok(());
+        };
+        let production = WmmaGemm::new(&device, WmmaMode::FullFp16)?;
+        if !production.capabilities().full_fp16_supported() {
+            return Ok(());
+        }
+
+        // The committed module is the artifact Phase LXXIX qualified; the hash
+        // is repeated in `RDNA3_P3_RELEASE.md` and the release receipts.
+        assert_eq!(
+            FullFp16Variant::P3.spirv().len(),
+            23_280,
+            "the production P3 module must be the qualified 23,280-byte artifact"
+        );
+        assert_eq!(
+            sha256_hex(FullFp16Variant::P3.spirv()),
+            "2aff4123544757b0d3aaf8eb1fe967a0c00c692eb73a74e49af802d7b5c517d2",
+            "the production P3 module must hash to the qualified Phase LXXIX SPIR-V"
+        );
+        assert_eq!(production.full_fp16_variant(), FullFp16Variant::P3);
+        let identity = production
+            .full_fp16_pipeline_identity()
+            .expect("production P3 pipeline identity");
+        assert!(
+            identity.starts_with(&format!("{}/", FullFp16Variant::P3.shader_name())),
+            "the production identity must name the P3 module: {identity}"
+        );
+        assert!(
+            identity.contains("/len:23280"),
+            "the production identity must describe the qualified module: {identity}"
+        );
+        assert!(
+            !identity.contains("/experimental/"),
+            "the production identity must not be a qualification route: {identity}"
+        );
+
+        let (rows, columns, reduction) = (64usize, 96usize, 128usize);
+        let a = deterministic_matrix(rows * reduction, 0x5EED_0101);
+        let b = deterministic_matrix(reduction * columns, 0x5EED_0102);
+        let layout = GemmLayout {
+            transposed_a: false,
+            transposed_b: true,
+        };
+        let output = production.matmul(
+            WmmaGemmArm::FullFp16Accumulate,
+            &a,
+            &b,
+            rows,
+            columns,
+            reduction,
+            layout,
+        )?;
+        assert_eq!(output.len(), rows * columns);
+        assert!(output.iter().all(|value| value.is_finite()));
+
+        let split8 = WmmaGemm::new_with_full_fp16_variant(
+            &device,
+            WmmaMode::FullFp16,
+            FullFp16Variant::Split8,
+        )?;
+        assert_eq!(split8.full_fp16_variant(), FullFp16Variant::Split8);
+        let split8_identity = split8
+            .full_fp16_pipeline_identity()
+            .expect("split8 fallback pipeline identity");
+        assert!(
+            split8_identity.starts_with(&format!("{}/", FullFp16Variant::Split8.shader_name())),
+            "the fallback must still resolve to its own module: {split8_identity}"
+        );
+        assert_ne!(identity, split8_identity);
+        Ok(())
+    }
+
+    #[test]
+    fn full_fp16_variants_ship_distinct_spirv_modules() {
+        assert_eq!(FullFp16Variant::Split8.spirv(), WMMA_GEMM_F16ACC_SPV);
+        assert_eq!(
+            FullFp16Variant::TwoBank.spirv(),
+            WMMA_GEMM_F16ACC_TWOBANK_SPV
+        );
+        assert_eq!(
+            FullFp16Variant::TwoWave.spirv(),
+            WMMA_GEMM_F16ACC_TWOWAVE_SPV
+        );
+        assert_eq!(FullFp16Variant::P3.spirv(), WMMA_GEMM_F16ACC_TWOWAVE_P3_SPV);
+        // Every shipped variant must resolve to its own module, so no two
+        // variants can share a pipeline cache entry.
+        for (index, left) in FullFp16Variant::ALL.iter().enumerate() {
+            for right in &FullFp16Variant::ALL[index + 1..] {
+                assert_ne!(
+                    left.spirv(),
+                    right.spirv(),
+                    "{} and {} must not resolve to the same SPIR-V",
+                    left.label(),
+                    right.label()
+                );
+                assert_ne!(left.shader_name(), right.shader_name());
+            }
+        }
+    }
+
+    /// The selector must change the pipeline that actually runs, not just the
+    /// label, and both variants must remain bit-identical to each other.
+    #[test]
+    fn full_fp16_variant_selects_the_shader_it_dispatches() -> Result<()> {
+        let Some(device) = device_or_skip(WmmaMode::FullFp16) else {
+            return Ok(());
+        };
+        let split8 = WmmaGemm::new_with_full_fp16_variant(
+            &device,
+            WmmaMode::FullFp16,
+            FullFp16Variant::Split8,
+        )?;
+        if !split8.capabilities().full_fp16_supported() {
+            return Ok(());
+        }
+        let two_bank = WmmaGemm::new_with_full_fp16_variant(
+            &device,
+            WmmaMode::FullFp16,
+            FullFp16Variant::TwoBank,
+        )?;
+        let two_wave = WmmaGemm::new_with_full_fp16_variant(
+            &device,
+            WmmaMode::FullFp16,
+            FullFp16Variant::TwoWave,
+        )?;
+
+        assert_eq!(split8.full_fp16_variant(), FullFp16Variant::Split8);
+        assert_eq!(two_bank.full_fp16_variant(), FullFp16Variant::TwoBank);
+        assert_eq!(two_wave.full_fp16_variant(), FullFp16Variant::TwoWave);
+        // The arm label is deliberately unchanged so every historical receipt
+        // keyed on `wmma-full-f16acc` stays comparable.
+        assert_eq!(WmmaGemmArm::FullFp16Accumulate.label(), "wmma-full-f16acc");
+
+        let split8_identity = split8
+            .full_fp16_pipeline_identity()
+            .expect("split8 pipeline identity");
+        let two_bank_identity = two_bank
+            .full_fp16_pipeline_identity()
+            .expect("two-bank pipeline identity");
+        assert!(
+            split8_identity.starts_with(&format!(
+                "{}/",
+                FullFp16Variant::Split8.shader_name()
+            )),
+            "split8 identity must name its own shader: {split8_identity}"
+        );
+        assert!(
+            two_bank_identity.starts_with(&format!(
+                "{}/",
+                FullFp16Variant::TwoBank.shader_name()
+            )),
+            "two-bank identity must name its own shader: {two_bank_identity}"
+        );
+        assert_ne!(
+            split8_identity, two_bank_identity,
+            "the two variants must not share a pipeline identity"
+        );
+        let two_wave_identity = two_wave
+            .full_fp16_pipeline_identity()
+            .expect("two-wave pipeline identity");
+        assert!(
+            two_wave_identity.starts_with(&format!(
+                "{}/",
+                FullFp16Variant::TwoWave.shader_name()
+            )),
+            "two-wave identity must name its own shader: {two_wave_identity}"
+        );
+        assert_ne!(two_wave_identity, split8_identity);
+        assert_ne!(two_wave_identity, two_bank_identity);
+
+        let (rows, columns, reduction) = (64usize, 96usize, 128usize);
+        let a = deterministic_matrix(rows * reduction, 0x5EED_0001);
+        let b = deterministic_matrix(reduction * columns, 0x5EED_0002);
+        let layout = GemmLayout {
+            transposed_a: false,
+            transposed_b: true,
+        };
+        let from_split8 = split8.matmul(
+            WmmaGemmArm::FullFp16Accumulate,
+            &a,
+            &b,
+            rows,
+            columns,
+            reduction,
+            layout,
+        )?;
+        let from_two_bank = two_bank.matmul(
+            WmmaGemmArm::FullFp16Accumulate,
+            &a,
+            &b,
+            rows,
+            columns,
+            reduction,
+            layout,
+        )?;
+        let from_two_wave = two_wave.matmul(
+            WmmaGemmArm::FullFp16Accumulate,
+            &a,
+            &b,
+            rows,
+            columns,
+            reduction,
+            layout,
+        )?;
+        assert_eq!(from_split8.len(), from_two_bank.len());
+        assert_eq!(from_split8.len(), from_two_wave.len());
+        for (index, (left, right)) in from_split8.iter().zip(&from_two_bank).enumerate() {
+            assert_eq!(
+                left.to_bits(),
+                right.to_bits(),
+                "element {index} differs between the split8 and two-bank variants"
+            );
+        }
+        for (index, (left, right)) in from_split8.iter().zip(&from_two_wave).enumerate() {
+            assert_eq!(
+                left.to_bits(),
+                right.to_bits(),
+                "element {index} differs between the split8 and two-wave variants"
+            );
+        }
+
+        // Mixed routing must not consult the Full FP16 variant at all.
+        let mixed = WmmaGemm::new_with_full_fp16_variant(
+            &device,
+            WmmaMode::Mixed,
+            FullFp16Variant::TwoBank,
+        )?;
+        assert_eq!(
+            mixed.select_arm(64, 64, 64),
+            Some(WmmaGemmArm::MixedFp32Accumulate),
+            "a Full FP16 variant must not change Mixed dispatch"
+        );
         Ok(())
     }
 
@@ -1470,7 +2130,22 @@ mod tests {
         if !gemm.capabilities().mixed_supported() {
             return Ok(());
         }
-        for (rows, columns, reduction) in [(64usize, 48usize, 40usize), (33, 17, 19), (128, 128, 96)]
+        // Shapes are chosen to cover staging boundaries, not just sizes. The
+        // all-odd fixture forces every operand onto the masked 16-bit fallback
+        // because an odd leading dimension makes a pair base odd. `64x48x19`
+        // keeps A's transposed leading dimension even (64) while the reduction
+        // axis is odd, so the final K slice packs words whose second half is out
+        // of range. `19x48x64` keeps A's row-major leading dimension even (64)
+        // while only 19 output rows exist, so the last row tile packs a pair at
+        // the matrix edge. Both must return the same masked values the scalar
+        // path returned, with nothing read past the logical matrix.
+        for (rows, columns, reduction) in [
+            (64usize, 48usize, 40usize),
+            (33, 17, 19),
+            (128, 128, 96),
+            (64, 48, 19),
+            (19, 48, 64),
+        ]
         {
             for layout in [
                 GemmLayout::default(),
@@ -1526,6 +2201,10 @@ mod tests {
 
     /// The full-FP16 arm must satisfy its own contract: finite output and the
     /// matched-oracle bound, not merely "a number came back".
+    ///
+    /// The matched oracle models the order the current module issues: eight
+    /// FP16 accumulator banks over consecutive K slices, merged by a pairwise
+    /// FP16 tree. The bound is the unchanged two-ULP budget.
     #[test]
     fn wmma_full_fp16_matches_matched_oracle() -> Result<()> {
         let Some(device) = device_or_skip(WmmaMode::FullFp16) else {
@@ -1545,7 +2224,7 @@ mod tests {
                 columns,
                 reduction,
                 GemmLayout::default(),
-                OracleAccumulation::Fp16TileK,
+                OracleAccumulation::Fp16Split8,
             )?;
             let observed = gemm.matmul(
                 WmmaGemmArm::FullFp16Accumulate,
@@ -1568,6 +2247,77 @@ mod tests {
                 reduction,
                 measured.max_abs,
                 limit
+            );
+        }
+        Ok(())
+    }
+
+    /// The long-reduction geometry whose single-accumulator form failed the
+    /// unchanged FP32 budget must now meet it in every operand layout.
+    ///
+    /// `128x128x96` is the fixture whose three transposed cases previously
+    /// measured 0.0631-0.0731 against the unchanged `FULL_VS_FP32_MAX_ABS` of
+    /// 0.05. This is an accuracy gate, so it is checked against the f64
+    /// reference rather than against any accumulation model.
+    #[test]
+    fn wmma_full_fp16_meets_fp32_budget_on_long_reductions() -> Result<()> {
+        let Some(device) = device_or_skip(WmmaMode::FullFp16) else {
+            return Ok(());
+        };
+        let gemm = WmmaGemm::new(&device, WmmaMode::FullFp16)?;
+        if !gemm.capabilities().full_fp16_supported() {
+            return Ok(());
+        }
+        let (rows, columns, reduction) = (128usize, 128usize, 96usize);
+        for layout in [
+            GemmLayout::default(),
+            GemmLayout {
+                transposed_a: true,
+                transposed_b: false,
+            },
+            GemmLayout {
+                transposed_a: false,
+                transposed_b: true,
+            },
+            GemmLayout {
+                transposed_a: true,
+                transposed_b: true,
+            },
+        ] {
+            let a = deterministic_matrix(rows * reduction, 0xA101_0001);
+            let b = deterministic_matrix(reduction * columns, 0xB202_0002);
+            let reference =
+                reference_fp32_gemm(&a, &b, rows, columns, reduction, layout)?;
+            let observed = gemm.matmul(
+                WmmaGemmArm::FullFp16Accumulate,
+                &a,
+                &b,
+                rows,
+                columns,
+                reduction,
+                layout,
+            )?;
+            let measured = drift(&reference, &observed)?;
+            assert!(measured.all_finite());
+            assert!(
+                measured.max_abs <= FULL_VS_FP32_MAX_ABS,
+                "full-FP16 WMMA {}x{}x{} {:?} vs FP32 max_abs {} > {}",
+                rows,
+                columns,
+                reduction,
+                layout,
+                measured.max_abs,
+                FULL_VS_FP32_MAX_ABS
+            );
+            assert!(
+                measured.rms <= FULL_VS_FP32_RMS,
+                "full-FP16 WMMA {}x{}x{} {:?} vs FP32 rms {} > {}",
+                rows,
+                columns,
+                reduction,
+                layout,
+                measured.rms,
+                FULL_VS_FP32_RMS
             );
         }
         Ok(())

@@ -7,6 +7,7 @@ and never writes to it.
 import hashlib
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -201,6 +202,139 @@ class DigestGuard(unittest.TestCase):
     def test_strict_cli_passes_on_valid_root(self):
         root, _ = build(self.tmp)
         self.assertEqual(g.main(["--root", str(root), "--strict"]), 0)
+
+
+def seal_repository(root: Path) -> str:
+    """A tiny repository whose HEAD is the revision a receipt can declare."""
+    root.mkdir(parents=True, exist_ok=True)
+
+    def run(*args):
+        subprocess.run(["git", "-C", str(root), *args], check=True,
+                       capture_output=True, text=True)
+
+    run("init", "-q")
+    run("config", "user.email", "guard@example.invalid")
+    run("config", "user.name", "digest guard")
+    # The real repository pins every bound path with -text so blob bytes and
+    # checkout bytes agree; a synthetic repo must do the same or autocrlf makes
+    # the fixture disagree with its own commit.
+    (root / ".gitattributes").write_bytes(b"* -text\n")
+    (root / "src.txt").write_bytes(b"alpha\n")
+    run("add", "-A")
+    run("commit", "-qm", "seal")
+    return subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"],
+                                   text=True).strip()
+
+
+class HistoricalSourceModel(unittest.TestCase):
+    """Source bindings belong to the revision the receipt declares.
+
+    These controls exist to show the model is not a blanket bypass. Every way of
+    failing to satisfy the declared revision still fails, and the only advisory
+    result is the separate observation that this checkout has moved on.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(prefix="historical-source-")
+        self.tmp = Path(self._tmp.name)
+        self.repo = self.tmp / "repo"
+        self.revision = seal_repository(self.repo)
+        self.sources = {"src.txt": sha(self.repo / "src.txt")}
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def receipt_root(self, **overrides):
+        root = self.tmp / "evidence"
+        root.mkdir(exist_ok=True)
+        (root / "a.json").write_text('{"pass": true}\n', encoding="utf-8")
+        document = {"schema": 1, "pass": True, "source_revision": self.revision,
+                    "source_files": dict(self.sources),
+                    "evidence": {"a.json": sha(root / "a.json")}}
+        document.update(overrides)
+        receipt = root / "current-qualification.json"
+        receipt.write_text(json.dumps(document), encoding="utf-8")
+        return root, receipt
+
+    def audit(self, **overrides):
+        root, receipt = self.receipt_root(**overrides)
+        return g.audit_receipt(receipt, root, self.repo)
+
+    # 1. A historical match passes even though the checkout has moved on.
+    def test_match_at_declared_revision_passes_when_checkout_moved(self):
+        (self.repo / "src.txt").write_bytes(b"beta\n")
+        report = self.audit()
+        self.assertEqual(report.failures, [])
+        self.assertEqual(report.count(g.VALID), 2)
+        self.assertEqual(report.count(g.TREE_DRIFT), 1)
+        self.assertIn("checkout_ahead_of_receipt", report.flags)
+        self.assertNotIn("integrity_mismatch", report.flags)
+
+    # 2. Content that does not match the declared revision fails.
+    def test_mismatch_at_declared_revision_fails(self):
+        report = self.audit(source_files={"src.txt": "0" * 64})
+        self.assertEqual([f.status for f in report.failures], [g.MISMATCH])
+
+    # 3. A file absent from the declared revision fails.
+    def test_absent_at_declared_revision_fails(self):
+        report = self.audit(source_files={"absent.txt": "a" * 64})
+        self.assertEqual([f.status for f in report.failures], [g.MISSING])
+
+    # 4. An unavailable revision fails closed instead of falling back.
+    def test_unavailable_revision_fails_closed(self):
+        report = self.audit(source_revision="0" * 40)
+        self.assertEqual([f.status for f in report.failures], [g.REVISION_UNAVAILABLE])
+
+    def test_malformed_revision_falls_back_to_the_checkout(self):
+        (self.repo / "src.txt").write_bytes(b"beta\n")
+        report = self.audit(source_revision="not-a-revision")
+        self.assertEqual([f.status for f in report.failures], [g.SOURCE_DRIFT])
+
+    # 5. A forged revision moves the comparison and still fails.
+    def test_forged_revision_cannot_bypass_validation(self):
+        (self.repo / "src.txt").write_bytes(b"gamma\n")
+        subprocess.run(["git", "-C", str(self.repo), "commit", "-qam", "later"],
+                       check=True, capture_output=True)
+        later = subprocess.check_output(
+            ["git", "-C", str(self.repo), "rev-parse", "HEAD"], text=True).strip()
+        report = self.audit(source_revision=later)
+        self.assertEqual([f.status for f in report.failures], [g.MISMATCH])
+
+    # 6. Unsafe and malformed bindings still fail in historical mode.
+    def test_unsafe_path_still_fails(self):
+        report = self.audit(source_files={"../escape.txt": "a" * 64})
+        self.assertEqual([f.status for f in report.failures], [g.UNSAFE])
+
+    def test_malformed_digest_still_fails(self):
+        report = self.audit(source_files={"src.txt": "not-a-digest"})
+        self.assertEqual([f.status for f in report.failures], [g.INVALID])
+
+    # 7. Evidence and retained families are still verified against the bytes.
+    def test_changed_evidence_still_fails(self):
+        root, receipt = self.receipt_root()
+        (root / "a.json").write_text('{"pass": false}\n', encoding="utf-8")
+        report = g.audit_receipt(receipt, root, self.repo)
+        self.assertIn(g.MISMATCH, {f.status for f in report.findings if f.kind == "evidence"})
+
+    def test_changed_retained_family_still_fails(self):
+        root, receipt = self.receipt_root()
+        family = root / "retained" / "fam" / "qualification.json"
+        family.parent.mkdir(parents=True)
+        family.write_text('{"pass": true}\n', encoding="utf-8")
+        document = json.loads(receipt.read_text(encoding="utf-8"))
+        document["retained"] = {"fam": {"qualification_sha256": sha(family)}}
+        receipt.write_text(json.dumps(document), encoding="utf-8")
+        family.write_text('{"pass": false}\n', encoding="utf-8")
+        report = g.audit_receipt(receipt, root, self.repo)
+        self.assertIn(g.MISMATCH, {f.status for f in report.findings if f.kind == "retained"})
+
+    # 8. The same defects fail under the audit's own strict accounting.
+    def test_integrity_failures_are_counted_separately_from_drift(self):
+        (self.repo / "src.txt").write_bytes(b"beta\n")
+        moved = self.audit()
+        self.assertEqual(moved.integrity_failures, [])
+        forged = self.audit(source_files={"src.txt": "0" * 64})
+        self.assertEqual(len(forged.integrity_failures), 1)
 
 
 class PhaseFifteenRegression(unittest.TestCase):

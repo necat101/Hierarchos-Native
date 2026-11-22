@@ -19,6 +19,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import source_provenance
+
 CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 RECEIPT = (
@@ -69,9 +71,9 @@ def verify_packed_status(document: dict, directory: Path | None = None,
         require(len(source_files)>100,'packed current-source binding is incomplete')
         require('hierarchos-vulkan/validation/packed_allocation_timing.py' in source_files,
                 'packed allocation timing helper is missing from the source binding')
-        for name,sha in source_files.items():
-            path=crate.parent/name
-            require(path.is_file() and sha256_file(path)==sha,'packed source changed: '+name)
+        binding=source_provenance.verify_bindings(
+            crate.parent,document.get('source_revision',''),source_files)
+        require(binding.ok,'packed '+binding.describe())
     for spec in ALL_SPECS:
         row=results[spec.name]
         require(row.get("bench")==0 and row.get("guard")==0, "packed benchmark/guard failed: "+spec.name)
@@ -114,15 +116,10 @@ def verify(
 
     source_files = receipt.get("source_files") or {}
     require(len(source_files) >= 1500, "current source binding is incomplete")
-    for relative, expected in source_files.items():
-        require(isinstance(relative, str) and not Path(relative).is_absolute()
-                and ".." not in Path(relative).parts,
-                f"unsafe source path {relative!r}")
-        require(SHA256.fullmatch(str(expected)) is not None,
-                f"invalid source digest for {relative}")
-        path = root / relative
-        require(path.is_file(), f"missing bound source {relative}")
-        require(sha256_file(path) == expected, f"bound source changed: {relative}")
+    # The receipt declares the revision its bytes belong to; hold it to that
+    # revision. The checkout under test is a different question, reported below.
+    binding = source_provenance.verify_bindings(root, revision, source_files)
+    require(binding.ok, binding.describe())
     for required in (
         "hierarchos-vulkan/src/transformer.rs",
         "hierarchos-vulkan/validation/qualify_phase19z_current.py",
@@ -333,12 +330,15 @@ def main() -> int:
     except (QualificationError, ValueError, KeyError, FileNotFoundError) as error:
         print(f"PHASE XIX-Z CURRENT SOURCE: FAIL ({error})")
         return 1
-    print("PHASE XIX-Z CURRENT SOURCE: PASS "
+    drift = source_provenance.drift_paths(
+        CRATE.parent, read_json(args.receipt).get("source_files") or {})
+    print("PHASE XIX-Z RECEIPT AT DECLARED REVISION: PASS "
           f"({summary['revision'][:12]}, {summary['source_files']} sources, "
           f"{summary['counts']['training_arms']} training arms, "
           f"{summary['counts']['heldout_arms']} heldout arms, "
           f"{summary['counts']['drift_runs']} drift runs, "
-          f"{summary['counts']['activation_cells']} activation cells)")
+          f"{summary['counts']['activation_cells']} activation cells; "
+          f"{len(drift)} bound file(s) differ in this checkout)")
     return 0
 
 

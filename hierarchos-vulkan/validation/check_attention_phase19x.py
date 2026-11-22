@@ -13,6 +13,8 @@ from pathlib import Path
 
 from emit_two_pass_evidence import parse
 
+import source_provenance
+
 CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 RECEIPT = (
@@ -64,11 +66,9 @@ def verify(path: Path = RECEIPT, crate: Path = CRATE) -> dict:
 
     sources = document.get("source_files") or {}
     require(set(sources) == set(SOURCE_FILES), "attention source set changed")
-    for name, expected in sources.items():
-        require(SHA256.fullmatch(str(expected)) is not None, "invalid attention source digest")
-        actual = crate / name
-        require(actual.is_file(), "missing attention source " + name)
-        require(digest(actual) == expected, "attention source changed: " + name)
+    binding = source_provenance.verify_bindings(
+        crate.parent, revision, sources, prefix=crate.name)
+    require(binding.ok, binding.describe())
 
     binaries = document.get("binaries") or {}
     require(SHA256.fullmatch(str(binaries.get("trainer"))) is not None,

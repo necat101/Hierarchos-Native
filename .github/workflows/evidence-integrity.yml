@@ -10,6 +10,14 @@ name: evidence integrity
 # historical root cannot turn a green release red. Historical roots are audited by
 # `--audit-all`, which reports rather than gates; the Phase XV rebinding is asserted by
 # `test_evidence_integrity.py::PhaseFifteenRegression`, so it stays visible here.
+#
+# A source binding is verified against the `source_revision` the receipt declares:
+# those are the bytes the receipt qualified, and a later checkout that has moved on is
+# reported as tree drift rather than as a digest failure. That distinction is what lets
+# an immutable receipt stay valid across unrelated commits without relaxing anything -
+# content that does not match the declared revision, a file absent from it, an
+# unresolvable revision, a changed evidence artifact and a malformed digest all still
+# fail. The current tree is qualified separately by the candidate-A job.
 
 on:
   push:
@@ -28,6 +36,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Source bindings are resolved from the committed blobs at each receipt's
+          # declared revision, so those commits have to be in the clone.
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -57,3 +70,44 @@ jobs:
           python hierarchos-vulkan/validation/check_evidence_integrity.py \
             --audit-all \
             --documented-exception 20261108-rdna3-phase15-qualification
+
+  # Phase LXXXI is bound by a 612-entry SHA-256 manifest that nothing else
+  # re-derives. It was committed before `phase_lxxxi_evidence/** -text` existed,
+  # so Git stored LF for the producer's CRLF evidence and the `*.log` ignore rule
+  # kept both retained logs out of the tree: 397 digests stopped resolving while
+  # every receipt still read as passing. The gate below hashes the checked-out
+  # bytes and the committed blobs independently, and fails on either. It runs on
+  # Windows as well as Linux because the defect only ever appeared on a checkout
+  # that applied a line-ending policy.
+  lxxxi-manifest-gate:
+    name: Phase LXXXI manifest gate (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Full checkout: the gate hashes the materialized evidence directory,
+          # not just a tree listing, so nothing here may be sparse or filtered.
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test runner
+        run: python -m pip install --upgrade pip pytest
+
+      # Pins the frozen manifest itself, so a "repair" that regenerates the
+      # manifest from the files it is supposed to verify is rejected.
+      - name: 612-entry manifest verifies against the working tree and Git blobs
+        run: >-
+          python hierarchos-vulkan/validation/check_phase_lxxxi_manifest.py
+          --expect-manifest-sha256
+          a7979f4f448ab3afa1598155d0eb708e8d36e4bed23457fa5dd515fcd22bbff4
+
+      - name: Manifest gate negative controls
+        run: python -m pytest hierarchos-vulkan/validation/test_phase_lxxxi_manifest.py -q

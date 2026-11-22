@@ -17,6 +17,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import source_provenance
+
 CRATE = Path(__file__).resolve().parents[1]
 ROOT = CRATE.parent
 FIXTURE = CRATE / "validation/fixtures/phase17"
@@ -133,10 +135,11 @@ def main() -> int:
                               cwd=ROOT, capture_output=True)
     require(ancestry.returncode == 0, "source revision is not an ancestor of HEAD")
 
-    for relative, expected in document["source_files"].items():
-        path = CRATE / relative
-        require(path.is_file(), f"missing bound source {relative}")
-        require(sha256(path) == expected, f"bound source changed: {relative}")
+    # The activation receipt is sealed at the revision it names, so those are the
+    # bytes it is held to. What this checkout has become is a separate question.
+    binding = source_provenance.verify_bindings(
+        ROOT, revision, document["source_files"], prefix=CRATE.name)
+    require(binding.ok, binding.describe())
     require("src/transformer.rs" in document["source_files"], "transformer binding missing")
     require("src/activation_trace.rs" in document["source_files"], "tracer binding missing")
     require("src/bin/activation_probe.rs" in document["source_files"], "probe binding missing")

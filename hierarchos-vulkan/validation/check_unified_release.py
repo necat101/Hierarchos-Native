@@ -6,6 +6,7 @@ remain mandatory. Additional strict intermediate failures stay explicit.
 """
 import argparse, hashlib, json, math, re, subprocess, sys
 from pathlib import Path
+import source_provenance
 
 ROOT=Path(__file__).resolve().parents[2]
 DEFAULT=ROOT/'hierarchos-vulkan/validation/release_parity/multimodal_training/20261117-phase42-current-source/release-qualification.json'
@@ -14,6 +15,14 @@ REQUIRED={'text166','fp32_replay','precision','wide','native_v41','wmma_mixed','
           'shader727','shader_wmma','tests','gui_cli','packed','intermediates','phase19w','phase19x','phase19y','phase19z',*IMAGE_COUNTS}
 QUALIFICATION_TARGET={'cpu':'AVX512','gpu':'RDNA3'}
 HOST_QUALIFICATIONS='hierarchos-vulkan/validation/fixtures/fixture_host_qualifications.json'
+# The source directories the release manifest has to account for, and the files
+# that carry the release's own contract. Both are asked of the receipt's
+# `source_revision`, not of the checkout that reads it.
+REQUIRED_SOURCE_DIRS=('hierarchos-vulkan/src','hierarchos-vulkan/shaders','hierarchos-inference/src',
+                      'hierarchos-native-cli/src','hierarchos-gui/src')
+REQUIRED_SOURCE_FILES=frozenset({'hierarchos-vulkan/validation/check_unified_release.py',
+    'hierarchos-vulkan/validation/qualify_unified_release.py','hierarchos-vulkan/validation/test_unified_release.py',
+    '.github/workflows/workspace-check.yml','RDNA3_RELEASE_CONTRACT.md','.gitattributes',HOST_QUALIFICATIONS})
 # Native V4.1 is a numerical qualification of the route it measured. These are
 # the policy constants the route receipt is checked against; they are the
 # production values, never a test-only override.
@@ -542,10 +551,12 @@ def validate_payload(document,components):
     require(wide.get('policy')==WIDE_NUMERICAL_POLICY,'wide numerical policy changed')
     require(isinstance(wide.get('source_files'),dict) and wide['source_files'],
             'wide component source provenance missing')
-    for relative,sha in wide['source_files'].items():
+    for relative in wide['source_files']:
         require(not Path(relative).is_absolute() and '..' not in Path(relative).parts,
                 'unsafe wide source path: '+relative)
-        require(digest(ROOT/relative)==sha,'wide component source changed: '+relative)
+    # The wide component is sealed at its own revision; hold it to those bytes.
+    wide_binding=source_provenance.verify_bindings(ROOT,wide['source_revision'],wide['source_files'])
+    require(wide_binding.ok,'wide component source binding failed: '+wide_binding.describe())
     for r in wide['results']:
         require(r['status']=='PASS_SCOPED','wide family failed')
         verify_wide_case(r,wide['fixture_sha256'][r['family']])
@@ -632,6 +643,54 @@ def validate_payload(document,components):
     require(document['limitations'],'scoped release limitations missing')
 
 
+def _git_lines(*args):
+    run=subprocess.run(['git','-C',str(ROOT),*args],capture_output=True,text=True)
+    require(run.returncode==0,'git '+args[0]+' failed: '+run.stderr.strip()[:200])
+    return [line for line in run.stdout.splitlines() if line.strip()]
+
+
+def historical_required_sources(revision):
+    """The source inventory the receipt's own revision had to bind.
+
+    A sealed receipt is a statement about the bytes of its declared
+    ``source_revision``. The inventory it must cover is therefore that
+    revision's tree, read from Git, and not the checkout it happens to be read
+    from: a later release adds source files the older receipt never saw, and
+    demanding them in it would make every pinned receipt expire as soon as
+    current work lands. A malformed or unavailable revision still fails here,
+    before any binding is compared.
+    """
+    require(isinstance(revision,str) and len(revision)==40
+            and all(character in '0123456789abcdef' for character in revision),
+            'release receipt source revision is not a 40-character commit id: '+repr(revision))
+    if subprocess.run(['git','-C',str(ROOT),'cat-file','-e',revision+'^{commit}'],
+            capture_output=True).returncode!=0:
+        raise ValueError('release source revision '+revision[:12]
+                         +' is unavailable: that commit object is not in this clone')
+    tracked=set(_git_lines('ls-tree','-r','--name-only',revision,'--',*REQUIRED_SOURCE_DIRS))
+    return tracked|set(REQUIRED_SOURCE_FILES)
+
+
+def post_receipt_required_sources(revision,declared):
+    """Current required sources that genuinely did not exist at ``revision``.
+
+    Dropping the current-tree requirement outright would let a file that *did*
+    exist at the receipt revision quietly fall out of its inventory. Every path
+    the receipt does not bind is therefore looked up at that revision: absent is
+    a file introduced later, which its own current-source gate has to cover;
+    present is a binding the receipt is missing, which still fails.
+    """
+    current=set(_git_lines('ls-files','--',*REQUIRED_SOURCE_DIRS))|set(REQUIRED_SOURCE_FILES)
+    later=[]
+    for path in sorted(current-set(declared)):
+        present=subprocess.run(['git','-C',str(ROOT),'cat-file','-e',revision+':'+path],
+                               capture_output=True).returncode==0
+        require(not present,'unified runtime/source inventory incomplete: '+path
+                +' exists at the receipt revision but is not bound by it')
+        later.append(path)
+    return later
+
+
 def verify(path=DEFAULT,*,check_subreceipts=True):
     path=Path(path);document=json.loads(path.read_text());base=path.parent
     require(set(document['components'])==REQUIRED,'component binding inventory incomplete')
@@ -641,13 +700,19 @@ def verify(path=DEFAULT,*,check_subreceipts=True):
         p=base/relative;require(p.is_file() and digest(p)==row['sha256'],'component evidence changed: '+name)
         components[name]=json.loads(p.read_text())
     validate_payload(document,components)
-    required_sources=set(subprocess.check_output(['git','-C',str(ROOT),'ls-files','hierarchos-vulkan/src','hierarchos-vulkan/shaders',
-        'hierarchos-inference/src','hierarchos-native-cli/src','hierarchos-gui/src'],text=True).splitlines())
-    required_sources.update({'hierarchos-vulkan/validation/check_unified_release.py',
-        'hierarchos-vulkan/validation/qualify_unified_release.py','hierarchos-vulkan/validation/test_unified_release.py',
-        '.github/workflows/workspace-check.yml','RDNA3_RELEASE_CONTRACT.md','.gitattributes',HOST_QUALIFICATIONS})
+    # The receipt's inventory question is asked of the revision it declares. Its
+    # own tree must be covered completely; files introduced later are answered by
+    # their own current-source gates instead of being demanded in a receipt that
+    # predates them. The release's `source_revision`, hashes and component
+    # evidence are never moved to accommodate the checkout.
+    required_sources=historical_required_sources(document['source_revision'])
     require(required_sources.issubset(document['source_files']),'unified runtime/source inventory incomplete')
-    for relative,sha in document['source_files'].items():require(digest(ROOT/relative)==sha,'current source changed: '+relative)
+    post_receipt_required_sources(document['source_revision'],document['source_files'])
+    # The release receipt names the revision it qualified. Its source map is a
+    # statement about that revision's committed bytes, not about this checkout:
+    # the running tree is qualified separately by the current-PR gates.
+    source_binding=source_provenance.verify_bindings(ROOT,document['source_revision'],document['source_files'])
+    require(source_binding.ok,'release source binding failed: '+source_binding.describe())
     require(document.get('fixture_provenance')==target_fixture_provenance(),'target fixture provenance report changed')
     for relative,sha in document['evidence_files'].items():require(digest(base/relative)==sha,'release evidence changed: '+relative)
     for name,row in document['binaries'].items():
@@ -667,7 +732,11 @@ def verify(path=DEFAULT,*,check_subreceipts=True):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--receipt',type=Path,default=DEFAULT)
-    a=p.parse_args();verify(a.receipt);print('UNIFIED RELEASE: PASS_SCOPED_RELEASE',flush=True)
+    a=p.parse_args();document,_=verify(a.receipt)
+    drift=source_provenance.drift_paths(ROOT,document['source_files'])
+    print('UNIFIED RELEASE: PASS_SCOPED_RELEASE ('+document['source_revision'][:12]+', '
+          +str(len(document['source_files']))+' sources verified at their declared revision, '
+          +str(len(drift))+' file(s) differ in this checkout)',flush=True)
 
 
 if __name__=='__main__':main()

@@ -118,6 +118,63 @@ class UnifiedReleaseControls(unittest.TestCase):
         self.reject(mutate)
     def test_hidden_diagnostic_failures(self):
         self.reject(lambda d,p:p['intermediates'].update(strict_diagnostic_failures=0))
+
+    # -- historical source provenance ------------------------------------
+    #
+    # The receipt is a statement about the bytes of its declared
+    # `source_revision`. The Phase LXXXI release adds P3 shaders that revision
+    # never saw; they must not be demanded in it, while every question the
+    # receipt does answer - its own tree, its own digests, a usable revision -
+    # still fails closed.
+    P3_SOURCES = ('hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3.comp',
+                  'hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc_twowave_p3.spv')
+
+    def historical_document(self):
+        return json.loads(c.DEFAULT.read_text())
+
+    def test_new_release_files_do_not_invalidate_the_pinned_receipt(self):
+        document=self.historical_document()
+        # The receipt is still the one that was sealed, at the revision it names.
+        self.assertEqual(document['source_revision'],
+                         '2ef9b8d9642cbbc41dd6d3f3e41b84c14803fe5a')
+        self.assertEqual(len(document['source_files']),2004)
+        historical=c.historical_required_sources(document['source_revision'])
+        later=c.post_receipt_required_sources(document['source_revision'],
+                                             document['source_files'])
+        for path in self.P3_SOURCES:
+            # Introduced after the receipt's revision: absent from its inventory
+            # and from what that revision had to cover...
+            self.assertNotIn(path,document['source_files'])
+            self.assertNotIn(path,historical)
+            # ...and identified as post-receipt rather than as a missing binding.
+            self.assertIn(path,later)
+        self.assertTrue(historical.issubset(document['source_files']))
+
+    def test_missing_required_historical_source_still_fails(self):
+        # A file that existed at the declared revision may not drop out of the
+        # receipt's inventory.
+        self.reject_binding(lambda d:d['source_files'].pop('hierarchos-vulkan/src/transformer.rs'))
+
+    def test_altered_historical_inventory_digest_still_fails(self):
+        self.reject_binding(
+            lambda d:d['source_files'].__setitem__('hierarchos-vulkan/src/vulkan.rs','0'*64))
+
+    def test_required_release_file_missing_from_the_historical_inventory_fails(self):
+        self.reject_binding(lambda d:d['source_files'].pop('.gitattributes'))
+
+    def test_invalid_source_revision_still_fails(self):
+        for revision in ('f'*40,'0'*40,'2ef9b8d9','not-a-revision'):
+            with self.subTest(revision=revision):
+                self.reject_binding(lambda d,r=revision:d.__setitem__('source_revision',r))
+
+    def test_current_source_p3_validation_is_independent_of_provenance(self):
+        # The current-release gate reads no historical receipt at all, so it
+        # cannot inherit the pinned revision's inventory.
+        import check_p3_release as p3
+        source=Path(p3.__file__).read_text(encoding='utf-8')
+        self.assertNotIn('release-qualification',source)
+        self.assertNotIn('source_revision',source)
+        p3.validate(p3.ROOT)
     def test_forged_diagnostic_flags_cannot_hide_observed_failures(self):
         def mutate(d,p):
             for row in p['intermediates']['raw_diagnostics']:row['pass']=True

@@ -1,0 +1,160 @@
+=== SMOKE skipped (passed with final binary at 11:11Z)
+=== abba_main_vs_p3_24p (alternating ABBA) 2026-11-21T11:15:48Z
+pair 1 done
+pair 2 done
+pair 3 done
+pair 4 done
+pair 5 done
+pair 6 done
+pair 7 done
+pair 8 done
+pair 9 done
+pair 10 done
+pair 11 done
+pair 12 done
+pair 13 done
+pair 14 done
+pair 15 done
+pair 16 done
+pair 17 done
+pair 18 done
+pair 19 done
+pair 20 done
+pair 21 done
+pair 22 done
+pair 23 done
+pair 24 done
+ABBA COMPLETE: abba_main_vs_p3_24p
+abba_main_vs_p3_24p_exit=0
+=== abba_twowave_vs_p3_24p (alternating ABBA) 2026-11-21T11:20:41Z
+pair 1 done
+pair 2 done
+pair 3 done
+pair 4 done
+pair 5 done
+pair 6 done
+pair 7 done
+pair 8 done
+pair 9 done
+pair 10 done
+pair 11 done
+pair 12 done
+pair 13 done
+pair 14 done
+pair 15 done
+pair 16 done
+pair 17 done
+pair 18 done
+pair 19 done
+pair 20 done
+pair 21 done
+pair 22 done
+pair 23 done
+pair 24 done
+ABBA COMPLETE: abba_twowave_vs_p3_24p
+abba_twowave_vs_p3_24p_exit=0
+=== abba_main_vs_p3_balanced_24p (balanced ABBA/BAAB) 2026-11-21T11:25:34Z
+pair 1 ABBA position 1 base done
+pair 1 ABBA position 2 cand done
+pair 2 ABBA position 3 cand done
+pair 2 ABBA position 4 base done
+pair 3 BAAB position 1 cand done
+pair 3 BAAB position 2 base done
+pair 4 BAAB position 3 base done
+pair 4 BAAB position 4 cand done
+pair 5 ABBA position 1 base done
+pair 5 ABBA position 2 cand done
+pair 6 ABBA position 3 cand done
+pair 6 ABBA position 4 base done
+pair 7 BAAB position 1 cand done
+pair 7 BAAB position 2 base done
+pair 8 BAAB position 3 base done
+pair 8 BAAB position 4 cand done
+pair 9 ABBA position 1 base done
+pair 9 ABBA position 2 cand done
+pair 10 ABBA position 3 cand done
+pair 10 ABBA position 4 base done
+pair 11 BAAB position 1 cand done
+pair 11 BAAB position 2 base done
+pair 12 BAAB position 3 base done
+pair 12 BAAB position 4 cand done
+pair 13 ABBA position 1 base done
+pair 13 ABBA position 2 cand done
+pair 14 ABBA position 3 cand done
+pair 14 ABBA position 4 base done
+pair 15 BAAB position 1 cand done
+pair 15 BAAB position 2 base done
+pair 16 BAAB position 3 base done
+pair 16 BAAB position 4 cand done
+pair 17 ABBA position 1 base done
+pair 17 ABBA position 2 cand done
+pair 18 ABBA position 3 cand done
+pair 18 ABBA position 4 base done
+pair 19 BAAB position 1 cand done
+pair 19 BAAB position 2 base done
+pair 20 BAAB position 3 base done
+pair 20 BAAB position 4 cand done
+pair 21 ABBA position 1 base done
+pair 21 ABBA position 2 cand done
+pair 22 ABBA position 3 cand done
+pair 22 ABBA position 4 base done
+pair 23 BAAB position 1 cand done
+pair 23 BAAB position 2 base done
+pair 24 BAAB position 3 base done
+pair 24 BAAB position 4 cand done
+ABBA/BAAB CAMPAIGN COMPLETE: abba_main_vs_p3_balanced_24p
+abba_main_vs_p3_balanced_24p_exit=0
+=== abba_twowave_vs_p3_balanced_24p (balanced ABBA/BAAB) 2026-11-21T11:30:28Z
+pair 1 ABBA position 1 base done
+pair 1 ABBA position 2 cand done
+pair 2 ABBA position 3 cand done
+pair 2 ABBA position 4 base done
+pair 3 BAAB position 1 cand done
+pair 3 BAAB position 2 base done
+pair 4 BAAB position 3 base done
+pair 4 BAAB position 4 cand done
+pair 5 ABBA position 1 base done
+pair 5 ABBA position 2 cand done
+pair 6 ABBA position 3 cand done
+pair 6 ABBA position 4 base done
+pair 7 BAAB position 1 cand done
+pair 7 BAAB position 2 base done
+pair 8 BAAB position 3 base done
+pair 8 BAAB position 4 cand done
+pair 9 ABBA position 1 base done
+pair 9 ABBA position 2 cand done
+pair 10 ABBA position 3 cand done
+pair 10 ABBA position 4 base done
+pair 11 BAAB position 1 cand done
+pair 11 BAAB position 2 base done
+pair 12 BAAB position 3 base done
+pair 12 BAAB position 4 cand done
+pair 13 ABBA position 1 base done
+pair 13 ABBA position 2 cand done
+pair 14 ABBA position 3 cand done
+pair 14 ABBA position 4 base done
+pair 15 BAAB position 1 cand done
+pair 15 BAAB position 2 base done
+pair 16 BAAB position 3 base done
+pair 16 BAAB position 4 cand done
+pair 17 ABBA position 1 base done
+pair 17 ABBA position 2 cand done
+pair 18 ABBA position 3 cand done
+pair 18 ABBA position 4 base done
+pair 19 BAAB position 1 cand done
+pair 19 BAAB position 2 base done
+pair 20 BAAB position 3 base done
+pair 20 BAAB position 4 cand done
+pair 21 ABBA position 1 base done
+pair 21 ABBA position 2 cand done
+pair 22 ABBA position 3 cand done
+pair 22 ABBA position 4 base done
+pair 23 BAAB position 1 cand done
+pair 23 BAAB position 2 base done
+pair 24 BAAB position 3 base done
+pair 24 BAAB position 4 cand done
+ABBA/BAAB CAMPAIGN COMPLETE: abba_twowave_vs_p3_balanced_24p
+abba_twowave_vs_p3_balanced_24p_exit=0
+=== ANALYSIS 2026-11-21T11:35:21Z
+analysis_exit=0
+=== DONE 2026-11-21T11:35:23Z

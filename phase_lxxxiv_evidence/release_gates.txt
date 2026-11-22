@@ -1,0 +1,239 @@
+################################################################################
+## Phase LXXXI P3 release gate
+## $ python check_p3_release.py
+PHASE LXXXI P3 RELEASE VALIDATION: PASS (P3 source and SPIR-V are the qualified bytes, 23,280 B, SPIR-V 0x00010500, 4 cooperative multiply-adds over 3 cooperative types, P3 is the default Full FP16 variant and the production selector reaches only the 4 committed variants, WMMA stays opt-in with off as the external default, the 16,000,000-MAC profitability predicate gates every production admission point, unsupported and unprofitable shapes keep their plain/FP32 kernels, the Mixed module and route are unchanged, and the split8, two-bank and two-wave fallbacks remain committed and selectable; the GPU qualification is the recorded Phase LXXIX/LXXXI RDNA3 evidence, and hosted CI executed no adapter)
+## EXIT 0
+################################################################################
+## Phase LXV hardware/accuracy/performance
+## $ python check_phase_lxv.py
+Phase LXV hardware, accuracy-margin and performance gate
+  ISA arms verified: candidate-a-mixed, final-full, final-mixed, main-full, main-mixed
+  seeds with a failing gate: [777, 20261119]
+  gates at exactly their limit: 4
+  margin target met: False
+  abba_a_vs_final:
+    128x8192x768     1.0006  [ 0.996,  1.006]  24 pairs
+    16x128x32        1.0082  [ 0.990,  1.026]  24 pairs
+    2048x768x2048    0.9952  [ 0.980,  1.010]  24 pairs
+    512x2048x768     1.0222  [ 0.962,  1.083]  24 pairs
+    512x768x768      1.0107  [ 0.977,  1.045]  24 pairs
+    64x64x64         1.0043  [ 0.985,  1.024]  24 pairs
+  abba_a_vs_a_null:
+    128x8192x768     1.0004  [ 0.996,  1.005]  16 pairs
+    16x128x32        0.9997  [ 0.984,  1.016]  16 pairs
+    2048x768x2048    1.0072  [ 0.976,  1.038]  16 pairs
+    512x2048x768     1.0915  [ 0.995,  1.188]  16 pairs
+    512x768x768      1.0446  [ 0.963,  1.127]  16 pairs
+    64x64x64         0.9973  [ 0.982,  1.013]  16 pairs
+  abba_full_main_vs_final:
+    128x8192x768     0.1321  [ 0.132,  0.133]  12 pairs
+    16x128x32        0.6011  [ 0.592,  0.610]  12 pairs
+    2048x768x2048    0.0945  [ 0.094,  0.095]  12 pairs
+    512x2048x768     0.1264  [ 0.117,  0.136]  12 pairs
+    512x768x768      0.1303  [ 0.109,  0.151]  12 pairs
+    64x64x64         0.6106  [ 0.605,  0.617]  12 pairs
+  abba_main_vs_final:
+    128x8192x768     1.3895  [ 1.382,  1.397]  12 pairs
+    16x128x32        1.0367  [ 1.025,  1.048]  12 pairs
+    2048x768x2048    1.6239  [ 1.575,  1.673]  12 pairs
+    512x2048x768     1.6329  [ 1.454,  1.812]  12 pairs
+    512x768x768      1.4562  [ 1.366,  1.547]  12 pairs
+    64x64x64         1.1220  [ 1.110,  1.134]  12 pairs
+status: PASS
+## EXIT 0
+################################################################################
+## Phase LXXXI 612-entry manifest
+## $ python check_phase_lxxxi_manifest.py --expect-manifest-sha256 a7979f4f448ab3afa1598155d0eb708e8d36e4bed23457fa5dd515fcd22bbff4
+manifest      phase_lxxxi_evidence/SHA256SUMS_phase_lxxxi.txt  a7979f4f448ab3afa1598155d0eb708e8d36e4bed23457fa5dd515fcd22bbff4
+entries       612
+tracked       612 evidence paths (manifest excluded)
+working tree  612/612 verified
+git blobs     612/612 verified
+attributes    612/612 text=unset
+note          resolved revision b165c2994e9ef5929c9e36fca76192db8dd3df35
+RESULT        PASS
+## EXIT 0
+################################################################################
+## Strict latest-release evidence integrity
+## $ python check_evidence_integrity.py --latest-release --strict
+
+hierarchos-vulkan\validation\release_parity\multimodal_training\20261117-phase42-current-source
+  receipt: release-qualification.json
+  findings: 2119  failures: 0  valid: 2060  missing: 0  tree-drift: 26  provenance: 33  revision: 2ef9b8d9642c
+
+roots: 1  release-referenced: 1  mismatch: 0  missing: 0  tree-drift: 1  provenance: 1  documented exceptions: 0
+## EXIT 0
+################################################################################
+## Pre-WMMA FP32 and device admission
+## $ python check_main_compatibility.py
+MAIN COMPATIBILITY: PASS (1301 original shader files, unchanged FP32 vendor selector, device-policy controls)
+## EXIT 0
+################################################################################
+## RDNA3 multimodal receipts
+## $ python check_rdna3_multimodal_receipts.py
+[receipt-guard] sha256 verified: 10 receipts
+[receipt-guard] inventory 44/44 green, 85/85 cases pass, all profiles green
+[receipt-guard] six-profile replay: 9/9 cases pass
+[receipt-guard] native V4.1: 30/30 tests, max_abs_logit=0.0
+[receipt-guard] Gen9 physical run recorded as blocked, no receipt issued
+[receipt-guard] 44/44 and qualified claims are evidence-backed
+PASS
+## EXIT 0
+################################################################################
+## RDNA3 GPT2 receipts (historical)
+## $ python check_rdna3_gpt2_receipts.py --historical-only
+HISTORICAL RECEIPT INTEGRITY: PASS (122 sources match this checkout, 11 verified against immutable history)
+  historical binding: hierarchos-vulkan/src/transformer.rs at 24424bf158cc
+  historical binding: hierarchos-vulkan/src/transformer/image_text.rs at 24424bf158cc
+  historical binding: hierarchos-vulkan/src/transformer/vision.rs at 24424bf158cc
+  historical binding: hierarchos-vulkan/validation/check_rdna3_gpt2_receipts.py at 24424bf158cc
+  historical binding: hierarchos-vulkan/validation/diagnose_gpt2_wide_stages.py at 24424bf158cc
+  historical binding: hierarchos-vulkan/validation/qualify_gemma3_pipeline.py at e50220a6a05b
+  historical binding: hierarchos-vulkan/validation/qualify_gemma4_pipeline.py at e50220a6a05b
+  historical binding: hierarchos-vulkan/validation/qualify_llava_pipeline.py at 94fd205a7595
+  historical binding: hierarchos-vulkan/validation/qualify_seq2seq_image_pipeline.py at e50220a6a05b
+  historical binding: hierarchos-vulkan/validation/test_rdna3_gpt2_receipts.py at 24424bf158cc
+  historical binding: hierarchos-vulkan/validation/training_shader_manifest.json at 24424bf158cc
+## EXIT 0
+################################################################################
+## Phase XIX-X instrumented receipt
+## $ python check_phase19x_current.py
+PHASE XIX-X RECEIPT AT DECLARED REVISION: PASS (c9787609d14a, 397 sources, 12 gradient tensors, 45 shader artifacts; 12 bound file(s) differ in this checkout)
+## EXIT 0
+################################################################################
+## Phase XIX-X attention receipt
+## $ python check_attention_phase19x.py
+ATTENTION-XIXX: PASS (c9787609d14a, 12 tensors, 3158064 elements)
+## EXIT 0
+################################################################################
+## Phase XIX-Y full-attention receipt
+## $ python check_phase19y_full_attention.py
+PHASE XIX-Y FULL ATTENTION: PASS (c9787609d14a, 16/16 shapes, 74/74 shared, 93 retained entries accounted; 10 bound file(s) differ in this checkout)
+## EXIT 0
+################################################################################
+## Phase XIX-Z current-source receipt
+## $ python check_phase19z_current.py
+PHASE XIX-Z RECEIPT AT DECLARED REVISION: PASS (c9787609d14a, 1577 sources, 8 training arms, 4 heldout arms, 6 drift runs, 6 activation cells; 16 bound file(s) differ in this checkout)
+## EXIT 0
+################################################################################
+## Unified FP32 Mixed / scoped Full FP16
+## $ python check_unified_release.py
+UNIFIED RELEASE: PASS_SCOPED_RELEASE (2ef9b8d9642c, 2004 sources verified at their declared revision, 26 file(s) differ in this checkout)
+## EXIT 0
+################################################################################
+## Phase XIX-U historical audit
+## $ python check_phase19u_audit.py
+PHASE XIX-U HISTORICAL AUDIT: PASS (5 runs, 2 recoveries, audit e1bf0a0838d2)
+## EXIT 0
+################################################################################
+## A/B workflow matches route spec
+## $ python render_ab_workflow.py --check
+PASS: .github/workflows/time-mix-ab.yml matches the guard's spec table
+## EXIT 0
+################################################################################
+## Workflow path smoke
+## $ python -m unittest discover -s . -p test_rdna3_workflow_paths.py
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 0.250s
+
+OK
+## EXIT 0
+################################################################################
+## Phase XIX-X current controls
+## $ python -m unittest discover -s . -p test_phase19x_current.py
+........
+----------------------------------------------------------------------
+Ran 8 tests in 24.442s
+
+OK
+## EXIT 0
+################################################################################
+## Mirror-epoch drift controls
+## $ python -m unittest discover -s . -p test_wmma_drift_epoch_reuse.py
+..............................
+----------------------------------------------------------------------
+Ran 30 tests in 7.813s
+
+OK
+## EXIT 0
+################################################################################
+## Phase XIX-X attention controls (CI)
+## $ python -m unittest discover -s . -p test_attention_phase19x_ci.py
+........
+----------------------------------------------------------------------
+Ran 8 tests in 2.541s
+
+OK
+## EXIT 0
+################################################################################
+## Phase XIX-Y controls
+## $ python -m unittest discover -s . -p test_phase19y_full_attention.py
+...s...
+----------------------------------------------------------------------
+Ran 7 tests in 12.076s
+
+OK (skipped=1)
+## EXIT 0
+################################################################################
+## Phase XIX-Z controls
+## $ python -m unittest discover -s . -p test_phase19z_current.py
+....s........
+----------------------------------------------------------------------
+Ran 13 tests in 12.987s
+
+OK (skipped=1)
+## EXIT 0
+################################################################################
+## Unified release fault injection
+## $ python -m unittest discover -s . -p test_unified_release.py
+..................................................................................................
+----------------------------------------------------------------------
+Ran 98 tests in 79.090s
+
+OK
+## EXIT 0
+################################################################################
+## Phase XIX-U controls
+## $ python -m unittest discover -s . -p test_phase19u_audit.py
+.........
+----------------------------------------------------------------------
+Ran 9 tests in 2.497s
+
+OK
+## EXIT 0
+################################################################################
+## RDNA3 GPT2 grade controls
+## $ python -m unittest discover -s . -p test_rdna3_gpt2_receipts.py
+...................
+----------------------------------------------------------------------
+Ran 19 tests in 0.078s
+
+OK
+CURRENT SOURCE QUALIFICATION: PASS (111111111111)
+CURRENT SOURCE QUALIFICATION: UNQUALIFIED (no release_parity/multimodal_training/20261109-rdna3-phase16-attention-backward-qualification/current-qualification.json for 111111111111)
+CURRENT SOURCE QUALIFICATION: PASS (111111111111)
+## EXIT 0
+################################################################################
+## Phase XVI qualification controls
+## $ python -m unittest discover -s . -p test_phase16_receipts.py
+.......................
+----------------------------------------------------------------------
+Ran 23 tests in 1.129s
+
+OK
+## EXIT 0
+################################################################################
+## Phase LXXI manifest negative controls
+## $ python -m pytest test_phase_lxxxi_manifest.py -q
+..........................                                               [100%]
+26 passed in 15.24s
+## EXIT 0
+################################################################################
+## Evidence integrity negative controls
+## $ python -m pytest test_evidence_integrity.py -q
+.............s................                                           [100%]
+29 passed, 1 skipped in 9.43s
+## EXIT 0
+################################################################################
+## TOTAL FAILING COMMANDS: 0

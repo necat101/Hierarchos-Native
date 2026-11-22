@@ -1,0 +1,220 @@
+{
+ "record": "phase_lxvi_k96_strided3_candidate",
+ "kind": "hardware measurement (RDNA3 gfx1103), superseded candidate",
+ "decision": "REJECTED",
+ "reason": "worsens the K=96 matched-oracle margin on the GPU even though it passes all 37 gates; the Python simulation predicted an improvement, so the simulation is not a promotion instrument",
+ "source": {
+  "path": "hierarchos-vulkan/shaders/wmma_gemm_f16_f16acc.comp",
+  "sha256": "3fb79864fb97f66f43caf0db3047b201b237dedf21ac540a08ac793569915659"
+ },
+ "spirv": {
+  "sha256": "66516c496d067fee2093975f53ccc9d22653832f172ce6908f59e855d232c54e",
+  "bytes": 37388
+ },
+ "baseline_spirv": {
+  "sha256": "dbed2a528f674a37fd6672ff83a786eb28804a77a85befd076acc80d701106fe"
+ },
+ "shader_build_flags": "-fshader-stage=compute --target-env=vulkan1.2 --target-spv=spv1.4 -O",
+ "toolchain": "glslc shaderc v2023.8 / glslang 11.1.0-1253-gefd24d75",
+ "baseline_rebuild_reproduced": true,
+ "executable_sha256": "3d264e6883068b1a8e3f657c9e7b89a6d04b7547d65192037c08413a61bd6c7b",
+ "gates_total": 37,
+ "gates_failed": 0,
+ "comparisons": [
+  {
+   "seed": 1337,
+   "gate": "128x128x96 trans_a=true trans_b=false vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 1337,
+   "gate": "128x128x96 trans_a=false trans_b=true vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 1337,
+   "gate": "128x128x96 trans_a=true trans_b=true vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 1593426484,
+   "gate": "128x128x96 trans_a=true trans_b=false vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.015625,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 1593426484,
+   "gate": "128x128x96 trans_a=false trans_b=true vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 1593426484,
+   "gate": "128x128x96 trans_a=true trans_b=true vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 20261119,
+   "gate": "128x128x96 trans_a=true trans_b=false vs oracle",
+   "measured": 0.015625,
+   "limit": 0.0625,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.0625
+  },
+  {
+   "seed": 20261119,
+   "gate": "128x128x96 trans_a=false trans_b=true vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.015625,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 20261119,
+   "gate": "128x128x96 trans_a=true trans_b=true vs oracle",
+   "measured": 0.0234375,
+   "limit": 0.03125,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 271828,
+   "gate": "128x128x96 trans_a=true trans_b=false vs oracle",
+   "measured": 0.03125,
+   "limit": 0.0625,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.0625
+  },
+  {
+   "seed": 271828,
+   "gate": "128x128x96 trans_a=false trans_b=true vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.015625,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 271828,
+   "gate": "128x128x96 trans_a=true trans_b=true vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 314159,
+   "gate": "128x128x96 trans_a=true trans_b=false vs oracle",
+   "measured": 0.03125,
+   "limit": 0.0625,
+   "baseline_measured": 0.015625,
+   "baseline_limit": 0.0625
+  },
+  {
+   "seed": 314159,
+   "gate": "128x128x96 trans_a=false trans_b=true vs oracle",
+   "measured": 0.015625,
+   "limit": 0.03125,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 314159,
+   "gate": "128x128x96 trans_a=true trans_b=true vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.015625,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 42,
+   "gate": "128x128x96 trans_a=true trans_b=false vs oracle",
+   "measured": 0.03125,
+   "limit": 0.0625,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.0625
+  },
+  {
+   "seed": 42,
+   "gate": "128x128x96 trans_a=false trans_b=true vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 42,
+   "gate": "128x128x96 trans_a=true trans_b=true vs oracle",
+   "measured": 0.0234375,
+   "limit": 0.03125,
+   "baseline_measured": 0.015625,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 777,
+   "gate": "128x128x96 trans_a=true trans_b=false vs oracle",
+   "measured": 0.03125,
+   "limit": 0.0625,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.0625
+  },
+  {
+   "seed": 777,
+   "gate": "128x128x96 trans_a=false trans_b=true vs oracle",
+   "measured": 0.0234375,
+   "limit": 0.03125,
+   "baseline_measured": 0.015625,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 777,
+   "gate": "128x128x96 trans_a=true trans_b=true vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.015625,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 8675309,
+   "gate": "128x128x96 trans_a=true trans_b=false vs oracle",
+   "measured": 0.015625,
+   "limit": 0.0625,
+   "baseline_measured": 0.015625,
+   "baseline_limit": 0.0625
+  },
+  {
+   "seed": 8675309,
+   "gate": "128x128x96 trans_a=false trans_b=true vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.0078125,
+   "baseline_limit": 0.03125
+  },
+  {
+   "seed": 8675309,
+   "gate": "128x128x96 trans_a=true trans_b=true vs oracle",
+   "measured": 0.03125,
+   "limit": 0.03125,
+   "baseline_measured": 0.015625,
+   "baseline_limit": 0.03125
+  }
+ ],
+ "worse": 23,
+ "better": 0,
+ "worktree": "Hierarchos-Native-lxvi-k96 (detached cf98af6)"
+}

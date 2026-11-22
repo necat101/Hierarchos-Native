@@ -43,6 +43,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
+import source_provenance
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RELEASE_PARITY = REPO_ROOT / "hierarchos-vulkan" / "validation" / "release_parity"
 
@@ -55,9 +57,15 @@ INVALID = "invalid-digest"
 UNSUPPORTED = "unsupported-schema"
 DUPLICATE = "ambiguous-reference"
 SOURCE_DRIFT = "source-drift"
+# A receipt that names its revision is verified against that revision. A checkout
+# that has moved past it is reported here and is never counted as a failure,
+# because it is a fact about the checkout rather than about the receipt.
+TREE_DRIFT = "current-tree-drift"
+REVISION_UNAVAILABLE = "revision-unavailable"
 PROVENANCE = "provenance-unestablished"
 
-FAILURES = {MISMATCH, MISSING, UNSAFE, INVALID, UNSUPPORTED, DUPLICATE, SOURCE_DRIFT}
+FAILURES = {MISMATCH, MISSING, UNSAFE, INVALID, UNSUPPORTED, DUPLICATE, SOURCE_DRIFT,
+            REVISION_UNAVAILABLE}
 
 # Candidate prefixes for a receipt's relative evidence keys. Phase XV keys such as
 # ``gemma3/qualification.json`` are relative to ``retained/`` while ``isolation.json``
@@ -137,6 +145,7 @@ class Report:
     receipt: Path
     findings: list[Finding] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    source_revision: str = ""
 
     def add(self, kind, label, status, detail="", path=""):
         self.findings.append(Finding(kind, label, status, detail, path))
@@ -162,6 +171,8 @@ class Report:
             flags.append("evidence_missing")
         if self.count(SOURCE_DRIFT):
             flags.append("source_drift")
+        if self.count(TREE_DRIFT):
+            flags.append("checkout_ahead_of_receipt")
         if self.count(PROVENANCE):
             flags.append("provenance_unsupported")
         if not self.findings:
@@ -332,6 +343,47 @@ def history_has(relative: str, digest: str, cwd: Path) -> bool:
     return digest in _history_cache[key]
 
 
+def check_sources(report: Report, repo: Path, doc: dict, sources: dict) -> None:
+    """Verify source bindings against the revision the receipt declares.
+
+    A receipt that names a ``source_revision`` is a statement about that revision's
+    committed bytes, so those are what must hash to the declared digests - not the
+    checkout a later pull request happens to contain. Working-tree drift is reported
+    next to the result, never instead of it.
+
+    A receipt with no declared revision cannot reach the historical path: it can
+    only be held to this checkout, and a disagreement stays a failing source-drift
+    finding rather than becoming a weaker pass.
+    """
+    declared = doc.get("source_revision")
+    if not (isinstance(declared, str)
+            and source_provenance.HEX40.fullmatch(declared) is not None):
+        for relative, digest in sorted(sources.items()):
+            status, detail, path = resolve_binding(repo, relative, digest)
+            if status == MISMATCH:
+                status = SOURCE_DRIFT
+                detail = "bound source differs from the receipt's revision: " + detail
+            report.add("source", relative, status, detail, path)
+        return
+
+    report.source_revision = declared
+    binding = source_provenance.verify_bindings(repo, declared, sources)
+    if not binding.available:
+        report.add("source", "source_revision", REVISION_UNAVAILABLE,
+                   binding.describe()
+                   or f"declared source revision {declared[:12]} is unavailable")
+        return
+    for finding in binding.findings:
+        report.add("source", finding.path, finding.status, finding.detail)
+    drift = source_provenance.drift_paths(repo, sources)
+    for path in drift:
+        report.add("source", path, TREE_DRIFT,
+                   f"this checkout differs from the receipt's revision {declared[:12]}")
+    report.notes.append(
+        f"source bindings verified at {declared[:12]}: {len(sources)} file(s), "
+        f"{len(drift)} differ in this checkout")
+
+
 def audit_receipt(receipt: Path, root: Path, repo: Path, depth: int = 0,
                   nested: bool = False, git_objects: bool = True,
                   verify_sources: bool = True) -> Report:
@@ -392,12 +444,8 @@ def audit_receipt(receipt: Path, root: Path, repo: Path, depth: int = 0,
             if isinstance(family, dict) and family.get("pass") is False:
                 report.add("retained", name, MISMATCH,
                            "family receipt reports pass=false", path)
-    for relative, digest in (sorted(parts["sources"].items()) if verify_sources else []):
-        status, detail, path = resolve_binding(repo, relative, digest)
-        if status == MISMATCH:
-            status = SOURCE_DRIFT
-            detail = "bound source differs from the receipt's revision: " + detail
-        report.add("source", relative, status, detail, path)
+    if verify_sources and parts["sources"]:
+        check_sources(report, repo, doc, parts["sources"])
     if parts["binaries"]:
         for name in sorted(parts["binaries"]):
             report.add("binary", name, PROVENANCE,
@@ -503,7 +551,8 @@ def summarise(reports: list[Report], release_root: Path | None) -> dict:
     keys = ("root", "receipt", "flags", "failures", "counts")
     out = {"roots": [], "totals": {}}
     counters = {"roots": 0, "verified": 0, "mismatch": 0, "missing": 0,
-                "drift": 0, "provenance": 0, "release_referenced": 0}
+                "drift": 0, "tree_drift": 0, "provenance": 0,
+                "release_referenced": 0}
     for report in reports:
         counters["roots"] += 1
         release_ref = bool(release_root) and (
@@ -516,6 +565,8 @@ def summarise(reports: list[Report], release_root: Path | None) -> dict:
             counters["missing"] += 1
         if report.count(SOURCE_DRIFT):
             counters["drift"] += 1
+        if report.count(TREE_DRIFT):
+            counters["tree_drift"] += 1
         if report.count(PROVENANCE):
             counters["provenance"] += 1
         if not report.integrity_failures:
@@ -541,9 +592,11 @@ def print_report(report: Report, verbose: bool):
     bad = report.failures
     print(f"\n{rel}")
     print(f"  receipt: {report.receipt.name}")
+    revision = f"  revision: {report.source_revision[:12]}" if report.source_revision else ""
     print(f"  findings: {len(report.findings)}  failures: {len(bad)}  "
           f"valid: {report.count(VALID)}  missing: {report.count(MISSING)}  "
-          f"provenance: {report.count(PROVENANCE)}")
+          f"tree-drift: {report.count(TREE_DRIFT)}  "
+          f"provenance: {report.count(PROVENANCE)}{revision}")
     for finding in (report.findings if verbose else bad)[:40]:
         print(f"    [{finding.status:22s}] {finding.kind}/{finding.label} {finding.detail}")
 
@@ -638,6 +691,7 @@ def main(argv=None) -> int:
         totals = summarise(reports, release_root)["totals"]
         print(f"\nroots: {totals['roots']}  release-referenced: {totals['release_referenced']}  "
               f"mismatch: {totals['mismatch']}  missing: {totals['missing']}  "
+              f"tree-drift: {totals['tree_drift']}  "
               f"provenance: {totals['provenance']}  documented exceptions: {documented}")
 
     if args.strict and args.audit_all:

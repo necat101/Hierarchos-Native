@@ -22,3 +22,9 @@ VALIDATION_STATUS.md -text
 # Current release receipts bind every workflow. Preserve their exact bytes on
 # Windows and Linux instead of translating line endings during checkout.
 .github/workflows/** -text
+# Release evidence is byte-bound by SHA256SUMS_phase_lxxxi.txt.
+phase_lxxxi_evidence/** -text
+# Phase LXXXIII repair evidence is byte-bound by SHA256SUMS_phase_lxxxiii.txt.
+phase_lxxxiii_evidence/** -text
+# Phase LXXXIV qualification evidence is byte-bound by SHA256SUMS_phase_lxxxiv.txt.
+phase_lxxxiv_evidence/** -text

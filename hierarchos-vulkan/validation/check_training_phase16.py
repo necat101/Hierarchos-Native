@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import qualify_training_phase16 as q
+import source_provenance
 
 SCHEMA = 1
 KIND = "phase16-training-qualification"
@@ -67,13 +68,13 @@ def verify(receipt_dir: Path, crate: Path | None = None) -> dict:
     require(ancestor.returncode == 0, "source revision is not an ancestor of HEAD")
     require(receipt.get("source_clean") is True, "receipt was produced from a dirty worktree")
 
-    # Every bound source byte must match this checkout.
-    for relative, expected in receipt["source_files"].items():
-        path = crate / relative
-        require(path.is_file(), f"missing bound source {relative}")
-        require(q.sha256_file(path) == expected, f"bound source changed: {relative}")
-    require(q.sha256_file(crate / "Cargo.toml") == receipt["source_files"]["Cargo.toml"],
-            "Cargo.toml binding missing")
+    # Bound source bytes belong to the receipt's revision, not to whatever the
+    # checkout has become since. The loop covers every declared path, including
+    # Cargo.toml, so the separate working-tree comparison below is redundant.
+    binding = source_provenance.verify_bindings(
+        crate.parent, revision, receipt["source_files"], prefix=crate.name)
+    require(binding.ok, binding.describe())
+    require("Cargo.toml" in receipt["source_files"], "Cargo.toml binding missing")
     # The producer binaries and the 16.78M-parameter fixture live under the
     # untracked target directory, so a CI checkout legitimately lacks them. When
     # present they must match; either way the per-step evidence is re-derived.

@@ -9362,6 +9362,21 @@ impl BindingAccess {
 }
 
 impl ComputeKernel {
+    /// FNV-1a signature of the SPIR-V this kernel was built from.
+    ///
+    /// This value is the shader component of the pipeline cache key, so it is
+    /// the stable identity a caller can use to prove two kernels did not share
+    /// an interned pipeline.
+    pub(crate) fn shader_signature(&self) -> u64 {
+        self.shader_signature
+    }
+
+    /// Build-registered debug name of this kernel's SPIR-V, when it is one of
+    /// the repository's committed shaders.
+    pub(crate) fn shader_name(&self) -> Option<&'static str> {
+        shader_debug_name(self.shader_signature)
+    }
+
     #[cfg(test)]
     pub(crate) fn shares_interned_layouts_with(&self, other: &Self) -> bool {
         self.descriptor_set_layout == other.descriptor_set_layout

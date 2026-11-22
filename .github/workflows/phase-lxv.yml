@@ -1,0 +1,84 @@
+name: phase lxv
+
+# Structural gate for the Phase LXV record. This job does **not** run a GPU, a
+# Vulkan driver, RGP or a benchmark: a hosted runner has no RDNA3 adapter. It
+# verifies that the committed evidence still says what the record claims -
+# shader bytes, static ISA counts and register/LDS/scratch facts from the
+# captured code objects, the eight-seed accuracy receipts, the recomputed
+# accuracy margins, and the ABBA statistics recomputed from the raw samples.
+#
+# Two questions are asked separately:
+#
+#   scope     Did Phase LXV change an unapproved file? Read from the phase's own
+#             recorded range, never from `base..HEAD`, so later phases inherit
+#             a green gate instead of a false violation.
+#   evidence  Is the record still true of this checkout? Always re-derived from
+#             the PR head, whatever else the branch has added since.
+#
+# The measurements themselves were taken on the RDNA3 host and are recorded in
+# `hierarchos-vulkan/validation/PHASE_LXV_*.md` and `phase_lxv_receipt.json`.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase-lxv-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phase-lxv-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          # The evidence check reads committed shader bytes, code objects and
+          # the raw ABBA samples from this checkout, and the historical range
+          # has to be resolvable. Check out the actual branch head with full
+          # history rather than the synthetic merge commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The scope control is about Phase LXV's own commits, not about every
+      # descendant of its base. The range is read from the two revisions the
+      # checker records (`PHASE_LXV_SCOPE_BASE`..`PHASE_LXV_ENDPOINT`), so a
+      # later release commit - the `.gitattributes` rule that keeps
+      # `phase_lxxxi_evidence/**` byte-exact on Windows, the two-wave and P3
+      # shaders, the Phase LXXXI evidence - can never be misread as an
+      # unapproved Phase LXV change. The scope control itself is unchanged: an
+      # unapproved path inside the range is still rejected, and the original
+      # negative controls below still cover it.
+      - name: Phase LXV historical scope check
+        working-directory: hierarchos-vulkan/validation
+        run: |
+          python check_phase_lxv.py --write-scope "$RUNNER_TEMP/changed.txt"
+          cat "$RUNNER_TEMP/changed.txt"
+          python check_phase_lxv.py --changed "$RUNNER_TEMP/changed.txt"
+
+      # The evidence checker still runs against this checkout, with no scope
+      # file: the shader bytes, the static ISA facts and code objects, the
+      # eight-seed accuracy receipts, the recomputed margins, the dispatch
+      # counts and the ABBA statistics are all re-derived from the PR head.
+      - name: Phase LXV evidence gate on the current checkout
+        working-directory: hierarchos-vulkan/validation
+        run: python check_phase_lxv.py
+
+      # 17 controls: forged static WMMA count, missing capture digest, edited ISA
+      # listing, swapped code object, undeclared 16-bank build, widened tolerance,
+      # gate marked passed above its limit, hidden failure, dropped seed, false
+      # margin-target claim, moved margin threshold, dropped margin gate, edited
+      # ABBA statistic, missing raw samples, relabelled verdict, forged dispatch
+      # count, unapproved source file.
+      - name: Phase LXV negative controls
+        working-directory: hierarchos-vulkan/validation
+        run: python -m unittest test_phase_lxv.py -v
